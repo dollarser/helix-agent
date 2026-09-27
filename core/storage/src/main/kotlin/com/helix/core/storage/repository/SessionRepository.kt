@@ -6,6 +6,8 @@ import com.helix.core.storage.entity.SessionEntity
 class SessionRepository(
     private val dao: SessionDao,
     private val transaction: (() -> Unit) -> Unit = { it() },
+    private val directoryForSession: (String, String?) -> String? = { _, ref -> ref },
+    private val bindWorkspace: (String, String) -> Unit = { _, _ -> },
     private val snapshotPermissions: (String, Long) -> Unit = { _, _ -> },
 ) {
     fun create(
@@ -17,9 +19,11 @@ class SessionRepository(
     ): SessionEntity {
         require(title.isNotBlank()) { "session title must not be blank" }
         require(createdAt >= 0) { "createdAt must be >= 0" }
-        val entity = SessionEntity(id, title, providerId, modelId, createdAt, null)
+        val directory = directoryForSession(id, null)
+        val entity = SessionEntity(id, title, providerId, modelId, createdAt, null, directory)
         transaction {
             dao.insert(entity)
+            directory?.let { bindWorkspace(id, it) }
             snapshotPermissions(id, createdAt)
         }
         return entity
@@ -42,7 +46,11 @@ class SessionRepository(
     ) {
         require(title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
         require(directoryRef == null || directoryRef.length <= 4096)
-        require(dao.updateDetails(id, title.trim(), directoryRef) == 1)
+        val directory = directoryForSession(id, directoryRef)
+        transaction {
+            require(dao.updateDetails(id, title.trim(), directory) == 1)
+            directory?.let { bindWorkspace(id, it) }
+        }
     }
 
     fun archive(

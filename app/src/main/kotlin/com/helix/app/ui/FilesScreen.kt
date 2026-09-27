@@ -39,10 +39,8 @@ fun FilesScreen(
     with(actions) {
         with(state) {
             val treePicker =
-                rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-                    if (uri != null) {
-                        grantTree(uri)
-                    }
+                rememberLauncherForActivityResult(WorkspaceTreePicker()) { result ->
+                    result?.data?.let { uri -> grantTree(uri, result.flags) }
                 }
             val importFilePicker =
                 rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -67,6 +65,7 @@ fun FilesScreen(
             FilesRecoverableLayout(state, actions, openSharedStorage, terminalAvailable)
             state.FilesPreviewDialog(actions)
             FilesMutationDialogs(state, actions)
+            WorkspaceCleanupDialog(state, actions)
             FilesImportDialog(
                 state,
                 actions,

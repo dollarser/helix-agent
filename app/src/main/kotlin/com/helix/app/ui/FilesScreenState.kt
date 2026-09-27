@@ -24,8 +24,10 @@ internal class FilesScreenState(
     var searchQuery by mutableStateOf("")
     var controlsOpen by mutableStateOf(false)
     var sourcesOpen by mutableStateOf(false)
+    var cleanupTarget by mutableStateOf<FileSource?>(null)
+    var cleanupBusy by mutableStateOf(false)
 
-    var sources by mutableStateOf(fileManager.sources())
+    var sources by mutableStateOf(listOf(fileManager.defaultSource))
     var selectedScopeId by mutableStateOf(sources.first().scopeId)
     var currentPath by mutableStateOf("")
     var sortKey by mutableStateOf(SortKey.NAME)
@@ -132,5 +134,5 @@ internal class FilesScreenState(
 
     val visibleEntries: List<FileEntry> get() = entries.filter { it.name.contains(searchQuery, ignoreCase = true) }
     val currentSource: FileSource get() = sources.first { it.scopeId == selectedScopeId }
-    val canMutate: Boolean get() = currentSource.supportsMutation
+    val canMutate: Boolean get() = currentSource.available && currentSource.supportsMutation
 }

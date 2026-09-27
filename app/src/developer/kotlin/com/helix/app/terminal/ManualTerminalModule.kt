@@ -20,5 +20,6 @@ internal object ManualTerminalModule {
         context: Context,
         ownership: ExecutionOwnership,
         profile: SafetyProfileStore,
-    ): ManualTerminal = DeveloperManualTerminal(context.applicationContext, ownership, profile)
+        directoryResolver: (String) -> java.io.File,
+    ): ManualTerminal = DeveloperManualTerminal(context.applicationContext, ownership, profile, directoryResolver)
 }

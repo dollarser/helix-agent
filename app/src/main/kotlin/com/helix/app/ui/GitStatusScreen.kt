@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,12 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.helix.app.APP_SCOPE_ID
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.git.GitChange
 import com.helix.app.git.GitChangeKind
@@ -44,7 +42,6 @@ import com.helix.app.git.GitWorkspaceReader
 import com.helix.app.git.GitWorkspaceResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * The Git status / diff / changed-files surface (P0-B, research doc section 29): a first-class
@@ -58,16 +55,23 @@ import java.io.File
  */
 @Composable
 @Suppress("FunctionName")
-internal fun GitStatusScreenDestination() {
-    val context = LocalContext.current
-    val reader = remember { GitWorkspaceReader(workspaceRootOf(context)) }
+internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
+    val screen by chat.screen.collectAsStateWithLifecycle()
+    val directory = screen.directoryRef
+    val unavailable = stringResource(R.string.workspace_local_backend_unavailable)
+    var reader by remember { mutableStateOf<GitWorkspaceReader?>(null) }
     var revision by remember { mutableStateOf(0) }
     var result by remember { mutableStateOf<GitWorkspaceResult?>(null) }
     var selected by remember { mutableStateOf<GitChange?>(null) }
 
-    LaunchedEffect(revision) {
+    LaunchedEffect(revision, directory) {
+        selected = null
         // JGit reads disk, so keep the read off the main thread (same as Capabilities/Artifacts).
-        result = withContext(Dispatchers.IO) { reader.readStatus() }
+        result =
+            withContext(Dispatchers.IO) {
+                reader = directory?.let { runCatching { chat.gitWorkspaceReader(it) }.getOrNull() }
+                reader?.readStatus() ?: GitWorkspaceResult.Error(unavailable)
+            }
     }
 
     Column(Modifier.fillMaxSize().testTag("screen-git")) {
@@ -101,7 +105,7 @@ internal fun GitStatusScreenDestination() {
         }
     }
 
-    selected?.let { s -> GitDiffDialog(reader, s) { selected = null } }
+    selected?.let { s -> GitDiffDialog(requireNotNull(reader), s) { selected = null } }
 }
 
 /** A centered, padded single-paragraph honest state (non-repo / error / clean). */
@@ -286,10 +290,3 @@ private fun kindResFor(kind: GitChangeKind): Int =
         GitChangeKind.COPIED -> R.string.git_kind_copied
         GitChangeKind.TYPE_CHANGE -> R.string.git_kind_type_change
     }
-
-/**
- * The workspace root the git reader inspects — the app's own scope directory (the same
- * `workspaces/<APP_SCOPE_ID>` root [com.helix.app.DefaultAppContainer] creates for the model's
- * file tools), so a repository the agent works on is the one the page reads.
- */
-private fun workspaceRootOf(context: Context): File = File(context.filesDir, "workspaces/$APP_SCOPE_ID")

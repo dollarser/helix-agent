@@ -78,7 +78,13 @@ def run(args):
                 device("shell", "svc", "wifi", "disable")
                 device("shell", "svc", "data", "disable")
             device("shell", "wm", "size", "1080x2400")
-            device("shell", "wm", "density", "420")
+            device("shell", "wm", "density", str(args.density_dpi))
+            properties = {key: device("shell", "getprop", prop).strip() for key, prop in {
+                "api": "ro.build.version.sdk", "abi": "ro.product.cpu.abi",
+                "fingerprint": "ro.build.fingerprint",
+            }.items()}
+            properties.update(serial=serial, avd=args.avd, densityDpi=args.density_dpi)
+            (output / "device-properties.json").write_text(json.dumps(properties, indent=2))
             if args.reverse_port:
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
             device("install", "-r", str(output / "app.apk"), timeout=120)
@@ -148,6 +154,11 @@ def run(args):
                                    stdout=followup, stderr=subprocess.STDOUT, check=True, timeout=args.timeout)
         except subprocess.CalledProcessError as error:
             (output / "command-failure.txt").write_text((error.stdout or "") + (error.stderr or ""))
+            if process.poll() is None:
+                try:
+                    (output / "command-failure-logcat.txt").write_text(device("logcat", "-d", timeout=10))
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as diagnostic_error:
+                    (output / "diagnostic-failure.txt").write_text(str(diagnostic_error))
             raise
         except subprocess.TimeoutExpired as error:
             (output / "timeout.txt").write_text(str(error))
@@ -182,6 +193,7 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--memory-mb", type=int, choices=(2048, 4096), default=2048)
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
+    parser.add_argument("--density-dpi", type=int, choices=(400, 420), default=420)
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--grant-shared-storage", action="store_true")
     parser.add_argument("--airplane-mode", action="store_true",

@@ -16,5 +16,6 @@ internal object ManualTerminalModule {
         context: Context,
         ownership: ExecutionOwnership,
         profile: SafetyProfileStore,
+        directoryResolver: (String) -> java.io.File,
     ): ManualTerminal? = null
 }

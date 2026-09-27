@@ -231,11 +231,13 @@ internal class FileManagerPreview(
      * Containment- and symlink-checked via [resolveFileScopePath]; never meant to be displayed.
      * @throws FileNotFoundException when the target is not an existing regular file.
      */
+    @Suppress("ReturnCount") // Direct SAF, bound workspace and legacy local sharing have distinct adapters.
     fun realFileFor(
         scopeId: String,
         relativePath: String,
     ): File {
         if (isSaf(scopeId)) return safRealFileFor(scopeId, relativePath)
+        if (scopeId.startsWith("ws-")) return workspaceShareFile(scopeId, relativePath)
         val fsp = FileScopePath(scopeId, relativePath)
         val real = resolveFileScopePath(fsp, roots)
         if (!java.nio.file.Files
@@ -264,6 +266,31 @@ internal class FileManagerPreview(
         // document / revoked scope throws before any file is created, so no cleanup is needed here.
         access.reader.copyToAppPrivate(scopeId, relativePath, staged, SAF_SHARE_CAP)
         return staged.toFile()
+    }
+
+    /** An explicit share action creates a bounded transport copy, never another working directory. */
+    private fun workspaceShareFile(
+        scopeId: String,
+        relativePath: String,
+    ): File {
+        val path = FileScopePath(scopeId, relativePath)
+        val info = store.stat(path)
+        require(info.isRegularFile && info.sizeBytes in 0..32L * 1024 * 1024) {
+            "Workspace sharing supports files up to 32 MiB"
+        }
+        val bytes = store.readAll(path)
+        val directory = roots.resolveRoot("app").resolve("cache/share")
+        java.nio.file.Files
+            .createDirectories(directory)
+        com.helix.core.workspace.WorkspaceQuota.ensureRoom(
+            directory,
+            bytes.size.toLong(),
+            512L * 1024 * 1024,
+        )
+        val target = directory.resolve("workspace-${java.util.UUID.randomUUID()}.bin")
+        com.helix.core.workspace.AtomicFileWriter
+            .writeAtomic(target, bytes)
+        return target.toFile()
     }
 
     private fun sha256Hex(bytes: ByteArray): String =

@@ -26,7 +26,7 @@ import java.nio.file.FileAlreadyExistsException
  * NIO backends; Android SAF and OS permissions are composed by AppFileServices, never by UI.
  * [realFileFor] supplies a transient sharing file, not a model-visible absolute path.
  */
-@Suppress("TooManyFunctions", "LargeClass", "ReturnCount")
+@Suppress("TooManyFunctions", "LargeClass", "ReturnCount", "LongParameterList")
 class FileManagerService internal constructor(
     private val store: WorkspaceArtifactStore,
     private val roots: ScopeRootResolver,
@@ -46,7 +46,15 @@ class FileManagerService internal constructor(
     private val sharedStorageGranted: () -> Boolean = { false },
     private val manual: ManualFileOperations? = null,
     private val rootOperations: RootFileOperations? = null,
+    private val workspaceSources: () -> List<FileSource> = { emptyList() },
+    private val workspaceCleanup: ((String) -> Unit)? = null,
 ) {
+    /** Explicit cleanup shares this monitor with every manual file operation, including transfers. */
+    @Synchronized
+    fun cleanupWorkspace(scopeId: String) {
+        requireNotNull(workspaceCleanup) { "Workspace cleanup is not available" }(scopeId)
+    }
+
     /** Localizes a stable string-resource id (+ positional args) to the current locale (HXA-069). */
     private fun loc(
         id: Int,
@@ -62,6 +70,7 @@ class FileManagerService internal constructor(
 
     val isRootGranted: Boolean get() = rootOperations?.isRootGranted() == true
 
+    @Synchronized
     fun requestRoot(): Boolean = rootOperations?.requestRoot() == true
 
     /** The SAF access, fail-closed when the scope is SAF but the access is absent. */
@@ -93,6 +102,7 @@ class FileManagerService internal constructor(
      * (source / target / name / size / policy / progress / cancel / final result) is surfaced
      * through the returned [TransferResult] + [onProgress].
      */
+    @Synchronized
     fun importSingleDocument(
         sourceUri: String,
         policy: ConflictPolicy,
@@ -121,6 +131,7 @@ class FileManagerService internal constructor(
      * name mapping; one [onFileProgress] tick (done, total) before each file; every skipped or
      * failed file is reported in the result — nothing is silently omitted.
      */
+    @Synchronized
     fun importTree(
         treeUri: String,
         policy: ConflictPolicy,
@@ -150,6 +161,7 @@ class FileManagerService internal constructor(
      * written). The result reports the platform-confirmed facts, and "verified" only when the
      * bytes are re-read after the write and are hash-equal.
      */
+    @Synchronized
     fun exportDocument(
         sourceRelativePath: String,
         target: ExportTarget,
@@ -174,17 +186,23 @@ class FileManagerService internal constructor(
             )
     // --- Sources (来源标识) ---
 
+    /** Safe initial UI projection; resolving live sources requires an IO dispatcher. */
+    val defaultSource: FileSource
+        get() = FileSource(workspaceScopeId, "Workspace", FileSourceKind.WORKSPACE, supportsMutation = true)
+
     /**
      * The browsable sources (HXA-046 + HXA-057): the workspace (always, mutable) + any enabled
      * all-files roots (developer, read-only) + live SAF and manual shared-storage capabilities.
      * A SAF grant whose provider no longer answers / whose root changed is re-verified here and
      * omitted (fail closed: a source the resolver cannot resolve is never offered for browsing).
      */
+    @Synchronized
     fun sources(): List<FileSource> {
         val list =
             mutableListOf(
-                FileSource(workspaceScopeId, "Workspace", FileSourceKind.WORKSPACE, supportsMutation = true),
+                defaultSource,
             )
+        list.addAll(workspaceSources())
         if (sharedStorageGranted()) {
             list.add(
                 FileSource(
@@ -235,6 +253,7 @@ class FileManagerService internal constructor(
      * @throws java.io.FileNotFoundException when [relativePath] is not an existing directory.
      * @throws com.helix.core.workspace.ScopeNotAvailable when the scope cannot be resolved.
      */
+    @Synchronized
     fun list(
         scopeId: String,
         relativePath: String,
@@ -246,6 +265,7 @@ class FileManagerService internal constructor(
         val truncated: Boolean,
     )
 
+    @Synchronized
     fun listing(
         scopeId: String,
         relativePath: String,
@@ -315,12 +335,15 @@ class FileManagerService internal constructor(
         return compareByDescending<FileEntry> { it.isDirectory }.thenComparing(secondary)
     }
 
+    @Synchronized
     fun pendingTransfers(): List<FileTransferRecovery> = manual?.pendingTransfers().orEmpty()
 
+    @Synchronized
     fun recoverTransfer(id: String): Boolean = requireNotNull(manual).recoverTransfer(id)
 
     private val preview = FileManagerPreview(store, roots, saf)
 
+    @Synchronized
     fun previewText(
         scopeId: String,
         relativePath: String,
@@ -332,6 +355,7 @@ class FileManagerService internal constructor(
             preview.previewText(scopeId, relativePath, maxBytes)
         }
 
+    @Synchronized
     fun previewImageBytes(
         scopeId: String,
         relativePath: String,
@@ -343,6 +367,7 @@ class FileManagerService internal constructor(
             preview.previewImageBytes(scopeId, relativePath, maxBytes)
         }
 
+    @Synchronized
     fun mimeTypeFor(
         scopeId: String,
         relativePath: String,
@@ -353,6 +378,7 @@ class FileManagerService internal constructor(
             preview.mimeTypeFor(scopeId, relativePath)
         }
 
+    @Synchronized
     fun fileInfo(
         scopeId: String,
         relativePath: String,
@@ -365,6 +391,7 @@ class FileManagerService internal constructor(
             preview.fileInfo(scopeId, relativePath, maxHashBytes)
         }
 
+    @Synchronized
     fun realFileFor(
         scopeId: String,
         relativePath: String,
@@ -412,6 +439,7 @@ class FileManagerService internal constructor(
     }
 
     /** Renames [srcRel] to [newRel] (a same-scope move). Refuses an existing [newRel] unless [overwrite]. */
+    @Synchronized
     fun rename(
         scopeId: String,
         srcRel: String,
@@ -420,6 +448,7 @@ class FileManagerService internal constructor(
     ): FileOpResult = moveOrCopy(scopeId, srcRel, newRel, overwrite, move = true)
 
     /** Copies [srcRel] to [dstRel]. Refuses an existing [dstRel] unless [overwrite]. */
+    @Synchronized
     fun copy(
         scopeId: String,
         srcRel: String,
@@ -429,6 +458,7 @@ class FileManagerService internal constructor(
 
     /** Manual operations use the injected backend; workspace-only callers may use the direct store path. */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
+    @Synchronized
     internal fun moveOrCopy(
         scopeId: String,
         srcRel: String,
@@ -488,6 +518,7 @@ class FileManagerService internal constructor(
 
     /** Creates a directory [name] under [parentRel] (inside a user region). Refuses an existing path. */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
+    @Synchronized
     fun makeDirectory(
         scopeId: String,
         parentRel: String,
@@ -516,6 +547,7 @@ class FileManagerService internal constructor(
      * A non-conflicting sibling of [baseRel] in the same directory: `name (1).ext`, `name (2).ext`,
      * … the "重命名" conflict policy's auto-suffix.
      */
+    @Synchronized
     fun nextAvailableName(
         scopeId: String,
         baseRel: String,
@@ -547,22 +579,25 @@ class FileManagerService internal constructor(
 
     /** Moves the regular file at [relativePath] into the scope's trash (restorable). */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
+    @Synchronized
     fun trash(
         scopeId: String,
         relativePath: String,
         shouldCancel: () -> Boolean = { false },
     ): FileOpResult {
-        if (scopeId != workspaceScopeId &&
-            manual != null
-        ) {
+        if (isSaf(scopeId) && !store.supportsRecoverableTrash(scopeId)) {
+            return FileOpResult.Error(loc(R.string.files_saf_read_only))
+        }
+        val recoverable = scopeId == workspaceScopeId || scopeId.startsWith("ws-") || isSaf(scopeId)
+        if (!recoverable && manual != null) {
             return manualResult(relativePath) {
                 manual.delete(scopeId, relativePath, shouldCancel)
                 false
             }
         }
-        if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val fsp = FileScopePath(scopeId, relativePath)
         return try {
+            if (shouldCancel()) return FileOpResult.Error(loc(R.string.common_cancel))
             if (scopeId == workspaceScopeId && directoryTrash.isDirectory(relativePath)) {
                 directoryTrash.trash(relativePath)
                 return FileOpResult.Ok(relativePath, false)
@@ -585,22 +620,27 @@ class FileManagerService internal constructor(
 
     private val trashOps = FileManagerTrash(store, workspaceScopeId, directoryTrash, strings)
 
+    @Synchronized
     fun listTrash(scopeId: String): List<TrashEntryView> = trashOps.listTrash(scopeId)
 
+    @Synchronized
     fun restore(
         scopeId: String,
         entryName: String,
     ): FileOpResult = trashOps.restore(scopeId, entryName)
 
+    @Synchronized
     fun purge(
         scopeId: String,
         entryName: String,
     ): FileOpResult = trashOps.purge(scopeId, entryName)
 
+    @Synchronized
     fun emptyTrash(scopeId: String): Int = trashOps.emptyTrash(scopeId)
 
     // --- Batch (多选) with a conflict policy + partial-failure list ---
 
+    @Synchronized
     fun batchMoveOrCopy(
         scopeId: String,
         sources: List<String>,
@@ -613,6 +653,7 @@ class FileManagerService internal constructor(
         FileManagerBatchOperations(this) { loc(it) }
             .batchMoveOrCopy(scopeId, sources, destinationDir, policy, move, progress, shouldCancel)
 
+    @Synchronized
     fun batchTrash(
         scopeId: String,
         relativePaths: List<String>,
@@ -684,6 +725,9 @@ data class FileSource(
     val displayName: String,
     val kind: FileSourceKind,
     val supportsMutation: Boolean,
+    val workspaceBackend: String? = null,
+    val available: Boolean = true,
+    val cleanupEligible: Boolean = false,
 )
 
 /** File-list sort keys (HXA-046: 名称/时间/大小排序). */

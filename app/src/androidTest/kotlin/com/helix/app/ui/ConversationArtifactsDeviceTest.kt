@@ -26,6 +26,46 @@ import java.util.UUID
 class ConversationArtifactsDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun workspaceSwitchKeepsOldArtifactLocationAndHashCheck() =
+        runBlocking<Unit> {
+            compose.resetDeterministicUiState()
+            val session = newSession()
+            val storage = compose.container().storage
+            val original = requireNotNull(storage.workspaces.binding(session)).workspaceId
+            val root = storage.workspaces.managedDirectory(original).toFile()
+            val (id, file) = artifact(session, scopeId = original, root = root)
+            val next = newSession()
+            val nextId = requireNotNull(storage.workspaces.binding(next)).workspaceId
+            val impostor = File(storage.workspaces.managedDirectory(nextId).toFile(), file.relativeTo(root).path)
+            check(requireNotNull(impostor.parentFile).mkdirs())
+            impostor.writeText("Wrong directory content")
+            storage.sessions.updateDetails(session, "Switched workspace", "scope:$nextId:")
+            openSession(session)
+            openPreview(id)
+            awaitTag("artifact-file-preview")
+            compose
+                .onNodeWithTag(
+                    "artifact-file-preview",
+                    true,
+                ).assertTextContains("Delivered report", substring = true)
+            compose.onNodeWithTag("chat-artifacts-close").performClick()
+            file.writeText("Original artifact changed")
+            openPreview(id)
+            awaitTag("artifact-file-changed")
+            compose.onNodeWithTag("chat-artifacts-close").performClick()
+            assertEquals("Wrong directory content", impostor.readText())
+            assertEquals(
+                original,
+                FileScopePath
+                    .fromModelReference(
+                        storage.artifacts
+                            .listBySession(session)
+                            .single()
+                            .relativePath,
+                    ).scopeId,
+            )
+        }
+
     @Test fun previewPreservesDraftAndRechecksChangedAndMissingFiles() =
         runBlocking<Unit> {
             compose.resetDeterministicUiState()
@@ -167,10 +207,11 @@ class ConversationArtifactsDeviceTest {
         name: String = "report.txt",
         mime: String = "text/plain",
         scopeId: String = "app",
+        root: File = File(compose.activity.filesDir, "workspaces/app"),
     ): Pair<String, File> {
         val id = "file-${UUID.randomUUID()}"
         val relativePath = "output/$id/$name"
-        val file = File(compose.activity.filesDir, "workspaces/app/$relativePath")
+        val file = File(root, relativePath)
         requireNotNull(file.parentFile).mkdirs()
         file.writeBytes(bytes)
         compose.container().storage.artifacts.registerOrRefresh(

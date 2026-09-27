@@ -15,6 +15,7 @@ source_checks() {
     python3 -m unittest discover -s scripts/tests -p test_terminal_reports.py
     python3 -m unittest discover -s scripts/tests -p test_product_journeys.py
     python3 -m unittest discover -s scripts/tests -p test_owned_acceptance.py
+    python3 -m unittest discover -s scripts/tests -p test_agent_eval.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh
     ./scripts/check-i18n.sh

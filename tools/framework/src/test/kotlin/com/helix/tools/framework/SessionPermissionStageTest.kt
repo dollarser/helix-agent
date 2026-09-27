@@ -143,7 +143,7 @@ class SessionPermissionStageTest {
         val audit = checkNotNull(event.sessionPermissionEvaluated)
         assertEquals(SessionPermissionDecisionAudit.OUTCOME_DENIED, audit.outcome)
         assertEquals("CUSTOM", audit.mode)
-        assertEquals(1, audit.configVersion)
+        assertEquals(2, audit.configVersion)
         assertEquals("OPERATION_DENIED", audit.denyCode)
         assertEquals(listOf("FILE_MUTATION_EXTERNAL"), audit.effects)
     }
@@ -173,7 +173,7 @@ class SessionPermissionStageTest {
 
     @Test
     fun anAskOnACardFreeCallComposesOneCardWithTheRiskLevel() {
-        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE))
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED))
         val classification =
             CallEffectClassification(
                 OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_EXTERNAL)),
@@ -193,7 +193,7 @@ class SessionPermissionStageTest {
         assertEquals(DecisionSource.USER, event.decisionSource)
         val audit = checkNotNull(event.sessionPermissionEvaluated)
         assertEquals(SessionPermissionDecisionAudit.OUTCOME_REQUIRES_APPROVAL, audit.outcome)
-        assertEquals("WORKSPACE", audit.mode)
+        assertEquals("WORKSPACE_TRUSTED", audit.mode)
         assertEquals(listOf("SCOPE_OUTSIDE:FILE_MUTATION_EXTERNAL"), audit.reasons)
     }
 
@@ -203,7 +203,7 @@ class SessionPermissionStageTest {
         // historical risk/egress approval fires for the SAME call its detail composes into
         // the SAME card — the precise session reasons are never hidden by the policy text
         // (the B3 behavior of the policy detail replacing them is the documented change).
-        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY))
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED))
         val classification =
             CallEffectClassification(
                 OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_EXTERNAL)),
@@ -277,7 +277,7 @@ class SessionPermissionStageTest {
 
     @Test
     fun aDenyThatLandsBeforeStartStopsTheQueuedCall() {
-        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE))
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED))
         val classification =
             CallEffectClassification(
                 OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_WORKSPACE)),
@@ -420,7 +420,7 @@ class SessionPermissionStageTest {
         // and the effect start stops the call — the acquired proof is never consumed.
         val source =
             ScriptedSessionPermission(
-                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE),
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED),
             )
         val classification =
             CallEffectClassification(
@@ -457,7 +457,7 @@ class SessionPermissionStageTest {
         val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
         val executor = registerL0Tool()
         source.configFromStartGate =
-            SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE)
+            SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED)
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
         assertEquals(1, executor.invocations)

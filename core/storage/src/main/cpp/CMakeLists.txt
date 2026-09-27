@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22)
+project(workspace_identity C)
+add_library(workspace_identity SHARED workspace_identity.c)
+target_compile_options(workspace_identity PRIVATE -Wall -Wextra -Werror)
+target_link_options(workspace_identity PRIVATE "-Wl,-z,max-page-size=16384")

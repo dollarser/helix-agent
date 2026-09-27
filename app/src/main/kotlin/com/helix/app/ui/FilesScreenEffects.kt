@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import com.helix.app.R
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,6 +46,7 @@ internal fun FilesDirectoryEffects(
                         runCatching { fileManager.listTrash(selectedScopeId) }
                     }
                 trashEntries = result.getOrDefault(emptyList())
+                loadError = result.exceptionOrNull()?.let { str(R.string.files_read_directory_error) }
             }
         }
     }
@@ -96,6 +98,16 @@ internal fun FilesScopeEffects(
 ) {
     with(actions) {
         with(state) {
+            LaunchedEffect(fileManager, reloadTick, sourcesOpen) {
+                try {
+                    replaceSources(withContext(Dispatchers.IO) { fileManager.sources() })
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    status = str(R.string.files_read_directory_error)
+                }
+            }
+
             // The conflict dialog's suggested "重命名" target (the next non-colliding sibling).
             LaunchedEffect(conflictTarget) {
                 val target = conflictTarget ?: return@LaunchedEffect

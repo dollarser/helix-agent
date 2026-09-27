@@ -44,7 +44,7 @@ internal class ChatRequestAssembler(
      * default yields "" so JVM/device services without a workspace reader behave exactly as
      * before (no project instructions injected).
      */
-    private val projectInstructionsReader: (String) -> String = { "" },
+    private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
 
@@ -53,7 +53,7 @@ internal class ChatRequestAssembler(
     // [PromptSnapshot] rides every built request so the request's records carry the section
     // list + fingerprint (research doc section 4.4).
     private val systemPrompt =
-        SystemPromptContext(storage, attachmentStaging.workspaceScopeId, projectInstructionsReader)
+        SystemPromptContext(storage, projectInstructionsReader)
 
     // The local file tools whose visibility decides the `env.files` section (mainline rule: the
     // working-directory guidance ships only when the file tools are actually exposed).
@@ -93,6 +93,16 @@ internal class ChatRequestAssembler(
     ): Boolean {
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         val model = storage.sessions.resolve(sessionId).modelId ?: config.model
+        val binding = storage.workspaces.binding(sessionId)
+        val directory =
+            binding?.let {
+                com.helix.core.workspace
+                    .FileScopePath(it.workspaceId, it.relativePath)
+            }
+                ?: FileToolArguments.directory(
+                    attachmentStaging.workspaceScopeId,
+                    storage.sessions.resolve(sessionId).directoryRef,
+                )
         val tools = modelTools(sessionId, control)
         val system =
             systemPrompt.build(
@@ -101,6 +111,7 @@ internal class ChatRequestAssembler(
                 fileToolsAvailable(tools),
                 tools.isNotEmpty(),
                 storage.sessionExperts.forSession(sessionId),
+                directory,
             )
         val request =
             ChatContextRequest(
@@ -112,6 +123,8 @@ internal class ChatRequestAssembler(
                 control.budgets.maxOutputTokens,
                 com.helix.core.model.ReasoningEffort.OFF,
                 system,
+                directory = directory,
+                workspaceBinding = binding,
             )
         val window = providerService.contextSettings(config.id, model).window
         return com.helix.app.agent.ContextCapacity.failure(
@@ -135,6 +148,16 @@ internal class ChatRequestAssembler(
         retryTurnId: String?,
         control: RunControlConfig,
     ): ChatContextRequest {
+        val binding = storage.workspaces.binding(sessionId)
+        val directory =
+            binding?.let {
+                com.helix.core.workspace
+                    .FileScopePath(it.workspaceId, it.relativePath)
+            }
+                ?: FileToolArguments.directory(
+                    attachmentStaging.workspaceScopeId,
+                    storage.sessions.resolve(sessionId).directoryRef,
+                )
         val tools = modelTools(sessionId, control)
         val expert =
             storage.turnRuntimeRecords
@@ -148,6 +171,7 @@ internal class ChatRequestAssembler(
                 fileToolsAvailable(tools),
                 tools.isNotEmpty(),
                 expert,
+                directory,
             )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
@@ -172,6 +196,8 @@ internal class ChatRequestAssembler(
                         )
                 } ?: ReasoningEffort.OFF,
             prompt = system,
+            directory = directory,
+            workspaceBinding = binding,
         )
     }
 
@@ -186,6 +212,16 @@ internal class ChatRequestAssembler(
         turnId: String,
         control: RunControlConfig,
     ): ChatContextRequest {
+        val binding = storage.workspaces.binding(sessionId)
+        val directory =
+            binding?.let {
+                com.helix.core.workspace
+                    .FileScopePath(it.workspaceId, it.relativePath)
+            }
+                ?: FileToolArguments.directory(
+                    attachmentStaging.workspaceScopeId,
+                    storage.sessions.resolve(sessionId).directoryRef,
+                )
         val tools = modelTools(sessionId, control)
         val expert =
             storage.turnRuntimeRecords
@@ -199,6 +235,7 @@ internal class ChatRequestAssembler(
                 fileToolsAvailable(tools),
                 tools.isNotEmpty(),
                 expert,
+                directory,
             )
         val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
@@ -223,6 +260,8 @@ internal class ChatRequestAssembler(
                         )
                 } ?: ReasoningEffort.OFF,
             prompt = system,
+            directory = directory,
+            workspaceBinding = binding,
         )
     }
 

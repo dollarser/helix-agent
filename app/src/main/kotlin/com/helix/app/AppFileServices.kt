@@ -1,6 +1,7 @@
 package com.helix.app
 
 import android.content.Context
+import androidx.core.net.toUri
 import com.helix.app.files.FileManagerService
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -42,15 +43,23 @@ class FeatureFiles(
     val treeLister: ContentResolverSafTreeLister,
     val treeDestination: ContentResolverSafTreeDestination,
     val destinationReReader: ContentResolverSafDestinationReReader,
+    val persistTreePermission: (String, Int) -> Unit,
 )
 
 /** Builds the existing file/SAF adapters against one workspace and one grant store. */
+@Suppress("LongParameterList")
 internal class AppFileServices(
     context: Context,
     scopeRoots: ScopeRootResolver,
     appScopeId: String,
     strings: (Int, Array<out Any>) -> String,
     rootOperations: com.helix.app.files.RootFileOperations? = null,
+    documentBackend: (String) -> com.helix.core.workspace.WorkspaceFileBackend? = { null },
+    metadataRoot: (String) -> java.nio.file.Path? = { null },
+    workspaceWritable: (String) -> Boolean = { false },
+    externalScope: (String) -> Boolean = { false },
+    workspaceSources: () -> List<com.helix.app.files.FileSource> = { emptyList() },
+    workspaceCleanup: ((String) -> Unit)? = null,
 ) {
     private val safGrantStore: SafGrantStore =
         SafGrantStore(java.io.File(context.filesDir, "workspaces/saf-grants.json").toPath())
@@ -101,6 +110,15 @@ internal class AppFileServices(
                 treeLister = ContentResolverSafTreeLister(resolver),
                 treeDestination = ContentResolverSafTreeDestination(resolver, safGrantStore),
                 destinationReReader = ContentResolverSafDestinationReReader(resolver),
+                persistTreePermission = { reference, flags ->
+                    val read = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    val write = android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    require(flags and read != 0) { "Tree read permission was not granted" }
+                    require(flags and android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0) {
+                        "Tree permission is not persistable"
+                    }
+                    resolver.takePersistableUriPermission(reference.toUri(), flags and (read or write))
+                },
             )
         }
 
@@ -130,7 +148,12 @@ internal class AppFileServices(
 
     val fileManager: FileManagerService =
         FileManagerService(
-            WorkspaceArtifactStore(manualRoots),
+            WorkspaceArtifactStore(
+                manualRoots,
+                documentBackend = documentBackend,
+                metadataRoot = metadataRoot,
+                externalScope = externalScope,
+            ),
             manualRoots,
             appScopeId,
             safAccess,
@@ -153,7 +176,7 @@ internal class AppFileServices(
                             context.noBackupFilesDir.toPath().resolve("manual-transfers"),
                         ),
                     backend = { id ->
-                        when {
+                        documentBackend(id) ?: when {
                             id.startsWith(SafGrantStore.SCOPE_ID_PREFIX) -> {
                                 com.helix.app.files
                                     .SafManualFileBackend(context.contentResolver, safGrantStore, safTree, id)
@@ -176,6 +199,10 @@ internal class AppFileServices(
                     },
                     writable = { id ->
                         when {
+                            id.startsWith("ws-") -> {
+                                workspaceWritable(id)
+                            }
+
                             id == appScopeId -> {
                                 true
                             }
@@ -201,5 +228,7 @@ internal class AppFileServices(
                     },
                 ),
             rootOperations = rootOperations,
+            workspaceSources = workspaceSources,
+            workspaceCleanup = workspaceCleanup,
         )
 }

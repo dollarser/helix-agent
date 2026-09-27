@@ -9,6 +9,43 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun inFlightResponseAndStoredHistoryKeepTheRequestDirectory() {
+        val firstRequest = FileToolArguments.directory("app", "scope:app:first")
+        val nextRequest = FileToolArguments.directory("app", "scope:app:second")
+        val arguments = """{"path":"answer.txt","content":"hello"}"""
+        // The response arrives after the session has switched, but carries the old request base.
+        val oldResponse = Json.parseToJsonElement(FileToolArguments.bindRequest(arguments, firstRequest)).jsonObject
+        assertEquals("scope:app:first/answer.txt", oldResponse["path"]!!.jsonPrimitive.content)
+        // Dispatch and provider-history replay cannot reinterpret already bound arguments.
+        assertEquals(oldResponse, FileToolArguments.normalize(oldResponse, nextRequest))
+        val newResponse = Json.parseToJsonElement(FileToolArguments.bindRequest(arguments, nextRequest)).jsonObject
+        assertEquals("scope:app:second/answer.txt", newResponse["path"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun jobInputsAndOutputFreezeButRuntimeCwdAndScriptStayUnchanged() {
+        val args =
+            Json
+                .parseToJsonElement(
+                    """{"files":["a.txt"],"output":"output/result.txt","cwd":"job","script":"cat a.txt"}""",
+                ).jsonObject
+        val frozen = FileToolArguments.normalize(args, FileScopePath("first", "project"))
+        assertEquals("scope:first:project/output/result.txt", frozen["output"]!!.jsonPrimitive.content)
+        assertEquals(args["cwd"], frozen["cwd"])
+        assertEquals(args["script"], frozen["script"])
+        assertEquals(frozen, FileToolArguments.normalize(frozen, FileScopePath("second", "")))
+        assertEquals(
+            "scope:first:project/a.txt",
+            (frozen["files"] as kotlinx.serialization.json.JsonArray).single().jsonPrimitive.content,
+        )
+    }
+
+    @Test fun requestBindingPreservesInvalidArgumentsForOrdinaryRejection() {
+        val directory = FileScopePath("app", "old")
+        for (arguments in listOf("not json", "[]", """{"path":"../escape"}""", """{"path":"/absolute"}""")) {
+            assertEquals(arguments, FileToolArguments.bindRequest(arguments, directory))
+        }
+    }
+
     @Test fun toolSchemaExplainsRelativePathsWithoutChangingRequiredFields() {
         val descriptor =
             com.helix.tools.files.WriteTool

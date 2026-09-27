@@ -140,6 +140,11 @@ object FilesDeleteTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: com.helix.core.workspace.WorkspaceMutationUncertain) {
+                    ToolExecutorResult.Failed(
+                        "Deletion requires review; a verified private backup is retained",
+                        requiresReview = true,
+                    )
                 } catch (e: IOException) {
                     ToolExecutorResult.Failed("workspace I/O failure; the file was not moved to trash")
                 }

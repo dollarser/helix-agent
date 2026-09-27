@@ -165,7 +165,7 @@ val projectDependencies =
     mapOf(
         ":core:agent" to listOf(":core:model"),
         ":core:policy" to listOf(":core:model"),
-        ":core:storage" to listOf(":core:model", ":core:policy"),
+        ":core:storage" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":core:workspace" to listOf(":core:model"),
         ":provider:api" to listOf(":core:model"),
         ":provider:openai-responses" to listOf(":provider:api", ":core:model"),
@@ -259,6 +259,14 @@ subprojects {
             }
 
             if (path == ":core:storage") {
+                extensions.configure<LibraryExtension> {
+                    ndkVersion = "28.2.13676358"
+                    defaultConfig.externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
+                    externalNativeBuild.cmake {
+                        path = file("src/main/cpp/CMakeLists.txt")
+                        version = "3.31.6"
+                    }
+                }
                 // HXA-211 exports an explicit JSONL projection; reuse the pinned tree codec.
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 pluginManager.apply("com.google.devtools.ksp")

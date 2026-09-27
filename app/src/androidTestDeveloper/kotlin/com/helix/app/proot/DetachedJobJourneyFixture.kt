@@ -16,6 +16,7 @@ import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
 import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
@@ -32,7 +33,10 @@ internal class DetachedJobJourneyFixture(
     val job = BackgroundJobUi(id, id, id, "Tasks Job $id", CommandDetailState.SUBMITTED, true)
     private val profile = container.profileStore.profile
 
-    fun start(script: String) {
+    fun start(
+        script: String,
+        prepareArguments: (JsonObject) -> JsonObject = { it },
+    ) {
         ensureInstalledRuntime(app)
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
         check(ProotToolModule.verifyNow() is ProotRuntimeAvailability.Verified)
@@ -40,11 +44,13 @@ internal class DetachedJobJourneyFixture(
         permission(SessionPermissionMode.FULL_ACCESS)
         storage.turns.start(id, id, System.currentTimeMillis())
         val args =
-            buildJsonObject {
-                put("script", script)
-                put("output", "scope:app:output/$id")
-                put("leaseSeconds", 60)
-            }
+            prepareArguments(
+                buildJsonObject {
+                    put("script", script)
+                    put("output", "scope:app:output/$id")
+                    put("leaseSeconds", 60)
+                },
+            )
         storage.toolCalls.append(id, id, id, DetachedJobTools.START, "1", args.toString(), "RUNNING")
         val outcome =
             container.toolPipeline.dispatcher.dispatch(

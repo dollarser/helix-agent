@@ -189,6 +189,7 @@ class FixedGoalEvaluationDeviceTest {
         val result =
             buildJsonObject {
                 commonEvidence(cells, context, passed).forEach { (key, value) -> put(key, value) }
+                put("trajectoryMetrics", evaluationTrajectory(container, session))
                 put("turnState", turn.state)
                 put("goalState", goal.state)
                 put("runOutcome", run.outcome)

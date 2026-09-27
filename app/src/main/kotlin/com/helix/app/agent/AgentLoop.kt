@@ -194,6 +194,9 @@ internal class AgentLoop(
                     request,
                     turnId,
                 )
+            context.workspaceBinding?.let {
+                storage.workspaces.recordRequest(coordinator.snapshot().modelCallId, it)
+            }
             val acc =
                 collectModelStream(
                     coordinator,
@@ -240,7 +243,7 @@ internal class AgentLoop(
             } else {
                 if (decision.state != TurnState.COMPLETED) return TurnLoopResult.Terminal(decision)
                 compactionRound.observe(context, acc.inputTokens)
-                when (val round = runToolRound(coordinator, acc, toolRounds, control)) {
+                when (val round = runToolRound(coordinator, acc, toolRounds, control, context.directory)) {
                     is ToolRoundLimit -> {
                         coordinator.recordDiagnostic(
                             "budget.result",
@@ -432,13 +435,14 @@ internal class AgentLoop(
         acc: ModelStreamState,
         toolRounds: Int,
         control: RunControlConfig,
+        directory: com.helix.core.workspace.FileScopePath?,
     ): ToolRoundResult? {
         val turnId = coordinator.id
         val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
         if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
         runtimeAccounting.checkpointToolRound(turnId, toolRounds)
-        val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls), idGenerator)
+        val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls, directory), idGenerator)
         coordinator.beginToolBatch(localBatch.calls.map { it.callId })
         coordinator.commitModelToolStep(toolExecutor.assistantToolStepJson(localBatch))
         val turn = storage.turns.resolve(turnId)

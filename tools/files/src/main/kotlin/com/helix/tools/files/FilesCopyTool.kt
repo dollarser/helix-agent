@@ -56,7 +56,8 @@ object FilesCopyTool {
                 return runCopy(store, call)
             }
 
-            @Suppress("ReturnCount", "SwallowedException") // distinct refusals; sanitized failure messages
+            // distinct refusals; sanitized failure messages
+            @Suppress("ReturnCount", "SwallowedException", "LongMethod")
             private fun runCopy(
                 store: WorkspaceArtifactStore,
                 call: ExecutableToolCall,
@@ -115,6 +116,11 @@ object FilesCopyTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: com.helix.core.workspace.WorkspaceMutationUncertain) {
+                    ToolExecutorResult.Failed(
+                        "Copy outcome requires review; inspect the destination",
+                        requiresReview = true,
+                    )
                 } catch (e: IOException) {
                     ToolExecutorResult.Failed("workspace I/O failure; the copy was not performed")
                 }

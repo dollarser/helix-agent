@@ -13,6 +13,9 @@ class DatabaseContractTest {
     private val expectedTables =
         setOf(
             "sessions",
+            "workspaces",
+            "session_workspaces",
+            "model_call_workspaces",
             "connector_installations",
             "connector_skill_ownership",
             "session_connectors",
@@ -96,7 +99,7 @@ class DatabaseContractTest {
         assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
-        assertEquals(48, tables.size)
+        assertEquals(51, tables.size)
     }
 
     @Test
@@ -116,7 +119,7 @@ class DatabaseContractTest {
     fun `current turn recovery and review facts are first-class baseline columns`() {
         assertTrue("recoveryFromTurnId" in columns("turns"))
         assertEquals(
-            listOf("id", "turnId", "callId", "name", "version", "argsJson", "argsHash", "modelIntent", "state"),
+            listOf("id", "turnId", "callId", "name", "version", "argsJson", "argsHash", "state", "modelIntent"),
             columns("tool_calls"),
         )
         assertEquals(

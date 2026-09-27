@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "suite": "core-trajectory",
+  "coverage": "device-harness-fixture",
+  "evidenceKind": "fixture",
+  "cases": [
+    {"id": "queue", "tests": [{"class": "com.helix.app.chat.GoalInputSchedulingDeviceTest", "method": "queueDoesNotInterruptGoalAndRunsBeforeTheOriginalGoalContinues"}]},
+    {"id": "steer", "tests": [{"class": "com.helix.app.chat.TurnSteeringBoundaryDeviceTest", "method": "acceptedAfterFinalSnapshotRequiresRecheckAndContinuesTheSameTurn"}]},
+    {"id": "cancel", "tests": [{"class": "com.helix.app.chat.TurnCancellationRaceDeviceTest", "method": "settledToolResultsSurviveStopWithoutOpeningAnotherModelCall"}, {"class": "com.helix.app.chat.TurnCoordinatorDeviceTest", "method": "unknownEffectWinsOverDurableCancellationWithoutReplay"}]},
+    {"id": "review", "tests": [{"class": "com.helix.app.engine.TurnReviewResolutionDeviceTest", "method": "acknowledgedUnknownClosesOldTurnWithoutCancellingOrReplaying"}, {"class": "com.helix.app.engine.TurnReviewResolutionDeviceTest", "method": "deterministicReviewClosesOldTurnAndGoalRunWithoutOpeningAnotherModelCall"}]},
+    {"id": "process-death-recovery", "tests": [{"class": "com.helix.app.chat.SessionInputRecoveryDeviceTest", "method": "requestInFlightKeepsItsLocalReceiptWithoutCreatingAnotherCall"}]},
+    {"id": "goal", "tests": [{"class": "com.helix.app.chat.GoalContinuationDeviceTest", "method": "settledRoundContinuesWithoutActivityAndStopInvalidatesQueuedClaim"}]},
+    {"id": "compaction", "tests": [{"class": "com.helix.app.chat.LongTurnCompactionDeviceTest", "method": "goalLongTurnCompactsSettledStepsAndNextWakeChecksImmediately"}]},
+    {"id": "tool-failure-recovery", "tests": [{"class": "com.helix.app.chat.EvaluationTrajectoryDeviceTest", "method": "failedReadBackfillsErrorThenChangesToolWithoutRepeatingTheFailure"}]}
+  ]
+}

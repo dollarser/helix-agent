@@ -1,0 +1,147 @@
+package com.helix.app.chat
+
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import com.helix.app.MainActivity
+import com.helix.app.provider.LoopbackModelServer
+import com.helix.app.provider.ProviderDraft
+import com.helix.app.ui.container
+import com.helix.app.ui.resetDeterministicUiState
+import com.helix.core.model.AgentMode
+import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderProtocol
+import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.ProbeOutcome
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+
+/** Scripted provider verifies Harness backfill/recovery, not model reasoning quality. */
+class EvaluationTrajectoryDeviceTest {
+    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun failedReadBackfillsErrorThenChangesToolWithoutRepeatingTheFailure() =
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val chat = container.chatService
+            LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
+                server.start()
+                val provider = createProvider(server.port)
+                check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
+                val session = chat.createSession("Tool recovery eval", provider, "fixture-model-a")
+                val requests = AtomicInteger()
+                val missing = "eval-missing-${UUID.randomUUID()}.txt"
+                try {
+                    server.scriptedChat = { body ->
+                        response(requests.incrementAndGet(), body, session, missing)
+                    }
+                    chat.openSession(session)
+                    chat.setMode(AgentMode.ACT)
+                    val submission =
+                        ChatSubmission(
+                            session,
+                            0,
+                            UUID.randomUUID().toString(),
+                            "Read the fixture; if unavailable, report the current time instead.",
+                            emptyList(),
+                        )
+                    assertTrue(chat.sendSubmission(submission).await().outcome is ChatSubmissionOutcome.Accepted)
+                    compose.waitUntil(20_000) {
+                        requests.get() >= 3 && !chat.screen.value.isSending
+                    }
+                    val turn =
+                        container.storage.turns
+                            .listBySession(session)
+                            .single()
+                    val calls = container.storage.toolCalls.listByTurn(turn.id)
+                    assertEquals("COMPLETED", turn.state)
+                    assertEquals(listOf("read", "time.now"), calls.map { it.name })
+                    assertEquals(listOf("FAILED", "COMPLETED"), calls.map { it.state })
+                    assertEquals(
+                        3,
+                        container.storage.modelCalls
+                            .listByTurn(turn.id)
+                            .size,
+                    )
+                    assertEquals(3, requests.get())
+                } finally {
+                    container.storage.turns
+                        .listBySession(session)
+                        .forEach { chat.stopTurn(it.id) }
+                    compose.waitUntil(10_000) { !chat.screen.value.isSending }
+                    chat.closeSession()
+                    container.storage.sessions.archive(session, System.currentTimeMillis())
+                    container.providerService.delete(provider)
+                }
+            }
+        }
+
+    private suspend fun createProvider(port: Int): String =
+        compose.container().providerService.create(
+            ProviderDraft(
+                null,
+                "Trajectory fixture",
+                ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                NormalizedEndpoint.parse("http://127.0.0.1:$port/v1"),
+                "fixture-model-a",
+                "{}",
+                false,
+                CleartextAuthorization("127.0.0.1", port),
+                emptyList(),
+            ),
+            null,
+            cleartextConfirmed = true,
+        )
+
+    private fun response(
+        index: Int,
+        body: String,
+        session: String,
+        missing: String,
+    ): String =
+        when (index) {
+            1 -> {
+                toolCallStream("eval-read", "\"read\"", """{"path":"$missing"}""")
+            }
+
+            2 -> {
+                val messages =
+                    Json
+                        .parseToJsonElement(body)
+                        .jsonObject
+                        .getValue("messages")
+                        .jsonArray
+                val backfill =
+                    messages.map { it.jsonObject }.single {
+                        it["role"]?.jsonPrimitive?.content == "tool" &&
+                            it["tool_call_id"]?.jsonPrimitive?.content == "eval-read"
+                    }
+                val outcome = Json.parseToJsonElement(backfill.getValue("content").jsonPrimitive.content).jsonObject
+                check(outcome.getValue("status").jsonPrimitive.content != "SUCCEEDED")
+                val storage = compose.container().storage
+                val turn = storage.turns.listBySession(session).single()
+                val call = storage.toolCalls.listByTurn(turn.id).single()
+                check(call.state == "FAILED")
+                val result = requireNotNull(storage.toolResults.byToolCall(call.callId))
+                check(result.status == "FAILED")
+                toolCallStream("eval-time", "\"time.now\"", "{}")
+            }
+
+            3 -> {
+                textAnswerStream("Recovered using a different read-only tool.")
+            }
+
+            else -> {
+                error("Unexpected retry in fixed trajectory")
+            }
+        }
+}

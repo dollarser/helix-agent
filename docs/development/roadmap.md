@@ -22,9 +22,9 @@ HXA-220 已完成并见[交付证据](../completion-records/HXA-220.md)：TurnEn
 
 HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前 Room 是唯一 v1 / 45-table clean-slate baseline，旧内部 migration/Connector/Provider/Criteria/Chat 兼容路径已删除；外部协议与 Android API 兼容继续保留。
 
-HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 stale-state CAS、Engine terminal/review/recovery owner、Session next-work scheduler 与 SessionInput delivery application boundary 已收口，Core Engine clean-slate 重构进入冻结状态。设备内本地模型 [HXA-222](tasks/HXA-222.md) 仍已规划但暂缓；ADR-WORKSPACE-004 仍 proposed，因此 HXA-210 不自动启动。
+HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 stale-state CAS、Engine terminal/review/recovery owner、Session next-work scheduler 与 SessionInput delivery application boundary 已收口，Core Engine clean-slate 重构进入冻结状态。设备内本地模型 [HXA-222](tasks/HXA-222.md) 仍已规划但暂缓；ADR-WORKSPACE-004 已于 2026-09-27 获所有者接受，HXA-210 已完成本地验收。
 
-HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模拟器验证](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：Drawer/Settings/Conversation authority 已收敛，API 36 consumer 的 183-class baseline 已建立并完成 runner/fixture 强模型复核，production `NEW_REGRESSION = 0`，物理真机仍未验。HXA-228 已冻结 [Conversation-first Session input/config contract](../completion-records/HXA-228.md)，HXA-229 已冻结 [model-authored Tool presentation contract](../completion-records/HXA-229.md)。下一阶段按 **HXA-227 → HXA-230**：先建立 trajectory baseline，再用 baseline 衡量 Markdown-native Memory；HXA-230 尚未启动。不授权启动本地模型、Subagent 或 proposed HXA-225 vision feedback。完整 Project Memory 仍需稳定 Project identity。
+HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模拟器验证](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：Drawer/Settings/Conversation authority 已收敛，API 36 consumer 的 183-class baseline 已建立并完成 runner/fixture 强模型复核，production `NEW_REGRESSION = 0`，物理真机仍未验。HXA-228 已冻结 [Conversation-first Session input/config contract](../completion-records/HXA-228.md)，HXA-229 已冻结 [model-authored Tool presentation contract](../completion-records/HXA-229.md)。HXA-227 已交付 [eval 框架与 host baseline](../completion-records/HXA-227.md)，设备 trajectory 未在该任务请求执行。HXA-210 已完成 [Workspace 本地交付](../completion-records/HXA-210.md)；后续优先级以 status 为准，HXA-230 尚未启动。不授权启动本地模型、Subagent 或 proposed HXA-225 vision feedback。完整 Project Memory 仍需稳定 Project identity。
 
 ## 执行顺序与依赖
 
@@ -48,6 +48,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 
 | 任务 | 分类 | 范围 | 规格或证据 |
 | --- | --- | --- | --- |
+| HXA-210 | 已交付 | 独立会话目录、外部资源绑定与生命周期 | [交付证据](../completion-records/HXA-210.md) |
 | HXA-001 | 已交付 | Gradle 多模块工程 | [交付证据](../completion-records/M0.md) |
 | HXA-002 | 已交付 | 质量和供应链门禁 | [交付证据](../completion-records/M0.md) |
 | HXA-003 | 已交付 | AppContainer 与导航壳 | [交付证据](../completion-records/M0.md) |
@@ -255,7 +256,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-222 | 已规划 / 暂缓 | 设备内本地模型一等 Provider | [任务规格](tasks/HXA-222.md) |
 | HXA-223 | 已交付 | Post-clean-slate Core Boundary Convergence | [交付证据](../completion-records/HXA-223.md) |
 | HXA-226 | 已交付 | UI / IA 第二轮收敛 | [交付证据](../completion-records/HXA-226.md) |
-| HXA-227 | 已规划 | 统一轨迹级 Agent Eval 与失败归因 | [任务规格](tasks/HXA-227.md) |
+| HXA-227 | 已交付（主机范围） | 统一轨迹级 Agent Eval 与失败归因 | [交付证据](../completion-records/HXA-227.md) |
 | HXA-228 | 已交付 | Conversation-first Shell 与 Session Context Control | [交付证据](../completion-records/HXA-228.md) |
 | HXA-229 | 已交付 | Model-authored Agent Activity Presentation | [交付证据](../completion-records/HXA-229.md) |
 | HXA-230 | 已规划 / 条件实施 | Markdown-native Hierarchical Agent Memory | [任务规格](tasks/HXA-230.md) |

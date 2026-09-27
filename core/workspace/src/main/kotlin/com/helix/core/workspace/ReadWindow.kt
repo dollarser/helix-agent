@@ -50,17 +50,26 @@ data class ReadWindow(
             file: Path,
             offset: Long,
             maxBytes: Long,
+        ): ReadWindow = Files.newInputStream(file).use { read(it, Files.size(file), offset, maxBytes) }
+
+        /** Streams the same bounded window from document providers; no local development copy. */
+        @Suppress("ThrowsCount") // Truncation and zero-progress reads are distinct failures in both loops.
+        fun read(
+            input: java.io.InputStream,
+            size: Long,
+            offset: Long,
+            maxBytes: Long,
         ): ReadWindow {
+            require(size >= 0) { "File size is unavailable" }
             require(offset >= 0) { "offset must be >= 0 (got $offset)" }
             require(maxBytes in 1..MAX_WINDOW_BYTES) { "maxBytes must be 1..$MAX_WINDOW_BYTES (got $maxBytes)" }
-            val size = Files.size(file)
             if (offset >= size) {
                 // Stable EOF: at or past the end is the terminal window (no bytes, not an error).
                 return ReadWindow(offset, 0, size, ContentProbe.Encoding.EMPTY, "", null, 0L, offset, true)
             }
             val length = minOf(size - offset, maxBytes).toInt()
             val window = ByteArray(length)
-            Files.newInputStream(file).use { input ->
+            run {
                 // NOT InputStream.skipNBytes: that Java 11 method is missing from the API 29
                 // platform (NoSuchMethodError on device, minSdk 29). Draining through read()
                 // is exact on every level and cannot short-skip like skip() can.
@@ -69,12 +78,14 @@ data class ReadWindow(
                 while (remaining > 0) {
                     val skipped = input.read(skipBuffer, 0, minOf(skipBuffer.size.toLong(), remaining).toInt())
                     if (skipped < 0) throw EOFException("file truncated below offset $offset")
+                    if (skipped == 0) throw IOException("Read made no progress")
                     remaining -= skipped
                 }
                 var total = 0
                 while (total < length) {
                     val n = input.read(window, total, length - total)
                     if (n < 0) break
+                    if (n == 0) throw IOException("Read made no progress")
                     total += n
                 }
                 require(total == length) { "short read at offset $offset" }

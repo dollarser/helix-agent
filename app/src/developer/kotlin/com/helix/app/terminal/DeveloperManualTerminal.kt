@@ -20,6 +20,10 @@ internal class DeveloperManualTerminal(
     private val context: Context,
     private val ownership: ExecutionOwnership,
     private val profile: SafetyProfileStore,
+    private val directoryResolver: (String) -> File = { reference ->
+        val root = File(context.filesDir, "workspaces/app").canonicalFile
+        File(root, reference).canonicalFile.also { require(it.toPath().startsWith(root.toPath())) }
+    },
 ) : ManualTerminal {
     private val binding1 = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal"))
     private val binding2 = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal-2"))
@@ -72,9 +76,8 @@ internal class DeveloperManualTerminal(
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
                 reconcileBindings()
                 val (targetBinding, isPrimary) = selectTargetBinding(binding1, binding2)
-                val root = File(context.filesDir, "workspaces/app").canonicalFile
-                val workspace = File(root, relativeDirectory).canonicalFile
-                require(workspace.isDirectory && workspace.toPath().startsWith(root.toPath()))
+                val workspace = directoryResolver(relativeDirectory)
+                require(workspace.isDirectory)
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
                 val key = ptyKey(owner)
 

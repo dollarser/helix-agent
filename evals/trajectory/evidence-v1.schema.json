@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Helix Agent Eval evidence v1",
+  "description": "Structural contract. scripts/agent_eval.py additionally verifies artifact hashes, metric relationships and comparison controls.",
+  "type": "object",
+  "required": ["schemaVersion", "identity", "outcome", "trajectory", "cost"],
+  "properties": {
+    "schemaVersion": {"const": 1, "type": "integer"},
+    "identity": {
+      "type": "object",
+      "required": ["suite", "caseId", "gitCommit", "dirty", "sourceManifestSha", "datasetSha", "promptSha", "verifierSha", "evidenceKind", "measurementScope"],
+      "properties": {
+        "suite": {"type": "string", "minLength": 1},
+        "caseId": {"type": "string", "minLength": 1},
+        "gitCommit": {"type": "string", "minLength": 1},
+        "dirty": {"type": "boolean"},
+        "sourceManifestSha": {"$ref": "#/$defs/sha"},
+        "datasetSha": {"$ref": "#/$defs/sha"},
+        "promptSha": {"$ref": "#/$defs/sha"},
+        "verifierSha": {"$ref": "#/$defs/sha"},
+        "evidenceKind": {"enum": ["fixture", "fake-provider", "real-provider"]},
+        "measurementScope": {"type": "string", "minLength": 1}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["verifiedResult", "verifierFacts", "artifacts"],
+      "properties": {
+        "verifiedResult": {"enum": ["PASS", "FAIL", "BLOCKED", "INVALID"]},
+        "verifierFacts": {"type": "object", "minProperties": 1},
+        "artifacts": {"type": "array", "minItems": 1, "items": {
+          "type": "object", "required": ["path", "sha256"],
+          "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha"}}
+        }}
+      }
+    },
+    "trajectory": {
+      "type": "object",
+      "properties": {
+        "turns": {"$ref": "#/$defs/count"},
+        "successorTurns": {"$ref": "#/$defs/count"},
+        "modelCalls": {"$ref": "#/$defs/count"},
+        "toolCalls": {"$ref": "#/$defs/count"},
+        "invalidToolCalls": {"$ref": "#/$defs/count"},
+        "repeatedFailures": {"$ref": "#/$defs/count"},
+        "approvalsRequired": {"$ref": "#/$defs/count"},
+        "approvalsAnswered": {"$ref": "#/$defs/count"},
+        "humanInterventions": {"$ref": "#/$defs/count"},
+        "unknownEffects": {"$ref": "#/$defs/count"},
+        "reviewsResolved": {"$ref": "#/$defs/count"},
+        "compactions": {"$ref": "#/$defs/count"},
+        "recoveryEvents": {"$ref": "#/$defs/count"},
+        "firstPassSucceeded": {"type": ["boolean", "null"]}
+      }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "wallMillis": {"type": ["number", "null"], "minimum": 0},
+        "inputTokens": {"$ref": "#/$defs/count"},
+        "outputTokens": {"$ref": "#/$defs/count"},
+        "totalTokens": {"$ref": "#/$defs/count"}
+      }
+    }
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": ["integer", "null"], "minimum": 0}
+  }
+}

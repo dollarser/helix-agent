@@ -114,6 +114,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.jvm.Volatile
 
 /** The artifact center's files section is a digest, not the file manager (that is the Files page). */
@@ -189,7 +191,8 @@ class ChatService(
      * container injects the workspace reader; the default yields "" so JVM/device construction
      * without a workspace behaves exactly as before.
      */
-    private val projectInstructionsReader: (String) -> String = { "" },
+    private val bindSessionDirectory: (String) -> String = { it },
+    private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
 ) {
     // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
     // none reaches launchTurn directly. The container re-exposes the SAME instance as the
@@ -973,18 +976,47 @@ class ChatService(
         }
     }
 
+    internal suspend fun gitWorkspaceReader(reference: String): com.helix.app.git.GitWorkspaceReader =
+        withContext(workScope.coroutineContext) {
+            com.helix.app.git.GitWorkspaceReader(
+                attachmentStaging.resolveWorkspacePath(FileScopePath.fromModelReference(reference)).toFile(),
+            )
+        }
+
     fun setSessionDirectory(reference: String?) {
         reference?.let { FileScopePath.fromModelReference(it) }
+        val targetSessionId = screen.value.openSessionId ?: return
         workScope.launch {
-            val draft = sessionDraft
-            if (draft != null) {
-                drafts.directory(draft.session.id, reference)
-            } else {
-                val row = currentSession() ?: return@launch
-                storage.sessions.updateDetails(row.id, row.title, reference)
-                refreshSessionsNow()
+            try {
+                val bound = reference?.let(bindSessionDirectory)
+                val draft = sessionDraft
+                if (draft != null && draft.session.id == targetSessionId) {
+                    drafts.directory(draft.session.id, bound)
+                } else {
+                    val row = storage.sessions.find(targetSessionId) ?: return@launch
+                    storage.withTransaction {
+                        storage.sessions.updateDetails(row.id, row.title, bound)
+                        val binding = storage.workspaces.binding(row.id)
+                        storage.auditEvents.append(
+                            idGenerator(),
+                            row.id,
+                            "workspace.bound",
+                            "user",
+                            buildJsonObject {
+                                put("workspaceId", binding?.workspaceId.orEmpty())
+                                put("revision", binding?.revision ?: 0L)
+                            }.toString(),
+                            clock.now().toEpochMilli(),
+                        )
+                    }
+                    refreshSessionsNow()
+                }
+                refreshScreen()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                setBlocked(str(R.string.chat_directory_failed))
             }
-            refreshScreen()
         }
     }
 

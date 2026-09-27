@@ -258,6 +258,7 @@ class FixedFileEvaluationDeviceTest {
                 put("datasetSha256", hash(File(directory, "fixed-evals.tsv").readBytes()))
                 put("promptSha256", hash(cells[4].toByteArray()))
                 put("fixtureContextSha256", hash(context.toByteArray()))
+                put("trajectoryMetrics", evaluationTrajectory(container, session))
                 put("turnState", turn.state)
                 put("errorCode", turn.errorCode)
                 put("elapsedMs", (turn.endedAt ?: System.currentTimeMillis()) - turn.startedAt)

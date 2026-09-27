@@ -10,7 +10,6 @@ import com.helix.app.root.RootModule
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.StorageGarbageCollector
 import com.helix.core.storage.content.StorageGcResult
-import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillRepository
@@ -37,9 +36,9 @@ class PrivacyDeletionService(
         chat.preparePermanentDeletion(sessionId)
         storage.goalControls.bySession(sessionId).forEach { cancelGoalReminder(it.goalId) }
         val manifest = storage.deleteSessionPermanently(sessionId)
-        manifest.unreferencedWorkspacePaths.forEach { relativePath ->
-            workspace.deletePermanentlyForPrivacy(FileScopePath.fromModelReference(relativePath))
-        }
+        // Session deletion removes its records, never an external resource or a shared workspace.
+        // User files remain until an explicit workspace cleanup can account for all references/jobs.
+
         return DeletionResult("session:$sessionId", 1 + manifest.deletedContentBodies)
     }
 

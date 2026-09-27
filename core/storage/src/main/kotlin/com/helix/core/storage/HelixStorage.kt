@@ -60,13 +60,40 @@ class HelixStorage internal constructor(
     internal val database: HelixDatabase,
     val contentStore: ContentStore,
     val secrets: SecretStore,
+    private val workspaceRoot: File =
+        File(requireNotNull((contentStore as? FileContentStore)?.root?.parentFile), "workspaces"),
 ) {
     val connectorMutationLock = Any()
 
     val connectors by lazy { database.connectorDao() }
 
+    val workspaceCleanup by lazy {
+        com.helix.core.storage.repository.WorkspaceCleanupRepository(
+            database.workspaceDao(),
+            File(workspaceRoot, "managed").toPath(),
+            transaction = { block -> database.runInTransaction(block) },
+            directoryIdentity = WorkspaceNativeIdentity::witness,
+        )
+    }
+
+    val workspaces by lazy {
+        com.helix.core.storage.repository.WorkspaceRepository(
+            database.workspaceDao(),
+            File(workspaceRoot, "managed").toPath(),
+            transaction = { block -> database.runInTransaction(block) },
+            directoryIdentity = WorkspaceNativeIdentity::witness,
+        )
+    }
+
     val sessions: SessionRepository by lazy {
-        SessionRepository(database.sessionDao(), ::withTransaction) { id, timestamp ->
+        SessionRepository(
+            database.sessionDao(),
+            ::withTransaction,
+            directoryForSession = { id, ref ->
+                if (ref == null) workspaces.defaultDirectory(id, System.currentTimeMillis()) else ref
+            },
+            bindWorkspace = workspaces::bind,
+        ) { id, timestamp ->
             sessionPermissionConfigs.setForSession(id, sessionPermissionConfigs.appDefault(), timestamp)
             connectors.snapshotDefaults(id)
         }
@@ -152,7 +179,22 @@ class HelixStorage internal constructor(
         InteractionReceiptRepository(database.interactionReceiptDao())
     }
     val executions: ExecutionRepository by lazy { ExecutionRepository(database.executionDao()) }
-    val artifacts: ArtifactRepository by lazy { ArtifactRepository(database.artifactDao()) }
+    val artifacts: ArtifactRepository by lazy {
+        ArtifactRepository(database.artifactDao()) { reference, write ->
+            database.runInTransaction {
+                if (reference.startsWith("scope:ws-")) {
+                    val scope =
+                        com.helix.core.workspace.FileScopePath
+                            .fromModelReference(reference)
+                            .scopeId
+                    require(database.workspaceDao().find(scope)?.availability == "READY") {
+                        "Workspace must be ready before artifact registration"
+                    }
+                }
+                write()
+            }
+        }
+    }
     val auditEvents: AuditEventRepository by lazy { AuditEventRepository(database.auditEventDao()) }
     val providerConfigs: ProviderConfigRepository by lazy {
         ProviderConfigRepository(database.providerConfigDao())
@@ -264,7 +306,12 @@ class HelixStorage internal constructor(
                     .databaseBuilder(context, HelixDatabase::class.java, HelixDatabase.DATABASE_NAME)
                     .build()
             val contentStore = FileContentStore(File(context.filesDir, CONTENT_DIR))
-            return HelixStorage(database, contentStore, AndroidKeystoreSecretStore.create(context))
+            return HelixStorage(
+                database,
+                contentStore,
+                AndroidKeystoreSecretStore.create(context),
+                File(context.filesDir, "workspaces"),
+            )
         }
 
         /**
@@ -280,7 +327,12 @@ class HelixStorage internal constructor(
                 Room
                     .databaseBuilder(context, HelixDatabase::class.java, databaseName)
                     .build()
-            return HelixStorage(database, FileContentStore(contentDir), AndroidKeystoreSecretStore.create(context))
+            return HelixStorage(
+                database,
+                FileContentStore(contentDir),
+                AndroidKeystoreSecretStore.create(context),
+                File(contentDir.parentFile, "workspaces-$databaseName"),
+            )
         }
 
         private const val CONTENT_DIR = "helix-content"

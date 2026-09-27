@@ -13,6 +13,7 @@ from pathlib import Path
 import subprocess
 import urllib.error
 import urllib.request
+from agent_eval import aggregate, digest, markdown, normalize_m10, source_manifest, write_json
 
 
 def main():
@@ -79,6 +80,9 @@ def main():
     config.update(installedApkSha256=installed,
                   runnerSha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   workingDiffSha256=hashlib.sha256(subprocess.check_output(['git', 'diff', 'HEAD'])).hexdigest())
+    source = source_manifest(Path.cwd(), ['app/src', 'core', 'tools', 'provider', 'runtime', 'feature',
+                                         'gradle', 'build.gradle.kts', 'settings.gradle.kts', 'scripts'])
+    write_json(args.output / 'source-manifest.json', source)
     (args.output / 'config.json').write_text(json.dumps(config, indent=2))
     remote = 'files/hxa100'
     run_as = prefix + ['shell', 'run-as', 'com.helix.agent.developer']
@@ -132,6 +136,26 @@ def main():
     if execution_counts is not None:
         summary['executionCounts'] = execution_counts
     (args.output / 'result.json').write_text(json.dumps(summary, indent=2))
+    if args.suite in ('files', 'browser', 'goal'):
+        producer = {'files': 'File', 'browser': 'Browser', 'goal': 'Goal'}[args.suite]
+        verifier = Path(f'app/src/androidTestDeveloper/kotlin/com/helix/app/eval/Fixed{producer}EvaluationDeviceTest.kt')
+        context = {'gitCommit': config['gitCommit'],
+                   'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'])),
+                   'sourceManifestSha': source['sha256'], 'verifierSha': digest(verifier.read_bytes()),
+                   'evidenceKind': 'real-provider', 'flavor': 'developer',
+                   'appApkSha': installed['com.helix.agent.developer'][0],
+                   'testApkSha': installed['com.helix.agent.developer.test'][0]}
+        # Unknown configuration/capability controls deliberately prevent causal A/B claims.
+        envelopes = [normalize_m10(path, context, args.output) for path in sorted(device.glob('*.json'))]
+        if not passed:
+            for envelope in envelopes:
+                envelope['outcome']['verifiedResult'] = 'INVALID'
+                envelope['outcome']['failureCategory'] = 'VERIFIER'
+                envelope['outcome']['validationIssues'].append('suite gate incomplete or failed')
+        write_json(args.output / 'envelopes.json', envelopes)
+        report = aggregate(envelopes)
+        write_json(args.output / 'eval-summary.json', report)
+        (args.output / 'eval-summary.md').write_text(markdown(report))
     print(json.dumps(summary))
     return 0 if passed else 1
 

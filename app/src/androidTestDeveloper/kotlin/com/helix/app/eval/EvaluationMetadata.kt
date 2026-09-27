@@ -38,3 +38,22 @@ internal fun evaluationDevice(): JsonObject =
         )
         put("pageSizeBytes", android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE))
     }
+
+/** Counts observed durable rows only; unmeasured recovery/first-pass metrics stay absent. */
+internal fun evaluationTrajectory(
+    container: AppContainer,
+    sessionId: String,
+): JsonObject {
+    val storage = container.storage
+    val turns = storage.turns.listBySession(sessionId)
+    val calls = turns.flatMap { storage.toolCalls.listByTurn(it.id) }
+    val approvals = calls.mapNotNull { storage.approvals.byToolCall(it.callId) }
+    return buildJsonObject {
+        put("turns", turns.size)
+        put("modelCalls", turns.sumOf { storage.modelCalls.listByTurn(it.id).size })
+        put("toolCalls", calls.size)
+        put("approvalsRequired", approvals.size)
+        put("approvalsAnswered", approvals.count { it.decision != null })
+        put("unknownEffects", calls.count { storage.toolResults.byToolCall(it.callId)?.status == "NEEDS_REVIEW" })
+    }
+}

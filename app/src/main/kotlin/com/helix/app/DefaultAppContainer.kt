@@ -55,6 +55,7 @@ import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.effectiveAvailability
 import com.helix.core.storage.HelixStorage
+import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -117,6 +118,35 @@ internal class DefaultAppContainer(
             appContext,
             executionOwnership,
             profileStore,
+            directoryResolver = { reference ->
+                val path =
+                    if (reference.startsWith("scope:")) {
+                        FileScopePath.fromModelReference(reference)
+                    } else {
+                        val referenceAtStart =
+                            requireNotNull(chatService.screen.value.directoryRef) {
+                                appContext.getString(R.string.workspace_local_backend_unavailable)
+                            }
+                        val base = FileScopePath.fromModelReference(referenceAtStart)
+                        val relative = FileScopePath(base.scopeId, reference).relativePath
+                        FileScopePath(
+                            base.scopeId,
+                            listOf(base.relativePath, relative).filter(String::isNotEmpty).joinToString("/"),
+                        )
+                    }
+                resolveFileScopePath(path, scopeRoots).toFile().also { target ->
+                    val supported =
+                        listOf("app", "managed").map {
+                            java.io
+                                .File(appContext.filesDir, "workspaces/$it")
+                                .canonicalFile
+                                .toPath()
+                        }
+                    require(supported.any { target.canonicalFile.toPath().startsWith(it) }) {
+                        appContext.getString(com.helix.app.R.string.workspace_local_backend_unavailable)
+                    }
+                }
+            },
         )
 
     @Suppress("SENSELESS_COMPARISON")
@@ -262,7 +292,7 @@ internal class DefaultAppContainer(
                 .createDirectories(it)
         }
 
-    private val scopeRoots: ScopeRootResolver =
+    private val legacyScopeRoots: ScopeRootResolver =
         ScopeRootResolver { scopeId ->
             if (scopeId == APP_SCOPE_ID) {
                 appScopeRoot
@@ -277,8 +307,64 @@ internal class DefaultAppContainer(
             }
         }
 
+    private val sessionWorkspaces =
+        com.helix.app.chat.SessionWorkspaceService(storage, legacyScopeRoots) { path ->
+            com.helix.app.files
+                .SafManualFileBackend(
+                    context.contentResolver,
+                    featureFiles.grantStore,
+                    safTree,
+                    path.scopeId,
+                ).directoryIdentity(path.relativePath)
+        }
+
+    private val scopeRoots = ScopeRootResolver(sessionWorkspaces::resolveRoot)
+
+    private fun documentBackend(scope: String): com.helix.core.workspace.WorkspaceFileBackend? {
+        val resource = storage.workspaces.find(scope)
+        if (!scope.startsWith("saf-") && resource?.backend != "SAF") return null
+        return com.helix.app.files.BoundDocumentBackend(scope, sessionWorkspaces::source) { sourceScope ->
+            com.helix.app.files.SafManualFileBackend(
+                appContext.contentResolver,
+                featureFiles.grantStore,
+                safTree,
+                sourceScope,
+            )
+        }
+    }
+
+    private fun workspaceWritable(scope: String): Boolean =
+        runCatching {
+            val resource = requireNotNull(storage.workspaces.find(scope))
+            if (resource.backend == "SAF") {
+                val source = sessionWorkspaces.source(FileScopePath(scope, ""))
+                com.helix.app.files
+                    .SafManualFileBackend(
+                        appContext.contentResolver,
+                        featureFiles.grantStore,
+                        safTree,
+                        source.scopeId,
+                    ).supportsMutation(source.relativePath)
+            } else {
+                java.nio.file.Files
+                    .isWritable(sessionWorkspaces.resolveRoot(scope))
+            }
+        }.getOrDefault(false)
+
+    private fun workspaceMetadata(scope: String): Path? =
+        if (storage.workspaces.find(scope) != null || scope.startsWith("saf-")) {
+            java.io.File(appContext.filesDir, "workspace-metadata/$scope").toPath()
+        } else {
+            null
+        }
+
     private val workspaceStore: WorkspaceArtifactStore =
-        WorkspaceArtifactStore(scopeRoots).also { it.ensureLayout(APP_SCOPE_ID) }
+        WorkspaceArtifactStore(
+            scopeRoots,
+            documentBackend = ::documentBackend,
+            metadataRoot = ::workspaceMetadata,
+            externalScope = { storage.workspaces.find(it)?.ownership == "EXTERNAL" },
+        ).also { it.ensureLayout(APP_SCOPE_ID) }
 
     override val skillAuthoringService =
         com.helix.app.skills.SkillAuthoringService(
@@ -324,6 +410,30 @@ internal class DefaultAppContainer(
             APP_SCOPE_ID,
             ::resolveLocalized,
             rootOperations = RootFileModule.create(context),
+            documentBackend = ::documentBackend,
+            metadataRoot = ::workspaceMetadata,
+            workspaceWritable = ::workspaceWritable,
+            externalScope = { storage.workspaces.find(it)?.ownership == "EXTERNAL" },
+            workspaceCleanup = { scope ->
+                com.helix.app.files.WorkspaceCleanupAdmission(executionOwnership).run {
+                    storage.workspaceCleanup.cleanup(scope) {
+                        val metadata = workspaceMetadata(scope)
+                        metadata != null &&
+                            java.nio.file.Files
+                                .exists(metadata) &&
+                            java.nio.file.Files.walk(metadata).use { paths ->
+                                paths.anyMatch { path ->
+                                    !java.nio.file.Files
+                                        .isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                }
+                            }
+                    }
+                }
+            },
+            workspaceSources = {
+                com.helix.app.files
+                    .workspaceFileSources(storage, ::workspaceWritable)
+            },
         )
     override val safTree: SafTreeScopeService get() = fileServices.safTree
     override val featureFiles: FeatureFiles get() = fileServices.featureFiles
@@ -392,7 +502,7 @@ internal class DefaultAppContainer(
             toolRegistry,
             toolImplementations,
             workspaceStore,
-            ToolArtifactRegistrationSink(storage) { path ->
+            ToolArtifactRegistrationSink(storage, workspaceStore::openRead) { path ->
                 resolveFileScopePath(path, scopeRoots).toFile()
             },
         )
@@ -691,9 +801,10 @@ internal class DefaultAppContainer(
             // P1 (research doc section 8): the session workspace's project-instruction file
             // (AGENTS.md / CLAUDE.md / HELIX.md) becomes the goal prompt's PROJECT section; the
             // reader degrades to "" on any failure (no workspace / revoked scope / missing file).
-            projectInstructionsReader = { sessionId ->
+            bindSessionDirectory = sessionWorkspaces::bind,
+            projectInstructionsReader = { directory ->
                 com.helix.app.chat
-                    .readProjectInstructionsText(storage, scopeRoots, sessionId)
+                    .readProjectInstructionsText(directory, workspaceStore::readWindow)
             },
             // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
             strings = { resId, args -> resolveLocalized(resId, args) },

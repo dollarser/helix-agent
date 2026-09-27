@@ -809,7 +809,7 @@
     <string name="session_details_title">Session details &amp; environment</string>
     <string name="chat_rename">Rename</string>
     <string name="chat_directory">Directory</string>
-    <string name="chat_directory_none">No directory</string>
+    <string name="chat_directory_none">Use independent session directory</string>
     <string name="chat_directory_choose">Choose this directory</string>
     <string name="chat_directory_parent">Parent directory</string>
     <string name="chat_directory_failed">Cannot read directory</string>
@@ -1438,5 +1438,15 @@
     <string name="chat_prompt_suggestion_run_tests">Run automated tests and verify quality gates</string>
     <string name="chat_prompt_suggestion_goal_fix">Investigate and fix failing test cases</string>
     <string name="chat_prompt_suggestion_goal_refactor">Refactor a specific module and optimize performance</string>
+    <string name="workspace_local_backend_unavailable">This workspace cannot provide a local directory for Git or terminal. Select an available local workspace.</string>
+    <string name="workspace_binding_help">Switching affects future requests and does not grant file permission. Existing calls, approvals and artifacts keep their original directory. Document directories do not support a local terminal or Git.</string>
+    <string name="workspace_document_backend">System document directory</string>
+    <string name="workspace_path_backend">Local file directory</string>
+    <string name="workspace_unavailable">Directory unavailable. Select the source again; existing calls keep their original target.</string>
+    <string name="workspace_operation_checks">Available; each change still checks file capabilities and current permission.</string>
+    <string name="workspace_read_only">No modification capability is currently available.</string>
+    <string name="files_workspace_cleanup">Clean up unused private directory</string>
+    <string name="files_workspace_cleanup_body">Permanently delete “%1$s” and all its files. This cannot be undone. If a previous cleanup was interrupted, this continues it. Cleanup is refused while sessions, requests, artifacts, backups, or running tasks retain the directory.</string>
+    <string name="files_workspace_cleanup_done">Private directory cleaned up</string>
+    <string name="files_workspace_cleanup_failed">Cleanup did not finish. The directory may still have references or backups, be in use, or require an identity check. Review before retrying; interrupted cleanup never resumes automatically.</string>
 </resources>
-

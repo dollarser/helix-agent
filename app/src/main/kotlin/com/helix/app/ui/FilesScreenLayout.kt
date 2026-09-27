@@ -46,9 +46,10 @@ internal fun FilesScreenLayout(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 FilesLocationBar(state, actions)
-                if (selectedScopeId == "app" && !trashOpen && openTerminal != null) {
+                val terminalSource = selectedScopeId == "app" || selectedScopeId.startsWith("ws-")
+                if (terminalSource && !trashOpen && openTerminal != null) {
                     TextButton(onClick = {
-                        openTerminal(currentPath.ifBlank { "." })
+                        openTerminal("scope:$selectedScopeId:${currentPath.ifBlank { "." }}")
                     }, modifier = Modifier.testTag("files-open-terminal")) {
                         Text(str(R.string.terminal_open))
                     }

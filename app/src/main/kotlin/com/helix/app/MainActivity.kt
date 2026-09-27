@@ -346,6 +346,7 @@ internal fun HelixApp(container: AppContainer) {
                             permissionEdit = container.sessionPermissionEdit,
                             skills = container.skillRepository,
                             connectors = container.connectorService,
+                            files = container.fileManager,
                             onModels = { navController.navigate(ShellDestination.Models.route) },
                             onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
                         )
@@ -518,7 +519,7 @@ private fun DestinationScreen(
         // P0-B: the Git status / diff / changed-files surface (doc section 29) — the workspace
         // repository's staged / unstaged / untracked changes, read on-device with JGit.
         ShellDestination.Git -> {
-            GitStatusScreenDestination()
+            GitStatusScreenDestination(container.chatService)
         }
 
         ShellDestination.Settings -> {

@@ -25,8 +25,7 @@ import com.helix.core.storage.repository.ExpertProfile
  */
 internal class SystemPromptContext(
     private val storage: HelixStorage,
-    private val workspaceScopeId: String,
-    private val projectInstructionsReader: (String) -> String,
+    private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String,
     private val templates: PromptTemplateSource = packagedPromptTemplates,
 ) {
     fun build(
@@ -35,18 +34,8 @@ internal class SystemPromptContext(
         fileToolsAvailable: Boolean,
         toolsAvailable: Boolean,
         expert: ExpertProfile? = null,
+        directory: com.helix.core.workspace.FileScopePath,
     ): PromptSnapshot {
-        // The working directory the prompt advertises MUST be the one the file tools resolve
-        // against: ChatToolCalls binds every relative arg via the same FileToolArguments.directory
-        // (which parses a `scope:` directoryRef or falls back to the scope root), so the prompt and
-        // the tools agree on default root / selected subdirectory / other authorized root alike.
-        val directory =
-            FileToolArguments.directory(
-                workspaceScopeId,
-                storage.sessions
-                    .resolve(sessionId)
-                    .directoryRef,
-            )
         val registry = PromptRegistry()
         PromptEnvironmentSections.register(registry, directory, mode, fileToolsAvailable, templates)
         if (toolsAvailable) {
@@ -90,7 +79,30 @@ internal class SystemPromptContext(
                 },
             )
         }
-        storage.registerGoalPromptSections(sessionId, { projectInstructionsReader(sessionId) }, registry)
+        val projectInstructions = { authorizedProjectInstructions(sessionId, directory) }
+        val goal = storage.registerGoalPromptSections(sessionId, projectInstructions, registry)
+        if (!goal) {
+            registry.register(
+                PromptSection("workspace.project", 200, PromptScope.PROJECT, PromptSource.WORKSPACE_INSTRUCTION) {
+                    projectInstructions()
+                },
+            )
+        }
         return registry.resolveAndAssemble()
+    }
+
+    private fun authorizedProjectInstructions(
+        sessionId: String,
+        directory: com.helix.core.workspace.FileScopePath,
+    ): String {
+        val permissions =
+            storage.sessionPermissionConfigs.forSession(sessionId) ?: storage.sessionPermissionConfigs.appDefault()
+        return if (permissions.ruleFor(com.helix.core.model.OperationEffect.FILE_READ_WORKSPACE) ==
+            com.helix.core.model.OperationRule.ALLOW
+        ) {
+            projectInstructionsReader(directory)
+        } else {
+            ""
+        }
     }
 }

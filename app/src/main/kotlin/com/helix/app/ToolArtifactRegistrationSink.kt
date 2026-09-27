@@ -18,6 +18,7 @@ import com.helix.core.workspace.WorkspaceArtifactStore
  */
 internal class ToolArtifactRegistrationSink(
     private val storage: HelixStorage,
+    private val openWorkspaceFile: ((FileScopePath) -> java.io.InputStream)? = null,
     private val resolveWorkspaceFile: (FileScopePath) -> java.io.File,
 ) : WorkspaceArtifactStore.ArtifactSink {
     override fun register(
@@ -25,6 +26,22 @@ internal class ToolArtifactRegistrationSink(
         record: WorkspaceArtifactStore.ArtifactRecord,
     ) {
         val scopePath = FileScopePath(record.scopeId, record.relativePath)
+        openWorkspaceFile?.let { open ->
+            storage.withTransaction {
+                storage.artifacts.registerOrRefreshStream(
+                    com.helix.core.storage.entity.ArtifactEntity(
+                        record.id,
+                        sessionId,
+                        scopePath.toModelReference(),
+                        record.mediaType,
+                        record.sizeBytes,
+                        record.sha256,
+                        record.turnId,
+                    ),
+                ) { open(scopePath) }
+            }
+            return
+        }
         val file = resolveWorkspaceFile(scopePath)
         storage.withTransaction {
             storage.artifacts.registerOrRefresh(

@@ -63,6 +63,70 @@ class FileManagerServiceTest {
     }
 
     @Test
+    fun initialScreenStateDoesNotQueryLiveSources() {
+        val guarded =
+            FileManagerService(
+                store,
+                ScopeRootResolver { scopeRoot },
+                scopeId,
+                workspaceSources = { error("Live sources require IO") },
+            )
+        val state =
+            com.helix.app.ui
+                .FilesScreenState(guarded)
+        assertEquals(scopeId, state.currentSource.scopeId)
+        assertFalse(state.currentSource.cleanupEligible)
+    }
+
+    @Test
+    fun cleanupExcludesManualReadsUntilItsFilesystemPhaseEnds() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val readerStarted = java.util.concurrent.CountDownLatch(1)
+        val guarded =
+            FileManagerService(
+                store,
+                ScopeRootResolver { scopeRoot },
+                scopeId,
+                workspaceCleanup = {
+                    entered.countDown()
+                    check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                },
+            )
+        val workers =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(2)
+        try {
+            val cleanup = workers.submit { guarded.cleanupWorkspace(scopeId) }
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            val read =
+                workers.submit {
+                    readerStarted.countDown()
+                    guarded.listing(scopeId, "work")
+                }
+            assertTrue(readerStarted.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            assertThrows(java.util.concurrent.TimeoutException::class.java) {
+                read.get(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            }
+            release.countDown()
+            cleanup.get(5, java.util.concurrent.TimeUnit.SECONDS)
+            read.get(5, java.util.concurrent.TimeUnit.SECONDS)
+        } finally {
+            release.countDown()
+            workers.shutdownNow()
+        }
+    }
+
+    @Test
+    fun unavailableSourceNeverEnablesMutationFromStaleCapabilities() {
+        val state =
+            com.helix.app.ui
+                .FilesScreenState(service)
+        state.replaceSources(listOf(state.currentSource.copy(available = false, supportsMutation = true)))
+        assertFalse(state.canMutate)
+    }
+
+    @Test
     fun removingSelectedSourceClearsLocationAndPendingActions() {
         val state =
             com.helix.app.ui

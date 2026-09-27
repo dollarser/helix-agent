@@ -44,7 +44,10 @@ internal interface TurnContextAssembler {
 /** The agent loop's tool-execution port: one bounded-parallel round per call, settled in call order. */
 internal interface TurnToolExecutor {
     /** Extract presentation once before history persistence and business execution. */
-    fun prepareModelCalls(calls: List<BufferedModelToolCall>): List<BufferedModelToolCall> = calls
+    fun prepareModelCalls(
+        calls: List<BufferedModelToolCall>,
+        directory: com.helix.core.workspace.FileScopePath? = null,
+    ): List<BufferedModelToolCall> = calls
 
     /** The assistant tool step the loop persists before running the batch. */
     fun assistantToolStepJson(batch: LocalToolCallBatch): String

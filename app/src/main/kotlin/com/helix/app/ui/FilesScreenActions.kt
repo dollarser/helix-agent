@@ -42,7 +42,7 @@ internal class FilesScreenActions(
     fun requestRoot() {
         scope.launch {
             val granted = withContext(Dispatchers.IO) { fileManager.requestRoot() }
-            state.replaceSources(fileManager.sources())
+            state.replaceSources(withContext(Dispatchers.IO) { fileManager.sources() })
             if (granted) {
                 state.status = str(R.string.files_root_granted)
             } else {
@@ -372,11 +372,15 @@ internal class FilesScreenActions(
         }
     }
 
-    fun grantTree(uri: android.net.Uri) {
+    fun grantTree(
+        uri: android.net.Uri,
+        flags: Int,
+    ) {
         scope.launch {
             try {
                 val name =
                     withContext(Dispatchers.IO) {
+                        featureFiles.persistTreePermission(uri.toString(), flags)
                         val treeName =
                             uri.lastPathSegment?.let { android.net.Uri.decode(it) }
                                 ?: str(R.string.files_saf_directory_fallback)

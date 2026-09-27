@@ -56,7 +56,8 @@ object FilesMoveTool {
                 return runMove(store, call)
             }
 
-            @Suppress("ReturnCount", "SwallowedException") // distinct refusals; sanitized failure messages
+            // distinct refusals; sanitized failure messages
+            @Suppress("ReturnCount", "SwallowedException", "LongMethod")
             private fun runMove(
                 store: WorkspaceArtifactStore,
                 call: ExecutableToolCall,
@@ -115,6 +116,11 @@ object FilesMoveTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: com.helix.core.workspace.WorkspaceMutationUncertain) {
+                    ToolExecutorResult.Failed(
+                        "Move outcome requires review; inspect original and destination",
+                        requiresReview = true,
+                    )
                 } catch (e: IOException) {
                     ToolExecutorResult.Failed("workspace I/O failure; the move was not performed")
                 }

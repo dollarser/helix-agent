@@ -27,6 +27,9 @@ internal data class ChatContextRequest(
     val messageRefs: List<com.helix.core.model.MessageRefEntry> = emptyList(),
     /** The compaction checkpoint covered boundary if active. */
     val checkpoint: Long? = null,
+    /** Immutable default directory captured when this request is assembled. */
+    val directory: com.helix.core.workspace.FileScopePath? = null,
+    val workspaceBinding: com.helix.core.storage.entity.SessionWorkspaceEntity? = null,
 ) {
     fun modelRequest(): ModelRequest =
         ModelRequest(

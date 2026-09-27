@@ -113,6 +113,8 @@ object FilesMkdirTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: com.helix.core.workspace.WorkspaceMutationUncertain) {
+                    ToolExecutorResult.Failed("Directory creation requires review: $ref", requiresReview = true)
                 } catch (e: IOException) {
                     ToolExecutorResult.Failed("directory creation failed: $ref")
                 }

@@ -28,6 +28,22 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun subdirectoryBindingDoesNotTrustSiblingsOrTheWholeScope() {
+        val classifier = SessionToolEffectClassifier { "scope:ws-1:project" }
+        for (path in listOf("project/a.txt", "project", "project/sub/a.txt")) {
+            assertEquals(
+                setOf(OperationEffect.FILE_READ_WORKSPACE),
+                classifier.classify(request("""{"path":"scope:ws-1:$path"}"""), descriptor("read")).footprint.effects,
+            )
+        }
+        for (path in listOf("project-other/a.txt", "other/a.txt", ".")) {
+            assertEquals(
+                setOf(OperationEffect.FILE_READ_EXTERNAL),
+                classifier.classify(request("""{"path":"scope:ws-1:$path"}"""), descriptor("read")).footprint.effects,
+            )
+        }
+    }
+
     private val bound = SessionToolEffectClassifier { "ws-1" }
     private val unbound = SessionToolEffectClassifier { null }
 

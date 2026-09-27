@@ -810,7 +810,7 @@
     <string name="session_details_title">会话详情与环境</string>
     <string name="chat_rename">重命名</string>
     <string name="chat_directory">工作目录</string>
-    <string name="chat_directory_none">未归属目录</string>
+    <string name="chat_directory_none">使用独立会话目录</string>
     <string name="chat_directory_choose">选择此目录</string>
     <string name="chat_directory_parent">上一级</string>
     <string name="chat_directory_failed">无法读取目录</string>
@@ -1438,5 +1438,15 @@
     <string name="chat_prompt_suggestion_run_tests">执行自动化测试并验证质量门禁</string>
     <string name="chat_prompt_suggestion_goal_fix">排查并修复未通过的测试用例</string>
     <string name="chat_prompt_suggestion_goal_refactor">重构指定模块并进行性能优化</string>
+    <string name="workspace_local_backend_unavailable">此工作区无法提供 Git 或终端所需的本地目录。请选择可用的本地工作区。</string>
+    <string name="workspace_binding_help">切换仅影响后续请求，不授予文件权限。已有调用、审批和产物仍使用原目录。文档目录不支持本地终端或 Git。</string>
+    <string name="workspace_document_backend">系统文档目录</string>
+    <string name="workspace_path_backend">本地文件目录</string>
+    <string name="workspace_unavailable">目录不可用，请重新选择来源；旧调用不会自动重定向。</string>
+    <string name="workspace_operation_checks">可用；每次修改仍检查具体文件能力和当前权限。</string>
+    <string name="workspace_read_only">当前没有可用的修改能力。</string>
+    <string name="files_workspace_cleanup">清理未使用的私有目录</string>
+    <string name="files_workspace_cleanup_body">永久删除“%1$s”及其中所有文件，无法撤销。如上次清理中断，此操作将继续清理。仍有关联会话、请求、产物、备份或运行任务时将拒绝清理。</string>
+    <string name="files_workspace_cleanup_done">私有目录已清理</string>
+    <string name="files_workspace_cleanup_failed">清理未完成。目录可能仍被引用、有备份、正在使用，或需要检查身份。请检查后重试；中断的清理不会自动继续。</string>
 </resources>
-

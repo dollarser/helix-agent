@@ -146,7 +146,7 @@ class ContentResolverSafGrantProbe(
             // exception), never as a successful-but-empty result. The liveness signal is the
             // non-null cursor, NOT the row count: an empty-but-granted folder must not be
             // swept away as revoked.
-            resolver.query(Uri.parse(treeUri), null, null, null, null)?.use { true } ?: false
+            resolver.query(safRootQueryUri(treeUri), null, null, null, null)?.use { true } ?: false
         } catch (e: Exception) {
             false
         }

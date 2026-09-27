@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "suite": "core-boundaries",
+  "coverage": "host-boundary-not-device-trajectory",
+  "evidenceKind": "fixture",
+  "cases": [
+    {"id": "cancel", "tests": [{"class": "com.helix.app.agent.TurnCoordinatorTest", "method": "lateOutcomeAfterDurableCancellingSettlesAsCancelled"}]},
+    {"id": "unknown", "tests": [{"class": "com.helix.app.agent.TurnCoordinatorTest", "method": "unknownBatchParksWithOriginalCallOrderAndNeverAdvancesModelCall"}]},
+    {"id": "review-receipt", "tests": [{"class": "com.helix.core.storage.repository.TurnReviewReceiptRepositoryTest", "method": "same action is idempotent and a different action conflicts"}]},
+    {"id": "recovery-summary", "tests": [{"class": "com.helix.app.chat.RecoverySummaryBuilderTest", "method": "formatCarriesDurableFactsWithoutArgsAndBoundsLargeSummaries"}, {"class": "com.helix.app.chat.RecoverySummaryBuilderTest", "method": "successorHistoryDropsPredecessorExecutionProtocolButKeepsUserIntent"}]},
+    {"id": "recovery-plan", "tests": [{"class": "com.helix.core.agent.RecoveryCoordinatorTest", "method": "the plan is deterministic and complete"}]},
+    {"id": "goal-admission", "tests": [{"class": "com.helix.core.agent.GoalDriverTest", "method": "continuousPolicyAllowsServiceContinuationButNeverAmbientWake"}]},
+    {"id": "compaction-admission", "tests": [{"class": "com.helix.app.agent.ContextCapacityTest", "method": "summaryAdmissionAccountsForMeasuredScaleAndKeepsSoftFallbackPossible"}]},
+    {"id": "tool-settlement", "tests": [{"class": "com.helix.app.agent.TurnCoordinatorTest", "method": "batchTracksEveryCallAndRequiresAllKnownSettlements"}]}
+  ]
+}

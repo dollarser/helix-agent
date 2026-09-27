@@ -7,7 +7,46 @@ import java.io.File
 
 class ArtifactRepository(
     private val dao: ArtifactDao,
+    private val writeReference: (String, () -> Unit) -> Unit = { _, write -> write() },
 ) {
+    /** Re-verify a document/backend stream without inventing a local path or copying the project. */
+    fun registerOrRefreshStream(
+        entity: ArtifactEntity,
+        open: () -> java.io.InputStream,
+    ): ArtifactEntity {
+        require(entity.relativePath.startsWith("scope:") && entity.mediaType.isNotBlank() && entity.size >= 0)
+        require(Regex("[a-f0-9]{64}").matches(entity.sha256))
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        var size = 0L
+        open().use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                require(count > 0) { "Artifact reader made no progress" }
+                size = Math.addExact(size, count.toLong())
+                require(size <= entity.size) { "Artifact grew during verification" }
+                digest.update(buffer, 0, count)
+            }
+        }
+        require(size == entity.size && digest.digest().joinToString("") { "%02x".format(it) } == entity.sha256) {
+            "Artifact changed before registration"
+        }
+        writeReference(entity.relativePath) {
+            val refreshed =
+                dao.refreshBySessionAndPath(
+                    entity.sessionId,
+                    entity.relativePath,
+                    entity.mediaType,
+                    entity.size,
+                    entity.sha256,
+                    entity.turnId,
+                )
+            if (refreshed == 0) dao.insertOrIgnore(entity)
+        }
+        return requireNotNull(dao.bySessionAndPath(entity.sessionId, entity.relativePath))
+    }
+
     /**
      * Registers an artifact. doc 9.2: the file with its hash must exist first — [file] is
      * always re-verified (existence, size, SHA-256) before the row lands. There is no
@@ -25,7 +64,7 @@ class ArtifactRepository(
     ): ArtifactEntity {
         verifyBeforeRegistration(relativePath, mediaType, size, sha256, file)
         val entity = ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256)
-        dao.insert(entity)
+        writeReference(relativePath) { dao.insert(entity) }
         return entity
     }
 
@@ -52,9 +91,11 @@ class ArtifactRepository(
         // Refresh the stable row first and insert only when no row exists yet: the
         // single-statement upsert (ON CONFLICT ... DO UPDATE) that would do both needs
         // SQLite 3.24, and minSdk 29 AOSP images ship 3.22.
-        val refreshed = dao.refreshBySessionAndPath(sessionId, relativePath, mediaType, size, sha256, turnId)
-        if (refreshed == 0) {
-            dao.insertOrIgnore(ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256, turnId))
+        writeReference(relativePath) {
+            val refreshed = dao.refreshBySessionAndPath(sessionId, relativePath, mediaType, size, sha256, turnId)
+            if (refreshed == 0) {
+                dao.insertOrIgnore(ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256, turnId))
+            }
         }
         return requireNotNull(dao.bySessionAndPath(sessionId, relativePath)) {
             "artifact row missing after registration: $relativePath"
@@ -103,7 +144,7 @@ class ArtifactRepository(
     ): ArtifactEntity {
         val source = resolve(sourceId)
         val copied = source.copy(id = id, sessionId = sessionId, turnId = null)
-        dao.insert(copied)
+        writeReference(copied.relativePath) { dao.insert(copied) }
         return copied
     }
 

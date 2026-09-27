@@ -588,7 +588,7 @@ class ToolSchedulerTest {
         // Policy alone would run the victim card-free; the flip FULL_ACCESS -> WORKSPACE
         // while it is queued must force exactly one card when it starts.
         assertTrue("the barrier call must start", gate.await(5, TimeUnit.SECONDS))
-        source.config = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE)
+        source.config = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED)
         val batch = batchFuture.join()
         assertNull(batch.error)
         assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)

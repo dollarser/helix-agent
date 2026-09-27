@@ -5,6 +5,7 @@
 核心入口：
 
 - [requirements.md](requirements.md)：Android 单机版产品需求与能力边界。
+- [workspace.md](workspace.md)：会话工作目录、后端能力与保留文件边界。
 - [task-experience.md](task-experience.md)：用户任务、工作区、产物与恢复体验。
 - [market-users-and-commercialization.md](market-users-and-commercialization.md)：用户、渠道、商业化假设与实验。
 

@@ -24,8 +24,10 @@ internal object FileToolArguments {
             "files.delete",
             "files.archive",
             "files.extract",
+            "code.linux.run",
+            "code.linux.job.start",
         )
-    private val pathKeys = setOf("path", "source", "destination")
+    private val pathKeys = setOf("path", "source", "destination", "output")
     private const val PATH_HELP =
         "Relative to the current session working directory (e.g. notes.txt, src/main.kt, or .). " +
             "Explicit scope:<id>:<relativePath> is also accepted. Never use Android absolute paths or ../ escapes."
@@ -37,6 +39,20 @@ internal object FileToolArguments {
         scopeId: String,
         reference: String?,
     ): FileScopePath = reference?.let(FileScopePath::fromModelReference) ?: FileScopePath(scopeId, "")
+
+    /** Resolve before assistant history, hashes and approval; a later directory switch cannot retarget it. */
+    fun bindRequest(
+        arguments: String,
+        directory: FileScopePath,
+    ): String {
+        val parsed =
+            runCatching {
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(arguments.ifBlank { "{}" })
+            }.getOrNull() as? JsonObject ?: return arguments
+        // Invalid paths stay invalid and are rejected by the ordinary dispatch validation path.
+        return runCatching { normalize(parsed, directory).toString() }.getOrDefault(arguments)
+    }
 
     fun normalize(
         args: JsonObject,
@@ -59,7 +75,7 @@ internal object FileToolArguments {
             args.mapValues { (key, value) ->
                 when {
                     key in pathKeys -> path(value)
-                    key == "sources" && value is JsonArray -> JsonArray(value.map(::path))
+                    key in setOf("sources", "files") && value is JsonArray -> JsonArray(value.map(::path))
                     else -> value
                 }
             },

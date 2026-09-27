@@ -30,13 +30,14 @@ import kotlinx.coroutines.launch
 
 /** Single authority for configuration that belongs to the currently open Conversation. */
 @Composable
-@Suppress("FunctionName", "LongParameterList", "LongMethod") // One Compose authority page, split dialogs below.
+@Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun SessionSettingsScreen(
     chatService: ChatService,
     providerService: ProviderService,
     permissionEdit: SessionPermissionEditService,
     skills: SkillRepository,
     connectors: ConnectorService,
+    files: com.helix.app.files.FileManagerService,
     onModels: () -> Unit,
     onExtensions: () -> Unit,
 ) {
@@ -60,6 +61,7 @@ internal fun SessionSettingsScreen(
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
     var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
     var expertOpen by remember(sessionId) { mutableStateOf(false) }
+    var directoryOpen by remember(sessionId) { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -91,6 +93,8 @@ internal fun SessionSettingsScreen(
                 Text(stringResource(R.string.session_settings_manage_models))
             }
         }
+
+        SessionWorkspaceSection(files, screen.directoryRef, sessionId != null) { directoryOpen = true }
 
         if (screen.isDraft) {
             SettingsGroup {
@@ -132,6 +136,12 @@ internal fun SessionSettingsScreen(
         }
     }
 
+    if (directoryOpen && sessionId != null) {
+        SessionDirectoryDialog(files, { directoryOpen = false }) { reference ->
+            chatService.setSessionDirectory(reference)
+            directoryOpen = false
+        }
+    }
     if (skillsOpen && sessionId != null) {
         SkillSessionPanel(skills, sessionId, onExtensions) { skillsOpen = false }
     }

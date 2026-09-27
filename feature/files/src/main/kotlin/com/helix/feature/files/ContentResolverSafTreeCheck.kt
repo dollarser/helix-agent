@@ -2,6 +2,7 @@ package com.helix.feature.files
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.DocumentsContract
 
 /**
  * Production [SafTreeGrantCheck] (HXA-057: 每次使用实时复核). Re-queries a persisted SAF tree
@@ -49,7 +50,7 @@ class ContentResolverSafTreeCheck(
         // uninstall or a revoked grant surface as a query FAILURE (null cursor or exception), never
         // as a successful-but-empty result (liveness = the cursor, not the row count: an
         // empty-but-granted folder must not read as revoked).
-        return runCatching { resolver.query(Uri.parse(treeUri), null, null, null, null)?.use { true } ?: false }
+        return runCatching { resolver.query(safRootQueryUri(treeUri), null, null, null, null)?.use { true } ?: false }
             .getOrDefault(false)
     }
 
@@ -61,4 +62,14 @@ class ContentResolverSafTreeCheck(
         } catch (e: Exception) {
             false
         }
+}
+
+/** A tree grant is not itself a queryable document URI in the system DocumentsProvider. */
+internal fun safRootQueryUri(reference: String): Uri {
+    val uri = Uri.parse(reference)
+    return if (DocumentsContract.isTreeUri(uri)) {
+        DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
+    } else {
+        uri
+    }
 }

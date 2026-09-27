@@ -26,13 +26,16 @@
 - HXA-228 Conversation-first Shell 与 Session Context Control 已交付，见[完成记录](../completion-records/HXA-228.md)与[API 36 simulator evidence](../evidence/development/hxa228-simulator-verification-2026-09-27.md)：Session RunControl 已从全局状态拆成 per-Session durable snapshot，Session Settings / Composer context workbench / Expert / Other-conversation Reference 已落地；Room clean-slate v1 当前为 48 tables。targeted API36 app 16/16、Reference storage 13/13、Reference export 8/8 通过；Memory 仍归 HXA-230，物理真机未在本任务覆盖。
 - HXA-229 Model-authored Agent Activity Presentation 已交付，见[完成记录](../completion-records/HXA-229.md)与[API 36 simulator evidence](../evidence/development/hxa229-simulator-verification-2026-09-27.md)：model-facing Tool schema 统一注入 optional `__helix_intent`，provider-neutral boundary 在业务 validation/permission/effect/dispatcher 前 strip；`tool_calls.modelIntent` durable 保存 sanitized presentation，UI intent-first 且 Harness status/result/approval/UNKNOWN truth 独立。最终 API36 app targeted 19/19、storage reopen/export 9/9 通过。
 
+- HXA-227 Eval evidence 与失败归因已完成主机范围交付，见[完成记录](../completion-records/HXA-227.md)与[主机证据](../evidence/development/hxa227-host-verification-2026-09-27.md)：三套 fixed adapter、八类设备轨迹入口、JSON/Markdown aggregator 和 fresh host boundary baseline 8/8；设备/真实 Provider not requested，不替代完整 device trajectory baseline。
+
+- HXA-210 Workspace 已完成本地验收，见[完成记录](../completion-records/HXA-210.md)：单主目录身份与请求冻结、Path/SAF 能力、显式清理恢复已收口；完整 host gate、API29/API36 双渠道专项 192/192 与 HXA-227 host 对照 8/8 通过。Room 继续开发期 v1 baseline，仅保留文件；交付范围不代表完整 device trajectory baseline 或真实账号验收。
+
 ## In progress
 
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
 
 ## Planned / deferred
 
-- [HXA-227](tasks/HXA-227.md)：统一轨迹级 Agent Eval 与失败归因。建议在 HXA-228/HXA-229 冻结 Session input 与 Tool presentation schema 后建立 baseline。
 - [HXA-230](tasks/HXA-230.md)：Markdown-native Hierarchical Agent Memory。Global/User + Project Markdown memory、progressive disclosure、Agent 主动维护；建议 HXA-227 baseline 后实施，完整 Project Memory 等待稳定 Project identity。
 - [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。Provider contract 使用 provisioning × transport × residence × auth 正交维度；内置 llama.cpp 明确定义为 `:model-runtime` private-process 下的 Local Inference Runtime backend（Binder/typed IPC + JNI），不做 localhost inference server。Ollama/SGLang/vLLM/llama-server 只要通过 endpoint 调用都属于 Network transport；native/runtime/model asset 不进入当前主线。
 
@@ -40,9 +43,16 @@
 
 ## Next task
 
-- **下一本地主线：HXA-227 统一轨迹级 Agent Eval 与失败归因。** HXA-228 已冻结 Session input/config，HXA-229 已冻结 model-authored Tool presentation schema。下一步先建立 trajectory/eval baseline，再进入 HXA-230 Memory，用 baseline 衡量 Memory 的收益与污染。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
-- HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
-- ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”以及 Provider 四维正交分类；HXA-222 架构前置已满足但按产品优先级暂缓，不因 HXA-226 UI 改版自动启动。
+HXA-210 实现已冻结。所有者于 2026-09-27 授权提交与推送 HXA-210/HXA-227；推送当前开发分支不等于合并 main、远端 CI 通过或发布。后续按以下顺序推进，每次只执行一个 checkpoint：
+
+| 顺序 | 工作 | 交付与退出条件 | 启动条件 |
+| --- | --- | --- | --- |
+| 1 | HXA-227 device trajectory baseline 补充验收 | 以已提交源码固定 APK/fixture/environment；执行 core-device 的 Queue、Steer、Cancel/UNKNOWN、Review、Recovery、Goal、Compaction、Tool failure recovery 八类入口，保存 raw/JUnit、envelope 和覆盖分母；逐项说明 Room reopen 与实际 kill 的区别 | 先准备脚本与制品；API29/36、渠道与模拟器执行范围需本次专项明确授权，旧 Workspace 授权不外推 |
+| 2 | 稳定性与全量设备基线收敛 | 先归因轨迹失败；产品缺陷补回归，fixture/环境问题独立记录。修复后重跑受影响项，再以当前清单核对历史 183-class baseline，形成固定制品完整基线；不以盲目重试或放宽断言换绿 | 完成第一步；全量设备范围另行明确授权；串行安排重负载 host gate 与 API36 模拟器 |
+| 3 | 条件验收与发行准备 | 真实 Provider/Connector 按 HXA-125/126/190 独立 profile 验证；发行遵循 120→122→121→123，先确定渠道约束，再定 applicationId、签名及数据升级策略 | 真实账号/付费额度、物理设备及发行身份分别由所有者提供或授权；无输入保持未验，不消耗账号 |
+| 4 | 再决定下一功能 | 根据基线失败、用户需求和验收成本选择下一 HXA；Memory 要重新核对显式 Project identity、权限与跨会话隔离，不因 Workspace 完成自动启用 | HXA-230 Memory、HXA-222 本地模型继续暂缓；开始实现须明确改变当前优先级 |
+
+当前允许继续准备第一步的离线材料；本计划不自动启动设备、真实账号、发布或新的持续 Goal。保留 HXA-227 已完成的 host 范围记录，后续设备结果作为补充证据，不重启已交付的架构重构。HXA-126 的外部条件不阻塞独立本地工作。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 
@@ -56,7 +66,7 @@
 | HXA-190 真实订阅 | Claude/Grok 付费调用账号不可用，按所有者决定暂缓；fixture 不算真实调用通过 |
 | 发布验收 | HXA-122 稳定 applicationId、渠道命名、签名与升级路径待决定；发行顺序 120→122→121→123 |
 
-设备、账号和发行条件项不阻塞无依赖的本地工作；会话目录绑定 ADR-WORKSPACE-004 仍 proposed，不自动启动 HXA-210。
+设备、账号和发行条件项不阻塞无依赖的本地工作；会话目录绑定 ADR-WORKSPACE-004 已接受，HXA-210 已完成本地验收。
 
 ## Current interfaces
 

@@ -49,7 +49,7 @@ public class ManualFilesTestProvider extends ContentProvider {
                 case Document.COLUMN_MIME_TYPE: values[i] = item.isDirectory() ? Document.MIME_TYPE_DIR : "text/plain"; break;
                 case Document.COLUMN_SIZE: values[i] = item.length(); break;
                 case Document.COLUMN_LAST_MODIFIED: values[i] = item.lastModified(); break;
-                case Document.COLUMN_FLAGS: values[i] = Document.FLAG_SUPPORTS_WRITE | (item.getName().startsWith("no-rename") ? 0 : Document.FLAG_SUPPORTS_RENAME) |
+                case Document.COLUMN_FLAGS: values[i] = (item.getName().startsWith("delete-only") ? 0 : Document.FLAG_SUPPORTS_WRITE) | (item.getName().startsWith("no-rename") ? 0 : Document.FLAG_SUPPORTS_RENAME) |
                     Document.FLAG_SUPPORTS_DELETE | (item.isDirectory() ? Document.FLAG_DIR_SUPPORTS_CREATE : 0); break;
                 default: values[i] = null;
             }

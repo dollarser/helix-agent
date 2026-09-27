@@ -194,10 +194,19 @@ internal class ChatToolCalls(
 
     private val messageEncoder = ChatToolMessageEncoder(strings)
 
-    override fun prepareModelCalls(calls: List<BufferedModelToolCall>): List<BufferedModelToolCall> =
+    override fun prepareModelCalls(
+        calls: List<BufferedModelToolCall>,
+        directory: com.helix.core.workspace.FileScopePath?,
+    ): List<BufferedModelToolCall> =
         calls.map { call ->
             val extracted = ToolPresentationMetadata.extract(call.arguments)
-            call.copy(arguments = extracted.businessArgumentsJson, presentation = extracted.presentation)
+            val arguments =
+                if (directory != null && FileToolArguments.handles(toolPipeline.resolveLatest(call.name))) {
+                    FileToolArguments.bindRequest(extracted.businessArgumentsJson, directory)
+                } else {
+                    extracted.businessArgumentsJson
+                }
+            call.copy(arguments = arguments, presentation = extracted.presentation)
         }
 
     override fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)

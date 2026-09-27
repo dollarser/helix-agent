@@ -67,6 +67,50 @@ class ManualSafFileDeviceTest {
         }
     }
 
+    @Test fun deleteOnlyFlagNeverAuthorizesOverwrite() {
+        withBackend { backend, _, _ ->
+            backend.create("delete-only.txt", false)
+            assertThrows(IllegalArgumentException::class.java) { backend.write("delete-only.txt") }
+            assertEquals(0L, backend.stat("delete-only.txt")!!.size)
+            backend.delete("delete-only.txt")
+            assertEquals(null, backend.stat("delete-only.txt"))
+        }
+    }
+
+    @Test fun workspaceAdapterSharesTheProviderAndRestoresVerifiedBackup() {
+        withBackend { backend, _, id ->
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val metadata = File(context.cacheDir, "workspace-trash-${UUID.randomUUID()}")
+
+            fun store() =
+                com.helix.core.workspace.WorkspaceArtifactStore(
+                    com.helix.core.workspace
+                        .ScopeRootResolver { error("SAF cannot resolve a local cwd") },
+                    documentBackend = { backend },
+                    metadataRoot = { metadata.toPath() },
+                )
+            try {
+                val path =
+                    com.helix.core.workspace
+                        .FileScopePath(id, "workspace.txt")
+                store().writeArtifact(
+                    path,
+                    "preserve".toByteArray(),
+                    com.helix.core.workspace.WorkspaceLayout.ROOT_FILES,
+                )
+                val removed = store().moveToTrash(path)
+                assertEquals(null, backend.stat("workspace.txt"))
+                val ref =
+                    com.helix.core.workspace
+                        .FileScopePath(id, ".helix/trash/${removed.trashName}")
+                store().restoreFromTrash(ref)
+                assertEquals("preserve", backend.read("workspace.txt").bufferedReader().use { it.readText() })
+            } finally {
+                metadata.deleteRecursively()
+            }
+        }
+    }
+
     private var writable = true
     private var live = true
 

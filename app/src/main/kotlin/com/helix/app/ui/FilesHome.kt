@@ -54,7 +54,11 @@ internal fun FilesHome(
             FileLocationCard(
                 if (index == 0) stringResource(R.string.files_local) else source.displayName,
                 stringResource(
-                    if (source.supportsMutation) R.string.files_location_editable else R.string.files_location_readonly,
+                    when {
+                        !source.available -> R.string.workspace_unavailable
+                        source.supportsMutation -> R.string.files_location_editable
+                        else -> R.string.files_location_readonly
+                    },
                 ),
                 "files-home-source-${source.scopeId}",
             ) { state.openLocation(source.scopeId) }

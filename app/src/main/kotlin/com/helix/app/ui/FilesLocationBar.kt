@@ -146,6 +146,12 @@ private fun FilesOptionsDialog(
                         state.viewMode = ViewMode.GRID
                     }
                 }, modifier = Modifier.testTag("files-view-grid")) { Text(stringResource(R.string.files_view_grid)) }
+                if (state.currentSource.cleanupEligible) {
+                    TextButton(
+                        { choose { state.cleanupTarget = state.currentSource } },
+                        modifier = Modifier.testTag("files-workspace-cleanup"),
+                    ) { Text(stringResource(R.string.files_workspace_cleanup)) }
+                }
                 if (state.canMutate) {
                     TextButton(
                         {

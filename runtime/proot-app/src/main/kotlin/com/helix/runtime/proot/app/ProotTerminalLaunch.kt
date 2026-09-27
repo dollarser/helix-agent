@@ -16,10 +16,10 @@ internal class ProotTerminalLaunch(
     private val environment: Map<String, String>
 
     init {
-        val allowed = File(context.filesDir, "workspaces/app").canonicalFile
+        val allowed = listOf("app", "managed").map { File(context.filesDir, "workspaces/$it").canonicalFile }
         workspace = File(workspacePath).canonicalFile
         require(workspace.path == workspacePath && workspace.isDirectory)
-        require(workspace == allowed || workspace.toPath().startsWith(allowed.toPath()))
+        require(allowed.any { workspace == it || workspace.toPath().startsWith(it.toPath()) })
         require(':' !in workspace.path && workspace.path.none(Char::isISOControl))
         val root = ProotRuntimeInstaller.runtimeRoot(context)
         val active = checkNotNull(RootFsInstaller.currentActive(root)) { "Runtime requires preparation" }

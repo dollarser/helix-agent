@@ -191,6 +191,7 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-207 | [HXA-207：现有扩展来源的添加到使用闭环](HXA-207.md) |
 | HXA-208 | [HXA-208：完整 Goal 工具与前后台连续运行](HXA-208.md) |
 | HXA-209 | [HXA-209：会话授权预设、工具禁用与自定义权限](HXA-209.md) |
+| HXA-210 | [HXA-210：独立会话工作目录与外部资源绑定](HXA-210.md) |
 | HXA-211 | [HXA-211：按会话导出 JSONL 执行记录](HXA-211.md) |
 | HXA-212 | [HXA-212：内置扩展市场与典型 Connector/Skill 目录](HXA-212.md) |
 | HXA-213 | [HXA-213：按消息创建会话分支](HXA-213.md) |
@@ -204,5 +205,6 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-221 | [HXA-221：Pre-release Clean-slate Baseline Cleanup](HXA-221.md) |
 | HXA-223 | [HXA-223：Post-clean-slate Core Boundary Convergence](HXA-223.md) |
 | HXA-226 | [HXA-226：UI / IA 第二轮收敛](HXA-226.md) |
+| HXA-227 | [HXA-227：统一轨迹级 Agent Eval 与失败归因](HXA-227.md) |
 | HXA-228 | [HXA-228：Conversation-first Shell 与 Session Context Control](HXA-228.md) |
 | HXA-229 | [HXA-229：Model-authored Agent Activity Presentation](HXA-229.md) |

@@ -57,7 +57,7 @@ internal class SafManualFileBackend(
                 uri,
                 cursor.getString(1),
                 cursor.getString(2) == Document.MIME_TYPE_DIR,
-                cursor.getLong(3),
+                if (cursor.isNull(3)) -1L else cursor.getLong(3),
                 cursor.getLong(4),
             )
         }
@@ -68,6 +68,7 @@ internal class SafManualFileBackend(
         return requireNotNull(query) { "Provider listing failed" }.use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
+                    require(size < 8192) { "Provider directory exceeds bounded listing limit" }
                     val name = cursor.getString(1)
                     require(name.isNotBlank() && name !in listOf(".", "..")) { "Invalid document name" }
                     require(!name.contains('/')) { "Invalid document separator" }
@@ -77,13 +78,29 @@ internal class SafManualFileBackend(
                             DocumentsContract.buildDocumentUriUsingTree(parent, cursor.getString(0)),
                             name,
                             cursor.getString(2) == Document.MIME_TYPE_DIR,
-                            cursor.getLong(3),
+                            if (cursor.isNull(3)) -1L else cursor.getLong(3),
                             cursor.getLong(4),
                         ),
                     )
                 }
             }
         }
+    }
+
+    fun supportsMutation(path: String): Boolean {
+        val scope = service.resolve(scopeId, SafAccessMode.READ)
+        val node = requireNotNull(lookup(path))
+        val flags =
+            Document.FLAG_SUPPORTS_WRITE or Document.FLAG_SUPPORTS_DELETE or
+                Document.FLAG_SUPPORTS_RENAME or Document.FLAG_DIR_SUPPORTS_CREATE
+        return scope.writable && node.flags and flags.toLong() != 0L
+    }
+
+    fun directoryIdentity(path: String): String {
+        val node = requireNotNull(lookup(path)) { "Workspace document unavailable" }
+        require(node.directory) { "Workspace must be a directory" }
+        val grant = requireNotNull(grants.find(scopeId))
+        return "${node.uri.authority}:${DocumentsContract.getDocumentId(node.uri)}:${grant.grantedAtMillis}"
     }
 
     override fun validateMutation(path: String) {

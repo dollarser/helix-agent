@@ -48,6 +48,11 @@ class SessionToolEffectClassifier(
 ) : ToolEffectClassifier {
     constructor(sessionWorkspace: (String) -> String?) : this(sessionWorkspace, null)
 
+    fun isWorkspacePath(
+        path: FileScopePath,
+        sessionId: String,
+    ): Boolean = insideWorkspace(path, sessionWorkspace(sessionId))
+
     private fun isBuiltInMetadata(descriptor: ToolDescriptor): Boolean =
         descriptor.origin == ToolOrigin.BuiltInOrigin && descriptor.operationClass == ToolOperationClass.METADATA
 
@@ -141,11 +146,16 @@ class SessionToolEffectClassifier(
                     .getValue("originalCallId")
                     .jsonPrimitive.content
             val output = resolver(request.sessionId, callId)
-            val scope = output?.let { FileScopePath.fromModelReference(it).scopeId }
+            val path = output?.let { FileScopePath.fromModelReference(it) }
             val effects =
                 when {
-                    scope == null -> emptySet()
-                    scope == sessionWorkspace(request.sessionId) -> setOf(OperationEffect.FILE_MUTATION_WORKSPACE)
+                    path == null -> emptySet()
+
+                    insideWorkspace(
+                        path,
+                        sessionWorkspace(request.sessionId),
+                    ) -> setOf(OperationEffect.FILE_MUTATION_WORKSPACE)
+
                     else -> setOf(OperationEffect.FILE_MUTATION_EXTERNAL)
                 }
             CallEffectClassification(OperationFootprint(effects))
@@ -201,8 +211,8 @@ class SessionToolEffectClassifier(
         for ((key, element) in args) {
             val reference = (element as? JsonPrimitive)?.takeIf { it.isString }?.content
             if (reference == null || !reference.startsWith(SCOPE_PREFIX)) continue
-            val scopeId = runCatching { FileScopePath.fromModelReference(reference).scopeId }.getOrNull()
-            val inWorkspace = workspaceId != null && scopeId != null && scopeId == workspaceId
+            val path = runCatching { FileScopePath.fromModelReference(reference) }.getOrNull()
+            val inWorkspace = path != null && insideWorkspace(path, workspaceId)
             val read =
                 if (inWorkspace) OperationEffect.FILE_READ_WORKSPACE else OperationEffect.FILE_READ_EXTERNAL
             val mutation =
@@ -230,6 +240,23 @@ class SessionToolEffectClassifier(
             }
         }
         return CallEffectClassification(OperationFootprint(effects = effects))
+    }
+
+    private fun insideWorkspace(
+        path: FileScopePath,
+        reference: String?,
+    ): Boolean {
+        val workspace =
+            reference?.let {
+                runCatching {
+                    if (it.startsWith(SCOPE_PREFIX)) FileScopePath.fromModelReference(it) else FileScopePath(it, "")
+                }.getOrNull()
+            } ?: return false
+        return path.scopeId == workspace.scopeId &&
+            (
+                workspace.relativePath.isEmpty() || path.relativePath == workspace.relativePath ||
+                    path.relativePath.startsWith("${workspace.relativePath}/")
+            )
     }
 
     companion object {

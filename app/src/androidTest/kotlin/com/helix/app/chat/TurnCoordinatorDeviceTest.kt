@@ -94,7 +94,12 @@ class TurnCoordinatorDeviceTest {
     }
 
     @Test
-    fun unknownSiblingParksTurnAndDoesNotOpenAnotherModelCall() {
+    fun unknownSiblingParksTurnAndDoesNotOpenAnotherModelCall() = verifyUnknownSibling(cancelling = false)
+
+    @Test
+    fun unknownEffectWinsOverDurableCancellationWithoutReplay() = verifyUnknownSibling(cancelling = true)
+
+    private fun verifyUnknownSibling(cancelling: Boolean) {
         val storage = isolatedStorage()
         try {
             storage.sessions.create("session-review", "Review", null, null, 1_000L)
@@ -123,6 +128,10 @@ class TurnCoordinatorDeviceTest {
             coordinator.settleBatchCall("call-ok", sideEffectUnknown = false)
             coordinator.settleBatchCall("call-unknown", sideEffectUnknown = true)
 
+            if (cancelling) {
+                val turn = storage.turns.resolve("turn-review")
+                storage.turns.updateState(turn, TurnState.CANCELLING, turn.stepCount, null, null)
+            }
             coordinator.parkFixtureForReview(listOf("call-unknown"))
 
             assertEquals(TurnState.NEEDS_REVIEW.name, storage.turns.resolve("turn-review").state)

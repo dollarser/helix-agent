@@ -92,6 +92,9 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
     entities =
         [
             SessionEntity::class,
+            com.helix.core.storage.entity.WorkspaceEntity::class,
+            com.helix.core.storage.entity.SessionWorkspaceEntity::class,
+            com.helix.core.storage.entity.ModelCallWorkspaceEntity::class,
             com.helix.core.storage.entity.ConnectorInstallationEntity::class,
             com.helix.core.storage.entity.ConnectorSkillOwnershipEntity::class,
             com.helix.core.storage.entity.SessionConnectorEntity::class,
@@ -152,6 +155,8 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun composerDraftDao(): com.helix.core.storage.dao.ComposerDraftDao
 
     abstract fun sessionInputDao(): com.helix.core.storage.dao.SessionInputDao
+
+    abstract fun workspaceDao(): com.helix.core.storage.dao.WorkspaceDao
 
     abstract fun sessionDao(): SessionDao
 

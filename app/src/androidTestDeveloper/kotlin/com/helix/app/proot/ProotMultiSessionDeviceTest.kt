@@ -30,6 +30,58 @@ class ProotMultiSessionDeviceTest {
     private val container get() = (context.applicationContext as HelixApplication).appContainer
 
     @Test
+    @Suppress("LongMethod") // Actual PTY retains the original workspace through switch and deletion.
+    fun workspaceSwitchAndCleanupRespectRunningTerminal() {
+        ensureInstalledRuntime(context)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            runBlocking {
+                val previous = container.profileStore.profile
+                val terminal = checkNotNull(container.manualTerminal)
+                val storage = container.storage
+                val owner = storage.sessions.create("workspace-pty-${UUID.randomUUID()}", "PTY owner", null, null, 1)
+                val next = storage.sessions.create("workspace-next-${UUID.randomUUID()}", "Next", null, null, 2)
+                val id = requireNotNull(storage.workspaces.binding(owner.id)).workspaceId
+                val root = storage.workspaces.managedDirectory(id)
+                val nextId = requireNotNull(storage.workspaces.binding(next.id)).workspaceId
+                val nextRoot = storage.workspaces.managedDirectory(nextId)
+                try {
+                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    val session = terminal.start("scope:$id:", 30_000)
+                    val connection = terminal.attach(session.sessionId)
+                    try {
+                        awaitText(connection, "helix> ")
+                        storage.sessions.updateDetails(owner.id, owner.title, next.directoryRef)
+                        assertEquals("ACCEPTED", connection.write("printf original > retained.txt\n".toByteArray()))
+                        awaitFileContent(root.resolve("retained.txt").toFile(), "original")
+                        assertFalse(
+                            java.nio.file.Files
+                                .exists(nextRoot.resolve("retained.txt")),
+                        )
+                        storage.deleteSessionPermanently(owner.id)
+                        assertThrows(IllegalStateException::class.java) { container.fileManager.cleanupWorkspace(id) }
+                        assertEquals("READY", storage.workspaces.find(id)!!.availability)
+                    } finally {
+                        connection.detach()
+                    }
+                    terminal.stop(session.sessionId)
+                    awaitStopped(terminal, session.sessionId)
+                    terminal.settle(session.sessionId)
+                    container.fileManager.cleanupWorkspace(id)
+                    assertEquals("DELETED", storage.workspaces.find(id)!!.availability)
+                    assertTrue(
+                        java.nio.file.Files
+                            .isDirectory(nextRoot),
+                    )
+                } finally {
+                    cleanRemainingSessions(terminal)
+                    container.profileStore.switchTo(previous)
+                    storage.sessions.archive(next.id, System.currentTimeMillis())
+                }
+            }
+        }
+    }
+
+    @Test
     fun dualSessionsRunConcurrentlyAndIsolateWorkspaces() {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {

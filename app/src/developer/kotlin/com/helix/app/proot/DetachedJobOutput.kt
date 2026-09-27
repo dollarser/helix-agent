@@ -1,6 +1,7 @@
 package com.helix.app.proot
 
 import com.helix.app.approval.SessionPermissionService
+import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.policy.OperationFootprint
@@ -79,7 +80,7 @@ internal class DetachedJobOutput(
             "Original Job tool is disabled; output was not imported"
         }
         val effect =
-            if (path.scopeId == workspaceFor(sessionId)) {
+            if (SessionToolEffectClassifier(workspaceFor).isWorkspacePath(path, sessionId)) {
                 OperationEffect.FILE_MUTATION_WORKSPACE
             } else {
                 OperationEffect.FILE_MUTATION_EXTERNAL

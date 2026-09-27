@@ -24,20 +24,13 @@ internal class FileManagerTrash(
     ): String = if (dir.isEmpty()) name else "$dir/$name"
 
     /** The current trash contents, newest storage order; empty when there is none. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed empty list
     fun listTrash(scopeId: String): List<TrashEntryView> {
         val trashDir = FileScopePath(scopeId, WorkspaceLayout.TRASH)
-        return try {
-            store
-                .listDir(trashDir, MAX_LIST_ENTRIES)
-                .entries
-                .mapNotNull { entryName ->
-                    val original = decodeTrashEntryName(entryName) ?: return@mapNotNull null
-                    val s = store.stat(FileScopePath(scopeId, joinPath(WorkspaceLayout.TRASH, entryName)))
-                    TrashEntryView(entryName, original, s.sizeBytes)
-                }
-        } catch (e: Exception) {
-            emptyList()
+        if (!store.stat(trashDir).exists) return emptyList()
+        return store.listDir(trashDir, MAX_LIST_ENTRIES).entries.mapNotNull { entryName ->
+            val original = decodeTrashEntryName(entryName) ?: return@mapNotNull null
+            val metadata = store.stat(FileScopePath(scopeId, joinPath(WorkspaceLayout.TRASH, entryName)))
+            TrashEntryView(entryName, original, metadata.sizeBytes)
         }
     }
 

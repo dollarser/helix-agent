@@ -34,6 +34,9 @@ class WorkspaceArtifactStore(
     private val rootResolver: ScopeRootResolver,
     private val quotaPolicy: WorkspaceQuotaPolicy = WorkspaceQuotaPolicy.default,
     private val linkPolicy: LinkPolicy = LinkPolicy.REJECT_SYMLINKS,
+    private val documentBackend: (String) -> WorkspaceFileBackend? = { null },
+    private val metadataRoot: (String) -> Path? = { null },
+    private val externalScope: (String) -> Boolean = { false },
 ) {
     /**
      * A registered artifact (doc 02 §8 `artifacts` row shape: id, relativePath, mediaType, size,
@@ -137,11 +140,21 @@ class WorkspaceArtifactStore(
         require(WorkspaceLayout.regionOf(path.relativePath) == region) {
             "destination must stay inside the $region region"
         }
-        val root = resolve(path.scopeId)
+        documents(path)?.let { backend ->
+            val outcome = backend.write(path, bytes, expectedPreviousSha256, turnId)
+            if (sink != null && sessionId != null) sink.register(sessionId, outcome.record)
+            return outcome
+        }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
 
         // Quota admission before touching the disk (fail-closed; no temp is created on rejection).
-        WorkspaceQuota.ensureRoom(root, bytes.size.toLong(), quotaPolicy.maxWorkspaceBytes)
+        if (!externalScope(
+                path.scopeId,
+            )
+        ) {
+            WorkspaceQuota.ensureRoom(root, bytes.size.toLong(), quotaPolicy.maxWorkspaceBytes)
+        }
 
         val writtenHash = AtomicFileWriter.writeAtomic(target, bytes, expectedPreviousSha256)
 
@@ -149,7 +162,7 @@ class WorkspaceArtifactStore(
         // class KDoc); it is the figure the UI shows and the next pre-check re-reads. It is
         // reported, not asserted, because a cross-session concurrent writer can only push it over
         // the cap (reverted would discard this successful write).
-        val usageAfter = WorkspaceQuota.usageBytes(root)
+        val usageAfter = usageBytes(path.scopeId)
         val probe = ContentProbe.probe(target)
         val record =
             ArtifactRecord(
@@ -208,12 +221,12 @@ class WorkspaceArtifactStore(
             "destination must stay inside the $region region"
         }
         require(maxBytes > 0) { "maxBytes must be positive" }
-        val root = resolve(path.scopeId)
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
 
         // Quota admission before touching the disk (fail-closed; no temp is created on rejection).
         val preAdmit = if (expectedBytes > 0) expectedBytes else maxBytes
-        WorkspaceQuota.ensureRoom(root, preAdmit, quotaPolicy.maxWorkspaceBytes)
+        if (!externalScope(path.scopeId)) WorkspaceQuota.ensureRoom(root, preAdmit, quotaPolicy.maxWorkspaceBytes)
 
         val digest = MessageDigest.getInstance("SHA-256")
         AtomicFileWriter.writeAtomicStream(
@@ -221,7 +234,7 @@ class WorkspaceArtifactStore(
         ) { out -> sourceInto(CappedDigestOutputStream(out, digest, maxBytes)) }
         val writtenHash = digest.digest().joinToString("") { "%02x".format(it) }
 
-        val usageAfter = WorkspaceQuota.usageBytes(root)
+        val usageAfter = usageBytes(path.scopeId)
         val probe = ContentProbe.probe(target)
         val record =
             ArtifactRecord(
@@ -240,16 +253,35 @@ class WorkspaceArtifactStore(
     }
 
     /**
-     * Reads [path] (containment-enforced) and returns its full bytes. Intentionally unbounded in
-     * *this* API — the tool layer (HXA-042 `read`) imposes offset/maxBytes; this method is the
-     * internal whole-file accessor the tool uses after its own bounds check.
+     * Reads [path] with containment and a 32 MiB whole-file limit. Larger files use [readWindow].
      * @throws IOException on read failure.
      */
+    @Suppress("ReturnCount") // Backend dispatch and missing-file behavior precede the bounded local read.
     fun readAll(path: FileScopePath): ByteArray {
-        val root = resolve(path.scopeId)
+        documents(path)?.let { return it.readAll(path) }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
         if (!Files.exists(target) || !Files.isRegularFile(target)) return ByteArray(0)
-        return Files.readAllBytes(target)
+        return Files.newInputStream(target).use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                require(count > 0 && output.size() + count <= DocumentWorkspaceOperations.MAX_BYTES) {
+                    "File exceeds bounded whole-file read limit; use readWindow"
+                }
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+    }
+
+    /** Verified scope resolution for streaming artifact registration; the caller owns closing. */
+    fun openRead(path: FileScopePath): java.io.InputStream {
+        if (privateMetadata(path) == null) documentBackend(path.scopeId)?.let { return it.read(path.relativePath) }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
+        return Files.newInputStream(resolveContained(path, root))
     }
 
     /**
@@ -266,7 +298,8 @@ class WorkspaceArtifactStore(
         offset: Long,
         maxBytes: Long,
     ): ReadWindow {
-        val root = resolve(path.scopeId)
+        documents(path)?.let { return it.readWindow(path, offset, maxBytes) }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
         if (!Files.exists(target) || !Files.isRegularFile(target)) {
             throw java.io.FileNotFoundException("not a regular file: ${path.toModelReference()}")
@@ -279,13 +312,21 @@ class WorkspaceArtifactStore(
      * not thrown.
      */
     fun probe(path: FileScopePath): ContentProbe.Result {
-        val root = resolve(path.scopeId)
+        documents(path)?.let { return it.probe(path) }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
         return ContentProbe.probe(target)
     }
 
     /** Current aggregate usage of the scope, in bytes. */
-    fun usageBytes(scope: String): Long = WorkspaceQuota.usageBytes(resolve(scope))
+    fun usageBytes(scope: String): Long =
+        if (documents(scope) !=
+            null
+        ) {
+            -1
+        } else {
+            WorkspaceQuota.usageBytes(resolve(scope))
+        }
 
     /**
      * Reclaims every abandoned temp file anywhere under the scope (recursively, including nested
@@ -303,8 +344,11 @@ class WorkspaceArtifactStore(
      * @throws ScopeNotAvailable when the scope cannot be resolved.
      * @throws PathResolutionError on a forbidden symlink or escaping segment.
      */
+    @Suppress("ReturnCount") // Backend dispatch and absent metadata are independent early exits.
     fun stat(path: FileScopePath): StatInfo {
-        val root = resolve(path.scopeId)
+        documents(path)?.let { return it.stat(path) }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
+        if (!Files.exists(root)) return StatInfo(false, -1L, false, false, false, -1L)
         val target = resolveContained(path, root)
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
             return StatInfo(false, -1L, false, false, false, -1L)
@@ -339,7 +383,8 @@ class WorkspaceArtifactStore(
         path: FileScopePath,
         maxEntries: Int,
     ): ListResult {
-        val root = resolve(path.scopeId)
+        documents(path)?.let { return it.list(path, maxEntries) }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val dir = resolveContained(path, root)
         if (!Files.exists(dir) || !Files.isDirectory(dir)) {
             throw FileNotFoundException("not a directory: ${path.toModelReference()}")
@@ -393,6 +438,7 @@ class WorkspaceArtifactStore(
         require(needle.isNotEmpty()) { "search needle must be non-empty" }
         require(maxResults in 1..MAX_SEARCH_RESULTS) { "maxResults must be 1..$MAX_SEARCH_RESULTS (got $maxResults)" }
         require(maxScan in 1..MAX_SEARCH_SCAN) { "maxScan must be 1..$MAX_SEARCH_SCAN (got $maxScan)" }
+        documents(base.scopeId)?.let { return it.search(base, needle, maxResults, maxScan) }
         val root = resolve(base.scopeId)
         val baseDir = resolveContained(base, root)
         if (!Files.exists(baseDir) || !Files.isDirectory(baseDir)) {
@@ -429,7 +475,11 @@ class WorkspaceArtifactStore(
                 "destination must stay inside the $region region"
             }
         }
-        val root = resolve(path.scopeId)
+        documents(path)?.let {
+            it.mkdir(path)
+            return
+        }
+        val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
         if (Files.exists(target)) {
             throw java.nio.file.FileAlreadyExistsException(path.toModelReference())
@@ -464,6 +514,9 @@ class WorkspaceArtifactStore(
         require(WorkspaceLayout.regionOf(dst.relativePath) == region) {
             "destination must stay inside the $region region"
         }
+        if (documents(src.scopeId) != null || documents(dst.scopeId) != null) {
+            return copyDocument(src, dst, region, overwrite)
+        }
         val srcRoot = resolve(src.scopeId)
         val dstRoot = resolve(dst.scopeId)
         val source = resolveContained(src, srcRoot)
@@ -474,9 +527,35 @@ class WorkspaceArtifactStore(
         ensureWritableTarget(target, overwrite)
         val overwritten = Files.exists(target)
         val size = Files.size(source)
-        WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
+        if (!externalScope(dst.scopeId)) WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
         val sha = streamCopyAndHash(source, target)
-        return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
+        return CopyMoveOutcome(dst.relativePath, size, sha, usageBytes(dst.scopeId), overwritten)
+    }
+
+    private fun copyDocument(
+        src: FileScopePath,
+        dst: FileScopePath,
+        region: String,
+        overwrite: Boolean,
+    ): CopyMoveOutcome {
+        val before = stat(src)
+        require(before.isRegularFile && before.sizeBytes in 0..DocumentWorkspaceOperations.MAX_BYTES.toLong())
+        val target = stat(dst)
+        if (target.exists &&
+            (!overwrite || target.isDirectory)
+        ) {
+            throw java.nio.file.FileAlreadyExistsException(dst.toModelReference())
+        }
+        val bytes = readAll(src)
+        val hash = DocumentWorkspaceOperations.sha256(bytes)
+        if (DocumentWorkspaceOperations.sha256(readAll(src)) !=
+            hash
+        ) {
+            throw PreconditionHashMismatch(hash, "source-changed")
+        }
+        val expected = if (target.exists) DocumentWorkspaceOperations.sha256(readAll(dst)) else null
+        val outcome = writeArtifact(dst, bytes, region, expected)
+        return CopyMoveOutcome(dst.relativePath, bytes.size.toLong(), hash, outcome.usageBytesAfter, target.exists)
     }
 
     /**
@@ -492,7 +571,7 @@ class WorkspaceArtifactStore(
      * @throws WorkspaceQuota.QuotaExceeded for a cross-scope move the destination scope cannot
      *   admit (the source is left untouched).
      */
-    @Suppress("SwallowedException") // same-scope fallback: non-atomic move on filesystems without ATOMIC_MOVE
+    @Suppress("SwallowedException", "ReturnCount") // Non-atomic fallback only when ATOMIC_MOVE is unsupported.
     fun moveFile(
         src: FileScopePath,
         dst: FileScopePath,
@@ -502,6 +581,9 @@ class WorkspaceArtifactStore(
         require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
         require(WorkspaceLayout.regionOf(dst.relativePath) == region) {
             "destination must stay inside the $region region"
+        }
+        if (documents(src.scopeId) != null || documents(dst.scopeId) != null) {
+            return moveDocument(src, dst)
         }
         val srcRoot = resolve(src.scopeId)
         val dstRoot = resolve(dst.scopeId)
@@ -528,25 +610,49 @@ class WorkspaceArtifactStore(
                     Files.move(source, target)
                 }
             }
-            return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
+            return CopyMoveOutcome(dst.relativePath, size, sha, usageBytes(dst.scopeId), overwritten)
         }
         // Cross-scope: publish into the destination scope (quota-gated) before the source is
         // deleted, so the source can never be lost to an admission failure.
-        WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
+        if (!externalScope(dst.scopeId)) WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
         val sha = streamCopyAndHash(source, target)
         Files.delete(source)
-        return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
+        return CopyMoveOutcome(dst.relativePath, size, sha, usageBytes(dst.scopeId), overwritten)
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Any provider error after rename can represent a partial effect.
+    private fun moveDocument(src: FileScopePath, dst: FileScopePath): CopyMoveOutcome {
+        val document =
+            documentBackend(src.scopeId)
+                ?: throw ScopeNotAvailable("Source does not support document rename")
+        require(src.scopeId == dst.scopeId && src.parent == dst.parent && !stat(dst).exists) {
+            "Document backend supports only a same-directory rename to an absent destination"
+        }
+        val bytes = readAll(src)
+        val hash = DocumentWorkspaceOperations.sha256(bytes)
+        try {
+            document.rename(src.relativePath, dst.relativePath)
+            check(!stat(src).exists && DocumentWorkspaceOperations.sha256(readAll(dst)) == hash)
+        } catch (failure: Exception) {
+            throw WorkspaceMutationUncertain(failure)
+        }
+        return CopyMoveOutcome(dst.relativePath, bytes.size.toLong(), hash, -1, false)
     }
 
     private val privacyOperations = WorkspacePrivacyOperations(::resolve, ::resolveContained, ::ensureLayout)
 
     private val trashOperations = WorkspaceTrashOperations(::resolve, ::resolveContained)
 
-    fun moveToTrash(path: FileScopePath): TrashEntry = trashOperations.moveToTrash(path)
+    fun supportsRecoverableTrash(scope: String): Boolean = metadataRoot(scope) != null
 
-    fun restoreFromTrash(trashRef: FileScopePath): TrashRestoreOutcome = trashOperations.restoreFromTrash(trashRef)
+    fun moveToTrash(path: FileScopePath): TrashEntry =
+        backupTrash(path.scopeId)?.move(path) ?: trashOperations.moveToTrash(path)
 
-    fun purgeTrashEntry(trashRef: FileScopePath): PurgeOutcome = trashOperations.purgeTrashEntry(trashRef)
+    fun restoreFromTrash(trashRef: FileScopePath): TrashRestoreOutcome =
+        backupTrash(trashRef.scopeId)?.restore(trashRef) ?: trashOperations.restoreFromTrash(trashRef)
+
+    fun purgeTrashEntry(trashRef: FileScopePath): PurgeOutcome =
+        backupTrash(trashRef.scopeId)?.purge(trashRef) ?: trashOperations.purgeTrashEntry(trashRef)
 
     fun deletePermanentlyForPrivacy(path: FileScopePath): Boolean = privacyOperations.deletePermanentlyForPrivacy(path)
 
@@ -565,12 +671,62 @@ class WorkspaceArtifactStore(
         }
     }
 
+    private fun backupTrash(scope: String): WorkspaceBackupTrash? =
+        metadataRoot(scope)?.let { metadata ->
+            WorkspaceBackupTrash(metadata.resolve("trash"), this, delete = { path ->
+                val backend = documentBackend(path.scopeId)
+                if (backend !=
+                    null
+                ) {
+                    backend.delete(path.relativePath)
+                } else {
+                    Files.delete(resolveContained(path, resolve(path.scopeId)))
+                }
+            }, create = { path ->
+                val backend = documentBackend(path.scopeId)
+                if (backend !=
+                    null
+                ) {
+                    backend.create(path.relativePath, false)
+                } else {
+                    Files.createFile(resolveContained(path, resolve(path.scopeId)))
+                }
+            })
+        }
+
+    private fun privateMetadata(path: FileScopePath): Path? =
+        if (path.relativePath == WorkspaceLayout.HELIX || path.relativePath.startsWith("${WorkspaceLayout.HELIX}/")) {
+            metadataRoot(path.scopeId)
+        } else {
+            null
+        }
+
+    private fun documents(path: FileScopePath): DocumentWorkspaceOperations? =
+        if (privateMetadata(path) == null) documents(path.scopeId) else null
+
+    private fun documents(scope: String): DocumentWorkspaceOperations? =
+        documentBackend(scope)?.let(::DocumentWorkspaceOperations)
+
     private fun resolve(scope: String): Path = rootResolver.resolveRoot(scope)
 
     private fun resolveContained(
         path: FileScopePath,
         root: Path,
-    ): Path = PathResolution.resolveWithinRoot(root, PathResolution.join(root, path.relativePath), linkPolicy)
+    ): Path {
+        val metadata = metadataRoot(path.scopeId)
+        val internal =
+            path.relativePath == WorkspaceLayout.HELIX || path.relativePath.startsWith("${WorkspaceLayout.HELIX}/")
+        val base = if (metadata != null && internal) metadata else root
+        val relative =
+            if (metadata != null &&
+                internal
+            ) {
+                path.relativePath.removePrefix(WorkspaceLayout.HELIX).trimStart('/')
+            } else {
+                path.relativePath
+            }
+        return PathResolution.resolveWithinRoot(base, PathResolution.join(base, relative), linkPolicy)
+    }
 
     /**
      * Streams [source] into [target] through the writer's temp+fsync+rename path, hashing on the
