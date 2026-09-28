@@ -1,35 +1,115 @@
-# Helix Android 本机 Agent
+# Helix
 
-Helix 是一个 Android 优先、能力优先、手机本地执行的个人 Agent，首要面向开发者与效率用户。模型可通过网络 API 或用户配置的自建模型服务调用，但 Agent Runtime、权限判断、工具调用、浏览器、文件工作区、代码执行、审批和审计均在手机上运行。
+**少一点复制粘贴，少一点来回切换。把手机上的琐事，交给 Helix。**
 
-当前目标是让一个 Helix 产品同时覆盖 Google Play、国内 Android 应用商店和官网直接分发：所有安装默认运行完整的 `STANDARD`，需要时在 developer 安装内显式进入 `ADVANCED`。developer 单 APK 内置 Subscriptions 和 PRoot，在私有进程按需运行并共享主应用 UID；consumer 不包含这两个组件。PRoot 是可信开发者执行环境，不承诺离线或主应用数据隔离，见 [ADR-RUNTIME-001](docs/adr/runtime/001-execution-domains.md)。渠道 artifact 仍按真实要求保留其他能力。远程 Worker、云端沙箱、桌面配对与 HarmonyOS 客户端暂不实现。
+查到的资料还要自己整理，记下的开销还要自己合计，AI 写好的内容还要复制、建文件、保存……真正花时间的，往往是这些零碎的最后几步。
 
-## 文档入口
+Helix 是一款能在 Android 手机上动手做事的 AI 助手。告诉它你想得到什么，它可以在你授权的范围内读取文件、整理数据、浏览网页、操作支持的应用界面，把结果保存下来，供你查看和继续使用。
 
-完整目录、阅读路径和维护规则统一在[文档中心](docs/README.md)。日常开发优先使用以下入口：
+**你说目标，它来动手；做到了哪一步，随时看得见。**
 
-- [当前实施状态](docs/development/status.md)：唯一当前状态源。
-- [产品需求](docs/product/requirements.md)与[市场、用户和商业化分析](docs/product/market-users-and-commercialization.md)：能力范围、目标用户、首发场景和商业假设。
-- [开发路线](docs/development/roadmap.md)与[验收矩阵](docs/development/verification-matrix.md)：HXA 的范围与验收。
-- [总体架构](docs/architecture/overview.md)与[Provider](docs/architecture/providers.md)、[扩展](docs/architecture/extensions.md)与[模式](docs/architecture/agent-modes.md)：规范性设计与扩展协议边界。
-- [完成记录](docs/completion-records/README.md)、[Bug 修复](docs/bug-fixes/README.md)与[ADR](docs/adr/README.md)：交付证据、缺陷根因与决策理由。
+[下载 v0.0.3](https://github.com/dollarser/helix-agent/releases/tag/v0.0.3) · [反馈问题](https://github.com/dollarser/helix-agent/issues) · [项目文档](docs/README.md)
 
-当前已验证范围、`In progress`、`Next task` 和能力限制只在[当前实施状态](docs/development/status.md)维护；本 README 不复制随 HXA 变化的快照。
+> 当前为开发预览版，适合体验与测试。APK 使用 debug 签名，正式签名和数据升级兼容性尚未完成；重要文件请保留备份。
 
-## 稳定边界
+## 把这些小麻烦，变成一句话
 
-- 产品运行在 Android 单机；基础任务不依赖电脑、云端 Worker 或远程沙箱。
-- 原生 Tools、QuickJS、PRoot 与 CLI 分属不同执行域；本机执行不等于在主进程执行，也不等于虚拟机。
-- 文件管理器可独立于模型与会话使用；手动文件权限不自动成为 Agent 的可用范围。
-- 所有工具进入同一条 schema、Capability、Policy、Approval、执行、验证与审计管线；系统权限或 Runtime 权限不能替代 ToolCall 授权。
-- `STANDARD` 是各分发渠道的完整产品形态，`ADVANCED` 在同一产品内开放额外能力；当前授权设计与旧实现边界见[权限与审批](docs/adr/permissions/README.md)：实现与验收范围以[当前状态](docs/development/status.md)和[HXA-209 完成记录](docs/completion-records/HXA-209.md)为准。
-- 分发渠道、构建 flavor 与运行时安全配置互不等同；能力保留的分发决定见 [ADR-PLATFORM-001](docs/adr/platform/001-distribution.md)。
-- 远程 Worker、云端沙箱、桌面配对、HarmonyOS、自动支付和无人确认的对外发送不在当前范围；M7 的 A2A 仅作为用户配置的远程 Agent Client，不把远端 Agent 变成 Helix Worker，也不开放 A2A Server、递归多 Agent 或任意 peer 通信；Tasker/Auto.js 与 Shizuku/ADB 仅是未排期研究候选。
+下面这些请求，可以作为你的起点。涉及资料时，先把文本或 CSV 文件放入会话工作目录，并开放所需权限。
 
-具体技术选型、模块边界、applicationId、Runtime 生命周期和未来能力以[架构文档](docs/architecture/overview.md)、[产品需求](docs/product/requirements.md)及[有效 ADR](docs/adr/README.md)为准，避免在入口文档重复维护。
+### 零散笔记，整理成下一步
 
-## 给实现者的第一条规则
+开会记了几段文字，待办散在不同文件里，回头还要重新读一遍。
 
-不要直接从聊天页面堆功能。按[开发路线](docs/development/roadmap.md)的任务顺序实施，并在每项任务完成后执行该 HXA 列出的验收命令。
+> “把这个目录里的会议笔记整理成一份待办清单，列出负责人和截止时间。没写清楚的标为待确认，保存成新文件，保留原笔记。”
 
-涉及 Android、依赖版本、服务登录方式、渠道政策和第三方仓库的事实会随时间变化；实施或发布前必须重新核实，不能把调研快照当成当前保证。
+把整理后的文件留在手机上，下次接着修改，不用再从聊天记录里翻找、复制。
+
+### 一堆数字，算出你关心的答案
+
+旅行开销、活动费用、日常记账，已经有了明细，却还要逐项加总。
+
+> “按类别汇总这份 CSV 开销明细，算出总额，列出金额最高的五笔，另存一份汇总。缺失金额单独列出，不要猜。”
+
+让 AI 帮你完成读取、计算和保存，再对照原始明细核对结果。
+
+### 查过的资料，留下能用的清单
+
+查了几个网页，信息散在不同页面里，最后还是得自己拼成一份笔记。
+
+> “阅读我提供的这几个活动页面，整理时间、地点和报名方式，保留来源链接，保存成一份清单。没有找到的信息标注出来。”
+
+适合从你已经选好的资料开始，减少网页与笔记之间的来回切换。
+
+### 手机上重复的几步，试着交出去
+
+有些操作不难，只是每次都要重新找入口、点菜单。
+
+> “把屏幕亮度调到最低，完成后确认结果。”
+
+Helix 可以在明确授权后操作支持的应用界面。当前已有系统亮度任务的定向验证；其他应用受界面和权限影响，需要逐项确认支持情况。
+
+这些是可尝试的任务示例，不是对所有文件格式、网站和应用的兼容承诺。建议先用副本或非敏感资料体验。
+
+## 帮你做事，也让你掌握进度
+
+- **结果能留下来**：生成的文件可以查看，后续任务继续使用同一个工作目录。
+- **复杂任务先理清**：可以先让它列计划，确认后再执行；过程中查看状态，随时停止或调整。
+- **权限由你决定**：文件访问和手机操作按需授权，待审批、被拒绝和需核查的情况会明确显示。
+- **模型由你选择**：连接你自己的模型服务，也可以从应用内下载本地模型，在设备上推理。
+
+任务能否完成取决于模型能力、可用工具、设备条件和授权范围。Helix 会显示实际执行状态；模型说“完成了”不等于操作已经成功。
+
+## 下载与安装
+
+需要 **Android 10 或更新版本**。
+
+| 安装包 | 适合谁 |
+| --- | --- |
+| [developer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.3/helix-v0.0.3-developer-debug.apk) | **一般体验请选择这个包**。默认使用 Standard 模式，内置进阶终端等能力，可按需进入 Advanced。 |
+| [consumer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.3/helix-v0.0.3-consumer-debug.apk) | 用于体验不含订阅 Runtime 和 PRoot 终端的构建版本。 |
+
+下载后按 Android 提示允许安装该来源的应用。[发布页](https://github.com/dollarser/helix-agent/releases/tag/v0.0.3)提供版本说明、源码和 SHA-256 校验文件。
+
+如果覆盖安装提示签名冲突，请先保留现有数据，不要直接卸载或清除数据。不同来源的开发包可能无法直接覆盖安装。
+
+## 开始第一个任务
+
+1. **配置模型**：进入模型管理，添加你使用的模型服务并完成连接测试；也可以进入本地模型目录下载安装。网络服务可能需要你自己的 API Key，并按服务方规则计费。
+2. **选择会话模型**：新建会话，选择刚配置好的模型。使用本地模型时，确认安装与能力检查结果后再用于会话。
+3. **从一个小任务开始**：试试下面的请求，把一段随手记录变成可保存的清单。
+4. **查看结果**：按需确认授权，查看工具执行状态，并打开生成的文件核对内容。
+
+```text
+帮我整理明天的待办：上午十点开会，下午寄快递，晚上买牛奶。
+按上午、下午、晚上分组，保存为“明日待办.md”。
+不要补充我没说过的时间。保存后读回文件，确认内容一致。
+```
+
+文件任务跑通后，再尝试处理你选择的文件或更长的工作流程。操作其他应用时，需另外开启相应系统权限，并授权当前自动化会话的目标应用。
+
+想试什么，就从一件你每天嫌麻烦的小事开始。也欢迎在 [Issues](https://github.com/dollarser/helix-agent/issues) 分享你的场景、成功经验或卡住的步骤，帮助 Helix 把这些实际问题做得更好。
+
+## 模型与隐私
+
+**在手机上执行，不等于所有内容都留在手机上。** 使用云端或自建服务时，对话及完成任务所需的文件片段、工具结果等会发送给你选择的模型服务。请按内容敏感程度选择服务和授权范围。
+
+本地模型在设备上推理，但模型下载、网页访问和联网工具仍可能使用网络。本地模型也需要额外存储与运行内存，速度和可完成的任务因设备而异；APK 不包含模型权重。
+
+文件权限、手机系统权限和会话授权各有用途。只开放任务需要的范围；遇到待审批、被拒绝或需核查状态时，以应用显示的执行状态为准。停止任务不会自动撤销已经发生的外部操作。
+
+## 遇到问题
+
+提交 [Issue](https://github.com/dollarser/helix-agent/issues) 时，请提供应用版本、安装包类型、手机型号、Android 版本、模型名称，以及可复现的操作步骤和错误提示。
+
+请勿附上 API Key、账号凭据或私人文件。分享诊断信息前先检查内容并脱敏。
+
+## 参与开发
+
+欢迎通过 Issue 反馈使用体验或提交改进。开发前请阅读 [AGENTS.md](AGENTS.md) 和[开发环境说明](docs/development/environment.md)。
+
+- [当前进展与已知限制](docs/development/status.md)
+- [开发路线](docs/development/roadmap.md)
+- [架构与设计决策](docs/architecture/overview.md)
+- [完整文档目录](docs/README.md)
+
+代码使用 [Apache-2.0 许可证](LICENSE)；第三方组件遵循各自许可证。
