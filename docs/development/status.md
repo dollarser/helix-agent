@@ -54,13 +54,17 @@ P2 SAF bounded diagnosis 已完成且**当前无法稳定复现**：在固定 AP
 
 P3 本地模型安装最小闭环已完成。精选目录固定 0.6B/4B 两个公开 GGUF 及 ModelScope/Hugging Face revisions；高级 URL/hash/size 导入保留。统一下载器已覆盖空间预检、200 restart、精确 206 resume、hash/range/disk/duplicate/cancel/recovery，安装后自动 connection + capability probe，只有显式操作才绑定当前 Session。最终 API36 developer Android HTTP → cancel/resume → publish → real probe → current-session selection 1/1 passed；安装 UI + Session model regression 3/3 passed；`check-all.sh --all` 最终 1313 tasks `BUILD SUCCESSFUL`。详见 [P3 证据](../evidence/development/p3-local-model-install-2026-09-28.md)。
 
-下一本地主线进入 P4：
+P4 首次成功联合旅程已完成，未修改 production。owned API36 developer 从 `pm clear` 干净状态开始，经 P3 同一安装编排安装本地 GGUF、创建唯一当前 Session 与 managed Workspace，真实模型执行 `write`→`read` 两个工具调用并产生 durable artifact；setup 随后 `Process.killProcess`，新 PID 重开后同一 Session/model/Workspace/Turn/messages/tool timeline/artifact 全部恢复，2 秒观察窗内 Turn/model call/tool call 数量不变，确认无重复副作用。4B Instruct 2507 成功轮为 2 tool calls / 3 model calls / 6 persisted messages；artifact SHA 与 Workspace 文件一致。详见 [P4 证据](../evidence/development/p4-first-success-journey-2026-09-28.md)。
+
+同一 P4 fixture 也给出模型质量对照：0.6B 在最小 write/read 请求上第一 model call 达到 512 output-token 上限后以 `LOCAL_OUTPUT_LIMIT` 失败，0 tool calls；因此不把 runtime 可加载或 capability probe 通过误写成 task success。该失败不触发 production 修复，转入 P5 的质量基线。
+
+下一本地主线进入 P5：
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| P4 | 首次成功联合旅程 | 新安装→模型→Workspace→真实任务→Tool→产物→关闭重开 | 复用 HXA-205/228/210/222/230 与 P3 已有入口，不新增平行 onboarding/runtime |
-| P5 | 性能与任务质量基线 | load/prefill/decode/TTFT/PSS/RSS/cancel-exit 可分解；冻结少量真实任务和 oracle | P4 产品链路先稳定；Runtime success 与 task correctness 分开统计 |
-| P6+ | 证据驱动优化→hardening→内测→发行 | 同配置 A/B、错误可恢复、真实用户反馈后再进入 120→122→121→123 | GPU/NPU、Project Memory、Subagent 等不自动进入近期主线 |
+| P5 | 性能与任务质量基线 | load/prefill/decode/TTFT/PSS/RSS/cancel-exit 可分解；冻结少量真实任务和 oracle | P4 产品闭环已稳定；Runtime success 与 task correctness 分开统计 |
+| P6 | 证据驱动优化 | 同模型/同任务/同配置逐项比较 KV/prefix/thread/batch/streaming，只有事实收益才保留 | 不先承诺 GPU/NPU |
+| P7+ | hardening→内测→发行 | 错误可恢复、真实用户反馈后再进入 120→122→121→123 | Project Memory、Subagent 等不自动进入近期主线 |
 
 HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入时独立验收，不阻塞无依赖本地工作。HXA-222 的历史 PROTOCOL 未保留原始回复，不声称唯一根因已定位；4B 一次固定任务通过也不外推为手机性能或普遍模型可靠性。
 

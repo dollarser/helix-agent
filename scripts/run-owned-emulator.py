@@ -89,17 +89,26 @@ def run(args):
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
             device("install", "-r", str(output / "app.apk"), timeout=120)
             device("install", "-r", str(output / "test.apk"), timeout=120)
+            app_package = args.runner.split("/", 1)[0].removesuffix(".test")
+            if args.clear_app_data:
+                cleared = device("shell", "pm", "clear", app_package).strip()
+                if cleared != "Success":
+                    raise RuntimeError(f"Failed to clear target app data: {cleared}")
             if args.grant_shared_storage:
-                app_package = args.runner.split("/", 1)[0].removesuffix(".test")
                 api = int(device("shell", "getprop", "ro.build.version.sdk").strip())
                 if api >= 30:
                     device("shell", "appops", "set", app_package, "MANAGE_EXTERNAL_STORAGE", "allow")
                 else:
                     for permission in ("READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"):
                         device("shell", "pm", "grant", app_package, "android.permission." + permission)
+            extras = []
+            for argument in args.instrument_arg:
+                key, value = argument.split("=", 1)
+                extras.extend(["-e", key, value])
             if args.recovery_setup_class:
                 setup = device("shell", "am", "instrument", "-w", "-e", "class", args.recovery_setup_class,
-                               "-e", "recoveryPhase", args.recovery_setup_phase, args.runner, timeout=args.timeout)
+                               "-e", "recoveryPhase", args.recovery_setup_phase, *extras,
+                               args.runner, timeout=args.timeout)
                 (output / "recovery-setup.txt").write_text(setup)
                 if "process crashed" not in setup.lower():
                     raise RuntimeError("Recovery setup did not reach the expected process death")
@@ -132,10 +141,6 @@ def run(args):
                     raise ValueError("Recovery follow-up requires a setup class")
                 subprocess.run(["python3", args.between_recovery_script, serial, str(output)],
                                check=True, timeout=args.timeout)
-            extras = []
-            for argument in args.instrument_arg:
-                key, value = argument.split("=", 1)
-                extras.extend(["-e", key, value])
             raw = ["-r"] if getattr(args, "raw_results", False) else []
             result = device("shell", "am", "instrument", "-w", *raw, "-e", "class", args.classes, *extras,
                             args.runner, timeout=args.timeout)
@@ -197,6 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
     parser.add_argument("--density-dpi", type=int, choices=(400, 420), default=420)
     parser.add_argument("--reverse-port", type=int)
+    parser.add_argument("--clear-app-data", action="store_true")
     parser.add_argument("--grant-shared-storage", action="store_true")
     parser.add_argument("--airplane-mode", action="store_true",
                         help="Cut the network (disable wifi + data) for the offline scenario")
