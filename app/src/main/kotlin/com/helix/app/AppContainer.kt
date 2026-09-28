@@ -15,6 +15,7 @@ import com.helix.core.agent.AgentRuntime
 import com.helix.core.policy.CapabilityCenter
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.extensions.plugin.PluginRegistry
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillRepository
 import com.helix.feature.browser.BrowserController
@@ -124,6 +125,9 @@ interface AppContainer {
     val skillImportService: SkillImportService
 
     val skillRepository: SkillRepository
+
+    /** App-scoped registry of installed/bundled Plugin identities and host-native tool contributions. */
+    val pluginRegistry: PluginRegistry
 
     /** The audit log page's service (bounded, redacted records only). */
     val auditLogService: AuditLogService

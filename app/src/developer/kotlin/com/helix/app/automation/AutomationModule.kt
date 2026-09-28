@@ -25,15 +25,13 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.core.model.SafetyProfile
 import com.helix.core.policy.UserScope
+import com.helix.extensions.mobileuse.MobileUsePlugin
+import com.helix.extensions.plugin.PluginRegistry
 import com.helix.tools.automation.AutomationPermissionCenter
 import com.helix.tools.automation.AutomationServiceState
-import com.helix.tools.automation.AutomationTools
-import com.helix.tools.automation.PermissionCenterAutomationToolPort
-import com.helix.tools.framework.ToolImplementationRegistry
-import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.delay
 
-/** Developer-only permission center and user-controlled AutomationSession. */
+/** Developer host surface for the bundled Mobile Use Plugin and its user-controlled session. */
 internal object AutomationModule {
     private var appContext: Context? = null
     private var center: AutomationPermissionCenter? = null
@@ -41,14 +39,13 @@ internal object AutomationModule {
     @Synchronized
     fun register(
         context: Context,
-        registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
+        plugins: PluginRegistry,
     ) {
         if (center != null) return
-        val permissionCenter = AutomationPermissionCenter(context.applicationContext)
-        AutomationTools(PermissionCenterAutomationToolPort(permissionCenter)).register(registry, implementations)
+        val mobileUse = MobileUsePlugin(context.applicationContext)
+        plugins.register(mobileUse)
         appContext = context.applicationContext
-        center = permissionCenter
+        center = mobileUse.permissionCenter
     }
 
     fun scopeFor(toolName: String?): UserScope? =

@@ -181,6 +181,7 @@
     <string name="approval_scope_unscoped">No scope (unscoped)</string>
     <string name="approval_source">Source</string>
     <string name="approval_source_builtin">Built-in tool</string>
+    <string name="approval_source_plugin">Plugin: %1$s</string>
     <string name="approval_source_mcp">MCP server: %1$s</string>
     <string name="approval_source_a2a">A2A Agent: %1$s</string>
     <string name="approval_state_approved">Approved, executing</string>

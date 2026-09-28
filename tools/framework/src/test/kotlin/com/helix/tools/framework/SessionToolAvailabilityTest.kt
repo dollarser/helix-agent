@@ -30,6 +30,16 @@ class SessionToolAvailabilityTest {
     }
 
     @Test
+    fun `a plugin identity binds plugin version and host runtime`() {
+        val origin = ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use")
+        assertEquals("plugin:mobile-use:0.1.0:mobile-use", origin.canonicalOf())
+        assertNotEquals(
+            origin.canonicalOf(),
+            ToolOrigin.PluginOrigin("mobile-use", "0.2.0", "mobile-use").canonicalOf(),
+        )
+    }
+
+    @Test
     fun `an mcp identity binds the server, protocol and schema`() {
         val origin = McpOrigin(serverId = "srv", protocolVersion = "2025-06-18", sourceSchemaHash = schemaA)
         assertEquals("mcp:srv:2025-06-18:$schemaA", origin.canonicalOf())

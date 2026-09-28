@@ -47,6 +47,7 @@ class PermissionCenterAutomationToolPort(
 @Suppress("TooManyFunctions") // schema helpers stay beside the nine versioned contracts
 class AutomationTools(
     private val port: AutomationToolPort,
+    private val origin: ToolOrigin = ToolOrigin.BuiltInOrigin,
 ) {
     fun descriptors(): List<ToolDescriptor> =
         listOf(
@@ -208,7 +209,7 @@ class AutomationTools(
         output: JsonObject,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(1),
+        ToolVersion(if (name == SCROLL) 2 else 1),
         "Bounded token-only Accessibility operation: $name.",
         input,
         output,
@@ -219,7 +220,7 @@ class AutomationTools(
         setOf(Capability.ACCESSIBILITY_AUTOMATION),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
-        ToolOrigin.BuiltInOrigin,
+        origin,
     )
 
     private fun emptyObject() = obj(emptyMap(), emptyList())
@@ -228,7 +229,19 @@ class AutomationTools(
 
     private fun textInput() = obj(mapOf("token" to str(32), "text" to str(2_000)), listOf("token", "text"))
 
-    private fun scrollInput() = obj(mapOf("token" to str(32), "direction" to str(8)), listOf("token", "direction"))
+    private fun scrollInput() =
+        obj(
+            mapOf(
+                "token" to str(32),
+                "direction" to
+                    buildJsonObject {
+                        put("type", JsonPrimitive("string"))
+                        put("enum", JsonArray(listOf(JsonPrimitive("forward"), JsonPrimitive("backward"))))
+                        put("description", JsonPrimitive("Scroll the token container using forward or backward."))
+                    },
+            ),
+            listOf("token", "direction"),
+        )
 
     private fun findInput() = querySchema(includeWait = false)
 

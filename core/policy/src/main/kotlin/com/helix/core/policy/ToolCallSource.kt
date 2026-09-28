@@ -15,6 +15,13 @@ sealed interface ToolCallSource {
     /** A built-in tool registered in-process. */
     data object BuiltIn : ToolCallSource
 
+    /** A host-known tool contributed by an exact Plugin/runtime version binding. */
+    data class Plugin(
+        val pluginId: String,
+        val pluginVersion: String,
+        val runtimeId: String,
+    ) : ToolCallSource
+
     /**
      * An MCP tool. [toolSchemaHash] is the canonical hash of the registered tool schema; a
      * schema change is a binding-field change and re-gates every prior grant.

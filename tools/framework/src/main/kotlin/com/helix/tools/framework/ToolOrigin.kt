@@ -24,6 +24,10 @@ sealed interface ToolOrigin {
                 "built-in"
             }
 
+            is PluginOrigin -> {
+                "plugin:$pluginId:$pluginVersion:$runtimeId"
+            }
+
             is McpOrigin -> {
                 "mcp:$serverId:$protocolVersion:$sourceSchemaHash"
             }
@@ -39,6 +43,31 @@ sealed interface ToolOrigin {
      * (doc 02 section 7.1: 内置工具名不能由模型动态注册).
      */
     data object BuiltInOrigin : ToolOrigin
+
+    /**
+     * A host-known tool contributed by an installed/bundled Agent Plugin client extension.
+     *
+     * Plugin provenance is part of the security contract: changing the plugin version or the
+     * host runtime binding produces a new [canonicalOf] value, so approvals minted for an old
+     * implementation cannot authorize the replacement. This provenance does NOT lower risk;
+     * Policy still derives authority from trusted descriptor/call facts.
+     */
+    data class PluginOrigin(
+        val pluginId: String,
+        val pluginVersion: String,
+        val runtimeId: String,
+    ) : ToolOrigin {
+        init {
+            require(ID.matches(pluginId)) { "plugin id must be a bounded lower-case package id" }
+            require(VALUE.matches(pluginVersion)) { "plugin version is invalid" }
+            require(ID.matches(runtimeId)) { "plugin runtime id must be a bounded lower-case package id" }
+        }
+
+        private companion object {
+            val ID = Regex("[a-z0-9][a-z0-9.-]{0,127}")
+            val VALUE = Regex("[A-Za-z0-9][A-Za-z0-9._+-]{0,63}")
+        }
+    }
 
     /**
      * A tool exposed by a connected, user-enabled MCP server (doc 10 section

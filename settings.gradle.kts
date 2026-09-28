@@ -41,6 +41,8 @@ include(
     ":provider:catalog",
     ":extensions:mcp",
     ":extensions:a2a",
+    ":extensions:plugin",
+    ":extensions:mobile-use",
     ":extensions:skills",
     ":feature:browser",
     ":feature:files",

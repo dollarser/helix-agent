@@ -7,6 +7,9 @@ import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolOrigin
+import com.helix.tools.framework.ToolSchemaValidation
+import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -51,6 +54,19 @@ class AutomationToolsTest {
     }
 
     @Test
+    fun aHostPluginCanBindTheSameContractsToPluginProvenance() {
+        val origin = ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use")
+        val descriptors = AutomationTools(port, origin).descriptors()
+        assertTrue(descriptors.all { it.origin == origin })
+        assertTrue(
+            descriptors.all {
+                it.contractHash !=
+                    tools.descriptors().single { base -> base.name == it.name }.contractHash
+            },
+        )
+    }
+
+    @Test
     fun snapshotAndFindExposeOnlyIssuedNodeTokens() {
         port.snapshotResult = successfulSnapshot()
         val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
@@ -91,6 +107,44 @@ class AutomationToolsTest {
         execute(AutomationTools.BACK, buildJsonObject {})
         execute(AutomationTools.HOME, buildJsonObject {})
         assertEquals(listOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME), port.globalRequests)
+    }
+
+    @Test fun scrollSchemaOnlyAdmitsDirectionsTheExecutorImplements() {
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }
+        assertEquals(2, descriptor.version.value)
+        val schema = descriptor.inputSchema
+        listOf("forward", "backward").forEach {
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(
+                    schema,
+                    args(
+                        "token" to TOKEN,
+                        "direction" to it,
+                    ),
+                ),
+            )
+        }
+        listOf("up", "down", "UP", "left", "right", "next").forEach {
+            assertTrue(
+                ToolSchemaValidator.validate(
+                    schema,
+                    args("token" to TOKEN, "direction" to it),
+                ) is ToolSchemaValidation.Invalid,
+            )
+        }
+        val direction =
+            schema
+                .getValue("properties")
+                .jsonObject
+                .getValue("direction")
+                .jsonObject
+        assertEquals(
+            kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("forward"), JsonPrimitive("backward"))),
+            direction["enum"],
+        )
+        execute(AutomationTools.SCROLL, args("token" to TOKEN, "direction" to "backward"))
+        assertEquals(AutomationNodeAction.SCROLL_BACKWARD, port.nodeRequests.last().action)
     }
 
     private fun execute(

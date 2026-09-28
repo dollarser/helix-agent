@@ -85,7 +85,15 @@ class ConnectorPackageReader {
         require(manifests.size <= 1) { "CONNECTOR_AMBIGUOUS_MANIFEST" }
         val manifestPath = manifests.singleOrNull()
         val manifest = manifestPath?.let { json(files.getValue(it)) } ?: JsonObject(emptyMap())
-        val source = manifestPath?.substringBefore('/') ?: "MCP_SKILLS_EXPORT"
+        if (manifestPath == AGENT_PLUGIN_MANIFEST) {
+            require(manifest.string("\$schema") == AGENT_PLUGINS_V1_SCHEMA) { "CONNECTOR_UNSUPPORTED_PLUGIN_SCHEMA" }
+        }
+        val source =
+            when (manifestPath) {
+                AGENT_PLUGIN_MANIFEST -> "AGENT_PLUGINS_V1"
+                null -> "MCP_SKILLS_EXPORT"
+                else -> manifestPath.substringBefore('/')
+            }
         val name = manifest.string("name") ?: "imported-connector"
         require(NAME.matches(name)) { "CONNECTOR_INVALID_NAME" }
         val diagnostics = mutableListOf<String>()
@@ -127,7 +135,6 @@ class ConnectorPackageReader {
         val servers = linkedMapOf<String, JsonObject>()
         configs.values.forEach { config ->
             val wrapped = serverMap(config, diagnostics)
-            require(wrapped is JsonObject) { "CONNECTOR_INVALID_MCP_CONFIG" }
             wrapped.forEach { (id, value) ->
                 require(NAME.matches(id) && value is JsonObject) { "CONNECTOR_INVALID_SERVER" }
                 require(id !in servers || servers[id] == value) { "CONNECTOR_DUPLICATE_SERVER" }
@@ -301,11 +308,14 @@ class ConnectorPackageReader {
         const val MAX_FILE_BYTES = 4 * 1024 * 1024
         private val MANIFESTS =
             listOf(
+                AGENT_PLUGIN_MANIFEST,
                 ".codex-plugin/plugin.json",
                 ".claude-plugin/plugin.json",
                 ".codebuddy-plugin/plugin.json",
                 "connector.json",
             )
+        private const val AGENT_PLUGIN_MANIFEST = "plugin.json"
+        private const val AGENT_PLUGINS_V1_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
         private val NAME = Regex("[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}")
         private val UNSUPPORTED = listOf("hooks", "agents", "commands", "rules", "workflows", "mcp", "dependencies")
         private val AUTH_FIELDS =

@@ -165,6 +165,12 @@ class ToolImplementationRegistry {
             executor
         }
 
+    /** True when the exact contract already has an implementation bound. */
+    fun contains(
+        name: ToolName,
+        version: ToolVersion,
+    ): Boolean = synchronized(lock) { byNameVersion.containsKey(name to version) }
+
     /** Replaces implementations for the exact descriptor set of one MCP server snapshot. */
     fun replaceMcpServer(
         serverId: String,
