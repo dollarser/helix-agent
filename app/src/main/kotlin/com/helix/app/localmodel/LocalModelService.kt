@@ -1,6 +1,7 @@
 package com.helix.app.localmodel
 
 import android.content.Context
+import android.os.storage.StorageManager
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ProviderConfigSpec
@@ -11,26 +12,35 @@ import com.helix.provider.api.local.LocalModelLoadRequest
 import com.helix.provider.api.local.LocalModelProvider
 import com.helix.provider.api.local.ModelAssetRef
 import com.helix.provider.api.local.ModelAssetStore
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
-import kotlin.coroutines.coroutineContext
+
+private fun allocatableBytes(context: Context): Long =
+    runCatching {
+        val storage = context.getSystemService(StorageManager::class.java)
+        storage.getAllocatableBytes(storage.getUuidForPath(context.filesDir))
+    }.getOrDefault(0L)
 
 /** Explicit user-operated asset management; no automatic model downloads. */
 class LocalModelService(
     context: Context,
     private val storage: HelixStorage,
+    private val usableSpaceBytes: () -> Long = { allocatableBytes(context) },
+    private val connectionFactory: (URI) -> HttpURLConnection = { uri ->
+        uri.toURL().openConnection() as HttpURLConnection
+    },
     private val contextTokensFor: (ProviderConfig) -> Int = { 4096 },
 ) {
     private val store = ModelAssetStore(File(context.filesDir, "models"))
     private val runtime = LocalInferenceRuntimeClient(context, store)
-    private val transfers = File(context.cacheDir, "model-transfers").also { check(it.mkdirs() || it.isDirectory) }
-    private val transferLock = Mutex()
+    private val downloader =
+        LocalModelDownloader(
+            store = store,
+            transfers = File(context.cacheDir, "model-transfers"),
+            usableSpaceBytes = usableSpaceBytes,
+            connectionFactory = connectionFactory,
+        )
 
     init {
         val known =
@@ -58,82 +68,48 @@ class LocalModelService(
         hash: String,
         size: Long,
         name: String,
-    ) = withContext(Dispatchers.IO) {
-        transferLock.withLock {
-            val asset = ModelAssetRef(hash, hash, size)
-            require(name.isNotBlank() && name.length <= 128)
-            val source = URI(url)
-            require(
-                source.scheme == "https" && source.host != null && source.userInfo == null && source.fragment == null,
-            )
-            val partial = File(transfers, "$hash.part")
-            // Only one pending transfer is retained; stale partials cannot accumulate beyond one asset quota.
-            transfers
-                .listFiles()
-                .orEmpty()
-                .filter { it != partial }
-                .forEach { check(it.delete()) }
-            require(
-                !java.nio.file.Files
-                    .isSymbolicLink(partial.toPath()),
-            )
-            require(partial.length() <= size)
-            if (partial.length() == size) check(partial.delete())
-            val connection = source.toURL().openConnection() as HttpURLConnection
-            connection.instanceFollowRedirects = false
-            connection.connectTimeout = 15000
-            connection.readTimeout = 30000
-            val offset = partial.length()
-            if (offset > 0) connection.setRequestProperty("Range", "bytes=$offset-")
-            try {
-                val code = connection.responseCode
-                val resumed =
-                    LocalModelTransferProtocol.resumes(
-                        code,
-                        connection.getHeaderField("Content-Range"),
-                        offset,
-                        size,
-                    )
-                val start = if (resumed) offset else 0L
-                copyTransfer(connection, partial, resumed, start, size)
-                partial.inputStream().use { input ->
-                    store.publish(hash, size, input) { coroutineContext.ensureActive() }
-                }
-                check(partial.delete())
-                register(asset, name)
-            } catch (failure: IllegalArgumentException) {
-                partial.delete()
-                throw failure
-            } finally {
-                connection.disconnect()
-            }
-        }
+        onProgress: (LocalModelTransferProgress) -> Unit = {},
+    ): String = downloadAsset(url, hash, size, name, LocalModelDownloadPolicy(), onProgress)
+
+    suspend fun downloadCatalog(
+        entryId: String,
+        source: LocalModelCatalogSource,
+        onProgress: (LocalModelTransferProgress) -> Unit = {},
+    ): String {
+        val entry = LocalModelCatalog.entry(entryId)
+        val location = entry.location(source)
+        return downloadAsset(
+            location.downloadUrl,
+            entry.sha256,
+            entry.sizeBytes,
+            entry.displayName,
+            LocalModelDownloadPolicy(redirectHostSuffixes = location.redirectHostSuffixes),
+            onProgress,
+        )
     }
 
-    @Suppress("NestedBlockDepth") // Two closeable resources enclose one bounded, cancellable copy loop.
-    private suspend fun copyTransfer(
-        connection: HttpURLConnection,
-        partial: File,
-        resumed: Boolean,
-        start: Long,
+    /** AndroidTest-only real socket path; production callers cannot opt into cleartext. */
+    internal suspend fun downloadForTest(
+        url: String,
+        hash: String,
         size: Long,
-    ) {
-        connection.inputStream.use { input ->
-            java.io.FileOutputStream(partial, resumed).use { output ->
-                val buffer = ByteArray(65536)
-                var count = start
-                while (true) {
-                    coroutineContext.ensureActive()
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    count += read
-                    require(count <= size)
-                    output.write(buffer, 0, read)
-                }
-                require(count == size)
-                output.fd.sync()
-            }
-        }
+        name: String,
+        onProgress: (LocalModelTransferProgress) -> Unit = {},
+    ): String = downloadAsset(url, hash, size, name, LocalModelDownloadPolicy(allowHttp = true), onProgress)
+
+    private suspend fun downloadAsset(
+        url: String,
+        hash: String,
+        size: Long,
+        name: String,
+        policy: LocalModelDownloadPolicy,
+        onProgress: (LocalModelTransferProgress) -> Unit,
+    ): String {
+        require(name.isNotBlank() && name.length <= 128)
+        val asset = ModelAssetRef(hash, hash, size)
+        val verified = downloader.download(url, asset, policy, onProgress)
+        register(verified, name)
+        return verified.id
     }
 
     private fun register(

@@ -1470,7 +1470,7 @@
     <string name="conn_error_local_runtime">Local inference failed. Check the model asset and available memory, then retry.</string>
     <string name="conn_error_local_output_limit">The local model reached its output limit. No unfinished tool calls were executed. Try a shorter step or adjust the output budget.</string>
     <string name="local_model_title">On-device models</string>
-    <string name="local_model_description">Download a GGUF model into private storage. Supply a direct HTTPS URL, the exact SHA-256 and size. Connection and tool capabilities must be tested after download. CPU inference uses a 2048-token context and two threads.</string>
+    <string name="local_model_description">Choose a pinned public GGUF, or use Advanced import for an exact HTTPS URL, SHA-256 and size. Helix checks storage, supports compatible resume, verifies the asset, then runs connection and capability tests. Nothing switches conversations automatically.</string>
     <string name="local_model_name">Display name</string>
     <string name="local_model_url">Direct HTTPS URL</string>
     <string name="local_model_size">Exact size in bytes</string>
@@ -1483,4 +1483,19 @@
     <string name="local_model_resources">%1$s · CPU · 2 threads · Adjustable context</string>
     <string name="local_model_unload">Unload</string>
     <string name="local_model_recovered">Local model %1$s</string>
+    <string name="local_model_curated">Curated models</string>
+    <string name="local_model_advanced">Advanced import</string>
+    <string name="local_model_source">Download source</string>
+    <string name="local_model_evidence_compat">Compatibility verified; the fixed multi-step agent task did not pass reliably.</string>
+    <string name="local_model_evidence_task">Passed the fixed Helix tool-use task on an 8 GiB API 36 emulator; not a phone performance guarantee.</string>
+    <string name="local_model_install_test">Install and test</string>
+    <string name="local_model_progress">%1$s / %2$s downloaded</string>
+    <string name="local_model_verifying">Download complete. Verifying hash and publishing atomically…</string>
+    <string name="local_model_ready">Verified model asset published.</string>
+    <string name="local_model_connection_passed">Model installed and connection test passed.</string>
+    <string name="local_model_connection_failed">Model installed, but the connection test failed. The verified asset is retained for retry.</string>
+    <string name="local_model_capability_passed">Capability probe passed.</string>
+    <string name="local_model_capability_failed">Capability probe did not pass. Review the model before using it for agent tasks.</string>
+    <string name="local_model_use_current">Use in current conversation</string>
+    <string name="local_model_use_current_only">Model selection applies only to the currently open conversation and future turns; other conversations are unchanged.</string>
 </resources>

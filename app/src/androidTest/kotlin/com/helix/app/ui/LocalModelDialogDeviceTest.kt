@@ -15,24 +15,48 @@ import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 
-/** Invalid local input must preserve a repairable draft, without making a network request. */
+/** Curated install is primary; advanced invalid input remains repairable and makes no network request. */
 class LocalModelDialogDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun failedDownloadPreservesDraftAndCanBeDismissed() {
+    @Test fun curatedCatalogIsPrimaryAndAdvancedImportRemainsAvailable() {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        compose.setContent {
+            MaterialTheme {
+                LocalModelDialog(
+                    providerService = app.appContainer.providerService,
+                    currentSessionAvailable = false,
+                    onUseCurrentSession = { _, _ -> },
+                    onDismiss = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("local-model-catalog-qwen3-0.6b-q4-k-m").assertIsDisplayed()
+        compose.onNodeWithTag("local-model-catalog-qwen3-4b-instruct-2507-q4-k-m").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("local-model-source-modelscope").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("local-model-source-hugging_face").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("local-model-name").assertDoesNotExist()
+        compose.onNodeWithTag("local-model-advanced").performScrollTo().performClick()
+        compose.onNodeWithTag("local-model-name").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("local-model-url").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun failedAdvancedDownloadPreservesDraftAndCanBeDismissed() {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val visible = mutableStateOf(true)
-        var changed = false
+        var used = false
         compose.setContent {
             MaterialTheme {
                 if (visible.value) {
-                    LocalModelDialog(requireNotNull(app.appContainer.providerService.localModels), { changed = true }, {
-                        visible.value =
-                            false
-                    })
+                    LocalModelDialog(
+                        providerService = app.appContainer.providerService,
+                        currentSessionAvailable = true,
+                        onUseCurrentSession = { _, _ -> used = true },
+                    ) { visible.value = false }
                 }
             }
         }
+        compose.onNodeWithTag("local-model-advanced").performScrollTo().performClick()
         for ((field, value) in listOf(
             "name" to "My model",
             "url" to "http://invalid.example/model.gguf",
@@ -59,6 +83,6 @@ class LocalModelDialogDeviceTest {
             .assertTextContains("http://invalid.example/model.gguf")
         compose.onNodeWithTag("local-model-cancel").assertIsDisplayed().performClick()
         compose.onNodeWithTag("local-model-name").assertDoesNotExist()
-        assertFalse(changed)
+        assertFalse(used)
     }
 }

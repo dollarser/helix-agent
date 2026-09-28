@@ -331,6 +331,57 @@ class ProviderService(
             connectionProbe.run(providerId, detectCapabilities = true).also { refreshNow() }
         }
 
+    suspend fun installCuratedLocalModel(
+        entryId: String,
+        source: com.helix.app.localmodel.LocalModelCatalogSource,
+        onProgress: (com.helix.app.localmodel.LocalModelTransferProgress) -> Unit = {},
+    ): com.helix.app.localmodel.LocalModelInstallResult =
+        installLocalModel(onProgress) { models, progress -> models.downloadCatalog(entryId, source, progress) }
+
+    suspend fun installManualLocalModel(
+        url: String,
+        hash: String,
+        size: Long,
+        name: String,
+        onProgress: (com.helix.app.localmodel.LocalModelTransferProgress) -> Unit = {},
+    ): com.helix.app.localmodel.LocalModelInstallResult =
+        installLocalModel(onProgress) { models, progress -> models.download(url, hash, size, name, progress) }
+
+    /** AndroidTest-only cleartext seam; completion still uses production install/probe orchestration. */
+    internal suspend fun installLocalModelForTest(
+        url: String,
+        hash: String,
+        size: Long,
+        name: String,
+        onProgress: (com.helix.app.localmodel.LocalModelTransferProgress) -> Unit = {},
+    ): com.helix.app.localmodel.LocalModelInstallResult =
+        installLocalModel(onProgress) { models, progress ->
+            models.downloadForTest(url, hash, size, name, progress)
+        }
+
+    private suspend fun installLocalModel(
+        onProgress: (com.helix.app.localmodel.LocalModelTransferProgress) -> Unit,
+        transfer: suspend (
+            com.helix.app.localmodel.LocalModelService,
+            (com.helix.app.localmodel.LocalModelTransferProgress) -> Unit,
+        ) -> String,
+    ): com.helix.app.localmodel.LocalModelInstallResult =
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
+            val models = requireNotNull(localModels) { "On-device models are unavailable" }
+            val modelId = transfer(models, onProgress)
+            refreshNow()
+            val connection = connectionProbe.run(modelId)
+            val capabilities =
+                if (connection is ProbeOutcome.Ok) {
+                    connectionProbe.run(modelId, detectCapabilities = true)
+                } else {
+                    null
+                }
+            refreshNow()
+            com.helix.app.localmodel
+                .LocalModelInstallResult(modelId, modelId, connection, capabilities)
+        }
+
     /**
      * The typed config of a persisted provider (fail-closed on corruption).
      * Runs on the service's IO scope (Room read).

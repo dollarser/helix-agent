@@ -1467,7 +1467,7 @@
     <string name="conn_error_local_runtime">设备内推理失败。请检查模型资产和可用内存后重试。</string>
     <string name="conn_error_local_output_limit">本地模型已达到输出上限，未执行未完成的工具调用。可缩小单步任务或调整输出预算后重试。</string>
     <string name="local_model_title">设备内模型</string>
-    <string name="local_model_description">下载 GGUF 模型到应用私有存储。请填写直接 HTTPS 下载地址、准确的 SHA-256 和大小。下载后需检测连接与工具能力。CPU 推理使用 2048 token 上下文和两个线程。</string>
+    <string name="local_model_description">可选择固定版本的公开 GGUF，也可通过“高级导入”填写精确 HTTPS 地址、SHA-256 与大小。Helix 会预检空间、兼容续传、校验资产并自动执行连接与能力测试；安装不会自动切换任何会话。</string>
     <string name="local_model_name">显示名称</string>
     <string name="local_model_url">直接 HTTPS 下载地址</string>
     <string name="local_model_size">准确大小（字节）</string>
@@ -1480,4 +1480,19 @@
     <string name="local_model_resources">%1$s · CPU · 2 线程 · 上下文可调整</string>
     <string name="local_model_unload">卸载内存</string>
     <string name="local_model_recovered">本地模型 %1$s</string>
+    <string name="local_model_curated">精选模型</string>
+    <string name="local_model_advanced">高级导入</string>
+    <string name="local_model_source">下载来源</string>
+    <string name="local_model_evidence_compat">已验证运行兼容性；固定多步 Agent 任务未能稳定通过。</string>
+    <string name="local_model_evidence_task">已在 API 36、8 GiB 模拟器通过固定 Helix 工具任务；不代表真机性能。</string>
+    <string name="local_model_install_test">安装并测试</string>
+    <string name="local_model_progress">已下载 %1$s / %2$s</string>
+    <string name="local_model_verifying">下载完成，正在校验摘要并原子发布…</string>
+    <string name="local_model_ready">模型资产已校验并发布。</string>
+    <string name="local_model_connection_passed">模型已安装，连接测试通过。</string>
+    <string name="local_model_connection_failed">模型已安装，但连接测试失败。已校验资产会保留，便于重试。</string>
+    <string name="local_model_capability_passed">能力探测通过。</string>
+    <string name="local_model_capability_failed">能力探测未通过，建议先核查再用于 Agent 任务。</string>
+    <string name="local_model_use_current">用于当前会话</string>
+    <string name="local_model_use_current_only">模型选择只作用于当前打开会话的后续 Turn，不会修改其他会话。</string>
 </resources>

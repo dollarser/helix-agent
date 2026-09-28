@@ -532,7 +532,7 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Models -> {
-            ModelsConnectionsScreen(container.providerService)
+            ModelsConnectionsScreen(container.providerService, container.chatService)
         }
 
         ShellDestination.Extensions -> {

@@ -52,13 +52,15 @@ Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续
 
 P2 SAF bounded diagnosis 已完成且**当前无法稳定复现**：在固定 API36 consumer 制品上直接执行 1 次，再以独立 package-reset 执行 3 次 `FilesImportExportUiTest`，共 4/4 通过；没有因此修改 production SAF 策略。历史失败的 `files-saf-empty` 语义树仍保留，只能证明当时 UI 收到空 live-source 投影，不能证明 registry 丢失或瞬时 ContentResolver re-check 失败。详见 [P2 诊断证据](../evidence/development/p2-saf-bounded-diagnosis-2026-09-28.md)。
 
-下一本地主线进入 P3：
+P3 本地模型安装最小闭环已完成。精选目录固定 0.6B/4B 两个公开 GGUF 及 ModelScope/Hugging Face revisions；高级 URL/hash/size 导入保留。统一下载器已覆盖空间预检、200 restart、精确 206 resume、hash/range/disk/duplicate/cancel/recovery，安装后自动 connection + capability probe，只有显式操作才绑定当前 Session。最终 API36 developer Android HTTP → cancel/resume → publish → real probe → current-session selection 1/1 passed；安装 UI + Session model regression 3/3 passed；`check-all.sh --all` 最终 1313 tasks `BUILD SUCCESSFUL`。详见 [P3 证据](../evidence/development/p3-local-model-install-2026-09-28.md)。
+
+下一本地主线进入 P4：
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| P3 | 本地模型安装最小闭环 | 精选来源→真实 Android 下载→校验/原子发布→Provider/probe→绑定当前 Session | 复用 HXA-222 runtime/asset/provider，不重开 Agent loop；Android HTTP E2E 必须单独证明 |
-| P4 | 首次成功联合旅程 | 新安装→模型→Workspace→真实任务→Tool→产物→关闭重开 | 复用 HXA-205/228/210/222/230 已有入口，不新增平行 onboarding/runtime |
-| P5+ | 性能/质量事实→证据驱动优化→hardening→内测→发行 | 同配置 A/B、错误可恢复、真实用户反馈后再进入 120→122→121→123 | GPU/NPU、Project Memory、Subagent 等不自动进入近期主线 |
+| P4 | 首次成功联合旅程 | 新安装→模型→Workspace→真实任务→Tool→产物→关闭重开 | 复用 HXA-205/228/210/222/230 与 P3 已有入口，不新增平行 onboarding/runtime |
+| P5 | 性能与任务质量基线 | load/prefill/decode/TTFT/PSS/RSS/cancel-exit 可分解；冻结少量真实任务和 oracle | P4 产品链路先稳定；Runtime success 与 task correctness 分开统计 |
+| P6+ | 证据驱动优化→hardening→内测→发行 | 同配置 A/B、错误可恢复、真实用户反馈后再进入 120→122→121→123 | GPU/NPU、Project Memory、Subagent 等不自动进入近期主线 |
 
 HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入时独立验收，不阻塞无依赖本地工作。HXA-222 的历史 PROTOCOL 未保留原始回复，不声称唯一根因已定位；4B 一次固定任务通过也不外推为手机性能或普遍模型可靠性。
 

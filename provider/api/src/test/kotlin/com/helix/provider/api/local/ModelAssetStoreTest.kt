@@ -45,6 +45,20 @@ class ModelAssetStoreTest {
     }
 
     @Test
+    fun quotaPreflightMatchesPublishAdmissionWithoutCreatingAFile() {
+        val store = ModelAssetStore(directory.root, quotaBytes = bytes.size.toLong())
+        val asset = ModelAssetRef(hash, hash, bytes.size.toLong())
+        store.requireCanPublish(asset)
+        assertTrue(store.list().isEmpty())
+        store.publish(hash, bytes.size.toLong(), bytes.inputStream())
+        store.requireCanPublish(asset)
+        val otherHash = "a".repeat(64)
+        assertThrows(IllegalArgumentException::class.java) {
+            store.requireCanPublish(ModelAssetRef(otherHash, otherHash, 1))
+        }
+    }
+
+    @Test
     fun symlinksAndNonGgufAreRejected() {
         val file = directory.newFile("outside")
         java.nio.file.Files

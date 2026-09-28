@@ -113,7 +113,8 @@
 1. **P0 integration checkpoint — 已完成**：本地提交 `263135dd` 冻结 post-refactor product baseline，完整 host/source gate 通过。
 2. **P1 Memory + Workspace 增量补验 — 已完成**：API29/API36 × consumer/developer targeted matrix 各 31/31 通过；Memory 真进程死亡恢复与 Workspace fork/recovery/request-freeze 均形成设备证据。
 3. **P2 SAF bounded diagnosis — 已完成 / 当前未复现**：固定 API36 consumer 制品直接 1 次 + 独立 package-reset 3 次共 4/4 通过；历史 `files-saf-empty` 失败继续作为 known limitation，不在无证据时修改 fail-closed live re-check。
-4. **P3 模型安装最小闭环 — 下一 checkpoint**：确认精选清单、下载源、安装状态与恢复合同，复用当前资产/Provider 管线；拆出 host 和真实 Android HTTP 验收。
-5. **P4 之后**：先完成首次成功联合旅程，再建立性能/质量事实并按证据优化；发行身份与服务账号清单可并行只读准备。
+4. **P3 模型安装最小闭环 — 已完成**：精选目录 + 高级导入复用 HXA-222 资产/Provider；host 覆盖 200/206/range/hash/disk/duplicate/cancel/recovery，最终 API36 developer 真实 Android HTTP 安装、真实 probe 与当前 Session 显式选择通过。
+5. **P4 首次成功联合旅程 — 下一 checkpoint**：从新安装/当前产品入口完成模型→Workspace→真实任务→Tool→产物→关闭重开，优先证明整个产品闭环而不是单模块。
+6. **P5 之后**：再建立性能/质量事实并按证据优化；发行身份与服务账号清单可并行只读准备。
 
 外部账号、真机与审核时间不作为可控开发时间；此计划不表示所有未来候选都必做，也不改变已有验收通过/未验结论。

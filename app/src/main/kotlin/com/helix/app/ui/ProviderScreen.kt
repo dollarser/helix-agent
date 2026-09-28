@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.chat.ChatService
 import com.helix.app.provider.ManagedProviderAccountResult
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
@@ -49,8 +50,12 @@ import kotlinx.coroutines.launch
  */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
-fun ProviderManager(providerService: ProviderService) {
+fun ProviderManager(
+    providerService: ProviderService,
+    chatService: ChatService,
+) {
     val rows by providerService.rows.collectAsStateWithLifecycle()
+    val chatScreen by chatService.screen.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var deleteFailure by remember { mutableStateOf(false) }
     var localModelOpen by remember { mutableStateOf(false) }
@@ -64,8 +69,12 @@ fun ProviderManager(providerService: ProviderService) {
     var accountFailureId by remember { mutableStateOf<String?>(null) }
 
     if (localModelOpen) {
-        providerService.localModels?.let { service ->
-            LocalModelDialog(service, providerService::refresh) { localModelOpen = false }
+        providerService.localModels?.let {
+            LocalModelDialog(
+                providerService = providerService,
+                currentSessionAvailable = chatScreen.openSessionId != null,
+                onUseCurrentSession = chatService::selectSessionModel,
+            ) { localModelOpen = false }
         }
     }
     Column(Modifier.fillMaxWidth()) {

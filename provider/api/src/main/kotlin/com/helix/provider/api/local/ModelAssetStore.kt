@@ -41,14 +41,7 @@ class ModelAssetStore(
         checkCancelled: () -> Unit = {},
     ): ModelAssetRef {
         val asset = ModelAssetRef(sha256, sha256, size)
-        val published = list()
-        require(published.size < 16 || published.any { it.id == asset.id })
-        require(
-            published
-                .filter {
-                    it.id != asset.id
-                }.sumOf { it.sizeBytes } + size <= quotaBytes,
-        ) { "Model asset quota exceeded" }
+        requireCanPublish(asset)
         val partial = File(root, "$sha256.part")
         require(!Files.isSymbolicLink(partial.toPath()))
         val digest = MessageDigest.getInstance("SHA-256")
@@ -80,6 +73,16 @@ class ModelAssetStore(
         } finally {
             Files.deleteIfExists(partial.toPath())
         }
+    }
+
+    /** Cheap quota/count preflight. Integrity is still established only by [publish]/[verifiedFile]. */
+    @Synchronized
+    fun requireCanPublish(asset: ModelAssetRef) {
+        val published = list()
+        require(published.size < 16 || published.any { it.id == asset.id }) { "Model asset count exceeded" }
+        require(
+            published.filter { it.id != asset.id }.sumOf { it.sizeBytes } + asset.sizeBytes <= quotaBytes,
+        ) { "Model asset quota exceeded" }
     }
 
     /** Re-check at every runtime handoff; enumeration is not integrity evidence. */

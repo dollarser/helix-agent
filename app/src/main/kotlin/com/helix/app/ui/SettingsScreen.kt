@@ -184,7 +184,10 @@ internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
 /** Provider/model connection management is a first-class Configure destination. */
 @Composable
 @Suppress("FunctionName")
-internal fun ModelsConnectionsScreen(providerService: ProviderService) {
+internal fun ModelsConnectionsScreen(
+    providerService: ProviderService,
+    chatService: com.helix.app.chat.ChatService,
+) {
     Column(
         Modifier
             .fillMaxSize()
@@ -192,7 +195,7 @@ internal fun ModelsConnectionsScreen(providerService: ProviderService) {
             .padding(16.dp)
             .testTag("screen-models"),
     ) {
-        ProviderManager(providerService)
+        ProviderManager(providerService, chatService)
     }
 }
 
