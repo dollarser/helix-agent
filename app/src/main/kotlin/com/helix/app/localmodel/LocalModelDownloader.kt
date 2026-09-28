@@ -67,12 +67,14 @@ internal class LocalModelDownloader(
             check(transferLock.tryLock()) { "Model download is busy; retry after it stops" }
             try {
                 val entries = partials()
+                val publication = store.publicationResidue()
                 LocalModelStorageSnapshot(
                     store.list().sumOf { it.sizeBytes },
-                    entries.sumOf { it.bytes },
-                    entries.size,
+                    entries.sumOf { it.bytes } + publication.bytes,
+                    entries.size + publication.count,
                     revision,
                     entries,
+                    publication,
                 )
             } finally {
                 transferLock.unlock()
@@ -87,6 +89,7 @@ internal class LocalModelDownloader(
                 check(snapshot.revision == revision && snapshot.entries == partials()) {
                     "Downloads changed; refresh before confirming cleanup"
                 }
+                store.clearPublicationResidue(snapshot.publication)
                 revision++
                 snapshot.entries.forEach {
                     java.nio.file.Files

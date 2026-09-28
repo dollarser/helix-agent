@@ -12,6 +12,9 @@ class ModelAssetStore(
     private val root: File,
     private val quotaBytes: Long = 12L * 1024 * 1024 * 1024,
 ) {
+    private var publicationRevision = 0L
+    private var publishing = false
+
     init {
         require(root.mkdirs() || root.isDirectory)
         require(!Files.isSymbolicLink(root.toPath()))
@@ -40,11 +43,13 @@ class ModelAssetStore(
         source: InputStream,
         checkCancelled: () -> Unit = {},
     ): ModelAssetRef {
+        publicationRevision++
         val asset = ModelAssetRef(sha256, sha256, size)
         requireCanPublish(asset)
         val partial = File(root, "$sha256.part")
         require(!Files.isSymbolicLink(partial.toPath()))
         val digest = MessageDigest.getInstance("SHA-256")
+        publishing = true
         try {
             partial.outputStream().use { output ->
                 val buffer = ByteArray(65536)
@@ -71,8 +76,24 @@ class ModelAssetStore(
             )
             return asset
         } finally {
+            publishing = false
             Files.deleteIfExists(partial.toPath())
         }
+    }
+
+    @Synchronized
+    fun publicationResidue(): ModelPublicationResidue =
+        ModelPublicationResidue(this, publicationRevision, publicationPartials(root))
+
+    @Synchronized
+    fun clearPublicationResidue(snapshot: ModelPublicationResidue) {
+        check(!publishing) { "Model publication is active" }
+        check(
+            snapshot.owner === this && snapshot.revision == publicationRevision &&
+                snapshot.entries == publicationPartials(root),
+        ) { "Publication files changed; refresh before cleanup" }
+        publicationRevision++
+        snapshot.entries.forEach { Files.delete(File(root, it.name).toPath()) }
     }
 
     /** Cheap quota/count preflight. Integrity is still established only by [publish]/[verifiedFile]. */

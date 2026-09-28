@@ -36,7 +36,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 取消必须得到 executor exit 或 Binder death 证明；仅收到请求/ACK 不释放 owner。强制终止后的请求返回 `LOCAL_CANCEL_TIMEOUT`，不能返回成功；进程死亡不重放旧 generation。
 - 默认 context 4096、2 threads、greedy decoding；现有上下文设置允许显式选择 1024–32768，实际不超过模型 metadata 上限。metadata/probe/generation 使用同一配置，不因查询 metadata 重置 context。首版不接受图片、非零 temperature 或自定义 stop sequences。模板自身 stop markers 和工具 grammar 由 backend 处理，grammar 不替代工具校验或保证答案正确。
 - 加载前使用当前可用内存、权重大小与 F16 KV 估算及保留空间检查资源预算，失败返回 `LOCAL_RUNTIME_OOM`，允许用户降低 context 重试，不静默缩小请求配置。估算不是跨架构/OEM 的容量保证，Binder death 仍须处理。输出预算耗尽返回 usage + `LOCAL_OUTPUT_LIMIT`，不执行截断的调用；能力探测对明确不支持图片的设备内 runtime 执行文本/工具阶段并保持 vision=false，不影响网络 Provider 的五阶段探测。
-- 模型不打包入 APK。显式 direct HTTPS URL + SHA-256 + 大小下载，Range 重试、临时文件校验及原子发布；每资产最多 8 GiB、总资产 12 GiB、最多 16 个，仅保留一个待续传文件。切换模型不自动删除此前下载；用户可先明确确认清理后再下载其他模型。清理只处理私有下载目录内已识别的普通残片文件，与下载共用互斥锁并校验确认快照；忙碌或快照变化时保留文件并允许刷新重试。占用展示是已识别模型与下载残片的逻辑文件大小，不代表应用总占用。模型文件在开发期 Room baseline 重建后重新登记为未测试。
+- 模型不打包入 APK。显式 direct HTTPS URL + SHA-256 + 大小下载，Range 重试、临时文件校验及原子发布；每资产最多 8 GiB、总资产 12 GiB、最多 16 个，仅保留一个待续传文件。切换模型不自动删除此前下载；用户可先明确确认清理后再下载其他模型。清理只处理私有下载目录内已识别的普通残片文件及模型资产目录中的中断发布副本，与下载共用互斥锁并校验确认快照；忙碌或快照变化时保留文件并允许刷新重试。占用展示是已识别模型与下载残片的逻辑文件大小，不代表应用总占用。模型文件在开发期 Room baseline 重建后重新登记为未测试。
 - native source 固定 commit 与 archive SHA-256，许可证随 APK 携带；版本事实和设备验收边界写入 HXA-222 证据。共享 UID 的 private process 提供 crash/lifecycle 隔离，不构成凭据安全沙箱。
 
 ## Alternatives considered
@@ -61,6 +61,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - **2026-09-28（资源收口）**：根据 API36 32K 被 LMK 终止、metadata 重置配置及输出截断的实测，采用可调有界 context、加载前内存检查、模板工具 grammar 与保留 usage 的输出上限错误；将运行时正确性与模型任务正确性分别验收。
 
 - **2026-09-28（空间管理）**：补充下载残片显式确认清理、互斥与过期确认保护，保留单个待续传文件边界，不删除共享目录或已安装模型。
+
+- **2026-09-28（发布残留）**：显式清理覆盖中断发布副本；确认绑定实例、发布 revision 与 metadata，发布中拒绝重入清理，已安装资产不纳入残留。
 
 ## Reconsider when
 

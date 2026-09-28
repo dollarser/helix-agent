@@ -1504,11 +1504,11 @@
     <string name="diagnostics_preview_loading">正在生成报告…</string>
     <string name="diagnostics_preview_copy">复制报告</string>
     <string name="session_export_prepare_retry">重新准备导出</string>
-    <string name="local_model_storage_scope">File sizes of recognized models and resumable downloads only; excludes conversations, workspaces, and other app data. Clear an earlier partial download before switching models.</string>
-    <string name="local_model_storage_usage">Models: %1$s · Partial downloads: %2$s</string>
-    <string name="local_model_storage_clear">Clear partial downloads</string>
+    <string name="local_model_storage_scope">File sizes of recognized models, resumable downloads and interrupted installation copies only; excludes conversations, workspaces, and other app data. Clear an earlier partial download before switching models.</string>
+    <string name="local_model_storage_usage">Models: %1$s · Download / installation leftovers: %2$s</string>
+    <string name="local_model_storage_clear">Clear download / installation leftovers</string>
     <string name="local_model_storage_refresh">Refresh usage</string>
-    <string name="local_model_storage_confirm">Clear %1$s of partial downloads? They will need to be downloaded again. Installed models, conversations, and workspaces will be kept.</string>
+    <string name="local_model_storage_confirm">Clear %1$s of download / installation leftovers? They will need to be downloaded again. Installed models, conversations, and workspaces will be kept.</string>
     <string name="local_model_storage_failed">Unable to read or clear downloads. A download may be active or files may have changed. Refresh and try again.</string>
     <string name="storage_usage_title">Data usage and deletion scope</string>
     <string name="storage_usage_scope">Logical sizes of the private files below, not total app usage or reclaimable space. External directories are excluded and shared directories counted once. Data may change during scanning.</string>

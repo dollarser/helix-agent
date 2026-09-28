@@ -7,6 +7,7 @@ class LocalModelStorageSnapshot internal constructor(
     val downloadCount: Int,
     internal val revision: Long,
     internal val entries: List<LocalModelPartial>,
+    internal val publication: com.helix.provider.api.local.ModelPublicationResidue,
 )
 
 internal data class LocalModelPartial(
