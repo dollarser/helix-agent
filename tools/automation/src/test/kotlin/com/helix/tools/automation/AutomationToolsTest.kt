@@ -6,6 +6,7 @@ import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.JsonObject
@@ -98,6 +99,19 @@ class AutomationToolsTest {
                 }.operationClass,
         )
         assertFalse(descriptors.any { it.inputSchema.toString().contains("coordinate", ignoreCase = true) })
+    }
+
+    @Test
+    fun aHostPluginCanBindTheSameContractsToPluginProvenance() {
+        val origin = ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use")
+        val descriptors = AutomationTools(port, origin).descriptors()
+        assertTrue(descriptors.all { it.origin == origin })
+        assertTrue(
+            descriptors.all {
+                it.contractHash !=
+                    tools.descriptors().single { base -> base.name == it.name }.contractHash
+            },
+        )
     }
 
     @Test

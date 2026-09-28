@@ -84,6 +84,34 @@ class ConnectorPackageReaderTest {
     }
 
     @Test
+    fun agentPluginsV1RootManifestLoadsPortableSkillsAndMcpComponents() {
+        val result =
+            reader.parse(
+                files(
+                    "plugin.json" to
+                        """{"${'$'}schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"research","version":"1.0.0","description":"Research plugin"}""",
+                    "mcp.json" to """{"mcpServers":{"docs":{"url":"https://example.com/mcp"}}}""",
+                    "skills/research/SKILL.md" to skill("research"),
+                ),
+            )
+        assertEquals("AGENT_PLUGINS_V1", result.source)
+        assertEquals("research", result.name)
+        assertEquals("1.0.0", result.versionLabel)
+        assertEquals(1, result.endpoints.size)
+        assertEquals(1, result.skills.size)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.parse(
+                files(
+                    "plugin.json" to
+                        """{"${'$'}schema":"https://example.invalid/plugins/v9","name":"research","version":"1.0.0","description":"Research plugin"}""",
+                    "skills/research/SKILL.md" to skill("research"),
+                ),
+            )
+        }
+    }
+
+    @Test
     fun hostCredentialsAndCodeNeverEnterImportedEndpoint() {
         val result =
             reader.parse(

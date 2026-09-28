@@ -4,7 +4,7 @@
 
 ## Completed
 
-- 所有者追加操作权限与循环优化：注册/Policy/审批/新审计取消 L0–L3，保留可信 effect、scope 与 ALLOW/ASK/DENY；新增持久结果驱动的无进展警告/停止，Goal 等待用户调整后继续。双通道 unit/lint/APK/test APK 与主机门禁通过；本轮设备 not requested，未提交。边界见[增量证据](../evidence/development/operation-permissions-loop-progress-2026-09-28.md)。
+- 所有者追加操作权限与循环优化：注册/Policy/审批/新审计取消 L0–L3，保留可信 effect、scope 与 ALLOW/ASK/DENY；新增持久结果驱动的无进展警告/停止，Goal 等待用户调整后继续。双通道 unit/lint/APK/test APK 与主机门禁通过；本轮设备 not requested。随后按 owner 要求与主目录 Mobile Use Plugin 工作本地集成，完整主机门禁再次通过，未推送；见[增量证据](../evidence/development/operation-permissions-loop-progress-2026-09-28.md)与[合并记录](../evidence/development/main-operation-integration-2026-09-28.md)。
 
 - 所有者追加系统设置自动化修复：正式会话授权包含已安装系统设置/搜索组件，新增暂停确认恢复与有界原生滑块动作。主机gate、API36 UI恢复1/1通过；新Turn默认512工具轮/1024模型调用/3200万累计token（保留已有预算），最终亮度oracle2/2且两个Turn均COMPLETED。Plan执行入口同步改用当前Goal配置，API36执行闭环2/2通过。范围与历史失败见[修复记录](../evidence/development/automation-recovery-progress-2026-09-28.md)。
 

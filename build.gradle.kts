@@ -104,6 +104,7 @@ val androidLibraries =
         ":runtime:proot-client" to "com.helix.runtime.proot.client",
         ":runtime:cli-client" to "com.helix.runtime.cli.client",
         ":extensions:a2a" to "com.helix.extensions.a2a",
+        ":extensions:mobile-use" to "com.helix.extensions.mobileuse",
         ":spikes:a2a-sdk" to "com.helix.spikes.a2a.sdk",
         ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
         ":spikes:bounded-orchestration" to "com.helix.spikes.orchestration",
@@ -154,6 +155,7 @@ val jvmLibraries =
         ":provider:anthropic",
         ":provider:catalog",
         ":extensions:mcp",
+        ":extensions:plugin",
         ":extensions:skills",
         ":tools:framework",
         ":tools:files",
@@ -174,6 +176,9 @@ val projectDependencies =
         ":provider:catalog" to listOf(":provider:api", ":core:model"),
         ":extensions:mcp" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":extensions:a2a" to listOf(":core:model", ":core:policy", ":tools:framework"),
+        ":extensions:plugin" to listOf(":core:model", ":tools:framework"),
+        ":extensions:mobile-use" to
+            listOf(":core:model", ":core:policy", ":extensions:plugin", ":tools:automation", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace

@@ -111,6 +111,7 @@ dependencies {
     // HXA-071: client-only MCP configuration/handshake and the storage bridge. SDK/Ktor
     // types remain behind :extensions:mcp's Helix-owned facade.
     implementation(project(":extensions:mcp"))
+    implementation(project(":extensions:plugin"))
     // HXA-078: client-only A2A configuration and Agent Card discovery/snapshot. The transport
     // remains behind :extensions:a2a's Helix-owned facade; dynamic tools arrive in HXA-079.
     implementation(project(":extensions:a2a"))
@@ -136,6 +137,7 @@ dependencies {
 
     add("developerImplementation", project(":feature:files-allfiles"))
     add("developerImplementation", project(":tools:automation"))
+    add("developerImplementation", project(":extensions:mobile-use"))
     add("developerImplementation", project(":tools:root"))
     add("developerImplementation", project(":runtime:proot-client"))
     // HXA-083: the supervisor's public API exposes the shared cross-APK protocol types

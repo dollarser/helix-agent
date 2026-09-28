@@ -268,6 +268,10 @@ internal class DefaultAppContainer(
 
     private val toolImplementations: ToolImplementationRegistry = ToolImplementationRegistry()
 
+    override val pluginRegistry =
+        com.helix.extensions.plugin
+            .PluginRegistry(toolRegistry, toolImplementations)
+
     private val skillsRoot: Path = java.io.File(context.filesDir, "skills").toPath()
 
     override val skillImportService: SkillImportService =
@@ -494,7 +498,7 @@ internal class DefaultAppContainer(
         RootModule.register(context, appClock, toolRegistry, toolImplementations)
         // HXA-097: developer exposes the accepted snapshot/token/action contracts; consumer
         // remains a flavor-local no-op with no Accessibility tool descriptors.
-        AutomationModule.register(context, toolRegistry, toolImplementations)
+        AutomationModule.register(context, pluginRegistry)
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
         // and allowed-tools hints cannot register tools or grant authority.

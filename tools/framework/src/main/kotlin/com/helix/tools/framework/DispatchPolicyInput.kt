@@ -32,7 +32,19 @@ internal fun buildDispatchPolicyInput(
 
 private fun toolCallSourceOf(descriptor: ToolDescriptor): ToolCallSource =
     when (val origin = descriptor.origin) {
-        ToolOrigin.BuiltInOrigin -> ToolCallSource.BuiltIn
-        is ToolOrigin.McpOrigin -> ToolCallSource.Mcp(McpServerId(origin.serverId), origin.sourceSchemaHash)
-        is ToolOrigin.A2aOrigin -> ToolCallSource.A2a(A2aAgentId(origin.agentId), origin.cardHash, origin.skillHash)
+        ToolOrigin.BuiltInOrigin -> {
+            ToolCallSource.BuiltIn
+        }
+
+        is ToolOrigin.PluginOrigin -> {
+            ToolCallSource.Plugin(origin.pluginId, origin.pluginVersion, origin.runtimeId)
+        }
+
+        is ToolOrigin.McpOrigin -> {
+            ToolCallSource.Mcp(McpServerId(origin.serverId), origin.sourceSchemaHash)
+        }
+
+        is ToolOrigin.A2aOrigin -> {
+            ToolCallSource.A2a(A2aAgentId(origin.agentId), origin.cardHash, origin.skillHash)
+        }
     }

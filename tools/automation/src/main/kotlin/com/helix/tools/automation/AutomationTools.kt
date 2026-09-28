@@ -47,6 +47,7 @@ class PermissionCenterAutomationToolPort(
 @Suppress("TooManyFunctions") // schema helpers stay beside the versioned contracts
 class AutomationTools(
     private val port: AutomationToolPort,
+    private val origin: ToolOrigin = ToolOrigin.BuiltInOrigin,
 ) {
     fun descriptors(): List<ToolDescriptor> =
         listOf(
@@ -297,7 +298,7 @@ class AutomationTools(
         setOf(Capability.ACCESSIBILITY_AUTOMATION),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
-        ToolOrigin.BuiltInOrigin,
+        origin,
     )
 
     private fun emptyObject() = obj(emptyMap(), emptyList())

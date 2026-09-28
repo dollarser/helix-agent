@@ -139,6 +139,10 @@ class ApprovalCardUiMapperTest {
         val builtin = ApprovalUiMapper.sourceLabel(ToolOrigin.BuiltInOrigin)
         assertEquals(R.string.approval_source_builtin, builtin.res)
         assertTrue(builtin.args.isEmpty())
+        val plugin =
+            ApprovalUiMapper.sourceLabel(ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use"))
+        assertEquals(R.string.approval_source_plugin, plugin.res)
+        assertEquals(listOf("mobile-use"), plugin.args)
         val mcp = ApprovalUiMapper.sourceLabel(mcpOrigin("srv-1"))
         assertEquals(R.string.approval_source_mcp, mcp.res)
         assertEquals(listOf("srv-1"), mcp.args)
@@ -156,6 +160,13 @@ class ApprovalCardUiMapperTest {
         assertEquals(
             R.string.tool_failure_generic,
             ApprovalUiMapper.executionFailureLabel(ToolOrigin.BuiltInOrigin, requiresReview = false),
+        )
+        assertEquals(
+            R.string.tool_failure_generic,
+            ApprovalUiMapper.executionFailureLabel(
+                ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use"),
+                requiresReview = false,
+            ),
         )
         assertEquals(
             R.string.tool_failure_mcp,

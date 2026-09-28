@@ -51,6 +51,7 @@ object ApprovalUiMapper {
     fun sourceLabel(origin: ToolOrigin): ApprovalLabel =
         when (origin) {
             ToolOrigin.BuiltInOrigin -> ApprovalLabel(R.string.approval_source_builtin)
+            is ToolOrigin.PluginOrigin -> ApprovalLabel(R.string.approval_source_plugin, listOf(origin.pluginId))
             is ToolOrigin.McpOrigin -> ApprovalLabel(R.string.approval_source_mcp, listOf(origin.serverId))
             is ToolOrigin.A2aOrigin -> ApprovalLabel(R.string.approval_source_a2a, listOf(origin.agentId))
         }
@@ -68,8 +69,13 @@ object ApprovalUiMapper {
         } else {
             when (origin) {
                 is ToolOrigin.McpOrigin -> R.string.tool_failure_mcp
+
                 is ToolOrigin.A2aOrigin -> R.string.tool_failure_a2a
-                ToolOrigin.BuiltInOrigin, null -> R.string.tool_failure_generic
+
+                is ToolOrigin.PluginOrigin,
+                ToolOrigin.BuiltInOrigin,
+                null,
+                -> R.string.tool_failure_generic
             }
         }
 
