@@ -115,7 +115,7 @@
 3. **P2 SAF bounded diagnosis — 已完成 / 当前未复现**：固定 API36 consumer 制品直接 1 次 + 独立 package-reset 3 次共 4/4 通过；历史 `files-saf-empty` 失败继续作为 known limitation，不在无证据时修改 fail-closed live re-check。
 4. **P3 模型安装最小闭环 — 已完成**：精选目录 + 高级导入复用 HXA-222 资产/Provider；host 覆盖 200/206/range/hash/disk/duplicate/cancel/recovery，最终 API36 developer 真实 Android HTTP 安装、真实 probe 与当前 Session 显式选择通过。
 5. **P4 首次成功联合旅程 — 已完成**：从 `pm clear` 干净状态使用 P3 安装编排，4B Instruct 2507 完成 managed Workspace 上一次 write + 一次 read，产物注册后进程死亡/重开恢复同一 model/Workspace/conversation/artifact，且没有重复副作用。小模型失败仅作为历史对照，不再继续测试。
-6. **P5 4B 性能与任务质量基线 — 下一 checkpoint**：只对 4B 分离可观测 load/generation/PSS/RSS/cancel-exit 与 task correctness；prefill/TTFT/decode-only 在当前同步 JNI 协议下明确记为不可观测，再决定优化点。
-7. **P6 之后**：按事实做同配置 A/B 优化，再进入 hardening/内测/发行；发行身份与服务账号清单可并行只读准备。
+6. **P5 SGLang Harness 性能与任务质量基线 — 下一 checkpoint**：本地 4B 停留在 P3/P4 的最低可用证据；长程系统评测统一使用 `http://localhost:30008/` 的 `Qwen3.8-27B`。复用 `fixed-evals.tsv` 的 Files/JavaScript/Skills/Goal 共 15 case，统计独立 oracle、Turn/Tool 事实与 Harness 端到端 elapsed；不把这些数字解释成 SGLang decode 性能。
+7. **P6 之后**：继续使用同一 SGLang fixed dataset 做 Harness A/B，再进入 hardening/内测/发行；只有需要验证设备内最低能力时才回到本地 4B，不再用小模型或本地模型跑长程系统测试。
 
 外部账号、真机与审核时间不作为可控开发时间；此计划不表示所有未来候选都必做，也不改变已有验收通过/未验结论。

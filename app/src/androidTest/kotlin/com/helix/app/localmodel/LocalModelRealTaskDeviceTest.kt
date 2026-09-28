@@ -47,7 +47,7 @@ import java.util.UUID
 /** Opt-in downloaded-weight evaluation; scoped synthetic files, production loop and durable evidence. */
 class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost() {
     @Test
-    @Suppress("LongMethod", "CyclomaticComplexMethod") // One real journey keeps its evidence together.
+    @Suppress("LongMethod") // Complete production turn with fixture setup and cleanup in the same ownership scope.
     fun realModelCompletesFileWorkflow() =
         runBlocking {
             org.junit.Assume.assumeTrue(
@@ -75,8 +75,6 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                     .getArguments()
                     .getString("contextTokens", "32768")
                     .toInt()
-            val baselineIdleMs = arguments.getString("baselineLoadedIdleMs", "0").toLong()
-            require(baselineIdleMs in 0..10_000)
             val client =
                 LocalInferenceRuntimeClient(
                     app,
@@ -84,14 +82,6 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                         .ModelAssetStore(java.io.File(app.filesDir, "models")),
                 )
             val evidence = java.io.File(app.filesDir, "hxa222-evidence").apply { mkdirs() }
-            val phases = java.io.File(evidence, "baseline-phases.tsv").apply { if (!exists()) writeText("") }
-
-            fun phase(
-                name: String,
-                state: String,
-            ) {
-                phases.appendText("${android.os.SystemClock.elapsedRealtime()}\t$name\t$state\n")
-            }
             val job = SupervisorJob()
             try {
                 val runtime =
@@ -99,7 +89,6 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                         override fun generate(request: LocalGenerationRequest) =
                             flow {
                                 val callStart = android.os.SystemClock.elapsedRealtime()
-                                phase("generation:${request.generationId}", "start")
                                 java.io
                                     .File(
                                         evidence,
@@ -110,19 +99,13 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                                 java.io
                                     .File(evidence, "request-${request.generationId}.json")
                                     .writeBytes(LocalRuntimeCodec.encode(request.request))
-                                try {
-                                    client.generate(request).collect {
-                                        java.io
-                                            .File(
-                                                evidence,
-                                                "events.txt",
-                                            ).appendText(
-                                                "${android.os.SystemClock.elapsedRealtime() - callStart}ms $it\n",
-                                            )
-                                        emit(it)
-                                    }
-                                } finally {
-                                    phase("generation:${request.generationId}", "end")
+                                client.generate(request).collect {
+                                    java.io
+                                        .File(
+                                            evidence,
+                                            "events.txt",
+                                        ).appendText("${android.os.SystemClock.elapsedRealtime() - callStart}ms $it\n")
+                                    emit(it)
                                 }
                             }
                     }
@@ -139,25 +122,13 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                     )
                 val started = android.os.SystemClock.elapsedRealtime()
                 val loaded = runtime.load(LocalModelLoadRequest(asset, contextTokens, 2))
-                java.io
-                    .File(evidence, "cold-load-ms.txt")
-                    .writeText((android.os.SystemClock.elapsedRealtime() - started).toString())
                 assertEquals(contextTokens.toLong(), runtime.inspect(asset).metadata.contextWindow)
-                val warmReuseStart = android.os.SystemClock.elapsedRealtime()
                 assertEquals(loaded.handle, runtime.load(loaded.request).handle)
-                java.io
-                    .File(evidence, "warm-reuse-ms.txt")
-                    .writeText((android.os.SystemClock.elapsedRealtime() - warmReuseStart).toString())
                 java.io
                     .File(
                         evidence,
                         "load-ms.txt",
                     ).writeText((android.os.SystemClock.elapsedRealtime() - started).toString())
-                if (baselineIdleMs > 0) {
-                    phase("loaded-idle", "start")
-                    delay(baselineIdleMs)
-                    phase("loaded-idle", "end")
-                }
                 val loading = LocalModelLoadRequest(asset, contextTokens, 2)
                 val scope = CoroutineScope(job + Dispatchers.IO)
                 val lines = InMemoryLineStore()
@@ -198,9 +169,7 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                         authKind = "NONE",
                     ),
                 )
-                phase("capability-probe", "start")
                 val probe = providers.runCapabilityTest(id)
-                phase("capability-probe", "end")
                 java.io.File(evidence, "probe.txt").writeText(probe.toString())
                 assertTrue("Real capability probe failed: $probe", probe is com.helix.provider.api.ProbeOutcome.Ok)
                 val chat =
@@ -264,7 +233,6 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                             .TurnBudgets(12, 12, 32000, 2048, 200000),
                     )
                     delay(500)
-                    phase("aggregation-task", "start")
                     val receipt =
                         chat
                             .sendSubmission(
@@ -327,7 +295,6 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                             .readText()
                             .contains("240"),
                     )
-                    phase("aggregation-task", "end")
                 } finally {
                     val turns = storage.turns.listBySession(session)
                     java.io.File(evidence, "trajectory.txt").writeText(

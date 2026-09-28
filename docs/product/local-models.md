@@ -2,6 +2,8 @@
 
 在 Models 页面选择 **On-device** 后，默认精选目录只保留 **Qwen3 4B Instruct 2507 Q4_K_M**，并固定来源 revision、文件名、大小、SHA-256 和许可证。ModelScope 与 Hugging Face 均可选。需要其它模型时仍可使用“高级导入”填写直接 HTTPS URL、准确 SHA-256 与字节数，但 Helix 的主动质量/性能基线只覆盖该 4B 模型。模型权重不打包进 APK。
 
+本地 4B 的测试目标是证明设备内模型至少能完成基础工作，不承担 Helix Harness 的长程系统能力基准。Harness 能否完成复杂任务、工具编排、Goal 与恢复的持续系统测试统一使用本机 SGLang `Qwen3.8-27B`（`http://localhost:30008/`）；因此 SGLang 结果不能反推手机上的 4B 推理速度，本地 4B 结果也不能替代 Harness 系统质量基线。
+
 安装前会检查模型资产 quota/count 与 Android 可分配私有存储。下载支持 Range 续传：只有精确匹配 offset/total 的 `206` 才追加；服务器对 Range 返回 `200` 时从头覆盖。错误 Content-Range、大小、SHA-256 或 GGUF header 均 fail closed，不发布残缺资产；取消和普通 IO 中断保留当前 partial 以便相同资产恢复。精选来源仅允许各自可信 HTTPS 域族重定向；高级导入保持不跟随重定向，也不支持登录、Cookie 或认证 header URL。下载与原子发布在峰值时接近两份模型空间。
 
 校验发布后 Helix 自动执行连接测试和能力探测。连接成功只说明资产能够由当前 runtime 加载；能力 probe 与固定任务质量仍是不同证据。安装不会自动切换任何会话：只有用户明确点击“用于当前会话”后，当前会话的后续 Turn 才使用该本地模型，其它会话与全局默认保持不变。设备内模型推理不经过网络 endpoint；模型发起的工具仍遵循会话权限、审批、effect 与审计。

@@ -1,0 +1,46 @@
+# Harness 系统基线
+
+P5 之后把“设备内本地模型最低可用”与“Helix Harness 能否解决问题”分开验证。
+
+## 模型分工
+
+- **Qwen3 4B Instruct 2507 Q4_K_M**：只承担设备内最低能力证明。P3 已覆盖安装/校验/Provider/probe，P4 已覆盖真实 `write`→`read`、artifact 与进程重开。后续不再用设备内模型跑长程系统能力或优化 A/B。
+- **SGLang `Qwen3.8-27B`**：`http://localhost:30008/` 是当前 Harness 系统测试的模型服务。Android emulator 通过 `10.0.2.2:30008/v1` 使用同一服务，走 Helix 正式 Provider、Agent loop、permission/effect、Tool Dispatcher 与 durable storage。
+
+本分工不表示 4B 是最终推荐手机模型，也不把 SGLang 结果当成设备内推理性能。两类证据回答不同问题。
+
+## P5 固定范围
+
+P5 复用 `evals/m10/fixed-evals.tsv`，不建立第二套 Eval。当前系统基线固定四组、15 个 case：
+
+1. `files` 4 项：scope read/list、写审批、越界拒绝；
+2. `javascript` 4 项：受控执行、超时、能力缺失、取消不重放；
+3. `skills` 4 项：不可信 hints、未曝光工具、archive traversal、snapshot invalidation；
+4. `goal` 3 项：bounded goal、预算 continuation、写审批暂停。
+
+这些 case 同时覆盖 OpenAI Responses、OpenAI Chat Completions 与 Anthropic Messages adapter。MCP/A2A/Browser/Accessibility/Root 等完整 45 项仍属于更广回归，不要求每次 P5/P6 A/B 重跑。
+
+## 性能口径
+
+每个 fixed case 已持久化 `elapsedMs`；P5 汇总 mean/median/p95/max，并保存每个 suite 的 host wall time。这里的 elapsed 是 **Harness 端到端任务时间**，包含模型请求、Tool、审批、Room 与恢复等待，适合比较 Harness 改动前后是否让同一任务更快/更慢。
+
+它不是 SGLang server 的纯推理性能，因此本基线不声称：
+
+- prefill time；
+- true TTFT；
+- decode-only tokens/s；
+- GPU 显存或服务端吞吐。
+
+如果未来需要优化 SGLang server 本身，另建服务端 profiler；不要把 Harness `elapsedMs` 混成模型 decode 指标。
+
+## 可比较身份
+
+正式 P5 run 必须满足：同一 `gitCommit`、clean worktree、同一 `fixed-evals.tsv` SHA、同一 developer app/test APK、同一 source manifest、同一 SGLang model id。各 suite 继续输出既有 HXA-227 envelope/原始 device record；P5 只增加跨 suite 汇总，不改变 oracle。
+
+复现入口：
+
+```bash
+python3 scripts/debug/2026-09-28/run-p5-sglang-harness-baseline.py
+```
+
+runner 会先执行真实 SGLang UI/provider smoke，再在同一 owned API36 emulator 上依次执行 `files/javascript/skills/goal`，最后关闭自己创建的 emulator。任一 case 失败都保留原始证据并使 P5 gate 失败，不通过重试直到成功来篡改基线。

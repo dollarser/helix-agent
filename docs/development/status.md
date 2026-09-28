@@ -56,14 +56,14 @@ P3 本地模型安装最小闭环已完成。当前精选目录已按后续产�
 
 P4 首次成功联合旅程已完成，未修改 production。owned API36 developer 从 `pm clear` 干净状态开始，经 P3 同一安装编排安装本地 GGUF、创建唯一当前 Session 与 managed Workspace，真实模型执行 `write`→`read` 两个工具调用并产生 durable artifact；setup 随后 `Process.killProcess`，新 PID 重开后同一 Session/model/Workspace/Turn/messages/tool timeline/artifact 全部恢复，2 秒观察窗内 Turn/model call/tool call 数量不变，确认无重复副作用。4B Instruct 2507 成功轮为 2 tool calls / 3 model calls / 6 persisted messages；artifact SHA 与 Workspace 文件一致。详见 [P4 证据](../evidence/development/p4-first-success-journey-2026-09-28.md)。
 
-同一 P4 fixture 曾给出 0.6B 的失败对照；该事实作为历史证据保留，但按当前产品决策 **P5 及后续不再运行 0.6B/1.7B**。主动性能/质量基线只针对 4B。
+同一 P4 fixture 曾给出 0.6B 的失败对照；该事实作为历史证据保留，但按当前产品决策 **后续不再用 0.6B/1.7B 做主动测试**。设备内 4B 只承担最低可用证明：P3/P4 已证明安装、真实 Provider、基础 Tool 与恢复闭环，后续不再用本地模型承担长程 Harness 系统基线。
 
-下一本地主线进入 P5：
+下一本地主线进入 P5，并将系统评测模型切换为本机 SGLang：`http://localhost:30008/` / `Qwen3.8-27B`。Android emulator 通过 `10.0.2.2:30008/v1` 走正式 Provider；P5 复用既有 HXA-100 fixed eval，而不是新建第二套 Eval。详见 [Harness 系统基线](harness-system-baseline.md)。
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| P5 | 4B 性能与任务质量基线 | 冻结可观测 load/generation/PSS/RSS/cancel-exit 与少量真实任务 oracle；不可观测 prefill/TTFT/decode-only 明确记 unknown | 只运行 Qwen3 4B Instruct 2507；Runtime success 与 task correctness 分开统计 |
-| P6 | 证据驱动优化 | 同模型/同任务/同配置逐项比较 KV/prefix/thread/batch/streaming，只有事实收益才保留 | 不先承诺 GPU/NPU |
+| P5 | SGLang Harness 性能与任务质量基线 | 当前源码/APK 下，Files/JavaScript/Skills/Goal 共 15 个固定 case 形成独立 oracle、Turn/Tool 事实与端到端 elapsed 基线 | 使用 `localhost:30008` 的 `Qwen3.8-27B`；本地 4B 不再跑长程系统测试 |
+| P6 | 证据驱动 Harness 优化 | 同 fixed dataset、同 SGLang 服务、同设备条件做 baseline/candidate A/B；只保留系统任务完成率或端到端耗时的真实收益 | 模型服务本身的 prefill/TTFT/decode/GPU 性能不混入 Harness 指标 |
 | P7+ | hardening→内测→发行 | 错误可恢复、真实用户反馈后再进入 120→122→121→123 | Project Memory、Subagent 等不自动进入近期主线 |
 
 HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入时独立验收，不阻塞无依赖本地工作。HXA-222 的历史 PROTOCOL 未保留原始回复，不声称唯一根因已定位；4B 一次固定任务通过也不外推为手机性能或普遍模型可靠性。
