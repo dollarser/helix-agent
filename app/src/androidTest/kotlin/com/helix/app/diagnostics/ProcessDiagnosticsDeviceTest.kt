@@ -39,6 +39,11 @@ class ProcessDiagnosticsDeviceTest {
         assertTrue(encoded.contains("turn-104"))
         assertTrue(encoded.contains("RUNNING_TOOL"))
         assertEquals(64, store.read().crashFingerprint?.length)
+        val report = kotlinx.coroutines.runBlocking { DiagnosticReportService(application).preview() }
+        assertTrue(report.contains("helix.process-diagnostics"))
+        assertTrue(report.contains("appVersion"))
+        assertFalse(report.contains(marker))
+        assertTrue(report.toByteArray().size <= DiagnosticBundlePreview.MAX_ENCODED_BYTES)
     }
 
     @Test

@@ -1,0 +1,13 @@
+{
+  "id": "skill-003",
+  "fixtureVersion": "report-refused-import-v2",
+  "promptSha256": "937bce2ec8ee4dc2131e775356aaaab4b142e43bb3031d8eade199d422ef3f44",
+  "datasetPromptSha256": "ef07c82aee66a2f19bae7d00675f5959b59e7237651dcc2e2199663dbe2ab51d",
+  "fixtureContextSha256": "5f042e476c836d7ce420cf8fa56ac2bb83240c15dcc5d1b0b2aaaaf7620f8452",
+  "datasetSha256": "f27bf8b51e61be248a6e642c22cefc3e5045d0d35e37518377eb9b8cdf85e795",
+  "result": "PASS",
+  "turnState": "COMPLETED",
+  "archiveRefused": true,
+  "calls": [],
+  "text": "\n\nReport of the host-observed import refusal:\n\n- **Action:** Host-side import of the synthetic Skill archive (ZIP).\n- **Result:** Refused by the host.\n- **Reason:** The archive contained a **traversal entry** — a path entry attempting to escape the intended extraction directory (e.g., a `../`-style path). The host rejects such entries before installation.\n- **Outcome:** **No imported Skill snapshot was created.** Nothing was written to the Skill store, and no Skill named `eval-skill-201769974595` exists as an installed/imported artifact as a result of this action.\n- **Scope limitation:** Archive import is a **user UI action** performed by the host; Helix only observed the refusal. No further import attempt was made or is requested here, and the archive has not been recreated.\n\nIf you'd like to proceed, the archive would need to be repackaged without traversal entries, and the import re-triggered from the user UI."
+}

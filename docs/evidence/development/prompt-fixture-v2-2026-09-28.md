@@ -9,3 +9,11 @@
 提示装配、Plan/todo 主机测试通过；developer app/test APK、spotlessCheck、detekt 通过。新增 fixture 信息触发原 helper 长度/格式 gate，已将请求构造和 identity 提取为纯 helper 后通过，不禁用规则。日志 `build/prompt-fixture-v2-host.log`、`build/prompt-fixture-v2-gate.log`。
 
 执行前约定：同 SGLang 服务与 API36 developer 设备配置完整执行 15 个 case 一次，保留失败，不循环至全绿。历史输出截断和模型偶发多余调用仍开放。
+
+## 本轮结果
+
+clean `fce488ce`、API36 developer arm64、4 GiB/4 cores、SGLang Qwen3.8-27B / OpenAI Chat：Provider smoke 1/1，完整 **15 PASS / 0 FAIL / 0 fixture ERROR**，runner 正常退出并关闭自己的模拟器。skill-003 v2 直接报告拒绝，0 工具调用；完整摘要及该项实际请求身份见 [summary](prompt-fixture-v2-2026-09-28/summary.json)、[skill-003](prompt-fixture-v2-2026-09-28/skill-003.json)。Goal 三项通过，未改变固定预算。
+
+source manifest `a2f4213183f19ebe53761bd472bce1ab3081e139a5b4cc9962e638c937ef43c2`，app APK `6dddb60758e7810ec702123697791ec55d38e87ab31c265e86d728f081b0115d`，test APK `7f4e1522d217f57ba19a6e50dcd132e2dd743b955e727919af4ab7876122010a`。原始结果 `build/prompt-fixture-v2-baseline-20260928/`。12 个同口径 elapsed 的 mean 5,771.8 ms、median 4,264 ms、max/p95 15,586 ms；不是纯推理速度，跨夹具变化不构成提示词提速证明。
+
+本次通过不关闭历史 OUTPUT_TOKEN_LIMIT 或额外工具调用的稳定性问题。随后 P7 UI 变更另有 APK 与设备验证，不把本基线身份自动扩展到后续制品。

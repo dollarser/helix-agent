@@ -66,6 +66,10 @@ P5/P6 第一轮已完成：合并后 API36 developer JS/Goal 定向 5/5；clean 
 
 P7 第一批联合恢复已完成：同一 `99b7bee7` APK 在 API36 developer 上普通断言 26/26、专用进程死亡恢复 7/7；首次两类错误启动协议及修正完整保留，见 [P7 第一批证据](../evidence/development/p7-recovery-first-batch-2026-09-28.md)。当前下一工作为错误恢复 UI、支持诊断与空间管理边界核对；P7 整体、真机长稳和发行尚未完成。
 
+后续 prompt/fixture v2 已完成：修正 files/Plan/Goal 报告指导，skill-003 最终请求改为报告既有拒绝并记录独立 fixture/hash；clean `fce488ce` **15/15**，skill-003 本次 0 工具调用。见 [v2 证据](../evidence/development/prompt-fixture-v2-2026-09-28.md)，不可与旧夹具比较提示词因果收益。
+
+P7 UI 增量已交付：导出准备失败可就地重试；诊断与审计提供用户主动的无正文报告预览/复制，失败可重试，不自动上传。API36 developer 联合 **38/38**、consumer 新入口 **8/8**，双渠道主机 gate 通过；空间删除/共享引用边界已核对。见 [P7 UI 与空间证据](../evidence/development/p7-recovery-diagnostics-storage-2026-09-28.md)。下一步为占用与可清理范围展示、下载残留的明确清理选择及剩余可用性/长稳；历史截断与偶发多余调用仍开放，P7 不整体关闭。
+
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
 | P5 | SGLang Harness 性能与任务质量基线 | 当前源码/APK 下，Files/JavaScript/Skills/Goal 共 15 个固定 case 形成独立 oracle、Turn/Tool 事实与端到端 elapsed 基线 | 使用 `localhost:30008` 的 `Qwen3.8-27B`；本地 4B 不再跑长程系统测试 |

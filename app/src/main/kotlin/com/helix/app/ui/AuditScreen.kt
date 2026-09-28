@@ -50,6 +50,7 @@ import com.helix.core.model.RiskLevel
 fun AuditScreen(
     service: AuditLogService,
     sessions: List<SessionRowUi>,
+    diagnostics: com.helix.app.diagnostics.DiagnosticReportService? = null,
 ) {
     var sessionId by remember { mutableStateOf<String?>(null) }
     var toolName by remember { mutableStateOf<String?>(null) }
@@ -76,6 +77,7 @@ fun AuditScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AuditLogHeader()
+        diagnostics?.let { DiagnosticReportSection(it::preview) }
         AuditSessionToolRiskFilters(
             sessions,
             tools,

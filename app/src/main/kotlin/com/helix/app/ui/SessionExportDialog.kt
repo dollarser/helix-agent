@@ -12,6 +12,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,11 +37,16 @@ internal fun SessionExportDialog(
 ) {
     val scope = rememberCoroutineScope()
     var ready by remember { mutableStateOf(false) }
+    var preparing by remember { mutableStateOf(true) }
+    var preparationAttempt by remember { mutableIntStateOf(0) }
     var running by remember { mutableStateOf(false) }
     var copied by remember { mutableLongStateOf(0L) }
     var notice by remember { mutableStateOf<Int?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
-    LaunchedEffect(service) {
+    LaunchedEffect(service, preparationAttempt) {
+        preparing = true
+        ready = false
+        notice = null
         try {
             val recovery = service.cleanupInterrupted()
             if (recovery.interrupted || recovery.partialMayRemain) notice = R.string.session_export_interrupted
@@ -49,6 +55,8 @@ internal fun SessionExportDialog(
             throw cancelled
         } catch (_: Exception) {
             notice = R.string.session_export_failed
+        } finally {
+            preparing = false
         }
     }
     val picker =
@@ -78,17 +86,25 @@ internal fun SessionExportDialog(
         title = { Text(stringResource(R.string.session_export_title)) },
         text = { SessionExportBody(running, copied, notice) },
         confirmButton = {
-            TextButton(
-                enabled = ready && !running,
-                modifier = Modifier.testTag("session-export-create"),
-                onClick = {
-                    try {
-                        picker.launch("helix-session.jsonl")
-                    } catch (_: android.content.ActivityNotFoundException) {
-                        notice = R.string.session_export_failed
-                    }
-                },
-            ) { Text(stringResource(R.string.session_export_choose)) }
+            if (!ready) {
+                TextButton(
+                    enabled = !preparing,
+                    modifier = Modifier.testTag("session-export-retry-initialization"),
+                    onClick = { preparationAttempt++ },
+                ) { Text(stringResource(R.string.session_export_prepare_retry)) }
+            } else {
+                TextButton(
+                    enabled = ready && !running,
+                    modifier = Modifier.testTag("session-export-create"),
+                    onClick = {
+                        try {
+                            picker.launch("helix-session.jsonl")
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            notice = R.string.session_export_failed
+                        }
+                    },
+                ) { Text(stringResource(R.string.session_export_choose)) }
+            }
         },
         dismissButton = {
             TextButton(

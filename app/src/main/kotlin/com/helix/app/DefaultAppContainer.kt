@@ -16,6 +16,7 @@ import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
+import com.helix.app.diagnostics.DiagnosticReportService
 import com.helix.app.diagnostics.ProcessEvidenceStore
 import com.helix.app.files.FileManagerService
 import com.helix.app.foreground.AndroidForegroundServiceLauncher
@@ -93,6 +94,7 @@ internal class DefaultAppContainer(
 ) : AppContainer {
     private val appContext: Context = context.applicationContext
     private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
+    override val diagnosticReport = DiagnosticReportService(appContext as Application)
 
     override val storage: HelixStorage = HelixStorage.create(context)
     override val sessionExport =

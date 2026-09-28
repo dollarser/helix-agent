@@ -38,6 +38,8 @@ internal const val APP_SCOPE_ID = "app"
  * section 16).
  */
 interface AppContainer {
+    val diagnosticReport: com.helix.app.diagnostics.DiagnosticReportService? get() = null
+
     val memory: com.helix.app.memory.MemoryService? get() = null
 
     val manualTerminal: com.helix.app.terminal.ManualTerminal?

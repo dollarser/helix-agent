@@ -25,6 +25,43 @@ import java.util.UUID
 class SessionExportUiDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun preparationFailureCanBeRetriedInPlaceWithoutStartingExport() {
+        compose.resetDeterministicUiState()
+        val container = compose.container()
+        val sessionId = "export-retry-${UUID.randomUUID()}"
+        val preferences = compose.activity.getSharedPreferences("session-export", android.content.Context.MODE_PRIVATE)
+        container.storage.sessions.create(sessionId, "Export retry", null, null, 1)
+        try {
+            check(preferences.edit().putString("operation", "invalid-fixture-operation").commit())
+            container.chatService.openSession(sessionId)
+            compose.waitUntil(10000) { container.chatService.screen.value.openSessionId == sessionId }
+            compose.onNodeWithTag("chat-conversation-details").performClick()
+            compose.onNodeWithTag("session-export-open").performClick()
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithTag("session-export-notice").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("session-export-retry-initialization").assertIsEnabled()
+            compose.onNodeWithTag("session-export-create").assertDoesNotExist()
+            // Resolve the synthetic storage fault, then retry preparation without closing the dialog.
+            check(preferences.edit().clear().commit())
+            val pickerLaunches =
+                pickerResult(Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)) {
+                    compose.onNodeWithTag("session-export-retry-initialization").performClick()
+                    compose.waitUntil(10000) {
+                        compose.onAllNodesWithTag("session-export-create").fetchSemanticsNodes().isNotEmpty()
+                    }
+                    compose.onNodeWithTag("session-export-create").assertIsEnabled()
+                }
+            assertEquals(0, pickerLaunches)
+            assertTrue(preferences.getString("operation", null) == null)
+            compose.onNodeWithTag("session-export-dismiss").performClick()
+        } finally {
+            check(preferences.edit().clear().commit())
+            container.chatService.closeSession()
+            container.storage.deleteSessionPermanently(sessionId)
+        }
+    }
+
     @Test fun pickerCancelDoesNotStartExportAndChosenDocumentGetsRealCompletedOutput() {
         compose.resetDeterministicUiState()
         val container = compose.container()

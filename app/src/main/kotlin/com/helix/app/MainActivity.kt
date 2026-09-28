@@ -601,7 +601,7 @@ private fun PermissionsScreenDestination(container: AppContainer) {
 @Suppress("FunctionName")
 private fun AuditScreenDestination(container: AppContainer) {
     val sessions by container.chatService.sessions.collectAsState()
-    AuditScreen(container.auditLogService, sessions)
+    AuditScreen(container.auditLogService, sessions, container.diagnosticReport)
 }
 
 @Composable

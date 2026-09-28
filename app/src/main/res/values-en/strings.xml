@@ -1498,4 +1498,10 @@
     <string name="local_model_capability_failed">Capability probe did not pass. Review the model before using it for agent tasks.</string>
     <string name="local_model_use_current">Use in current conversation</string>
     <string name="local_model_use_current_only">Model selection applies only to the currently open conversation and future turns; other conversations are unchanged.</string>
+    <string name="diagnostics_preview_title">Preview diagnostic report</string>
+    <string name="diagnostics_preview_scope">Contains app version, process status, event times and correlation IDs. Excludes conversation text, files, tool arguments, credentials and exception messages. This is not a session backup or a full error trace. Preview locally; nothing is uploaded. Copy only if you want to share it.</string>
+    <string name="diagnostics_preview_failed">Could not prepare the report. Retry when ready.</string>
+    <string name="diagnostics_preview_loading">Preparing report…</string>
+    <string name="diagnostics_preview_copy">Copy report</string>
+    <string name="session_export_prepare_retry">Retry export preparation</string>
 </resources>

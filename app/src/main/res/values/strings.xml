@@ -1498,4 +1498,10 @@
     <string name="local_model_capability_failed">Capability probe did not pass. Review the model before using it for agent tasks.</string>
     <string name="local_model_use_current">Use in current conversation</string>
     <string name="local_model_use_current_only">Model selection applies only to the currently open conversation and future turns; other conversations are unchanged.</string>
+    <string name="diagnostics_preview_title">预览诊断报告</string>
+    <string name="diagnostics_preview_scope">包含应用版本、进程状态、事件时间和关联 ID；不包含会话正文、文件、工具参数、凭据或异常消息。这不是会话备份，也不包含完整错误轨迹。仅在本机预览，不会自动上传；需要分享时再复制。</string>
+    <string name="diagnostics_preview_failed">暂时无法生成报告，可以重试。</string>
+    <string name="diagnostics_preview_loading">正在生成报告…</string>
+    <string name="diagnostics_preview_copy">复制报告</string>
+    <string name="session_export_prepare_retry">重新准备导出</string>
 </resources>
