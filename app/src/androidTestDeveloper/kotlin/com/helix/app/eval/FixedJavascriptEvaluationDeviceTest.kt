@@ -122,8 +122,8 @@ class FixedJavascriptEvaluationDeviceTest {
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
             container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
             container.chatService.sendTestMessage(session, if (cells[0] == "js-004") JS_CANCEL_SETUP else cells[4])
-            awaitTurn(session, cells[0])
-            saveResult(cells, session, context)
+            val boundaryReached = awaitTurn(session, cells[0])
+            saveResult(cells, session, context, boundaryReached)
         } finally {
             container.chatService.stop()
             container.chatService.closeSession()
@@ -133,7 +133,7 @@ class FixedJavascriptEvaluationDeviceTest {
     private fun awaitTurn(
         session: String,
         caseId: String,
-    ) {
+    ): Boolean {
         val deadline = android.os.SystemClock.elapsedRealtime() + 180_000L
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             val turn =
@@ -154,11 +154,11 @@ class FixedJavascriptEvaluationDeviceTest {
                     Thread.sleep(2_000L)
                     container.chatService.stop()
                 }
-                if (TurnState.valueOf(turn.state).isTerminal) return
+                if (TurnState.valueOf(turn.state).isTerminal) return true
             }
             Thread.sleep(100)
         }
-        error("fixed file case timed out: $caseId")
+        return false
     }
 
     @Suppress("ReturnCount") // ignore absent, non-pending and already submitted decisions
@@ -232,6 +232,7 @@ class FixedJavascriptEvaluationDeviceTest {
         cells: List<String>,
         session: String,
         context: String,
+        boundaryReached: Boolean,
     ) {
         val turn =
             container.storage.turns
@@ -244,7 +245,7 @@ class FixedJavascriptEvaluationDeviceTest {
                 .filter { it.role == "ASSISTANT" && it.kind == "TEXT" && it.turnId == turn.id }
                 .mapNotNull { container.storage.messages.readContent(it) }
                 .joinToString("\n")
-        val passed = verifyCase(cells[0], calls, turn.state)
+        val passed = boundaryReached && verifyCase(cells[0], calls, turn.state)
         val config = Json.parseToJsonElement(File(directory, "config.json").readText()).jsonObject
         val result =
             buildJsonObject {
@@ -274,6 +275,7 @@ class FixedJavascriptEvaluationDeviceTest {
                 put("fixtureContextSha256", hash(context.toByteArray()))
                 put("turnState", turn.state)
                 put("errorCode", turn.errorCode)
+                put("boundaryReached", boundaryReached)
                 put("elapsedMs", (turn.endedAt ?: System.currentTimeMillis()) - turn.startedAt)
                 put("text", text)
                 put("calls", JsonArray(calls.map { JsonPrimitive("${it.name}:${it.state}") }))

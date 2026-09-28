@@ -138,8 +138,8 @@ class FixedFileEvaluationDeviceTest {
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
             container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
             container.chatService.sendTestMessage(session, cells[4])
-            awaitTurn(session, cells[0])
-            saveResult(cells, session, context, output)
+            val boundaryReached = awaitTurn(session, cells[0])
+            saveResult(cells, session, context, output, boundaryReached)
         } finally {
             container.chatService.stop()
             container.chatService.closeSession()
@@ -151,7 +151,7 @@ class FixedFileEvaluationDeviceTest {
     private fun awaitTurn(
         session: String,
         caseId: String,
-    ) {
+    ): Boolean {
         val deadline = android.os.SystemClock.elapsedRealtime() + 180_000L
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             val turn =
@@ -161,11 +161,11 @@ class FixedFileEvaluationDeviceTest {
             if (turn != null) {
                 val calls = container.storage.toolCalls.listByTurn(turn.id)
                 calls.forEach { resolveApproval(it, caseId) }
-                if (TurnState.valueOf(turn.state).isTerminal) return
+                if (TurnState.valueOf(turn.state).isTerminal) return true
             }
             Thread.sleep(100)
         }
-        error("fixed file case timed out: $caseId")
+        return false
     }
 
     @Suppress("ReturnCount") // ignore absent, non-pending and already submitted decisions
@@ -238,6 +238,7 @@ class FixedFileEvaluationDeviceTest {
         session: String,
         context: String,
         output: File,
+        boundaryReached: Boolean,
     ) {
         val turn =
             container.storage.turns
@@ -250,7 +251,7 @@ class FixedFileEvaluationDeviceTest {
                 .filter { it.role == "ASSISTANT" && it.kind == "TEXT" && it.turnId == turn.id }
                 .mapNotNull { container.storage.messages.readContent(it) }
                 .joinToString("\n")
-        val passed = turn.state == "COMPLETED" && verifyCase(cells[0], calls, text, output)
+        val passed = boundaryReached && turn.state == "COMPLETED" && verifyCase(cells[0], calls, text, output)
         val config = Json.parseToJsonElement(File(directory, "config.json").readText()).jsonObject
         val result =
             buildJsonObject {
@@ -279,6 +280,7 @@ class FixedFileEvaluationDeviceTest {
                 put("trajectoryMetrics", evaluationTrajectory(container, session))
                 put("turnState", turn.state)
                 put("errorCode", turn.errorCode)
+                put("boundaryReached", boundaryReached)
                 put("elapsedMs", (turn.endedAt ?: System.currentTimeMillis()) - turn.startedAt)
                 put("text", text)
                 put("calls", JsonArray(calls.map { JsonPrimitive("${it.name}:${it.state}") }))

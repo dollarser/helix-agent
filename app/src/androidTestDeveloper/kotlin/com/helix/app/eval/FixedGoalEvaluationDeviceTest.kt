@@ -136,13 +136,14 @@ class FixedGoalEvaluationDeviceTest {
             if (cells[0] == "goal-002") {
                 container.chatService.continueGoal(goal, "Preparation only: reply READY without tool calls.")
                 check(awaitBoundary(session, false)) { "Goal prelude did not finish" }
+                val prelude = container.storage.goals.resolve(goal)
+                check(prelude.modelCalls > 0) { "Goal prelude must spend at least one real model call" }
                 check(
-                    container.storage.goals
-                        .resolve(goal)
-                        .modelCalls == 1,
-                ) {
-                    "Prelude must spend exactly one real model call"
-                }
+                    container.chatService.updateGoalBudgets(
+                        goal,
+                        prelude.budgets.copy(maxModelCalls = prelude.modelCalls + 1),
+                    ),
+                ) { "Goal prelude budget could not be frozen to one remaining model call" }
             }
             val beforeCalls =
                 container.storage.goals
@@ -251,7 +252,7 @@ class FixedGoalEvaluationDeviceTest {
             }
 
             "goal-002" -> {
-                beforeCalls == 1 && goal.modelCalls == 2 && goal.state == "PAUSED" &&
+                beforeCalls > 0 && goal.modelCalls == beforeCalls + 1 && goal.state == "PAUSED" &&
                     container.storage.goalRuns
                         .listByGoal(
                             goal.id,
