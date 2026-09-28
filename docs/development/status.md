@@ -58,9 +58,13 @@ P4 首次成功联合旅程已完成，未修改 production。owned API36 develo
 
 同一 P4 fixture 曾给出 0.6B 的失败对照；该事实作为历史证据保留，但按当前产品决策 **后续不再用 0.6B/1.7B 做主动测试**。设备内 4B 只承担最低可用证明：P3/P4 已证明安装、真实 Provider、基础 Tool 与恢复闭环，后续不再用本地模型承担长程 Harness 系统基线。
 
-下一本地主线进入 P5，并将系统评测模型切换为本机 SGLang：`http://localhost:30008/` / `Qwen3.8-27B`。Android emulator 通过 `10.0.2.2:30008/v1` 走正式 Provider；P5 复用既有 HXA-100 fixed eval，而不是新建第二套 Eval。详见 [Harness 系统基线](harness-system-baseline.md)。
+系统评测统一使用本机 SGLang：`http://localhost:30008/` / `Qwen3.8-27B`。Android emulator 通过 `10.0.2.2:30008/v1` 走正式 Provider；P5 复用既有 HXA-100 fixed eval，而不是新建第二套 Eval。详见 [Harness 系统基线](harness-system-baseline.md)。
 
-P5 修复候选已[本地合入主工作目录](../evidence/development/p5-worktree-integration-2026-09-28.md)，保留已有 `541d7ba0` QuickJS 已知副作用实现并对齐 eval oracle。合并后主机单测、双渠道 lint/APK/test APK、格式与源码 gate 通过；本轮设备 `not requested`。此前[隔离候选](../evidence/development/p5-sglang-candidate-2026-09-28.md)为 **14 PASS / 1 FAIL / 0 fixture ERROR**，剩余 `goal-001` 输出截断；该结果不代表本次合并制品。下一步收敛输出截断、补合并后的 JS 定向验证，再冻结正式 P5 身份进入 P6；不以跨 oracle/fixture 的分数差声称生产优化收益。
+P5/P6 第一轮已完成：合并后 API36 developer JS/Goal 定向 5/5；clean `b436247f` 完整 14/15（skill-003 冗余执行请求失败），base prompt 加入充分证据直接报告指导后 clean `99b7bee7` 完整 **15/15**。同模型、fixture、oracle 与 test APK；不修改权限或评测预算。见 [P5/P6 对照与局限](../evidence/development/p5-clean-baseline-and-p6-2026-09-28.md)。历史 goal-001 截断未复现，根因尚未确定；skill-003 仍有额外只读调用，单次对照不证明稳定性或因果提速。
+
+新 Goal 的未自定义默认预算已扩大，保留用户已保存限额和现有 Goal；主机门禁及设备定向结果见 [预算与验收](../evidence/development/goal-budget-and-p5-targeted-2026-09-28.md)。下一步为 P7 联合恢复与支持/空间管理边界；不启动新架构或扩大工具功能面。
+
+P7 第一批联合恢复已完成：同一 `99b7bee7` APK 在 API36 developer 上普通断言 26/26、专用进程死亡恢复 7/7；首次两类错误启动协议及修正完整保留，见 [P7 第一批证据](../evidence/development/p7-recovery-first-batch-2026-09-28.md)。当前下一工作为错误恢复 UI、支持诊断与空间管理边界核对；P7 整体、真机长稳和发行尚未完成。
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |

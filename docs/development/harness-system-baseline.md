@@ -22,7 +22,7 @@ MCP/A2A/Browser/Accessibility/Root 与多协议兼容等完整 45 项仍属于�
 
 ## 性能口径
 
-每个 fixed case 已持久化 `elapsedMs`；P5 汇总 mean/median/p95/max，并保存每个 suite 的 host wall time。这里的 elapsed 是 **Harness 端到端任务时间**，包含模型请求、Tool、审批、Room 与恢复等待，适合比较 Harness 改动前后是否让同一任务更快/更慢。
+Files/JavaScript/Skills 的 12 个 fixed case 已持久化 `elapsedMs`；Goal 三项目前只有其他用量与 host wall time，不混入同口径 elapsed。P5 汇总这 12 项的 mean/median/p95/max，并保存每个 suite 的 host wall time。这里的 elapsed 是 **Harness 端到端任务时间**，包含模型请求、Tool、审批、Room 与恢复等待，适合比较 Harness 改动前后是否让同一任务更快/更慢。
 
 它不是 SGLang server 的纯推理性能，因此本基线不声称：
 
@@ -46,3 +46,5 @@ python3 scripts/debug/2026-09-28/run-p5-sglang-harness-baseline.py
 runner 会先执行真实 SGLang UI/provider smoke，再在同一 owned API36 emulator 上依次执行 `files/javascript/skills/goal`，最后关闭自己创建的 emulator。任一 case 失败都保留原始证据并使 P5 gate 失败，不通过重试直到成功来篡改基线。
 
 当前候选结果与 oracle/fixture 修正见 [2026-09-28 P5 验证](../evidence/development/p5-sglang-candidate-2026-09-28.md)。`HELIX_P5_CASES` 可指定逗号分隔的固定 case 子集；子集完成不表示完整基线通过。
+
+当前正式锚点为 clean `99b7bee7`：15/15 通过；前一 clean `b436247f` 为 14/15，skill-003 的冗余执行请求失败。两者同 fixture/oracle、同 test APK；只改变 base prompt 的充分证据报告指导。完整对照与局限见 [P5/P6 证据](../evidence/development/p5-clean-baseline-and-p6-2026-09-28.md)。单次通过不消除历史截断或证明统计稳定性。
