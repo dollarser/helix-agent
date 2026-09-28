@@ -1,6 +1,7 @@
 package com.helix.app.provider
 
 import android.util.Log
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsOn
@@ -134,15 +135,7 @@ class SglangUiSmokeTest {
         Log.d(TAG, "sglang UI smoke: connection test PASSED against $endpoint")
         assertEquals(CapabilitySource.CONNECTION_ONLY, currentCapabilities().source)
         composeRule.onNode(editableProviderTag("provider-capabilities")).performScrollTo().performClick()
-        composeRule.waitUntil(PROBE_BUDGET_MILLIS) {
-            composeRule.onAllNodes(editableProviderTag("provider-capability-result")).fetchSemanticsNodes().isNotEmpty()
-        }
-        val capabilities = currentCapabilities()
-        assertEquals("capability detection must persist a real probe", CapabilitySource.PROBED, capabilities.source)
-        assertTrue("streaming must be proved", capabilities.streaming)
-        assertTrue("tool calls must be proved", capabilities.toolCalls)
-        assertTrue("image acceptance must be proved", capabilities.vision)
-        Log.d(TAG, "sglang UI smoke: capability snapshot=${ProviderCapabilities.toJsonString(capabilities)}")
+        awaitDetectedCapabilities()
 
         // --- the row surfaces the REAL backend list ---
         composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
@@ -181,6 +174,28 @@ class SglangUiSmokeTest {
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
         }
+    }
+
+    private fun awaitDetectedCapabilities() {
+        composeRule.waitUntil(PROBE_BUDGET_MILLIS) {
+            composeRule.onAllNodes(editableProviderTag("provider-capability-result")).fetchSemanticsNodes().isNotEmpty()
+        }
+        val probeLabel =
+            composeRule
+                .onNode(editableProviderTag("provider-capability-result"))
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.Text]
+                .joinToString(" ") { it.text }
+        val capabilities = currentCapabilities()
+        assertEquals(
+            "capability detection must persist a real probe: $probeLabel",
+            CapabilitySource.PROBED,
+            capabilities.source,
+        )
+        assertTrue("streaming must be proved", capabilities.streaming)
+        assertTrue("tool calls must be proved", capabilities.toolCalls)
+        assertTrue("image acceptance must be proved", capabilities.vision)
+        Log.d(TAG, "sglang UI smoke: capability snapshot=${ProviderCapabilities.toJsonString(capabilities)}")
     }
 
     private fun currentCapabilities(): ProviderCapabilities =
