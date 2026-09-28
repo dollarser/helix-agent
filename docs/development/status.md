@@ -52,17 +52,17 @@ Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续
 
 P2 SAF bounded diagnosis 已完成且**当前无法稳定复现**：在固定 API36 consumer 制品上直接执行 1 次，再以独立 package-reset 执行 3 次 `FilesImportExportUiTest`，共 4/4 通过；没有因此修改 production SAF 策略。历史失败的 `files-saf-empty` 语义树仍保留，只能证明当时 UI 收到空 live-source 投影，不能证明 registry 丢失或瞬时 ContentResolver re-check 失败。详见 [P2 诊断证据](../evidence/development/p2-saf-bounded-diagnosis-2026-09-28.md)。
 
-P3 本地模型安装最小闭环已完成。精选目录固定 0.6B/4B 两个公开 GGUF 及 ModelScope/Hugging Face revisions；高级 URL/hash/size 导入保留。统一下载器已覆盖空间预检、200 restart、精确 206 resume、hash/range/disk/duplicate/cancel/recovery，安装后自动 connection + capability probe，只有显式操作才绑定当前 Session。最终 API36 developer Android HTTP → cancel/resume → publish → real probe → current-session selection 1/1 passed；安装 UI + Session model regression 3/3 passed；`check-all.sh --all` 最终 1313 tasks `BUILD SUCCESSFUL`。详见 [P3 证据](../evidence/development/p3-local-model-install-2026-09-28.md)。
+P3 本地模型安装最小闭环已完成。当前精选目录已按后续产品决策收敛为 **Qwen3 4B Instruct 2507 Q4_K_M** 单一主动支持模型，保留 ModelScope/Hugging Face pinned revisions；高级 URL/hash/size 导入仍可用。P3 当时使用 0.6B 做 Android HTTP cancel/resume 的历史设备证据继续保留，但不再作为当前精选模型或后续测试对象。统一下载器已覆盖空间预检、200 restart、精确 206 resume、hash/range/disk/duplicate/cancel/recovery，安装后自动 connection + capability probe，只有显式操作才绑定当前 Session。详见 [P3 证据](../evidence/development/p3-local-model-install-2026-09-28.md)。
 
 P4 首次成功联合旅程已完成，未修改 production。owned API36 developer 从 `pm clear` 干净状态开始，经 P3 同一安装编排安装本地 GGUF、创建唯一当前 Session 与 managed Workspace，真实模型执行 `write`→`read` 两个工具调用并产生 durable artifact；setup 随后 `Process.killProcess`，新 PID 重开后同一 Session/model/Workspace/Turn/messages/tool timeline/artifact 全部恢复，2 秒观察窗内 Turn/model call/tool call 数量不变，确认无重复副作用。4B Instruct 2507 成功轮为 2 tool calls / 3 model calls / 6 persisted messages；artifact SHA 与 Workspace 文件一致。详见 [P4 证据](../evidence/development/p4-first-success-journey-2026-09-28.md)。
 
-同一 P4 fixture 也给出模型质量对照：0.6B 在最小 write/read 请求上第一 model call 达到 512 output-token 上限后以 `LOCAL_OUTPUT_LIMIT` 失败，0 tool calls；因此不把 runtime 可加载或 capability probe 通过误写成 task success。该失败不触发 production 修复，转入 P5 的质量基线。
+同一 P4 fixture 曾给出 0.6B 的失败对照；该事实作为历史证据保留，但按当前产品决策 **P5 及后续不再运行 0.6B/1.7B**。主动性能/质量基线只针对 4B。
 
 下一本地主线进入 P5：
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| P5 | 性能与任务质量基线 | load/prefill/decode/TTFT/PSS/RSS/cancel-exit 可分解；冻结少量真实任务和 oracle | P4 产品闭环已稳定；Runtime success 与 task correctness 分开统计 |
+| P5 | 4B 性能与任务质量基线 | 冻结可观测 load/generation/PSS/RSS/cancel-exit 与少量真实任务 oracle；不可观测 prefill/TTFT/decode-only 明确记 unknown | 只运行 Qwen3 4B Instruct 2507；Runtime success 与 task correctness 分开统计 |
 | P6 | 证据驱动优化 | 同模型/同任务/同配置逐项比较 KV/prefix/thread/batch/streaming，只有事实收益才保留 | 不先承诺 GPU/NPU |
 | P7+ | hardening→内测→发行 | 错误可恢复、真实用户反馈后再进入 120→122→121→123 | Project Memory、Subagent 等不自动进入近期主线 |
 

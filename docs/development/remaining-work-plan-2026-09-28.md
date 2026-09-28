@@ -37,7 +37,7 @@
 
 建议首版范围：
 
-- 内置小规模、明确版本的精选清单，列出任务适用性、量化、下载大小、预计运行内存、来源/许可证和实测范围；0.6B/1.7B 当前失败不能标为“Agent 推荐”，4B 一次通过也不能标为普遍可靠。
+- 精选目录当前只保留 **Qwen3 4B Instruct 2507 Q4_K_M**，列出量化、下载大小、预计运行内存、来源/许可证和实测范围。0.6B/1.7B 仅保留历史证据，不再进入产品精选目录或后续主动设备测试；4B 已有通过记录仍不能外推为普遍可靠。
 - 用户选择 ModelScope/HF 来源；自动解析精确文件、版本、大小与校验信息。跨源切换只复用相同资产身份，不能把同名文件当相同内容。首版聚焦公开、单文件、兼容 GGUF；登录受限仓库、多分片和任意模型格式另行评估。
 - 产品主流程为“下载并配置”：空间预检、进度、暂停/取消/续传、断网重试、校验、原子发布、自动登记 Provider、加载和真实能力测试。网络重定向/临时地址/来源元数据需按服务协议设计，不直接放开任意重定向。
 - 配置完成后明确显示“用于当前会话”；不悄悄切换其他会话或全局模型。自动能力测试包含在用户可见的安装动作中，失败保留已验证权重并给出重试/卸载入口。
@@ -114,8 +114,8 @@
 2. **P1 Memory + Workspace 增量补验 — 已完成**：API29/API36 × consumer/developer targeted matrix 各 31/31 通过；Memory 真进程死亡恢复与 Workspace fork/recovery/request-freeze 均形成设备证据。
 3. **P2 SAF bounded diagnosis — 已完成 / 当前未复现**：固定 API36 consumer 制品直接 1 次 + 独立 package-reset 3 次共 4/4 通过；历史 `files-saf-empty` 失败继续作为 known limitation，不在无证据时修改 fail-closed live re-check。
 4. **P3 模型安装最小闭环 — 已完成**：精选目录 + 高级导入复用 HXA-222 资产/Provider；host 覆盖 200/206/range/hash/disk/duplicate/cancel/recovery，最终 API36 developer 真实 Android HTTP 安装、真实 probe 与当前 Session 显式选择通过。
-5. **P4 首次成功联合旅程 — 已完成**：从 `pm clear` 干净状态使用 P3 安装编排，4B Instruct 2507 完成 managed Workspace 上一次 write + 一次 read，产物注册后进程死亡/重开恢复同一 model/Workspace/conversation/artifact，且没有重复副作用。0.6B 同 fixture 在首 model call 达到 512 output-token 上限，0 tool calls，作为 P5 质量对照保留。
-6. **P5 性能与任务质量基线 — 下一 checkpoint**：分离 load/prefill/decode/TTFT/PSS/RSS/cancel-exit 与 task correctness，冻结少量真实任务/oracle，再决定优化点。
+5. **P4 首次成功联合旅程 — 已完成**：从 `pm clear` 干净状态使用 P3 安装编排，4B Instruct 2507 完成 managed Workspace 上一次 write + 一次 read，产物注册后进程死亡/重开恢复同一 model/Workspace/conversation/artifact，且没有重复副作用。小模型失败仅作为历史对照，不再继续测试。
+6. **P5 4B 性能与任务质量基线 — 下一 checkpoint**：只对 4B 分离可观测 load/generation/PSS/RSS/cancel-exit 与 task correctness；prefill/TTFT/decode-only 在当前同步 JNI 协议下明确记为不可观测，再决定优化点。
 7. **P6 之后**：按事实做同配置 A/B 优化，再进入 hardening/内测/发行；发行身份与服务账号清单可并行只读准备。
 
 外部账号、真机与审核时间不作为可控开发时间；此计划不表示所有未来候选都必做，也不改变已有验收通过/未验结论。

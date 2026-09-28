@@ -58,9 +58,9 @@ class RangeHandler(http.server.BaseHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--model', default='build/hxa222-real-model/Qwen3-0.6B-Q4_K_M.gguf')
-    parser.add_argument('--sha', default='ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a')
-    parser.add_argument('--size', type=int, default=396705472)
+    parser.add_argument('--model', default='build/hxa222-closeout/Qwen3-4B-Instruct-2507-Q4_K_M.gguf')
+    parser.add_argument('--sha', default='3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597')
+    parser.add_argument('--size', type=int, default=2497281120)
     parser.add_argument('--avd', default='Helix_HXA210_API36')
     parser.add_argument('--emulator-port', type=int, default=5676)
     parser.add_argument('--output', default='build/p3-local-model-install/api36-developer')
@@ -82,7 +82,7 @@ def main():
             'python3', 'scripts/run-owned-emulator.py',
             '--avd', args.avd,
             '--port', str(args.emulator_port),
-            '--memory-mb', '4096',
+            '--memory-mb', '8192',
             '--cores', '4',
             '--density-dpi', '400',
             '--apk', 'app/build/outputs/apk/developer/debug/app-developer-debug.apk',

@@ -1,6 +1,6 @@
 # 设备内本地模型
 
-在 Models 页面选择 **On-device** 后，默认可从精选目录安装固定版本的公开单文件 GGUF；当前目录包含 Qwen3 0.6B Q4_K_M 与 Qwen3 4B Instruct 2507 Q4_K_M，并固定来源 revision、文件名、大小、SHA-256 和许可证。ModelScope 与 Hugging Face 均可选。需要其它模型时使用“高级导入”，继续填写直接 HTTPS URL、准确 SHA-256 与字节数。模型权重不打包进 APK。
+在 Models 页面选择 **On-device** 后，默认精选目录只保留 **Qwen3 4B Instruct 2507 Q4_K_M**，并固定来源 revision、文件名、大小、SHA-256 和许可证。ModelScope 与 Hugging Face 均可选。需要其它模型时仍可使用“高级导入”填写直接 HTTPS URL、准确 SHA-256 与字节数，但 Helix 的主动质量/性能基线只覆盖该 4B 模型。模型权重不打包进 APK。
 
 安装前会检查模型资产 quota/count 与 Android 可分配私有存储。下载支持 Range 续传：只有精确匹配 offset/total 的 `206` 才追加；服务器对 Range 返回 `200` 时从头覆盖。错误 Content-Range、大小、SHA-256 或 GGUF header 均 fail closed，不发布残缺资产；取消和普通 IO 中断保留当前 partial 以便相同资产恢复。精选来源仅允许各自可信 HTTPS 域族重定向；高级导入保持不跟随重定向，也不支持登录、Cookie 或认证 header URL。下载与原子发布在峰值时接近两份模型空间。
 

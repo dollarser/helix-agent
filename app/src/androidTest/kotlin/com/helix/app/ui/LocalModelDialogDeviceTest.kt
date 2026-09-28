@@ -31,7 +31,6 @@ class LocalModelDialogDeviceTest {
                 )
             }
         }
-        compose.onNodeWithTag("local-model-catalog-qwen3-0.6b-q4-k-m").assertIsDisplayed()
         compose.onNodeWithTag("local-model-catalog-qwen3-4b-instruct-2507-q4-k-m").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("local-model-source-modelscope").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("local-model-source-hugging_face").performScrollTo().assertIsDisplayed()

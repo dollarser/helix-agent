@@ -39,24 +39,6 @@ object LocalModelCatalog {
     val entries: List<LocalModelCatalogEntry> =
         listOf(
             LocalModelCatalogEntry(
-                id = "qwen3-0.6b-q4-k-m",
-                displayName = "Qwen3 0.6B Q4_K_M",
-                fileName = "Qwen3-0.6B-Q4_K_M.gguf",
-                sha256 = "ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a",
-                sizeBytes = 396_705_472,
-                quantization = "Q4_K_M",
-                license = "Apache-2.0",
-                testedContextTokens = 8_192,
-                evidence = LocalModelCatalogEvidence.COMPATIBILITY_ONLY,
-                locations =
-                    locations(
-                        repository = "unsloth/Qwen3-0.6B-GGUF",
-                        fileName = "Qwen3-0.6B-Q4_K_M.gguf",
-                        modelScopeRevision = "6091bc857fe0dffa19c581a7ccc7def1b126ff54",
-                        huggingFaceRevision = "f2d6f9ca53a254cc379437c49e4b2eb447f779df",
-                    ),
-            ),
-            LocalModelCatalogEntry(
                 id = "qwen3-4b-instruct-2507-q4-k-m",
                 displayName = "Qwen3 4B Instruct 2507 Q4_K_M",
                 fileName = "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",

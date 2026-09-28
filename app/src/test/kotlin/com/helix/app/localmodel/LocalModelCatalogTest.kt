@@ -2,7 +2,6 @@ package com.helix.app.localmodel
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,7 +9,7 @@ import java.net.URI
 
 class LocalModelCatalogTest {
     @Test fun catalogPinsContentIdentityAndBothPublicSources() {
-        assertEquals(2, LocalModelCatalog.entries.size)
+        assertEquals(1, LocalModelCatalog.entries.size)
         LocalModelCatalog.entries.forEach { entry ->
             assertTrue(entry.sha256.matches(Regex("[a-f0-9]{64}")))
             assertTrue(entry.sizeBytes > 0)
@@ -22,11 +21,9 @@ class LocalModelCatalogTest {
                 assertTrue(location.downloadUrl.contains("/${location.revision}/${entry.fileName}"))
             }
         }
-        val small = LocalModelCatalog.entry("qwen3-0.6b-q4-k-m")
-        val large = LocalModelCatalog.entry("qwen3-4b-instruct-2507-q4-k-m")
-        assertNotEquals(small.sha256, large.sha256)
-        assertEquals(LocalModelCatalogEvidence.COMPATIBILITY_ONLY, small.evidence)
-        assertEquals(LocalModelCatalogEvidence.FIXED_TASK_PASSED, large.evidence)
+        val curated = LocalModelCatalog.entry("qwen3-4b-instruct-2507-q4-k-m")
+        assertEquals(LocalModelCatalogEvidence.FIXED_TASK_PASSED, curated.evidence)
+        assertEquals("Qwen3-4B-Instruct-2507-Q4_K_M.gguf", curated.fileName)
     }
 
     @Test fun sourcePoliciesRejectCleartextAndArbitraryRedirects() {
