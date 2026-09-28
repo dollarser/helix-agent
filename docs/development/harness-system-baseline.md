@@ -51,4 +51,6 @@ v1 正式锚点为 clean `99b7bee7`：15/15 通过；前一 clean `b436247f` 为
 
 后续所有者授权修正提示词与 skill-003 最终请求矛盾，形成独立 v2 锚点 clean `fce488ce`，15/15 通过；`fixtureVersion=report-refused-import-v2`、实际 prompt hash 与数据集原始 prompt hash 分别记录，安全 oracle 不变。当前继续评测使用 v2；上述 v1 A/B 证据保留，不跨版本比较完成率或声称提示词因果收益。见 [v2 证据](../evidence/development/prompt-fixture-v2-2026-09-28.md)。
 
-工具曝光精简候选 clean `d8ee8418` 完整15项为 **13/15**（Files 3/4、JavaScript 4/4、Skills 4/4、Goal 2/3），未替代v2绿色锚点。file-003的精确写审批未匹配、goal-001多余业务调用且固定预算耗尽；详情与后续独立取证见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。该轮record的protocol仍为数据集标签，实际运行协议以config及命令的OPENAI_CHAT_COMPLETIONS override为准；后续四个P5 producer已修正该字段并另存datasetProtocol，历史记录不重写。
+工具曝光精简候选 clean `d8ee8418` 完整15项为 **13/15**（Files 3/4、JavaScript 4/4、Skills 4/4、Goal 2/3），当时未替代v2绿色锚点。file-003的精确写审批未匹配、goal-001多余业务调用且固定预算耗尽；详情与后续独立取证见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。该轮record的protocol仍为数据集标签，实际运行协议以config及命令的OPENAI_CHAT_COMPLETIONS override为准；后续四个P5 producer已修正该字段并另存datasetProtocol，历史记录不重写。
+
+当前工具曝光优化的正式绿色锚点为 clean `8f0aa933`：默认21项、有效自动化会话30项，完整 **15/15**，准备smoke1/1。仍用v2固定fixture/严格oracle，未改预算；精确文件内容提示和Skill读取/启停分组按失败证据修正。原13/15、后续14/15、定向诊断和探测准备失败全部保留，单轮通过不消除模型截断与多余调用。完整身份、性能口径及剩余边界见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。

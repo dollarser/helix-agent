@@ -2,6 +2,8 @@
 
 日期：2026-09-28。生产代码基于 `023c59fd`；本轮增加 opt-in 测试适配；试跑发现工具曝光缺陷后，按所有者后续授权优化默认工具面与按需发现。没有增加生产工具能力或执行授权。模型为已有本机 SGLang `Qwen3.8-27B`，未使用付费账号、物理真机或提交榜单。
 
+当前交付：默认上界21项，有有效自动化会话30项，其余按需发现；clean `8f0aa933` 完整P5 **15/15**。BFCL为模型直连小样本60/60；AndroidWorld为此前28项候选的API36适配0/2，不能视作官方榜单成绩或当前30项UI设备通过。各轮失败、修复依据与验证身份按下文保留。
+
 ## BFCL：模型直连诊断
 
 引用 [Gorilla/BFCL 官方仓库](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard)，固定 revision `6ea57973c7a6097fd7c5915698c54c17c5b1b6c8`，Apache-2.0。参考源码在 ignored `build/public-eval/gorilla`，未复制进产品代码。
@@ -96,3 +98,19 @@ clean `d8ee8418` 在独占 API36 developer 完整执行15项，结果 **13 PASS 
 `0e944463` 完整P5（`build/p5-tool-discovery-exact-content-r2-20260928/`）为 **14/15**：Files4/4、JS4/4、Skills3/4、Goal3/3；准备smoke1/1。file-003此次精确16字节content获批准并写入。唯一skill-004执行了search→list→search→search→disable→list，禁用已经成功，但MODEL_CALL_LIMIT使Turn失败。口头进度曾提前将Skills概括为全部通过，最终以该14/15记录为准。source manifest `a5e8bd85e6734c7429168b435f2495d0ba72199a522c3b27c204a5d62fc2b9a4`；app APK `31517ecee8118820c6f44a150677c39ea88d6ea8182805754fda244e8390cf76`；test APK `a279ab5d9933ce9645c622f6c241093cf0e2ad6640046f21fdaed6fc015dadf5`。12项median3753ms、mean5845.2ms，仍含失败，不作统计收益证明。
 
 根据基础操作额外发现成本，将Skill读取与enable/disable成对纳入默认组，候选默认上界21、有自动化会话30，叠加小MCP与搜索窗口上界62。安装/预览/移除仍按需发现。没有为某个case改变预算、搜索算法、审批或判分；新候选再次验证，旧14/15保留。AndroidWorld的28项实测对应此前19项候选，不外推为21项候选的设备验收。
+
+## 最终本地交付
+
+clean `8f0aa933`，独占API36 developer，`build/p5-tool-discovery-skill-pair-20260928/`：真实Provider准备smoke **1/1**，完整P5 **15 PASS / 0 FAIL / 0 ERROR**（Files4、JS4、Skills4、Goal3）。`baselineComplete=true`、`dirty=false`，同一源码与APK身份，runner退出0，`closed.json`确认自有模拟器退出0。
+
+- source manifest：`4257194463078279a381d3e277930f66ea14307cda950a9b366bad9efefc4222`。
+- app APK：`cb6e383efe1b86b41e26a884743a280a2fc1122965b5f1ff6aa104d767e0eb77`。
+- test APK：`a279ab5d9933ce9645c622f6c241093cf0e2ad6640046f21fdaed6fc015dadf5`。
+- fixed dataset：`f27bf8b51e61be248a6e642c22cefc3e5045d0d35e37518377eb9b8cdf85e795`，skill-003仍为既有report-refused-import-v2输入，未改oracle/预算。
+- 12项可测case elapsed median3732.5ms、mean5547.5ms、p95/max14745ms；Goal未混入这一口径，不是decode速率，也不由单轮证明统计提速。
+
+此次file-003严格写入通过，skill-004仅一次skills.disable即完成；Goal三项通过。四个P5 producer的实际protocol均为OPENAI_CHAT_COMPLETIONS，datasetProtocol单列。单轮成功不消除之前Goal输出截断、多余调用、能力探测失败，也不证明广泛可靠性。
+
+最终双渠道app unit/lint/debug APK/AndroidTest APK、spotlessCheck、detekt通过（`build/public-eval-skill-pair-gates.log`）；source gate通过（`build/public-eval-skill-pair-source.log`）。曝光选择每渠道6/6、发现每渠道14/14；AutomationTools6/6已在隔离gate验证，后续未修改该实现。文档收尾另跑source gate与git diff --check。最终diff复核未触及Dispatcher、permission/effect owner或另一端Plugin实现。
+
+仅本地提交在 `codex/tool-discovery-eval`，未合并主目录或推送。下一步先与另一端插件改动做归属清晰的整合验证；P7实际发布中硬杀、真机满盘/长稳、历史截断与偶发额外调用继续开放。AndroidWorld后续选允许应用与动作的正向任务，Settings/SystemUI保护保持，不为榜单扩权。
