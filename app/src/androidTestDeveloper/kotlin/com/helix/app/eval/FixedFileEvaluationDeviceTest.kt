@@ -117,6 +117,7 @@ class FixedFileEvaluationDeviceTest {
         val savedNotes = notes.takeIf { it.exists() }?.readBytes()
         val savedOutput = output.takeIf { it.exists() }?.readBytes()
         notes.parentFile!!.mkdirs()
+        if (cells[0] == "file-003") output.parentFile!!.mkdirs()
         notes.writeText("Helix evaluation: the release date is October 12. The project code is ORCHID.\n")
         val context =
             "The selected workspace root is $rootRef. input/notes.txt is a synthetic test report. " +
@@ -243,7 +244,11 @@ class FixedFileEvaluationDeviceTest {
         val turn =
             container.storage.turns
                 .listBySession(session)
-                .last()
+                .lastOrNull()
+        if (turn == null) {
+            saveNoTurnResult(cells, context, boundaryReached)
+            return
+        }
         val calls = container.storage.toolCalls.listByTurn(turn.id)
         val text =
             container.storage.messages
@@ -288,6 +293,39 @@ class FixedFileEvaluationDeviceTest {
             }
         File(directory, "${cells[0]}.json").writeText(result.toString())
         assertTrue("${cells[0]} failed: $result", passed)
+    }
+
+    private fun saveNoTurnResult(
+        cells: List<String>,
+        context: String,
+        boundaryReached: Boolean,
+    ) {
+        val config = Json.parseToJsonElement(File(directory, "config.json").readText()).jsonObject
+        val result =
+            buildJsonObject {
+                put("id", cells[0])
+                put("protocol", cells[3])
+                put("provider", config.getValue("provider"))
+                put("providerReportedVersion", config.getValue("providerReportedVersion"))
+                put("temperature", kotlinx.serialization.json.JsonNull)
+                put("temperatureSource", "provider_default_not_overridden")
+                put("dateUtc", config.getValue("dateUtc"))
+                put("result", "FAIL")
+                put("model", config.getValue("model"))
+                put("gitCommit", config.getValue("gitCommit"))
+                put("api", android.os.Build.VERSION.SDK_INT)
+                put("device", evaluationDevice())
+                put("datasetSha256", hash(File(directory, "fixed-evals.tsv").readBytes()))
+                put("promptSha256", hash(cells[4].toByteArray()))
+                put("fixtureContextSha256", hash(context.toByteArray()))
+                put("turnState", "NOT_CREATED")
+                put("errorCode", "NO_TURN_CREATED")
+                put("boundaryReached", boundaryReached)
+                put("calls", JsonArray(emptyList()))
+                put("toolResults", JsonArray(emptyList()))
+            }
+        File(directory, "${cells[0]}.json").writeText(result.toString())
+        assertTrue("${cells[0]} failed: $result", false)
     }
 
     private fun results(calls: List<ToolCallEntity>): JsonArray =

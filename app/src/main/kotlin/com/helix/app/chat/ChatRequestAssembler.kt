@@ -302,15 +302,8 @@ internal class ChatRequestAssembler(
             .filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
-            }.sortedBy {
-                if (it.name.value in com.helix.app.goal.GoalLifecycleTools.names ||
-                    it.name.value == ToolResultReadTool.NAME
-                ) {
-                    0
-                } else {
-                    1
-                }
-            }.take(ModelRequest.MAX_TOOLS)
+            }.let(ModelToolExposureOrder::prioritize)
+            .take(ModelRequest.MAX_TOOLS)
             .map(FileToolArguments::modelSchema)
             .map(ToolPresentationMetadata::augment)
     }
