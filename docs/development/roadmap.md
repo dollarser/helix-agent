@@ -2,7 +2,7 @@
 
 任务范围与验收只在未完成任务文件维护；已完成任务只链接交付证据。编号不是强制执行顺序，不补造空号。当前优先级见[实施状态](status.md)，通用规则见[实施指南](implementation-guide.md)及[验收规则](verification-matrix.md)。
 
-当前 `tasks/` 只保留仍正式开放的 7 项 HXA：120、121、122、123、125、126、190。已交付能力通过完成记录追溯，不因历史批次摘要或缺少旧任务文件而重开；未立任务规格的 proposed ADR 不计入开放 HXA。当前优先级与剩余产品化工作以 [实施状态](status.md) 和 [剩余工作计划](remaining-work-plan-2026-09-28.md) 为准。
+当前 `tasks/` 保留正式开放的 8 项 HXA：120、121、122、123、125、126、190、231。当前主线为 [HXA-231](tasks/HXA-231.md) 的有界问题收口与 R1；已交付能力通过完成记录追溯，不因历史批次摘要或缺少旧任务文件而重开。当前优先级与剩余产品化工作以 [实施状态](status.md) 和 [剩余工作计划](remaining-work-plan-2026-09-28.md) 为准。
 
 ## 能力交付取舍
 
@@ -260,3 +260,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-228 | 已交付 | Conversation-first Shell 与 Session Context Control | [交付证据](../completion-records/HXA-228.md) |
 | HXA-229 | 已交付 | Model-authored Agent Activity Presentation | [交付证据](../completion-records/HXA-229.md) |
 | HXA-230 | 已交付（主机范围） | Markdown-native Hierarchical Agent Memory | [完成记录](../completion-records/HXA-230.md) |
+| HXA-231 | 进行中 | 问题收口与原子工具绑定 | [任务规格](tasks/HXA-231.md) |

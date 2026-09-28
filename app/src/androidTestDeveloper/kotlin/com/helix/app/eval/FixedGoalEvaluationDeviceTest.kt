@@ -263,6 +263,7 @@ class FixedGoalEvaluationDeviceTest {
                 put("runOutcome", run.outcome)
                 put("modelCallsBefore", beforeCalls)
                 put("modelCallsAfter", goal.modelCalls)
+                put("modelCallUsage", modelCallUsage(turn.id))
                 put("goalTokens", goal.totalTokens)
                 put("goalTimeMillis", goal.runTimeMillis)
                 put("errorCode", turn.errorCode)
@@ -285,6 +286,17 @@ class FixedGoalEvaluationDeviceTest {
         File(directory, "${cells[0]}.json").writeText(result.toString())
         return passed
     }
+
+    private fun modelCallUsage(turnId: String): JsonArray =
+        JsonArray(
+            container.storage.modelCalls.listByTurn(turnId).map { call ->
+                buildJsonObject {
+                    put("id", call.id)
+                    put("state", call.state)
+                    put("usage", call.usage)
+                }
+            },
+        )
 
     private fun verifyCase(
         id: String,

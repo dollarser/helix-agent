@@ -407,6 +407,7 @@ internal class FilesScreenActions(
                         }
                     replaceSources(updated)
                     status = str(R.string.files_saf_removed, source.displayName)
+                    reloadTick++
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {

@@ -14,6 +14,30 @@ import org.junit.Test
 
 class CapabilityProbeTest {
     @Test
+    fun truncatedToolProbeReportsCountsWithoutLeakingGeneratedContent() =
+        runBlocking {
+            val outcome =
+                CapabilityProbe().probe(
+                    FakeProvider(
+                        toolEvents =
+                            listOf(
+                                ModelEvent.ReasoningDelta("secret"),
+                                ModelEvent.TextDelta("private"),
+                                ModelEvent.Completed("length"),
+                            ),
+                    ),
+                ) as ProbeOutcome.Failed
+            assertEquals(4, outcome.phase)
+            assertEquals(ModelErrorCode.PROTOCOL, outcome.code)
+            assertEquals(false, outcome.retryable)
+            assertEquals(
+                "tool fixture output limit: limit=256 reasoningChars=6 textChars=7 " +
+                    "started=0 finished=0 outputTokens=null",
+                outcome.detail,
+            )
+        }
+
+    @Test
     fun textOnlyRuntimeProvesToolsWithoutClaimingVision() =
         runBlocking {
             val outcome =

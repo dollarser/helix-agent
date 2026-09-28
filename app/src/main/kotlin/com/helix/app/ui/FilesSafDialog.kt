@@ -37,6 +37,8 @@ internal fun FilesSafDialog(
                             )
                             if (safLoadFailed) {
                                 Text(str(R.string.files_read_directory_error))
+                            }
+                            if (safLoadFailed || safSources.isEmpty()) {
                                 TextButton(
                                     { reloadTick++ },
                                     modifier = Modifier.testTag("files-saf-retry"),

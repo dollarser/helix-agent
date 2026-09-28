@@ -68,6 +68,9 @@ class ModelAssetStore(
             }
             require(digest.digest().hex() == sha256) { "Model asset digest mismatch" }
             requireGguf(partial)
+            // Cancellation may arrive during the final read, fsync or header validation.
+            // Check once more before the atomic publication point; never undo a published asset.
+            checkCancelled()
             Files.move(
                 partial.toPath(),
                 file(asset).toPath(),

@@ -61,6 +61,34 @@ class FilesImportExportUiTest {
     }
 
     @Test
+    fun emptySafPanelCanRefreshWithoutClosingAndRechecksRevocation() {
+        container.safTree.knownScopeIds().forEach { container.safTree.revoke(it) }
+        composeRule.navigateTo("files")
+        waitTag("files-home-source-app")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        waitTag("files-controls-open")
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-saf-open").performScrollTo().performClick()
+        waitTag("files-saf-empty")
+        waitTag("files-saf-retry")
+        val source = container.safTree.grant(TransferTestDocumentsProvider.treeUri(), "Refresh fixture")
+        composeRule.onNodeWithTag("files-saf-retry").performClick()
+        try {
+            waitTag("files-saf-remove-${source.scopeId}")
+        } catch (failure: ComposeTimeoutException) {
+            Log.e("SafFixture", "refresh live=${container.safTree.liveSources()}", failure)
+            composeRule.onNodeWithTag("files-saf-dialog", useUnmergedTree = true).printToLog("SafFixture")
+            throw failure
+        }
+        composeRule.onNodeWithTag("files-saf-remove-${source.scopeId}").performClick()
+        waitTag("files-saf-empty")
+        composeRule.onNodeWithTag("files-saf-retry").performClick()
+        composeRule.waitForIdle()
+        assertTrue(container.safTree.liveSources().none { it.scopeId == source.scopeId })
+        composeRule.onNodeWithTag("files-saf-close").performClick()
+    }
+
+    @Test
     fun removingTheCurrentSafLocationReturnsToWorkspaceWithoutStaleActions() {
         val source = container.safTree.grant(TransferTestDocumentsProvider.treeUri(), "Removal fixture")
         composeRule.navigateTo("files")

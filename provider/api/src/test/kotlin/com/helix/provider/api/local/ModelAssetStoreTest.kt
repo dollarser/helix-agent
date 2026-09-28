@@ -118,4 +118,47 @@ class ModelAssetStoreTest {
             IllegalArgumentException::class.java,
         ) { store.publish(digest, bad.size.toLong(), bad.inputStream()) }
     }
+
+    @Test
+    fun cancellationDuringFinalReadCannotPublish() {
+        val store = ModelAssetStore(directory.root)
+        var cancelled = false
+        val source =
+            object : java.io.ByteArrayInputStream(bytes) {
+                override fun read(
+                    buffer: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ): Int = super.read(buffer, offset, length).also { if (it == -1) cancelled = true }
+            }
+        assertThrows(java.util.concurrent.CancellationException::class.java) {
+            store.publish(hash, bytes.size.toLong(), source) {
+                if (cancelled) throw java.util.concurrent.CancellationException("cancel before publication")
+            }
+        }
+        assertTrue(ModelAssetStore(directory.root).list().isEmpty())
+        assertEquals(0, store.publicationResidue().count)
+    }
+
+    @Test
+    fun readFailureDuringReplacementPreservesPublishedAsset() {
+        val store = ModelAssetStore(directory.root)
+        val asset = store.publish(hash, bytes.size.toLong(), bytes.inputStream())
+        val source =
+            object : java.io.ByteArrayInputStream(bytes) {
+                override fun read(
+                    buffer: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ): Int {
+                    if (available() == 0) throw java.io.IOException("injected source failure")
+                    return super.read(buffer, offset, length)
+                }
+            }
+        assertThrows(java.io.IOException::class.java) {
+            store.publish(hash, bytes.size.toLong(), source)
+        }
+        assertEquals(bytes.toList(), ModelAssetStore(directory.root).verifiedFile(asset).readBytes().toList())
+        assertEquals(0, store.publicationResidue().count)
+    }
 }

@@ -181,7 +181,11 @@ public class CapabilityProbe(
                     ProbeOutcome.Failed(
                         4,
                         ModelErrorCode.PROTOCOL,
-                        "tool fixture did not complete a tool call (finishReason=${terminal.finishReason})",
+                        if (terminal.finishReason == "length") {
+                            toolLimitDetail(events)
+                        } else {
+                            "tool fixture did not complete a tool call (finishReason=${terminal.finishReason})"
+                        },
                         false,
                     )
                 } else {
@@ -302,6 +306,17 @@ public class CapabilityProbe(
         val finished = events.filterIsInstance<ModelEvent.ToolCallFinished>().map { it.index }.toSet()
         return started.intersect(finished).firstOrNull()
     }
+
+    /** Counts only: probe diagnostics must never expose generated reasoning or tool arguments. */
+    private fun toolLimitDetail(events: List<ModelEvent>): String =
+        "tool fixture output limit: limit=$toolMaxOutputTokens " +
+            "reasoningChars=${events.filterIsInstance<ModelEvent.ReasoningDelta>().sumOf {
+                it.text.length.toLong()
+            }} " +
+            "textChars=${events.filterIsInstance<ModelEvent.TextDelta>().sumOf { it.text.length.toLong() }} " +
+            "started=${events.filterIsInstance<ModelEvent.ToolCallStarted>().size} " +
+            "finished=${events.filterIsInstance<ModelEvent.ToolCallFinished>().size} " +
+            "outputTokens=${events.filterIsInstance<ModelEvent.Usage>().lastOrNull()?.outputTokens}"
 
     public companion object {
         // Text and vision replies can spend tokens on reasoning before emitting one word.

@@ -1,6 +1,6 @@
 # 当前实施状态
 
-更新：2026-09-28。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+更新：2026-09-29。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
 
 ## Completed
 
@@ -40,6 +40,10 @@
 - HXA-222 本地模型首版已完成本地范围交付，见[完成记录](../completion-records/HXA-222.md)：类型化 Provider/Room v1、private-process Binder/JNI、资产/UI、可调 context、内存预检、模板 grammar 与真实能力探测已落地；完整 host gate、API36 生命周期及 320/360/412dp 大字体 UI 通过。4B/8K/8 GiB 固定任务 6 轮模型调用、6 次工具调用、产物回读和独立数值断言通过，约 14 分 46 秒；0.6B/1.7B 错误计算及首轮 4B 未完成仍保留。详见[收口证据](../evidence/development/hxa222-closeout-2026-09-28.md)与[会话分析](../evidence/development/hxa222-session-analysis-2026-09-28.md)。真机、真实远端账号、Android HTTP 下载端到端未验；未提交或推送。
 
 ## In progress
+
+- 偶发问题追加收口（2026-09-29）：修复 SAF 撤销后不刷新及异步来源结果发布，双渠道 API36 10/10；澄清 Goal 仅规划提示，冻结版本三轮均 1 次模型调用/0 工具、Goal PAUSED。诊断能力探测 3/3、skill-003 3/3，但后者两轮仍有额外只读调用。全量主机 gate 通过；历史截断/探测偶发失败未复现、额外调用仍开放。失败与修复范围见[增量证据](../evidence/development/intermittent-closeout-2026-09-28.md)，未提交/推送。
+
+- [HXA-231](tasks/HXA-231.md)：所有者授权先做有界问题收口与当前基线，再实施 R1 原子工具绑定。前置收口修复模型发布最终读取后取消仍发布的问题；全量 host gate 通过，独占 API36 developer 13/13、consumer 4/4，实际发布中进程骤停与低空间注入分别留证，见[前置基线](../evidence/development/pre-r1-closeout-2026-09-28.md)。R1 尚未实现，任务保持开放；后续 R2/J1 根据内测反馈决定，不同时扩张。
 
 
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。

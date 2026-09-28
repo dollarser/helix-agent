@@ -121,7 +121,9 @@ internal fun FilesScopeEffects(
                 if (!safPanelOpen) return@LaunchedEffect
                 safLoadFailed = false
                 try {
-                    safSources = withContext(Dispatchers.IO) { safTree.liveSources() }
+                    val live = withContext(Dispatchers.IO) { safTree.liveSources() }
+                    // IO may resume on the test/effect dispatcher; publish with other UI results.
+                    withContext(Dispatchers.Main.immediate) { safSources = live }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
