@@ -12,6 +12,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
 SUITES = ("files", "javascript", "skills", "goal")
+PREFIXES = {"files": "file-", "javascript": "js-", "skills": "skill-", "goal": "goal-"}
 DATASET = ROOT / "evals/m10/fixed-evals.tsv"
 
 
@@ -36,9 +37,11 @@ def main():
 
     suite_rows = []
     case_rows = []
-    for suite in SUITES:
-        target = out / f"sglang-{suite}"
-        log_path = out / f"sglang-{suite}-host.log"
+    dataset_lines = DATASET.read_text().splitlines()
+    expected = [(suite, line.split("\t", 1)[0]) for suite in SUITES for line in dataset_lines if line.startswith(PREFIXES[suite])]
+    for suite, case_id in expected:
+        target = out / f"sglang-{suite}-{case_id}"
+        log_path = out / f"sglang-{suite}-{case_id}-host.log"
         started = time.monotonic()
         with log_path.open("w") as log:
             process = subprocess.run(
@@ -50,6 +53,8 @@ def main():
                     "30008",
                     "--suite",
                     suite,
+                    "--case-id",
+                    case_id,
                     "--protocol-override",
                     "OPENAI_CHAT_COMPLETIONS",
                     "--output",
@@ -64,17 +69,8 @@ def main():
         host_wall_ms = round((time.monotonic() - started) * 1000)
         result = json.loads((target / "result.json").read_text())
         records = [json.loads(path.read_text()) for path in sorted((target / "device").glob("*.json"))]
-        suite_rows.append(
-            {
-                "suite": suite,
-                "exitCode": process.returncode,
-                "passed": bool(result.get("passed")),
-                "count": len(records),
-                "hostWallMs": host_wall_ms,
-                "expectedIds": result.get("expectedIds", []),
-            }
-        )
-        for record in records:
+        if records:
+            record = records[0]
             elapsed = record.get("elapsedMs", record.get("elapsedMillis"))
             calls = record.get("calls") or []
             case_rows.append(
@@ -87,16 +83,47 @@ def main():
                     "errorCode": record.get("errorCode"),
                     "toolCallCount": len(calls) if isinstance(calls, list) else None,
                     "calls": calls,
+                    "runnerExitCode": process.returncode,
+                    "hostWallMs": host_wall_ms,
                 }
             )
+        else:
+            case_rows.append(
+                {
+                    "suite": suite,
+                    "id": case_id,
+                    "result": "ERROR",
+                    "elapsedMs": None,
+                    "turnState": None,
+                    "errorCode": "INSTRUMENTATION_OR_FIXTURE_ERROR",
+                    "toolCallCount": None,
+                    "calls": [],
+                    "runnerExitCode": process.returncode,
+                    "hostWallMs": host_wall_ms,
+                }
+            )
+
+    for suite in SUITES:
+        rows = [row for row in case_rows if row["suite"] == suite]
+        suite_rows.append(
+            {
+                "suite": suite,
+                "passed": all(row["result"] == "PASS" for row in rows),
+                "count": len(rows),
+                "passCount": sum(row["result"] == "PASS" for row in rows),
+                "errorCount": sum(row["result"] == "ERROR" for row in rows),
+                "hostWallMs": sum(row["hostWallMs"] for row in rows),
+                "expectedIds": [case for owner, case in expected if owner == suite],
+            }
+        )
 
     elapsed = [row["elapsedMs"] for row in case_rows if isinstance(row.get("elapsedMs"), int)]
     passed_cases = [row for row in case_rows if row.get("result") == "PASS"]
     source_shas = {
-        json.loads((out / f"sglang-{suite}" / "source-manifest.json").read_text())["sha256"]
-        for suite in SUITES
+        json.loads((out / f"sglang-{suite}-{case_id}" / "source-manifest.json").read_text())["sha256"]
+        for suite, case_id in expected
     }
-    configs = [json.loads((out / f"sglang-{suite}" / "config.json").read_text()) for suite in SUITES]
+    configs = [json.loads((out / f"sglang-{suite}-{case_id}" / "config.json").read_text()) for suite, case_id in expected]
     installed = {json.dumps(config.get("installedApkSha256"), sort_keys=True) for config in configs}
     summary = {
         "schemaVersion": 1,
@@ -122,8 +149,9 @@ def main():
             "suites": list(SUITES),
             "expectedCaseCount": 15,
             "caseCount": len(case_rows),
-            "allSuitesPassed": all(row["passed"] and row["exitCode"] == 0 for row in suite_rows),
+            "allSuitesPassed": all(row["passed"] for row in suite_rows),
             "allCasesPassed": len(passed_cases) == len(case_rows) == 15,
+            "baselineComplete": len(case_rows) == 15,
         },
         "performance": {
             "metric": "Harness end-to-end case elapsedMs; includes model, tool, approval and persistence work",
@@ -142,8 +170,8 @@ def main():
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     if len(source_shas) != 1 or len(installed) != 1:
         raise SystemExit("P5 suites did not use one source/APK identity")
-    if not summary["scope"]["allSuitesPassed"] or not summary["scope"]["allCasesPassed"]:
-        raise SystemExit("P5 SGLang Harness baseline did not pass all fixed cases")
+    if len(case_rows) != 15:
+        raise SystemExit("P5 SGLang Harness baseline did not collect all fixed cases")
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--provider-port', type=int, default=30008)
     parser.add_argument('--protocol-override', choices=('OPENAI_CHAT_COMPLETIONS', 'OPENAI_RESPONSES', 'ANTHROPIC_MESSAGES'))
+    parser.add_argument('--case-id')
     parser.add_argument('--suite', choices=('providers', 'files', 'javascript', 'plan', 'browser', 'skills', 'mcp', 'a2a', 'accessibility', 'root', 'goal'), default='providers')
     args = parser.parse_args()
     if not args.serial.startswith('emulator-'):
@@ -92,6 +93,10 @@ def main():
         subprocess.run(run_as + ['tee', remote + '/' + path.name], input=path.read_bytes(), check=True, stdout=subprocess.DEVNULL)
     case_prefixes = {'providers': ('chat-', 'provider-'), 'files': ('file-',), 'javascript': ('js-',), 'plan': ('plan-',), 'browser': ('browser-',), 'skills': ('skill-',), 'mcp': ('mcp-',), 'a2a': ('a2a-',), 'accessibility': ('accessibility-',), 'root': ('root-',), 'goal': ('goal-',)}[args.suite]
     ids = [line.split('\t')[0] for line in Path('evals/m10/fixed-evals.tsv').read_text().splitlines() if line.startswith(case_prefixes)]
+    if args.case_id:
+        if args.case_id not in ids:
+            parser.error(f'case {args.case_id!r} does not belong to suite {args.suite!r}')
+        ids = [args.case_id]
     for case_id in ids:
         subprocess.run(run_as + ['rm', '-f', remote + '/' + case_id + '.json'], check=True)
     test_class = {'providers': 'FixedProviderEvaluationDeviceTest', 'files': 'FixedFileEvaluationDeviceTest', 'javascript': 'FixedJavascriptEvaluationDeviceTest', 'plan': 'FixedPlanEvaluationDeviceTest', 'browser': 'FixedBrowserEvaluationDeviceTest', 'skills': 'FixedSkillEvaluationDeviceTest', 'mcp': 'FixedMcpEvaluationDeviceTest', 'a2a': 'FixedA2aEvaluationDeviceTest', 'accessibility': 'FixedAccessibilityEvaluationDeviceTest', 'root': 'FixedRootEvaluationDeviceTest', 'goal': 'FixedGoalEvaluationDeviceTest'}[args.suite]
@@ -99,6 +104,10 @@ def main():
     if args.protocol_override:
         command += ['-e', 'helix.eval.protocolOverride', args.protocol_override]
         config['protocolOverride'] = args.protocol_override
+        (args.output / 'config.json').write_text(json.dumps(config, indent=2))
+    if args.case_id:
+        command += ['-e', 'helix.eval.caseId', args.case_id]
+        config['caseId'] = args.case_id
         (args.output / 'config.json').write_text(json.dumps(config, indent=2))
     command += ['com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner']
     with (args.output / 'instrumentation.log').open('w') as log:

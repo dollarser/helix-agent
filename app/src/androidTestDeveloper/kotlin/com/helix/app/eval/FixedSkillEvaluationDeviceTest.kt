@@ -52,7 +52,11 @@ class FixedSkillEvaluationDeviceTest {
             val config = Json.parseToJsonElement(File(directory, "config.json").readText()).jsonObject
             val corpus = File(directory, "fixed-evals.tsv").readBytes()
             require(hash(corpus) == "f27bf8b51e61be248a6e642c22cefc3e5045d0d35e37518377eb9b8cdf85e795")
-            val rows = corpus.toString(Charsets.UTF_8).lines().filter { it.startsWith("skill-") }
+            val selected = evaluationCaseId()
+            val rows =
+                corpus.toString(Charsets.UTF_8).lines().filter {
+                    it.startsWith("skill-") && (selected == null || it.substringBefore('\t') == selected)
+                }
             val providers = mutableMapOf<ProviderProtocol, String>()
             val previous = container.chatService.runControl.value
             try {

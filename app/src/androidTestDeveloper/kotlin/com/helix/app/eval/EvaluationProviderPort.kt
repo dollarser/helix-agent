@@ -15,3 +15,9 @@ internal fun evaluationProviderProtocol(default: ProviderProtocol): ProviderProt
     val value = InstrumentationRegistry.getArguments().getString("helix.eval.protocolOverride") ?: return default
     return ProviderProtocol.valueOf(value)
 }
+
+/** Optional P5-only case selector. HXA-100 omits it and continues to execute the full suite. */
+internal fun evaluationCaseId(): String? =
+    InstrumentationRegistry.getArguments().getString("helix.eval.caseId")?.also {
+        require(it.matches(Regex("[a-z]+-[0-9]{3}"))) { "invalid evaluation case id" }
+    }
