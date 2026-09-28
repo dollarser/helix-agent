@@ -1,6 +1,6 @@
 # 剩余工作暂定计划（2026-09-28）
 
-状态：讨论草案。所有者本轮只要求总体梳理和写计划，不启动实现、设备测试、账号调用、提交或发布；不新增 HXA 编号、不接受新 ADR、不创建持续 Goal。当前状态与执行顺序仍以 [status](status.md) 为准；本文件用于评审取舍，正式启动时把选中切片转入 HXA，并在 status 更新下一 checkpoint，避免维护第二套进度表。
+状态：已获所有者授权按阶段执行；当前进度仍以 [status](status.md) 为准。本文件维护剩余工作的依赖顺序与取舍，不作为第二套完成状态表。P0/P1 已执行，后续每次只推进一个本地主 checkpoint；真实账号、物理设备、push/merge/release 仍需各自条件或授权。不新增持续 Goal，不因执行本计划重开已完成 HXA。
 
 ## 1. 判断与依据
 
@@ -103,16 +103,16 @@
 
 ## 7. 文档与工程整理
 
-- roadmap 的“历史 12 项义务”“214～217 当前状态”以及 HXA-227 设备未请求等摘要已落后于 status；ADR 总入口仍把 Workspace binding 描述为候选。后续做小范围索引事实修正，以有效 ADR/完成记录为准，不重写历史证据或制造新任务。
+- P0 已修正 roadmap 的旧义务摘要、HXA-227 设备状态和 ADR 总入口的 Workspace binding 状态；后续只维护新的事实漂移，以有效 ADR/完成记录为准，不重写历史证据或制造新任务。
 - 对齐功能声明、实际开关与验收范围；每条剩余项保留证据入口、退出条件及缺少的外部条件，避免把已完成 HXA 反复重开。
 - 保持主机 CI 不运行设备；执行设备测试时核对源码/APK/模型身份及 owned serial。新代码按 HXA 跑 gate；纯计划/文档修改做链接、内容与 diff 检查，不伪称功能验证。
 - 大范围未提交修改先审归属再提交，不以清理工作树为由丢弃 WIP。整合与发布前验证必要的共同基线，不能用旧分支绿色结果代替当前候选。
 
 ## 8. 当前落地 checkpoint
 
-1. **P0 integration checkpoint**：先把 HXA-227 设备补验、Workspace 恢复增量、HXA-230 Global Memory、HXA-222 Local Model 与当前文档事实收口到可追溯基点；不为拆提交制造不可构建中间态。
-2. **P1 Memory + Workspace 增量补验**：限定设备/API/flavor，验证新行为、权限与会话恢复；结果写回现有证据，不另建执行框架。
-3. **P2 SAF bounded diagnosis**：只在限定复现条件下采集授权、Provider、registry/liveSources、语义树与 UI 投影时序；能定位再修，不能稳定复现则保留限制。
+1. **P0 integration checkpoint — 已完成**：本地提交 `263135dd` 冻结 post-refactor product baseline，完整 host/source gate 通过。
+2. **P1 Memory + Workspace 增量补验 — 已完成**：API29/API36 × consumer/developer targeted matrix 各 31/31 通过；Memory 真进程死亡恢复与 Workspace fork/recovery/request-freeze 均形成设备证据。
+3. **P2 SAF bounded diagnosis — 下一 checkpoint**：只在限定复现条件下采集授权、Provider、registry/liveSources、语义树与 UI 投影时序；能定位再修，不能稳定复现则保留限制。
 4. **P3 模型安装最小闭环**：确认精选清单、下载源、安装状态与恢复合同，复用当前资产/Provider 管线；拆出 host 和真实 Android HTTP 验收。
 5. **P4 之后**：先完成首次成功联合旅程，再建立性能/质量事实并按证据优化；发行身份与服务账号清单可并行只读准备。
 

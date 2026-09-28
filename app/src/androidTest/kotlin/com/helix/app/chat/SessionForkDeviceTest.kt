@@ -126,6 +126,8 @@ class SessionForkDeviceTest {
             File(root, "keep.txt").writeText("retained")
             File(root, "gone").mkdir()
             storage.sessions.updateDetails("s", "Source", "scope:$original:gone")
+            storage.turns.start("old-turn", "s", 1)
+            storage.modelCalls.append("old-request", "old-turn", "fixture", "RUNNING")
             storage.workspaces.recordRequest("old-request", requireNotNull(storage.workspaces.binding("s")))
             File(root, "gone").delete()
             val recovery = SessionWorkspaceRecovery(storage) { it }

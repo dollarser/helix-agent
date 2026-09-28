@@ -48,11 +48,12 @@
 
 所有者已授权按[剩余工作计划（2026-09-28）](remaining-work-plan-2026-09-28.md)继续执行。P0 post-HXA integration checkpoint 已完成变更归属审计与完整 `check-all.sh --all`；交叉的 Workspace recovery、Global Memory、Local Model 与 device/eval runner 不为漂亮历史强拆成不可构建中间态，收口证据见 [integration checkpoint](../evidence/development/post-hxa-integration-checkpoint-2026-09-28.md)。
 
-Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续冻结。下一本地主线按产品闭环而不是架构扩张推进：
+Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续冻结。P1 Memory + Workspace 增量设备验收已完成：API29/API36 × consumer/developer targeted matrix 各 31/31 通过，Memory 实际进程死亡后 Markdown、enabled setting 与 Prompt `UNTRUSTED` trust 恢复通过；Workspace fork/失效回退/旧 request binding 冻结与窄屏大字体通过。首次运行暴露的是测试夹具缺少真实 model-call 外键，修正 fixture 后全部通过；未修改 production。详见 [P1 设备证据](../evidence/development/p1-memory-workspace-device-acceptance-2026-09-28.md)。
+
+下一本地主线进入 P2：
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| P1 | Memory + Workspace 增量设备验收 | Memory 开关/编辑冲突/重开/权限与 Workspace fork/失效恢复/更换目录形成定向设备证据 | 使用 owned emulator 与现有 runner/oracle；不默认重跑完整类清单 |
 | P2 | SAF 间歇空来源 bounded 归因 | 复现则区分持久授权、Provider、registry/liveSources 与 UI 投影并做最小修复；不可稳定复现则保留诊断与 known limitation | 限定复现条件和设备范围，不无界重试寻找绿色结果 |
 | P3 | 本地模型安装最小闭环 | 精选来源→真实 Android 下载→校验/原子发布→Provider/probe→绑定当前 Session | 复用 HXA-222 runtime/asset/provider，不重开 Agent loop；Android HTTP E2E 必须单独证明 |
 | P4 | 首次成功联合旅程 | 新安装→模型→Workspace→真实任务→Tool→产物→关闭重开 | 复用 HXA-205/228/210/222/230 已有入口，不新增平行 onboarding/runtime |
