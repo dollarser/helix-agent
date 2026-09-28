@@ -19,13 +19,9 @@ import com.helix.provider.openai.responses.ImageResolver as ResponsesImageResolv
  * INDEPENDENT adapters — there is no protocol fallback on failure
  * (doc 10 section 2.1; doc 02 section 6.2).
  *
- * Credential resolution: the Keystore-backed [CredentialLookup] reads the
- * secret at request time (never at UI construction, never into UI state —
- * NFR-007). For keyless providers (template `credentialRequired = false`,
- * e.g. local Ollama) the config stores [NO_KEY_ALIAS]; the lookup returns a
- * fixed non-secret placeholder for that alias. The adapters still send their
- * protocol auth header shape, and local servers ignore it (verified in the
- * HXA-027 Ollama smoke, which sent a bearer value the server ignored).
+ * Credential resolution occurs at request time. ProviderAuth.None does not perform
+ * credential lookup and sends no credential header. Managed accounts own their token
+ * resolution; on-device models use the additionalFactory seam without a WireClient.
  */
 class ProviderFactory(
     private val credentials: CredentialLookup,
@@ -41,7 +37,7 @@ class ProviderFactory(
     private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
     fun create(config: ProviderConfig): ModelProvider =
-        additionalFactory(config) ?: when (config.protocol) {
+        additionalFactory(config) ?: when (config.network.protocol) {
             ProviderProtocol.OPENAI_RESPONSES -> OpenAiResponsesProvider(config, credentials, wire, responsesImages)
             ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> OpenAiChatProvider(config, credentials, wire, chatImages)
             ProviderProtocol.ANTHROPIC_MESSAGES -> AnthropicProvider(config, credentials, wire, anthropicImages)

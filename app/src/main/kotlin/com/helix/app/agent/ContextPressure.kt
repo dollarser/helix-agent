@@ -1,6 +1,7 @@
 package com.helix.app.agent
 
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.entity.transportIdentity
 
 /** Last real input is a conservative floor when local estimates miss provider/image overhead. */
 internal object ContextPressure {
@@ -22,6 +23,6 @@ internal object ContextPressure {
         val call = eligible.lastOrNull { it.state == "COMPLETED" && it.usage != null } ?: return 0
         val providerId = storage.sessions.resolve(sessionId).providerId ?: return 0
         val config = storage.providerConfigs.resolve(providerId)
-        return ChatContextProjection.inputFor(call.providerSnapshot, call.usage, config.endpoint, model) ?: 0
+        return ChatContextProjection.inputFor(call.providerSnapshot, call.usage, config.transportIdentity, model) ?: 0
     }
 }

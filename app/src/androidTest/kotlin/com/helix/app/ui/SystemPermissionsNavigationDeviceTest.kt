@@ -48,9 +48,11 @@ class SystemPermissionsNavigationDeviceTest {
                 .none { it.chatSelectable }
         }
         val chat = compose.container().chatService
-        chat.closeSession()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
-        compose.onNodeWithTag("chat-setup-provider").performScrollTo().performClick()
+        chat.newSessionDraft()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
+        compose.onNodeWithTag("chat-conversation-details").performClick()
+        compose.onNodeWithTag("session-settings-open").performClick()
+        compose.onNodeWithTag("session-settings-manage-models").performScrollTo().performClick()
         compose.onNodeWithTag("screen-models").assertIsDisplayed()
     }
 }

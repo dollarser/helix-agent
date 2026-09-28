@@ -24,8 +24,8 @@ internal object ProviderTurnSnapshot {
         return buildString {
             append("{\"displayName\":\"")
             append(jsonEscape(config.displayName))
-            append("\",\"endpoint\":\"")
-            append(jsonEscape(config.endpoint.full))
+            append("\",\"transportIdentity\":\"")
+            append(jsonEscape(config.transport.cacheKey))
             append("\",\"model\":\"")
             append(jsonEscape(modelId ?: config.model))
             append("\"")

@@ -100,7 +100,7 @@ class ConversationStopConsistencyDeviceTest {
                     // First turn completes normally
                     val sub1 = ChatSubmission(session, 0L, "req-turn-1", "Turn 1")
                     val receipt1 = chat.sendSubmission(sub1).await()
-                    val turn1Id = (receipt1.outcome as ChatSubmissionOutcome.Accepted).turnId
+                    val turn1Id = compose.awaitAdmittedTurn(receipt1)
 
                     compose.waitUntil(10_000) {
                         storage.turns.resolve(turn1Id).state in setOf("COMPLETED", "FAILED") &&
@@ -112,7 +112,7 @@ class ConversationStopConsistencyDeviceTest {
                     server.holdChatStreams.set(true)
                     val sub2 = ChatSubmission(session, 1L, "req-turn-2", "Turn 2")
                     val receipt2 = chat.sendSubmission(sub2).await()
-                    val turn2Id = (receipt2.outcome as ChatSubmissionOutcome.Accepted).turnId
+                    val turn2Id = compose.awaitAdmittedTurn(receipt2)
 
                     compose.waitUntil(10_000) { server.heldStreams.get() >= 1 }
 

@@ -55,12 +55,15 @@ class ApkReplacementUpgradeDeviceTest {
             ProviderConfigSpec(
                 original.id,
                 "Upgrade preserved provider",
-                ProviderProtocol.parse(original.protocol),
+                original.protocol?.let(ProviderProtocol::parse),
                 original.endpoint,
                 "helix-fixture",
                 original.headersJson,
                 original.secretAlias,
                 original.capabilitySnapshot,
+                original.provisioningKind,
+                original.transportKind,
+                original.authKind,
             ),
         )
         storage.sessions.create(SESSION, "Upgrade preserved session", original.id, "helix-fixture", 1234L)

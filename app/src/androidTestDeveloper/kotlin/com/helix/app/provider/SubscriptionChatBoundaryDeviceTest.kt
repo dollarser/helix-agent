@@ -173,12 +173,15 @@ class SubscriptionChatBoundaryDeviceTest {
     ) = ProviderConfigSpec(
         original.id,
         original.displayName,
-        ProviderProtocol.parse(original.protocol),
+        original.protocol?.let(ProviderProtocol::parse),
         original.endpoint,
         model,
         original.headersJson,
         original.secretAlias,
         original.capabilitySnapshot,
+        original.provisioningKind,
+        original.transportKind,
+        original.authKind,
     )
 
     private suspend fun start(

@@ -57,11 +57,24 @@ class SessionInputApprovalDeviceTest {
     fun steerWaitsForDeniedApprovalAndFollowsWholeBatchResults() =
         runBlocking {
             fixture { f ->
-                val receipt =
+                val outcome =
                     f.chat
                         .sendSubmission(submission(f.session, INITIAL_TEXT))
                         .await()
-                        .outcome as ChatSubmissionOutcome.Accepted
+                        .outcome
+                assertTrue(outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued)
+                await("durable turn admission") {
+                    f.storage.turns
+                        .listBySession(f.session)
+                        .size == 1
+                }
+                val receipt =
+                    ChatSubmissionOutcome.Accepted(
+                        f.storage.turns
+                            .listBySession(f.session)
+                            .single()
+                            .id,
+                    )
                 await("mutation approval") {
                     f.storage.toolCalls
                         .listByTurn(receipt.turnId)
@@ -271,7 +284,13 @@ class SessionInputApprovalDeviceTest {
                     }
                 }
                 chat.openSession(session)
+                await("open fixture session") { chat.screen.value.openSessionId == session }
                 chat.setMode(AgentMode.ACT)
+                await("durable ACT configuration") {
+                    container.storage.sessionRunControls
+                        .forSession(session)
+                        ?.mode == AgentMode.ACT
+                }
                 block(Fixture(container, chat, session, requests, safeExecutions, askExecutions))
             } finally {
                 chat.stop()

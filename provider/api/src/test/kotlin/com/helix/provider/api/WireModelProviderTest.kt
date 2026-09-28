@@ -135,7 +135,8 @@ class WireModelProviderTest {
 
         override fun modelsPath(): String? = modelsResource
 
-        override fun authHeaders(): Map<String, String> = authOf(resolveCredential(credentials, secretAlias))
+        override fun authHeaders(): Map<String, String> =
+            authOf(resolveCredential(credentials, requireNotNull(secretAlias)))
     }
 
     private fun config(

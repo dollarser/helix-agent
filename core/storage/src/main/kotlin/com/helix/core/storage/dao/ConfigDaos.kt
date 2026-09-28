@@ -66,18 +66,22 @@ interface ProviderConfigDao {
     @Query(
         "UPDATE provider_configs SET displayName = :displayName, protocol = :protocol, " +
             "endpoint = :endpoint, model = :model, headersJson = :headersJson, " +
-            "secretAlias = :secretAlias, capabilitySnapshot = :capabilitySnapshot " +
+            "secretAlias = :secretAlias, capabilitySnapshot = :capabilitySnapshot, " +
+            "provisioningKind = :provisioningKind, transportKind = :transportKind, authKind = :authKind " +
             "WHERE id = :id",
     )
     fun update(
         id: String,
         displayName: String,
-        protocol: String,
-        endpoint: String,
+        protocol: String?,
+        endpoint: String?,
         model: String,
         headersJson: String,
-        secretAlias: String,
+        secretAlias: String?,
         capabilitySnapshot: String,
+        provisioningKind: String = "USER_CONFIGURED",
+        transportKind: String = "NETWORK",
+        authKind: String = "SECRET",
     ): Int
 
     /** Rows are deleted only through the repository's explicit delete; returns affected count. */

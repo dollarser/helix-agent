@@ -2,10 +2,12 @@ package com.helix.core.storage.repository
 
 import com.helix.core.model.McpServerId
 import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderConnectionCodec
 import com.helix.core.model.ProviderHeaders
 import com.helix.core.model.ProviderId
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.SecretAlias
 import com.helix.core.storage.entity.McpCapabilityEntity
 import com.helix.core.storage.entity.McpServerEntity
@@ -22,12 +24,15 @@ import com.helix.core.storage.entity.ProviderConfigEntity
 data class ProviderConfigSpec(
     val id: String,
     val displayName: String,
-    val protocol: ProviderProtocol,
-    val endpoint: String,
+    val protocol: ProviderProtocol?,
+    val endpoint: String?,
     val model: String,
     val headersJson: String,
-    val secretAlias: String,
+    val secretAlias: String?,
     val capabilitySnapshot: String,
+    val provisioningKind: String = "USER_CONFIGURED",
+    val transportKind: String = "NETWORK",
+    val authKind: String = "SECRET",
 ) {
     /** Validated, canonical row shared by save/overwrite; fails closed on any violation. */
     internal fun toEntity(): ProviderConfigEntity {
@@ -35,23 +40,35 @@ data class ProviderConfigSpec(
         require(displayName.isNotBlank() && displayName.length <= MAX_DISPLAY_NAME_LENGTH) {
             "displayName must be 1..$MAX_DISPLAY_NAME_LENGTH non-blank chars"
         }
-        val normalized = NormalizedEndpoint.parse(endpoint)
+        val connection =
+            ProviderConnectionCodec.decode(
+                provisioningKind,
+                transportKind,
+                authKind,
+                protocol?.name,
+                endpoint,
+                secretAlias,
+            )
+        val network = connection.transport as? ProviderTransport.Network
         require(model.isNotBlank() && model.length <= MAX_MODEL_LENGTH) {
             "model must be 1..$MAX_MODEL_LENGTH non-blank chars"
         }
         require(model.none { it <= ' ' || it == '\u007F' }) { "model contains control characters" }
         val headers = ProviderHeaders.parse(headersJson)
-        SecretAlias(secretAlias)
+        require(network != null || headers.isEmpty()) { "Local transport cannot contain headers" }
         require(capabilitySnapshot.isNotBlank()) { "capabilitySnapshot must not be blank" }
         return ProviderConfigEntity(
             id,
             displayName,
-            protocol.name,
-            normalized.full,
+            protocol?.name,
+            network?.endpoint?.full,
             model,
             ProviderHeaders.toStorageString(headers),
             secretAlias,
             capabilitySnapshot,
+            provisioningKind,
+            transportKind,
+            authKind,
         )
     }
 

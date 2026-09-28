@@ -203,8 +203,10 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-219 | [HXA-219：产物就地预览](HXA-219.md) |
 | HXA-220 | [HXA-220：Core Engine / TurnEngine 生命周期收敛](HXA-220.md) |
 | HXA-221 | [HXA-221：Pre-release Clean-slate Baseline Cleanup](HXA-221.md) |
+| HXA-222 | [HXA-222：设备内本地模型一等 Provider](HXA-222.md) |
 | HXA-223 | [HXA-223：Post-clean-slate Core Boundary Convergence](HXA-223.md) |
 | HXA-226 | [HXA-226：UI / IA 第二轮收敛](HXA-226.md) |
 | HXA-227 | [HXA-227：统一轨迹级 Agent Eval 与失败归因](HXA-227.md) |
 | HXA-228 | [HXA-228：Conversation-first Shell 与 Session Context Control](HXA-228.md) |
 | HXA-229 | [HXA-229：Model-authored Agent Activity Presentation](HXA-229.md) |
+| HXA-230 | [HXA-230：Markdown-native Hierarchical Agent Memory](HXA-230.md) |

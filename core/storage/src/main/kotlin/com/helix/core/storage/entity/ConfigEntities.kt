@@ -24,12 +24,15 @@ data class AuditEventEntity(
 data class ProviderConfigEntity(
     @PrimaryKey val id: String,
     val displayName: String,
-    val protocol: String,
-    val endpoint: String,
+    val protocol: String?,
+    val endpoint: String?,
     val model: String,
     val headersJson: String,
-    val secretAlias: String,
+    val secretAlias: String?,
     val capabilitySnapshot: String,
+    val provisioningKind: String = "USER_CONFIGURED",
+    val transportKind: String = "NETWORK",
+    val authKind: String = "SECRET",
 )
 
 /** architecture doc 9.1: `runtime_installs` — type, version, state, manifestHash, installedAt. */

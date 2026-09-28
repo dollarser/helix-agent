@@ -30,7 +30,10 @@ class ConnectorInstallationDeviceTest {
         container.storage.sessions.create(session, "Installer test", null, null, System.currentTimeMillis())
         chat.openSession(session)
 
-        fun dispatch(hash: String): Pair<String, CompletableFuture<ToolDispatchOutcome>> {
+        fun dispatch(
+            hash: String,
+            mode: AgentMode = AgentMode.ACT,
+        ): Pair<String, CompletableFuture<ToolDispatchOutcome>> {
             val id = "installer-${System.nanoTime()}"
             container.storage.turns.start(id, session, System.currentTimeMillis())
             return id to
@@ -40,7 +43,7 @@ class ConnectorInstallationDeviceTest {
                         id,
                         "connectors.install",
                         """{"path":"$path","expectedHash":"$hash"}""",
-                        mode = chat.runControl.value.mode,
+                        mode = mode,
                     )
                 }
         }
@@ -61,7 +64,7 @@ class ConnectorInstallationDeviceTest {
             assertTrue(preview.endpoints.single().needsCredential)
             assertFalse(preview.toString().contains("fixture"))
             val oldHash = preview.contentHash
-            assertTrue(dispatch(oldHash).second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Denied)
+            assertTrue(dispatch(oldHash, AgentMode.PLAN).second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Denied)
             assertFalse(
                 container.connectorService.list().any {
                     it.endpoints.any { endpoint ->

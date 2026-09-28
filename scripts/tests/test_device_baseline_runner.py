@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -24,6 +25,18 @@ runner = load_script("device_baseline_runner", "run-isolated.py")
 
 
 class DeviceBaselineClassificationTest(unittest.TestCase):
+    def test_soak_requires_its_authoritative_host_verifier(self):
+        self.assertIn("com.helix.app.MainAppCombinedSoakDeviceTest", runner.KNOWN_PHASE_RUNNER_CLASSES)
+
+    def test_timeout_preserves_partial_bytes_as_text_and_cannot_pass(self):
+        failure = subprocess.TimeoutExpired(["fixture"], 1, output=b"partial\xff", stderr=b"diagnostic")
+        with patch.object(runner.subprocess, "run", side_effect=failure):
+            code, out, err = runner.run_cmd(["fixture"], timeout=1)
+        self.assertEqual(-999, code)
+        self.assertEqual("partial\ufffd", out)
+        self.assertIn("diagnostic", err)
+        self.assertEqual("NO_VERDICT / PROCESS_CRASH", runner.parse_instrumentation_log("fixture", out, code)[0])
+
     def test_exact_known_failure_signature_is_preserved(self):
         log = """
 java.lang.AssertionError: production state must settle

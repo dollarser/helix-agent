@@ -207,6 +207,12 @@ internal fun ConversationSection(
             }
         }
         TaskLedgerCard(screen.taskLedger, screen.openSessionId)
+        if (screen.workspaceRecovered) {
+            Column(Modifier.padding(horizontal = 12.dp).testTag("workspace-recovery-notice")) {
+                Text(stringResource(R.string.workspace_recovered_notice), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = intents.onDirectory) { Text(stringResource(R.string.chat_directory_choose)) }
+            }
+        }
         if (screen.isFork) {
             Text(
                 stringResource(R.string.session_fork_notice),

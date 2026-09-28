@@ -15,6 +15,40 @@ import org.junit.Test
  */
 class SessionBindProviderTest {
     @Test
+    fun createWithSharedDirectoryDoesNotAllocateADefaultAndStillSnapshotsPermissions() {
+        val directory = "scope:ws-fixture:project/subdir"
+        var bound: Pair<String, String>? = null
+        var permissions: Pair<String, Long>? = null
+        val repository =
+            SessionRepository(
+                FakeSessionDao(),
+                directoryForSession = { _, ref -> requireNotNull(ref) { "Unexpected default allocation" } },
+                bindWorkspace = { id, ref -> bound = id to ref },
+                snapshotPermissions = { id, time -> permissions = id to time },
+            )
+        val session = repository.create("fork", "Branch", null, null, 2, directoryRef = directory)
+        assertEquals(directory, session.directoryRef)
+        assertEquals("fork" to directory, bound)
+        assertEquals("fork" to 2L, permissions)
+    }
+
+    @Test
+    fun ordinaryCreateStillAllocatesItsOwnDefaultDirectory() {
+        var allocated: String? = null
+        val repository =
+            SessionRepository(
+                FakeSessionDao(),
+                directoryForSession = { id, ref ->
+                    assertNull(ref)
+                    allocated = id
+                    "scope:ws-new:"
+                },
+            )
+        assertEquals("scope:ws-new:", repository.create("new", "New", null, null, 1).directoryRef)
+        assertEquals("new", allocated)
+    }
+
+    @Test
     fun bindAssignsProviderAndModelToAPrimaryKeyMatch() {
         val dao = FakeSessionDao()
         dao.rows["s-1"] = session("s-1")

@@ -40,6 +40,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Helix"
         android:usesCleartextTraffic="false">
+        <service android:name=".localmodel.LocalModelRuntimeService"
+            android:process=":model_runtime" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:windowSoftInputMode="adjustResize"

@@ -588,7 +588,11 @@ class TaskJourneyDeviceTest {
     ): SettledTurnRow {
         chat.openSession(sessionId)
         chat.setMode(AgentMode.ACT)
-        chat.sendTestMessage(probe)
+        stopAwait {
+            storage.sessionRunControls.forSession(sessionId)?.mode == AgentMode.ACT &&
+                chat.screen.value.openSessionId == sessionId
+        }
+        chat.sendTestMessage(sessionId, probe)
         stopAwait { approvalPresent(storage, sessionId) }
         val turn = storage.turns.listBySession(sessionId).single()
         stopAwait { chat.backgroundTasks.value.any { it.id == turn.id } }

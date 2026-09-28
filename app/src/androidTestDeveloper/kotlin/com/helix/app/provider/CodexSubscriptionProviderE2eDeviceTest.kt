@@ -95,11 +95,14 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     ProviderConfigSpec(
                         id = original.id,
                         displayName = original.displayName,
-                        protocol = ProviderProtocol.parse(original.protocol),
+                        protocol = original.protocol?.let(ProviderProtocol::parse),
                         endpoint = original.endpoint,
                         model = "helix-fixture",
                         headersJson = original.headersJson,
                         secretAlias = original.secretAlias,
+                        provisioningKind = original.provisioningKind,
+                        transportKind = original.transportKind,
+                        authKind = original.authKind,
                         capabilitySnapshot = original.capabilitySnapshot,
                     ),
                 )
@@ -126,12 +129,15 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     ProviderConfigSpec(
                         original.id,
                         original.displayName,
-                        ProviderProtocol.parse(original.protocol),
+                        original.protocol?.let(ProviderProtocol::parse),
                         original.endpoint,
                         original.model,
                         original.headersJson,
                         original.secretAlias,
                         original.capabilitySnapshot,
+                        original.provisioningKind,
+                        original.transportKind,
+                        original.authKind,
                     ),
                 )
                 ProviderTestStatusStore(PrefsLineStore(app, "helix-ui")).clear(providerId)
@@ -155,6 +161,9 @@ class CodexSubscriptionProviderE2eDeviceTest {
                 row.headersJson,
                 row.secretAlias,
                 row.capabilitySnapshot,
+                row.provisioningKind,
+                row.transportKind,
+                row.authKind,
             )
         val provider =
             CodexSubscriptionProvider(

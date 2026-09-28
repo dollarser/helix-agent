@@ -14,6 +14,19 @@ import org.junit.Test
 
 class CapabilityProbeTest {
     @Test
+    fun textOnlyRuntimeProvesToolsWithoutClaimingVision() =
+        runBlocking {
+            val outcome =
+                CapabilityProbe().probe(
+                    FakeProvider(visionEvents = listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))),
+                    includeVision = false,
+                ) as ProbeOutcome.Ok
+            assertTrue(outcome.capabilities.toolCalls)
+            assertEquals(false, outcome.capabilities.vision)
+            assertEquals(CapabilitySource.PROBED, outcome.capabilities.source)
+        }
+
+    @Test
     fun runawayProbeCancelsUpstreamAtTheEventBound() =
         runBlocking {
             val delegate = FakeProvider()

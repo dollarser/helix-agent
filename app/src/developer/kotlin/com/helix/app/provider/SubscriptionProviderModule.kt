@@ -58,6 +58,7 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                 .CliModelJobClient(CliRuntimeSupervisor(context)),
         ).inspect(turnId, modelCallId, stop)
 
+    @Suppress("LongMethod") // Four independently persisted managed account configurations.
     override fun ensureRegistered(storage: HelixStorage) {
         val existingCopilot = runCatching { storage.providerConfigs.resolve(COPILOT_ID) }.getOrNull()
         if (existingCopilot == null || existingCopilot.model == "auto") {
@@ -69,7 +70,9 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                     endpoint = "https://api.githubcopilot.com",
                     model = "claude-haiku-4.5",
                     headersJson = "{}",
-                    secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                    secretAlias = null,
+                    provisioningKind = "MANAGED_ACCOUNT",
+                    authKind = "MANAGED_ACCOUNT",
                     capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
                 )
             // Replace only the invalid pre-release default; preserve every other configured model.
@@ -84,7 +87,9 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                     endpoint = "https://api.x.ai/v1",
                     model = "grok-4",
                     headersJson = "{}",
-                    secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                    secretAlias = null,
+                    provisioningKind = "MANAGED_ACCOUNT",
+                    authKind = "MANAGED_ACCOUNT",
                     capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
                 ),
             )
@@ -98,7 +103,9 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                     endpoint = "https://api.anthropic.com/v1",
                     model = "claude-sonnet-5",
                     headersJson = "{}",
-                    secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                    secretAlias = null,
+                    provisioningKind = "MANAGED_ACCOUNT",
+                    authKind = "MANAGED_ACCOUNT",
                     capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
                 ),
             )
@@ -112,7 +119,9 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                 endpoint = "https://chatgpt.com/backend-api/codex",
                 model = "gpt-6-astra",
                 headersJson = "{}",
-                secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                secretAlias = null,
+                provisioningKind = "MANAGED_ACCOUNT",
+                authKind = "MANAGED_ACCOUNT",
                 capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
             ),
         )

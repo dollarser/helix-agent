@@ -25,13 +25,29 @@ internal class ProviderConnectionProbe(
     suspend fun run(
         providerId: String,
         detectCapabilities: Boolean = false,
+    ): ProbeOutcome =
+        try {
+            runChecked(providerId, detectCapabilities)
+        } catch (failure: com.helix.provider.api.local.LocalRuntimeException) {
+            if (!detectCapabilities) {
+                testStatus.recordFailed(providerId, clock.now().toEpochMilli(), 1, failure.code, false)
+            }
+            ProbeOutcome.Failed(1, failure.code, failure.code.name, false)
+        }
+
+    private suspend fun runChecked(
+        providerId: String,
+        detectCapabilities: Boolean,
     ): ProbeOutcome {
         val config = storedConfig(providerId)
         val provider = factory.create(config)
-        onNetworkOperation()
+        if (config.transport is com.helix.core.model.ProviderTransport.Network) onNetworkOperation()
         val outcome =
             if (detectCapabilities) {
-                managed.probe(config, provider) ?: probe.probe(provider)
+                managed.probe(config, provider) ?: probe.probe(
+                    provider,
+                    includeVision = config.transport !is com.helix.core.model.ProviderTransport.OnDeviceLocal,
+                )
             } else {
                 ProviderConnectionCheck.run(
                     config,
@@ -41,7 +57,7 @@ internal class ProviderConnectionProbe(
             }
         when (outcome) {
             is ProbeOutcome.Ok -> {
-                testStatus.modelMetadata.write(config.id, config.endpoint.full, provider.modelMetadata())
+                testStatus.modelMetadata.write(config.id, config.transport.cacheKey, provider.modelMetadata())
                 // Reuse this provider's catalog instead of cold-binding and fetching it twice.
                 discoverContextWindow(providerId, config.model, provider.contextWindow(config.model))
                 storage.providerConfigs.overwrite(
@@ -49,11 +65,14 @@ internal class ProviderConnectionProbe(
                         ProviderConfigSpec(
                             id = e.id,
                             displayName = e.displayName,
-                            protocol = ProviderProtocol.parse(e.protocol),
+                            protocol = e.protocol?.let(ProviderProtocol::parse),
                             endpoint = e.endpoint,
                             model = e.model,
                             headersJson = e.headersJson,
                             secretAlias = e.secretAlias,
+                            provisioningKind = e.provisioningKind,
+                            transportKind = e.transportKind,
+                            authKind = e.authKind,
                             capabilitySnapshot = ProviderCapabilities.toJsonString(outcome.capabilities),
                         )
                     },
@@ -69,7 +88,7 @@ internal class ProviderConnectionProbe(
             is ProbeOutcome.Failed -> {
                 // Capability failures do not revoke a separately verified connection.
                 if (detectCapabilities) return outcome
-                testStatus.modelMetadata.write(config.id, config.endpoint.full, emptyMap())
+                testStatus.modelMetadata.write(config.id, config.transport.cacheKey, emptyMap())
                 testStatus.recordFailed(
                     providerId,
                     clock.now().toEpochMilli(),

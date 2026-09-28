@@ -53,9 +53,14 @@ public class CapabilityProbe(
      * the probe — the probe only ever PROVES vision by seeing a successful image completion
      * (conservative: an unsupported-image 400 and a transient 5xx both keep vision
      * unconfirmed, and the user can then declare it manually — the ADR's second source).
+     * Explicit text-only runtimes pass includeVision=false: phases 1–4 still run against
+     * the real provider, while vision remains false. Remote providers retain all five phases.
      */
     @Suppress("ReturnCount") // fail-fast per phase: each failing phase is one early return, by design
-    public suspend fun probe(provider: ModelProvider): ProbeOutcome {
+    public suspend fun probe(
+        provider: ModelProvider,
+        includeVision: Boolean = true,
+    ): ProbeOutcome {
         val first = phase1(provider)
         if (first != null) return first
         val phaseTwo = phase2(provider)
@@ -68,13 +73,13 @@ public class CapabilityProbe(
                     provider.stream(request).onEach { if (it is ModelEvent.ReasoningDelta) reasoningProved = true }
             }
         val phases: List<suspend (ModelProvider) -> ProbeOutcome?> =
-            listOf(::phase3, ::phase4, ::phase5)
+            listOf(::phase3, ::phase4) + if (includeVision) listOf(::phase5) else emptyList()
         for (phase in phases) {
             val failure = phase(observed)
             if (failure != null) return failure
         }
         return ProbeOutcome.Ok(
-            capabilities = PROBED_CAPABILITIES.withVisionProved().copy(reasoning = reasoningProved),
+            capabilities = PROBED_CAPABILITIES.copy(vision = includeVision, reasoning = reasoningProved),
             models = models,
         )
     }
@@ -352,9 +357,6 @@ public class CapabilityProbe(
                 maxContextTokens = null, // unknown until declared
                 source = CapabilitySource.PROBED,
             )
-
-        /** [PROBED_CAPABILITIES] with vision proved by the passing phase 5. */
-        private fun ProviderCapabilities.withVisionProved(): ProviderCapabilities = copy(vision = true)
     }
 
     /** The outcome of the phase-2 model-list query (HXA-059: the list rides with the pass). */

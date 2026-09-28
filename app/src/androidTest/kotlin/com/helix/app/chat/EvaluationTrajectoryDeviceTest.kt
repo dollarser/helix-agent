@@ -22,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /** Scripted provider verifies Harness backfill/recovery, not model reasoning quality. */
 class EvaluationTrajectoryDeviceTest {
@@ -39,13 +40,19 @@ class EvaluationTrajectoryDeviceTest {
                 check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 val session = chat.createSession("Tool recovery eval", provider, "fixture-model-a")
                 val requests = AtomicInteger()
+                val fixtureFailure = AtomicReference<Throwable?>()
                 val missing = "eval-missing-${UUID.randomUUID()}.txt"
                 try {
                     server.scriptedChat = { body ->
-                        response(requests.incrementAndGet(), body, session, missing)
+                        verifiedResponse(requests.incrementAndGet(), body, session, missing, fixtureFailure)
                     }
                     chat.openSession(session)
                     chat.setMode(AgentMode.ACT)
+                    compose.waitUntil(20_000) {
+                        container.storage.sessionRunControls
+                            .forSession(session)
+                            ?.mode == AgentMode.ACT
+                    }
                     val submission =
                         ChatSubmission(
                             session,
@@ -55,9 +62,7 @@ class EvaluationTrajectoryDeviceTest {
                             emptyList(),
                         )
                     assertTrue(chat.sendSubmission(submission).await().outcome is ChatSubmissionOutcome.Accepted)
-                    compose.waitUntil(20_000) {
-                        requests.get() >= 3 && !chat.screen.value.isSending
-                    }
+                    awaitRecovery(session, requests, fixtureFailure)
                     val turn =
                         container.storage.turns
                             .listBySession(session)
@@ -84,6 +89,42 @@ class EvaluationTrajectoryDeviceTest {
                 }
             }
         }
+
+    private fun verifiedResponse(
+        index: Int,
+        body: String,
+        session: String,
+        missing: String,
+        failureRef: AtomicReference<Throwable?>,
+    ): String =
+        try {
+            response(index, body, session, missing)
+        } catch (failure: Throwable) {
+            failureRef.set(failure)
+            throw failure
+        }
+
+    private fun awaitRecovery(
+        session: String,
+        requests: AtomicInteger,
+        fixtureFailure: AtomicReference<Throwable?>,
+    ) {
+        val container = compose.container()
+        val chat = container.chatService
+        try {
+            compose.waitUntil(20_000) {
+                fixtureFailure.get() != null || (requests.get() >= 3 && !chat.screen.value.isSending)
+            }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError(
+                "requests=${requests.get()}, turns=${container.storage.turns.listBySession(
+                    session,
+                )}, screen=${chat.screen.value}",
+                failure,
+            )
+        }
+        fixtureFailure.get()?.let { throw AssertionError("Scripted provider verifier failed", it) }
+    }
 
     private suspend fun createProvider(port: Int): String =
         compose.container().providerService.create(
@@ -125,13 +166,14 @@ class EvaluationTrajectoryDeviceTest {
                         it["role"]?.jsonPrimitive?.content == "tool" &&
                             it["tool_call_id"]?.jsonPrimitive?.content == "eval-read"
                     }
-                val outcome = Json.parseToJsonElement(backfill.getValue("content").jsonPrimitive.content).jsonObject
-                check(outcome.getValue("status").jsonPrimitive.content != "SUCCEEDED")
+                val outcome = backfill.getValue("content").jsonPrimitive.content
+                check(outcome.startsWith("[TOOL_FAILED]"))
+                check(outcome.contains(missing))
                 val storage = compose.container().storage
                 val turn = storage.turns.listBySession(session).single()
                 val call = storage.toolCalls.listByTurn(turn.id).single()
                 check(call.state == "FAILED")
-                val result = requireNotNull(storage.toolResults.byToolCall(call.callId))
+                val result = requireNotNull(storage.toolResults.byToolCall(call.id))
                 check(result.status == "FAILED")
                 toolCallStream("eval-time", "\"time.now\"", "{}")
             }

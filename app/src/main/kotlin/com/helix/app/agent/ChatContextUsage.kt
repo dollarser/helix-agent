@@ -2,6 +2,7 @@ package com.helix.app.agent
 
 import com.helix.app.agent.ContextCompaction
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.entity.transportIdentity
 import com.helix.provider.api.ProviderCapabilities
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -46,9 +47,7 @@ internal object ChatContextProjection {
             providerService.contextSettingsStore
                 .read(
                     providerId,
-                    com.helix.core.model.NormalizedEndpoint
-                        .parse(config.endpoint)
-                        .full,
+                    config.transportIdentity,
                     model,
                 )
         val window = stored.withDetectedWindow(providerService.metadataFor(providerId, model)?.contextWindow).window
@@ -56,7 +55,7 @@ internal object ChatContextProjection {
         // falsely present stale usage after a failed request or a model switch.
         val turn = storage.turns.listBySession(session.id).lastOrNull()
         val call = turn?.let { storage.modelCalls.listByTurn(it.id).lastOrNull() }
-        val input = call?.let { inputFor(it.providerSnapshot, it.usage, config.endpoint, model) }
+        val input = call?.let { inputFor(it.providerSnapshot, it.usage, config.transportIdentity, model) }
         val checkpoint = ContextHistory.checkpoint(storage, session.id)
         val compactedInput = checkpoint?.takeIf { it.sourceCallId == call?.id && input != null }?.estimatedInputTokens
         return ChatContextUsage(compactedInput ?: input?.takeIf { it >= 0 }, window, compactedInput != null)
@@ -70,7 +69,7 @@ internal object ChatContextProjection {
     ): Long? =
         runCatching {
             val snapshot = Json.parseToJsonElement(snapshotJson).jsonObject
-            if (snapshot["endpoint"]?.jsonPrimitive?.content != endpoint ||
+            if (snapshot["transportIdentity"]?.jsonPrimitive?.content != endpoint ||
                 snapshot["model"]?.jsonPrimitive?.content != model
             ) {
                 null

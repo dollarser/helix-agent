@@ -4,11 +4,13 @@ import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.Clock
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SecretAlias
 import com.helix.core.model.SystemClock
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.ProviderConfigEntity
+import com.helix.core.storage.entity.transportIdentity
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.CapabilityProbe
 import com.helix.provider.api.CapabilitySource
@@ -64,6 +66,7 @@ class ProviderService(
             com.helix.app.internal
                 .InMemoryLineStore(),
         ),
+    val localModels: com.helix.app.localmodel.LocalModelService? = null,
 ) {
     private val _contextRevision = MutableStateFlow(0L)
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
@@ -74,7 +77,7 @@ class ProviderService(
     ): ProviderContextSettings {
         val config = storedConfig(providerId)
         val selectedModel = model ?: config.model
-        val stored = contextSettingsStore.read(providerId, config.endpoint.full, selectedModel)
+        val stored = contextSettingsStore.read(providerId, config.transport.cacheKey, selectedModel)
         val detected = metadataFor(providerId, selectedModel)?.contextWindow
         return stored.withDetectedWindow(detected)
     }
@@ -85,12 +88,21 @@ class ProviderService(
         settings: ProviderContextSettings,
     ) {
         val config = storedConfig(providerId)
-        val previous = contextSettingsStore.read(providerId, config.endpoint.full, model)
+        val local = config.transport is com.helix.core.model.ProviderTransport.OnDeviceLocal
+        if (local) {
+            require(settings.manualWindow == null || settings.manualWindow in 1024L..32768L)
+            testStatus.modelMetadata.write(config.id, config.transport.cacheKey, emptyMap())
+        }
+        val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
         contextSettingsStore.write(
             providerId,
-            config.endpoint.full,
+            config.transport.cacheKey,
             model,
-            settings.copy(serverWindow = previous.serverWindow),
+            if (local) {
+                settings.copy(serverWindow = if (settings.manualWindow == null) 4096L else null)
+            } else {
+                settings.copy(serverWindow = previous.serverWindow)
+            },
         )
         _contextRevision.value++
         refresh()
@@ -102,10 +114,10 @@ class ProviderService(
     ): ProviderContextSettings =
         withContext(workScope.coroutineContext) {
             val config = storedConfig(providerId)
-            val previous = contextSettingsStore.read(providerId, config.endpoint.full, model)
+            val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
             val detected = factory.create(config).contextWindow(model)
             val updated = previous.copy(serverWindow = detected)
-            contextSettingsStore.write(providerId, config.endpoint.full, model, updated)
+            contextSettingsStore.write(providerId, config.transport.cacheKey, model, updated)
             _contextRevision.value++
             updated
         }
@@ -135,10 +147,10 @@ class ProviderService(
             ::storedConfig,
             { providerId, model, detected ->
                 val config = storedConfig(providerId)
-                val previous = contextSettingsStore.read(providerId, config.endpoint.full, model)
+                val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
                 contextSettingsStore.write(
                     providerId,
-                    config.endpoint.full,
+                    config.transport.cacheKey,
                     model,
                     previous.copy(serverWindow = detected),
                 )
@@ -173,8 +185,8 @@ class ProviderService(
     /** One persisted provider as its UI row (a corrupt row throws IAE, fail-closed). */
     private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi =
         providerRowUi(entity, statusFor(entity.id)).copy(
-            managedExternally = managed.isManaged(entity.id),
-            modelMetadata = testStatus.modelMetadata.read(entity.id, entity.endpoint),
+            modelMetadata = testStatus.modelMetadata.read(entity.id, entity.transportIdentity),
+            assetSizeBytes = localModels?.assetSize(entity.model),
         )
 
     /**
@@ -205,7 +217,7 @@ class ProviderService(
             val id = idGenerator()
             val alias =
                 if (apiKey.isNullOrBlank()) {
-                    ProviderFactory.NO_KEY_ALIAS
+                    null
                 } else {
                     val generated = idGenerator()
                     storage.secrets.put(SecretAlias(generated), apiKey)
@@ -220,6 +232,7 @@ class ProviderService(
                     model = draft.model,
                     headersJson = draft.headersJson,
                     secretAlias = alias,
+                    authKind = if (alias == null) "NONE" else "SECRET",
                     capabilitySnapshot = UNTESTED_SNAPSHOT,
                 ),
             )
@@ -247,13 +260,14 @@ class ProviderService(
                 "cleartext http to ${draft.endpoint.origin} requires the explicit per-host:port confirmation"
             }
             val existing = storage.providerConfigs.resolve(providerId)
+            require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
             val alias =
                 when {
                     !draft.credentialRequired -> {
-                        if (existing.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
-                            storage.secrets.delete(SecretAlias(existing.secretAlias))
+                        if (existing.secretAlias != null && existing.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
+                            storage.secrets.delete(SecretAlias(requireNotNull(existing.secretAlias)))
                         }
-                        ProviderFactory.NO_KEY_ALIAS
+                        null
                     }
 
                     apiKey.isNullOrBlank() -> {
@@ -262,8 +276,9 @@ class ProviderService(
 
                     // keep the stored key
                     else -> {
-                        storage.secrets.put(SecretAlias(existing.secretAlias), apiKey)
-                        existing.secretAlias
+                        val updatedAlias = existing.secretAlias ?: idGenerator()
+                        storage.secrets.put(SecretAlias(updatedAlias), apiKey)
+                        updatedAlias
                     }
                 }
             storage.providerConfigs.overwrite(
@@ -275,6 +290,7 @@ class ProviderService(
                     model = draft.model,
                     headersJson = draft.headersJson,
                     secretAlias = alias,
+                    authKind = if (alias == null) "NONE" else "SECRET",
                     capabilitySnapshot = UNTESTED_SNAPSHOT,
                 ),
             )
@@ -292,9 +308,10 @@ class ProviderService(
         withContext(workScope.coroutineContext) {
             require(!managed.isManaged(providerId)) { "managed provider cannot be deleted" }
             val entity = storage.providerConfigs.resolve(providerId)
-            if (entity.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
-                storage.secrets.delete(SecretAlias(entity.secretAlias))
+            if (entity.secretAlias != null && entity.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
+                storage.secrets.delete(SecretAlias(requireNotNull(entity.secretAlias)))
             }
+            if (entity.provisioningKind == "ON_DEVICE_ASSET") localModels?.delete(entity.model)
             storage.providerConfigs.delete(providerId)
             testStatus.clear(providerId)
             pruneBindingsToPersistedEndpoints()
@@ -343,6 +360,9 @@ class ProviderService(
             e.headersJson,
             e.secretAlias,
             e.capabilitySnapshot,
+            e.provisioningKind,
+            e.transportKind,
+            e.authKind,
         )
 
     /**
@@ -353,7 +373,8 @@ class ProviderService(
      */
     suspend fun isCleartextPermitted(providerId: String): Boolean {
         val config = storedConfig(providerId)
-        return CleartextAuthorization.isPermitted(config.endpoint, bindings.all())
+        val network = config.transport as? ProviderTransport.Network ?: return true
+        return CleartextAuthorization.isPermitted(network.endpoint, bindings.all())
     }
 
     /**
@@ -361,8 +382,9 @@ class ProviderService(
      * Runs on the service's IO scope (Room read).
      */
     suspend fun modelProviderFor(providerId: String): ModelProvider {
-        _networkOperations.value += 1
-        return factory.create(storedConfig(providerId))
+        val config = storedConfig(providerId)
+        if (config.transport is ProviderTransport.Network) _networkOperations.value += 1
+        return factory.create(config)
     }
 
     /** The test status of one provider (UI rows are rebuilt from this). */
@@ -381,8 +403,8 @@ class ProviderService(
         return EgressDisclosure.EgressTarget(
             providerId = config.id,
             providerName = config.displayName,
-            protocol = config.protocol,
-            origin = config.endpoint.origin,
+            protocol = (config.transport as? ProviderTransport.Network)?.protocol,
+            origin = (config.transport as? ProviderTransport.Network)?.endpoint?.origin.orEmpty(),
             residence = config.residence(),
         )
     }
@@ -400,7 +422,7 @@ class ProviderService(
                 .mapNotNull { entity ->
                     val endpoint =
                         try {
-                            NormalizedEndpoint.parse(entity.endpoint)
+                            NormalizedEndpoint.parse(entity.endpoint ?: return@mapNotNull null)
                         } catch (e: IllegalArgumentException) {
                             return@mapNotNull null
                         }
@@ -473,11 +495,14 @@ class ProviderService(
             ProviderConfigSpec(
                 id = row.id,
                 displayName = row.displayName,
-                protocol = ProviderProtocol.parse(row.protocol),
+                protocol = row.protocol?.let(ProviderProtocol::parse),
                 endpoint = row.endpoint,
                 model = row.model,
                 headersJson = row.headersJson,
                 secretAlias = row.secretAlias,
+                provisioningKind = row.provisioningKind,
+                transportKind = row.transportKind,
+                authKind = row.authKind,
                 capabilitySnapshot = ProviderCapabilities.toJsonString(declared),
             ),
         )

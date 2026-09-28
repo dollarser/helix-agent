@@ -149,6 +149,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                     System.currentTimeMillis(),
                 )
                 fixture.service.openSession(SESSION_ID)
+                await(fixture, "owned session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
                 fixture.service.sendTestMessage(FIRST_ACTIVE_TEXT)
                 kotlinx.coroutines.withTimeout(AWAIT_TIMEOUT_MILLIS) { wire.firstRequestOpened.await() }
 

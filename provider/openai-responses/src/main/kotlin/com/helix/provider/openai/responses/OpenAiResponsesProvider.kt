@@ -35,15 +35,14 @@ public class OpenAiResponsesProvider(
             ProviderDescriptor(
                 id = config.id,
                 displayName = config.displayName,
-                protocol = config.protocol,
+                connection = config.connection,
                 model = config.model,
-                endpoint = config.endpoint,
             ),
         credentials = credentials,
         wire = wire,
         encoder = ResponsesRequestEncoder(imageResolver),
         newDecoder = { ResponsesStreamDecoder() },
-        secretAlias = config.secretAlias,
+        secretAlias = (config.auth as? com.helix.core.model.ProviderAuth.Secret)?.alias,
         extraHeaders = config.headers,
     ) {
     init {
@@ -57,7 +56,7 @@ public class OpenAiResponsesProvider(
     override fun modelsPath(): String = MODELS_PATH
 
     override fun authHeaders(): Map<String, String> =
-        mapOf("Authorization" to "Bearer ${resolveCredential(credentials, secretAlias)}")
+        secretAlias?.let { mapOf("Authorization" to "Bearer ${resolveCredential(credentials, it)}") }.orEmpty()
 
     internal companion object {
         const val STREAM_PATH = "responses"

@@ -11,6 +11,7 @@ import java.util.UUID
 /** Runs in one Room transaction. No tool dispatch, Provider call, Goal or approval is copied. */
 internal class SessionFork(
     private val storage: HelixStorage,
+    private val validateDirectory: (String) -> String = { it },
 ) {
     fun create(
         sourceSessionId: String,
@@ -22,9 +23,8 @@ internal class SessionFork(
     ) {
         storage.withTransaction {
             checkActive()
-            val source = storage.sessions.resolve(sourceSessionId)
             val plan = SessionForkPlan.prepare(storage, sourceSessionId, messageId, checkActive)
-            storage.sessions.create(newSessionId, title, source.providerId, source.modelId, now)
+            createSharedSession(sourceSessionId, newSessionId, title, now)
             copyConnectors(sourceSessionId, newSessionId)
             val identities = plan.rows.associate { it.id to UUID.randomUUID().toString() }
             val sequences = mutableMapOf<Long, Long>()
@@ -74,6 +74,19 @@ internal class SessionFork(
             )
             checkActive()
         }
+    }
+
+    private fun createSharedSession(
+        sourceSessionId: String,
+        newSessionId: String,
+        title: String,
+        now: Long,
+    ) {
+        val source = storage.sessions.resolve(sourceSessionId)
+        val recovery = SessionWorkspaceRecovery(storage, validateDirectory)
+        val directory = recovery.sharedDirectory(sourceSessionId)
+        storage.sessions.create(newSessionId, title, source.providerId, source.modelId, now, directoryRef = directory)
+        if (directory == null) recovery.record(newSessionId, now)
     }
 
     private fun copyConnectors(

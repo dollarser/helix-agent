@@ -54,8 +54,11 @@ internal fun ProviderRow(
             )
             StatusChip(row.status)
         }
+        row.assetSizeBytes?.let { size ->
+            Text(stringResource(R.string.local_model_resources, UiLabels.formatBytes(size)))
+        }
         Text(
-            "${UiLabels.displayOrigin(row.origin)} · ${stringResource(UiLabels.residenceLabelRes(row.residence))}",
+            providerLocationLabel(row),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -133,7 +136,7 @@ internal fun ProviderRow(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!row.managedExternally) {
+            if (row.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED) {
                 TextButton(onClick = { actions.onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
                     Text(stringResource(R.string.provider_edit_button))
                 }
@@ -158,12 +161,17 @@ internal fun ProviderRow(
                 ) {
                     Text(stringResource(R.string.provider_delete))
                 }
-            } else {
+            } else if (row.managedExternally) {
                 TextButton(
                     onClick = actions.onManageAccount,
                     modifier = Modifier.testTag("provider-manage-account"),
                 ) {
                     Text(stringResource(R.string.provider_subscription_manage_account))
+                }
+            } else {
+                TextButton(onClick = actions.onUnload) { Text(stringResource(R.string.local_model_unload)) }
+                TextButton(onClick = actions.onDelete, modifier = Modifier.testTag("provider-delete")) {
+                    Text(stringResource(R.string.provider_delete))
                 }
             }
         }
@@ -282,7 +290,9 @@ private fun ProviderModelsAndCapability(
     // HXA-059: the backend model list is carried out of the LAST PASSED connection test only. A
     // failed/untested row shows no section; a passed row without a list gets the manual-entry hint.
     // Selecting a chip PREFILLS the edit form (never auto-saves).
-    if (row.status is ConnectionTestStatus.Passed && !row.managedExternally) {
+    if (row.status is ConnectionTestStatus.Passed &&
+        row.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED
+    ) {
         val models = row.backendModels
         if (models.isNullOrEmpty()) {
             Text(
@@ -316,4 +326,10 @@ private fun ProviderModelsAndCapability(
             modifier = Modifier.testTag("provider-capability-result"),
         )
     }
+}
+
+@Composable
+private fun providerLocationLabel(row: ProviderRowUi): String {
+    val residence = stringResource(UiLabels.residenceLabelRes(row.residence))
+    return if (row.protocol == null) residence else "${UiLabels.displayOrigin(row.origin)} · $residence"
 }

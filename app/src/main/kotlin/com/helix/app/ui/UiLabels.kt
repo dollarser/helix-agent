@@ -47,6 +47,7 @@ object UiLabels {
     @StringRes
     fun residenceLabelRes(residence: ProviderResidence): Int =
         when (residence) {
+            ProviderResidence.ON_DEVICE_LOCAL -> R.string.ui_residence_on_device_local
             ProviderResidence.ON_DEVICE_LOOPBACK -> R.string.ui_residence_on_device_loopback
             ProviderResidence.USER_AUTHORIZED_LAN -> R.string.ui_residence_user_authorized_lan
             ProviderResidence.PUBLIC_CLOUD -> R.string.ui_residence_public_cloud
@@ -54,8 +55,9 @@ object UiLabels {
         }
 
     /** User-visible protocol label. */
-    fun protocolLabel(protocol: ProviderProtocol): String =
+    fun protocolLabel(protocol: ProviderProtocol?): String =
         when (protocol) {
+            null -> "On-device"
             ProviderProtocol.OPENAI_RESPONSES -> "OpenAI Responses"
             ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> "OpenAI Chat Completions"
             ProviderProtocol.ANTHROPIC_MESSAGES -> "Anthropic Messages"

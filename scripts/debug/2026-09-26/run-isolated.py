@@ -111,7 +111,9 @@ def run_cmd(cmd: List[str], timeout: Optional[float] = None) -> Tuple[int, str, 
         )
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired as e:
-        return -999, e.stdout or "", (e.stderr or "") + "\nCommand timed out."
+        def decoded(value):
+            return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else (value or "")
+        return -999, decoded(e.stdout), decoded(e.stderr) + "\nCommand timed out."
 
 
 def check_device_online(serial: str, adb_path: str = "adb") -> bool:
@@ -359,6 +361,9 @@ def main():
         run_cmd([adb_path, "-s", args.serial, "shell", "pm", "clear", target_pkg], timeout=15)
         run_cmd([adb_path, "-s", args.serial, "shell", "am", "force-stop", target_pkg], timeout=10)
         run_cmd([adb_path, "-s", args.serial, "shell", "am", "force-stop", test_pkg], timeout=10)
+        # Android's 1s remove-task destruction timeout can kill the NEXT instrumentation
+        # process after force-stop returns. Match the existing recovery reset's isolation gap.
+        time.sleep(2)
 
         # Step 2: Run instrumentation
         cmd = [
@@ -384,6 +389,16 @@ def main():
 
         # Step 3: Parse verdict
         verdict, details = parse_instrumentation_log(cls, raw_log, rc)
+        if verdict not in ("PASS", "SKIP / ASSUMPTION", "PHASE_RUNNER_REQUIRED"):
+            _, diagnostic, diagnostic_error = run_cmd(
+                [adb_path, "-s", args.serial, "logcat", "-d", "-s", "AndroidRuntime:*", "TestRunner:*",
+                 "MarketplaceFixture:*", "HelixChat:*", "E2E-STAGE-EXC:*"], timeout=20,
+            )
+            atomic_write_text(log_path + ".logcat", diagnostic + diagnostic_error)
+            _, system_log, system_error = run_cmd(
+                [adb_path, "-s", args.serial, "logcat", "-d", "-t", "3000"], timeout=20,
+            )
+            atomic_write_text(log_path + ".system-logcat", system_log + system_error)
 
         # Step 4: Crash recovery if needed
         if verdict == "NO_VERDICT / PROCESS_CRASH":

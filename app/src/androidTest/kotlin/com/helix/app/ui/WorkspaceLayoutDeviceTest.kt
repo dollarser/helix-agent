@@ -56,6 +56,30 @@ class WorkspaceLayoutDeviceTest {
 
     @Test fun defaultFont412() = verify(412, AppLanguage.ZH_CN, 1f)
 
+    @Test fun directoryFailureKeepsDialogOpenAndPrivateRetryCanComplete() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val roots = ScopeRootResolver { context.cacheDir.toPath() }
+        val files = FileManagerService(WorkspaceArtifactStore(roots), roots, "app")
+        var attempts = 0
+        var dismissed = false
+        compose.setContent {
+            MaterialTheme {
+                SessionDirectoryDialog(files, { dismissed = true }) {
+                    assertEquals(null, it)
+                    attempts++
+                    attempts > 1
+                }
+            }
+        }
+        compose.onNodeWithTag("session-directory-private").assertIsDisplayed().performClick()
+        compose.waitUntil { attempts == 1 }
+        compose.onNodeWithTag("session-directory-retry").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(!dismissed) }
+        compose.onNodeWithTag("session-directory-private").performClick()
+        compose.waitUntil { dismissed }
+        assertEquals(2, attempts)
+    }
+
     private fun verify(
         width: Int,
         language: AppLanguage,

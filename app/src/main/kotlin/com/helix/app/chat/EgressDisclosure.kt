@@ -110,7 +110,7 @@ object EgressDisclosure {
     data class EgressSummary(
         val providerId: String,
         val providerName: String,
-        val protocol: ProviderProtocol,
+        val protocol: ProviderProtocol?,
         val origin: String,
         val residence: ProviderResidence,
         val categories: List<DataCategory>,
@@ -127,7 +127,7 @@ object EgressDisclosure {
     data class EgressTarget(
         val providerId: String,
         val providerName: String,
-        val protocol: ProviderProtocol,
+        val protocol: ProviderProtocol?,
         val origin: String,
         val residence: ProviderResidence,
     )
@@ -161,11 +161,13 @@ object EgressDisclosure {
      * 3. regular content proceeds (the origin/residence display is the
      *    standing visibility, FR-LLM-009).
      */
+    @Suppress("ReturnCount") // Direct local inference has no network egress; network guards retain their order.
     fun decide(
         contents: List<OutgoingContent>,
         text: String,
         target: EgressTarget,
     ): Decision {
+        if (target.residence == ProviderResidence.ON_DEVICE_LOCAL) return Decision.Proceed
         ForbiddenContentGuard.reasonFor(text)?.let { return Decision.Rejected(it) }
         val categories = categoriesFor(contents)
         val summary =

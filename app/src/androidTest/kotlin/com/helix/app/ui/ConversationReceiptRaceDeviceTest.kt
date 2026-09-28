@@ -67,9 +67,11 @@ class ConversationReceiptRaceDeviceTest {
                 compose.waitUntil(WAIT_MILLIS) { chat.currentStagedAttachmentIds(session).size == 1 }
                 val attachmentId = chat.currentStagedAttachmentIds(session).single()
                 val artifact = storage.artifacts.resolve(attachmentId)
-                chat.closeSession()
-                compose.waitUntil(WAIT_MILLIS) { chat.screen.value.openSessionId == null }
-                compose.waitForIdle()
+                compose.onNodeWithTag("chat-new-session").performClick()
+                compose.waitUntil(WAIT_MILLIS) {
+                    chat.screen.value.isDraft && chat.screen.value.openSessionId != session &&
+                        compose.onAllNodesWithTag("chat-pending-remove-$attachmentId").fetchSemanticsNodes().isEmpty()
+                }
                 chat.loadComposerDraft(session)?.let { stale ->
                     storage.composerDrafts.clear(session, stale.revision, stale.clientRequestId)
                 }
@@ -376,7 +378,8 @@ class ConversationReceiptRaceDeviceTest {
 
                 compose.onNodeWithTag("chat-new-session").performClick()
                 compose.waitUntil(WAIT_MILLIS) {
-                    chat.screen.value.isDraft && chat.screen.value.openSessionId != session
+                    chat.screen.value.isDraft && chat.screen.value.openSessionId != session &&
+                        compose.onAllNodesWithTag("chat-edit-$message").fetchSemanticsNodes().isEmpty()
                 }
                 assertEquals(DISMISSED_REVISION_TEXT, storage.composerDrafts.get(session)?.text)
                 chat.openSession(session)

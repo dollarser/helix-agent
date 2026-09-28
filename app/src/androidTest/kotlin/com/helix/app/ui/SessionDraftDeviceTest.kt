@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.lifecycle.Lifecycle
 import com.helix.app.MainActivity
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
@@ -53,17 +54,39 @@ class SessionDraftDeviceTest {
                     val before = storage.sessions.list().size
                     chat.newSessionDraft()
                     compose.waitUntil(10_000) { chat.screen.value.isDraft }
+                    // Suspend the conversation surface while inspecting the service's closed state.
+                    compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
                     chat.closeSession()
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId == null }
                     assertEquals(before, storage.sessions.list().size)
                     chat.newSessionDraft()
+                    compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
                     compose.waitUntil(10_000) { chat.screen.value.isDraft }
                     chat.bindProviderToSession(provider, "fixture-model-a")
                     chat.setSessionDirectory("scope:app:work")
-                    compose.waitUntil(10_000) { chat.screen.value.directoryRef == "scope:app:work" }
+                    compose.waitUntil(10_000) {
+                        chat.screen.value.directoryRef
+                            ?.startsWith("scope:ws-") == true
+                    }
+                    val directory = requireNotNull(chat.screen.value.directoryRef)
+                    val workspace =
+                        com.helix.core.workspace.FileScopePath
+                            .fromModelReference(directory)
+                            .scopeId
+                    assertEquals("scope:app:work", storage.workspaces.find(workspace)?.locator)
                     val id = requireNotNull(chat.screen.value.openSessionId)
-                    chat.sendTestMessage("First question about a project")
-                    chat.sendTestMessage("Must not create another turn")
+                    val submission =
+                        com.helix.app.chat.ChatSubmission(
+                            id,
+                            0,
+                            java.util.UUID
+                                .randomUUID()
+                                .toString(),
+                            "First question about a project",
+                        )
+                    val first = chat.sendSubmission(submission)
+                    val duplicate = chat.sendSubmission(submission)
+                    assertEquals(first.await().outcome, duplicate.await().outcome)
                     compose.waitUntil(20_000) { storage.sessions.list().any { it.id == id } }
                     assertEquals(before + 1, storage.sessions.list().size)
                     assertEquals("First question about", storage.sessions.resolve(id).title)
@@ -79,7 +102,7 @@ class SessionDraftDeviceTest {
                     chat.closeSession()
                     chat.openSession(id)
                     compose.waitUntil(10_000) { chat.screen.value.sessionTitle == "Renamed" }
-                    assertEquals("scope:app:work", chat.screen.value.directoryRef)
+                    assertEquals(directory, chat.screen.value.directoryRef)
                     assertEquals(1, storage.turns.listBySession(id).size)
                 } finally {
                     chat.stop()

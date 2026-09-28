@@ -4,8 +4,12 @@ import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderAuth
+import com.helix.core.model.ProviderConnection
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.SecretAlias
 import com.helix.provider.api.ProviderConfig
 import kotlinx.coroutines.flow.Flow
@@ -19,10 +23,31 @@ import kotlinx.coroutines.flow.Flow
 public data class ProviderDescriptor(
     val id: String,
     val displayName: String,
-    val protocol: ProviderProtocol,
+    val connection: ProviderConnection,
     val model: String,
-    val endpoint: NormalizedEndpoint,
 ) {
+    val transport: ProviderTransport get() = connection.transport
+    val protocol: ProviderProtocol get() = (transport as ProviderTransport.Network).protocol
+    val endpoint: NormalizedEndpoint get() = (transport as ProviderTransport.Network).endpoint
+
+    constructor(
+        id: String,
+        displayName: String,
+        protocol: ProviderProtocol,
+        model: String,
+        endpoint: NormalizedEndpoint,
+    ) :
+        this(
+            id,
+            displayName,
+            ProviderConnection(
+                ProviderProvisioningKind.USER_CONFIGURED,
+                ProviderTransport.Network(protocol, endpoint),
+                ProviderAuth.None,
+            ),
+            model,
+        )
+
     init {
         require(id.isNotEmpty() && id.length <= MAX_ID_LENGTH) { "provider id must be 1..$MAX_ID_LENGTH chars" }
         require(displayName.isNotBlank() && displayName.length <= MAX_DISPLAY_NAME_LENGTH) {
@@ -35,7 +60,7 @@ public data class ProviderDescriptor(
 
     /** Data-destination class of the endpoint (provider doc section 2.5). */
     public val residence: ProviderResidence
-        get() = endpoint.residence()
+        get() = transport.residence
 
     internal companion object {
         const val MAX_ID_LENGTH = 64

@@ -106,6 +106,25 @@ class GoalInputSchedulingDeviceTest {
             }
         }
 
+    private fun configureGoalBudget(session: String) {
+        val container = compose.container()
+        compose.waitUntil(15_000) {
+            container.storage.sessionRunControls.forSession(session)?.let {
+                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(4, 6, 64_000, 128, 100_000)
+            } == true
+        }
+        val controls =
+            com.helix.app.runcontrol.SessionRunControlStore(
+                container.storage,
+                container.runControlStore,
+            )
+        controls.set(
+            session,
+            controls.ensure(session, 1).copy(goalBudgets = goalBudget),
+            System.currentTimeMillis(),
+        )
+    }
+
     private fun assertInheritedGoalBudget(
         goalId: String,
         spentBeforeResume: Int,
@@ -249,8 +268,7 @@ class GoalInputSchedulingDeviceTest {
         submission: ChatSubmission,
     ): String {
         val receipt = chat.sendSubmission(submission).await()
-        assertTrue("Expected accepted input, got ${receipt.outcome}", receipt.outcome is ChatSubmissionOutcome.Accepted)
-        return (receipt.outcome as ChatSubmissionOutcome.Accepted).turnId
+        return compose.awaitAdmittedTurn(receipt)
     }
 
     private fun submission(
@@ -325,7 +343,7 @@ class GoalInputSchedulingDeviceTest {
                 chat.openSession(session)
                 chat.setMode(AgentMode.GOAL)
                 chat.setTurnBudgets(TurnBudgets(4, 6, 64_000, 128, 100_000))
-                container.runControlStore.setGoalBudgets(goalBudget)
+                configureGoalBudget(session)
                 block(chat, session, wire)
             } finally {
                 chat.stop()

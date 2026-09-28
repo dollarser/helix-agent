@@ -49,6 +49,42 @@ class WorkspaceRepositoryTest {
         assertThrows(IllegalStateException::class.java) { repo.recordRequest("call-1", repo.binding("a")!!) }
     }
 
+    @Test fun freshRecoveryDirectoryDoesNotInvalidateSharedFilesOrFrozenRequests() {
+        val repo = repository()
+        val original = repo.defaultDirectory("owner", 1)
+        val id = FileScopePath.fromModelReference(original).scopeId
+        val file = repo.managedDirectory(id).resolve("keep.txt")
+        Files.write(file, "retained".toByteArray())
+        repo.bind("owner", original)
+        repo.bind("fork", original)
+        repo.recordRequest("old-request", requireNotNull(repo.binding("owner")))
+        val fresh = repo.freshDirectory("owner", 2)
+        repo.bind("owner", fresh)
+        assertNotEquals(original, fresh)
+        assertEquals("retained", String(Files.readAllBytes(file)))
+        assertEquals("READY", repo.find(id)?.availability)
+        assertEquals(id, repo.binding("fork")?.workspaceId)
+        assertEquals(id, repo.requestBinding("old-request")?.workspaceId)
+        assertEquals(
+            0,
+            repo
+                .managedDirectory(FileScopePath.fromModelReference(fresh).scopeId)
+                .toFile()
+                .listFiles()!!
+                .size,
+        )
+    }
+
+    @Test fun missingDefaultDirectoryIsReplacedOnTheFirstAttempt() {
+        val repo = repository()
+        val original = repo.defaultDirectory("owner", 1)
+        val root = repo.managedDirectory(FileScopePath.fromModelReference(original).scopeId)
+        Files.delete(root)
+        val recovered = repo.defaultDirectory("owner", 2)
+        assertNotEquals(original, recovered)
+        assertEquals(recovered, repo.defaultDirectory("owner", 3))
+    }
+
     @Test fun recreatedManagedDirectoryCannotInheritTheOldIdentity() {
         val repo = repository()
         val id = FileScopePath.fromModelReference(repo.defaultDirectory("a", 1)).scopeId
@@ -280,6 +316,12 @@ class WorkspaceRepositoryTest {
         override fun byIdentity(identity: String) = resources.values.singleOrNull { it.identityKey == identity }
 
         override fun ownedBy(sessionId: String) = resources.values.firstOrNull { it.ownerSessionId == sessionId }
+
+        override fun releaseOwnership(sessionId: String): Int {
+            val owned = resources.values.filter { it.ownerSessionId == sessionId }
+            owned.forEach { resources[it.id] = it.copy(ownerSessionId = null) }
+            return owned.size
+        }
 
         override fun list() = resources.values.toList()
 

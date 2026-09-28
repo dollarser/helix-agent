@@ -18,6 +18,9 @@ from typing import Dict, List, Any
 
 # Known Phase Runner classes that require host phases / process kill / port injection
 KNOWN_PHASE_RUNNER_CLASSES = {
+    "com.helix.app.MainAppCombinedSoakDeviceTest": "Requires EV-04 host runner to judge soak-done.json, cycles and duration; JUnit completion is not task success",
+    "com.helix.app.chat.WorkspaceProcessRecoveryDeviceTest": "Requires fixture setup and actual process death before verification",
+    "com.helix.app.files.WorkspaceBackupRecoveryDeviceTest": "Requires backup-boundary setup and actual process death before verification",
     "com.helix.app.chat.SessionInputProcessRecoveryDeviceTest": "Requires host runner port injection and two-phase SIGKILL",
     "com.helix.app.connector.ConnectorInstallRecoveryDeviceTest": "Requires host runner recoveryPhase argument and boundary kill",
     "com.helix.app.ui.SharedStorageDeviceTest": "Requires host AppOps storage phases (granted/revoked)",

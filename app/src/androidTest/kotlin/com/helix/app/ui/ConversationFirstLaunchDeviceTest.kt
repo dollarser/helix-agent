@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.Lifecycle
 import com.helix.app.MainActivity
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
@@ -28,9 +29,11 @@ class ConversationFirstLaunchDeviceTest {
                 container.storage.sessions.find(sessionId) != null && !chat.screen.value.isDraft
             }
 
+            compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
             chat.closeSession()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
-            compose.runOnUiThread { compose.activity.recreate() }
+            compose.activityRule.scenario.recreate()
+            compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
             compose.waitForIdle()
             compose.dismissFirstLaunchIfNeeded()
 
@@ -54,9 +57,11 @@ class ConversationFirstLaunchDeviceTest {
         val abandonedDraftId = requireNotNull(chat.screen.value.openSessionId)
         assertTrue(container.storage.sessions.find(abandonedDraftId) == null)
 
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         chat.closeSession()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
-        compose.runOnUiThread { compose.activity.recreate() }
+        compose.activityRule.scenario.recreate()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         compose.waitForIdle()
         compose.dismissFirstLaunchIfNeeded()
 

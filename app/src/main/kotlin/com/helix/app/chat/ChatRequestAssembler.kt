@@ -45,6 +45,7 @@ internal class ChatRequestAssembler(
      * before (no project instructions injected).
      */
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
+    private val memory: com.helix.app.memory.MemoryService? = null,
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
 
@@ -53,7 +54,7 @@ internal class ChatRequestAssembler(
     // [PromptSnapshot] rides every built request so the request's records carry the section
     // list + fingerprint (research doc section 4.4).
     private val systemPrompt =
-        SystemPromptContext(storage, projectInstructionsReader)
+        SystemPromptContext(storage, projectInstructionsReader, memory = memory)
 
     // The local file tools whose visibility decides the `env.files` section (mainline rule: the
     // working-directory guidance ships only when the file tools are actually exposed).
@@ -298,6 +299,7 @@ internal class ChatRequestAssembler(
             // SAME shared predicate the execution entry refuses with — visible() applies it too,
             // but the schema list is the last gate before truncation and must not drift.
             .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
+            .filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
             }.sortedBy {

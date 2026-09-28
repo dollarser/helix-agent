@@ -28,6 +28,27 @@ import org.junit.Test
 
 class OpenAiChatProviderTest {
     @Test
+    fun keylessNetworkDoesNotResolveOrSendCredentials() =
+        runBlocking {
+            val body = FakeBody("{\"data\":[{\"id\":\"model\"}]}".toByteArray())
+            val wire = FakeWire(WireResponse(200, emptyMap(), body))
+            val initial = config()
+            val connection = initial.connection.copy(auth = com.helix.core.model.ProviderAuth.None)
+            val configured = initial.copy(connection = connection)
+            val provider =
+                OpenAiChatProvider(configured, { error("No credential lookup permitted") }, wire) {
+                    error("No images in catalog request")
+                }
+            provider.listModels()
+            assertTrue(
+                wire.requests
+                    .single()
+                    .headers.keys
+                    .none { it.equals("authorization", ignoreCase = true) },
+            )
+        }
+
+    @Test
     fun protocolDoneClosesAnOpenTransportAfterTrailingUsage() =
         runBlocking {
             var closed = false

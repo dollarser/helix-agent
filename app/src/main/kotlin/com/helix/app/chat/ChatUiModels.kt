@@ -139,6 +139,7 @@ data class ChatScreenState(
     val preparingDraft: Boolean = false,
     val sessionTitle: String = "",
     val directoryRef: String? = null,
+    val workspaceRecovered: Boolean = false,
     val contextUsage: ChatContextUsage = ChatContextUsage(),
     /**
      * The open session's task progress (HX2-07): the model's working-memory ledger projected

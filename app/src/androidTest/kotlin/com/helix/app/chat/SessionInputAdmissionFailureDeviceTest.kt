@@ -37,8 +37,7 @@ class SessionInputAdmissionFailureDeviceTest {
                 val chat = scenario.chat
                 val storage = compose.container().storage
                 val first = chat.sendSubmission(submission(scenario.session, "Complete one fixture goal round")).await()
-                assertTrue(first.outcome is ChatSubmissionOutcome.Accepted)
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(scenario.entered.await(15, TimeUnit.SECONDS))
                 val binding = requireNotNull(storage.goalTurnBindings.byTurn(firstTurn))
                 val goal = storage.goalRuns.resolve(binding.runId).goalId
@@ -81,8 +80,7 @@ class SessionInputAdmissionFailureDeviceTest {
                 val chat = scenario.chat
                 val storage = compose.container().storage
                 val first = chat.sendSubmission(submission(scenario.session, "Hold the active fixture goal")).await()
-                assertTrue(first.outcome is ChatSubmissionOutcome.Accepted)
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(scenario.entered.await(15, TimeUnit.SECONDS))
                 val queued = submission(scenario.session, "Preserve this queued request after stop")
                 assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
@@ -168,7 +166,7 @@ class SessionInputAdmissionFailureDeviceTest {
                 chat.openSession(session)
                 chat.setMode(AgentMode.GOAL)
                 chat.setTurnBudgets(TurnBudgets(4, 6, 64_000, 128, 100_000))
-                container.runControlStore.setGoalBudgets(GoalBudgets(maxCalls, 8, 300_000, 120_000, 60_000, 0))
+                configureGoalBudget(session, maxCalls)
                 block(scenario)
             } finally {
                 chat.stop()
@@ -185,5 +183,25 @@ class SessionInputAdmissionFailureDeviceTest {
                 container.providerService.delete(provider)
             }
         }
+    }
+
+    private fun configureGoalBudget(
+        session: String,
+        maxCalls: Int,
+    ) {
+        val container = compose.container()
+        compose.waitUntil(15_000) {
+            container.storage.sessionRunControls.forSession(session)?.let {
+                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(4, 6, 64_000, 128, 100_000)
+            } == true
+        }
+        val controls =
+            com.helix.app.runcontrol
+                .SessionRunControlStore(container.storage, container.runControlStore)
+        controls.set(
+            session,
+            controls.ensure(session, 1).copy(goalBudgets = GoalBudgets(maxCalls, 8, 300_000, 120_000, 60_000, 0)),
+            System.currentTimeMillis(),
+        )
     }
 }

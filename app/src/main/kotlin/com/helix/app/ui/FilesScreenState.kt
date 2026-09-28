@@ -40,6 +40,7 @@ internal class FilesScreenState(
     var status by mutableStateOf<String?>(null)
     var batchFailures by mutableStateOf<List<BatchItem>>(emptyList())
     var safPanelOpen by mutableStateOf(false)
+    var safLoadFailed by mutableStateOf(false)
     var safSources by mutableStateOf<List<SafTreeSource>>(emptyList())
     var permanentDelete: List<String>? by mutableStateOf(null)
     var trashOpen by mutableStateOf(false)

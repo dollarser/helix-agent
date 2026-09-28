@@ -29,7 +29,8 @@ import com.helix.app.provider.ProviderService
 import kotlinx.coroutines.launch
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+// Failed local discovery stays repairable in this dialog, using a closed UI error.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "SwallowedException")
 internal fun ProviderContextDialog(
     row: ProviderRowUi,
     service: ProviderService,
@@ -42,9 +43,17 @@ internal fun ProviderContextDialog(
     var ratio by remember(row.id, model) { mutableStateOf("80") }
     var automaticWindow by remember(row.id, model) { mutableStateOf(true) }
     var loading by remember { mutableStateOf(true) }
+    var discoveryFailed by remember { mutableStateOf(false) }
+    val maximumWindow =
+        if (row.provisioning == com.helix.core.model.ProviderProvisioningKind.ON_DEVICE_ASSET) {
+            32768L
+        } else {
+            ProviderContextSettings.MAX_WINDOW
+        }
     val scope = rememberCoroutineScope()
     LaunchedEffect(row.id, model) {
         loading = true
+        discoveryFailed = false
         val stored = service.contextSettings(row.id, model)
         settings = stored
         automaticWindow = stored.manualWindow == null
@@ -53,6 +62,10 @@ internal fun ProviderContextDialog(
         try {
             settings = service.discoverContextWindow(row.id, model)
             if (automaticWindow) window = settings.window.toString()
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (failure: com.helix.provider.api.local.LocalRuntimeException) {
+            discoveryFailed = true
         } finally {
             loading = false
         }
@@ -123,6 +136,7 @@ internal fun ProviderContextDialog(
                     singleLine = true,
                 )
                 Text(stringResource(R.string.context_settings_help))
+                if (discoveryFailed) Text(stringResource(R.string.conn_error_local_runtime))
             }
         },
         confirmButton = {
@@ -144,7 +158,7 @@ internal fun ProviderContextDialog(
                     !loading && parsedRatio in 10..95 &&
                         (
                             automaticWindow ||
-                                parsedWindow in ProviderContextSettings.MIN_WINDOW..ProviderContextSettings.MAX_WINDOW
+                                parsedWindow in ProviderContextSettings.MIN_WINDOW..maximumWindow
                         ),
                 modifier = Modifier.testTag("provider-context-save"),
             ) { Text(stringResource(R.string.context_save)) }

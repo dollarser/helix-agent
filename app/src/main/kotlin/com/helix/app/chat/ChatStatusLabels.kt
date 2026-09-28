@@ -62,13 +62,30 @@ internal class ChatStatusLabels(
         try {
             when (ModelErrorCode.valueOf(code)) {
                 ModelErrorCode.TRANSPORT -> R.string.conn_error_transport
+
                 ModelErrorCode.TIMEOUT -> R.string.conn_error_timeout
+
                 ModelErrorCode.AUTH -> R.string.conn_error_auth
+
                 ModelErrorCode.RATE_LIMITED -> R.string.conn_error_rate_limited
+
                 ModelErrorCode.SERVER_ERROR -> R.string.conn_error_server
+
                 ModelErrorCode.HTTP_ERROR -> R.string.conn_error_http
+
                 ModelErrorCode.PROTOCOL -> R.string.conn_error_protocol
+
                 ModelErrorCode.CONTENT_FILTER -> R.string.conn_error_content_filter
+
+                ModelErrorCode.MODEL_LOAD_FAILED,
+                ModelErrorCode.MODEL_ASSET_INVALID,
+                ModelErrorCode.LOCAL_RUNTIME_CRASHED,
+                ModelErrorCode.LOCAL_RUNTIME_OOM,
+                ModelErrorCode.LOCAL_GENERATION_FAILED,
+                ModelErrorCode.LOCAL_CANCEL_TIMEOUT,
+                -> R.string.conn_error_local_runtime
+
+                ModelErrorCode.LOCAL_OUTPUT_LIMIT -> R.string.conn_error_local_output_limit
             }
         } catch (e: IllegalArgumentException) {
             R.string.model_error_generic

@@ -49,15 +49,16 @@ class SessionInputProtocolDeviceTest {
         fixture(protocol) { session, wire ->
             val chat = compose.container().chatService
             val first =
-                chat
-                    .sendSubmission(submission(session, "Read the current time"))
-                    .await()
-                    .outcome as ChatSubmissionOutcome.Accepted
+                compose.awaitAdmittedTurn(
+                    chat
+                        .sendSubmission(submission(session, "Read the current time"))
+                        .await(),
+                )
             assertTrue(wire.entered.await(10, TimeUnit.SECONDS))
             val steer =
                 submission(session, SUPPLEMENT).copy(
                     delivery = SessionInputDelivery.STEER,
-                    expectedTurnId = first.turnId,
+                    expectedTurnId = first,
                 )
             assertTrue(chat.sendSubmission(steer).await().outcome is ChatSubmissionOutcome.Enqueued)
             assertEquals(1, wire.requestCount)
@@ -66,9 +67,9 @@ class SessionInputProtocolDeviceTest {
             wire.assertHealthy()
             assertEquals(2, wire.requestCount)
             val storage = compose.container().storage
-            assertEquals(TurnState.COMPLETED.name, storage.turns.resolve(first.turnId).state)
+            assertEquals(TurnState.COMPLETED.name, storage.turns.resolve(first).state)
             assertEquals(1, storage.turns.listBySession(session).size)
-            val call = storage.toolCalls.listByTurn(first.turnId).single()
+            val call = storage.toolCalls.listByTurn(first).single()
             assertEquals("time.now", call.name)
             assertEquals("COMPLETED", call.state)
             assertEquals("{}", call.argsJson)
@@ -185,7 +186,13 @@ class SessionInputProtocolDeviceTest {
             try {
                 wire.exercise = true
                 chat.openSession(session)
+                compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 chat.setMode(AgentMode.ACT)
+                compose.waitUntil(10_000) {
+                    container.storage.sessionRunControls
+                        .forSession(session)
+                        ?.mode == AgentMode.ACT
+                }
                 block(session, wire)
             } finally {
                 wire.release.countDown()

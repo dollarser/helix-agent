@@ -28,13 +28,24 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 生成协议检查识别合法的推理/内容流事件，不能仅把可见 TextDelta 当唯一活性证据；仅成功建立网络连接也不能证明协议成功。
 - 协议需要函数名转换时使用请求内确定映射，历史和返回调用共用映射。未知名称不能进入 Dispatcher，内部工具身份、参数、调用 ID 和授权绑定不改名。
 
+### On-device runtime baseline
+
+- `LocalModelProvider` 只依赖 framework-free `LocalInferenceRuntimePort`，复用现有 `ModelEvent`；主进程通过非导出的 `:model_runtime` 服务和 typed Binder 调用 JNI，llama.cpp 是 backend，不运行 HTTP server。
+- 首版 CPU、一个 loaded model、一个 active generation；资产只读 PFD handoff，主进程与服务分别验证 SHA-256/大小。模型及 generation handle 是进程本地 ownership，不是 durable Turn identity。
+- 大请求/结果通过文件描述符传输，各限 1 MiB；首版 native 完整生成后解析为 text/reasoning/tool/usage/terminal，再发出既有事件。此版本为有界缓冲输出，不承诺首 token 流式延迟。使用资产内置 chat template，不按模型名字猜格式；工具最终仍由 Harness 校验。
+- 取消必须得到 executor exit 或 Binder death 证明；仅收到请求/ACK 不释放 owner。强制终止后的请求返回 `LOCAL_CANCEL_TIMEOUT`，不能返回成功；进程死亡不重放旧 generation。
+- 默认 context 4096、2 threads、greedy decoding；现有上下文设置允许显式选择 1024–32768，实际不超过模型 metadata 上限。metadata/probe/generation 使用同一配置，不因查询 metadata 重置 context。首版不接受图片、非零 temperature 或自定义 stop sequences。模板自身 stop markers 和工具 grammar 由 backend 处理，grammar 不替代工具校验或保证答案正确。
+- 加载前使用当前可用内存、权重大小与 F16 KV 估算及保留空间检查资源预算，失败返回 `LOCAL_RUNTIME_OOM`，允许用户降低 context 重试，不静默缩小请求配置。估算不是跨架构/OEM 的容量保证，Binder death 仍须处理。输出预算耗尽返回 usage + `LOCAL_OUTPUT_LIMIT`，不执行截断的调用；能力探测对明确不支持图片的设备内 runtime 执行文本/工具阶段并保持 vision=false，不影响网络 Provider 的五阶段探测。
+- 模型不打包入 APK。显式 direct HTTPS URL + SHA-256 + 大小下载，Range 重试、临时文件校验及原子发布；每资产最多 8 GiB、总资产 12 GiB、最多 16 个，仅保留一个待续传文件。模型文件在开发期 Room baseline 重建后重新登记为未测试。
+- native source 固定 commit 与 archive SHA-256，许可证随 APK 携带；版本事实和设备验收边界写入 HXA-222 证据。共享 UID 的 private process 提供 crash/lifecycle 隔离，不构成凭据安全沙箱。
+
 ## Alternatives considered
 
 不以目录第一项或名称猜廉价模型；不把认证成功显示成全部能力通过；不以修改全局 Provider 设置实现会话切换。不把本地模型限制为摘要/辅助调用，也不把 `127.0.0.1` 假 endpoint 当作正式 `OnDeviceLocal` 抽象。不采用 `ProviderKind = API | SUBSCRIPTION | LOCAL` 单枚举，因为它会把 provisioning、transport、residence 与 auth 四个不同问题压成一个维度，并错误地把 Ollama/SGLang/vLLM 或 managed subscription 分类成特殊 Agent 路径。
 
 ## Consequences
 
-同一主题使用一份有效契约，避免并行实现各自解释权限和生命周期。当前 `ProviderConfig(protocol, endpoint, secretAlias, ...)` 与 UI `managedExternally: Boolean` 只是 pre-HXA-222 的 network-first 实现，不是长期类型边界；HXA-222 实施时应收敛为 provisioning + transport + auth 的类型化 contract，并从 transport 派生 residence。本地模型还需要模型资产、能力探测、资源/热/内存评估和本地 Runtime 实现，但不会另造第二套 AgentLoop 或权限体系。accepted 表示决定，不代表 on-device Provider 已实现或已经通过设备任务验收。
+同一主题使用一份有效契约。`ProviderConfig`/`ProviderDescriptor` 使用类型化 connection；Room v1 baseline 持久化 provisioning/transport/auth，非法组合 fail closed。设备内推理免于 network egress 提示，但随后工具效果不因此免于授权。实现和 host 编译不等于真实模型完整 Agent loop、性能、热或内存验收；accepted 始终只表示设计决定。
 
 ## Verification
 
@@ -45,6 +56,9 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - **2026-09-16**：接受会话级 Provider/model 选择、真实能力探测、认证与连接验证边界。
 - **2026-09-25**：明确设备内本地模型是一等 `ModelProvider`，允许直接驱动完整 Agent loop；模型运行位置不再被用作工具调用/Agent 能力限制，能力由 probe/eval/设备资源决定。
 - **2026-09-26**：将 Provider 分类收敛为 provisioning × transport × residence × auth 四个正交维度；产品 UI 仍可呈现 API/Self-hosted、Subscription、On-device 三组。明确 Ollama/SGLang/vLLM 始终属于 endpoint-based Network transport，loopback 不等于 `OnDeviceLocal`；managed subscription 也仍是 Network transport。
+
+- **2026-09-28**：落实已授权 HXA-222 private-process/JNI 部署，记录单模型 CPU、有界 PFD 缓冲输出、资产恢复与 cancel/exit 合同；真实模型设备验收独立保留。
+- **2026-09-28（资源收口）**：根据 API36 32K 被 LMK 终止、metadata 重置配置及输出截断的实测，采用可调有界 context、加载前内存检查、模板工具 grammar 与保留 usage 的输出上限错误；将运行时正确性与模型任务正确性分别验收。
 
 ## Reconsider when
 

@@ -44,7 +44,7 @@ public abstract class WireModelProvider(
     protected val wire: WireClient,
     protected val encoder: RequestEncoder,
     protected val newDecoder: () -> StreamDecoder,
-    protected val secretAlias: SecretAlias,
+    protected val secretAlias: SecretAlias?,
     protected val extraHeaders: Map<String, String>,
 ) : ModelProvider {
     /**

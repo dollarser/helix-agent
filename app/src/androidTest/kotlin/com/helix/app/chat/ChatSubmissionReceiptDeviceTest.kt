@@ -312,13 +312,13 @@ class ChatSubmissionReceiptDeviceTest {
                     val submission = ChatSubmission(session, 0L, reqId, "Dedup message")
 
                     val receipt1 = chat.sendSubmission(submission).await()
-                    val outcome1 = receipt1.outcome as ChatSubmissionOutcome.Accepted
+                    val turn1 = compose.awaitAdmittedTurn(receipt1)
 
                     // Second send with same snapshot
                     val receipt2 = chat.sendSubmission(submission).await()
-                    val outcome2 = receipt2.outcome as ChatSubmissionOutcome.Accepted
+                    val turn2 = compose.awaitAdmittedTurn(receipt2)
 
-                    assertEquals(outcome1.turnId, outcome2.turnId)
+                    assertEquals(turn1, turn2)
                     assertEquals(1, storage.turns.listBySession(session).size)
                 } finally {
                     storage.turns.listBySession(session).forEach { chat.stopTurn(it.id) }

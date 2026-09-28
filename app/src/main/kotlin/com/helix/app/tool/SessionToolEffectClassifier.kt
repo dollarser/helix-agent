@@ -92,6 +92,10 @@ class SessionToolEffectClassifier(
                 undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
             }
 
+            descriptor.origin == ToolOrigin.BuiltInOrigin && name in memoryEffects -> {
+                CallEffectClassification(OperationFootprint(setOf(memoryEffects.getValue(name))))
+            }
+
             name in FILE_READ_TOOLS -> {
                 fileFootprint(name, request.args, request.sessionId, readTool = true)
             }
@@ -260,6 +264,12 @@ class SessionToolEffectClassifier(
     }
 
     companion object {
+        private val memoryEffects =
+            com.helix.app.memory.MemoryTools.reads
+                .associateWith { OperationEffect.FILE_READ_EXTERNAL } +
+                com.helix.app.memory.MemoryTools.writes
+                    .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL }
+
         const val LINUX_RUN: String = "code.linux.run"
         const val LINUX_JOB_START: String = "code.linux.job.start"
         const val LINUX_JOB_CANCEL: String = "code.linux.job.cancel"

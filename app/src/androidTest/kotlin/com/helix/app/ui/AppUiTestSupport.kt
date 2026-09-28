@@ -43,13 +43,17 @@ fun AndroidComposeTestRule<*, *>.container(): AppContainer = (activity.applicati
  * FirstLaunchNoticeTest exercises the gate itself and does not use this).
  */
 fun AndroidComposeTestRule<*, *>.resetDeterministicUiState() {
+    waitForIdle()
     val container = container()
     container.firstLaunch.reset()
     container.profileStore.switchTo(SafetyProfile.STANDARD)
     // Conversation-first fixture: every UI test starts from a fresh ephemeral conversation.
     // History/search tests must explicitly navigate to their secondary routes.
-    container.chatService.closeSession()
-    container.chatService.newSessionDraft()
+    // Keep the reset in one UI turn so Conversation's null-session effect cannot interleave.
+    runOnUiThread {
+        container.chatService.closeSession()
+        container.chatService.newSessionDraft()
+    }
     waitUntil(10_000) { container.chatService.screen.value.isDraft }
     runOnUiThread { activity.recreate() }
     waitForIdle()

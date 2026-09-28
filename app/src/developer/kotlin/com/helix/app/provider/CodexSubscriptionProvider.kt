@@ -57,9 +57,8 @@ internal class CodexSubscriptionProvider(
         ProviderDescriptor(
             config.id,
             config.displayName,
-            config.protocol,
+            config.connection,
             config.model,
-            config.endpoint,
         )
 
     private var catalog: CliModelCatalog? = null

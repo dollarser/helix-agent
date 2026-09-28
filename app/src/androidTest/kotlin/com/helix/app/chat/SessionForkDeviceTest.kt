@@ -26,7 +26,8 @@ class SessionForkDeviceTest {
         withStorage { storage, _ ->
             val permissions = SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS)
             storage.sessionPermissionConfigs.setForSession("s", permissions, 1)
-            storage.sessions.updateDetails("s", "Source", "scope:app:original")
+            val sourceDirectory = requireNotNull(storage.sessions.resolve("s").directoryRef)
+            storage.sessions.updateDetails("s", "Source", sourceDirectory)
             text(storage, "first", "USER", "original question")
             text(storage, "answer", "ASSISTANT", "original answer")
             text(storage, "future", "USER", "future secret")
@@ -41,10 +42,155 @@ class SessionForkDeviceTest {
                 SessionPermissionMode.APPROVAL_REQUIRED,
                 storage.sessionPermissionConfigs.forSession("fork")?.mode,
             )
-            assertNull(storage.sessions.resolve("fork").directoryRef)
+            val forkDirectory = requireNotNull(storage.sessions.resolve("fork").directoryRef)
+            assertEquals(sourceDirectory, forkDirectory)
+            val forkWorkspace = requireNotNull(storage.workspaces.binding("fork"))
+            assertEquals("s", storage.workspaces.find(forkWorkspace.workspaceId)?.ownerSessionId)
+            assertEquals(1, storage.workspaces.list().size)
+            assertEquals(2, storage.workspaces.references(forkWorkspace.workspaceId))
+            assertEquals(sourceDirectory, storage.sessions.resolve("s").directoryRef)
             assertTrue(storage.turns.listBySession("fork").isEmpty())
             assertEquals(originals, storage.messages.listBySession("s"))
             assertEquals(1, storage.auditEvents.listByCorrelation("fork").count { it.type == "session.fork" })
+        }
+
+    @Test fun sharedManagedFilesSurviveSourceDeletionAndForkCanChooseItsOwnDirectory() =
+        withStorage { storage, _ ->
+            val workspace = requireNotNull(storage.workspaces.binding("s")).workspaceId
+            val root = storage.workspaces.managedDirectory(workspace).toFile()
+            val file = File(root, "shared.txt").apply { writeText("original") }
+            text(storage, "branch", "USER", "continue here")
+            fork(storage, "branch")
+            val forkRoot =
+                storage.workspaces.managedDirectory(
+                    requireNotNull(storage.workspaces.binding("fork")).workspaceId,
+                )
+            forkRoot.resolve("shared.txt").toFile().writeText("changed by fork")
+            assertEquals("changed by fork", file.readText())
+            storage.deleteSessionPermanently("s")
+            assertTrue(storage.workspaces.retentionReferences(workspace).retained)
+            assertEquals(1, storage.workspaces.retentionReferences(workspace).sessionBindings)
+            assertEquals("changed by fork", file.readText())
+            storage.sessions.updateDetails("fork", "Branch", null)
+            assertTrue(workspace != requireNotNull(storage.workspaces.binding("fork")).workspaceId)
+            assertEquals("changed by fork", file.readText())
+        }
+
+    @Test fun externalPathAndSafSubdirectoriesAreSharedWithoutFollowingLaterSwitches() =
+        withStorage { storage, _ ->
+            text(storage, "branch", "USER", "continue here")
+            listOf("PATH", "SAF").forEach { backend ->
+                val workspace = storage.workspaces.register(backend, "fixture-$backend", "identity-$backend", 1)
+                val directory = "scope:${workspace.id}:project/subdirectory"
+                storage.sessions.updateDetails("s", "Source", directory)
+                val id = "fork-$backend"
+                SessionFork(storage).create("s", "branch", id, "Branch", 2)
+                assertEquals(directory, storage.sessions.resolve(id).directoryRef)
+                assertEquals("project/subdirectory", storage.workspaces.binding(id)?.relativePath)
+                assertEquals(workspace.id, storage.workspaces.binding(id)?.workspaceId)
+                storage.sessions.updateDetails("s", "Source", null)
+                assertEquals(directory, storage.sessions.resolve(id).directoryRef)
+                assertEquals(workspace.id, storage.workspaces.binding(id)?.workspaceId)
+            }
+            assertEquals(3, storage.workspaces.list().size)
+        }
+
+    @Test fun unavailableWorkspaceForksIntoAnEmptyDirectoryAndPreservesTheSource() =
+        withStorage { storage, _ ->
+            text(storage, "branch", "USER", "continue here")
+            val workspace = requireNotNull(storage.workspaces.binding("s")).workspaceId
+            storage.workspaces.markUnavailable(workspace)
+            fork(storage, "branch")
+            val fallback = requireNotNull(storage.workspaces.binding("fork")).workspaceId
+            assertTrue(fallback != workspace)
+            assertTrue(
+                storage.workspaces
+                    .managedDirectory(fallback)
+                    .toFile()
+                    .listFiles()!!
+                    .isEmpty(),
+            )
+            assertEquals(workspace, storage.workspaces.binding("s")?.workspaceId)
+            assertEquals(
+                SessionPermissionMode.APPROVAL_REQUIRED,
+                storage.sessionPermissionConfigs.forSession("fork")?.mode,
+            )
+            assertTrue(SessionWorkspaceRecovery(storage) { it }.hasNotice("fork"))
+            assertEquals(2, storage.workspaces.list().size)
+        }
+
+    @Test fun missingSubdirectoryRecoversFutureWorkWithoutMovingSharedFilesOrRequests() =
+        withStorage { storage, _ ->
+            val original = requireNotNull(storage.workspaces.binding("s")).workspaceId
+            val root = storage.workspaces.managedDirectory(original).toFile()
+            File(root, "keep.txt").writeText("retained")
+            File(root, "gone").mkdir()
+            storage.sessions.updateDetails("s", "Source", "scope:$original:gone")
+            storage.workspaces.recordRequest("old-request", requireNotNull(storage.workspaces.binding("s")))
+            File(root, "gone").delete()
+            val recovery = SessionWorkspaceRecovery(storage) { it }
+            recovery.recover("s", 2)
+            val fresh = requireNotNull(storage.workspaces.binding("s"))
+            assertTrue(original != fresh.workspaceId)
+            assertTrue(recovery.hasNotice("s"))
+            assertEquals("retained", File(root, "keep.txt").readText())
+            assertEquals(original, storage.workspaces.requestBinding("old-request")?.workspaceId)
+            assertEquals("gone", storage.workspaces.requestBinding("old-request")?.relativePath)
+            recovery.recover("s", 3)
+            assertEquals(fresh, storage.workspaces.binding("s"))
+        }
+
+    @Test fun liveValidationFailureFallsBackButCancellationDoesNotCreateABranch() =
+        withStorage { storage, _ ->
+            text(storage, "branch", "USER", "continue here")
+            assertThrows(CancellationException::class.java) {
+                SessionFork(storage) { throw CancellationException("cancelled") }
+                    .create("s", "branch", "cancelled", "Branch", 2)
+            }
+            assertNull(storage.sessions.find("cancelled"))
+            SessionFork(storage) { throw SecurityException("grant revoked") }
+                .create("s", "branch", "fork", "Branch", 3)
+            assertTrue(storage.sessions.resolve("s").directoryRef != storage.sessions.resolve("fork").directoryRef)
+            assertTrue(SessionWorkspaceRecovery(storage) { it }.hasNotice("fork"))
+        }
+
+    @Test fun failedEmptyDirectoryAllocationRollsBackTheSessionBinding() =
+        withStorage { storage, _ ->
+            val before = requireNotNull(storage.workspaces.binding("s"))
+            val managed = storage.workspaces.managedDirectory(before.workspaceId).parent
+            val retained = managed.resolveSibling("retained-managed")
+            java.nio.file.Files
+                .move(managed, retained)
+            java.nio.file.Files
+                .write(managed, byteArrayOf(1))
+            try {
+                assertThrows(Exception::class.java) { SessionWorkspaceRecovery(storage) { it }.recover("s", 2) }
+                assertEquals(before, storage.workspaces.binding("s"))
+                assertEquals("s", storage.workspaces.find(before.workspaceId)?.ownerSessionId)
+                assertFalse(SessionWorkspaceRecovery(storage) { it }.hasNotice("s"))
+            } finally {
+                java.nio.file.Files
+                    .delete(managed)
+                java.nio.file.Files
+                    .move(retained, managed)
+            }
+        }
+
+    @Test fun explicitDirectoryChoiceClearsRecoveryNoticeEvenForSameBinding() =
+        withStorage { storage, _ ->
+            val recovery = SessionWorkspaceRecovery(storage) { it }
+            recovery.record("s", 2)
+            assertTrue(recovery.hasNotice("s"))
+            val binding = requireNotNull(storage.workspaces.binding("s"))
+            storage.auditEvents.append(
+                "chosen",
+                "s",
+                "workspace.bound",
+                "user",
+                """{"workspaceId":"${binding.workspaceId}","revision":${binding.revision}}""",
+                2,
+            )
+            assertFalse(recovery.hasNotice("s"))
         }
 
     @Test fun checkpointBeforeBoundaryIsRebasedButLaterSummaryCannotLeak() =
@@ -174,6 +320,9 @@ class SessionForkDeviceTest {
             assertEquals(listOf("s"), storage.sessions.list().map { it.id })
             assertTrue(storage.messages.listBySession("fork").isEmpty())
             assertNull(storage.sessionPermissionConfigs.forSession("fork"))
+            assertNull(storage.workspaces.binding("fork"))
+            assertEquals(1, storage.workspaces.list().size)
+            assertEquals(1, storage.workspaces.references(requireNotNull(storage.workspaces.binding("s")).workspaceId))
             assertTrue(storage.auditEvents.listByCorrelation("fork").isEmpty())
         }
 
@@ -195,6 +344,8 @@ class SessionForkDeviceTest {
             val rows = ContextHistory.load(storage, "fork").rows
             assertEquals(3, ContextSegments.candidates(storage, rows, "new-turn").flatten().size)
             SessionFork(storage).create("fork", rows[1].id, "nested", "Nested", 3)
+            assertEquals(storage.sessions.resolve("s").directoryRef, storage.sessions.resolve("nested").directoryRef)
+            assertEquals(1, storage.workspaces.list().size)
             assertEquals(2, ContextHistory.load(storage, "nested").rows.size)
             assertEquals(1, storage.messages.listBySession("nested").count { it.kind == SessionForkPlan.KIND })
         }
@@ -247,10 +398,20 @@ class SessionForkDeviceTest {
             storage.sessions.create("s", "Source", null, null, 1)
             block(storage, directory)
             val sessions = storage.sessions.list()
+            val bindings = sessions.associate { it.id to storage.workspaces.binding(it.id) }
+            val notices = sessions.associate { it.id to SessionWorkspaceRecovery(storage) { it }.hasNotice(it.id) }
             storage.close()
             val reopened = HelixStorage.open(context, name, directory)
             try {
                 assertEquals(sessions, reopened.sessions.list())
+                assertEquals(
+                    notices,
+                    sessions.associate {
+                        it.id to
+                            SessionWorkspaceRecovery(reopened) { it }.hasNotice(it.id)
+                    },
+                )
+                assertEquals(bindings, sessions.associate { it.id to reopened.workspaces.binding(it.id) })
                 if (sessions.any { it.id == "nested" }) {
                     assertEquals(2, ContextHistory.load(reopened, "nested").rows.size)
                 }

@@ -16,10 +16,12 @@ class SessionRepository(
         providerId: String?,
         modelId: String?,
         createdAt: Long,
+        directoryRef: String? = null,
     ): SessionEntity {
         require(title.isNotBlank()) { "session title must not be blank" }
         require(createdAt >= 0) { "createdAt must be >= 0" }
-        val directory = directoryForSession(id, null)
+        require(directoryRef == null || directoryRef.length <= 4096)
+        val directory = directoryForSession(id, directoryRef)
         val entity = SessionEntity(id, title, providerId, modelId, createdAt, null, directory)
         transaction {
             dao.insert(entity)

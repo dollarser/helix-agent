@@ -25,7 +25,10 @@ class SkillInstallationDeviceTest {
         container.storage.sessions.create(session, "Installer test", null, null, System.currentTimeMillis())
         chat.openSession(session)
 
-        fun dispatch(hash: String): Pair<String, CompletableFuture<ToolDispatchOutcome>> {
+        fun dispatch(
+            hash: String,
+            mode: AgentMode = AgentMode.ACT,
+        ): Pair<String, CompletableFuture<ToolDispatchOutcome>> {
             val id = "installer-${System.nanoTime()}"
             container.storage.turns.start(id, session, System.currentTimeMillis())
             return id to
@@ -35,14 +38,14 @@ class SkillInstallationDeviceTest {
                         id,
                         "skills.install",
                         """{"path":"$path","expectedHash":"$hash"}""",
-                        mode = chat.runControl.value.mode,
+                        mode = mode,
                     )
                 }
         }
         try {
             chat.setMode(AgentMode.PLAN)
             val oldHash = author.preview(path).snapshotHash
-            assertTrue(dispatch(oldHash).second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Denied)
+            assertTrue(dispatch(oldHash, AgentMode.PLAN).second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Denied)
             assertFalse(container.skillRepository.list().any { it.key.name == name })
             chat.setMode(AgentMode.ACT)
             val pending = dispatch(oldHash)

@@ -12,6 +12,8 @@
 - accepted [ADR-AGENT-006](006-model-data-budget-boundaries.md)：模型结果投影、预算诊断与明确继续。
 - accepted [ADR-AGENT-007](007-session-fork.md)：用户主动按消息创建会话分支，交付见 [HXA-213](../../completion-records/HXA-213.md)。
 
+- accepted [ADR-AGENT-013](013-markdown-memory.md)：Markdown-native Memory、Global 首版与显式 Project identity 边界；对应 HXA-230。
+
 ## 待接受的开发提案
 
 - proposed [ADR-AGENT-011](011-tool-multimodal-vision-feedback.md)：工具产出多模态视觉回流与生命周期管理；对应 HXA-225。

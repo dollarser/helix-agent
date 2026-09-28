@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -60,7 +61,7 @@ class MarketplaceSectionUiTest {
                 ) {
                     MaterialTheme {
                         Column(
-                            Modifier.width(320.dp).verticalScroll(rememberScrollState()),
+                            Modifier.width(320.dp).safeDrawingPadding().verticalScroll(rememberScrollState()),
                         ) {
                             MarketplaceSection(service = service)
                         }
@@ -96,7 +97,10 @@ class MarketplaceSectionUiTest {
             compose.waitForIdle()
             compose.onNodeWithTag("marketplace-expand-cloudflare-docs").performScrollTo().performClick()
             compose.waitForIdle()
-            compose.onNodeWithTag("marketplace-install-cloudflare-docs").performScrollTo().assertIsDisplayed()
+            val install = compose.onNodeWithTag("marketplace-install-cloudflare-docs").performScrollTo()
+            compose.waitForIdle()
+            android.util.Log.i("MarketplaceFixture", "install bounds=${install.fetchSemanticsNode().boundsInRoot}")
+            install.assertIsDisplayed()
         } finally {
             service.uninstall(cloudflare)
         }

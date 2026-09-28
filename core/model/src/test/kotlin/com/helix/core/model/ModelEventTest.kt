@@ -110,9 +110,16 @@ class ModelEventTest {
 
     @Test
     fun errorCarriesCodeAndRetryability() {
-        // Closed set: the eight stream failure classes, nothing else.
+        // Closed set: network/protocol and local runtime failures stay distinguishable.
         assertEquals(
             listOf(
+                "MODEL_LOAD_FAILED",
+                "MODEL_ASSET_INVALID",
+                "LOCAL_RUNTIME_CRASHED",
+                "LOCAL_RUNTIME_OOM",
+                "LOCAL_GENERATION_FAILED",
+                "LOCAL_CANCEL_TIMEOUT",
+                "LOCAL_OUTPUT_LIMIT",
                 "TRANSPORT",
                 "TIMEOUT",
                 "HTTP_ERROR",

@@ -19,6 +19,14 @@ class EgressDisclosureTest {
         )
 
     @Test
+    fun directLocalInferenceDoesNotRequestNetworkEgressApproval() {
+        val local = target.copy(protocol = null, origin = "", residence = ProviderResidence.ON_DEVICE_LOCAL)
+        val contents = listOf(fileText("private.txt", 12L, R.string.kind_txt))
+        assertEquals(EgressDisclosure.Decision.Proceed, EgressDisclosure.decide(contents, "private", local))
+        assertTrue(EgressDisclosure.decide(contents, "private", target) is EgressDisclosure.Decision.Confirm)
+    }
+
+    @Test
     fun userTextAloneIsRegularAndProceeds() {
         val decision = EgressDisclosure.decide(listOf(EgressDisclosure.OutgoingContent.UserText), "你好", target)
         assertTrue(decision is EgressDisclosure.Decision.Proceed)

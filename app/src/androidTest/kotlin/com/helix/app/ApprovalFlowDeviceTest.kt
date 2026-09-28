@@ -413,7 +413,13 @@ class ApprovalFlowDeviceTest {
                 try {
                     chat.openSession(session)
                     chat.setMode(AgentMode.ACT)
-                    chat.sendTestMessage("Echo probe.")
+                    stopAwait {
+                        container.storage.sessionRunControls
+                            .forSession(session)
+                            ?.mode == AgentMode.ACT &&
+                            chat.screen.value.openSessionId == session
+                    }
+                    chat.sendTestMessage(session, "Echo probe.")
                     stopAwait {
                         container.storage.turns.listBySession(session).any { turn ->
                             container.storage.toolCalls.listByTurn(turn.id).any {

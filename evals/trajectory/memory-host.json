@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "suite": "memory-host-boundaries",
+  "coverage": "host-boundary-not-device-trajectory",
+  "evidenceKind": "fixture",
+  "cases": [
+    {"id":"memory-off-on","tests":[{"class":"com.helix.app.memory.MemoryServiceTest","method":"memoryOffOnABUsesTheSameSummaryWithoutChangingTopicsOrProjectIdentity"}]},
+    {"id":"explicit-remember","tests":[{"class":"com.helix.app.memory.MemoryToolsTest","method":"explicitRememberPersistsMarkdownAndLaterReadDiscoversIt"}]},
+    {"id":"read-only-mode","tests":[{"class":"com.helix.app.memory.MemoryToolsTest","method":"planAllowsDiscoveryButNeverDurableMemoryMutations"}]},
+    {"id":"scope-isolation","tests":[{"class":"com.helix.core.workspace.memory.MarkdownMemoryStoreTest","method":"projectsAndGlobalArePhysicallyIsolated"}]},
+    {"id":"bounded-context","tests":[{"class":"com.helix.core.workspace.memory.MarkdownMemoryStoreTest","method":"summaryOnlyContextIsBoundedAndTopicsRequireExplicitDiscovery"}]},
+    {"id":"external-effects","tests":[{"class":"com.helix.app.tool.SessionToolEffectClassifierTest","method":"memoryNeverBorrowsWorkspaceOrMetadataPrivileges"}]}
+  ]
+}

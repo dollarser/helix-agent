@@ -1,8 +1,11 @@
 package com.helix.app.provider
 
 import com.helix.app.R
+import com.helix.core.model.ProviderAuth
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.repository.ProviderConfigRepository
@@ -21,7 +24,7 @@ import com.helix.provider.api.ProviderConfig
 data class ProviderRowUi(
     val id: String,
     val displayName: String,
-    val protocol: ProviderProtocol,
+    val protocol: ProviderProtocol?,
     val origin: String,
     val residence: ProviderResidence,
     val model: String,
@@ -38,9 +41,12 @@ data class ProviderRowUi(
      */
     val backendModels: List<String>?,
     val templateNotes: List<String>,
-    val managedExternally: Boolean = false,
+    val provisioning: ProviderProvisioningKind = ProviderProvisioningKind.USER_CONFIGURED,
     val modelMetadata: Map<String, ModelMetadata> = emptyMap(),
+    val assetSizeBytes: Long? = null,
 ) {
+    val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
+
     /**
      * Selectable for a new session only when the connection test COMPLETED
      * (HXA-028: "未完成连接测试不贬为'已可用'").
@@ -167,16 +173,20 @@ internal fun providerRowUi(
             entity.headersJson,
             entity.secretAlias,
             entity.capabilitySnapshot,
+            entity.provisioningKind,
+            entity.transportKind,
+            entity.authKind,
         )
     return ProviderRowUi(
         id = entity.id,
         displayName = entity.displayName,
-        protocol = config.protocol,
-        origin = config.endpoint.origin,
+        protocol = (config.transport as? ProviderTransport.Network)?.protocol,
+        origin = (config.transport as? ProviderTransport.Network)?.endpoint?.origin.orEmpty(),
         residence = config.residence(),
         model = entity.model,
-        hasKey = entity.secretAlias != ProviderFactory.NO_KEY_ALIAS,
-        isCleartext = config.endpoint.scheme == "http",
+        hasKey = config.auth is ProviderAuth.Secret,
+        isCleartext = (config.transport as? ProviderTransport.Network)?.endpoint?.scheme == "http",
+        provisioning = config.provisioning,
         status = status,
         capabilities = (status as? ConnectionTestStatus.Passed)?.capabilities,
         backendModels = (status as? ConnectionTestStatus.Passed)?.modelIds,

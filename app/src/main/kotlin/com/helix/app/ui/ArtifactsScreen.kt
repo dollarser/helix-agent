@@ -466,7 +466,9 @@ private fun ArtifactResultDialog(
     val context = LocalContext.current
     var result by remember(row.id) { mutableStateOf<List<MessageUi>?>(null) }
     var failed by remember(row.id) { mutableStateOf(false) }
-    LaunchedEffect(row.id) {
+    var retry by remember(row.id) { mutableStateOf(0) }
+    LaunchedEffect(row.id, retry) {
+        failed = false
         try {
             result = service.taskResult(row.id)
         } catch (_: IllegalArgumentException) {
@@ -476,7 +478,16 @@ private fun ArtifactResultDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.background_task_result)) },
-        text = { ArtifactResultText(result, failed) },
+        text = {
+            Column {
+                ArtifactResultText(result, failed)
+                if (failed) {
+                    TextButton({ retry++ }, modifier = Modifier.testTag("artifact-result-retry")) {
+                        Text(stringResource(R.string.chat_retry))
+                    }
+                }
+            }
+        },
         confirmButton = {
             TextButton(
                 enabled = result != null && !failed,

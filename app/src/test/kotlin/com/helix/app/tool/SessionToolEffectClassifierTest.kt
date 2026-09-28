@@ -28,6 +28,26 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun memoryNeverBorrowsWorkspaceOrMetadataPrivileges() {
+        val classifier = SessionToolEffectClassifier { "scope:memory:global" }
+        com.helix.app.memory.MemoryTools.reads.forEach { name ->
+            assertEquals(
+                setOf(OperationEffect.FILE_READ_EXTERNAL),
+                classifier.classify(request("{}"), descriptor(name)).footprint.effects,
+            )
+        }
+        com.helix.app.memory.MemoryTools.writes.forEach { name ->
+            assertEquals(
+                setOf(OperationEffect.FILE_MUTATION_EXTERNAL),
+                classifier
+                    .classify(
+                        request("{}"),
+                        descriptor(name, ToolOperationClass.LOCAL_MUTATION),
+                    ).footprint.effects,
+            )
+        }
+    }
+
     @Test fun subdirectoryBindingDoesNotTrustSiblingsOrTheWholeScope() {
         val classifier = SessionToolEffectClassifier { "scope:ws-1:project" }
         for (path in listOf("project/a.txt", "project", "project/sub/a.txt")) {

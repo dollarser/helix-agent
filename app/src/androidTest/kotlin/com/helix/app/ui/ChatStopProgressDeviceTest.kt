@@ -57,8 +57,10 @@ class ChatStopProgressDeviceTest {
                 )
             try {
                 chat.openSession(session)
+                compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 chat.setMode(if (retry && !goalRetry) AgentMode.CHAT else AgentMode.GOAL)
                 chat.setTurnBudgets(TurnBudgets(3, 4, 65536, 128, 65664))
+                awaitConfiguration(session, if (retry && !goalRetry) AgentMode.CHAT else AgentMode.GOAL)
                 compose.navigateTo("sessions")
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 verifyEmptyConversation(!(retry && !goalRetry), session)
@@ -93,6 +95,18 @@ class ChatStopProgressDeviceTest {
                 container.providerService.delete(provider)
                 prepareChatLayoutLanguage(compose, restore = true)
             }
+        }
+    }
+
+    private fun awaitConfiguration(
+        session: String,
+        mode: AgentMode,
+    ) {
+        val container = compose.container()
+        compose.waitUntil(10_000) {
+            container.storage.sessionRunControls.forSession(session)?.let {
+                it.mode == mode && it.budgets == TurnBudgets(3, 4, 65536, 128, 65664)
+            } == true && container.chatService.runControl.value.mode == mode
         }
     }
 

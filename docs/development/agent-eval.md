@@ -67,6 +67,10 @@ python3 scripts/run-agent-eval.py junit --root build/device-eval --context build
 
 JUnit adapter 读取真实 testcase failure/error/skipped，不从 `BUILD SUCCESSFUL` 或空日志推定通过。指标不足时为空；断言覆盖和轨迹计数是不同证据。
 
+2026-09-27 补充的本地模拟器入口为 `scripts/debug/2026-09-27/run-hxa227-final-trajectories.py --run-id <unique-id>`，按 API29/API36 × consumer/developer 串行运行十个 selector，保留每组合的八个 case。运行前需当前任务的明确模拟器授权及已编译的两渠道 APK/test APK。`scripts/instrumentation_junit.py` 从 `am instrument -r` 的 start/terminal bundles 生成真实 JUnit，拒绝缺失、重复、空输出或 runner 崩溃。
+
+当前全量类基线与核心轨迹分别报告。全量 runner 按类隔离；逐类清理后等待 Android task 销毁完成，失败保留系统日志。`audit-hxa227-baseline.py` 检查完整清单、原始逐方法状态、source manifest、APK hash 与 owned emulator 关闭状态。专用分阶段/soak runner 和条件跳过不计 PASS；具体制品、执行范围及结果见[设备补充证据](../evidence/development/hxa227-device-baseline-2026-09-27.md)。
+
 ## A/B
 
 ```bash
@@ -76,3 +80,7 @@ python3 scripts/run-agent-eval.py compare --baseline build/baseline/envelopes.js
 比较要求同 case 集合、dataset/verifier/fixture/environment、已声明的执行条件和证据层级。未知控制变量或不匹配条件返回 exit 2，保留原因，delta 为 null。源码/制品本就可因候选修改而不同，仍分别保存身份。
 
 `--treatments` 接受明确字段与前后值的 JSON，例如 `{"sessionConfigHash":{"before":"<sha256>","after":"<sha256>"}}`。只允许指定 Prompt/config/tool/capability/Provider 字段作为实验变量，dataset/verifier/fixture/environment 不可通过 treatment 绕过。改变 Workspace 资源环境时重新建立对应 baseline，不能误称纯 Harness 改善。JSON/Markdown 分组结果没有一个合并的“Agent 总分”。
+
+## Memory 主机对照
+
+HXA-230 的 `evals/trajectory/memory-host.json` 使用同一证据协议，命令为 `python3 scripts/run-agent-eval-host.py --manifest evals/trajectory/memory-host.json --output build/memory-host-eval`（输出目录须不存在）。覆盖固定 summary 的 off/on/off、持久化、作用域、Plan 和效果分类；没有测量真实模型 token、成功率或设备轨迹。原 HXA-227 默认 host manifest 不变。详见 [HXA-230 证据](../evidence/development/hxa230-memory-2026-09-27.md)。

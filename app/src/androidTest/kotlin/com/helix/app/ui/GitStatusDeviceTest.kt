@@ -25,8 +25,16 @@ class GitStatusDeviceTest {
     fun gitPageShowsStagedUnstagedUntrackedAndOpensDiff() {
         runBlocking {
             compose.resetDeterministicUiState()
-            val context = compose.activity.applicationContext
-            val workspaceRoot = File(context.filesDir, "workspaces/app")
+            val container = compose.container()
+            val session = "git-fixture-${java.util.UUID.randomUUID()}"
+            container.storage.sessions.create(session, "Git fixture", null, null, System.currentTimeMillis())
+            container.chatService.openSession(session)
+            compose.waitUntil(10_000) { container.chatService.screen.value.openSessionId == session }
+            val binding = requireNotNull(container.storage.workspaces.binding(session))
+            val workspaceRoot =
+                container.storage.workspaces
+                    .managedDirectory(binding.workspaceId)
+                    .toFile()
             File(workspaceRoot, "demo").deleteRecursively() // fresh repo on every run
             val repoDir = File(workspaceRoot, "demo").apply { mkdirs() }
             val git = Git.init().setDirectory(repoDir).call()

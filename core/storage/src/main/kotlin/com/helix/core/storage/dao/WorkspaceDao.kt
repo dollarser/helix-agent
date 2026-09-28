@@ -25,6 +25,9 @@ interface WorkspaceDao {
     )
     fun ownedBy(sessionId: String): WorkspaceEntity?
 
+    @Query("UPDATE workspaces SET ownerSessionId = NULL WHERE ownerSessionId = :sessionId AND ownership = 'MANAGED'")
+    fun releaseOwnership(sessionId: String): Int
+
     @Query("SELECT * FROM workspaces ORDER BY createdAt, id")
     fun list(): List<WorkspaceEntity>
 

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
@@ -54,10 +55,7 @@ class ShareDraftUiDeviceTest {
             rule.waitUntil(15_000) { rule.onAllNodesWithTag("chat-input").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithTag("chat-input").assertTextContains(shared)
             rule.onNodeWithTag("chat-conversation-details").performClick()
-            rule.waitUntil(
-                15_000,
-            ) { rule.onAllNodesWithTag("chat-unbound-provider").fetchSemanticsNodes().isNotEmpty() }
-            rule.onNodeWithTag("chat-unbound-provider").assertIsDisplayed()
+            assertProviderFreeSettings(rule)
             assertNoTurnWasSent(rule)
         }
     }
@@ -100,15 +98,30 @@ class ShareDraftUiDeviceTest {
             )
             rule.onNodeWithTag("chat-conversation-details").performClick()
             // …the session is provider-free (the user must explicitly bind before any send)…
-            rule.waitUntil(
-                15_000,
-            ) { rule.onAllNodesWithTag("chat-unbound-provider").fetchSemanticsNodes().isNotEmpty() }
+            assertProviderFreeSettings(rule)
             // …and nothing was sent.
             assertNoTurnWasSent(rule)
         }
     }
 
     // --- helpers -------------------------------------------------------------
+
+    private fun assertProviderFreeSettings(rule: Rule) {
+        rule.onNodeWithTag("session-settings-open").performClick()
+        rule.onNodeWithTag("session-settings-manage-models").performScrollTo().assertIsDisplayed()
+        val container = rule.container()
+        val session = requireNotNull(container.chatService.screen.value.openSessionId)
+        org.junit.Assert.assertNull(
+            container.storage.sessions
+                .find(session)
+                ?.providerId,
+        )
+        assertTrue(
+            container.storage.turns
+                .listBySession(session)
+                .isEmpty(),
+        )
+    }
 
     /**
      * Runs [body] with a Compose test rule over an [ActivityScenarioRule] launched with

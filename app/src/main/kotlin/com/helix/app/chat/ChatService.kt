@@ -193,6 +193,7 @@ class ChatService(
      */
     private val bindSessionDirectory: (String) -> String = { it },
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
+    private val memory: com.helix.app.memory.MemoryService? = null,
 ) {
     // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
     // none reaches launchTurn directly. The container re-exposes the SAME instance as the
@@ -214,6 +215,7 @@ class ChatService(
     private val drafts = ChatDraftStore()
     private val conversationReferences = ConversationReferenceResolver(storage)
     private val sessionRunControls = SessionRunControlStore(storage, runControlStore)
+    private val workspaceRecovery = SessionWorkspaceRecovery(storage, bindSessionDirectory)
     private val _runControl = MutableStateFlow(sessionRunControls.defaultSnapshot())
     private val runControlEdits = Mutex()
     private val requestAssembler =
@@ -224,6 +226,7 @@ class ChatService(
             attachmentStaging,
             visionSessionBinder,
             projectInstructionsReader,
+            memory,
         )
     private val attachmentRetry = ChatAttachmentRetry(storage, attachmentStaging)
     private val labels = ChatStatusLabels(strings)
@@ -942,8 +945,9 @@ class ChatService(
             drafts.persist(expectedSessionId, text, fallbackTitle) { draft ->
                 val row = draft.session
                 storage.withTransaction {
-                    storage.sessions.create(row.id, row.title, row.providerId, row.modelId, row.createdAt)
-                    storage.sessions.updateDetails(row.id, row.title, row.directoryRef)
+                    val directory = workspaceRecovery.availableDirectory(row.directoryRef)
+                    storage.sessions.create(row.id, row.title, row.providerId, row.modelId, row.createdAt, directory)
+                    if (row.directoryRef != null && directory == null) workspaceRecovery.record(row.id, row.createdAt)
                     sessionRunControls.set(row.id, draft.control, row.createdAt)
                 }
             } ?: return null
@@ -983,17 +987,19 @@ class ChatService(
             )
         }
 
-    fun setSessionDirectory(reference: String?) {
-        reference?.let { FileScopePath.fromModelReference(it) }
-        val targetSessionId = screen.value.openSessionId ?: return
-        workScope.launch {
+    fun setSessionDirectory(
+        reference: String?,
+        targetSessionId: String? = screen.value.openSessionId,
+    ): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            if (targetSessionId == null) return@async false
             try {
                 val bound = reference?.let(bindSessionDirectory)
                 val draft = sessionDraft
                 if (draft != null && draft.session.id == targetSessionId) {
                     drafts.directory(draft.session.id, bound)
                 } else {
-                    val row = storage.sessions.find(targetSessionId) ?: return@launch
+                    val row = storage.sessions.find(targetSessionId) ?: return@async false
                     storage.withTransaction {
                         storage.sessions.updateDetails(row.id, row.title, bound)
                         val binding = storage.workspaces.binding(row.id)
@@ -1011,14 +1017,33 @@ class ChatService(
                     }
                     refreshSessionsNow()
                 }
+                if (openSessionId == targetSessionId &&
+                    screen.value.blockedReason == str(R.string.chat_directory_failed)
+                ) {
+                    dismissBlocked()
+                }
                 refreshScreen()
+                true
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                setBlocked(str(R.string.chat_directory_failed))
+                if (openSessionId == targetSessionId) setBlocked(str(R.string.chat_directory_failed))
+                false
             }
         }
-    }
+
+    // UI admission fails only if a new private directory also cannot be prepared.
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private fun ensureSessionWorkspace(sessionId: String): Boolean =
+        try {
+            workspaceRecovery.recover(sessionId, clock.now().toEpochMilli())
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (openSessionId == sessionId) setBlocked(str(R.string.chat_directory_failed))
+            false
+        }
 
     /**
      * Creates a session bound to a (tested) provider + its model. Runs on the
@@ -1063,7 +1088,7 @@ class ChatService(
             val branchTitle = str(R.string.session_fork_title, title)
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
-                SessionFork(storage).create(sessionId, messageId, id, branchTitle, now) {
+                SessionFork(storage, bindSessionDirectory).create(sessionId, messageId, id, branchTitle, now) {
                     context.ensureActive()
                 }
                 sessionRunControls.set(id, sessionRunControls.defaultSnapshot(), now)
@@ -1128,6 +1153,7 @@ class ChatService(
         workScope.launch {
             val control =
                 if (storage.sessions.find(id) != null) {
+                    ensureSessionWorkspace(id)
                     sessionRunControls.ensure(id, clock.now().toEpochMilli())
                 } else {
                     sessionRunControls.defaultSnapshot()
@@ -2064,6 +2090,9 @@ class ChatService(
         val session = currentSession() ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
         val request = submission ?: ChatSubmission(session.id, 0, idGenerator(), text, staged.map { it.artifactId })
         if (session.id != request.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        if (storage.sessions.find(session.id) != null && !ensureSessionWorkspace(session.id)) {
+            return submissionBlocked(str(R.string.chat_directory_failed))
+        }
         val reference =
             request.referenceSourceSessionId?.let { sourceSessionId ->
                 try {
@@ -3961,6 +3990,7 @@ class ChatService(
                         preparingDraft = preparingDraft,
                         sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
                         directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
+                        workspaceRecovered = sessionId?.let(workspaceRecovery::hasNotice) == true,
                         // A null badge is authoritative for an unbound session, not a missing refresh.
                         badge = sessionId?.let { projection.badgeFor(it) },
                         messages = projection.messagesFor(sessionId, current),

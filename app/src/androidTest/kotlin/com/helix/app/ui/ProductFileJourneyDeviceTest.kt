@@ -61,13 +61,18 @@ class ProductFileJourneyDeviceTest {
             val chat = container.chatService
             val previous = chat.runControl.value
             val relative = "output/product-${UUID.randomUUID()}.txt"
-            val file = File(compose.activity.filesDir, "workspaces/app/$relative")
-            check(file.parentFile!!.isDirectory || file.parentFile!!.mkdirs())
-            file.writeText("source material\n")
             ScriptedTaskModelServer().use { server ->
                 server.start()
                 val provider = createProvider(container, server.port)
                 val session = chat.createSession("Product file journey", provider, ScriptedTaskModelServer.MODEL_ID)
+                val binding = requireNotNull(container.storage.workspaces.binding(session))
+                val file =
+                    container.storage.workspaces
+                        .managedDirectory(binding.workspaceId)
+                        .resolve(relative)
+                        .toFile()
+                check(file.parentFile!!.isDirectory || file.parentFile!!.mkdirs())
+                file.writeText("source material\n")
                 try {
                     val config =
                         if (mode == SessionPermissionMode.CUSTOM) {
@@ -86,7 +91,13 @@ class ProductFileJourneyDeviceTest {
                     chat.openSession(session)
                     chat.setMode(AgentMode.ACT)
                     chat.setChatToolsEnabled(true)
-                    val path = "scope:app:$relative"
+                    compose.waitUntil(10_000) {
+                        chat.screen.value.openSessionId == session &&
+                            container.storage.sessionRunControls.forSession(session)?.let {
+                                it.mode == AgentMode.ACT && it.chatToolsEnabled
+                            } == true
+                    }
+                    val path = "scope:${binding.workspaceId}:$relative"
                     server.arm(
                         listOf(
                             ScriptedTaskModelServer.Step("read") { JSONObject().put("path", path).toString() },
@@ -208,8 +219,15 @@ class ProductFileJourneyDeviceTest {
                             ).toString(),
                     )
                 } finally {
-                    chat.stop()
+                    container.storage.turns
+                        .listBySession(session)
+                        .forEach { chat.stopTurn(it.id) }
                     compose.waitUntil(10000) { !chat.screen.value.isSending }
+                    compose.waitUntil(10000) {
+                        container.storage.turns
+                            .listBySession(session)
+                            .all { TurnState.valueOf(it.state).isTerminal }
+                    }
                     chat.closeSession()
                     chat.setMode(previous.mode)
                     chat.setChatToolsEnabled(previous.chatToolsEnabled)

@@ -136,7 +136,8 @@ def run(args):
             for argument in args.instrument_arg:
                 key, value = argument.split("=", 1)
                 extras.extend(["-e", key, value])
-            result = device("shell", "am", "instrument", "-w", "-e", "class", args.classes, *extras,
+            raw = ["-r"] if getattr(args, "raw_results", False) else []
+            result = device("shell", "am", "instrument", "-w", *raw, "-e", "class", args.classes, *extras,
                             args.runner, timeout=args.timeout)
             (output / "test-logcat.txt").write_text(device("logcat", "-d", "-t", "2000", "-s", "TestRunner", "System.out", "HelixChat", "HelixFilePreview"))
             (output / "instrumentation.txt").write_text(result)
@@ -184,6 +185,7 @@ if __name__ == "__main__":
     parser.add_argument("--apk", required=True)
     parser.add_argument("--test-apk", required=True)
     parser.add_argument("--classes", required=True)
+    parser.add_argument("--raw-results", action="store_true", help="Preserve per-test instrumentation status bundles")
     parser.add_argument("--recovery-setup-class")
     parser.add_argument("--recovery-setup-phase", default="setup", choices=("setup", "setup-running"))
     parser.add_argument("--between-recovery-script")
@@ -191,7 +193,7 @@ if __name__ == "__main__":
     parser.add_argument("--runner", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--timeout", type=int, default=900)
-    parser.add_argument("--memory-mb", type=int, choices=(2048, 4096), default=2048)
+    parser.add_argument("--memory-mb", type=int, choices=(2048, 4096, 8192), default=2048)
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
     parser.add_argument("--density-dpi", type=int, choices=(400, 420), default=420)
     parser.add_argument("--reverse-port", type=int)

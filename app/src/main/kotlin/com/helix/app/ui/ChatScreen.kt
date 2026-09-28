@@ -69,6 +69,7 @@ fun ChatScreen(
     sessionExport: com.helix.app.export.SessionExportService? = null,
     connectors: com.helix.app.connector.ConnectorService? = null,
     onExtensions: () -> Unit = {},
+    memory: com.helix.app.memory.MemoryService? = null,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
@@ -82,6 +83,8 @@ fun ChatScreen(
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
     var expertOpen by remember(sessionId) { mutableStateOf(false) }
     var referenceOpen by remember(sessionId) { mutableStateOf(false) }
+    var memoryOpen by remember(sessionId) { mutableStateOf(false) }
+    if (memoryOpen && memory != null) MemoryDialog(memory, sessionId) { memoryOpen = false }
     var permissionRevision by remember(sessionId) { mutableStateOf(0) }
     var permissionMode by remember(sessionId) { mutableStateOf<SessionPermissionMode?>(null) }
     val referenceUnavailableReason = stringResource(R.string.chat_blocked_reference_unavailable)
@@ -115,6 +118,13 @@ fun ChatScreen(
                 }
             },
             onDismiss = { referenceOpen = false },
+            onMemory =
+                memory?.let {
+                    {
+                        referenceOpen = false
+                        memoryOpen = true
+                    }
+                },
         )
     }
     var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
@@ -322,7 +332,9 @@ fun ChatScreen(
     ) {
         if (screen.openSessionId == null) {
             LaunchedEffect(screen.preparingDraft) {
-                if (!screen.preparingDraft) chatService.newSessionDraft()
+                // Activity restoration may still be loading the user's selected conversation.
+                // Share its entry point instead of overwriting that target with a new draft.
+                if (!screen.preparingDraft) chatService.restoreConversationLaunchTarget()
             }
         } else {
             ConversationSection(
@@ -519,8 +531,7 @@ fun ChatScreen(
     }
     if (directoryOpen && fileManager != null) {
         SessionDirectoryDialog(fileManager, onDismiss = { directoryOpen = false }) {
-            chatService.setSessionDirectory(it)
-            directoryOpen = false
+            chatService.setSessionDirectory(it, screen.openSessionId).await()
         }
     }
 

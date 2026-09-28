@@ -61,6 +61,13 @@ class WorkspaceRepository(
         now: Long,
     ): String {
         var workspace = dao.ownedBy(sessionId) ?: reserve(sessionId, now)
+        if (workspace.availability == "READY") {
+            try {
+                managedDirectory(workspace.id)
+            } catch (failure: IllegalStateException) {
+                workspace = dao.find(workspace.id)?.takeIf { it.availability == "UNAVAILABLE" } ?: throw failure
+            }
+        }
         val interrupted = workspace.availability == "CREATING" && Files.exists(managedRoot.resolve(workspace.id))
         if (interrupted || workspace.availability == "UNAVAILABLE") {
             // Never adopt an unwitnessed directory. Preserve its bytes and reserve a fresh identity.
@@ -76,6 +83,20 @@ class WorkspaceRepository(
         }
         managedDirectory(workspace.id)
         return FileScopePath(workspace.id, "").toModelReference()
+    }
+
+    /** A recovery gets an empty directory; old identities and files remain usable by other references. */
+    @Synchronized
+    fun freshDirectory(
+        sessionId: String,
+        now: Long,
+    ): String {
+        var directory: String? = null
+        transaction {
+            dao.releaseOwnership(sessionId)
+            directory = defaultDirectory(sessionId, now)
+        }
+        return requireNotNull(directory)
     }
 
     private fun reserve(

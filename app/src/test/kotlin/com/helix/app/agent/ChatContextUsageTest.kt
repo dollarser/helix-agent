@@ -20,7 +20,7 @@ class ChatContextUsageTest {
     }
 
     @Test fun onlyMatchingModelAndEndpointCanSupplyUsage() {
-        val snapshot = """{"endpoint":"https://example.test/v1","model":"a"}"""
+        val snapshot = """{"transportIdentity":"https://example.test/v1","model":"a"}"""
         val usage = """{"inputTokens":85,"outputTokens":10}"""
         assertEquals(85L, ChatContextProjection.inputFor(snapshot, usage, "https://example.test/v1", "a"))
         assertNull(ChatContextProjection.inputFor(snapshot, usage, "https://other.test", "a"))

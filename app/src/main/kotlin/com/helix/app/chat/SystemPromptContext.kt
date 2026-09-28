@@ -27,6 +27,7 @@ internal class SystemPromptContext(
     private val storage: HelixStorage,
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String,
     private val templates: PromptTemplateSource = packagedPromptTemplates,
+    private val memory: com.helix.app.memory.MemoryService? = null,
 ) {
     fun build(
         sessionId: String,
@@ -79,6 +80,7 @@ internal class SystemPromptContext(
                 },
             )
         }
+        registerMemory(registry, sessionId)
         val projectInstructions = { authorizedProjectInstructions(sessionId, directory) }
         val goal = storage.registerGoalPromptSections(sessionId, projectInstructions, registry)
         if (!goal) {
@@ -89,6 +91,26 @@ internal class SystemPromptContext(
             )
         }
         return registry.resolveAndAssemble()
+    }
+
+    private fun registerMemory(
+        registry: PromptRegistry,
+        sessionId: String,
+    ) {
+        registry.register(
+            PromptSection("memory.context", 250, PromptScope.PROJECT, PromptSource.EXTERNAL_CONTENT) {
+                val permissions =
+                    storage.sessionPermissionConfigs.forSession(sessionId)
+                        ?: storage.sessionPermissionConfigs.appDefault()
+                if (permissions.ruleFor(com.helix.core.model.OperationEffect.FILE_READ_EXTERNAL) ==
+                    com.helix.core.model.OperationRule.ALLOW
+                ) {
+                    memory?.context(sessionId).orEmpty()
+                } else {
+                    ""
+                }
+            },
+        )
     }
 
     private fun authorizedProjectInstructions(

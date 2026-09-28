@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import com.helix.app.MainActivity
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -22,6 +23,7 @@ class FilesHomeDeviceTest {
         compose.resetDeterministicUiState()
         val container = compose.container()
         deleteEditableProviders(container)
+        val sessionsBefore = container.storage.sessions.list()
         val root = compose.activity.filesDir.resolve("workspaces/app/work")
         val folder = root.resolve("standalone-check")
         folder.mkdirs()
@@ -56,7 +58,11 @@ class FilesHomeDeviceTest {
             compose.onNodeWithTag("files-newfolder-confirm").performClick()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { folder.resolve("Created without AI").isDirectory }
             assertTrue(folder.resolve("Created without AI").isDirectory)
-            assertNull(container.chatService.screen.value.openSessionId)
+            assertTrue(container.chatService.screen.value.isDraft)
+            assertNull(
+                container.storage.sessions.find(requireNotNull(container.chatService.screen.value.openSessionId)),
+            )
+            assertEquals(sessionsBefore, container.storage.sessions.list())
             compose.onNodeWithTag("files-home-open").performClick()
             compose.onNodeWithTag("files-home-source-app").assertIsDisplayed()
         } finally {

@@ -117,10 +117,17 @@ internal fun FilesScopeEffects(
 
             // HXA-057: when the SAF panel opens, re-verify the live grants (a revoked / dead grant is
             // dropped) — the list never offers a scope the resolver cannot actually resolve.
-            LaunchedEffect(safPanelOpen) {
+            LaunchedEffect(safPanelOpen, reloadTick) {
                 if (!safPanelOpen) return@LaunchedEffect
-                safSources =
-                    withContext(Dispatchers.IO) { runCatching { safTree.liveSources() }.getOrDefault(emptyList()) }
+                safLoadFailed = false
+                try {
+                    safSources = withContext(Dispatchers.IO) { safTree.liveSources() }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    safSources = emptyList()
+                    safLoadFailed = true
+                }
             }
 
             // HXA-058: when the export dialog opens — and each time the destination shape switches to

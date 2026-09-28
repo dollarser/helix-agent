@@ -101,6 +101,12 @@ class ChatCompactionFlowDeviceTest {
                 chat.setMode(if (goal) AgentMode.GOAL else AgentMode.CHAT)
                 chat.setTurnBudgets(TurnBudgets(4, calls, 65536, 4096, 100000))
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
+                compose.waitUntil(10_000) {
+                    storage.sessionRunControls.forSession(session)?.let {
+                        it.mode == (if (goal) AgentMode.GOAL else AgentMode.CHAT) &&
+                            it.budgets == TurnBudgets(4, calls, 65536, 4096, 100000)
+                    } == true
+                }
                 server.holdChatStreams.set(cancel)
                 server.forceTextResponses = goal
                 server.failNextSummary.set(failSummary)
@@ -182,6 +188,7 @@ class ChatCompactionFlowDeviceTest {
                         storage.modelCalls.listByTurn(turn.id).size,
                     )
                     if (manual) {
+                        compose.waitUntil(10_000) { chat.screen.value.contextUsage.estimatedAfterCompaction }
                         assertTrue(chat.screen.value.contextUsage.estimatedAfterCompaction)
                     } else {
                         assertTrue(server.lastChatRequest.get()!!.contains("UNTRUSTED_HISTORY_SUMMARY"))

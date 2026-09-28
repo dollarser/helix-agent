@@ -17,6 +17,7 @@ internal fun ConversationReferencePicker(
     currentSessionId: String,
     onSelect: (SessionRowUi) -> Unit,
     onDismiss: () -> Unit,
+    onMemory: (() -> Unit)? = null,
 ) {
     val candidates = sessions.filter { it.id != currentSessionId }
     ConversationSheet(
@@ -24,6 +25,12 @@ internal fun ConversationReferencePicker(
         "conversation-reference",
         onDismiss,
     ) {
+        onMemory?.let { action ->
+            TextButton(
+                action,
+                modifier = Modifier.testTag("reference-memory"),
+            ) { Text(stringResource(R.string.memory_title)) }
+        }
         Text(stringResource(R.string.conversation_reference_hint))
         if (candidates.isEmpty()) {
             Text(stringResource(R.string.conversation_reference_empty))

@@ -31,7 +31,9 @@ internal fun TaskResultDialog(
 ) {
     var result by remember(turnId) { mutableStateOf<List<MessageUi>?>(null) }
     var failed by remember(turnId) { mutableStateOf(false) }
-    LaunchedEffect(turnId) {
+    var retry by remember(turnId) { mutableStateOf(0) }
+    LaunchedEffect(turnId, retry) {
+        failed = false
         try {
             result = service.taskResult(turnId)
         } catch (_: IllegalArgumentException) {
@@ -44,7 +46,12 @@ internal fun TaskResultDialog(
         text = {
             SelectionContainer {
                 Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
-                    if (failed) Text(stringResource(R.string.background_task_result_missing))
+                    if (failed) {
+                        Text(stringResource(R.string.background_task_result_missing))
+                        TextButton({ retry++ }, modifier = Modifier.testTag("task-result-retry")) {
+                            Text(stringResource(R.string.chat_retry))
+                        }
+                    }
                     result?.forEach { MarkdownText(it.content) }
                     if (result?.isEmpty() == true) Text(stringResource(R.string.background_task_result_empty))
                 }

@@ -195,6 +195,7 @@ class CommandExecutionDetailsDeviceTest {
         // written to storage directly, so reload through the production seam before
         // waiting for this fixture's row.
         chat.refreshSessions()
+        compose.navigateTo(com.helix.app.ui.CONVERSATION_HISTORY_ROUTE)
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag("chat-session-$SESSION").fetchSemanticsNodes().isNotEmpty()
         }

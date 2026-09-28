@@ -9,6 +9,14 @@ package com.helix.core.model
  * VALIDATION, CONTENT_FILTER → POLICY.
  */
 enum class ModelErrorCode {
+    MODEL_LOAD_FAILED,
+    MODEL_ASSET_INVALID,
+    LOCAL_RUNTIME_CRASHED,
+    LOCAL_RUNTIME_OOM,
+    LOCAL_GENERATION_FAILED,
+    LOCAL_CANCEL_TIMEOUT,
+    LOCAL_OUTPUT_LIMIT,
+
     /** Connection-level failure (DNS/TLS/peer closed). */
     TRANSPORT,
 

@@ -1,6 +1,6 @@
 # 当前实施状态
 
-更新：2026-09-27。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+更新：2026-09-28。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
 
 ## Completed
 
@@ -26,33 +26,39 @@
 - HXA-228 Conversation-first Shell 与 Session Context Control 已交付，见[完成记录](../completion-records/HXA-228.md)与[API 36 simulator evidence](../evidence/development/hxa228-simulator-verification-2026-09-27.md)：Session RunControl 已从全局状态拆成 per-Session durable snapshot，Session Settings / Composer context workbench / Expert / Other-conversation Reference 已落地；Room clean-slate v1 当前为 48 tables。targeted API36 app 16/16、Reference storage 13/13、Reference export 8/8 通过；Memory 仍归 HXA-230，物理真机未在本任务覆盖。
 - HXA-229 Model-authored Agent Activity Presentation 已交付，见[完成记录](../completion-records/HXA-229.md)与[API 36 simulator evidence](../evidence/development/hxa229-simulator-verification-2026-09-27.md)：model-facing Tool schema 统一注入 optional `__helix_intent`，provider-neutral boundary 在业务 validation/permission/effect/dispatcher 前 strip；`tool_calls.modelIntent` durable 保存 sanitized presentation，UI intent-first 且 Harness status/result/approval/UNKNOWN truth 独立。最终 API36 app targeted 19/19、storage reopen/export 9/9 通过。
 
-- HXA-227 Eval evidence 与失败归因已完成主机范围交付，见[完成记录](../completion-records/HXA-227.md)与[主机证据](../evidence/development/hxa227-host-verification-2026-09-27.md)：三套 fixed adapter、八类设备轨迹入口、JSON/Markdown aggregator 和 fresh host boundary baseline 8/8；设备/真实 Provider not requested，不替代完整 device trajectory baseline。
+- HXA-227 Eval evidence 与失败归因已完成主机范围交付，并完成所有者后续授权的模拟器补充验收，见[完成记录](../completion-records/HXA-227.md)与[设备证据](../evidence/development/hxa227-device-baseline-2026-09-27.md)：API29/API36 双渠道核心轨迹 40/40 方法、32/32 case；API36 consumer 当前 198 类中 172 PASS、10 专用 runner、16 条件跳过，原始方法 633 pass / 32 skip / 0 fail，0 crash。完整 host gate 通过；真实 Provider/真机未请求，SAF 历史间歇空列表仍未定根因。
 
 - HXA-210 Workspace 已完成本地验收，见[完成记录](../completion-records/HXA-210.md)：单主目录身份与请求冻结、Path/SAF 能力、显式清理恢复已收口；完整 host gate、API29/API36 双渠道专项 192/192 与 HXA-227 host 对照 8/8 通过。Room 继续开发期 v1 baseline，仅保留文件；交付范围不代表完整 device trajectory baseline 或真实账号验收。
+- 所有者随后要求 fork 复用来源 Workspace：新分支继承当前目录及子目录，权限仍用新会话默认值，后续绑定独立；原目录不可用时自动改用新空目录，会话设置支持更换及失败重试；详见[变更与验收](../evidence/development/recoverable-workspace-2026-09-27.md)。此次新行为的设备状态为 `not requested`，此前 HXA-210/HXA-227 设备结果不作替代。
+
+- HXA-230 已完成 Global Memory 首版与 Project fail-closed API 的主机范围交付，见[完成记录](../completion-records/HXA-230.md)和[证据](../evidence/development/hxa230-memory-2026-09-27.md)：Markdown canonical、受限工具、按权限有界注入与管理 UI 已接入；完整 gate、Memory 6/6 与 HXA-227 8/8 host case 通过。Project production、真实模型效果与设备尚未验。
+
+- HXA-222 本地模型首版已完成本地范围交付，见[完成记录](../completion-records/HXA-222.md)：类型化 Provider/Room v1、private-process Binder/JNI、资产/UI、可调 context、内存预检、模板 grammar 与真实能力探测已落地；完整 host gate、API36 生命周期及 320/360/412dp 大字体 UI 通过。4B/8K/8 GiB 固定任务 6 轮模型调用、6 次工具调用、产物回读和独立数值断言通过，约 14 分 46 秒；0.6B/1.7B 错误计算及首轮 4B 未完成仍保留。详见[收口证据](../evidence/development/hxa222-closeout-2026-09-28.md)与[会话分析](../evidence/development/hxa222-session-analysis-2026-09-28.md)。真机、真实远端账号、Android HTTP 下载端到端未验；未提交或推送。
 
 ## In progress
 
+
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
 
-## Planned / deferred
 
-- [HXA-230](tasks/HXA-230.md)：Markdown-native Hierarchical Agent Memory。Global/User + Project Markdown memory、progressive disclosure、Agent 主动维护；建议 HXA-227 baseline 后实施，完整 Project Memory 等待稳定 Project identity。
-- [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。Provider contract 使用 provisioning × transport × residence × auth 正交维度；内置 llama.cpp 明确定义为 `:model-runtime` private-process 下的 Local Inference Runtime backend（Binder/typed IPC + JNI），不做 localhost inference server。Ollama/SGLang/vLLM/llama-server 只要通过 endpoint 调用都属于 Network transport；native/runtime/model asset 不进入当前主线。
 
 结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。HXA-223 已最终关闭 R4：未证明当前生产存在必现双 owner 终态 race，但 repository 的 stale snapshot 覆盖能力是真实结构风险，现已用 `expectedState + expectedStepCount` CAS fail closed；Turn terminal/review/recovery 与 Session next-work owner 已完成收口。
 
 ## Next task
 
-HXA-210 实现已冻结。所有者于 2026-09-27 授权提交与推送 HXA-210/HXA-227；推送当前开发分支不等于合并 main、远端 CI 通过或发布。后续按以下顺序推进，每次只执行一个 checkpoint：
+所有者已授权按[剩余工作计划（2026-09-28）](remaining-work-plan-2026-09-28.md)继续执行。P0 post-HXA integration checkpoint 已完成变更归属审计与完整 `check-all.sh --all`；交叉的 Workspace recovery、Global Memory、Local Model 与 device/eval runner 不为漂亮历史强拆成不可构建中间态，收口证据见 [integration checkpoint](../evidence/development/post-hxa-integration-checkpoint-2026-09-28.md)。
+
+Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续冻结。下一本地主线按产品闭环而不是架构扩张推进：
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| 1 | HXA-227 device trajectory baseline 补充验收 | 以已提交源码固定 APK/fixture/environment；执行 core-device 的 Queue、Steer、Cancel/UNKNOWN、Review、Recovery、Goal、Compaction、Tool failure recovery 八类入口，保存 raw/JUnit、envelope 和覆盖分母；逐项说明 Room reopen 与实际 kill 的区别 | 先准备脚本与制品；API29/36、渠道与模拟器执行范围需本次专项明确授权，旧 Workspace 授权不外推 |
-| 2 | 稳定性与全量设备基线收敛 | 先归因轨迹失败；产品缺陷补回归，fixture/环境问题独立记录。修复后重跑受影响项，再以当前清单核对历史 183-class baseline，形成固定制品完整基线；不以盲目重试或放宽断言换绿 | 完成第一步；全量设备范围另行明确授权；串行安排重负载 host gate 与 API36 模拟器 |
-| 3 | 条件验收与发行准备 | 真实 Provider/Connector 按 HXA-125/126/190 独立 profile 验证；发行遵循 120→122→121→123，先确定渠道约束，再定 applicationId、签名及数据升级策略 | 真实账号/付费额度、物理设备及发行身份分别由所有者提供或授权；无输入保持未验，不消耗账号 |
-| 4 | 再决定下一功能 | 根据基线失败、用户需求和验收成本选择下一 HXA；Memory 要重新核对显式 Project identity、权限与跨会话隔离，不因 Workspace 完成自动启用 | HXA-230 Memory、HXA-222 本地模型继续暂缓；开始实现须明确改变当前优先级 |
+| P1 | Memory + Workspace 增量设备验收 | Memory 开关/编辑冲突/重开/权限与 Workspace fork/失效恢复/更换目录形成定向设备证据 | 使用 owned emulator 与现有 runner/oracle；不默认重跑完整类清单 |
+| P2 | SAF 间歇空来源 bounded 归因 | 复现则区分持久授权、Provider、registry/liveSources 与 UI 投影并做最小修复；不可稳定复现则保留诊断与 known limitation | 限定复现条件和设备范围，不无界重试寻找绿色结果 |
+| P3 | 本地模型安装最小闭环 | 精选来源→真实 Android 下载→校验/原子发布→Provider/probe→绑定当前 Session | 复用 HXA-222 runtime/asset/provider，不重开 Agent loop；Android HTTP E2E 必须单独证明 |
+| P4 | 首次成功联合旅程 | 新安装→模型→Workspace→真实任务→Tool→产物→关闭重开 | 复用 HXA-205/228/210/222/230 已有入口，不新增平行 onboarding/runtime |
+| P5+ | 性能/质量事实→证据驱动优化→hardening→内测→发行 | 同配置 A/B、错误可恢复、真实用户反馈后再进入 120→122→121→123 | GPU/NPU、Project Memory、Subagent 等不自动进入近期主线 |
 
-当前允许继续准备第一步的离线材料；本计划不自动启动设备、真实账号、发布或新的持续 Goal。保留 HXA-227 已完成的 host 范围记录，后续设备结果作为补充证据，不重启已交付的架构重构。HXA-126 的外部条件不阻塞独立本地工作。
+HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入时独立验收，不阻塞无依赖本地工作。HXA-222 的历史 PROTOCOL 未保留原始回复，不声称唯一根因已定位；4B 一次固定任务通过也不外推为手机性能或普遍模型可靠性。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 
@@ -73,12 +79,13 @@ HXA-210 实现已冻结。所有者于 2026-09-27 授权提交与推送 HXA-210/
 - **执行引擎**：TurnEngine 已统一拥有 fresh admission、AgentLoop live driver/observation、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate；Turn state mutation 有 expected-state/step CAS；SessionWorkScheduler 单独仲裁 Queue 与 Goal continuation；TurnCoordinator 只保留 model/tool/compaction round checkpoint。Room 是 HXA-221 的 v1 clean-slate durable truth，old Turn execution-terminal + successor Turn continuation 已完成。
 - **授权与 Goal**：209 实现用户选择的会话预设/CUSTOM、工具启用/禁用与执行前解析；208 按 ADR-GOAL-001 交付。模型及外部扩展不能授予权限；Goal persistence 不扩大 scope。Plan 审阅到执行见 192。
 - **上下文与结果**：默认启动为 Conversation-first；RunControl/Expert/Skill/Connector/Permission 是 per-Session config，Turn 在 admission 再冻结；Other-conversation Reference 在 submission acceptance 冻结为 bounded immutable snapshot，不持 live Session pointer。Tool presentation 现在优先显示模型生成的 per-call intent，但 reserved metadata 在业务 validation/permission/effect/dispatcher 前 strip，Harness 继续独占 status/result/approval/UNKNOWN truth。大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
-- **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；具体本地推理 Runtime/模型资产尚未实现。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
+- **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；本地 Runtime/模型资产已实现，host gate 与完整 loop/真实模型验收边界见 HXA-222。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
 - **应用能力**：手动文件管理与 Agent scope 分离；搜索、主题、准备、终端管理、导出不因 UI 存在而成为 Agent Tool。WebView 由浏览器 Activity owner 持有。
 - **扩展**：MCP、Skill、A2A Client 经统一工具管线；A2A 是外部服务而非本地子 Agent。市场与离线签名索引不等于在线分发系统；OAuth 本地切片不等于外部服务验收。
 
 ## Known limitations
 
+- **SAF 稳定性**：来源移除 UI 曾间歇显示空来源列表，最终受控全量轮次通过，但根因未定位；诊断与失败轮次见 [HXA-227 补验](../evidence/development/hxa227-device-baseline-2026-09-27.md)。不以最终单轮通过宣称该问题修复。
 - **系统与长稳**：模拟器 24 小时相关测试及应用释放路径已有证据，但系统 JNI/Binder 根因仍 open，goldfish FD/UID-proxy Binder 维度不能由模拟器关闭；见[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器引用验证](../evidence/development/browser-controller-reference-verification.md)与[优化记录](../evidence/development/main-optimization-todo.md)。
 - **物理设备**：Root 094/095 的 OnePlus API35 专项及[P0基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)是固定源码证据；其他 OEM、低内存、热压、Doze、Root grant/revoke/loss 和真实 16 KiB 按矩阵单独验收。x86_64 静态制品不证明实际运行。
 - **文件与 Runtime 恢复**：182 不承诺断电事务、字节续传、跨 Provider 原子性或自动后台队列；目标/备份变化需核查。订阅终态完整结果物化与真机资源压力仍有边界，见[授权/Runtime收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。

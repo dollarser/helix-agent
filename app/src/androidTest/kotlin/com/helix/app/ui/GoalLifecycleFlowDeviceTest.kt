@@ -47,7 +47,7 @@ class GoalLifecycleFlowDeviceTest {
             fixture(AgentMode.ACT, createWithTool = true, background = false)
         }
 
-    @Test fun humanMessagePreemptsWithoutResettingGoalOrBudget() =
+    @Test fun humanMessageSteersWithoutResettingGoalOrBudget() =
         runBlocking {
             fixture(AgentMode.GOAL, createWithTool = false, background = false, steer = true)
         }
@@ -60,6 +60,7 @@ class GoalLifecycleFlowDeviceTest {
         background: Boolean,
         steer: Boolean = false,
     ) {
+        compose.waitForIdle()
         compose.resetDeterministicUiState()
         val container = compose.container()
         val chat = container.chatService
@@ -114,6 +115,13 @@ class GoalLifecycleFlowDeviceTest {
                     com.helix.core.model
                         .TurnBudgets(16, 16, 65536, 4096, 100000),
                 )
+                await {
+                    container.storage.sessionRunControls.forSession(session)?.let {
+                        it.mode == mode && it.budgets ==
+                            com.helix.core.model
+                                .TurnBudgets(16, 16, 65536, 4096, 100000)
+                    } == true
+                }
                 chat.sendTestMessage("Please create a goal and answer 2 + 2.")
                 await { DataSyncForegroundService.runningInstance.get() != null }
                 val firstService = DataSyncForegroundService.runningInstance.get()
@@ -124,13 +132,29 @@ class GoalLifecycleFlowDeviceTest {
                 }
                 if (steer) {
                     await { steps.get() == 1 }
-                    chat.sendTestMessage("Please keep the existing goal and answer now.")
-                    await {
+                    val turn =
                         container.storage.turns
                             .listBySession(session)
-                            .first()
-                            .pauseRequestedAt != null
-                    }
+                            .single()
+                    val input =
+                        com.helix.app.chat.ChatSubmission(
+                            session,
+                            0,
+                            java.util.UUID
+                                .randomUUID()
+                                .toString(),
+                            "Please keep the existing goal and answer now.",
+                            delivery = com.helix.core.storage.repository.SessionInputDelivery.STEER,
+                            expectedTurnId = turn.id,
+                        )
+                    assertTrue(
+                        chat.sendSubmission(input).await().outcome is com.helix.app.chat.ChatSubmissionOutcome.Enqueued,
+                    )
+                    org.junit.Assert.assertNull(
+                        container.storage.turns
+                            .resolve(turn.id)
+                            .pauseRequestedAt,
+                    )
                 }
                 release.countDown()
                 val ownedSession = session
@@ -146,10 +170,15 @@ class GoalLifecycleFlowDeviceTest {
                         .bySession(session)
                         .single()
                 val runs = container.storage.goalRuns.listByGoal(control.goalId)
-                assertEquals(if (createWithTool) 1 else 2, runs.size)
+                assertEquals(if (createWithTool || steer) 1 else 2, runs.size)
                 assertEquals("MODEL_COMPLETED", runs.last().outcome)
                 if (steer) {
-                    assertEquals("USER_PAUSED", runs.first().outcome)
+                    assertEquals(
+                        1,
+                        container.storage.turns
+                            .listBySession(session)
+                            .size,
+                    )
                     assertTrue(runs.first().modelCalls > 0)
                     assertEquals(
                         runs.sumOf { it.modelCalls },

@@ -376,6 +376,7 @@ class ArtifactDeliveryDeviceTest {
         val before = facts(storage)
         // 会话: the owning session opens with the 194 identity (service cache reloaded first).
         container.chatService.refreshSessions()
+        compose.navigateTo(com.helix.app.ui.CONVERSATION_HISTORY_ROUTE)
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag("chat-session-$SESSION").fetchSemanticsNodes().isNotEmpty()
         }

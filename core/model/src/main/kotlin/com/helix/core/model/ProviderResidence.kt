@@ -12,6 +12,9 @@ package com.helix.core.model
  * check (security doc section 7.2).
  */
 enum class ProviderResidence {
+    /** Direct app-owned inference runtime; no network endpoint. */
+    ON_DEVICE_LOCAL,
+
     /** Loopback address (127.0.0.0/8, ::1, localhost): data stays on the device. */
     ON_DEVICE_LOOPBACK,
 

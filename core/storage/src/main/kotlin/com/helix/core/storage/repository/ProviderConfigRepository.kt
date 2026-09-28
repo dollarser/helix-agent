@@ -38,6 +38,9 @@ class ProviderConfigRepository(
                 headersJson = entity.headersJson,
                 secretAlias = entity.secretAlias,
                 capabilitySnapshot = entity.capabilitySnapshot,
+                provisioningKind = entity.provisioningKind,
+                transportKind = entity.transportKind,
+                authKind = entity.authKind,
             ) == 0
         ) {
             dao.insert(entity)

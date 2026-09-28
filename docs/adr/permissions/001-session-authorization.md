@@ -159,3 +159,5 @@ HXA-228 v2 至少按以下验收矩阵提供：
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+HXA-230 的 `memory.*` 仍走普通工具管线：读取按外部文件读取，持久写入/编辑/删除按外部文件修改，不能成为 Plan metadata 特例。用户开启 Memory 或 auto-memory 不扩大权限，见 [ADR-AGENT-013](../agent/013-markdown-memory.md)。

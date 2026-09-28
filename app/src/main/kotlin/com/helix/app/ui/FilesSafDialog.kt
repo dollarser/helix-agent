@@ -35,7 +35,14 @@ internal fun FilesSafDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (safSources.isEmpty()) {
+                            if (safLoadFailed) {
+                                Text(str(R.string.files_read_directory_error))
+                                TextButton(
+                                    { reloadTick++ },
+                                    modifier = Modifier.testTag("files-saf-retry"),
+                                ) { Text(str(R.string.chat_retry)) }
+                            }
+                            if (safSources.isEmpty() && !safLoadFailed) {
                                 Text(
                                     str(R.string.files_saf_empty),
                                     style = MaterialTheme.typography.bodyMedium,

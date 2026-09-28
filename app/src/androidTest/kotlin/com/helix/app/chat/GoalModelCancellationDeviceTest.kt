@@ -53,7 +53,8 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
                 await { chat.screen.value.openSessionId == session }
                 chat.setMode(AgentMode.GOAL)
                 // This fixture tests socket cancellation, not the size of the developer tool catalog.
-                chat.setTurnBudgets(TurnBudgets(3, 4, 32000, 128, 10000))
+                chat.setTurnBudgets(TurnBudgets(3, 4, 32000, 128, 100000))
+                awaitGoalConfiguration(container, session)
                 server.holdChatStreams.set(true)
                 chat.continueGoal(goal, "Reply with a short plain text result.")
                 try {
@@ -93,6 +94,17 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
         }
     }
 
+    private fun awaitGoalConfiguration(
+        container: com.helix.app.AppContainer,
+        session: String,
+    ) {
+        await {
+            container.storage.sessionRunControls.forSession(session)?.let {
+                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(3, 4, 32000, 128, 100000)
+            } == true
+        }
+    }
+
     private suspend fun createProvider(
         container: com.helix.app.AppContainer,
         port: Int,
@@ -101,7 +113,7 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
             .list()
             .filter {
                 it.displayName == "Goal cancellation fixture" && it.model == "fixture-model-a" &&
-                    it.endpoint.startsWith("http://127.0.0.1:") &&
+                    it.endpoint?.startsWith("http://127.0.0.1:") == true &&
                     it.secretAlias == com.helix.app.provider.ProviderFactory.NO_KEY_ALIAS
             }.forEach { container.providerService.delete(it.id) }
         val id =

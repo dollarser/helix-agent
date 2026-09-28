@@ -294,12 +294,15 @@ class CliGoalProcessKillDeviceTest {
             ProviderConfigSpec(
                 row.id,
                 row.displayName,
-                ProviderProtocol.parse(row.protocol),
+                row.protocol?.let(ProviderProtocol::parse),
                 row.endpoint,
                 model,
                 row.headersJson,
                 row.secretAlias,
                 row.capabilitySnapshot,
+                row.provisioningKind,
+                row.transportKind,
+                row.authKind,
             ),
         )
     }

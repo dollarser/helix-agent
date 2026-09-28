@@ -464,6 +464,7 @@ private fun DestinationScreen(
                 sessionPermissionEdit = container.sessionPermissionEdit,
                 skills = container.skillRepository,
                 sessionExport = container.sessionExport,
+                memory = container.memory,
                 connectors = container.connectorService,
                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
                 onNavigation = onOpenDrawer,

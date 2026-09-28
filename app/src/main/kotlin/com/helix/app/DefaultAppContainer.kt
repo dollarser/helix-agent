@@ -193,23 +193,29 @@ internal class DefaultAppContainer(
         ArtifactVisionImageSource(storage.artifacts, workspaceStore)
     }
 
+    private val providerContextSettings =
+        com.helix.app.provider
+            .ProviderContextSettingsStore(lineStore)
+
+    private val localModels =
+        com.helix.app.localmodel
+            .LocalModelService(appContext, storage) { config ->
+                (providerContextSettings.read(config.id, config.transport.cacheKey, config.model).manualWindow ?: 4096L)
+                    .coerceIn(1024L, 32768L)
+                    .toInt()
+            }
+
     override val providerService: ProviderService =
         run {
             SubscriptionProviderModule.ensureRegistered(storage)
             ProviderService(
                 storage = storage,
+                localModels = localModels,
                 factory =
-                    ProviderFactory(
-                        credentials,
-                        ProviderFactory.defaultWire(),
-                        { visionImageSource },
-                        { config -> SubscriptionProviderModule.create(appContext, config) { visionImageSource } },
-                    ),
+                    productionProviderFactory(appContext, credentials, localModels) { visionImageSource },
                 bindings = CleartextBindingStore(lineStore),
                 testStatus = ProviderTestStatusStore(lineStore),
-                contextSettingsStore =
-                    com.helix.app.provider
-                        .ProviderContextSettingsStore(lineStore),
+                contextSettingsStore = providerContextSettings,
                 idGenerator = { idGenerator.next() },
                 managed =
                     ManagedProviderHooks(
@@ -446,12 +452,18 @@ internal class DefaultAppContainer(
      */
     override val browser: BrowserController = BrowserController(context)
 
+    override val memory =
+        com.helix.app.memory
+            .createMemoryService(context)
+
     init {
         // HXA-045: initialize the all-files module (developer flavor builds the roots registry;
         // consumer is a no-op). Runs before any tool can resolve an af- scope.
         AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        com.helix.app.memory.MemoryTools
+            .register(toolRegistry, toolImplementations, memory)
         com.helix.app.chat.ToolResultReadTool
             .register(toolRegistry, toolImplementations, storage)
         com.helix.app.goal.GoalLifecycleTools
@@ -802,6 +814,7 @@ internal class DefaultAppContainer(
             // (AGENTS.md / CLAUDE.md / HELIX.md) becomes the goal prompt's PROJECT section; the
             // reader degrades to "" on any failure (no workspace / revoked scope / missing file).
             bindSessionDirectory = sessionWorkspaces::bind,
+            memory = memory,
             projectInstructionsReader = { directory ->
                 com.helix.app.chat
                     .readProjectInstructionsText(directory, workspaceStore::readWindow)
@@ -892,4 +905,13 @@ internal class DefaultAppContainer(
     private companion object {
         const val PREFS_NAME = "helix-ui"
     }
+}
+
+private fun productionProviderFactory(
+    context: Context,
+    credentials: com.helix.provider.api.CredentialLookup,
+    localModels: com.helix.app.localmodel.LocalModelService,
+    images: () -> com.helix.app.provider.VisionImageSource,
+) = ProviderFactory(credentials, ProviderFactory.defaultWire(), images) { config ->
+    localModels.provider(config) ?: SubscriptionProviderModule.create(context, config, images)
 }

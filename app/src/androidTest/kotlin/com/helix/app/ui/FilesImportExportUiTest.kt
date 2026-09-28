@@ -2,6 +2,8 @@ package com.helix.app.ui
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.util.Log
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -11,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.printToLog
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
@@ -67,7 +70,17 @@ class FilesImportExportUiTest {
         composeRule.onNodeWithTag("files-controls-open").performClick()
         composeRule.onNodeWithTag("files-saf-open").performScrollTo().performClick()
         waitTag("files-saf-dialog")
-        waitTag("files-saf-remove-${source.scopeId}")
+        composeRule.onNodeWithTag("files-saf-dialog", useUnmergedTree = true).printToLog("SafFixture")
+        try {
+            waitTag("files-saf-remove-${source.scopeId}")
+        } catch (failure: ComposeTimeoutException) {
+            Log.e(
+                "SafFixture",
+                "known=${container.safTree.knownScopeIds()} live=${container.safTree.liveSources()}",
+                failure,
+            )
+            throw failure
+        }
         composeRule.onNodeWithTag("files-saf-remove-${source.scopeId}").performClick()
         composeRule.onNodeWithTag("files-saf-close").performClick()
         waitTag("files-home-source-app")

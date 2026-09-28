@@ -38,7 +38,7 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
-                assertTrue(first.outcome is ChatSubmissionOutcome.Accepted)
+                compose.awaitAdmittedTurn(first)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val next = submission(session, "queued")
                 val receipt = chat.sendSubmission(next).await()
@@ -72,12 +72,12 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val receipt = chat.sendSubmission(submission(session, "first")).await()
-                val first = receipt.outcome as ChatSubmissionOutcome.Accepted
+                val first = compose.awaitAdmittedTurn(receipt)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val next =
                     submission(session, "steer").copy(
                         delivery = SessionInputDelivery.STEER,
-                        expectedTurnId = first.turnId,
+                        expectedTurnId = first,
                     )
                 assertTrue(chat.sendSubmission(next).await().outcome is ChatSubmissionOutcome.Enqueued)
                 assertEquals(1, requests.get())
@@ -85,7 +85,7 @@ class SessionInputQueueDeviceTest {
                 compose.waitUntil(15_000) { requests.get() == 2 && !chat.screen.value.isSending }
                 val storage = compose.container().storage
                 assertEquals(1, storage.turns.listBySession(session).size)
-                assertEquals(first.turnId, storage.sessionInputs.get(next.clientRequestId)?.consumedTurnId)
+                assertEquals(first, storage.sessionInputs.get(next.clientRequestId)?.consumedTurnId)
                 assertEquals(SessionInputState.APPENDED, storage.sessionInputs.get(next.clientRequestId)?.state)
             }
         }
@@ -94,11 +94,11 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val receipt = chat.sendSubmission(submission(session, "first")).await()
-                val first = receipt.outcome as ChatSubmissionOutcome.Accepted
+                val first = compose.awaitAdmittedTurn(receipt)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val queued = submission(session, "old queued")
                 assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
-                chat.stopTurn(first.turnId)
+                chat.stopTurn(first)
                 release.countDown()
                 compose.waitUntil(15_000) { !chat.screen.value.isSending }
                 val storage = compose.container().storage
@@ -107,7 +107,7 @@ class SessionInputQueueDeviceTest {
                     storage.sessionInputs.get(queued.clientRequestId)?.state,
                 )
                 val fresh = chat.sendSubmission(submission(session, "new explicit")).await()
-                assertTrue(fresh.outcome is ChatSubmissionOutcome.Accepted)
+                compose.awaitAdmittedTurn(fresh)
                 compose.waitUntil(15_000) { requests.get() == 2 && !chat.screen.value.isSending }
                 assertEquals(
                     SessionInputState.NEEDS_ATTENTION,
@@ -126,7 +126,7 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val storage = compose.container().storage
                 val source = "reference-source-${UUID.randomUUID()}"
@@ -175,7 +175,7 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val queued = submission(session, "model-bound queued")
                 assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
@@ -217,7 +217,7 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
 
                 chat.stageAttachment(
@@ -274,7 +274,7 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val queued = submission(session, "auto-drain model-bound input")
                 assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
@@ -328,7 +328,7 @@ class SessionInputQueueDeviceTest {
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
-                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                val firstTurn = compose.awaitAdmittedTurn(first)
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 chat.stageAttachment(
                     "content://${TransferTestDocumentsProvider.authority()}/document/honest",

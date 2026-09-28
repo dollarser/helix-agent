@@ -245,7 +245,7 @@ class MainAppCombinedSoakDeviceTest {
             .filter {
                 it.displayName == "EV04 soak fixture" &&
                     it.model == ScriptedTaskModelServer.MODEL_ID &&
-                    it.endpoint.startsWith("http://127.0.0.1:")
+                    it.endpoint?.startsWith("http://127.0.0.1:") == true
             }.forEach { container.providerService.delete(it.id) }
         val id =
             container.providerService.create(
@@ -732,11 +732,14 @@ class MainAppCombinedSoakDeviceTest {
     ) = ProviderConfigSpec(
         id = entity.id,
         displayName = entity.displayName,
-        protocol = ProviderProtocol.parse(entity.protocol),
+        protocol = entity.protocol?.let(ProviderProtocol::parse),
         endpoint = entity.endpoint,
         model = model,
         headersJson = entity.headersJson,
         secretAlias = entity.secretAlias,
+        provisioningKind = entity.provisioningKind,
+        transportKind = entity.transportKind,
+        authKind = entity.authKind,
         capabilitySnapshot = entity.capabilitySnapshot,
     )
 

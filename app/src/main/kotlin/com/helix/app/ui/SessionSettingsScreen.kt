@@ -138,8 +138,7 @@ internal fun SessionSettingsScreen(
 
     if (directoryOpen && sessionId != null) {
         SessionDirectoryDialog(files, { directoryOpen = false }) { reference ->
-            chatService.setSessionDirectory(reference)
-            directoryOpen = false
+            chatService.setSessionDirectory(reference, sessionId).await()
         }
     }
     if (skillsOpen && sessionId != null) {

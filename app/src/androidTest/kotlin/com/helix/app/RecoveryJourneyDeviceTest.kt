@@ -133,7 +133,9 @@ class RecoveryJourneyDeviceTest {
         compose.onNodeWithTag("recovery-grant-$turnId").assertIsDisplayed()
         compose.onNodeWithTag("chat-retry").assertIsDisplayed()
         compose.onNodeWithTag("recovery-grant-$turnId").performClick()
-        awaitProvidersScreen()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("screen-permissions").fetchSemanticsNodes().isNotEmpty()
+        }
         assertEquals(
             "granting permission must not re-execute the turn",
             turnCount,
@@ -196,8 +198,13 @@ class RecoveryJourneyDeviceTest {
                     chat.openSession(session)
                     chat.setMode(AgentMode.CHAT)
                     chat.setTurnBudgets(TurnBudgets(3, 4, 65536, 128, 65664))
+                    settle {
+                        container.storage.sessionRunControls.forSession(session)?.let {
+                            it.mode == AgentMode.CHAT && it.budgets == TurnBudgets(3, 4, 65536, 128, 65664)
+                        } == true && chat.screen.value.openSessionId == session
+                    }
                     server.holdChatStreams.set(true)
-                    chat.sendTestMessage("Recover me, please.")
+                    chat.sendTestMessage(session, "Recover me, please.")
                     settle { server.heldStreams.get() == 1 }
                     // A peer close mid-stream is the production 断网 outcome: a FAILED transport turn.
                     requireNotNull(server.heldSocket.get()).close()

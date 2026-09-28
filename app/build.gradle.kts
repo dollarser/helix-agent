@@ -10,10 +10,17 @@ apply(from = rootProject.file("config/jgit/reject-insecure-tls.gradle.kts"))
 android {
     namespace = "com.helix.app"
     compileSdk = 37
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild.cmake {
+        path = file("src/main/cpp/CMakeLists.txt")
+        buildStagingDirectory = file("build/cxx")
+        version = "3.31.6"
+    }
 
     defaultConfig {
         applicationId = "com.helix.agent"
         minSdk = 29
+        externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
@@ -49,6 +56,7 @@ android {
 
     buildFeatures {
         compose = true
+        aidl = true
     }
 
     lint {

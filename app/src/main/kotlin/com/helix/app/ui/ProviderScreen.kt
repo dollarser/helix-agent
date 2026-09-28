@@ -27,6 +27,7 @@ import com.helix.app.provider.ManagedProviderAccountResult
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.ModelErrorCode
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.launch
 
@@ -51,6 +52,8 @@ import kotlinx.coroutines.launch
 fun ProviderManager(providerService: ProviderService) {
     val rows by providerService.rows.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var deleteFailure by remember { mutableStateOf(false) }
+    var localModelOpen by remember { mutableStateOf(false) }
     var templatePickerOpen by remember { mutableStateOf(false) }
     var form by remember { mutableStateOf<ProviderForm?>(null) }
     var contextRow by remember { mutableStateOf<com.helix.app.provider.ProviderRowUi?>(null) }
@@ -60,6 +63,11 @@ fun ProviderManager(providerService: ProviderService) {
     var saving by remember { mutableStateOf(false) }
     var accountFailureId by remember { mutableStateOf<String?>(null) }
 
+    if (localModelOpen) {
+        providerService.localModels?.let { service ->
+            LocalModelDialog(service, providerService::refresh) { localModelOpen = false }
+        }
+    }
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -74,6 +82,10 @@ fun ProviderManager(providerService: ProviderService) {
                 Text(stringResource(R.string.provider_add))
             }
         }
+        if (providerService.localModels != null) {
+            OutlinedButton(onClick = { localModelOpen = true }) { Text(stringResource(R.string.local_model_title)) }
+        }
+        if (deleteFailure) Text(stringResource(R.string.local_model_delete_failed))
         if (rows.isEmpty()) {
             Text(
                 stringResource(R.string.provider_empty),
@@ -81,7 +93,19 @@ fun ProviderManager(providerService: ProviderService) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        rows.forEach { row ->
+        rows.sortedBy { it.provisioning.ordinal }.forEachIndexed { index, row ->
+            val sortedRows = rows.sortedBy { it.provisioning.ordinal }
+            if (index == 0 || sortedRows[index - 1].provisioning != row.provisioning) {
+                Text(
+                    stringResource(
+                        when (row.provisioning) {
+                            ProviderProvisioningKind.USER_CONFIGURED -> R.string.provider_group_api
+                            ProviderProvisioningKind.MANAGED_ACCOUNT -> R.string.provider_group_account
+                            ProviderProvisioningKind.ON_DEVICE_ASSET -> R.string.local_model_title
+                        },
+                    ),
+                )
+            }
             ProviderRow(
                 row = row,
                 testing = testingId == row.id,
@@ -157,11 +181,28 @@ fun ProviderManager(providerService: ProviderService) {
                                 }
                             }
                         },
+                        onUnload = {
+                            scope.launch {
+                                try {
+                                    deleteFailure = false
+                                    providerService.localModels?.unload(row.model)
+                                } catch (
+                                    cancel: kotlinx.coroutines.CancellationException,
+                                ) {
+                                    throw cancel
+                                } catch (failure: Exception) {
+                                    Log.w(TAG, "model resource operation failed: ${failure.javaClass.simpleName}")
+                                    deleteFailure = true
+                                }
+                            }
+                        },
                         onDelete = {
                             scope.launch {
                                 try {
+                                    deleteFailure = false
                                     providerService.delete(row.id)
                                 } catch (e: Exception) {
+                                    deleteFailure = true
                                     Log.w(TAG, "could not delete provider ${row.id}", e)
                                 }
                             }

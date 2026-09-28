@@ -21,18 +21,21 @@ SOURCES = ['app/src', 'core', 'provider', 'tools', 'runtime', 'feature', 'gradle
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--manifest', type=Path, default=ROOT / 'evals/trajectory/host-boundaries.json')
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    manifest_path = ROOT / 'evals/trajectory/host-boundaries.json'
+    manifest_path = args.manifest.resolve()
     manifest = read_json(manifest_path)
     source = source_manifest(ROOT, SOURCES)
     write_json(output / 'source-manifest.json', source)
     classes = sorted({ref['class'] for case in manifest['cases'] for ref in case['tests']})
-    modules = {'app': ':app:testConsumerDebugUnitTest', 'core/storage': ':core:storage:testDebugUnitTest', 'core/agent': ':core:agent:test'}
+    modules = {'app': ':app:testConsumerDebugUnitTest', 'core/storage': ':core:storage:testDebugUnitTest', 'core/agent': ':core:agent:test', 'core/workspace': ':core:workspace:test'}
     groups = {module: [name for name in classes if name.startswith('com.helix.' + module.replace('/', '.') + '.')] for module in modules}
     command = [str(ROOT / 'gradlew')]
     for module, task in modules.items():
+        if not groups[module]:
+            continue
         command.append(task)
         for name in groups[module]:
             command += ['--tests', name]

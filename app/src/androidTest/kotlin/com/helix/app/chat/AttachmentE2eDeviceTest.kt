@@ -38,10 +38,13 @@ import com.helix.provider.api.ProviderCapabilities
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -442,6 +445,11 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .TurnBudgets(2, 1, 20_000, 20_000, 20_000),
             )
             fixture.wire.script(sseResponse(textAnswerStream("done")))
+            awaitBudget(
+                fixture,
+                com.helix.core.model
+                    .TurnBudgets(2, 1, 20_000, 20_000, 20_000),
+            )
             fixture.service.sendTestMessage("1234")
             await(fixture, "bounded request completes") { turnIsTerminal(fixture) }
             assertEquals(1, fixture.wire.callCount)
@@ -483,6 +491,11 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             fixture.service.setMode(com.helix.core.model.AgentMode.CHAT)
             fixture.service.setChatToolsEnabled(false)
             fixture.service.setTurnBudgets(
+                com.helix.core.model
+                    .TurnBudgets(2, 1, 100, 1, 1),
+            )
+            awaitBudget(
+                fixture,
                 com.helix.core.model
                     .TurnBudgets(2, 1, 100, 1, 1),
             )
@@ -912,16 +925,21 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     @Test
     fun toolBackfillKeepsContentBeyondTheTimelinePreview() {
         val fixture = newFixture(vision = false)
-        val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "backfill-${UUID.randomUUID()}.txt"
-        val file = File(context.filesDir, "workspaces/app/input/$name")
+        val binding = requireNotNull(fixture.storage.workspaces.binding(SESSION_ID))
+        val file =
+            fixture.storage.workspaces
+                .managedDirectory(binding.workspaceId)
+                .resolve(name)
+                .toFile()
+        val path = "scope:${binding.workspaceId}:$name"
         val tail = "VERIFIED_PAYLOAD_TAIL"
         try {
             file.parentFile!!.mkdirs()
             file.writeText("synthetic prefix ".repeat(100) + tail)
             stageTextAttachment(fixture, "Read the selected fixture file.\n")
             fixture.wire.script(
-                sseResponse(toolCallStream("call-long-result", "\"read\"", """{"path":"scope:app:input/$name"}""")),
+                sseResponse(toolCallStream("call-long-result", "\"read\"", """{"path":"$path"}""")),
                 sseResponse(textAnswerStream("Fixture read completed.")),
             )
             sendToDisclosure(fixture)
@@ -1149,7 +1167,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
             // Simulated process death: the service scope dies (in-memory staging is gone)
             // and the storage connection closes — a killed process leaves committed state.
-            fixture.serviceScope.cancel()
+            stopFixtureScope(fixture.serviceScope)
             fixture.storage.close()
 
             // A fresh process over the SAME database file.
@@ -1421,26 +1439,47 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         fixture: Fixture,
         storage: HelixStorage,
     ) {
-        val service2 =
-            buildService(
-                fixture.wire,
-                fixture.workspaceRoot,
-                fixture.suffix,
-                fixture.visionFlag,
-                storage,
-                CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val service2 =
+                buildService(
+                    fixture.wire,
+                    fixture.workspaceRoot,
+                    fixture.suffix,
+                    fixture.visionFlag,
+                    storage,
+                    scope,
+                )
+            service2.openSession(SESSION_ID)
+            val deadline = System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
+            while (System.currentTimeMillis() < deadline && service2.screen.value.openSessionId != SESSION_ID) {
+                Thread.sleep(POLL_MILLIS)
+            }
+            assertEquals(SESSION_ID, service2.screen.value.openSessionId)
+            assertTrue(
+                "staging is process-local: nothing is pre-staged after a restart",
+                service2.screen.value.pendingAttachments
+                    .isEmpty(),
             )
-        service2.openSession(SESSION_ID)
-        val deadline = System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
-        while (System.currentTimeMillis() < deadline && service2.screen.value.openSessionId != SESSION_ID) {
-            Thread.sleep(POLL_MILLIS)
+        } finally {
+            stopFixtureScope(scope)
         }
-        assertEquals(SESSION_ID, service2.screen.value.openSessionId)
-        assertTrue(
-            "staging is process-local: nothing is pre-staged after a restart",
-            service2.screen.value.pendingAttachments
-                .isEmpty(),
-        )
+    }
+
+    private fun stopFixtureScope(scope: CoroutineScope) =
+        runBlocking {
+            requireNotNull(scope.coroutineContext[Job]).cancelAndJoin()
+        }
+
+    private fun awaitBudget(
+        fixture: Fixture,
+        budgets: com.helix.core.model.TurnBudgets,
+    ) {
+        await(fixture, "session run control is durable") {
+            fixture.storage.sessionRunControls.forSession(SESSION_ID)?.let {
+                it.mode == com.helix.core.model.AgentMode.CHAT && !it.chatToolsEnabled && it.budgets == budgets
+            } == true
+        }
     }
 
     // --- fixtures ------------------------------------------------------------
@@ -1539,6 +1578,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         storage: HelixStorage,
     ): com.helix.app.tool.ToolPipeline {
         val shared = app.appContainer.toolPipeline
+        val implementations = fixtureImplementations(shared, storage)
         val clock =
             com.helix.core.model
                 .SystemClock()
@@ -1568,7 +1608,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             com.helix.tools.framework.ToolDispatcher(
                 clock = clock,
                 registry = shared.registry,
-                implementations = shared.implementations,
+                implementations = implementations,
                 capabilityCenter = app.appContainer.capabilityCenter,
                 policyEngine =
                     com.helix.core.policy
@@ -1583,13 +1623,35 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             )
         return com.helix.app.tool.ToolPipeline(
             shared.registry,
-            shared.implementations,
+            implementations,
             dispatcher,
             broker,
             audit,
             com.helix.tools.framework
                 .ToolScheduler(clock, dispatcher, shared.registry),
         )
+    }
+
+    /** File execution and authorization must resolve the same fixture-owned Workspace registry. */
+    private fun fixtureImplementations(
+        shared: com.helix.app.tool.ToolPipeline,
+        storage: HelixStorage,
+    ): com.helix.tools.framework.ToolImplementationRegistry {
+        val implementations =
+            com.helix.tools.framework
+                .ToolImplementationRegistry()
+        val store = WorkspaceArtifactStore(ScopeRootResolver(storage.workspaces::managedDirectory))
+        shared.registry.all().forEach { descriptor ->
+            val executor =
+                if (descriptor.name.value == "read") {
+                    com.helix.tools.files.ReadTool
+                        .executor(store)
+                } else {
+                    requireNotNull(shared.implementations.resolve(descriptor.name, descriptor.version))
+                }
+            implementations.register(descriptor, executor)
+        }
+        return implementations
     }
 
     /**
@@ -1765,7 +1827,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             Thread.currentThread().interrupt()
         }
         try {
-            fixture.serviceScope.cancel()
+            stopFixtureScope(fixture.serviceScope)
             fixture.storage.close()
         } catch (_: Exception) {
             // settle is best-effort cleanup; the assertions already ran (test-fixture tolerance)
