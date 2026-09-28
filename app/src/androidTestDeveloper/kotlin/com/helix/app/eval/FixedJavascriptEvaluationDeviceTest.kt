@@ -154,7 +154,7 @@ class FixedJavascriptEvaluationDeviceTest {
                     Thread.sleep(2_000L)
                     container.chatService.stop()
                 }
-                if (TurnState.valueOf(turn.state).isTerminal) return true
+                if (TurnState.valueOf(turn.state).isTerminal || turn.state == "NEEDS_REVIEW") return true
             }
             Thread.sleep(100)
         }
@@ -224,7 +224,7 @@ class FixedJavascriptEvaluationDeviceTest {
                 container.storage.toolResults
                     .readContent(result)
                     .orEmpty(),
-                javascriptAuditCode(container, call.callId),
+                javascriptAudit(container, call.callId),
             )
     }
 
@@ -291,7 +291,15 @@ class FixedJavascriptEvaluationDeviceTest {
                 val result = container.storage.toolResults.byToolCall(call.callId)
                 buildJsonObject {
                     put("name", call.name)
-                    put("auditCode", javascriptAuditCode(container, call.callId))
+                    put(
+                        "auditCode",
+                        javascriptAudit(container, call.callId)?.get("code") ?: kotlinx.serialization.json.JsonNull,
+                    )
+                    put(
+                        "executionDetail",
+                        javascriptAudit(container, call.callId)?.get("executionDetail")
+                            ?: kotlinx.serialization.json.JsonNull,
+                    )
                     put("status", result?.status)
                     put("summary", result?.summary)
                     put("content", result?.let { container.storage.toolResults.readContent(it) })
@@ -316,16 +324,16 @@ private fun verifyJavascriptOutcome(
     turnState: String,
     result: com.helix.core.storage.entity.ToolResultEntity,
     content: String,
-    auditCode: String?,
-): Boolean =
-    when (id) {
+    audit: kotlinx.serialization.json.JsonObject?,
+): Boolean {
+    val auditCode = audit?.get("code")?.jsonPrimitive?.content
+    return when (id) {
         "js-001" -> {
             callState == "COMPLETED" && decodedResult(content) == "{\"sum\":6}"
         }
 
         "js-002" -> {
-            result.status == "FAILED" && result.summary ==
-                "tool exceeded its deadline; the stable timeout error is the model-visible outcome"
+            verifiedNonSuccess(id, callState, turnState, result.status, audit) && auditCode == "TIMEOUT"
         }
 
         "js-003" -> {
@@ -334,28 +342,52 @@ private fun verifyJavascriptOutcome(
         }
 
         "js-004" -> {
-            turnState == "CANCELLED" && auditCode == "CANCELLED_AFTER_START"
+            verifiedNonSuccess(id, callState, turnState, result.status, audit) && auditCode == "CANCELLED_AFTER_START"
         }
 
         else -> {
             false
         }
     }
+}
+
+private fun needsReview(
+    callState: String,
+    turnState: String,
+    resultStatus: String,
+): Boolean = callState == "NEEDS_REVIEW" && turnState == "NEEDS_REVIEW" && resultStatus == "NEEDS_REVIEW"
+
+// Unknown executor outcome must remain reviewable. A non-review failure requires
+// the isolated executor's audit receipt, not just a timeout/cancel label or prose.
+private fun verifiedNonSuccess(
+    id: String,
+    callState: String,
+    turnState: String,
+    resultStatus: String,
+    audit: kotlinx.serialization.json.JsonObject?,
+): Boolean {
+    if (needsReview(callState, turnState, resultStatus)) return true
+    val detail = audit?.get("executionDetail") as? kotlinx.serialization.json.JsonObject
+    val knownFailure =
+        callState == "FAILED" && resultStatus == "FAILED" && detail?.get("isolated") == JsonPrimitive(true)
+    val status = detail?.get("status")?.jsonPrimitive?.content
+    return knownFailure &&
+        when (id) {
+            "js-002" -> status == "TIMEOUT" && turnState in setOf("COMPLETED", "FAILED")
+            "js-004" -> status in setOf("CANCELLED", "INTERRUPTED") && turnState == "CANCELLED"
+            else -> false
+        }
+}
 
 private const val JS_CANCEL_SETUP = "Start the JavaScript calculation using the exact fixture code now."
 
-private fun javascriptAuditCode(
+private fun javascriptAudit(
     container: com.helix.app.AppContainer,
     callId: String,
-): String? =
+): kotlinx.serialization.json.JsonObject? =
     container.storage.auditEvents
         .recent(1_000)
         .asSequence()
         .filter { it.correlationId == callId }
-        .mapNotNull {
-            Json
-                .parseToJsonElement(it.redactedPayload)
-                .jsonObject["code"]
-                ?.jsonPrimitive
-                ?.content
-        }.firstOrNull()
+        .map { Json.parseToJsonElement(it.redactedPayload).jsonObject }
+        .firstOrNull { "code" in it }

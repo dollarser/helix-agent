@@ -265,24 +265,33 @@ object CodeJavascriptRunTool {
     ): ToolExecutorResult {
         val audit = executionDetail(result, code, inputBytes, limits)
         return when (result.status) {
-            JsExecutionStatus.SUCCESS -> successResult(result, audit)
-            JsExecutionStatus.TIMEOUT ->
+            JsExecutionStatus.SUCCESS -> {
+                successResult(result, audit)
+            }
+
+            JsExecutionStatus.TIMEOUT -> {
                 ToolExecutorResult.TimedOutWithEffectTruth(
-                    detail = "JavaScript execution exceeded its isolated runtime deadline; no external effects were possible.",
+                    detail =
+                        "JavaScript execution exceeded its isolated runtime deadline; " +
+                            "no external effects were possible.",
                     sideEffectFree = true,
                     requiresReview = false,
                     auditDetail = audit,
                 )
+            }
 
-            JsExecutionStatus.CANCELLED ->
+            JsExecutionStatus.CANCELLED -> {
                 ToolExecutorResult.CancelledWithEffectTruth(
                     detail = "JavaScript execution was cancelled inside the isolated offline runtime.",
                     sideEffectFree = true,
                     requiresReview = false,
                     auditDetail = audit,
                 )
+            }
 
-            else -> failureResult(result, audit)
+            else -> {
+                failureResult(result, audit)
+            }
         }
     }
 

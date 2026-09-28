@@ -88,7 +88,8 @@ class JsStatusConvergenceTest {
         val cancelled = CodeJavascriptRunTool.executor(CannedExecutor(JsExecutionStatus.CANCELLED)).execute(call())
         assertTrue(
             "CANCELLED must carry confirmed isolated effect truth",
-            cancelled is ToolExecutorResult.CancelledWithEffectTruth && cancelled.sideEffectFree && !cancelled.requiresReview,
+            cancelled is ToolExecutorResult.CancelledWithEffectTruth && cancelled.sideEffectFree &&
+                !cancelled.requiresReview,
         )
         val interrupted =
             CodeJavascriptRunTool.executor(CannedExecutor(JsExecutionStatus.INTERRUPTED)).execute(call())

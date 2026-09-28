@@ -756,17 +756,8 @@ class ToolDispatcher(
                         ).exclusive,
             ) ?: executor
         val result = deadlineRunner.executeWithinDeadline(guardedExecutor, call)
-        // HXA-053: capture the executor's optional redacted metadata (QuickJS doc 03 §4.8)
-        // for the audit event. TimedOut/Cancelled carry no executor metadata (they are
-        // data objects); only Completed and Failed may report one.
-        ctx.executionDetail =
-            when (result) {
-                is ToolExecutorResult.Completed -> result.auditDetail
-                is ToolExecutorResult.Failed -> result.auditDetail
-                is ToolExecutorResult.TimedOutWithEffectTruth -> result.auditDetail
-                is ToolExecutorResult.CancelledWithEffectTruth -> result.auditDetail
-                else -> null
-            }
+        // Preserve only executor-supplied redacted metadata; generic watchdog outcomes have none.
+        ctx.executionDetail = executorAuditDetail(result)
         return when (result) {
             null -> {
                 finish(
@@ -1192,3 +1183,12 @@ class ToolDispatcher(
         )
     }
 }
+
+private fun executorAuditDetail(result: ToolExecutorResult?): kotlinx.serialization.json.JsonObject? =
+    when (result) {
+        is ToolExecutorResult.Completed -> result.auditDetail
+        is ToolExecutorResult.Failed -> result.auditDetail
+        is ToolExecutorResult.TimedOutWithEffectTruth -> result.auditDetail
+        is ToolExecutorResult.CancelledWithEffectTruth -> result.auditDetail
+        else -> null
+    }

@@ -2,6 +2,7 @@
 """Run the P5 Harness system suites on one owned emulator against host SGLang."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import statistics
 import subprocess
@@ -41,6 +42,14 @@ def main():
     case_rows = []
     dataset_lines = DATASET.read_text().splitlines()
     expected = [(suite, line.split("\t", 1)[0]) for suite in SUITES for line in dataset_lines if line.startswith(PREFIXES[suite])]
+    selected = os.environ.get("HELIX_P5_CASES", "")
+    if selected:
+        requested = selected.split(",")
+        known = {case for _, case in expected}
+        if len(requested) != len(set(requested)) or not set(requested) <= known:
+            raise ValueError("HELIX_P5_CASES must contain unique fixed case IDs")
+        expected = [(suite, case) for suite, case in expected if case in requested]
+    expected_count = len(expected)
     adb = str(Path.home() / "Library/Android/sdk/platform-tools/adb")
     prefix = [adb, "-s", serial]
     for suite, case_id in expected:
@@ -165,11 +174,11 @@ def main():
         },
         "scope": {
             "suites": list(SUITES),
-            "expectedCaseCount": 15,
+            "expectedCaseCount": expected_count,
             "caseCount": len(case_rows),
             "allSuitesPassed": all(row["passed"] for row in suite_rows),
-            "allCasesPassed": len(passed_cases) == len(case_rows) == 15,
-            "baselineComplete": len(case_rows) == 15,
+            "allCasesPassed": len(passed_cases) == len(case_rows) == expected_count,
+            "baselineComplete": not selected and len(case_rows) == 15,
         },
         "performance": {
             "metric": "Harness end-to-end case elapsedMs; includes model, tool, approval and persistence work",
@@ -188,8 +197,10 @@ def main():
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     if len(source_shas) != 1 or len(installed) != 1:
         raise SystemExit("P5 suites did not use one source/APK identity")
-    if len(case_rows) != 15:
+    if len(case_rows) != expected_count:
         raise SystemExit("P5 SGLang Harness baseline did not collect all fixed cases")
+    if not summary["scope"]["allCasesPassed"]:
+        raise SystemExit("P5 collected evidence, but one or more cases failed")
 
 
 if __name__ == "__main__":

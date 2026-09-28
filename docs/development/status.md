@@ -60,6 +60,8 @@ P4 首次成功联合旅程已完成，未修改 production。owned API36 develo
 
 下一本地主线进入 P5，并将系统评测模型切换为本机 SGLang：`http://localhost:30008/` / `Qwen3.8-27B`。Android emulator 通过 `10.0.2.2:30008/v1` 走正式 Provider；P5 复用既有 HXA-100 fixed eval，而不是新建第二套 Eval。详见 [Harness 系统基线](harness-system-baseline.md)。
 
+P5 修复候选已[本地合入主工作目录](../evidence/development/p5-worktree-integration-2026-09-28.md)，保留已有 `541d7ba0` QuickJS 已知副作用实现并对齐 eval oracle。合并后主机单测、双渠道 lint/APK/test APK、格式与源码 gate 通过；本轮设备 `not requested`。此前[隔离候选](../evidence/development/p5-sglang-candidate-2026-09-28.md)为 **14 PASS / 1 FAIL / 0 fixture ERROR**，剩余 `goal-001` 输出截断；该结果不代表本次合并制品。下一步收敛输出截断、补合并后的 JS 定向验证，再冻结正式 P5 身份进入 P6；不以跨 oracle/fixture 的分数差声称生产优化收益。
+
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
 | P5 | SGLang Harness 性能与任务质量基线 | 当前源码/APK 下，Files/JavaScript/Skills/Goal 共 15 个固定 case 形成独立 oracle、Turn/Tool 事实与端到端 elapsed 基线 | 使用 `localhost:30008` 的 `Qwen3.8-27B`；本地 4B 不再跑长程系统测试 |
