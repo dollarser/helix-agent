@@ -426,6 +426,27 @@ class ToolDispatcherTest {
     }
 
     @Test
+    fun executorConfirmedSideEffectFreeTimeoutDoesNotRequireReview() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        registerTool(
+            descriptor(),
+            CaptureExecutor {
+                ToolExecutorResult.TimedOutWithEffectTruth(
+                    "isolated timeout",
+                    sideEffectFree = true,
+                    requiresReview = false,
+                )
+            },
+        )
+        val failed =
+            dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs())) as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.TIMEOUT, failed.code)
+        assertTrue(failed.sideEffectFree)
+        assertFalse(failed.requiresReview)
+        assertEquals("isolated timeout", failed.detail)
+    }
+
+    @Test
     fun runtimeBudgetIsSampledAfterApprovalAndPersistenceBeforeReachingTheExecutor() {
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         val executor = CaptureExecutor { ToolExecutorResult.TimedOut }
@@ -564,6 +585,27 @@ class ToolDispatcherTest {
         assertEquals(DispatchOutcomeCode.CANCELLED_AFTER_START, failed.code)
         assertTrue(failed.requiresReview)
         assertFalse(failed.sideEffectFree)
+    }
+
+    @Test
+    fun executorConfirmedSideEffectFreeCancellationDoesNotRequireReview() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        registerTool(
+            descriptor(),
+            CaptureExecutor {
+                ToolExecutorResult.CancelledWithEffectTruth(
+                    "isolated cancellation",
+                    sideEffectFree = true,
+                    requiresReview = false,
+                )
+            },
+        )
+        val failed =
+            dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs())) as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.CANCELLED_AFTER_START, failed.code)
+        assertTrue(failed.sideEffectFree)
+        assertFalse(failed.requiresReview)
+        assertEquals("isolated cancellation", failed.detail)
     }
 
     @Test

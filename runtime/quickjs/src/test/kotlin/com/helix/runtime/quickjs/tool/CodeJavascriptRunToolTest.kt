@@ -204,13 +204,19 @@ class CodeJavascriptRunToolTest {
     @Test
     fun timeoutMapsToDispatcherTimeout() {
         val executor = CodeJavascriptRunTool.executor(CapturingExecutor(jsResult(JsExecutionStatus.TIMEOUT)))
-        assertTrue(executor.execute(call(successArgs())) is ToolExecutorResult.TimedOut)
+        val result = executor.execute(call(successArgs())) as ToolExecutorResult.TimedOutWithEffectTruth
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertEquals("TIMEOUT", result.auditDetail!!["status"]?.jsonPrimitive?.content)
     }
 
     @Test
     fun cancelledMapsToDispatcherCancelled() {
         val executor = CodeJavascriptRunTool.executor(CapturingExecutor(jsResult(JsExecutionStatus.CANCELLED)))
-        assertTrue(executor.execute(call(successArgs())) is ToolExecutorResult.Cancelled)
+        val result = executor.execute(call(successArgs())) as ToolExecutorResult.CancelledWithEffectTruth
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertEquals("CANCELLED", result.auditDetail!!["status"]?.jsonPrimitive?.content)
     }
 
     @Test
@@ -230,7 +236,9 @@ class CodeJavascriptRunToolTest {
                         override fun isCancelled(): Boolean = cancelled.get()
                     },
             )
-        assertTrue(CodeJavascriptRunTool.executor(runner).execute(request) is ToolExecutorResult.Cancelled)
+        assertTrue(
+            CodeJavascriptRunTool.executor(runner).execute(request) is ToolExecutorResult.CancelledWithEffectTruth,
+        )
     }
 
     @Test

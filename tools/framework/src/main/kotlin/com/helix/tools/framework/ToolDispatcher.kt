@@ -763,6 +763,8 @@ class ToolDispatcher(
             when (result) {
                 is ToolExecutorResult.Completed -> result.auditDetail
                 is ToolExecutorResult.Failed -> result.auditDetail
+                is ToolExecutorResult.TimedOutWithEffectTruth -> result.auditDetail
+                is ToolExecutorResult.CancelledWithEffectTruth -> result.auditDetail
                 else -> null
             }
         return when (result) {
@@ -901,11 +903,29 @@ class ToolDispatcher(
                     )
                 }
 
+                is ToolExecutorResult.TimedOutWithEffectTruth -> {
+                    ToolDispatchOutcome.ExecutionFailed(
+                        DispatchOutcomeCode.TIMEOUT,
+                        result.detail,
+                        result.sideEffectFree,
+                        result.requiresReview,
+                    )
+                }
+
                 ToolExecutorResult.Cancelled -> {
                     ToolDispatchOutcome.ExecutionFailed(
                         DispatchOutcomeCode.CANCELLED_AFTER_START,
                         "cancellation fired after execution started; side-effect state is unknown",
                         requiresReview = true,
+                    )
+                }
+
+                is ToolExecutorResult.CancelledWithEffectTruth -> {
+                    ToolDispatchOutcome.ExecutionFailed(
+                        DispatchOutcomeCode.CANCELLED_AFTER_START,
+                        result.detail,
+                        result.sideEffectFree,
+                        result.requiresReview,
                     )
                 }
 

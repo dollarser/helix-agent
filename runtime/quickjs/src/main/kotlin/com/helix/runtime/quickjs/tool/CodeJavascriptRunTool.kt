@@ -231,7 +231,12 @@ object CodeJavascriptRunTool {
         // The isolated engine acknowledges an in-flight interrupt as INTERRUPTED. Only the
         // live caller cancellation signal authorizes interpreting that acknowledgement as Stop.
         return if (result.status == JsExecutionStatus.INTERRUPTED && call.cancel.isCancelled()) {
-            ToolExecutorResult.Cancelled
+            ToolExecutorResult.CancelledWithEffectTruth(
+                detail = "JavaScript execution was cancelled inside the isolated offline runtime.",
+                sideEffectFree = true,
+                requiresReview = false,
+                auditDetail = executionDetail(result, code, inputBytes, limits),
+            )
         } else {
             mapResult(result, code, inputBytes, limits)
         }
@@ -261,8 +266,22 @@ object CodeJavascriptRunTool {
         val audit = executionDetail(result, code, inputBytes, limits)
         return when (result.status) {
             JsExecutionStatus.SUCCESS -> successResult(result, audit)
-            JsExecutionStatus.TIMEOUT -> ToolExecutorResult.TimedOut
-            JsExecutionStatus.CANCELLED -> ToolExecutorResult.Cancelled
+            JsExecutionStatus.TIMEOUT ->
+                ToolExecutorResult.TimedOutWithEffectTruth(
+                    detail = "JavaScript execution exceeded its isolated runtime deadline; no external effects were possible.",
+                    sideEffectFree = true,
+                    requiresReview = false,
+                    auditDetail = audit,
+                )
+
+            JsExecutionStatus.CANCELLED ->
+                ToolExecutorResult.CancelledWithEffectTruth(
+                    detail = "JavaScript execution was cancelled inside the isolated offline runtime.",
+                    sideEffectFree = true,
+                    requiresReview = false,
+                    auditDetail = audit,
+                )
+
             else -> failureResult(result, audit)
         }
     }

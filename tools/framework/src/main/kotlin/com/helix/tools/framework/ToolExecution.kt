@@ -109,8 +109,36 @@ sealed interface ToolExecutorResult {
     /** The deadline was reached (or the implementation chose to stop at it). */
     data object TimedOut : ToolExecutorResult
 
+    /** Executor-confirmed effect truth for a deadline terminal. Generic watchdog timeouts use [TimedOut]. */
+    data class TimedOutWithEffectTruth(
+        val detail: String,
+        val sideEffectFree: Boolean,
+        val requiresReview: Boolean,
+        val auditDetail: JsonObject? = null,
+    ) : ToolExecutorResult {
+        init {
+            require(!sideEffectFree || !requiresReview) {
+                "a confirmed side-effect-free timeout cannot require side-effect review"
+            }
+        }
+    }
+
     /** The cancel signal fired while running; side-effect state is unknown to the framework. */
     data object Cancelled : ToolExecutorResult
+
+    /** Executor-confirmed effect truth for a cancellation that happened after execution started. */
+    data class CancelledWithEffectTruth(
+        val detail: String,
+        val sideEffectFree: Boolean,
+        val requiresReview: Boolean,
+        val auditDetail: JsonObject? = null,
+    ) : ToolExecutorResult {
+        init {
+            require(!sideEffectFree || !requiresReview) {
+                "a confirmed side-effect-free cancellation cannot require side-effect review"
+            }
+        }
+    }
 }
 
 /**

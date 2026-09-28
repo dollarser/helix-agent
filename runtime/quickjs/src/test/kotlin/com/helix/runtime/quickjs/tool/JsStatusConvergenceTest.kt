@@ -86,7 +86,10 @@ class JsStatusConvergenceTest {
     @Test
     fun cancelConvergenceSetMapsToStableNonSuccessOutcomes() {
         val cancelled = CodeJavascriptRunTool.executor(CannedExecutor(JsExecutionStatus.CANCELLED)).execute(call())
-        assertEquals("CANCELLED must map to the dispatcher cancellation", ToolExecutorResult.Cancelled, cancelled)
+        assertTrue(
+            "CANCELLED must carry confirmed isolated effect truth",
+            cancelled is ToolExecutorResult.CancelledWithEffectTruth && cancelled.sideEffectFree && !cancelled.requiresReview,
+        )
         val interrupted =
             CodeJavascriptRunTool.executor(CannedExecutor(JsExecutionStatus.INTERRUPTED)).execute(call())
         assertTrue(
