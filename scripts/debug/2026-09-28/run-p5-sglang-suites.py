@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[3]
 SUITES = ("files", "javascript", "skills", "goal")
 PREFIXES = {"files": "file-", "javascript": "js-", "skills": "skill-", "goal": "goal-"}
 DATASET = ROOT / "evals/m10/fixed-evals.tsv"
+CASE_HOST_TIMEOUT_SECONDS = 300
+APP_PACKAGE = "com.helix.agent.developer"
 
 
 def percentile(values, fraction):
@@ -39,36 +41,50 @@ def main():
     case_rows = []
     dataset_lines = DATASET.read_text().splitlines()
     expected = [(suite, line.split("\t", 1)[0]) for suite in SUITES for line in dataset_lines if line.startswith(PREFIXES[suite])]
+    adb = str(Path.home() / "Library/Android/sdk/platform-tools/adb")
+    prefix = [adb, "-s", serial]
     for suite, case_id in expected:
         target = out / f"sglang-{suite}-{case_id}"
         log_path = out / f"sglang-{suite}-{case_id}-host.log"
         started = time.monotonic()
+        subprocess.run(prefix + ["shell", "pm", "clear", APP_PACKAGE], check=True, stdout=subprocess.DEVNULL)
+        timed_out = False
+        return_code = 0
         with log_path.open("w") as log:
-            process = subprocess.run(
-                [
-                    sys.executable,
-                    "scripts/run-hxa100-provider-evals.py",
-                    serial,
-                    "--provider-port",
-                    "30008",
-                    "--suite",
-                    suite,
-                    "--case-id",
-                    case_id,
-                    "--protocol-override",
-                    "OPENAI_CHAT_COMPLETIONS",
-                    "--output",
-                    str(target),
-                ],
-                cwd=ROOT,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                check=False,
-                timeout=2700,
-            )
+            try:
+                process = subprocess.run(
+                    [
+                        sys.executable,
+                        "scripts/run-hxa100-provider-evals.py",
+                        serial,
+                        "--provider-port",
+                        "30008",
+                        "--suite",
+                        suite,
+                        "--case-id",
+                        case_id,
+                        "--protocol-override",
+                        "OPENAI_CHAT_COMPLETIONS",
+                        "--output",
+                        str(target),
+                    ],
+                    cwd=ROOT,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                    timeout=CASE_HOST_TIMEOUT_SECONDS,
+                )
+                return_code = process.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                return_code = 124
+                log.write(f"\nP5 HOST CASE TIMEOUT after {CASE_HOST_TIMEOUT_SECONDS}s: {suite}/{case_id}\n")
+                log.flush()
+                subprocess.run(prefix + ["shell", "am", "force-stop", APP_PACKAGE], check=False)
+                subprocess.run(prefix + ["shell", "am", "force-stop", APP_PACKAGE + ".test"], check=False)
         host_wall_ms = round((time.monotonic() - started) * 1000)
-        result = json.loads((target / "result.json").read_text())
-        records = [json.loads(path.read_text()) for path in sorted((target / "device").glob("*.json"))]
+        device_dir = target / "device"
+        records = [json.loads(path.read_text()) for path in sorted(device_dir.glob("*.json"))] if device_dir.is_dir() else []
         if records:
             record = records[0]
             elapsed = record.get("elapsedMs", record.get("elapsedMillis"))
@@ -83,7 +99,8 @@ def main():
                     "errorCode": record.get("errorCode"),
                     "toolCallCount": len(calls) if isinstance(calls, list) else None,
                     "calls": calls,
-                    "runnerExitCode": process.returncode,
+                    "runnerExitCode": return_code,
+                    "hostTimedOut": timed_out,
                     "hostWallMs": host_wall_ms,
                 }
             )
@@ -95,10 +112,11 @@ def main():
                     "result": "ERROR",
                     "elapsedMs": None,
                     "turnState": None,
-                    "errorCode": "INSTRUMENTATION_OR_FIXTURE_ERROR",
+                    "errorCode": "HOST_CASE_TIMEOUT" if timed_out else "INSTRUMENTATION_OR_FIXTURE_ERROR",
                     "toolCallCount": None,
                     "calls": [],
-                    "runnerExitCode": process.returncode,
+                    "runnerExitCode": return_code,
+                    "hostTimedOut": timed_out,
                     "hostWallMs": host_wall_ms,
                 }
             )
