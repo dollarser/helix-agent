@@ -87,6 +87,10 @@ runner 补上 TimeoutExpired 部分 bytes 输出的解码并保留 NO_VERDICT，
 
 验收仅证明本次固定源码/制品与受控 fixture。10 类专用 runner 与16 类条件跳过仍未在普通基线验收；32 个方法跳过不计 pass。SAF 空来源列表历史间歇失败仍未定根因，后续若复现应读取已新增的 registry/liveSources 诊断，不能因最终轮次通过关闭其稳定性问题。未执行真实 Provider/账号、物理设备、长稳发行专项、远端 CI 或发布；Memory/本地模型继续暂缓。
 
+### 2026-09-28 P2 有界 SAF 复现补充
+
+后续剩余工作计划将该历史问题单独列为 P2。固定在 post-refactor / P1 基点 `0e5c5f80`，使用 API36 consumer 当前 APK/Test APK，先直接执行 `FilesImportExportUiTest` 1 次，再调用既有 `diagnose-saf-repetition.py` 做 3 次独立 package-reset；4 次均为 4/4 methods passed。该结果只说明当前限定窗口未复现，不覆盖本页 r7 的真实 `files-saf-empty` 失败，也不证明 defect 已修复。生产 `SafGrantStore → SafTreeScopeService.liveSources() → ContentResolverSafTreeCheck.query()` 仍保持每次实时验证、任一不可验证状态 fail closed；没有为了 UI 稳定而缓存上一次成功或放宽验证。完整当前证据见 [P2 bounded diagnosis](p2-saf-bounded-diagnosis-2026-09-28.md)。
+
 ## 复现入口与证据身份
 
 所有运行位于独占、headless、read-only 的 arm64 AVD：`Helix_HXA210_API29` / `Helix_HXA210_API36`，1080×2400、density 400，2048 MiB / 2 cores。owned runner 拒绝借用已有 serial，结束后保留 `closed.json`。debug APK 不等于发行制品。

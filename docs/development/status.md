@@ -50,11 +50,12 @@
 
 Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续冻结。P1 Memory + Workspace 增量设备验收已完成：API29/API36 × consumer/developer targeted matrix 各 31/31 通过，Memory 实际进程死亡后 Markdown、enabled setting 与 Prompt `UNTRUSTED` trust 恢复通过；Workspace fork/失效回退/旧 request binding 冻结与窄屏大字体通过。首次运行暴露的是测试夹具缺少真实 model-call 外键，修正 fixture 后全部通过；未修改 production。详见 [P1 设备证据](../evidence/development/p1-memory-workspace-device-acceptance-2026-09-28.md)。
 
-下一本地主线进入 P2：
+P2 SAF bounded diagnosis 已完成且**当前无法稳定复现**：在固定 API36 consumer 制品上直接执行 1 次，再以独立 package-reset 执行 3 次 `FilesImportExportUiTest`，共 4/4 通过；没有因此修改 production SAF 策略。历史失败的 `files-saf-empty` 语义树仍保留，只能证明当时 UI 收到空 live-source 投影，不能证明 registry 丢失或瞬时 ContentResolver re-check 失败。详见 [P2 诊断证据](../evidence/development/p2-saf-bounded-diagnosis-2026-09-28.md)。
+
+下一本地主线进入 P3：
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |
-| P2 | SAF 间歇空来源 bounded 归因 | 复现则区分持久授权、Provider、registry/liveSources 与 UI 投影并做最小修复；不可稳定复现则保留诊断与 known limitation | 限定复现条件和设备范围，不无界重试寻找绿色结果 |
 | P3 | 本地模型安装最小闭环 | 精选来源→真实 Android 下载→校验/原子发布→Provider/probe→绑定当前 Session | 复用 HXA-222 runtime/asset/provider，不重开 Agent loop；Android HTTP E2E 必须单独证明 |
 | P4 | 首次成功联合旅程 | 新安装→模型→Workspace→真实任务→Tool→产物→关闭重开 | 复用 HXA-205/228/210/222/230 已有入口，不新增平行 onboarding/runtime |
 | P5+ | 性能/质量事实→证据驱动优化→hardening→内测→发行 | 同配置 A/B、错误可恢复、真实用户反馈后再进入 120→122→121→123 | GPU/NPU、Project Memory、Subagent 等不自动进入近期主线 |
@@ -86,7 +87,7 @@ HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入
 
 ## Known limitations
 
-- **SAF 稳定性**：来源移除 UI 曾间歇显示空来源列表，最终受控全量轮次通过，但根因未定位；诊断与失败轮次见 [HXA-227 补验](../evidence/development/hxa227-device-baseline-2026-09-27.md)。不以最终单轮通过宣称该问题修复。
+- **SAF 稳定性**：来源移除 UI 曾间歇显示空来源列表，根因未定位。2026-09-28 P2 在冻结 API36 consumer 制品上做有界 4 次执行均未复现，因此未修改 production；历史失败、当前 live-source 链路与 bounded 诊断见 [HXA-227 补验](../evidence/development/hxa227-device-baseline-2026-09-27.md)和 [P2 证据](../evidence/development/p2-saf-bounded-diagnosis-2026-09-28.md)。不把“当前未复现”写成已修复。
 - **系统与长稳**：模拟器 24 小时相关测试及应用释放路径已有证据，但系统 JNI/Binder 根因仍 open，goldfish FD/UID-proxy Binder 维度不能由模拟器关闭；见[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器引用验证](../evidence/development/browser-controller-reference-verification.md)与[优化记录](../evidence/development/main-optimization-todo.md)。
 - **物理设备**：Root 094/095 的 OnePlus API35 专项及[P0基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)是固定源码证据；其他 OEM、低内存、热压、Doze、Root grant/revoke/loss 和真实 16 KiB 按矩阵单独验收。x86_64 静态制品不证明实际运行。
 - **文件与 Runtime 恢复**：182 不承诺断电事务、字节续传、跨 Provider 原子性或自动后台队列；目标/备份变化需核查。订阅终态完整结果物化与真机资源压力仍有边界，见[授权/Runtime收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。
