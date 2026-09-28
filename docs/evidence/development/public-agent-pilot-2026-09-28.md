@@ -86,3 +86,7 @@ clean `d8ee8418` 在独占 API36 developer 完整执行15项，结果 **13 PASS 
 同源码manifest `9dade91df2aa1dd597469b10a021e5d706ba8ec3169bc8056eeb17ec6fb715da`；app APK `d2cfbb479af257561af11e668c504501e95dfcad729ae094a6710ca4da596005`；test APK `ecd36fb1c6e8f3ef037a18a5c86dec74b1ec284a892513428f039cfa9443bcd3`。12项可测case elapsed median 4861.5ms、mean7063.4ms；含失败case，不能用其宣称任务成功率改善或因果提速。
 
 发现两处取证不足后，仅增加File的canonical args/审批决定/预期path与content、Goal的工具args；修正四个P5 suite将数据集protocol误作实际protocol的问题，另存datasetProtocol。原正式运行的config/命令明确为OPENAI_CHAT_COMPLETIONS override，历史原始record不回写。保持生产代码、prompt、输入、预算、审批和成功oracle不变；下一次只做file-003/goal-001一次有界诊断，不把子集结果替换13/15正式成绩。
+
+定向诊断 clean `0a073252`（`build/p5-tool-discovery-diagnostic-20260928/`）为0/2，准备smoke1/1，设备已关闭：file-003的路径匹配，但实际content为 `HELIX_FIXED_EVAL\n`，多出一个换行，因此精确审批正确DENIED；这证明诊断轮原因，不回填为前轮缺失args的确定事实。goal-001两次模型调用、仅get_goal后出现OUTPUT_TOKEN_LIMIT，Goal为PAUSED/RUN_FINISHED但Turn为FAILED，不满足oracle；历史截断再次出现。实际protocol字段已正确记录OPENAI_CHAT_COMPLETIONS，另存数据集标签。
+
+据此仅给files提示增加通用精确内容约束：用户指定exact/approved content时保留空白与末尾换行，不自动追加换行、格式或说明。未把固定答案写入提示，未修改审批/输出核验或Goal预算。此提示变化需新的clean完整P5验证；诊断0/2与原13/15均保留，不能用后续结果覆盖。

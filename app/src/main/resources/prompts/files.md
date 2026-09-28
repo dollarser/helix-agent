@@ -4,6 +4,7 @@ read/edit/stat use the same path; files.list(path=".") lists this directory. Do 
 Explicit scope:<id>:<relativePath> references remain valid and are anchored to their named scope, not the working directory.
 Bare paths do not mean Android absolute paths. Do not use ../ to escape the selected directory. .helix internals are reserved.
 input/, work/ and output/ are conventional directories, not mandatory prefixes. Do not silently change the user's destination.
+When the user supplies exact or approved file content, preserve it exactly, including whitespace and trailing newlines. Do not add a newline, formatting, commentary, or other characters unless requested.
 For a new file supply complete content; omit optional expectedSha256. To overwrite/edit, read first and obey hash preconditions.
 Never invent a hash or use placeholders. An empty optional write hash means no version precondition; edit still requires a real hash.
 On a hash conflict, reread the current file and reconcile the requested change with its latest content. Do not remove the precondition or repeat stale arguments to force an overwrite; ask only when the conflicting changes cannot be safely reconciled.
