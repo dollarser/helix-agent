@@ -454,3 +454,441 @@ Mobile Use 插件化后应至少验证：
 
 本轮实现与设备证据见
 [Plugin Platform P0 / Mobile Use MVP 证据](../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)。
+
+## 15. Helix 扩展系统统一重构方案
+
+### 15.1 重构目标
+
+Mobile Use MVP 已证明 Helix 可以在不修改 AgentLoop、TurnEngine、Dispatcher 所有权的前提下，
+将 Android 本地能力作为 Plugin contribution 接入。但继续审查现有代码后可以确认，当前仍存在
+一套由历史演化形成的“半插件系统”：
+
+    extensions/mcp
+    extensions/skills
+    ConnectorService
+    ConnectorCatalog
+    Marketplace
+    ToolRegistry
+    ToolImplementationRegistry
+    PluginRegistry
+
+问题不在于这些模块都应该合并，而在于顶层身份和生命周期边界不统一：
+
+- ConnectorService 同时承担 package import、install/update、Skill ownership、MCP ownership、
+  OAuth、connection test、enable/disable、cleanup/uninstall；
+- Marketplace 把 CONNECTOR / MCP / SKILL 当作并列顶层安装类型，但三类最终基本都走
+  Connector 安装路径；
+- 纯 Skill 也会被临时包装成 Connector package；
+- ConnectorPackageReader 已经在解析 Codex / Claude / Agent Plugins manifest、Skills 与
+  MCP config，职责已经超出 Connector；
+- 新增 PluginRegistry 后，如果不继续收敛，会长期出现 Plugin system 和 Connector system
+  两套顶层扩展概念。
+
+因此统一原则是：
+
+> 统一安装身份、版本、组件归属、安装生命周期、session selection 和 Marketplace 视图；
+> 保留 MCP、Skill、Tool runtime 各自独立的技术职责。
+
+### 15.2 目标架构
+
+最终目标不是把所有 registry 合并，而是形成：
+
+    Plugin Installation / Catalog
+      identity / version / source / ownership
+      install / update / uninstall / selection
+                    |
+          +---------+---------+
+          |         |         |
+        Skill      MCP      Native
+          |         |         |
+          v         v         v
+    SkillRepository McpAppService host runtime
+                              |
+                              v
+                         ToolRegistry
+                              |
+                              v
+                 Dispatcher / Policy / Approval
+
+四个关键事实源分别是：
+
+- PluginRegistry：谁安装、贡献了什么能力；
+- SkillRepository：当前有哪些 Skill snapshot；
+- McpAppService：当前有哪些远程 MCP 连接和动态工具；
+- ToolRegistry：当前有哪些模型可调用的 tool contract。
+
+它们是不同维度的事实，不应该机械合并。
+
+### 15.3 extensions/mcp：保留协议层，只统一 ownership
+
+extensions/mcp 应继续负责：
+
+- MCP handshake；
+- protocol version negotiation；
+- remote tool schema adaptation；
+- transport；
+- egress facts；
+- per-session send checkpoint；
+- schema / endpoint / sensitivity change detection；
+- cancellation 与 remote side-effect ambiguity。
+
+这些属于 runtime protocol concern，不属于 Plugin installation concern。
+
+目标关系：
+
+    PluginInstallation
+      -> owns MCP component
+          -> McpAppService
+
+需要迁移的是 ownership。当前 MCP server owner 主要由 ConnectorCatalog / InstalledConnector
+间接表达，后续应改成：
+
+    PluginInstallationId
+      -> PluginComponentId
+      -> McpServerId
+
+用户手工添加的独立 MCP server 仍可存在，owner 为 user-managed connection，不强制伪装成 Plugin。
+
+### 15.4 extensions/skills：保留 snapshot/runtime，移出 package 顶层职责
+
+SkillRepository 当前设计应继续保留：
+
+- immutable snapshot；
+- content-hash identity；
+- resource containment；
+- references/assets 有界读取；
+- global/session enablement；
+- source ownership；
+- 删除与 snapshot reference 生命周期。
+
+不应把这些逻辑搬入 PluginRegistry。
+
+真正需要移动的是当前：
+
+    extensions/skills/connector/ConnectorPackageReader
+
+它实际上已经负责 foreign plugin manifest、MCP config、Skills、ZIP 安全边界和 migration
+diagnostics，应提升成独立 Plugin package import 层，例如：
+
+    extensions/plugin/import
+      PluginPackageReader
+      PluginPackagePreview
+      PluginComponentPreview
+
+然后分别调用 Skill importer、MCP config adapter 和 Helix native extension resolver。
+
+### 15.5 ConnectorService：收窄成连接生命周期服务
+
+建议拆分为：
+
+    PluginInstallationService
+      preview package
+      validate manifest/components
+      install / update / uninstall
+      revision / content hash
+      component ownership
+      session/default selection
+
+    ConnectorService
+      endpoint configuration
+      credential binding
+      OAuth
+      connection test
+      MCP enable / disable
+      revoke / reconnect
+      remote consent lifecycle
+
+这样 Mobile Use 可以是没有 Connector 的 native Plugin，Cloudflare Docs 可以是只有 MCP
+component 的 Plugin，Review Workflow 可以是只有 Skill 的 Plugin，GitHub 则可以同时包含
+Skill + MCP。
+
+### 15.6 Marketplace：改成 Plugin-first
+
+当前 MarketplaceItemType = CONNECTOR | MCP | SKILL 已经与 Agent Plugins 的安装模型不一致。
+
+目标应改成：
+
+    MarketplaceItem
+      type = PLUGIN
+      components = [SKILL, MCP, NATIVE]
+
+UI 仍然可以按 Skills、Connections、Device、Productivity、Coding 等 category/component
+筛选，但安装、升级、卸载、版本和来源的顶层对象统一为 Plugin。
+
+例如：
+
+    Mobile Use
+      Native
+
+    Cloudflare Docs
+      MCP
+
+    GitHub
+      MCP + Skill
+
+    Review Assistant
+      Skill
+
+这样 Marketplace status 不再按三种 item type 分别推导，而是先读取 Plugin installation，
+再展示各 component 状态。
+
+### 15.7 PluginRegistry：统一身份，不成为万能 registry
+
+PluginRegistry 已提升为 AppContainer 级唯一实例，这是正确方向。
+
+长期应负责：
+
+- installed/bundled Plugin identity；
+- version；
+- manifest；
+- native runtime binding；
+- component metadata；
+- installation enabled/disabled；
+- pluginId 到 components 的查询。
+
+但不应该承担：
+
+- Skill 文件读取；
+- MCP handshake；
+- Tool dispatch；
+- approval；
+- effect tracking；
+- AgentLoop；
+- arbitrary package code loading。
+
+PluginRegistry 的核心价值是统一身份和 provenance，不是成为第二个 AppContainer。
+
+### 15.8 ToolRegistry：继续作为唯一 runtime tool contract registry
+
+Built-in、Plugin native runtime、MCP、A2A 都应最终进入同一个 ToolRegistry，再由 Dispatcher
+执行。
+
+必须长期保持：
+
+    Plugin installed != tool executable
+    Plugin enabled != approval granted
+    Skill enabled != permission granted
+    MCP connected != every MCP tool model-visible
+    Marketplace item installed != all schemas permanently enter model context
+
+Plugin system 不应成为绕过 permission / approval / effect truth 的新入口。
+
+### 15.9 ToolRegistry 与 ToolImplementationRegistry 应单独原子化
+
+当前 descriptor 与 executor 分别存放：
+
+    ToolRegistry
+      (name, version) -> ToolDescriptor
+
+    ToolImplementationRegistry
+      (name, version) -> ToolExecutor
+
+MCP/A2A dynamic replace 是两个连续操作，Dispatcher 也分别 resolve descriptor 和 executor。
+两张表各自线程安全，但没有跨 registry 的原子 snapshot，理论上存在 new descriptor +
+old executor 的极短错配窗口。
+
+建议单独引入 ToolBindingRegistry：
+
+    ToolBinding
+      descriptor
+      executor
+
+要求：
+
+- register 原子；
+- replace owner snapshot 原子；
+- remove 原子；
+- Dispatcher 一次 resolve 同一 ToolBinding；
+- model tool exposure 只读取 descriptor projection；
+- approval contract 继续绑定 descriptor contractHash；
+- MCP/A2A dynamic replacement 通过同一个 binding transaction。
+
+这是 Tool Framework P1，应与 Connector/Marketplace 产品重构分开。
+
+### 15.10 Session selection 从 Connector-first 升级到 Plugin/component
+
+长期目标：
+
+    Session
+      -> selected Plugin installations/components
+
+组件内部仍保留自己的状态：
+
+    Skill component
+      -> SkillRepository session enablement
+
+    MCP component
+      -> MCP enabled tool selection
+
+    Native component
+      -> runtime-specific session/capability state
+
+Plugin selected 不能自动 enable everything，否则会把 package selection 错当成 authority。
+
+### 15.11 Tool exposure 与 Plugin 平台必须一起收敛
+
+P5 已证明静态 64-tool table 会把核心 write 工具挤出模型上下文。Plugin 越多，这个问题越严重。
+
+长期必须明确：
+
+    registered != admitted != model-visible
+
+推荐：
+
+    core window
+      lifecycle / result / discovery / essential workspace
+
+    contextual component window
+      mobile / browser / files / skills
+
+    dynamic remote window
+      MCP / A2A discovered tools
+
+安装 Plugin 只意味着能力可以被发现，不意味着全部 schema 永久进入每次模型请求。
+
+### 15.12 数据模型建议
+
+产品尚未发布，因此不需要为旧开发数据库保留冗余 Connector schema，可以 clean-slate 收敛：
+
+    PluginInstallation
+      id
+      pluginId
+      version
+      source
+      contentHash
+      revision
+      enabled
+      defaultSelected
+
+    PluginComponent
+      installationId
+      componentId
+      type = SKILL | MCP | NATIVE
+      componentRef
+
+    SessionPlugin
+      sessionId
+      installationId
+
+    SkillSnapshot
+      existing SkillRepository identity
+
+    McpServer
+      existing MCP identity
+      optional ownerComponentRef
+
+原则：
+
+- 不复制 Skill body 到 Plugin installation；
+- 不复制 MCP credential 到 Plugin row；
+- SecretStore 继续单独保存凭据；
+- component ownership 只保存稳定 reference；
+- historical audit 不因 uninstall 被重写。
+
+### 15.13 推荐重构阶段
+
+#### P0 — 已完成
+
+- Agent Plugins 1.0 manifest floor；
+- App 级唯一 PluginRegistry；
+- PluginOrigin；
+- Mobile Use native Plugin；
+- root plugin.json import；
+- API36 provenance smoke。
+
+#### P1-A — Plugin package / installation
+
+目标：
+
+    ConnectorPackageReader -> PluginPackageReader
+    ConnectorInstaller -> PluginInstallationService
+    ConnectorCatalog -> PluginInstallationCatalog
+
+退出条件：
+
+- Skill-only package 不再构造成“假 Connector”；
+- MCP-only / Skill-only / MCP+Skill / native Plugin 使用统一 installation identity；
+- revision/content hash/ownership 只有一个真相；
+- install/update/uninstall 原子；
+- Connector package 不再是新代码路径的顶层安装概念。
+
+#### P1-B — Tool binding atomicity
+
+    ToolRegistry + ToolImplementationRegistry
+      -> ToolBindingRegistry
+
+退出条件：
+
+- Dispatcher 一次读取 descriptor + executor；
+- MCP/A2A replace 无跨 registry 窗口；
+- contractHash / approval / audit 测试不退化。
+
+#### P2-A — ConnectorService 收窄
+
+只保留 remote connection、auth/OAuth、connection test、MCP enable/disable、revoke/reconnect。
+package ownership/install/update/uninstall 全部移出。
+
+#### P2-B — Marketplace Plugin-first
+
+    MarketplaceItemType -> PLUGIN
+    components -> SKILL | MCP | NATIVE
+
+退出条件：
+
+- UI 顶层不再把 Skill/MCP/Connector 当作互斥安装类型；
+- install/status/uninstall 基于 Plugin installation；
+- component 状态仍可独立显示。
+
+#### P2-C — Session Plugin/component selection
+
+将 SessionConnector 迁为 Plugin/component selection，但不能自动授予 tool permission、
+Accessibility、OAuth、MCP selected tools 或 Skill authority。
+
+#### P3 — 生态扩展
+
+再考虑 generic portable Agent Plugin ZIP、remote Mobile Use MCP provider、Desktop Use、
+additional host-known native runtimes 和 remote Marketplace catalogs。
+
+仍不建议直接开放 arbitrary DEX/JAR/APK code injection 或任意 JS hook 进入 Helix 主进程。
+
+### 15.14 推荐开发顺序
+
+建议：
+
+    1. PluginPackageReader / PluginInstallationCatalog
+    2. PluginInstallationService
+    3. ConnectorService 收窄
+    4. Marketplace Plugin-first
+    5. Session Plugin/component selection
+
+    并行独立轨：
+    6. ToolBindingRegistry
+
+前五项属于产品扩展生命周期统一，可以共享数据模型和 ownership 迁移；ToolBindingRegistry
+属于执行基础设施，应独立验证，不与 Marketplace/Connector 产品重构混成一个大变更。
+
+### 15.15 最终目标
+
+最终用户看到的是统一 Plugins：
+
+    Plugins
+      Mobile Use
+        Native
+      GitHub
+        MCP + Skill
+      Cloudflare Docs
+        MCP
+      Review Workflow
+        Skill
+
+底层仍保持：
+
+    Plugin identity/lifecycle
+      -> Skills -> SkillRepository
+      -> MCP -> McpAppService
+      -> Native -> host runtime
+                    -> ToolRegistry
+                    -> Dispatcher
+
+这样既能对齐主流 Agent Plugin 生态，也能保留 Helix 已验证过的 shallow harness、
+permission、approval、effect truth 和 runtime isolation。
