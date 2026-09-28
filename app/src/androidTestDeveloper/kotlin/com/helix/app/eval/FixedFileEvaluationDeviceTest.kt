@@ -55,7 +55,7 @@ class FixedFileEvaluationDeviceTest {
             try {
                 rows.forEach { line ->
                     val cells = line.split('\t')
-                    val protocol = ProviderProtocol.valueOf(cells[3])
+                    val protocol = evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3]))
                     val model = config.getValue("model").jsonPrimitive.content
                     val provider =
                         providers[protocol] ?: createProvider(protocol, model)

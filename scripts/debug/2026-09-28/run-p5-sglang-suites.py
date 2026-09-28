@@ -50,6 +50,8 @@ def main():
                     "30008",
                     "--suite",
                     suite,
+                    "--protocol-override",
+                    "OPENAI_CHAT_COMPLETIONS",
                     "--output",
                     str(target),
                 ],

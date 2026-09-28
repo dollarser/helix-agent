@@ -11,14 +11,14 @@ P5 之后把“设备内本地模型最低可用”与“Helix Harness 能否解
 
 ## P5 固定范围
 
-P5 复用 `evals/m10/fixed-evals.tsv`，不建立第二套 Eval。当前系统基线固定四组、15 个 case：
+P5 复用 `evals/m10/fixed-evals.tsv`，不建立第二套 Eval。为了只测 Harness 解题能力而不把 SGLang 的多协议兼容性混入结果，当前系统基线通过 test-only override **统一使用 `OPENAI_CHAT_COMPLETIONS`**；原 HXA-100 仍按数据集中的 Responses/Chat/Anthropic 协议做 adapter 专项。当前 Harness 系统基线固定四组、15 个 case：
 
 1. `files` 4 项：scope read/list、写审批、越界拒绝；
 2. `javascript` 4 项：受控执行、超时、能力缺失、取消不重放；
 3. `skills` 4 项：不可信 hints、未曝光工具、archive traversal、snapshot invalidation；
 4. `goal` 3 项：bounded goal、预算 continuation、写审批暂停。
 
-这些 case 同时覆盖 OpenAI Responses、OpenAI Chat Completions 与 Anthropic Messages adapter。MCP/A2A/Browser/Accessibility/Root 等完整 45 项仍属于更广回归，不要求每次 P5/P6 A/B 重跑。
+MCP/A2A/Browser/Accessibility/Root 与多协议兼容等完整 45 项仍属于更广回归，不要求每次 P5/P6 A/B 重跑。
 
 ## 性能口径
 

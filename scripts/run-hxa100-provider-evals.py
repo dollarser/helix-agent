@@ -21,6 +21,7 @@ def main():
     parser.add_argument('serial')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--provider-port', type=int, default=30008)
+    parser.add_argument('--protocol-override', choices=('OPENAI_CHAT_COMPLETIONS', 'OPENAI_RESPONSES', 'ANTHROPIC_MESSAGES'))
     parser.add_argument('--suite', choices=('providers', 'files', 'javascript', 'plan', 'browser', 'skills', 'mcp', 'a2a', 'accessibility', 'root', 'goal'), default='providers')
     args = parser.parse_args()
     if not args.serial.startswith('emulator-'):
@@ -94,7 +95,12 @@ def main():
     for case_id in ids:
         subprocess.run(run_as + ['rm', '-f', remote + '/' + case_id + '.json'], check=True)
     test_class = {'providers': 'FixedProviderEvaluationDeviceTest', 'files': 'FixedFileEvaluationDeviceTest', 'javascript': 'FixedJavascriptEvaluationDeviceTest', 'plan': 'FixedPlanEvaluationDeviceTest', 'browser': 'FixedBrowserEvaluationDeviceTest', 'skills': 'FixedSkillEvaluationDeviceTest', 'mcp': 'FixedMcpEvaluationDeviceTest', 'a2a': 'FixedA2aEvaluationDeviceTest', 'accessibility': 'FixedAccessibilityEvaluationDeviceTest', 'root': 'FixedRootEvaluationDeviceTest', 'goal': 'FixedGoalEvaluationDeviceTest'}[args.suite]
-    command = prefix + ['shell', 'am', 'instrument', '-w', '-r', '-e', 'class', 'com.helix.app.eval.' + test_class, '-e', 'helix.eval', 'true', '-e', 'helix.eval.providerPort', str(args.provider_port), 'com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner']
+    command = prefix + ['shell', 'am', 'instrument', '-w', '-r', '-e', 'class', 'com.helix.app.eval.' + test_class, '-e', 'helix.eval', 'true', '-e', 'helix.eval.providerPort', str(args.provider_port)]
+    if args.protocol_override:
+        command += ['-e', 'helix.eval.protocolOverride', args.protocol_override]
+        config['protocolOverride'] = args.protocol_override
+        (args.output / 'config.json').write_text(json.dumps(config, indent=2))
+    command += ['com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner']
     with (args.output / 'instrumentation.log').open('w') as log:
         try:
             result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, timeout=2400)

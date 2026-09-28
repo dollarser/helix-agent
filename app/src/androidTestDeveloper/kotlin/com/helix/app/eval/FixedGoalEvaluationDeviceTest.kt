@@ -51,7 +51,9 @@ class FixedGoalEvaluationDeviceTest {
                 val results =
                     corpus.toString(Charsets.UTF_8).lines().filter { it.startsWith("goal-") }.map { line ->
                         val cells = line.split('\t')
-                        val provider = createProvider(ProviderProtocol.valueOf(cells[3]), model).also(providers::add)
+                        val provider =
+                            createProvider(evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3])), model)
+                                .also(providers::add)
                         runCase(cells, provider, model)
                     }
                 assertTrue("Fixed Goal case failed; inspect per-case evidence", results.size == 3 && results.all { it })
