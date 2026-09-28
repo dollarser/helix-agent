@@ -108,6 +108,9 @@ internal fun LocalModelDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.local_model_description))
+                providerService.localModels?.let { models ->
+                    LocalModelStorageSection(job != null, models::storageSnapshot, models::clearDownloads)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
@@ -313,7 +316,7 @@ private fun CuratedLocalModelFields(
     }
 }
 
-private fun formatBytes(bytes: Long): String =
+internal fun formatBytes(bytes: Long): String =
     when {
         bytes >= 1024L * 1024 * 1024 -> "%.1f GiB".format(java.util.Locale.ROOT, bytes / (1024.0 * 1024 * 1024))
         bytes >= 1024L * 1024 -> "%.0f MiB".format(java.util.Locale.ROOT, bytes / (1024.0 * 1024))

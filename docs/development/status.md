@@ -68,7 +68,9 @@ P7 第一批联合恢复已完成：同一 `99b7bee7` APK 在 API36 developer �
 
 后续 prompt/fixture v2 已完成：修正 files/Plan/Goal 报告指导，skill-003 最终请求改为报告既有拒绝并记录独立 fixture/hash；clean `fce488ce` **15/15**，skill-003 本次 0 工具调用。见 [v2 证据](../evidence/development/prompt-fixture-v2-2026-09-28.md)，不可与旧夹具比较提示词因果收益。
 
-P7 UI 增量已交付：导出准备失败可就地重试；诊断与审计提供用户主动的无正文报告预览/复制，失败可重试，不自动上传。API36 developer 联合 **38/38**、consumer 新入口 **8/8**，双渠道主机 gate 通过；空间删除/共享引用边界已核对。见 [P7 UI 与空间证据](../evidence/development/p7-recovery-diagnostics-storage-2026-09-28.md)。下一步为占用与可清理范围展示、下载残留的明确清理选择及剩余可用性/长稳；历史截断与偶发多余调用仍开放，P7 不整体关闭。
+P7 UI 增量已交付：导出准备失败可就地重试；诊断与审计提供用户主动的无正文报告预览/复制，失败可重试，不自动上传。API36 developer 联合 **38/38**、consumer 新入口 **8/8**，双渠道主机 gate 通过；空间删除/共享引用边界已核对。见 [P7 UI 与空间证据](../evidence/development/p7-recovery-diagnostics-storage-2026-09-28.md)。后续空间管理进度见下段；历史截断与偶发多余调用仍开放，P7 不整体关闭。
+
+P7 本地模型空间增量已交付：安装页展示已识别模型与可续传下载大小；残片清理需要明确确认，与下载互斥并拒绝过期确认，切换模型不再隐式删除旧下载。双渠道主机 gate 及 API36 developer **3/3**、consumer **3/3** 定向验证通过，见 [模型空间证据](../evidence/development/p7-model-storage-2026-09-28.md)。下一步为会话/产物/Memory 等分类占用与删除范围核对、剩余可用性和长稳；应用总占用、资产发布中断临时文件与真机存储压力未完成。
 
 | 顺序 | 工作 | 交付与退出条件 | 启动条件 |
 | --- | --- | --- | --- |

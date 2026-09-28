@@ -23,6 +23,7 @@ private fun allocatableBytes(context: Context): Long =
     }.getOrDefault(0L)
 
 /** Explicit user-operated asset management; no automatic model downloads. */
+@Suppress("TooManyFunctions") // One owner coordinates installation and explicit storage maintenance.
 class LocalModelService(
     context: Context,
     private val storage: HelixStorage,
@@ -52,6 +53,10 @@ class LocalModelService(
             register(asset, context.getString(com.helix.app.R.string.local_model_recovered, asset.id.take(8)))
         }
     }
+
+    suspend fun storageSnapshot(): LocalModelStorageSnapshot = downloader.storageSnapshot()
+
+    suspend fun clearDownloads(snapshot: LocalModelStorageSnapshot) = downloader.clearDownloads(snapshot)
 
     fun provider(config: ProviderConfig): LocalModelProvider? {
         if (config.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET) return null

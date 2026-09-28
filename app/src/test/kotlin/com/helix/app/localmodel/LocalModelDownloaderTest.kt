@@ -123,6 +123,83 @@ class LocalModelDownloaderTest {
             assertEquals(0, noSpace.connections)
         }
 
+    @Test fun cleanupPreservesModelsAndUnknownFiles() =
+        runBlocking {
+            val fixture = Fixture(modelBytes(128))
+            fixture.enqueue(200, fixture.bytes)
+            fixture.download()
+            fixture.partial().writeBytes(byteArrayOf(1, 2, 3))
+            val unrelated = fixture.transfers.resolve("keep.txt").apply { writeText("keep") }
+            val directory = fixture.transfers.resolve("${"a".repeat(64)}.part").apply { mkdir() }
+            val link = fixture.transfers.resolve("${"b".repeat(64)}.part")
+            java.nio.file.Files
+                .createSymbolicLink(link.toPath(), unrelated.toPath())
+            val snapshot = fixture.downloader.storageSnapshot()
+            assertEquals(128L, snapshot.installedBytes)
+            assertEquals(3L, snapshot.downloadBytes)
+            assertEquals(1, snapshot.downloadCount)
+            fixture.downloader.clearDownloads(snapshot)
+            assertFalse(fixture.partial().exists())
+            assertTrue(unrelated.exists())
+            assertTrue(directory.isDirectory)
+            assertTrue(
+                java.nio.file.Files
+                    .isSymbolicLink(link.toPath()),
+            )
+            val published = fixture.store.verifiedFile(fixture.asset).readBytes()
+            assertEquals(fixture.bytes.toList(), published.toList())
+            assertEquals(0, fixture.downloader.storageSnapshot().downloadCount)
+        }
+
+    @Test fun changedSnapshotCannotDeleteNewBytes() =
+        runBlocking {
+            val fixture = Fixture(modelBytes(128))
+            fixture.partial().writeBytes(byteArrayOf(1))
+            val old = fixture.downloader.storageSnapshot()
+            fixture.partial().appendBytes(byteArrayOf(2))
+            assertThrows(IllegalStateException::class.java) { runBlocking { fixture.downloader.clearDownloads(old) } }
+            assertEquals(2L, fixture.partial().length())
+            fixture.downloader.clearDownloads(fixture.downloader.storageSnapshot())
+            assertFalse(fixture.partial().exists())
+        }
+
+    @Test fun busyCleanupFailsAndCancellationReleasesLock() =
+        runBlocking {
+            val fixture = Fixture(modelBytes(128))
+            val before = fixture.downloader.storageSnapshot()
+            fixture.enqueue(200, fixture.bytes)
+            assertThrows(CancellationException::class.java) {
+                runBlocking {
+                    fixture.download {
+                        assertThrows(IllegalStateException::class.java) {
+                            runBlocking { fixture.downloader.clearDownloads(before) }
+                        }
+                        throw CancellationException("fixture pause")
+                    }
+                }
+            }
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { fixture.downloader.clearDownloads(before) }
+            }
+            fixture.downloader.clearDownloads(fixture.downloader.storageSnapshot())
+            assertFalse(fixture.partial().exists())
+        }
+
+    @Test fun switchingModelPreservesPartialUntilConfirmed() =
+        runBlocking {
+            val fixture = Fixture(modelBytes(128))
+            val old = fixture.transfers.resolve("${"a".repeat(64)}.part").apply { writeText("resume me") }
+            val unknown = fixture.transfers.resolve("keep.txt").apply { writeText("keep") }
+            assertThrows(IllegalStateException::class.java) { runBlocking { fixture.download() } }
+            assertEquals("resume me", old.readText())
+            assertEquals(0, fixture.connections)
+            fixture.downloader.clearDownloads(fixture.downloader.storageSnapshot())
+            fixture.enqueue(200, fixture.bytes)
+            fixture.download()
+            assertTrue(unknown.exists())
+            assertEquals(1, fixture.store.list().size)
+        }
+
     private inner class Fixture(
         val bytes: ByteArray,
         val asset: ModelAssetRef = asset(bytes),
@@ -130,10 +207,10 @@ class LocalModelDownloaderTest {
     ) {
         private val root = temp.newFolder("case-${System.nanoTime()}")
         val store = ModelAssetStore(root.resolve("models"))
-        private val transfers = root.resolve("transfers")
+        val transfers = root.resolve("transfers")
         private val queued = ArrayDeque<FakeConnection>()
         private val opened = mutableListOf<FakeConnection>()
-        private val downloader =
+        val downloader =
             LocalModelDownloader(store, transfers, { usableSpace }) { uri ->
                 val connection = queued.removeFirst()
                 connection.requestedUri = uri

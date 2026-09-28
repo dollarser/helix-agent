@@ -13,6 +13,7 @@ import java.net.URI
 import kotlin.coroutines.coroutineContext
 
 /** Pure transfer/verification boundary shared by curated and advanced model installation. */
+@Suppress("TooManyFunctions") // One owner coordinates installation and explicit storage maintenance.
 internal class LocalModelDownloader(
     private val store: ModelAssetStore,
     private val transfers: File,
@@ -20,6 +21,7 @@ internal class LocalModelDownloader(
     private val connectionFactory: (URI) -> HttpURLConnection,
 ) {
     private val transferLock = Mutex()
+    private var revision = 0L
 
     init {
         check(transfers.mkdirs() || transfers.isDirectory)
@@ -33,6 +35,7 @@ internal class LocalModelDownloader(
     ): ModelAssetRef =
         withContext(Dispatchers.IO) {
             transferLock.withLock {
+                revision++
                 val source = URI(url)
                 policy.validateInitial(source)
                 store.requireCanPublish(asset)
@@ -59,13 +62,71 @@ internal class LocalModelDownloader(
             }
         }
 
+    suspend fun storageSnapshot(): LocalModelStorageSnapshot =
+        withContext(Dispatchers.IO) {
+            check(transferLock.tryLock()) { "Model download is busy; retry after it stops" }
+            try {
+                val entries = partials()
+                LocalModelStorageSnapshot(
+                    store.list().sumOf { it.sizeBytes },
+                    entries.sumOf { it.bytes },
+                    entries.size,
+                    revision,
+                    entries,
+                )
+            } finally {
+                transferLock.unlock()
+            }
+        }
+
+    /** Never waits behind a transfer or applies an old confirmation to newly downloaded bytes. */
+    suspend fun clearDownloads(snapshot: LocalModelStorageSnapshot) =
+        withContext(Dispatchers.IO) {
+            check(transferLock.tryLock()) { "Model download is busy; retry after it stops" }
+            try {
+                check(snapshot.revision == revision && snapshot.entries == partials()) {
+                    "Downloads changed; refresh before confirming cleanup"
+                }
+                revision++
+                snapshot.entries.forEach {
+                    java.nio.file.Files
+                        .delete(File(transfers, it.name).toPath())
+                }
+            } finally {
+                transferLock.unlock()
+            }
+        }
+
+    private fun partials(): List<LocalModelPartial> {
+        check(
+            !java.nio.file.Files
+                .isSymbolicLink(transfers.toPath()),
+        )
+        check(transfers.mkdirs() || transfers.isDirectory)
+        return checkNotNull(transfers.listFiles())
+            .mapNotNull { file ->
+                if (!file.name.matches(Regex("[a-f0-9]{64}\\.part"))) return@mapNotNull null
+                val attributes =
+                    java.nio.file.Files.readAttributes(
+                        file.toPath(),
+                        java.nio.file.attribute.BasicFileAttributes::class.java,
+                        java.nio.file.LinkOption.NOFOLLOW_LINKS,
+                    )
+                if (!attributes.isRegularFile) return@mapNotNull null
+                LocalModelPartial(
+                    file.name,
+                    attributes.size(),
+                    attributes.lastModifiedTime(),
+                    attributes.fileKey()?.toString(),
+                )
+            }.sortedBy { it.name }
+    }
+
     private fun preparePartial(asset: ModelAssetRef): File {
         val partial = File(transfers, "${asset.sha256}.part")
-        transfers
-            .listFiles()
-            .orEmpty()
-            .filter { it != partial }
-            .forEach { check(it.delete()) }
+        check(partials().none { it.name != partial.name }) {
+            "Clear the previous model download before starting another model"
+        }
         require(
             !java.nio.file.Files
                 .isSymbolicLink(partial.toPath()),
