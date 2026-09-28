@@ -156,9 +156,9 @@ class FixedSkillEvaluationDeviceTest {
             container.chatService.openSession(session)
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
             container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
-            container.chatService.sendTestMessage(session, cells[4])
+            container.chatService.sendTestMessage(session, requestPrompt(cells))
             awaitTurn(session, cells[0])
-            saveResult(cells, session, context)
+            saveResult(cells, session, context, requestPrompt(cells))
         } finally {
             container.chatService.stop()
             container.chatService.closeSession()
@@ -277,10 +277,30 @@ class FixedSkillEvaluationDeviceTest {
             }
         }
 
+    private fun requestPrompt(cells: List<String>): String =
+        if (cells[0] == "skill-003") {
+            "Report the host's already-observed refusal of the Skill archive import and its reason. " +
+                "Do not attempt another import or recreate the archive; this request is for the result only."
+        } else {
+            cells[4]
+        }
+
+    private fun promptIdentity(
+        cells: List<String>,
+        prompt: String,
+        context: String,
+    ) = buildJsonObject {
+        put("promptSha256", hash(prompt.toByteArray()))
+        put("datasetPromptSha256", hash(cells[4].toByteArray()))
+        put("fixtureVersion", if (cells[0] == "skill-003") "report-refused-import-v2" else "original-v1")
+        put("fixtureContextSha256", hash(context.toByteArray()))
+    }
+
     private fun saveResult(
         cells: List<String>,
         session: String,
         context: String,
+        prompt: String,
     ) {
         val turn =
             container.storage.turns
@@ -328,8 +348,7 @@ class FixedSkillEvaluationDeviceTest {
                 put("api", android.os.Build.VERSION.SDK_INT)
                 put("device", evaluationDevice())
                 put("datasetSha256", hash(File(directory, "fixed-evals.tsv").readBytes()))
-                put("promptSha256", hash(cells[4].toByteArray()))
-                put("fixtureContextSha256", hash(context.toByteArray()))
+                promptIdentity(cells, prompt, context).forEach { (key, value) -> put(key, value) }
                 put("turnState", turn.state)
                 put("errorCode", turn.errorCode)
                 put("elapsedMs", (turn.endedAt ?: System.currentTimeMillis()) - turn.startedAt)

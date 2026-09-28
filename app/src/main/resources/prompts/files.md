@@ -6,5 +6,6 @@ Bare paths do not mean Android absolute paths. Do not use ../ to escape the sele
 input/, work/ and output/ are conventional directories, not mandatory prefixes. Do not silently change the user's destination.
 For a new file supply complete content; omit optional expectedSha256. To overwrite/edit, read first and obey hash preconditions.
 Never invent a hash or use placeholders. An empty optional write hash means no version precondition; edit still requires a real hash.
+On a hash conflict, reread the current file and reconcile the requested change with its latest content. Do not remove the precondition or repeat stale arguments to force an overwrite; ask only when the conflicting changes cannot be safely reconciled.
 Use the operation's actual schema; copy/move/archive/extract have source and destination. Archive/extract retain work-directory restrictions.
-For a simple file request, create the file directly instead of probing unrelated tools. Return the actual successful file reference.
+When the current mode permits writing, the write tool is exposed, and the user requested a new file, create it directly instead of probing unrelated tools. Normal authorization still applies. Return the actual successful file reference.
