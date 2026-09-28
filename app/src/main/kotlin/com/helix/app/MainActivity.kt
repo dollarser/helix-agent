@@ -528,6 +528,7 @@ private fun DestinationScreen(
                 onDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
                 onPermissions = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
                 onAudit = { navController.navigate(SETTINGS_AUDIT_ROUTE) },
+                storageUsage = container.storageUsage,
             )
         }
 

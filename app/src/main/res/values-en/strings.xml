@@ -1510,4 +1510,13 @@
     <string name="local_model_storage_refresh">Refresh usage</string>
     <string name="local_model_storage_confirm">Clear %1$s of partial downloads? They will need to be downloaded again. Installed models, conversations, and workspaces will be kept.</string>
     <string name="local_model_storage_failed">Unable to read or clear downloads. A download may be active or files may have changed. Refresh and try again.</string>
+    <string name="storage_usage_title">Data usage and deletion scope</string>
+    <string name="storage_usage_scope">Logical sizes of the private files below, not total app usage or reclaimable space. External directories are excluded and shared directories counted once. Data may change during scanning.</string>
+    <string name="storage_usage_records">Records and large bodies (shared database)</string>
+    <string name="storage_usage_workspaces">Private workspaces, artifacts and metadata</string>
+    <string name="storage_usage_memory">Memory files</string>
+    <string name="storage_usage_partial">Partial count; actual usage may be higher</string>
+    <string name="storage_usage_failed">Unable to measure usage. Refresh to retry.</string>
+    <string name="storage_usage_loading">Measuring…</string>
+    <string name="storage_usage_deletion">Deleting a conversation removes its records and unreferenced large bodies, while keeping workspace files; the database may not shrink immediately. Use the dedicated workspace cleanup action in the conversation; referenced or active work remains protected. Delete Memory entries individually in Memory. Manage models and partial downloads in Models. JSONL conversation export is not a complete file backup.</string>
 </resources>

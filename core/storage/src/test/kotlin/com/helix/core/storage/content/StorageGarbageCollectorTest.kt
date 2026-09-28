@@ -113,6 +113,74 @@ class StorageGarbageCollectorTest {
         assertEquals(0, result.deletedContentFiles)
     }
 
+    @Test
+    fun `symbolic links at root content and nested directory never reach external files`() {
+        for (placement in listOf("root", "content", "nested")) {
+            withTempRoot { root ->
+                withTempRoot { outside ->
+                    val valuable = File(outside, "user.tmp").apply { writeText("preserve") }
+                    val link =
+                        when (placement) {
+                            "root" -> File(root, "linked-root")
+                            "content" -> File(root, "content")
+                            else -> File(root, "content/nested").also { it.parentFile.mkdirs() }
+                        }
+                    java.nio.file.Files
+                        .createSymbolicLink(link.toPath(), outside.toPath())
+                    try {
+                        val result =
+                            StorageGarbageCollector.collectGarbage(
+                                if (placement == "root") link else root,
+                                referenceChecker = { false },
+                                gracePeriodMillis = 0,
+                                now = System.currentTimeMillis() + 1000,
+                            )
+                        assertTrue("external file must survive $placement symlink", valuable.exists())
+                        assertEquals(0L, result.freedBytes)
+                    } finally {
+                        java.nio.file.Files
+                            .deleteIfExists(link.toPath())
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `parent replaced during reference lookup is rechecked before deletion`() {
+        withTempRoot { root ->
+            withTempRoot { outside ->
+                val ref = FileContentStore(root).write("same body")
+                val original = File(root, ref.relativePath)
+                val shard = original.parentFile
+                val protected = File(outside, original.name).apply { writeText("same body") }
+                try {
+                    val result =
+                        StorageGarbageCollector.collectGarbage(
+                            root,
+                            referenceChecker = {
+                                check(shard.renameTo(File(root, "retained")))
+                                java.nio.file.Files
+                                    .createSymbolicLink(shard.toPath(), outside.toPath())
+                                false
+                            },
+                            gracePeriodMillis = 0,
+                            now = System.currentTimeMillis() + 1000,
+                        )
+                    assertTrue(protected.exists())
+                    assertEquals(0L, result.freedBytes)
+                } finally {
+                    if (java.nio.file.Files
+                            .isSymbolicLink(shard.toPath())
+                    ) {
+                        java.nio.file.Files
+                            .delete(shard.toPath())
+                    }
+                }
+            }
+        }
+    }
+
     private inline fun withTempRoot(block: (File) -> Unit) {
         val root = File(System.getProperty("java.io.tmpdir"), "helix-gc-test-${System.nanoTime()}")
         check(root.mkdirs()) { "cannot create temp root: ${root.absolutePath}" }

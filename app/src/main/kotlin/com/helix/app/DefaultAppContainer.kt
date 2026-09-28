@@ -43,6 +43,7 @@ import com.helix.app.runcontrol.AndroidResourceGate
 import com.helix.app.runcontrol.PersistedRunControlStore
 import com.helix.app.runcontrol.PlatformDeviceResourceProbe
 import com.helix.app.runcontrol.RunControlStore
+import com.helix.app.storage.StorageUsageService
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.app.tool.ToolPipeline
@@ -94,6 +95,7 @@ internal class DefaultAppContainer(
 ) : AppContainer {
     private val appContext: Context = context.applicationContext
     private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
+    override val storageUsage = StorageUsageService(appContext)
     override val diagnosticReport = DiagnosticReportService(appContext as Application)
 
     override val storage: HelixStorage = HelixStorage.create(context)
@@ -416,7 +418,7 @@ internal class DefaultAppContainer(
             context,
             scopeRoots,
             APP_SCOPE_ID,
-            ::resolveLocalized,
+            appContext::resolveLocalized,
             rootOperations = RootFileModule.create(context),
             documentBackend = ::documentBackend,
             metadataRoot = ::workspaceMetadata,
@@ -822,7 +824,7 @@ internal class DefaultAppContainer(
                     .readProjectInstructionsText(directory, workspaceStore::readWindow)
             },
             // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
-            strings = { resId, args -> resolveLocalized(resId, args) },
+            strings = { resId, args -> appContext.resolveLocalized(resId, args) },
             subscriptionResultRecovery = { turnId, modelCallId, localOnly ->
                 com.helix.app.provider.SubscriptionProviderModule
                     .recoverInterruptedResult(context, storage, turnId, modelCallId, localOnly)
@@ -883,23 +885,6 @@ internal class DefaultAppContainer(
         )
     }
 
-    /**
-     * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the
-     * CHOSEN app language at emit time. The app-level [appContext] does not carry the chosen
-     * language (only the activity's wrapped context does), so a context is wrapped per emit from
-     * the stored choice. Emits are discrete (chat blocks/terminals/tool states, file ops), never
-     * per token — so the one-shot array spread is not a hot path.
-     */
-    @Suppress("SpreadOperator") // discrete string resolve; getString's vararg API has no array overload
-    private fun resolveLocalized(resId: Int, args: Array<out Any>): String {
-        val base = appContext
-        return AppLanguageStore
-            .wrapForLocale(
-                base,
-                AppLanguageStore.localeListFor(AppLanguageStore.stored(base)),
-            ).getString(resId, *args)
-    }
-
     init {
         appScope.launch(Dispatchers.IO) { connectorService.cleanupRetired() }
     }
@@ -916,4 +901,21 @@ private fun productionProviderFactory(
     images: () -> com.helix.app.provider.VisionImageSource,
 ) = ProviderFactory(credentials, ProviderFactory.defaultWire(), images) { config ->
     localModels.provider(config) ?: SubscriptionProviderModule.create(context, config, images)
+}
+
+/**
+ * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the
+ * CHOSEN app language at emit time. The app-level [appContext] does not carry the chosen
+ * language (only the activity's wrapped context does), so a context is wrapped per emit from
+ * the stored choice. Emits are discrete (chat blocks/terminals/tool states, file ops), never
+ * per token — so the one-shot array spread is not a hot path.
+ */
+@Suppress("SpreadOperator") // discrete string resolve; getString's vararg API has no array overload
+private fun Context.resolveLocalized(resId: Int, args: Array<out Any>): String {
+    val base = this
+    return AppLanguageStore
+        .wrapForLocale(
+            base,
+            AppLanguageStore.localeListFor(AppLanguageStore.stored(base)),
+        ).getString(resId, *args)
 }

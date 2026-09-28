@@ -55,7 +55,10 @@ object StorageGarbageCollector {
         gracePeriodMillis: Long = DEFAULT_GRACE_PERIOD_MS,
         now: Long = System.currentTimeMillis(),
     ): StorageGcResult {
-        if (!contentRoot.exists() || !contentRoot.isDirectory) {
+        if (!contentRoot.exists() || !contentRoot.isDirectory ||
+            java.nio.file.Files
+                .isSymbolicLink(contentRoot.toPath())
+        ) {
             return StorageGcResult(0, 0, 0L, 0)
         }
 
@@ -65,14 +68,25 @@ object StorageGarbageCollector {
         var scanned = 0
 
         val contentDir = File(contentRoot, "content").let { if (it.exists()) it else contentRoot }
-        val allFiles = runCatching { contentDir.walkTopDown().filter { it.isFile }.toList() }.getOrDefault(emptyList())
+        val allFiles =
+            runCatching {
+                contentDir
+                    .walkTopDown()
+                    .onEnter {
+                        !java.nio.file.Files
+                            .isSymbolicLink(it.toPath())
+                    }.filter {
+                        java.nio.file.Files
+                            .isRegularFile(it.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    }.toList()
+            }.getOrDefault(emptyList())
 
         for (file in allFiles) {
             scanned++
             val lastModified = runCatching { file.lastModified() }.getOrDefault(now)
             if (now - lastModified < gracePeriodMillis) continue
 
-            val outcome = processCandidate(file, referenceChecker)
+            val outcome = processCandidate(file, contentRoot, referenceChecker)
             if (outcome.deletedTemp) {
                 deletedTemp++
                 freedBytes += outcome.freedBytes
@@ -98,13 +112,14 @@ object StorageGarbageCollector {
 
     private fun processCandidate(
         file: File,
+        root: File,
         referenceChecker: ContentReferenceChecker,
     ): FileGcOutcome {
         val fileName = file.name
         var outcome = FileGcOutcome()
         if (isTempFile(fileName)) {
             val size = runCatching { file.length() }.getOrDefault(0L)
-            if (runCatching { file.delete() }.getOrDefault(false)) {
+            if (runCatching { ownedRegularFile(file, root) && file.delete() }.getOrDefault(false)) {
                 cleanEmptyParent(file)
                 outcome = FileGcOutcome(deletedTemp = true, freedBytes = size)
             }
@@ -115,12 +130,28 @@ object StorageGarbageCollector {
             val refString = ContentRef(relPath, size, sha256).toStorageString()
             val isReferenced = runCatching { referenceChecker.isReferenced(refString) }.getOrDefault(true)
 
-            if (!isReferenced && runCatching { file.delete() }.getOrDefault(false)) {
+            if (!isReferenced && runCatching { ownedRegularFile(file, root) && file.delete() }.getOrDefault(false)) {
                 cleanEmptyParent(file)
                 outcome = FileGcOutcome(deletedContent = true, freedBytes = size)
             }
         }
         return outcome
+    }
+
+    private fun ownedRegularFile(
+        file: File,
+        root: File,
+    ): Boolean {
+        val path = file.toPath().toAbsolutePath().normalize()
+        val boundary = root.toPath().toAbsolutePath().normalize()
+        return path.startsWith(boundary) &&
+            java.nio.file.Files
+                .isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS) &&
+            generateSequence(path) { if (it == boundary) null else it.parent }
+                .none {
+                    java.nio.file.Files
+                        .isSymbolicLink(it)
+                }
     }
 
     private fun isTempFile(name: String): Boolean = name.contains(".tmp-") || name.endsWith(".tmp")
