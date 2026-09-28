@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "purpose": "P5 Harness system baseline; local 4B is minimum-capability evidence only",
+  "provider": {
+    "kind": "local-sglang",
+    "endpoint": "http://localhost:30008/",
+    "model": "Qwen3.8-27B",
+    "maxModelLen": 262144,
+    "modelType": "qwen3_5",
+    "architectures": [
+      "Qwen3_5ForConditionalGeneration"
+    ],
+    "toolCallParser": "qwen3_coder",
+    "reasoningParser": "qwen3"
+  },
+  "identity": {
+    "gitCommit": "b436247f3703a2a13c9a0bdec76be9cfd21baacc",
+    "dirty": false,
+    "datasetSha256": "f27bf8b51e61be248a6e642c22cefc3e5045d0d35e37518377eb9b8cdf85e795",
+    "sourceManifestSha": "277539e78fc80cdadadab46aa2c240aeb0c07e98bf2f051cfa011e0ef0725d82",
+    "installedApkSha256": {
+      "com.helix.agent.developer": [
+        "fa089fefd7d269d0d7a085cdcab1c77dc58c349edbf4907abc0a99d2d4eaf88d"
+      ],
+      "com.helix.agent.developer.test": [
+        "bd0ea1993945118610a7ef223561164bef8f0c844b9c00d49ec59324a831ff3d"
+      ]
+    }
+  },
+  "scope": {
+    "suites": [
+      "files",
+      "javascript",
+      "skills",
+      "goal"
+    ],
+    "expectedCaseCount": 15,
+    "caseCount": 15,
+    "allSuitesPassed": false,
+    "allCasesPassed": false,
+    "baselineComplete": true
+  },
+  "performance": {
+    "metric": "Harness end-to-end case elapsedMs; includes model, tool, approval and persistence work",
+    "caseElapsedMsCount": 12,
+    "meanMs": 11300.8,
+    "medianMs": 4929.0,
+    "p95Ms": 50552,
+    "maxMs": 50552,
+    "suiteHostWallMs": {
+      "files": 45205,
+      "javascript": 60627,
+      "skills": 124163,
+      "goal": 87058
+    },
+    "notMeasured": [
+      "SGLang prefill",
+      "true TTFT",
+      "decode-only tok/s",
+      "server GPU memory"
+    ]
+  },
+  "suites": [
+    {
+      "suite": "files",
+      "passed": true,
+      "count": 4,
+      "passCount": 4,
+      "errorCount": 0,
+      "hostWallMs": 45205,
+      "expectedIds": [
+        "file-001",
+        "file-002",
+        "file-003",
+        "file-004"
+      ]
+    },
+    {
+      "suite": "javascript",
+      "passed": true,
+      "count": 4,
+      "passCount": 4,
+      "errorCount": 0,
+      "hostWallMs": 60627,
+      "expectedIds": [
+        "js-001",
+        "js-002",
+        "js-003",
+        "js-004"
+      ]
+    },
+    {
+      "suite": "skills",
+      "passed": false,
+      "count": 4,
+      "passCount": 3,
+      "errorCount": 0,
+      "hostWallMs": 124163,
+      "expectedIds": [
+        "skill-001",
+        "skill-002",
+        "skill-003",
+        "skill-004"
+      ]
+    },
+    {
+      "suite": "goal",
+      "passed": true,
+      "count": 3,
+      "passCount": 3,
+      "errorCount": 0,
+      "hostWallMs": 87058,
+      "expectedIds": [
+        "goal-001",
+        "goal-002",
+        "goal-003"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "suite": "files",
+      "id": "file-001",
+      "result": "PASS",
+      "elapsedMs": 2440,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "read:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 10577
+    },
+    {
+      "suite": "files",
+      "id": "file-002",
+      "result": "PASS",
+      "elapsedMs": 1881,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "files.list:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 10232
+    },
+    {
+      "suite": "files",
+      "id": "file-003",
+      "result": "PASS",
+      "elapsedMs": 4032,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "write:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 11390
+    },
+    {
+      "suite": "files",
+      "id": "file-004",
+      "result": "PASS",
+      "elapsedMs": 4646,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 0,
+      "calls": [],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 13006
+    },
+    {
+      "suite": "javascript",
+      "id": "js-001",
+      "result": "PASS",
+      "elapsedMs": 2681,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "code.javascript.run:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 11288
+    },
+    {
+      "suite": "javascript",
+      "id": "js-002",
+      "result": "PASS",
+      "elapsedMs": 15296,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "code.javascript.run:FAILED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 22483
+    },
+    {
+      "suite": "javascript",
+      "id": "js-003",
+      "result": "PASS",
+      "elapsedMs": 5739,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "code.javascript.run:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 13103
+    },
+    {
+      "suite": "javascript",
+      "id": "js-004",
+      "result": "PASS",
+      "elapsedMs": 4218,
+      "turnState": "NEEDS_REVIEW",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "code.javascript.run:NEEDS_REVIEW"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 13753
+    },
+    {
+      "suite": "skills",
+      "id": "skill-001",
+      "result": "PASS",
+      "elapsedMs": 33023,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 11,
+      "calls": [
+        "skills.list:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED",
+        "skills.read:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 40453
+    },
+    {
+      "suite": "skills",
+      "id": "skill-002",
+      "result": "PASS",
+      "elapsedMs": 5890,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 2,
+      "calls": [
+        "skills.read:COMPLETED",
+        "tools.search:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 13186
+    },
+    {
+      "suite": "skills",
+      "id": "skill-003",
+      "result": "FAIL",
+      "elapsedMs": 50552,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 3,
+      "calls": [
+        "files.list:COMPLETED",
+        "skills.list:COMPLETED",
+        "code.linux.run:DENIED"
+      ],
+      "runnerExitCode": 1,
+      "hostTimedOut": false,
+      "hostWallMs": 57850
+    },
+    {
+      "suite": "skills",
+      "id": "skill-004",
+      "result": "PASS",
+      "elapsedMs": 5212,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 1,
+      "calls": [
+        "skills.disable:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 12674
+    },
+    {
+      "suite": "goal",
+      "id": "goal-001",
+      "result": "PASS",
+      "elapsedMs": null,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 2,
+      "calls": [
+        "get_goal:COMPLETED",
+        "update_goal:COMPLETED"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 55834
+    },
+    {
+      "suite": "goal",
+      "id": "goal-002",
+      "result": "PASS",
+      "elapsedMs": null,
+      "turnState": "COMPLETED",
+      "errorCode": null,
+      "toolCallCount": 0,
+      "calls": [],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 17067
+    },
+    {
+      "suite": "goal",
+      "id": "goal-003",
+      "result": "PASS",
+      "elapsedMs": null,
+      "turnState": "RUNNING_TOOL",
+      "errorCode": null,
+      "toolCallCount": 2,
+      "calls": [
+        "get_goal:COMPLETED",
+        "write:AWAITING_APPROVAL"
+      ],
+      "runnerExitCode": 0,
+      "hostTimedOut": false,
+      "hostWallMs": 14157
+    }
+  ]
+}
