@@ -3,7 +3,6 @@ package com.helix.tools.framework
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -25,9 +24,8 @@ import kotlin.time.Duration.Companion.hours
  * in approval binding (doc 10 section 4.3: a schema change invalidates all
  * approvals for the tool).
  *
- * [operationClass] describes the effect of the operation (orthogonal to
- * [baseRisk]): Plan mode filters on [ToolOperationClass.READ_ONLY] or [ToolOperationClass.METADATA] and
- * never substitutes a risk-level check (core:agent ModePolicy consumes this
+ * [operationClass] describes the operation: Plan mode admits [ToolOperationClass.READ_ONLY]
+ * or closed [ToolOperationClass.METADATA] operations (core:agent ModePolicy consumes this
  * descriptor). [requiredCapabilities] uses core:model's unified
  * [Capability] enum; capability states describe what the app CAN do and never
  * replace per-call Tool Policy. [executionTarget] is the target KIND the tool
@@ -50,7 +48,6 @@ data class ToolDescriptor(
     val inputSchema: JsonObject,
     val outputSchema: JsonObject,
     val operationClass: ToolOperationClass,
-    val baseRisk: RiskLevel,
     val timeout: Duration,
     val maxOutputBytes: Long,
     val requiredCapabilities: Set<Capability>,
@@ -111,7 +108,7 @@ data class ToolDescriptor(
     /**
      * The full security-descriptor contract hash (ADR-0011, HXA-042): SHA-256 over a
      * canonical form of EVERY descriptor field — the identity [schemaHash] already carries,
-     * plus the security contract the schema hash cannot see (operation class, base risk,
+     * plus the security contract the schema hash cannot see (operation class,
      * hard timeout, output cap, required capabilities, idempotency, execution target, and
      * origin).
      *
@@ -192,7 +189,6 @@ data class ToolDescriptor(
                 description,
                 schemaHash.hex,
                 operationClass.name,
-                baseRisk.name,
                 timeout.inWholeMilliseconds.toString(),
                 maxOutputBytes.toString(),
                 // ADR-0011: capabilities canonicalize BY NAME — a set's iteration order is not

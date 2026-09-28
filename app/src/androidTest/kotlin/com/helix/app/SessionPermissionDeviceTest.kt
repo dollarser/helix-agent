@@ -5,7 +5,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.model.ToolCallState
@@ -182,7 +181,6 @@ class SessionPermissionDeviceTest {
                         ).let { it as JsonObject },
                 outputSchema = Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),

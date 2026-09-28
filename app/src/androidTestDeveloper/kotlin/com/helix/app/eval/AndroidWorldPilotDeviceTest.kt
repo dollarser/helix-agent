@@ -38,6 +38,7 @@ class AndroidWorldPilotDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
     private val center get() = AutomationPermissionCenter(app)
+    private val checkpointConfirmations = mutableListOf<String>()
 
     @Test
     // Persist any fixture failure, restore state, then fail the test.
@@ -75,9 +76,12 @@ class AndroidWorldPilotDeviceTest {
                     Thread.sleep(100)
                 }
                 container.profileStore.switchTo(SafetyProfile.ADVANCED)
-                val packages = setOf(app.packageName, launcher, "com.android.settings", "com.android.systemui")
+                val packages = setOf(app.packageName, launcher) + center.systemSettingsPackages()
                 center.replaceAllowlist(packages)
-                require(center.startSession(packages).status == AutomationSessionStartStatus.STARTED)
+                require(
+                    center.startSession(packages, allowSystemSettings = true).status ==
+                        AutomationSessionStartStatus.STARTED,
+                )
                 provider =
                     container.providerService.create(
                         ProviderDraft(
@@ -102,11 +106,11 @@ class AndroidWorldPilotDeviceTest {
                 container.chatService.setTurnBudgets(
                     com.helix.app.runcontrol.TurnBudgetBounds.validate(
                         TurnBudgets(
-                            maxSteps = 32,
-                            maxModelCalls = 32,
+                            maxSteps = com.helix.app.runcontrol.TurnBudgetBounds.DEFAULT.maxSteps,
+                            maxModelCalls = com.helix.app.runcontrol.TurnBudgetBounds.DEFAULT.maxModelCalls,
                             maxInputTokens = 131072,
                             maxOutputTokens = 4096,
-                            maxTotalTokens = com.helix.app.runcontrol.TurnBudgetBounds.MAX_TOTAL_TOKENS,
+                            maxTotalTokens = com.helix.app.runcontrol.TurnBudgetBounds.DEFAULT.maxTotalTokens,
                         ),
                     ),
                 )
@@ -143,6 +147,11 @@ class AndroidWorldPilotDeviceTest {
                         put("failure", failure)
                         put("turnState", turn?.state)
                         put("errorCode", turn?.errorCode)
+                        put(
+                            "systemSettingsAuthorization",
+                            "explicit per-session user grant via AutomationPermissionCenter",
+                        )
+                        put("checkpointConfirmations", JsonArray(checkpointConfirmations.map(::JsonPrimitive)))
                         put("elapsedMs", SystemClock.elapsedRealtime() - started)
                         put(
                             "calls",
@@ -198,6 +207,15 @@ class AndroidWorldPilotDeviceTest {
                 container.storage.turns
                     .listBySession(session)
                     .lastOrNull()
+            if (center.pauseReason() == com.helix.tools.automation.AutomationPauseReason.CHECKPOINT) {
+                val target = center.snapshot().snapshot?.packageName
+                if (target != null &&
+                    center.resumeAfterUserConfirmation(target) ==
+                    com.helix.tools.automation.AutomationResumeStatus.RESUMED
+                ) {
+                    checkpointConfirmations.add(target)
+                }
+            }
             if (turn != null) {
                 resolveApprovals(turn.id, resolved)
                 if (TurnState.valueOf(turn.state).isTerminal) return
@@ -211,7 +229,8 @@ class AndroidWorldPilotDeviceTest {
         turnId: String,
         resolved: MutableSet<String>,
     ) {
-        val admitted = setOf("ui.click", "ui.long_click", "ui.set_text", "ui.scroll", "ui.back", "ui.home")
+        val admitted =
+            setOf("ui.click", "ui.long_click", "ui.set_text", "ui.set_progress", "ui.scroll", "ui.back", "ui.home")
         container.storage.toolCalls.listByTurn(turnId).filter { it.state == "AWAITING_APPROVAL" }.forEach {
             val approval = container.storage.approvals.byToolCall(it.callId)
             if (approval != null && resolved.add(approval.id)) {

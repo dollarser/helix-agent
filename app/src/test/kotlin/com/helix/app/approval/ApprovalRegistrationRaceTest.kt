@@ -3,7 +3,7 @@ package com.helix.app.approval
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.storage.dao.ApprovalDao
 import com.helix.core.storage.entity.ApprovalEntity
@@ -51,7 +51,7 @@ class ApprovalRegistrationRaceTest {
             thread(name = "approval-acquire") {
                 acquired.set(
                     runCatching {
-                        broker.acquire(ApprovalRequest(binding, "race", RiskLevel.L1, NoCancellation))
+                        broker.acquire(ApprovalRequest(binding, "race", ToolOperationClass.READ_ONLY, NoCancellation))
                     },
                 )
             }

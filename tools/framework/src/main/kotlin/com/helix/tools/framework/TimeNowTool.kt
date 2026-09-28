@@ -2,7 +2,6 @@ package com.helix.tools.framework
 
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -16,7 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * The `time.now` built-in tool (doc 01 P0 core tool list, doc 09 P0 list): returns local
  * time, UTC and the time zone. This is the FIRST tool the dispatcher (HXA-035) runs in
- * production code: L0 risk, READ_ONLY operation class, idempotent, in-process — the
+ * production code: READ_ONLY operation class, idempotent, in-process — the
  * canonical "no approval needed" path of the pipeline.
  *
  * The input schema is `{"type":"object","additionalProperties":false}`: the tool takes no
@@ -62,7 +61,6 @@ object TimeNowTool {
                     put("additionalProperties", JsonPrimitive(false))
                 },
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L0,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

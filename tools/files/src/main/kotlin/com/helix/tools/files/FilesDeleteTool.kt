@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -42,7 +41,6 @@ object FilesDeleteTool {
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

@@ -1,6 +1,6 @@
 package com.helix.app.approval
 
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchAuditEvent
 import com.helix.tools.framework.DispatchOutcomeCode
@@ -69,7 +69,7 @@ class DispatchAuditPayloadTest {
             toolVersion = "2",
             code = DispatchOutcomeCode.SUCCESS,
             decisionSource = DecisionSource.USER,
-            riskLevel = RiskLevel.L2,
+            operationClass = ToolOperationClass.LOCAL_MUTATION,
             bindingHash = "a".repeat(64),
             actionFingerprint = "f".repeat(64),
             outputHash = "0".repeat(64),
@@ -113,7 +113,7 @@ class DispatchAuditPayloadTest {
         assertEquals("2", r.toolVersion)
         assertEquals(DispatchOutcomeCode.SUCCESS, r.code)
         assertEquals(DecisionSource.USER, r.decisionSource)
-        assertEquals(RiskLevel.L2, r.risk)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, r.operationClass)
         assertEquals(1_000L, r.startedAt)
         assertEquals(1_900L, r.finishedAt)
     }
@@ -129,7 +129,7 @@ class DispatchAuditPayloadTest {
                 toolVersion = "1",
                 code = DispatchOutcomeCode.SUCCESS,
                 decisionSource = DecisionSource.POLICY,
-                riskLevel = null,
+                operationClass = null,
                 bindingHash = null,
                 actionFingerprint = null,
                 outputHash = null,
@@ -150,7 +150,7 @@ class DispatchAuditPayloadTest {
                 timestamp = 10L,
             )
         assertNotNull(record)
-        assertNull(record!!.risk)
+        assertNull(record!!.operationClass)
         assertNull(record.bindingHash)
         assertTrue(record.complete)
     }

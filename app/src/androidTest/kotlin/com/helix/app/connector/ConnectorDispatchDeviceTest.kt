@@ -3,7 +3,6 @@ package com.helix.app.connector
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.model.ToolName
@@ -140,7 +139,6 @@ class ConnectorDispatchDeviceTest {
                     ).jsonObject,
             outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

@@ -7,7 +7,6 @@ import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolCallState
@@ -179,7 +178,6 @@ class ExecutionEffectBoundaryDeviceTest {
                 inputSchema = Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
                 outputSchema = Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
                 operationClass = ToolOperationClass.READ_ONLY,
-                baseRisk = RiskLevel.L1,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),

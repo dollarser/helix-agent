@@ -144,7 +144,7 @@ private fun recoverySourceFor(
     // Pre-filter before the O(session) eligibility scan: only budget-code FAILED turns pay it.
     val budgetEligible =
         turn.state == TurnState.FAILED.name &&
-            turn.errorCode in BudgetStopReasons.turn &&
+            turn.errorCode in BudgetStopReasons.continuable &&
             BudgetContinuation.eligible(storage, turn)
     return TurnRecoverySource(
         turnId = turn.id,

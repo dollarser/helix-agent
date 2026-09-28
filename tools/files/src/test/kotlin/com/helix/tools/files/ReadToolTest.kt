@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
@@ -138,7 +137,6 @@ class ReadToolTest {
         assertEquals("read", d.name.value)
         assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.READ_ONLY, d.operationClass)
-        assertEquals(RiskLevel.L1, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)

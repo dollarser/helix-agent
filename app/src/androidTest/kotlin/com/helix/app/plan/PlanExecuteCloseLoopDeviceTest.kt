@@ -82,6 +82,7 @@ class PlanExecuteCloseLoopDeviceTest {
                     compose.onAllNodesWithTag("plan-review-$planId").fetchSemanticsNodes().isNotEmpty()
                 }
                 compose.onNodeWithTag("plan-execute-$planId").assertExists()
+                val expectedBudgets = chat.runControl.value.goalBudgets
                 compose.onNodeWithTag("plan-execute-$planId").performClick()
                 // The execute button launches approve -> execute on Dispatchers.Main.immediate: each
                 // service call hops to IO and resumes back on the main looper, so this wait must PUMP
@@ -97,6 +98,7 @@ class PlanExecuteCloseLoopDeviceTest {
                 val goalId =
                     checkNotNull(planEntity.evidenceRef) { "an executed plan must bind its executing goal" }
                 val goalEntity = container.storage.goals.resolveEntity(goalId)
+                assertEquals(expectedBudgets.toStorageString(), goalEntity.budgets)
                 assertEquals(planId, goalEntity.planId)
                 assertEquals(
                     "the goal must bind the EXACT reviewed version's hash",

@@ -43,6 +43,11 @@ internal interface TurnContextAssembler {
 
 /** The agent loop's tool-execution port: one bounded-parallel round per call, settled in call order. */
 internal interface TurnToolExecutor {
+    /** Reconstructed from durable outcomes; no process-local counter can erase a loop on reopen. */
+    fun loopProgress(turnId: String): ToolLoopProgress.Decision = ToolLoopProgress.Decision.CONTINUE
+
+    fun resetLoopProgress(turnId: String) = Unit
+
     /** Extract presentation once before history persistence and business execution. */
     fun prepareModelCalls(
         calls: List<BufferedModelToolCall>,

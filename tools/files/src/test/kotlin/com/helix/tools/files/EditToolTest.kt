@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
@@ -139,7 +138,6 @@ class EditToolTest {
         assertEquals("edit", d.name.value)
         assertEquals(2, d.version.value)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
-        assertEquals(RiskLevel.L2, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)

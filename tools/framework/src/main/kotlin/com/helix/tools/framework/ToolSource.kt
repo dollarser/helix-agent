@@ -2,7 +2,6 @@ package com.helix.tools.framework
 
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -84,7 +83,6 @@ data class McpToolSpec(
     val inputSchema: JsonObject,
     val outputSchema: JsonObject,
     val operationClass: ToolOperationClass,
-    val baseRisk: RiskLevel,
     val timeout: Duration,
     val maxOutputBytes: Long,
     val requiredCapabilities: Set<Capability>,
@@ -144,7 +142,6 @@ class McpToolSource(
             inputSchema = inputSchema,
             outputSchema = outputSchema,
             operationClass = operationClass,
-            baseRisk = baseRisk,
             timeout = timeout,
             maxOutputBytes = maxOutputBytes,
             requiredCapabilities = requiredCapabilities,
@@ -225,7 +222,6 @@ class A2aToolSource(
             inputSchema = inputSchema,
             outputSchema = outputSchema,
             operationClass = ToolOperationClass.NETWORK,
-            baseRisk = RiskLevel.L1,
             timeout = timeout,
             maxOutputBytes = maxOutputBytes,
             requiredCapabilities = emptySet(),

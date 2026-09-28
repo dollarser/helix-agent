@@ -14,13 +14,13 @@ internal object BudgetContinuation {
         turn: TurnEntity,
         eligible: Boolean,
     ): Boolean =
-        !eligible && turn.errorCode in BudgetStopReasons.turn && storage.goalTurnBindings.byTurn(turn.id) == null
+        !eligible && turn.errorCode in BudgetStopReasons.continuable && storage.goalTurnBindings.byTurn(turn.id) == null
 
     fun eligible(
         storage: HelixStorage,
         turn: TurnEntity,
     ): Boolean =
-        turn.state == TurnState.FAILED.name && turn.errorCode in BudgetStopReasons.turn &&
+        turn.state == TurnState.FAILED.name && turn.errorCode in BudgetStopReasons.continuable &&
             storage.goalTurnBindings.byTurn(turn.id) == null &&
             storage.turns
                 .listBySession(turn.sessionId)

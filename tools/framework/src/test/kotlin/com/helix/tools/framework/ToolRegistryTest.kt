@@ -1,6 +1,5 @@
 package com.helix.tools.framework
 
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -94,17 +93,14 @@ class ToolRegistryTest {
                             builtIn(
                                 name = "read",
                                 operationClass = ToolOperationClass.READ_ONLY,
-                                baseRisk = RiskLevel.L0,
                             ),
                             builtIn(
                                 name = "peek",
                                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                                baseRisk = RiskLevel.L0,
                             ),
                             builtIn(
                                 name = "fetch",
                                 operationClass = ToolOperationClass.NETWORK,
-                                baseRisk = RiskLevel.L0,
                             ),
                         ),
                     ),

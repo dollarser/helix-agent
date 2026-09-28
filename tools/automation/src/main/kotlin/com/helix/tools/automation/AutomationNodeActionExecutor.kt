@@ -63,7 +63,7 @@ internal class AutomationNodeActionExecutor(
                 AutomationActionStatus.TARGET_NOT_ALLOWLISTED
             }
 
-            sensitiveTargetPolicy.isDeniedPackage(binding.packageName) ||
+            sensitiveTargetPolicy.isDeniedPackage(binding.packageName, session.allowSystemSettings) ||
                 observed.password ||
                 observed.accessibilityDataSensitive -> {
                 AutomationActionStatus.SENSITIVE_UI
@@ -95,13 +95,22 @@ internal class AutomationNodeActionExecutor(
         ) {
             return result(AutomationActionStatus.INVALID_ARGUMENT)
         }
+        val validProgress = request.progress?.let { it.isFinite() && observed.range?.accepts(it) != false } == true
+        if (request.action == AutomationNodeAction.SET_PROGRESS && !validProgress) {
+            return result(AutomationActionStatus.INVALID_ARGUMENT)
+        }
         if (sensitiveSemanticPolicy.isDenied(observed, request.action)) {
             return result(AutomationActionStatus.SENSITIVE_UI)
         }
         val actionAndArguments =
             actionAndArguments(observed, request)
                 ?: return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
-        val performed = node.performAction(actionAndArguments.first, actionAndArguments.second)
+        val performed =
+            if (request.action == AutomationNodeAction.SET_PROGRESS) {
+                node.setProgress(requireNotNull(request.progress).toFloat())
+            } else {
+                node.performAction(actionAndArguments.first, actionAndArguments.second)
+            }
         if (!performed) return result(AutomationActionStatus.ACTION_FAILED)
         tokenRegistry.invalidate()
         return result(AutomationActionStatus.SUCCEEDED)
@@ -133,6 +142,17 @@ internal class AutomationNodeActionExecutor(
                                 text,
                             )
                         }
+                } else {
+                    null
+                }
+            }
+
+            AutomationNodeAction.SET_PROGRESS -> {
+                val progress = request.progress
+                if (observed.enabled && observed.canSetProgress && progress != null &&
+                    observed.range?.accepts(progress) == true
+                ) {
+                    android.R.id.accessibilityActionSetProgress to null
                 } else {
                     null
                 }

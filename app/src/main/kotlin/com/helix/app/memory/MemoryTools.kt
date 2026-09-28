@@ -1,7 +1,6 @@
 package com.helix.app.memory
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -49,7 +48,6 @@ internal object MemoryTools {
                     inputSchema = schema(name),
                     outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
                     operationClass = if (writing) ToolOperationClass.LOCAL_MUTATION else ToolOperationClass.READ_ONLY,
-                    baseRisk = if (writing) RiskLevel.L1 else RiskLevel.L0,
                     timeout = 5.seconds,
                     maxOutputBytes = 262_144,
                     requiredCapabilities = emptySet(),

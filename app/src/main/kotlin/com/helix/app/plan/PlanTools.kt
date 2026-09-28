@@ -4,7 +4,6 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -93,7 +92,6 @@ object PlanTools {
                     put("additionalProperties", JsonPrimitive(false))
                 },
             operationClass = ToolOperationClass.METADATA,
-            baseRisk = RiskLevel.L0,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

@@ -1,6 +1,6 @@
 package com.helix.tools.framework
 
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -73,8 +73,7 @@ enum class DecisionSource {
  * are epoch milliseconds from the injected clock; stage timestamps are null until the
  * stage was reached (e.g. `approvalAcquiredAt` is null when the policy allowed the call).
  *
- * [riskLevel] is the Policy Engine's DYNAMIC risk for this dispatch (base risk plus the
- * egress/change factors) — the value the audit page (HXA-036) filters by. It is null when
+ * [operationClass] is the trusted operation the audit page filters by. It is null when
  * the dispatch stopped before the policy stage ran (validation, unknown tool).
  *
  * [executionDetail] is the optional bounded, REDACTED executor metadata (HXA-053) — for an
@@ -105,7 +104,7 @@ data class DispatchAuditEvent(
     val finishedAt: Long,
     val code: DispatchOutcomeCode,
     val decisionSource: DecisionSource,
-    val riskLevel: RiskLevel?,
+    val operationClass: ToolOperationClass?,
     val bindingHash: String?,
     val actionFingerprint: String?,
     val outputHash: String?,

@@ -4,11 +4,11 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.model.ToolName
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.policy.ApprovalProof
@@ -225,9 +225,8 @@ class ToolDispatcher(
      * classified through [effectClassifier] into the single [SessionPermissionResolver]
      * AFTER the hard gates; a refusal (tool disable or a DENY rule) stops the call before
      * any approval surface (section 2 step 2) and the stage is the SINGLE card driver — an
-     * ASK composes into the SAME per-call card, all-ALLOW is card-free, and the historical
-     * L3 default denial plus the risk/egress approval never stop or re-ask a call the
-     * session mode authorized (section 1: 完全免确认不是仅 L2 豁免).
+     * ASK composes into the SAME per-call card and all-ALLOW is card-free.
+     * Concrete hard boundaries remain mandatory in every authorization mode.
      */
     private val sessionPermissions: SessionPermissionSource? = null,
     private val toolAvailability: ToolAvailabilitySource? = null,
@@ -377,15 +376,12 @@ class ToolDispatcher(
                 ruleProvider(),
             )
         ctx.policyDecidedAt = clock.now().toEpochMilli()
-        ctx.riskLevel = policy.dynamicRisk
+        ctx.operationClass = policy.operationClass
         // ADR section 2 step 1: hard-fact denials stop before any authorization source —
         // ungranted capabilities, credential/reserved/LAN egress, and the Chat/Plan
-        // boundaries that no preset relaxes. The historical L3 default denial is a product
-        // default, not a fact: with the session stage wired it is demoted to a risk signal
-        // and never stops or re-asks a call the session mode authorized (section 1); unwired
-        // it keeps its historical stop (legacy fail-closed for non-session contexts).
+        // boundaries that no preset relaxes. Authorization follows these hard checks.
         val deny = policy.decision as? PolicyDecision.Deny
-        if (deny != null && !isDemotedL3DefaultDenial(deny)) {
+        if (deny != null) {
             return stopped(
                 ctx,
                 ToolDispatchOutcome.Denied(
@@ -421,17 +417,6 @@ class ToolDispatcher(
         }
         return null
     }
-
-    /**
-     * HXA-209 B4 (ADR section 2): the historical L3 default denial is a product default, not
-     * an unexecutable fact — with the session stage wired it is demoted to a risk signal
-     * (displayed and audited; never a stop and never a re-ask for a session-authorized call:
-     * 完全免确认不是仅 L2 豁免). Every other policy denial stays a hard stop in all wirings.
-     */
-    private fun isDemotedL3DefaultDenial(decision: PolicyDecision): Boolean =
-        decision is PolicyDecision.Deny &&
-            decision.code == PolicyDenialCode.L3_DEFAULT_DENY &&
-            sessionPermissions != null
 
     /**
      * Presents the per-call card for [detail] — or, for a bounded technical retry, spends the
@@ -540,20 +525,14 @@ class ToolDispatcher(
 
     /**
      * The card text for a session-permission approval (ADR section 2 step 4): the resolver's
-     * precise reasons plus the RISK_LEVEL composed here (not by the resolver). The composed
+     * precise reasons plus the operation class composed here. The composed
      * text never claims an auto-approval — the approval is the user's precise one-time decision
      * (section 5).
      */
     private fun composedPermissionDetail(
         permission: SessionPermissionResolution.RequiresApproval,
         policy: PolicyEvaluation,
-    ): String {
-        val composed = permission.reasons + PermissionReason(PermissionReasonCode.RISK_LEVEL)
-        val risk = policy.dynamicRisk.name
-        return composed.joinToString("; ") { reason ->
-            if (reason.code == PermissionReasonCode.RISK_LEVEL) "RISK_LEVEL:$risk" else reason.reasonToken()
-        }
-    }
+    ): String = "Operation:${policy.operationClass}; " + permission.reasons.joinToString("; ") { it.reasonToken() }
 
     /** Clears the same-turn denial set for [turnId] (the agent loop calls this at turn end). */
     fun endTurn(turnId: String) {
@@ -678,7 +657,7 @@ class ToolDispatcher(
                 ApprovalRequest(
                     binding,
                     decision.detail,
-                    ctx.riskLevel ?: error("dynamic risk unset before the approval stage"),
+                    ctx.operationClass ?: error("operation class unset before the approval stage"),
                     request.cancel,
                     matchedEgressRule,
                 ),
@@ -852,10 +831,9 @@ class ToolDispatcher(
         val permission = sessionPermissionResolution(request, descriptor, ctx)
         if (ctx.stopped != null) return false
         if (permission is SessionPermissionResolution.RequiresApproval && proof == null) return false
-        // Hard-fact policy denials re-checked live (the historical L3 default stays demoted —
-        // a dynamic risk factor is not an unexecutable fact).
+        // Recheck concrete policy denials immediately before execution.
         val deny = policy.decision as? PolicyDecision.Deny
-        if (deny != null && !isDemotedL3DefaultDenial(deny)) {
+        if (deny != null) {
             stopped<Unit>(
                 ctx,
                 ToolDispatchOutcome.Denied(
@@ -1056,7 +1034,7 @@ class ToolDispatcher(
                 finishedAt = clock.now().toEpochMilli(),
                 code = code,
                 decisionSource = source,
-                riskLevel = ctx.riskLevel,
+                operationClass = ctx.operationClass,
                 bindingHash = ctx.bindingHash,
                 actionFingerprint = ctx.actionFingerprint,
                 outputHash = ctx.outputHash,
@@ -1162,7 +1140,7 @@ class ToolDispatcher(
         /** 1-based attempt number within this dispatch (doc 11 section 3.3 attemptId). */
         var attemptId: Int = 1
         var policyDecidedAt: Long? = null
-        var riskLevel: RiskLevel? = null
+        var operationClass: ToolOperationClass? = null
         var approvalAcquiredAt: Long? = null
         var executionStartedAt: Long? = null
         var bindingHash: String? = null

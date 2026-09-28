@@ -5,7 +5,6 @@ import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -78,7 +77,6 @@ class TodoWriteToolTest {
     fun theContractIsAMetadataL0BuiltInIdempotentToolAdmittedByPlanMode() {
         val d = registry.resolve(ToolName(TodoWriteTool.NAME), ToolVersion(TodoWriteTool.VERSION))
         assertEquals(ToolOperationClass.METADATA, d.operationClass)
-        assertEquals(RiskLevel.L0, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
@@ -87,7 +85,7 @@ class TodoWriteToolTest {
         assertTrue(
             ModePolicy.evaluate(
                 AgentMode.PLAN,
-                ToolModeProfile(ToolOperationClass.METADATA, RiskLevel.L0),
+                ToolModeProfile(ToolOperationClass.METADATA),
             ) is ModeDecision.Allowed,
         )
     }

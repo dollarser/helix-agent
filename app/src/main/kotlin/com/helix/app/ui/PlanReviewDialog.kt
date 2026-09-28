@@ -23,12 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.plan.PlanReview
-import com.helix.core.model.GoalBudgets
 import com.helix.core.storage.repository.PlanLifecycleState
 import kotlinx.coroutines.launch
-
-/** Same default run budgets as the goal-creation panel (GoalDialog) — plan execution creates a goal. */
-private val PLAN_EXECUTION_BUDGETS = GoalBudgets(32, 64, 100_000, 600_000, 300_000, 0)
 
 /**
  * The plan review surface (P0-B, doc section 12): shows the structured plan artifact
@@ -127,7 +123,7 @@ private fun PlanReviewActions(
                     val executed =
                         runCatching {
                             val binding = service.approvePlan(planId)
-                            service.executeApprovedPlan(binding, PLAN_EXECUTION_BUDGETS)
+                            service.executeApprovedPlan(binding, service.runControl.value.goalBudgets)
                         }.getOrNull()
                     busy = false
                     if (executed != null) onDone()

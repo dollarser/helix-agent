@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -46,7 +45,7 @@ import kotlin.time.Duration.Companion.seconds
  * reported sanitized — the raw exception text (which may carry real paths) never reaches the
  * model or the batch caller.
  *
- * Contract: L2 base risk (a per-call-approval mutation), LOCAL_MUTATION operation class, idempotent
+ * Contract: LOCAL_MUTATION operation class, idempotent
  * (re-writing identical content has no additional effect), LOCAL_ANDROID, built-in origin, no
  * required capabilities (workspace writes need no OS permission). Ordinary workspace root files
  * are writable; `.helix/` internals remain protected.
@@ -78,7 +77,6 @@ object WriteTool {
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 8 * 1024,
             requiredCapabilities = emptySet(),

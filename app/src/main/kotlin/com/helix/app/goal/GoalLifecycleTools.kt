@@ -1,7 +1,6 @@
 package com.helix.app.goal
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -80,7 +79,6 @@ internal object GoalLifecycleTools {
                     outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
                     operationClass =
                         if (name == "get_goal") ToolOperationClass.READ_ONLY else ToolOperationClass.METADATA,
-                    baseRisk = RiskLevel.L0,
                     timeout = 5.seconds,
                     maxOutputBytes = 131072,
                     requiredCapabilities = emptySet(),

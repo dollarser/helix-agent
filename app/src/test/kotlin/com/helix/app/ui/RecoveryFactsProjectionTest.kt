@@ -17,6 +17,35 @@ import org.junit.Test
  */
 class RecoveryFactsProjectionTest {
     @Test
+    fun noProgressPreservesResultsAndOffersOnlyTheAdmittedContinuation() {
+        val stopped =
+            facts(
+                turnState = TurnState.FAILED.name,
+                errorCode = "TOOL_LOOP_NO_PROGRESS",
+                calls = listOf(call("COMPLETED", "write", "saved")),
+                budgetContinuationEligible = true,
+            )
+        val ordinary = recoverySummary(stopped)
+        assertEquals(RecoveryBlockClass.EXECUTION_FAILED, ordinary.blockClass)
+        assertEquals(listOf("saved"), ordinary.completedActions.map { it.callId })
+        assertEquals(listOf(RecoveryOperation.RETRY_NEW_CALL), ordinary.operations)
+        val goal =
+            recoverySummary(
+                stopped.copy(
+                    budgetContinuationEligible = false,
+                    goalBound = true,
+                    goalState = "INPUT_REQUIRED",
+                    goalContinuable = true,
+                ),
+            )
+        assertEquals(listOf(RecoveryOperation.CONTINUE_GOAL), goal.operations)
+        assertTrue(recoverySummary(stopped.copy(budgetContinuationEligible = false)).operations.isEmpty())
+        val uncertain = recoverySummary(stopped.copy(toolCalls = listOf(call("NEEDS_REVIEW"))))
+        assertEquals(RecoveryBlockClass.RESULT_UNKNOWN, uncertain.blockClass)
+        assertEquals(listOf(RecoveryOperation.QUERY_RESULT), uncertain.operations)
+    }
+
+    @Test
     fun completedTurnHasNoBlockAndListsCompletedActionsAndArtifacts() {
         val summary =
             recoverySummary(

@@ -2,7 +2,6 @@ package com.helix.app.mcp
 
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ModelRequest
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -32,7 +31,6 @@ class McpToolDiscoveryTest {
             name = ToolName("mcp.catalog.tool_$index"),
             description = "catalog operation $index",
             operationClass = ToolOperationClass.NETWORK,
-            baseRisk = RiskLevel.L1,
             origin = ToolOrigin.McpOrigin("catalog", "2025-03-26", "a".repeat(64)),
         )
 

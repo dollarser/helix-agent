@@ -7,7 +7,6 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.McpServerId
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
 import org.junit.Assert.assertEquals
@@ -44,7 +43,6 @@ class PolicyEngineTest {
     // composed factor); a builder object would add indirection without narrowing the contract.
     @Suppress("LongParameterList")
     private fun input(
-        baseRisk: RiskLevel = RiskLevel.L1,
         operationClass: ToolOperationClass = ToolOperationClass.NETWORK,
         mode: AgentMode = AgentMode.ACT,
         chatToolsEnabled: Boolean = false,
@@ -61,7 +59,6 @@ class PolicyEngineTest {
         originSeenInSession: Boolean = true,
         lanScopes: Set<NetworkOriginScope> = emptySet(),
     ) = PolicyInput(
-        baseRisk = baseRisk,
         operationClass = operationClass,
         mode = mode,
         chatToolsEnabled = chatToolsEnabled,
@@ -116,50 +113,36 @@ class PolicyEngineTest {
 
     @Test
     fun lowRiskCallIsAllowedWithoutFactors() {
-        val evaluation = engine.evaluate(input(baseRisk = RiskLevel.L0, operationClass = ToolOperationClass.READ_ONLY))
+        val evaluation = engine.evaluate(input(operationClass = ToolOperationClass.READ_ONLY))
         assertEquals(PolicyDecision.Allow, evaluation.decision)
-        assertEquals(RiskLevel.L0, evaluation.dynamicRisk)
-        assertTrue(evaluation.riskFactors.isEmpty())
+        assertEquals(ToolOperationClass.READ_ONLY, evaluation.operationClass)
+        assertTrue(evaluation.policyFactors.isEmpty())
     }
 
     @Test
-    fun l2BaseRequiresApprovalAndL3IsDeniedByDefault() {
-        val l2 = engine.evaluate(input(baseRisk = RiskLevel.L2))
-        approvalOf(l2)
-        assertEquals(RiskLevel.L2, l2.dynamicRisk)
-
-        val l3 = engine.evaluate(input(baseRisk = RiskLevel.L3))
-        assertEquals(PolicyDenialCode.L3_DEFAULT_DENY, denialOf(l3).code)
+    fun mutationsAndPrivilegedOperationsRequireAuthorizationWithoutAnOrdinalDefaultDeny() {
+        for (operation in listOf(ToolOperationClass.LOCAL_MUTATION, ToolOperationClass.PRIVILEGED)) {
+            val result = engine.evaluate(input(operationClass = operation))
+            approvalOf(result)
+            assertEquals(operation, result.operationClass)
+        }
     }
 
     @Test
-    fun dynamicRiskNeverBelowBaseRisk() {
-        val factorCombinations =
-            (0 until 32).map { i ->
-                booleanArrayOf(i and 1 != 0, i and 2 != 0, i and 4 != 0, i and 8 != 0, i and 16 != 0)
-            }
-        for (base in listOf(RiskLevel.L0, RiskLevel.L1, RiskLevel.L2)) {
-            for (combo in factorCombinations) {
-                val overwrite = combo[0]
-                val codeChanged = combo[1]
-                val bindingChanged = combo[2]
-                val newOrigin = combo[3]
-                val evaluation =
+    fun parameterChangesNeverReclassifyTheTrustedOperation() {
+        for (operation in ToolOperationClass.entries) {
+            for (changed in listOf(false, true)) {
+                val result =
                     engine.evaluate(
                         input(
-                            baseRisk = base,
-                            egress = egress(),
-                            overwritesExisting = overwrite,
-                            codeOrCommandChanged = codeChanged,
-                            sourceBindingChanged = bindingChanged,
-                            originSeenInSession = !newOrigin,
+                            operationClass = operation,
+                            overwritesExisting = changed,
+                            codeOrCommandChanged = changed,
+                            sourceBindingChanged = changed,
+                            originSeenInSession = !changed,
                         ),
                     )
-                assertTrue(
-                    "risk ${evaluation.dynamicRisk} below base $base " +
-                        "(overwrite=$overwrite, code=$codeChanged, binding=$bindingChanged, new=$newOrigin)",
-                    evaluation.dynamicRisk >= base,
-                )
+                assertEquals(operation, result.operationClass)
             }
         }
     }
@@ -184,7 +167,7 @@ class PolicyEngineTest {
     fun planModeReadOnlyAtLowRiskIsAllowed() {
         val evaluation =
             engine.evaluate(
-                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.READ_ONLY),
             )
         assertEquals(PolicyDecision.Allow, evaluation.decision)
     }
@@ -195,94 +178,70 @@ class PolicyEngineTest {
         // disguised read.
         val evaluation =
             engine.evaluate(
-                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA, baseRisk = RiskLevel.L0),
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA),
             )
         assertEquals(PolicyDecision.Allow, evaluation.decision)
     }
 
     @Test
-    fun planModeMetadataAboveL1IsDeniedByRiskCeiling() {
-        val evaluation =
-            engine.evaluate(
-                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA, baseRisk = RiskLevel.L2),
-            )
-        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(evaluation).code)
+    fun planMetadataIsAllowedWithoutAnOrdinalCeiling() {
+        assertEquals(
+            PolicyDecision.Allow,
+            engine
+                .evaluate(
+                    input(
+                        mode = AgentMode.PLAN,
+                        operationClass = ToolOperationClass.METADATA,
+                        sourceBindingChanged = true,
+                    ),
+                ).decision,
+        )
     }
 
     @Test
-    fun chatRequiresExplicitOptInAndStillAllowsOnlyReadOnlyL0() {
-        val disabled =
-            engine.evaluate(
-                input(mode = AgentMode.CHAT, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
-            )
-        assertEquals(PolicyDenialCode.CHAT_TOOLS_DISABLED, denialOf(disabled).code)
-
-        val allowed =
-            engine.evaluate(
-                input(
-                    mode = AgentMode.CHAT,
-                    chatToolsEnabled = true,
-                    operationClass = ToolOperationClass.READ_ONLY,
-                    baseRisk = RiskLevel.L0,
-                ),
-            )
-        assertEquals(PolicyDecision.Allow, allowed.decision)
-
-        val mutation =
-            engine.evaluate(
-                input(
-                    mode = AgentMode.CHAT,
-                    chatToolsEnabled = true,
-                    operationClass = ToolOperationClass.LOCAL_MUTATION,
-                ),
-            )
-        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(mutation).code)
-        val sensitiveRead =
-            engine.evaluate(
-                input(
-                    mode = AgentMode.CHAT,
-                    chatToolsEnabled = true,
-                    operationClass = ToolOperationClass.READ_ONLY,
-                    baseRisk = RiskLevel.L1,
-                ),
-            )
-        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(sensitiveRead).code)
+    fun chatRequiresOptInAndRejectsAllEffectfulClasses() {
+        assertEquals(
+            PolicyDenialCode.CHAT_TOOLS_DISABLED,
+            denialOf(engine.evaluate(input(mode = AgentMode.CHAT, operationClass = ToolOperationClass.READ_ONLY))).code,
+        )
+        for (operation in ToolOperationClass.entries) {
+            val result =
+                engine.evaluate(
+                    input(mode = AgentMode.CHAT, chatToolsEnabled = true, operationClass = operation),
+                )
+            if (operation in setOf(ToolOperationClass.READ_ONLY, ToolOperationClass.METADATA)) {
+                assertEquals(PolicyDecision.Allow, result.decision)
+            } else {
+                assertEquals(PolicyDenialCode.MODE_OPERATION_DENIED, denialOf(result).code)
+            }
+        }
     }
 
     @Test
-    fun chatEnabledAllowsMetadataL0AndRejectsItAboveL0() {
-        // The todo ledger is a METADATA op Chat keeps at L0; above the cap the risk ceiling
-        // still denies it (risk cannot trade for the admitted class).
-        val allowed =
+    fun chatMetadataStillCannotExportCredentials() {
+        val result =
             engine.evaluate(
                 input(
                     mode = AgentMode.CHAT,
                     chatToolsEnabled = true,
                     operationClass = ToolOperationClass.METADATA,
-                    baseRisk = RiskLevel.L0,
+                    egress = egress(sensitivity = DataSensitivity.FORBIDDEN),
                 ),
             )
-        assertEquals(PolicyDecision.Allow, allowed.decision)
-
-        val aboveCap =
-            engine.evaluate(
-                input(
-                    mode = AgentMode.CHAT,
-                    chatToolsEnabled = true,
-                    operationClass = ToolOperationClass.METADATA,
-                    baseRisk = RiskLevel.L1,
-                ),
-            )
-        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(aboveCap).code)
+        assertEquals(PolicyDenialCode.CREDENTIALS_ALWAYS_DENIED, denialOf(result).code)
     }
 
     @Test
-    fun planDynamicRiskCeilingCannotBeApprovedThrough() {
-        val evaluation =
+    fun planReadStillChecksEgressInsteadOfAnOrdinalCeiling() {
+        val result =
             engine.evaluate(
-                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L2),
+                input(
+                    mode = AgentMode.PLAN,
+                    operationClass = ToolOperationClass.READ_ONLY,
+                    egress = egress(sensitivity = DataSensitivity.FORBIDDEN),
+                ),
             )
-        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(evaluation).code)
+        assertEquals(PolicyDenialCode.CREDENTIALS_ALWAYS_DENIED, denialOf(result).code)
     }
 
     // --- goal mode: where a plan-executing goal runs -------------------------------
@@ -301,7 +260,6 @@ class PolicyEngineTest {
                 input(
                     mode = AgentMode.PLAN,
                     operationClass = ToolOperationClass.LOCAL_MUTATION,
-                    baseRisk = RiskLevel.L1,
                 ),
             )
         assertEquals(PolicyDenialCode.PLAN_MODE_NOT_READ_ONLY, denialOf(plan).code)
@@ -311,10 +269,9 @@ class PolicyEngineTest {
                 input(
                     mode = AgentMode.GOAL,
                     operationClass = ToolOperationClass.LOCAL_MUTATION,
-                    baseRisk = RiskLevel.L1,
                 ),
             )
-        assertEquals(PolicyDecision.Allow, goal.decision)
+        approvalOf(goal)
     }
 
     @Test
@@ -326,20 +283,15 @@ class PolicyEngineTest {
                 input(
                     mode = AgentMode.GOAL,
                     operationClass = ToolOperationClass.LOCAL_MUTATION,
-                    baseRisk = RiskLevel.L2,
                 ),
             )
         approvalOf(evaluation)
-        assertEquals(RiskLevel.L2, evaluation.dynamicRisk)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, evaluation.operationClass)
     }
 
     @Test
-    fun goalModeL3IsDeniedByDefaultRegardlessOfAnyPlan() {
-        val evaluation =
-            engine.evaluate(
-                input(mode = AgentMode.GOAL, operationClass = ToolOperationClass.PRIVILEGED, baseRisk = RiskLevel.L3),
-            )
-        assertEquals(PolicyDenialCode.L3_DEFAULT_DENY, denialOf(evaluation).code)
+    fun goalPrivilegedActionNeedsAuthorizationRegardlessOfPlan() {
+        approvalOf(engine.evaluate(input(mode = AgentMode.GOAL, operationClass = ToolOperationClass.PRIVILEGED)))
     }
 
     @Test
@@ -359,7 +311,11 @@ class PolicyEngineTest {
     fun advancedOnlyRuntimesAreAllowedUnderAdvanced() {
         val evaluation =
             engine.evaluate(
-                input(profile = SafetyProfile.ADVANCED, executionTarget = ExecutionTargetType.LOCAL_PROOT),
+                input(
+                    operationClass = ToolOperationClass.READ_ONLY,
+                    profile = SafetyProfile.ADVANCED,
+                    executionTarget = ExecutionTargetType.LOCAL_PROOT,
+                ),
             )
         assertEquals(PolicyDecision.Allow, evaluation.decision)
     }
@@ -426,6 +382,7 @@ class PolicyEngineTest {
         val evaluation =
             engine.evaluate(
                 input(
+                    operationClass = ToolOperationClass.READ_ONLY,
                     profile = SafetyProfile.ADVANCED,
                     egress = egress(sensitivity = DataSensitivity.SENSITIVE),
                     scope = scope,
@@ -433,7 +390,7 @@ class PolicyEngineTest {
                 setOf(live),
             )
         assertEquals(PolicyDecision.Allow, evaluation.decision)
-        assertTrue(evaluation.riskFactors.any { it.contains("ADVANCED high-sensitivity rule active") })
+        assertTrue(evaluation.policyFactors.any { it.contains("ADVANCED high-sensitivity rule active") })
         // The covering rule is surfaced (HXA-036: the card must show it as a BOUNDED rule).
         assertSame(live, evaluation.matchedEgressRule)
     }
@@ -524,6 +481,7 @@ class PolicyEngineTest {
         val live = rule()
         val base =
             input(
+                operationClass = ToolOperationClass.READ_ONLY,
                 profile = SafetyProfile.ADVANCED,
                 egress = egress(sensitivity = DataSensitivity.SENSITIVE),
                 scope = scope,
@@ -553,12 +511,20 @@ class PolicyEngineTest {
 
     @Test
     fun lanEgressUnderAdvancedRequiresAnExactScope() {
-        val without = engine.evaluate(input(profile = SafetyProfile.ADVANCED, egress = egress(endpoint = lanEndpoint)))
+        val without =
+            engine.evaluate(
+                input(
+                    operationClass = ToolOperationClass.READ_ONLY,
+                    profile = SafetyProfile.ADVANCED,
+                    egress = egress(endpoint = lanEndpoint),
+                ),
+            )
         assertEquals(PolicyDenialCode.LAN_NOT_ALLOWED, denialOf(without).code)
 
         val wrongPort =
             engine.evaluate(
                 input(
+                    operationClass = ToolOperationClass.READ_ONLY,
                     profile = SafetyProfile.ADVANCED,
                     egress = egress(endpoint = lanEndpoint),
                     lanScopes = setOf(NetworkOriginScope("192.168.1.10", 9999)),
@@ -569,13 +535,14 @@ class PolicyEngineTest {
         val exact =
             engine.evaluate(
                 input(
+                    operationClass = ToolOperationClass.READ_ONLY,
                     profile = SafetyProfile.ADVANCED,
                     egress = egress(endpoint = lanEndpoint),
                     lanScopes = setOf(NetworkOriginScope("192.168.1.10", 11434)),
                 ),
             )
         assertEquals(PolicyDecision.Allow, exact.decision)
-        assertTrue(exact.riskFactors.any { it.contains("192.168.1.10:11434") })
+        assertTrue(exact.policyFactors.any { it.contains("192.168.1.10:11434") })
     }
 
     @Test
@@ -596,42 +563,39 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun customRemoteUnknownRaisesRiskToAtLeastL2() {
-        val fromL0 = engine.evaluate(input(baseRisk = RiskLevel.L0, egress = egress(endpoint = unknownEndpoint)))
-        assertEquals(RiskLevel.L2, fromL0.dynamicRisk)
-        approvalOf(fromL0)
-
-        val fromL1 = engine.evaluate(input(baseRisk = RiskLevel.L1, egress = egress(endpoint = unknownEndpoint)))
-        assertEquals(RiskLevel.L2, fromL1.dynamicRisk)
+    fun unknownRemoteKeepsNetworkClassificationAndNeedsAuthorization() {
+        val result = engine.evaluate(input(egress = egress(endpoint = unknownEndpoint)))
+        assertEquals(ToolOperationClass.NETWORK, result.operationClass)
+        approvalOf(result)
     }
 
     @Test
-    fun newOriginRaisesRiskOneLevel() {
-        val fromL0 = engine.evaluate(input(baseRisk = RiskLevel.L0, egress = egress(), originSeenInSession = false))
-        assertEquals(RiskLevel.L1, fromL0.dynamicRisk)
-        assertTrue(fromL0.riskFactors.any { it.contains("new network origin") })
-
-        val fromL1 = engine.evaluate(input(baseRisk = RiskLevel.L1, egress = egress(), originSeenInSession = false))
-        assertEquals(RiskLevel.L2, fromL1.dynamicRisk)
+    fun newOriginDoesNotInventAnotherOperationClass() {
+        val result = engine.evaluate(input(egress = egress(), originSeenInSession = false))
+        assertEquals(ToolOperationClass.NETWORK, result.operationClass)
+        approvalOf(result)
     }
 
     @Test
-    fun overwriteCodeChangeAndBindingChangeRaiseToAtLeastL2() {
-        val overwrite = engine.evaluate(input(baseRisk = RiskLevel.L0, overwritesExisting = true))
-        assertEquals(RiskLevel.L2, overwrite.dynamicRisk)
-
-        val code = engine.evaluate(input(baseRisk = RiskLevel.L1, codeOrCommandChanged = true))
-        assertEquals(RiskLevel.L2, code.dynamicRisk)
-
-        val binding = engine.evaluate(input(baseRisk = RiskLevel.L1, sourceBindingChanged = true))
-        assertEquals(RiskLevel.L2, binding.dynamicRisk)
+    fun changedMutationsRemainSubjectToAuthorization() {
+        approvalOf(
+            engine.evaluate(input(operationClass = ToolOperationClass.LOCAL_MUTATION, overwritesExisting = true)),
+        )
+        approvalOf(
+            engine.evaluate(input(operationClass = ToolOperationClass.CODE_EXECUTION, codeOrCommandChanged = true)),
+        )
+        approvalOf(engine.evaluate(input(operationClass = ToolOperationClass.NETWORK, sourceBindingChanged = true)))
     }
 
     @Test
     fun browserOriginFloorsLabeledNormalEgressToSensitive() {
         val standard =
             engine.evaluate(
-                input(dataOrigin = DataOrigin.BROWSER, egress = egress(sensitivity = DataSensitivity.NORMAL)),
+                input(
+                    operationClass = ToolOperationClass.READ_ONLY,
+                    dataOrigin = DataOrigin.BROWSER,
+                    egress = egress(sensitivity = DataSensitivity.NORMAL),
+                ),
             )
         assertEquals(DataSensitivity.SENSITIVE, standard.effectiveDataCategory)
         approvalOf(standard)
@@ -640,6 +604,7 @@ class PolicyEngineTest {
         val advanced =
             engine.evaluate(
                 input(
+                    operationClass = ToolOperationClass.READ_ONLY,
                     profile = SafetyProfile.ADVANCED,
                     dataOrigin = DataOrigin.BROWSER,
                     egress = egress(sensitivity = DataSensitivity.NORMAL),

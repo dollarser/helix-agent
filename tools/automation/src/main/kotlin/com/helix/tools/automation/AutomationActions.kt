@@ -30,6 +30,7 @@ enum class AutomationNodeAction {
     CLICK,
     LONG_CLICK,
     SET_TEXT,
+    SET_PROGRESS,
     SCROLL_FORWARD,
     SCROLL_BACKWARD,
 }
@@ -43,6 +44,7 @@ data class AutomationNodeActionRequest(
     val action: AutomationNodeAction,
     val token: String,
     val text: String? = null,
+    val progress: Double? = null,
 )
 
 enum class AutomationActionStatus {
@@ -147,15 +149,27 @@ internal fun interface SensitiveAutomationSemanticPolicy {
             return when (action) {
                 AutomationNodeAction.CLICK,
                 AutomationNodeAction.LONG_CLICK,
-                -> semantics.matchesSensitiveTerms(clickTerms)
+                -> {
+                    semantics.matchesSensitiveTerms(clickTerms)
+                }
 
-                AutomationNodeAction.SET_TEXT -> semantics.matchesSensitiveTerms(textInputTerms)
+                AutomationNodeAction.SET_PROGRESS -> {
+                    semantics.matchesSensitiveTerms(clickTerms) || semantics.matchesSensitiveTerms(textInputTerms)
+                }
+
+                AutomationNodeAction.SET_TEXT -> {
+                    semantics.matchesSensitiveTerms(textInputTerms)
+                }
 
                 AutomationNodeAction.SCROLL_FORWARD,
                 AutomationNodeAction.SCROLL_BACKWARD,
-                -> false
+                -> {
+                    false
+                }
 
-                null -> node.password || node.accessibilityDataSensitive
+                null -> {
+                    node.password || node.accessibilityDataSensitive
+                }
             }
         }
 

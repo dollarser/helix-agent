@@ -27,8 +27,8 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.ToolOperationClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -150,15 +150,15 @@ private fun layoutApproval() =
         bindingHash = "a".repeat(64),
         toolName = "layout.fixture",
         sourceRef = "mcp:layout-fixture:2025-03-26:" + "ab".repeat(32),
-        baseRisk = RiskLevel.L2,
+        operationClass = ToolOperationClass.NETWORK,
         state = ApprovalCardState.PENDING,
         sourceRes = R.string.approval_source_mcp,
         sourceArgs = listOf("layout-fixture"),
         targetRes = R.string.approval_target_local_android,
         scope = "workspace:layout",
         arguments = "Long disclosed arguments 完整参数 ".repeat(24),
-        riskRes = R.string.approval_risk_l2,
-        riskArgs = emptyList(),
+        operationRes = R.string.operation_network,
+        operationArgs = emptyList(),
         profile = SafetyProfile.STANDARD,
         providerMcpId = "layout-fixture",
         networkOrigin = "https://example.com:443",

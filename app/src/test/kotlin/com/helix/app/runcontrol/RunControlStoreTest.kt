@@ -8,6 +8,21 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class RunControlStoreTest {
+    @Test fun longTaskLimitsRoundTripWithinAdvancedBounds() {
+        val lines = InMemoryLineStore()
+        val chosen = TurnBudgets(2048, 4096, 1000000, 16384, 128000000)
+        PersistedRunControlStore(lines).setBudgets(chosen)
+        assertEquals(chosen, PersistedRunControlStore(lines).current.budgets)
+    }
+
+    @Test fun savedCurrentBudgetsAreNeverRaisedIncludingTheFormerDefault() {
+        for (saved in listOf(TurnBudgets(32, 48, 1000000, 16384, 1000000), TurnBudgets(4, 5, 10000, 1000, 20000))) {
+            val lines = InMemoryLineStore()
+            lines.setLines("run_control_v1", listOf("ACT", "true", saved.toStorageString(), "HIGH", "budgets_v3"))
+            assertEquals(saved, PersistedRunControlStore(lines).current.budgets)
+        }
+    }
+
     @Test fun previousTemplateMigratesButExplicitV3AndCustomValuesRemain() {
         val lines = InMemoryLineStore()
         val old = TurnBudgetBounds.PREVIOUS_DEFAULT
@@ -24,18 +39,18 @@ class RunControlStoreTest {
 
     @Test fun defaultsProvideCompactionHeadroomAndLongerOutputWithinExistingCaps() {
         val defaults = TurnBudgetBounds.validate(TurnBudgetBounds.DEFAULT)
-        assertEquals(32, defaults.maxSteps)
-        assertEquals(48, defaults.maxModelCalls)
+        assertEquals(512, defaults.maxSteps)
+        assertEquals(1024, defaults.maxModelCalls)
         assertEquals(16384L, defaults.maxOutputTokens)
-        assertEquals(1000000L, defaults.maxTotalTokens)
+        assertEquals(32000000L, defaults.maxTotalTokens)
     }
 
     @Test
     fun legacyDefaultUpgradesWhileCustomBudgetsStayUnchanged() {
         val lines = InMemoryLineStore()
         lines.setLines("run_control_v1", listOf("ACT", "false", TurnBudgetBounds.LEGACY_DEFAULT.toStorageString()))
-        assertEquals(32, PersistedRunControlStore(lines).current.budgets.maxSteps)
-        assertEquals(48, PersistedRunControlStore(lines).current.budgets.maxModelCalls)
+        assertEquals(512, PersistedRunControlStore(lines).current.budgets.maxSteps)
+        assertEquals(1024, PersistedRunControlStore(lines).current.budgets.maxModelCalls)
         val custom = TurnBudgetBounds.LEGACY_DEFAULT.copy(maxSteps = 3)
         PersistedRunControlStore(lines).setBudgets(custom)
         assertEquals(custom, PersistedRunControlStore(lines).current.budgets)

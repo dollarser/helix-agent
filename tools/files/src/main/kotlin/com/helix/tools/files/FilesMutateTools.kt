@@ -22,9 +22,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * refused regardless. Deleting never erases: `files.delete` moves the file into the scope's
  * `.helix/trash/` (restore and physical purge are separate store operations, HXA-043).
  *
- * All three are baseRisk L2 with per-call approval: the roadmap's "cross-scope and overwrite
- * raise the risk" rule is satisfied fail-closed — a call that could be lower-risk still pays
- * the L2 approval (see the HXA-043 completion record, 决策记录).
+ * All three are LOCAL_MUTATION operations; current scope and user rules govern approval.
  * (Plain block comment, not KDoc: it documents the file, not a declaration.)
  */
 

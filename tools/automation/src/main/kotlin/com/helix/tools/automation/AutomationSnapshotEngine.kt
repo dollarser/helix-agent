@@ -21,6 +21,8 @@ internal interface SnapshotNode {
     val password: Boolean
     val accessibilityDataSensitive: Boolean
     val childCount: Int
+    val range: AutomationNodeRange? get() = null
+    val canSetProgress: Boolean get() = false
 
     fun childAt(index: Int): SnapshotNode?
 
@@ -28,6 +30,8 @@ internal interface SnapshotNode {
         action: Int,
         arguments: Bundle? = null,
     ): Boolean
+
+    fun setProgress(value: Float): Boolean = false
 
     fun recycle()
 }
@@ -48,6 +52,8 @@ internal data class ObservedSnapshotNode(
     val password: Boolean,
     val accessibilityDataSensitive: Boolean,
     val childCount: Int,
+    val range: AutomationNodeRange? = null,
+    val canSetProgress: Boolean = false,
 )
 
 internal fun SnapshotNode.observe(): ObservedSnapshotNode =
@@ -68,6 +74,8 @@ internal fun SnapshotNode.observe(): ObservedSnapshotNode =
         password = password,
         accessibilityDataSensitive = accessibilityDataSensitive,
         childCount = childCount,
+        range = range?.takeIf { it.accepts(it.current.toDouble()) },
+        canSetProgress = canSetProgress,
     )
 
 internal fun ObservedSnapshotNode.fingerprint(
@@ -90,7 +98,7 @@ internal fun ObservedSnapshotNode.fingerprint(
             editable.toString(),
             scrollable.toString(),
             enabled.toString(),
-        ),
+        ) + if (range != null || canSetProgress) listOf(range.toString(), canSetProgress.toString()) else emptyList(),
     )
 
 internal class AutomationSnapshotEngine(
@@ -127,9 +135,12 @@ internal class AutomationSnapshotEngine(
         if (packageName !in session.scope.allowedPackages) {
             root.recycleSafely()
             tokenRegistry.invalidate()
-            return result(AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED)
+            return AutomationSnapshotResult(
+                AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED,
+                targetPackage = packageName,
+            )
         }
-        if (sensitiveTargetPolicy.isDeniedPackage(packageName)) {
+        if (sensitiveTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)) {
             root.recycleSafely()
             tokenRegistry.invalidate()
             return result(AutomationSnapshotStatus.SENSITIVE_UI)
@@ -220,6 +231,8 @@ internal class AutomationSnapshotEngine(
                     editable = observed.editable,
                     scrollable = observed.scrollable,
                     enabled = observed.enabled,
+                    range = observed.range,
+                    canSetProgress = observed.canSetProgress && observed.range != null,
                 )
             state.hasUsefulSemantics =
                 state.hasUsefulSemantics ||
@@ -228,7 +241,7 @@ internal class AutomationSnapshotEngine(
                 observed.clickable ||
                 observed.longClickable ||
                 observed.editable ||
-                observed.scrollable
+                observed.scrollable || observed.canSetProgress
 
             val childCount = observed.childCount
             if (depth == MAX_DEPTH && childCount > 0) {
@@ -298,7 +311,19 @@ internal class AutomationSnapshotEngine(
 internal fun interface SensitiveAutomationTargetPolicy {
     fun isDeniedPackage(packageName: String): Boolean
 
+    fun isDeniedPackage(
+        packageName: String,
+        allowSystemSettings: Boolean,
+    ): Boolean = isDeniedPackage(packageName)
+
     companion object : SensitiveAutomationTargetPolicy {
+        override fun isDeniedPackage(
+            packageName: String,
+            allowSystemSettings: Boolean,
+        ): Boolean =
+            !(allowSystemSettings && packageName in SystemSettingsTargets.packages) &&
+                isDeniedPackage(packageName)
+
         private val deniedPackages =
             setOf(
                 "com.android.settings",
@@ -324,7 +349,7 @@ internal fun interface SensitiveAutomationTargetPolicy {
             )
 
         override fun isDeniedPackage(packageName: String): Boolean =
-            packageName in deniedPackages ||
+            packageName in deniedPackages || packageName in SystemSettingsTargets.packages ||
                 packageName
                     .lowercase()
                     .split('.', '_', '-')

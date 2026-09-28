@@ -4,7 +4,6 @@ import com.helix.app.R
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -58,20 +57,21 @@ class ApprovalCardUiMapperTest {
     // ------------------------------------------------------------------ risk / profile / state
 
     @Test
-    fun riskLabelShowsDynamicUplift() {
-        assertEquals(R.string.approval_risk_l1, ApprovalUiMapper.riskLabel(RiskLevel.L1, RiskLevel.L1).first)
-        val (upliftRes, upliftArgs) = ApprovalUiMapper.riskLabel(RiskLevel.L1, RiskLevel.L2)
-        assertEquals(R.string.approval_risk_dynamic_upgrade, upliftRes)
-        assertEquals(listOf(R.string.approval_risk_l1, R.string.approval_risk_l2), upliftArgs)
-        assertEquals(R.string.approval_risk_l2, ApprovalUiMapper.riskLabel(RiskLevel.L2, RiskLevel.L2).first)
+    fun everyOperationHasADistinctLabel() {
+        assertEquals(
+            7,
+            ToolOperationClass.entries
+                .map { ApprovalUiMapper.operationLabel(it) }
+                .distinct()
+                .size,
+        )
     }
 
     @Test
-    fun riskLabelSingleLevel() {
-        assertEquals(R.string.approval_risk_l0, ApprovalUiMapper.riskLabel(RiskLevel.L0))
-        assertEquals(R.string.approval_risk_l1, ApprovalUiMapper.riskLabel(RiskLevel.L1))
-        assertEquals(R.string.approval_risk_l2, ApprovalUiMapper.riskLabel(RiskLevel.L2))
-        assertEquals(R.string.approval_risk_l3, ApprovalUiMapper.riskLabel(RiskLevel.L3))
+    fun labelsDescribeActionsInsteadOfRiskLevels() {
+        assertEquals(R.string.operation_read, ApprovalUiMapper.operationLabel(ToolOperationClass.READ_ONLY))
+        assertEquals(R.string.operation_file_change, ApprovalUiMapper.operationLabel(ToolOperationClass.LOCAL_MUTATION))
+        assertEquals(R.string.operation_privileged, ApprovalUiMapper.operationLabel(ToolOperationClass.PRIVILEGED))
     }
 
     @Test
@@ -239,7 +239,6 @@ class ApprovalCardUiMapperTest {
                 state = ApprovalCardState.PENDING,
                 descriptor = CodeJavascriptRunTool.descriptor(),
                 arguments = buildJsonObject { put("code", "return 1") },
-                dynamicRisk = RiskLevel.L2,
                 profile = SafetyProfile.STANDARD,
                 dataOrigin = DataOrigin.WORKSPACE,
                 egressOrigin = null,
@@ -328,7 +327,6 @@ class ApprovalCardUiMapperTest {
                         """{"type":"object"}""",
                     ) as kotlinx.serialization.json.JsonObject,
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),
@@ -365,7 +363,6 @@ class ApprovalCardUiMapperTest {
                         put("code", "return { x: 1 }")
                         put("input", buildJsonObject { put("n", 2) })
                     },
-                dynamicRisk = RiskLevel.L2,
                 profile = SafetyProfile.STANDARD,
                 dataOrigin = DataOrigin.WORKSPACE,
                 egressOrigin = null,
@@ -389,7 +386,6 @@ class ApprovalCardUiMapperTest {
                 state = ApprovalCardState.PENDING,
                 descriptor = plainDescriptor(),
                 arguments = buildJsonObject { put("path", "/x") },
-                dynamicRisk = RiskLevel.L2,
                 profile = SafetyProfile.STANDARD,
                 dataOrigin = DataOrigin.WORKSPACE,
                 egressOrigin = null,
@@ -424,7 +420,6 @@ class ApprovalCardUiMapperTest {
             inputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
             outputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 4096L,
             requiredCapabilities = emptySet(),
@@ -454,7 +449,6 @@ class ApprovalCardUiMapperTest {
                         it as kotlinx.serialization.json.JsonObject
                     },
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L1,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),
@@ -498,7 +492,6 @@ class ApprovalCardUiMapperTest {
                 state = ApprovalCardState.PENDING,
                 descriptor = descriptor,
                 arguments = args,
-                dynamicRisk = RiskLevel.L2,
                 profile = SafetyProfile.STANDARD,
                 dataOrigin = DataOrigin.WORKSPACE,
                 egressOrigin = "https://example.com/api",
@@ -515,7 +508,7 @@ class ApprovalCardUiMapperTest {
         // bind to — trusted from the descriptor, never a display name.
         assertEquals("fs.write", card.toolName)
         assertEquals("built-in", card.sourceRef)
-        assertEquals(RiskLevel.L1, card.baseRisk)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, card.operationClass)
         assertEquals(ApprovalCardState.PENDING, card.state)
         assertEquals(R.string.approval_source_builtin, card.sourceRes)
         assertTrue(card.sourceArgs.isEmpty())
@@ -523,8 +516,8 @@ class ApprovalCardUiMapperTest {
         assertEquals("workspace:ws-9", card.scope)
         // 参数 = the SAME canonical bytes the binding hashes (doc 02 section 5.4).
         assertEquals(CanonicalArgs.canonicalize(args), card.arguments)
-        assertEquals(R.string.approval_risk_dynamic_upgrade, card.riskRes)
-        assertEquals(listOf(R.string.approval_risk_l1, R.string.approval_risk_l2), card.riskArgs)
+        assertEquals(R.string.operation_file_change, card.operationRes)
+        assertTrue(card.operationArgs.isEmpty())
         assertEquals(SafetyProfile.STANDARD, card.profile)
         assertNull(card.providerMcpId)
         assertEquals("https://example.com/api", card.networkOrigin)
@@ -555,7 +548,6 @@ class ApprovalCardUiMapperTest {
                         it as kotlinx.serialization.json.JsonObject
                     },
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),
@@ -588,7 +580,6 @@ class ApprovalCardUiMapperTest {
                 state = ApprovalCardState.PENDING,
                 descriptor = descriptor,
                 arguments = kotlinx.serialization.json.JsonObject(emptyMap()),
-                dynamicRisk = RiskLevel.L2,
                 profile = SafetyProfile.STANDARD,
                 dataOrigin = DataOrigin.MCP,
                 egressOrigin = null,
@@ -601,7 +592,7 @@ class ApprovalCardUiMapperTest {
         // HXA-201 slice 2: the MCP identity is the canonical origin ref, not the server id alone.
         assertEquals("mcp:srv-7:2025-03-26:" + "a".repeat(64), card.sourceRef)
         assertEquals("mcp.tool", card.toolName)
-        assertEquals(RiskLevel.L2, card.baseRisk)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, card.operationClass)
         assertEquals(R.string.approval_source_mcp, card.sourceRes)
         assertEquals(listOf("srv-7"), card.sourceArgs)
         assertEquals("srv-7", card.providerMcpId)

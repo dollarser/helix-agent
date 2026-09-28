@@ -5,10 +5,10 @@ package com.helix.app.proot
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -36,10 +36,9 @@ class LinuxRunToolTest {
         val d = LinuxRunTool.descriptor()
         assertEquals("code.linux.run", d.name.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, d.operationClass)
-        assertEquals(RiskLevel.L2, d.baseRisk)
         assertEquals(ExecutionTargetType.LOCAL_PROOT, d.executionTarget)
         // Generic L2: no auto-approve path can mint approval (ADR-0012).
-        assertTrue("L2 must require per-call approval", d.baseRisk.requiresApproval)
+        assertEquals(Idempotency.NON_IDEMPOTENT, d.idempotency)
         // The model cannot raise the fixed deadline.
         assertTrue(d.timeout.inWholeMilliseconds >= LinuxRunTool.DEFAULT_DEADLINE_SECONDS * 1000)
         // No network switch in the schema (the Runtime has no INTERNET permission;

@@ -28,7 +28,7 @@ internal fun exposedEvaluationTools(
     val admitted =
         ModePolicy
             .filterTools(mode, latest, control.chatToolsEnabled) {
-                ToolModeProfile(it.operationClass, it.baseRisk)
+                ToolModeProfile(it.operationClass)
             }.filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
             .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
     val exposed =

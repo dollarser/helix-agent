@@ -155,7 +155,6 @@ internal class ChatToolCalls(
                 state = ApprovalCardState.PENDING,
                 descriptor = descriptor,
                 arguments = facts.args,
-                dynamicRisk = request.dynamicRisk,
                 profile = facts.profile,
                 dataOrigin = facts.dataOrigin,
                 egressOrigin = facts.egress?.endpoint?.origin,
@@ -256,7 +255,12 @@ internal class ChatToolCalls(
      * This runs on the work scope's IO thread — the scheduler and the broker's blocking
      * user-decision wait never touch the main thread.
      */
-    @Suppress("TooGenericExceptionCaught") // settle all executed slots before propagating failure
+    override fun loopProgress(turnId: String) = DurableToolLoopProgress(storage, toolPipeline.registry).evaluate(turnId)
+
+    override fun resetLoopProgress(turnId: String) =
+        DurableToolLoopProgress(storage, toolPipeline.registry).reset(turnId, idGenerator(), clock.now().toEpochMilli())
+
+    @Suppress("TooGenericExceptionCaught") // settle every slot before propagating a batch failure
     override fun runToolBatch(
         turn: com.helix.core.storage.entity.TurnEntity,
         turnId: String,

@@ -1,8 +1,8 @@
 package com.helix.app.approval
 
 import com.helix.app.R
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.ToolOperationClass
 import com.helix.runtime.quickjs.JsExecutionLimits
 
 /**
@@ -94,7 +94,7 @@ data class CodeExecutionUi(
  * Invariants:
  * - [ACTIONS] contains the two decisions for THIS call ("本次批准 / 拒绝").
  *   Separate future-preference controls follow ADR-0052; they do not grant this call
- *   or create wildcard L2/L3 authority (ADR-0012). The model cannot grant approval.
+ *   or create wildcard mutation authority (ADR-0012). The model cannot grant approval.
  * - [profile] is the Safety Profile at REQUEST TIME — a trusted fact captured when the
  *   dispatch started. A later profile switch must not rewrite this card or its pending
  *   decision (roadmap HXA-036 test: 切换 Profile 不改变待审批决定).
@@ -103,14 +103,14 @@ data class CodeExecutionUi(
  *   canonical text the approval hash was computed over.
  * - Network fields are null when the call carries no egress facts; the UI renders an
  *   explicit "无出网" line — absence is displayed, never omitted silently.
- * - User-visible label fields ([sourceRes], [targetRes], [riskRes], [dataCategoryRes],
+ * - User-visible label fields ([sourceRes], [targetRes], [operationRes], [dataCategoryRes],
  *   [verifierRes]) are STABLE string-resource IDs (+ args), never locale text (HXA-069):
  *   the UI resolves them to the current locale. [scope] keeps the STABLE scope ref; the
  *   UI localizes the "unscoped" ref.
- * - HXA-201: [toolName] + [sourceRef] + [baseRisk] carry the REQUEST-TIME tool identity so
+ * - HXA-201: [toolName] + [sourceRef] + [operationClass] carry the REQUEST-TIME tool identity so
  *   the card's "save future preference" actions can write the GLOBAL-scope preference for
  *   exactly this tool (through the single write service) — and so the card can WITHHOLD the
- *   future "allow" action for high-risk (L2/L3) tools. Saving a preference never approves or
+ *   future "allow" action for effectful tools. Saving a preference never approves or
  *   denies the pending call itself.
  */
 data class ApprovalCardUi(
@@ -123,20 +123,18 @@ data class ApprovalCardUi(
      */
     val toolName: String,
     val sourceRef: String,
-    /** The descriptor's base risk: high-risk cards never offer the future "allow" action. */
-    val baseRisk: RiskLevel,
-    val dynamicRisk: RiskLevel = baseRisk,
+    /** The request-time trusted operation. */
+
+    val operationClass: ToolOperationClass,
     val state: ApprovalCardState,
     val sourceRes: Int,
     val sourceArgs: List<String> = emptyList(),
     val targetRes: Int,
     val scope: String,
     val arguments: String,
-    /** The risk line template; when the dynamic risk differs from the base, [riskArgs] holds the
-     * string-resource IDs of the two level labels the template interpolates (empty otherwise).
-     */
-    val riskRes: Int,
-    val riskArgs: List<Int> = emptyList(),
+    /** Localized operation label. */
+    val operationRes: Int,
+    val operationArgs: List<Int> = emptyList(),
     val profile: SafetyProfile,
     val providerMcpId: String?,
     val networkOrigin: String?,
@@ -152,7 +150,7 @@ data class ApprovalCardUi(
     val terminalDetail: String?,
 ) {
     companion object {
-        /** The ONLY actions a generic L2/L3 approval card may offer (roadmap HXA-036) —
+        /** The ONLY actions a generic operation approval card may offer (roadmap HXA-036) —
          * string-resource IDs (HXA-069).
          */
         val ACTIONS: List<Int> = listOf(R.string.approval_action_approve_once, R.string.approval_action_deny)

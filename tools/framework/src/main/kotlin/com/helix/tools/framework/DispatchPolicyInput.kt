@@ -13,7 +13,6 @@ internal fun buildDispatchPolicyInput(
     missingCapabilities: Set<Capability>,
 ): PolicyInput =
     PolicyInput(
-        baseRisk = descriptor.baseRisk,
         operationClass = descriptor.operationClass,
         mode = request.mode,
         chatToolsEnabled = request.chatToolsEnabled,

@@ -30,7 +30,6 @@ import com.helix.core.model.GoalBudgets
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -685,7 +684,6 @@ class TaskJourneyDeviceTest {
                 inputSchema = JsonObject(emptyMap()),
                 outputSchema = JsonObject(emptyMap()),
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),

@@ -3,7 +3,7 @@ package com.helix.tools.root
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
@@ -40,9 +40,15 @@ class RootToolsTest {
         )
         assertFalse(descriptors.any { it.name.value == "root.exec" })
         assertTrue(descriptors.all { it.executionTarget == ExecutionTargetType.LOCAL_ROOT })
-        assertEquals(RiskLevel.L0, descriptors.single { it.name.value == RootTools.STATUS }.baseRisk)
+        assertEquals(
+            ToolOperationClass.READ_ONLY,
+            descriptors.single { it.name.value == RootTools.STATUS }.operationClass,
+        )
         assertTrue(descriptors.single { it.name.value == RootTools.STATUS }.requiredCapabilities.isEmpty())
-        assertEquals(RiskLevel.L2, descriptors.single { it.name.value == RootTools.FILE_READ }.baseRisk)
+        assertEquals(
+            ToolOperationClass.READ_ONLY,
+            descriptors.single { it.name.value == RootTools.FILE_READ }.operationClass,
+        )
         assertEquals(
             setOf(Capability.ROOT_SHELL),
             descriptors

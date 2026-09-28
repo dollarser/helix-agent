@@ -21,6 +21,58 @@ class AutomationSnapshotEngineTest {
     private val session = activeSession(setOf(PACKAGE))
 
     @Test
+    fun explicitSettingsGrantRequiresAllowlistAndPreservesSensitiveNodeChecks() {
+        for (target in setOf(
+            "com.android.settings",
+            "com.android.systemui",
+            "com.google.android.settings.intelligence",
+        )) {
+            assertEquals(
+                AutomationSnapshotStatus.SENSITIVE_UI,
+                engine.capture(FakeSnapshotNode(target, 1, text = "Search"), activeSession(setOf(target)), 1).status,
+            )
+            val authorized = activeSession(setOf(target)).copy(allowSystemSettings = true)
+            assertEquals(
+                AutomationSnapshotStatus.SUCCESS,
+                engine.capture(FakeSnapshotNode(target, 1, text = "Display"), authorized, 1).status,
+            )
+            assertEquals(
+                AutomationSnapshotStatus.SENSITIVE_UI,
+                engine.capture(FakeSnapshotNode(target, 1, password = true), authorized, 1).status,
+            )
+            assertEquals(
+                AutomationSnapshotStatus.SENSITIVE_UI,
+                engine.capture(FakeSnapshotNode(target, 1, accessibilityDataSensitive = true), authorized, 1).status,
+            )
+            assertEquals(
+                AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED,
+                engine
+                    .capture(
+                        FakeSnapshotNode(target, 1, text = "Display"),
+                        session.copy(allowSystemSettings = true),
+                        1,
+                    ).status,
+            )
+        }
+        for (target in setOf(
+            "com.android.permissioncontroller",
+            "com.android.packageinstaller",
+            "com.topjohnwu.magisk",
+            "com.example.bank",
+        )) {
+            assertEquals(
+                AutomationSnapshotStatus.SENSITIVE_UI,
+                engine
+                    .capture(
+                        FakeSnapshotNode(target, 1, text = "Display"),
+                        activeSession(setOf(target)).copy(allowSystemSettings = true),
+                        1,
+                    ).status,
+            )
+        }
+    }
+
+    @Test
     @Suppress("LongMethod")
     fun capturesBoundedTreeAndBindsOpaqueTokensToNodeIdentity() {
         val button =

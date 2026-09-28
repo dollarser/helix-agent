@@ -11,7 +11,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
-Chat/Plan 以只读研究和计划审阅为职责，不因会话审批预设扩大用户文件或外部业务副作用。只读操作还要满足该模式的工具曝光及动态风险边界；工具名称或第三方 readOnlyHint 不能作为只读证明。
+Chat/Plan 以只读研究和计划审阅为职责，不因会话审批预设扩大用户文件或外部业务副作用。只读操作还要满足该模式的可信操作分类、能力与数据边界；工具名称或第三方 readOnlyHint 不能作为只读证明。
 
 允许闭合代码白名单中的内置 METADATA 操作维护当前会话/Turn 的计划、Todo 或运行元数据；以可信来源、操作类别和当前绑定判定，不允许任意工具宣称 METADATA。用户文件、外部网络业务写入、安装和执行不借此豁免。
 
@@ -38,3 +38,7 @@ Chat/Plan 以只读研究和计划审阅为职责，不因会话审批预设扩�
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history
+
+- 2026-09-28：owner 授权取消 L0–L3 分级。Chat/Plan 按可信 READ_ONLY 与闭合 METADATA 分类准入，不再追加等级阈值；第三方注解仍不能取得只读或元数据豁免。

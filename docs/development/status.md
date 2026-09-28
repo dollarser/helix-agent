@@ -4,6 +4,10 @@
 
 ## Completed
 
+- 所有者追加操作权限与循环优化：注册/Policy/审批/新审计取消 L0–L3，保留可信 effect、scope 与 ALLOW/ASK/DENY；新增持久结果驱动的无进展警告/停止，Goal 等待用户调整后继续。双通道 unit/lint/APK/test APK 与主机门禁通过；本轮设备 not requested，未提交。边界见[增量证据](../evidence/development/operation-permissions-loop-progress-2026-09-28.md)。
+
+- 所有者追加系统设置自动化修复：正式会话授权包含已安装系统设置/搜索组件，新增暂停确认恢复与有界原生滑块动作。主机gate、API36 UI恢复1/1通过；新Turn默认512工具轮/1024模型调用/3200万累计token（保留已有预算），最终亮度oracle2/2且两个Turn均COMPLETED。Plan执行入口同步改用当前Goal配置，API36执行闭环2/2通过。范围与历史失败见[修复记录](../evidence/development/automation-recovery-progress-2026-09-28.md)。
+
 全部已交付 HXA 见[完成记录索引](../completion-records/index.md)，M0 见[工程基线](../completion-records/M0.md)。完成仅限记录中的范围，不代表全部产品、真实账号或发行验收。
 
 - 物理真机回归（OnePlus 6T / API 34）：2026-09-24 在真机 `561e3b15` 上完成了全量 184 项物理硬件测试（0 失败），涵盖 `core:storage` Room 1..28 完整迁移与外键约束、P0 核心能力、Root 调度分级与禁用、`MANAGE_EXTERNAL_STORAGE` AppOp 动态切换、HXA-129 连接器生命周期与通道边界，以及 HXA-196 PRoot 独立后台 Job 租期控制与主进程 SIGKILL 硬杀后的 `:proot` 独立进程存活及终态证明对账。详见[真机验收记录](../evidence/development/physical-oneplus-acceptance-2026-09-24.md)。

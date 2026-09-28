@@ -139,6 +139,7 @@ internal class AgentLoop(
                 return TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             }
             if (!manualCommandPending && appendQueuedSteering(sessionId, coordinator)) {
+                toolExecutor.resetLoopProgress(turnId)
                 context = contextAssembler.buildBackfill(sessionId, turnId, control)
             }
             coordinator.recordDiagnostic(
@@ -259,6 +260,10 @@ internal class AgentLoop(
 
                     is ToolRoundReviewRequired -> {
                         return TurnLoopResult.ParkedForReview(round.callIds)
+                    }
+
+                    is ToolRoundNoProgress -> {
+                        return TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "TOOL_LOOP_NO_PROGRESS"))
                     }
 
                     else -> {
@@ -416,6 +421,8 @@ internal class AgentLoop(
 
     private class ToolRoundLimit : ToolRoundResult()
 
+    private class ToolRoundNoProgress : ToolRoundResult()
+
     private class ToolRoundReviewRequired(
         val callIds: List<String>,
     ) : ToolRoundResult()
@@ -448,15 +455,28 @@ internal class AgentLoop(
         val turn = storage.turns.resolve(turnId)
         val settled = toolExecutor.runToolBatch(turn, turnId, localBatch.calls, coordinator, control)
         if (settled.requiresReview) return ToolRoundReviewRequired(settled.reviewCallIds)
+        val progress = toolExecutor.loopProgress(turnId)
         val nextCallId = idGenerator()
         coordinator.openNextModelCall(
             settled.calls.map {
                 toolExecutor.toolResultDraft(
                     it.copy(callId = localBatch.wireId(it.callId), resultReference = "$turnId/${it.callId}"),
                 )
-            },
+            } +
+                if (progress == ToolLoopProgress.Decision.WARN) {
+                    listOf(
+                        TurnMessageDraft(
+                            com.helix.core.model.ModelRole.SYSTEM,
+                            "loop_warning",
+                            ToolLoopProgress.WARNING,
+                        ),
+                    )
+                } else {
+                    emptyList()
+                },
             nextCallId,
         )
+        if (progress == ToolLoopProgress.Decision.STOP) return ToolRoundNoProgress()
         return ToolRoundContinued(toolRounds + 1)
     }
 }

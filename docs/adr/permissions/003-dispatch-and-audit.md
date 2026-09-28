@@ -40,3 +40,13 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history
+
+- 2026-09-28：owner 明确要求正式系统设置授权入口。Advanced Accessibility 权限中心在启动自动化会话前提供默认关闭的“系统设置和快捷设置”选择，只在该 process-local session 内允许 `com.android.settings` / `com.android.systemui` 越过默认 package 拒绝。仍须包含在用户目标 allowlist；停止、到期、服务断开或进程重建不继承授权。没有模型可调用的授权接口，不改变 Dispatcher、审批或 effect 分类。其他敏感包、密码/敏感节点、危险动作语义及锁屏检查仍生效。此选择允许设备设置更改，不声称能逐页识别 Settings 内全部安全设置；OEM 包名不做通配放行。
+
+- 2026-09-28 后续修复：owner 要求解决已授权 Settings 任务的跨目标/暂停失败。正式授权选项列出本机已安装且标记为系统应用的精确 Settings/SystemUI/Settings Intelligence 包（`com.android.settings.intelligence`、`com.google.android.settings.intelligence`），用户勾选并启动时一并纳入 allowlist；不做包名前缀或任意 Intent 跟随授权。权限中心增加暂停确认：用户选择当前 session 已授权且非禁止的目标，确认只绑定当前 pause/session；返回该包后再次检查 live snapshot、敏感节点和锁屏，再消费确认。停止/到期/恢复会清除待恢复确认，不预存下次 checkpoint 授权。snapshot/find/wait 增加 pause/recovery metadata，wait 遇授权阻塞立即返回，不自动批准或盲目重试。
+
+- 2026-09-28 同轮滑块修复：授权/恢复修复后的真实轨迹已到达滑块，但节点不支持 click/set-text/container-scroll。新增 `ui.set_progress(token,value)`，仅接受节点声明支持 `ACTION_SET_PROGRESS`、有限且在原生 range 内的数值；范围/能力纳入 token fingerprint，执行前重新核验。该动作按 EXTERNAL_ACTION 走原有 capability、scope、审批与敏感语义检查，不提供坐标、盲拖或系统 settings 写 API；执行返回成功仅表示平台动作接受，任务效果仍须独立观察。
+
+- 2026-09-28：owner 授权按操作类型收敛权限。移除注册、Policy、审批与新审计中的 baseRisk/dynamicRisk/L0–L3；展示 READ_ONLY、METADATA、LOCAL_MUTATION、NETWORK、EXTERNAL_ACTION、CODE_EXECUTION、PRIVILEGED 对应操作及实际范围/询问原因。等级不再是权限来源或默认拒绝依据。已接入会话的调用按可信 effect footprint 与当前 ALLOW/ASK/DENY 解析；未接入会话时，非只读/闭合元数据操作要求精确批准。凭据、SSRF、Capability、模式、未知副作用与执行前复检不变。旧审计缺少 operationClass 时保留其他事实，不从旧等级推断新类别；工具契约 hash 变化使旧批准失效。

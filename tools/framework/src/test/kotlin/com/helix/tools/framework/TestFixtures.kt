@@ -1,7 +1,6 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -17,7 +16,6 @@ internal object TestFixtures {
         name: String = "read",
         version: Int = 1,
         operationClass: ToolOperationClass = ToolOperationClass.READ_ONLY,
-        baseRisk: RiskLevel = RiskLevel.L0,
         timeoutSeconds: Long = 30,
         maxOutputBytes: Long = 1024 * 1024,
     ): ToolDescriptor =
@@ -28,7 +26,6 @@ internal object TestFixtures {
             inputSchema = json("""{"type":"object"}"""),
             outputSchema = json("""{"type":"object"}"""),
             operationClass = operationClass,
-            baseRisk = baseRisk,
             timeout = timeoutSeconds.seconds,
             maxOutputBytes = maxOutputBytes,
             requiredCapabilities = emptySet(),
@@ -41,7 +38,6 @@ internal object TestFixtures {
         serverToolName: String = "search",
         version: Int = 1,
         operationClass: ToolOperationClass = ToolOperationClass.NETWORK,
-        baseRisk: RiskLevel = RiskLevel.L1,
         hints: Map<String, Boolean> = emptyMap(),
     ): McpToolSpec =
         McpToolSpec(
@@ -51,7 +47,6 @@ internal object TestFixtures {
             inputSchema = json("""{"type":"object"}"""),
             outputSchema = json("""{"type":"object"}"""),
             operationClass = operationClass,
-            baseRisk = baseRisk,
             timeout = 30.seconds,
             maxOutputBytes = 1024 * 1024,
             requiredCapabilities = emptySet(),

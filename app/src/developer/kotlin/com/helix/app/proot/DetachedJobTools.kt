@@ -1,6 +1,5 @@
 package com.helix.app.proot
 
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -85,7 +84,6 @@ internal object DetachedJobTools {
                 },
             outputSchema = resultSchema,
             operationClass = if (stop) ToolOperationClass.LOCAL_MUTATION else ToolOperationClass.READ_ONLY,
-            baseRisk = if (stop) RiskLevel.L1 else RiskLevel.L0,
             timeout = 30.seconds,
             maxOutputBytes = 4_096,
             idempotency = Idempotency.IDEMPOTENT,

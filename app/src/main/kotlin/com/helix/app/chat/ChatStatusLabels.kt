@@ -48,6 +48,7 @@ internal class ChatStatusLabels(
             ModelStreamState.TOOL_CALL_COUNT_OVERFLOW -> R.string.model_error_tool_call_count_overflow
             ModelStreamState.MODEL_TEXT_OVERFLOW -> R.string.model_error_model_text_overflow
             "TOOL_STEP_LIMIT" -> R.string.model_error_tool_step_limit
+            "TOOL_LOOP_NO_PROGRESS" -> R.string.model_error_tool_loop_no_progress
             "MODEL_CALL_LIMIT" -> R.string.model_error_model_call_limit
             "TOKEN_BUDGET_LIMIT" -> R.string.model_error_token_budget_limit
             "GOAL_BUDGET_LIMIT" -> R.string.model_error_goal_budget_limit

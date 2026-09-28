@@ -23,13 +23,13 @@ data class RunControlConfig(
  * neither a profile nor the UI can widen them. Provider limits are intersected at request time.
  */
 object TurnBudgetBounds {
-    const val MAX_STEPS = 64
-    const val MAX_MODEL_CALLS = 65
+    const val MAX_STEPS = 10_000
+    const val MAX_MODEL_CALLS = 20_000
     const val MAX_INPUT_TOKENS = 1_000_000L
     const val MAX_OUTPUT_TOKENS = 128_000L
-    const val MAX_TOTAL_TOKENS = 1_000_000L
+    const val MAX_TOTAL_TOKENS = 1_000_000_000L
 
-    val DEFAULT = TurnBudgets(32, 48, 1_000_000, 16_384, 1_000_000)
+    val DEFAULT = TurnBudgets(512, 1_024, 1_000_000, 16_384, 32_000_000)
     internal val PREVIOUS_DEFAULT = TurnBudgets(32, 33, 128_000, 4_096, 160_000)
     internal val LEGACY_DEFAULT = TurnBudgets(8, 9, 128_000, 4_096, 160_000)
 

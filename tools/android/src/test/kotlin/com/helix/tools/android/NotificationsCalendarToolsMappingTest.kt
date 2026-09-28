@@ -1,7 +1,6 @@
 package com.helix.tools.android
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
@@ -543,17 +542,14 @@ class NotificationsCalendarToolsMappingTest {
     fun descriptorsCarryTheExpectedContract() {
         val q = NotificationsQueryTool.descriptor()
         checkBase(q, "notifications.query")
-        assertEquals(RiskLevel.L1, q.baseRisk)
         assertEquals(ToolOperationClass.READ_ONLY, q.operationClass)
 
         val p = CalendarPrepareEventTool.descriptor()
         checkBase(p, "calendar.prepare_event")
-        assertEquals(RiskLevel.L1, p.baseRisk)
         assertEquals(ToolOperationClass.READ_ONLY, p.operationClass)
 
         val c = CalendarCommitEventTool.descriptor()
         checkBase(c, "calendar.commit_event")
-        assertEquals(RiskLevel.L2, c.baseRisk)
         assertEquals(ToolOperationClass.EXTERNAL_ACTION, c.operationClass)
     }
 

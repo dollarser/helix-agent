@@ -350,6 +350,11 @@ class ToolCallReviewRepositoryTest {
 
         override fun listByTurn(turnId: String): List<ToolCallEntity> = calls.values.filter { it.turnId == turnId }
 
+        override fun recentByTurn(
+            turnId: String,
+            limit: Int,
+        ) = listByTurn(turnId).takeLast(limit).reversed()
+
         override fun byTurnAndCallId(
             turnId: String,
             callId: String,

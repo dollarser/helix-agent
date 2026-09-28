@@ -2,7 +2,6 @@ package com.helix.extensions.mcp
 
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.McpServerId
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataSensitivity
@@ -165,7 +164,6 @@ class McpDynamicToolBridge(
             inputSchema = inputSchema,
             outputSchema = MCP_RESULT_SCHEMA,
             operationClass = ToolOperationClass.NETWORK,
-            baseRisk = RiskLevel.L1,
             timeout = 60.seconds,
             maxOutputBytes = 2L * 1024 * 1024,
             requiredCapabilities = emptySet(),

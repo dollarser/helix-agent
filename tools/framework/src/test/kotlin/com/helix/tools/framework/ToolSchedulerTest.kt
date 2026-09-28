@@ -6,7 +6,6 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityStates
@@ -94,7 +93,6 @@ class ToolSchedulerTest {
     private fun register(
         name: String,
         operationClass: ToolOperationClass,
-        baseRisk: RiskLevel,
         executor: ToolExecutor,
     ) {
         val d =
@@ -105,7 +103,6 @@ class ToolSchedulerTest {
                 inputSchema = json("""{"type":"object"}"""),
                 outputSchema = json("""{"type":"object"}"""),
                 operationClass = operationClass,
-                baseRisk = baseRisk,
                 timeout = 30.seconds,
                 maxOutputBytes = 1024L,
                 requiredCapabilities = emptySet(),
@@ -151,7 +148,6 @@ class ToolSchedulerTest {
         register(
             "r.slow",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     assertTrue("later calls must settle", laterCallsSettled.await(10, TimeUnit.SECONDS))
@@ -162,13 +158,11 @@ class ToolSchedulerTest {
         register(
             "r.fast1",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(0, json("""{"i":2}"""), AtomicInteger(), AtomicInteger()),
         )
         register(
             "r.fast2",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(0, json("""{"i":3}"""), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
@@ -191,9 +185,9 @@ class ToolSchedulerTest {
     fun nonConflictingReadOnlyCallsOverlapAndTheCapBoundsThem() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("r.a", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(120, json("{}"), inFlight, maxSeen))
-        register("r.b", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(120, json("{}"), inFlight, maxSeen))
-        register("r.c", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(120, json("{}"), inFlight, maxSeen))
+        register("r.a", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
+        register("r.b", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
+        register("r.c", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
         val scheduler = ToolScheduler(clock, dispatcher, registry)
         val batch =
             scheduler.scheduleBatch(
@@ -209,8 +203,8 @@ class ToolSchedulerTest {
     fun sharedResourceKeysSerializeReadOnlyCalls() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("r.f1", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(60, json("{}"), inFlight, maxSeen))
-        register("r.f2", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("r.f1", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("r.f2", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
         val extractor = ResourceKeyExtractor { _, _ -> setOf("file:a.txt") }
         val scheduler = ToolScheduler(clock, dispatcher, registry, resourceKeyExtractor = extractor)
         val batch = scheduler.scheduleBatch(listOf(call("call-1", "r.f1"), call("call-2", "r.f2")))
@@ -223,17 +217,15 @@ class ToolSchedulerTest {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
         // One read + two writes: the writes are exclusive (first version: full barrier).
-        register("r.x", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(50, json("{}"), inFlight, maxSeen))
+        register("r.x", ToolOperationClass.READ_ONLY, TimingExecutor(50, json("{}"), inFlight, maxSeen))
         register(
             "w.y",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             TimingExecutor(50, json("{}"), inFlight, maxSeen),
         )
         register(
             "w.z",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             TimingExecutor(50, json("{}"), inFlight, maxSeen),
         )
         broker.script(
@@ -260,7 +252,6 @@ class ToolSchedulerTest {
         register(
             "b.a",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             TimingExecutor(30, json("{}"), inFlight, maxSeen),
         )
         broker.script(
@@ -309,7 +300,6 @@ class ToolSchedulerTest {
         register(
             "b.r2",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             object : ToolExecutor {
                 override fun execute(c: ExecutableToolCall): ToolExecutorResult =
                     if (attempts.incrementAndGet() == 1) {
@@ -353,8 +343,8 @@ class ToolSchedulerTest {
     fun quickJsLaneSerializesAcrossTools() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("js.a", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(60, json("{}"), inFlight, maxSeen))
-        register("js.b", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("js.a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("js.b", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
         val batch =
             scheduler.scheduleBatch(
@@ -374,7 +364,6 @@ class ToolSchedulerTest {
         register(
             "r.a",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         assertThrows(IllegalArgumentException::class.java) {
@@ -387,8 +376,8 @@ class ToolSchedulerTest {
     fun resourceGateOnlyLowersAndNeverRaises() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("g.a", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(60, json("{}"), inFlight, maxSeen))
-        register("g.b", ToolOperationClass.READ_ONLY, RiskLevel.L0, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("g.a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("g.b", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
         // Gate 1 with cap 2: effective 1 (the gate lowers).
         var gate = 1
         val lowering = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2, resourceGate = { gate })
@@ -416,9 +405,9 @@ class ToolSchedulerTest {
                     return ToolExecutorResult.Completed(json("{}"))
                 }
             }
-        register("q.a", ToolOperationClass.READ_ONLY, RiskLevel.L0, recording)
-        register("q.b", ToolOperationClass.READ_ONLY, RiskLevel.L0, recording)
-        register("q.c", ToolOperationClass.READ_ONLY, RiskLevel.L0, recording)
+        register("q.a", ToolOperationClass.READ_ONLY, recording)
+        register("q.b", ToolOperationClass.READ_ONLY, recording)
+        register("q.c", ToolOperationClass.READ_ONLY, recording)
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1)
         val batch =
             scheduler.scheduleBatch(
@@ -436,7 +425,6 @@ class ToolSchedulerTest {
         register(
             "c.slow",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     gate.countDown()
@@ -448,7 +436,6 @@ class ToolSchedulerTest {
         register(
             "c.fast",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val cancel = ManualCancel()
@@ -502,7 +489,6 @@ class ToolSchedulerTest {
         register(
             "q.slow",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     gate.countDown()
@@ -514,7 +500,6 @@ class ToolSchedulerTest {
         register(
             "q.victim",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val source = FlipConfigSource(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
@@ -557,7 +542,6 @@ class ToolSchedulerTest {
         register(
             "q.slow",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     gate.countDown()
@@ -569,7 +553,6 @@ class ToolSchedulerTest {
         register(
             "q.victim",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val source = FlipConfigSource(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
@@ -605,7 +588,6 @@ class ToolSchedulerTest {
         register(
             "f.bad",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = ToolExecutorResult.Failed("boom")
             },
@@ -613,7 +595,6 @@ class ToolSchedulerTest {
         register(
             "f.ok",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(60, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
@@ -634,13 +615,11 @@ class ToolSchedulerTest {
         register(
             "t.a",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         register(
             "t.b",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
 
@@ -679,13 +658,11 @@ class ToolSchedulerTest {
         register(
             "t.first",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         register(
             "t.second",
             ToolOperationClass.LOCAL_MUTATION,
-            RiskLevel.L2,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
 
@@ -725,7 +702,6 @@ class ToolSchedulerTest {
         register(
             "t.read",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
@@ -751,7 +727,6 @@ class ToolSchedulerTest {
         register(
             "r.wake",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             TimingExecutor(0, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         var armed = false
@@ -818,14 +793,13 @@ class ToolSchedulerTest {
         register(
             "r.before",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             executor {
                 firstStarted.countDown()
                 check(releaseFirst.await(5, TimeUnit.SECONDS))
             },
         )
-        register("w.change", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, executor { value.set(42) })
-        register("r.after", ToolOperationClass.READ_ONLY, RiskLevel.L0, executor { observed.set(value.get()) })
+        register("w.change", ToolOperationClass.LOCAL_MUTATION, executor { value.set(42) })
+        register("r.after", ToolOperationClass.READ_ONLY, executor { observed.set(value.get()) })
         broker.script(ApprovalAcquisition.Approved(ApprovalProof("write-proof", "1".repeat(64))))
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
         val result = CompletableFuture<ToolScheduler.BatchResult>()
@@ -964,7 +938,6 @@ class ToolSchedulerTest {
         register(
             "x.a",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     synchronized(starts) { starts += call.toolCallId }
@@ -977,7 +950,6 @@ class ToolSchedulerTest {
         register(
             "x.b",
             ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     synchronized(starts) { starts += call.toolCallId }
@@ -1004,9 +976,9 @@ class ToolSchedulerTest {
                     return ToolExecutorResult.Completed(json("{}"))
                 }
             }
-        register("w.x", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
-        register("w.y", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
-        register("w.z", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        register("w.x", ToolOperationClass.LOCAL_MUTATION, recording)
+        register("w.y", ToolOperationClass.LOCAL_MUTATION, recording)
+        register("w.z", ToolOperationClass.LOCAL_MUTATION, recording)
         broker.script(
             ApprovalAcquisition.Approved(ApprovalProof("a-1", "1".repeat(64))),
             ApprovalAcquisition.Approved(ApprovalProof("a-2", "2".repeat(64))),

@@ -24,7 +24,7 @@ import kotlinx.serialization.json.JsonObject
  * façade — the UI never touches the dispatcher, the scheduler, the broker or storage
  * directly.
  *
- * The HXA-036 registered set is the first real tool, `time.now` (L0, no approval); the
+ * The HXA-036 registered set is the first real tool, `time.now` (read-only, no approval); the
  * mutating tools arrive with their own HXAs and register here.
  */
 class ToolPipeline(

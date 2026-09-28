@@ -1,7 +1,6 @@
 package com.helix.app.skills
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -34,7 +33,6 @@ internal object SkillInstallationTools {
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 256L * 1024,
                 requiredCapabilities = emptySet(),

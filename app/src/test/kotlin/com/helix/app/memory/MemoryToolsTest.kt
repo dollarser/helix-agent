@@ -47,7 +47,7 @@ class MemoryToolsTest {
             val decision =
                 ModePolicy.evaluate(
                     AgentMode.PLAN,
-                    ToolModeProfile(descriptor.operationClass, descriptor.baseRisk),
+                    ToolModeProfile(descriptor.operationClass),
                 )
             assertEquals(name in MemoryTools.reads, decision is ModeDecision.Allowed)
         }

@@ -1,7 +1,6 @@
 package com.helix.extensions.skills
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -55,7 +54,6 @@ object SkillTools {
                 inputSchema = schema(LIST_INPUT),
                 outputSchema = schema(LIST_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
-                risk = RiskLevel.L0,
                 idempotency = Idempotency.IDEMPOTENT,
             ) { call -> list(repository.required(), call) },
             Definition(
@@ -66,7 +64,6 @@ object SkillTools {
                 inputSchema = schema(KEY_INPUT),
                 outputSchema = schema(READ_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
-                risk = RiskLevel.L1,
                 idempotency = Idempotency.IDEMPOTENT,
             ) { call -> read(repository.required(), call) },
             Definition(
@@ -75,7 +72,6 @@ object SkillTools {
                 inputSchema = schema(RESOURCE_INPUT),
                 outputSchema = schema(RESOURCE_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
-                risk = RiskLevel.L1,
                 idempotency = Idempotency.IDEMPOTENT,
             ) { call -> readResource(repository.required(), call) },
             enablementDefinition(ENABLE, enabled = true, repository),
@@ -88,7 +84,6 @@ object SkillTools {
                 inputSchema = schema(REMOVE_INPUT),
                 outputSchema = schema(REMOVE_OUTPUT),
                 operation = ToolOperationClass.LOCAL_MUTATION,
-                risk = RiskLevel.L2,
                 idempotency = Idempotency.NON_IDEMPOTENT,
             ) { call -> remove(repository.required(), call) },
         )
@@ -110,7 +105,6 @@ object SkillTools {
             inputSchema = schema(ENABLEMENT_INPUT),
             outputSchema = schema(ENABLEMENT_OUTPUT),
             operation = ToolOperationClass.LOCAL_MUTATION,
-            risk = RiskLevel.L1,
             idempotency = Idempotency.IDEMPOTENT,
         ) { call -> enable(repository.required(), call, enabled) }
 
@@ -245,7 +239,6 @@ object SkillTools {
         val inputSchema: JsonObject,
         val outputSchema: JsonObject,
         val operation: ToolOperationClass,
-        val risk: RiskLevel,
         val idempotency: Idempotency,
         val execute: (ExecutableToolCall) -> JsonObject,
     ) {
@@ -257,7 +250,6 @@ object SkillTools {
                 inputSchema = inputSchema,
                 outputSchema = outputSchema,
                 operationClass = operation,
-                baseRisk = risk,
                 timeout = 30.seconds,
                 maxOutputBytes = MAX_TOOL_OUTPUT_BYTES,
                 requiredCapabilities = emptySet(),

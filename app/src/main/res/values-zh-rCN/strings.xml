@@ -169,12 +169,6 @@
     <string name="approval_online">联网</string>
     <string name="approval_profile_advanced">Advanced（增强，非完全访问）</string>
     <string name="approval_profile_standard">Standard（默认）</string>
-    <string name="approval_risk">风险</string>
-    <string name="approval_risk_dynamic_upgrade">%1$s → 动态 %2$s</string>
-    <string name="approval_risk_l0">L0（无风险）</string>
-    <string name="approval_risk_l1">L1（低风险）</string>
-    <string name="approval_risk_l2">L2（需逐次批准）</string>
-    <string name="approval_risk_l3">L3（高风险）</string>
     <string name="approval_scope">作用域</string>
     <string name="approval_scope_unscoped">无作用域（unscoped）</string>
     <string name="approval_source">来源</string>
@@ -199,7 +193,6 @@
     <string name="approval_verifier">校验器（verifier）</string>
     <string name="approval_verifier_text">输出必须通过注册的 outputSchema 校验；全量输出记录 SHA-256 哈希</string>
     <string name="approval_yes">是</string>
-    <string name="audit_all_risks">全部风险</string>
     <string name="audit_all_sessions">全部会话</string>
     <string name="audit_all_tools">全部工具</string>
     <string name="audit_clear_filters">清除过滤</string>
@@ -1516,4 +1509,14 @@
     <string name="storage_usage_failed">无法完成统计，请刷新重试。</string>
     <string name="storage_usage_loading">正在统计…</string>
     <string name="storage_usage_deletion">删除会话：移除会话记录及不再被引用的大正文，保留工作目录文件；数据库文件不保证立即缩小。清理工作目录：使用会话中的专用清理入口，仍被引用或使用时会保留。Memory：在 Memory 页面逐项确认删除。模型及下载残片：在模型页面管理。JSONL 会话导出不是完整文件备份。</string>
+    <string name="model_error_tool_loop_no_progress">工具重复调用未取得进展。已保留完成的工作，请调整方法后继续。</string>
+    <string name="approval_operation">操作类型</string>
+    <string name="audit_all_operations">全部操作类型</string>
+    <string name="operation_read">读取</string>
+    <string name="operation_metadata">任务记录</string>
+    <string name="operation_file_change">本地修改</string>
+    <string name="operation_network">网络传输</string>
+    <string name="operation_external">外部或设备操作</string>
+    <string name="operation_execute">执行代码或命令</string>
+    <string name="operation_privileged">特权操作</string>
 </resources>

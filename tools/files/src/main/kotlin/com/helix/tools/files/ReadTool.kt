@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -41,7 +40,7 @@ import kotlin.time.Duration.Companion.seconds
  * pagination fields the model uses to read the next chunk (`offset`/`windowLength`/`sizeBytes`/
  * `nextOffset`/`eof`).
  *
- * Contract: L1 base risk, READ_ONLY operation class, idempotent, LOCAL_ANDROID, built-in origin,
+ * Contract: READ_ONLY operation class, idempotent, LOCAL_ANDROID, built-in origin,
  * no required capabilities (workspace reads need no OS permission). The 10 MiB file case is the
  * chunking contract: each call returns at most one 1 MiB window; the model pages with `offset` =
  * the previous `nextOffset` until `eof`.
@@ -63,7 +62,6 @@ object ReadTool {
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L1,
             timeout = 30.seconds,
             maxOutputBytes = ReadWindow.MAX_WINDOW_BYTES * 4,
             requiredCapabilities = emptySet(),

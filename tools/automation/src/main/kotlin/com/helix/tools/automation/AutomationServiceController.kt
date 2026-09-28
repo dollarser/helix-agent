@@ -68,13 +68,14 @@ object AutomationServiceController {
         requestedPackages: Set<String>,
         ttl: Duration = AutomationSessionManager.DEFAULT_TTL,
         maxActions: Int = AutomationSessionManager.DEFAULT_MAX_ACTIONS,
+        allowSystemSettings: Boolean = false,
     ): AutomationSessionStartResult {
         val connectedService = service
         return if (connectedService == null) {
             AutomationSessionStartResult(AutomationSessionStartStatus.SERVICE_NOT_CONNECTED)
         } else {
             val allowlist = SharedPreferencesAutomationAllowlistStore(context).packages()
-            val result = sessionManager.start(requestedPackages, allowlist, ttl, maxActions)
+            val result = sessionManager.start(requestedPackages, allowlist, ttl, maxActions, allowSystemSettings)
             result.session?.let { session ->
                 enterForegroundOrRollback(connectedService, session)
             }
@@ -104,7 +105,7 @@ object AutomationServiceController {
         val session =
             sessionManager.current()
                 ?: return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
-        return connectedService.captureSnapshot(session)
+        return connectedService.captureSnapshot(session).copy(pauseReason = sessionManager.pauseReason)
     }
 
     @Synchronized
@@ -159,9 +160,23 @@ object AutomationServiceController {
     }
 
     @Synchronized
+    fun requestResumeOnTarget(packageName: String): Boolean {
+        val connectedService = service ?: return false
+        if (stopIfDeviceLocked(connectedService)) return false
+        val session = sessionManager.current() ?: return false
+        if (SensitiveAutomationTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)) return false
+        if (!sessionManager.requestResumeOnTarget(packageName)) return false
+        resumeAfterUserConfirmation(packageName)
+        return true
+    }
+
+    @Synchronized
     internal fun targetObserved(packageName: String) {
         val connectedService = service ?: return
         val session = sessionManager.current() ?: return
+        if (packageName == sessionManager.resumeTarget) {
+            resumeAfterUserConfirmation(packageName)
+        }
         if (packageName !in session.scope.allowedPackages) {
             pauseForTargetChange(connectedService)
         }

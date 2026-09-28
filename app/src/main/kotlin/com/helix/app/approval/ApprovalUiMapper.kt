@@ -2,7 +2,6 @@ package com.helix.app.approval
 
 import com.helix.app.R
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
@@ -28,7 +27,7 @@ import java.time.format.DateTimeFormatter
 
 /**
  * Maps the execution-path facts onto [ApprovalCardUi] (roadmap HXA-036). Pure and
- * JVM-testable: every label rule (risk, target, source, category, state) lives here so the
+ * JVM-testable: every label rule (operation, target, source, category, state) lives here so the
  * rendered card and the tests share one implementation. One object on purpose: the
  * display mapping is a single surface — splitting it would fragment the card's contract.
  *
@@ -89,31 +88,16 @@ object ApprovalUiMapper {
             ExecutionTargetType.LOCAL_ROOT -> R.string.approval_target_local_root
         }
 
-    /**
-     * The risk line: the Policy Engine's DYNAMIC risk (what it actually decided with),
-     * with the descriptor's base risk shown when they differ so the user sees the uplift.
-     * Returns the template string-resource ID; when the dynamic risk differs from the
-     * base, the second element holds the string-resource IDs of the two level labels the
-     * template interpolates (HXA-069 — the UI resolves them and passes them as format
-     * args).
-     */
-    fun riskLabel(
-        base: RiskLevel,
-        dynamic: RiskLevel,
-    ): Pair<Int, List<Int>> =
-        if (base == dynamic) {
-            riskLabel(dynamic) to emptyList()
-        } else {
-            R.string.approval_risk_dynamic_upgrade to listOf(riskLabel(base), riskLabel(dynamic))
-        }
-
-    /** 风险等级: a string-resource ID (HXA-069). */
-    fun riskLabel(level: RiskLevel): Int =
-        when (level) {
-            RiskLevel.L0 -> R.string.approval_risk_l0
-            RiskLevel.L1 -> R.string.approval_risk_l1
-            RiskLevel.L2 -> R.string.approval_risk_l2
-            RiskLevel.L3 -> R.string.approval_risk_l3
+    /** Concrete operation label; permission reasons and affected scope are displayed separately. */
+    fun operationLabel(operation: ToolOperationClass): Int =
+        when (operation) {
+            ToolOperationClass.READ_ONLY -> R.string.operation_read
+            ToolOperationClass.METADATA -> R.string.operation_metadata
+            ToolOperationClass.LOCAL_MUTATION -> R.string.operation_file_change
+            ToolOperationClass.NETWORK -> R.string.operation_network
+            ToolOperationClass.EXTERNAL_ACTION -> R.string.operation_external
+            ToolOperationClass.CODE_EXECUTION -> R.string.operation_execute
+            ToolOperationClass.PRIVILEGED -> R.string.operation_privileged
         }
 
     /** Safety Profile label — a string-resource ID (HXA-069). */
@@ -447,7 +431,6 @@ object ApprovalUiMapper {
         state: ApprovalCardState,
         descriptor: ToolDescriptor,
         arguments: JsonObject,
-        dynamicRisk: RiskLevel,
         profile: SafetyProfile,
         dataOrigin: DataOrigin,
         egressOrigin: String?,
@@ -459,23 +442,22 @@ object ApprovalUiMapper {
     ): ApprovalCardUi {
         val origin = descriptor.origin
         val source = sourceLabel(origin)
-        val (riskRes, riskArgs) = riskLabel(descriptor.baseRisk, dynamicRisk)
+        val operationRes = operationLabel(descriptor.operationClass)
         return ApprovalCardUi(
             approvalId = approvalId,
             bindingHash = binding.hash,
             contractHash = descriptor.contractHash.hex,
             toolName = descriptor.name.value,
             sourceRef = origin.canonicalOf(),
-            baseRisk = descriptor.baseRisk,
-            dynamicRisk = dynamicRisk,
+            operationClass = descriptor.operationClass,
             state = state,
             sourceRes = source.res,
             sourceArgs = source.args,
             targetRes = targetLabel(descriptor.executionTarget),
             scope = binding.scopeRef,
             arguments = CanonicalArgs.canonicalize(arguments),
-            riskRes = riskRes,
-            riskArgs = riskArgs,
+            operationRes = operationRes,
+            operationArgs = emptyList(),
             profile = profile,
             providerMcpId =
                 providerMcpIdLabel(origin is ToolOrigin.McpOrigin, (origin as? ToolOrigin.McpOrigin)?.serverId),

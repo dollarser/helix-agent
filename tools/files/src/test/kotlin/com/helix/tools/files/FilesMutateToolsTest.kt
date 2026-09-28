@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -138,7 +137,7 @@ class FilesMutateToolsTest {
         listOf(copy, move, delete).forEach { d ->
             assertEquals(2, d.version.value)
             assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
-            assertEquals(RiskLevel.L2, d.baseRisk)
+            assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
             assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
             assertTrue(ToolSchema.check(d.inputSchema).isEmpty())
             assertTrue(ToolSchema.check(d.outputSchema).isEmpty())

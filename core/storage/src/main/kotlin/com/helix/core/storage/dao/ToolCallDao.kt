@@ -27,6 +27,12 @@ interface ToolCallDao {
     @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY rowid ASC")
     fun listByTurn(turnId: String): List<ToolCallEntity>
 
+    @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY rowid DESC LIMIT :limit")
+    fun recentByTurn(
+        turnId: String,
+        limit: Int,
+    ): List<ToolCallEntity>
+
     @Query("SELECT * FROM tool_calls WHERE turnId = :turnId AND callId = :callId")
     fun byTurnAndCallId(
         turnId: String,

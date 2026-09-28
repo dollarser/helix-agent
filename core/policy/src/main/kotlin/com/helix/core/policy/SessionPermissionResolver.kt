@@ -32,18 +32,14 @@ data class OperationFootprint(
 /**
  * Structured approval/denial reasons (ADR-PERMISSIONS-001 section 5): a closed set that the
  * same resolver produces both when presenting a card and when an execution starts — never
- * matched against description strings. Scope, risk, tool network, operation ASK, the rm
+ * matched against description strings. Scope, tool network, operation ASK, the rm
  * command rule and hard refusals are expressed separately.
  *
- * [SCOPE_OUTSIDE] and [RISK_LEVEL] are composed by the dispatcher (it knows the call scope
- * and the Policy Engine's dynamic risk); the pure resolver emits the effect-derived codes.
+ * [SCOPE_OUTSIDE] is composed by the dispatcher; the pure resolver emits effect-derived codes.
  */
 enum class PermissionReasonCode {
     /** An outside-workspace / outside-read-scope effect. */
     SCOPE_OUTSIDE,
-
-    /** The dynamic risk level, for display, audit and anomaly analysis; it never re-gates alone. */
-    RISK_LEVEL,
 
     /** A tool network / remote business effect contributes to the approval. */
     TOOL_NETWORK,

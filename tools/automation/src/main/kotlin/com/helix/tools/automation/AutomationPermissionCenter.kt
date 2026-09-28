@@ -44,13 +44,25 @@ class AutomationPermissionCenter(
     fun replaceAllowlist(packages: Set<String>): Set<String> =
         AutomationServiceController.replaceAllowlist(appContext, packages)
 
+    fun systemSettingsPackages(): Set<String> = SystemSettingsTargets.installed(appContext)
+
+    fun requestResumeOnTarget(packageName: String): Boolean =
+        hasLiveSystemGrant() && AutomationServiceController.requestResumeOnTarget(packageName)
+
     fun startSession(
         targetPackages: Set<String>,
         ttl: Duration = AutomationSessionManager.DEFAULT_TTL,
         maxActions: Int = AutomationSessionManager.DEFAULT_MAX_ACTIONS,
+        allowSystemSettings: Boolean = false,
     ): AutomationSessionStartResult =
         if (hasLiveSystemGrant()) {
-            AutomationServiceController.startUserSession(appContext, targetPackages, ttl, maxActions)
+            AutomationServiceController.startUserSession(
+                appContext,
+                targetPackages,
+                ttl,
+                maxActions,
+                allowSystemSettings,
+            )
         } else {
             AutomationSessionStartResult(AutomationSessionStartStatus.SERVICE_NOT_CONNECTED)
         }

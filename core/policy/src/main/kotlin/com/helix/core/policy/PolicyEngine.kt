@@ -5,8 +5,8 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderResidence
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.isReviewModeAdmitted
 import java.time.Instant
 
@@ -14,9 +14,6 @@ import java.time.Instant
 enum class PolicyDenialCode {
     /** Ungranted capabilities are denied by default (roadmap HXA-033; HXA-032 center). */
     CAPABILITY_NOT_GRANTED,
-
-    /** L3 is denied by default — in base risk or reached by dynamic factors. */
-    L3_DEFAULT_DENY,
 
     /** Credentials never egress, in either profile; no rule can release them. */
     CREDENTIALS_ALWAYS_DENIED,
@@ -33,8 +30,8 @@ enum class PolicyDenialCode {
     /** Chat has no tools unless the user explicitly opts in for this Turn. */
     CHAT_TOOLS_DISABLED,
 
-    /** Chat admits READ_ONLY or METADATA at L0 and Plan at L0-L1 after dynamic risk. */
-    MODE_RISK_CEILING,
+    /** Chat and Plan admit only READ_ONLY or closed METADATA operations. */
+    MODE_OPERATION_DENIED,
 
     /** PRoot/CLI runtimes are ADVANCED-only (ADR-0005). */
     ISOLATED_RUNTIME_REQUIRES_ADVANCED,
@@ -42,7 +39,7 @@ enum class PolicyDenialCode {
 
 /** Result of the per-call Policy Engine check (the approval stage consumes it). */
 sealed interface PolicyDecision {
-    /** The policy allows the call to proceed (approval still applies per [RiskLevel]). */
+    /** The policy allows the call to proceed (approval still applies per [ToolOperationClass]). */
     data object Allow : PolicyDecision
 
     /** The policy denies the call outright; [code] is stable for audit and UI. */
@@ -62,13 +59,12 @@ sealed interface PolicyDecision {
 }
 
 /**
- * The engine's output: the computed dynamic risk (never below [PolicyInput.baseRisk]), the
- * decision, and the auditable factors that produced the risk.
+ * The engine's output: the registered operation, decision and auditable policy facts.
  */
 data class PolicyEvaluation(
-    val dynamicRisk: RiskLevel,
+    val operationClass: ToolOperationClass,
     val decision: PolicyDecision,
-    val riskFactors: List<String>,
+    val policyFactors: List<String>,
     /** The egress category after the origin floor (null when the call does not egress). */
     val effectiveDataCategory: DataSensitivity?,
     /**
@@ -85,14 +81,12 @@ data class PolicyEvaluation(
  *
  * Stateless by design: all inputs are per-call facts, rules are external state passed per call,
  * and the only ambient dependency is the [Clock] — a restart loses nothing and gains nothing.
- * The engine never widens grants: dynamic risk is `max(baseRisk, factors)` and every stored
- * rule is re-validated against the live clock and all binding fields on every call.
+ * Every stored rule is re-validated against the live clock and all binding fields on every call.
  *
- * ModePolicy (core:agent) consumes [PolicyEvaluation.dynamicRisk] through ToolModeProfile
- * (ADR-0003 follow-on): MCP annotation, Skill instruction and static baseRisk can never lower
- * dynamic risk, by construction.
+ * ModePolicy (core:agent) consumes [PolicyEvaluation.operationClass] through ToolModeProfile
+ * External annotations and Skill instructions never grant capability or authorization.
  *
- * One pipeline per check (default denials -> egress gate -> risk factors -> decision); the
+ * One pipeline per check (default denials -> egress gate -> policy facts -> decision); the
  * small private helpers are stages of that single pipeline, not independent operations
  * (@Suppress("TooManyFunctions")).
  */
@@ -112,45 +106,37 @@ class PolicyEngine(
             } else {
                 EgressGate.none()
             }
-        val risk =
+        val modeDenial = if (defaultDenial == null && gate.denial == null) modeDenial(input) else null
+        val decision =
             when {
-                defaultDenial != null -> input.baseRisk
-                gate.denial != null -> input.baseRisk
-                else -> computeDynamicRisk(input, factors)
+                defaultDenial != null -> {
+                    defaultDenial
+                }
+
+                gate.denial != null -> {
+                    gate.denial
+                }
+
+                modeDenial != null -> {
+                    modeDenial
+                }
+
+                gate.approvalDetail != null -> {
+                    PolicyDecision.RequiresApproval(gate.approvalDetail)
+                }
+
+                !input.operationClass.isReviewModeAdmitted -> {
+                    PolicyDecision.RequiresApproval("Operation ${input.operationClass} requires explicit authorization")
+                }
+
+                else -> {
+                    PolicyDecision.Allow
+                }
             }
-        if (risk == RiskLevel.L3 && defaultDenial == null && gate.denial == null) {
-            return PolicyEvaluation(
-                RiskLevel.L3,
-                deny(PolicyDenialCode.L3_DEFAULT_DENY, "dynamic risk reached L3 and is denied by default"),
-                factors,
-                gate.category,
-                gate.matchedRule,
-            )
-        }
-        val modeDenial = if (defaultDenial == null && gate.denial == null) modeDenial(input, risk) else null
-        val decision = resolveDecision(defaultDenial, gate, modeDenial, risk)
-        return PolicyEvaluation(risk, decision, factors, gate.category, gate.matchedRule)
+        return PolicyEvaluation(input.operationClass, decision, factors, gate.category, gate.matchedRule)
     }
 
-    private fun resolveDecision(
-        defaultDenial: PolicyDecision.Deny?,
-        gate: EgressGate,
-        modeDenial: PolicyDecision.Deny?,
-        risk: RiskLevel,
-    ): PolicyDecision =
-        when {
-            defaultDenial != null -> defaultDenial
-            gate.denial != null -> gate.denial
-            modeDenial != null -> modeDenial
-            gate.approvalDetail != null -> PolicyDecision.RequiresApproval(gate.approvalDetail)
-            risk.requiresApproval -> PolicyDecision.RequiresApproval("dynamic risk $risk requires per-call approval")
-            else -> PolicyDecision.Allow
-        }
-
-    private fun modeDenial(
-        input: PolicyInput,
-        risk: RiskLevel,
-    ): PolicyDecision.Deny? =
+    private fun modeDenial(input: PolicyInput): PolicyDecision.Deny? =
         when {
             input.mode == AgentMode.CHAT && !input.chatToolsEnabled -> {
                 deny(PolicyDenialCode.CHAT_TOOLS_DISABLED, "Chat tools were not enabled by the user")
@@ -158,17 +144,9 @@ class PolicyEngine(
 
             input.mode == AgentMode.CHAT && !input.operationClass.isReviewModeAdmitted -> {
                 deny(
-                    PolicyDenialCode.MODE_RISK_CEILING,
-                    "Chat mode allows only READ_ONLY or METADATA tools",
+                    PolicyDenialCode.MODE_OPERATION_DENIED,
+                    "Chat mode permits reads and closed metadata operations only",
                 )
-            }
-
-            input.mode == AgentMode.CHAT && risk != RiskLevel.L0 -> {
-                deny(PolicyDenialCode.MODE_RISK_CEILING, "Chat mode allows only dynamic risk L0")
-            }
-
-            input.mode == AgentMode.PLAN && risk > RiskLevel.L1 -> {
-                deny(PolicyDenialCode.MODE_RISK_CEILING, "Plan mode allows dynamic risk up to L1")
             }
 
             else -> {
@@ -176,7 +154,7 @@ class PolicyEngine(
             }
         }
 
-    /** Default denials checked before any risk arithmetic (roadmap HXA-033). */
+    /** Capability, channel and review-mode boundaries precede authorization. */
     private fun checkDefaultDenials(input: PolicyInput): PolicyDecision.Deny? =
         when {
             input.missingCapabilities.isNotEmpty() -> {
@@ -184,10 +162,6 @@ class PolicyEngine(
                     PolicyDenialCode.CAPABILITY_NOT_GRANTED,
                     "missing capabilities: ${input.missingCapabilities.sorted()}",
                 )
-            }
-
-            input.baseRisk == RiskLevel.L3 -> {
-                deny(PolicyDenialCode.L3_DEFAULT_DENY, "base risk L3 is denied by default")
             }
 
             input.mode == AgentMode.PLAN && !input.operationClass.isReviewModeAdmitted -> {
@@ -230,7 +204,7 @@ class PolicyEngine(
         if (egress != null && denial == null) {
             if (lanScope != null) factors += "LAN scope ${lanScope.matchKey} matches"
             if (residence == ProviderResidence.CUSTOM_REMOTE_UNKNOWN) {
-                factors += "CUSTOM_REMOTE_UNKNOWN destination raises risk to at least L2"
+                factors += "CUSTOM_REMOTE_UNKNOWN destination has no established data residence"
             }
         }
 
@@ -339,34 +313,6 @@ class PolicyEngine(
         }
     }
 
-    /** Dynamic risk factors (architecture doc section 8); never below [PolicyInput.baseRisk]. */
-    private fun computeDynamicRisk(
-        input: PolicyInput,
-        factors: MutableList<String>,
-    ): RiskLevel {
-        var risk = input.baseRisk
-        if (input.egress != null && !input.originSeenInSession) {
-            factors += "new network origin ${input.egress.endpoint.origin} raises risk one level"
-            risk = risk.bump()
-        }
-        if (input.egress?.endpoint?.residence() == ProviderResidence.CUSTOM_REMOTE_UNKNOWN) {
-            risk = risk.maxFloor(RiskLevel.L2)
-        }
-        if (input.overwritesExisting) {
-            factors += "overwriting existing data raises risk to at least L2"
-            risk = risk.maxFloor(RiskLevel.L2)
-        }
-        if (input.codeOrCommandChanged) {
-            factors += "changed code/command re-gates the call (at least L2)"
-            risk = risk.maxFloor(RiskLevel.L2)
-        }
-        if (input.sourceBindingChanged) {
-            factors += "changed source binding (schema/snapshot hash) invalidates prior grants (at least L2)"
-            risk = risk.maxFloor(RiskLevel.L2)
-        }
-        return risk
-    }
-
     /**
      * A rule covers a call only when every binding field matches exactly AND the rule is live
      * at [now]: `createdAt <= now < expiresAt` (clock rollback fails closed like expiry).
@@ -390,19 +336,6 @@ class PolicyEngine(
         code: PolicyDenialCode,
         detail: String,
     ): PolicyDecision.Deny = PolicyDecision.Deny(code, detail)
-
-    private fun RiskLevel.bump(): RiskLevel =
-        when (this) {
-            RiskLevel.L0 -> RiskLevel.L1
-
-            RiskLevel.L1 -> RiskLevel.L2
-
-            RiskLevel.L2,
-            RiskLevel.L3,
-            -> this
-        }
-
-    private fun RiskLevel.maxFloor(floor: RiskLevel): RiskLevel = if (this < floor) floor else this
 
     /** Result of the egress gate; [category] is null when the call does not egress. */
     private data class EgressGate(

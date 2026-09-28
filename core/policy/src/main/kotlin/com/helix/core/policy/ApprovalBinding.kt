@@ -15,7 +15,7 @@ import java.security.MessageDigest
  * these values fails (security doc section 7.3).
  *
  * [contractHash] is the full-descriptor security contract (ADR-0011, HXA-042): a stable hash
- * over the ENTIRE registered [ToolDescriptor] (operation class, base risk, timeout, output
+ * over the ENTIRE registered [ToolDescriptor] (operation class, timeout, output
  * cap, required capabilities, idempotency, origin, and the identity it already carries).
  * Binding it — not merely the `(name, version, schemaHash)` triple — is what makes a contract
  * that keeps name/version/schema constant but loosens a security field (a longer timeout, a

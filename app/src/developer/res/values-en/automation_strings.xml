@@ -6,4 +6,11 @@
     <string name="automation_open_settings">Open Accessibility settings</string>
     <string name="automation_start">Start session</string>
     <string name="automation_stop">Stop now</string>
+    <string name="automation_system_settings">Allow Settings and Quick Settings for this session</string>
+    <string name="automation_system_settings_detail">May change device settings. Target packages must also be allowed. Ends when the session stops; approvals and sensitive action checks still apply. Includes installed system components: %1$s.</string>
+    <string name="automation_paused">Paused: %1$s</string>
+    <string name="automation_resume_target">Authorized target package to return to</string>
+    <string name="automation_resume">Confirm recovery</string>
+    <string name="automation_resume_pending">Confirmed. Return to the selected app to continue.</string>
+    <string name="automation_resume_refused">Cannot resume this target. Choose an allowed target, or stop and authorize a new session.</string>
 </resources>

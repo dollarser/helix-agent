@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
@@ -129,12 +128,10 @@ class FilesMetaToolsTest {
         d: com.helix.tools.framework.ToolDescriptor,
         name: String,
         op: ToolOperationClass,
-        risk: RiskLevel,
     ) {
         assertEquals(name, d.name.value)
         assertEquals(if (d.name.value == "files.mkdir") 2 else 1, d.version.value)
         assertEquals(op, d.operationClass)
-        assertEquals(risk, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
@@ -146,7 +143,11 @@ class FilesMetaToolsTest {
 
     @Test
     fun statDescriptorIsAValidReadOnlyBuiltIn() {
-        assertDescriptor(FilesStatTool.descriptor(), "files.stat", ToolOperationClass.READ_ONLY, RiskLevel.L1)
+        assertDescriptor(
+            FilesStatTool.descriptor(),
+            "files.stat",
+            ToolOperationClass.READ_ONLY,
+        )
     }
 
     @Test
@@ -190,7 +191,11 @@ class FilesMetaToolsTest {
 
     @Test
     fun listDescriptorIsAValidReadOnlyBuiltIn() {
-        assertDescriptor(FilesListTool.descriptor(), "files.list", ToolOperationClass.READ_ONLY, RiskLevel.L1)
+        assertDescriptor(
+            FilesListTool.descriptor(),
+            "files.list",
+            ToolOperationClass.READ_ONLY,
+        )
     }
 
     @Test
@@ -233,7 +238,11 @@ class FilesMetaToolsTest {
 
     @Test
     fun searchDescriptorIsAValidReadOnlyBuiltIn() {
-        assertDescriptor(FilesSearchTool.descriptor(), "files.search", ToolOperationClass.READ_ONLY, RiskLevel.L1)
+        assertDescriptor(
+            FilesSearchTool.descriptor(),
+            "files.search",
+            ToolOperationClass.READ_ONLY,
+        )
     }
 
     @Test
@@ -299,7 +308,11 @@ class FilesMetaToolsTest {
 
     @Test
     fun mkdirDescriptorIsAValidMutationBuiltIn() {
-        assertDescriptor(FilesMkdirTool.descriptor(), "files.mkdir", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2)
+        assertDescriptor(
+            FilesMkdirTool.descriptor(),
+            "files.mkdir",
+            ToolOperationClass.LOCAL_MUTATION,
+        )
     }
 
     @Test

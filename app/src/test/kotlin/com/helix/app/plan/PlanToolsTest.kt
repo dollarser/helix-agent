@@ -6,7 +6,6 @@ import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.PlanId
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -94,14 +93,13 @@ class PlanToolsTest {
         assertEquals(ToolName("plan.submit"), d.name)
         assertEquals(ToolVersion(2), d.version)
         assertEquals(ToolOperationClass.METADATA, d.operationClass)
-        assertEquals(RiskLevel.L0, d.baseRisk)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
         // Plan mode admits READ_ONLY or METADATA at dynamic risk <= L1 (core:agent ModePolicy):
         // the structured plan-submission tool is a distinct METADATA op, not a disguised READ_ONLY.
         assertTrue(
             ModePolicy.evaluate(
                 AgentMode.PLAN,
-                ToolModeProfile(ToolOperationClass.METADATA, RiskLevel.L0),
+                ToolModeProfile(ToolOperationClass.METADATA),
             ) is ModeDecision.Allowed,
         )
     }

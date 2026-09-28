@@ -15,6 +15,26 @@ class TurnBudgetTrackerTest {
     private fun request(text: String = "hello") = ModelRequest("model", listOf(ModelMessage(ModelRole.USER, text)))
 
     @Test
+    fun longTaskDefaultAdmitsAndSettles1024CallsWithoutRefundingOnRestore() {
+        val budgets = com.helix.app.runcontrol.TurnBudgetBounds.DEFAULT
+        var tracker = TurnBudgetTracker(budgets)
+        repeat(1024) { index ->
+            if (index ==
+                512
+            ) {
+                tracker = TurnBudgetTracker.restore(budgets, tracker.consumedCalls, tracker.consumedTokens)
+            }
+            val admitted = tracker.prepareCall(request())
+            assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, admitted.decision)
+            val stream = ModelStreamState().also { it.apply(ModelEvent.Usage(20, 1)) }
+            assertTrue(tracker.finishCall("call-$index", requireNotNull(admitted.request), stream))
+        }
+        assertEquals(1024, tracker.consumedCalls)
+        assertEquals(21504L, tracker.consumedTokens)
+        assertEquals(TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT, tracker.prepareCall(request()).decision)
+    }
+
+    @Test
     fun modelCallLimitFailsBeforeAnExtraProviderCall() {
         val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 200))
         val request = request()

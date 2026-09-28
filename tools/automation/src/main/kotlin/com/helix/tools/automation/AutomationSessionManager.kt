@@ -41,6 +41,7 @@ data class ActiveAutomationSession(
     val startedAt: Instant,
     val scope: AutomationSessionScope,
     val attemptedActions: Int = 0,
+    val allowSystemSettings: Boolean = false,
 )
 
 internal enum class AutomationActionAdmission {
@@ -83,12 +84,24 @@ class AutomationSessionManager(
     var pauseReason: AutomationPauseReason? = null
         private set
 
+    var resumeTarget: String? = null
+        private set
+
+    @Synchronized
+    fun requestResumeOnTarget(packageName: String): Boolean {
+        val session = current()
+        if (session == null || pauseReason == null || packageName !in session.scope.allowedPackages) return false
+        resumeTarget = packageName
+        return true
+    }
+
     @Synchronized
     fun start(
         requestedPackages: Set<String>,
         persistedAllowlist: Set<String>,
         ttl: Duration = DEFAULT_TTL,
         maxActions: Int = DEFAULT_MAX_ACTIONS,
+        allowSystemSettings: Boolean = false,
     ): AutomationSessionStartResult {
         expireIfNeeded(clock.now())
         val refusal =
@@ -127,6 +140,7 @@ class AutomationSessionManager(
         val session =
             ActiveAutomationSession(
                 id = idFactory(),
+                allowSystemSettings = allowSystemSettings,
                 startedAt = now,
                 scope =
                     AutomationSessionScope(
@@ -139,6 +153,7 @@ class AutomationSessionManager(
         active = session
         lastStopReason = null
         pauseReason = null
+        resumeTarget = null
         return AutomationSessionStartResult(AutomationSessionStartStatus.STARTED, session)
     }
 
@@ -154,6 +169,7 @@ class AutomationSessionManager(
         active = null
         lastStopReason = reason
         pauseReason = null
+        resumeTarget = null
         return true
     }
 
@@ -171,6 +187,7 @@ class AutomationSessionManager(
     fun resumeAfterUserConfirmation(): Boolean {
         if (current() == null || pauseReason == null) return false
         pauseReason = null
+        resumeTarget = null
         return true
     }
 

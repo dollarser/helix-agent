@@ -3,7 +3,6 @@ package com.helix.app.tool
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.OperationEffect
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -299,7 +298,7 @@ class SessionToolEffectClassifierTest {
     @Test
     fun privilegedAndUnknownToolsAreUndeterminedDeviceSystemMutation() {
         for (name in listOf("android.clipboard.write", "device.screenshot")) {
-            val c = bound.classify(request(), descriptor(name, ToolOperationClass.EXTERNAL_ACTION, RiskLevel.L1))
+            val c = bound.classify(request(), descriptor(name, ToolOperationClass.EXTERNAL_ACTION))
             assertEquals(setOf(OperationEffect.DEVICE_SYSTEM_MUTATION), c.footprint.undeterminedEffects)
             assertTrue(c.footprint.effects.isEmpty())
         }
@@ -357,7 +356,6 @@ class SessionToolEffectClassifierTest {
     private fun descriptor(
         name: String,
         operationClass: ToolOperationClass = ToolOperationClass.READ_ONLY,
-        baseRisk: RiskLevel = RiskLevel.L0,
         origin: ToolOrigin = ToolOrigin.BuiltInOrigin,
     ): ToolDescriptor =
         ToolDescriptor(
@@ -367,7 +365,6 @@ class SessionToolEffectClassifierTest {
             inputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
             outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
             operationClass = operationClass,
-            baseRisk = baseRisk,
             timeout = 30.seconds,
             maxOutputBytes = 1024,
             requiredCapabilities = emptySet(),

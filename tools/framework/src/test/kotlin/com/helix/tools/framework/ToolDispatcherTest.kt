@@ -6,7 +6,6 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -137,7 +136,7 @@ class ToolDispatcherTest {
     @Test
     fun l0ReadOnlyRunsWithoutApproval() {
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
@@ -168,7 +167,6 @@ class ToolDispatcherTest {
         registerTool(
             descriptor(
                 operationClass = ToolOperationClass.READ_ONLY,
-                baseRisk = RiskLevel.L0,
                 requiredCapabilities = setOf(Capability.NOTIFICATION_READ),
             ),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
@@ -180,7 +178,7 @@ class ToolDispatcherTest {
     @Test
     fun planModeDeniesAMutatingCallByOperationClass() {
         registerTool(
-            descriptor(operationClass = ToolOperationClass.LOCAL_MUTATION, baseRisk = RiskLevel.L1),
+            descriptor(operationClass = ToolOperationClass.LOCAL_MUTATION),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), mode = AgentMode.PLAN))
@@ -191,7 +189,7 @@ class ToolDispatcherTest {
     @Test
     fun chatAndPlanModeCeilingsAreRecheckedInsideTheDispatcher() {
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L2),
+            descriptor(operationClass = ToolOperationClass.LOCAL_MUTATION),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         val chatDisabled = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), mode = AgentMode.CHAT))
@@ -789,7 +787,7 @@ class ToolDispatcherTest {
                 failing,
             )
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         try {
@@ -848,7 +846,7 @@ class ToolDispatcherTest {
         // A security-field-only variant (same name/version/schema) is a different binding:
         // the schema hash is unchanged, the contract hash is not — so a stale approval
         // minted for `d` hashes to a different binding than the variant's.
-        val variant = d.copy(baseRisk = RiskLevel.L3)
+        val variant = d.copy(operationClass = ToolOperationClass.PRIVILEGED)
         assertTrue("schema unchanged", variant.schemaHash.hex == d.schemaHash.hex)
         assertTrue("contract changed", variant.contractHash.hex != d.contractHash.hex)
     }
@@ -904,7 +902,7 @@ class ToolDispatcherTest {
                 }
             }
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             executor,
         )
         val outcome =
@@ -927,7 +925,7 @@ class ToolDispatcherTest {
     fun anUnconfirmedFailureIsTerminalEvenWithRetryBudget() {
         var attempts = 0
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     attempts++
@@ -1064,7 +1062,7 @@ class ToolDispatcherTest {
     @Test
     fun anUnexpectedThrowSettlesTheAttemptAuditBeforePropagating() {
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = error("companion binder crashed")
             },
@@ -1178,7 +1176,6 @@ class ToolDispatcherTest {
         registerTool(
             descriptor(
                 operationClass = ToolOperationClass.READ_ONLY,
-                baseRisk = RiskLevel.L0,
                 requiredCapabilities = setOf(Capability.NOTIFICATION_READ),
             ),
             object : ToolExecutor {
@@ -1207,7 +1204,7 @@ class ToolDispatcherTest {
     @Test
     fun maxAttemptsAboveTheHardCapIsRejected() {
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         assertThrows(IllegalArgumentException::class.java) {
@@ -1234,7 +1231,7 @@ class ToolDispatcherTest {
     @Test
     fun aQueuedCallKeepsItsQueuedStampInEveryAttemptAuditRow() {
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         // queuedAt is the ENQUEUE time: it must not lie in the future of the dispatch.
@@ -1277,7 +1274,7 @@ class ToolDispatcherTest {
         val req = request(tool("fake"), version(1), emptyArgs()).copy(onExecutionStarting = { starts++ })
         assertTrue(dispatcher.dispatch(req) is ToolDispatchOutcome.Denied)
         registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             CaptureExecutor { error("cancelled call must not execute") },
         )
         val cancelled =
@@ -1294,7 +1291,7 @@ class ToolDispatcherTest {
     @Test
     fun executionPersistenceFailurePreventsEffectsAndIsAudited() {
         val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
-        registerTool(descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0), executor)
+        registerTool(descriptor(operationClass = ToolOperationClass.READ_ONLY), executor)
         val req =
             request(tool("fake"), version(1), emptyArgs()).copy(
                 onExecutionStarting = { error("storage unavailable") },
@@ -1324,7 +1321,6 @@ class ToolDispatcherTest {
         name: String = "fake",
         version: Int = 1,
         operationClass: ToolOperationClass = ToolOperationClass.LOCAL_MUTATION,
-        baseRisk: RiskLevel = RiskLevel.L2,
         inputSchema: JsonObject = json("""{"type":"object"}"""),
         outputSchema: JsonObject = json("""{"type":"object"}"""),
         requiredCapabilities: Set<Capability> = emptySet(),
@@ -1338,7 +1334,6 @@ class ToolDispatcherTest {
             inputSchema = inputSchema,
             outputSchema = outputSchema,
             operationClass = operationClass,
-            baseRisk = baseRisk,
             timeout = timeout,
             maxOutputBytes = maxOutputBytes,
             requiredCapabilities = requiredCapabilities,

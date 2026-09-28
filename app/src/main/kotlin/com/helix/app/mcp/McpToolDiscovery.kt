@@ -1,7 +1,6 @@
 package com.helix.app.mcp
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -107,7 +106,6 @@ internal class McpToolDiscovery(
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
                 operationClass = ToolOperationClass.READ_ONLY,
-                baseRisk = RiskLevel.L0,
                 timeout = 5.seconds,
                 maxOutputBytes = 16 * 1024L,
                 requiredCapabilities = emptySet(),

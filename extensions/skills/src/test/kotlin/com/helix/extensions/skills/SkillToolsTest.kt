@@ -1,7 +1,6 @@
 package com.helix.extensions.skills
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -40,11 +39,11 @@ class SkillToolsTest {
             ),
             byName.keys,
         )
-        assertEquals(RiskLevel.L0, byName.getValue(SkillTools.LIST).baseRisk)
-        assertEquals(RiskLevel.L1, byName.getValue(SkillTools.READ).baseRisk)
-        assertEquals(RiskLevel.L1, byName.getValue(SkillTools.READ_RESOURCE).baseRisk)
-        assertEquals(RiskLevel.L1, byName.getValue(SkillTools.ENABLE).baseRisk)
-        assertEquals(RiskLevel.L2, byName.getValue(SkillTools.REMOVE).baseRisk)
+        assertEquals(ToolOperationClass.READ_ONLY, byName.getValue(SkillTools.LIST).operationClass)
+        assertEquals(ToolOperationClass.READ_ONLY, byName.getValue(SkillTools.READ).operationClass)
+        assertEquals(ToolOperationClass.READ_ONLY, byName.getValue(SkillTools.READ_RESOURCE).operationClass)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, byName.getValue(SkillTools.ENABLE).operationClass)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, byName.getValue(SkillTools.REMOVE).operationClass)
         assertEquals(ToolOperationClass.READ_ONLY, byName.getValue(SkillTools.READ).operationClass)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, byName.getValue(SkillTools.REMOVE).operationClass)
         assertTrue(byName.values.all { it.requiredCapabilities.isEmpty() })

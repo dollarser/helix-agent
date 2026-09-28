@@ -1,6 +1,6 @@
 package com.helix.tools.framework
 
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.policy.ApprovalProof
 import com.helix.core.policy.HighSensitivityRule
@@ -60,10 +60,9 @@ interface ApprovalBroker {
 
 /**
  * One acquisition attempt: the exact binding + the policy decision's confirmation detail +
- * the Policy Engine's DYNAMIC risk for this call (base risk plus egress/change factors).
+ * the trusted operation class for this call.
  *
- * [dynamicRisk] is what the approval card (HXA-036) must show as the call's risk — the
- * value the policy engine actually used, not the descriptor's base risk alone.
+ * [operationClass] identifies the operation; the card also presents its actual scope and reasons.
  *
  * [cancel] is the dispatch's turn-level [CancelSignal] (roadmap HXA-036): the broker's
  * blocking wait for the user's decision must observe it so a turn stop CANCELS the wait
@@ -81,7 +80,7 @@ interface ApprovalBroker {
 data class ApprovalRequest(
     val binding: ApprovalBinding,
     val confirmationDetail: String,
-    val dynamicRisk: RiskLevel,
+    val operationClass: ToolOperationClass,
     val cancel: CancelSignal = NoCancellation,
     val boundedEgressRule: HighSensitivityRule? = null,
 )

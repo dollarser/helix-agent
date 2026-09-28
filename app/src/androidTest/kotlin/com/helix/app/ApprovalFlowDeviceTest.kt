@@ -13,7 +13,6 @@ import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolName
@@ -112,7 +111,6 @@ class ApprovalFlowDeviceTest {
                             ).let { it as JsonObject },
                     outputSchema = Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
                     operationClass = ToolOperationClass.LOCAL_MUTATION,
-                    baseRisk = RiskLevel.L2,
                     timeout = 30.seconds,
                     maxOutputBytes = 4096L,
                     requiredCapabilities = emptySet(),
@@ -516,7 +514,6 @@ class ApprovalFlowDeviceTest {
                 inputSchema = JsonObject(emptyMap()),
                 outputSchema = JsonObject(emptyMap()),
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),

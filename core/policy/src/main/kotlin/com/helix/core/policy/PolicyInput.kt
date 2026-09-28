@@ -3,12 +3,11 @@ package com.helix.core.policy
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
 
 /**
- * The trusted per-call fact set the Policy Engine composes dynamic risk from (roadmap HXA-033:
+ * The trusted per-call facts used for concrete policy boundaries (roadmap HXA-033:
  * mode, Safety Profile, scope, data sensitivity, normalized network origin/residence, tool
  * source, execution target and parameters; architecture doc section 8).
  *
@@ -20,8 +19,6 @@ import com.helix.core.model.ToolOperationClass
  * residence" is enforced (ADR-0005).
  */
 data class PolicyInput(
-    /** The descriptor's static base risk; dynamic risk can only equal or exceed it. */
-    val baseRisk: RiskLevel,
     /** The descriptor's operation effect class (Plan-mode filter stays operation-class primary). */
     val operationClass: ToolOperationClass,
     /** The agent mode of the current turn. */

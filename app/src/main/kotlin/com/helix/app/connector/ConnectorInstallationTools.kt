@@ -1,7 +1,6 @@
 package com.helix.app.connector
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -40,7 +39,6 @@ internal object ConnectorInstallationTools {
                     inputSchema = Json.parseToJsonElement(if (install) INPUT else PREVIEW_INPUT).jsonObject,
                     outputSchema = Json.parseToJsonElement(if (install) OUTPUT else PREVIEW_OUTPUT).jsonObject,
                     operationClass = if (install) ToolOperationClass.LOCAL_MUTATION else ToolOperationClass.READ_ONLY,
-                    baseRisk = if (install) RiskLevel.L2 else RiskLevel.L1,
                     timeout = 30.seconds,
                     maxOutputBytes = 256L * 1024,
                     requiredCapabilities = emptySet(),

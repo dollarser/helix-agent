@@ -294,7 +294,7 @@ internal class ChatRequestAssembler(
         val admitted =
             ModePolicy
                 .filterTools(control.mode, latest, control.chatToolsEnabled) {
-                    ToolModeProfile(it.operationClass, it.baseRisk)
+                    ToolModeProfile(it.operationClass)
                 }.filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
                 .filter {
                     it.name.value !in com.helix.app.goal.GoalLifecycleTools.names ||

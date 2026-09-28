@@ -19,4 +19,5 @@ object BudgetStopReasons {
                 "MODEL_CALL_LIMIT",
                 "TOOL_STEP_LIMIT",
             )
+    val continuable = turn + "TOOL_LOOP_NO_PROGRESS"
 }

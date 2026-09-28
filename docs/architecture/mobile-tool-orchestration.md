@@ -85,7 +85,7 @@ data class EffectFootprint(
 - 仅 developer/Advanced 实验入口；Standard 保持单 Agent，避免普通用户承担额外费用、功耗和复杂度。
 - 最大深度 1、并发 child 2、每父 Turn 最多创建 4 个；模型调用、token、墙钟和 Tool 次数全部计入父 Goal/Turn 预算。
 - child 得到自包含任务与最小只读 context snapshot，或只继承父会话已完成且经过确定性截断的轮次；不继承 pending approval、Secret、UI token、Root/Automation session 或可写 capability。
-- child 只注册 `READ_ONLY` 且动态风险不高于 L1 的工具；不能请求/持有 Approval Proof，不能执行 L2/L3。需要变更时只返回 proposal，由父 Turn 重新构造 ToolCall 并走正常审批。
+- child 只注册 `READ_ONLY` 的工具；不能请求/持有 Approval Proof，不能执行写入或其他副作用。需要变更时只返回 proposal，由父 Turn 重新构造 ToolCall 并走正常审批。
 - 首版只有 parent → child 任务、parent → child cancel 和 child → parent structured result；不提供 peer-to-peer 消息、递归派生或后台无限续话。
 - Agent graph、状态、父子关系、预算占用和 completion result 持久化。完成消息带 source/trust/hash/evidence refs，不能把 child 自述当 verifier 证据。
 

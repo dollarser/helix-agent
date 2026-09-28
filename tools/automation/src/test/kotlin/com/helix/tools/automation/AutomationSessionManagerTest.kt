@@ -17,6 +17,49 @@ class AutomationSessionManagerTest {
     private val allowed = setOf("com.example.fixture", "org.example.second")
 
     @Test
+    fun recoveryConfirmationIsBoundToOneLivePauseAndAllowedTarget() {
+        manager.start(allowed, allowed)
+        assertFalse(manager.requestResumeOnTarget(allowed.first()))
+        manager.pause(AutomationPauseReason.TARGET_CHANGED)
+        assertFalse(manager.requestResumeOnTarget("com.other.app"))
+        assertTrue(manager.requestResumeOnTarget(allowed.first()))
+        assertEquals(allowed.first(), manager.resumeTarget)
+        assertTrue(manager.isPaused())
+        manager.resumeAfterUserConfirmation()
+        assertNull(manager.resumeTarget)
+        manager.pause(AutomationPauseReason.CHECKPOINT)
+        assertNull(manager.resumeTarget)
+        manager.requestResumeOnTarget(allowed.first())
+        manager.stop(AutomationStopReason.USER_STOP)
+        assertNull(manager.resumeTarget)
+        manager.start(allowed, allowed)
+        assertNull(manager.resumeTarget)
+    }
+
+    @Test
+    fun systemSettingsGrantDoesNotSurviveStopExpiryOrRecreation() {
+        assertFalse(manager.start(allowed, allowed).session!!.allowSystemSettings)
+        manager.stop(AutomationStopReason.USER_STOP)
+        assertTrue(manager.start(allowed, allowed, allowSystemSettings = true).session!!.allowSystemSettings)
+        manager.stop(AutomationStopReason.USER_STOP)
+        assertFalse(manager.start(allowed, allowed).session!!.allowSystemSettings)
+        manager.stop(AutomationStopReason.USER_STOP)
+        manager.start(allowed, allowed, allowSystemSettings = true)
+        clock.instant = clock.now().plus(Duration.ofMinutes(6))
+        assertNull(manager.current())
+        assertFalse(manager.start(allowed, allowed).session!!.allowSystemSettings)
+        assertFalse(AutomationSessionManager(clock).start(allowed, allowed).session!!.allowSystemSettings)
+    }
+
+    @Test
+    fun systemSettingsGrantCannotExpandThePackageAllowlist() {
+        assertEquals(
+            AutomationSessionStartStatus.TARGET_NOT_ALLOWLISTED,
+            manager.start(setOf("com.android.settings"), allowed, allowSystemSettings = true).status,
+        )
+    }
+
+    @Test
     fun startsOneFiveMinuteSessionBoundToTheRequestedAllowlistedPackages() {
         val result = manager.start(setOf("com.example.fixture"), allowed)
 

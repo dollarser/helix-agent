@@ -80,7 +80,7 @@ fun ApprovalCard(
                     modifier = Modifier.testTag("approval-card-summary-${card.approvalId}"),
                 )
                 Text(
-                    localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),
+                    localizedString(card.operationRes, card.operationArgs.map { stringResource(it) }),
                     style = MaterialTheme.typography.labelMedium,
                 )
                 card.networkOrigin?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -129,9 +129,9 @@ private fun ApprovalCardFields(card: ApprovalCardUi) {
         tag = "approval-card-args",
     )
     FieldLine(
-        stringResource(R.string.approval_risk),
+        stringResource(R.string.approval_operation),
         // The uplift template interpolates the two level labels (string-resource IDs, HXA-069).
-        localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),
+        localizedString(card.operationRes, card.operationArgs.map { stringResource(it) }),
         tag = "approval-card-risk",
     )
     FieldLine(

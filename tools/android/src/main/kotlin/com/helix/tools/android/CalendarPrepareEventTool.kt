@@ -3,7 +3,6 @@
 package com.helix.tools.android
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -87,7 +86,6 @@ object CalendarPrepareEventTool {
                         ),
                 ),
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L1,
             timeout = 30.seconds,
             maxOutputBytes = 8192,
             requiredCapabilities = emptySet(),

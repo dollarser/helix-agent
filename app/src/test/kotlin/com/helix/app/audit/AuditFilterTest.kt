@@ -2,7 +2,7 @@ package com.helix.app.audit
 
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.approval.DispatchAuditRecord
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchOutcomeCode
 import org.junit.Assert.assertEquals
@@ -23,7 +23,7 @@ class AuditFilterTest {
         id: String,
         sessionId: String = "s-1",
         toolName: String = "time.now",
-        risk: RiskLevel? = RiskLevel.L0,
+        operationClass: ToolOperationClass? = ToolOperationClass.READ_ONLY,
         startedAt: Long = 1_700_000_000_000L, // 2023-11-14T22:13:20Z
     ) =
         DispatchAuditRecord(
@@ -36,7 +36,7 @@ class AuditFilterTest {
             toolVersion = "1",
             code = DispatchOutcomeCode.SUCCESS,
             decisionSource = DecisionSource.POLICY,
-            risk = risk,
+            operationClass = operationClass,
             startedAt = startedAt,
             finishedAt = startedAt + 5L,
         )
@@ -63,8 +63,14 @@ class AuditFilterTest {
 
     @Test
     fun riskFilterNeverMatchesRecordsWithoutRisk() {
-        val records = listOf(record("a", risk = RiskLevel.L2), record("b", risk = null))
-        val result = AuditFilters.applyAll(records, AuditLogFilter(risk = RiskLevel.L2), zone)
+        val records =
+            listOf(record("a", operationClass = ToolOperationClass.LOCAL_MUTATION), record("b", operationClass = null))
+        val result =
+            AuditFilters.applyAll(
+                records,
+                AuditLogFilter(operationClass = ToolOperationClass.LOCAL_MUTATION),
+                zone,
+            )
         assertEquals(listOf("a"), result.map { it.id })
     }
 
@@ -92,14 +98,28 @@ class AuditFilterTest {
     fun predicatesCombineWithAnd() {
         val records =
             listOf(
-                record("a", sessionId = "s-1", toolName = "fs.write", risk = RiskLevel.L2),
-                record("b", sessionId = "s-1", toolName = "fs.write", risk = RiskLevel.L0),
-                record("c", sessionId = "s-2", toolName = "fs.write", risk = RiskLevel.L2),
+                record(
+                    "a",
+                    sessionId = "s-1",
+                    toolName = "fs.write",
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                ),
+                record("b", sessionId = "s-1", toolName = "fs.write", operationClass = ToolOperationClass.READ_ONLY),
+                record(
+                    "c",
+                    sessionId = "s-2",
+                    toolName = "fs.write",
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                ),
             )
         val result =
             AuditFilters.applyAll(
                 records,
-                AuditLogFilter(sessionId = "s-1", toolName = "fs.write", risk = RiskLevel.L2),
+                AuditLogFilter(
+                    sessionId = "s-1",
+                    toolName = "fs.write",
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                ),
                 zone,
             )
         assertEquals(listOf("a"), result.map { it.id })
@@ -109,10 +129,10 @@ class AuditFilterTest {
     fun fromUiTreatsBlankDateInputsAsNoBound() {
         // The page passes the raw text fields: blank = "no bound" (wildcard).
         assertEquals(AuditLogFilter(), AuditLogFilter.fromUi(null, null, null, "", ""))
-        val filter = AuditLogFilter.fromUi("s-1", null, RiskLevel.L2, "2023-11-14", "   ")
+        val filter = AuditLogFilter.fromUi("s-1", null, ToolOperationClass.LOCAL_MUTATION, "2023-11-14", "   ")
         assertFalse(filter.isEmpty)
         assertEquals("s-1", filter.sessionId)
-        assertEquals(RiskLevel.L2, filter.risk)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, filter.operationClass)
         assertEquals("2023-11-14", filter.fromDay)
         assertEquals(null, filter.toDay)
     }

@@ -2,7 +2,6 @@ package com.helix.tools.automation
 
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
@@ -25,6 +24,42 @@ class AutomationToolsTest {
     private val tools = AutomationTools(port)
 
     @Test
+    fun progressContractRemainsAnApprovedExternalActionWithNumericValue() {
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SET_PROGRESS }
+        assertEquals(ToolOperationClass.EXTERNAL_ACTION, descriptor.operationClass)
+        val input =
+            buildJsonObject {
+                put("token", JsonPrimitive(TOKEN))
+                put("value", JsonPrimitive(25))
+            }
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, input))
+        assertTrue(
+            ToolSchemaValidator.validate(
+                descriptor.inputSchema,
+                args("token" to TOKEN, "value" to "25"),
+            ) is ToolSchemaValidation.Invalid,
+        )
+        completed(execute(AutomationTools.SET_PROGRESS, input))
+        assertEquals(25.0, port.nodeRequests.single().progress)
+        assertEquals(AutomationNodeAction.SET_PROGRESS, port.nodeRequests.single().action)
+    }
+
+    @Test
+    fun waitReturnsImmediatelyWithRecoveryEvidenceInsteadOfPollingAPausedSession() {
+        port.snapshotResult =
+            AutomationSnapshotResult(
+                AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED,
+                pauseReason = AutomationPauseReason.TARGET_CHANGED,
+                targetPackage = "com.other.app",
+            )
+        val result = completed(execute(AutomationTools.WAIT, args("text" to "Continue")))
+        assertEquals(1, port.snapshots)
+        assertEquals("com.other.app", result["targetPackage"]?.jsonPrimitive?.content)
+        assertEquals("true", result["requiresUserConfirmation"]?.jsonPrimitive?.content)
+        assertEquals("TARGET_CHANGED", result["pauseReason"]?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun registersExactTokenOnlySurfaceWithRiskAndCapability() {
         val descriptors = tools.descriptors()
         assertEquals(
@@ -34,6 +69,7 @@ class AutomationToolsTest {
                 "ui.click",
                 "ui.long_click",
                 "ui.set_text",
+                "ui.set_progress",
                 "ui.scroll",
                 "ui.back",
                 "ui.home",
@@ -43,12 +79,24 @@ class AutomationToolsTest {
         )
         assertTrue(descriptors.all { it.requiredCapabilities == setOf(Capability.ACCESSIBILITY_AUTOMATION) })
         assertTrue(descriptors.all { it.executionTarget == ExecutionTargetType.LOCAL_ANDROID })
-        assertEquals(RiskLevel.L1, descriptors.single { it.name.value == AutomationTools.SNAPSHOT }.baseRisk)
+        assertEquals(
+            ToolOperationClass.READ_ONLY,
+            descriptors
+                .single {
+                    it.name.value == AutomationTools.SNAPSHOT
+                }.operationClass,
+        )
         assertEquals(
             ToolOperationClass.READ_ONLY,
             descriptors.single { it.name.value == AutomationTools.WAIT }.operationClass,
         )
-        assertEquals(RiskLevel.L2, descriptors.single { it.name.value == AutomationTools.CLICK }.baseRisk)
+        assertEquals(
+            ToolOperationClass.EXTERNAL_ACTION,
+            descriptors
+                .single {
+                    it.name.value == AutomationTools.CLICK
+                }.operationClass,
+        )
         assertFalse(descriptors.any { it.inputSchema.toString().contains("coordinate", ignoreCase = true) })
     }
 
@@ -195,7 +243,12 @@ private class FakeAutomationPort : AutomationToolPort {
     val nodeRequests = mutableListOf<AutomationNodeActionRequest>()
     val globalRequests = mutableListOf<AutomationGlobalAction>()
 
-    override fun snapshot() = snapshotResult
+    var snapshots = 0
+
+    override fun snapshot(): AutomationSnapshotResult {
+        snapshots++
+        return snapshotResult
+    }
 
     override fun nodeAction(request: AutomationNodeActionRequest): AutomationActionResult {
         nodeRequests += request

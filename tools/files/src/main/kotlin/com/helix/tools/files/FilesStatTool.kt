@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -37,7 +36,6 @@ object FilesStatTool {
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L1,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

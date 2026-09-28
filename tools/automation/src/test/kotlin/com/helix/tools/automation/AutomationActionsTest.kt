@@ -267,6 +267,113 @@ class AutomationNodeActionExecutorTest {
         )
     }
 
+    @Test
+    fun settingsActionsRecheckTheLiveGrantAndKeepSemanticRefusals() {
+        for (target in setOf("com.android.settings", "com.android.systemui")) {
+            for ((granted, label, expected) in listOf(
+                Triple(false, "Display", AutomationActionStatus.SENSITIVE_UI),
+                Triple(true, "Display", AutomationActionStatus.SUCCEEDED),
+                Triple(true, "Grant permission", AutomationActionStatus.SENSITIVE_UI),
+            )) {
+                val node = ActionFakeNode(packageName = target, text = label, clickable = true)
+                val authorized =
+                    session.copy(
+                        scope = session.scope.copy(allowedPackages = setOf(target)),
+                        allowSystemSettings = granted,
+                    )
+                val token =
+                    registry.issue(
+                        NodeTokenBinding(
+                            target,
+                            WINDOW_ID,
+                            7,
+                            node.observe().fingerprint(target, WINDOW_ID, emptyList()),
+                            emptyList(),
+                        ),
+                    )
+                assertEquals(
+                    expected,
+                    executor
+                        .execute(
+                            node,
+                            authorized,
+                            7,
+                            AutomationNodeActionRequest(AutomationNodeAction.CLICK, token),
+                        ).status,
+                )
+                assertEquals(expected == AutomationActionStatus.SUCCEEDED, node.performedAction != null)
+            }
+        }
+    }
+
+    @Test
+    fun progressIsTokenBoundAndRangeCheckedBeforeThePlatformCall() {
+        val range = AutomationNodeRange(0f, 100f, 50f)
+        for (value in listOf(0.0, 100.0, -1.0, 101.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+            val node = ActionFakeNode(range = range, canSetProgress = true)
+            val token = issue(node, emptyList(), 7)
+            val result =
+                executor.execute(
+                    node,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.SET_PROGRESS, token, progress = value),
+                )
+            val valid = value.isFinite() && value in 0.0..100.0
+            assertEquals(
+                if (valid) AutomationActionStatus.SUCCEEDED else AutomationActionStatus.INVALID_ARGUMENT,
+                result.status,
+            )
+            assertEquals(if (valid) android.R.id.accessibilityActionSetProgress else null, node.performedAction)
+        }
+    }
+
+    @Test
+    fun progressCannotBypassUnsupportedSensitiveDisabledOrChangedNodes() {
+        val range = AutomationNodeRange(0f, 100f, 50f)
+        val cases =
+            listOf(
+                ActionFakeNode(range = range) to AutomationActionStatus.ACTION_NOT_SUPPORTED,
+                ActionFakeNode(canSetProgress = true) to AutomationActionStatus.ACTION_NOT_SUPPORTED,
+                ActionFakeNode(range = range, canSetProgress = true, enabled = false) to
+                    AutomationActionStatus.ACTION_NOT_SUPPORTED,
+                ActionFakeNode(
+                    range = range,
+                    canSetProgress = true,
+                    password = true,
+                ) to AutomationActionStatus.SENSITIVE_UI,
+                ActionFakeNode(range = range, canSetProgress = true, text = "Pay amount") to
+                    AutomationActionStatus.SENSITIVE_UI,
+            )
+        for ((node, expected) in cases) {
+            val token = issue(node, emptyList(), 7)
+            assertEquals(
+                expected,
+                executor
+                    .execute(
+                        node,
+                        session,
+                        7,
+                        AutomationNodeActionRequest(AutomationNodeAction.SET_PROGRESS, token, progress = 25.0),
+                    ).status,
+            )
+            assertEquals(null, node.performedAction)
+        }
+        val token = issue(ActionFakeNode(range = range, canSetProgress = true), emptyList(), 7)
+        val changed = ActionFakeNode(range = range.copy(max = 200f), canSetProgress = true)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN,
+            executor
+                .execute(
+                    changed,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.SET_PROGRESS, token, progress = 25.0),
+                ).status,
+        )
+        assertEquals(null, changed.performedAction)
+    }
+
     private fun execute(
         root: ActionFakeNode,
         token: String,
@@ -415,6 +522,8 @@ private class ActionFakeNode(
     override val accessibilityDataSensitive: Boolean = false,
     private val children: List<ActionFakeNode> = emptyList(),
     private val performResult: Boolean = true,
+    override val range: AutomationNodeRange? = null,
+    override val canSetProgress: Boolean = false,
 ) : SnapshotNode {
     var recycleCount = 0
         private set
@@ -431,6 +540,11 @@ private class ActionFakeNode(
         arguments: Bundle?,
     ): Boolean {
         performedAction = action
+        return performResult
+    }
+
+    override fun setProgress(value: Float): Boolean {
+        performedAction = android.R.id.accessibilityActionSetProgress
         return performResult
     }
 

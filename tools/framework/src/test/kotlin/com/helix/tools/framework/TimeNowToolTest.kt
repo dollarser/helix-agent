@@ -2,7 +2,6 @@ package com.helix.tools.framework
 
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -34,7 +33,6 @@ class TimeNowToolTest {
         val d = TimeNowTool.descriptor()
         assertEquals("time.now", d.name.value)
         assertEquals(1, d.version.value)
-        assertEquals(RiskLevel.L0, d.baseRisk)
         assertEquals(ToolOperationClass.READ_ONLY, d.operationClass)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)

@@ -1,7 +1,6 @@
 package com.helix.app.chat
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -51,7 +50,6 @@ internal object ToolResultReadTool {
                     ).jsonObject,
                 Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
                 ToolOperationClass.READ_ONLY,
-                RiskLevel.L0,
                 5.seconds,
                 16_384,
                 emptySet(),

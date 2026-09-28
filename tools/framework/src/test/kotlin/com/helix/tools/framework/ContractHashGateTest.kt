@@ -2,7 +2,6 @@ package com.helix.tools.framework
 
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -44,7 +43,7 @@ class ContractHashGateTest {
                         requiredCapabilities = setOf(Capability.WEB_BROWSING),
                     ),
                 "operationClass" to base.copy(operationClass = ToolOperationClass.NETWORK),
-                "baseRisk" to base.copy(baseRisk = RiskLevel.L3),
+                "privilegedOperation" to base.copy(operationClass = ToolOperationClass.PRIVILEGED),
                 "idempotency" to base.copy(idempotency = Idempotency.NON_IDEMPOTENT),
             )
         variants.forEach { (label, variant) ->
@@ -123,7 +122,7 @@ class ContractHashGateTest {
                 base.copy(maxOutputBytes = base.maxOutputBytes + 1L),
                 base.copy(requiredCapabilities = setOf(Capability.WEB_BROWSING)),
                 base.copy(operationClass = ToolOperationClass.NETWORK),
-                base.copy(baseRisk = RiskLevel.L3),
+                base.copy(operationClass = ToolOperationClass.PRIVILEGED),
                 base.copy(idempotency = Idempotency.NON_IDEMPOTENT),
             )
         val baseBinding = bindingFor(base)
@@ -198,7 +197,6 @@ class ContractHashGateTest {
             inputSchema = json("""{"type":"object"}"""),
             outputSchema = json("""{"type":"object"}"""),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 1024L,
             requiredCapabilities = requiredCapabilities,
@@ -218,7 +216,6 @@ class ContractHashGateTest {
             inputSchema = json("""{"type":"object"}"""),
             outputSchema = json("""{"type":"object"}"""),
             operationClass = ToolOperationClass.NETWORK,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 1024L,
             requiredCapabilities = emptySet(),

@@ -1,7 +1,6 @@
 package com.helix.app.goal
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -68,7 +67,6 @@ internal object GoalReportTool {
                 inputSchema = schema,
                 outputSchema = schema,
                 operationClass = ToolOperationClass.READ_ONLY,
-                baseRisk = RiskLevel.L0,
                 timeout = 5.seconds,
                 maxOutputBytes = 32768,
                 requiredCapabilities = emptySet(),

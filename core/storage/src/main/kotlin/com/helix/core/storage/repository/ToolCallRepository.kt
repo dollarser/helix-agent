@@ -51,6 +51,14 @@ class ToolCallRepository(
 
     fun listByTurn(turnId: String): List<ToolCallEntity> = dao.listByTurn(turnId)
 
+    fun recentByTurn(
+        turnId: String,
+        limit: Int,
+    ): List<ToolCallEntity> {
+        require(limit in 1..100)
+        return dao.recentByTurn(turnId, limit).reversed()
+    }
+
     fun unsettledUnderTerminalTurns(): List<ToolCallEntity> = dao.unsettledUnderTerminalTurns()
 
     fun detachedJobCandidates(recentLimit: Int = 100): List<ToolCallEntity> {

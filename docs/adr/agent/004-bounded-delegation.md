@@ -15,7 +15,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 1. **只读 child delegation**：仅 developer/Advanced 实验入口；最大深度 1、并发 2、每父 Turn 最多 4 个 child。child 的模型调用、token、Tool 次数和墙钟全部计入父 Turn/Goal 预算。
 2. **最小上下文与无授权继承**：child 接收自包含任务和最小只读 snapshot，或父会话已完成轮次的确定性截断；不继承 pending approval、Approval Proof、Secret、UI token、Root/Automation session 或可写 capability。
-3. **只读工具面**：child 只可使用 `operationClass=READ_ONLY` 且动态风险 ≤ L1 的工具，不能请求或消费 Tool Approval。需要变更时只返回结构化 proposal，由父 Turn 新建 ToolCall 并走完整 Policy/Approval。
+3. **只读工具面**：child 只可使用 `operationClass=READ_ONLY` 的工具，不能请求或消费 Tool Approval。需要变更时只返回结构化 proposal，由父 Turn 新建 ToolCall 并走完整 Policy/Approval。
 4. **受限通信与持久图**：首版只允许 parent→child task/cancel、child→parent structured completion；不允许 peer 消息、递归派生或无限续话。父子拓扑、状态、预算占用、取消和 completion result 必须持久化。
 5. **声明式 Workflow 候选**：仅有版本、静态有界的 JSON DAG，节点类型封闭；每个节点编译回普通 Dispatcher ToolCall/只读委托/verifier，不执行用户或模型提供的 JS/Starlark 编排脚本。
 

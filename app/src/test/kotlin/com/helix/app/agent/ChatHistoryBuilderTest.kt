@@ -10,6 +10,15 @@ import org.junit.Test
 
 class ChatHistoryBuilderTest {
     @Test
+    fun loopWarningSurvivesBackfillWithoutTrustingStoredArbitrarySystemText() {
+        val warning = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_warning", "untrusted replacement")
+        val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(warning)).single()
+        assertEquals(ModelRole.SYSTEM, message.role)
+        assertEquals(ToolLoopProgress.WARNING, message.text)
+        assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(warning.copy(role = "TOOL"))).isEmpty())
+    }
+
+    @Test
     fun legacyBlankArgumentsKeepTheDeniedExchangeAndAllowLaterMessages() {
         val rows =
             listOf(

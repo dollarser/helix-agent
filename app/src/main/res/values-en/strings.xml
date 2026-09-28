@@ -171,12 +171,6 @@
     <string name="approval_online">Online</string>
     <string name="approval_profile_advanced">Advanced (enhanced, not full access)</string>
     <string name="approval_profile_standard">Standard (default)</string>
-    <string name="approval_risk">Risk</string>
-    <string name="approval_risk_dynamic_upgrade">%1$s → dynamic %2$s</string>
-    <string name="approval_risk_l0">L0 (no risk)</string>
-    <string name="approval_risk_l1">L1 (low risk)</string>
-    <string name="approval_risk_l2">L2 (per-call approval required)</string>
-    <string name="approval_risk_l3">L3 (high risk)</string>
     <string name="approval_scope">Scope</string>
     <string name="approval_scope_unscoped">No scope (unscoped)</string>
     <string name="approval_source">Source</string>
@@ -201,7 +195,6 @@
     <string name="approval_verifier">Verifier</string>
     <string name="approval_verifier_text">Output must pass the registered outputSchema validation; the full output is recorded with a SHA-256 hash</string>
     <string name="approval_yes">Yes</string>
-    <string name="audit_all_risks">All risks</string>
     <string name="audit_all_sessions">All sessions</string>
     <string name="audit_all_tools">All tools</string>
     <string name="audit_clear_filters">Clear filters</string>
@@ -1519,4 +1512,14 @@
     <string name="storage_usage_failed">Unable to measure usage. Refresh to retry.</string>
     <string name="storage_usage_loading">Measuring…</string>
     <string name="storage_usage_deletion">Deleting a conversation removes its records and unreferenced large bodies, while keeping workspace files; the database may not shrink immediately. Use the dedicated workspace cleanup action in the conversation; referenced or active work remains protected. Delete Memory entries individually in Memory. Manage models and partial downloads in Models. JSONL conversation export is not a complete file backup.</string>
+    <string name="model_error_tool_loop_no_progress">Repeated tool calls made no progress. Completed work is preserved; adjust the approach and continue.</string>
+    <string name="approval_operation">Operation</string>
+    <string name="audit_all_operations">All operations</string>
+    <string name="operation_read">Read</string>
+    <string name="operation_metadata">Task metadata</string>
+    <string name="operation_file_change">File modification</string>
+    <string name="operation_network">Network transfer</string>
+    <string name="operation_external">External or device action</string>
+    <string name="operation_execute">Code or command execution</string>
+    <string name="operation_privileged">Privileged operation</string>
 </resources>

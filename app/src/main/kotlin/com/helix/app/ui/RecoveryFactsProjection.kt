@@ -224,7 +224,11 @@ private fun operationsFor(
         }
 
         RecoveryBlockClass.EXECUTION_FAILED -> {
-            listOf(RecoveryOperation.RETRY_NEW_CALL)
+            if (facts.turnErrorCode == "TOOL_LOOP_NO_PROGRESS" && !facts.budgetContinuationEligible) {
+                goalOperation
+            } else {
+                listOf(RecoveryOperation.RETRY_NEW_CALL)
+            }
         }
     }
 }

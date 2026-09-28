@@ -1,7 +1,6 @@
 package com.helix.app.proot
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -60,9 +59,8 @@ enum class LinuxRuntimeGate {
  * command in the separately signed, OFFLINE PRoot Runtime (doc local-code-execution §6.5–6.7).
  *
  * Contract:
- * - [ToolOperationClass.CODE_EXECUTION], base risk [RiskLevel.L2]: PER-CALL approval
- *   ("每次审批"); a generic L2 — no Trusted Workspace / batch / auto-run path can mint
- *   approval for it (ADR-0012: generic L2 stays bound to exact ToolCalls).
+ * - [ToolOperationClass.CODE_EXECUTION]: current session effect rules determine approval.
+ *   Required approval binds the exact call and never comes from model output.
  * - [ExecutionTargetType.LOCAL_PROOT]: the Policy Engine's `ISOLATED_RUNTIME_REQUIRES_ADVANCED`
  *   denial is the STANDARD-profile gate (ADR-0012); the framework's `lane:proot` serializes
  *   executions to single concurrency and CODE_EXECUTION is exclusive — two Linux calls
@@ -114,12 +112,11 @@ object LinuxRunTool {
                     "explicit shell script in /bin/sh (shell syntax only when genuinely " +
                     "needed). Output: verified stdout/stderr, the exit code, and the " +
                     "imported result file when `output` is set. Requires the ADVANCED " +
-                    "profile and a previously verified PRoot Runtime; every call needs " +
-                    "user approval.",
+                    "profile and a previously verified PRoot Runtime; authorization follows " +
+                    "the current session's execution rules.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
-            baseRisk = RiskLevel.L2,
             timeout = TOOL_TIMEOUT_SECONDS.seconds,
             maxOutputBytes = 256L * 1024L,
             requiredCapabilities = emptySet(),

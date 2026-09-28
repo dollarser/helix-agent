@@ -40,6 +40,10 @@ internal class AndroidSnapshotNode(
         get() = node.isPassword
     override val accessibilityDataSensitive: Boolean
         get() = Build.VERSION.SDK_INT >= 34 && node.isAccessibilityDataSensitive
+    override val range: AutomationNodeRange?
+        get() = node.rangeInfo?.let { AutomationNodeRange(it.min, it.max, it.current) }
+    override val canSetProgress: Boolean
+        get() = node.actionList.any { it.id == android.R.id.accessibilityActionSetProgress }
     override val childCount: Int
         get() = node.childCount
 
@@ -49,6 +53,12 @@ internal class AndroidSnapshotNode(
         action: Int,
         arguments: Bundle?,
     ): Boolean = node.performAction(action, arguments)
+
+    override fun setProgress(value: Float): Boolean =
+        node.performAction(
+            android.R.id.accessibilityActionSetProgress,
+            Bundle().apply { putFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE, value) },
+        )
 
     @Suppress("DEPRECATION")
     override fun recycle() {

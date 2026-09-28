@@ -3,7 +3,6 @@
 package com.helix.tools.android
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -59,7 +58,6 @@ object ClipboardWriteTool {
                     required = listOf("status", "length", "reason"),
                 ),
             operationClass = ToolOperationClass.EXTERNAL_ACTION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

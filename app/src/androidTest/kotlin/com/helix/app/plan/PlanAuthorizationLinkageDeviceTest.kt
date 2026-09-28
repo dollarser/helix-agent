@@ -8,7 +8,6 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolAvailabilityScope
@@ -275,7 +274,6 @@ class PlanAuthorizationLinkageDeviceTest {
                         ).let { it as JsonObject },
                 outputSchema = Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),

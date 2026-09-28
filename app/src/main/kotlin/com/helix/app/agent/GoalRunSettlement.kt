@@ -109,45 +109,52 @@ internal class GoalRunSettlement(
         }
     }
 
-    private fun decision(
-        correlationId: com.helix.core.model.CorrelationId,
-        state: TurnState,
-        errorCode: String?,
-        uncertain: Boolean,
-    ): Pair<GoalEvent, String> =
-        when {
-            uncertain -> {
-                GoalEvent.Blocked to "BLOCKED(NEEDS_REVIEW)"
+    internal companion object {
+        fun decision(
+            correlationId: com.helix.core.model.CorrelationId,
+            state: TurnState,
+            errorCode: String?,
+            uncertain: Boolean,
+        ): Pair<GoalEvent, String> =
+            when {
+                uncertain -> {
+                    GoalEvent.Blocked to "BLOCKED(NEEDS_REVIEW)"
+                }
+
+                state == TurnState.CANCELLED -> {
+                    GoalEvent.Cancelled to "CANCELLED"
+                }
+
+                state == TurnState.COMPLETED -> {
+                    GoalEvent.RunFinished to "RUN_FINISHED"
+                }
+
+                errorCode in com.helix.app.runcontrol.BudgetStopReasons.capacity -> {
+                    GoalEvent.Blocked to "BLOCKED(CONTEXT_WINDOW_LIMIT)"
+                }
+
+                errorCode == "GOAL_TIME_WINDOW_EXPIRED" -> {
+                    GoalEvent.RunFinished to "INTERRUPTED"
+                }
+
+                errorCode == "TOOL_LOOP_NO_PROGRESS" -> {
+                    GoalEvent.InputRequired(
+                        "Repeated tool calls made no progress; revise the approach before continuing",
+                    ) to
+                        "INPUT_REQUIRED(TOOL_LOOP_NO_PROGRESS)"
+                }
+
+                errorCode in TURN_LIMITS -> {
+                    GoalEvent.RunFinished to "RUN_FINISHED"
+                }
+
+                else -> {
+                    GoalEvent.WakeFailed(
+                        HelixError(ErrorCode.EXECUTION, "Goal turn failed", false, emptyMap(), correlationId),
+                    ) to "FAILED"
+                }
             }
 
-            state == TurnState.CANCELLED -> {
-                GoalEvent.Cancelled to "CANCELLED"
-            }
-
-            state == TurnState.COMPLETED -> {
-                GoalEvent.RunFinished to "RUN_FINISHED"
-            }
-
-            errorCode in com.helix.app.runcontrol.BudgetStopReasons.capacity -> {
-                GoalEvent.Blocked to "BLOCKED(CONTEXT_WINDOW_LIMIT)"
-            }
-
-            errorCode == "GOAL_TIME_WINDOW_EXPIRED" -> {
-                GoalEvent.RunFinished to "INTERRUPTED"
-            }
-
-            errorCode in TURN_LIMITS -> {
-                GoalEvent.RunFinished to "RUN_FINISHED"
-            }
-
-            else -> {
-                GoalEvent.WakeFailed(
-                    HelixError(ErrorCode.EXECUTION, "Goal turn failed", false, emptyMap(), correlationId),
-                ) to "FAILED"
-            }
-        }
-
-    private companion object {
-        val TURN_LIMITS = com.helix.app.runcontrol.BudgetStopReasons.turn + "GOAL_BUDGET_LIMIT"
+        private val TURN_LIMITS = com.helix.app.runcontrol.BudgetStopReasons.turn + "GOAL_BUDGET_LIMIT"
     }
 }

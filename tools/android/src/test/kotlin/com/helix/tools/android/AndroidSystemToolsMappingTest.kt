@@ -1,7 +1,6 @@
 package com.helix.tools.android
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
@@ -444,7 +443,6 @@ class AndroidSystemToolsMappingTest {
     ) {
         assertEquals(name, d.name.value)
         assertEquals(1, d.version.value)
-        assertEquals(RiskLevel.L2, d.baseRisk)
         assertEquals(ToolOperationClass.EXTERNAL_ACTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)

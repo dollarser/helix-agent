@@ -24,6 +24,16 @@ data class AutomationNodeBounds(
     val bottom: Int,
 )
 
+data class AutomationNodeRange(
+    val min: Float,
+    val max: Float,
+    val current: Float,
+) {
+    fun accepts(value: Double): Boolean =
+        min.isFinite() && max.isFinite() && current.isFinite() &&
+            min <= max && current in min..max && value.isFinite() && value >= min && value <= max
+}
+
 data class AutomationSnapshotNode(
     val token: String,
     val parentToken: String?,
@@ -38,6 +48,8 @@ data class AutomationSnapshotNode(
     val editable: Boolean,
     val scrollable: Boolean,
     val enabled: Boolean,
+    val range: AutomationNodeRange? = null,
+    val canSetProgress: Boolean = false,
 )
 
 data class AutomationSnapshot(
@@ -52,6 +64,8 @@ data class AutomationSnapshot(
 data class AutomationSnapshotResult(
     val status: AutomationSnapshotStatus,
     val snapshot: AutomationSnapshot? = null,
+    val pauseReason: AutomationPauseReason? = null,
+    val targetPackage: String? = null,
 )
 
 internal data class NodeTokenBinding(

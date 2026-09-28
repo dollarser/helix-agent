@@ -1,7 +1,6 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -53,7 +52,7 @@ import kotlin.time.Duration.Companion.seconds
  * before mutation, so a bad byte past the probe window is never republished as U+FFFD. The real
  * path never appears in arguments or output (doc 10).
  *
- * Contract: L2 base risk (a per-call-approval mutation), LOCAL_MUTATION operation class, idempotent
+ * Contract: LOCAL_MUTATION operation class, idempotent
  * (a matching replace has a single defined effect), LOCAL_ANDROID, built-in origin, no required
  * capabilities. Only the three user-visible regions (`input`/`work`/`output`) are editable.
  */
@@ -89,7 +88,6 @@ object EditTool {
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 8 * 1024,
             requiredCapabilities = emptySet(),

@@ -13,7 +13,6 @@ import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -98,7 +97,6 @@ class AuditScreenTest {
                     outputSchema =
                         Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
                     operationClass = ToolOperationClass.LOCAL_MUTATION,
-                    baseRisk = RiskLevel.L2,
                     timeout = 30.seconds,
                     maxOutputBytes = 4096L,
                     requiredCapabilities = emptySet(),
@@ -179,7 +177,7 @@ class AuditScreenTest {
         assertTrue("argument body leaked to the audit page", !pageText.contains(secretMarker))
         assertTrue("the row must show the stable code", pageText.contains("用户拒绝审批"))
         assertTrue("the row must show the tool name", pageText.contains(AUDIT_TOOL_NAME))
-        assertTrue("the row must show the dynamic risk", pageText.contains("L2（需逐次批准）"))
+        assertTrue("the row must show the operation", pageText.contains("本地修改"))
 
         // Clearing the filters restores the unfiltered page (the row is still there).
         composeRule.onNodeWithTag("audit-clear-filters").performClick()

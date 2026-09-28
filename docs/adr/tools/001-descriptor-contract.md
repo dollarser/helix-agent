@@ -11,7 +11,7 @@ Deciders: pending
 
 ## Decision
 
-1. 引入覆盖**整个安全 descriptor** 的 `ToolDescriptor.contractHash`：对 descriptor 的规范化形式做 SHA-256。规范化形式用 NUL 分隔拼接：`name`、`version`、`description`、`schemaHash`、`operationClass`、`baseRisk`、`timeout`(ms)、`maxOutputBytes`、`requiredCapabilities`(按 name 排序)、`idempotency`、`executionTarget`、`origin.canonicalOf()`。`contractHash` 是 `schemaHash` 的**超集**（schema 变则两者都变）。
+1. 引入覆盖**整个安全 descriptor** 的 `ToolDescriptor.contractHash`：对 descriptor 的规范化形式做 SHA-256。规范化形式用 NUL 分隔拼接：`name`、`version`、`description`、`schemaHash`、`operationClass`、`timeout`(ms)、`maxOutputBytes`、`requiredCapabilities`(按 name 排序)、`idempotency`、`executionTarget`、`origin.canonicalOf()`。`contractHash` 是 `schemaHash` 的**超集**（schema 变则两者都变）。
 2. `contractHash` 作为**直接字段**并入 `ApprovalBinding`（在 `schemaHash` 之后），进入 binding 的 `canonicalJson` 与 `hash`。`executionTarget` 已是 binding 既有直接字段（HXA-034/035 精确绑定），保持不变。
 3. `origin.canonicalOf()` 刻意**排除** `serverProvidedHints`：这些是不可信的、展示用文本，若纳入契约会让一个 MCP 服务器通过编辑 hint 使已授予的审批失效（反被服务器握有否决权）。`serverProvidedHints` 变化**不得**改变 `contractHash`（机械测试强制这一反向不变量）。
 4. `description` **纳入**契约（fail-closed）：description 是模型可见的工具语义，若改动却保持 `schemaHash` 不变会误导模型；把它纳入 contractHash 使任何描述变化都强制新审批。代价是描述文案改动会使既有审批失效——这被判定为正确方向（宁可失效也不放行），且生产工具描述是代码常量、非用户可改。
@@ -41,3 +41,7 @@ Deciders: pending
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history — 2026-09-28
+
+按所有者授权移除风险等级，contractHash 不再包含 baseRisk；operationClass、scope/目标与其余执行约束继续绑定。规范形式变化使旧批准失效，不能跨契约重用。

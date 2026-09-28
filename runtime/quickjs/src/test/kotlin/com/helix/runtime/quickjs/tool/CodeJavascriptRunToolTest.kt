@@ -1,7 +1,6 @@
 package com.helix.runtime.quickjs.tool
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.runtime.quickjs.JsCancellation
 import com.helix.runtime.quickjs.JsExecuteParams
@@ -101,7 +100,6 @@ class CodeJavascriptRunToolTest {
         assertEquals("code.javascript.run", d.name.value)
         assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, d.operationClass)
-        assertEquals(RiskLevel.L2, d.baseRisk)
         assertEquals(ExecutionTargetType.LOCAL_QUICKJS, d.executionTarget)
         assertEquals(Idempotency.NON_IDEMPOTENT, d.idempotency)
         assertTrue("a JS run needs no OS capability gate", d.requiredCapabilities.isEmpty())

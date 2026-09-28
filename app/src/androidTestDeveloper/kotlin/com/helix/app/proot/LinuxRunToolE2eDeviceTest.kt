@@ -97,7 +97,7 @@ class LinuxRunToolE2eDeviceTest {
         val d = LinuxRunTool.descriptor()
         assertEquals("code.linux.run", d.name.value)
         assertEquals(com.helix.core.model.ToolOperationClass.CODE_EXECUTION, d.operationClass)
-        assertEquals(com.helix.core.model.RiskLevel.L2, d.baseRisk)
+        assertEquals(com.helix.core.model.ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_PROOT, d.executionTarget)
     }
 
@@ -108,7 +108,6 @@ class LinuxRunToolE2eDeviceTest {
         val d = LinuxRunTool.descriptor()
         val input =
             com.helix.core.policy.PolicyInput(
-                baseRisk = d.baseRisk,
                 operationClass = d.operationClass,
                 mode = com.helix.core.model.AgentMode.ACT,
                 profile = com.helix.core.model.SafetyProfile.STANDARD,

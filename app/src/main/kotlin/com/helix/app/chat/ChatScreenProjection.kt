@@ -197,7 +197,7 @@ internal class ChatScreenProjection(
                     ?.takeIf { turn ->
                         val binding = storage.goalTurnBindings.byTurn(turn.id)
                         if (binding == null) {
-                            turn.errorCode !in com.helix.app.runcontrol.BudgetStopReasons.turn ||
+                            turn.errorCode !in com.helix.app.runcontrol.BudgetStopReasons.continuable ||
                                 BudgetContinuation.eligible(storage, turn)
                         } else {
                             val goalId = storage.goalRuns.resolve(binding.runId).goalId

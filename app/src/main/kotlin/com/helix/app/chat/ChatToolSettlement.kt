@@ -263,7 +263,7 @@ internal class ChatToolSettlement(
                     toolVersion = version,
                     code = code,
                     decisionSource = source,
-                    riskLevel = null,
+                    operationClass = null,
                     bindingHash = null,
                     actionFingerprint = null,
                     outputHash = null,

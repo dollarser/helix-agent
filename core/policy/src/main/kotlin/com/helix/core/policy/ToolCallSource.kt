@@ -9,7 +9,7 @@ import com.helix.core.model.SkillId
  * hash, snapshot hash are dynamic-risk factors). These facts are produced by the registry and
  * the dispatcher from registered state — never from tool arguments, so model, MCP or Skill
  * content cannot re-source a call to something cheaper (AGENTS.md; ADR-0003: MCP annotation,
- * Skill instruction and static baseRisk can never lower dynamic risk).
+ * Skill instructions never grant authorization).
  */
 sealed interface ToolCallSource {
     /** A built-in tool registered in-process. */

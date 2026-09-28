@@ -10,7 +10,6 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolName
@@ -264,8 +263,19 @@ class SessionInputApprovalDeviceTest {
         val previous = chat.runControl.value
         val safeExecutions = AtomicInteger()
         val askExecutions = AtomicInteger()
-        registerTool(container, SAFE_TOOL, ToolOperationClass.READ_ONLY, RiskLevel.L0, safeExecutions, failRead)
-        registerTool(container, ASK_TOOL, ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, askExecutions)
+        registerTool(
+            container,
+            SAFE_TOOL,
+            ToolOperationClass.READ_ONLY,
+            safeExecutions,
+            failRead,
+        )
+        registerTool(
+            container,
+            ASK_TOOL,
+            ToolOperationClass.LOCAL_MUTATION,
+            askExecutions,
+        )
         LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
             server.start()
             val provider = createProvider(container, server.port)
@@ -307,7 +317,6 @@ class SessionInputApprovalDeviceTest {
         container: com.helix.app.AppContainer,
         name: String,
         operation: ToolOperationClass,
-        risk: RiskLevel,
         executions: AtomicInteger,
         fail: Boolean = false,
     ) {
@@ -329,7 +338,6 @@ class SessionInputApprovalDeviceTest {
                 inputSchema = Json.parseToJsonElement(EMPTY_SCHEMA) as JsonObject,
                 outputSchema = JsonObject(emptyMap()),
                 operationClass = operation,
-                baseRisk = risk,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096,
                 requiredCapabilities = emptySet(),

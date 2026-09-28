@@ -28,6 +28,7 @@ internal object ModelToolExposureOrder {
             "ui.click",
             "ui.long_click",
             "ui.set_text",
+            "ui.set_progress",
             "ui.scroll",
             "ui.back",
             "ui.home",

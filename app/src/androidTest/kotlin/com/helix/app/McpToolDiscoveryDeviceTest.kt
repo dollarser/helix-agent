@@ -2,7 +2,6 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.core.model.AgentMode
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ToolDispatchOutcome
@@ -31,7 +30,6 @@ class McpToolDiscoveryDeviceTest {
                     name = ToolName("mcp.$server.tool_$index"),
                     description = "catalog operation $index",
                     operationClass = ToolOperationClass.NETWORK,
-                    baseRisk = RiskLevel.L1,
                     origin = ToolOrigin.McpOrigin(server, "2025-03-26", "a".repeat(64)),
                 )
             }

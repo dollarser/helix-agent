@@ -4,7 +4,6 @@ import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -41,7 +40,6 @@ class EffectFootprintTest {
         inputSchema = json("""{"type":"object"}"""),
         outputSchema = json("""{"type":"object"}"""),
         operationClass = operationClass,
-        baseRisk = RiskLevel.L1,
         timeout = 30.seconds,
         maxOutputBytes = 1024L,
         requiredCapabilities = capabilities,

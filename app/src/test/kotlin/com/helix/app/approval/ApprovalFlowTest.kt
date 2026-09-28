@@ -4,7 +4,6 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -99,7 +98,6 @@ class ApprovalFlowTest {
                 inputSchema = json("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"""),
                 outputSchema = json("""{"type":"object"}"""),
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L2,
                 timeout = 30.seconds,
                 maxOutputBytes = 4096L,
                 requiredCapabilities = emptySet(),
@@ -233,7 +231,7 @@ class ApprovalFlowTest {
         // proof was consumed exactly once; call-1's proof was never minted.
         val auditDenial = sink.events.first { it.code == DispatchOutcomeCode.APPROVAL_DENIED }
         assertEquals(pendingBinding.hash, auditDenial.bindingHash)
-        assertEquals(RiskLevel.L2, auditDenial.riskLevel)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, auditDenial.operationClass)
         assertEquals(1, broker.consumeCalls.size)
     }
 
@@ -316,7 +314,7 @@ class ApprovalFlowTest {
         assertEquals(1, broker.consumeCalls.size)
         val event = sink.events.single()
         assertEquals(DispatchOutcomeCode.SUCCESS, event.code)
-        assertEquals(RiskLevel.L2, event.riskLevel)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, event.operationClass)
         assertTrue(event.executionStartedAt != null)
     }
 

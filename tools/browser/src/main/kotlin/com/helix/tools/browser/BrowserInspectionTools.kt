@@ -1,7 +1,6 @@
 package com.helix.tools.browser
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -72,7 +71,6 @@ object BrowserSnapshotTool {
                         ),
                 ),
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L1,
             timeout = 30.seconds,
             maxOutputBytes = 1024L * 1024L,
             requiredCapabilities = emptySet(),
@@ -167,7 +165,6 @@ object BrowserFindTool {
                     required = listOf("query", "matchCount", "matches"),
                 ),
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L0,
             timeout = 10.seconds,
             maxOutputBytes = 32L * 1024L,
             requiredCapabilities = emptySet(),

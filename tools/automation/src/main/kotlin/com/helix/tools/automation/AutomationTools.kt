@@ -2,7 +2,6 @@ package com.helix.tools.automation
 
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -20,6 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
@@ -44,21 +44,22 @@ class PermissionCenterAutomationToolPort(
 }
 
 /** Token-only Agent tools over the HXA-091..093 accepted Accessibility contracts. */
-@Suppress("TooManyFunctions") // schema helpers stay beside the nine versioned contracts
+@Suppress("TooManyFunctions") // schema helpers stay beside the versioned contracts
 class AutomationTools(
     private val port: AutomationToolPort,
 ) {
     fun descriptors(): List<ToolDescriptor> =
         listOf(
-            descriptor(SNAPSHOT, RiskLevel.L1, ToolOperationClass.READ_ONLY, emptyObject(), snapshotOutput()),
-            descriptor(FIND, RiskLevel.L1, ToolOperationClass.READ_ONLY, findInput(), findOutput()),
-            descriptor(CLICK, RiskLevel.L2, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
-            descriptor(LONG_CLICK, RiskLevel.L2, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
-            descriptor(SET_TEXT, RiskLevel.L2, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput()),
-            descriptor(SCROLL, RiskLevel.L2, ToolOperationClass.EXTERNAL_ACTION, scrollInput(), actionOutput()),
-            descriptor(BACK, RiskLevel.L2, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
-            descriptor(HOME, RiskLevel.L2, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
-            descriptor(WAIT, RiskLevel.L1, ToolOperationClass.READ_ONLY, waitInput(), findOutput()),
+            descriptor(SNAPSHOT, ToolOperationClass.READ_ONLY, emptyObject(), snapshotOutput()),
+            descriptor(FIND, ToolOperationClass.READ_ONLY, findInput(), findOutput()),
+            descriptor(CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
+            descriptor(LONG_CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
+            descriptor(SET_TEXT, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput()),
+            descriptor(SET_PROGRESS, ToolOperationClass.EXTERNAL_ACTION, progressInput(), actionOutput()),
+            descriptor(SCROLL, ToolOperationClass.EXTERNAL_ACTION, scrollInput(), actionOutput()),
+            descriptor(BACK, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
+            descriptor(HOME, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
+            descriptor(WAIT, ToolOperationClass.READ_ONLY, waitInput(), findOutput()),
         )
 
     fun register(
@@ -77,16 +78,51 @@ class AutomationTools(
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 return try {
                     when (name) {
-                        SNAPSHOT -> ToolExecutorResult.Completed(snapshotJson(port.snapshot()))
-                        FIND -> ToolExecutorResult.Completed(findJson(port.snapshot(), query(call.args)))
-                        CLICK -> action(port.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
-                        LONG_CLICK -> action(port.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
-                        SET_TEXT -> action(port.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
-                        SCROLL -> action(port.nodeAction(nodeRequest(scrollAction(call.args), call.args)))
-                        BACK -> action(port.globalAction(AutomationGlobalAction.BACK))
-                        HOME -> action(port.globalAction(AutomationGlobalAction.HOME))
-                        WAIT -> wait(call)
-                        else -> ToolExecutorResult.Failed("AUTOMATION_TOOL_UNKNOWN", sideEffectFree = true)
+                        SNAPSHOT -> {
+                            ToolExecutorResult.Completed(snapshotJson(port.snapshot()))
+                        }
+
+                        FIND -> {
+                            ToolExecutorResult.Completed(findJson(port.snapshot(), query(call.args)))
+                        }
+
+                        CLICK -> {
+                            action(port.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
+                        }
+
+                        LONG_CLICK -> {
+                            action(port.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
+                        }
+
+                        SET_TEXT -> {
+                            action(port.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
+                        }
+
+                        SET_PROGRESS -> {
+                            action(
+                                port.nodeAction(nodeRequest(AutomationNodeAction.SET_PROGRESS, call.args)),
+                            )
+                        }
+
+                        SCROLL -> {
+                            action(port.nodeAction(nodeRequest(scrollAction(call.args), call.args)))
+                        }
+
+                        BACK -> {
+                            action(port.globalAction(AutomationGlobalAction.BACK))
+                        }
+
+                        HOME -> {
+                            action(port.globalAction(AutomationGlobalAction.HOME))
+                        }
+
+                        WAIT -> {
+                            wait(call)
+                        }
+
+                        else -> {
+                            ToolExecutorResult.Failed("AUTOMATION_TOOL_UNKNOWN", sideEffectFree = true)
+                        }
                     }
                 } catch (error: IllegalArgumentException) {
                     ToolExecutorResult.Failed(error.message ?: "AUTOMATION_ARGUMENT_INVALID", sideEffectFree = true)
@@ -103,6 +139,11 @@ class AutomationTools(
         while (Instant.now().isBefore(end)) {
             if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
             latest = port.snapshot()
+            if (latest.pauseReason != null ||
+                latest.status !in setOf(AutomationSnapshotStatus.SUCCESS, AutomationSnapshotStatus.UNSUPPORTED_UI)
+            ) {
+                return ToolExecutorResult.Completed(findJson(latest, query(call.args)))
+            }
             val found = find(latest, query(call.args))
             if (found.status ==
                 AutomationFindStatus.FOUND
@@ -129,18 +170,36 @@ class AutomationTools(
         return buildJsonObject {
             put("status", JsonPrimitive(if (result.snapshot == null) result.status.name else found.status.name))
             put("nodes", JsonArray(found.nodes.map(::nodeJson)))
+            recoveryJson(result).forEach { (key, value) -> put(key, value) }
         }
     }
 
     private fun snapshotJson(result: AutomationSnapshotResult): JsonObject =
         buildJsonObject {
             put("status", JsonPrimitive(result.status.name))
+            recoveryJson(result).forEach { (key, value) -> put(key, value) }
             result.snapshot?.let { snapshot ->
                 put("packageName", JsonPrimitive(snapshot.packageName))
                 put("windowId", JsonPrimitive(snapshot.windowId))
                 put("generation", JsonPrimitive(snapshot.generation))
                 put("truncated", JsonPrimitive(snapshot.truncated))
                 put("nodes", JsonArray(snapshot.nodes.map(::nodeJson)))
+            }
+        }
+
+    private fun recoveryJson(result: AutomationSnapshotResult): JsonObject =
+        buildJsonObject {
+            result.targetPackage?.let { put("targetPackage", JsonPrimitive(it)) }
+            result.pauseReason?.let { put("pauseReason", JsonPrimitive(it.name)) }
+            if (result.pauseReason != null || result.status == AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED) {
+                put("requiresUserConfirmation", JsonPrimitive(true))
+                put(
+                    "recoveryHint",
+                    JsonPrimitive(
+                        "Stop tool retries and ask the user to confirm recovery in Settings > Permissions > " +
+                            "Accessibility automation. A new target needs explicit authorization.",
+                    ),
+                )
             }
         }
 
@@ -161,6 +220,17 @@ class AutomationTools(
             put("editable", JsonPrimitive(node.editable))
             put("scrollable", JsonPrimitive(node.scrollable))
             put("enabled", JsonPrimitive(node.enabled))
+            put("canSetProgress", JsonPrimitive(node.canSetProgress))
+            node.range?.let { range ->
+                put(
+                    "range",
+                    buildJsonObject {
+                        put("min", JsonPrimitive(range.min))
+                        put("max", JsonPrimitive(range.max))
+                        put("current", JsonPrimitive(range.current))
+                    },
+                )
+            }
         }
 
     private fun action(result: AutomationActionResult): ToolExecutorResult =
@@ -173,7 +243,12 @@ class AutomationTools(
     private fun nodeRequest(
         action: AutomationNodeAction,
         args: JsonObject,
-    ) = AutomationNodeActionRequest(action, requiredString(args, "token"), args["text"]?.jsonPrimitive?.contentOrNull)
+    ) = AutomationNodeActionRequest(
+        action,
+        requiredString(args, "token"),
+        args["text"]?.jsonPrimitive?.contentOrNull,
+        args["value"]?.jsonPrimitive?.doubleOrNull,
+    )
 
     private fun scrollAction(args: JsonObject) =
         when (requiredString(args, "direction")) {
@@ -202,18 +277,21 @@ class AutomationTools(
 
     private fun descriptor(
         name: String,
-        risk: RiskLevel,
         operation: ToolOperationClass,
         input: JsonObject,
         output: JsonObject,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(if (name == SCROLL) 2 else 1),
-        "Bounded token-only Accessibility operation: $name.",
+        ToolVersion(if (name in setOf(SCROLL, SNAPSHOT, FIND, WAIT)) 2 else 1),
+        "Bounded token-only Accessibility operation: $name. " +
+            "Each snapshot/find replaces all earlier tokens; use tokens from the latest observation. " +
+            "On requiresUserConfirmation, SESSION_PAUSED or CHECKPOINT_REQUIRED, " +
+            "stop retrying and ask the user to resume. " +
+            "scroll operates a scrollable node, not a screen swipe or app drawer gesture. " +
+            "Use ui.set_progress with range.min/max for a slider that reports canSetProgress.",
         input,
         output,
         operation,
-        risk,
         15.seconds,
         MAX_OUTPUT_BYTES,
         setOf(Capability.ACCESSIBILITY_AUTOMATION),
@@ -227,6 +305,10 @@ class AutomationTools(
     private fun tokenInput() = obj(mapOf("token" to str(32)), listOf("token"))
 
     private fun textInput() = obj(mapOf("token" to str(32), "text" to str(2_000)), listOf("token", "text"))
+
+    private fun number() = buildJsonObject { put("type", JsonPrimitive("number")) }
+
+    private fun progressInput() = obj(mapOf("token" to str(32), "value" to number()), listOf("token", "value"))
 
     private fun scrollInput() =
         obj(
@@ -267,12 +349,26 @@ class AutomationTools(
     private fun actionOutput() = obj(mapOf("status" to str(64)), listOf("status"))
 
     private fun findOutput() =
-        obj(mapOf("status" to str(64), "nodes" to array(nodeSchema(), 50)), listOf("status", "nodes"))
+        obj(
+            mapOf(
+                "status" to str(64),
+                "targetPackage" to str(255),
+                "pauseReason" to str(64),
+                "requiresUserConfirmation" to bool(),
+                "recoveryHint" to str(512),
+                "nodes" to array(nodeSchema(), 50),
+            ),
+            listOf("status", "nodes"),
+        )
 
     private fun snapshotOutput() =
         obj(
             mapOf(
                 "status" to str(64),
+                "targetPackage" to str(255),
+                "pauseReason" to str(64),
+                "requiresUserConfirmation" to bool(),
+                "recoveryHint" to str(512),
                 "packageName" to str(255),
                 "windowId" to integer(0),
                 "generation" to integer(0),
@@ -297,6 +393,12 @@ class AutomationTools(
                 "editable" to bool(),
                 "scrollable" to bool(),
                 "enabled" to bool(),
+                "canSetProgress" to bool(),
+                "range" to
+                    obj(
+                        mapOf("min" to number(), "max" to number(), "current" to number()),
+                        listOf("min", "max", "current"),
+                    ),
             ),
             listOf(
                 "token",
@@ -378,6 +480,7 @@ class AutomationTools(
         const val CLICK = "ui.click"
         const val LONG_CLICK = "ui.long_click"
         const val SET_TEXT = "ui.set_text"
+        const val SET_PROGRESS = "ui.set_progress"
         const val SCROLL = "ui.scroll"
         const val BACK = "ui.back"
         const val HOME = "ui.home"

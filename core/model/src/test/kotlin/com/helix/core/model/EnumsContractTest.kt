@@ -76,16 +76,11 @@ class EnumsContractTest {
     }
 
     @Test
-    fun riskLevelOrderingAndApprovalSemantics() {
-        assertEquals(listOf("L0", "L1", "L2", "L3"), RiskLevel.entries.map { it.name })
-        assertEquals(false, RiskLevel.L0.requiresApproval)
-        assertEquals(false, RiskLevel.L1.requiresApproval)
-        assertEquals(true, RiskLevel.L2.requiresApproval)
-        assertEquals(true, RiskLevel.L3.requiresApproval)
-        assertEquals(true, RiskLevel.L2.atLeast(RiskLevel.L1))
-        assertEquals(false, RiskLevel.L1.atLeast(RiskLevel.L2))
-        assertEquals(true, RiskLevel.L3.atLeast(RiskLevel.L3))
-        assertEquals(RiskLevel.L1, RiskLevel.L2.min(RiskLevel.L1))
-        assertEquals(RiskLevel.L2, RiskLevel.L2.min(RiskLevel.L3))
+    fun operationClassesHaveNoOrdinalApprovalSemantics() {
+        assertEquals(
+            setOf(ToolOperationClass.READ_ONLY, ToolOperationClass.METADATA),
+            ToolOperationClass.entries.filter { it.isReviewModeAdmitted }.toSet(),
+        )
+        assertEquals(7, ToolOperationClass.entries.size)
     }
 }

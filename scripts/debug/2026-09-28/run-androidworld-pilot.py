@@ -43,9 +43,11 @@ manifest = dict(source_commit=subprocess.check_output(['git', '-C', str(ROOT / '
                 helix_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                 tasks=['SystemBrightnessMin', 'SystemBrightnessMax'], repeats=1,
                 adaptation='API36 arm64 owned AVD, Helix accessibility action space; upstream initialization and oracle unchanged; no official leaderboard score',
-                model='Qwen3.8-27B', max_model_calls=32, max_steps=32, max_output_tokens=4096, max_total_tokens=1000000,
+                model='Qwen3.8-27B', max_model_calls=1024, max_steps=512, max_output_tokens=4096, max_total_tokens=32000000,
                 temperature='provider default', task_timeout_seconds=240,
-                approvals='Only ui click/long_click/set_text/scroll/back/home; production token, package and sensitive UI checks remain',
+                approvals='Only ui click/long_click/set_text/set_progress/scroll/back/home; production token, package and sensitive UI checks remain',
+                system_settings_authorization="explicit grant for installed system Settings/SystemUI/search packages via AutomationPermissionCenter",
+                checkpoints="test driver confirms each CHECKPOINT on a currently allowed snapshot; never resumes TARGET_CHANGED",
                 launcher=launcher)
 manifest['source_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                              for path in [Path(__file__).resolve(),
@@ -72,6 +74,7 @@ for task_class, target in [(SystemBrightnessMin, 'min'), (SystemBrightnessMax, '
         evidence = command('shell', 'run-as', 'com.helix.agent.developer', 'cat', f'files/androidworld-{target}.json').stdout
         (output / f'androidworld-{target}-agent.json').write_text(evidence)
         result['agent'] = json.loads(evidence)
+        result['agent_completed'] = result['agent'].get('turnState') == 'COMPLETED' and result['agent'].get('failure') is None
         result['after'] = command('shell', 'settings', 'get', 'system', 'screen_brightness').stdout.strip()
         result['score'] = task.is_successful(env)
         result['instrumentation_ok'] = 'OK (1 test)' in run.stdout and 'FAILURES!!!' not in run.stdout

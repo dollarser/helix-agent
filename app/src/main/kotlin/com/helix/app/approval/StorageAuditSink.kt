@@ -1,6 +1,6 @@
 package com.helix.app.approval
 
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.storage.repository.AuditEventRepository
 import com.helix.tools.framework.AuditSink
 import com.helix.tools.framework.DecisionSource
@@ -65,7 +65,7 @@ class StorageAuditSink(
                 "toolVersion",
                 "code",
                 "decisionSource",
-                "risk",
+                "operationClass",
                 "bindingHash",
                 "actionFingerprint",
                 "outputHash",
@@ -103,7 +103,7 @@ class StorageAuditSink(
                 put("toolVersion", event.toolVersion)
                 put("code", event.code.name)
                 put("decisionSource", event.decisionSource.name)
-                putNullable("risk", event.riskLevel?.name)
+                putNullable("operationClass", event.operationClass?.name)
                 putNullable("bindingHash", event.bindingHash)
                 putNullable("actionFingerprint", event.actionFingerprint)
                 putNullable("outputHash", event.outputHash)
@@ -156,7 +156,7 @@ class StorageAuditSink(
                         toolVersion = obj.optString("toolVersion"),
                         code = codeOrNull(obj.optString("code")),
                         decisionSource = sourceOrNull(obj.optString("decisionSource")),
-                        risk = riskOrNull(obj.optString("risk")),
+                        operationClass = operationOrNull(obj.optString("operationClass")),
                         bindingHash = obj.optString("bindingHash"),
                         actionFingerprint = obj.optString("actionFingerprint"),
                         outputHash = obj.optString("outputHash"),
@@ -197,8 +197,8 @@ class StorageAuditSink(
         private fun sourceOrNull(value: String?): DecisionSource? =
             value?.let { runCatching { DecisionSource.valueOf(it) }.getOrNull() }
 
-        private fun riskOrNull(value: String?): RiskLevel? =
-            value?.let { runCatching { RiskLevel.valueOf(it) }.getOrNull() }
+        private fun operationOrNull(value: String?): ToolOperationClass? =
+            value?.let { runCatching { ToolOperationClass.valueOf(it) }.getOrNull() }
 
         private fun optBlankToNull(
             obj: JsonObject,
@@ -236,7 +236,7 @@ data class DispatchAuditRecord(
     val toolVersion: String?,
     val code: DispatchOutcomeCode?,
     val decisionSource: DecisionSource?,
-    val risk: RiskLevel?,
+    val operationClass: ToolOperationClass?,
     val bindingHash: String? = null,
     val actionFingerprint: String? = null,
     val outputHash: String? = null,
@@ -259,7 +259,7 @@ data class DispatchAuditRecord(
 data class AuditLogFilter(
     val sessionId: String? = null,
     val toolName: String? = null,
-    val risk: RiskLevel? = null,
+    val operationClass: ToolOperationClass? = null,
     /** Inclusive start day, ISO `yyyy-MM-dd` (system zone). */
     val fromDay: String? = null,
     /** Inclusive end day, ISO `yyyy-MM-dd` (system zone). */
@@ -269,7 +269,7 @@ data class AuditLogFilter(
         get() =
             sessionId == null &&
                 toolName == null &&
-                risk == null &&
+                operationClass == null &&
                 fromDay == null &&
                 toDay == null
 
@@ -278,13 +278,13 @@ data class AuditLogFilter(
         fun fromUi(
             sessionId: String?,
             toolName: String?,
-            risk: RiskLevel?,
+            operationClass: ToolOperationClass?,
             fromDayRaw: String,
             toDayRaw: String,
         ) = AuditLogFilter(
             sessionId = sessionId,
             toolName = toolName,
-            risk = risk,
+            operationClass = operationClass,
             fromDay = fromDayRaw.takeIf { it.isNotBlank() },
             toDay = toDayRaw.takeIf { it.isNotBlank() },
         )

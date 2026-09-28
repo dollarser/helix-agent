@@ -2,7 +2,6 @@ package com.helix.app.chat
 
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ModelRequest
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -50,6 +49,7 @@ class ModelToolExposureOrderTest {
                 "ui.click",
                 "ui.long_click",
                 "ui.set_text",
+                "ui.set_progress",
                 "ui.scroll",
                 "ui.back",
                 "ui.home",
@@ -98,7 +98,6 @@ class ModelToolExposureOrderTest {
                     put("type", kotlinx.serialization.json.JsonPrimitive("object"))
                 },
             operationClass = ToolOperationClass.READ_ONLY,
-            baseRisk = RiskLevel.L0,
             timeout = 1.seconds,
             maxOutputBytes = 1024,
             requiredCapabilities = emptySet(),

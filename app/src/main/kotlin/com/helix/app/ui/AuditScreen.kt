@@ -34,7 +34,7 @@ import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.audit.AuditLogService
 import com.helix.app.chat.SessionRowUi
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 
 /**
  * The audit log page (roadmap HXA-036; doc 01 section 7): tool-dispatch audit records
@@ -54,13 +54,13 @@ fun AuditScreen(
 ) {
     var sessionId by remember { mutableStateOf<String?>(null) }
     var toolName by remember { mutableStateOf<String?>(null) }
-    var risk by remember { mutableStateOf<RiskLevel?>(null) }
+    var operationClass by remember { mutableStateOf<ToolOperationClass?>(null) }
     var fromDay by remember { mutableStateOf("") }
     var toDay by remember { mutableStateOf("") }
 
     val filter =
-        remember(sessionId, toolName, risk, fromDay, toDay) {
-            AuditLogFilter.fromUi(sessionId, toolName, risk, fromDay, toDay)
+        remember(sessionId, toolName, operationClass, fromDay, toDay) {
+            AuditLogFilter.fromUi(sessionId, toolName, operationClass, fromDay, toDay)
         }
     // Pushes the filter to the service: it reloads the bounded page off the main thread
     // and republishes the StateFlows below (Room reads in composition crash).
@@ -78,15 +78,15 @@ fun AuditScreen(
     ) {
         AuditLogHeader()
         diagnostics?.let { DiagnosticReportSection(it::preview) }
-        AuditSessionToolRiskFilters(
+        AuditSessionToolOperationFilters(
             sessions,
             tools,
             sessionId,
             onSession = { sessionId = it },
             toolName,
             onTool = { toolName = it },
-            risk,
-            onRisk = { risk = it },
+            operationClass,
+            onOperation = { operationClass = it },
         )
         AuditDateFilters(
             fromDay = fromDay,
@@ -98,7 +98,7 @@ fun AuditScreen(
             onClear = {
                 sessionId = null
                 toolName = null
-                risk = null
+                operationClass = null
                 fromDay = ""
                 toDay = ""
             },
@@ -152,15 +152,15 @@ private fun AuditClearFiltersButton(onClear: () -> Unit) {
 /** The 会话 / 工具 / 风险 pickers (roadmap HXA-036: the page filters by 会话、工具、风险、日期). */
 @Composable
 @Suppress("FunctionName", "LongParameterList") // one value+setter pair per pickable filter
-private fun AuditSessionToolRiskFilters(
+private fun AuditSessionToolOperationFilters(
     sessions: List<SessionRowUi>,
     tools: List<String>,
     sessionId: String?,
     onSession: (String?) -> Unit,
     toolName: String?,
     onTool: (String?) -> Unit,
-    risk: RiskLevel?,
-    onRisk: (RiskLevel?) -> Unit,
+    operationClass: ToolOperationClass?,
+    onOperation: (ToolOperationClass?) -> Unit,
 ) {
     SettingsActions {
         FilterSelect(
@@ -180,15 +180,15 @@ private fun AuditSessionToolRiskFilters(
             onSelect = onTool,
         )
         FilterSelect(
-            tag = "audit-filter-risk",
-            label = stringResource(R.string.approval_risk),
-            placeholder = stringResource(R.string.audit_all_risks),
+            tag = "audit-filter-operationClass",
+            label = stringResource(R.string.approval_operation),
+            placeholder = stringResource(R.string.audit_all_operations),
             options =
-                RiskLevel.entries.map {
-                    it.name to stringResource(ApprovalUiMapper.riskLabel(it))
+                ToolOperationClass.entries.map {
+                    it.name to stringResource(ApprovalUiMapper.operationLabel(it))
                 },
-            selected = risk?.name,
-            onSelect = { onRisk(it?.let { name -> RiskLevel.valueOf(name) }) },
+            selected = operationClass?.name,
+            onSelect = { onOperation(it?.let { name -> ToolOperationClass.valueOf(name) }) },
         )
     }
 }
@@ -304,8 +304,8 @@ private fun auditLines(record: com.helix.app.approval.DispatchAuditRecord): List
     val code =
         record.code?.let { stringResource(ApprovalUiMapper.codeLabel(it)) }
             ?: stringResource(R.string.audit_unknown_code)
-    val risk =
-        record.risk?.let { stringResource(ApprovalUiMapper.riskLabel(it)) }
+    val operationClass =
+        record.operationClass?.let { stringResource(ApprovalUiMapper.operationLabel(it)) }
             ?: stringResource(R.string.audit_unknown)
     val source =
         record.decisionSource?.let { stringResource(ApprovalUiMapper.sourceLabel(it)) }
@@ -317,7 +317,7 @@ private fun auditLines(record: com.helix.app.approval.DispatchAuditRecord): List
                 code,
                 record.toolName ?: "?",
                 record.toolVersion ?: "?",
-                risk,
+                operationClass,
             ),
         )
         add(

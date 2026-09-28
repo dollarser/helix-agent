@@ -171,8 +171,8 @@ object AuditFilters {
         record: DispatchAuditRecord,
         filter: AuditLogFilter,
     ): Boolean {
-        val wanted = filter.risk ?: return true
-        return record.risk == wanted
+        val wanted = filter.operationClass ?: return true
+        return record.operationClass == wanted
     }
 
     private fun matchesFromDay(

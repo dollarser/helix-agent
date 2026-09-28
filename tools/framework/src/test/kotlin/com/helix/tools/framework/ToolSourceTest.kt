@@ -38,7 +38,6 @@ class ToolSourceTest {
                 inputSchema = first.inputSchema,
                 outputSchema = first.outputSchema,
                 operationClass = first.operationClass,
-                baseRisk = first.baseRisk,
                 timeout = first.timeout,
                 maxOutputBytes = first.maxOutputBytes,
                 requiredCapabilities = first.requiredCapabilities,

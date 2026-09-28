@@ -6,7 +6,7 @@ import com.helix.app.approval.StorageApprovalBroker
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.storage.HelixStorage
 import com.helix.tools.framework.ApprovalRequest
@@ -137,7 +137,7 @@ class ApprovalWakeLatencyDeviceTest {
                             ApprovalRequest(
                                 binding,
                                 "device wake test",
-                                RiskLevel.L1,
+                                ToolOperationClass.READ_ONLY,
                                 NoCancellation,
                             ),
                         )

@@ -1,7 +1,6 @@
 package com.helix.runtime.quickjs.tool
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -52,8 +51,8 @@ fun interface JsExecutor {
  * in the isolated, offline QuickJS backend (doc 03) and backfills the bounded JSON result.
  *
  * Contract (doc 03 §4.1 / §5, mobile-tool-orchestration §3.1):
- * - [ToolOperationClass.CODE_EXECUTION], base risk [RiskLevel.L2] (per-call approval, like the
- *   mutation tools); a generic L2 — no auto-approve path, no Trusted Workspace / batch reuse.
+ * - [ToolOperationClass.CODE_EXECUTION]: current session effect rules determine approval.
+ *   Required approval binds the exact call and never comes from model output.
  * - [ExecutionTargetType.LOCAL_QUICKJS]: the platform's QuickJS lane serializes executions to
  *   single concurrency, and CODE_EXECUTION is exclusive — so two JS calls never run in parallel
  *   and never overlap a file tool's effect window (the footprint is derived, not self-declared).
@@ -95,7 +94,6 @@ object CodeJavascriptRunTool {
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
-            baseRisk = RiskLevel.L2,
             // Framework hard bound, comfortably above the isolated client's own bounded
             // duration (10 s wall + bounded bind/grace) so the client — not the dispatcher —
             // is what settles the QuickJS deadline.

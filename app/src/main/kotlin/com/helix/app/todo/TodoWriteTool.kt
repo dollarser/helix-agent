@@ -4,7 +4,6 @@ import com.helix.core.agent.TaskItem
 import com.helix.core.agent.TaskItemState
 import com.helix.core.agent.TaskLedger
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -95,7 +94,6 @@ internal object TodoWriteTool {
                 inputSchema = schema,
                 outputSchema = schema,
                 operationClass = ToolOperationClass.METADATA,
-                baseRisk = RiskLevel.L0,
                 timeout = 5.seconds,
                 maxOutputBytes = 32768,
                 requiredCapabilities = emptySet(),

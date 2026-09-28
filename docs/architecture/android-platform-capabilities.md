@@ -78,18 +78,18 @@ WebView 只能由浏览器 feature 持有。Agent Runtime 不持有 `WebView` �
 
 ### 3.3 首批浏览器工具
 
-| Tool | 风险 | 说明 |
+| Tool | 操作类型 | 说明 |
 | --- | --- | --- |
-| `browser.open` | L1 | 新建标签并导航；展示目标 origin |
-| `browser.navigate` | L1 | 当前标签导航；跨 origin 更新作用域 |
-| `browser.back` / `browser.forward` / `browser.reload` | L0 | 只作用于 Helix 标签 |
-| `browser.snapshot` | L1 | 返回裁剪后的语义树、URL、标题；可能含敏感页面内容 |
-| `browser.find` | L0 | 当前 snapshot 内查找 |
-| `browser.click` | L2 | 依据 snapshot node ID 点击；要求页面代次一致 |
-| `browser.type` | L2 | 输入文字；密码框、支付框和验证码框默认拒绝 |
-| `browser.scroll` | L1 | 有界滚动 |
-| `browser.screenshot` | L1 | 只截当前 Helix WebView，保存到 Workspace |
-| `browser.download` | L2 | 显示 URL、文件名、大小上限和目标位置 |
+| `browser.open` | NETWORK | 新建标签并导航；展示目标 origin |
+| `browser.navigate` | NETWORK | 当前标签导航；跨 origin 更新作用域 |
+| `browser.back` / `browser.forward` / `browser.reload` | LOCAL_MUTATION / NETWORK | 只作用于 Helix 标签 |
+| `browser.snapshot` | READ_ONLY | 返回裁剪后的语义树、URL、标题；可能含敏感页面内容 |
+| `browser.find` | READ_ONLY | 当前 snapshot 内查找 |
+| `browser.click` | EXTERNAL_ACTION | 依据 snapshot node ID 点击；要求页面代次一致 |
+| `browser.type` | EXTERNAL_ACTION | 输入文字；密码框、支付框和验证码框默认拒绝 |
+| `browser.scroll` | LOCAL_MUTATION | 有界滚动 |
+| `browser.screenshot` | LOCAL_MUTATION | 只截当前 Helix WebView，保存到 Workspace |
+| `browser.download` | NETWORK + 文件效果 | 显示 URL、文件名、大小上限和目标位置 |
 
 `browser.click/type` 只能使用最近一次 snapshot 返回的短期 node token。页面导航、刷新、DOM 大变化或超时都会使 token 失效，防止模型在页面变化后点击错误对象。
 
@@ -143,20 +143,20 @@ Material Files 和 Amaze File Manager 只作为路径、冲突、长任务和 Ro
 
 为了提高模型兼容性，保留 Pi 风格的四个短工具名，并用 `scopeId` 限定 Android 访问范围：
 
-| Tool | 默认风险 | 说明 |
+| Tool | 操作类型 | 说明 |
 | --- | --- | --- |
-| `read` | L0/L1 | 读取文本或有界二进制元数据 |
-| `write` | L1/L2 | 原子新建/覆盖，覆盖时升为 L2 |
-| `edit` | L1/L2 | 唯一匹配 patch 或带前置 hash 的 patch |
-| `bash` | L2 | 仅 PRoot Runtime；不是 Android 主进程 Shell |
-| `files.list` | L0/L1 | 有界目录枚举 |
-| `files.search` | L0/L1 | 文件名或正文搜索，有文件数/时间限制 |
-| `files.stat` | L0 | size、mtime、MIME、hash 可选 |
-| `files.mkdir` | L1 | 作用域内创建 |
-| `files.copy` | L1/L2 | 跨作用域或覆盖时提升风险 |
-| `files.move` | L2 | 显示源、目标和冲突策略 |
-| `files.delete` | L2 | 默认进入 Helix 回收站 |
-| `files.archive` / `files.extract` | L2 | 防 Zip Slip、文件数和膨胀比限制 |
+| `read` | READ_ONLY | 读取文本或有界二进制元数据 |
+| `write` | LOCAL_MUTATION | 原子新建/覆盖，显示覆盖目标并按当前规则授权 |
+| `edit` | LOCAL_MUTATION | 唯一匹配 patch 或带前置 hash 的 patch |
+| `bash` | CODE_EXECUTION | 仅 PRoot Runtime；不是 Android 主进程 Shell |
+| `files.list` | READ_ONLY | 有界目录枚举 |
+| `files.search` | READ_ONLY | 文件名或正文搜索，有文件数/时间限制 |
+| `files.stat` | READ_ONLY | size、mtime、MIME、hash 可选 |
+| `files.mkdir` | LOCAL_MUTATION | 作用域内创建 |
+| `files.copy` | LOCAL_MUTATION | 分类源/目标范围与覆盖效果后授权 |
+| `files.move` | LOCAL_MUTATION | 显示源、目标和冲突策略 |
+| `files.delete` | LOCAL_MUTATION | 默认进入 Helix 回收站 |
+| `files.archive` / `files.extract` | LOCAL_MUTATION | 防 Zip Slip、文件数和膨胀比限制 |
 
 短工具名和 namespaced 工具共享相同执行实现，不能出现两套 Policy。
 
@@ -173,29 +173,30 @@ Accessibility Service 用于用户主动开启的跨 App UI 自动化。参考 A
 3. Helix 验证 service connection，并让用户选择允许自动化的 App 包名。
 4. 每次运行创建有时限的 `AutomationSessionScope`，状态栏/前台通知提供立即停止入口。
 
-### 5.2 工具和风险
+### 5.2 工具与操作类型
 
-| Tool | 风险 | 说明 |
+| Tool | 操作类型 | 说明 |
 | --- | --- | --- |
-| `ui.snapshot` | L1 | 获取当前窗口的裁剪节点树和包名 |
-| `ui.find` | L0 | 在已有 snapshot 中匹配文本/属性 |
-| `ui.click` | L2 | node token + 预期包名/窗口 ID |
-| `ui.long_click` | L2 | 每次审批 |
-| `ui.set_text` | L2 | 密码/验证码/支付字段拒绝 |
-| `ui.scroll` | L1 | 有方向和次数限制 |
-| `ui.back` / `ui.home` | L2 | 系统全局动作 |
-| `ui.wait` | L0 | 有界等待 UI 条件，不得无限轮询 |
+| `ui.snapshot` | READ_ONLY | 获取当前窗口的裁剪节点树和包名 |
+| `ui.find` | READ_ONLY | 在已有 snapshot 中匹配文本/属性 |
+| `ui.click` | EXTERNAL_ACTION | node token + 预期包名/窗口 ID |
+| `ui.long_click` | EXTERNAL_ACTION | 按当前会话操作规则授权 |
+| `ui.set_text` | EXTERNAL_ACTION | 密码/验证码/支付字段拒绝 |
+| `ui.set_progress` | EXTERNAL_ACTION | token 绑定的原生数值控件；必须声明支持该动作并处于节点 range 内，按当前规则授权 |
+| `ui.scroll` | EXTERNAL_ACTION | 有方向和次数限制 |
+| `ui.back` / `ui.home` | EXTERNAL_ACTION | 系统全局动作 |
+| `ui.wait` | READ_ONLY | 有界等待 UI 条件，不得无限轮询 |
 
-MVP 不提供坐标盲点。节点动作失败时可以把截图和节点树返回给模型，但必须在发送前显示包含当前屏幕内容的隐私提示，Context 标记 `UNTRUSTED_ACCESSIBILITY_CONTENT`，并且截图/完整节点文本默认不长期保存。若未来增加坐标点击，必须作为 L3 单独设计。
+MVP 不提供坐标盲点。节点动作失败时可以把截图和节点树返回给模型，但必须在发送前显示包含当前屏幕内容的隐私提示，Context 标记 `UNTRUSTED_ACCESSIBILITY_CONTENT`，并且截图/完整节点文本默认不长期保存。若未来增加坐标点击，必须另行设计精确目标与授权边界。
 
 ### 5.3 强制防护
 
-- 默认拒绝目标：系统权限设置、辅助功能设置、设备管理、Root 管理器、软件安装器、支付/银行、密码管理器、认证器、生物识别和锁屏。
+- 默认拒绝 Settings/SystemUI、权限控制器、Root 管理器、软件安装器、支付/银行、密码管理器、认证器及生物识别相关包；锁屏仍中止会话。用户可在 Advanced 权限中心为本次会话显式授权已安装的系统 Settings、SystemUI 及精确 Settings Intelligence 搜索组件；UI 展示包名，启动时纳入目标白名单。该选择默认关闭，不持久化，不由工具或模型授予。它允许更改设备设置，并非对 Settings 内每个页面的精细授权。
 - 默认拒绝点击语义：支付、转账、购买、发送、发布、删除账号、授权、允许安装、开启 Root。
 - 单次 session 默认 5 分钟、30 个动作；每 10 个动作强制检查点。
-- 检查点同时考虑经过时间、目标 package/window 和敏感语义变化；连续快速批准不会升级为自动允许。Advanced 只能在发布硬上限内调整 session/动作预算，不能关闭敏感目标或敏感语义拒绝。
+- 检查点同时考虑经过时间、目标 package/window 和敏感语义变化；连续快速批准不会升级为自动允许。Advanced 只能在发布硬上限内调整 session/动作预算，除上述显式 Settings/SystemUI 会话授权外，不能关闭其他敏感目标或敏感语义拒绝。
 - snapshot token 绑定 package、windowId、node fingerprint 和 generation。
-- 目标包变化时暂停并请求用户确认；不得自动跟随 Intent 进入新 App。
+- 越出已授权包集合时暂停；不得自动跟随 Intent 扩大范围。权限中心允许用户确认恢复到本次已授权目标，返回后再次验证 snapshot 和敏感限制，一次确认不跨 session 或 checkpoint。read 工具返回恢复提示，wait 对授权阻塞立即返回。
 - `FLAG_SECURE`、无法读取的 WebView/Canvas 和 OEM 自定义界面必须返回 `UNSUPPORTED_UI`，不能假装识别成功。
 - 用户按停止、锁屏、服务断开、前台通知被关闭或 App 强制停止时立即中止。
 - 任务审计只保存必要的结构化节点摘要；截图和完整文本默认不长期保存。
@@ -220,15 +221,15 @@ libsu 通过 JitPack 获取；当前生产依赖已由 HXA-094 按 [ADR-RUNTIME-
 
 优先提供高层、参数化工具：
 
-| Tool | 风险 | 说明 |
+| Tool | 操作类型 | 说明 |
 | --- | --- | --- |
-| `root.status` | L0 | 当前真实授权和 RootService 状态 |
-| `root.file.read` | L2 | 用户选择的 RootScope 路径 |
-| `root.file.copy` | L3 | Root 与普通存储间复制，显示方向和 hash |
-| `root.package.info` | L1 | 只读包/UID/路径信息 |
-| `root.process.list` | L1 | 有界进程快照 |
-| `root.log.read` | L2 | 有界、脱敏、仅用户主动请求 |
-| `root.exec` | L3 | 仅开发者控制台；默认不提供给 Agent 自动选择 |
+| `root.status` | READ_ONLY | 当前真实授权和 RootService 状态 |
+| `root.file.read` | READ_ONLY + Root 能力 | 用户选择的 RootScope 路径 |
+| `root.file.copy` | 特权文件修改（规划） | Root 与普通存储间复制，显示方向和 hash |
+| `root.package.info` | READ_ONLY + Root 能力 | 只读包/UID/路径信息 |
+| `root.process.list` | READ_ONLY + Root 能力 | 有界进程快照 |
+| `root.log.read` | READ_ONLY + Root 能力 | 有界、脱敏、仅用户主动请求 |
+| `root.exec` | 特权执行（规划） | 仅开发者控制台；默认不提供给 Agent 自动选择 |
 
 禁止内置或自动执行：关闭 SELinux、修改 boot/vendor/system 分区、刷写镜像、安装 Root 模块、提取其他 App 凭据、绕过锁屏、隐藏 Helix、修改金融/认证 App、静默安装 APK、静默授权自身权限。
 

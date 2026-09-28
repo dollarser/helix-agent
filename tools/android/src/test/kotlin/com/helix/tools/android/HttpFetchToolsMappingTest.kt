@@ -1,7 +1,6 @@
 package com.helix.tools.android
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
@@ -251,7 +250,6 @@ class HttpFetchToolsMappingTest {
         val d = HttpFetchTool.descriptor()
         assertEquals("http.fetch", d.name.value)
         assertEquals(1, d.version.value)
-        assertEquals(RiskLevel.L1, d.baseRisk)
         assertEquals(ToolOperationClass.NETWORK, d.operationClass)
         assertEquals(30.seconds, d.timeout)
         assertTrue(d.maxOutputBytes > 0)

@@ -3,7 +3,6 @@
 package com.helix.tools.android
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -31,7 +30,7 @@ object CalendarCommitEventTool {
             description =
                 "Commit a previously prepared calendar-event draft (calendar.prepare_event) to the " +
                     "system Calendar Provider. This is the write step: it needs the WRITE_CALENDAR " +
-                    "permission and is approved on every call (L2). Refused with status " +
+                    "permission and authorization under the current session rules. Refused with status " +
                     "'permission-missing' when the permission is not granted, 'draft-not-found' when the " +
                     "draftId is not a held draft, or 'no-handler' when no writable calendar exists.",
             inputSchema =
@@ -72,7 +71,6 @@ object CalendarCommitEventTool {
                     required = listOf("status", "draftId", "eventId", "reason"),
                 ),
             operationClass = ToolOperationClass.EXTERNAL_ACTION,
-            baseRisk = RiskLevel.L2,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
             requiredCapabilities = emptySet(),

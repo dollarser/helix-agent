@@ -1,7 +1,6 @@
 package com.helix.tools.browser
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -50,7 +49,6 @@ object BrowserBackTool {
                     required = listOf("status", "url", "origin", "canGoBack", "canGoForward", "reason"),
                 ),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L0,
             timeout = 15.seconds,
             maxOutputBytes = 2048,
             requiredCapabilities = emptySet(),
@@ -121,7 +119,6 @@ object BrowserForwardTool {
                     required = listOf("status", "url", "origin", "canGoBack", "canGoForward", "reason"),
                 ),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
-            baseRisk = RiskLevel.L0,
             timeout = 15.seconds,
             maxOutputBytes = 2048,
             requiredCapabilities = emptySet(),
@@ -229,7 +226,6 @@ object BrowserReloadTool {
                     required = listOf("status", "url", "origin", "reason"),
                 ),
             operationClass = ToolOperationClass.NETWORK,
-            baseRisk = RiskLevel.L0,
             timeout = 30.seconds,
             maxOutputBytes = 2048,
             requiredCapabilities = emptySet(),

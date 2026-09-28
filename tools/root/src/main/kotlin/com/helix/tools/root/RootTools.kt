@@ -2,7 +2,6 @@ package com.helix.tools.root
 
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -34,11 +33,31 @@ class RootTools(
 ) {
     fun descriptors(): List<ToolDescriptor> =
         listOf(
-            descriptor(STATUS, RiskLevel.L0, emptySet(), emptyObjectSchema(), statusOutputSchema()),
-            descriptor(FILE_READ, RiskLevel.L2, rootCapability(), fileReadInputSchema(), fileReadOutputSchema()),
-            descriptor(PACKAGE_INFO, RiskLevel.L1, rootCapability(), packageInputSchema(), packageOutputSchema()),
-            descriptor(PROCESS_LIST, RiskLevel.L1, rootCapability(), processInputSchema(), processOutputSchema()),
-            descriptor(LOG_READ, RiskLevel.L2, rootCapability(), logInputSchema(), logOutputSchema()),
+            descriptor(STATUS, emptySet(), emptyObjectSchema(), statusOutputSchema()),
+            descriptor(
+                FILE_READ,
+                rootCapability(),
+                fileReadInputSchema(),
+                fileReadOutputSchema(),
+            ),
+            descriptor(
+                PACKAGE_INFO,
+                rootCapability(),
+                packageInputSchema(),
+                packageOutputSchema(),
+            ),
+            descriptor(
+                PROCESS_LIST,
+                rootCapability(),
+                processInputSchema(),
+                processOutputSchema(),
+            ),
+            descriptor(
+                LOG_READ,
+                rootCapability(),
+                logInputSchema(),
+                logOutputSchema(),
+            ),
         )
 
     fun register(
@@ -192,7 +211,6 @@ class RootTools(
 
     private fun descriptor(
         name: String,
-        risk: RiskLevel,
         capabilities: Set<Capability>,
         input: JsonObject,
         output: JsonObject,
@@ -203,7 +221,6 @@ class RootTools(
         inputSchema = input,
         outputSchema = output,
         operationClass = ToolOperationClass.READ_ONLY,
-        baseRisk = risk,
         timeout = 30.seconds,
         maxOutputBytes = MAX_OUTPUT_BYTES,
         requiredCapabilities = capabilities,

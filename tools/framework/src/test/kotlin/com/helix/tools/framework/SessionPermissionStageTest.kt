@@ -6,7 +6,6 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
-import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityState
@@ -172,7 +171,7 @@ class SessionPermissionStageTest {
     // ------------------------------------------------------------------------ cards
 
     @Test
-    fun anAskOnACardFreeCallComposesOneCardWithTheRiskLevel() {
+    fun anAskOnACardFreeCallComposesOneCardWithTheToolOperationClass() {
         val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED))
         val classification =
             CallEffectClassification(
@@ -188,7 +187,7 @@ class SessionPermissionStageTest {
             card.confirmationDetail,
             card.confirmationDetail.contains("SCOPE_OUTSIDE:FILE_MUTATION_EXTERNAL"),
         )
-        assertTrue(card.confirmationDetail, card.confirmationDetail.contains("RISK_LEVEL:"))
+        assertTrue(card.confirmationDetail, card.confirmationDetail.contains("Operation:"))
         val event = sink.events.single()
         assertEquals(DecisionSource.USER, event.decisionSource)
         val audit = checkNotNull(event.sessionPermissionEvaluated)
@@ -210,7 +209,7 @@ class SessionPermissionStageTest {
             )
         val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
         registerTool(
-            TestFixtures.builtIn(name = "fake", baseRisk = RiskLevel.L2),
+            TestFixtures.builtIn(name = "fake", operationClass = ToolOperationClass.LOCAL_MUTATION),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
@@ -218,13 +217,13 @@ class SessionPermissionStageTest {
         val card = broker.acquireCalls.single()
         assertTrue(
             "the policy approval detail is kept in the composed card",
-            card.confirmationDetail.contains("dynamic risk L2 requires per-call approval"),
+            card.confirmationDetail.contains("Operation LOCAL_MUTATION requires explicit authorization"),
         )
         assertTrue(
             "the precise session reasons compose into the SAME card",
             card.confirmationDetail.contains("SCOPE_OUTSIDE:FILE_MUTATION_EXTERNAL"),
         )
-        assertTrue(card.confirmationDetail, card.confirmationDetail.contains("RISK_LEVEL:"))
+        assertTrue(card.confirmationDetail, card.confirmationDetail.contains("Operation:"))
         val audit = checkNotNull(sink.events.single().sessionPermissionEvaluated)
         assertEquals(listOf("SCOPE_OUTSIDE:FILE_MUTATION_EXTERNAL"), audit.reasons)
     }
@@ -344,12 +343,12 @@ class SessionPermissionStageTest {
         val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
         val executor =
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
-        registerTool(TestFixtures.builtIn(name = "fake", baseRisk = RiskLevel.L2), executor)
+        registerTool(TestFixtures.builtIn(name = "fake", operationClass = ToolOperationClass.LOCAL_MUTATION), executor)
         assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
         assertEquals(1, executor.invocations)
         assertEquals(0, broker.acquireCalls.size)
         val event = sink.events.single()
-        assertEquals(RiskLevel.L2, event.riskLevel)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, event.operationClass)
         assertEquals(
             SessionPermissionDecisionAudit.OUTCOME_AUTO_PROCEED,
             checkNotNull(event.sessionPermissionEvaluated).outcome,
@@ -357,7 +356,7 @@ class SessionPermissionStageTest {
     }
 
     @Test
-    fun aBaseL3DenialIsDemotedForAWiredSessionAndStaysHardWhenUnwired() {
+    fun privilegedOperationsUseSessionAuthorizationOrExactApproval() {
         // B4: the historical L3 default denial is a product default, not an unexecutable
         // fact — wired, a session-authorized L3 call proceeds (risk audited); unwired, the
         // historical hard denial keeps stopping (legacy fail-closed).
@@ -369,18 +368,19 @@ class SessionPermissionStageTest {
                 ScriptedClassifier(CallEffectClassification(OperationFootprint())),
             )
         registerTool(
-            TestFixtures.builtIn(name = "fake", baseRisk = RiskLevel.L3),
+            TestFixtures.builtIn(name = "fake", operationClass = ToolOperationClass.PRIVILEGED),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
         assertTrue(wired.dispatch(request()) is ToolDispatchOutcome.Succeeded)
-        assertEquals(RiskLevel.L3, sink.events.single().riskLevel)
+        assertEquals(ToolOperationClass.PRIVILEGED, sink.events.single().operationClass)
 
         val unwired =
             ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink, { emptySet() })
+        broker.script(ApprovalAcquisition.Denied)
         val denied = unwired.dispatch(request()) as ToolDispatchOutcome.Denied
-        assertEquals(DispatchOutcomeCode.POLICY_DENIED, denied.code)
-        assertTrue(denied.detail, denied.detail.contains("L3_DEFAULT_DENY"))
-        assertEquals(DecisionSource.POLICY, sink.events.last().decisionSource)
+        assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, denied.code)
+        assertEquals(1, broker.acquireCalls.size)
+        assertEquals(DecisionSource.USER, sink.events.last().decisionSource)
     }
 
     @Test
@@ -401,7 +401,6 @@ class SessionPermissionStageTest {
             TestFixtures.builtIn(
                 name = "fake",
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
-                baseRisk = RiskLevel.L0,
             ),
             executor,
         )
