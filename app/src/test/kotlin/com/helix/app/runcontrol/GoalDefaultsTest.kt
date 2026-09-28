@@ -2,11 +2,19 @@ package com.helix.app.runcontrol
 
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.core.model.AgentMode
+import com.helix.core.model.GoalBudgets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class GoalDefaultsTest {
+    @Test fun savedExplicitLimitsAreNotRaisedWhenDefaultsIncrease() {
+        val lines = InMemoryLineStore()
+        val chosen = GoalBudgets(128, 256, 4_000_000, 7_200_000, 1_800_000, 0)
+        PersistedRunControlStore(lines).setGoalBudgets(chosen)
+        assertEquals(chosen, PersistedRunControlStore(lines).current.goalBudgets)
+    }
+
     @Test fun defaultsWorkWithoutAnySavedTurnSettings() {
         val lines = InMemoryLineStore()
         val first = PersistedRunControlStore(lines)

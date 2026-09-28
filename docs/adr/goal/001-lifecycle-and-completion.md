@@ -29,6 +29,8 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 
 模型调用、工具调用、累计 token、单次执行时间、累计执行时间共同限制运行；Goal 级模型/工具/token/总时间跨 run 累计，单个 Turn/Run 的局部预算在新 attempt 重新计算并受剩余 Goal budget clamp。耗尽不等于完成；记录具体维度并停泊，只有用户增加必要预算、复查后才能继续。最终上限取 Goal、当前调用及平台限制中更严格者。
 
+新 Goal 的未自定义默认预算为 512 次模型调用、2,048 次工具调用、32,000,000 累计 token、8 小时累计执行时间和 2 小时单次运行时间。默认值用于减少长任务中不必要的停泊，不代表模型单次上下文或输出能力。已保存的用户预算与现有 Goal 不自动扩额；自动重试默认仍为 0，权限审批和未知副作用核查不因预算增大而改变。
+
 运行期间保存有界 durable Goal usage checkpoint，恢复保留已记账累计用量，不把死亡后的墙钟时长计为执行时间，不因反复崩溃赠送预算。旧 Turn 的局部 model-call/tool-round checkpoint 不用于复活同一 Run；successor Run 使用新 Turn budget，Goal 累计 usage 不退款。结算与 checkpoint 不重复记账。Room 快照与审计是事实源，不因参考桌面产品改成另一套 event-sourcing 引擎。
 
 ### 模型工具与完成
@@ -58,6 +60,8 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 交付证据看 [HXA-208](../../completion-records/HXA-208.md) 与实施状态。回归覆盖模型 CRUD、revision 冲突、跨轮预算、双 flavor/API29/36、真实进程死亡、后台衔接和未知副作用；已有证据不代表定时/Channel 自动激活或长稳完成。
 
 ## Decision history
+
+- **2026-09-28**：所有者要求减少默认预算对真实目标的阻挡；提高未自定义的新 Goal 默认额度，保留显式限额、既有 Goal、调用平台限制及恢复/审批边界。
 
 - **2026-09-22**：接受 Goal 持久生命周期、连续执行、激活、预算与结构化完成报告。
 - **2026-09-25**：恢复模型与 ADR-AGENT-001 对齐：Goal 仍是长期 intent，但 crash/review 后旧 GoalRun 不再 same-run resume；后续 continuation 创建新的 GoalRun/Turn，累计 Goal usage 保留。
