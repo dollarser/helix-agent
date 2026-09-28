@@ -55,6 +55,7 @@ def main():
         args.output,
         "--timeout",
         "900",
+        "--clear-app-data",
         "--instrument-arg",
         "realSelfHosted=true",
         "--after-script",
