@@ -138,6 +138,49 @@ class McpToolDiscoveryTest {
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
 
+    @Test fun optionalBuiltInIsSearchableAndOnlyLoadedForItsSession() {
+        val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
+        registry.register(local)
+        assertFalse(local in discovery.visible("session", registry.all()))
+        assertEquals(listOf(local), discovery.search("session", "archive", 8))
+        assertTrue(local in discovery.visible("session", registry.all()))
+        assertFalse(local in discovery.visible("other", registry.all()))
+        assertFalse(local in discovery.visible("session", listOf(search)))
+        assertFalse(local in McpToolDiscovery(registry).visible("session", registry.all()))
+    }
+
+    @Test fun builtInDisableAppliesToSearchAndLoadedSchemas() {
+        val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
+        registry.register(local)
+        var enabled = true
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != local || enabled }
+        assertEquals(listOf(local), filtered.search("session", "archive", 8))
+        enabled = false
+        assertTrue(filtered.search("session", "archive", 8).isEmpty())
+        assertFalse(local in filtered.visible("session", registry.all(), setOf(local.name.value)))
+    }
+
+    @Test fun defaultsAndDiscoveryShareOneBoundedSurface() {
+        val locals = (0 until 100).map { search.copy(name = ToolName("local.tool_$it")) }
+        locals.forEach(registry::register)
+        val defaults = setOf("local.tool_0", "local.tool_1")
+        assertEquals(3, discovery.visible("session", registry.all(), defaults).size)
+        discovery.search("session", "local.tool_99", 1)
+        assertEquals(4, discovery.visible("session", registry.all(), defaults).size)
+        assertEquals(3, discovery.visible("other", registry.all(), defaults).size)
+    }
+
+    @Test fun currentModeAdmissionAlsoBoundsSearchResults() {
+        val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
+        registry.register(local)
+        discovery.visible("session", listOf(search))
+        assertTrue(discovery.search("session", "archive", 8).isEmpty())
+        discovery.visible("session", listOf(search, local))
+        assertEquals(listOf(local), discovery.search("session", "archive", 8))
+        discovery.visible("session", listOf(search))
+        assertFalse(local in discovery.visible("session", listOf(search)))
+    }
+
     // HXA-209 B3: the shared availability predicate (the same lambda the execution entry uses)
     // also gates discovery — a disabled remote tool is neither searchable nor visible, and a
     // disable that lands after a search removes it from the loaded window.

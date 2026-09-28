@@ -16,6 +16,9 @@ internal fun exposedEvaluationTools(
     container: AppContainer,
     mode: AgentMode,
 ): JsonObject {
+    val preferUi =
+        com.helix.app.automation.AutomationModule
+            .scopeFor("ui.snapshot") != null
     val latest =
         container.toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
             versions.maxBy { it.version.value }
@@ -26,15 +29,23 @@ internal fun exposedEvaluationTools(
         ModePolicy
             .filterTools(mode, latest, control.chatToolsEnabled) {
                 ToolModeProfile(it.operationClass, it.baseRisk)
-            }
+            }.filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
+            .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
     val exposed =
         container.toolPipeline.mcpDiscovery
-            .visible(session, admitted)
-            .filter { container.toolPipeline.disabledToolFilter?.invoke(session, it) ?: true }
+            .visible(
+                session,
+                admitted,
+                ModelToolExposureOrder.defaultNames(preferUi),
+            ).filter { container.toolPipeline.disabledToolFilter?.invoke(session, it) ?: true }
             .filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
             .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
-            .let(ModelToolExposureOrder::prioritize)
-            .take(ModelRequest.MAX_TOOLS)
+            .let {
+                ModelToolExposureOrder.prioritize(
+                    it,
+                    preferUi = preferUi,
+                )
+            }.take(ModelRequest.MAX_TOOLS)
     return buildJsonObject { exposed.forEach { put(it.name.value, it.version.value) } }
 }
 

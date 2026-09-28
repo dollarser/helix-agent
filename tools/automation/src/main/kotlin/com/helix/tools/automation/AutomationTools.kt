@@ -208,7 +208,7 @@ class AutomationTools(
         output: JsonObject,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(1),
+        ToolVersion(if (name == SCROLL) 2 else 1),
         "Bounded token-only Accessibility operation: $name.",
         input,
         output,
@@ -228,7 +228,19 @@ class AutomationTools(
 
     private fun textInput() = obj(mapOf("token" to str(32), "text" to str(2_000)), listOf("token", "text"))
 
-    private fun scrollInput() = obj(mapOf("token" to str(32), "direction" to str(8)), listOf("token", "direction"))
+    private fun scrollInput() =
+        obj(
+            mapOf(
+                "token" to str(32),
+                "direction" to
+                    buildJsonObject {
+                        put("type", JsonPrimitive("string"))
+                        put("enum", JsonArray(listOf(JsonPrimitive("forward"), JsonPrimitive("backward"))))
+                        put("description", JsonPrimitive("Scroll the token container using forward or backward."))
+                    },
+            ),
+            listOf("token", "direction"),
+        )
 
     private fun findInput() = querySchema(includeWait = false)
 

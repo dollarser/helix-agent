@@ -284,6 +284,9 @@ internal class ChatRequestAssembler(
         sessionId: String,
         control: RunControlConfig,
     ): List<ModelToolSchema> {
+        val preferUi =
+            com.helix.app.automation.AutomationModule
+                .scopeFor("ui.snapshot") != null
         val latest =
             toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
                 versions.maxBy { it.version.value }
@@ -292,9 +295,17 @@ internal class ChatRequestAssembler(
             ModePolicy
                 .filterTools(control.mode, latest, control.chatToolsEnabled) {
                     ToolModeProfile(it.operationClass, it.baseRisk)
+                }.filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
+                .filter {
+                    it.name.value !in com.helix.app.goal.GoalLifecycleTools.names ||
+                        control.mode != AgentMode.PLAN
                 }
         return toolPipeline.mcpDiscovery
-            .visible(sessionId, admitted)
+            .visible(
+                sessionId,
+                admitted,
+                ModelToolExposureOrder.defaultNames(preferUi),
+            )
             // HXA-209 (ADR section 1.1): a disabled tool leaves the model schema through the
             // SAME shared predicate the execution entry refuses with — visible() applies it too,
             // but the schema list is the last gate before truncation and must not drift.
@@ -302,8 +313,12 @@ internal class ChatRequestAssembler(
             .filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
-            }.let(ModelToolExposureOrder::prioritize)
-            .take(ModelRequest.MAX_TOOLS)
+            }.let {
+                ModelToolExposureOrder.prioritize(
+                    it,
+                    preferUi = preferUi,
+                )
+            }.take(ModelRequest.MAX_TOOLS)
             .map(FileToolArguments::modelSchema)
             .map(ToolPresentationMetadata::augment)
     }

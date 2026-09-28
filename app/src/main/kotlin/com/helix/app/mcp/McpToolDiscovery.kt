@@ -32,6 +32,7 @@ internal class McpToolDiscovery(
      */
     private val availability: (sessionId: String, descriptor: ToolDescriptor) -> Boolean = { _, _ -> true },
 ) {
+    private val admittedWindows = LinkedHashMap<String, Set<ToolDescriptor>>(16, 0.75f, true)
     private val loaded = LinkedHashMap<String, List<ToolDescriptor>>(16, 0.75f, true)
 
     @Synchronized
@@ -46,8 +47,9 @@ internal class McpToolDiscovery(
         val matches =
             latest()
                 .filter { descriptor ->
-                    descriptor.origin is ToolOrigin.McpOrigin &&
+                    descriptor.name.value != "tools.search" &&
                         availability(sessionId, descriptor) &&
+                        (admittedWindows[sessionId]?.contains(descriptor) != false) &&
                         words.all {
                             it in "${descriptor.name.value} ${descriptor.description}".lowercase()
                         }
@@ -63,16 +65,23 @@ internal class McpToolDiscovery(
     fun visible(
         sessionId: String,
         admitted: List<ToolDescriptor>,
+        defaultNames: Set<String> = emptySet(),
     ): List<ToolDescriptor> {
+        admittedWindows[sessionId] = admitted.filter { availability(sessionId, it) }.toSet()
+        while (admittedWindows.size > MAX_SESSIONS) admittedWindows.remove(admittedWindows.keys.first())
         val selected = loaded[sessionId].orEmpty().filter { it in admitted && availability(sessionId, it) }
         loaded[sessionId]?.let { loaded[sessionId] = selected }
         // A disable that landed while a tool was in the session window removes it here too —
         // the window replacement re-reads the same shared predicate (ADR section 1.1).
         val mcp = admitted.filter { it.origin is ToolOrigin.McpOrigin && availability(sessionId, it) }
-        val local = admitted.filter { it.origin !is ToolOrigin.McpOrigin && availability(sessionId, it) }
+        val local =
+            admitted.filter {
+                it.origin !is ToolOrigin.McpOrigin && availability(sessionId, it) &&
+                    (it.name.value == "tools.search" || it.name.value in defaultNames)
+            }
         val discovery = local.filter { it.name.value == "tools.search" }
         // ChatService truncates this list to the model limit. Keep discovery and its
-        // current results reachable even when other admitted tools fill that budget.
+        // current results reachable; optional local tools use the same bounded discovery window.
         return (discovery + selected + local + if (mcp.size <= WINDOW) mcp else emptyList())
             .distinctBy { it.name }
     }
@@ -90,8 +99,10 @@ internal class McpToolDiscovery(
                 name = ToolName("tools.search"),
                 version = ToolVersion(1),
                 description =
-                    "Search user-enabled MCP tools by name or description. For large catalogs, call this first; " +
-                        "matched schemas replace the session MCP window on the next request. " +
+                    "Search user-enabled tools by name or description: files, browser, Android UI, Linux, Skills, " +
+                        "connectors, MCP and A2A. Search when a needed tool is absent; " +
+                        "use concise keywords or its name. " +
+                        "Matched schemas replace the session discovery window on the next request. " +
                         "Discovery grants no execution permission.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
