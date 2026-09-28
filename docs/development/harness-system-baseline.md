@@ -50,3 +50,5 @@ runner 会先执行真实 SGLang UI/provider smoke，再在同一 owned API36 em
 v1 正式锚点为 clean `99b7bee7`：15/15 通过；前一 clean `b436247f` 为 14/15，skill-003 的冗余执行请求失败。两者同 fixture/oracle、同 test APK；只改变 base prompt 的充分证据报告指导。完整对照与局限见 [P5/P6 证据](../evidence/development/p5-clean-baseline-and-p6-2026-09-28.md)。单次通过不消除历史截断或证明统计稳定性。
 
 后续所有者授权修正提示词与 skill-003 最终请求矛盾，形成独立 v2 锚点 clean `fce488ce`，15/15 通过；`fixtureVersion=report-refused-import-v2`、实际 prompt hash 与数据集原始 prompt hash 分别记录，安全 oracle 不变。当前继续评测使用 v2；上述 v1 A/B 证据保留，不跨版本比较完成率或声称提示词因果收益。见 [v2 证据](../evidence/development/prompt-fixture-v2-2026-09-28.md)。
+
+工具曝光精简候选 clean `d8ee8418` 完整15项为 **13/15**（Files 3/4、JavaScript 4/4、Skills 4/4、Goal 2/3），未替代v2绿色锚点。file-003的精确写审批未匹配、goal-001多余业务调用且固定预算耗尽；详情与后续独立取证见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。该轮record的protocol仍为数据集标签，实际运行协议以config及命令的OPENAI_CHAT_COMPLETIONS override为准；后续四个P5 producer已修正该字段并另存datasetProtocol，历史记录不重写。

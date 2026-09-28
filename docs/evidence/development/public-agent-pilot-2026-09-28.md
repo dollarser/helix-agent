@@ -74,3 +74,15 @@ Agent 路径为正式 Provider → ChatService → AgentLoop → Dispatcher/Poli
 测试适配开发期间修正了 Gradle task 名称、Provider enum、静态格式及深层嵌套检查。最终精简方案双渠道 app unit/lint/debug APK/AndroidTest APK通过（`build/public-eval-discovery-gates.log`）；曝光选择6/6、发现14/14每渠道通过。scroll修正后双渠道完整增量gate再次通过（`build/public-eval-final-gates-r2.log`），AutomationTools 6/6；`spotlessCheck detekt`（`build/public-eval-final-static.log`）和 `check-all.sh --source`（`build/public-eval-discovery-source.log`）通过。隔离分支去除另一端插件改动后，双渠道 unit/lint/APK/AndroidTest APK 与 automation unit 再次通过（`build/public-eval-isolated-gates-r2.log`）；`spotlessCheck detekt` 与 source gate 通过（`build/public-eval-isolated-static.log`、`build/public-eval-isolated-source.log`）。AndroidWorld benchmark 分数与准备 UI smoke 的 JUnit 成功分别报告。
 
 P7 的发布副本清理与双渠道 4/4（各32轮压力注入）见 [发布残留证据](p7-publication-residue-2026-09-28.md)。实际发布中硬杀、真机满盘/长稳、历史输出截断及偶发多余调用仍开放；公开小样本不替代这些验收。
+
+## 正式 P5 与失败取证
+
+clean `d8ee8418` 在独占 API36 developer 完整执行15项，结果 **13 PASS / 2 FAIL / 0 fixture ERROR**：Files 3/4、JavaScript 4/4、Skills 4/4、Goal 2/3。准备真实Provider smoke 1/1；runner如实返回失败并关闭设备。原始目录 `build/p5-tool-discovery-20260928/`。生产缺省面为19项；skill-004通过搜索找到非默认 `skills.disable` 并完成原有授权链路。
+
+- `file-003`：一次 `write` 请求未满足夹具精确path/content条件，夹具拒绝后模型如实报告未写入；原记录没有args，不能确定是路径还是内容不匹配。核心write已可见，因此不是原64截断问题。
+- `goal-001`：模型产出三个计划checkpoint，但发出 `get_goal → files.list → update_goal`，用完固定4次模型调用；Goal落为 `BLOCKED / BUDGET_EXHAUSTED(maxModelCalls)`。当前oracle允许正确的MODEL_COMPLETED或RUN_FINISHED结算，但禁止业务工具；该次既有预算阻塞，也有多余目录查询，不能记PASS。goal-002 continuation、goal-003 approval阻塞均PASS，不扩大fixture预算。
+- JS timeout这次executor有终止结果，tool为FAILED；取消case为NEEDS_REVIEW。都由现有oracle验证，不概括为所有timeout必须NEEDS_REVIEW。
+
+同源码manifest `9dade91df2aa1dd597469b10a021e5d706ba8ec3169bc8056eeb17ec6fb715da`；app APK `d2cfbb479af257561af11e668c504501e95dfcad729ae094a6710ca4da596005`；test APK `ecd36fb1c6e8f3ef037a18a5c86dec74b1ec284a892513428f039cfa9443bcd3`。12项可测case elapsed median 4861.5ms、mean7063.4ms；含失败case，不能用其宣称任务成功率改善或因果提速。
+
+发现两处取证不足后，仅增加File的canonical args/审批决定/预期path与content、Goal的工具args；修正四个P5 suite将数据集protocol误作实际protocol的问题，另存datasetProtocol。原正式运行的config/命令明确为OPENAI_CHAT_COMPLETIONS override，历史原始record不回写。保持生产代码、prompt、输入、预算、审批和成功oracle不变；下一次只做file-003/goal-001一次有界诊断，不把子集结果替换13/15正式成绩。

@@ -268,6 +268,7 @@ class FixedGoalEvaluationDeviceTest {
                 put("errorCode", turn.errorCode)
                 put("text", text)
                 put("calls", JsonArray(calls.map { JsonPrimitive("${it.name}:${it.state}") }))
+                put("toolArguments", toolArguments(calls))
                 put("approvalBlocked", approvalBlocked)
                 put("writeOccurred", target.exists())
                 put(
@@ -351,6 +352,16 @@ class FixedGoalEvaluationDeviceTest {
             }
     }
 
+    private fun toolArguments(calls: List<com.helix.core.storage.entity.ToolCallEntity>): JsonArray =
+        JsonArray(
+            calls.map { call ->
+                buildJsonObject {
+                    put("name", call.name)
+                    put("args", Json.parseToJsonElement(call.argsJson))
+                }
+            },
+        )
+
     private fun commonEvidence(
         cells: List<String>,
         context: String,
@@ -362,7 +373,8 @@ class FixedGoalEvaluationDeviceTest {
                 put(it, config.getValue(it))
             }
             put("id", cells[0])
-            put("protocol", cells[3])
+            put("protocol", evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3])).name)
+            put("datasetProtocol", cells[3])
             put("result", if (passed) "PASS" else "FAIL")
             put("api", android.os.Build.VERSION.SDK_INT)
             put("device", evaluationDevice())

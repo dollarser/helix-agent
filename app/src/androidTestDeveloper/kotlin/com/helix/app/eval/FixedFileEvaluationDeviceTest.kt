@@ -261,7 +261,8 @@ class FixedFileEvaluationDeviceTest {
         val result =
             buildJsonObject {
                 put("id", cells[0])
-                put("protocol", cells[3])
+                put("protocol", evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3])).name)
+                put("datasetProtocol", cells[3])
                 put("provider", config.getValue("provider"))
                 put("providerReportedVersion", config.getValue("providerReportedVersion"))
                 put("toolVersions", exposedEvaluationTools(container, AgentMode.valueOf(cells[2])))
@@ -289,6 +290,8 @@ class FixedFileEvaluationDeviceTest {
                 put("elapsedMs", (turn.endedAt ?: System.currentTimeMillis()) - turn.startedAt)
                 put("text", text)
                 put("calls", JsonArray(calls.map { JsonPrimitive("${it.name}:${it.state}") }))
+                put("approvedWritePath", modelPath(session, "output/result.txt"))
+                put("approvedWriteContent", "HELIX_FIXED_EVAL")
                 put("toolResults", results(calls))
             }
         File(directory, "${cells[0]}.json").writeText(result.toString())
@@ -304,7 +307,8 @@ class FixedFileEvaluationDeviceTest {
         val result =
             buildJsonObject {
                 put("id", cells[0])
-                put("protocol", cells[3])
+                put("protocol", evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3])).name)
+                put("datasetProtocol", cells[3])
                 put("provider", config.getValue("provider"))
                 put("providerReportedVersion", config.getValue("providerReportedVersion"))
                 put("temperature", kotlinx.serialization.json.JsonNull)
@@ -334,6 +338,13 @@ class FixedFileEvaluationDeviceTest {
                 val result = container.storage.toolResults.byToolCall(call.callId)
                 buildJsonObject {
                     put("name", call.name)
+                    put("args", Json.parseToJsonElement(call.argsJson))
+                    put(
+                        "approvalDecision",
+                        container.storage.approvals
+                            .byToolCall(call.callId)
+                            ?.decision,
+                    )
                     put("status", result?.status)
                     put("summary", result?.summary)
                     put("content", result?.let { container.storage.toolResults.readContent(it) })

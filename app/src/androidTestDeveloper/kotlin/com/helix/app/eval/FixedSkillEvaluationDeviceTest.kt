@@ -318,7 +318,8 @@ class FixedSkillEvaluationDeviceTest {
         val result =
             buildJsonObject {
                 put("id", cells[0])
-                put("protocol", cells[3])
+                put("protocol", evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3])).name)
+                put("datasetProtocol", cells[3])
                 put("provider", config.getValue("provider"))
                 put(
                     "inputRoute",
