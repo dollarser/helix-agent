@@ -1,6 +1,8 @@
 package com.helix.app.eval
 
 import com.helix.app.AppContainer
+import com.helix.app.chat.ModelToolExposureOrder
+import com.helix.app.goal.GoalLifecycleTools
 import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
@@ -19,11 +21,20 @@ internal fun exposedEvaluationTools(
             versions.maxBy { it.version.value }
         }
     val control = container.chatService.runControl.value
-    val exposed =
+    val session = requireNotNull(container.chatService.screen.value.openSessionId)
+    val admitted =
         ModePolicy
             .filterTools(mode, latest, control.chatToolsEnabled) {
                 ToolModeProfile(it.operationClass, it.baseRisk)
-            }.take(ModelRequest.MAX_TOOLS)
+            }
+    val exposed =
+        container.toolPipeline.mcpDiscovery
+            .visible(session, admitted)
+            .filter { container.toolPipeline.disabledToolFilter?.invoke(session, it) ?: true }
+            .filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
+            .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
+            .let(ModelToolExposureOrder::prioritize)
+            .take(ModelRequest.MAX_TOOLS)
     return buildJsonObject { exposed.forEach { put(it.name.value, it.version.value) } }
 }
 

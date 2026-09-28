@@ -32,6 +32,7 @@ import java.security.MessageDigest
 
 /** Real model requests through persistent Goal admission
  host observations never manufacture completion. */
+@Suppress("TooManyFunctions") // Separate setup, durable evidence, and case-specific oracles.
 class FixedGoalEvaluationDeviceTest {
     @get:Rule val activity = ActivityScenarioRule(MainActivity::class.java)
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
@@ -134,23 +135,14 @@ class FixedGoalEvaluationDeviceTest {
             container.chatService.setMode(AgentMode.GOAL)
             container.chatService.setTurnBudgets(TurnBudgets(8, 4, 131072, 4096, 131072))
             if (cells[0] == "goal-002") {
-                container.chatService.continueGoal(goal, "Preparation only: reply READY without tool calls.")
-                check(awaitBoundary(session, false)) { "Goal prelude did not finish" }
-                val prelude = container.storage.goals.resolve(goal)
-                check(prelude.modelCalls > 0) { "Goal prelude must spend at least one real model call" }
-                check(
-                    container.chatService.updateGoalBudgets(
-                        goal,
-                        prelude.budgets.copy(maxModelCalls = prelude.modelCalls + 1),
-                    ),
-                ) { "Goal prelude budget could not be frozen to one remaining model call" }
+                prepareBudgetContinuation(session, goal)
             }
             val beforeCalls =
                 container.storage.goals
                     .resolve(goal)
                     .modelCalls
-            container.chatService.continueGoal(goal, cells[4])
-            val reached = awaitBoundary(session, cells[0] == "goal-003", if (beforeCalls > 0) 2 else 1)
+            val turnId = submitSingleRun(session, goal, cells[4])
+            val reached = awaitBoundary(session, cells[0] == "goal-003", turnId)
             if (reached && cells[0] == "goal-003") Thread.sleep(500)
             return saveResult(cells, session, goal, context, beforeCalls, reached, target)
         } finally {
@@ -160,17 +152,71 @@ class FixedGoalEvaluationDeviceTest {
         }
     }
 
+    private suspend fun prepareBudgetContinuation(
+        session: String,
+        goal: String,
+    ) {
+        val turnId = submitSingleRun(session, goal, "Preparation only: reply READY without tool calls.")
+        check(awaitBoundary(session, false, turnId)) { "Goal prelude did not finish" }
+        val prelude = container.storage.goals.resolve(goal)
+        check(prelude.modelCalls > 0) { "Goal prelude must spend at least one real model call" }
+        check(
+            container.chatService.updateGoalBudgets(
+                goal,
+                prelude.budgets.copy(maxModelCalls = prelude.modelCalls + 1),
+            ),
+        ) { "Goal prelude budget could not be frozen to one remaining model call" }
+        if (prelude.state == "BLOCKED") {
+            check(container.chatService.recheckGoalBlocker(goal)) {
+                "Extended Goal budget must explicitly resolve the budget blocker before Continue"
+            }
+        }
+    }
+
+    private suspend fun submitSingleRun(
+        session: String,
+        goal: String,
+        text: String,
+    ): String =
+        container.agentRuntime
+            .submit(
+                com.helix.core.agent.SubmitTurnCommand(
+                    session =
+                        com.helix.core.model
+                            .SessionId(session),
+                    providerId =
+                        com.helix.core.model.ProviderId(
+                            requireNotNull(
+                                container.storage.sessions
+                                    .resolve(session)
+                                    .providerId,
+                            ),
+                        ),
+                    mode = AgentMode.GOAL,
+                    text = text,
+                    budgets = TurnBudgets(8, 4, 131072, 4096, 131072),
+                    goalId =
+                        com.helix.core.model
+                            .GoalId(goal),
+                    continuousGoal = false,
+                    clientRequestId =
+                        java.util.UUID
+                            .randomUUID()
+                            .toString(),
+                ),
+            ).value
+
     private fun awaitBoundary(
         session: String,
         approval: Boolean,
-        turns: Int = 1,
+        turnId: String? = null,
     ): Boolean {
         val deadline = android.os.SystemClock.elapsedRealtime() + 180_000
         var ready = false
         while (!ready && android.os.SystemClock.elapsedRealtime() < deadline) {
             val stored = container.storage.turns.listBySession(session)
-            val turn = stored.lastOrNull()
-            if (turn != null && stored.size >= turns) {
+            val turn = if (turnId == null) stored.lastOrNull() else stored.singleOrNull { it.id == turnId }
+            if (turn != null) {
                 ready = TurnState.valueOf(turn.state).isTerminal ||
                     (approval && awaitingApproval(turn.id))
             }
@@ -202,9 +248,11 @@ class FixedGoalEvaluationDeviceTest {
         val run = storage.goalRuns.listByGoal(goalId).last()
         val approvalBlocked =
             awaitingApproval(turn.id) &&
-                calls.none { it.state == "RUNNING" || it.state == "COMPLETED" }
+                calls
+                    .filter { it.name !in setOf("get_goal", "update_goal", "goal.report") }
+                    .none { it.state == "RUNNING" || it.state == "COMPLETED" }
         val passed =
-            reached && goal.state != "COMPLETED" && !target.exists() &&
+            reached && !target.exists() &&
                 verifyCase(cells[0], turn, goal, beforeCalls, text, calls, approvalBlocked)
         val result =
             buildJsonObject {
@@ -224,7 +272,7 @@ class FixedGoalEvaluationDeviceTest {
                 put("writeOccurred", target.exists())
                 put(
                     "hostActions",
-                    "synthetic context and acknowledgment; create Goal, explicit Continue; " +
+                    "synthetic context and acknowledgment; create Goal, explicit single-run SubmitTurnCommand; " +
                         "goal-002 includes one real prelude; stop after evidence",
                 )
                 put(
@@ -248,29 +296,60 @@ class FixedGoalEvaluationDeviceTest {
     ): Boolean =
         when (id) {
             "goal-001" -> {
-                turn.state == "COMPLETED" && goal.state == "PAUSED" && hasCheckpoints(text) && calls.isEmpty()
+                completedCheckpointPlan(turn, goal, text, calls)
             }
 
             "goal-002" -> {
-                beforeCalls > 0 && goal.modelCalls == beforeCalls + 1 && goal.state == "PAUSED" &&
+                beforeCalls > 0 && goal.modelCalls == beforeCalls + 1 && goal.state == "BLOCKED" &&
                     container.storage.goalRuns
                         .listByGoal(
                             goal.id,
                         ).last()
                         .outcome == "BUDGET_EXHAUSTED(maxModelCalls)" &&
+                    container.storage.modelCalls
+                        .listByTurn(turn.id)
+                        .size == 1 &&
                     container.storage.turns
                         .listBySession(turn.sessionId)
                         .size == 2
             }
 
             "goal-003" -> {
-                approvalBlocked
+                goal.state != "COMPLETED" && approvalBlocked
             }
 
             else -> {
                 false
             }
         }
+
+    // The dataset objective is to produce checkpoints, not to execute the audit.
+    // Completion still requires a durable model report; business tools are forbidden here.
+    private fun completedCheckpointPlan(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        goal: com.helix.core.storage.mapping.StoredGoal,
+        text: String,
+        calls: List<com.helix.core.storage.entity.ToolCallEntity>,
+    ): Boolean {
+        val outcome =
+            container.storage.goalRuns
+                .listByGoal(goal.id)
+                .last()
+                .outcome
+        val validSettlement =
+            when (goal.state) {
+                "COMPLETED" -> outcome == "MODEL_COMPLETED"
+                "PAUSED" -> outcome == "RUN_FINISHED"
+                else -> false
+            }
+        return turn.state == "COMPLETED" && validSettlement && hasCheckpoints(text) &&
+            container.storage.turns
+                .listBySession(turn.sessionId)
+                .size == 1 &&
+            calls.all {
+                it.state == "COMPLETED" && it.name in setOf("get_goal", "update_goal", "goal.report")
+            }
+    }
 
     private fun commonEvidence(
         cells: List<String>,

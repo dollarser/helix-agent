@@ -35,7 +35,7 @@ MCP/A2A/Browser/Accessibility/Root 与多协议兼容等完整 45 项仍属于�
 
 ## 可比较身份
 
-正式 P5 run 必须满足：同一 `gitCommit`、clean worktree、同一 `fixed-evals.tsv` SHA、同一 developer app/test APK、同一 source manifest、同一 SGLang model id。各 suite 继续输出既有 HXA-227 envelope/原始 device record；P5 只增加跨 suite 汇总，不改变 oracle。
+正式 P5 run 必须满足：同一 `gitCommit`、clean worktree、同一 `fixed-evals.tsv` SHA、同一 developer app/test APK、同一 source manifest、同一 SGLang model id。各 suite 继续输出既有 HXA-227 envelope/原始 device record；P5 汇总不另建 oracle；旧 fixed-eval 与当前冻结 contract 不一致时，先显式修正并记录 verifier/fixture 身份，不把跨 oracle 的分数差当作优化 A/B。未提交 candidate 可用于诊断，但不能替代 clean 正式锚点。
 
 复现入口：
 
@@ -44,3 +44,5 @@ python3 scripts/debug/2026-09-28/run-p5-sglang-harness-baseline.py
 ```
 
 runner 会先执行真实 SGLang UI/provider smoke，再在同一 owned API36 emulator 上依次执行 `files/javascript/skills/goal`，最后关闭自己创建的 emulator。任一 case 失败都保留原始证据并使 P5 gate 失败，不通过重试直到成功来篡改基线。
+
+当前候选结果与 oracle/fixture 修正见 [2026-09-28 P5 验证](../evidence/development/p5-sglang-candidate-2026-09-28.md)。`HELIX_P5_CASES` 可指定逗号分隔的固定 case 子集；子集完成不表示完整基线通过。

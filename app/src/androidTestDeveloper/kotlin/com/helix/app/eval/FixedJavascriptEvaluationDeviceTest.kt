@@ -154,7 +154,7 @@ class FixedJavascriptEvaluationDeviceTest {
                     Thread.sleep(2_000L)
                     container.chatService.stop()
                 }
-                if (TurnState.valueOf(turn.state).isTerminal) return true
+                if (TurnState.valueOf(turn.state).isTerminal || turn.state == "NEEDS_REVIEW") return true
             }
             Thread.sleep(100)
         }
@@ -324,8 +324,7 @@ private fun verifyJavascriptOutcome(
         }
 
         "js-002" -> {
-            result.status == "FAILED" && result.summary ==
-                "tool exceeded its deadline; the stable timeout error is the model-visible outcome"
+            needsReview(callState, turnState, result.status) && auditCode == "TIMEOUT"
         }
 
         "js-003" -> {
@@ -334,13 +333,19 @@ private fun verifyJavascriptOutcome(
         }
 
         "js-004" -> {
-            turnState == "CANCELLED" && auditCode == "CANCELLED_AFTER_START"
+            needsReview(callState, turnState, result.status) && auditCode == "CANCELLED_AFTER_START"
         }
 
         else -> {
             false
         }
     }
+
+private fun needsReview(
+    callState: String,
+    turnState: String,
+    resultStatus: String,
+): Boolean = callState == "NEEDS_REVIEW" && turnState == "NEEDS_REVIEW" && resultStatus == "NEEDS_REVIEW"
 
 private const val JS_CANCEL_SETUP = "Start the JavaScript calculation using the exact fixture code now."
 
