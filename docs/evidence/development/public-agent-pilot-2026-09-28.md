@@ -42,9 +42,9 @@ Agent 路径为正式 Provider → ChatService → AgentLoop → Dispatcher/Poli
 
 第四轮为未收敛的优先级候选（`androidworld-pilot-r4-20260928`），9个UI工具均可见，但默认仍64；0/2，出现 `TURN_TOTAL_TOKEN_LIMIT`。这轮开发期间源码继续收敛，因此其 APK SHA 是运行身份，follow-up 时的 host source hash 不代表APK源码快照。它不是最终验收。
 
-所有者随后明确要求优化工具数量。最终方案保留64上限，默认19个基础工具，有效自动化会话加9个UI工具，其余内置/MCP/A2A通过原有搜索窗口按需发现；小MCP目录保留直接曝光。版本替换、禁用、模式/功能过滤与执行授权继续独立。新增拥挤回归先在旧代码失败；两渠道单元测试覆盖窗口替换、会话隔离、重启、禁用、模式变化和最终数量上界。
+所有者随后明确要求优化工具数量。首个精简候选保留64上限，默认19个基础工具，有效自动化会话加9个UI工具，其余内置/MCP/A2A通过原有搜索窗口按需发现；小MCP目录保留直接曝光。版本替换、禁用、模式/功能过滤与执行授权继续独立。新增拥挤回归先在旧代码失败；两渠道单元测试覆盖窗口替换、会话隔离、重启、禁用、模式变化和最终数量上界。
 
-第五轮使用最终精简工具面（`androidworld-pilot-r5-20260928`）：准备UI/生产MCP发现回归2/2通过，但两个模型任务均在连接测试阶段失败、无Turn。主机30008也超时；只读SSH探测远端30008成功，随后本地转发恢复。该轮单列为连接 fixture ERROR，不能记为模型或Harness任务失败。第六轮首次启动因前一端口尚未释放被runner拒绝，未启动设备；换用空闲端口继续。
+第五轮使用19项精简工具面（`androidworld-pilot-r5-20260928`）：准备UI/生产MCP发现回归2/2通过，但两个模型任务均在连接测试阶段失败、无Turn。主机30008也超时；只读SSH探测远端30008成功，随后本地转发恢复。该轮单列为连接 fixture ERROR，不能记为模型或Harness任务失败。第六轮首次启动因前一端口尚未释放被runner拒绝，未启动设备；换用空闲端口继续。
 
 第六轮 `androidworld-pilot-r6-20260928`（连接恢复后）准备2/2通过，两个任务均实际执行，oracle仍0/2。每个初始请求28个工具，9个UI工具齐全；min/max elapsed 26.450s/25.366s，均以 `TURN_TOTAL_TOKEN_LIMIT` 结束，亮度未变。min轨迹触及 `SENSITIVE_UI`，不绕过保护；max反复尝试未公开取值的scroll方向。
 
@@ -71,7 +71,7 @@ Agent 路径为正式 Provider → ChatService → AgentLoop → Dispatcher/Poli
 
 ## 验证边界
 
-测试适配开发期间修正了 Gradle task 名称、Provider enum、静态格式及深层嵌套检查。最终精简方案双渠道 app unit/lint/debug APK/AndroidTest APK通过（`build/public-eval-discovery-gates.log`）；曝光选择6/6、发现14/14每渠道通过。scroll修正后双渠道完整增量gate再次通过（`build/public-eval-final-gates-r2.log`），AutomationTools 6/6；`spotlessCheck detekt`（`build/public-eval-final-static.log`）和 `check-all.sh --source`（`build/public-eval-discovery-source.log`）通过。隔离分支去除另一端插件改动后，双渠道 unit/lint/APK/AndroidTest APK 与 automation unit 再次通过（`build/public-eval-isolated-gates-r2.log`）；`spotlessCheck detekt` 与 source gate 通过（`build/public-eval-isolated-static.log`、`build/public-eval-isolated-source.log`）。AndroidWorld benchmark 分数与准备 UI smoke 的 JUnit 成功分别报告。
+测试适配开发期间修正了 Gradle task 名称、Provider enum、静态格式及深层嵌套检查。19项精简候选双渠道 app unit/lint/debug APK/AndroidTest APK通过（`build/public-eval-discovery-gates.log`）；曝光选择6/6、发现14/14每渠道通过。scroll修正后双渠道完整增量gate再次通过（`build/public-eval-final-gates-r2.log`），AutomationTools 6/6；`spotlessCheck detekt`（`build/public-eval-final-static.log`）和 `check-all.sh --source`（`build/public-eval-discovery-source.log`）通过。隔离分支去除另一端插件改动后，双渠道 unit/lint/APK/AndroidTest APK 与 automation unit 再次通过（`build/public-eval-isolated-gates-r2.log`）；`spotlessCheck detekt` 与 source gate 通过（`build/public-eval-isolated-static.log`、`build/public-eval-isolated-source.log`）。AndroidWorld benchmark 分数与准备 UI smoke 的 JUnit 成功分别报告。
 
 P7 的发布副本清理与双渠道 4/4（各32轮压力注入）见 [发布残留证据](p7-publication-residue-2026-09-28.md)。实际发布中硬杀、真机满盘/长稳、历史输出截断及偶发多余调用仍开放；公开小样本不替代这些验收。
 
@@ -92,3 +92,7 @@ clean `d8ee8418` 在独占 API36 developer 完整执行15项，结果 **13 PASS 
 据此仅给files提示增加通用精确内容约束：用户指定exact/approved content时保留空白与末尾换行，不自动追加换行、格式或说明。未把固定答案写入提示，未修改审批/输出核验或Goal预算。此提示变化需新的clean完整P5验证；诊断0/2与原13/15均保留，不能用后续结果覆盖。
 
 精确内容提示提交 `12cdb27d` 后，双渠道app unit/lint/APK/test APK、spotless/detekt/source gate通过（`build/public-eval-exact-content-gates.log`、`build/public-eval-exact-content-source.log`）。首个完整运行尝试 `build/p5-tool-discovery-exact-content-20260928/` 在真实Provider准备smoke失败：能力检测结果出现后仍为CONNECTION_ONLY，未达到PROBED；15项均未开始。源码表明能力探测失败保留连接快照，结果展示发生在同步refresh之后，不按UI等待race修复。原断言遗漏安全UI错误标签，增加该标签到失败消息后只再运行一次，仍要求PROBED及streaming/toolCalls/vision，不跳过准备门禁。
+
+`0e944463` 完整P5（`build/p5-tool-discovery-exact-content-r2-20260928/`）为 **14/15**：Files4/4、JS4/4、Skills3/4、Goal3/3；准备smoke1/1。file-003此次精确16字节content获批准并写入。唯一skill-004执行了search→list→search→search→disable→list，禁用已经成功，但MODEL_CALL_LIMIT使Turn失败。口头进度曾提前将Skills概括为全部通过，最终以该14/15记录为准。source manifest `a5e8bd85e6734c7429168b435f2495d0ba72199a522c3b27c204a5d62fc2b9a4`；app APK `31517ecee8118820c6f44a150677c39ea88d6ea8182805754fda244e8390cf76`；test APK `a279ab5d9933ce9645c622f6c241093cf0e2ad6640046f21fdaed6fc015dadf5`。12项median3753ms、mean5845.2ms，仍含失败，不作统计收益证明。
+
+根据基础操作额外发现成本，将Skill读取与enable/disable成对纳入默认组，候选默认上界21、有自动化会话30，叠加小MCP与搜索窗口上界62。安装/预览/移除仍按需发现。没有为某个case改变预算、搜索算法、审批或判分；新候选再次验证，旧14/15保留。AndroidWorld的28项实测对应此前19项候选，不外推为21项候选的设备验收。

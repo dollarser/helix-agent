@@ -75,7 +75,11 @@ class ModelToolExposureOrderTest {
     @Test fun defaultSurfaceLeavesRoomForBothSmallCatalogAndLoadedWindow() {
         val names = ModelToolExposureOrder.defaultNames(preferUi = true)
         assertTrue(names.size + 2 * com.helix.app.mcp.McpToolDiscovery.WINDOW <= ModelRequest.MAX_TOOLS)
-        assertTrue(names.containsAll(listOf("read", "write", "edit", "ui.snapshot", "skills.read")))
+        assertTrue(
+            names.containsAll(
+                listOf("read", "write", "edit", "ui.snapshot", "skills.read", "skills.enable", "skills.disable"),
+            ),
+        )
         assertTrue("code.linux.run" !in names)
         assertTrue("ui.snapshot" !in ModelToolExposureOrder.defaultNames(preferUi = false))
     }

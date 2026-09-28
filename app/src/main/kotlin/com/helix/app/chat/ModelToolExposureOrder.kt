@@ -43,6 +43,8 @@ internal object ModelToolExposureOrder {
                 "plan.submit",
                 "todo.write",
                 "skills.list",
+                "skills.enable",
+                "skills.disable",
                 "skills.read",
                 "skills.read_resource",
                 "time.now",
