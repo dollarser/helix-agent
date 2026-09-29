@@ -272,7 +272,7 @@
     <string name="chat_turn_failed">This request failed: %1$s</string>
     <string name="chat_unbound_provider">This session is not bound to a Provider.</string>
     <string name="chat_voice_button">Voice</string>
-    <string name="chat_voice_unavailable">Speech recognition unavailable</string>
+    <string name="chat_voice_unavailable">No system speech input is available. Install or enable a speech recognition app, or use your keyboard microphone. Recognized text is editable before sending.</string>
     <string name="chat_waiting_model">Waiting for the model response…</string>
     <string name="common_unknown">Unknown</string>
     <string name="conn_error_auth">Authentication or access was rejected. Check the API key, or subscription login and account access. HTTP 403 can also indicate blocked network routing.</string>
@@ -1534,4 +1534,18 @@
     <string name="helix_settings_open">Open settings</string>
     <string name="helix_settings_apply">Apply settings</string>
     <string name="helix_settings_reasoning">Reasoning effort</string>
+    <string name="chat_command_standalone">Send the command on its own, then send your task after switching modes.</string>
+    <string name="chat_command_wait">Send this command after the current task finishes.</string>
+    <string name="chat_command_compact_unavailable">Compaction is unavailable. Finish the current request or handle attachments first.</string>
+    <string name="chat_command_help">/chat read-only chat · /plan planning · /act execution · /goal ongoing goal · /compact: shorten context · /clear: reset input. Select, then send to execute.</string>
+    <string name="chat_command_mode_hint">In the conversation, enter /chat, /plan, /act or /goal and send to switch modes.</string>
+    <string name="runtime_advanced_required">PRoot requires Advanced. Switch to install, repair and verify it. Switching does not install anything or authorize execution.</string>
+    <string name="runtime_developer_required">This edition does not include PRoot. Use the developer edition with Advanced enabled.</string>
+    <string name="runtime_switch_advanced">Switch to Advanced</string>
+    <string name="chat_command_chat_desc">Switch to read-only Chat mode</string>
+    <string name="chat_current_mode">Mode: %1$s</string>
+    <string name="runtime_entry_failed">Unable to open the runtime page. Check that the runtime is enabled, then try again.</string>
+    <string name="chat_capture_unavailable">Unable to open the camera or prepare the photo. Check available storage and camera access, or choose an existing photo.</string>
+    <string name="artifacts_share_unavailable">Could not open sharing. Try again later or use another export option.</string>
+    <string name="chat_picker_unavailable">Could not open the file picker. Check that the system Files app is available and try again.</string>
 </resources>

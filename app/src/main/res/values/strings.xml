@@ -273,7 +273,7 @@
     <string name="chat_turn_failed">本次请求未成功：%1$s</string>
     <string name="chat_unbound_provider">该会话未绑定 Provider</string>
     <string name="chat_voice_button">语音</string>
-    <string name="chat_voice_unavailable">语音识别不可用</string>
+    <string name="chat_voice_unavailable">未找到可用的系统语音输入。请安装或启用语音识别应用，或使用键盘麦克风；识别后可编辑再发送。</string>
     <string name="chat_waiting_model">正在等待模型响应…</string>
     <string name="common_unknown">未知</string>
     <string name="conn_error_auth">认证或访问权限被服务端拒绝。API Provider 请检查 key；订阅 Provider 请检查登录与账号权限。若 HTTP 403，也可能是网络出口被拒绝。</string>
@@ -1534,4 +1534,18 @@
     <string name="helix_settings_open">打开设置</string>
     <string name="helix_settings_apply">确认修改</string>
     <string name="helix_settings_reasoning">思考强度</string>
+    <string name="chat_command_standalone">请单独发送命令；任务内容请在切换模式后发送。</string>
+    <string name="chat_command_wait">当前任务结束后再发送此命令。</string>
+    <string name="chat_command_compact_unavailable">当前无法压缩：请先完成发送或处理附件。</string>
+    <string name="chat_command_help">/chat 只读对话 · /plan 规划 · /act 执行 · /goal 持续目标 · /compact 压缩 · /clear 清空输入。选择后点击发送执行。</string>
+    <string name="chat_command_mode_hint">在会话中输入 /chat、/plan、/act 或 /goal，点击发送切换模式。</string>
+    <string name="runtime_advanced_required">PRoot 运行时需要 Advanced。切换后可安装、修复和验证；切换本身不会自动安装或授权执行。</string>
+    <string name="runtime_developer_required">此版本不包含 PRoot 运行时。请使用开发者版本并启用 Advanced。</string>
+    <string name="runtime_switch_advanced">切换到 Advanced</string>
+    <string name="chat_command_chat_desc">切换至只读对话模式</string>
+    <string name="chat_current_mode">当前模式：%1$s</string>
+    <string name="runtime_entry_failed">无法打开运行时页面，请检查运行时是否已启用后重试。</string>
+    <string name="chat_capture_unavailable">无法打开相机或准备照片，请检查可用空间和相机权限，或选择已有照片。</string>
+    <string name="artifacts_share_unavailable">无法打开分享面板，请稍后重试或选择其他导出方式。</string>
+    <string name="chat_picker_unavailable">无法打开文件选择器，请检查系统文件应用是否可用后重试。</string>
 </resources>

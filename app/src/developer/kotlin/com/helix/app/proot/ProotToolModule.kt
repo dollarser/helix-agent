@@ -346,6 +346,23 @@ internal object ProotToolModule {
         supervisor.verify(nowEpochMs)
 
     /** The user-click "修复 Runtime" action (the ONLY repair-activity path). Never throws. */
+    fun openRepairNote(): ProotVerificationNote? = entryNote(openRepair())
+
+    fun openLegalNote(): ProotVerificationNote? = entryNote(openLegalPage())
+
+    private fun entryNote(result: RepairEntryResult): ProotVerificationNote? =
+        when (result) {
+            RepairEntryResult.Opened -> {
+                null
+            }
+
+            is RepairEntryResult.Unavailable -> {
+                ProotVerificationNote(
+                    appContext.getString(R.string.runtime_entry_failed),
+                )
+            }
+        }
+
     fun openRepair(): RepairEntryResult = supervisor.openRepairActivity()
 
     /**

@@ -3,7 +3,6 @@ package com.helix.app.voice
 import android.content.Context
 import android.content.Intent
 import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 
@@ -26,7 +25,7 @@ import com.helix.app.language.AppLanguageStore
  */
 class SpeechRecognitionLauncher {
     /** Whether the device offers any `ACTION_RECOGNIZE_SPEECH` handler at all. */
-    fun isAvailable(context: Context): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
+    fun isAvailable(context: Context): Boolean = buildIntent(context).resolveActivity(context.packageManager) != null
 
     /**
      * The system recognizer launch intent: free-form model, the recognition language defaulted to

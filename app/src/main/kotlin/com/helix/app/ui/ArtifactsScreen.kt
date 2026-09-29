@@ -240,8 +240,7 @@ internal fun ArtifactFileDialog(
                 exportable,
                 onExportClick = {
                     externalState.value = null
-                    exportStateHolder.value = ArtifactExportState.Idle
-                    exportPicker.launch(row.fileName)
+                    launchArtifactExportPicker(context, exportPicker, row.fileName, exportStateHolder)
                 },
                 onCancelExport = { exportCancelFlag.value = true },
             )
@@ -431,6 +430,8 @@ private fun ArtifactRowView(
 private fun ArtifactResultText(
     result: List<MessageUi>?,
     failed: Boolean,
+    shareFailed: Boolean,
+    onRetry: () -> Unit,
 ) {
     SelectionContainer {
         Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
@@ -441,7 +442,11 @@ private fun ArtifactResultText(
             Spacer(Modifier.height(4.dp))
             if (failed) {
                 Text(stringResource(R.string.background_task_result_missing))
+                TextButton(onRetry, modifier = Modifier.testTag("artifact-result-retry")) {
+                    Text(stringResource(R.string.chat_retry))
+                }
             }
+            if (shareFailed) Text(stringResource(R.string.artifacts_share_unavailable))
             result?.forEach { MarkdownText(it.content) }
             if (result?.isEmpty() == true) {
                 Text(stringResource(R.string.background_task_result_empty))
@@ -465,6 +470,7 @@ private fun ArtifactResultDialog(
 ) {
     val context = LocalContext.current
     var result by remember(row.id) { mutableStateOf<List<MessageUi>?>(null) }
+    var shareFailed by remember(row.id) { mutableStateOf(false) }
     var failed by remember(row.id) { mutableStateOf(false) }
     var retry by remember(row.id) { mutableStateOf(0) }
     LaunchedEffect(row.id, retry) {
@@ -479,20 +485,14 @@ private fun ArtifactResultDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.background_task_result)) },
         text = {
-            Column {
-                ArtifactResultText(result, failed)
-                if (failed) {
-                    TextButton({ retry++ }, modifier = Modifier.testTag("artifact-result-retry")) {
-                        Text(stringResource(R.string.chat_retry))
-                    }
-                }
-            }
+            ArtifactResultText(result, failed, shareFailed) { retry++ }
         },
         confirmButton = {
+            val shareText = result?.joinToString("\n") { it.content }
             TextButton(
                 enabled = result != null && !failed,
                 modifier = Modifier.testTag("artifact-share-${row.id}"),
-                onClick = { result?.let { sharePlainText(context, it.joinToString("\n") { m -> m.content }) } },
+                onClick = { shareFailed = !sharePlainText(context, shareText.orEmpty()) },
             ) {
                 Text(stringResource(R.string.artifacts_share))
             }

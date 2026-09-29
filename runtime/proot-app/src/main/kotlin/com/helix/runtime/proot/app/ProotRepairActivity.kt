@@ -41,12 +41,38 @@ import java.io.File
  * action buttons, one close action. Long operations run on a worker thread; the
  * activity is a progress surface, not a second app.
  */
+@Suppress("TooManyFunctions") // Activity lifecycle plus the three explicit maintenance actions and rendering.
 class ProotRepairActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var installButton: Button
     private lateinit var rollbackButton: Button
     private lateinit var removeButton: Button
-    private var busy = false
+    private val busy: Boolean get() = ProotMaintenancePresentation.busy()
+    private lateinit var detailsView: TextView
+    private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastReceipt: String? = null
+    private val refreshTask =
+        object : Runnable {
+            override fun run() {
+                val receipt = ProotMaintenancePresentation.message(this@ProotRepairActivity) + busy
+                if (lastReceipt != receipt) {
+                    refreshState()
+                    lastReceipt = receipt
+                }
+                refreshHandler.postDelayed(this, 1_000)
+            }
+        }
+
+    override fun onResume() {
+        super.onResume()
+        lastReceipt = null
+        refreshHandler.post(refreshTask)
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(refreshTask)
+        super.onPause()
+    }
 
     /** The main app's user consent for a complete removal (HXA-087 完整删除). */
     private val removeRequested: Boolean by lazy {
@@ -58,24 +84,24 @@ class ProotRepairActivity : Activity() {
         val root =
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(48, 48, 48, 48)
+                setPadding(dp(16), dp(16), dp(16), dp(16))
             }
         val title =
             TextView(this).apply {
                 setText(R.string.proot_repair_title)
                 textSize = 20f
                 setTypeface(typeface, Typeface.BOLD)
-                setPadding(0, 0, 0, 24)
+                setPadding(0, 0, 0, dp(16))
             }
         statusView =
             TextView(this).apply {
                 textSize = 14f
-                setPadding(0, 0, 0, 24)
+                setPadding(0, 0, 0, dp(16))
             }
         installButton =
             Button(this).apply {
                 setOnClickListener {
-                    if (removeRequested) runRemove() else runInstall()
+                    runInstall()
                 }
             }
         rollbackButton =
@@ -101,13 +127,85 @@ class ProotRepairActivity : Activity() {
             }
         root.addView(title)
         root.addView(statusView)
+        addDetails(root)
         root.addView(installButton)
         root.addView(rollbackButton)
         root.addView(removeButton)
         root.addView(closeButton)
-        setContentView(root)
+        showRepairSurface(root, title, closeButton)
         refreshState()
     }
+
+    private fun addDetails(root: LinearLayout) {
+        detailsView =
+            TextView(this).apply {
+                textSize = 12f
+                visibility = View.GONE
+            }
+        val detailsButton =
+            Button(this).apply {
+                setText(R.string.proot_repair_details)
+                setOnClickListener {
+                    detailsView.visibility =
+                        if (detailsView.visibility == View.GONE) View.VISIBLE else View.GONE
+                }
+            }
+        root.addView(detailsButton)
+        root.addView(detailsView)
+    }
+
+    private fun showRepairSurface(
+        root: LinearLayout,
+        title: TextView,
+        closeButton: Button,
+    ) {
+        val dark =
+            resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val foreground = android.graphics.Color.parseColor(if (dark) "#E6E0E9" else "#1D1B20")
+        val surface = android.graphics.Color.parseColor(if (dark) "#141218" else "#FFFBFE")
+        val accent = android.graphics.Color.parseColor(if (dark) "#D0BCFF" else "#6750A4")
+        title.setTextColor(foreground)
+        statusView.setTextColor(foreground)
+        detailsView.setTextColor(foreground)
+        listOf(installButton, rollbackButton, removeButton, closeButton).forEach { button ->
+            button.isAllCaps = false
+            button.minHeight = dp(48)
+            button.setTextColor(accent)
+            button.background =
+                android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = dp(24).toFloat()
+                    setStroke(dp(1), accent)
+                    setColor(surface)
+                }
+            button.layoutParams =
+                LinearLayout
+                    .LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply { topMargin = dp(12) }
+        }
+        val scroll =
+            android.widget.ScrollView(this).apply {
+                setBackgroundColor(surface)
+                isFillViewport = true
+                addView(root)
+                setOnApplyWindowInsetsListener { view, insets ->
+                    @Suppress("DEPRECATION")
+                    view.setPadding(
+                        insets.systemWindowInsetLeft,
+                        insets.systemWindowInsetTop,
+                        insets.systemWindowInsetRight,
+                        insets.systemWindowInsetBottom,
+                    )
+                    insets
+                }
+            }
+        setContentView(scroll)
+        scroll.requestApplyInsets()
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     /** The update state against the embedded lock; null = the embedded lock is unusable. */
     private fun currentUpdateState(): Pair<RuntimeUpdateState, String>? {
@@ -156,7 +254,12 @@ class ProotRepairActivity : Activity() {
             RuntimeUpdateState.UPDATE -> lines += getString(R.string.proot_embedded_state_update)
             RuntimeUpdateState.REPAIR -> lines += getString(R.string.proot_embedded_state_match)
         }
-        statusView.text = lines.joinToString("\n")
+        detailsView.text = lines.joinToString("\n")
+        val summary = if (active == null) R.string.proot_install_state_none else R.string.proot_runtime_installed
+        val receipt = ProotMaintenancePresentation.message(this)
+        statusView.text = listOf(getString(summary), receipt).filter { it.isNotBlank() }.joinToString("\n")
+        installButton.visibility = if (removeRequested) View.GONE else View.VISIBLE
+        removeButton.isEnabled = !busy
         installButton.isEnabled = !busy
         installButton.setText(
             when (currentUpdateState()?.first) {
@@ -164,20 +267,19 @@ class ProotRepairActivity : Activity() {
                 else -> R.string.proot_repair_install
             },
         )
-        rollbackButton.visibility = if (rollback != null && active != null) View.VISIBLE else View.GONE
+        rollbackButton.visibility =
+            if (!removeRequested && rollback != null && active != null) View.VISIBLE else View.GONE
         rollbackButton.isEnabled = !busy
     }
 
     private fun runInstall() {
-        if (busy) return
-        busy = true
-        installButton.isEnabled = false
         val verb =
             when (currentUpdateState()?.first) {
                 RuntimeUpdateState.UPDATE -> getString(R.string.proot_action_update)
                 else -> getString(R.string.proot_action_install_repair)
             }
-        statusView.append("\n" + getString(R.string.proot_install_progress, verb))
+        if (!ProotMaintenancePresentation.begin(this, getString(R.string.proot_install_progress, verb))) return
+        refreshState()
         Thread {
             val outcome =
                 runCatching {
@@ -191,11 +293,7 @@ class ProotRepairActivity : Activity() {
                         )
                     ProotRuntimeMaintenance.run(this) { RootFsInstaller.install(request) }
                 }
-            runOnUiThread {
-                busy = false
-                statusView.append("\n${formatOutcome(outcome)}")
-                refreshState()
-            }
+            ProotMaintenancePresentation.finish(this, formatOutcome(outcome))
         }.start()
     }
 
@@ -207,11 +305,8 @@ class ProotRepairActivity : Activity() {
      * re-baselines explicitly; nothing is accepted silently.
      */
     private fun runRollback() {
-        if (busy) return
-        busy = true
-        rollbackButton.isEnabled = false
-        installButton.isEnabled = false
-        statusView.append("\n" + getString(R.string.proot_rollback_progress))
+        if (!ProotMaintenancePresentation.begin(this, getString(R.string.proot_rollback_progress))) return
+        refreshState()
         Thread {
             val outcome: RollbackOutcome =
                 runCatching {
@@ -225,11 +320,7 @@ class ProotRepairActivity : Activity() {
                     onSuccess = { it },
                     onFailure = { RollbackOutcome.Failed(it.message ?: getString(R.string.proot_unknown_error)) },
                 )
-            runOnUiThread {
-                busy = false
-                statusView.append("\n${formatRollback(outcome)}")
-                refreshState()
-            }
+            ProotMaintenancePresentation.finish(this, formatRollback(outcome))
         }.start()
     }
 
@@ -259,12 +350,8 @@ class ProotRepairActivity : Activity() {
      * package and is never touched — see [ProotRuntimeRemoval] for the scoping.
      */
     private fun runRemove() {
-        if (busy) return
-        busy = true
-        removeButton.isEnabled = false
-        installButton.isEnabled = false
-        rollbackButton.isEnabled = false
-        statusView.append("\n" + getString(R.string.proot_remove_progress))
+        if (!ProotMaintenancePresentation.begin(this, getString(R.string.proot_remove_progress))) return
+        refreshState()
         Thread {
             val result =
                 runCatching {
@@ -273,22 +360,13 @@ class ProotRepairActivity : Activity() {
                     onSuccess = { it },
                     onFailure = { ProotRuntimeRemoval.Result(false, false, null) },
                 )
-            runOnUiThread {
-                busy = false
+            val message =
                 if (result.removed) {
-                    statusView.append(
-                        "\n" +
-                            getString(
-                                R.string.proot_remove_success,
-                                result.activeInstallId ?: getString(R.string.proot_none),
-                            ),
-                    )
+                    getString(R.string.proot_remove_success, result.activeInstallId ?: getString(R.string.proot_none))
                 } else {
-                    statusView.append("\n" + getString(R.string.proot_remove_failure))
+                    getString(R.string.proot_remove_failure)
                 }
-                removeButton.visibility = View.GONE
-                refreshState()
-            }
+            ProotMaintenancePresentation.finish(this, message)
         }.start()
     }
 

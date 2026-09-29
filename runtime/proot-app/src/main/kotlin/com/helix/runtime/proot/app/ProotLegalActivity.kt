@@ -21,8 +21,7 @@ import com.helix.runtime.proot.core.RuntimeLockCodec
  * Deliberately plain views (no UI framework dependency): a title, one scrollable
  * text block (offline notice + build manifest + per-component source/license +
  * full license texts), one close button. The content comes exclusively from this
- * APK's embedded assets — the companion holds no INTERNET permission, so the page
- * cannot and does not fetch anything.
+ * APK's embedded assets; this page does not fetch network content.
  */
 class ProotLegalActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,18 +29,19 @@ class ProotLegalActivity : Activity() {
         val root =
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(48, 48, 48, 48)
+                setPadding(dp(16), dp(16), dp(16), dp(16))
             }
         val title =
             TextView(this).apply {
                 setText(R.string.proot_legal_title)
                 textSize = 20f
                 setTypeface(typeface, Typeface.BOLD)
-                setPadding(0, 0, 0, 24)
+                setPadding(0, 0, 0, dp(16))
             }
         val body =
             TextView(this).apply {
-                textSize = 12f
+                textSize = 14f
+                setTextIsSelectable(true)
             }
         val scrollView =
             ScrollView(this).apply {
@@ -55,9 +55,11 @@ class ProotLegalActivity : Activity() {
                 setOnClickListener { finish() }
             }
         root.addView(title)
-        root.addView(scrollView)
+        root.addView(scrollView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         root.addView(closeButton)
+        styleSurface(root, title, body, closeButton)
         setContentView(root)
+        root.requestApplyInsets()
 
         // Synchronous: reading a few small text assets is cheap, and a failure must
         // be VISIBLE on this page (a legal page that silently shows nothing is worse
@@ -75,5 +77,35 @@ class ProotLegalActivity : Activity() {
                     getString(R.string.proot_legal_unavailable, it.message?.take(120))
                 },
             )
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun styleSurface(
+        root: LinearLayout,
+        title: TextView,
+        body: TextView,
+        close: Button,
+    ) {
+        val dark =
+            resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val foreground = android.graphics.Color.parseColor(if (dark) "#E6E0E9" else "#1D1B20")
+        val surface = android.graphics.Color.parseColor(if (dark) "#141218" else "#FFFBFE")
+        root.setBackgroundColor(surface)
+        title.setTextColor(foreground)
+        body.setTextColor(foreground)
+        close.isAllCaps = false
+        close.minHeight = dp(48)
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            @Suppress("DEPRECATION")
+            view.setPadding(
+                dp(16) + insets.systemWindowInsetLeft,
+                dp(16) + insets.systemWindowInsetTop,
+                dp(16) + insets.systemWindowInsetRight,
+                dp(16) + insets.systemWindowInsetBottom,
+            )
+            insets
+        }
     }
 }

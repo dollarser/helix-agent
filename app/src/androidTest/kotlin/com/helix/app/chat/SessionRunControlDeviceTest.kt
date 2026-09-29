@@ -28,7 +28,8 @@ class SessionRunControlDeviceTest {
                 defaults.setMode(AgentMode.CHAT)
 
                 val first = requireNotNull(chat.screen.value.openSessionId)
-                chat.setMode(AgentMode.PLAN)
+                org.junit.Assert.assertFalse(chat.setModeFromComposer("not-the-open-session", AgentMode.GOAL))
+                org.junit.Assert.assertTrue(chat.setModeFromComposer(first, AgentMode.PLAN))
                 compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.runControl.value.mode == AgentMode.PLAN }
                 assertEquals(first, chat.materializeDraftSession(first))
 
@@ -37,7 +38,7 @@ class SessionRunControlDeviceTest {
                     chat.screen.value.isDraft && chat.screen.value.openSessionId != first
                 }
                 val second = requireNotNull(chat.screen.value.openSessionId)
-                assertEquals(AgentMode.CHAT, chat.runControl.value.mode)
+                assertEquals(AgentMode.ACT, chat.runControl.value.mode)
                 chat.setMode(AgentMode.ACT)
                 assertEquals(second, chat.materializeDraftSession(second))
 
@@ -63,7 +64,7 @@ class SessionRunControlDeviceTest {
                         chat.screen.value.openSessionId != second
                 }
                 assertNotEquals(first, chat.screen.value.openSessionId)
-                assertEquals(AgentMode.GOAL, chat.runControl.value.mode)
+                assertEquals(AgentMode.ACT, chat.runControl.value.mode)
             } finally {
                 defaults.setMode(original.mode)
                 defaults.setReasoning(original.reasoning)

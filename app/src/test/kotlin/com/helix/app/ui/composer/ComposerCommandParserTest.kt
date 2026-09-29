@@ -7,6 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComposerCommandParserTest {
+    @Test fun onlyExactLeadingKnownNamesAreCommands() {
+        assertEquals("act", ComposerCommandParser.leadingCommand("/act ")?.command)
+        assertEquals("plan", ComposerCommandParser.leadingCommand("/plan task")?.command)
+        listOf("/action", "/act/file", "text /act", "text\n/plan", "/unknown", " /act").forEach {
+            assertNull(ComposerCommandParser.leadingCommand(it))
+        }
+    }
+
     @Test
     fun `parseQuery detects slash command at start of input`() {
         val query = ComposerCommandParser.parseQuery("/pla", 4)
@@ -24,13 +32,9 @@ class ComposerCommandParserTest {
     }
 
     @Test
-    fun `parseQuery detects slash after newline`() {
+    fun `parseQuery leaves slash after ordinary text as ordinary text`() {
         val text = "first line\n/goal"
-        val query = ComposerCommandParser.parseQuery(text, text.length)
-        assertNotNull(query)
-        assertEquals('/', query!!.triggerChar)
-        assertEquals("goal", query.token)
-        assertEquals(11, query.rangeStart)
+        assertNull(ComposerCommandParser.parseQuery(text, text.length))
     }
 
     @Test

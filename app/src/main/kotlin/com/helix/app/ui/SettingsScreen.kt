@@ -166,6 +166,7 @@ internal fun PermissionsSafetyScreen(
 @Suppress("FunctionName")
 internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
+    var runtimeRiskOpen by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -176,11 +177,35 @@ internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
     ) {
         if (profile == SafetyProfile.ADVANCED && ProotToolModule.AVAILABLE) {
             SettingsGroup { ProotRuntimeSection() }
-            HorizontalDivider()
+        } else {
+            SettingsGroup {
+                Text(stringResource(R.string.settings_proot_title), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(
+                        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+                            R.string.runtime_advanced_required
+                        } else {
+                            R.string.runtime_developer_required
+                        },
+                    ),
+                    Modifier.testTag("runtime-availability-notice"),
+                )
+                if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+                    OutlinedButton({ runtimeRiskOpen = true }, Modifier.testTag("runtime-enable-advanced")) {
+                        Text(stringResource(R.string.runtime_switch_advanced))
+                    }
+                }
+            }
         }
-        com.helix.app.companions
-            .BundledRuntimeSection()
     }
+    AdvancedRiskDialog(
+        open = runtimeRiskOpen,
+        onConfirm = {
+            profileStore.switchTo(SafetyProfile.ADVANCED)
+            runtimeRiskOpen = false
+        },
+        onDismiss = { runtimeRiskOpen = false },
+    )
 }
 
 /** Provider/model connection management is a first-class Configure destination. */

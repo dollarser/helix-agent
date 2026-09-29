@@ -73,11 +73,8 @@ internal fun SessionSettingsScreen(
     ) {
         SettingsGroup {
             Text(stringResource(R.string.session_settings_mode))
-            ComposerModeMenu(
-                mode = runControl.mode,
-                enabled = !screen.isSending,
-                onMode = chatService::setMode,
-            )
+            Text(runControl.mode.name)
+            Text(stringResource(R.string.chat_command_mode_hint))
             Text(stringResource(R.string.session_settings_model))
             ComposerModelMenu(
                 providers = providers.filter { it.chatSelectable },

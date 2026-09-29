@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -160,7 +161,14 @@ internal fun ArtifactFilePrimaryActions(
     onExportClick: () -> Unit,
     onCancelExport: () -> Unit,
 ) {
+    val shareFailed = remember(row.id) { mutableStateOf(false) }
     FlowRow {
+        if (shareFailed.value) {
+            Text(
+                stringResource(R.string.artifacts_share_unavailable),
+                modifier = Modifier.testTag("artifact-share-error"),
+            )
+        }
         if (exportable) {
             TextButton(
                 enabled = exportState !is ArtifactExportState.Running,
@@ -190,7 +198,7 @@ internal fun ArtifactFilePrimaryActions(
         TextButton(
             enabled = shareText != null,
             modifier = Modifier.testTag("artifact-file-share-${row.id}"),
-            onClick = { sharePlainText(context, shareText!!) },
+            onClick = { shareFailed.value = !sharePlainText(context, shareText!!) },
         ) {
             Text(stringResource(R.string.artifacts_share))
         }
@@ -238,20 +246,27 @@ internal fun ArtifactFileSecondaryActions(
     }
 }
 
-/** A plain-text ACTION_SEND chooser; no share target in a fixture stays put (fail closed). */
-@Suppress("SwallowedException")
+/** Opens the system chooser; true means launched, never that another app received the text. */
 internal fun sharePlainText(
     context: Context,
     text: String,
-) {
+): Boolean {
     val intent =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
         }
-    try {
-        context.startActivity(Intent.createChooser(intent, null))
-    } catch (_: ActivityNotFoundException) {
-        // No share target resolves in the fixture: staying on the page is the correct outcome.
+    return launchExternalUi { context.startActivity(Intent.createChooser(intent, null)) }
+}
+
+internal fun launchArtifactExportPicker(
+    context: Context,
+    picker: ActivityResultLauncher<String>,
+    name: String,
+    state: MutableState<ArtifactExportState>,
+) {
+    state.value = ArtifactExportState.Idle
+    if (!launchExternalUi { picker.launch(name) }) {
+        state.value = ArtifactExportState.Failed(context.getString(R.string.chat_picker_unavailable))
     }
 }

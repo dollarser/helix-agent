@@ -31,6 +31,7 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
+import kotlinx.coroutines.launch
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
@@ -43,8 +44,8 @@ internal fun ConversationComposer(
     referenceLabel: String? = null,
     onRemoveReference: () -> Unit = {},
     goalMode: Boolean = false,
-    mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.CHAT,
-    onMode: (AgentMode) -> Unit = {},
+    mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.ACT,
+    onMode: suspend (AgentMode) -> Boolean = { false },
     reasoning: ReasoningEffort = ReasoningEffort.OFF,
     reasoningSupported: Boolean = false,
     onReasoning: (ReasoningEffort) -> Unit = {},
@@ -58,7 +59,17 @@ internal fun ConversationComposer(
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
+    val commandScope = androidx.compose.runtime.rememberCoroutineScope()
+    var commandPending by remember { mutableStateOf(false) }
     var addOpen by remember { mutableStateOf(false) }
+    var commandNotice by remember(input) { mutableStateOf<Int?>(null) }
+    val command =
+        com.helix.app.ui.composer.ComposerCommandParser
+            .leadingCommand(input)
+    val localOnly = command != null && input.trim() == "/${command.command}"
+    val canDeliver = if (localOnly) availability.localCommands else availability.delivery
+    val commandColor = MaterialTheme.colorScheme.primary
+    val commandBackground = MaterialTheme.colorScheme.primaryContainer
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         val activeQuery =
             androidx.compose.runtime.remember(input) {
@@ -74,41 +85,10 @@ internal fun ConversationComposer(
             com.helix.app.ui.composer.ComposerAutocompletePopup(
                 suggestions = suggestions,
                 onSelect = { item ->
-                    when (item.id) {
-                        "slash:plan" -> {
-                            onMode(AgentMode.CHAT)
-                            onInput("")
-                        }
-
-                        "slash:act" -> {
-                            onMode(AgentMode.CHAT)
-                            onInput("")
-                        }
-
-                        "slash:goal" -> {
-                            onMode(AgentMode.GOAL)
-                            onInput("")
-                        }
-
-                        "slash:compact" -> {
-                            if (canCompact) onCompact()
-                            onInput("")
-                        }
-
-                        "slash:clear" -> {
-                            onInput("")
-                        }
-
-                        else -> {
-                            val (newText, _) =
-                                com.helix.app.ui.composer.ComposerCommandParser.applySuggestion(
-                                    input,
-                                    activeQuery,
-                                    item,
-                                )
-                            onInput(newText)
-                        }
-                    }
+                    val (newText, _) =
+                        com.helix.app.ui.composer.ComposerCommandParser
+                            .applySuggestion(input, activeQuery, item)
+                    onInput(newText)
                 },
             )
         }
@@ -123,7 +103,7 @@ internal fun ConversationComposer(
             ) {
                 IconButton(
                     actions.onVoice,
-                    enabled = availability.input,
+                    enabled = availability.input && !commandPending,
                     modifier = Modifier.testTag("chat-voice"),
                 ) {
                     Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
@@ -150,8 +130,70 @@ internal fun ConversationComposer(
                     input.isNotBlank() ||
                         ((!goalMode || isSending) && (hasAttachments || referenceLabel != null))
                 IconButton(
-                    onClick = actions.onSend,
-                    enabled = sendEnabled && availability.delivery,
+                    onClick = {
+                        when {
+                            command == null -> {
+                                actions.onSend()
+                            }
+
+                            input.trim() != "/${command.command}" &&
+                                command.command !in setOf("chat", "plan", "act", "goal") -> {
+                                commandNotice = R.string.chat_command_standalone
+                            }
+
+                            isSending && command.command !in setOf("help", "clear") -> {
+                                commandNotice = R.string.chat_command_wait
+                            }
+
+                            command.command == "compact" && !canCompact -> {
+                                commandNotice =
+                                    R.string.chat_command_compact_unavailable
+                            }
+
+                            else -> {
+                                val requestedMode =
+                                    when (command.command) {
+                                        "chat" -> AgentMode.CHAT
+                                        "plan" -> AgentMode.PLAN
+                                        "act" -> AgentMode.ACT
+                                        "goal" -> AgentMode.GOAL
+                                        else -> null
+                                    }
+                                if (requestedMode != null) {
+                                    commandPending = true
+                                    commandScope.launch {
+                                        try {
+                                            if (onMode(requestedMode)) {
+                                                val task = input.drop(command.command.length + 1).trimStart()
+                                                onInput(task)
+                                                if (task.isNotBlank()) actions.onSend()
+                                            } else {
+                                                commandNotice = R.string.chat_command_wait
+                                            }
+                                        } finally {
+                                            commandPending = false
+                                        }
+                                    }
+                                } else {
+                                    when (command.command) {
+                                        "compact" -> {
+                                            onCompact()
+                                            onInput("")
+                                        }
+
+                                        "clear" -> {
+                                            onInput("")
+                                        }
+
+                                        "help" -> {
+                                            commandNotice = R.string.chat_command_help
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = sendEnabled && canDeliver && !commandPending,
                     modifier = Modifier.testTag("chat-send"),
                 ) {
                     Icon(
@@ -165,15 +207,41 @@ internal fun ConversationComposer(
                 onValueChange = onInput,
                 modifier = Modifier.fillMaxWidth().testTag("chat-input"),
                 placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
-                enabled = availability.input,
+                enabled = availability.input && !commandPending,
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
                         unfocusedBorderColor = Color.Transparent,
                         disabledBorderColor = Color.Transparent,
                     ),
+                visualTransformation = { text ->
+                    val styled =
+                        androidx.compose.ui.text.AnnotatedString
+                            .Builder(text)
+                    if (command != null) {
+                        styled.addStyle(
+                            androidx.compose.ui.text.SpanStyle(
+                                color = commandColor,
+                                background = commandBackground,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            ),
+                            0,
+                            command.command.length + 1,
+                        )
+                    }
+                    androidx.compose.ui.text.input.TransformedText(
+                        styled.toAnnotatedString(),
+                        androidx.compose.ui.text.input.OffsetMapping.Identity,
+                    )
+                },
                 maxLines = 5,
             )
+            commandNotice?.let {
+                Text(
+                    stringResource(it),
+                    Modifier.padding(horizontal = 16.dp).testTag("chat-command-notice"),
+                )
+            }
             if (referenceLabel != null) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -192,10 +260,14 @@ internal fun ConversationComposer(
                     }
                 }
             }
+            Text(
+                stringResource(R.string.chat_current_mode, mode.name),
+                Modifier.padding(horizontal = 16.dp).testTag("chat-current-mode"),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
                 ComposerToolbar(
-                    mode,
-                    onMode,
                     reasoning,
                     reasoningSupported,
                     onReasoning,
@@ -216,10 +288,8 @@ internal fun ConversationComposer(
     }
     if (addOpen) {
         ComposerAddSheet(
-            mode = mode,
             messageEnabled = availability.canAttach(),
             sessionConfigEnabled = !isSending,
-            onMode = onMode,
             actions = actions,
             onDismiss = { addOpen = false },
         )

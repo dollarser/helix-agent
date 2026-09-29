@@ -344,6 +344,7 @@ fun ChatScreen(
                         input = buffer.editable && editMessageId == null,
                         attachments = !buffer.sending && screen.pendingDisclosure == null,
                         delivery = buffer.editable && buffer.canSubmit,
+                        localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                     ),
                 composerStatus = {
                     sessionId?.let { id ->
@@ -449,7 +450,7 @@ fun ChatScreen(
                                     if (materialized &&
                                         chatService.screen.value.openSessionId == sessionId
                                     ) {
-                                        chatService.stageAttachment(uri)
+                                        chatService.stageAttachment(uri, sessionId)
                                     }
                                 }
                             }
@@ -457,6 +458,9 @@ fun ChatScreen(
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
                         onSelectModel = chatService::selectSessionModel,
                         onSetMode = chatService::setMode,
+                        onCommandMode = { mode ->
+                            sessionId?.let { chatService.setModeFromComposer(it, mode) } ?: false
+                        },
                         onSetReasoning = chatService::setReasoning,
                         onSetChatTools = chatService::setChatToolsEnabled,
                         onInspectProot = chatService::inspectInterruptedProot,

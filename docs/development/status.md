@@ -4,6 +4,12 @@
 
 ## Completed
 
+- 2026-09-29 系统 UI 恢复收口：补齐文件/照片/产物导出选择器失败提示、分享拒绝与重试反馈；许可证页适配系统栏、独立滚动和大字体。双渠道主机检查通过，API36 consumer 3/3、developer 4/4，追加 320dp 大字体 1/1；详见[记录](../bug-fixes/2026-09-29-external-ui-recovery.md)。本次本地提交纳入，未推送，真机 not requested。
+
+- 2026-09-29 输入恢复与 Runtime 维护审查：修复删除入口标签/动作不一致、语音与附件跨会话回填、失效附件阻挡本地命令、维护结果丢失及当前模式不可见；双渠道主机检查通过，API36 consumer 21/21、developer 会话/输入 21 项及 Runtime 追加 2/2 通过。中间失败、测试夹具修正与未修复旧问题见[审查记录](../bug-fixes/2026-09-29-interaction-recovery-audit.md)。本次本地提交纳入，未推送；真实语音和手机 not requested。
+
+- 2026-09-29 输入命令与 Runtime 入口调整：前轮交互修复已本地提交 `5c192d96`，本轮追加命令先编辑再发送、新会话默认 ACT、Runtime 去重/Advanced 提示与系统语音入口修正。双渠道主机与 API36 consumer 18/18、developer 19/19 定向验收通过；详细范围及语音后续计划见[记录](../bug-fixes/2026-09-29-slash-runtime-voice.md)。追加修改纳入本次本地提交，未推送。
+
 - 2026-09-29 交互与配置入口收口：抽屉按实际窗口取 2/3、显式打开，保留逐级返回与历史搜索；调整输入区布局、增加 Provider 协议选择、终端独立目录，修复重新生成主线程读库及草稿刷新/启动恢复竞争。新增 `helix.settings` 查询和待确认建议，不能授予权限或修改当前 Turn。双渠道 unit/lint/APK/test APK 与定向 API36 通过边界见[收口记录](../bug-fixes/2026-09-29-interaction-settings.md)；保留中间失败及修正后的复验，不声称全产品验收。改动已本地提交、未推送，真机 not requested。
 
 - 2026-09-29 最终本地收口：生产修复已提交 `8c7a95b4`，全量主机门禁及双渠道 AndroidTest APK 通过；clean P5 完整15/15、准备1/1，追加实际 Agent 工具图片识别1/1，见[最终收口](../evidence/development/final-closeout-2026-09-29.md)。未推送；手机启动已修复，但后续实际流程因设备断连仍 pending。

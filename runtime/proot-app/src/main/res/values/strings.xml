@@ -59,4 +59,8 @@
     <string name="proot_legal_license_section">—— 许可证全文: %1$s（%2$d 行，离线内嵌）——</string>
     <string name="proot_terminal_title">手动终端</string>
     <string name="proot_terminal_running">终端正在运行，结束后请关闭</string>
+    <string name="proot_repair_details">技术详情</string>
+    <string name="proot_runtime_installed">运行时已安装，请在设置中验证后使用。</string>
+    <string name="proot_maintenance_interrupted">上次操作中断。请核查当前安装状态，再决定是否重试。</string>
+    <string name="proot_maintenance_unsaved">无法保存操作状态，请检查可用空间和运行时当前状态。</string>
 </resources>

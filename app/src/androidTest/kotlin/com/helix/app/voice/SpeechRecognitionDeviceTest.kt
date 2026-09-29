@@ -14,23 +14,7 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Device acceptance for HXA-067 voice input: it exercises the REAL Android seam
- * ([SpeechRecognitionLauncher]) — the system `SpeechRecognizer.isRecognitionAvailable` query, the
- * `ACTION_RECOGNIZE_SPEECH` launch intent, and the `EXTRA_RESULTS` extraction that feeds the pure
- * [VoiceInputMapper].
- *
- * The two verification emulators intentionally exercise BOTH real availability paths: the API 29
- * AOSP image ships no speech-recognition app (the genuine "unavailable" path), while the API 36
- * image does (the genuine "available" path). The availability test therefore asserts CONSISTENCY
- * with the real query rather than a fixed value — a device test must not assume which recognizer
- * apps an image installs — so across the emulator pair both real paths are covered; the pure
- * `preCheck(false)` / `preCheck(true)` mapping is unit-tested in [VoiceInputMapperTest]. The success
- * / cancel / no-result mappings are driven through synthetic `Intent`s carrying the exact extras a
- * recognizer returns. The "recognised text becomes an editable draft that is NEVER auto-sent"
- * guarantee is structural (a [VoiceInputMapper.Outcome.Draft] carries only text; the composer turns
- * it into `input` and never calls send) and inherits the HXA-056 share-draft E2E precedent.
- */
+/** Tests intent availability and synthetic results, not microphone or real transcription quality. */
 @RunWith(AndroidJUnit4::class)
 class SpeechRecognitionDeviceTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -50,6 +34,7 @@ class SpeechRecognitionDeviceTest {
         // Unavailable path; on the recognizer-equipped API 36 image it asserts the real Available
         // path. Either way preCheck must agree with the live system query.
         val available = speech.isAvailable(context)
+        assertEquals(speech.buildIntent(context).resolveActivity(context.packageManager) != null, available)
         val expected =
             if (available) {
                 VoiceInputMapper.Outcome.Available

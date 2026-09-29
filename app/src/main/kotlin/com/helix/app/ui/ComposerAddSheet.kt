@@ -8,16 +8,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.core.model.AgentMode
 
 /** Contextual add/configure menu. Only capabilities backed by real domain state are shown. */
 @Composable
 @Suppress("FunctionName", "LongParameterList", "LongMethod") // Declarative menu rows are intentionally co-located.
 internal fun ComposerAddSheet(
-    mode: AgentMode,
     messageEnabled: Boolean,
     sessionConfigEnabled: Boolean,
-    onMode: (AgentMode) -> Unit,
     actions: ComposerActions,
     onDismiss: () -> Unit,
 ) {
@@ -69,7 +66,6 @@ internal fun ComposerAddSheet(
         }
         HorizontalDivider()
         Text(stringResource(R.string.composer_add_session_group))
-        ComposerModeMenu(mode, sessionConfigEnabled, onMode)
         TextButton(
             onClick = {
                 onDismiss()

@@ -29,7 +29,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
 
@@ -44,12 +43,10 @@ internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
     )
 }
 
-/** Mode/model stay inline; secondary controls share one bounded sheet in the composer action row. */
+/** Model/reasoning stay inline; secondary controls share one bounded sheet in the composer action row. */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
 internal fun ComposerToolbar(
-    mode: AgentMode,
-    onMode: (AgentMode) -> Unit,
     reasoning: ReasoningEffort,
     reasoningSupported: Boolean,
     onReasoning: (ReasoningEffort) -> Unit,
@@ -62,9 +59,6 @@ internal fun ComposerToolbar(
 ) {
     var options by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.widthIn(max = 80.dp)) {
-            ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
-        }
         IconButton({ options = true }, modifier = Modifier.size(48.dp).testTag("chat-composer-options")) {
             Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_composer_options))
         }

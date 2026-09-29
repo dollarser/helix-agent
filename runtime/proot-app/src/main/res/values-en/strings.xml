@@ -56,4 +56,8 @@
     <string name="proot_legal_license_section">—— Full license text: %1$s (line count: %2$d; embedded offline) ——</string>
     <string name="proot_terminal_title">Manual terminal</string>
     <string name="proot_terminal_running">Terminal is running. Close it when finished.</string>
+    <string name="proot_repair_details">Technical details</string>
+    <string name="proot_runtime_installed">Runtime is installed. Verify it in settings before use.</string>
+    <string name="proot_maintenance_interrupted">The previous operation was interrupted. Check the current installation state before retrying.</string>
+    <string name="proot_maintenance_unsaved">Unable to save the operation status. Check available storage and the current runtime state.</string>
 </resources>

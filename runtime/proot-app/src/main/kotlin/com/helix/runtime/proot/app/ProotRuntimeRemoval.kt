@@ -30,8 +30,8 @@ object ProotRuntimeRemoval {
     /**
      * Deletes the whole runtime state tree. [runtimeRoot] must be a directory named
      * `runtime` (the adapter always passes `filesDir/runtime`); anything else is a
-     * programming error and is refused, not deleted. Never throws for the happy
-     * paths — a partially deleted tree is still a removal (the install is gone).
+     * programming error and is refused, not deleted. An already absent root is successful;
+     * a partially deleted tree remains a failure.
      */
     fun remove(runtimeRoot: File): Result {
         require(runtimeRoot.name == RUNTIME_DIR_NAME) {
@@ -47,7 +47,7 @@ object ProotRuntimeRemoval {
         // operation starts from a clean slate (the tree itself is already gone).
         if (!runtimeRoot.exists()) {
             return Result(
-                removed = existed,
+                removed = true,
                 hadActive = active != null,
                 activeInstallId = active?.installId,
             )

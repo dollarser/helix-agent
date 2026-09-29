@@ -18,6 +18,10 @@ data class ConversationIntents(
     val onStageAttachment: (String) -> Unit,
     val onRemoveAttachment: (String) -> Unit,
     val onSetMode: (AgentMode) -> Unit,
+    val onCommandMode: suspend (AgentMode) -> Boolean = {
+        onSetMode(it)
+        true
+    },
     val onSetChatTools: (Boolean) -> Unit,
     val onSelectModel: (String, String) -> Unit = { _, _ -> },
     val onSetReasoning: (com.helix.core.model.ReasoningEffort) -> Unit = {},

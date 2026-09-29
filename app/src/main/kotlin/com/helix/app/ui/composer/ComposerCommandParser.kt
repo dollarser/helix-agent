@@ -49,6 +49,7 @@ data class SlashCommandSpec(
 object ComposerCommandParser {
     val BUILTIN_SLASH_COMMANDS =
         listOf(
+            SlashCommandSpec("chat", "chat_command_chat_desc", "Switch to read-only Chat mode"),
             SlashCommandSpec(
                 command = "plan",
                 descriptionKey = "chat_command_plan_desc",
@@ -81,6 +82,12 @@ object ComposerCommandParser {
             ),
         )
 
+    /** Only a known first token is a command; paths, quoted text and unknown names stay ordinary input. */
+    fun leadingCommand(text: String): SlashCommandSpec? {
+        val token = text.takeWhile { !it.isWhitespace() }
+        return BUILTIN_SLASH_COMMANDS.firstOrNull { token == "/${it.command}" }
+    }
+
     /**
      * Extracts an [AutocompleteQuery] from the input text relative to the cursor.
      * Returns null if no active trigger is detected.
@@ -103,9 +110,9 @@ object ComposerCommandParser {
 
         val triggerChar = prefix[triggerIndex]
 
-        // Slash command must be at the very start of input, or after a newline
+        // Slash commands are local controls only at the start of the input.
         if (triggerChar == '/') {
-            if (triggerIndex != 0 && prefix[triggerIndex - 1] != '\n') {
+            if (triggerIndex != 0) {
                 return null
             }
         }

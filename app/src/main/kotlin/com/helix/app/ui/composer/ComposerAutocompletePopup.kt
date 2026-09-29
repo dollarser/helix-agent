@@ -78,6 +78,7 @@ private fun ComposerSuggestionRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        val description = commandDescription(item)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.label,
@@ -86,7 +87,7 @@ private fun ComposerSuggestionRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            item.detail?.let { detail ->
+            description?.let { detail ->
                 Text(
                     text = detail,
                     style = MaterialTheme.typography.bodySmall,
@@ -115,4 +116,20 @@ private fun ComposerSuggestionRow(
                 ),
         )
     }
+}
+
+@Composable
+private fun commandDescription(item: ComposerSuggestionItem): String? {
+    val resource =
+        when (item.id) {
+            "slash:chat" -> R.string.chat_command_chat_desc
+            "slash:plan" -> R.string.chat_command_plan_desc
+            "slash:act" -> R.string.chat_command_act_desc
+            "slash:goal" -> R.string.chat_command_goal_desc
+            "slash:compact" -> R.string.chat_command_compact_desc
+            "slash:clear" -> R.string.chat_command_clear_desc
+            "slash:help" -> R.string.chat_command_help_desc
+            else -> null
+        }
+    return resource?.let { stringResource(it) } ?: item.detail
 }

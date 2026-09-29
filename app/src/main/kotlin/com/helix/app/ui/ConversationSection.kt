@@ -49,7 +49,7 @@ import java.io.File
 
 @Composable
 // Explicit observable state, user intents and an optional application-owned presentation slot.
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList", "TooGenericExceptionCaught")
 internal fun ConversationSection(
     screen: ChatScreenState,
     runControl: RunControlConfig,
@@ -67,27 +67,44 @@ internal fun ConversationSection(
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
     // (the user backed out) is ignored.
+    val pickerSession by androidx.compose.runtime.rememberUpdatedState(screen.openSessionId)
+    var fileTarget by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    var photoTarget by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    var cameraTarget by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    var cameraPath by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
     val attachmentPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) intents.onStageAttachment(uri.toString())
+            if (uri != null && fileTarget != null &&
+                fileTarget == pickerSession
+            ) {
+                intents.onStageAttachment(uri.toString())
+            }
+            fileTarget = null
         }
     val photoPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) intents.onStageAttachment(uri.toString())
+            if (uri != null && photoTarget != null &&
+                photoTarget == pickerSession
+            ) {
+                intents.onStageAttachment(uri.toString())
+            }
+            photoTarget = null
         }
-    var cameraFile by remember { mutableStateOf<File?>(null) }
-    var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val cameraLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
-            val file = cameraFile
-            val uri = cameraUri
-            if (captured && uri != null) {
+            val file = cameraPath?.let(::File)
+            if (captured && file != null && pickerMatches(cameraTarget, pickerSession)) {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 intents.onStageAttachment(uri.toString())
             } else {
                 file?.delete()
             }
-            cameraFile = null
-            cameraUri = null
+            cameraPath = null
+            cameraTarget = null
         }
 
     // HXA-067 voice input: the system recognizer (ACTION_RECOGNIZE_SPEECH) transcribes a
@@ -97,29 +114,25 @@ internal fun ConversationSection(
     // result is a benign no-draft (the system UI already surfaced it); a device with no recognizer
     // is gated pre-launch and shows a transient, path-free notice.
     val speech = remember { SpeechRecognitionLauncher() }
-    var voiceDraft by remember { mutableStateOf<String?>(null) }
-    var voiceNotice by remember { mutableStateOf<String?>(null) }
+    var voiceTarget by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    val currentVoiceSession by androidx.compose.runtime.rememberUpdatedState(screen.openSessionId)
+    val currentVoiceInput by androidx.compose.runtime.rememberUpdatedState(input)
+    val currentVoiceEdit by androidx.compose.runtime.rememberUpdatedState(onInput)
+    var inputNotice by remember { mutableStateOf<String?>(null) }
     val voiceUnavailable = stringResource(R.string.chat_voice_unavailable)
+    val captureUnavailable = stringResource(R.string.chat_capture_unavailable)
+    val pickerUnavailable = stringResource(R.string.chat_picker_unavailable)
     val voiceLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            when (val outcome = speech.mapResult(result.resultCode, result.data)) {
-                is VoiceInputMapper.Outcome.Draft -> voiceDraft = outcome.text
-
-                // Cancelled: the user cancelled or the recognizer returned no transcript — a
-                // benign no-draft (the system UI already showed the cancel/error); never a send.
-                else -> Unit
+            val target = voiceTarget
+            voiceTarget = null
+            val outcome = speech.mapResult(result.resultCode, result.data)
+            if (outcome is VoiceInputMapper.Outcome.Draft && target != null && target == currentVoiceSession) {
+                currentVoiceEdit(VoiceInputMapper.appendDraft(currentVoiceInput, outcome.text))
             }
         }
 
-    // Apply a recognised draft to the composer ONCE, appended to whatever is already there
-    // (reading the current `input` from this composition, never a stale closure).
-    LaunchedEffect(voiceDraft) {
-        val draft = voiceDraft
-        if (draft != null) {
-            onInput(if (input.isEmpty()) draft else "$input $draft")
-            voiceDraft = null
-        }
-    }
     val timelineListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val searchController = remember { ConversationSearchController() }
@@ -403,7 +416,7 @@ internal fun ConversationSection(
                 }
             }
         }
-        voiceNotice?.let { notice ->
+        inputNotice?.let { notice ->
             Text(
                 notice,
                 style = MaterialTheme.typography.bodySmall,
@@ -424,7 +437,7 @@ internal fun ConversationSection(
             onRemoveReference = intents.onClearReference,
             goalMode = runControl.mode == AgentMode.GOAL,
             mode = runControl.mode,
-            onMode = intents.onSetMode,
+            onMode = intents.onCommandMode,
             modelSelector = {
                 ComposerModelMenu(
                     bindableProviders,
@@ -449,26 +462,50 @@ internal fun ConversationSection(
             availability = composerAvailability,
             actions =
                 ComposerActions(
-                    onFile = { attachmentPicker.launch(arrayOf("*/*")) },
-                    onPhoto = { photoPicker.launch(arrayOf("image/*")) },
+                    onFile = {
+                        fileTarget = screen.openSessionId
+                        inputNotice = null
+                        if (!launchExternalUi { attachmentPicker.launch(arrayOf("*/*")) }) {
+                            fileTarget = null
+                            inputNotice = pickerUnavailable
+                        }
+                    },
+                    onPhoto = {
+                        photoTarget = screen.openSessionId
+                        inputNotice = null
+                        if (!launchExternalUi { photoPicker.launch(arrayOf("image/*")) }) {
+                            photoTarget = null
+                            inputNotice = pickerUnavailable
+                        }
+                    },
                     onCamera = {
+                        cameraTarget = screen.openSessionId
                         coroutineScope.launch {
-                            val capture =
-                                withContext(Dispatchers.IO) {
-                                    val directory = File(context.filesDir, "attachments/camera")
-                                    check(directory.mkdirs() || directory.isDirectory)
-                                    val file = File.createTempFile("helix-camera-", ".jpg", directory)
-                                    val uri =
-                                        FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            file,
-                                        )
-                                    file to uri
-                                }
-                            cameraFile = capture.first
-                            cameraUri = capture.second
-                            cameraLauncher.launch(capture.second)
+                            try {
+                                val capture =
+                                    withContext(Dispatchers.IO) {
+                                        val directory = File(context.filesDir, "attachments/camera")
+                                        check(directory.mkdirs() || directory.isDirectory)
+                                        val file = File.createTempFile("helix-camera-", ".jpg", directory)
+                                        val uri =
+                                            FileProvider.getUriForFile(
+                                                context,
+                                                "${context.packageName}.fileprovider",
+                                                file,
+                                            )
+                                        file to uri
+                                    }
+                                cameraPath = capture.first.path
+                                cameraLauncher.launch(capture.second)
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                // User-initiated camera boundary: preserve the draft and show no raw platform error.
+                                cameraPath?.let { File(it).delete() }
+                                cameraPath = null
+                                cameraTarget = null
+                                inputNotice = captureUnavailable
+                            }
                         }
                     },
                     onReference = intents.onReference,
@@ -479,12 +516,19 @@ internal fun ConversationSection(
                     onVoice = {
                         when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
                             VoiceInputMapper.Outcome.Available -> {
-                                voiceNotice = null
-                                voiceLauncher.launch(speech.buildIntent(context))
+                                inputNotice = null
+                                voiceTarget = screen.openSessionId
+                                try {
+                                    voiceLauncher.launch(speech.buildIntent(context))
+                                } catch (_: android.content.ActivityNotFoundException) {
+                                    inputNotice = voiceUnavailable
+                                } catch (_: SecurityException) {
+                                    inputNotice = voiceUnavailable
+                                }
                             }
 
                             else -> {
-                                voiceNotice = voiceUnavailable
+                                inputNotice = voiceUnavailable
                             }
                         }
                     },
@@ -501,3 +545,8 @@ internal fun ConversationSection(
         )
     }
 }
+
+internal fun pickerMatches(
+    target: String?,
+    current: String?,
+): Boolean = target != null && target == current

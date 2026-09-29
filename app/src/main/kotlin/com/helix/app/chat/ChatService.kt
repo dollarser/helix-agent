@@ -400,6 +400,36 @@ class ChatService(
 
     fun setMode(mode: AgentMode) = updateSessionRunControl("mode") { it.copy(mode = mode) }
 
+    /** Composer commands finish their session-bound update before the UI clears the command. */
+    suspend fun setModeFromComposer(
+        sessionId: String,
+        mode: AgentMode,
+    ): Boolean =
+        workScope
+            .async {
+                synchronized(turnGate) {
+                    if (openSessionId != sessionId || preparingDraft || pendingSend != null) {
+                        return@synchronized false
+                    }
+                    if (turnEngine.liveExecution.hasActive(sessionId) || turnGateHolds(sessionId)) {
+                        return@synchronized false
+                    }
+                    val draft = sessionDraft?.takeIf { it.session.id == sessionId }
+                    if (draft != null) {
+                        val next = draft.control.copy(mode = mode)
+                        drafts.control(sessionId, next)
+                        _runControl.value = next
+                    } else {
+                        val session = storage.sessions.find(sessionId) ?: return@synchronized false
+                        if (session.archivedAt != null) return@synchronized false
+                        val next = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli()).copy(mode = mode)
+                        sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                        _runControl.value = next
+                    }
+                    true
+                }
+            }.await()
+
     fun setReasoning(reasoning: ReasoningEffort) =
         updateSessionRunControl("reasoning") { it.copy(reasoning = reasoning) }
 
@@ -917,7 +947,7 @@ class ChatService(
                 clock.now().toEpochMilli(),
                 null,
             )
-        val control = sessionRunControls.defaultSnapshot()
+        val control = sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT)
         if (!drafts.open(entity, control)) return
         openSessionId = entity.id
         _runControl.value = control
@@ -1062,7 +1092,7 @@ class ChatService(
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
                 storage.sessions.create(id, title, providerId, modelId, now)
-                sessionRunControls.set(id, sessionRunControls.defaultSnapshot(), now)
+                sessionRunControls.set(id, sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT), now)
             }
             refreshSessionsNow()
             id
@@ -1091,7 +1121,7 @@ class ChatService(
                 SessionFork(storage, bindSessionDirectory).create(sessionId, messageId, id, branchTitle, now) {
                     context.ensureActive()
                 }
-                sessionRunControls.set(id, sessionRunControls.defaultSnapshot(), now)
+                sessionRunControls.set(id, sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT), now)
             }
             refreshSessionsNow()
             id
@@ -1252,7 +1282,7 @@ class ChatService(
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
                 storage.sessions.create(id, str(R.string.session_shared_draft), null, null, now)
-                sessionRunControls.set(id, sessionRunControls.defaultSnapshot(), now)
+                sessionRunControls.set(id, sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT), now)
             }
             refreshSessionsNow()
             openSession(id)
@@ -1432,8 +1462,11 @@ class ChatService(
      * staged, nothing is sent. Runs on the work scope; the visible outcome arrives via
      * [screen]. Staging is NOT a send: only [send]/[confirmSend] reach the model.
      */
-    fun stageAttachment(uri: String) {
-        workScope.launch { stageAttachmentNow(uri) }
+    fun stageAttachment(
+        uri: String,
+        expectedSessionId: String? = openSessionId,
+    ) {
+        workScope.launch { stageAttachmentNow(uri, expectedSessionId) }
     }
 
     @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // one fail-closed return per stage

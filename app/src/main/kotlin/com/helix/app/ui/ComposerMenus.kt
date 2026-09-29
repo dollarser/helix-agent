@@ -20,25 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
-
-@Composable
-@Suppress("FunctionName")
-internal fun ComposerModeMenu(
-    mode: AgentMode,
-    enabled: Boolean,
-    onMode: (AgentMode) -> Unit,
-) {
-    ComposerMenu(
-        label = mode.name.lowercase().replaceFirstChar(Char::uppercase),
-        selected = mode,
-        options = AgentMode.entries.map { it to it.name.lowercase().replaceFirstChar(Char::uppercase) },
-        enabled = enabled,
-        tag = "chat-mode",
-        onSelect = onMode,
-    )
-}
 
 @Composable
 @Suppress("FunctionName")

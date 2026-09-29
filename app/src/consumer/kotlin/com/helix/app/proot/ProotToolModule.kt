@@ -86,6 +86,10 @@ internal object ProotToolModule {
         error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
 
     /** Unreachable in the consumer build. */
+    fun openRepairNote(): Nothing = openRepair()
+
+    fun openLegalNote(): Nothing = openLegalPage()
+
     fun openRepair(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
 
     /** Unreachable in the consumer build. */

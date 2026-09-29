@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <activity android:name="com.helix.app.ui.FixtureSpeechActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <!-- HXA-058: the document fixtures for the file-manager import/export device tests.
              exported=true is REQUIRED and safe here: the app module's instrumentation runs in
              the APP process (com.helix.agent), while this provider belongs to the TEST package

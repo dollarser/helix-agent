@@ -631,6 +631,25 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
             }
         }
 
+    @Test
+    fun stalePickerSessionCannotStageIntoCurrentSession() {
+        val fixture = newFixture(ApplicationProvider.getApplicationContext())
+        try {
+            openSessionWithStagedAttachment(fixture, "current session attachment")
+            fixture.service.stageAttachment(URI_KEY, "previous-session")
+            Thread.sleep(500)
+            assertEquals(1, fixture.service.screen.value.pendingAttachments.size)
+            assertEquals(
+                1,
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .size,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
     /** Creates the session, opens it, stages one text attachment and returns the durable artifact file. */
     private fun openSessionWithStagedAttachment(
         fixture: Fixture,

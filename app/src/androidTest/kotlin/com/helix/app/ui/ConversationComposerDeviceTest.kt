@@ -63,13 +63,13 @@ class ConversationComposerDeviceTest {
         val attach = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
         val voice = compose.onNodeWithTag("chat-voice").getUnclippedBoundsInRoot()
         val send = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
-        val mode = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
         val options = compose.onNodeWithTag("chat-composer-options").getUnclippedBoundsInRoot()
         listOf(attach, voice, send).forEach { bounds ->
             assertTrue("Voice, attachments and send stay above editing", bounds.bottom <= field.top)
         }
-        listOf(mode, options).forEach { bounds ->
-            assertTrue("Mode controls stay below editing", bounds.top >= field.bottom)
+        listOf(options).forEach { bounds ->
+            assertTrue("Options stay below editing", bounds.top >= field.bottom)
         }
         assertTrue(voice.right <= attach.left && attach.right <= send.left)
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed().assertIsNotEnabled()
@@ -205,10 +205,10 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-reasoning-menu").assertIsNotEnabled()
         compose.onNodeWithTag("chat-reasoning-medium").assertDoesNotExist()
         compose.onNodeWithTag("chat-composer-options-close").performClick()
-        compose.onNodeWithTag("chat-mode-menu").assertIsNotEnabled()
+        compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
     }
 
-    @Test fun modeModelAndReasoningRemainBelowEditingOnANarrowScreen() {
+    @Test fun modelAndReasoningRemainBelowEditingOnANarrowScreen() {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
@@ -239,13 +239,13 @@ class ConversationComposerDeviceTest {
         val add = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
         val send = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
         val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
-        val mode = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
         val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
         val reasoning = compose.onNodeWithTag("chat-reasoning-menu").getUnclippedBoundsInRoot()
         assertTrue(voice.left < add.left && add.left < send.left)
         assertTrue(voice.bottom <= input.top)
-        assertTrue(mode.top >= input.bottom)
-        assertTrue(mode.right <= model.left && model.right <= reasoning.left)
+        assertTrue(model.top >= input.bottom)
+        assertTrue(model.right <= reasoning.left)
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
         compose.onNodeWithTag("chat-copy-input").assertDoesNotExist()
     }

@@ -88,13 +88,13 @@ internal fun ProotRuntimeSection() {
                 Text(stringResource(R.string.settings_proot_verify))
             }
             OutlinedButton(
-                onClick = { ProotToolModule.openRepair() },
+                onClick = { verifyNote = ProotToolModule.openRepairNote() },
                 modifier = Modifier.testTag("settings-proot-repair"),
             ) {
                 Text(stringResource(R.string.settings_proot_repair))
             }
             OutlinedButton(
-                onClick = { ProotToolModule.openLegalPage() },
+                onClick = { verifyNote = ProotToolModule.openLegalNote() },
                 modifier = Modifier.testTag("settings-proot-legal"),
             ) {
                 Text(stringResource(R.string.settings_proot_legal))

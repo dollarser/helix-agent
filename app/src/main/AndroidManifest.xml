@@ -25,6 +25,9 @@
          truthful only with this declaration. The chooser itself lists all handlers either way. -->
     <queries>
         <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="*/*" />
         </intent>

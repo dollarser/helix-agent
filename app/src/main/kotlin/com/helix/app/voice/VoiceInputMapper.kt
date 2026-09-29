@@ -15,6 +15,11 @@ package com.helix.app.voice
  */
 object VoiceInputMapper {
     // `Activity` result code, mirrored as a plain int so this object stays pure JVM.
+    fun appendDraft(
+        input: String,
+        transcript: String,
+    ): String = if (input.isEmpty()) transcript else "$input $transcript"
+
     const val RESULT_OK: Int = -1 // Activity.RESULT_OK
     const val RESULT_CANCELED: Int = 0 // Activity.RESULT_CANCELED
 
