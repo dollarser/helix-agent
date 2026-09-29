@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,11 @@ fun ProviderManager(
     val rows by providerService.rows.collectAsStateWithLifecycle()
     val chatScreen by chatService.screen.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var group by rememberSaveable { mutableStateOf<ProviderProvisioningKind?>(null) }
+    BackHandler(group != null) { group = null }
+    var discovery by remember { mutableStateOf<List<String>>(emptyList()) }
+    var discovering by remember { mutableStateOf(false) }
+    var discoveryMessage by remember { mutableStateOf<Int?>(null) }
     var deleteFailure by remember { mutableStateOf(false) }
     var localModelOpen by remember { mutableStateOf(false) }
     var templatePickerOpen by remember { mutableStateOf(false) }
@@ -84,42 +91,57 @@ fun ProviderManager(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(R.string.provider_screen_title), style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(
-                onClick = { templatePickerOpen = true },
-                modifier = Modifier.testTag("provider-add"),
-            ) {
-                Text(stringResource(R.string.provider_add))
-            }
         }
-        if (providerService.localModels != null) {
+        if (group == null) {
+            listOf(
+                ProviderProvisioningKind.ON_DEVICE_ASSET,
+                ProviderProvisioningKind.USER_CONFIGURED,
+                ProviderProvisioningKind.MANAGED_ACCOUNT,
+            ).forEach { category ->
+                OutlinedButton(onClick = {
+                    group = category
+                }, modifier = Modifier.fillMaxWidth().testTag("provider-group-${category.name}")) {
+                    Text(stringResource(providerGroupLabel(category)))
+                }
+            }
+        } else {
+            TextButton(
+                onClick = {
+                    group = null
+                },
+                modifier =
+                    Modifier.testTag(
+                        "provider-groups-back",
+                    ),
+            ) { Text(stringResource(R.string.provider_groups_back)) }
+            Text(
+                stringResource(providerGroupLabel(requireNotNull(group))),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        if (group == ProviderProvisioningKind.USER_CONFIGURED) {
+            OutlinedButton(onClick = {
+                templatePickerOpen = true
+            }, modifier = Modifier.testTag("provider-add")) { Text(stringResource(R.string.provider_add)) }
+        }
+        if (group == ProviderProvisioningKind.ON_DEVICE_ASSET && providerService.localModels != null) {
             OutlinedButton(onClick = { localModelOpen = true }) { Text(stringResource(R.string.local_model_title)) }
         }
         if (deleteFailure) Text(stringResource(R.string.local_model_delete_failed))
-        if (rows.isEmpty()) {
+        if (group != null && rows.none { it.provisioning == group }) {
             Text(
                 stringResource(R.string.provider_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        rows.sortedBy { it.provisioning.ordinal }.forEachIndexed { index, row ->
-            val sortedRows = rows.sortedBy { it.provisioning.ordinal }
-            if (index == 0 || sortedRows[index - 1].provisioning != row.provisioning) {
-                Text(
-                    stringResource(
-                        when (row.provisioning) {
-                            ProviderProvisioningKind.USER_CONFIGURED -> R.string.provider_group_api
-                            ProviderProvisioningKind.MANAGED_ACCOUNT -> R.string.provider_group_account
-                            ProviderProvisioningKind.ON_DEVICE_ASSET -> R.string.local_model_title
-                        },
-                    ),
-                )
-            }
+        rows.filter { it.provisioning == group }.forEach { row ->
             ProviderRow(
                 row = row,
                 testing = testingId == row.id,
                 actions =
                     ProviderRowActions(
+                        onContext = { contextRow = row },
                         onDeclareVision = { enabled ->
                             // The user-visible manual declaration (ADR-0014): vision may come from a
                             // real probe OR this explicit mark — the UI shows 「手动声明」 afterwards.
@@ -180,6 +202,8 @@ fun ProviderManager(
                             scope.launch {
                                 try {
                                     val config = providerService.storedConfig(row.id)
+                                    discovery = row.backendModels.orEmpty()
+                                    discoveryMessage = null
                                     form =
                                         editingProviderForm(row, config, modelOverride)
                                 } catch (e: Exception) {
@@ -234,9 +258,6 @@ fun ProviderManager(
                 detectingCapabilities = detectingId == row.id,
                 capabilityOutcome = capabilityResults[row.id],
             )
-            TextButton({ contextRow = row }, Modifier.testTag("provider-context-${row.id}")) {
-                Text(stringResource(R.string.chat_context_title))
-            }
         }
     }
 
@@ -246,6 +267,8 @@ fun ProviderManager(
         TemplatePickerDialog(
             onSelect = { template ->
                 templatePickerOpen = false
+                discovery = emptyList()
+                discoveryMessage = null
                 form =
                     ProviderForm(
                         providerId = null,
@@ -259,6 +282,7 @@ fun ProviderManager(
                                 headerValue = "",
                                 apiKey = "",
                             ),
+                        preservedHeaders = template.defaultHeaders,
                         hasStoredKey = false,
                         cleartextConfirmed = false,
                         error = null,
@@ -273,7 +297,44 @@ fun ProviderManager(
         ProviderFormDialog(
             form = currentForm,
             saving = saving,
-            onField = { form = it },
+            onField = { updated ->
+                if (updated.catalogIdentity() != currentForm.catalogIdentity()) {
+                    discovery = emptyList()
+                    discoveryMessage = null
+                }
+                form =
+                    updated.copy(
+                        error = null,
+                        selectedModels =
+                            if (updated.fields.endpoint ==
+                                currentForm.fields.endpoint
+                            ) {
+                                updated.selectedModels
+                            } else {
+                                emptySet()
+                            },
+                        cleartextConfirmed =
+                            updated.cleartextConfirmed && updated.fields.endpoint == currentForm.fields.endpoint,
+                    )
+            },
+            discoveryState = ProviderFormDiscovery(discovery, discoveryMessage, discovering),
+            onDiscover = {
+                if (!discovering) {
+                    val target = currentForm
+                    discovering = true
+                    scope.launch {
+                        try {
+                            val result = discoverProviderForm(target, providerService)
+                            if (form == target) {
+                                discovery = result.models
+                                discoveryMessage = result.message
+                            }
+                        } finally {
+                            discovering = false
+                        }
+                    }
+                }
+            },
             onDismiss = {
                 // An in-flight save keeps running (its result is dropped below
                 // when it no longer matches the form); only the dialog closes.

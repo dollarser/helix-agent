@@ -263,7 +263,7 @@ class RecoveryJourneyDeviceTest {
 
     private fun awaitProvidersScreen() {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("provider-add").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("provider-group-USER_CONFIGURED").fetchSemanticsNodes().isNotEmpty()
         }
     }
 

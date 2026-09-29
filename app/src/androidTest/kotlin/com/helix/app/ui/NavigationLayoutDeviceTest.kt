@@ -22,6 +22,7 @@ class NavigationLayoutDeviceTest {
         try {
             prepareChatLayoutLanguage(compose)
             compose.navigateTo("models")
+            compose.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
             compose
                 .onNodeWithTag("provider-add")
                 .performScrollTo()

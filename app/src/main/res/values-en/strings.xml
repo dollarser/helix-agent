@@ -1472,7 +1472,7 @@
     <string name="local_model_failed">Download or verification failed. Check the URL, digest, size and available storage, then retry.</string>
     <string name="local_model_download">Download</string>
     <string name="provider_group_api">API / Self-hosted</string>
-    <string name="provider_group_account">Subscription / Managed account</string>
+    <string name="provider_group_account">Subscription accounts</string>
     <string name="local_model_delete_failed">Resource operation failed. The model may be in use. Stop the current task and retry.</string>
     <string name="local_model_resources">%1$s · CPU · 2 threads · Adjustable context</string>
     <string name="local_model_unload">Unload</string>
@@ -1523,4 +1523,12 @@
     <string name="operation_external">External or device action</string>
     <string name="operation_execute">Code or command execution</string>
     <string name="operation_privileged">Privileged operation</string>
+    <string name="provider_key_optional_label">API Key (optional)</string>
+    <string name="provider_advanced_options">Advanced options</string>
+    <string name="provider_discover_models">Discover models</string>
+    <string name="provider_discovering_models">Fetching models…</string>
+    <string name="provider_discovery_hint">Select models to use. A catalog entry does not verify capabilities. You can also enter a model ID.</string>
+    <string name="provider_discovery_failed">Could not fetch models. Check the endpoint and credentials, or enter a model ID.</string>
+    <string name="provider_groups_back">Back to model sources</string>
+    <string name="provider_context_load_failed">Could not load context settings or detect the window. Retry, or edit settings that loaded successfully.</string>
 </resources>

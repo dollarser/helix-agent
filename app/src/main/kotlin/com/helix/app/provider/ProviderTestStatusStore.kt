@@ -29,6 +29,7 @@ class ProviderTestStatusStore(
 ) {
     private val backing = store
     val modelMetadata = ProviderModelMetadataStore(store)
+    val selectedModels = ProviderSelectedModels(store)
 
     fun statusFor(providerId: String): ConnectionTestStatus {
         val fields = backing.lines(KEY).firstOrNull { it.startsWith("$providerId|") }?.split("|", limit = 8)

@@ -89,6 +89,7 @@ class OllamaUiRoundTripTest {
 
         // --- 1. create from the Ollama template; cleartext gate is explicit ---
         composeRule.navigateTo("models")
+        composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-ollama").performClick()

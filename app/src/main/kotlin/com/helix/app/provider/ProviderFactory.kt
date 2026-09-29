@@ -36,6 +36,9 @@ class ProviderFactory(
     private val imageSource: () -> VisionImageSource,
     private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
+    /** Draft catalog requests use a transient credential, never a saved provider or key. */
+    fun forDraft(credentials: CredentialLookup): ProviderFactory = ProviderFactory(credentials, wire, imageSource)
+
     fun create(config: ProviderConfig): ModelProvider =
         additionalFactory(config) ?: when (config.network.protocol) {
             ProviderProtocol.OPENAI_RESPONSES -> OpenAiResponsesProvider(config, credentials, wire, responsesImages)

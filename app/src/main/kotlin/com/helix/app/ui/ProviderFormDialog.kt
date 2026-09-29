@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,6 +46,8 @@ internal data class ProviderForm(
     val hasStoredKey: Boolean,
     val cleartextConfirmed: Boolean,
     val error: SaveResult.Rejected?,
+    val selectedModels: Set<String> = emptySet(),
+    val preservedHeaders: Map<String, String> = emptyMap(),
 ) {
     data class FormFields(
         val name: String,
@@ -98,12 +101,7 @@ internal fun TemplatePickerDialog(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(template.displayName, style = MaterialTheme.typography.bodyLarge)
-                            val credentialNote =
-                                if (template.credentialRequired) {
-                                    stringResource(R.string.provider_template_requires_key)
-                                } else {
-                                    stringResource(R.string.provider_template_key_optional)
-                                }
+                            val credentialNote = stringResource(R.string.provider_template_key_optional)
                             Text(
                                 "${UiLabels.protocolLabel(template.protocol)} · $credentialNote",
                                 style = MaterialTheme.typography.bodySmall,
@@ -134,17 +132,18 @@ internal fun ProviderFormDialog(
     onField: (ProviderForm) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
+    discoveryState: ProviderFormDiscovery = ProviderFormDiscovery(),
+    onDiscover: () -> Unit = {},
 ) {
+    val discovery = discoveryState.models
+    val discovering = discoveryState.running
+    val discoveryMessage = discoveryState.message
+    var advanced by remember { mutableStateOf(false) }
     val cleartext =
         remember(form.fields.endpoint) {
             tryParseEndpoint(form.fields.endpoint)?.let { CleartextAuthorization.requiredFor(it) }
         }
-    val keyOk =
-        !form.template.credentialRequired ||
-            form.fields.apiKey.isNotBlank() ||
-            form.hasStoredKey
-    val saveEnabled =
-        !saving && form.error == null && (cleartext == null || form.cleartextConfirmed) && keyOk
+    val saveEnabled = !saving && !discovering && (cleartext == null || form.cleartextConfirmed)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -184,47 +183,77 @@ internal fun ProviderFormDialog(
                     modifier = Modifier.testTag("provider-form-endpoint"),
                 )
                 OutlinedTextField(
+                    value = form.fields.apiKey,
+                    onValueChange = {
+                        onField(form.copy(fields = form.fields.copy(apiKey = it)))
+                    },
+                    label = {
+                        Text(
+                            if (form.hasStoredKey) {
+                                stringResource(R.string.provider_form_api_key_keep)
+                            } else {
+                                stringResource(R.string.provider_key_optional_label)
+                            },
+                        )
+                    },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.testTag("provider-form-key"),
+                )
+                TextButton(onClick = { advanced = !advanced }, modifier = Modifier.testTag("provider-form-advanced")) {
+                    Text(stringResource(R.string.provider_advanced_options))
+                }
+                if (advanced) {
+                    OutlinedTextField(
+                        value = form.fields.headerName,
+                        onValueChange = {
+                            onField(form.copy(fields = form.fields.copy(headerName = it)))
+                        },
+                        label = { Text(stringResource(R.string.provider_form_header_name_label)) },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = form.fields.headerValue,
+                        onValueChange = {
+                            onField(form.copy(fields = form.fields.copy(headerValue = it)))
+                        },
+                        label = { Text(stringResource(R.string.provider_form_header_value_label)) },
+                        singleLine = true,
+                    )
+                }
+                OutlinedTextField(
                     value = form.fields.model,
                     onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
                     label = { Text(stringResource(R.string.provider_form_model_label)) },
                     singleLine = true,
                     modifier = Modifier.testTag("provider-form-model"),
                 )
-                OutlinedTextField(
-                    value = form.fields.headerName,
-                    onValueChange = {
-                        onField(form.copy(fields = form.fields.copy(headerName = it)))
-                    },
-                    label = { Text(stringResource(R.string.provider_form_header_name_label)) },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = form.fields.headerValue,
-                    onValueChange = {
-                        onField(form.copy(fields = form.fields.copy(headerValue = it)))
-                    },
-                    label = { Text(stringResource(R.string.provider_form_header_value_label)) },
-                    singleLine = true,
-                )
-                if (form.template.credentialRequired) {
-                    OutlinedTextField(
-                        value = form.fields.apiKey,
-                        onValueChange = {
-                            onField(form.copy(fields = form.fields.copy(apiKey = it)))
-                        },
-                        label = {
-                            Text(
-                                if (form.hasStoredKey) {
-                                    stringResource(R.string.provider_form_api_key_keep)
-                                } else {
-                                    "API Key"
-                                },
-                            )
-                        },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.testTag("provider-form-key"),
-                    )
+                TextButton(
+                    onClick = onDiscover,
+                    enabled = !discovering && !saving && (cleartext == null || form.cleartextConfirmed),
+                    modifier = Modifier.testTag("provider-discover-models"),
+                ) {
+                    val label =
+                        if (discovering) {
+                            R.string.provider_discovering_models
+                        } else {
+                            R.string.provider_discover_models
+                        }
+                    Text(stringResource(label))
+                }
+                discoveryMessage?.let { Text(stringResource(it)) }
+                discovery.forEach { model ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = model in form.selectedModels,
+                            onCheckedChange = { checked ->
+                                val selected = if (checked) form.selectedModels + model else form.selectedModels - model
+                                onField(form.copy(selectedModels = selected))
+                            },
+                            modifier = Modifier.testTag("provider-model-choice-$model"),
+                        )
+                        Text(model, Modifier.weight(1f))
+                    }
                 }
                 if (cleartext != null) {
                     Text(
@@ -294,13 +323,26 @@ internal fun editingProviderForm(
             name = config.displayName,
             endpoint = config.endpoint.full,
             model = modelOverride ?: config.model,
-            headerName = "",
-            headerValue = "",
+            headerName =
+                config.headers.entries
+                    .firstOrNull()
+                    ?.key
+                    .orEmpty(),
+            headerValue =
+                config.headers.entries
+                    .firstOrNull()
+                    ?.value
+                    .orEmpty(),
             apiKey = "",
         ),
     hasStoredKey = row.hasKey,
     cleartextConfirmed = false,
     error = null,
+    selectedModels = row.selectedModels.toSet(),
+    preservedHeaders =
+        config.headers.entries
+            .drop(1)
+            .associate { it.key to it.value },
 )
 
 /**
@@ -344,17 +386,20 @@ private suspend fun applySave(
     providerService: ProviderService,
 ): SaveResult {
     val headers =
-        if (form.fields.headerName.isNotBlank()) {
-            mapOf(form.fields.headerName.trim() to form.fields.headerValue.trim())
-        } else {
-            emptyMap()
-        }
+        form.preservedHeaders +
+            if (form.fields.headerName.isNotBlank()) {
+                mapOf(form.fields.headerName.trim() to form.fields.headerValue.trim())
+            } else {
+                emptyMap()
+            }
     val outcome =
         ProviderComposer.compose(
-            form.template,
+            form.template.copy(credentialRequired = false, defaultHeaders = emptyMap()),
             form.fields.name.trim(),
             form.fields.endpoint.trim(),
-            form.fields.model.trim(),
+            form.fields.model
+                .trim()
+                .ifEmpty { form.selectedModels.firstOrNull().orEmpty() },
             headers,
         )
     return when (outcome) {
@@ -378,11 +423,22 @@ private suspend fun applySave(
                 }
 
                 else -> {
-                    if (form.providerId == null) {
-                        providerService.create(draft, key, form.cleartextConfirmed)
-                    } else {
-                        providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
-                    }
+                    val models =
+                        if (form.selectedModels.isEmpty()) {
+                            emptyList()
+                        } else {
+                            (listOf(draft.model) + form.selectedModels).distinct()
+                        }
+                    com.helix.app.provider.ProviderSelectedModels
+                        .validate(models)
+                    val id =
+                        if (form.providerId == null) {
+                            providerService.create(draft, key, form.cleartextConfirmed)
+                        } else {
+                            providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
+                            form.providerId
+                        }
+                    providerService.saveSelectedModels(id, models)
                     SaveResult.Saved
                 }
             }

@@ -10,5 +10,6 @@ internal data class ProviderRowActions(
     val onDeclareVision: (enabled: Boolean) -> Unit,
     val onManageAccount: () -> Unit,
     val onDetectCapabilities: () -> Unit = {},
+    val onContext: () -> Unit = {},
     val onUnload: () -> Unit = {},
 )

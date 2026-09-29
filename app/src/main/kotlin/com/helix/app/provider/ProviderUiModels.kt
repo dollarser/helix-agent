@@ -44,6 +44,7 @@ data class ProviderRowUi(
     val provisioning: ProviderProvisioningKind = ProviderProvisioningKind.USER_CONFIGURED,
     val modelMetadata: Map<String, ModelMetadata> = emptyMap(),
     val assetSizeBytes: Long? = null,
+    val selectedModels: List<String> = emptyList(),
 ) {
     val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
 
