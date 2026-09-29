@@ -720,7 +720,9 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         .latestUser(SESSION_ID)!!
                         .id
                 assertTrue(
-                    fixture.service.saveComposerDraft(ChatSubmission(SESSION_ID, 0, "empty-composer", "")),
+                    fixture.service.saveComposerDraft(
+                        ChatSubmission(SESSION_ID, ComposerEditClock.next(0), "empty-composer", ""),
+                    ),
                 )
                 val draft = fixture.service.prepareLatestRevision(SESSION_ID, target).await()!!
                 assertEquals("帮我总结这个附件", draft.text)

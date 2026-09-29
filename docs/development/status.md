@@ -4,6 +4,10 @@
 
 ## Completed
 
+- 2026-09-29 开发期覆盖升级：按所有者要求，Room v1 identity 不兼容时直接删库重建，数据库外文件保留；不增加迁移或恢复 UI。storage JVM、AndroidTest APK、developer APK、spotlessCheck/detekt 通过；PLC110/API35 定向 FreshSchemaDeviceTest 2/2，修复 APK 已覆盖安装并启动。旧会话及配置不保留；兼容库重开不清空。本轮纳入最终收口提交，未推送。
+
+- 合并后 API36 定向回归（2026-09-29）：修复 Activity 输入快照的跨会话恢复边界；双渠道功能76/76、大字体24/24、实际进程恢复均通过，本机 SGLang 兼容代理的三协议9/9通过。见[设备证据](../evidence/development/merged-api36-regression-2026-09-29.md)。本轮修复纳入最终收口提交；不替代全量设备、原生服务端接口或真实视觉识别验收。
+
 - 2026-09-29 分支收敛：主目录视觉/输入恢复工作与 Provider 设置/导航改动已提交并合并至本地 main，发布分支保留；重复开发工作树已归档。联合验证及 benchmark 待整合边界见[分支收敛记录](../evidence/development/branch-convergence-2026-09-29.md)。本轮未推送。
 
 - HXA-225 自主图片读取与工具视觉回填已于 2026-09-29 完成主机范围交付：`view_image`、浏览器视觉产物、三协议编码、精确披露、逐请求来源、窗口/压缩和有界字节复核均已接入；完整 host gate、双渠道 Debug/Release APK 与 AndroidTest APK 编译通过。见[完成记录](../completion-records/HXA-225.md)与[使用说明](../references/agent-image-reading.md)。没有新增表或清库，设备/真实模型/账号 `not requested`，新 APK 未安装或发布；不声称模型实际识别质量已验证。

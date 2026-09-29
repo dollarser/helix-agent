@@ -22,6 +22,36 @@ class FreshSchemaDeviceTest {
     }
 
     @Test
+    fun incompatibleDevelopmentSchemaIsRebuiltButFilesAndCompatibleReopensSurvive() {
+        val file = java.io.File(context.filesDir, "baseline-retained-file.txt")
+        file.writeText("retained")
+        try {
+            withDevelopmentDatabase { room ->
+                room.openHelper.writableDatabase.execSQL("CREATE TABLE old_baseline_marker (value TEXT)")
+                room.openHelper.writableDatabase.execSQL(
+                    "UPDATE room_master_table SET identity_hash = 'old-development-baseline' WHERE id = 42",
+                )
+            }
+            withDevelopmentDatabase { room ->
+                val db = room.openHelper.writableDatabase
+                db.query("SELECT name FROM sqlite_master WHERE name = 'old_baseline_marker'").use {
+                    assertFalse(it.moveToFirst())
+                }
+                db.execSQL("CREATE TABLE compatible_reopen_marker (value TEXT)")
+            }
+            withDevelopmentDatabase { room ->
+                room.openHelper.writableDatabase
+                    .query(
+                        "SELECT name FROM sqlite_master WHERE name = 'compatible_reopen_marker'",
+                    ).use { assertTrue(it.moveToFirst()) }
+            }
+            assertEquals("retained", file.readText())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun freshDatabaseUsesVersionOneWithForeignKeysAndCurrentTurnIndexes() {
         context.deleteDatabase(DATABASE)
         val room = Room.databaseBuilder(context, HelixDatabase::class.java, DATABASE).build()
@@ -60,6 +90,15 @@ class FreshSchemaDeviceTest {
             }
             assertEquals(true, turnIndexes["index_turns_clientRequestId"])
             assertEquals(false, turnIndexes["index_turns_recoveryFromTurnId"])
+        } finally {
+            room.close()
+        }
+    }
+
+    private fun withDevelopmentDatabase(block: (HelixDatabase) -> Unit) {
+        val room = HelixStorage.openDevelopmentDatabase(context, DATABASE)
+        try {
+            block(room)
         } finally {
             room.close()
         }

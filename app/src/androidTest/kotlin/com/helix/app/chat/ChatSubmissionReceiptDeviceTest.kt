@@ -110,6 +110,7 @@ class ChatSubmissionReceiptDeviceTest {
             }
             compose.onNodeWithTag("chat-input").performTextInput("Keep this new draft")
             compose.onNodeWithTag("chat-input").assertTextEquals("Keep this new draft")
+            assertEquals("Input must remain bound to the selected session", session, chat.screen.value.openSessionId)
             compose.onNodeWithTag("chat-new-session").performClick()
             compose.waitUntil(10_000) {
                 chat.screen.value.isDraft && chat.screen.value.openSessionId != session

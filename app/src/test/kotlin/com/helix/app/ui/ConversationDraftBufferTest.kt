@@ -16,6 +16,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationDraftBufferTest {
+    @Test fun activitySnapshotCannotRestoreAnotherConversationsInput() {
+        val original = ConversationDraftBuffer("previous")
+        original.edit("private previous input")
+        val scope =
+            object : SaverScope {
+                override fun canBeSaved(value: Any): Boolean = true
+            }
+        val state = with(ConversationDraftBuffer.saverFor("previous")) { requireNotNull(scope.save(original)) }
+        assertEquals(
+            "private previous input",
+            ConversationDraftBuffer
+                .saverFor("previous")
+                .restore(state)
+                ?.value
+                ?.text,
+        )
+        assertNull(ConversationDraftBuffer.saverFor("current").restore(state))
+    }
+
     @Test fun currentTypingWinsWhenInitializationFinishesWithAnotherCachedValue() =
         runBlocking {
             val buffer = ConversationDraftBuffer("session")

@@ -217,7 +217,7 @@ UI 可优先展示 intent，但 status、result、approval、UNKNOWN/NEEDS_REVIE
 - 缓存采用应用私有、不参与备份的 `composer-input` 文件目录；会话 ID 哈希命名，单会话一个当前 JSON，经串行写入和同目录原子替换。文本、附件引用、修订目标和输入交付选择只保存当前快照，不进入模型历史、不保留缓存版本链。缓存写失败保留进程内输入并允许正常提交。
 - 点击发送直接冻结当前文本/附件/请求身份，经现有附件、出网和 Turn/Queue admission。正式输入、消息、接收回执及审批仍由 Room 持久化；缓存不能替代重复提交核查。收到 Accepted/Enqueued 后清除该请求及更旧的缓存，保留更新输入。未接收、等待确认、取消确认不清输入。
 - 非空新会话保留最小会话元数据，便于返回并找到对应输入；这不是将输入正文写回草稿表。清空输入、接受消息或显式删除会话后清理其当前文件。文件缓存仍属于磁盘写入，但不属于需要长期保存的业务记录。
-- 所有者于 2026-09-29 追加要求清理废弃表：当前开发期 Room v1 baseline 移除 `composer_drafts`、对应 DAO/Room Entity 与注册入口，不再保留结构兼容。文件输入使用独立 `ComposerInputSnapshot` / `ComposerInputCache`，不是 Room aggregate；不引入旧库/文件双写或自动破坏性迁移。旧开发库须按明确的目标与授权重建，不能把更新源码说成设备数据已经清空。正式消息、队列、回执和仍在使用的 CUSTOM 权限编辑表保留。
+- 所有者于 2026-09-29 追加要求清理废弃表：当前开发期 Room v1 baseline 移除 `composer_drafts`、对应 DAO/Room Entity 与注册入口，不再保留结构兼容。文件输入使用独立 `ComposerInputSnapshot` / `ComposerInputCache`，不是 Room aggregate；不引入旧库/文件双写。所有者随后明确授权开发期覆盖升级遇到 schema identity 不兼容时直接删库重建，文件保留；不把更新源码说成设备数据已经清空。正式消息、队列、回执和仍在使用的 CUSTOM 权限编辑表保留。
 
 ## Decision history
 

@@ -10,7 +10,7 @@ Helix 是一款能在 Android 手机上动手做事的 AI 助手。告诉它你�
 
 [下载 v0.0.3](https://github.com/dollarser/helix-agent/releases/tag/v0.0.3) · [反馈问题](https://github.com/dollarser/helix-agent/issues) · [项目文档](docs/README.md)
 
-> 当前为开发预览版，适合体验与测试。APK 使用 debug 签名，正式签名和数据升级兼容性尚未完成；重要文件请保留备份。
+> 当前为开发预览版，适合体验与测试。APK 使用 debug 签名，正式签名和数据升级兼容性尚未完成；重要文件请保留备份。开发期覆盖升级若数据库结构不兼容，会自动清空会话、配置及数据库记录，保留文件。
 
 ## 把这些小麻烦，变成一句话
 

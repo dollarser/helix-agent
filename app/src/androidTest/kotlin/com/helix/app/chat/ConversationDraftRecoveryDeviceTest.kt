@@ -47,7 +47,10 @@ class ConversationDraftRecoveryDeviceTest {
                 assertTrue(storage.composerDrafts.save(second))
                 assertFalse(storage.composerDrafts.save(first))
                 assertFalse(storage.composerDrafts.clear("a", 0, "first"))
+                val other = first.copy(sessionId = "b", revision = 1, clientRequestId = "other")
+                assertTrue(storage.composerDrafts.save(other))
                 assertFalse(storage.composerDrafts.clear("b", 1, "second"))
+                assertEquals(other, storage.composerDrafts.get("b"))
                 assertEquals(second, storage.composerDrafts.get("a"))
                 assertTrue(storage.composerDrafts.clear("a", 1, "second"))
             }

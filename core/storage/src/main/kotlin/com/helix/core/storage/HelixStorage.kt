@@ -306,10 +306,7 @@ class HelixStorage internal constructor(
 
     companion object {
         fun create(context: Context): HelixStorage {
-            val database =
-                Room
-                    .databaseBuilder(context, HelixDatabase::class.java, HelixDatabase.DATABASE_NAME)
-                    .build()
+            val database = openDevelopmentDatabase(context, HelixDatabase.DATABASE_NAME)
             val contentStore = FileContentStore(File(context.filesDir, CONTENT_DIR))
             return HelixStorage(
                 database,
@@ -329,10 +326,7 @@ class HelixStorage internal constructor(
             databaseName: String,
             contentDir: File,
         ): HelixStorage {
-            val database =
-                Room
-                    .databaseBuilder(context, HelixDatabase::class.java, databaseName)
-                    .build()
+            val database = openDevelopmentDatabase(context, databaseName)
             return HelixStorage(
                 database,
                 FileContentStore(contentDir),
@@ -342,6 +336,33 @@ class HelixStorage internal constructor(
         }
 
         private const val CONTENT_DIR = "helix-content"
+
+        /** Development v1 schemas are disposable; files outside the database are retained. */
+        internal fun openDevelopmentDatabase(
+            context: Context,
+            name: String,
+        ): HelixDatabase {
+            fun build() = Room.databaseBuilder(context, HelixDatabase::class.java, name).build()
+            val database = build()
+            try {
+                database.openHelper.writableDatabase
+                return database
+            } catch (failure: IllegalStateException) {
+                database.close()
+                // Same-version schema changes do not invoke Room's destructive migration fallback.
+                if (failure.message?.startsWith("Room cannot verify the data integrity.") != true) throw failure
+                check(context.deleteDatabase(name)) { "Unable to remove incompatible development database" }
+            }
+            return build().also { replacement ->
+                var opened = false
+                try {
+                    replacement.openHelper.writableDatabase
+                    opened = true
+                } finally {
+                    if (!opened) replacement.close()
+                }
+            }
+        }
     }
 }
 

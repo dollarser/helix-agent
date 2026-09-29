@@ -2,16 +2,20 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.Espresso
 import com.helix.app.MainActivity
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 class HierarchicalNavigationDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Before fun prepareShell() = compose.resetDeterministicUiState()
 
     @Test fun providerBackReturnsThroughCategoryAndPreviousDestination() {
         compose.navigateTo("settings")
@@ -27,9 +31,14 @@ class HierarchicalNavigationDeviceTest {
     @Test fun headerBackHonorsInnerPermissionPageBeforePoppingRoute() {
         compose.navigateTo("settings/permissions")
         compose.onNodeWithTag("settings-system-permissions").performScrollTo().performClick()
-        compose.onNodeWithTag("permission-files").performScrollTo().performClick()
-        compose.onNodeWithTag("navigate-back").performClick()
-        compose.onNodeWithTag("permission-files").performScrollTo().assertIsDisplayed()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("screen-permissions").fetchSemanticsNodes().isNotEmpty() }
+        if (compose.activity.packageName.endsWith(".developer")) {
+            compose.onNodeWithTag("permission-files").performScrollTo().performClick()
+            compose.onNodeWithTag("navigate-back").performClick()
+            compose.onNodeWithTag("permission-files").performScrollTo().assertIsDisplayed()
+        } else {
+            compose.onNodeWithTag("permission-files").assertDoesNotExist()
+        }
         compose.onNodeWithTag("navigate-back").performClick()
         compose.onNodeWithTag("screen-settings-permissions").assertIsDisplayed()
     }

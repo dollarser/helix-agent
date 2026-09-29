@@ -106,7 +106,7 @@ fun ChatScreen(
         SkillSessionPanel(skills, sessionId, onExtensions) { skillsOpen = false }
     }
     val buffer =
-        rememberSaveable(sessionId, saver = ConversationDraftBuffer.Saver) {
+        rememberSaveable(sessionId, saver = ConversationDraftBuffer.saverFor(sessionId ?: "closed-composer")) {
             ConversationDraftBuffer(sessionId ?: "closed-composer")
         }
     if (expertOpen && sessionId != null) {

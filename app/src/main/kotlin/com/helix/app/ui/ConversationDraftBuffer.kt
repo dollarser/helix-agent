@@ -222,6 +222,13 @@ internal class ConversationDraftBuffer(
             value.referenceKind == request.referenceKind
 
     companion object {
+        /** rememberSaveable inputs do not validate a restored Activity snapshot's session. */
+        fun saverFor(sessionId: String) =
+            androidx.compose.runtime.saveable.Saver<ConversationDraftBuffer, Any>(
+                save = { buffer -> with(Saver) { save(buffer) } },
+                restore = { state -> Saver.restore(state)?.takeIf { it.sessionId == sessionId } },
+            )
+
         val Saver =
             listSaver<ConversationDraftBuffer, String>(
                 save = { listOf(encode(it.value), encode(it.saved), encode(it.submitted), it.edited.toString()) },
