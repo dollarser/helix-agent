@@ -42,6 +42,10 @@ class IaAuthorityDeviceTest {
 
         compose.navigateTo("models")
         compose.onNodeWithTag("screen-models").assertIsDisplayed()
+        compose.onNodeWithTag("provider-group-ON_DEVICE_ASSET").assertIsDisplayed()
+        compose.onNodeWithTag("provider-group-MANAGED_ACCOUNT").assertIsDisplayed()
+        compose.onNodeWithTag("provider-add").assertDoesNotExist()
+        compose.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         compose.onNodeWithTag("provider-add").performScrollTo().assertIsDisplayed()
 
         compose.navigateTo("extensions")

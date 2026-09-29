@@ -263,6 +263,7 @@ class ProviderModelDiscoveryUiTest {
         key: String? = null,
     ) {
         composeRule.navigateTo("models")
+        composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-$template").performClick()

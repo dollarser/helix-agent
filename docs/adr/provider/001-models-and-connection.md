@@ -11,6 +11,11 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+- Provider 管理首页固定为本地模型、API / 自建服务（填写 endpoint）、订阅账号三个入口；进入分类才显示 Provider 子列表及该类新增/管理入口。分类不改变底层正交维度。
+- 网络配置表单顺序为名称、endpoint、API Key、高级选项（自定义 header 名称和值）、模型 ID。API Key 始终显示且可留空，服务端认证失败由连接测试报告；编辑时留空保留已有密钥，不因模板非必填而删除。高级 header 仍受原有白名单约束，不能代替凭据存储。
+- 保存前可显式在线发现模型并多选，也可手输 ID。发现使用当前表单和临时凭据，不能保存临时 Provider 或连接成功状态；明文 endpoint 仍需先确认，过期响应不得覆盖修改后的表单。用户选择持久保存，但不充当能力检测证据。
+- 订阅 Provider 的操作统一为管理订阅登录、上下文窗口、连接测试、能力检测；保留各适配器的可用性与真实账号边界。
+
 - 用户在没有活动轮次或待确认发送时选择会话 Provider/model；草稿只改内存，首次发送才持久化。不修改其他会话或 Provider 默认值，不自动发送。历史消息保留，每轮保存实际目标快照，模型切换重置推理到默认。
 - **Provider 分类采用正交维度，不使用一个 `API | SUBSCRIPTION | LOCAL` 枚举同时表达所有事实。** 产品 UI 可以提供 `API / Self-hosted`、`Subscription / Managed account`、`On-device` 三组，但底层至少分别记录 provisioning/ownership、transport、residence 与 auth source。
 - provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。
@@ -53,6 +58,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision history
 
+- **2026-09-29**：所有者明确上述三级来源入口、可选 Key、配置字段顺序、模型发现多选及订阅操作一致性要求。
+
 - **2026-09-16**：接受会话级 Provider/model 选择、真实能力探测、认证与连接验证边界。
 - **2026-09-25**：明确设备内本地模型是一等 `ModelProvider`，允许直接驱动完整 Agent loop；模型运行位置不再被用作工具调用/Agent 能力限制，能力由 probe/eval/设备资源决定。
 - **2026-09-26**：将 Provider 分类收敛为 provisioning × transport × residence × auth 四个正交维度；产品 UI 仍可呈现 API/Self-hosted、Subscription、On-device 三组。明确 Ollama/SGLang/vLLM 始终属于 endpoint-based Network transport，loopback 不等于 `OnDeviceLocal`；managed subscription 也仍是 Network transport。
@@ -69,6 +76,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
 
 ## References
+
+- [Provider 设置实现与验证](../../evidence/development/provider-settings-2026-09-29.md)
 
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)

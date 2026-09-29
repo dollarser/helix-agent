@@ -4,7 +4,14 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -212,6 +219,15 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val direction =
+        if (androidx.compose.ui.platform.LocalLayoutDirection.current ==
+            androidx.compose.ui.unit.LayoutDirection.Rtl
+        ) {
+            -1
+        } else {
+            1
+        }
     com.helix.app.goal
         .GoalReminderNavigation(container.chatService, navController)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -278,7 +294,6 @@ internal fun HelixApp(container: AppContainer) {
                         } else {
                             navController.navigate(destination.route) {
                                 launchSingleTop = true
-                                popUpTo(repository.initialDestination.route)
                             }
                             scope.launch { drawerState.close() }
                         }
@@ -292,7 +307,7 @@ internal fun HelixApp(container: AppContainer) {
                         currentDestination = currentDestination,
                         secondaryTitleRes = currentSecondaryTitle,
                         onNavigation = { scope.launch { drawerState.open() } },
-                        onBack = { navController.popBackStack() },
+                        onBack = { backDispatcher?.onBackPressed() },
                     )
                 },
             ) { padding ->
@@ -300,6 +315,22 @@ internal fun HelixApp(container: AppContainer) {
                     navController = navController,
                     startDestination = repository.initialDestination.route,
                     modifier = Modifier.padding(padding),
+                    enterTransition = { fadeIn(tween(180)) + slideInHorizontally(tween(180)) { direction * it / 12 } },
+                    exitTransition = {
+                        fadeOut(
+                            tween(140),
+                        ) + slideOutHorizontally(tween(180)) { -direction * it / 12 }
+                    },
+                    popEnterTransition = {
+                        fadeIn(
+                            tween(180),
+                        ) + slideInHorizontally(tween(180)) { -direction * it / 12 }
+                    },
+                    popExitTransition = {
+                        fadeOut(
+                            tween(140),
+                        ) + slideOutHorizontally(tween(180)) { direction * it / 12 }
+                    },
                 ) {
                     repository.destinations.forEach { destination ->
                         composable(destination.route) {
@@ -443,6 +474,11 @@ internal fun HelixApp(container: AppContainer) {
                 }
             }
         }
+    }
+    // Register when the overlay opens: NavHost page handlers may be composed later than
+    // the shell. A permanently registered handler cannot claim priority just by enabling it.
+    if (drawerState.currentValue != DrawerValue.Closed || drawerState.targetValue != DrawerValue.Closed) {
+        BackHandler { scope.launch { drawerState.close() } }
     }
 }
 

@@ -29,11 +29,27 @@ import com.helix.app.provider.ProviderService
 import kotlinx.coroutines.launch
 
 @Composable
-// Failed local discovery stays repairable in this dialog, using a closed UI error.
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "SwallowedException")
+@Suppress("FunctionName")
 internal fun ProviderContextDialog(
     row: ProviderRowUi,
     service: ProviderService,
+    onDismiss: () -> Unit,
+) = ProviderContextEditor(
+    row,
+    load = { service.contextSettings(row.id, it) },
+    discover = { service.discoverContextWindow(row.id, it) },
+    save = { model, settings -> service.saveContextSettings(row.id, model, settings) },
+    onDismiss = onDismiss,
+)
+
+@Composable
+// Failed storage/discovery stays repairable, using closed UI errors.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "SwallowedException", "TooGenericExceptionCaught")
+internal fun ProviderContextEditor(
+    row: ProviderRowUi,
+    load: suspend (String) -> ProviderContextSettings,
+    discover: suspend (String) -> ProviderContextSettings,
+    save: suspend (String, ProviderContextSettings) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var model by remember(row.id) { mutableStateOf(row.model) }
@@ -42,7 +58,11 @@ internal fun ProviderContextDialog(
     var window by remember(row.id, model) { mutableStateOf(ProviderContextSettings.DEFAULT_WINDOW.toString()) }
     var ratio by remember(row.id, model) { mutableStateOf("80") }
     var automaticWindow by remember(row.id, model) { mutableStateOf(true) }
-    var loading by remember { mutableStateOf(true) }
+    var loading by remember(row.id, model) { mutableStateOf(true) }
+    var loaded by remember(row.id, model) { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var saveFailed by remember(row.id, model) { mutableStateOf(false) }
+    var retry by remember { mutableStateOf(0) }
     var discoveryFailed by remember { mutableStateOf(false) }
     val maximumWindow =
         if (row.provisioning == com.helix.core.model.ProviderProvisioningKind.ON_DEVICE_ASSET) {
@@ -51,20 +71,24 @@ internal fun ProviderContextDialog(
             ProviderContextSettings.MAX_WINDOW
         }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(row.id, model) {
+    LaunchedEffect(row.id, model, retry) {
         loading = true
         discoveryFailed = false
-        val stored = service.contextSettings(row.id, model)
-        settings = stored
-        automaticWindow = stored.manualWindow == null
-        window = (stored.manualWindow ?: stored.window).toString()
-        ratio = stored.triggerPercent.toString()
         try {
-            settings = service.discoverContextWindow(row.id, model)
+            if (!loaded) {
+                val stored = load(model)
+                settings = stored
+                automaticWindow = stored.manualWindow == null
+                window = (stored.manualWindow ?: stored.window).toString()
+                ratio = stored.triggerPercent.toString()
+                loaded = true
+            }
+            settings = settings.copy(serverWindow = discover(model).serverWindow)
             if (automaticWindow) window = settings.window.toString()
         } catch (cancel: kotlinx.coroutines.CancellationException) {
             throw cancel
-        } catch (failure: com.helix.provider.api.local.LocalRuntimeException) {
+        } catch (failure: Exception) {
+            // Keep server bodies and credentials out of presentation errors.
             discoveryFailed = true
         } finally {
             loading = false
@@ -78,7 +102,11 @@ internal fun ProviderContextDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Box {
-                    TextButton({ modelMenu = true }, Modifier.testTag("provider-context-model")) { Text("$model ▾") }
+                    TextButton(
+                        { modelMenu = true },
+                        Modifier.testTag("provider-context-model"),
+                        enabled = !saving,
+                    ) { Text("$model ▾") }
                     DropdownMenu(modelMenu, { modelMenu = false }) {
                         (listOf(row.model) + row.backendModels.orEmpty()).distinct().forEach { candidate ->
                             DropdownMenuItem(
@@ -105,7 +133,7 @@ internal fun ProviderContextDialog(
                     Checkbox(
                         automaticWindow,
                         { automaticWindow = it },
-                        enabled = !loading,
+                        enabled = !loading && loaded && !saving,
                         modifier = Modifier.testTag("provider-auto-window"),
                     )
                     Text(stringResource(R.string.context_auto_window))
@@ -113,7 +141,7 @@ internal fun ProviderContextDialog(
                 OutlinedTextField(
                     window,
                     { window = it },
-                    enabled = !automaticWindow && !loading,
+                    enabled = !automaticWindow && !loading && loaded && !saving,
                     label = { Text(stringResource(R.string.context_window_tokens)) },
                     modifier = Modifier.testTag("provider-context-window"),
                     singleLine = true,
@@ -122,7 +150,7 @@ internal fun ProviderContextDialog(
                     Checkbox(
                         settings.autoCompact,
                         { settings = settings.copy(autoCompact = it) },
-                        enabled = !loading,
+                        enabled = !loading && loaded && !saving,
                         modifier = Modifier.testTag("provider-auto-compact"),
                     )
                     Text(stringResource(R.string.context_auto_compact))
@@ -130,38 +158,66 @@ internal fun ProviderContextDialog(
                 OutlinedTextField(
                     ratio,
                     { ratio = it },
-                    enabled = !loading,
+                    enabled = !loading && loaded && !saving,
                     label = { Text(stringResource(R.string.context_trigger_percent)) },
                     modifier = Modifier.testTag("provider-context-threshold"),
                     singleLine = true,
                 )
                 Text(stringResource(R.string.context_settings_help))
-                if (discoveryFailed) Text(stringResource(R.string.conn_error_local_runtime))
+                if (discoveryFailed) {
+                    Text(
+                        stringResource(R.string.provider_context_load_failed),
+                        Modifier.testTag("provider-context-load-error"),
+                    )
+                    TextButton(
+                        { retry++ },
+                        modifier = Modifier.testTag("provider-context-retry"),
+                        enabled = !loading && !saving,
+                    ) {
+                        Text(stringResource(R.string.chat_retry))
+                    }
+                }
+                if (saveFailed) {
+                    Text(
+                        stringResource(R.string.provider_save_failed),
+                        Modifier.testTag("provider-context-save-error"),
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 {
-                    scope.launch {
-                        service.saveContextSettings(
-                            row.id,
-                            model,
-                            settings.copy(
-                                manualWindow = if (automaticWindow) null else parsedWindow,
-                                triggerPercent = requireNotNull(parsedRatio),
-                            ),
+                    if (saving) return@TextButton
+                    val targetModel = model
+                    val targetSettings =
+                        settings.copy(
+                            manualWindow = if (automaticWindow) null else parsedWindow,
+                            triggerPercent = requireNotNull(parsedRatio),
                         )
-                        onDismiss()
+                    saving = true
+                    saveFailed = false
+                    scope.launch {
+                        try {
+                            save(targetModel, targetSettings)
+                            onDismiss()
+                        } catch (cancel: kotlinx.coroutines.CancellationException) {
+                            throw cancel
+                        } catch (failure: Exception) {
+                            saveFailed = true
+                        } finally {
+                            saving = false
+                        }
                     }
                 },
                 enabled =
-                    !loading && parsedRatio in 10..95 &&
+                    !loading && loaded && !saving && parsedRatio in 10..95 &&
                         (
                             automaticWindow ||
                                 parsedWindow in ProviderContextSettings.MIN_WINDOW..maximumWindow
                         ),
                 modifier = Modifier.testTag("provider-context-save"),
-            ) { Text(stringResource(R.string.context_save)) }
+            ) { Text(stringResource(if (saving) R.string.provider_save_saving else R.string.context_save)) }
         },
         dismissButton = {
             TextButton(onDismiss, Modifier.testTag("provider-context-close")) {

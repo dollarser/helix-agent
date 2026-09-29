@@ -69,6 +69,32 @@ class ProviderService(
     val localModels: com.helix.app.localmodel.LocalModelService? = null,
 ) {
     private val _contextRevision = MutableStateFlow(0L)
+
+    suspend fun discoverModels(
+        draft: ProviderDraft,
+        apiKey: String?,
+        existingId: String?,
+        confirmed: Boolean,
+    ): com.helix.provider.api.ModelCatalogResult =
+        withContext(Dispatchers.IO) {
+            val existing = existingId?.let { storedConfig(it) }
+            val key =
+                apiKey?.takeIf { it.isNotBlank() } ?: existing
+                    ?.takeIf { it.endpoint == draft.endpoint }
+                    ?.auth
+                    ?.let { it as? com.helix.core.model.ProviderAuth.Secret }
+                    ?.let { storage.secrets.get(it.alias) }
+            discoverDraftModels(factory, draft, key, confirmed)
+        }
+
+    suspend fun saveSelectedModels(
+        id: String,
+        models: List<String>,
+    ) = withContext(Dispatchers.IO) {
+        testStatus.selectedModels.write(id, models)
+        refreshNow()
+    }
+
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
 
     suspend fun contextSettings(
@@ -185,6 +211,10 @@ class ProviderService(
     /** One persisted provider as its UI row (a corrupt row throws IAE, fail-closed). */
     private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi =
         providerRowUi(entity, statusFor(entity.id)).copy(
+            selectedModels = testStatus.selectedModels.read(entity.id),
+            backendModels =
+                testStatus.selectedModels.read(entity.id).takeIf { it.isNotEmpty() }
+                    ?: (statusFor(entity.id) as? ConnectionTestStatus.Passed)?.modelIds,
             modelMetadata = testStatus.modelMetadata.read(entity.id, entity.transportIdentity),
             assetSizeBytes = localModels?.assetSize(entity.model),
         )
@@ -263,20 +293,14 @@ class ProviderService(
             require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
             val alias =
                 when {
-                    !draft.credentialRequired -> {
-                        if (existing.secretAlias != null && existing.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
-                            storage.secrets.delete(SecretAlias(requireNotNull(existing.secretAlias)))
-                        }
-                        null
-                    }
-
                     apiKey.isNullOrBlank() -> {
                         existing.secretAlias
                     }
 
                     // keep the stored key
                     else -> {
-                        val updatedAlias = existing.secretAlias ?: idGenerator()
+                        val updatedAlias =
+                            existing.secretAlias?.takeUnless { it == ProviderFactory.NO_KEY_ALIAS } ?: idGenerator()
                         storage.secrets.put(SecretAlias(updatedAlias), apiKey)
                         updatedAlias
                     }
@@ -313,6 +337,7 @@ class ProviderService(
             }
             if (entity.provisioningKind == "ON_DEVICE_ASSET") localModels?.delete(entity.model)
             storage.providerConfigs.delete(providerId)
+            testStatus.selectedModels.write(providerId, emptyList())
             testStatus.clear(providerId)
             pruneBindingsToPersistedEndpoints()
             refreshNow()

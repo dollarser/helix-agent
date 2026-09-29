@@ -47,6 +47,7 @@ class ProviderFlowTest {
     fun untestedAndFailedProvidersAreNotChatSelectable() {
         // --- create from the Ollama template (keyless), re-point to https ---
         composeRule.navigateTo("models")
+        composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-picker").assertIsDisplayed()

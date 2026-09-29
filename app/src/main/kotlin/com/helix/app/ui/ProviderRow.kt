@@ -25,7 +25,7 @@ import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderRowUi
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Declarative variant-specific controls.
 internal fun ProviderRow(
     row: ProviderRowUi,
     testing: Boolean,
@@ -101,13 +101,27 @@ internal fun ProviderRow(
                 )
             }
         }
+        if (row.managedExternally) {
+            OutlinedButton(
+                onClick = actions.onManageAccount,
+                modifier = Modifier.fillMaxWidth().testTag("provider-manage-account"),
+            ) {
+                Text(stringResource(R.string.provider_subscription_manage_account))
+            }
+        }
+        OutlinedButton(
+            onClick = actions.onContext,
+            modifier = Modifier.fillMaxWidth().testTag("provider-context-${row.id}"),
+        ) {
+            Text(stringResource(R.string.chat_context_title))
+        }
         // HXA-059: the backend model list + the capability probe result (see the section helper).
         ProviderModelsAndCapability(row = row, actions = actions, capabilityOutcome = capabilityOutcome)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = actions.onTest,
                 enabled = !testing,
-                modifier = Modifier.testTag("provider-test"),
+                modifier = Modifier.fillMaxWidth().testTag("provider-test"),
             ) {
                 Text(
                     stringResource(
@@ -122,7 +136,7 @@ internal fun ProviderRow(
             OutlinedButton(
                 onClick = actions.onDetectCapabilities,
                 enabled = !testing && row.chatSelectable,
-                modifier = Modifier.testTag("provider-capabilities"),
+                modifier = Modifier.fillMaxWidth().testTag("provider-capabilities"),
             ) {
                 Text(
                     stringResource(
@@ -161,14 +175,7 @@ internal fun ProviderRow(
                 ) {
                     Text(stringResource(R.string.provider_delete))
                 }
-            } else if (row.managedExternally) {
-                TextButton(
-                    onClick = actions.onManageAccount,
-                    modifier = Modifier.testTag("provider-manage-account"),
-                ) {
-                    Text(stringResource(R.string.provider_subscription_manage_account))
-                }
-            } else {
+            } else if (!row.managedExternally) {
                 TextButton(onClick = actions.onUnload) { Text(stringResource(R.string.local_model_unload)) }
                 TextButton(onClick = actions.onDelete, modifier = Modifier.testTag("provider-delete")) {
                     Text(stringResource(R.string.provider_delete))
