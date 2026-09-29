@@ -52,12 +52,10 @@ internal fun MessageRevisionDialog(
             text = loaded.text
         }
     }
-    LaunchedEffect(text) {
-        val current = draft ?: return@LaunchedEffect
-        if (current.text == text) return@LaunchedEffect
+    LaunchedEffect(draft) {
+        val snapshot = draft ?: return@LaunchedEffect
         delay(250)
-        val saved = service.saveRevisionText(current, text).await()
-        if (saved == null) error = R.string.message_revision_save_failed else draft = saved
+        service.saveComposerDraftAsync(snapshot).await()
     }
     LaunchedEffect(draft, screen.pendingDisclosure, screen.messages, screen.activeTurn?.id) {
         val current = draft ?: return@LaunchedEffect
@@ -69,13 +67,8 @@ internal fun MessageRevisionDialog(
     if (screen.pendingDisclosure != null) return
     AlertDialog(
         onDismissRequest = {
-            scope.launch {
-                if (service.saveRevisionText(current, text).await() != null) {
-                    onClose()
-                } else {
-                    error = R.string.message_revision_save_failed
-                }
-            }
+            service.saveComposerDraftAsync(service.revisionSubmission(current, text))
+            onClose()
         },
         title = { Text(stringResource(R.string.message_revision_title)) },
         text = {
@@ -85,21 +78,11 @@ internal fun MessageRevisionDialog(
                     value = text,
                     onValueChange = {
                         text = it
+                        draft = service.revisionSubmission(current, it)
                         error = null
                     },
                     enabled = !sending,
                     modifier = Modifier.testTag("message-revision-input"),
-                )
-                Text(
-                    stringResource(
-                        if (text ==
-                            current.text
-                        ) {
-                            R.string.message_revision_saved
-                        } else {
-                            R.string.message_revision_saving
-                        },
-                    ),
                 )
                 if (busy) {
                     Text(stringResource(R.string.message_revision_busy))
@@ -113,16 +96,13 @@ internal fun MessageRevisionDialog(
         },
         confirmButton = {
             TextButton(enabled = !sending && !busy, modifier = Modifier.testTag("message-revision-send"), onClick = {
+                val snapshot = service.revisionSubmission(current, text)
+                draft = snapshot
                 sending = true
                 scope.launch {
-                    val saved = service.saveRevisionText(current, text).await()
-                    if (saved == null) {
-                        error = R.string.message_revision_save_failed
-                    } else {
-                        draft = saved
-                        when (service.sendSubmission(saved).await().outcome) {
+                    try {
+                        when (service.sendSubmission(snapshot).await().outcome) {
                             is ChatSubmissionOutcome.Accepted -> {
-                                service.acceptedRevision(saved)
                                 onClose()
                             }
 
@@ -134,16 +114,16 @@ internal fun MessageRevisionDialog(
                                 error = R.string.message_revision_failed
                             }
                         }
+                    } finally {
+                        sending = false
                     }
-                    sending = false
                 }
             }) { Text(stringResource(R.string.message_revision_send)) }
         },
         dismissButton = {
             TextButton(enabled = !sending, onClick = {
                 scope.launch {
-                    val latest = service.loadComposerDraft(sessionId)
-                    if (latest?.revisedMessageId == messageId) service.discardRevision(latest).await()
+                    service.discardRevision(current).await()
                     onClose()
                 }
             }) { Text(stringResource(R.string.message_revision_discard)) }

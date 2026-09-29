@@ -14,9 +14,7 @@
 
 - accepted [ADR-AGENT-013](013-markdown-memory.md)：Markdown-native Memory、Global 首版与显式 Project identity 边界；对应 HXA-230。
 
-## 待接受的开发提案
-
-- proposed [ADR-AGENT-011](011-tool-multimodal-vision-feedback.md)：工具产出多模态视觉回流与生命周期管理；对应 HXA-225。
+- accepted [ADR-AGENT-011](011-tool-multimodal-vision-feedback.md)：Agent 自主图片读取、工具视觉回填与数据披露；所有者于 2026-09-29 接受，主机交付及设备/模型边界见 [HXA-225](../../completion-records/HXA-225.md)。
 
 历史独立编号 008/009/010/012 已按功能边界收敛到 ADR-AGENT-001/005；决策变化见各 ADR 的 `Decision history`，旧文件不再作为当前入口。
 

@@ -27,7 +27,8 @@ object BrowserScreenshotTool {
             description =
                 "Capture the current page of a browser tab as a PNG and save it to the Workspace. " +
                     "Returns the model-safe Workspace reference plus the file size and SHA-256 (never a " +
-                    "raw filesystem path).",
+                    "raw filesystem path). Pixels are also provided to a vision model " +
+                    "after validation and data disclosure.",
             inputSchema =
                 objectSchema(
                     properties =
@@ -60,7 +61,10 @@ object BrowserScreenshotTool {
             origin = ToolOrigin.BuiltInOrigin,
         )
 
-    fun executor(bridge: BrowserToolBridge): ToolExecutor =
+    fun executor(
+        bridge: BrowserToolBridge,
+        visualPreparation: com.helix.tools.framework.ToolVisualPreparation? = null,
+    ): ToolExecutor =
         object : ToolExecutor {
             @Suppress("ReturnCount")
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -73,6 +77,14 @@ object BrowserScreenshotTool {
                 val out = bridge.screenshot(tabId)
                 return when (out.status) {
                     ScreenshotStatus.SAVED -> {
+                        var note = out.reason
+                        val visual =
+                            try {
+                                visualPreparation?.prepare(call, out.reference, out.sha256)
+                            } catch (failure: com.helix.tools.framework.VisualPreparationException) {
+                                note = "Screenshot saved; pixels not delivered: ${failure.code}."
+                                null
+                            }
                         ToolExecutorResult.Completed(
                             output =
                                 buildJsonObject {
@@ -80,7 +92,7 @@ object BrowserScreenshotTool {
                                     put("reference", JsonPrimitive(out.reference))
                                     put("sizeBytes", JsonPrimitive(out.sizeBytes))
                                     put("sha256", JsonPrimitive(out.sha256))
-                                    put("reason", JsonPrimitive(bounded(out.reason)))
+                                    put("reason", JsonPrimitive(bounded(note)))
                                 },
                             auditDetail =
                                 buildJsonObject {
@@ -89,6 +101,7 @@ object BrowserScreenshotTool {
                                     put("sizeBytes", JsonPrimitive(out.sizeBytes))
                                     put("sha256", JsonPrimitive(out.sha256))
                                 },
+                            visualArtifact = visual,
                         )
                     }
 
@@ -116,10 +129,11 @@ object BrowserScreenshotTool {
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         bridge: BrowserToolBridge,
+        visualPreparation: com.helix.tools.framework.ToolVisualPreparation? = null,
     ) {
         val d = descriptor()
         registry.register(d)
-        implementations.register(d, executor(bridge))
+        implementations.register(d, executor(bridge, visualPreparation))
     }
 }
 

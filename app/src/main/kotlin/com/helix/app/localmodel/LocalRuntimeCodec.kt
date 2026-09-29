@@ -33,7 +33,7 @@ internal object LocalRuntimeCodec {
                         add(
                             buildJsonObject {
                                 put("role", message.role.name.lowercase(java.util.Locale.ROOT))
-                                put("text", message.text)
+                                put("text", message.modelText)
                                 put("toolName", message.toolName?.value.orEmpty())
                                 put("callId", message.toolCallId?.value.orEmpty())
                                 put(

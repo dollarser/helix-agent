@@ -4,8 +4,6 @@ import com.helix.core.model.ArtifactRef
 import com.helix.core.model.ImageReference
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
-import com.helix.core.workspace.AtomicFileWriter
-import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
 import java.nio.file.Files
 
@@ -76,25 +74,22 @@ internal class ImageReferenceVerifier(
         require(Files.isRegularFile(file)) {
             "bound image artifact is missing — the message can no longer be restored"
         }
-        val actualHash =
-            try {
-                AtomicFileWriter.sha256Hex(file)
-            } catch (e: java.io.IOException) {
-                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
-            }
-        require(actualHash == binding.boundSha256) {
-            "bound image hash no longer matches the message binding"
-        }
         val bytes =
             try {
-                Files.readAllBytes(file)
+                com.helix.app.vision.VerifiedImageBytes.read(artifact.size, binding.boundSha256, artifact.mediaType) {
+                    Files.newInputStream(file)
+                }
             } catch (e: java.io.IOException) {
                 throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
             }
-        val magic = ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
-        require(magic == artifact.mediaType) { "bound image bytes do not match their registered type" }
         return ImageBindingFacts(
-            reference = ImageReference(ArtifactRef(artifact.id), artifact.mediaType),
+            reference =
+                ImageReference(
+                    ArtifactRef(artifact.id),
+                    artifact.mediaType,
+                    com.helix.core.model
+                        .ImageBinding(artifact.sessionId, binding.messageId, binding.boundSha256),
+                ),
             base64Bytes = ((bytes.size + 2L) / 3L) * 4L,
         )
     }

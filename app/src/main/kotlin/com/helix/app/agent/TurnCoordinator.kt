@@ -20,6 +20,7 @@ internal data class TurnMessageDraft(
     val role: ModelRole,
     val kind: String,
     val content: String,
+    val visualArtifact: com.helix.core.model.VisualArtifact? = null,
 )
 
 internal data class TurnStartSpec(
@@ -455,14 +456,34 @@ internal class TurnCoordinator private constructor(
                 turn = storage.turns.updateState(turn, TurnState.RECORDING_TOOL_RESULT, current.modelStep, null, null)
             }
             messages.forEach { message ->
+                val messageId = idGenerator()
                 storage.messages.append(
-                    idGenerator(),
+                    messageId,
                     sessionId,
                     turnId,
                     message.role.name,
                     message.kind,
                     message.content,
                 )
+                message.visualArtifact?.let { image ->
+                    check(message.role == ModelRole.TOOL) { "Visual observation must belong to a tool result" }
+                    val artifact = storage.artifacts.resolve(image.artifactId)
+                    check(
+                        artifact.sessionId == sessionId && artifact.turnId == turnId && artifact.sha256 == image.sha256,
+                    ) {
+                        "Tool visual artifact ownership mismatch"
+                    }
+                    storage.messageAttachments.bind(
+                        messageId,
+                        listOf(
+                            MessageAttachmentRepository.Binding(
+                                image.artifactId,
+                                com.helix.core.model.AttachmentPurpose.TOOL_OBSERVATION,
+                                image.sha256,
+                            ),
+                        ),
+                    )
+                }
             }
             if (!cancelled) {
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, current.modelStep, null, null)

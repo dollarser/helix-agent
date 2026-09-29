@@ -1,14 +1,48 @@
-# Helix 能力与上下文重构方案
+# Helix 本机 Harness 详细重构方案：Agent Core、工具治理与 Execution Host
 
-日期：2026-09-28。状态：所有者已授权先做有界问题收口与基线，再执行 R1，范围归 [HXA-231](../development/tasks/HXA-231.md)；其余阶段仍为后续设计，依据内测反馈决定。本文件不作为实时进度表。
+初稿：2026-09-28；详细扩写与本轮收敛修订：2026-09-29。本文基于历史对话、既有方案与源码复审，保留目标结构、迁移卡片、测试和竞品依据；本轮重点消除重复规范，补齐等待执行契约、Core 迁移依赖及手动入口边界。新增接口与运行方式是待实施的设计建议，不是已实现状态。
+
+**授权边界：**已有“有界问题收口与基线 → R1”范围仍归 [HXA-231](../development/tasks/HXA-231.md)。本次用户授权编写详细文档，不等于批准本文新增的核心模块迁移、异步工具、远程接入或设备验证。R2/R3/J1/J2 等仍是目标设计，实施前按相关 ADR 和任务接受范围落地；本文不维护第二份实时进度。
+
+**阅读路径：**§1–3 是目标与规则分类；§4–7 仅作工作流导航，不重复定义底层契约；§8 是异步执行的规范正文；§9–12 是依赖、授权和证据；§13–17 分别定义接口/模块、绑定、上下文、插件；§18 只规定迁移步骤；§19–22 是验证、收益与完成检查。代码类型名是建议契约，不表示类已存在。
+
+**单一规范入口：**工具绑定看 §15；Core/端口看 §13–14；上下文看 §16；插件看 §17；等待/后台化看 §8。实施卡通过章节引用使用契约，不另写一版同义规则。文档不是 ADR 的替代物：与有效 ADR 不同的提案须先接受，未接受前执行当前契约。
+
+**核心结论：一个完整 Android 本机 Harness，内部拆清界面、决策、工具治理和平台执行；默认本机模块化部署，不强制拆成 Brain/Server/Runner 多服务。**
 
 ## 1. 目标与取舍
 
-以当前和未来最优的职责边界为目标，不为内部旧接口保留长期兼容层。目标是一个执行内核、一份工具绑定事实、一个上下文编译入口、一套插件安装与会话选择事实。通过分阶段替换抵达目标，不建设新旧双轨产品。
+### 1.1 产品目标
 
-衡量收益：工具契约与实现不会错配；停用和授权撤销及时生效；上下文取舍可解释；插件失败可恢复；模型完成任务时更少无效调用。文件数量减少或类名统一不是验收标准。
+Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Conversation-first，文件、网页、轻量代码、Workspace、Android 能力和扩展形成可检查的任务结果；Standard 是完整产品，Advanced 按真实执行域增加能力。基础任务不依赖电脑、远程 Worker 或外部大脑。[产品定位](../product/market-users-and-commercialization.md)是策略假设，不是已经测得的付费意愿或用户规模。
 
-丢弃内部历史包袱不等于删除用户文件、放松权限或推翻已验证的执行事实。继续开发期 Room v1 baseline 约定；不借本次设计引入历史数据库迁移链，亦不执行数据清理。模型 API、MCP 等外部协议兼容仍按当前支持范围保留。
+本地执行与本地推理分开：本地模型、网络 API、自建模型服务均可通过同一 ModelProvider 驱动完整 Agent Loop；是否可用取决于真实能力、容量和资源，不按参数规模把本地模型固定为摘要助手。
+
+### 1.2 Clean-slate 的含义
+
+以合理的长期职责为目标，不维护内部旧接口/旧枚举/旧数据库迁移的长期双轨。**保留经过验证的语义和测试，不冻结现有类名、目录、构造参数和跨层依赖。**允许把 AgentLoop 从 App/UI/Room 实体依赖中抽出，但不借机再造另一套 Turn 生命周期、审批、恢复或工作流大脑。
+
+目标是一套可无聊天页面驱动的 Harness、一份准确工具绑定、一条上下文编译流程、一套包安装事实和分领域权威。默认同进程类型化调用；现有需隔离或独立运行的 Runtime 继续按真实平台边界部署。
+
+丢弃历史包袱不授权删除用户文件、凭据、Memory、产物或审计。继续当前开发期 Room v1 baseline；未来产品发布后的用户数据升级策略须另行接受，不能无限沿用开发期清库假设。外部 Provider/MCP/Skill/插件协议保留明确支持范围，内部整洁不能破坏外部有效契约。
+
+### 1.3 价值与非目标
+
+优先证明：契约与 executor 不错配；撤销及时生效；同一能力可以被测试宿主和手机入口使用；等待不阻塞停止；插件配置失败不拖垮独立能力；实际任务中无效调用、人工介入和恢复成本降低。结构性一致性可独立构成重构价值；延迟、内存、完成率提升必须实测，不宣称存在已被证明的全局最优架构。
+
+当前不建设：独立云 Brain、公共 HTTP/MCP Server、远程 Node 配对、递归 Subagent、自动 continuation、通用 Workflow DSL、任意 native 插件加载、手机完整 Android SDK/Gradle 环境。也不把每个短工具变成长驻 Job。
+
+### 1.4 长期不变量、当前策略与本轮提案
+
+| 类别 | 内容 | 后续改变需要什么 |
+| --- | --- | --- |
+| 长期正确性与权威要求 | 模型/插件不能授权；实际绑定与批准一致；副作用事实不伪造、不盲重放；每类事实有唯一 writer | 任何实现替换都必须继续满足，不因分层/缓存/后台化降级 |
+| 当前已接受的产品/运行策略 | 单手机完整产品、当前 Standard/Advanced 边界、仅证明不冲突的只读并发、整 batch 结算后下一 ModelCall、旧 Turn 不复活、无人等待时不自动唤醒模型 | 同领域 ADR、用户授权和新证据；不是所有未来 Agent 都必须如此的行业定律 |
+| 当前 Runtime 限制 | PRoot 共享 UID、retained owner 下保守排他、平台服务运行窗口 | 真正隔离/资源模型和设备证据；接口重命名不能改变这些事实 |
+| 本次目标设计提案 | Core 端口抽取、completion-based 观察接线、AUTO 与按钮分步、插件局部失败矩阵 | 对应阶段任务/ADR 接受后实施，不能冒充已有能力 |
+| 首版范围与可调参数 | J1 先只接 Linux；wait/handle/队列上限；当前默认同进程 | 首版测量后固定有界参数；扩 provider/部署需要真实消费者，不做空实现 |
+
+“保留当前策略”不是冻结所有未来选择；“允许未来演进”也不是现在放宽授权。下文出现的 MUST/不得/必须均在所属契约及已接受范围内解释。
 
 ## 2. 当前起点
 
@@ -27,184 +61,190 @@
 
 双注册表存在结构性错配窗口；目前不将其描述为已复现的线上故障。第一阶段用确定性并发测试证实旧结构问题，并证明新结构边界。
 
+原详细扩写的源码锚点为 `refactor/clean-slate-engine` / `49d3bd40d3f77319bfaf3429d9b6e90501fb63a7` 加工作树；本轮收敛修订读取的是本地 `main` / `70456eb576aa9a1fa92d25b44142800fc8294b5c` 加工作树。文档起始 SHA-256 为 `0d7321ab911e421eb124df84547a0612ea0a6506669899541d14777e16f0bfbc`。本轮 status 仍报告 R1 尚未实现；SAF 等并行修复以最新 status 为准，不因保留历史基线重新列为未修复。以下是源码阅读证据，不是本轮运行验证。
+
+新增确认的结构缺口：`AgentLoop` 仍接收字符串资源与 `refreshScreen` 回调；`TurnToolExecutor` 同时负责消息格式、Room 实体和执行；Scheduler 与 Dispatcher 各自解析 descriptor；现有短 Job 控制动作会占用 reconciliation permit，不能原样包成长等待。具体文件/行范围与 SHA 见 §12 和 §14。
+
 ## 3. 目标架构与依赖
 
-```text
-Conversation / Tasks / Capability settings / Marketplace
-                    │ application services
-       ┌────────────┴─────────────────────┐
-       │                                  │
- TurnEngine                         Plugin installation
-       │                                  │
- ContextCompiler ← snapshots ← Capability catalog
-       │                                  │
- ModelProvider                     ToolBindingRegistry
-       │                                  │
- AgentLoop → ToolScheduler → ToolDispatcher┘
-                              │ schema / policy / authorization
-                              │ limits / execution / verification
-                              ▼
-                 existing native / MCP / A2A / runtime adapters
-                              │
-                     durable results and audit
+```mermaid
+flowchart TB
+    CHAT[对话 / 分享任务入口] --> API[Agent API]
+    API --> CORE[Agent Core: Turn / Loop / Context]
+    CORE <--> MODEL[ModelProvider]
+    CORE --> GATE[统一模型工具治理]
+    GATE --> ACTION[Agent 内部领域操作]
+    GATE --> HOST[Execution Host adapters]
+    HOST --> DOMAIN[文件 / 设备 / 浏览器 / Runtime 领域服务]
+    MANUAL[手动 Files / Tasks / Settings] --> APP[可信用户应用服务]
+    APP --> CHECK[用户能力及共享资源检查]
+    CHECK --> DOMAIN
+    APP --> CONFIG[配置 / 安装 / 会话选择服务]
+    CONFIG -.内容与配置投影.-> CORE
+    CONFIG -.工具贡献.-> GATE
+    DOMAIN --> FACT[执行事实 / Artifact / 观察视图]
+    FACT -.有界结果.-> CORE
+    FACT -.授权查询与进度.-> APP
+    CORE -.事件与持久视图.-> CHAT
 ```
 
-图中 catalog 是只读投影职责，不要求新增服务或数据库。模型上下文可见性不是执行授权。插件管理不持有 AgentLoop；ContextCompiler 不执行工具；Dispatcher 不管理包安装。
+图表示运行时职责，不要求一框一进程、一框一数据库。统一治理与 Execution Host 可以组合在同一模块；必须只有一套生产 Policy/Approval/Dispatcher，不在上下层各复制一份。目录 catalog 只是只读投影，不是新事实库。
 
-先在现有 tools/framework、core/agent、app/chat、extensions/plugin 等模块内调整职责，依赖方向稳定后才决定是否抽模块。App 负责注入 Android/存储适配器；纯模型与选择逻辑不能反向依赖 App。
+两条入口不能混同：用户手动浏览/复制文件、配置连接、查看任务或请求停止，不要求创建 Session/Turn 或调用 LLM；它们走对应应用服务，复用必要系统能力、路径、资源冲突与审计规则。模型不能通过这条 USER 路径获得更高权限。手动权限不自动授予 Agent；UI 也不直接访问 DAO、裸 executor 或 Binder。用户命令的完成不伪造 assistant ToolCall。
+
+模型可调用操作分两类：Plan/Goal/交互等由对应 Agent 领域服务处理；文件、代码、设备和外部服务由 Execution Host 处理。二者均经过同一工具治理，内部操作不能自报“metadata”绕过规则；Host 不需要认识完整聊天消息和 TurnCoordinator。可信应用装配注册领域 handler，避免 Core 与 Host 编译期互相依赖。
+
+**两个接口不能混淆：Agent API 让其他入口使用 Helix 自己的大脑；Execution API 让决策层使用受控能力。**现在都可以是内部 Kotlin 接口，不启动端口。未来外部 Agent 接入只能进入有认证和本机授权的治理适配器，不得直达裸 Runtime。
+
+目标依赖方向为 Presentation/Android adapters → 中立接口与领域逻辑；Agent Core 不依赖 UI、具体 Android executor、Room Entity 或 ProviderService 的 App 实现。先在现有 `core/agent`、`core/model`、`tools/framework`、`provider/api`、`extensions/plugin` 中收敛，只有实际消费者/依赖边界需要时才抽新 Gradle 模块；不换框架或语言。详细模块落点见 §14。
 
 ## 4. R1：统一工具绑定与执行准入
 
-### 4.1 最小模型
+R1 交付一条工具绑定事实与完整准入链，不承担 Core 整体迁移或所有异步工具实现。**规范正文见 §15；操作步骤见 §18 的 R1-1～R1-3；测试见 §19 的 T01–T04、T18。**
 
-以下为逻辑字段，不要求逐项新建类：
+完成标志是全部 built-in/Plugin/MCP/A2A 来源切到原子发布，模型曝光、Scheduler、审批与 Dispatcher 一致，独立可写实现表及双写入口删除。现有工具优先级/发现机制只接入新绑定，不重做历史工具数量项目。
 
-- ToolBinding：descriptor、executor、可信 owner、稳定实现 revision、进程内 generation。
-- BindingRef：工具名/版本、contractHash、owner 身份及实现 revision；可记录到请求/审计，不序列化 executor。
-- RegistrySnapshot：不可变绑定集合及 snapshot revision；请求中的 alias 解析也绑定该快照。
+## 5. R2：Core 解耦与统一上下文编译
 
-保留 descriptor 中已有 origin、operationClass、executionTarget 等字段，避免复制出两份可变真相。contractHash 表达契约；实现 revision 表达运行实现/包版本；generation 仅用于本进程失效校验，不作为跨重启身份。远程服务 revision 只能证明已发现的声明，不能证明远端代码未改变。
+R2 不再仅是“统一 Assembler”。它包含两个不混做的目标：**R2-A 先准备存储/执行/模型端口，完成 Core 接线和行为等价的上下文编译；R2-B 再做策略收益实验。**规范正文见 §13–14、§16；卡片依赖见 §9 和 §18。
 
-### 4.2 发布与调用
+“不启动 Activity”只是 UI 解耦证明；只有纯 JVM Core 结合 in-memory 领域存储、fake Provider/执行适配器可跑完整回合，且运行时 classpath 不依赖 App/Room/Android，才算 Core 可独立测试。Android 存储真实事务还须通过独立集成验证，fake store 不能替代。
 
-1. 各来源先构造完整候选绑定，检查 schema、owner、重复名及别名碰撞。
-2. 同一 owner 的 replace/remove 通过一次原子发布生效；失败保持旧快照完整可用。owner 取可信注册身份，不靠名称前缀认领其他工具。
-3. 编译请求时捕获快照；模型返回的短名解析到该请求实际暴露的 BindingRef，不能静默重定向到新实现。
-4. Dispatcher 从同一绑定取得 descriptor 和 executor，继续现有安全管线；等待审批后的调用必须重新检查来源、会话选择及授权。
-5. 执行前建立一次短临界区的准入判定，与停用/替换有明确先后关系；不持锁执行网络、工具或审批。停用先完成则未执行调用不能启动；准入先完成的调用照常结算，不能承诺撤回已发出的副作用。
-6. 绑定失效且尚未执行时返回可恢复的结构化结果，下一轮可重新发现；不自动重放写操作，不要求用户重开整个会话。已经执行或状态未知时继续原有结算/review。
-
-不要因无关 owner 的更新让全部调用失效，也不要因单纯进程 generation 变化要求用户重复审批。审批是否复用继续依据有效契约和授权规则；不可证明实现身份兼容时不得复用旧精确批准。
-
-### 4.3 删除与验收
-
-完成切换后删除独立可写 ToolImplementationRegistry 及双表注册调用；如分提交需要内部适配层，只允许单向委托新 registry，并在该阶段结束前删除。PluginToolBinding 收敛到公共绑定类型。
-
-必须覆盖：替换和 resolve 的交错、完整批次发布、失败无半注册、跨 owner 碰撞、同名新实现、旧请求返回、等待审批后停用、执行中停用、别名一致、无关更新不误失效、进程重建。使用 barrier/latch 控制交错，不依赖随机 sleep 或测试运气。
-
-## 5. R2：统一上下文编译
-
-### 5.1 输入、流水线与输出
-
-输入为已接受的用户请求、持久历史/检查点、当前有效会话权限与来源选择、Workspace 请求绑定、附件/引用、Memory/Skill 内容、工具快照与 Provider 容量。区分冻结配置与执行前仍需即时检查的撤销状态，不复制成另一份可写 Session。
-
-流水线：读取事实快照 → 标注来源/信任 → 选择工具与上下文 → 容量规划 → 必要时请求既有压缩流程 → 协议物化与校验 → 发布实际请求清单。
-
-ContextCompiler 的选择与容量核心尽量为纯函数。文件读取、摘要模型调用、数据库发布由现有适配器和 Engine 协调；不在纯编译函数中隐藏模型调用或预算扣费。
-
-最小 ContextItem 包含 kind、sourceRef、trust/authority、scope、estimatedTokens、atomicGroup 和内容引用。复用现有 Prompt/Context 类型能表达的字段；只有出现具体选择规则时再加 freshness/priority 等字段。
-
-输出为 ModelRequest、精确工具绑定映射、实际 included/omitted/compressed 清单、容量诊断。扩展现有 RequestContextManifest，不另建上下文数据库。
-
-### 5.2 必须保持的语义
-
-- 平台指令来自受信任代码；用户输入保留其角色；外部结果、Skill、Memory、附件与其摘要不因被拼入 prompt 而升级权限。
-- 一组 tool calls 与对应 results 不可拆散；未结算结果不伪造。保留当前用户请求、最新完整步骤和必要恢复事实。
-- 工具 schema 按已获准范围、核心优先和按需发现选入；发现结果不授予执行权限，所发现工具进入后续请求快照后才可按该绑定调用。
-- 分类额度是可借用的软分配；Provider 窗口、用户已设额度、输出预留、协议和内存边界仍是硬约束。无法容纳必要输入时明确诊断，不静默删掉任务目标。
-- 只压缩已结算内容，复用既有摘要预算、收益检查、失败回退和 checkpoint 原子发布。摘要没有收益就不循环摘要。
-- 清单记录引用和决策理由，诊断默认不保存第二份正文/凭据；导出继续走现有脱敏边界。
-- __helix_intent 继续只作 presentation；业务参数、审批 hash、provider history 不重放该元数据。
-
-### 5.3 切换与验收
-
-先以固定历史 fixture 对比现有请求与新编译输出，再切换唯一生产入口。对比发生在测试中，不在生产重复调用模型。移除旧的重复选择/容量路径，保留 Provider 必需的编码差异。
-
-覆盖三 Provider 协议、工具成组完整性、无工具模式、超大结果分页、窄窗口、未知窗口、摘要失败/取消、权限撤销、恶意 Memory/Skill、附件与跨会话引用、恢复与 JSONL 脱敏。记录 schema token 占比、压缩次数、拒绝原因和无效调用，不能仅以 prompt 字数变短验收。
+交付保留一个生产 Loop/编译入口，不新增上下文数据库。测试对比新旧行为，不在生产双跑模型；算法/Prompt 变化放在后续独立实验，度量规则见 §20。
 
 ## 6. R3：插件安装与会话选择闭环
 
-Plugin 是交付单位；Tool 是执行能力；Skill 是指导内容；MCP/A2A 是连接协议。统一包的管理，不统一这些组件的运行方式。
+统一交付包身份，不合并 Skill 内容、MCP 连接或 Runtime 的运行机制。**规范正文见 §17；卡片见 §18 的 R3-1、R3-2 / R5-min；测试见 T10/T11/T14/T17。**
 
-沿用 Connector 的稳定安装 ID、不可变 revision、精确组件归属和 Room 已提交事实。将通用包职责迁至 PluginInstallationService/现有等价服务，Connector 保留连接配置与认证语义。包解析器复用现有 archive hardening，不新建通用安装事务引擎。
-
-安装流程：完整暂存验证 → 原子发布已提交安装 → 按该 revision 激活 registry 投影 → 幂等清理旧的无引用资产。Room 与 registry 不是分布式原子事务：调用必须验证当前 committed revision；投影尚未就绪时标明暂不可用并可重试。进程重启依据 durable 安装记录重建投影。
-
-安装和会话选择同阶段交付。安装不自动授予工具权限，也不静默改变其他会话；fork 复制选择快照。关闭来源后 UI、Skill list/read、schema 与实际执行必须一致。共享 Skill 的独立安装引用不能被卸载另一个包误删。
-
-更新保持稳定安装身份与会话选择；凭据仅在认证/端点绑定完全不变时保留。候选失败保留旧安装；未知远端副作用不以安装回滚为由重试。原生 runtime 只允许 APK 已知实现，不加入下载 DEX/JAR 执行。
-
-验收包含取消、低空间、恶意 archive、提交前后进程死亡、并发更新、重复安装、共享组件卸载、账号绑定变化、session/fork/reopen、等待审批时停用和已发送调用结算。设备测试先备齐，执行需要当前任务单独授权。
+R3 和最小安装/选择/配置/修复 UI 同步交付，R5 仅保留后续展示优化。保留独立 Skill/connection；不同组件就绪状态与包安全校验分开，不要求所有远端服务同时在线。外部规范是带版本/状态的输入，不作为 Helix 所有协议与模块的公共数据模型。
 
 ## 7. R4 / R5：边界清理与产品呈现
 
-R4 只处理 R1–R3 暴露的重复 owner、反向依赖和残留入口；所有 Turn 继续经 TurnEngine admission，Goal 复用同一循环，调度与权限不迁到插件层。若没有具体重复职责和测试证据，不为“整洁”重新拆 Core Engine。
+R4 是贯穿各阶段的依赖约束和删除检查，不是末尾无限扩大的清理项目。应删除已证实的 UI 回调、Room Entity 泄漏、重复注册/编译路径和反向依赖；没有重复职责时不为类数或目录对称重写代码。所有 Turn 仍由同一 TurnEngine admission，Goal 复用同一循环，插件不拥有调度与审批。冻结的是语义权威，不是现有 Core 的文件位置。
 
 R5 将 Marketplace 和能力设置改为面向包的管理，保留组件详情及独立工具禁用入口。明确展示已安装、当前会话已选择、需配置/不可用；授权和 UNKNOWN/review 保持视觉权威。无关插件失败不阻塞普通聊天，可恢复问题提供就地重试；安全上无法证明可执行时只阻止对应操作。
 
-验收包括会话选择/配置/更新/卸载旅程、320/360/412dp 和大字体。不要先做 Marketplace 页面，再补生命周期与执行约束。
+验收包括会话选择/配置/更新/卸载旅程、320/360/412dp 和大字体。不要先做 Marketplace 页面再补生命周期；也不要让 R3 的用户闭环等到 R5 才出现。UI 通过应用接口消费事实，不持有 executor、DAO 或 Runtime 句柄。
 
 ## 8. J1 / J2：异步观察、等待与安全后台化
 
-本节吸收[异步 Job 调研](../research/async-jobs-wait-and-background-execution-competitive-study-2026-09-28.md)的 launch/join 分离建议。属于新增能力提案，不将研究视为实现授权。现有 Linux Job 是基础；不采用泛化 sleep、background(anyToolCall)、全局等待所有任务或 Job 完成自动唤醒模型。
+本节为异步契约的唯一正文；§18 只描述迁移步骤，§19 定义测试 oracle。沿用[异步 Job 调研](../research/async-jobs-wait-and-background-execution-competitive-study-2026-09-28.md)的 launch/join 思路，**本轮明确选择 completion-based 观察接线，不把长等待塞进原同步 executor**。这是待接受的 J1 设计，不声称当前已有此接口。
 
-### 8.1 两个生命周期与一个真实 owner
+### 8.1 执行身份与结果事实
 
 ```text
-launch ToolCall → durable submission → terminal result: accepted + handle
-                                          │
-                                   Runtime Job continues
-                                          │
-new status / await / collect ToolCall ← durable observation / result
+launch ToolCall → 持久启动身份 → Runtime 接受 → ToolResult: accepted + handle
+                                         │
+                                  原 Runtime Job 继续
+                                         │
+新的 status / await / collect 调用 ← 原 Job 观察及产物引用
 ```
 
-launch 的 COMPLETED 只表示提交步骤完成；accepted 是结果内容，不新增 ToolCall 状态，也不表示 Job 成功。后续终态不能回写原 launch ToolResult。提交回执丢失时按预先持久化的执行身份对账，不重新启动命令；无法确定是否提交则保留未知事实。
+launch 的 COMPLETED 只表示提交动作结算，accepted 不新增 ToolCall 状态，也不表示 Job 成功。最终输出不回写原 launch ToolResult。回执丢失则查询原执行身份；来源无可查询协议时保留未知，不能假设所有 provider 都支持找回，更不能重发命令。
 
-AsyncHandle 只是现有持久绑定的通用投影，包含原 session/turn/call、executionTarget、providerRef 和 provider generation。generation 来自执行身份，不能用重启后的进程计数替代。真实阶段、退出证明、日志和租期继续由原 Runtime 保存；通用层不复制一张可写 Job 状态表。
+AsyncHandle 只是现有 source session/turn/call、job、execution generation、target 和 providerRef 的有界投影，不是权限凭证或新 Job 数据库。generation 来自原执行，不用新进程计数替换。模型只提交 opaque ID，平台恢复可信绑定；禁止跨会话控制、伪造、过期 generation 与目标替换。换 Workspace 仍使用原 Job 目录，fork 不继承控制权。
 
-Handle 不授予权限。模型提交的 handle 必须解析为可信存储绑定；拒绝跨会话、伪造、过期 generation 与目标替换。会话更换 Workspace 后仍按原 Job 绑定查询/收集，不将结果自动写入新目录。fork 不自动继承原会话 Job 控制权。
+每项 observation 区分原状态、退出证据、观察 revision/时间、`settlementPending`、resultRef 及其可用性。进程终态不证明导入/结算完成；执行成功不证明用户目标完成。
 
-### 8.2 J1：先只接 Linux Job 的 observation / join
+### 8.2 模型工具与 ANY/ALL
 
-建议统一入口为 jobs.status、jobs.await、jobs.cancel；collect 继续复用现有 Linux 收集路径，因为它可能产生文件/产物效果，不能伪装成只读 status。原入口与新入口若需过渡，必须指向同一实现和权限，模型工具面只暴露一套等价操作，避免增加工具冗余。先证明单 provider 的薄接口，再考虑更多 provider。
+首版只接 Linux Job，模型面使用 `jobs.status`、`jobs.await`、`jobs.cancel`；collect 复用原 Linux 路径，因为它可能写文件或物化产物，不能并入只读观察。等价旧/新名称在短期过渡中指向同一实现/权限，模型只曝光一套。
 
-jobs.await(handles, condition=ANY|ALL) 只等待本次明确列出的有限集合。平台控制单次等待时限和 handle 数量，优先事件订阅加 durable 复核，不消耗模型调用反复轮询。具体资源阈值随 HXA 测量确定，不能凭研究写死任意限制。
+`jobs.await(handles, condition=ANY|ALL)` 只 join 明确给出的有限集合，不 sleep、不等待全局所有任务。先校验全体身份/权限并去重，空集合或任一非法项在订阅前明确拒绝；不静默跳过。已终态立即返回；ANY 返回触发项及其余已知快照，ALL 只有全部确认终态才满足，终态可为成功/失败/取消。
 
-等待结果必须区分：
-
-| 返回原因 | 语义 |
+| await 返回内容 | 解释 |
 | --- | --- |
-| CONDITION_MET | ANY 至少一个、ALL 全部具有已确认执行终态；逐项返回成功/失败/取消，不把终态等同成功 |
-| WAIT_EXPIRED | 本次等待结束；Job 可以仍运行，不取消、不改写 Job 状态 |
-| REVIEW_REQUIRED / SOURCE_UNAVAILABLE | 未知效果或来源不可达；返回原始事实和修复入口，不冒充成功或无限等候 |
-| 调用取消 | 停止本次观察；不隐式向所观察 Job 发 cancel |
+| CONDITION_MET | 依赖条件满足；逐项 outcome 与待收取状态仍须检查 |
+| WAIT_EXPIRED | 内部等待预算到期；Job 可以仍运行，无隐式取消 |
+| SOURCE_UNAVAILABLE | 无法获得新的可信观察；保留最后快照及 stale 标记，不推导 Job 失败 |
+| REVIEW_REQUIRED | 被观察的原执行存在需核查事实；不把只读 observer 自身改成未知副作用 |
+| OBSERVATION_BUSY | 有界观察容量不足，未订阅或未发起新查询；不是 Job 被拒绝 |
 
-已终态的 handle 立即返回；重复 handle 去重。空集合、非法/越权 handle 在订阅前明确拒绝，不静默等待剩余子集。ANY 返回触发项和其余已知快照；ALL 遇到无法判断的项可提前返回明确诊断。订阅建立前后复核 revision，避免“刚好完成”事件丢失。
+权限/绑定撤销作为本次观察的明确拒绝或取消返回，不能复用旧 handle 继续取新数据。仅关闭“新工具来源”不抹去本机受控的旧 Job 检查/停止入口，实际查看/收取仍校验当前授权。
 
-await ToolCall 在驻留等待期间仍属于当前 batch；其返回后按原有 batch settlement 才进入下一 ModelCall。它不允许同一 Turn 绕过未结算工具继续推理，也不承诺等待中同会话同时开另一 Turn。用户可停止等待后继续，已获准独立运行的 Job 保留。等待超时不是副作用未知：观察工具本身与被观察 Job 的效果应分别判断。
+### 8.3 与当前同步框架的接线选择
 
-正常 await 被 Job 完成唤起后可按当前 Turn 继续，这是已有调用返回；与“无人等待时创建新模型调用”不同。主进程死亡不恢复旧 coroutine/Turn；旧 Turn 按现有规则终结，后续 successor Turn 重新查询原 Job。无活跃等待者时完成事件仅更新 durable fact/UI，默认不产生模型调用。
+**源码依据：**C14/C15 显示 `ToolExecutor.execute()` 同步、Scheduler worker 直调 Dispatcher、watchdog 等待 Future；C07 的 controlExecutor 会覆盖整个 action 持有 reconciliation permit。把 `runBlocking`、`Future.get/join` 或长轮询包进这些入口不能解决问题。
 
-### 8.3 ContextCompiler、资源与 Tasks 的接线
+**选定的最小接线：**在 `tools/framework` 的同一 Dispatcher 内把“启动执行”和“发布最终 outcome”分开，以 `CompletionStage`/既有 CompletableFuture 表达进程内完成通知。普通同步工具通过适配器继续使用原 deadline runner；可信的 Job observation handler 返回未完成的 stage。二者共用 schema、Policy、Approval、身份、验证、审计和一次结算器，不建第二 Dispatcher。stage 不是 Runtime Job，不持久化、不给模型当 handle，也不允许同 Turn 越过未结算 batch。
 
-增加 JOB_OBSERVATION 候选：仅当前会话有权查看且与任务相关、明确等待或新出现重要变化的 Job。携带 provider revision、观察时间、原始状态、简短摘要与 resultRef；执行状态来自 Runtime，日志/输出摘要仍是不可信内容。沿用 RequestContextManifest 记录实际纳入的 revision，去重和限量，完整日志按需读取。不因所有后台任务存在就注入全部状态。
+```text
+同一调用准入
+  → 执行适配器
+      ├─ 普通工具：原受控同步执行 → completion
+      └─ Job observer：注册有界 observer → 返回 completion（worker 随即释放）
+  → callback 提交有界结算队列
+  → 单次 durable outcome + 释放相应槽
+  → 原 call sequence 的 batch 结果
+```
 
-后台执行仍持有原 effect footprint 与资源 owner，直到真实退出/对账证明允许释放。启动 ToolCall 结算不释放 Job 的执行资源；因此模型可继续推理、执行已证明不冲突的操作，但不能假定任意其他工具可并行。J1 不扩大现有 PRoot/Workspace 并发范围。
+Scheduler 接收 completion callback，不在业务 worker 内等待 observer；batch 汇总可继续等待结果，但在调用方/协调层，不占用控制线程或排他资源。迁入 Core 后 gateway 对调用方提供 `suspend` 等待。已有同步工具不用一次全部改成 suspend；同步桥接不得被生产 await 路径调用。
 
-保留现有无进展保护：受信任 Job 观察应按既有状态工具语义处理，不能仅因结果仍为 RUNNING 就误判死循环，也不能对任意名字含 jobs 的扩展工具豁免。等待和实际运行分别记账，不重复预留或退款；Turn/Goal deadline 到期停止等待，Job 是否继续由原有 Job lease/Goal 契约决定，不默认续期。
+| 资源 | owner 与占用规则 |
+| --- | --- |
+| 普通业务并发槽/footprint | 原 Scheduler；Job 已接受后短调用槽可释放，Runtime retained owner 不释放 |
+| 活跃 observer 配额 | Dispatcher 的进程内有界登记；等待期间占配额，不占普通业务槽、控制 worker 或 reconciliation permit |
+| timer/状态通知 | 只调度短回调，不执行 Binder、磁盘或 Room 事务 |
+| 只读查询 IPC 容量 | 独立有界的短 query 执行额度；同一执行最多一个未返回查询，多个 observer 共享已授权缓存/变化通知，返回各自范围内结果 |
+| stop/cancel 与收尾控制容量 | 不被 observer/只读查询占满的独立有界额度；统一授权后进入原 Runtime 控制，不能允许新的业务写绕过排他 owner |
+| durable 结算队列 | 同一 Dispatcher 的有界发布通道；worker 不驻留等待，终态不随 UI 丢失 |
 
-沿用 Tasks 与现有命令卡；区分运行、请求取消、确认取消、未知与待收集。插件停用/更新不丢弃已启动 Job 的控制与对账身份；保留 host 管理的检查/停止入口及必要 Runtime，不能通过卸载移除唯一终态证据。此入口不准许启动新工作，收集仍需有效授权。
+逻辑资源池不要求一项一常驻线程。平台配置必须给出 `maxObservers`、每会话上限、IPC 并发/队列和查询/等待期限；数值在 J1 任务基线中固定并压力验证，模型不可任意放大，超载明确拒绝，禁止用 cached thread pool 或无限队列“保证响应”。
 
-### 8.4 J2：同一次执行的前台转后台
+只有可信装配注册的只读 Job observer 可使用该观察通道，不能由工具名、MCP readOnly 注解或模型参数启用。它不修改命令/租期/工作区/产物，后续 cancel/collect 必须重新准入。并发允许的是生命周期观察与控制，不是扩大 PRoot 业务并行权限。
 
-仅在 Runtime 已证明能力时提供 FOREGROUND/BACKGROUND/AUTO；AUTO 必须与运行中 promotion 一起通过验收，不能先提供一个实际 cancel+restart 的占位模式。先限定 Linux command，不扩展下载、MCP 或子 Agent。
+### 8.4 查询、锁和 Binder 不确定性
 
-foregroundWaitBudget 只控制同步等候；executionDeadline/lease/Goal 额度控制实际执行。promotion 不重置任何预算、scope、凭据、Workspace、ExecutionTarget 或 effect owner。Runtime 必须从启动起拥有可持续的身份和日志；现有 one-shot 路径若做不到，应先在 Runtime 层改造，不能由 AgentLoop 重提命令。
+本轮读取的 `DetachedJobClient` 只有同步 QUERY/CANCEL（C16），没有已证实的变化订阅协议。**J1 默认用宿主 timer 调度有界只读 query；有可用状态通知时可提前触发相同复核。**这是宿主观察，不消耗 LLM 调用，不宣称 Runtime 已有事件推送；不为此新增通用订阅协议。
 
-用户卡片操作记录为可信用户控制事件，调用相同 Runtime promotion 接口，不伪造模型 ToolCall。与退出、取消、deadline 并发时只能发布一个确定结果：已经退出则返回原终态；成功转后台则返回同一 handle；无法证明则不给出后台成功回执。不支持 promotion 的 executor 保持现有行为，不显示按钮。
+读流程是：短临界区确认原绑定及引用 → 不持 reconciliation permit 发只读 query → 回包后再次验证原 generation、权限和结果版本 → 发布有界 observation。查询本身不导入、不续期、不释放 execution owner。当前 controlExecutor 不直接复用为长等待器；cancel/collect 仍由原控制语义处理。缓存检查与订阅本地变化通知前后复核 revision，避免刚完成的事件丢失；没有通知时由下一有界 query 发现。
 
-J2 是独立且风险较高的 Runtime 切片，先完成 J1 再决定是否投入；它不依赖远程 Node，也不应被安排到远程平台项目中。未来自动 continueWhenComplete 另属用户授权触发与 fresh admission，不在 J1/J2 范围内。
+同步 Binder 不能仅靠 Future.cancel 就证明事务停止。对 query 设置宿主观察期限和单次绑定上限；超时停止给该 observer 调度新查询，将未返回请求占用计入容量直至真实退出。迟到回包只可在身份仍有效时更新原 Job 缓存，不可第二次完成已结算 ToolCall。不能每超时一次就补一条线程，也不能在超时外壳中提前 recycle 正由 IPC 使用的 Parcel/引用。
 
-### 8.5 验收
+只读 query 卡住不得持有全局控制锁；独立控制额度保证本机能处理“停止”意图和报告状态，**不保证一个无响应的 Runtime 一定执行了取消**。CANCEL 无终态回执时如实记录取消请求/来源不可达，owner 仍保留，按原规则对账。
 
-- launch batch 可结算且 Job 继续；最终结果不改写 launch；丢失提交回执不重复执行。
-- ANY/ALL、已完成、重复/非法/越权 handle、订阅竞态、等待超时/取消、来源离线和 UNKNOWN。
-- 进程死亡后身份及 owner 保留，旧 Turn 不复活；Workspace 变更、fork、插件停用后无控制权泄漏。
-- 后台写任务仍阻止冲突操作；cancel receipt 不提前释放 owner；collect 重验授权且不重复物化。
-- completion 无等待者时不自动调用模型；观察注入有界且不会信任外部日志指令。
-- promotion 与退出/取消/deadline 交错，同一命令仅启动一次，租期和预算不重置。
+### 8.5 期限、取消、迟到结果的精确映射
 
-host 测试先用虚拟时钟、可控事件与 Runtime fixture；真实 detach、Binder、进程死亡、Tasks UI 须在获得当前设备授权后验证，host mock 不能替代。consumer 不暴露不可用的 Linux Job 工具；developer 仍服从 Advanced 与原授权边界。
+使用单调时钟计算本进程剩余等待时间；持久 Job lease 保持原 Runtime 的跨重启规则，不互换两种时钟。令 `B` 为宿主单次等待上限，`T` 为工具外层 deadline 与 Turn/Goal 剩余时间的较小值，`R` 为有界收尾预留：内部等待 `W = min(B, max(0, T - R))`。每次 query 还受自身上限和剩余 W 限制；W 为零不发起新等待。不续期、不退还已消费预算、不在观测与执行重复记账。R 不是收尾必成功的证明，外层 watchdog 仍需能结束 observer。
+
+| 事件 | 本次 observer/ToolCall | 原 Job 与 effect |
+| --- | --- | --- |
+| 确认终态先被结算器接受 | Completed，内容为 CONDITION_MET | 原状态不改；仍可 settlementPending |
+| W 到期 | Completed，内容为 WAIT_EXPIRED | 不取消、不改状态 |
+| 只读源故障/查询期限 | Completed 的 SOURCE_UNAVAILABLE，或执行前明确拒绝 | 不能把未知源说成 Job 失败 |
+| 用户停止本次等待 | `CancelledWithEffectTruth(sideEffectFree=true, requiresReview=false)` | 仅注销 observer，不发 Job cancel |
+| 工具外层 watchdog 到期 | `TimedOutWithEffectTruth(sideEffectFree=true, requiresReview=false)` | 不增加原 Job 的未知副作用；可以仍在运行 |
+| 用户停止 Turn/Goal deadline | 通过原 Engine 停止及结算；等待按取消/期限结束 | Job 是否继续服从原 lifetime/lease，而非 observer 自行决定 |
+| 用户执行 jobs.cancel | 独立受控动作，记录 request 与回执 | cancel receipt 不证明进程已停，真实终态/对账才释放 owner |
+| 主进程死亡 | 按当前 ADR 终结旧 Turn/ToolCall，内存 stage 不恢复 | 后继 Turn 查原 Job，不恢复旧调用栈或盲重放 |
+
+effect-free 映射依赖可信、只能读取 Job 状态的 observer 实现及测试，不因名字含 `await` 就普遍改写 TimedOut/Cancelled。普通有副作用工具仍按原 watchdog/review 规则处理；被观察原 Job 的 UNKNOWN/review 继续保留。内部数据库发布失败仍上报真实基础设施错误，不能返回虚假 ToolCall 成功。
+
+completion、取消、W 到期和外层 deadline 通过一个本地 CAS 选出结算候选，持久写仍由原唯一结算器完成。取消与完成并发按候选接受顺序处理；即使 ToolCall 取消赢了，之后 Job 完成事实仍可显示，二者不互相改写。迟到结果不可再次回填工具历史、重复释放槽或覆盖终态。所有路径清理 observer、timer、取消监听与非活跃引用；未真实退出的 IPC 容量不假释放。
+
+### 8.6 Core、上下文与用户体验
+
+await 仍占当前 batch 的未结算调用位置。正常 await 返回后按原顺序进入下一 ModelCall；无人等待时完成只更新事实/UI，不自动创建推理工作。这是当前策略（§1.4），不是技术上永远不允许事件驱动 Agent。
+
+JOB_OBSERVATION 按 §16 纳入当前会话有权查看的相关变化、显式依赖与有界摘要；携带原 revision、时间和 resultRef，完整日志按需读取。执行状态来源与日志中的自然语言指令分开，不把外部输出提升权限。保留既有无进展保护，但由受信任操作类型处理 RUNNING，不按名字普遍豁免。
+
+Tasks/命令卡明确区分“停止等待”“请求停止执行”“确认停止”“执行已结束但待收取”。UI 退订只停观察；关闭来源不丢失旧 Job 管理身份；卸载保护见 §15.5。consumer 不暴露不存在的 Linux 工具，developer 仍受 Advanced 与原授权约束。
+
+### 8.7 J2：AUTO 与手动 promotion 分步交付
+
+仅 async-capable Linux 操作从启动起拥有稳定身份、合适 Runtime owner 和日志。`FOREGROUND/BACKGROUND/AUTO` 是等待方式；`ExecutionLifetimePolicy` 是逻辑上的已获准存活范围。两者正交：停止等待不能允许任务越过原 caller/Turn/process-death 边界继续。
+
+**J2-1 可独立交付 AUTO：**启动同一次执行 → 等待有界时长 → 已完成则返回原结果；未完成且已有后台资格则返回同一 handle。没有后台资格时不伪报转后台，保持原有限等待/取消/结算契约。AUTO 必须通过同执行身份、取消、lease 和 result 验收，但不要求按钮同时交付。
+
+**J2-2 再交付用户按钮：**受控用户动作提前结束同步等待，调用同一机制；与退出/取消/deadline 竞争时返回原终态、同一 handle 或明确未成功。按钮只在 Runtime 和当前调用都支持时出现，不伪造模型 ToolCall。
+
+两者都不重启命令、不变更 scope/凭据/Workspace/target/owner、不重置预算或租期。原 one-shot 无法保持身份和日志时先改 Runtime，不能 cancel+restart。短 read/click 不变成长驻 Job。自动 continueWhenComplete、远程迁移、下载/MCP/Subagent provider 均不随 J2 自动进入范围。
+
+### 8.8 验收与停止条件
+
+J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、ANY/ALL、控制响应、迟到回包、Workspace/fork、插件撤销、重复 collect、后台 effect 冲突和进程死亡。普通同步工具与 observer 共用治理的断言必须同时存在，不能靠两套 Policy 分别通过。
+
+若无法在不阻断取消、没有无界线程/队列、且保留原权限与结算的前提下完成接线，则 J1 不算完成；不能只暴露一个看似可用的等待 schema。主机用虚拟时钟和可控 completion；Binder/实际 detach/系统回收/UI 必须在当次获得授权后单独验证，不拿 mock 代替。
 
 ## 9. 分阶段交付与 gate
 
@@ -212,14 +252,34 @@ host 测试先用虚拟时钟、可控事件与 Runtime fixture；真实 detach�
 | --- | --- | --- |
 | R0 | 当前事实表、源码基线、对应 ADR 变更提案与阶段任务 | 设计接受后才改变任务顺序；明确测试和 owner |
 | R1 | 单一工具绑定注册/读取路径 | 所有来源迁完；双表写路径删除；并发与撤销测试通过 |
-| R2 | 唯一上下文编译入口 | 配对/信任/预算/恢复回归通过；旧重复路径删除 |
+| R2-A | Core 端口与接线迁移＋等价 ContextCompiler | 存储端口先行；纯 JVM Core 闭环与真实存储集成分别通过；旧入口删除 |
+| R2-B | 证据驱动的上下文策略优化 | 在 R2-A 等价基线上做单变量实验，报告收益与失败 |
 | J1 | Linux Job 的通用观察与有界 join | 原 owner 不变；等待/取消/恢复与上下文观察验收通过 |
 | R3 | 包管理与会话选择闭环 | 归属、更新、恢复、即时停用跨入口一致 |
-| J2（后续独立切片） | Linux 同一次执行的 AUTO / promotion | 无重放；退出竞态、身份、资源、预算及设备证据齐全 |
+| J2-1（后续独立切片） | Linux 同一次执行的 AUTO 返回 handle | 无重放；身份、取消、租期及设备证据齐全，不依赖手动按钮 |
+| J2-2 / R5（后续） | 用户主动“继续在后台” | 复用 J2-1 的同执行机制，另验退出/取消/UI 竞争 |
 | R4 | 有证据的依赖与 owner 清理 | 无第二执行路径；若无实际问题可不做代码改动 |
 | R5 | 插件管理产品体验 | host gate 完整，设备与模型结果分别列出 |
 
-R1 → R2 → J1 → R3 → R5 为建议串行主线；J1 无需等待完整插件平台，R3 必须处理已运行 Job 的生命周期归属。R4 随各阶段消除必要依赖，末尾统一复核。J2 在 J1 验证后独立评估优先级，不阻塞 R3/R5。每次只启动一个阶段，不以整个大重构为由长期积累不可构建分支。不保留长期运行时双轨开关；阶段回退以源码提交为单位，不自动回滚用户文件或副作用。
+**排期与依赖分开。**当前已接受的顺序由 HXA-231 决定：有界收口/基线 → R1 → 内测反馈。本文细化长期目标，不授权将全部阶段串行执行或设为发行前置。
+
+依赖关系如下；编号用于交接，不表示当前全部已授权：
+
+| 工作 | 必要前置 | 不是必要前置 |
+| --- | --- | --- |
+| R1 | R0 当前基线＋最小 binding 契约 | headless Core、ContextCompiler、通用 Job |
+| R2-A1 | R0 的端口决定；先落存储/事务、Provider/执行/事件接口及适配测试 | 完整 UI 改版或新上下文策略 |
+| R2-A2 | R2-A1 的可用存储适配；R1 准确绑定 | 远程部署、独立 Agent 进程 |
+| R2-A3 | R2-A2 接线；既有 history/compaction fixture | 新 Prompt、reranker |
+| R2-B | R2-A3 等价迁移与冻结评测 | J1/R3 全部完成 |
+| J1 基础 join | R1；§8.3 的 completion、控制资源和 watchdog 接线 | 完整 R2；JobObservation 自动注入可单独等 R2 |
+| R3＋最小 R5 | R1；原安装/选择事实与运行中 Job 引用 | 新 J1、J2 |
+| J2-1 | J1 观察/控制契约；Runtime 同执行与存活策略证据 | 手动 promotion UI、远程 Node |
+| J2-2 | J2-1 机制＋当前用户交互授权 | 自动 continuation |
+
+R2/J1/R3 的实际排期仍由内测瓶颈和当前任务决定；存储端口属于 R2 准备工作，不得反向使已授权 R1 等待全部 Core 重构。
+
+每次只推进一个已授权切片，或在明确不重叠的文件/契约上并行；共享接口由一个实现 owner 收口。每个阶段保持可构建、可验证，不保留长期运行时双轨开关；阶段回退以源码为单位，不自动回滚用户文件、凭据或外部副作用。逐卡任务及退出条件见 §18。
 
 每阶段先定向测试，再完整执行 source/JVM、双渠道 unit/lint/debug APK/AndroidTest APK、spotlessCheck、detekt、check-all.sh --source 和 git diff --check。通过仓库 host-slot wrapper 运行工程任务；如所建 HXA 要求更广门禁，以它为准。无相关代码变更时不反复跑全工程。
 
@@ -231,7 +291,7 @@ R1 → R2 → J1 → R3 → R5 为建议串行主线；J1 无需等待完整插�
 
 接受范围与实现边界统一导航见[候选索引](../development/candidate-decisions.md)。2026-09-29 所有者明确本轮先收敛现有实现与文档，R1 是下一实施任务，不等于取消其既有授权。
 
-本提案不分配未经检查的 HXA 编号，不将已有 proposed ADR 自动标记 accepted。设计接受后按未占用编号建立 R1/R2/R3 的任务；不重新打开已完成的 HXA-220/223/227。
+本提案不分配未经检查的 HXA 编号，不将 proposed ADR 自动标记 accepted。R1 已属于 HXA-231，不重复创建任务；其他阶段在接受后建立独立任务。不重新打开已完成的 HXA-220/223/227。
 
 | 设计领域 | 应更新的现有决定 |
 | --- | --- |
@@ -243,6 +303,8 @@ R1 → R2 → J1 → R3 → R5 为建议串行主线；J1 无需等待完整插�
 
 每阶段有独立范围、删除清单、验收与完成记录；status 只维护当前阶段，roadmap 只维护任务索引。本文件保持目标设计，不维护第二份实时进度。
 
+新增 Core/Host 模块边界、等待与存活策略分离、组件局部失败规则均为本次设计建议。实现前在现有 Agent/Tools/Runtime/Connector 主题分别裁决，不用一次“同意文档”推导所有未来能力已接受。R1 已有任务不承担整个 headless Core 迁移；不重开已完成的生命周期 HXA。详细待裁决表见 §21。
+
 ## 11. 暂缓范围与主要风险
 
 - 不引入远程 Node、子 Agent、Trigger 框架、通用 Workflow、动态 native 插件加载或另一套事件溯源存储。
@@ -252,12 +314,758 @@ R1 → R2 → J1 → R3 → R5 为建议串行主线；J1 无需等待完整插�
 - 第三风险是 Room 发布与外部激活被误当一笔事务：必须测试中间态、重启和幂等恢复。
 - 长程能力提升需真实轨迹证据；架构改善本身不证明模型更聪明或手机性能更好。
 
-## 12. 依据
+## 12. 证据、历史结论与竞品参照
 
-- [原能力架构调研](../research/helix-agent-capability-architecture-convergence-2026-09-28.md)
-- [Plugin Platform 方案](plugin-platform-refactor-2026-09-28.md)
-- [异步 Job、等待与前后台执行调研](../research/async-jobs-wait-and-background-execution-competitive-study-2026-09-28.md)
-- [当前状态](../development/status.md)
-- 当前源码入口：ToolRegistry、ToolImplementationRegistry、PluginRegistry、ChatRequestAssembler、PromptRegistry。工具注册事实与调用关系通过 CodeGraph 核对。
+### 12.1 证据口径
 
-输入文档为设计背景；其中 PluginOrigin 尚不存在、Mobile Use 工具数量和旧阶段顺序等文字不能覆盖当前源码。本次补充核对了 ADR-RUNTIME-002、DetachedJobTools/Collection/Store 及现有 Tasks 调用关系。竞品功能描述沿用调研作为设计输入，本次不新增对其当前版本能力的独立核验结论；本方案不依赖某一家 Provider 的原生 async API，也不承诺外部插件格式的完整标准兼容性。
+本文区分四类内容：**用户明确要求**、**现行仓库契约/源码事实**、**外部官方公开说明**、**本次建议**。历史对话中的助理建议不是已经接受的 ADR；官方功能介绍也不能证明其实现稳定性、用户规模或性能最优。本次只读核验相关源码和文档，不声称完成全仓审计、竞品运行实验或 Helix 设备回归。
+
+历史研究保留为来源，不复制成第二份现行任务计划：[能力架构调研](../research/helix-agent-capability-architecture-convergence-2026-09-28.md)、[Plugin 专项方案](plugin-platform-refactor-2026-09-28.md)、[异步 Job 调研](../research/async-jobs-wait-and-background-execution-competitive-study-2026-09-28.md)。这些材料的旧阶段顺序和旧实现缺口不能覆盖当前 status/源码。
+
+### 12.2 本次核验的 Helix 入口
+
+以下行范围指本次读取时的源码，不保证后续提交行号不变。文件名和符号是后续检索锚点。
+
+| 编号 | 来源与读取范围 | 支持的事实 |
+| --- | --- | --- |
+| C01 | [README](../../README.md)，3–5、21–27；[产品策略](../product/market-users-and-commercialization.md) | 完整 Android 本机产品；Standard/Advanced 与渠道不同；不以远程 Worker 为基础 |
+| C02 | [AgentLoop.kt](../../app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)，3–37 | Loop 仍依赖 App ProviderService、HelixStorage、资源字符串与 refreshScreen |
+| C03 | [AgentLoopPorts.kt](../../app/src/main/kotlin/com/helix/app/agent/AgentLoopPorts.kt)，18–73 | 上下文入口已存在；执行 port 混合消息物化、TurnEntity、TurnCoordinator |
+| C04 | [ChatRequestAssembler.kt](../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)，23–70 | 已有唯一生产上下文入口；不是从零补 Context 系统 |
+| C05 | [ToolDispatcher.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDispatcher.kt)，563–578 | descriptor 与 executor 当前分别解析 |
+| C06 | [ToolScheduler.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolScheduler.kt)，139–153 | Scheduler 依据独立解析的 descriptor 构建 footprint |
+| C07 | [ExecutionOwnership.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ExecutionOwnership.kt)，143–172、182–207 | 控制动作可能在整个 action 中持有 reconciliation permit，不能直接用于长等待 |
+| C08 | [DetachedJobControl.kt](../../app/src/developer/kotlin/com/helix/app/proot/DetachedJobControl.kt)，14–48 | status/cancel 已存在；terminal 与 settlementPending 分开 |
+| C09 | [ExecutionTarget.kt](../../core/model/src/main/kotlin/com/helix/core/model/ExecutionTarget.kt)，10–50；[Runtime ADR](../adr/runtime/001-execution-domains.md)，14–21 | 目标类型已存在；旧独立 APK/UID 注释与现行同 UID 私有进程契约不一致 |
+| C10 | [ModelToolExposureOrder.kt](../../app/src/main/kotlin/com/helix/app/chat/ModelToolExposureOrder.kt)，12–76 | 核心优先与工具组合已经存在，不重做历史 64-tool 缺陷项目 |
+| C11 | [Connector ADR](../adr/connectors/003-ownership-and-installation.md)，18–66 | 已有稳定身份、Room 提交、会话选择、来源撤销与收尾清理契约 |
+| C12 | [Turn ADR](../adr/agent/001-turn-coordination.md)，47–138；[Job ADR](../adr/runtime/002-terminal-and-jobs.md)，14–22 | batch 结算、不可变 review、successor Turn、独立 Runtime Job 与不自动唤醒 |
+| C13 | [status](../development/status.md)、[HXA-231](../development/tasks/HXA-231.md) | 当前授权与实现边界，不因本文而改变 |
+| C14 | [ToolExecution.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolExecution.kt)，33–40、109–141 | 同步 execute 与现有 TimedOutWithEffectTruth/CancelledWithEffectTruth 类型；不是所有取消/超时都只能走通用 unknown |
+| C15 | [ToolDeadlineRunner.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDeadlineRunner.kt)，30–88；ToolScheduler，139–176、280–306 | Future 阻塞等待、watchdog、Scheduler worker 直调 Dispatcher，是 J1 接线需改变的位置 |
+| C16 | [DetachedJobClient.kt](../../runtime/proot-client/src/main/kotlin/com/helix/runtime/proot/client/DetachedJobClient.kt)，71–73、81–151 | QUERY/CANCEL 为同步 Binder；连接有 20 秒等候，不能把未来 await 描述成现成事件协议 |
+| C17 | [根 build.gradle.kts](../../build.gradle.kts)，166–215；[settings.gradle.kts](../../settings.gradle.kts)，30–65 | core:agent 当前仅项目依赖 core:model；模块配置集中在根脚本，没有子目录 build 文件不代表模块不存在 |
+
+关键文件 SHA-256：
+
+```text
+AgentLoop.kt             a642980841f634ca4b4d77791f557454edfd1a1d9270835714aff5d66087b799
+AgentLoopPorts.kt        ebbc142bad5d216769dd1c88e8b7d8488f9d8d575238f51e1eb5b4e4cbeb10d0
+ChatRequestAssembler.kt  87f8f7a18f1cfca231defd91e89c763ffd889f79e5c8b6ea025caf9c60fc5dcc
+ToolDispatcher.kt       151b704e015fe919a5ca9876959bb4b757e074370f5793681c4f42184ccf5976
+ToolScheduler.kt        bb635fb894d667ae490b920022215cf03a85e0a2ba18636e14a4462044ba4cd6
+ExecutionOwnership.kt   1a129a216341643158e6a5b7a22de4b705b5ab1f0abb515e59766d34ef828178
+ToolExecution.kt        21f91e4eda0c25ba3992721a2d80950aab19e26cd47b0a44a555dbeff49b4b94
+ToolDeadlineRunner.kt   da9ee9741441986bc3c58b5838d13f20c488a5a923688494f6e243ea9aeb6745
+DetachedJobClient.kt    b2e696e55505aa26bf1c4c48f84eb3ed4cfbf83a95b893a4fd616ae46c8fc3f8
+```
+
+### 12.3 竞品矩阵与借鉴边界
+
+以下 E01–E13 保留上一轮详细扩写记录的一手来源与证据边界；本轮只补充核验 E09 的版本/草案状态和 E14 的协程语义，没有重新访问并验证全部竞品。只记录来源支持的机制，不引用价格、排行或未经实测的可靠性结论。
+
+| 编号 | 竞品与一手来源 | 公开内容支持什么 | Helix 采用什么、不采用什么 |
+| --- | --- | --- | --- |
+| E01 | [Codex App Server 架构](https://openai.com/index/unlocking-the-codex-harness/) | Core 包含循环、持久化、配置与工具执行；App Server 向客户端转换请求和事件 | 采用 UI 与完整 Harness 分离；不能把 App Server 误称为纯 Runner |
+| E02 | [Claude Code tools](https://code.claude.com/docs/en/tools-reference) | 后台命令返回 task/output，支持等待超时后的后台化；非交互运行的后台任务有明确结束约束 | 借鉴同一次执行的后台观察；不照搬其桌面生存期或把所有工具变成 Job |
+| E03 | [OpenCode Server](https://opencode.ai/docs/server/) | TUI 是客户端，Server 提供程序化接口 | 借鉴 headless 可测试核心；不因此在手机默认启动 HTTP 服务 |
+| E04 | [VS Code Extension Host](https://code.visualstudio.com/api/advanced-topics/extension-host)、[工具与后台终端](https://code.visualstudio.com/docs/agents/run/tools) | 扩展可有不同宿主位置；长 terminal command 可 Continue in Background | 借鉴 Host adapter 和用户控制；不把 Extension Host 当成自动成立的安全沙箱 |
+| E05 | [Cursor Agent overview](https://cursor.com/docs/agent/overview) | Agent 由模型、指令和工具组合，并有模型适配 | 保留 Provider/模型差异；不根据公开产品功能臆测内部模块拓扑 |
+| E06 | [PalmClaw](https://github.com/ModalityDance/PalmClaw) | 原生 Android 路线，当前 README 目录列出 ui/runtime/channels/config/tools/skills | 支持职责分层；目录划分不等于独立进程或可独立部署服务 |
+| E07 | [Operit Android 架构](https://github.com/AAswordman/Operit/blob/main/Repo_Arch_Basic.md)、[Operit2 Host 边界](https://github.com/AAswordman/Operit2/blob/main/hosts/README.md) | 前者说明 UI/业务/工具主要在 App；后者明确 Host 实现 operit-host-api、Core 业务状态和 UI 状态不归 Host | 采用可替换平台 Host 边界；当前 CLI README 不能重新证明历史 Preview 状态与完整 handoff 行为，不据此推断成熟度 |
+| E08 | [AndCode](https://github.com/yuga-hashimoto/and-code) | 本次 README 列出 OpenCode、Claude Code、Antigravity 的本机 PRoot 路线及远程 OpenCode | 支持 UI 与 Harness 分离；本次来源未列出历史对话所述 Codex App Server 接入，不沿用该说法 |
+| E09 | [Agent Plugins 规范](https://agent-plugins.org/specification) | 本轮页面明确同时标注 `Spec Version: 1.0.0` 和 `Status: Working Draft`；定义 Skill/MCP、扩展和局部失败规则 | 是版本化草案输入，不称已定型行业标准；通过 importer 支持矩阵适配，不绑定 Core 数据模型 |
+| E10 | [Anthropic context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) | 关注有价值的上下文、按需获取与长任务信息管理 | 支持 ContextCompiler 方向；不证明确定的 token 减少量或收益百分比 |
+| E11 | [OpenAI Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) | 缓存受匹配前缀与工具等请求内容影响 | 采用稳定顺序与有依据的失效；不能为缓存保留被撤销的上下文 |
+| E12 | [Android 进程与线程](https://developer.android.com/guide/components/processes-and-threads)、[前台服务时限](https://developer.android.com/develop/background-work/services/fgs/timeout) | 组件/线程/进程和系统运行窗口有实际约束 | 分清接口、进程、UID、后台存活；不声称拆进程即可常驻 |
+| E13 | [WebCodex 架构](https://github.com/dollarser/webcodex/blob/main/docs/ARCHITECTURE.md) | Client→Server→Runner；服务端负责认证策略路由，Runner 持有本机项目/执行边界；Job 不依附一次调用 | 借鉴可替换决策客户端与受控执行边界；不复制其网络注册、账号、多节点系统 |
+| E14 | [Kotlin 协程基础](https://kotlinlang.org/docs/coroutines-basics.html) | `delay` 等挂起等待不阻塞线程，阻塞调用不因此自动变成可挂起操作 | 只用于解释挂起与阻塞的差别；§8 的 completion/线程预算和锁规则是 Helix 设计，不是官方推荐的唯一实现 |
+
+E13 通过已连接 GitHub 读取用户仓库 `main`，文件 blob SHA 为 `eaed17fb7627283b9ff0d827c4568c08ad8e5fe5`；它是该仓库快照，不等于正在运行的 WebCodex 版本全部实现已核验。其他网页多数为可变官方文档，未固定发布 tag；实施时重查相关契约。
+
+本次核验没有把历史说明自动视为今日事实：Operit2 的 hosts/README 明确支持 Host API 与业务/UI 所有权分离，但当前根 README 不足以重新确认此前讨论中的 Preview/完整跨节点 handoff 契约；AndCode 当前取得的支持列表也不支持此前关于 Codex 接入的具体说法。本文保留这些历史差异，不由此断言相关能力已删除或从未存在。不迁移 in-flight 执行可作为 Helix 自身设计选择，但不能以未确认的竞品细节替代验证。
+
+DeepSeek Harness 等在历史讨论中出现，但本次没有补充足以支持具体内部拓扑的一手版本证据，不把它们写成架构共识的证明。本方案也不依赖某个 Provider 原生 async API。
+
+### 12.4 历史讨论的保留与修正
+
+| 历史观点 | 本文处理 |
+| --- | --- |
+| 不考虑旧内部兼容，以整体合理为准 | 保留；不推导删除用户数据或无条件扩大实现范围 |
+| Core Engine 冻结 | 精确为稳定语义权威；允许接口、模块、存储适配、UI 依赖重构 |
+| Tool Exposure 是最高优先级 | 历史故障有效；当前已有修复，R1/R2 接入并回归，不重新立一遍数量项目 |
+| 应尽早新建 ThisPhone/Node | 改为整理既有 ExecutionTarget，不新增重复目标实体；远程实现暂缓 |
+| 权限全部属于 Node | 不采用；Host 能力、会话规则、用户批准各有职责，Plugin/模型不授权 |
+| 等待需要 durable 状态并自动 successor | 分开：live await 正常返回；进程死亡不恢复旧 Turn；自动激活须另行接受 |
+| 不需要前台转后台 | 收窄为不需要万能后台工具；同执行、已授权的等待方式切换有价值 |
+| 所有工具都放 Runner | 不采用；Agent 内部操作与平台操作分开，统一治理不等于统一领域所有者 |
+| 符合主流，所以一定最优 | 不采用；有代表性工程依据，实际收益仍需 Helix 测量 |
+
+## 13. Core、治理与 Host 的详细职责契约
+
+### 13.1 三种位置、两种接口
+
+必须区分**推理位置**、**Harness 所在位置**、**实际工具执行位置**。调用远端 LLM 的本机 Agent 不等于远端 Brain：上下文、循环与授权仍可在手机。
+
+Agent API 是 UI/分享入口调用完整 Harness 的接口。Execution API 是 Harness 获取受控能力的接口。未来使用外部 Agent 的接入适配器需要单独认证、scope 和本机授权，不直接复用内部可信类型构造器。
+
+第一版不通过 JSON-RPC/HTTP 在同进程内部绕一圈。内部接口采用中立类型；Binder/网络/模型 schema 各有独立边界适配，不将 Room Entity 或内部对象图直接导出。
+
+### 13.2 领域所有权矩阵
+
+| 领域 | 唯一权威职责 | 可以观察/关联 | 明确禁止 |
+| --- | --- | --- | --- |
+| Session/Turn/Goal/ModelCall | Agent Core 的现有领域服务 | 工具结果、预算、用户输入 | UI 或 Runtime 第二次补写 Turn terminal |
+| 工具准入与 ToolCall outcome | 统一治理/Dispatcher 及存储端口 | request mapping、当前权限、执行 observation | 模型自报 approved、安装替代授权 |
+| 进程/PTY/Runtime Job | 对应 Runtime 的持久执行 owner | launch call、执行 target、租期 | 用 Binder 断连或 Flow 结束伪造退出 |
+| 审批与撤销 | 本机授权服务 | UI 操作、精确动作绑定 | Core 或插件自己制造批准 |
+| Plugin installation | 已提交安装 catalog/service | 组件引用、会话选择、来源 | 每个 adapter 维护第二套包归属 |
+| Skill/Memory/Reference 内容 | 对应内容存储与 snapshot 服务 | ContextCompiler、授权范围 | 摘要改变原文权威，复制成第二份 canonical Memory |
+| Artifact/日志/观察 | 各自产生者与内容存储 | 结果 ref、哈希、游标、来源 | 控制消息塞入无界正文；跨会话引用等于控制权 |
+| UI/连接 | UI 自身的临时状态 | 持久视图和进度事件 | 页面消失就认为后台进程退出 |
+
+“唯一权威”是逻辑归属，不是一领域一数据库。Agent 与治理可共享当前 Room 实现，Runtime 继续自己的执行 journal；不得建立双向可写状态镜像。
+
+### 13.3 Agent API 最小面
+
+以下是接口能力，不要求逐项新增工具或类。
+
+| 操作 | 输入/结果契约 | 原有语义必须保留 |
+| --- | --- | --- |
+| submit | 用户输入快照、clientRequestId → accepted receipt/拒绝 | 重复请求返回同一 receipt；接受前冻结必要来源 |
+| queue / steer | 可信会话与输入意图 → disposition | 默认 Queue；Steer 仅在现有合法边界交付 |
+| revise / regenerate / fork | 明确目标身份与版本 → 新/替代 Turn 或 Session | 不重写任意旧历史；fork 不继承审批/Job 控制权 |
+| stop / review | 明确被控制的 Turn 或 effect → durable 结果 | 取消先记录事实；review 不恢复旧执行栈 |
+| observe | session/turn 的授权视图 → snapshot＋可选 delta | 重新订阅不启动任务；终态可从持久事实恢复 |
+
+Agent Core 可依赖 Clock、ID、模型接口、领域存储端口、ContextCompiler 和工具网关。移除 `strings(Int,...)`、`refreshScreen`、Compose/Activity、具体 Binder client；输出结构化错误码和参数，UI 本地化。模型需要的自然语言工具说明仍是模型协议内容，不必全部改成 UI 资源。
+
+### 13.4 工具治理接口与宿主执行接口
+
+```text
+模型输出
+  → provider-neutral ToolCall 规范化、presentation 剥离
+  → 请求实际曝光的 BindingRef
+  → schema / 来源与会话可用性 / policy / approval
+  → 同一 binding 的 footprint 与准入
+  → 已注册领域 handler
+       ├─ AgentActionHandler
+       └─ ExecutionHost adapter
+  → 原始结果与 outcome 持久化
+  → Agent 物化 tool result message
+```
+
+对 Agent 暴露的是**已治理的调用入口**；底层 adapter 的执行方法只由可信装配/Dispatcher 调用，不能成为 UI、插件或未来外部客户端的捷径。实现上可共用一个门面，不需要“通用网关＋通用执行服务＋通用编排器”层层转发。
+
+建议的逻辑类型：
+
+| 类型 | 关键字段 | 不应出现 |
+| --- | --- | --- |
+| InvocationRequest | 本地调用 ID、原模型 call ID、BindingRef、规范业务参数、可信来源关联、原 Workspace/target 绑定 | executor、TurnEntity、Android Context、UI callback、客户端自造 approval |
+| InvocationContext | 宿主解析的 caller/scope、取消信号、预算、请求映射版本 | 模型可写的 authority 字段 |
+| InvocationOutcome | 已完成结果、已接受 async handle、未开始拒绝、未知执行结果等可区分事实 | 一个布尔 success 混淆全部情况 |
+| ExecutionHandle | 原始执行身份、kind、providerRef、执行 generation、target/source 关联 | 可改写命令/输出目录的万能控制对象 |
+| ResultRef / Observation | 内容身份、大小/类型/来源、状态证据、游标或 revision、是否待收取 | 原始凭据、无界日志、虚构的完成状态 |
+
+内部类型可表达 provenance/绑定；是否持久化取决于该身份能否从现有记录可靠恢复。不要为每个字段自动建表。
+
+### 13.4.1 首版端口的签名形态与模块归属
+
+下表是本轮选定的设计形态，方法/类型名可按仓库命名实现；关键是返回、取消、线程和事务语义，不是让实现者在同步、suspend、回调之间临场选择。公共参数用不可变领域值，不引用 Room Entity/Android 对象。
+
+| 端口及建议形态 | 声明 / 实现位置 | 完成与取消语义 |
+| --- | --- | --- |
+| `AgentApi.submit(input): SubmitReceipt`（suspend）；`observe(id): Flow<AgentView>` | API 在 core:agent；App 负责装配 | submit 返回持久 receipt，不等待整个 Turn；observe 为冷的只读观察，退订不停止 Turn |
+| `AgentStore.readTurn(id): TurnSnapshot`、`admit(command): AdmissionResult`、`commitStep(command): CommitResult`、`commitTerminal(command): CommitResult`（suspend） | 窄接口在 core:agent；生产 adapter 在 App 存储适配层，调用 core:storage | 一次领域命令对应必要 Room 事务；Applied/AlreadyApplied/Conflict/Unavailable 明确，不能裸露 DAO 或事务 lambda |
+| 现有 `ModelProvider.stream(request): Flow<ModelEvent>`；有限配置/容量读取 port | provider:api；各 provider 模块实现 | 保留原流式终态/错误协议；取消网络观察不触发工具重放，不再造一套 ModelProvider |
+| `TurnContextPort.build(snapshot): CompiledContextResult`（suspend）；`ContextSelector.select(snapshot): SelectionDecision`（普通纯函数） | Loop-facing port 与纯逻辑在 core:agent；内容读取/物化适配在 App/Provider 层 | build 可编排已声明 I/O；纯 select 不执行 I/O/模型/预算扣费；压缩单独返回 NeedsCompaction 交既有编排 |
+| `AgentToolGateway.executeBatch(batch): SettledBatch`（suspend） | Loop 需要的 port 在 core:agent；App adapter 连接 tools:framework | 返回按 call sequence 的 durable outcomes；进程内等待取消由 Engine 发明确停止并确保逐项结算，不丢弃 batch |
+| `Dispatcher.dispatchCompletion(request): CompletionStage<ToolDispatchOutcome>` | tools:framework 内部 | 即时拒绝是已完成 stage；观察异步回调最终走同一结算器，具体资源规则见 §8.3–8.5 |
+| `JobObservationPort.query(binding): CompletionStage<JobObservation>`、`requestCancel(binding): CompletionStage<ControlReceipt>` | 中立控制契约在 tools:framework；Linux adapter 在当前 developer/Runtime client 接线处 | query 只读；requestCancel 是独立受控动作。阶段失败不自动重试写入，控制回执与退出证据分开 |
+
+跨 Core/执行边界的 BindingRef/不可变 invocation value 放入现有 core:model 的对应子包，executor、Policy 实现和 stage 不进入持久 model DTO。Core 可以显式依赖中立的 provider:api 及项目已锁定协程库；更新根依赖配置，不通过引入 App 或 core:storage 偷渡实现。JobObservationPort 的 provider 实现只在可信治理后调用，不开放给外部模型直接操作。
+
+### 13.4.2 生命周期、异常与事务发布
+
+应用装配创建非 Activity 所有的 Engine scope；每个 Turn 的 live driver 有其子 scope，生命周期仍由原 TurnEngine 控制。Job Runtime owner 不成为 observer 协程的子任务。UI 的 Flow 取消只解除订阅；用户明确停止走 AgentApi 命令，不能靠某个 `collect` 被取消来表达停止业务。
+
+预期拒绝、过期绑定、来源不可达、容量不足以结构化结果表达；基础设施异常不能 catch-all 成成功。边界 adapter 区分 Kotlin CancellationException 和业务失败；在拥有该调用的 Engine/Dispatcher 边界记录取消/错误，不能仅抛异常后让已排队调用丢失。必要收尾使用受限发布路径，不开无限 NonCancellable 区域，也不等待远端 forever。
+
+`commitStep`/`commitTerminal` command 必须携带预期 state/step、原身份及关联结果，保留原 CAS 和跨表原子发布。Runtime 或治理提供事实引用，不获得直接改写 Turn 的能力。事务失败时无成功回执；外部副作用不回滚，按原恢复规则核查。不能为了把存储拆成 ports 而把一笔结算拆成多个独立提交。
+
+### 13.4.3 设计固定项与可由实施卡决定的参数
+
+已固定：端口的领域归属、Core 的 suspend/Flow 面、Framework 的 completion 面、唯一结算器、等待与控制资源分离、异步观察默认有界 query、异常与事务规则。仍由任务基线决定：具体包名、线程/队列数值、wait/query/收尾额度。参数必须在交付前写入可测试配置，不留下运行时 TODO；改变上述固定语义需先修订契约，不能以“实现方便”自行改成阻塞 await。
+
+### 13.5 Agent 内部工具不是绕过治理的特例
+
+Plan/Goal/Todo/用户问答使用窄领域命令接口，不接收整个 AgentLoop 或可变 Session。可信装配明确注册哪些封闭元数据操作可以在 retained Runtime owner 期间执行；不能依据工具名称、Plugin 注释或模型输入授予豁免。
+
+进入 AgentActionHandler 的调用同样有 schema、模式限制、预算和审计；handler 不创建第二个 model loop，也不可以递归调用整个网关以绕过当前 batch。用户直接操作使用可信 user command，不伪造 assistant ToolCall；共享资源冲突和系统权限仍要检查。
+
+## 14. 当前实现到目标模块的迁移映射
+
+### 14.1 优先采用现有模块
+
+| 当前入口 | 目标职责与建议落点 | 保留内容 | 移出/删除内容 |
+| --- | --- | --- | --- |
+| `app/agent/AgentLoop` | `core/agent` 中可 headless 驱动的 Loop | 同一模型/工具循环与既有预算规则 | R、刷新回调、App ProviderService、直接 Room 查询 |
+| `app/engine/TurnEngine` | 领域生命周期服务＋Android 存储/运行适配 | 唯一 admission/terminal/review/recovery | UI/具体 adapter 耦合；不新造平行 Engine |
+| `AgentLoopPorts` | Core context/input ports；中立调用与历史物化接口 | build/backfill 等必要语义 | 把所有职责继续塞给 TurnToolExecutor |
+| `ChatToolCalls` 一类接线 | 调用适配、结果历史物化和执行网关分别有边界 | 业务参数规范化、调用顺序、结果引用 | 在执行 port 中序列化对话消息 |
+| `ChatRequestAssembler` / `SystemPromptContext` | 编译外壳＋纯选择核心，先复用现有算法 | history、compaction、Manifest | 重复选择/预检；不要复活已删除的旧 ContextBuilder |
+| `ToolRegistry` / `ToolImplementationRegistry` | `tools/framework` 原子 binding registry | 工具标识、contract 与可信 provenance | 双表写入和独立 executor resolve |
+| `ToolScheduler` / `ToolDispatcher` | 同一治理内的调度与执行准入 | 并发边界、审批、effect truth | 分别读取不同版本契约 |
+| `DetachedJob*` / Runtime client | Execution API 的 Linux adapter | 原执行 journal、lease、collect、证据 | 新建通用 Job 可写状态镜像 |
+| `ConnectorService` / package reader | Plugin installation 与 connection service 分开 | archive hardening、账号绑定、共享引用 | Skill-only 假 Connector 顶层身份 |
+| `PluginRegistry` / `SkillRepository` / `McpAppService` | 安装贡献投影、内容快照、协议连接各自保留 | 不同领域的事实 | 万能 Plugin service locator |
+| `DefaultAppContainer` | 唯一 Android composition root | 可信依赖装配与 channel 选择 | 核心业务逻辑散落装配文件 |
+| `ExecutionTargetDescriptor` | 既有身份下澄清运行时/能力属性 | 稳定 target 与授权绑定 | 旧独立 APK/UID 注释；不加第二个 this-phone 实体 |
+
+表中目标是本次建议，不是宣布这些移动已发生。最终包名需在任务中固定；移动时同步测试和可见性，不为目录整齐建立一批无行为接口。
+
+### 14.2 编译依赖约束
+
+Agent Core 的 API/model/domain 部分不依赖 Android UI 或 Room annotations/entities。存储适配器实现窄接口并复用现有事务；Provider adapter 实现模型接口；Host adapter 实现执行能力。App 装配各模块，Core 不 import App。
+
+工具治理只依赖中立契约及其 adapter ports。领域 handler 由 composition root 注册，不能让 `tools/framework` 依赖 App 的 Goal/UI 类。纯核心需要当前协程等既有库可继续使用，不为了“纯”改成另一个事件框架。
+
+自动依赖测试至少禁止以下路径：Core → `androidx.compose`/Activity/App `R`；Core 公共参数 → `core.storage.entity`；执行 port → `TurnCoordinator`/模型消息草稿；Runtime → 启动主 App 全量恢复。检查编译边界，不只检查目录命名。
+
+R2-A1 先在现有 core:agent 定义领域端口，App 的 adapter 依赖 core:agent 与 core:storage；不让 core:agent 反依赖 core:storage。同理，Core 的工具 gateway 由 App 连接 tools:framework，不让 Core 为了拿 executor 引入执行实现。ModelProvider 可直接依赖纯 JVM provider:api，无需再包一套模型 API。根 build.gradle.kts 集中声明依赖，settings 中已有 core:agent；不要因缺少模块级 build.gradle.kts 误建重复模块。
+
+headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fake Provider/Host，无 Android/App/Room 运行时依赖；App/Room adapter 则单独检验真实事务与恢复。Robolectric 或“没有启动 Activity”的 Android 测试只能证明相应接线，不能冒充纯 Core 独立运行。
+
+### 14.3 三种部署形态
+
+| 形态 | 本方案态度 | 验证责任 |
+| --- | --- | --- |
+| 同一应用进程中的 UI＋Core＋轻量治理/Host | 默认；类型化直接调用，生命周期不绑页面 | headless fixtures、UI detach、内存和主线程耗时 |
+| 重资源/有隔离要求的 Runtime 独立进程 | 保留现有 QuickJS/PRoot/本地推理等真实边界 | Binder/PFD、服务生命周期、资源与权限测试 |
+| 独立 Agent 进程、外部 Agent、远程 Host | 未实现的后续选择，不预置空 server/worker | 有明确需求后做身份、接管、网络和设备契约 |
+
+模块隔离不等于进程隔离，进程隔离不等于 UID 隔离。PRoot 共享 UID 的限制按 C09 保留；移动类和加接口不能宣称已经修复凭据隔离。参考 E12，不保证任何进程永不被系统回收。
+
+## 15. 工具绑定、授权与结果契约
+
+本节是 R1 规范正文；§4 只作导航，§18 负责迁移顺序。现有 effect/approval/recovery 按有效 ADR 保持。
+
+### 15.1 最小 binding 与原子发布
+
+| 逻辑类型 | 内容 |
+| --- | --- |
+| ToolBinding | descriptor、executor/受控执行适配器、可信 owner、稳定 implementationRevision、进程内 generation |
+| BindingRef | 工具名/版本、contractHash、owner 身份与实现 revision；不序列化 executor |
+| RegistrySnapshot | 不可变完整集合、snapshot revision；request alias 映射绑定该集合 |
+
+复用 descriptor 的 origin、operationClass、executionTarget，不能复制一份可变 metadata。每个来源先完整构造候选并校验 schema、owner、重复名与 alias 碰撞，再对该 owner 一次 replace/remove；失败保留旧集合，不能先删旧项再半批注册。owner 来自可信安装/连接身份，不按名称前缀认领别人。
+
+### 15.2 请求身份、调度与即时撤销
+
+一次 ModelCall 保存实际 model-facing 名称到 BindingRef 的有界映射。解析只接受该映射，不能把内部全名、旧 alias、同名新工具静默投到最新 executor。必须保证：
+
+```text
+实际曝光 BindingRef → 参数解释/Schema → Scheduler footprint → Approval binding → 实际 executor
+```
+
+全部同源。失效后拒绝或重新完成完整准入，不能沿用旧调度许可只刷新 executor。批准等待后仍检查来源、会话选择与当前授权。准入和替换/停用有明确线性化顺序：停用先完成，未启动调用不得执行；准入先完成，按原身份结算，不承诺撤销已发副作用。锁内只做短状态校验/引用获取，不执行网络、工具、长等待或审批。
+
+`contractHash` 表达契约，`implementationRevision` 表达可信实现/包身份，进程 registry generation 仅做并发失效，不能充当跨重启身份或 Runtime execution generation。同 revision 的重复投影、无关 owner 更新不误伤当前请求或要求重新批准；不兼容实现不能复用旧精确批准。远端 revision 只能证明已发现声明和本次绑定，不能证明其代码未变化。
+
+未跨执行边界的失效返回结构化恢复指引，允许下一轮重新发现，不要求重开会话，也不自动重放写入。已执行或未知按原事实结算/review，不能用一个通用 retryable=true 混淆。切换后删除独立可写 ToolImplementationRegistry/双表 helper；临时桥接只单向委托新 binding，阶段末删除，PluginToolBinding 不保留另一份可写模型。
+
+### 15.3 回执、重试与副作用
+
+所有外部启动前保存必要身份和启动意图；提交未知时查询原身份，不自动重发。相同请求 ID＋相同语义指纹返回原受理事实；相同 ID＋不同指纹拒绝，不能解释为重试。
+
+这提供防止重复提交的机制，不是任意外部服务的 exactly-once 保证。进程恰在持久化和外部效果之间死亡仍可能 UNKNOWN。读取可否重试、启动可否重试、collect 可否重试分别声明。
+
+内部 outcome 至少区分：未执行的 schema/权限/绑定拒绝、确定完成/失败、已受理异步执行、可查询但尚未终结、效果未知。模型侧可以保持小 schema，但不能删掉会改变下一安全动作的身份、完整性和不确定性字段。
+
+### 15.4 保留并发边界，不滥用后台化
+
+启动 ToolCall 结算后，Scheduler 的短调用槽可按原规则释放；后台 Job 的 retained execution owner 不能释放。读取日志、请求取消是控制观察，不代表新的业务写许可。
+
+未知任意代码的 footprint 继续保守排他。当前 PRoot 共享 UID/文件系统的事实不支持“不同路径就一定可以并行”。要放宽隔离/Workspace 并发，应另有真实资源模型及竞争测试，不混入 J1。
+
+### 15.5 生命周期与引用释放
+
+请求保留 BindingRef 和必要投影；真正执行持有的旧 executor 只保留到该次工作结算。卸载/更新不得回收活跃 Job 需要的 Runtime、原目标/认证绑定及唯一结果证据；已不可新调用的来源仍可由 host 管理入口执行授权范围内的查询/停止/对账。
+
+历史审计保留原来源和版本，不随卸载重写。非活跃旧快照、未引用暂存和日志按已接受的 retention/GC 规则有界清理，不新建无限版本仓库。
+
+## 16. ContextCompiler 与可独立运行的 Agent Core
+
+### 16.1 输入与输出
+
+本节是上下文的唯一规范正文。输入为已接受用户请求、持久历史/检查点、会话权限和来源选择、Workspace 请求绑定、附件/引用、Memory/Skill 内容、准确工具快照与 Provider 容量；冻结配置和即时撤销事实分开，不复制可写 Session。
+
+最小 ContextItem 含 kind、sourceRef、trust/authority、scope、estimatedTokens、atomicGroup、contentRef；复用现有类型，只有实际规则需要时才增加 priority/freshness。输出是 ModelRequest、精确 BindingRef 映射、实际 included/omitted/compressed 清单及容量诊断；扩展 RequestContextManifest，不新建上下文库。
+
+```text
+读取事实与内容适配器
+  → ContextSnapshot（用户请求、历史、配置、可用性、工具、内容引用）
+  → 纯选择/容量规划
+      → Ready：必要原文与配对完整
+      → NeedsCompaction：声明要压缩的已结算范围
+      → Rejected：不可容纳的必需输入与具体原因
+  → 既有模型压缩编排（仅 NeedsCompaction）
+  → Provider 特定编码与发送前复核
+  → ModelRequest + 实际 Manifest + BindingRef 映射
+```
+
+纯函数不读磁盘、不发模型、不扣费、不把持久事务藏在排序函数中。实际摘要由模型生成，复用原有预算与提交机制；确定性逻辑只能选择范围、检查大小和组织事实，不能自称生成了理解任务目的的语义摘要。
+
+ContextItem 的 `trust/authority` 是上下文来源属性，不是授权集合。用户引用一份 Skill/Memory 可以作为任务指导，但不能让其覆盖平台规则或替用户批准动作。用户请求、工具输出、引用和摘要保持角色/来源差异，不统一塞进高权威 system 文本。
+
+call 与 result 作为完整步骤原子选入/移除或压缩；未结算结果不伪造，当前用户目标、必要恢复事实和最新完整步骤必须保留或明确报告容量不足。`__helix_intent` 只作 presentation，在规范调用入口剥离一次，不重放到业务参数、审批 hash 和 Provider 历史。Manifest 保存引用与选择理由，不默认再存一份正文/凭据，导出沿用脱敏规则。
+
+### 16.2 内容源及首版处理
+
+| 来源 | 建议策略 | 不改变的边界 |
+| --- | --- | --- |
+| 当前用户输入和平台约束 | 必需项，容量不足明确拒绝/引导 | 不静默裁掉目标 |
+| 近期完整 model/tool 步骤 | atomicGroup 保留/压缩 | 不拆 call/result，不补造未结算结果 |
+| Goal/Plan/RecoverySummary | 读取持久事实，有界编入 | 不自动创建 Goal，不恢复旧调用栈 |
+| Workspace 指令与文件 | 按请求绑定、有界读取、可按需加载 | 不随 UI 换目录改变已接受请求目标 |
+| Memory | 复用 Markdown canonical 和来源/启用规则 | Global/Project 分开；不把 Project 尚未交付部分当成已完成 |
+| Expert、Skill、Plugin 内容 | 选择与内容加载分离，明确 provenance | 选择不授予能力、不能注入第二套 Loop |
+| Other-conversation Reference | 使用已接受的不可变引用快照 | 引用不等于操控源会话/源 Job |
+| 图片/附件/观察 | Provider 能力＋像素/字节/token 预算 | 载入不等于模型已理解；不凭 base64 证明识别 |
+| Job 变化与结果 | 仅相关、去重的有界 observation | 原状态可信性与外部日志文本可信性分开 |
+
+### 16.3 预算、稳定性和缓存
+
+先保证模型窗口、输出预留、内存/消息长度和用户预算；类别 quota 是可借用的软规则，不把无用来源硬占满。没有可靠 token 计数时记录估算与余量，最终受 Provider 返回和前置容量边界限制；不能把估算写成精确用量。
+
+工具 catalog 丰富不等于每轮 schema 丰富；发现与 `tool.result.read` 等必要后续能力需要可达。新的 `jobs.*` 也采用任务相关曝光，不一律加入所有 Provider 的常驻核心窗口。
+
+延续已存在的核心工具优先与发现：先按来源/会话可用性筛选，再按容量选择；发现结果不是执行授权，进入后续实际请求的映射后才可按其 BindingRef 调用。分类额度可借用，Provider 窗口/用户额度/输出预留/协议/内存是硬约束。无工具模式、未知窗口、分页结果和多模态预算需分别测试，不用删除任务目标来凑窗口。
+
+稳定部分保持确定顺序。缓存只对精确源 revision、会话/Workspace/权限相关配置和 Provider 物化条件成立；不做跨会话凭据/正文缓存共享。E11 支持稳定前缀的重要性，但本方案不承诺固定命中率。
+
+### 16.4 发送与压缩的边界
+
+`CompiledContext` 就绪后到网络发送前仍可能发生撤销。应通过既有发送准入，对目标、来源/数据绑定和即时拒绝规则做最后一次复核。新配置不静默改变已接受请求的 Provider/Workspace；明确新请求或重新接受后才改变相关冻结项。
+
+需要压缩时，把压缩本身作为受预算和出网约束的模型工作；不能只校验最终主模型发送。取消/失败不发布半个 checkpoint。摘要收益不足、必需内容仍放不下时停止并诊断，不反复摘要烧预算。
+
+只压缩已结算内容；复用既有摘要预算、收益检查、失败回退与 checkpoint 原子提交。R2-A 用固定 fixture 做新旧请求/配对/容量等价对照后切唯一入口，不在生产额外调用模型对照。R2-B 才调整 Prompt 或策略；Provider 必须的编码差异保留。
+
+### 16.5 UI 事件与持久化
+
+Core 发布结构化 `TurnStarted`、模型增量、工具状态、预算停止和终态等视图事件；名称沿用可用现有类型。UI 用事件刷新，用 durable snapshot 补齐重连。token delta 不要求每个字符一条 Room 记录；最终消息/调用/结算事实继续按原契约持久化。
+
+慢 UI 不能阻塞进程输出 drain 或模型流的可靠结算。临时进度可以合并，终态/review/receipt 不能因丢事件消失。观察取消不等于取消 Agent；执行取消必须走明确命令。
+
+## 17. Plugin、Connection 与能力产品化
+
+### 17.1 一个安装身份，多种贡献
+
+```text
+PluginInstallation（稳定身份、已提交 revision）
+  ├─ Skill 引用 → SkillRepository → Context 候选/按需读取
+  ├─ MCP 配置引用 → Connection service → 动态工具 binding
+  └─ APK 已知 native runtime 引用 → 本机能力 binding
+```
+
+MCP/Skill/native 的生命周期不同，不并入万能 registry。A2A 继续是已配置的外部 Agent Client，不因作为 Tool 可调用就变成本地 Subagent 或远程 ExecutionTarget。
+
+本节是 R3 安装/选择的规范正文。Plugin 是交付单位，Tool 是可调用契约，Skill 是指导内容；Connection service 保留配置/认证/重连。将 Connector 的通用包职责迁入 PluginInstallationService 或现有等价服务，复用 archive hardening，不创建万能安装事务引擎。保留独立 Skill 导入和用户 connection，不制造假的 Plugin/Connector 身份。
+
+`PluginInstallation` 只引用 Skill snapshot、MCP connection、native contribution 等身份。SecretStore 不迁进包清单；账号绑定不按 URL 相同自动共享。Marketplace 展示安装视图和组件 badge，独立用户连接不被强制包装成 marketplace item。
+
+### 17.2 安装、激活与局部失败
+
+提交单位是被接受的安装 manifest/revision，不要求所有 Runtime 和网络连接在同一时刻可用。安全校验和可用性探测分开：
+
+| 情况 | 处理 | UI/模型看到什么 |
+| --- | --- | --- |
+| 归档写出根目录、不可验证的包根或签名/来源要求失败 | 阻止安装/更新发布，保留旧安装 | 明确失败，不半注册 |
+| 一个组件配置无效且格式允许局部隔离 | 保存明确诊断、禁用该组件，其他独立组件可用 | 部分可用及受影响组件 |
+| 当前渠道没有对应 Runtime/transport | 不启动、不自动下载安装 | 不支持；可解释的能力边界 |
+| 认证缺失或连接失败 | 安装可存在，该连接未就绪 | 需登录/连接失败，可就地修复 |
+| 当前会话未选择来源 | 不暴露到该会话 | 已安装但本会话未使用 |
+| 工具被用户单独禁用 | 包启用不能反向打开 | 禁用状态继续有效 |
+
+具体格式的局部错误规则以 E09 或相应 importer 支持矩阵为准。不能为“容错”接受有害归档；也不能为“全原子”让无关 OAuth 失败禁用全部 Skill。完整支持声明必须有对应 fixture，不把未知客户端扩展猜成 native 可执行能力。
+
+E09 当前是标注 1.0.0 的 Working Draft。按显式支持的 schema/format 版本本地验证，不在加载时取远程 schema 改规则；Core 仅接收规范化贡献，不依赖外部 manifest 对象。区分导入归档的安全准入与格式规定的局部加载失败，不能把一条有错的 MCP entry 等同恶意归档。新增/退化组件在更新预览中显示，部分可用不能冒充全功能已就绪。native 贡献只引用 APK 已知实现，不下载 DEX/JAR 执行。
+
+### 17.3 运行中更新与卸载
+
+完整暂存与安全验证 → 以预期旧 revision CAS 发布 Room 已提交安装 → 按该 revision 激活 Registry 投影 → 幂等清理无引用旧内容。稳定安装 ID、内容 revision、准确 component owner 分开。Room 与内存 Registry 不是一笔分布式事务：投影未就绪时对应调用明确不可用/可重试，重启按已提交事实重建；准备失败/取消/低空间保留旧安装，清理失败不伪造回滚。共享 Skill 仅撤销本安装的引用，不误删独立用户或其他包仍引用的内容。
+
+已启动执行保留原身份至结算，相关资源按 §15.5 保护。更新保持稳定身份与会话选择，凭据仅在认证/端点绑定完全未变时保留；已发送远端调用不切换 token/endpoint，未知副作用不借安装回滚再发一次。
+
+会话选择从默认集合复制后独立保存；安装不自动授权或加入全部会话。列表、Skill list/read、schema 与实际调用共同检查已提交 revision 和当前选择，单工具禁用仍优先。fork 复制选择值但不复制活跃 Job 控制或 Approval Proof。关闭来源不擦除历史/摘要或已发送内容，不承诺模型忘记它；未发送/审批中的调用在准入时检查撤销，已发送调用保留原结算。
+
+### 17.4 最小用户闭环
+
+R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连接 → 为会话选择 → 发起真实任务 → 打开产物 → 更新/停用/卸载 → 失败后修复。R5 再优化筛选、说明和布局，不能把功能接线拖到最后。
+
+能力中心区分安装、会话选择、组件就绪、工具禁用、系统能力与单次审批，不做一个承担所有含义的 Enabled 开关。普通用户仍以任务语言看到“当前可用、需要配置、正在等待、需要核查”，底层 revision/hash 展开到诊断，不强迫用户学习全部内部对象。
+
+## 18. 逐卡重构步骤与退出条件
+
+以下是**迁移卡片**，不是新 HXA 编号或新增授权。先按 §9 确认依赖及当前任务；契约只引用 §8、§13–17，卡片不重新定义行为。每卡保留改动位置、步骤、删除清单和退出证据。R2-A1/A2 在本轮重新划清职责，接手者以本标题和内容为准，不按旧口头编号继续旧步骤。
+
+### R0-1：建立可复核起点与行为清单
+
+**输入：**当前 HEAD＋工作树、现行 ADR、已完成与当前任务。
+
+1. 记录本次修改归属和关键文件 SHA，不清理别人 WIP；区分源码、文档、fixture 和生成物。
+2. 为送入模型、工具执行、审批、终态、恢复、Job 收取各列唯一生产入口。
+3. 记录三个可证明基线：当前确定性测试；代表性用户任务；已知失败/未复现项。
+4. 先解决当前任务的强制门禁阻塞；历史绿色不能代替新基线，设备/模型需当次明确授权。
+
+**交付：**当前事实表、删除候选和测试定位。**退出：**无虚构完成项；不会把 ToolExposure、Runtime Job 或旧 Engine 再做一遍。
+
+### R0-2：固定最小接口和依赖方向
+
+**输入：**C02/C03/C05–C09 与 §13–14。
+
+1. 用当前一次文件操作和一个现有 detached Job 画实际对象调用链。
+2. 定义中立 Invocation/BindingRef/Outcome，以及 Agent API/事件与存储端口所需的最少字段。
+3. 用两个本地测试实现验证契约：一个立即完成，一个可控异步/故障实现；不增加远程生产 adapter。
+4. 形成依赖禁止清单与需要接受的 ADR 差异。
+
+**交付：**接口设计与 contract fixture。**退出：**无需 UI、Room Entity 或可执行对象跨边界；不会因接口“方便”新增全局许可。
+
+### R1-1：先实现原子 binding 容器
+
+**主要位置：**`tools/framework` 的 Registry/Execution 类型及测试。
+
+1. 保存 descriptor＋executor＋可信 owner＋实现 revision 为不可分割绑定。
+2. owner replace 构建候选后一次发布，碰撞/校验失败保持旧集合；remove 同样原子。
+3. 分开当前 registry revision 与跨请求稳定 binding identity，避免每次重新投影都使旧请求失效。
+4. 为 register/replace/remove、跨 owner 冲突和旧 snapshot 写 barrier/latch 测试。
+
+**删除：**本卡可保留仅委托新容器的内部桥接，不允许双写。**退出：**确定性交错下无半注册、无 descriptor/executor 错配，旧结构问题不靠 sleep 复现。
+
+### R1-2：迁移全部工具来源
+
+**主要位置：**内置工具装配、PluginRegistry、MCP/A2A 注册与测试工厂。
+
+1. 枚举所有 registration/replace/remove 调用，逐来源迁入同一容器。
+2. Plugin 与 connection owner 由可信安装/配置身份给出；防止名称前缀越权认领。
+3. Skill/Memory 等内容 repository 不搬入 Registry；只迁移真正的工具贡献。
+4. 用来源混合、重复安装、连接重建和停用 fixture 验证状态投影。
+
+**删除：**独立可写 ToolImplementationRegistry、双表替换 helper、重复 PluginToolBinding 类型或其可写版本。**退出：**生产和测试注册只剩一条事实源，不保留 fallback 回旧表。
+
+### R1-3：连接请求、调度、审批和执行
+
+**主要位置：**modelTools/请求映射、ToolScheduler、ToolDispatcher。
+
+1. 为每次实际模型请求保存有界名称→BindingRef 映射。
+2. 工具请求只解析该映射；归一化业务参数后，Scheduler 与 Dispatcher 使用同 binding。
+3. 执行前复核绑定/来源/当前权限；无关 owner 更新不误失效，旧精确批准不跨不兼容身份复用。
+4. 验证正在审批时停用、准入与替换竞争、已启动后卸载、同名新实现等边界。
+5. 保留旧执行所需引用到结算，之后释放；历史仅存审计引用。
+
+**退出：**无错配并发判断，无旧名称跳到新实现；原调用序回填及未知副作用规则不回归。R1 的验收范围不扩大成整个 Core 迁移。
+
+### R2-A1：先准备领域端口与存储事务适配
+
+**前置：**R0-2；规范 §13.4、§14.2。**主要位置：**core:agent 的领域端口、App 存储/模型/执行 adapter、根依赖配置及存储测试。
+
+1. 依照现行 Turn/ModelCall/Goal/input delivery 事务边界定义 AgentStore command/result；不逐 DAO 机械包装。
+2. 实现 App→core:storage 的生产 adapter 和 in-memory 测试 adapter，使用同一领域契约测试，明确 Applied/AlreadyApplied/Conflict/Unavailable。
+3. 固定 ModelProvider、Context、Gateway、事件接口的依赖与签名；适配现有实现但不启动第二 Loop，不新增远程 transport。
+4. 验证预期 state/step CAS、重复 receipt、terminal assistant/Turn/ModelCall/GoalRun 原子提交和失败时无成功回执。
+5. 修改根依赖映射而非误建 core:agent；准备不依赖 Android 的 fixture 和独立真实存储测试入口。
+
+**删除：**本卡不删仍被旧 Loop 使用的路径；新增 adapter 只调用同一存储/执行实现，不双写。**退出：**端口可编译且生产/测试适配可用，事务边界未拆开；本卡不宣称 headless Loop 已迁完。
+
+### R2-A2：迁移 Core 接线、消息物化和 UI 事件
+
+**前置：**R2-A1 的真实可用端口＋R1。**规范：**§13–14。**主要位置：**AgentLoop、TurnEngine、AgentLoopPorts、ChatToolCalls、UI 观察与 composition root。
+
+1. 把 Loop/Engine 对 HelixStorage、App ProviderService 的直接依赖替换成准备好的端口，保持唯一 admission/terminal/recovery owner。
+2. 把 assistantToolStepJson/toolResultDraft 留在 Agent 历史/Provider 物化侧，用中立 Invocation/Outcome 连接治理，不跨执行接口传 TurnEntity/Coordinator。
+3. 移出 R、refreshScreen、本地化字符串回调；以结构化事件与 durable view 接 UI，用户手动 Files/Tasks 仍走独立应用服务。
+4. 接入应用拥有的 Engine scope、明确停止命令及受限结算；UI 退订不取消 Turn，Runtime owner 不从属 observer。
+5. 迁入 core:agent 后跑纯 JVM 闭环：输入→fake ModelCall→受控工具/产物→回填→最终结果，并测取消、异常、重复 receipt、恢复；另跑存储 adapter 集成。
+
+**删除：**旧混合 TurnToolExecutor 方法、UI 回调、直接 Room Entity 接线和仅作旧路径兼容的桥接；不保留两套 Loop。**退出：**纯 Core runtime classpath 不含 App/Android/Room，T05/T06/T20/T21 有证据；没有启动 Activity 不是充分条件。
+
+### R2-A3：把现有上下文流程编译化
+
+**前置：**R2-A2；规范 §16。**主要位置：**ChatRequestAssembler、SystemPromptContext、history/compaction、RequestContextManifest。
+
+1. 固定历史和配置 fixture，记录当前实际消息、工具顺序、绑定和容量结论。
+2. 分离读取 snapshot、纯选择/容量、压缩编排、Provider 物化和发送准入。
+3. 接入 Expert、Memory、Workspace、Skill、Reference、附件现有适配；未交付来源保持明确未支持。
+4. 以测试对照新旧输出，先不改 Prompt/排序策略；迁入同一生产入口后删除旧重复逻辑。
+5. 检查模型侧 reserved presentation 字段只剥离一次，规范参数、审批哈希和历史一致。
+
+**退出：**协议成组、预算、取消、出网复核、摘要失败与恢复回归通过；Manifest 反映实际发送而不是仅候选集合。
+
+### R2-B：独立做上下文策略与能力收益实验
+
+**输入：**R2-A 等价迁移结果与冻结 Eval。
+
+1. 按失败类别选一个变量，例如长尾工具曝光或超大输出摘要，不同时改变模型、fixture、预算和 Prompt。
+2. 记录 baseline/candidate 的完成率、有效动作、构造时间、输入量及资源峰值。
+3. 检查稳定前缀、必要工具组合和 discovery 往返；token 更少但任务更慢时不直接判优。
+4. 只保留有证据的规则；无改善则回退策略提交，不回退已经验证的依赖边界。
+
+**退出：**收益口径、样本数、失败和限制明确；无“统一编译器所以模型更聪明”的结论。
+
+### J1-1：中立 Handle 与 completion/控制通道接线
+
+**前置：**R1；规范 §8.1、§8.3–8.5。**主要位置：**Dispatcher/Scheduler/deadline adapter、DetachedJob control/client 与任务投影。
+
+1. 复用原 binding/journal 构造 Handle/Observation，不新增可写 Job 状态表。
+2. 在同一 Dispatcher 拆开启动与结算，普通工具适配原同步 runner，observer 接 completion；Scheduler 通过 callback 接收结果，等待期间释放业务 worker。
+3. 实现有界 observer 配额、timer、只读 IPC 与控制容量分离；只读 query 不持 reconciliation permit，保留原 Job retained owner。
+4. 将当前 QUERY/CANCEL 接入短控制端口，设绑定/调用上限；补超时仍占用 IPC 容量和迟到回包清理，不能无限换线程。
+5. 用共享治理测试证明普通工具与观察工具仍走同一身份/权限/审计/结算；此时可只用 fixture，不先向模型曝光未完成的 await。
+
+**删除：**重写或收窄旧控制 helper 中不适合读取观察的锁范围，不复制第二 Dispatcher。**退出：**T13/T19 和普通工具回归通过，控制资源不会被等待占满；该前置没完成不能开始宣传等待能力。
+
+### J1-2：实现有界 await 与结果映射
+
+**前置：**J1-1；规范 §8.2、§8.4–8.5。**主要位置：**jobs.await、观察 timer/watchdog、无进展保护适配。
+
+1. 按契约做 handle 全体验证/去重、ANY/ALL、已终态即时返回和 revision 复核。
+2. 按 B/T/R 计算等待预算，接有界 query/变化唤醒，不让 LLM 循环轮询。
+3. 实现内部到期、外层 watchdog、用户 stop-wait、源离线/撤销的分别映射，原有 effectful 工具路径不改成普遍免核查。
+4. 接一次结算 CAS；完成/取消/两级超时竞争与迟到回包不重复回填，不错误释放仍未退出的 IPC 容量。
+5. 清理观察资源并补事件丢失、饱和、异常路径；状态防循环只对可信类型生效。
+
+**退出：**T12/T13/T19 及既有取消/review 测试通过；才曝光新工具。模型看到的结果必须能区分执行终态与待收取。
+
+### J1-3：接入结果闭环与最小产品体验
+
+**前置：**J1-2；规范 §8.6。JobObservation 的统一候选接线需要 R2-A3，基础 join 不必等待它。
+
+1. 切换原 status/cancel 与新模型工具曝光，同义入口只保留一套；collect 仍走原写效果与授权路径。
+2. 在现有 Loop 证明 launch 结算后可继续获准工作、await 返回后按原 batch 回填，不能仅写工具单测。
+3. UI 接入停止等待/停止执行的独立命令和真实回执；测试页面重建与用户直接 Tasks 控制，不伪造 ToolCall。
+4. 增加启动→等待→收取→产物哈希验证、fork/换目录/插件停用/进程恢复的联合 fixture。
+5. 若 R2 尚未交付，先由普通 ToolResult 返回观察；后续通过同一 port 接 ContextCompiler，避免新增第二上下文通道。
+
+**退出：**T14/T16/T17/T21 及已授权设备范围有证据，是否完成 JobObservation 自动纳入明确单列，不模糊宣布 J1 全部完成。
+
+### R3-1：迁移包所有权与激活流程
+
+**主要位置：**Connector package/import、installation catalog、PluginRegistry、Skill/MCP adapters。
+
+1. 将通用包解析移出 Skill/Connector 特定顶层，复用 archive hardening。
+2. 保留稳定安装 ID、不可变 revision、准确 component refs，提交事实不双写。
+3. 定义格式/transport/渠道支持矩阵与局部失败规则，远端登录不阻塞独立内容。
+4. 暂存→CAS 发布→投影激活→有界清理；测试提交前后故障和并发更新。
+5. 保留运行中引用与控制身份，原端点认证不被新 revision 替换。
+
+**删除：**假 Connector 包路径、重复安装身份、旧生产双写。**退出：**失败可恢复、归属可解释、无半激活和误删共享组件。
+
+### R3-2 / R5-min：会话选择与用户闭环一起交付
+
+1. 会话选择绑定稳定安装/组件身份；默认值复制后独立，更新不隐式改其他会话。
+2. 列表、Skill 读取、上下文曝光、实际调用共同检查已提交与当前选择。
+3. 最小 UI 展示安装/选择/需配置/不支持/单工具禁用，并能就地修复。
+4. 覆盖独立 Skill、独立 connection、共享引用、更新凭据、fork 和卸载。
+5. 执行真实 fixture 闭环：安装可用 Skill＋暂不可用 MCP 的包，Skill 能用、MCP 有明确修复状态。
+
+**退出：**无需等后续 UI 大改才能使用；R5 剩余工作仅视觉与交互完善。
+
+### J2-1：同执行身份与 AUTO，独立于按钮交付
+
+**前置：**J1 观察/控制契约；规范 §8.7。**主要位置：**Linux one-shot/detached、Runtime owner、日志、调用等待适配。
+
+1. 在真实 Runtime 路径建立从启动起稳定的身份/日志和明确 lifetime；不把短工具全部转成 Job。
+2. 实现同步有界等待与 AUTO 超时返回同一 handle，处理无后台资格的明确分支。
+3. 保留原预算、target、scope/credentials/Workspace，不由 AgentLoop 重提命令。
+4. 验证提交回执丢失、退出/取消/deadline 竞争与同一进程启动计数。
+5. 用没有 promotion 按钮的 fixture 证明 AUTO 和结果/控制闭环可独立验收。
+
+**退出：**T15 的 AUTO 子集及当次授权 Runtime 证据通过；不等待 J2-2 UI，不能借此跳过真实同执行证明。
+
+### J2-2 / R5：手动“继续在后台”与集成
+
+**前置：**J2-1；规范 §8.7。
+
+1. 给符合能力及原调用授权的命令卡接入用户事件，复用 AUTO 的等待释放机制，不新增启动命令。
+2. 与原终态、取消和 deadline 并发时展示真实回执，保留日志、返回会话与收取入口。
+3. 测按钮可见性、重复点击、页面重建及系统拒绝后台运行窗口；不保证进程永久存活。
+4. 完成 R4 的残留入口和 UI 依赖检查，记录 §20 对应用户摩擦与资源指标。
+
+**退出：**T15 手动子集/T16/T21 与已授权 UI 证据通过；J2-1 和 J2-2 状态分开报告，远程和自动唤醒不进入范围。
+
+## 19. 验证矩阵与质量门槛
+
+### 19.1 确定性契约测试
+
+测试名称是建议，复用已有 fixture 和测试套件，不另造通用 Eval 系统。
+
+| 测试组 | 必须覆盖的刺激 | 必须观测的结果 |
+| --- | --- | --- |
+| T01 AtomicBinding | resolve/replace/remove 交错、同名不同 owner | 永远成对；冲突失败保持旧集合 |
+| T02 RequestBinding | 旧模型请求返回时更新、alias 伪造 | 拒绝失效绑定，不跳到新实现 |
+| T03 SchedulerIdentity | 旧 read/new write 语义交错 | footprint 与最终执行同源，无错误并发 |
+| T04 Revocation | 审批等待/排队/发送准入前后撤销 | 按线性化顺序处理；已发效果不伪造撤回 |
+| T05 HeadlessCore | 纯 JVM Loop＋in-memory AgentStore＋fake Provider/Gateway，成功/取消/失败 | 不仅无 Activity，还无 App/Android/Room runtime 依赖；完整回合结果一致 |
+| T06 Persistence | 重复 receipt、旧 owner、提交失败 | 原子结算/CAS 不丢失，无第二 terminal writer |
+| T07 ContextProtocol | 多工具、部分失败、大结果、窄窗口 | call/result 成组、必需输入完整或明确拒绝 |
+| T08 Trust/Egress | 恶意 Skill/Memory/日志、发送前撤销 | 不提升权威；主/摘要模型发送均有适用门控 |
+| T09 Compaction | 取消、失败、无收益、checkpoint 竞争 | 不发布半摘要，不无界循环 |
+| T10 PluginPublish | 低空间、坏包、提交前后中断、并发更新 | 旧/新提交状态可解释，投影可重建 |
+| T11 ComponentScope | 一组件失效、共享 Skill、独立连接 | 独立能力保留，无错误账号共享 |
+| T12 Await | ANY/ALL、已终态、丢事件窗口、source unavailable | 有界返回；unknown/expired/terminal 不混淆 |
+| T13 AwaitControl | 等待/只读 query 饱和时 UI stop、受控 cancel/collect；源无响应 | 本机控制不被 observer 饿死；取消未确认则如实报告，真实 effect owner 不假释放 |
+| T14 JobIdentity | fork、换 Workspace、插件停用、重复 collect | 不越权，不重复导入，不改原启动结果 |
+| T15 Promotion | AUTO 无按钮独立闭环；另测按钮与退出/取消/deadline 并发 | 两个子集分别验收；同一进程仅启动一次，身份/预算/lifetime 不变 |
+| T16 Observation | 慢 UI、断连、重订阅、日志截断 | 快照补齐、缺口可见、无观察触发执行 |
+| T17 Channels | consumer/developer、Standard/Advanced | 不暴露不存在的 Runtime；配置不自动授权 |
+| T18 Dependency/GC | 禁止包依赖、旧 binding 回收 | Core 无 UI/Room 实体泄漏；旧对象不无限保留 |
+| T19 ObserverRuntime | §8.3–8.5：W/外层 deadline 同刻、迟到回包、异常、配额和 IPC 饱和 | 单次持久结算；通用 effectful timeout 不被豁免；线程/队列/引用有界 |
+| T20 CoreStoreBoundary | 根 Gradle 依赖检查、Store Applied/Duplicate/Conflict/Unavailable；真实 adapter 事务失败 | 纯 Core 和存储集成证据分开；事务没被拆成多次保存；无双写 |
+| T21 ManualEntrypoints | 无会话/模型配置下手动 Files/Tasks/Settings；共享资源冲突 | 不发 ModelCall、不伪造 ToolCall；用户权限不泄漏给模型，冲突时合理拒绝 |
+
+并发用 barrier/latch，时间用可控时钟；不能靠随机 sleep“测不出错”。读取合法终态和文件内容/哈希是 oracle，模型文本“成功”不是 oracle。
+
+### 19.2 主机、设备与模型证据分开
+
+主机定向测试优先；阶段结束按当前 HXA 跑全量 JVM、双渠道 unit/lint/debug APK/AndroidTest APK、格式/静态门禁、source 与 diff 检查。文档编辑仅需文档/链接/格式检查，不因本文列出设备测试就执行设备。
+
+设备需当前明确授权，按 API/channel 与任务范围记录；编译 AndroidTest APK 不等于运行通过。真实进程死亡、Binder、PTY/日志、系统拒绝后台窗口和 UI 控制不能全部被 fake Runtime 替代。真机/OEM/Doze/热压/低空间与模拟器分别记账，不主动填满或清理用户设备。
+
+真实模型同样需要本次授权；沿用 [Harness 系统基线](../development/harness-system-baseline.md) 的配置和已记录 fixture。本地 Provider 是完整 Agent 的一等路径，但不自动拿手机小模型承担所有长程基线。Provider 协议契约至少覆盖 Responses、Chat Completions、Anthropic Messages 和本地能力/窄窗口适配；不扩大当前主动支持模型清单。
+
+### 19.3 必须为零的回归
+
+任何越权、错误 executor、协议孤儿、盲重放、结算丢失、因 observer 耗尽本机控制通道而无法处理停止、跨会话 Job 控制泄漏均阻止切换。远端/Runtime 无响应时必须报告未确认，不能把“本机能处理停止”写成“实际执行一定已停止”。样本中零失败不证明产品全局零风险；报告覆盖范围。
+
+核心层纯化不能以牺牲取消、事务或真机可用性换取漂亮依赖图。若某个接口抽取导致原子结算难以保持，应重新设计该端口，而不是放宽语义。
+
+## 20. 相对当前实现的预期提升与度量
+
+下表“提升”是设计目标，尚未由本次文档任务运行验证。技术风险降低、维护收益和用户性能收益分开，不能互相替代。
+
+| 当前起点 | 目标变化 | 可证明的直接改善 | 仍需实测的收益 |
+| --- | --- | --- | --- |
+| Loop 带 UI/App 服务依赖（C02） | headless Core＋事件/存储/Provider ports | 无界面 fixture、入口可替换 | 启动/内存是否改善，不预设更快 |
+| 执行 port 混消息与实体（C03） | 历史物化和执行契约分开 | Host 不认识聊天存储对象 | 后续接入成本、变更影响面 |
+| 两 registry 分别解析（C05/C06） | 全链路原子绑定 | 确定性交错消除错配窗口 | 真实错误率、失效恢复成本 |
+| 已有但耦合的上下文入口（C04） | 单编译流程与精确 Manifest | 取舍可解释、配对/预算统一回归 | 无效调用、延迟、缓存与长任务成功率 |
+| Connector 承载包和连接职责（C11） | Plugin 身份与连接服务分层 | 归属/更新/局部失败一致 | 首次配置步骤与用户复用率 |
+| Linux 专用 Job 与短控制（C07/C08） | 通用 projection＋不阻塞控制的 await | 同执行观察、取消可达、无第二状态源 | 模型轮询减少、等待体验改善 |
+| 前后台不同调用形态 | 身份统一、等待与 lifetime 分开 | 不重复启动，不重置预算 | 用户被阻塞时长、真实后台完成率 |
+| 旧执行目标注释与真实部署不符（C09） | 身份/运行时/能力/隔离描述准确 | 不再把共享 UID 说成强隔离 | 后续 Host 适配投入与错误减少 |
+
+### 20.1 用户旅程对应验收
+
+- **Standard 文件/网页闭环：**导入 CSV 或网页材料 → 按需读取/轻量代码 → 写入 Markdown/结果文件 → 用户就地打开；无需 Linux、外部 Runner 或 Accessibility。
+- **Advanced 长任务闭环：**现有 Linux 环境中运行已支持的数据处理脚本 → accepted → 等待或独立允许操作 → 收取 → 文件哈希/内容验证；不以手机完整 Gradle/APK 构建作首版承诺。
+- **扩展闭环：**安装含 Skill 和未配置 MCP 的包 → Skill 独立可用 → 连接修复 → 会话选择 → 使用 → 停用后旧调用被正确阻止。
+- **恢复闭环：**UI 重建保持可观察；真正进程死亡后旧 Turn 终结，用户继续创建 successor 读取原 Job/Artifact，不重复执行。
+
+### 20.2 指标与实验规则
+
+| 维度 | 记录内容 | 判读方式 |
+| --- | --- | --- |
+| 正确性 | 独立 oracle 成功数/总数、错误类别 | 分渠道/模型/任务，不把 skipped 算 passed |
+| 效率 | 端到端时间、模型调用/工具调用、轮询次数 | 同模型/fixture/预算/采样配置比较 |
+| 上下文 | schema/input token、compaction 次数、必要内容遗漏、缓存数据（可用时） | 短不等于好；同时看任务结果和延迟 |
+| 手机资源 | 构造/IPC 延迟、峰值内存、日志 spool、取消响应 | 记录设备和边界，设置回归阈值前先有基线 |
+| 用户摩擦 | 首次成功步骤、需配置点、重复审批、失败恢复步骤 | 只优化无意义摩擦，不删安全门控 |
+| 可维护性 | 禁止依赖数、重复写路径数、增一 adapter 所需修改的核心位置 | 接口新增数量本身不计改善 |
+
+R2-A 先证明等价；R2-B 才改变策略。每次真实实验固定代码/制品身份，保留失败输出与回退原因，报告中位数和尾部条件；样本不足时直接说明。不给出没有测量支持的“提升 30%”或“手机最优”。
+
+## 21. 未来兼容、待裁决点与风险处理
+
+### 21.1 未来兼容的最小投入
+
+现在应固定稳定身份、明确 outcome、能力发现、取消/查询/收取边界和 contract tests。内部 Kotlin API、Runtime IPC、外部协议和模型 schema 不强行共享同一个版本号。未知可选能力可以明确不支持，未知安全/语义字段不能静默放行。
+
+执行位置、Runtime 类别、权限/隔离属性分开理解；在现有 ExecutionTarget 上扩展必要字段即可，不立即新建 Device/Node/Host 三套重叠 catalog。实现 revision 不是网络兼容版本，App build SHA 也不自动等于所有 protocol 不兼容。
+
+未来接入外部 Agent 时，需要本机认证/授权、控制范围、日志出网、单个任务由谁驱动和交接规则。外部 Agent 使用 Execution API 与远程界面使用 Agent API 是不同能力；不能让两边同时自主驱动同一任务，也不能把外部 `approved=true` 当本机 proof。
+
+### 21.2 暂缓但保留方向
+
+Observation/Artifact 可先复用 Browser/Mobile Use 已有快照和结果引用，未来统一来源、generation、新鲜度、缺口与多模态投影，不合并 Runtime。完整 Observation 平台不是 R1 前置。
+
+**自主看图不再归入笼统的远期 Observation：**所有者已于 2026-09-29 接受 [ADR-AGENT-011](../adr/agent/011-tool-multimodal-vision-feedback.md)，通用 `view_image`＋浏览器工具视觉回填由 HXA-225 独立承接，不要求先完成本方案 R1/R2/Node。图片字段、持久来源、协议编码、窗口与数据披露沿用该 ADR；当前实现/验证查 status 和 HXA-225，不再因整理架构丢失这一既有需求。未来完整 Observation 平台整合其类型化产物，而不是重建第二视觉通道。
+
+Subagent 未来可共享部分 async-handle 观察，但拥有独立 context、模型与委托上限；不是 ProcessJob，也不是角色卡。`child permissions <= delegated ceiling` 是 Helix 候选安全约束，不声称行业全部采用。现阶段不实现固定 Planner/Manager/Executor 链。
+
+Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大脑。只有被接受的显式用户触发契约才能让 Job completion 创建新模型工作；模型调用 `await` 不等于授予未来自动唤醒权限。
+
+### 21.3 实施前需明确的决定
+
+| 决定 | 本文建议 | 接受位置/约束 |
+| --- | --- | --- |
+| Core 接口与模块移动范围 | 逻辑分层、当前同进程；实际移出 UI/Room Entity 泄漏 | 现有 Agent 主题；不扩大当前 R1 HXA |
+| Binding 与实现变化对批准的影响 | 契约/实现身份/进程 generation 分开；无关更新不误失效 | Tools/Permissions ADR，完整 descriptor 契约仍需明确接受 |
+| J1 completion/控制/期限接线 | §8.3–8.5 已给出具体建议；单次结算、观察 effect-free 与原 Job unknown 分开 | Runtime/Tools ADR 接受后实现；不能在旧同步 execute 中嵌阻塞循环 |
+| 取消等待、停止 Turn、取消 Job 的关联 | 三个意图独立；Job 按原 lifetime/lease 合同处理 | Runtime/Agent ADR，不偷偷改变 Stop 体验 |
+| wait mode、lifetime 与分步交付 | AUTO 先验同执行机制，手动按钮可后续；不自动延长存活/额度 | J2-1/J2-2 分开记录 Runtime/产品接受和证据 |
+| 插件组件局部失败 | 按格式支持矩阵隔离；不放松包安全 | Connector/Plugin 主题，认证失败不是整包失败 |
+| 外部接口和独立进程 | 当前不开放；依据真实消费者再立项 | 用户明确产品/安全裁决，不能从本次文档推导 |
+
+### 21.4 风险与停止条件
+
+如果重构引入第二套 Policy、第二个 Turn writer、同一 Job 两个可写真相，或者无法保留原事务/权限边界，应停止该切片并修订设计。若只是旧接口位置不合适，则按目标迁移，不为避免变动保留永久兼容层。
+
+若只有一个实际 provider，不应先完成通用远程协议框架；先用当前 Linux adapter 和故障 fixture 证明最小端口。若性能回归，先检查序列化、重复快照、阻塞线程和事件放大，不以“架构更先进”为理由接受无界开销。
+
+旧问题不能被新版文档消除：历史输出截断、额外调用、系统资源和 SAF 的各个问题按当前证据逐项处理。部分问题已被并行修复时不再要求重复修复；未复现也不宣称根因关闭。
+
+## 22. 实施者执行规范与最终完成清单
+
+### 22.1 每卡的固定执行顺序
+
+1. 读 status/当前 HXA/相关 ADR 与本文件对应卡；核对当前 SHA、工作树和授权范围。
+2. 写出本卡唯一改变的契约、受影响入口、删除清单和失败 oracle；先补有价值的回归测试。
+3. 做最小完整纵向切换，保留可构建状态；临时适配只单向委托新实现，不双写。
+4. 跑定向主机测试，复核 diff、权限/取消/恢复和结果引用；满足当前阶段要求后跑完整 host gate。
+5. 设备、真实模型、账号、提交/推送分别核对本次授权；没有授权时准备步骤/fixture 并标 not requested，不私自执行。
+6. 交付代码/文档事实、命令、实际结果、失败和边界；更新当前任务的正式记录，不能只报“编译通过”。
+
+主机命令示例（仅在对应代码任务获授权且模块任务仍存在时使用）：
+
+```bash
+python3 scripts/with-host-slot.py -- ./gradlew :tools:framework:test :core:agent:test
+./scripts/check-docs.sh
+./scripts/check-all.sh --source
+git diff --check
+```
+
+完整双渠道及全部 JVM 命令以当前 HXA/verification-matrix 为准。GitHub Actions 只运行主机检查/构建/测试 APK 编译，不启动模拟器或真机。本次只是文档写作，不执行上述 Gradle 或设备任务。
+
+### 22.2 接手信息模板
+
+```text
+当前卡片与用户授权范围：
+起始 HEAD / 工作树归属 / 本卡改动文件：
+已接受契约与本卡新增决定：
+已完成的生产入口切换：
+已删除的旧路径及剩余临时桥接：
+实际验证命令、源码/制品身份、结果和失败：
+设备/模型/账号状态（passed / failed / not requested / pending）：
+已知限制与下一卡的必要输入：
+是否存在运行中的本任务 Job（只报告实际查询结果）：
+```
+
+卡片交接不能靠“继续上次”隐含权限、设备、账号、提交或后台执行。新接手者必须读真实当前状态，不把本文生成时的 SHA 当作永远有效的起点。
+
+### 22.3 整体完成判据
+
+清单是目标完成条件，不要求把未授权/暂缓项提前做成发布前置。每次交付逐项标实际范围；手动后台按钮与 AUTO、JobObservation 注入与基础 join 分开记录。
+
+- [ ] 一个完整本机 Harness：纯 JVM Core＋测试 ports 的完整 fixture 通过，真实手机适配另外验证；手动文件/设置/任务控制无需先创建会话或调用模型。
+- [ ] Core 公共契约不泄漏 UI、Room Entity、具体 executor；消息物化与实际执行分离。
+- [ ] 请求曝光、Scheduler、审批与 Dispatcher 对应同一 binding；所有来源只剩一条写入路径。
+- [ ] 唯一 ContextCompiler 接线，复用原压缩/预算，实际 Manifest、信任和发送边界可检验。
+- [ ] Plugin 安装、组件选择、独立连接、局部失败与原 Job 收尾保持一致，最小用户闭环已交付。
+- [ ] async-capable 执行有稳定身份；completion-based await 不占业务/控制线程驻留，双层超时、取消、迟到结果单次结算；终态与待收取分开。
+- [ ] AUTO 已独立证明同执行/身份/预算/lifetime；手动 promotion 按其授权单独验收，未支持执行域没有虚假后台按钮。
+- [ ] UI detach、进程死亡、Runtime 终态和 successor Turn 语义各自清楚，没有旧 Turn 自动复活。
+- [ ] 所有临时双轨、旧重复类型、错误隔离注释和不必要兼容入口按范围删除。
+- [ ] 主机、设备、模型、渠道与资源证据分别记录；没有把设计目标或 skipped 说成已验证提升。
+
+**最终目标不是“手机上更多层”，而是一个能完成真实任务、边界可测、适配可替换、默认部署简单的本机 Agent。只在需要时跨进程或跨设备；现在先把职责和执行事实做对。**

@@ -241,7 +241,7 @@ public class AnthropicRequestEncoder(
                 put("role", "user")
                 putJsonArray("content") {
                     run.toolResults.forEach { result ->
-                        addToolResultBlock(result)
+                        addToolResultBlock(result, resolver)
                     }
                     run.userMessages.forEach { user ->
                         addTextBlock(user.text)
@@ -309,12 +309,22 @@ public class AnthropicRequestEncoder(
     }
 
     /** A tool result block, kept before any trailing user content in the same turn. */
-    private fun JsonArrayBuilder.addToolResultBlock(result: ModelMessage) {
+    private fun JsonArrayBuilder.addToolResultBlock(
+        result: ModelMessage,
+        resolver: ImageResolver,
+    ) {
         add(
             buildJsonObject {
                 put("type", "tool_result")
                 put("tool_use_id", result.toolCallId!!.value)
-                put("content", result.text)
+                if (result.images.isEmpty()) {
+                    put("content", result.modelText)
+                } else {
+                    putJsonArray("content") {
+                        addTextBlock(result.modelText)
+                        result.images.forEach { addImageBlock(it, resolver) }
+                    }
+                }
             },
         )
     }

@@ -286,7 +286,7 @@ class SessionToolEffectClassifier(
         private const val FILES_MOVE: String = "files.move"
 
         private val FILE_READ_TOOLS: Set<String> =
-            setOf("read", "files.list", "files.stat", "files.search")
+            setOf("read", "view_image", "files.list", "files.stat", "files.search")
 
         private val FILE_MUTATION_TOOLS: Set<String> =
             setOf(

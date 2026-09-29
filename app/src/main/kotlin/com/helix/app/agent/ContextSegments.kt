@@ -6,6 +6,12 @@ import com.helix.core.storage.entity.MessageEntity
 
 /** Only settled, paired tool batches can cross a checkpoint boundary. */
 internal object ContextSegments {
+    /** Derived pixel selection may differ; canonical text and call identity must still match exactly. */
+    internal fun sameHistoryMessage(
+        actual: com.helix.core.model.ModelMessage,
+        persisted: com.helix.core.model.ModelMessage,
+    ): Boolean = actual.withoutVisualProjection() == persisted.withoutVisualProjection()
+
     fun mapped(
         storage: HelixStorage,
         row: MessageEntity,
@@ -112,7 +118,7 @@ internal object ContextSegments {
         // A reordered retry uses a different history: do not infer positional identity.
         if (actual.size != source.size ||
             actual.zip(source).any { (message, row) ->
-                message.copy(images = emptyList()) != row.second.copy(images = emptyList())
+                !sameHistoryMessage(message, row.second)
             }
         ) {
             return null

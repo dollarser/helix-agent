@@ -57,7 +57,6 @@ class DatabaseContractTest {
             "session_permission_drafts",
             "session_experts",
             "session_run_controls",
-            "composer_drafts",
             "session_inputs",
             "session_input_attachments",
             "tool_call_reviews",
@@ -99,7 +98,7 @@ class DatabaseContractTest {
         assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
-        assertEquals(51, tables.size)
+        assertEquals(50, tables.size)
     }
 
     @Test
@@ -198,8 +197,6 @@ class DatabaseContractTest {
             ),
             columns("message_reference_snapshots"),
         )
-        assertTrue("referenceSourceSessionId" in columns("composer_drafts"))
-        assertTrue("referenceKind" in columns("composer_drafts"))
         assertTrue("referenceContentRef" in columns("session_inputs"))
         assertTrue("referenceContentSha256" in columns("session_inputs"))
     }
@@ -223,5 +220,6 @@ class DatabaseContractTest {
         assertFalse("tool_approval_preferences" in tables)
         assertFalse("tool_registration_baseline" in tables)
         assertFalse("tool_baseline_meta" in tables)
+        assertFalse("composer_drafts" in tables)
     }
 }

@@ -114,6 +114,7 @@ data class BoundToolResult(
     val outputHash: Sha256,
     val truncated: Boolean,
     val executionMillis: Long,
+    val visualArtifact: com.helix.core.model.VisualArtifact? = null,
 ) {
     init {
         require(executionMillis >= 0) { "executionMillis must not be negative" }
@@ -756,7 +757,13 @@ class ToolDispatcher(
                 bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
                     ctx.outputHash = bound.outputHash.hex
                     ctx.outputTruncated = bound.truncated
-                    finish(request, startedAt, ctx, ToolDispatchOutcome.Succeeded(bound), sourceOf(ctx.attemptProof))
+                    finish(
+                        request,
+                        startedAt,
+                        ctx,
+                        ToolDispatchOutcome.Succeeded(bound.copy(visualArtifact = result.visualArtifact)),
+                        sourceOf(ctx.attemptProof),
+                    )
                 } ?: finishStop(request, startedAt, ctx)
             }
 

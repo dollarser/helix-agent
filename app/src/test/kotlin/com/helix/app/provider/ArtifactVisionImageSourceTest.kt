@@ -251,6 +251,73 @@ class ArtifactVisionImageSourceTest {
         assertIae { source.load(ArtifactRef("art_escape")) }
     }
 
+    @Test
+    fun requestScopedImageDoesNotUseTheMutableSessionPointer() {
+        val entity = registerImage("image", "s1", "input/bound.jpg", jpegBytes())
+        val source = ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> }
+        source.bindSession("unrelated-session")
+        val image =
+            com.helix.core.model.ImageReference(
+                ArtifactRef(entity.id),
+                entity.mediaType,
+                com.helix.core.model
+                    .ImageBinding("s1", "message", entity.sha256),
+            )
+        val loaded = source.load(image, boundConfig())
+        assertEquals(jpegBytes().toList(), Base64.getDecoder().decode(loaded.base64).toList())
+        assertIae { source.load(image.copy(binding = image.binding!!.copy(sessionId = "other")), boundConfig()) }
+    }
+
+    @Test
+    fun sameSizeTamperingIsRejectedAtTheFinalByteBoundary() {
+        val entity = registerImage("image", "s1", "input/bound.jpg", jpegBytes())
+        val source = ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> }
+        val image =
+            com.helix.core.model.ImageReference(
+                ArtifactRef(entity.id),
+                entity.mediaType,
+                com.helix.core.model
+                    .ImageBinding("s1", "message", entity.sha256),
+            )
+        val changed = jpegBytes().also { it[it.lastIndex] = 7 }
+        Files.write(root.resolve("input/bound.jpg"), changed)
+        assertIae { source.load(image, boundConfig()) }
+    }
+
+    @Test
+    fun revocationDuringMaterializationPreventsReturningPixelPayload() {
+        val entity = registerImage("image", "s1", "input/bound.jpg", jpegBytes())
+        var checks = 0
+        val source =
+            ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ ->
+                checks++
+                require(checks == 1) { "Consent revoked" }
+            }
+        val image =
+            com.helix.core.model.ImageReference(
+                ArtifactRef(entity.id),
+                entity.mediaType,
+                com.helix.core.model
+                    .ImageBinding("s1", "message", entity.sha256),
+            )
+        assertIae { source.load(image, boundConfig()) }
+        assertEquals(2, checks)
+    }
+
+    private fun boundConfig() =
+        com.helix.provider.api.ProviderConfig(
+            "p",
+            "Vision",
+            com.helix.core.model.ProviderProtocol.OPENAI_RESPONSES,
+            com.helix.core.model.NormalizedEndpoint
+                .parse("https://example.com/v1"),
+            "vision",
+            emptyMap(),
+            com.helix.core.model
+                .SecretAlias("fixture"),
+            "{}",
+        )
+
     private fun assertIae(block: () -> Unit) {
         var thrown: Throwable? = null
         try {

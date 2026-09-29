@@ -38,30 +38,48 @@ class ProviderFactory(
 ) {
     fun create(config: ProviderConfig): ModelProvider =
         additionalFactory(config) ?: when (config.network.protocol) {
-            ProviderProtocol.OPENAI_RESPONSES -> OpenAiResponsesProvider(config, credentials, wire, responsesImages)
-            ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> OpenAiChatProvider(config, credentials, wire, chatImages)
-            ProviderProtocol.ANTHROPIC_MESSAGES -> AnthropicProvider(config, credentials, wire, anthropicImages)
+            ProviderProtocol.OPENAI_RESPONSES -> {
+                OpenAiResponsesProvider(
+                    config,
+                    credentials,
+                    wire,
+                    responsesImages(config),
+                )
+            }
+
+            ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> {
+                OpenAiChatProvider(
+                    config,
+                    credentials,
+                    wire,
+                    chatImages(config),
+                )
+            }
+
+            ProviderProtocol.ANTHROPIC_MESSAGES -> {
+                AnthropicProvider(config, credentials, wire, anthropicImages(config))
+            }
         }
 
     // HXA-055: the three adapters keep their INDEPENDENT resolver types (no shared protocol
     // code by design); they all delegate to the single app-side [imageSource], which resolves
     // only session-message-bound, hash-verified artifacts and fails closed with a stable,
     // path-free IAE — the encoders propagate it and the turn fails with an actionable error.
-    private val chatImages =
+    private fun chatImages(config: ProviderConfig) =
         ChatImageResolver { image ->
-            val loaded = imageSource().load(image.ref)
+            val loaded = imageSource().load(image, config)
             ImagePayloads.chat(loaded)
         }
 
-    private val responsesImages =
+    private fun responsesImages(config: ProviderConfig) =
         ResponsesImageResolver { image ->
-            val loaded = imageSource().load(image.ref)
+            val loaded = imageSource().load(image, config)
             ImagePayloads.responses(loaded)
         }
 
-    private val anthropicImages =
+    private fun anthropicImages(config: ProviderConfig) =
         AnthropicImageResolver { image ->
-            val loaded = imageSource().load(image.ref)
+            val loaded = imageSource().load(image, config)
             ImagePayloads.anthropic(loaded)
         }
 

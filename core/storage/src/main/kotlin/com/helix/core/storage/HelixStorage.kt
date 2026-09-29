@@ -62,6 +62,8 @@ class HelixStorage internal constructor(
     val secrets: SecretStore,
     private val workspaceRoot: File =
         File(requireNotNull((contentStore as? FileContentStore)?.root?.parentFile), "workspaces"),
+    private val composerDirectory: File =
+        File(requireNotNull((contentStore as? FileContentStore)?.root), "composer-input"),
 ) {
     val connectorMutationLock = Any()
 
@@ -98,9 +100,11 @@ class HelixStorage internal constructor(
             connectors.snapshotDefaults(id)
         }
     }
+
+    /** Optional input cache: no DAO, foreign key, or database transaction. */
     val composerDrafts by lazy {
-        com.helix.core.storage.repository.ComposerDraftRepository(
-            database.composerDraftDao(),
+        com.helix.core.storage.input.ComposerInputCache(
+            composerDirectory,
         )
     }
 
@@ -284,6 +288,7 @@ class HelixStorage internal constructor(
                 if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null
             }
         val unreferencedPaths = artifactPaths.distinct().filter { database.artifactDao().countByRelativePath(it) == 0 }
+        composerDrafts.removeSession(sessionId)
         return SessionDeletionManifest(sessionId, deletedBodies.size, unreferencedPaths)
     }
 
@@ -311,6 +316,7 @@ class HelixStorage internal constructor(
                 contentStore,
                 AndroidKeystoreSecretStore.create(context),
                 File(context.filesDir, "workspaces"),
+                File(context.noBackupFilesDir, "composer-input"),
             )
         }
 

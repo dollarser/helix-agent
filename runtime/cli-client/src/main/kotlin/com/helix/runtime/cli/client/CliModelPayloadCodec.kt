@@ -56,7 +56,8 @@ object CliModelRequestCodec {
             "image snapshots must exactly match message references"
         }
         require(images.isEmpty() || provider == CliModelProvider.CODEX)
-        require(images.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
+        val wireImages = transportImages(images)
+        require(wireImages.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
         val version =
             if (images.isNotEmpty()) {
                 3
@@ -68,7 +69,7 @@ object CliModelRequestCodec {
         val bytes =
             buildJsonObject {
                 put("version", version)
-                if (version == 3) put("images", encodeImages(images))
+                if (version == 3) put("images", encodeImages(wireImages))
                 if (provider != CliModelProvider.CODEX) put("providerId", provider.wireId)
                 put("model", request.model)
                 put("messages", buildJsonArray { request.messages.forEach { add(encodeMessage(it, version == 3)) } })
@@ -152,7 +153,7 @@ object CliModelRequestCodec {
                     },
                 )
             }
-            put("text", message.text)
+            put("text", message.modelText)
             message.toolCallId?.let { put("toolCallId", it.value) }
             message.toolName?.let { put("toolName", it.value) }
             put(
@@ -219,6 +220,17 @@ object CliModelRequestCodec {
             obj.getValue("description").jsonPrimitive.content,
             obj.getValue("inputSchemaJson").jsonPrimitive.content,
         )
+    }
+
+    /** App checks finish before IPC; transport carries only immutable verified bytes and their refs. */
+    private fun transportImages(images: List<CliImageSnapshot>): List<CliImageSnapshot> {
+        val snapshots = images.map { it.copy(reference = it.reference.copy(binding = null)) }
+        val groups = snapshots.groupBy { it.reference }
+        require(groups.size <= 4) { "Too many subscription image snapshots" }
+        require(groups.values.all { group -> group.all { it.base64 == group.first().base64 } }) {
+            "Conflicting bytes for one subscription image reference"
+        }
+        return groups.values.map { it.first() }
     }
 
     private fun encodeImages(images: List<CliImageSnapshot>) =

@@ -77,6 +77,7 @@ sealed interface ToolExecutorResult {
     data class Completed(
         val output: JsonElement,
         val auditDetail: JsonObject? = null,
+        val visualArtifact: com.helix.core.model.VisualArtifact? = null,
     ) : ToolExecutorResult
 
     /**

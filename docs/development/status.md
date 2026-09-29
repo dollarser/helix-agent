@@ -4,6 +4,10 @@
 
 ## Completed
 
+- HXA-225 自主图片读取与工具视觉回填已于 2026-09-29 完成主机范围交付：`view_image`、浏览器视觉产物、三协议编码、精确披露、逐请求来源、窗口/压缩和有界字节复核均已接入；完整 host gate、双渠道 Debug/Release APK 与 AndroidTest APK 编译通过。见[完成记录](../completion-records/HXA-225.md)与[使用说明](../references/agent-image-reading.md)。没有新增表或清库，设备/真实模型/账号 `not requested`，新 APK 未安装或发布；不声称模型实际识别质量已验证。
+
+- 非重构本地收口（2026-09-29）：状态和剩余计划已对齐，内测步骤及反馈材料已准备；补齐 Plugin/Mobile Use 依赖锁后，完整 `check-all.sh --all`（含 release 与制品边界、38 份锁）通过。见[收口记录](../evidence/development/non-refactor-closeout-2026-09-29.md)。本轮改动未提交；真实内测、设备/服务及发行验收不由本项替代。
+
 - 所有者追加操作权限与循环优化：注册/Policy/审批/新审计取消 L0–L3，保留可信 effect、scope 与 ALLOW/ASK/DENY；新增持久结果驱动的无进展警告/停止，Goal 等待用户调整后继续。双通道 unit/lint/APK/test APK 与主机门禁通过；本轮设备 not requested。随后按 owner 要求与主目录 Mobile Use Plugin 工作本地集成，完整主机门禁再次通过，未推送；见[增量证据](../evidence/development/operation-permissions-loop-progress-2026-09-28.md)与[合并记录](../evidence/development/main-operation-integration-2026-09-28.md)。
 
 - 所有者追加系统设置自动化修复：正式会话授权包含已安装系统设置/搜索组件，新增暂停确认恢复与有界原生滑块动作。主机gate、API36 UI恢复1/1通过；新Turn默认512工具轮/1024模型调用/3200万累计token（保留已有预算），最终亮度oracle2/2且两个Turn均COMPLETED。Plan执行入口同步改用当前Goal配置，API36执行闭环2/2通过。范围与历史失败见[修复记录](../evidence/development/automation-recovery-progress-2026-09-28.md)。
@@ -30,14 +34,14 @@
 - HXA-228 Conversation-first Shell 与 Session Context Control 已交付，见[完成记录](../completion-records/HXA-228.md)与[API 36 simulator evidence](../evidence/development/hxa228-simulator-verification-2026-09-27.md)：Session RunControl 已从全局状态拆成 per-Session durable snapshot，Session Settings / Composer context workbench / Expert / Other-conversation Reference 已落地；Room clean-slate v1 当前为 48 tables。targeted API36 app 16/16、Reference storage 13/13、Reference export 8/8 通过；Memory 仍归 HXA-230，物理真机未在本任务覆盖。
 - HXA-229 Model-authored Agent Activity Presentation 已交付，见[完成记录](../completion-records/HXA-229.md)与[API 36 simulator evidence](../evidence/development/hxa229-simulator-verification-2026-09-27.md)：model-facing Tool schema 统一注入 optional `__helix_intent`，provider-neutral boundary 在业务 validation/permission/effect/dispatcher 前 strip；`tool_calls.modelIntent` durable 保存 sanitized presentation，UI intent-first 且 Harness status/result/approval/UNKNOWN truth 独立。最终 API36 app targeted 19/19、storage reopen/export 9/9 通过。
 
-- HXA-227 Eval evidence 与失败归因已完成主机范围交付，并完成所有者后续授权的模拟器补充验收，见[完成记录](../completion-records/HXA-227.md)与[设备证据](../evidence/development/hxa227-device-baseline-2026-09-27.md)：API29/API36 双渠道核心轨迹 40/40 方法、32/32 case；API36 consumer 当前 198 类中 172 PASS、10 专用 runner、16 条件跳过，原始方法 633 pass / 32 skip / 0 fail，0 crash。完整 host gate 通过；真实 Provider/真机未请求，SAF 历史间歇空列表仍未定根因。
+- HXA-227 Eval evidence 与失败归因已完成主机范围交付，并完成所有者后续授权的模拟器补充验收，见[完成记录](../completion-records/HXA-227.md)与[设备证据](../evidence/development/hxa227-device-baseline-2026-09-27.md)：API29/API36 双渠道核心轨迹 40/40 方法、32/32 case；API36 consumer 当前 198 类中 172 PASS、10 专用 runner、16 条件跳过，原始方法 633 pass / 32 skip / 0 fail，0 crash。完整 host gate 通过；该次真实 Provider/真机未请求；SAF 后续定向修复见当前限制。
 
 - HXA-210 Workspace 已完成本地验收，见[完成记录](../completion-records/HXA-210.md)：单主目录身份与请求冻结、Path/SAF 能力、显式清理恢复已收口；完整 host gate、API29/API36 双渠道专项 192/192 与 HXA-227 host 对照 8/8 通过。Room 继续开发期 v1 baseline，仅保留文件；交付范围不代表完整 device trajectory baseline 或真实账号验收。
 - 所有者随后要求 fork 复用来源 Workspace：新分支继承当前目录及子目录，权限仍用新会话默认值，后续绑定独立；原目录不可用时自动改用新空目录，会话设置支持更换及失败重试；详见[变更与验收](../evidence/development/recoverable-workspace-2026-09-27.md)。此次新行为的设备状态为 `not requested`，此前 HXA-210/HXA-227 设备结果不作替代。
 
-- HXA-230 已完成 Global Memory 首版与 Project fail-closed API 的主机范围交付，见[完成记录](../completion-records/HXA-230.md)和[证据](../evidence/development/hxa230-memory-2026-09-27.md)：Markdown canonical、受限工具、按权限有界注入与管理 UI 已接入；完整 gate、Memory 6/6 与 HXA-227 8/8 host case 通过。Project production、真实模型效果与设备尚未验。
+- HXA-230 已完成 Global Memory 首版与 Project fail-closed API 的主机范围交付，见[完成记录](../completion-records/HXA-230.md)和[证据](../evidence/development/hxa230-memory-2026-09-27.md)：Markdown canonical、受限工具、按权限有界注入与管理 UI 已接入；完整 gate、Memory 6/6 与 HXA-227 8/8 host case 通过。Global 后续 API29/API36 双渠道设备与进程恢复已验，见 [P1 证据](../evidence/development/p1-memory-workspace-device-acceptance-2026-09-28.md)；Project production 与真实模型效果仍未验。
 
-- HXA-222 本地模型首版已完成本地范围交付，见[完成记录](../completion-records/HXA-222.md)：类型化 Provider/Room v1、private-process Binder/JNI、资产/UI、可调 context、内存预检、模板 grammar 与真实能力探测已落地；完整 host gate、API36 生命周期及 320/360/412dp 大字体 UI 通过。4B/8K/8 GiB 固定任务 6 轮模型调用、6 次工具调用、产物回读和独立数值断言通过，约 14 分 46 秒；0.6B/1.7B 错误计算及首轮 4B 未完成仍保留。详见[收口证据](../evidence/development/hxa222-closeout-2026-09-28.md)与[会话分析](../evidence/development/hxa222-session-analysis-2026-09-28.md)。真机、真实远端账号、Android HTTP 下载端到端未验；未提交或推送。
+- HXA-222 本地模型首版已完成本地范围交付，见[完成记录](../completion-records/HXA-222.md)：类型化 Provider/Room v1、private-process Binder/JNI、资产/UI、可调 context、内存预检、模板 grammar 与真实能力探测已落地；完整 host gate、API36 生命周期及 320/360/412dp 大字体 UI 通过。4B/8K/8 GiB 固定任务 6 轮模型调用、6 次工具调用、产物回读和独立数值断言通过，约 14 分 46 秒；0.6B/1.7B 错误计算及首轮 4B 未完成仍保留。详见[收口证据](../evidence/development/hxa222-closeout-2026-09-28.md)与[会话分析](../evidence/development/hxa222-session-analysis-2026-09-28.md)。后续精选入口、真实 Android HTTP 安装与首次任务恢复分别见 [P3](../evidence/development/p3-local-model-install-2026-09-28.md)、[P4](../evidence/development/p4-first-success-journey-2026-09-28.md)。真机资源与普遍任务质量仍未验；已随当前本地 main 整合，未推送。
 
 ## 候选与有限接受范围
 
@@ -45,7 +49,7 @@
 
 ## In progress
 
-- 偶发问题追加收口（2026-09-29）：修复 SAF 撤销后不刷新及异步来源结果发布，双渠道 API36 10/10；澄清 Goal 仅规划提示，冻结版本三轮均 1 次模型调用/0 工具、Goal PAUSED。诊断能力探测 3/3、skill-003 3/3，但后者两轮仍有额外只读调用。全量主机 gate 通过；历史截断/探测偶发失败未复现、额外调用仍开放。失败与修复范围见[增量证据](../evidence/development/intermittent-closeout-2026-09-28.md)，未提交/推送。
+- 偶发问题追加收口（2026-09-29）：修复 SAF 撤销后不刷新及异步来源结果发布，双渠道 API36 10/10；澄清 Goal 仅规划提示，冻结版本三轮均 1 次模型调用/0 工具、Goal PAUSED。诊断能力探测 3/3、skill-003 3/3，但后者两轮仍有额外只读调用。全量主机 gate 通过；历史截断/探测偶发失败未复现、额外调用仍开放。失败与修复范围见[增量证据](../evidence/development/intermittent-closeout-2026-09-28.md)；已提交为 `70456eb5` 并快进到本地 main，未推送。
 
 - [HXA-231](tasks/HXA-231.md)：所有者授权先做有界问题收口与当前基线，再实施 R1 原子工具绑定。前置收口修复模型发布最终读取后取消仍发布的问题；全量 host gate 通过，独占 API36 developer 13/13、consumer 4/4，实际发布中进程骤停与低空间注入分别留证，见[前置基线](../evidence/development/pre-r1-closeout-2026-09-28.md)。R1 尚未实现，任务保持开放；后续 R2/J1 根据内测反馈决定，不同时扩张。
 
@@ -58,47 +62,19 @@
 
 ## Next task
 
-所有者已授权按[剩余工作计划（2026-09-28）](remaining-work-plan-2026-09-28.md)继续执行。P0 post-HXA integration checkpoint 已完成变更归属审计与完整 `check-all.sh --all`；交叉的 Workspace recovery、Global Memory、Local Model 与 device/eval runner 不为漂亮历史强拆成不可构建中间态，收口证据见 [integration checkpoint](../evidence/development/post-hxa-integration-checkpoint-2026-09-28.md)。
+本地 main 已于 2026-09-29 快进至 `70456eb5`；归属清晰的修复、测试和研究输入已提交，未推送。当前非重构收口集中于事实对齐、主机发行门禁和[内测准备](internal-pilot.md)，不是新的产品功能开发。[剩余工作](remaining-work-plan-2026-09-28.md)只维护依赖和退出条件。
 
-Core Engine、Turn/Session owner、Dispatcher 与 permission/effect truth 继续冻结。P1 Memory + Workspace 增量设备验收已完成：API29/API36 × consumer/developer targeted matrix 各 31/31 通过，Memory 实际进程死亡后 Markdown、enabled setting 与 Prompt `UNTRUSTED` trust 恢复通过；Workspace fork/失效回退/旧 request binding 冻结与窄屏大字体通过。首次运行暴露的是测试夹具缺少真实 model-call 外键，修正 fixture 后全部通过；未修改 production。详见 [P1 设备证据](../evidence/development/p1-memory-workspace-device-acceptance-2026-09-28.md)。
+已完成的产品化阶段不重新排为开发任务：
 
-P2 SAF bounded diagnosis 已完成且**当前无法稳定复现**：在固定 API36 consumer 制品上直接执行 1 次，再以独立 package-reset 执行 3 次 `FilesImportExportUiTest`，共 4/4 通过；没有因此修改 production SAF 策略。历史失败的 `files-saf-empty` 语义树仍保留，只能证明当时 UI 收到空 live-source 投影，不能证明 registry 丢失或瞬时 ContentResolver re-check 失败。详见 [P2 诊断证据](../evidence/development/p2-saf-bounded-diagnosis-2026-09-28.md)。
+- **P0/P1：整合与 Memory/Workspace**。本地整合检查点及 API29/API36 × 双渠道专项各 31/31，包含实际进程恢复、fork/目录失效和请求绑定。见 [整合](../evidence/development/post-hxa-integration-checkpoint-2026-09-28.md)、[P1](../evidence/development/p1-memory-workspace-device-acceptance-2026-09-28.md)。
+- **P2：SAF**。此前 4 次未复现不是关闭依据；2026-09-29 已复现并修复撤销后不刷新及来源状态发布，双渠道 10/10。保留历史失败和设备范围，见[追加收口](../evidence/development/intermittent-closeout-2026-09-28.md)。
+- **P3/P4：本地模型安装与首次成功**。精选入口当前聚焦 Qwen3 4B Instruct 2507 Q4_K_M，支持 ModelScope/Hugging Face 及高级导入；Android HTTP 安装、Provider/probe、write/read 产物和进程死亡重开已有证据。见 [P3](../evidence/development/p3-local-model-install-2026-09-28.md)、[P4](../evidence/development/p4-first-success-journey-2026-09-28.md)。0.6B/1.7B 只留历史，不继续主动测试。
+- **P5/P6：系统基线与优化**。最新完整 clean 锚点仍为 `8f0aa933` 的 15/15；当前 main 的完整 P5 尚未刷新，2026-09-29 Goal 3/3 不能替代它。SGLang 测 Harness，本地 4B 只证明设备内最低能力，身份/统计口径见[系统基线](harness-system-baseline.md)。BFCL 小样本及 AndroidWorld 亮度适配仅是诊断，后者授权/预算修复见[自动化证据](../evidence/development/automation-recovery-progress-2026-09-28.md)，不作为官方榜单。
+- **P7：本地恢复和支持切片**。恢复 UI、主动脱敏诊断、模型残片/分类空间、孤立正文保护与实际发布中断恢复已经实现并验收。见 [恢复](../evidence/development/p7-recovery-first-batch-2026-09-28.md)、[支持 UI](../evidence/development/p7-recovery-diagnostics-storage-2026-09-28.md)、[模型空间](../evidence/development/p7-model-storage-2026-09-28.md)、[分类空间](../evidence/development/p7-data-space-2026-09-28.md)、[发布残留](../evidence/development/p7-publication-residue-2026-09-28.md)、[实际发布中断](../evidence/development/pre-r1-closeout-2026-09-28.md)。剩余真机满盘、OEM/JNI/Binder 长稳和模型偶发边界单独保留，不把 P7 笼统写成全部完成。
 
-P3 本地模型安装最小闭环已完成。当前精选目录已按后续产品决策收敛为 **Qwen3 4B Instruct 2507 Q4_K_M** 单一主动支持模型，保留 ModelScope/Hugging Face pinned revisions；高级 URL/hash/size 导入仍可用。P3 当时使用 0.6B 做 Android HTTP cancel/resume 的历史设备证据继续保留，但不再作为当前精选模型或后续测试对象。统一下载器已覆盖空间预检、200 restart、精确 206 resume、hash/range/disk/duplicate/cancel/recovery，安装后自动 connection + capability probe，只有显式操作才绑定当前 Session。详见 [P3 证据](../evidence/development/p3-local-model-install-2026-09-28.md)。
+按所有者 2026-09-29 指令，HXA-225 自主视觉已完成主机交付；后续继续 HXA-231 已授权 R1，本轮不夹带实施；非重构工作优先小范围试用与指定真机验证，再用实际反馈决定优化。内测步骤及反馈表已准备，真实用户试用尚未执行。Memory off/on 效果、本地模型真机性能与首发服务验收均不是已有设备恢复证据的自动延伸。完整 P5 在源码/APK 冻结并具备当前设备/服务授权后执行，不无限重复定向测试。
 
-P4 首次成功联合旅程已完成，未修改 production。owned API36 developer 从 `pm clear` 干净状态开始，经 P3 同一安装编排安装本地 GGUF、创建唯一当前 Session 与 managed Workspace，真实模型执行 `write`→`read` 两个工具调用并产生 durable artifact；setup 随后 `Process.killProcess`，新 PID 重开后同一 Session/model/Workspace/Turn/messages/tool timeline/artifact 全部恢复，2 秒观察窗内 Turn/model call/tool call 数量不变，确认无重复副作用。4B Instruct 2507 成功轮为 2 tool calls / 3 model calls / 6 persisted messages；artifact SHA 与 Workspace 文件一致。详见 [P4 证据](../evidence/development/p4-first-success-journey-2026-09-28.md)。
-
-同一 P4 fixture 曾给出 0.6B 的失败对照；该事实作为历史证据保留，但按当前产品决策 **后续不再用 0.6B/1.7B 做主动测试**。设备内 4B 只承担最低可用证明：P3/P4 已证明安装、真实 Provider、基础 Tool 与恢复闭环，后续不再用本地模型承担长程 Harness 系统基线。
-
-系统评测统一使用本机 SGLang：`http://localhost:30008/` / `Qwen3.8-27B`。Android emulator 通过 `10.0.2.2:30008/v1` 走正式 Provider；P5 复用既有 HXA-100 fixed eval，而不是新建第二套 Eval。详见 [Harness 系统基线](harness-system-baseline.md)。
-
-P5/P6 第一轮已完成：合并后 API36 developer JS/Goal 定向 5/5；clean `b436247f` 完整 14/15（skill-003 冗余执行请求失败），base prompt 加入充分证据直接报告指导后 clean `99b7bee7` 完整 **15/15**。同模型、fixture、oracle 与 test APK；不修改权限或评测预算。见 [P5/P6 对照与局限](../evidence/development/p5-clean-baseline-and-p6-2026-09-28.md)。历史 goal-001 截断未复现，根因尚未确定；skill-003 仍有额外只读调用，单次对照不证明稳定性或因果提速。
-
-新 Goal 的未自定义默认预算已扩大，保留用户已保存限额和现有 Goal；主机门禁及设备定向结果见 [预算与验收](../evidence/development/goal-budget-and-p5-targeted-2026-09-28.md)。下一步为 P7 联合恢复与支持/空间管理边界；不启动新架构或扩大工具功能面。
-
-P7 第一批联合恢复已完成：同一 `99b7bee7` APK 在 API36 developer 上普通断言 26/26、专用进程死亡恢复 7/7；首次两类错误启动协议及修正完整保留，见 [P7 第一批证据](../evidence/development/p7-recovery-first-batch-2026-09-28.md)。当前下一工作为错误恢复 UI、支持诊断与空间管理边界核对；P7 整体、真机长稳和发行尚未完成。
-
-后续 prompt/fixture v2 已完成：修正 files/Plan/Goal 报告指导，skill-003 最终请求改为报告既有拒绝并记录独立 fixture/hash；clean `fce488ce` **15/15**，skill-003 本次 0 工具调用。见 [v2 证据](../evidence/development/prompt-fixture-v2-2026-09-28.md)，不可与旧夹具比较提示词因果收益。
-
-P7 UI 增量已交付：导出准备失败可就地重试；诊断与审计提供用户主动的无正文报告预览/复制，失败可重试，不自动上传。API36 developer 联合 **38/38**、consumer 新入口 **8/8**，双渠道主机 gate 通过；空间删除/共享引用边界已核对。见 [P7 UI 与空间证据](../evidence/development/p7-recovery-diagnostics-storage-2026-09-28.md)。后续空间管理进度见下段；历史截断与偶发多余调用仍开放，P7 不整体关闭。
-
-P7 本地模型空间增量已交付：安装页展示已识别模型与可续传下载大小；残片清理需要明确确认，与下载互斥并拒绝过期确认，切换模型不再隐式删除旧下载。双渠道主机 gate 及 API36 developer **3/3**、consumer **3/3** 定向验证通过，见 [模型空间证据](../evidence/development/p7-model-storage-2026-09-28.md)。分类占用及后续清理修复见下段；应用总占用、资产发布中断临时文件与真机存储压力未完成。
-
-P7 分类占用已交付：设置提供记录/大正文、私有工作目录/产物/元数据、Memory 的只读文件大小与删除范围说明；扫描有界、可取消，外部目录不扫描，受限时标记部分统计。核对时发现并修复孤立正文清理会跟随软链接的缺陷，保留保护期/引用检查并在删除前复核路径。扫描器 **5/5**、GC **7/7**、双渠道主机 gate，以及 API36 developer **3/3**、consumer **3/3** 通过，首次测试文本匹配失败与修正见 [分类空间证据](../evidence/development/p7-data-space-2026-09-28.md)。后续发布残留及压力回归进度见下段；不宣称应用总占用、真机或 P7 整体完成，历史输出截断与偶发多余调用仍开放。
-
-P7 模型发布残留清理已补齐：发布副本纳入显式确认与占用，保留实例/revision/文件变化保护；资产 store **7/7**、下载器 **9/9**、双渠道主机 gate、API36 每渠道 **4/4**（各含 32 轮合成重开/清理/低空间循环）通过，见 [发布残留证据](../evidence/development/p7-publication-residue-2026-09-28.md)。实际发布中硬杀、真机满盘/长稳仍未验；历史截断、额外调用与系统根因不标关闭。所有者已授权下一阶段 **BFCL 诊断＋AndroidWorld 小规模试跑**，使用现有本机 SGLang 并单列公开协议适配边界，不追榜或扩大生产工具权限。
-
-工具数量优化已完成本地验证：默认上界21项，有效自动化会话30项，其他工具通过16项窗口按需发现，组合上界62、硬上限64；Skill读取/启停成对保留，权限不变。修正scroll方向schema、精确文件内容提示及失败参数/实际协议取证。双渠道主机gate与clean `8f0aa933` 完整API36 P5 **15/15**通过；此前13/15、14/15、定向0/2及准备失败完整保留。BFCL模型直连小样本60/60；AndroidWorld此前28项候选API36适配0/2，受Settings/SystemUI保护限制，不是官方榜单分数。详见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。历史输出截断、多余调用、能力探测偶发失败继续开放，不改oracle或放宽预算。当前仅在隔离分支 `codex/tool-discovery-eval` 本地提交，主目录插件改动由另一端负责；下一步为两端整合验证及剩余P7边界，不声称已合并、推送或发行。
-
-| 顺序 | 工作 | 交付与退出条件 | 启动条件 |
-| --- | --- | --- | --- |
-| P5 | SGLang Harness 性能与任务质量基线 | 当前源码/APK 下，Files/JavaScript/Skills/Goal 共 15 个固定 case 形成独立 oracle、Turn/Tool 事实与端到端 elapsed 基线 | 使用 `localhost:30008` 的 `Qwen3.8-27B`；本地 4B 不再跑长程系统测试 |
-| P6 | 证据驱动 Harness 优化 | 同 fixed dataset、同 SGLang 服务、同设备条件做 baseline/candidate A/B；只保留系统任务完成率或端到端耗时的真实收益 | 模型服务本身的 prefill/TTFT/decode/GPU 性能不混入 Harness 指标 |
-| P7+ | hardening→内测→发行 | 错误可恢复、真实用户反馈后再进入 120→122→121→123 | Project Memory、Subagent 等不自动进入近期主线 |
-
-HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入时独立验收，不阻塞无依赖本地工作。HXA-222 的历史 PROTOCOL 未保留原始回复，不声称唯一根因已定位；4B 一次固定任务通过也不外推为手机性能或普遍模型可靠性。
-
-使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
+当前开发期 Room 继续 v1 baseline、仅保留文件的约定；正式数据升级、备份与签名身份归 HXA-122，不提前承诺。发行沿用 120 → 122 → 121 → 123；账号、真机和发行输入不阻塞无依赖本地工作。
 
 ## Blocked
 
@@ -123,7 +99,8 @@ HXA-125/126/190、物理设备/16 KiB 与发行政策属于条件线，有输入
 
 ## Known limitations
 
-- **SAF 稳定性**：来源移除 UI 曾间歇显示空来源列表，根因未定位。2026-09-28 P2 在冻结 API36 consumer 制品上做有界 4 次执行均未复现，因此未修改 production；历史失败、当前 live-source 链路与 bounded 诊断见 [HXA-227 补验](../evidence/development/hxa227-device-baseline-2026-09-27.md)和 [P2 证据](../evidence/development/p2-saf-bounded-diagnosis-2026-09-28.md)。不把“当前未复现”写成已修复。
+- **SAF 范围**：本轮可复现的撤销后残留与异步来源投影问题已修，API36 双渠道 10/10；见[修复证据](../evidence/development/intermittent-closeout-2026-09-28.md)。不把全部历史空列表或所有 OEM 根因归到同一问题；仅遇到新失败再开启对应诊断。
+- **模型行为**：历史 OUTPUT_TOKEN_LIMIT、能力探测偶发失败本轮未复现，仍保留取证入口；skill-003 本轮两次额外只读调用仍是开放边界。Goal 仅规划提示修复的三轮成功不证明所有长程任务稳定。
 - **系统与长稳**：模拟器 24 小时相关测试及应用释放路径已有证据，但系统 JNI/Binder 根因仍 open，goldfish FD/UID-proxy Binder 维度不能由模拟器关闭；见[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器引用验证](../evidence/development/browser-controller-reference-verification.md)与[优化记录](../evidence/development/main-optimization-todo.md)。
 - **物理设备**：Root 094/095 的 OnePlus API35 专项及[P0基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)是固定源码证据；其他 OEM、低内存、热压、Doze、Root grant/revoke/loss 和真实 16 KiB 按矩阵单独验收。x86_64 静态制品不证明实际运行。
 - **文件与 Runtime 恢复**：182 不承诺断电事务、字节续传、跨 Provider 原子性或自动后台队列；目标/备份变化需核查。订阅终态完整结果物化与真机资源压力仍有边界，见[授权/Runtime收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。

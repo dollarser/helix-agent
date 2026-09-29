@@ -218,6 +218,9 @@ class ChatService(
     private val workspaceRecovery = SessionWorkspaceRecovery(storage, bindSessionDirectory)
     private val _runControl = MutableStateFlow(sessionRunControls.defaultSnapshot())
     private val runControlEdits = Mutex()
+    val toolVisionConsent =
+        com.helix.app.vision
+            .ToolVisionConsent(storage.interactionReceipts, clock)
     private val requestAssembler =
         ChatRequestAssembler(
             storage,
@@ -227,6 +230,7 @@ class ChatService(
             visionSessionBinder,
             projectInstructionsReader,
             memory,
+            toolVisionConsent,
         )
     private val attachmentRetry = ChatAttachmentRetry(storage, attachmentStaging)
     private val labels = ChatStatusLabels(strings)
@@ -1697,36 +1701,41 @@ class ChatService(
         sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), ContextCompaction.COMMAND))
     }
 
-    /** Durable composer API for persisted sessions; never writes messages or starts model work. */
-    suspend fun saveComposerDraft(
-        request: ChatSubmission,
-        expectedRevision: Long?,
-    ): Boolean =
+    /** Optional per-session file cache. Its success is never required for submission. */
+    suspend fun saveComposerDraft(request: ChatSubmission): Boolean =
         withContext(Dispatchers.IO) {
-            var saved = false
-            storage.withTransaction {
-                val previous = storage.turns.resolveByClientRequestId(request.clientRequestId)
-                val existing = storage.composerDrafts.get(request.sessionId)
-                // A draft cannot retroactively claim an already-used request ID with new content.
-                val input = storage.sessionInputs.get(request.clientRequestId)
-                val unusedOrIdentical = (previous == null && input == null) || existing?.toSubmission() == request
-                val sameDraftKind = existing == null || existing.revisedMessageId == request.revisedMessageId
-                if (unusedOrIdentical && sameDraftKind) {
-                    saved = storage.composerDrafts.save(request.toDraftEntity(), expectedRevision)
-                }
-            }
-            saved
+            val cached = storage.composerDrafts.save(request.toInputSnapshot())
+            rememberNonemptyConversation(request)
+            cached
         }
 
-    /** A dispatched save survives cancellation of the screen awaiting its result. */
-    fun saveComposerDraftAsync(
-        request: ChatSubmission,
-        expectedRevision: Long?,
-    ): kotlinx.coroutines.Deferred<Boolean> = workScope.async { saveComposerDraft(request, expectedRevision) }
+    @Suppress("TooGenericExceptionCaught") // Optional conversation recovery must not become a send prerequisite.
+    private suspend fun rememberNonemptyConversation(request: ChatSubmission) {
+        val hasInput =
+            request.text.isNotEmpty() || request.attachmentIds.isNotEmpty() ||
+                request.referenceSourceSessionId != null
+        if (!hasInput || sessionDraft?.session?.id != request.sessionId) return
+        try {
+            submissionGate.withLock { materializeDraftSession(request.sessionId) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            Log.w(TAG, "Could not retain unsent conversation metadata")
+        }
+    }
 
+    /** A dispatched cache write survives cancellation of the screen awaiting its result. */
+    fun saveComposerDraftAsync(request: ChatSubmission): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async { saveComposerDraft(request) }
+
+    @Suppress("SwallowedException") // Malformed optional input state must not disable ordinary sending.
     suspend fun loadComposerDraft(sessionId: String): ChatSubmission? =
         withContext(Dispatchers.IO) {
-            storage.composerDrafts.get(sessionId)?.toSubmission()
+            try {
+                storage.composerDrafts.get(sessionId)?.toSubmission()
+            } catch (_: IllegalArgumentException) {
+                null
+            }
         }
 
     /** Recovers a durable receipt without admitting or replaying any model/tool work. */
@@ -1743,7 +1752,7 @@ class ChatService(
             }
         }
 
-    /** Materializes a transient draft session so it exists in storage before saving composer drafts. */
+    /** Creates session metadata when settings or attachments need it; input caching does not require it. */
     suspend fun materializeDraftSession(expectedSessionId: String): String? =
         withContext(workScope.coroutineContext) {
             if (storage.sessions.find(expectedSessionId) != null) return@withContext expectedSessionId
@@ -1858,13 +1867,13 @@ class ChatService(
                     val draft =
                         saved ?: ChatSubmission(
                             sessionId,
-                            0,
+                            ComposerEditClock.next(0),
                             idGenerator(),
                             source.text(messageId, restored.size),
                             restored.map { it.artifactId },
                             messageId,
                         )
-                    if (saved == null) require(saveComposerDraft(draft, null))
+                    if (saved == null) saveComposerDraft(draft)
                     require(openSessionId == sessionId)
                     synchronized(stagedLock) { stagedAttachments = restored }
                     refreshScreen()
@@ -1878,24 +1887,32 @@ class ChatService(
             }
         }
 
+    /** Captures a user's revision without touching disk or changing historical messages. */
+    fun revisionSubmission(
+        request: ChatSubmission,
+        text: String,
+    ): ChatSubmission =
+        if (request.text == text) {
+            request
+        } else {
+            request.copy(
+                revision = ComposerEditClock.next(request.revision),
+                clientRequestId = idGenerator(),
+                text = text,
+            )
+        }
+
     fun saveRevisionText(
         request: ChatSubmission,
         text: String,
-    ): kotlinx.coroutines.Deferred<ChatSubmission?> =
-        workScope.async {
-            submissionGate.withLock {
-                val current = loadComposerDraft(request.sessionId) ?: return@withLock null
-                if (current.revisedMessageId != request.revisedMessageId ||
-                    current.revisedMessageId == null
-                ) {
-                    return@withLock null
-                }
-                if (current.text == text) return@withLock current
-                if (text.length > MAX_MODEL_TEXT_CHARS || '\u0000' in text) return@withLock null
-                val next = current.copy(revision = current.revision + 1, clientRequestId = idGenerator(), text = text)
-                if (saveComposerDraft(next, current.revision)) next else null
-            }
+    ): kotlinx.coroutines.Deferred<ChatSubmission?> {
+        val snapshot = revisionSubmission(request, text)
+        return workScope.async {
+            if (snapshot.revisedMessageId == null) return@async null
+            saveComposerDraft(snapshot)
+            snapshot
         }
+    }
 
     /** Read-only receipt recovery after a disclosure or recreation; never sends another request. */
     suspend fun acceptedRevision(request: ChatSubmission): Boolean =
@@ -1931,7 +1948,11 @@ class ChatService(
         return workScope.async {
             submissionGate.withLock {
                 val outcome = submissionAttempt { admitSubmission(snapshot) }
-                ChatSubmissionReceipt(snapshot, outcome)
+                val receipt = ChatSubmissionReceipt(snapshot, outcome)
+                if (outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued) {
+                    storage.composerDrafts.clear(snapshot.sessionId, snapshot.revision, snapshot.clientRequestId)
+                }
+                receipt
             }
         }
     }
@@ -1962,10 +1983,6 @@ class ChatService(
         if (preparingDraft) return ChatSubmissionOutcome.Rejected("PREPARING_DRAFT")
         if (request.attachmentIds != stagedAttachments.map { it.artifactId }) {
             return ChatSubmissionOutcome.Rejected("ATTACHMENTS_CHANGED")
-        }
-        val storedDraft = storage.composerDrafts.get(request.sessionId)
-        if (storedDraft != null && storedDraft.toSubmission() != request) {
-            return ChatSubmissionOutcome.Rejected("DRAFT_CHANGED")
         }
         val draft = sessionDraft
         if (draft != null) {
@@ -2015,21 +2032,52 @@ class ChatService(
         request: ChatSubmission,
         turn: com.helix.core.storage.entity.TurnEntity,
     ): ChatSubmissionOutcome {
-        val saved = storage.composerDrafts.get(request.sessionId)?.toSubmission()
-        val samePlainInput =
-            request.attachmentIds.isEmpty() &&
-                turn.inputFingerprint ==
-                TurnInputFingerprint.of(
-                    request.text,
-                    emptyList(),
-                    revisedMessageId = request.revisedMessageId,
-                    recoveryFromTurnId = turn.recoveryFromTurnId,
-                )
-        return if (turn.sessionId == request.sessionId && (samePlainInput || saved == request)) {
+        val matches = matchesPersistedSubmission(request, turn)
+        return if (matches) {
             ChatSubmissionOutcome.Accepted(turn.id)
         } else {
             ChatSubmissionOutcome.Rejected("REQUEST_ID_ALREADY_USED")
         }
+    }
+
+    /** Receipt recovery uses accepted history, never an optional input cache. */
+    @Suppress("ReturnCount") // Each mismatch refuses reuse of an accepted request identity.
+    private fun matchesPersistedSubmission(
+        request: ChatSubmission,
+        turn: com.helix.core.storage.entity.TurnEntity,
+    ): Boolean {
+        if (turn.sessionId != request.sessionId) return false
+        val message =
+            storage.messages
+                .allRevisions(request.sessionId)
+                .firstOrNull { it.turnId == turn.id && it.role == "USER" } ?: return false
+        val bindings = storage.messageAttachments.listByMessage(message.id)
+        if (bindings.map { it.artifactId } != request.attachmentIds) return false
+        val references = storage.messageReferenceSnapshots.forMessage(message.id)
+        if (references.map { it.sourceSessionId to it.selectionKind } !=
+            listOfNotNull(request.referenceSourceSessionId?.let { it to requireNotNull(request.referenceKind) })
+        ) {
+            return false
+        }
+        val body = storage.messages.readContentBounded(message, 8 * 1024 * 1024).orEmpty()
+        if (AttachmentContext.authoredPrefix(body, bindings.size) != request.text) return false
+        val expected =
+            TurnInputFingerprint.of(
+                body,
+                bindings.map { MessageAttachmentRepository.Binding(it.artifactId, it.purpose, it.boundSha256) },
+                references.map {
+                    ConversationReferenceSnapshotInput(
+                        it.sourceSessionId,
+                        it.sourceSessionTitle,
+                        it.selectionKind,
+                        it.sourceMessageIds,
+                        it.content,
+                    )
+                },
+                revisedMessageId = request.revisedMessageId,
+                recoveryFromTurnId = turn.recoveryFromTurnId,
+            )
+        return turn.inputFingerprint == expected
     }
 
     private fun validHumanInput(request: ChatSubmission): Boolean {
@@ -2258,6 +2306,9 @@ class ChatService(
                         } else {
                             submissionAttempt { confirmSendNow(request) }
                         }
+                if (outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued) {
+                    storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
+                }
                 ChatSubmissionReceipt(request, outcome)
             }
         }

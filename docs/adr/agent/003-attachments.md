@@ -44,6 +44,14 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
    并随 Turn 保存快照。未确认视觉能力时允许本地导入/预览，但不得静默丢图、伪装成
    已发送或猜测式换协议。
 
+### 工具图片补充（2026-09-29）
+
+所有者接受的 [ADR-AGENT-011](011-tool-multimodal-vision-feedback.md) 扩展图片来源到可信工具产物：复用同一附件关系，以 `TOOL_OBSERVATION` 绑定 TOOL 消息，和用户 `REFERENCE` 分开。工具读取授权不等于图片出网授权；请求级哈希、目标与披露复核适用于两类来源。既有用户图片输入不是通用工具看图已交付的证明。
+
+## Decision history
+
+- **2026-09-29**：接受工具视觉来源补充，细则与交付范围由 ADR-AGENT-011/HXA-225 维护；不增加数据库表，不扩展文档/视频/本地多模态 Runtime 范围。
+
 ## Alternatives considered
 
 - **保留临时 `content://` URI，发送时再读取**：实现较少，但 URI 授权、来源内容和

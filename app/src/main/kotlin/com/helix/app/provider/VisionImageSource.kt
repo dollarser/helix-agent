@@ -3,7 +3,6 @@ package com.helix.app.provider
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.repository.ArtifactRepository
-import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.provider.api.CapabilityProbe
@@ -33,6 +32,11 @@ data class LoadedImage(
  */
 fun interface VisionImageSource {
     fun load(ref: ArtifactRef): LoadedImage
+
+    fun load(
+        image: com.helix.core.model.ImageReference,
+        config: com.helix.provider.api.ProviderConfig,
+    ): LoadedImage = load(image.ref)
 }
 
 /**
@@ -44,6 +48,8 @@ fun interface VisionImageSource {
 class ArtifactVisionImageSource(
     private val artifacts: ArtifactRepository,
     private val workspace: WorkspaceArtifactStore,
+    private val verifyBinding: (com.helix.core.model.ImageReference, com.helix.provider.api.ProviderConfig) -> Unit =
+        { _, _ -> throw IllegalArgumentException("No image binding verifier installed") },
 ) : VisionImageSource {
     @Suppress("TooGenericExceptionCaught") // ANY read failure (path/scope/I-O) maps to one closed, path-free error
     override fun load(ref: ArtifactRef): LoadedImage {
@@ -67,18 +73,52 @@ class ArtifactVisionImageSource(
         }
         val bytes =
             try {
-                workspace.readAll(FileScopePath.fromModelReference(artifact.relativePath))
+                com.helix.app.vision.VerifiedImageBytes.read(artifact.size, artifact.sha256, artifact.mediaType) {
+                    workspace.openRead(FileScopePath.fromModelReference(artifact.relativePath))
+                }
             } catch (e: Exception) {
                 throw IllegalArgumentException("image artifact is unreadable", e)
             }
         require(bytes.isNotEmpty() && bytes.size.toLong() == artifact.size) {
             "image artifact bytes do not verify against their snapshot"
         }
-        // MIME/signature consistency (HXA-055): the BYTES must agree with the registered type —
-        // a relabeled file never reaches the wire.
-        val magic = ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
-        require(magic == artifact.mediaType) { "image bytes do not match their registered media type" }
         return LoadedImage(artifact.mediaType, Base64.getEncoder().encodeToString(bytes))
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Decode/scope failures must not leak private paths into model errors.
+    override fun load(
+        image: com.helix.core.model.ImageReference,
+        config: com.helix.provider.api.ProviderConfig,
+    ): LoadedImage {
+        if (image.ref == PROBE_IMAGE_REF || image.ref == COLOR_PROBE_REF) return load(image.ref)
+        return try {
+            loadBound(image, config)
+        } catch (failure: java.util.concurrent.CancellationException) {
+            throw failure
+        } catch (failure: Exception) {
+            throw IllegalArgumentException("Image source or disclosure could not be verified", failure)
+        }
+    }
+
+    private fun loadBound(
+        image: com.helix.core.model.ImageReference,
+        config: com.helix.provider.api.ProviderConfig,
+    ): LoadedImage {
+        val binding = requireNotNull(image.binding) { "Image has no request binding" }
+        if (Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException()
+        verifyBinding(image, config)
+        val artifact = artifacts.resolve(image.ref.value)
+        require(
+            artifact.sessionId == binding.sessionId && artifact.sha256 == binding.sha256 &&
+                artifact.mediaType == image.mediaType,
+        ) { "Image request binding changed" }
+        val exact =
+            com.helix.app.vision.VerifiedImageBytes.read(artifact.size, binding.sha256, image.mediaType) {
+                workspace.openRead(FileScopePath.fromModelReference(artifact.relativePath))
+            }
+        if (Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException()
+        verifyBinding(image, config)
+        return LoadedImage(image.mediaType, Base64.getEncoder().encodeToString(exact))
     }
 
     /**

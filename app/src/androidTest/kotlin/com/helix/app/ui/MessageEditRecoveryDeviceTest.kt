@@ -7,7 +7,7 @@ import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.TurnInputFingerprint
-import com.helix.app.chat.toDraftEntity
+import com.helix.app.chat.toInputSnapshot
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.runBlocking
@@ -35,8 +35,7 @@ class MessageEditRecoveryDeviceTest {
                     "pending-revision",
                     "RECOVER-DRAFT-215",
                     revisedMessageId = "revision-target",
-                ).toDraftEntity(),
-                null,
+                ).toInputSnapshot(),
             )
             storage.sessions.create("revision-accepted", "REVISION-ACCEPTED", null, null, 2)
             storage.messages.append("accepted-target", "revision-accepted", null, "USER", "TEXT", "OLD-ACCEPTED")
@@ -48,7 +47,7 @@ class MessageEditRecoveryDeviceTest {
                     "NEW-ACCEPTED",
                     revisedMessageId = "accepted-target",
                 )
-            storage.composerDrafts.save(accepted.toDraftEntity(), null)
+            storage.composerDrafts.save(accepted.toInputSnapshot())
             val clock =
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(10)

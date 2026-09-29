@@ -136,7 +136,6 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             SessionPermissionDraftEntity::class,
             SessionExpertEntity::class,
             com.helix.core.storage.entity.SessionRunControlEntity::class,
-            com.helix.core.storage.entity.ComposerDraftEntity::class,
             com.helix.core.storage.entity.SessionInputEntity::class,
             com.helix.core.storage.entity.SessionInputAttachmentEntity::class,
             ToolCallReviewEntity::class,
@@ -151,8 +150,6 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun connectorDao(): com.helix.core.storage.dao.ConnectorDao
 
     abstract fun goalControlDao(): com.helix.core.storage.dao.GoalControlDao
-
-    abstract fun composerDraftDao(): com.helix.core.storage.dao.ComposerDraftDao
 
     abstract fun sessionInputDao(): com.helix.core.storage.dao.SessionInputDao
 

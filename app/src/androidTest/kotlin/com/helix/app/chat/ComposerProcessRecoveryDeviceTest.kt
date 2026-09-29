@@ -42,8 +42,7 @@ class ComposerProcessRecoveryDeviceTest {
                         0,
                         "pending-composer-214",
                         "RECOVER-DRAFT-214",
-                    ).toDraftEntity(),
-                    null,
+                    ).toInputSnapshot(),
                 ),
             )
 
@@ -55,7 +54,7 @@ class ComposerProcessRecoveryDeviceTest {
                     ACCEPTED_REQUEST,
                     ACCEPTED_TEXT,
                 )
-            assertTrue(storage.composerDrafts.save(accepted.toDraftEntity(), null))
+            assertTrue(storage.composerDrafts.save(accepted.toInputSnapshot()))
             val clock =
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(10)

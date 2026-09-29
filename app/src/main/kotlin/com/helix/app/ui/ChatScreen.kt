@@ -79,6 +79,16 @@ fun ChatScreen(
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
     val sessionId = screen.openSessionId
+    val imageDisclosures by chatService.toolVisionConsent.pending.collectAsStateWithLifecycle()
+    if (screen.pendingDisclosure == null) {
+        imageDisclosures.firstOrNull { it.sessionId == sessionId }?.let { disclosure ->
+            DisclosureDialog(
+                disclosure.summary,
+                onConfirm = { chatService.toolVisionConsent.respond(disclosure.id, true) },
+                onDismiss = { chatService.toolVisionConsent.respond(disclosure.id, false) },
+            )
+        }
+    }
     var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
     var expertOpen by remember(sessionId) { mutableStateOf(false) }
@@ -144,9 +154,7 @@ fun ChatScreen(
     LaunchedEffect(sessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
     val saveBuffer: suspend () -> Boolean = {
-        buffer.persist(chatService::materializeDraftSession, chatService::loadComposerDraft) { request, expected ->
-            chatService.saveComposerDraftAsync(request, expected).await()
-        }
+        buffer.persist { request -> chatService.saveComposerDraftAsync(request).await() }
     }
     val flushBuffer: () -> Unit = {
         // A lifecycle callback requests a flush; it is not a synchronous durability guarantee.
@@ -289,24 +297,11 @@ fun ChatScreen(
         if (sessionId != null && available) {
             // Capture the editor's identity before the first suspension, including attachment selection.
             buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
-            buffer.edit(buffer.value.text.trim())
-            val intent = buffer.value
+            val intent = buffer.captureSubmission()
             buffer.sending = true
             scope.launch {
                 try {
-                    val saved =
-                        buffer.persist(chatService::materializeDraftSession, chatService::loadComposerDraft, intent) {
-                            request,
-                            expected,
-                            ->
-                            chatService.saveComposerDraftAsync(request, expected).await()
-                        }
-                    if (saved) {
-                        val request = buffer.saved
-                        if (request != null && request.clientRequestId == intent.clientRequestId) {
-                            handleReceipt(chatService.sendSubmission(request).await())
-                        }
-                    }
+                    handleReceipt(chatService.sendSubmission(intent).await())
                 } finally {
                     buffer.sending = false
                 }
@@ -320,8 +315,8 @@ fun ChatScreen(
         }
     val navigateAfterSave: (() -> Unit) -> Unit = { navigate ->
         scope.launch {
-            val canLeave = buffer.revisionMessageId != null || saveBuffer()
-            if (canLeave && chatService.screen.value.openSessionId == sessionId) navigate()
+            if (buffer.revisionMessageId == null) saveBuffer()
+            if (chatService.screen.value.openSessionId == sessionId) navigate()
         }
     }
     Column(
@@ -370,24 +365,6 @@ fun ChatScreen(
                         enabled = buffer.editable && !buffer.sending && screen.pendingDisclosure == null,
                         onSelect = buffer::delivery,
                     )
-                    val showStatus = buffer.dirty || buffer.saved != null || buffer.failed
-                    if (buffer.revisionMessageId == null && showStatus) {
-                        Text(
-                            stringResource(
-                                when {
-                                    buffer.failed -> R.string.message_revision_save_failed
-                                    buffer.dirty -> R.string.message_revision_saving
-                                    else -> R.string.message_revision_saved
-                                },
-                            ),
-                            modifier = Modifier.testTag("chat-draft-status"),
-                        )
-                    }
-                    if (buffer.failed) {
-                        TextButton(onClick = { if (buffer.editable) flushBuffer() else editorEpoch += 1 }) {
-                            Text(stringResource(R.string.chat_retry))
-                        }
-                    }
                     if (buffer.missingAttachments.isNotEmpty()) {
                         Text(stringResource(R.string.chat_draft_attachment_missing))
                         TextButton(onClick = buffer::discardMissingAttachments) {
@@ -411,7 +388,8 @@ fun ChatScreen(
                             val id = sessionId
                             if (id != null) {
                                 scope.launch {
-                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id) expertOpen = true
+                                    saveBuffer()
+                                    if (chatService.materializeDraftSession(id) == id) expertOpen = true
                                 }
                             }
                         },
@@ -419,7 +397,8 @@ fun ChatScreen(
                             val id = sessionId
                             if (id != null && skills != null) {
                                 scope.launch {
-                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id) skillsOpen = true
+                                    saveBuffer()
+                                    if (chatService.materializeDraftSession(id) == id) skillsOpen = true
                                 }
                             }
                         },
@@ -427,9 +406,8 @@ fun ChatScreen(
                             val id = sessionId
                             if (id != null && connectors != null) {
                                 scope.launch {
-                                    if (saveBuffer() &&
-                                        chatService.materializeDraftSession(id) == id
-                                    ) {
+                                    saveBuffer()
+                                    if (chatService.materializeDraftSession(id) == id) {
                                         connectorsOpen = true
                                     }
                                 }
@@ -453,10 +431,9 @@ fun ChatScreen(
                                 editMessageId = messageId
                             } else {
                                 scope.launch {
-                                    if (saveBuffer()) {
-                                        dismissedRevisionId = null
-                                        editMessageId = messageId
-                                    }
+                                    saveBuffer()
+                                    dismissedRevisionId = null
+                                    editMessageId = messageId
                                 }
                             }
                         },

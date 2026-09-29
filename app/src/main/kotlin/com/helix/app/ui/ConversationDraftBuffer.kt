@@ -5,7 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
 import com.helix.app.chat.ChatSubmission
+import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.ChatSubmissionReceipt
+import com.helix.app.chat.ComposerEditClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -15,7 +17,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
-/** An editor identity changes immediately; the database revision advances only on a successful CAS. */
+/** Current user edits are authoritative; optional cache failures never disable plain-text input. */
 @Suppress("TooManyFunctions") // Draft recovery keeps all state transitions behind one serialized owner.
 internal class ConversationDraftBuffer(
     val sessionId: String,
@@ -36,7 +38,7 @@ internal class ConversationDraftBuffer(
     var sending by mutableStateOf(false)
     var attachmentsReady by mutableStateOf(false)
     private var edited = false
-    private var pendingSave: ChatSubmission? = null
+    private var submitted: ChatSubmission? = null
     private val gate = Mutex()
 
     val dirty: Boolean
@@ -49,12 +51,16 @@ internal class ConversationDraftBuffer(
     val editable: Boolean get() = ready && attachmentsReady && revisionMessageId == null
     val canSubmit: Boolean get() = !sending && missingAttachments.isEmpty()
     val acceptedReceiptCandidate: ChatSubmission?
-        get() = saved?.takeIf { it.revisedMessageId == null }
+        get() = (submitted ?: saved)?.takeIf { it.revisedMessageId == null }
+
+    /** Freeze exactly what was clicked; submitting does not depend on cache I/O. */
+    fun captureSubmission(): ChatSubmission =
+        value.copy(attachmentIds = value.attachmentIds.toList()).also { submitted = it }
 
     fun edit(text: String) {
         if (value.text == text || revisionMessageId != null) return
         edited = true
-        value = value.copy(text = text, clientRequestId = newId())
+        value = value.copy(text = text, clientRequestId = newId(), revision = ComposerEditClock.next(value.revision))
     }
 
     fun delivery(
@@ -65,7 +71,13 @@ internal class ConversationDraftBuffer(
         require((delivery == com.helix.core.storage.repository.SessionInputDelivery.STEER) == (expectedTurnId != null))
         if (value.delivery == delivery && value.expectedTurnId == expectedTurnId) return
         edited = true
-        value = value.copy(delivery = delivery, expectedTurnId = expectedTurnId, clientRequestId = newId())
+        value =
+            value.copy(
+                delivery = delivery,
+                expectedTurnId = expectedTurnId,
+                clientRequestId = newId(),
+                revision = ComposerEditClock.next(value.revision),
+            )
     }
 
     fun attachments(ids: List<String>) {
@@ -75,7 +87,12 @@ internal class ConversationDraftBuffer(
                 ids.filter { it !in value.attachmentIds }
         if (value.attachmentIds == retained) return
         edited = true
-        value = value.copy(attachmentIds = retained, clientRequestId = newId())
+        value =
+            value.copy(
+                attachmentIds = retained,
+                clientRequestId = newId(),
+                revision = ComposerEditClock.next(value.revision),
+            )
     }
 
     fun reference(
@@ -91,6 +108,7 @@ internal class ConversationDraftBuffer(
                 referenceSourceSessionId = sourceSessionId,
                 referenceKind = kind,
                 clientRequestId = newId(),
+                revision = ComposerEditClock.next(value.revision),
             )
     }
 
@@ -111,67 +129,37 @@ internal class ConversationDraftBuffer(
         attachments(remaining)
     }
 
-    suspend fun initialize(load: suspend (String) -> ChatSubmission?): Boolean =
-        guarded(false) {
+    suspend fun initialize(load: suspend (String) -> ChatSubmission?): Boolean {
+        guarded(Unit) {
             gate.withLock {
                 val disk = load(sessionId)
-                failed = false
-                revisionMessageId = disk?.revisedMessageId
-                if (revisionMessageId == null) {
-                    if (!edited) value = disk ?: value
-                    val knownDisk =
-                        disk == saved || disk == pendingSave || disk?.clientRequestId == value.clientRequestId
-                    if (!edited || knownDisk) {
-                        saved = disk
-                        pendingSave = null
-                        if (disk?.clientRequestId == value.clientRequestId) value = requireNotNull(disk)
-                    } else {
-                        failed = true
-                    }
-                }
-                ready = true
-            }
-            !failed
-        }
-
-    /** Serialize writes, preserve newer edits, and never claim that a rejected CAS was saved. */
-    @Suppress("CyclomaticComplexMethod") // Keep CAS and accepted-receipt reconciliation under one mutex.
-    suspend fun persist(
-        materialize: suspend (String) -> String?,
-        load: suspend (String) -> ChatSubmission?,
-        target: ChatSubmission? = null,
-        save: suspend (ChatSubmission, Long?) -> Boolean,
-    ): Boolean =
-        guarded(false) {
-            gate.withLock {
-                val requested = target ?: value
-                if (!ready || revisionMessageId != null) return@withLock false
-                if (requested.sameIntentAs(saved) || (!dirty && requested == value)) {
-                    failed = false
-                    return@withLock true
-                }
-                if (materialize(sessionId) != sessionId) {
-                    failed = true
-                    return@withLock false
-                }
-                val disk = load(sessionId)
-                if (adoptPersistedIntent(requested, disk)) return@withLock true
-                if (disk != saved && disk != pendingSave) {
-                    failed = true
-                    revisionMessageId = disk?.revisedMessageId
-                    return@withLock false
-                }
                 saved = disk
-                val snapshot = requested.copy(revision = disk?.revision?.plus(1) ?: 0)
-                pendingSave = snapshot
-                if (!save(snapshot, disk?.revision)) {
-                    if (adoptPersistedIntent(requested, load(sessionId))) return@withLock true
+                // Never replace what the user has typed with a restored older snapshot.
+                revisionMessageId = if (!edited) disk?.revisedMessageId else value.revisedMessageId
+                if (!edited && disk != null && revisionMessageId == null) value = disk
+                if (edited && disk != null && value.revision < disk.revision) {
+                    value = value.copy(revision = ComposerEditClock.next(disk.revision))
+                }
+                failed = false
+            }
+        }
+        // An absent or unreadable cache is not an unusable composer.
+        ready = true
+        return true
+    }
+
+    /** Best-effort write-through. There is no database version conflict to resolve. */
+    suspend fun persist(save: suspend (ChatSubmission) -> Boolean): Boolean =
+        guarded(false) {
+            gate.withLock {
+                if (!ready || revisionMessageId != null) return@withLock false
+                if (!dirty) return@withLock true
+                val snapshot = value
+                if (!save(snapshot)) {
                     failed = true
                     return@withLock false
                 }
                 saved = snapshot
-                pendingSave = null
-                if (value.clientRequestId == snapshot.clientRequestId) value = snapshot
                 failed = false
                 true
             }
@@ -184,15 +172,21 @@ internal class ConversationDraftBuffer(
     ) = withContext(NonCancellable) {
         guarded(Unit) {
             gate.withLock {
-                if (receipt.submission.sessionId != sessionId || receipt.submission.revisedMessageId != null) {
+                val wasAccepted =
+                    receipt.outcome is ChatSubmissionOutcome.Accepted ||
+                        receipt.outcome is ChatSubmissionOutcome.Enqueued
+                if (receipt.submission.sessionId != sessionId || receipt.submission.revisedMessageId != null ||
+                    !wasAccepted
+                ) {
                     return@withLock
                 }
                 val cleared = acknowledge(receipt)
                 val disk = if (cleared) null else load(sessionId)
                 if (disk == null || disk == saved) saved = disk
                 val request = receipt.submission
+                if (submitted?.clientRequestId == request.clientRequestId) submitted = null
                 if (matchesAcceptedValue(request)) {
-                    value = ChatSubmission(sessionId, 0, newId(), "")
+                    value = ChatSubmission(sessionId, ComposerEditClock.next(value.revision), newId(), "")
                     edited = false
                     missingAttachments = emptyList()
                 }
@@ -220,19 +214,6 @@ internal class ConversationDraftBuffer(
             fallback
         }
 
-    private fun adoptPersistedIntent(
-        target: ChatSubmission,
-        persisted: ChatSubmission?,
-    ): Boolean {
-        if (!target.sameIntentAs(persisted)) return false
-        val current = requireNotNull(persisted)
-        saved = current
-        pendingSave = null
-        if (value.sameIntentAs(current)) value = current
-        failed = false
-        return true
-    }
-
     private fun matchesAcceptedValue(request: ChatSubmission): Boolean =
         value.clientRequestId == request.clientRequestId &&
             value.text == request.text &&
@@ -240,27 +221,16 @@ internal class ConversationDraftBuffer(
             value.referenceSourceSessionId == request.referenceSourceSessionId &&
             value.referenceKind == request.referenceKind
 
-    private fun ChatSubmission.sameIntentAs(other: ChatSubmission?): Boolean =
-        other != null &&
-            sessionId == other.sessionId &&
-            clientRequestId == other.clientRequestId &&
-            text == other.text &&
-            attachmentIds == other.attachmentIds &&
-            revisedMessageId == other.revisedMessageId &&
-            delivery == other.delivery && expectedTurnId == other.expectedTurnId &&
-            referenceSourceSessionId == other.referenceSourceSessionId &&
-            referenceKind == other.referenceKind
-
     companion object {
         val Saver =
             listSaver<ConversationDraftBuffer, String>(
-                save = { listOf(encode(it.value), encode(it.saved), encode(it.pendingSave), it.edited.toString()) },
+                save = { listOf(encode(it.value), encode(it.saved), encode(it.submitted), it.edited.toString()) },
                 restore = { fields ->
                     val restored = requireNotNull(decode(fields[0]))
                     ConversationDraftBuffer(restored.sessionId).apply {
                         value = restored
                         saved = decode(fields[1])
-                        pendingSave = decode(fields[2])
+                        submitted = decode(fields[2])
                         edited = fields[3].toBoolean()
                     }
                 },

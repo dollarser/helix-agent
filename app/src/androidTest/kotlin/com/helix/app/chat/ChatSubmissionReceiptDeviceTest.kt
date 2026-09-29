@@ -50,7 +50,7 @@ class ChatSubmissionReceiptDeviceTest {
                 try {
                     chat.openSession(session)
                     val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "Keep this request")
-                    assertTrue(chat.saveComposerDraft(request, null))
+                    assertTrue(chat.saveComposerDraft(request))
                     val receipt = chat.sendSubmission(request).await()
                     assertEquals(
                         ChatSubmissionOutcome.Rejected(
@@ -78,7 +78,7 @@ class ChatSubmissionReceiptDeviceTest {
             try {
                 chat.openSession(session)
                 val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "   ")
-                assertTrue(chat.saveComposerDraft(request, null))
+                assertTrue(chat.saveComposerDraft(request))
                 assertEquals(
                     ChatSubmissionOutcome.Rejected("INVALID_INPUT"),
                     chat.sendSubmission(request).await().outcome,
@@ -214,7 +214,7 @@ class ChatSubmissionReceiptDeviceTest {
                             it.config.getOrNull(SemanticsProperties.EditableText)?.text == ""
                         },
                     )
-                    // And the composer_drafts table should be acknowledged and cleared
+                    // The per-session input file should be acknowledged and cleared
                     compose.waitUntil(10_000) {
                         storage.composerDrafts.get(session) == null
                     }
@@ -243,11 +243,11 @@ class ChatSubmissionReceiptDeviceTest {
             try {
                 // Draft in A
                 val draftA = ChatSubmission(sessionA, 0L, "req-a", "Draft in session A")
-                assertTrue(chat.saveComposerDraft(draftA, null))
+                assertTrue(chat.saveComposerDraft(draftA))
 
                 // Draft in B
                 val draftB = ChatSubmission(sessionB, 0L, "req-b", "Draft in session B")
-                assertTrue(chat.saveComposerDraft(draftB, null))
+                assertTrue(chat.saveComposerDraft(draftB))
 
                 // Open B
                 chat.openSession(sessionB)
@@ -278,11 +278,11 @@ class ChatSubmissionReceiptDeviceTest {
             storage.sessions.create(session, "Session Edit", null, null, 1)
             try {
                 val draftV0 = ChatSubmission(session, 0L, "req-v0", "Initial draft")
-                assertTrue(chat.saveComposerDraft(draftV0, null))
+                assertTrue(chat.saveComposerDraft(draftV0))
 
                 // Edit to v1
                 val draftV1 = ChatSubmission(session, 1L, "req-v1", "Edited draft")
-                assertTrue(chat.saveComposerDraft(draftV1, 0L))
+                assertTrue(chat.saveComposerDraft(draftV1))
 
                 // Stale v0 receipt arrives
                 val receiptV0 = ChatSubmissionReceipt(draftV0, ChatSubmissionOutcome.Accepted("turn-v0"))

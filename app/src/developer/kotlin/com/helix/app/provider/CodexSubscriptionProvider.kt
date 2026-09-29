@@ -14,7 +14,6 @@ import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProviderCheckResult
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.api.ProviderDescriptor
-import com.helix.runtime.cli.client.CliImageSnapshot
 import com.helix.runtime.cli.client.CliModelCatalog
 import com.helix.runtime.cli.client.CliModelCatalogClient
 import com.helix.runtime.cli.client.CliModelInfo
@@ -45,7 +44,7 @@ internal class CodexSubscriptionProvider(
         imageSource: (() -> VisionImageSource)? = null,
     ) : this(
         config,
-        RuntimeSubscriptionJobExecutor(context.applicationContext, platform, imageSource),
+        RuntimeSubscriptionJobExecutor(context.applicationContext, platform, imageSource, config),
         if (platform == CliModelProvider.CODEX) {
             { runInterruptible(Dispatchers.IO) { CliModelCatalogClient(CliRuntimeSupervisor(context)).fetch() } }
         } else {
@@ -194,6 +193,7 @@ internal class RuntimeSubscriptionJobExecutor(
     private val context: Context,
     private val platform: CliModelProvider,
     private val imageSource: (() -> VisionImageSource)?,
+    private val config: ProviderConfig,
 ) : SubscriptionJobExecutor {
     private val client = CliModelJobClient(CliRuntimeSupervisor(context))
 
@@ -205,15 +205,7 @@ internal class RuntimeSubscriptionJobExecutor(
     ): CliModelJobClient.AwaitOutcome {
         val ownership = currentCoroutineContext()[LocalModelCallContext]
         return runInterruptible(Dispatchers.IO) {
-            val images =
-                request.messages.flatMap { it.images }.distinct().map { image ->
-                    val loaded =
-                        requireNotNull(
-                            imageSource,
-                        ) { "subscription image source unavailable" }.invoke().load(image.ref)
-                    require(loaded.mediaType == image.mediaType)
-                    CliImageSnapshot(image, loaded.base64)
-                }
+            val images = subscriptionImageSnapshots(request, config, imageSource)
             val jobId = nextJobId()
             if (ownership != null) {
                 val app = context.applicationContext as HelixApplication

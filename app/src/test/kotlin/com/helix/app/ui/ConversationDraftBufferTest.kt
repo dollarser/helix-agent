@@ -16,6 +16,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationDraftBufferTest {
+    @Test fun currentTypingWinsWhenInitializationFinishesWithAnotherCachedValue() =
+        runBlocking {
+            val buffer = ConversationDraftBuffer("session")
+            buffer.edit("what the user is typing")
+            assertTrue(buffer.initialize { ChatSubmission("session", 999_999, "older-screen", "stale") })
+            assertEquals("what the user is typing", buffer.value.text)
+            assertTrue(buffer.value.revision > 999_999)
+            val clicked = buffer.captureSubmission()
+            assertEquals("what the user is typing", clicked.text)
+        }
+
+    @Test fun rejectedSubmissionDoesNotClearCurrentInput() =
+        runBlocking {
+            val fixture = Fixture()
+            val buffer = fixture.open()
+            buffer.edit("keep")
+            val request = buffer.captureSubmission()
+            buffer.accepted(
+                ChatSubmissionReceipt(request, ChatSubmissionOutcome.Rejected("NO_PROVIDER")),
+                { error("must not acknowledge rejection") },
+                { fixture.disk },
+            )
+            assertEquals("keep", buffer.value.text)
+        }
+
     @Test fun changingDeliveryKeepsTextAndCreatesANewPersistedIntent() =
         runBlocking {
             val fixture = Fixture()
@@ -61,11 +86,15 @@ class ConversationDraftBufferTest {
         runBlocking {
             val fixture = Fixture()
             val buffer = ConversationDraftBuffer("session")
-            assertFalse(buffer.initialize { error("storage unavailable") })
+            assertTrue(buffer.initialize { error("storage unavailable") })
+            assertTrue(buffer.ready)
             assertTrue(buffer.failed)
-            assertTrue(buffer.initialize { fixture.disk })
+            buffer.restoredAttachments(emptyList())
+            assertTrue(buffer.editable)
             buffer.edit("unsaved")
-            assertFalse(buffer.persist({ it }, { fixture.disk }) { _, _ -> error("disk full") })
+            assertFalse(buffer.persist { error("disk full") })
+            assertTrue(buffer.canSubmit)
+            assertEquals("unsaved", buffer.captureSubmission().text)
             assertEquals("unsaved", buffer.value.text)
             assertNull(buffer.saved)
             assertTrue(buffer.failed)
@@ -78,7 +107,7 @@ class ConversationDraftBufferTest {
             val buffer = fixture.open()
             buffer.edit("keep")
             try {
-                buffer.persist({ it }, { fixture.disk }) { _, _ -> throw CancellationException("cancelled") }
+                buffer.persist { throw CancellationException("cancelled") }
                 error("expected cancellation")
             } catch (_: CancellationException) {
                 assertFalse(buffer.failed)
@@ -86,22 +115,19 @@ class ConversationDraftBufferTest {
             }
         }
 
-    @Test fun submissionPersistsTheClickedSnapshotWhileKeepingNewerTyping() =
+    @Test fun submissionCapturesClickedInputWithoutRequiringAnyCacheWrite() =
         runBlocking {
             val fixture = Fixture()
             val buffer = fixture.open()
             buffer.edit("clicked")
-            val request = buffer.value
+            val request = buffer.captureSubmission()
             buffer.edit("typed later")
-            assertTrue(
-                buffer.persist({ it }, { fixture.disk }, request) { submitted, _ ->
-                    fixture.disk = submitted
-                    true
-                },
-            )
-            assertEquals("clicked", fixture.disk?.text)
+            assertEquals("clicked", request.text)
+            assertEquals("clicked", buffer.acceptedReceiptCandidate?.text)
+            assertNull(fixture.disk)
+            assertTrue(fixture.save(buffer))
+            assertEquals("typed later", fixture.disk?.text)
             assertEquals("typed later", buffer.value.text)
-            assertTrue(buffer.dirty)
         }
 
     @Test fun anImmediateEditSurvivesAnAcceptedOlderReceipt() =
@@ -121,7 +147,7 @@ class ConversationDraftBufferTest {
             assertNull(buffer.saved)
             assertTrue(fixture.save(buffer))
             assertEquals("next", fixture.disk?.text)
-            assertEquals(0L, fixture.disk?.revision)
+            assertEquals(buffer.value.revision, fixture.disk?.revision)
         }
 
     @Test fun editsDuringAnInflightSaveAreNotClaimedAsPersisted() =
@@ -133,7 +159,7 @@ class ConversationDraftBufferTest {
             val release = CompletableDeferred<Unit>()
             val saving =
                 async {
-                    buffer.persist({ it }, { fixture.disk }) { request, _ ->
+                    buffer.persist { request ->
                         entered.complete(Unit)
                         release.await()
                         fixture.disk = request
@@ -148,24 +174,19 @@ class ConversationDraftBufferTest {
             assertEquals("new", buffer.value.text)
             assertTrue(buffer.dirty)
             assertTrue(fixture.save(buffer))
-            assertEquals(1L, fixture.disk?.revision)
+            assertEquals(buffer.value.revision, fixture.disk?.revision)
         }
 
-    @Test fun sendReusesTheSameIntentPersistedByAnInflightAutosave() =
+    @Test fun submissionDoesNotWaitForInflightAutosave() =
         runBlocking {
             val fixture = Fixture()
-            fixture.disk = ChatSubmission("session", 0, "original", "before")
             val buffer = fixture.open()
             buffer.edit("send me")
-            val clicked = buffer.value
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
-            var writes = 0
             val autosave =
                 async {
-                    buffer.persist({ it }, { fixture.disk }) { request, expected ->
-                        writes += 1
-                        assertEquals(0L, expected)
+                    buffer.persist { request ->
                         entered.complete(Unit)
                         release.await()
                         fixture.disk = request
@@ -173,21 +194,16 @@ class ConversationDraftBufferTest {
                     }
                 }
             entered.await()
-            val send =
-                async {
-                    buffer.persist({ it }, { fixture.disk }, clicked) { _, _ ->
-                        writes += 1
-                        false
-                    }
-                }
+            val clicked = buffer.captureSubmission()
+            assertEquals("send me", clicked.text)
+            assertFalse(autosave.isCompleted)
+            buffer.edit("next message")
+            assertEquals("send me", clicked.text)
             release.complete(Unit)
-
             assertTrue(autosave.await())
-            assertTrue(send.await())
-            assertEquals(1, writes)
-            assertEquals(clicked.clientRequestId, buffer.saved?.clientRequestId)
-            assertEquals("send me", buffer.saved?.text)
-            assertEquals(1L, buffer.saved?.revision)
+            assertEquals("next message", buffer.value.text)
+            assertTrue(fixture.save(buffer))
+            assertEquals("next message", fixture.disk?.text)
         }
 
     @Test fun recreatedBufferAdoptsTheIntentCommittedByTheOldInflightSave() =
@@ -200,7 +216,7 @@ class ConversationDraftBufferTest {
             val release = CompletableDeferred<Unit>()
             val oldSave =
                 async {
-                    old.persist({ it }, { fixture.disk }) { request, _ ->
+                    old.persist { request ->
                         entered.complete(Unit)
                         release.await()
                         fixture.disk = request
@@ -223,41 +239,37 @@ class ConversationDraftBufferTest {
             assertTrue(oldSave.await())
             var duplicateWrites = 0
             assertTrue(
-                recreated.persist({ it }, { fixture.disk }) { _, _ ->
+                recreated.persist { request ->
                     duplicateWrites += 1
-                    false
+                    assertEquals(fixture.disk, request)
+                    true
                 },
             )
-            assertEquals(0, duplicateWrites)
+            assertEquals(1, duplicateWrites)
             assertFalse(recreated.failed)
             assertEquals("survive rotation", recreated.saved?.text)
-            assertEquals(1L, recreated.saved?.revision)
+            assertEquals(old.saved?.revision, recreated.saved?.revision)
         }
 
-    @Test fun rejectedCasAdoptsAnIdenticalIntentCommittedByAnotherBuffer() =
+    @Test fun currentInputOverwritesAnUnfamiliarCachedVersion() =
         runBlocking {
             val fixture = Fixture()
             fixture.disk = ChatSubmission("session", 0, "original", "before")
             val buffer = fixture.open()
-            buffer.edit("same intent")
-
-            assertTrue(
-                buffer.persist({ it }, { fixture.disk }) { request, _ ->
-                    fixture.disk = request
-                    false
-                },
-            )
+            fixture.disk = ChatSubmission("session", 1, "other-editor", "older cached content")
+            buffer.edit("current user input")
+            assertTrue(fixture.save(buffer))
             assertFalse(buffer.failed)
-            assertEquals(fixture.disk, buffer.saved)
-            assertEquals(1L, buffer.saved?.revision)
+            assertEquals("current user input", fixture.disk?.text)
+            assertEquals(buffer.value, buffer.saved)
         }
 
-    @Test fun rejectedCasRetainsTextAndDoesNotAdvanceSavedRevision() =
+    @Test fun failedCacheWriteRetainsTextAndNeverChangesTheClickedInput() =
         runBlocking {
             val fixture = Fixture()
             val buffer = fixture.open()
             buffer.edit("keep me")
-            assertFalse(buffer.persist({ it }, { fixture.disk }) { _, _ -> false })
+            assertFalse(buffer.persist { false })
             assertNull(buffer.saved)
             assertTrue(buffer.failed)
             assertEquals("keep me", buffer.value.text)
@@ -327,7 +339,7 @@ class ConversationDraftBufferTest {
             var resurrectedWrites = 0
             val saving =
                 async {
-                    buffer.persist({ it }, { fixture.disk }) { _, _ ->
+                    buffer.persist {
                         resurrectedWrites += 1
                         true
                     }
@@ -463,13 +475,9 @@ class ConversationDraftBufferTest {
         suspend fun open() = ConversationDraftBuffer("session").also { it.initialize { disk } }
 
         suspend fun save(buffer: ConversationDraftBuffer) =
-            buffer.persist({ it }, { disk }) { request, expected ->
-                if (disk?.revision != expected) {
-                    false
-                } else {
-                    disk = request
-                    true
-                }
+            buffer.persist { request ->
+                disk = request
+                true
             }
     }
 }

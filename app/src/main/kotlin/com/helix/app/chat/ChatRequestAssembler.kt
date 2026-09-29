@@ -46,6 +46,13 @@ internal class ChatRequestAssembler(
      */
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
     private val memory: com.helix.app.memory.MemoryService? = null,
+    private val toolVisionConsent: com.helix.app.vision.ToolVisionConsent =
+        com.helix.app.vision
+            .ToolVisionConsent(
+                storage.interactionReceipts,
+                com.helix.core.model
+                    .SystemClock(),
+            ),
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
 
@@ -371,7 +378,18 @@ internal class ChatRequestAssembler(
         require(userRows.size == userMessages.size) {
             "history USER rows and USER messages diverge — image binding refused"
         }
-        val restored = restoreUserImages(messages, userRows)
+        val userImages = restoreUserImages(messages, userRows)
+        val config = providerService.storedConfig(sessionProviderId(sessionId))
+        val restored =
+            ToolVisualFeedback(storage, providerService, toolVisionConsent).restore(
+                sessionId,
+                currentTurnId,
+                config,
+                storage.sessions.resolve(sessionId).modelId ?: config.model,
+                userImages,
+                historyRows,
+                imageVerifier::imageReferencesFor,
+            )
         val selected = selectHistoryMessages(system, sessionId, predecessorId, checkpoint, restored)
         return History(
             messages = selected,
@@ -473,6 +491,6 @@ internal class ChatRequestAssembler(
 
     private companion object {
         val FILE_TOOL_NAMES =
-            setOf("read", "write", "edit", "files.list", "files.stat", "files.search")
+            setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "files.search")
     }
 }

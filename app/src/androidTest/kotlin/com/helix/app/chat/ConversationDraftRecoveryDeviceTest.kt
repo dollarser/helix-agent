@@ -20,7 +20,7 @@ class ConversationDraftRecoveryDeviceTest {
         try {
             HelixStorage.open(context, name, root).useStorage { storage ->
                 storage.sessions.create("session", "Draft", null, null, 1)
-                assertTrue(storage.composerDrafts.save(draft.toDraftEntity(), null))
+                assertTrue(storage.composerDrafts.save(draft.toInputSnapshot()))
             }
             HelixStorage.open(context, name, root).useStorage { storage ->
                 assertEquals(draft, storage.composerDrafts.get("session")?.toSubmission())
@@ -41,11 +41,11 @@ class ConversationDraftRecoveryDeviceTest {
             HelixStorage.open(context, name, root).useStorage { storage ->
                 storage.sessions.create("a", "A", null, null, 1)
                 storage.sessions.create("b", "B", null, null, 1)
-                val first = ChatSubmission("a", 0, "first", "old").toDraftEntity()
+                val first = ChatSubmission("a", 0, "first", "old").toInputSnapshot()
                 val second = first.copy(revision = 1, clientRequestId = "second", text = "new")
-                assertTrue(storage.composerDrafts.save(first, null))
-                assertTrue(storage.composerDrafts.save(second, 0))
-                assertFalse(storage.composerDrafts.save(first, null))
+                assertTrue(storage.composerDrafts.save(first))
+                assertTrue(storage.composerDrafts.save(second))
+                assertFalse(storage.composerDrafts.save(first))
                 assertFalse(storage.composerDrafts.clear("a", 0, "first"))
                 assertFalse(storage.composerDrafts.clear("b", 1, "second"))
                 assertEquals(second, storage.composerDrafts.get("a"))
@@ -75,8 +75,8 @@ class ConversationDraftRecoveryDeviceTest {
             HelixStorage.open(context, name, root).useStorage { storage ->
                 storage.sessions.create("recovered-session", "Recovered Session", null, null, 1)
                 val initial = ChatSubmission("recovered-session", 0L, "req-init", "Initial text")
-                assertTrue(storage.composerDrafts.save(initial.toDraftEntity(), null))
-                assertTrue(storage.composerDrafts.save(testDraft.toDraftEntity(), 0L))
+                assertTrue(storage.composerDrafts.save(initial.toInputSnapshot()))
+                assertTrue(storage.composerDrafts.save(testDraft.toInputSnapshot()))
             }
             marker.writeText("recovered-session")
         }

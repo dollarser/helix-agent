@@ -13,6 +13,7 @@ internal object FileToolArguments {
     private val names =
         setOf(
             "read",
+            "view_image",
             "write",
             "edit",
             "files.list",
@@ -120,7 +121,8 @@ internal object FileToolArguments {
             }
 
             "read" -> {
-                "Read a file before editing; use its returned content and hash rather than guessing."
+                "Read text before editing; use returned content and hash rather than guessing. " +
+                    "Use view_image to see image pixels."
             }
 
             "edit" -> {

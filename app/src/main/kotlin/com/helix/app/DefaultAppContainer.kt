@@ -193,9 +193,7 @@ internal class DefaultAppContainer(
      * later in this container, so the source must never be materialized during container
      * construction — only at stream time, when a message actually carries an image.
      */
-    private val visionImageSource: ArtifactVisionImageSource by lazy {
-        ArtifactVisionImageSource(storage.artifacts, workspaceStore)
-    }
+    private val visionImageSource: ArtifactVisionImageSource get() = toolVision.imageSource
 
     private val providerContextSettings =
         com.helix.app.provider
@@ -464,6 +462,18 @@ internal class DefaultAppContainer(
         com.helix.app.memory
             .createMemoryService(context)
 
+    private val toolVision by lazy {
+        com.helix.app.vision.ToolVisionServices(
+            storage,
+            workspaceStore,
+            scopeRoots,
+            APP_SCOPE_ID,
+            java.io.File(context.cacheDir, "tool-image-preparation"),
+            appClock,
+            providerService,
+        ) { chatService.toolVisionConsent }
+    }
+
     init {
         // HXA-045: initialize the all-files module (developer flavor builds the roots registry;
         // consumer is a no-op). Runs before any tool can resolve an af- scope.
@@ -522,10 +532,9 @@ internal class DefaultAppContainer(
             toolRegistry,
             toolImplementations,
             workspaceStore,
-            ToolArtifactRegistrationSink(storage, workspaceStore::openRead) { path ->
-                resolveFileScopePath(path, scopeRoots).toFile()
-            },
+            toolVision.artifactSink,
         )
+        toolVision.registerTools(toolRegistry, toolImplementations, browser)
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
@@ -544,16 +553,6 @@ internal class DefaultAppContainer(
             storage,
             executionOwnership,
             { chatService },
-        )
-        // HXA-062: the browser.* tools (open/navigate/back/forward/reload/find/click/type/
-        // scroll/screenshot). The bridge runs the fixed, versioned scripts against the
-        // main-thread [browser] controller off the tool dispatcher's thread: node tokens are
-        // validated fail-closed against live state, and a click/type is PERFORMED only when BOTH
-        // the fixed script AND the host SensitiveFieldClassifier agree the field is normal.
-        BrowserTools.registerAll(
-            toolRegistry,
-            toolImplementations,
-            BrowserToolBridgeImpl(browser, workspaceStore, APP_SCOPE_ID),
         )
         AppAndroidTools.register(
             context,

@@ -15,4 +15,8 @@
 - [android-platform-capabilities.md](android-platform-capabilities.md)：Android 系统能力边界。
 - [session-export.md](session-export.md)：会话导出结构。
 
+目标设计与重构：
+
+- [本机 Harness 详细重构方案](agent-capability-refactor-plan-2026-09-28.md)：历史讨论与当前源码对照、Agent Core/工具治理/Execution Host 分层、逐卡迁移、竞品依据和验收。R1 当前范围看 HXA-231；后续设计不等于实现授权。
+
 同一长期规则不要同时在 architecture 与 ADR 维护两份完整正文：architecture 解释结构，ADR 保存决策，status/HXA 保存当前实施阶段。

@@ -18,6 +18,7 @@ internal object ModelToolExposureOrder {
             "files.list",
             "files.stat",
             "files.search",
+            "view_image",
         ).withIndex().associate { (index, name) -> name to index }
 
     // Token actions are unusable without snapshot/find; keep the admitted UI contracts together.

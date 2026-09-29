@@ -13,6 +13,7 @@ object BrowserTools {
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         bridge: BrowserToolBridge,
+        visualPreparation: com.helix.tools.framework.ToolVisualPreparation? = null,
     ) {
         BrowserOpenTool.register(registry, implementations, bridge)
         BrowserNavigateTool.register(registry, implementations, bridge)
@@ -24,7 +25,7 @@ object BrowserTools {
         BrowserClickTool.register(registry, implementations, bridge)
         BrowserTypeTool.register(registry, implementations, bridge)
         BrowserScrollTool.register(registry, implementations, bridge)
-        BrowserScreenshotTool.register(registry, implementations, bridge)
+        BrowserScreenshotTool.register(registry, implementations, bridge, visualPreparation)
         BrowserDownloadTool.register(registry, implementations, bridge)
     }
 }

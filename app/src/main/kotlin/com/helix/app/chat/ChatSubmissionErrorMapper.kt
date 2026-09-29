@@ -14,7 +14,6 @@ object ChatSubmissionErrorMapper {
             "INVALID_INPUT" to R.string.chat_submission_rejected_invalid_input,
             "PREPARING_DRAFT" to R.string.chat_submission_rejected_preparing_draft,
             "ATTACHMENTS_CHANGED" to R.string.chat_blocked_attachments_changed,
-            "DRAFT_CHANGED" to R.string.chat_submission_rejected_draft_changed,
             "ATTACHMENT_PREPARATION_FAILED" to R.string.chat_submission_rejected_attachment_prep_failed,
             "REQUEST_ID_ALREADY_USED" to R.string.chat_submission_rejected_request_id_reused,
             "CONFIRMATION_CHANGED" to R.string.chat_submission_rejected_confirmation_changed,

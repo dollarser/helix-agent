@@ -109,6 +109,9 @@ class InteractionReceiptRepository(
         return dao.recent(sessionId, limit)
     }
 
+    /** Read-only lookup for exact, typed host disclosures; never an execution approval. */
+    fun find(id: String): InteractionReceiptEntity? = dao.byId(id)
+
     private fun notPending(id: String): ReceiptResult {
         val entity = dao.byId(id)
         val reason =

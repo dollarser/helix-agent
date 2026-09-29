@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "e1885eb3ed62172a4ace8865458b345c",
+    "identityHash": "9c15221dddc1531ce5a156f364558e1a",
     "entities": [
       {
         "tableName": "sessions",
@@ -3286,88 +3286,6 @@
         ]
       },
       {
-        "tableName": "composer_drafts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `clientRequestId` TEXT NOT NULL, `text` TEXT NOT NULL, `attachmentIdsJson` TEXT NOT NULL, `revisedMessageId` TEXT, `delivery` TEXT NOT NULL DEFAULT 'QUEUE', `expectedTurnId` TEXT, `referenceSourceSessionId` TEXT, `referenceKind` TEXT, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "sessionId",
-            "columnName": "sessionId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "revision",
-            "columnName": "revision",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "clientRequestId",
-            "columnName": "clientRequestId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "text",
-            "columnName": "text",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "attachmentIdsJson",
-            "columnName": "attachmentIdsJson",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "revisedMessageId",
-            "columnName": "revisedMessageId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "delivery",
-            "columnName": "delivery",
-            "affinity": "TEXT",
-            "notNull": true,
-            "defaultValue": "'QUEUE'"
-          },
-          {
-            "fieldPath": "expectedTurnId",
-            "columnName": "expectedTurnId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "referenceSourceSessionId",
-            "columnName": "referenceSourceSessionId",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "referenceKind",
-            "columnName": "referenceKind",
-            "affinity": "TEXT"
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "sessionId"
-          ]
-        },
-        "foreignKeys": [
-          {
-            "table": "sessions",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "sessionId"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
-      },
-      {
         "tableName": "session_inputs",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `referenceSourceSessionId` TEXT, `referenceSourceSessionTitle` TEXT, `referenceSelectionKind` TEXT, `referenceSourceMessageIdsJson` TEXT, `referenceContentRef` TEXT, `referenceContentBytes` INTEGER NOT NULL, `referenceContentSha256` TEXT, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
         "fields": [
@@ -3935,7 +3853,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e1885eb3ed62172a4ace8865458b345c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9c15221dddc1531ce5a156f364558e1a')"
     ]
   }
 }

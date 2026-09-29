@@ -31,14 +31,17 @@ class ModelRequestTest {
         assertThrows<IllegalArgumentException>("non-user image must be rejected") {
             ModelMessage(ModelRole.ASSISTANT, "text", images = listOf(png))
         }
-        assertThrows<IllegalArgumentException>("tool result image must be rejected") {
+        val observation =
             ModelMessage(
                 ModelRole.TOOL,
                 "result",
                 images = listOf(png),
                 toolCallId = ToolCallId("call-1"),
-                toolName = ToolName("read"),
+                toolName = ToolName("view_image"),
             )
+        assertEquals(listOf(png), observation.images)
+        assertThrows<IllegalArgumentException>("tool image still requires call identity") {
+            ModelMessage(ModelRole.TOOL, "result", images = listOf(png), toolName = ToolName("view_image"))
         }
         assertThrows<IllegalArgumentException>("unsupported media type must be rejected") {
             ImageReference(ArtifactRef("art.svg1"), "image/svg+xml")

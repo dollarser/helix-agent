@@ -9,6 +9,22 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun imageToolUsesTheSameFrozenDirectoryAndModelPathHelp() {
+        val descriptor =
+            com.helix.tools.files.ViewImageTool
+                .descriptor()
+        org.junit.Assert.assertTrue(FileToolArguments.handles(descriptor))
+        val schema = FileToolArguments.modelSchema(descriptor)
+        org.junit.Assert.assertTrue(schema.description.contains("current session working directory"))
+        val resolved =
+            Json
+                .parseToJsonElement(
+                    FileToolArguments.bindRequest("""{"path":"chart.png"}""", FileScopePath("ws", "project")),
+                ).jsonObject
+        assertEquals("scope:ws:project/chart.png", resolved.getValue("path").jsonPrimitive.content)
+        assertEquals(resolved, FileToolArguments.normalize(resolved, FileScopePath("elsewhere", "other")))
+    }
+
     @Test fun inFlightResponseAndStoredHistoryKeepTheRequestDirectory() {
         val firstRequest = FileToolArguments.directory("app", "scope:app:first")
         val nextRequest = FileToolArguments.directory("app", "scope:app:second")

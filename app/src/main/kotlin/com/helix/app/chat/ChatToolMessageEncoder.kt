@@ -79,17 +79,32 @@ internal class ChatToolMessageEncoder(
                 summary = str(R.string.tool_summary_cancelled_before_start)
             }
         }
+        val visual = (settled.outcome as? ToolDispatchOutcome.Succeeded)?.result?.visualArtifact
         val body =
             buildJsonObject {
                 put("id", settled.callId)
                 put("tool", settled.toolName)
                 put("status", status)
                 put("summary", summary)
+                visual?.let { image ->
+                    put(
+                        "visualArtifact",
+                        buildJsonObject {
+                            put("artifactId", image.artifactId)
+                            put("sha256", image.sha256)
+                            put("mediaType", image.mediaType)
+                            put("sizeBytes", image.sizeBytes)
+                            put("width", image.width)
+                            put("height", image.height)
+                        },
+                    )
+                }
             }
         return TurnMessageDraft(
             role = ModelRole.TOOL,
             kind = ChatHistoryBuilder.KIND_TOOL_RESULT,
             content = body.toString(),
+            visualArtifact = visual,
         )
     }
 

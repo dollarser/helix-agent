@@ -27,6 +27,21 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun imageReadingDoesNotBypassExternalFileClassification() {
+        val classifier = SessionToolEffectClassifier { "scope:ws-1:project" }
+        val imageTool =
+            com.helix.tools.files.ViewImageTool
+                .descriptor()
+        assertEquals(
+            setOf(OperationEffect.FILE_READ_WORKSPACE),
+            classifier.classify(request("""{"path":"scope:ws-1:project/chart.png"}"""), imageTool).footprint.effects,
+        )
+        assertEquals(
+            setOf(OperationEffect.FILE_READ_EXTERNAL),
+            classifier.classify(request("""{"path":"scope:ws-1:private/photo.png"}"""), imageTool).footprint.effects,
+        )
+    }
+
     @Test fun memoryNeverBorrowsWorkspaceOrMetadataPrivileges() {
         val classifier = SessionToolEffectClassifier { "scope:memory:global" }
         com.helix.app.memory.MemoryTools.reads.forEach { name ->

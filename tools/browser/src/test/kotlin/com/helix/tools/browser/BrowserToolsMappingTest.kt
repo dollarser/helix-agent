@@ -389,6 +389,52 @@ class BrowserToolsMappingTest {
     }
 
     @Test
+    fun screenshotSharesTheTypedImagePreparationChannel() {
+        bridge.screenshotResult =
+            ScreenshotOutcome(ScreenshotStatus.SAVED, "scope:app:output/s.png", 128, "a".repeat(64), "")
+        val image =
+            com.helix.core.model
+                .VisualArtifact("art", "b".repeat(64), "image/png", 128, 16, 16)
+        val preparation =
+            com.helix.tools.framework.ToolVisualPreparation { _, reference, sha ->
+                assertEquals("scope:app:output/s.png", reference)
+                assertEquals("a".repeat(64), sha)
+                image
+            }
+        val result =
+            run(
+                BrowserScreenshotTool.NAME,
+                BrowserScreenshotTool.executor(bridge, preparation),
+                buildJsonObject { put("tabId", JsonPrimitive("t1")) },
+            ) as ToolExecutorResult.Completed
+        assertEquals(image, result.visualArtifact)
+    }
+
+    @Test
+    fun screenshotSavedDoesNotClaimPixelsWhenVisionIsUnavailable() {
+        bridge.screenshotResult =
+            ScreenshotOutcome(ScreenshotStatus.SAVED, "scope:app:output/s.png", 128, "a".repeat(64), "")
+        val preparation =
+            com.helix.tools.framework.ToolVisualPreparation { _, _, _ ->
+                throw com.helix.tools.framework
+                    .VisualPreparationException("VISION_UNAVAILABLE")
+            }
+        val result =
+            run(
+                BrowserScreenshotTool.NAME,
+                BrowserScreenshotTool.executor(bridge, preparation),
+                buildJsonObject { put("tabId", JsonPrimitive("t1")) },
+            ) as ToolExecutorResult.Completed
+        org.junit.Assert.assertNull(result.visualArtifact)
+        assertTrue(
+            result.output.jsonObject
+                .getValue("reason")
+                .jsonPrimitive.content
+                .contains("pixels not delivered"),
+        )
+    }
+
+    @Test
     fun screenshotSavedEmitsTheModelSafeReferenceAndAudit() {
         bridge.screenshotResult =
             ScreenshotOutcome(ScreenshotStatus.SAVED, "scope:app:output/browser-1.png", 2048L, "ab12", "")

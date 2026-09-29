@@ -46,6 +46,9 @@ class FreshSchemaDeviceTest {
             assertFalse("tool_approval_preferences" in tables)
             assertFalse("tool_registration_baseline" in tables)
             assertFalse("tool_baseline_meta" in tables)
+            assertFalse("composer_drafts" in tables)
+            // The CUSTOM permission configuration is active data, not an unsent-message cache.
+            assertTrue("session_permission_drafts" in tables)
 
             val turnIndexes = mutableMapOf<String, Boolean>()
             db.query("PRAGMA index_list('turns')").use { cursor ->

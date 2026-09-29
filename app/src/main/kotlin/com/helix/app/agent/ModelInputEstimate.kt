@@ -25,7 +25,7 @@ internal data class ModelInputEstimate(
             fun textTokens(rows: List<ModelMessage>): Long =
                 TokenEstimator.estimateTokens(
                     rows.sumOf { row ->
-                        TokenEstimator.utf8Bytes(row.text) +
+                        TokenEstimator.utf8Bytes(row.modelText) +
                             row.toolCalls.sumOf {
                                 TokenEstimator.utf8Bytes(it.argumentsJson)
                             }

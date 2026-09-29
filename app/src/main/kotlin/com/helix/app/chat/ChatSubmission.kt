@@ -1,6 +1,15 @@
 package com.helix.app.chat
 
-/** Immutable identity supplied by the composer; an edit must create a new revision and request ID. */
+import java.util.concurrent.atomic.AtomicLong
+
+/** Process-local edit ordering; observes loaded values before issuing a newer user edit. */
+internal object ComposerEditClock {
+    private val sequence = AtomicLong()
+
+    fun next(after: Long): Long = sequence.updateAndGet { maxOf(it, after) + 1 }
+}
+
+/** Immutable clicked input. Edit order is independent of optional cache write success. */
 data class ChatSubmission(
     val sessionId: String,
     val revision: Long,
@@ -44,8 +53,8 @@ sealed interface ChatSubmissionOutcome {
     ) : ChatSubmissionOutcome
 }
 
-internal fun ChatSubmission.toDraftEntity() =
-    com.helix.core.storage.entity.ComposerDraftEntity(
+internal fun ChatSubmission.toInputSnapshot() =
+    com.helix.core.storage.input.ComposerInputSnapshot(
         sessionId,
         revision,
         clientRequestId,
@@ -60,7 +69,7 @@ internal fun ChatSubmission.toDraftEntity() =
         referenceKind?.name,
     )
 
-internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): ChatSubmission {
+internal fun com.helix.core.storage.input.ComposerInputSnapshot.toSubmission(): ChatSubmission {
     val ids =
         kotlinx.serialization.json.Json.parseToJsonElement(
             attachmentIdsJson,

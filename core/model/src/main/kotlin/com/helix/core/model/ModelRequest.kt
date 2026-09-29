@@ -55,6 +55,7 @@ value class ReasoningEffort private constructor(
 data class ImageReference(
     val ref: ArtifactRef,
     val mediaType: String,
+    val binding: ImageBinding? = null,
 ) {
     init {
         require(mediaType in MEDIA_TYPES) { "image mediaType is not supported: $mediaType" }
@@ -101,8 +102,8 @@ data class AssistantToolCall(
  *   [toolCalls] is non-empty the assistant message may be textless (its content IS the
  *   calls — the vendor protocols accept an assistant message without text); NUL is
  *   rejected (other C0 characters such as newlines are legitimate text, e.g. code blocks);
- * - [images] are only allowed on [ModelRole.USER] (tool results and assistant/system turns
- *   carry no images in the first version);
+ * - [images] are allowed on [ModelRole.USER] and provenance-bound [ModelRole.TOOL] observations;
+ *   assistant/system turns cannot carry images;
  * - a [ModelRole.TOOL] message answers exactly one call: [toolCallId] and [toolName] are
  *   mandatory (the vendor APIs key tool results by the call id — doc 02 section 5.3);
  * - all other roles must leave [toolCallId]/[toolName] null;
@@ -116,12 +117,22 @@ data class ModelMessage(
     val toolCallId: ToolCallId? = null,
     val toolName: ToolName? = null,
     val toolCalls: List<AssistantToolCall> = emptyList(),
+    val imageOmission: ToolImageOmission? = null,
 ) {
+    /** Wire text includes a closed observation notice without changing canonical history text. */
+    val modelText: String get() = text + imageOmission?.notice.orEmpty()
+
+    /** Strip only typed visual projection, never arbitrary text, identity or tool-call changes. */
+    fun withoutVisualProjection(): ModelMessage = copy(images = emptyList(), imageOmission = null)
+
     init {
         val isToolCallStep = role == ModelRole.ASSISTANT && toolCalls.isNotEmpty()
         require(text.isNotBlank() || isToolCallStep) { "message text must not be blank" }
         require(text.none { it == '\u0000' }) { "message text must not contain NUL" }
-        require(text.length <= MAX_TEXT_LENGTH) { "message text exceeds $MAX_TEXT_LENGTH chars" }
+        require(modelText.length <= MAX_TEXT_LENGTH) { "message text exceeds $MAX_TEXT_LENGTH chars" }
+        require(imageOmission == null || (role == ModelRole.TOOL && images.isEmpty())) {
+            "only a tool result without pixels may carry an image omission"
+        }
         require(images.size <= MAX_IMAGES_PER_MESSAGE) {
             "at most $MAX_IMAGES_PER_MESSAGE images per message"
         }
@@ -146,8 +157,8 @@ data class ModelMessage(
         require(toolCalls.map { it.id.value }.toSet().size == toolCalls.size) {
             "duplicate tool call ids in one assistant message"
         }
-        if (role != ModelRole.USER) {
-            require(images.isEmpty()) { "only user messages may carry images" }
+        if (role != ModelRole.USER && role != ModelRole.TOOL) {
+            require(images.isEmpty()) { "only user messages and tool observations may carry images" }
         }
     }
 
@@ -228,6 +239,16 @@ data class ModelRequest(
         }
         require(messages.isNotEmpty()) { "a model request needs at least one message" }
         require(messages.size <= MAX_MESSAGES) { "at most $MAX_MESSAGES messages per request" }
+        require(
+            messages.all { message ->
+                message.images.all {
+                    it.binding?.modelId == null ||
+                        it.binding.modelId == model
+                }
+            },
+        ) {
+            "Image disclosure belongs to a different model"
+        }
         val lastRole = messages.last().role
         require(lastRole == ModelRole.USER || lastRole == ModelRole.TOOL) {
             "the last message must be a user or tool message, was: $lastRole"

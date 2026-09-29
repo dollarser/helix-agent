@@ -469,7 +469,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 fixture.storage.sessions.create(SESSION_ID, "Draft", null, null, 1)
                 fixture.service.openSession(SESSION_ID)
                 val draft = ChatSubmission(SESSION_ID, 0, "missing-provider", "keep this draft")
-                assertTrue(fixture.service.saveComposerDraft(draft, null))
+                assertTrue(fixture.service.saveComposerDraft(draft))
                 val receipt = fixture.service.sendSubmission(draft).await()
                 assertTrue(receipt.outcome is ChatSubmissionOutcome.Rejected)
                 assertEquals(draft, fixture.service.loadComposerDraft(SESSION_ID))
@@ -497,6 +497,54 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         }
 
     @Test
+    fun submissionAcceptsCurrentInputWithoutSavingItFirst() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                fixture.storage.sessions.create(SESSION_ID, "Input", PROVIDER_ID, "model-x", 1)
+                fixture.service.openSession(SESSION_ID)
+                assertNull(fixture.service.loadComposerDraft(SESSION_ID))
+                val request = ChatSubmission(SESSION_ID, 2, "without-cache", "  current input\n")
+                val receipt = fixture.service.sendSubmission(request).await()
+                assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
+                assertEquals(receipt, fixture.service.sendSubmission(request).await())
+                assertEquals(
+                    1,
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .size,
+                )
+                assertNull(fixture.service.loadComposerDraft(SESSION_ID))
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
+    @Test
+    fun staleCachedTextDoesNotBlockCurrentSubmission() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                fixture.storage.sessions.create(SESSION_ID, "Input", PROVIDER_ID, "model-x", 1)
+                fixture.service.openSession(SESSION_ID)
+                assertTrue(fixture.service.saveComposerDraft(ChatSubmission(SESSION_ID, 1, "older", "old")))
+                val request = ChatSubmission(SESSION_ID, 2, "clicked-now", "current input")
+                val receipt = fixture.service.sendSubmission(request).await()
+                assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
+                assertEquals(receipt, fixture.service.sendSubmission(request).await())
+                assertNull(fixture.service.loadComposerDraft(SESSION_ID))
+                assertEquals(
+                    1,
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .size,
+                )
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
+    @Test
     fun acceptedReceiptIsIdempotentAndOldRevisionCannotClearNewDraft() =
         kotlinx.coroutines.runBlocking {
             val fixture = newFixture(ApplicationProvider.getApplicationContext())
@@ -504,7 +552,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 fixture.storage.sessions.create(SESSION_ID, "Draft", PROVIDER_ID, "model-x", 1)
                 fixture.service.openSession(SESSION_ID)
                 val draft = ChatSubmission(SESSION_ID, 0, "same-intent", "hello")
-                assertTrue(fixture.service.saveComposerDraft(draft, null))
+                assertTrue(fixture.service.saveComposerDraft(draft))
                 val first = fixture.service.sendSubmission(draft)
                 val second = fixture.service.sendSubmission(draft)
                 val receipt = first.await()
@@ -518,7 +566,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         .size,
                 )
                 val newer = draft.copy(revision = 1, clientRequestId = "next-intent", text = "new input")
-                assertTrue(fixture.service.saveComposerDraft(newer, 0))
+                assertTrue(fixture.service.saveComposerDraft(newer))
                 assertTrue(!fixture.service.acknowledgeSubmission(receipt))
                 assertEquals(newer, fixture.service.loadComposerDraft(SESSION_ID))
                 assertTrue(
@@ -543,7 +591,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                     fixture.service.screen.value.pendingAttachments
                         .map { it.id }
                 val draft = ChatSubmission(SESSION_ID, 0, "confirmed-intent", "summarize file", ids)
-                assertTrue(fixture.service.saveComposerDraft(draft, null))
+                assertTrue(fixture.service.saveComposerDraft(draft))
                 val pending = fixture.service.sendSubmission(draft).await()
                 assertEquals(ChatSubmissionOutcome.PendingConfirmation, pending.outcome)
                 assertTrue(!fixture.service.acknowledgeSubmission(pending))
@@ -672,22 +720,18 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         .latestUser(SESSION_ID)!!
                         .id
                 assertTrue(
-                    fixture.service.saveComposerDraft(ChatSubmission(SESSION_ID, 0, "empty-composer", ""), null),
+                    fixture.service.saveComposerDraft(ChatSubmission(SESSION_ID, 0, "empty-composer", "")),
                 )
                 val draft = fixture.service.prepareLatestRevision(SESSION_ID, target).await()!!
                 assertEquals("帮我总结这个附件", draft.text)
-                assertTrue(
-                    !fixture.service
-                        .saveComposerDraftAsync(
-                            draft.copy(
-                                revision = draft.revision + 1,
-                                clientRequestId = "plain-overwrite",
-                                revisedMessageId = null,
-                            ),
-                            draft.revision,
-                        ).await(),
-                )
-                assertEquals(draft, fixture.service.loadComposerDraft(SESSION_ID))
+                val replacementInput =
+                    draft.copy(
+                        revision = draft.revision + 1,
+                        clientRequestId = "plain-overwrite",
+                        revisedMessageId = null,
+                    )
+                assertTrue(fixture.service.saveComposerDraftAsync(replacementInput).await())
+                assertEquals(replacementInput, fixture.service.loadComposerDraft(SESSION_ID))
                 val changed = fixture.service.saveRevisionText(draft, "corrected request").await()!!
                 assertEquals(
                     ChatSubmissionOutcome.PendingConfirmation,
@@ -734,6 +778,8 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         .size,
                 )
                 assertTrue(fixture.service.acknowledgeSubmission(receipt))
+                assertNull(fixture.service.loadComposerDraft(SESSION_ID))
+                assertEquals(receipt, fixture.service.confirmSubmission(changed).await())
             } finally {
                 settleAndClose(fixture)
             }

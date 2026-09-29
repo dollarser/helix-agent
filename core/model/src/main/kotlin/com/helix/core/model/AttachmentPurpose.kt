@@ -6,10 +6,10 @@ package com.helix.core.model
  *
  * This is deliberately NOT the closed classification (text kind / unsupported category): that is
  * re-derived from the hash-verified bytes at materialization and is never a column, so a tampered
- * or stale `purpose` cannot change what the model actually reads. [REFERENCE] is the only role in
- * this milestone — every materializable attachment is reference content the user wants the model to
- * read; unsupported types are rejected before binding and never reach the relation.
+ * or stale `purpose` cannot change what the model actually reads. User references and trusted tool
+ * observations have separate provenance and egress rules; neither is execution authority.
  */
 object AttachmentPurpose {
     const val REFERENCE = "REFERENCE"
+    const val TOOL_OBSERVATION = "TOOL_OBSERVATION"
 }

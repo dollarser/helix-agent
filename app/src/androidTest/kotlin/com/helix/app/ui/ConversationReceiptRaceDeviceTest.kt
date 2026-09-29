@@ -72,20 +72,22 @@ class ConversationReceiptRaceDeviceTest {
                     chat.screen.value.isDraft && chat.screen.value.openSessionId != session &&
                         compose.onAllNodesWithTag("chat-pending-remove-$attachmentId").fetchSemanticsNodes().isEmpty()
                 }
-                chat.loadComposerDraft(session)?.let { stale ->
+                val cached = chat.loadComposerDraft(session)
+                cached?.let { stale ->
                     storage.composerDrafts.clear(session, stale.revision, stale.clientRequestId)
                 }
                 val request =
                     ChatSubmission(
                         session,
-                        0,
+                        com.helix.app.chat.ComposerEditClock
+                            .next(cached?.revision ?: 0),
                         java.util.UUID
                             .randomUUID()
                             .toString(),
                         ACCEPTED_ATTACHMENT_TEXT,
                         listOf(attachmentId),
                     )
-                assertTrue(chat.saveComposerDraft(request, null))
+                assertTrue(chat.saveComposerDraft(request))
                 val binding =
                     MessageAttachmentRepository.Binding(attachmentId, "REFERENCE", artifact.sha256)
                 val coordinator =

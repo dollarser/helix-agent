@@ -205,6 +205,7 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-221 | [HXA-221：Pre-release Clean-slate Baseline Cleanup](HXA-221.md) |
 | HXA-222 | [HXA-222：设备内本地模型一等 Provider](HXA-222.md) |
 | HXA-223 | [HXA-223：Post-clean-slate Core Boundary Convergence](HXA-223.md) |
+| HXA-225 | [HXA-225：Agent 自主图片读取与工具视觉回填](HXA-225.md) |
 | HXA-226 | [HXA-226：UI / IA 第二轮收敛](HXA-226.md) |
 | HXA-227 | [HXA-227：统一轨迹级 Agent Eval 与失败归因](HXA-227.md) |
 | HXA-228 | [HXA-228：Conversation-first Shell 与 Session Context Control](HXA-228.md) |

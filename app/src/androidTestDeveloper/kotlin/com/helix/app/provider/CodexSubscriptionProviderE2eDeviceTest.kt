@@ -168,7 +168,7 @@ class CodexSubscriptionProviderE2eDeviceTest {
         val provider =
             CodexSubscriptionProvider(
                 config,
-                RuntimeSubscriptionJobExecutor(app, com.helix.runtime.cli.client.CliModelProvider.CODEX, null),
+                RuntimeSubscriptionJobExecutor(app, com.helix.runtime.cli.client.CliModelProvider.CODEX, null, config),
                 {
                     com.helix.runtime.cli.client.CliModelCatalog.Failed(
                         com.helix.core.model.ModelErrorCode.AUTH,

@@ -72,7 +72,7 @@ object ComposerCommandParser {
             SlashCommandSpec(
                 command = "clear",
                 descriptionKey = "chat_command_clear_desc",
-                defaultDescription = "Clear composer input draft",
+                defaultDescription = "Clear current input",
             ),
             SlashCommandSpec(
                 command = "help",

@@ -135,7 +135,27 @@ public class ResponsesRequestEncoder(
                 buildJsonObject {
                     put("type", "function_call_output")
                     put("call_id", callId.value)
-                    put("output", message.text)
+                    if (message.images.isEmpty()) {
+                        put("output", message.modelText)
+                    } else {
+                        putJsonArray("output") {
+                            add(
+                                buildJsonObject {
+                                    put("type", "input_text")
+                                    put("text", message.text)
+                                },
+                            )
+                            message.images.forEach { image ->
+                                add(
+                                    buildJsonObject {
+                                        put("type", "input_image")
+                                        put("image_url", imageUrlOf(image))
+                                        put("detail", "auto")
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

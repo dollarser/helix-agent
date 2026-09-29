@@ -26,7 +26,7 @@ HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前
 
 HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 stale-state CAS、Engine terminal/review/recovery owner、Session next-work scheduler 与 SessionInput delivery application boundary 已收口，Core Engine clean-slate 重构进入冻结状态。设备内本地模型 [HXA-222](../completion-records/HXA-222.md) 已完成首版本地交付；ADR-WORKSPACE-004 已于 2026-09-27 获所有者接受，HXA-210 已完成本地验收。
 
-HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模拟器验证](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：Drawer/Settings/Conversation authority 已收敛。HXA-228 已冻结 [Conversation-first Session input/config contract](../completion-records/HXA-228.md)，HXA-229 已冻结 [model-authored Tool presentation contract](../completion-records/HXA-229.md)。HXA-227 已交付 [eval 框架](../completion-records/HXA-227.md)并完成后续 API29/API36 双渠道核心 trajectory 与 API36 consumer 当前类清单补验；HXA-210 已完成 [Workspace 本地交付](../completion-records/HXA-210.md)；HXA-230 已完成 [Global Memory 与 scope API 主机交付](../completion-records/HXA-230.md)；HXA-222 已完成 [本地模型首版](../completion-records/HXA-222.md)及 API36 定向真实模型验收。后续不重启 Core Engine 重构，优先按 [剩余工作计划](remaining-work-plan-2026-09-28.md) 收口产品闭环。完整 Project Memory、Subagent 与 proposed HXA-225 vision feedback 不自动启动。
+HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模拟器验证](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：Drawer/Settings/Conversation authority 已收敛。HXA-228 已冻结 [Conversation-first Session input/config contract](../completion-records/HXA-228.md)，HXA-229 已冻结 [model-authored Tool presentation contract](../completion-records/HXA-229.md)。HXA-227 已交付 [eval 框架](../completion-records/HXA-227.md)并完成后续 API29/API36 双渠道核心 trajectory 与 API36 consumer 当前类清单补验；HXA-210 已完成 [Workspace 本地交付](../completion-records/HXA-210.md)；HXA-230 已完成 [Global Memory 与 scope API 主机交付](../completion-records/HXA-230.md)；HXA-222 已完成 [本地模型首版](../completion-records/HXA-222.md)及 API36 定向真实模型验收。后续不重启 Core Engine 重构，优先按 [剩余工作计划](remaining-work-plan-2026-09-28.md) 收口产品闭环。完整 Project Memory、Subagent 不自动启动。HXA-225 已由所有者于 2026-09-29 明确接受并完成自主读图/工具视觉回填的主机交付，见[完成记录](../completion-records/HXA-225.md)；设备/真实模型未在该任务请求执行，不再作为未接受提案悬置。
 
 ## 执行顺序与依赖
 
@@ -257,6 +257,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-221 | 已交付 | Pre-release clean-slate baseline cleanup | [交付证据](../completion-records/HXA-221.md) |
 | HXA-222 | 已交付（主机与 API36 定向） | 设备内本地模型一等 Provider | [完成记录](../completion-records/HXA-222.md) |
 | HXA-223 | 已交付 | Post-clean-slate Core Boundary Convergence | [交付证据](../completion-records/HXA-223.md) |
+| HXA-225 | 已交付（主机范围） | Agent 自主图片读取与工具视觉回填 | [完成记录](../completion-records/HXA-225.md) |
 | HXA-226 | 已交付 | UI / IA 第二轮收敛 | [交付证据](../completion-records/HXA-226.md) |
 | HXA-227 | 已交付（主机 + 设备补验） | 统一轨迹级 Agent Eval 与失败归因 | [交付证据](../completion-records/HXA-227.md) |
 | HXA-228 | 已交付 | Conversation-first Shell 与 Session Context Control | [交付证据](../completion-records/HXA-228.md) |
