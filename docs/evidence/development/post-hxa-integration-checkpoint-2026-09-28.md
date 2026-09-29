@@ -25,4 +25,4 @@
 - 本记录不替代 HXA-222 真实模型设备证据、HXA-230 设备未验边界、HXA-227 专用 runner/条件跳过说明或 HXA-210 既有专项验收。
 - 不执行 GitHub/device CI；不使用真实账号、物理真机，不 push/merge/release。
 - Core Engine、Turn/Session owner、Dispatcher、permission/effect truth 保持冻结；本 checkpoint 不启动新的架构重构。
-- checkpoint 后按 `docs/development/remaining-work-plan-2026-09-28.md` 进入 P1 Memory + Workspace 增量设备验收，再进入 P2 SAF bounded diagnosis。
+- checkpoint 后按 `docs/development/release-readiness.md` 进入 P1 Memory + Workspace 增量设备验收，再进入 P2 SAF bounded diagnosis。

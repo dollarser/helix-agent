@@ -20,10 +20,12 @@ Helix 应保持：
 - 普通新消息默认 Queue，避免静默改变正在执行的上下文；
 - 显式 Steer 只在安全 boundary 注入当前 Turn；
 - Stop/Cancel 与新用户输入分离；
-- durable input identity + revision，不能只保内存字符串；
+- 已正式接受的输入/队列保存 durable identity 与回执，不能只保内存字符串；这不要求未发送 composer 文本进入同一数据库；
 - process death 后输入保持 parked，不自动消费。
 
 这和 Codex 的 thread/turn/steer 原语方向一致，但 Android 端应更保守处理进程死亡和后台限制。
+
+2026-09-29 的输入缓存变更已另行交付：每会话文件缓存静默覆盖，发送不以自动保存成功为前置；成功接收清理对应缓存，旧回执不能删除新输入。见[输入缓存修复](../../bug-fixes/2026-09-29-conversation-input-cache.md)。本段正式输入事实与未发送缓存不能混同，研究中的 draft 概念不要求 UI 显示保存状态。
 
 ## 3. 编辑、重发、Fork、Regenerate
 

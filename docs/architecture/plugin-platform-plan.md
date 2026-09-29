@@ -1,6 +1,10 @@
-# Helix Plugin Platform 重构方案（2026-09-28）
+# Plugin Platform 专项设计：包格式与 Mobile Use
 
-> 依赖调研：`docs/research/agent-plugin-ecosystem-and-mobile-use-2026-09-28.md`
+初始设计：2026-09-28；职责归类：2026-09-29。保留包格式、host-known native contribution 与 Mobile Use MVP 的细节。通用 Binding、安装/更新/会话选择/局部失败的目标规范已汇总到 [Harness §15/§17](harness-refactor-plan.md)，本页不另维护一条重构主线。
+
+**起点与现状分开：**§2 记录初始设计时的问题，不是当前缺口清单；PluginOrigin、PluginRegistry 与 Mobile Use MVP 已有实现基础。完整生命周期收敛仍按 R3 任务接受范围推进，参见[候选索引](../development/candidate-decisions.md)。本文不因“决策摘要”标题接受未获授权的能力。
+
+依赖研究：[插件生态与 Mobile Use](../research/topics/plugin-ecosystem-and-mobile-use-2026-09-28.md)。外部格式按核验版本和支持矩阵对待，不承诺覆盖所有客户端扩展。
 
 ## 1. 决策摘要
 

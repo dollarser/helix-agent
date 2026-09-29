@@ -19,6 +19,12 @@ Binder/PFD 使用有界消息与快照，校验 Job ID、generation、owner、�
 
 输入输出绑定真实 scope 与相对路径，拒绝路径逃逸和身份错配。导回文件验证哈希、冲突与写入边界，产物入口指向实际可读取结果。不能以同 UID 模拟沙箱证明网络或文件写禁令；无法约束的执行按策略拒绝或要求合适模式。
 
+## 应用操作与 Agent Tool 入口
+
+同一底层服务可以有手动用户入口与模型工具入口：手动终端、环境准备、文件管理不必因存在应用 API 就注册为 Tool。模型调用仍进入 Dispatcher；可信 USER 路径也需要自己的来源、系统能力和共享资源检查，不能被模型或外部文本冒用。
+
+工具“不可见”不是权限证明，注册也不授予权限；命令来源、有效授权和实际执行域分别检查。不要根据旧参考材料恢复独立 companion APK、旧风险等级或“仅不注册即可安全执行”的推断。原机制说明归[历史 Linux 集成参考](../evidence/research-history/helix-linux-command-integration.md)，平台机制参考见[Android 原生执行](../references/android-native-execution-mechanisms.md)。
+
 ## 取消与恢复
 
 停止传播到排队、审批等待和进程组；所有槽位最终持久结算。Binder 断开、EOF、超时与进程死亡先查询原 Job，明确成功、失败、已取消或未知副作用。未知不得自动重试；用户核查与继续是独立动作。

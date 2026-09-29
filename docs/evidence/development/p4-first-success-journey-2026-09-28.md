@@ -1,6 +1,6 @@
 # P4 首次成功联合旅程（2026-09-28）
 
-本记录对应 `docs/development/remaining-work-plan-2026-09-28.md` 的 P4。目标不是新增 onboarding/runtime，而是把已交付的 P3 local install、Session model binding、managed Workspace、Agent loop、Tool dispatch、artifact ownership 和 process reopen 串成一条可重复的 first-success 证据。P4 未修改 production Kotlin/Room/Engine；新增的是验收 fixture、driver 与 owned-emulator runner 的通用 clean-state/setup-arg 能力。
+本记录对应 `docs/development/release-readiness.md` 的 P4。目标不是新增 onboarding/runtime，而是把已交付的 P3 local install、Session model binding、managed Workspace、Agent loop、Tool dispatch、artifact ownership 和 process reopen 串成一条可重复的 first-success 证据。P4 未修改 production Kotlin/Room/Engine；新增的是验收 fixture、driver 与 owned-emulator runner 的通用 clean-state/setup-arg 能力。
 
 ## 固定旅程
 

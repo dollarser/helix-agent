@@ -1,6 +1,6 @@
 # UI、IA 与移动工作台
 
-> 更新：2026-09-26。HXA-226 已完成并完成 API 36 模拟器 smoke；下一轮产品/UI 方向以 Conversation-first Session workbench 为核心。详细设计见 [Conversation-first 会话工作台与上下文交互设计](../conversation-first-session-workbench-2026-09-26.md)。
+> 原研究基线：2026-09-26；实施归属核对：2026-09-29。下文保留 Conversation-first 的设计解释和示意，不作为尚未开发的 UI 清单。[HXA-228](../../completion-records/HXA-228.md)与[HXA-229](../../completion-records/HXA-229.md)已有交付；当前状态、后续输入恢复和设备覆盖分别看[status](../../development/status.md)。详细原方案已归[历史设计](../../evidence/research-history/conversation-first-session-workbench-2026-09-26.md)。
 
 ## 1. 当前产品方向
 
@@ -34,9 +34,9 @@ HXA-226 已完成：
 
 唯一失败是既有 `TasksDashboardDeviceTest` fixture 没有先展开 Work group，不是产品回归。真机、CANCELLING 瞬态、TalkBack 手势逐项播报和两阶段 process-death recovery 仍未覆盖。
 
-## 3. 下一轮：启动直接进入 Conversation
+## 3. Conversation-first 启动原则
 
-当前 `Sessions` route 在没有 open session 时展示 full Session list。下一轮应改成：
+原研究曾把默认完整 Session list 列为待改造项；该方向已由 HXA-228 承接。以下是当时的设计路径，具体恢复优先级和输入缓存以当前交付为准，不重复启动这一轮 UI 重构：
 
 ```text
 explicit deep link/share

@@ -17,6 +17,8 @@
 
 目标设计与重构：
 
-- [本机 Harness 详细重构方案](agent-capability-refactor-plan-2026-09-28.md)：历史讨论与当前源码对照、Agent Core/工具治理/Execution Host 分层、逐卡迁移、竞品依据和验收。R1 当前范围看 HXA-231；后续设计不等于实现授权。
+- [本机 Harness 详细重构方案](harness-refactor-plan.md)：历史讨论与当前源码对照、Agent Core/工具治理/Execution Host 分层、逐卡迁移、竞品依据和验收。R1 当前范围看 HXA-231；后续设计不等于实现授权。
+- [Plugin Platform 专项设计](plugin-platform-plan.md)：保留包格式与 Mobile Use MVP 的详细设计输入；通用生命周期目标以 Harness 方案 §17 为唯一正文，旧问题列表不是当前未实现清单。
+- [功能与重构的推进原则](../development/feature-refactor-strategy.md)：选择顺序与停止条件，不重复上述技术契约。
 
 同一长期规则不要同时在 architecture 与 ADR 维护两份完整正文：architecture 解释结构，ADR 保存决策，status/HXA 保存当前实施阶段。

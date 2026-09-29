@@ -1,6 +1,6 @@
 # 终端、日志与后台命令
 
-状态：设计已接受，分切片交付；不据本页宣称已有独立终端或多会话。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，实际进度见[实施状态](../development/status.md)。
+本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。通用 `jobs.await`/AUTO 仍属[Harness §8](harness-refactor-plan.md)的后续设计，不由既有后台启动推导为已交付。
 
 ## 三种对象
 
@@ -83,7 +83,7 @@ developer 文件管理器的 Workspace 目录提供“打开终端”；打开�
 
 页面显示起始 Workspace 目录、Runtime 阶段、停止原因和退出状态，提供键盘、Ctrl-C/Tab/Esc/Ctrl-D、停止和结算。连接期间单个只读观察循环更新状态；断开、终态或 UNKNOWN 后停止，不自动续租、重放输入或重启 shell。Activity 重建保留应用连接；离开页面撤销连接，原执行与持久占用由 Runtime/应用服务继续管理。视图卸载后在 callback looper 释放 emulator；输出和渲染不进入模型上下文。
 
-中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产主进程/Runtime 死亡与重启对账、长输出/超限输入、实际运行长命令的租期终止已通过双 API，见[收口证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。197 单终端范围已完成；199 已补 API36 独占模拟器的实际 30 分钟脱离回收及默认两小时完整运行中到期，见[专项记录](../evidence/development/acceptance-199-206-2026-09-21.md)。OEM/Doze/热压/物理长稳和真实 16 KiB 设备仍待 199 验收，模拟器测量不替代这些条件。
+中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产主进程/Runtime 死亡与重启对账、长输出/超限输入、实际运行长命令的租期终止已通过双 API，见[收口证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。197 单终端范围已完成；199 已补 API36 独占模拟器的实际 30 分钟脱离回收及默认两小时完整运行中到期，见[专项记录](../evidence/development/acceptance-199-206-2026-09-21.md)。HXA-199 已关闭其完成记录中的范围；剩余 OEM/Doze/热压/物理长稳和真实 16 KiB 等条件按当前 status 单独维护，不重新打开 199，也不以模拟器测量替代这些条件。
 
 ### 使用与停止
 

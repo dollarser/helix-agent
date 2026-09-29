@@ -1,5 +1,9 @@
 # Workspace 契约竞品核对
 
+> **2026-09-27 研究快照，2026-09-29 归档。**[HXA-210](../../completion-records/HXA-210.md)已完成其记录范围，本文最后的建议顺序不是当前排期。当前目录行为见[Workspace ADR](../../adr/workspace/004-workspace-binding.md)和[产品说明](../../product/workspace.md)；完整 Project Memory 仍单独见[候选索引](../../development/candidate-decisions.md)。本次不重新验证外部来源。
+
+---
+
 调研日期：2026-09-27。范围：官方文档中的目录、会话、权限与 worktree 契约；不是竞品实机验收，也不推断其内部持久化实现。
 
 | 官方来源 | 已核实的产品行为 | 对 Helix 的意义 |

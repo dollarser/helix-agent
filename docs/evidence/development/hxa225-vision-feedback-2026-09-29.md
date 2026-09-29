@@ -102,4 +102,4 @@ FileToolArguments、SessionToolEffectClassifier、ArtifactVisionImageSource 和 
 - 用户手机仍是前一任务安装的版本，本轮不操作安装和数据；该功能需要安装新制品才会生效。
 - 不实现内置本地多模态、Mobile Use 截屏获取、OCR、视频和任意 MCP 图片上传。API 兼容差异明确失败，不另用协议或账号绕过。
 
-[完成记录](../../completion-records/HXA-225.md) · [长期契约](../../adr/agent/011-tool-multimodal-vision-feedback.md) · [使用与竞品取舍](../../references/agent-image-reading.md)
+[完成记录](../../completion-records/HXA-225.md) · [长期契约](../../adr/agent/011-tool-multimodal-vision-feedback.md) · [使用与竞品取舍](../../product/image-reading.md)

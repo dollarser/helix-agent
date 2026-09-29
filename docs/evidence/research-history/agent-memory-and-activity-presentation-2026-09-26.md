@@ -1,5 +1,9 @@
 # 主流 Agent Memory 与 Tool Activity Presentation 调研
 
+> **历史设计输入，2026-09-29 归档。**本文保留 2026-09-26 对比和方案原文，不再维护“当前实现差距”与实施顺序。Activity 交付见 [HXA-229](../../completion-records/HXA-229.md)，Memory 见 [ADR-AGENT-013](../../adr/agent/013-markdown-memory.md)与[产品说明](../../product/memory.md)。Global 首版、Project API 和完整 Project 生产接线须分别理解，不能从旧“最终裁决”标题推导全部实现。
+
+---
+
 > 日期：2026-09-26。目的：为 Helix HXA-229（模型生成的 Agent Activity Presentation）与 HXA-230（Markdown-native Hierarchical Agent Memory）冻结设计依据。调研优先参考官方文档、官方仓库与公开实现/issue；“已实现”和“公开提案”严格区分。
 
 ## 1. 结论

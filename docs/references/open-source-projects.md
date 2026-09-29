@@ -237,7 +237,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 ### 5.12 面向 LLM 的设计方法参考
 
 - [warlockee/llm-oriented-design-patterns](https://github.com/warlockee/llm-oriented-design-patterns)：以一个 Python LLM 训练框架的重构案例提出 Context Management、Feedback Loop、Tooling 三组原则，以及小文件、calling spec、纯函数工具、平面分发、严格 Schema 和结构化反馈等模式。它适合作为“减少编码模型无关上下文、明确概率/确定性边界”的检查清单，不是 Android/Kotlin 标准，也没有提供跨项目独立验证。
-- Helix 采纳其中的小职责、显式契约、严格校验、薄编排和可操作反馈；不采纳固定 800 LOC 硬门、动态 import/弱类型字典分发、无界自动调参重试、反 OOP/SOLID 结论或“所有 Tool 必须纯且无副作用”。完整映射见[总体方案 §17](../architecture/overview.md#17-面向-llm-的工程设计)。
+- Helix 采纳其中的小职责、显式契约、严格校验、薄编排和可操作反馈；不采纳固定 800 LOC 硬门、动态 import/弱类型字典分发、无界自动调参重试、反 OOP/SOLID 结论或“所有 Tool 必须纯且无副作用”。完整映射见[总体方案 §17](../architecture/overview.md)。
 - 截至 2026-09-01，该仓库首页虽链接 `LICENSE`，仓库文件列表和链接目标未提供可读取的许可证文件；因此只引用思想与链接，不复制其正文、示例或代码。若未来要采用具体文本或实现，必须先核实许可证。
 
 ## 6. 不建议作为底座的仓库

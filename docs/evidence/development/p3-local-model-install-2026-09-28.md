@@ -1,6 +1,6 @@
 # P3 本地模型安装最小闭环（2026-09-28）
 
-本记录对应 `docs/development/remaining-work-plan-2026-09-28.md` 的 P3。范围是在 HXA-222 已交付的本地 Provider / Binder / llama.cpp / 私有资产基础上补安装产品层，不重开 AgentLoop、TurnEngine、Dispatcher、permission/effect owner，也不增加 GitHub device CI、真实账号或发行工作。
+本记录对应 `docs/development/release-readiness.md` 的 P3。范围是在 HXA-222 已交付的本地 Provider / Binder / llama.cpp / 私有资产基础上补安装产品层，不重开 AgentLoop、TurnEngine、Dispatcher、permission/effect owner，也不增加 GitHub device CI、真实账号或发行工作。
 
 ## 产品合同
 

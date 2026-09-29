@@ -7,8 +7,8 @@
 | 层 | 所有权 | 不承担的职责 |
 | --- | --- | --- |
 | UI / feature | 用户意图、导航、展示、人工操作入口 | 直接访问 DAO、网络客户端或执行器 |
-| TurnEngine | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot/checkpoint | UI 投影、重新定义工具策略或 Runtime 退出事实 |
-| 应用协调 / ChatService（迁移期） | 请求组装、stream/UI 投影、process-local Job/AgentLoop driver | 绕过 TurnEngine 改写 durable Turn 生命周期 |
+| TurnEngine | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot/checkpoint、live AgentLoop driver/observation | UI 投影、重新定义工具策略或 Runtime 退出事实 |
+| 应用协调 / ChatService | 用户提交/确认、composer 与 UI-facing projection、请求接线 | 持有第二个 worker/startGate 或改写 Turn terminal/review |
 | Agent / Goal | 共用模型循环、工具结果回填、Goal 生命周期与预算 | 凭模型内容创建用户授权 |
 | Tool Dispatcher | schema、效果归一、策略、授权解析、执行边界复检、持久结算 | 把 Provider 请求当工具执行 |
 | 数据与 Runtime | Room 状态、文件 scope、执行与结果对账 | 因重连而自动重放未知副作用 |
@@ -17,7 +17,7 @@
 flowchart TD
   UI[会话与任务 UI] --> Coordinator[应用协调 / ChatService]
   Coordinator --> Engine[TurnEngine durable lifecycle]
-  Coordinator --> Loop[共用 Agent Loop / live driver]
+  Engine --> Loop[共用 Agent Loop / live driver]
   Engine --> State[Room durable state / runtime checkpoint]
   Loop --> Provider[ModelProvider]
   Loop --> Dispatcher[Tool Dispatcher]
@@ -28,7 +28,9 @@ flowchart TD
   Provider --> Subscription[可选订阅客户端与私有进程]
 ```
 
-手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。核心模块不依赖 UI 或具体 Android 基础设施；feature 通过应用接口提交动作。HXA-220 期间 ChatService 仍可持有 live Job/stream driver，但 fresh admission、cancel、review park/resolve、terminal settlement、startup recovery 等 durable lifecycle 只通过 TurnEngine；后续迁移 live driver 不改变这条持久所有权。
+手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
+
+这不表示所有 Core/UI/Room 依赖已完全拆净。现存 App 层接线与后续 headless Core/Execution Host 目标分别解释，后者见[Harness 重构方案](harness-refactor-plan.md)，不在当前架构图中冒充已经实现。
 
 ## 运行、上下文与恢复
 
@@ -43,7 +45,7 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 - [Agent 模式与 Goal](agent-modes.md)：运行准入、完成与上下文。
 - [执行域](local-code-execution.md)：同 UID 私有进程与 isolated UID 的真实边界。
 - [扩展](extensions.md)：MCP、Skills、Connector、A2A。
-- [终端与后台任务](terminal.md)：已接受但分切片交付的设计。
+- [终端与后台任务](terminal.md)：已有 Linux Job/手动 PTY 及各自执行、控制和验证边界。
 - [安全与发布](../security/testing-and-release.md)：授权、审计与验收。
 - [用户操作链](../product/task-experience.md)：工作区、输出、变更和恢复之间的导航。
 

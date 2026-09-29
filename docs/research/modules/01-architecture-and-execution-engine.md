@@ -138,4 +138,6 @@ Codex 最新 Goal 公开设计也把 continuation 放在 safe turn boundary，�
 1. **冻结 Core owner 边界**：没有新的实证缺陷时，不再为行数、命名或竞品形式继续拆 TurnEngine/TurnCoordinator。
 2. **建立固定任务 eval**：用真实 Queue/Steer/Goal/review/recovery 长轨迹验证 task success、recovery-adjusted success、人工介入和 context fidelity，而不是继续凭代码结构判断 Agent 能力。
 3. **UI/IA 第二轮可独立推进**：UI 只消费 application commands/read models，不把 durable lifecycle 写权重新带回 Compose/Chat facade。
-4. **新增能力按 ADR/任务条件进入**：Workspace 仍等待 ADR-WORKSPACE-004；本地模型 HXA-222 已规划但暂缓；Subagent/Workflow 不因竞品存在而自动进入主线。
+4. **新增能力按 ADR/任务条件进入**：2026-09-29 归属核对时，Workspace/HXA-210 与本地模型/HXA-222 已有交付，不能继续沿用旧“等待/暂缓”描述；完整 Project Memory、生产 Subagent/Workflow 仍按[候选索引](../../development/candidate-decisions.md)分别判断。验证范围看对应完成记录。
+
+后续 Core 接口和模块迁移目标统一见[Harness 方案](../../architecture/harness-refactor-plan.md)，推进和停止条件见[开发策略](../../development/feature-refactor-strategy.md)。本模块保留此前研究理由，不维护第二份 R1/R2/J1 排期。

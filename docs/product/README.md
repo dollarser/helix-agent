@@ -7,6 +7,9 @@
 - [requirements.md](requirements.md)：Android 单机版产品需求与能力边界。
 - [workspace.md](workspace.md)：会话工作目录、后端能力与保留文件边界。
 - [task-experience.md](task-experience.md)：用户任务、工作区、产物与恢复体验。
+- [image-reading.md](image-reading.md)：附件、自主图片读取与浏览器截图的使用和支持边界。
+- [memory.md](memory.md)：长期记忆使用与作用域；完整 Project 能力与 Global 首版分开。
+- [local-models.md](local-models.md)：设备内模型的准备、使用与验证边界。
 - [market-users-and-commercialization.md](market-users-and-commercialization.md)：用户、渠道、商业化假设与实验。
 
 竞品研究采用“总览 + 支撑材料”结构，不合成一个巨型文件：

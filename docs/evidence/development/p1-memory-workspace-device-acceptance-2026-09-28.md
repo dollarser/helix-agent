@@ -1,6 +1,6 @@
 # P1 Memory + Workspace 增量设备验收（2026-09-28）
 
-本记录对应 `docs/development/remaining-work-plan-2026-09-28.md` 的 P1。范围只验证已经实现的 Global Memory 与 Workspace fork/recovery 增量，不新增产品能力、不改变 Core Engine / AgentLoop / Dispatcher / permission / effect owner。未使用 GitHub device CI、真实账号或物理设备。
+本记录对应 `docs/development/release-readiness.md` 的 P1。范围只验证已经实现的 Global Memory 与 Workspace fork/recovery 增量，不新增产品能力、不改变 Core Engine / AgentLoop / Dispatcher / permission / effect owner。未使用 GitHub device CI、真实账号或物理设备。
 
 ## 源码与制品身份
 

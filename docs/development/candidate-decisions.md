@@ -24,7 +24,7 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 
 ## 尚未转为当前实施任务的目标设计
 
-以下条目引用同一份[重构方案](../architecture/agent-capability-refactor-plan-2026-09-28.md)，不把其详细程度当成已授权范围。
+以下条目引用同一份[重构方案](../architecture/harness-refactor-plan.md)，不把其详细程度当成已授权范围。
 
 | 项目 | 已有基础 | 缺口与进入开发条件 |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 | 同来源：可选 CompletionHook | 研究候选；不恢复普通 Goal 强制 verifier | 用户选择、确定性验收、超时/取消/记账、失败后可修复 |
 | 同来源：QuickJS Code Mode | 已有隔离 JavaScript，不等于可组合特权工具 | 先证明收益，明确受控工具调用、跨 UID、嵌套等待、取消和预算 |
 | [Workspace checkpoint / 按归属回滚](../research/modules/07-agent-capability-determinants-and-improvement-guide.md) | Workspace 已接受并交付；只读 Git 状态/文件恢复不等于 Agent rollback | 变更归属、并行用户修改、Git/SAF/外部效果差异及恢复验收；独立决定 |
-| [Mobile Use 手机截图](../architecture/plugin-platform-refactor-2026-09-28.md#10-artifact--screenshot) | 当前以 Accessibility 语义树为主；[视觉回填契约](../adr/agent/011-tool-multimodal-vision-feedback.md) 提供已有图片/浏览器截图的视觉回填，不获取手机屏幕 | 明确截图授权、受保护内容、有效期、图片产物和资源边界；复用现有视觉通道 |
+| [Mobile Use 手机截图](../architecture/plugin-platform-plan.md#10-artifact--screenshot) | 当前以 Accessibility 语义树为主；[视觉回填契约](../adr/agent/011-tool-multimodal-vision-feedback.md) 提供已有图片/浏览器截图的视觉回填，不获取手机屏幕 | 明确截图授权、受保护内容、有效期、图片产物和资源边界；复用现有视觉通道 |
 | [移动入口与模板触发建议](../product/market-users-and-commercialization.md) | 有产品建议，未建立当前独立实施任务；语音输入已有交付 | 先定义用户任务与平台边界，再决定是否立项 |
 | 审查材料中的可复用任务、TTS、小组件、唤醒词线索 | 本轮未找到这些条目的现行 Helix 实施决定；材料中的不可解析引用不能充当仓库依据，竞品有功能也不是 Helix 承诺 | 先恢复原始来源和需求范围；本行仅记录待核实线索，不登记为已接受需求 |
 

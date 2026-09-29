@@ -1,6 +1,6 @@
 # P2 SAF 间歇空来源 bounded diagnosis（2026-09-28）
 
-本记录对应 `docs/development/remaining-work-plan-2026-09-28.md` 的 P2。目标是对 HXA-227 期间 `FilesImportExportUiTest.removingTheCurrentSafLocationReturnsToWorkspaceWithoutStaleActions` 的间歇 `files-saf-empty` 失败做有限复现与链路归因；不是通过无限 rerun 寻找绿色，也不因无法复现而宣称问题已修复。
+本记录对应 `docs/development/release-readiness.md` 的 P2。目标是对 HXA-227 期间 `FilesImportExportUiTest.removingTheCurrentSafLocationReturnsToWorkspaceWithoutStaleActions` 的间歇 `files-saf-empty` 失败做有限复现与链路归因；不是通过无限 rerun 寻找绿色，也不因无法复现而宣称问题已修复。
 
 ## 历史事实
 

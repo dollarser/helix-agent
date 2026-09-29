@@ -1,5 +1,9 @@
 # Helix Agent 能力架构收敛调研（2026-09-28）
 
+> **前期横向研究，2026-09-29 归档。**当前目标与逐卡步骤统一由[Harness 重构方案](../../architecture/harness-refactor-plan.md)承接，推进原则见[开发策略](../../development/feature-refactor-strategy.md)。下文旧 P0/P1 次序、拟议 ExecutionTarget 和接口例子保留为设计来由，不是第二份实施方案；R1 等真实范围只看当前 HXA。
+
+---
+
 > 状态：研究结论 / 架构输入，不直接替代 ADR、HXA 或实现状态。
 >
 > 本文汇总并校正 2026-09-28 关于 Helix 后续结构性重构的讨论，结合现有
@@ -912,10 +916,10 @@ Marketplace、Session selection 作为主线，ToolBinding 独立并行。
 
 本文是横向架构收敛研究，不替代以下专项文档：
 
-- docs/research/agent-plugin-ecosystem-and-mobile-use-2026-09-28.md
+- docs/research/topics/plugin-ecosystem-and-mobile-use-2026-09-28.md
   - Plugin ecosystem、Mobile Use、Connector / Marketplace 详细研究。
 
-- docs/architecture/plugin-platform-refactor-2026-09-28.md
+- docs/architecture/plugin-platform-plan.md
   - 当前 Plugin Platform 的具体重构设计。
 
 - docs/research/modules/04-tools-browser-and-extensions.md

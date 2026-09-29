@@ -1,5 +1,11 @@
 # 后台任务"完成自动通知"机制
 
+> **2026-09-10 历史核对，2026-09-29 归档。**下文混合开发用 Claude 宿主与当时的 Helix 产品状态，不能按“当前”二字理解为今天的实现。后续 [HXA-196](../../completion-records/HXA-196.md) 已交付 Linux 后台 Job，[Goal ADR](../../adr/goal/001-lifecycle-and-completion.md)也已有显式激活的连续执行；后台执行、完成通知和自动创建新 Turn 仍是不同能力。
+>
+> 当前行为看[终端](../../architecture/terminal.md)，后续等待/promotion 设计看[Harness §8](../../architecture/harness-refactor-plan.md)。原进程树、测试和推断保留为历史证据，不授予新的自动唤醒或设备执行权限。
+
+---
+
 > 目的：梳理 harness 里"派生后台任务 → 完成后自动唤醒 agent 继续"的机制，供设计自己的 agent 参考。
 > 核实对象：(1) Helix emulator-verification 当前在用的**宿主侧**方案（claude.app 宿主 + `Bash run_in_background` + `run-index.json` 持久化，见第 5 节）；(2) **产品侧** Helix agent（`com.helix.agent`）的"后台任务 / 子 agent"能力（见第 6 节）。
 > 更新日期：2026-09-10。pid 为示例（每次运行会变），结构稳定。

@@ -8,9 +8,13 @@
 - **HXA / milestone 过程证据**：`hxa*`、`m7-*`、`m9-*`、`m10-*`。完成结果优先看 `docs/completion-records/HXA-NNN.md`。
 - **审查/复核**：`*-review-*`、`*-audit*`、`improvement-*`。这些通常是某个时间点的分析，不是 current backlog。
 - **Runtime / recovery / native 调查**：`native-*`、`proot-*`、`cli-*`、`webview-*`、`*-recovery-*`。
-- **历史设备计划**：[verification-plans/](verification-plans/README.md)。
+- **历史验证计划**：[verification-plans/](verification-plans/README.md)：设备、长稳及公共 Benchmark 的原范围，不是当前执行授权。
 
 近期常用：
+
+- [2026-09-29 最终本地收口](final-closeout-2026-09-29.md)：冻结源码 P5、实际工具视觉及手机剩余验证边界。
+- [2026-09-29 分支收敛](branch-convergence-2026-09-29.md)：代码和文档合并的原始范围。
+- [2026-09-29 文档整理](documentation-convergence-2026-09-29.md)：改名/归档/汇总清单和机械校验。
 
 - [branch-integration-2026-09-22.md](branch-integration-2026-09-22.md)
 - [acceptance-199-206-2026-09-21.md](acceptance-199-206-2026-09-21.md)

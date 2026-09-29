@@ -1,5 +1,9 @@
 # Conversation-first 会话工作台与上下文交互设计
 
+> **HXA-228 的历史设计输入，2026-09-29 归档。**该任务已有[完成记录](../../completion-records/HXA-228.md)，不能将下文“下一轮”重新登记为待开发。当前交互看[用户操作体验](../../product/task-experience.md)和[状态](../../development/status.md)；未发送输入缓存及后续恢复修复按各自记录解释，不由旧 draft 文案决定今天的 UI。
+
+---
+
 > 日期：2026-09-26。状态：产品/UI 设计裁决，作为 HXA-228 的设计输入。基线为 HXA-226 `2187f05d` 及其模拟器验证证据。本文不代表生产代码已经实现。
 
 ## 1. 结论摘要
@@ -561,7 +565,7 @@ HXA-228 不应顺手做：
 - Expert marketplace / 第三方角色包格式；
 - bottom navigation。
 
-Memory 与 Tool Activity 的竞品实现、最终格式与任务拆分见 `docs/research/agent-memory-and-activity-presentation-2026-09-26.md`。HXA-228 不再承担这两个系统的实现。
+Memory 与 Tool Activity 的竞品实现、最终格式与任务拆分见 `docs/evidence/research-history/agent-memory-and-activity-presentation-2026-09-26.md`。HXA-228 不再承担这两个系统的实现。
 
 ## 19. 推荐实施顺序
 

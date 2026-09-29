@@ -1,5 +1,11 @@
 # BFCL 与 AndroidWorld 全量执行计划
 
+> **原始运行计划，2026-09-29 从当前控制面移入历史验证计划。**下文“未开始运行”记录的是计划编写时状态，不能据此判断后来是否已跑。实际运行/未闭合条件需查对应 run 的 manifest、原始结果与当前 status；归档本身不宣称全量通过或关闭 ERROR/BLOCKED。
+>
+> 可复用的证据与比较原则统一看[Agent Eval](../../../development/agent-eval.md)、[系统基线](../../../development/harness-system-baseline.md)与[公共验收](../../../development/verification-matrix.md)。本文不构成新的设备、账号或执行授权。
+
+---
+
 日期：2026-09-29。状态：仅计划，未开始运行。供后续执行 agent 按检查点推进；不改变产品权限或重构排期，不授权提交、推送、付费服务或真实设备使用。
 
 ## 目标与成绩口径

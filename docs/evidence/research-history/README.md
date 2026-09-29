@@ -1,12 +1,25 @@
 # Research 历史快照
 
-本目录保存 2026-09-25 模块化整合前，不同阶段、不同 Agent 形成的原始 research 报告。它们保留当时基线、逐字推理、行级源码证据和阶段性竞品判断，**不是当前综合研究入口，也不是实现授权**。
+本目录保存不同阶段形成、已被现行决定或后续设计承接的原始研究。保留原日期、源码证据、设计理由与当时判断；**历史归档不是判定全文错误，也不是删除未交付候选，更不是当前实现授权**。
 
 当前研究结论统一从 [`docs/research/modules/`](../../research/modules/README.md) 进入；当前事实看 `docs/development/status.md`，实施范围看 active HXA，长期契约看 accepted ADR。
 
-历史文件中的“当前/计划/缺口”必须按文件日期理解。若与模块研究冲突，以当前 Research 的裁决顺序处理：当前源码/accepted ADR > 最新一手资料 > 可复现证据 > 较旧研究。
+历史文件中的“当前/计划/缺口”按原基线理解。源码证明行为，accepted ADR 定义接受范围，状态与任务说明交付；冲突需记录，不能按研究日期自动裁决。新归档页明确指出承接入口，正文不改写成今天的事实。
 
 本目录不继续维护 current 状态；逐字旧结论和当时来源可用于追溯为什么后来发生某个决策。
+
+## 2026-09-29 新归档与现行承接
+
+| 历史材料 | 归档原因 | 当前入口 |
+| --- | --- | --- |
+| [Linux 命令集成](helix-linux-command-integration.md) | 旧 APK/UID、QuickJS 进程和风险等级已不适用；原记录没有统一日期 | [执行域](../../architecture/local-code-execution.md)、[终端](../../architecture/terminal.md) |
+| [后台完成机制（09-10）](background-task-completion-2026-09-10.md) | 旧开发宿主与当时产品阶段混合 | [终端](../../architecture/terminal.md)、[Harness §8](../../architecture/harness-refactor-plan.md) |
+| [Memory 与 Activity（09-26）](agent-memory-and-activity-presentation-2026-09-26.md) | HXA-229/230 已承接，完整 Project 仍单列 | [Memory](../../product/memory.md)、[HXA-229](../../completion-records/HXA-229.md) |
+| [Conversation-first（09-26）](conversation-first-session-workbench-2026-09-26.md) | HXA-228 已交付，不重开原 UI 计划 | [HXA-228](../../completion-records/HXA-228.md)、[操作体验](../../product/task-experience.md) |
+| [Workspace 对比（09-27）](workspace-competitive-contracts-2026-09-27.md) | HXA-210/Workspace ADR 已承接 | [Workspace ADR](../../adr/workspace/004-workspace-binding.md) |
+| [能力架构收敛（09-28）](helix-agent-capability-architecture-convergence-2026-09-28.md) | 早期横向路线由详细方案与推进原则承接 | [Harness 方案](../../architecture/harness-refactor-plan.md)、[开发策略](../../development/feature-refactor-strategy.md) |
+
+仍在使用的专项比较由[专题研究](../../research/topics/README.md)导航。只移动/标注历史，不擅自接受、关闭或删除候选功能。
 
 ## 原始报告到当前模块的映射
 

@@ -1,5 +1,11 @@
 # Helix 异步 Job、等待与前后台执行竞品调研（2026-09-28）
 
+> **专项研究输入，目录整理：2026-09-29。**launch/join 和竞品比较保留原核验窗口；当前 Linux Job 行为见[终端](../../architecture/terminal.md)。具体观察执行接口、控制资源、watchdog、AUTO/按钮拆分统一以[Harness §8](../../architecture/harness-refactor-plan.md)为目标方案，不继续在本专题维护第二套契约和阶段排期。
+>
+> 下文 Job/AsyncHandle 示例是研究提议，不证明通用 `jobs.await` 已实现，也不授权默认自动创建后继 Turn。实施范围见[候选索引](../../development/candidate-decisions.md)。
+
+---
+
 > 状态：研究结论 / 架构输入，不直接替代 ADR、HXA 或实现状态。
 >
 > 本文研究 Helix 是否需要模型可调用的等待能力、后台 Job、前台转后台能力，以及这些能力应如何与现有 TurnEngine、ToolCall、PRoot Job、successor Turn、UNKNOWN / effect truth 和 shallow harness 组合。竞品依据以截至 2026-09-28 可核验的 OpenAI、Claude Code、VS Code / Copilot Agent、Cursor、OpenCode 与 Operit2 官方文档或公开仓库为主。
@@ -1175,7 +1181,7 @@ old Turn never replayed
 - docs/adr/runtime/002-terminal-and-jobs.md
 - docs/architecture/terminal.md
 - docs/adr/agent/001-turn-coordination.md
-- docs/research/helix-agent-capability-architecture-convergence-2026-09-28.md
+- docs/evidence/research-history/helix-agent-capability-architecture-convergence-2026-09-28.md
 
 ---
 

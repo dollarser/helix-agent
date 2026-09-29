@@ -1,5 +1,11 @@
 # Agent 插件生态与 Mobile Use 调研（2026-09-28）
 
+> **专项研究输入，目录整理：2026-09-29。**下文比较限于原核验日期；本次未刷新竞品状态。旧起点中的 PluginOrigin、Mobile Use 接线和优先级不能覆盖[当前状态](../../development/status.md)。通用绑定/安装生命周期的目标规范统一见[Harness §15/§17](../../architecture/harness-refactor-plan.md)，包格式与 native MVP 细节见[Plugin 专项](../../architecture/plugin-platform-plan.md)。
+>
+> 文中“规范 1.0.0 已发布”不单独证明已稳定定型，后续核验的 Working Draft 边界见 Harness 方案 §12。保留原研究原话，不以此承诺完整格式兼容；本专题不继续复制当前实现任务。
+
+---
+
 ## 1. 目的与结论
 
 本文只基于当前可核验的主流 Agent 官方规范/文档与 Helix 已有实现，不以“理想插件系统”反推设计。
@@ -453,7 +459,7 @@ Mobile Use 插件化后应至少验证：
 - tool exposure window 不因 Mobile Use 新增工具再次挤掉核心 Workspace 工具。
 
 本轮实现与设备证据见
-[Plugin Platform P0 / Mobile Use MVP 证据](../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)。
+[Plugin Platform P0 / Mobile Use MVP 证据](../../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)。
 
 ## 15. Helix 扩展系统统一重构方案
 
@@ -727,7 +733,7 @@ Plugin selected 不能自动 enable everything，否则会把 package selection 
 
 ### 15.11 Tool exposure 与 Plugin 平台必须一起收敛
 
-P5 已证明静态 64-tool table 会把核心 write 工具挤出模型上下文。Plugin 越多，这个问题越严重。
+2026-09-29 证据校正：历史 AndroidWorld 试跑确认64项截断曾留下 `ui.click` 却缺少 `ui.snapshot`；后续P5还记录了Skill过度依赖搜索导致的额外模型往返。二者不能概括为“P5已证明核心write被挤掉”，也不证明当前源码仍有相同截断。完整来源与当前默认工具/发现分析见[工具曝光与发现专题](tool-exposure-and-discovery-2026-09-29.md)；安装量增长需要更好的组织与发现，不意味着全部schema进入每次请求。
 
 长期必须明确：
 

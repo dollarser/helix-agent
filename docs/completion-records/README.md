@@ -1,6 +1,6 @@
 # HXA 完成记录
 
-M1 起，每个完成的 HXA 使用一个独立文件：`HXA-NNN.md`。内容采用[路线文档的完成记录模板](../development/roadmap.md#17-每任务完成记录)，写入实际命令、exit code、设备、产物、限制和 ADR 状态。
+M1 起，每个完成的 HXA 使用一个独立文件：`HXA-NNN.md`。内容与交接遵循[实施指南](../development/implementation-guide.md#交接输出)，写入实际命令、exit code、设备、产物、限制和 ADR 状态；旧路线文档中的模板章节已不再维护。
 
 所有已登记任务见 [完成记录索引](index.md)。新增或修改记录标题后运行 `python3 scripts/generate-completion-index.py`；索引只负责导航，不替代正文验收边界。
 

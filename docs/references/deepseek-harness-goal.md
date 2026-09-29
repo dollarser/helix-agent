@@ -1,20 +1,10 @@
 # DeepSeek Harness Goal 功能使用参考
 
-> **本文档定位**：独立个人参考，**不属于** deepseek-harness 仓库的文档体系。
+> **来源定位**：从个人参考笔记引入 Helix 的 DeepSeek Harness Goal 历史说明，不属于 DSH 官方文档。原笔记关于 `.personal-notes/`、本地忽略和不进入 Git 的描述只适用于原存放环境；此副本实际位于 Helix `docs/references/`，受本仓库文档检查管理。
 >
-> **与项目文档的区分**（三重隔离）：
-> 1. **目录隔离**——位于仓库根的 `.personal-notes/`（隐藏目录），不在 `docs/` 树内，
->    不遵循仓库文档规范（双语行对齐、i18n 元数据、doc-sync 门禁、单段单行、word budget），
->    也不会被 `pnpm run doc-sync` 检查、发布到文档网站。
-> 2. **版本隔离**——`.personal-notes/` 已写入 `.git/info/exclude`（本地忽略，
->    不会提交、不影响他人 clone、不改仓库的 `.gitignore`），因此它**永远不会进入
->    git 历史**，`git status` 不显示它。
-> 3. **权威隔离**——官方权威文档是 deepseek-harness 仓库的
->    `docs/subsystems/goal.md`（及 `.zh.md`，完整指针见下"参考实现指针"节）；
->    两者冲突时以该仓库代码与官方文档为准。本文只补充"实测记录 + 使用建议"。
+> **原记录基准**：2026-08-28 会话、`dsh 0.1.2-alpha.1`；后补源码指针固定到下文 commit。本次仅明确文档身份和命名，没有重新运行 DSH 或核验当前版本。
 >
-> **事实基准**：2026-08-28 会话，`dsh 0.1.2-alpha.1`。文中机制均经本会话真实调用
-> 验证或仓库源码（`packages/goal/`）核对。
+> 本文保留原有机制和使用建议，不是 Helix Goal 契约；Helix 的目标、激活、预算和后继运行看 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)。DSH 的官方参考页和包路径均相对其原仓库。
 
 ---
 

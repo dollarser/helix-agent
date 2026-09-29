@@ -128,7 +128,7 @@ R5 将 Marketplace 和能力设置改为面向包的管理，保留组件详情�
 
 ## 8. J1 / J2：异步观察、等待与安全后台化
 
-本节为异步契约的唯一正文；§18 只描述迁移步骤，§19 定义测试 oracle。沿用[异步 Job 调研](../research/async-jobs-wait-and-background-execution-competitive-study-2026-09-28.md)的 launch/join 思路，**本轮明确选择 completion-based 观察接线，不把长等待塞进原同步 executor**。这是待接受的 J1 设计，不声称当前已有此接口。
+本节为异步契约的唯一正文；§18 只描述迁移步骤，§19 定义测试 oracle。沿用[异步 Job 调研](../research/topics/async-jobs-and-background-execution-2026-09-28.md)的 launch/join 思路，**本轮明确选择 completion-based 观察接线，不把长等待塞进原同步 executor**。这是待接受的 J1 设计，不声称当前已有此接口。
 
 ### 8.1 执行身份与结果事实
 
@@ -320,7 +320,7 @@ R2/J1/R3 的实际排期仍由内测瓶颈和当前任务决定；存储端口�
 
 本文区分四类内容：**用户明确要求**、**现行仓库契约/源码事实**、**外部官方公开说明**、**本次建议**。历史对话中的助理建议不是已经接受的 ADR；官方功能介绍也不能证明其实现稳定性、用户规模或性能最优。本次只读核验相关源码和文档，不声称完成全仓审计、竞品运行实验或 Helix 设备回归。
 
-历史研究保留为来源，不复制成第二份现行任务计划：[能力架构调研](../research/helix-agent-capability-architecture-convergence-2026-09-28.md)、[Plugin 专项方案](plugin-platform-refactor-2026-09-28.md)、[异步 Job 调研](../research/async-jobs-wait-and-background-execution-competitive-study-2026-09-28.md)。这些材料的旧阶段顺序和旧实现缺口不能覆盖当前 status/源码。
+历史研究保留为来源，不复制成第二份现行任务计划：[能力架构调研](../evidence/research-history/helix-agent-capability-architecture-convergence-2026-09-28.md)、[Plugin 专项方案](plugin-platform-plan.md)、[异步 Job 调研](../research/topics/async-jobs-and-background-execution-2026-09-28.md)。这些材料的旧阶段顺序和旧实现缺口不能覆盖当前 status/源码。
 
 ### 12.2 本次核验的 Helix 入口
 
@@ -643,6 +643,8 @@ call 与 result 作为完整步骤原子选入/移除或压缩；未结算结果
 延续已存在的核心工具优先与发现：先按来源/会话可用性筛选，再按容量选择；发现结果不是执行授权，进入后续实际请求的映射后才可按其 BindingRef 调用。分类额度可借用，Provider 窗口/用户额度/输出预留/协议/内存是硬约束。无工具模式、未知窗口、分页结果和多模态预算需分别测试，不用删除任务目标来凑窗口。
 
 稳定部分保持确定顺序。缓存只对精确源 revision、会话/Workspace/权限相关配置和 Provider 物化条件成立；不做跨会话凭据/正文缓存共享。E11 支持稳定前缀的重要性，但本方案不承诺固定命中率。
+
+工具数量口径、当前发现缺口、竞品机制和冻结实验输入补充见[工具曝光与发现专题（2026-09-29）](../research/topics/tool-exposure-and-discovery-2026-09-29.md)。其检索排序、零命中保留、有限工作集和MCP阈值调整仍是R2-B候选；与当前ADR不同的窗口语义先裁决，不能借本链接扩大R1或改变R2-A的行为等价迁移。此处不复制专题中的日期化计数或另一份实施清单。
 
 ### 16.4 发送与压缩的边界
 

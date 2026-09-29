@@ -9,7 +9,7 @@ Deciders: project owner (2026-09-27)
 
 新会话需要独立默认工作面，也需要直接操作用户选择的项目；目录身份、权限与 Path/SAF 能力必须分开。
 
-2026-09-27 [竞品核对](../../research/workspace-competitive-contracts-2026-09-27.md)确认：目录原位工作、主目录驱动上下文、可选 worktree 与独立权限契约符合 Claude Code/Codex/Cursor 的常见方向。默认会话私有目录是 Helix 的手机体验选择；SAF 能力契约是 Android 特有约束，不能声称与桌面完全一致。实施范围见 [HXA-210](../../completion-records/HXA-210.md)。
+2026-09-27 [竞品核对](../../evidence/research-history/workspace-competitive-contracts-2026-09-27.md)确认：目录原位工作、主目录驱动上下文、可选 worktree 与独立权限契约符合 Claude Code/Codex/Cursor 的常见方向。默认会话私有目录是 Helix 的手机体验选择；SAF 能力契约是 Android 特有约束，不能声称与桌面完全一致。实施范围见 [HXA-210](../../completion-records/HXA-210.md)。
 
 ## Decision
 

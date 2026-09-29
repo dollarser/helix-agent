@@ -84,3 +84,19 @@ python3 scripts/run-agent-eval.py compare --baseline build/baseline/envelopes.js
 ## Memory 主机对照
 
 HXA-230 的 `evals/trajectory/memory-host.json` 使用同一证据协议，命令为 `python3 scripts/run-agent-eval-host.py --manifest evals/trajectory/memory-host.json --output build/memory-host-eval`（输出目录须不存在）。覆盖固定 summary 的 off/on/off、持久化、作用域、Plan 和效果分类；没有测量真实模型 token、成功率或设备轨迹。原 HXA-227 默认 host manifest 不变。详见 [HXA-230 证据](../evidence/development/hxa230-memory-2026-09-27.md)。
+
+## 公共 Benchmark 与产品基线的分工
+
+本节承接[2026-09-29 原全量执行计划](../evidence/development/verification-plans/public-benchmark-full-run-plan-2026-09-29.md)的通用规则，不重写其 run 结果，也不建立第二套生产 Eval。
+
+| 轨道 | 测量什么 | 不得推导什么 |
+| --- | --- | --- |
+| BFCL 官方 runner/模型 handler | 固定模型服务、模板、原生 FC 解析与官方任务交互 | 不经过 Helix 的直连成绩不是 Helix Dispatcher/权限/上下文成绩 |
+| Helix 固定 Harness 基线 | 正式 Provider、循环、工具与持久化闭环 | 不等于设备内推理性能或官方公共榜单 |
+| AndroidWorld 的 Helix 适配 | 冻结环境、动作空间、任务种子下的端侧执行 | API/步数/授权与官方配置不同不能直接排名；单模板一个种子不是穷尽实例 |
+
+保留 expected ID、正式结果与尝试选择规则；PASS/FAIL、ERROR、BLOCKED、N/A 分开。尝试覆盖 100% 不等于有效测量完成；仍有初始化/判分 ERROR 或外部依赖 BLOCKED 时保留未闭合条件。Turn `COMPLETED` 与任务 oracle 成功分别记账，不能把正常结束当业务达标。
+
+官方加权聚合、逐题准确率、生成记录与实际计分分母分别输出，不以一个比率反推另一类通过数。环境/代码/模型/Prompt/预算变化需要新 cohort，不能补跑挑最好结果；不将隐藏答案交给模型，不为冲分扩大生产授权。
+
+旧批次的 shell/device 命令只作为原计划证据。下一次执行须重新核对固定 revision、应用安装/初始化、清理与 oracle、当前设备和服务授权，再校准；无需重新运行模型来完成纯文档整理。
