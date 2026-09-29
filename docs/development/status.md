@@ -4,6 +4,8 @@
 
 ## Completed
 
+- 2026-09-29 分支收敛：主目录视觉/输入恢复工作与 Provider 设置/导航改动已提交并合并至本地 main，发布分支保留；重复开发工作树已归档。联合验证及 benchmark 待整合边界见[分支收敛记录](../evidence/development/branch-convergence-2026-09-29.md)。本轮未推送。
+
 - HXA-225 自主图片读取与工具视觉回填已于 2026-09-29 完成主机范围交付：`view_image`、浏览器视觉产物、三协议编码、精确披露、逐请求来源、窗口/压缩和有界字节复核均已接入；完整 host gate、双渠道 Debug/Release APK 与 AndroidTest APK 编译通过。见[完成记录](../completion-records/HXA-225.md)与[使用说明](../references/agent-image-reading.md)。没有新增表或清库，设备/真实模型/账号 `not requested`，新 APK 未安装或发布；不声称模型实际识别质量已验证。
 
 - 非重构本地收口（2026-09-29）：状态和剩余计划已对齐，内测步骤及反馈材料已准备；补齐 Plugin/Mobile Use 依赖锁后，完整 `check-all.sh --all`（含 release 与制品边界、38 份锁）通过。见[收口记录](../evidence/development/non-refactor-closeout-2026-09-29.md)。本轮改动未提交；真实内测、设备/服务及发行验收不由本项替代。
@@ -62,7 +64,7 @@
 
 ## Next task
 
-本地 main 已于 2026-09-29 快进至 `70456eb5`；归属清晰的修复、测试和研究输入已提交，未推送。当前非重构收口集中于事实对齐、主机发行门禁和[内测准备](internal-pilot.md)，不是新的产品功能开发。[剩余工作](remaining-work-plan-2026-09-28.md)只维护依赖和退出条件。
+本地 main 在 `70456eb5` 后继续整合了契约收敛、视觉/输入恢复与 Provider 设置交互；提交及联合验证见[分支收敛记录](../evidence/development/branch-convergence-2026-09-29.md)，本轮未推送。当前非重构收口集中于事实对齐、主机发行门禁和[内测准备](internal-pilot.md)，不是新的产品功能开发。[剩余工作](remaining-work-plan-2026-09-28.md)只维护依赖和退出条件。
 
 已完成的产品化阶段不重新排为开发任务：
 
