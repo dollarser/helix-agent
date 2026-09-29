@@ -24,7 +24,6 @@ import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
@@ -138,12 +137,12 @@ class GoalModelReportDeviceTest {
 
     @Test fun executorRejectsForeignSessionAndMissingBinding() =
         fixture { s, _, _ ->
-            val implementations = ToolImplementationRegistry()
+
             val registry = ToolRegistry()
-            GoalReportTool.register(registry, implementations, s)
+            GoalReportTool.register(registry, s)
             val descriptor = registry.resolve(ToolName("goal.report"), ToolVersion(1))
             ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
-            val executor = implementations.resolve(ToolName("goal.report"), ToolVersion(1))
+            val executor = registry.executor(ToolName("goal.report"), ToolVersion(1))
             val call = executableReport()
             assertTrue(executor.execute(call) is ToolExecutorResult.Completed)
             assertTrue(executor.execute(call.copy(sessionId = "foreign")) is ToolExecutorResult.Failed)
@@ -153,9 +152,10 @@ class GoalModelReportDeviceTest {
 
     @Test fun executorRejectsCancelledAndClosedRuns() =
         fixture { s, _, start ->
-            val implementations = ToolImplementationRegistry()
-            GoalReportTool.register(ToolRegistry(), implementations, s)
-            val executor = implementations.resolve(ToolName("goal.report"), ToolVersion(1))
+
+            val registry = ToolRegistry()
+            GoalReportTool.register(registry, s)
+            val executor = registry.executor(ToolName("goal.report"), ToolVersion(1))
             val cancelled =
                 object : CancelSignal {
                     override fun isCancelled(): Boolean = true
@@ -187,7 +187,7 @@ class GoalModelReportDeviceTest {
     @Test fun reportSchemaRejectsExtraGoalIdAndInvalidStatusOrSummary() =
         fixture { s, _, _ ->
             val registry = ToolRegistry()
-            GoalReportTool.register(registry, ToolImplementationRegistry(), s)
+            GoalReportTool.register(registry, s)
             val schema = registry.resolve(ToolName("goal.report"), ToolVersion(1)).inputSchema
             val invalid =
                 listOf(
@@ -274,9 +274,10 @@ class GoalModelReportDeviceTest {
     @Test fun metadataReportWorksDuringJobButCompletionWaitsForCollection() =
         fixture { s, goal, start ->
             val owner = metadataOwner()
-            val implementations = ToolImplementationRegistry()
-            GoalReportTool.register(ToolRegistry(), implementations, s, owner::metadataExecutor)
-            val executor = owner.guard(implementations.resolve(ToolName("goal.report"), ToolVersion(1)))
+
+            val registry = ToolRegistry()
+            GoalReportTool.register(registry, s, owner::metadataExecutor)
+            val executor = owner.guard(registry.executor(ToolName("goal.report"), ToolVersion(1)))
             val reservations = GoalUsageReservations(s)
             assertTrue(
                 reservations.reserve(
@@ -314,9 +315,10 @@ class GoalModelReportDeviceTest {
             val owner = metadataOwner()
             val service = GoalLifecycleService(s, clock, ::id, { _, _ -> null }, { _, _, _, _ -> })
             service.bind(goal, "s")
-            val implementations = ToolImplementationRegistry()
-            GoalLifecycleTools.register(ToolRegistry(), implementations, owner::metadataExecutor, service::execute)
-            val read = owner.guard(implementations.resolve(ToolName("get_goal"), ToolVersion(1)))
+
+            val registry = ToolRegistry()
+            GoalLifecycleTools.register(registry, owner::metadataExecutor, service::execute)
+            val read = owner.guard(registry.executor(ToolName("get_goal"), ToolVersion(1)))
             assertTrue(
                 read.execute(executableReport().copy(toolName = "get_goal", args = buildJsonObject {}))
                     is ToolExecutorResult.Completed,
@@ -331,7 +333,7 @@ class GoalModelReportDeviceTest {
                     ),
                 ),
             )
-            val update = owner.guard(implementations.resolve(ToolName("update_goal"), ToolVersion(1)))
+            val update = owner.guard(registry.executor(ToolName("update_goal"), ToolVersion(1)))
             val call =
                 executableReport().copy(
                     toolName = "update_goal",

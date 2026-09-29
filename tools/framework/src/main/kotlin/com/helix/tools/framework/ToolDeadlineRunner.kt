@@ -1,6 +1,8 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.Clock
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
@@ -11,6 +13,7 @@ import java.util.concurrent.TimeoutException
 internal class ToolDeadlineRunner(
     private val clock: Clock,
     private val executorService: ExecutorService,
+    private val activity: ToolExecutionActivity = ToolExecutionPools.activity,
 ) {
     /**
      * Enforces the [ToolExecutor] contract: the executor must return within [call.deadline],
@@ -18,15 +21,15 @@ internal class ToolDeadlineRunner(
      * blocked in I/O ignores the deadline on its own; without this watchdog the dispatch —
      * and, for a scheduled call, the whole batch — would hang until the kernel gives up.
      *
-     * Each dispatch runs on its own daemon thread from a cached pool, so a stuck executor
-     * thread is isolated: it cannot block another dispatch from starting. The
+     * Each dispatch uses a bounded daemon pool without a queue. A stuck executor
+     * retains physical capacity until exit; saturation never starts another thread. The
      * [Future.cancel] on timeout is best-effort (an interrupt the executor may ignore);
      * the model-visible outcome is the stable TIMEOUT either way. When the executor
      * throws BEFORE the deadline the original exception propagates unchanged — the
      * attempt is settled by [dispatch] as unknown side-effect state, exactly as with a
      * direct call.
      */
-    @Suppress("SwallowedException") // the timeout settles as TimedOut, not an error to propagate
+    @Suppress("SwallowedException", "ReturnCount") // Distinguish expired, rejected and actually submitted calls.
     fun executeWithinDeadline(
         executor: ToolExecutor,
         call: ExecutableToolCall,
@@ -34,28 +37,48 @@ internal class ToolDeadlineRunner(
         val remaining = call.deadline.toEpochMilli() - clock.now().toEpochMilli()
         // null proves the executor was never submitted; submitted timeouts remain uncertain.
         if (remaining <= 0) return null
+        val attempt = activity.attempt()
         val future: Future<ToolExecutorResult> =
-            executorService.submit(
-                Callable {
-                    try {
-                        executor.execute(call)
-                    } finally {
-                        // A timeout's cancel(true) may have flagged this pooled thread; clear the
-                        // sticky interrupt so the NEXT dispatch reusing it doesn't fail spuriously.
-                        Thread.interrupted()
-                    }
-                },
-            )
+            try {
+                executorService.submit(
+                    Callable {
+                        attempt.start()
+                        try {
+                            executor.execute(call)
+                        } finally {
+                            // A timeout's cancel(true) may have flagged this pooled thread; clear the
+                            // sticky interrupt so the NEXT dispatch reusing it doesn't fail spuriously.
+                            attempt.finish()
+                            Thread.interrupted()
+                        }
+                    },
+                )
+            } catch (_: java.util.concurrent.RejectedExecutionException) {
+                return ToolExecutorResult.Failed(
+                    "EXECUTOR_SATURATED: execution capacity is occupied; this call was not submitted.",
+                    sideEffectFree = true,
+                    auditDetail =
+                        buildJsonObject {
+                            val snapshot = activity.snapshot()
+                            put("executorRunning", snapshot.running)
+                            put("executorAbandonedRunning", snapshot.abandonedRunning)
+                        },
+                )
+            }
         return try {
-            awaitExecution(future, call.cancel, remaining)
+            awaitExecution(future, call.cancel, remaining).also {
+                if (it == ToolExecutorResult.Cancelled) attempt.abandon()
+            }
         } catch (e: TimeoutException) {
             // The deadline passed: interrupt is best-effort, the outcome is settled as TIMEOUT.
+            attempt.abandon()
             future.cancel(true)
             ToolExecutorResult.TimedOut
         } catch (e: ExecutionException) {
             rethrowExecutorFailure(e.cause ?: e)
         } catch (e: InterruptedException) {
             // The dispatch itself was interrupted: keep the interrupt flag, propagate as-is.
+            attempt.abandon()
             future.cancel(true)
             Thread.currentThread().interrupt()
             throw e

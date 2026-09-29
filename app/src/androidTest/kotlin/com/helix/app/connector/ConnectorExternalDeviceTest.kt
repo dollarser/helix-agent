@@ -73,7 +73,7 @@ class ConnectorExternalDeviceTest {
             assertTrue("user denial must stop the call: $denied", denied is ToolDispatchOutcome.Denied)
             assertSucceeded(dispatch(record, approve = true))
             val descriptor = descriptor(record)
-            val captured = container.toolPipeline.implementations.resolve(descriptor.name, descriptor.version)
+            val captured = container.toolPipeline.registry.executor(descriptor.name, descriptor.version)
             service.disable(endpoint)
             assertFalse(service.enabled(endpoint))
             assertFalse(

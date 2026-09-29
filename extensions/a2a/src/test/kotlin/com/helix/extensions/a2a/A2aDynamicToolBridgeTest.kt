@@ -10,7 +10,6 @@ import com.helix.core.policy.EgressTarget
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -83,16 +82,15 @@ class A2aDynamicToolBridgeTest {
             A2aDynamicToolBridge(agentId, listOf(skill)) { _, _ ->
                 throw A2aNeedsReviewException("delivery unknown")
             }
-        val registry = ToolRegistry(emptyList())
-        val implementations = ToolImplementationRegistry()
+        val registry = ToolRegistry()
 
-        bridge.register(registry, implementations)
+        bridge.register(registry)
 
         val descriptor = bridge.descriptors().single()
         assertTrue(descriptor.name.value.startsWith("a2a.research.web_research_"))
         assertEquals(descriptor, registry.resolve(descriptor.name, descriptor.version))
         val result =
-            implementations.resolve(ToolName(descriptor.name.value), ToolVersion(1)).execute(
+            registry.executor(ToolName(descriptor.name.value), ToolVersion(1)).execute(
                 ExecutableToolCall(
                     toolCallId = "call-1",
                     toolName = descriptor.name.value,

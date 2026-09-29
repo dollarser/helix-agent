@@ -253,6 +253,8 @@ internal fun HelixApp(container: AppContainer) {
     }
 
     HelixTheme {
+        com.helix.app.ui
+            .UserQuestionDialog(container)
         com.helix.app.ui.HelixSettingsProposalDialog(container) { page ->
             navController.navigate(
                 when (page) {

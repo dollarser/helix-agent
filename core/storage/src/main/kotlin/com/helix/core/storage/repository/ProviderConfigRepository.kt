@@ -53,6 +53,8 @@ class ProviderConfigRepository(
         require(dao.delete(id) == 1) { "provider config not found: $id" }
     }
 
+    fun find(id: String): ProviderConfigEntity? = dao.byId(id)
+
     fun resolve(id: String): ProviderConfigEntity {
         val entity = dao.byId(id)
 

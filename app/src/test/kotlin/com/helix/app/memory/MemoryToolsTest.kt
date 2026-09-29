@@ -13,7 +13,6 @@ import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -27,7 +26,7 @@ import java.time.Instant
 class MemoryToolsTest {
     @get:Rule val temporary = TemporaryFolder()
     private val registry = ToolRegistry()
-    private val implementations = ToolImplementationRegistry()
+
     private val flags = mutableMapOf("enabled" to true, "auto-global" to true)
 
     private fun service(): MemoryService {
@@ -36,7 +35,7 @@ class MemoryToolsTest {
                 flags[k] =
                     v
             })
-        MemoryTools.register(registry, implementations, service)
+        MemoryTools.register(registry, service)
         return service
     }
 
@@ -105,7 +104,7 @@ class MemoryToolsTest {
         args: String,
         cancel: CancelSignal = NoCancellation,
     ): ToolExecutorResult =
-        requireNotNull(implementations.resolve(ToolName(name), ToolVersion(1))).execute(
+        requireNotNull(registry.executor(ToolName(name), ToolVersion(1))).execute(
             ExecutableToolCall(
                 "call",
                 name,

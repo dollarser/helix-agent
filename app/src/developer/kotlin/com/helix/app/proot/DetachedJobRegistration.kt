@@ -12,7 +12,6 @@ import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import java.io.File
 
@@ -24,7 +23,6 @@ internal object DetachedJobRegistration {
         storage: HelixStorage,
         workspace: WorkspaceArtifactStore,
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         ownership: ExecutionOwnership,
         chat: () -> ChatService,
         gate: () -> LinuxRuntimeGate,
@@ -67,8 +65,7 @@ internal object DetachedJobRegistration {
                 DetachedJobTools.collect() to collection.executor(),
             )
         for ((descriptor, executor) in executors) {
-            registry.register(descriptor)
-            implementations.register(descriptor, executor)
+            registry.register(descriptor, executor)
         }
         return DetachedJobUserActions(
             storage,

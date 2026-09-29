@@ -41,8 +41,9 @@ import java.util.concurrent.atomic.AtomicReference
  * seam used by instrumented crash tests (see [startCrashSeam]); release builds compile it
  * out and HXA-053's production tool path never sets the flag.
  */
-class JsExecutionService : Service() {
-    private val binder = ExecutionBinder()
+open class JsExecutionService : Service() {
+    protected open val nativeAccess: Boolean = false
+    private val binder by lazy { ExecutionBinder(if (nativeAccess) this else null) }
 
     override fun onBind(intent: Intent): IBinder = binder
 
@@ -51,7 +52,9 @@ class JsExecutionService : Service() {
      * The binder (and therefore this class) lives in the isolated process.
      */
     @Suppress("TooManyFunctions") // one method per protocol phase
-    private class ExecutionBinder : Binder() {
+    private class ExecutionBinder(
+        private val nativeContext: android.content.Context?,
+    ) : Binder() {
         private val slot = AtomicReference<SlotState>(SlotState.IDLE)
         private val interruptRequested = AtomicBoolean(false)
 
@@ -63,6 +66,13 @@ class JsExecutionService : Service() {
             flags: Int,
         ): Boolean =
             when (code) {
+                JsProtocol.CODE_TERMINATE_NATIVE -> {
+                    check(nativeContext != null && Binder.getCallingUid() == Process.myUid())
+                    check(android.app.Application.getProcessName() == nativeContext.packageName + ":helix_js_native")
+                    Process.killProcess(Process.myPid())
+                    true
+                }
+
                 JsProtocol.CODE_INFO -> {
                     val r = requireNotNull(reply) { "INFO reply parcel is null" }
                     JsExecutionWire.writeInfo(r, Process.myPid(), Process.myUid())
@@ -347,6 +357,9 @@ class JsExecutionService : Service() {
                     InterruptHandler {
                         interruptRequested.get() || System.nanoTime() >= request.deadlineNanos
                     }
+                nativeContext?.let { context ->
+                    JsNativeHost.install(js, context, request.deadlineNanos, interruptRequested)
+                }
                 val value = js.evaluate(program, JS_FILE_NAME)
                 return deliverResult(request, inputBytes, outputPfd, value)
             } catch (e: QuickJsException) {

@@ -24,12 +24,14 @@ package com.helix.core.model
  * any non-terminal state -> CANCELLING -> CANCELLED
  * live UNKNOWN: RUNNING_TOOL/CANCELLING -> NEEDS_REVIEW
  * process death on an advancing non-terminal state -> INTERRUPTED
- * NEEDS_REVIEW -> INTERRUPTED (review resolved; old attempt closed) | CANCELLED (explicit abandon)
+ * NEEDS_REVIEW -> INTERRUPTED (review resolved or automatic inspection ended; effect facts retained)
+ *              | CANCELLED (explicit abandon)
  * INTERRUPTED is execution-terminal; continuation always creates a successor Turn.
  * ```
  *
  * Terminal states are [COMPLETED], [FAILED], [CANCELLED] and [INTERRUPTED]. NEEDS_REVIEW is
- * execution-stopped but remains non-terminal until its effect facts are reviewed/abandoned.
+ * execution-stopped but remains non-terminal until review or automatic inspection ends the attempt.
+ * Ending an attempt never proves its unknown external effects were settled.
  */
 enum class TurnState(
     val isTerminal: Boolean,

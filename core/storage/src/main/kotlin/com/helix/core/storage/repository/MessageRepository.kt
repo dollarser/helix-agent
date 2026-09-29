@@ -22,31 +22,32 @@ class MessageRepository(
         role: String,
         kind: String,
         content: String,
-    ): MessageEntity {
-        require(role.isNotBlank()) { "role must not be blank" }
-        require(kind.isNotBlank()) { "kind must not be blank" }
-        // maxSequence is COALESCE(MAX(sequence), -1), so max + 1 is always a valid sequence.
-        val sequence = dao.maxSequence(sessionId) + 1
-        val contentRef =
-            if (content.isBlank()) {
-                null
-            } else {
-                contentStore.write(content).toStorageString()
-            }
-        val entity =
-            MessageEntity(
-                id,
-                sessionId,
-                turnId,
-                role,
-                kind,
-                contentRef,
-                sequence,
-                supersededBy = turnId?.let { dao.supersededRequest(it) },
-            )
-        dao.insert(entity)
-        return entity
-    }
+    ): MessageEntity =
+        contentStore.withPublication {
+            require(role.isNotBlank()) { "role must not be blank" }
+            require(kind.isNotBlank()) { "kind must not be blank" }
+            // maxSequence is COALESCE(MAX(sequence), -1), so max + 1 is always a valid sequence.
+            val sequence = dao.maxSequence(sessionId) + 1
+            val contentRef =
+                if (content.isBlank()) {
+                    null
+                } else {
+                    contentStore.write(content).toStorageString()
+                }
+            val entity =
+                MessageEntity(
+                    id,
+                    sessionId,
+                    turnId,
+                    role,
+                    kind,
+                    contentRef,
+                    sequence,
+                    supersededBy = turnId?.let { dao.supersededRequest(it) },
+                )
+            dao.insert(entity)
+            entity
+        }
 
     fun resolve(id: String): MessageEntity {
         val entity = dao.byId(id)
@@ -59,18 +60,19 @@ class MessageRepository(
         source: MessageEntity,
         id: String,
         sessionId: String,
-    ): MessageEntity {
-        val copied =
-            source.copy(
-                id = id,
-                sessionId = sessionId,
-                turnId = null,
-                sequence =
-                    dao.maxSequence(sessionId) + 1,
-            )
-        dao.insert(copied)
-        return copied
-    }
+    ): MessageEntity =
+        contentStore.withPublication {
+            val copied =
+                source.copy(
+                    id = id,
+                    sessionId = sessionId,
+                    turnId = null,
+                    sequence =
+                        dao.maxSequence(sessionId) + 1,
+                )
+            dao.insert(copied)
+            copied
+        }
 
     fun supersededTurns(sessionId: String): Set<String> = dao.supersededTurns(sessionId).toSet()
 

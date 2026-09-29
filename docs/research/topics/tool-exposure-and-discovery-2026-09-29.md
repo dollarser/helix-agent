@@ -4,7 +4,7 @@
 
 **结论：保留小而完整的默认工具组、统一按需发现和现有 64 个请求硬上限；优先改善检索、工具依赖可达性、动态窗口连续性和精确绑定。不是工具越少越好，也不是接入更多 MCP 就提高硬上限。**
 
-**状态与授权：**这是研究输入，不是已接受的新契约或实施记录。R1、上下文编译与插件安装的目标规范仍归 [Harness 方案](../../architecture/harness-refactor-plan.md)；当前实施顺序归 [status](../../development/status.md) 和 [HXA-231](../../development/tasks/HXA-231.md)。本次只补文档，不修改生产代码、有效 ADR 决定、开发任务或设备验收结果。
+**状态与授权：**这是研究输入，不是已接受的新契约或实施记录。R1、上下文编译与插件安装的目标规范仍归 [Harness 方案](../../architecture/harness-refactor-plan.md)；当前实施顺序归 [status](../../development/status.md) 和 [HXA-231](../../completion-records/HXA-231.md)。本次只补文档，不修改生产代码、有效 ADR 决定、开发任务或设备验收结果。
 
 ## 1. 现有文档有没有覆盖
 

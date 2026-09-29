@@ -11,6 +11,23 @@ import java.time.Duration
 import java.time.Instant
 
 class AutomationSessionManagerTest {
+    @Test
+    fun verifiedTargetRestoresOnlyAnExistingLiveGrant() {
+        manager.start(allowed, allowed)
+        manager.pause(AutomationPauseReason.TARGET_CHANGED)
+        assertFalse(manager.resumeOnVerifiedTarget("com.other.app"))
+        assertTrue(manager.isPaused())
+        assertTrue(manager.resumeOnVerifiedTarget(allowed.first()))
+        assertFalse(manager.isPaused())
+        manager.pause(AutomationPauseReason.TARGET_CHANGED)
+        manager.stop(AutomationStopReason.USER_STOP)
+        assertFalse(manager.resumeOnVerifiedTarget(allowed.first()))
+        manager.start(allowed, allowed)
+        manager.pause(AutomationPauseReason.TARGET_CHANGED)
+        clock.instant = clock.now().plus(Duration.ofMinutes(6))
+        assertFalse(manager.resumeOnVerifiedTarget(allowed.first()))
+    }
+
     private val clock = MutableClock(Instant.parse("2026-09-05T00:00:00Z"))
     private var nextId = 0
     private val manager = AutomationSessionManager(clock) { "session-${++nextId}" }
@@ -189,27 +206,18 @@ class AutomationSessionManagerTest {
     }
 
     @Test
-    fun everyTenAttemptsRequiresANewConfirmationThatCannotBeBanked() {
+    fun authorizedActionsContinueAcrossPeriodicBoundariesWithoutHumanConfirmation() {
         manager.start(setOf("com.example.fixture"), allowed)
 
-        repeat(9) {
+        repeat(29) {
             assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
             assertEquals(AutomationActionCompletion.CONTINUE, manager.completeAction())
+            assertNull(manager.pauseReason)
+            assertFalse(manager.resumeAfterUserConfirmation())
         }
         assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
-        assertEquals(AutomationActionCompletion.CHECKPOINT_REQUIRED, manager.completeAction())
-        assertEquals(AutomationPauseReason.CHECKPOINT, manager.pauseReason)
-        assertEquals(AutomationActionAdmission.SESSION_PAUSED, manager.admitAction())
-
-        assertTrue(manager.resumeAfterUserConfirmation())
-        assertFalse(manager.resumeAfterUserConfirmation())
-        repeat(9) {
-            assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
-            assertEquals(AutomationActionCompletion.CONTINUE, manager.completeAction())
-        }
-        assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
-        assertEquals(AutomationActionCompletion.CHECKPOINT_REQUIRED, manager.completeAction())
-        assertEquals(AutomationPauseReason.CHECKPOINT, manager.pauseReason)
+        assertEquals(AutomationActionCompletion.BUDGET_EXHAUSTED, manager.completeAction())
+        assertNull(manager.current())
     }
 
     @Test

@@ -166,7 +166,13 @@ internal class ChatRequestAssembler(
                     attachmentStaging.workspaceScopeId,
                     storage.sessions.resolve(sessionId).directoryRef,
                 )
-        val tools = modelTools(sessionId, control)
+        val tools =
+            modelTools(
+                sessionId,
+                control,
+                com.helix.app.engine.AutomaticRecoveryPolicy
+                    .isInspection(storage.turns.resolve(turnId)),
+            )
         val expert =
             storage.turnRuntimeRecords
                 .find(turnId)
@@ -196,13 +202,11 @@ internal class ChatRequestAssembler(
             tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
-                control.reasoning.takeIf {
-                    it in
-                        providerService.reasoningOptions(
-                            config.id,
-                            storage.sessions.resolve(sessionId).modelId ?: config.model,
-                        )
-                } ?: ReasoningEffort.OFF,
+                providerService.resolveReasoning(
+                    config.id,
+                    storage.sessions.resolve(sessionId).modelId ?: config.model,
+                    control.reasoning,
+                ),
             prompt = system,
             directory = directory,
             workspaceBinding = binding,
@@ -230,7 +234,13 @@ internal class ChatRequestAssembler(
                     attachmentStaging.workspaceScopeId,
                     storage.sessions.resolve(sessionId).directoryRef,
                 )
-        val tools = modelTools(sessionId, control)
+        val tools =
+            modelTools(
+                sessionId,
+                control,
+                com.helix.app.engine.AutomaticRecoveryPolicy
+                    .isInspection(storage.turns.resolve(turnId)),
+            )
         val expert =
             storage.turnRuntimeRecords
                 .find(turnId)
@@ -260,13 +270,11 @@ internal class ChatRequestAssembler(
             tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
-                control.reasoning.takeIf {
-                    it in
-                        providerService.reasoningOptions(
-                            config.id,
-                            storage.sessions.resolve(sessionId).modelId ?: config.model,
-                        )
-                } ?: ReasoningEffort.OFF,
+                providerService.resolveReasoning(
+                    config.id,
+                    storage.sessions.resolve(sessionId).modelId ?: config.model,
+                    control.reasoning,
+                ),
             prompt = system,
             directory = directory,
             workspaceBinding = binding,
@@ -290,12 +298,14 @@ internal class ChatRequestAssembler(
     private fun modelTools(
         sessionId: String,
         control: RunControlConfig,
+        recoveryOnly: Boolean = false,
     ): List<ModelToolSchema> {
         val preferUi =
             com.helix.app.automation.AutomationModule
                 .scopeFor("ui.snapshot") != null
+        val bindings = toolPipeline.registry.snapshot()
         val latest =
-            toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
+            bindings.map { it.descriptor }.groupBy { it.name }.values.map { versions ->
                 versions.maxBy { it.version.value }
             }
         val admitted =
@@ -303,6 +313,7 @@ internal class ChatRequestAssembler(
                 .filterTools(control.mode, latest, control.chatToolsEnabled) {
                     ToolModeProfile(it.operationClass)
                 }.filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
+                .filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
                 .filter {
                     it.name.value !in com.helix.app.goal.GoalLifecycleTools.names ||
                         control.mode != AgentMode.PLAN
@@ -318,6 +329,7 @@ internal class ChatRequestAssembler(
             // but the schema list is the last gate before truncation and must not drift.
             .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
             .filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
+            .filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
             }.let {
@@ -326,8 +338,11 @@ internal class ChatRequestAssembler(
                     preferUi = preferUi,
                 )
             }.take(ModelRequest.MAX_TOOLS)
-            .map(FileToolArguments::modelSchema)
-            .map(ToolPresentationMetadata::augment)
+            .map { descriptor ->
+                FileToolArguments.modelSchema(descriptor).copy(
+                    bindingRef = bindings.single { it.descriptor == descriptor }.ref,
+                )
+            }.map(ToolPresentationMetadata::augment)
     }
 
     /**
@@ -461,7 +476,9 @@ internal class ChatRequestAssembler(
             }
         val history =
             if (checkpoint == null) {
-                restored
+                // Control notices may follow tool results in older persisted rounds. Keep the
+                // provider history ending on the actual result, never a SYSTEM notice.
+                restored.filter { it.role == ModelRole.SYSTEM } + restored.filter { it.role != ModelRole.SYSTEM }
             } else {
                 restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
                     restored.filter { it.role != ModelRole.SYSTEM }

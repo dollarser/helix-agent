@@ -13,7 +13,6 @@ import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -32,10 +31,9 @@ import java.time.Instant
  */
 class TodoWriteToolTest {
     private val registry = ToolRegistry()
-    private val implementations = ToolImplementationRegistry()
 
     init {
-        TodoWriteTool.register(registry, implementations)
+        TodoWriteTool.register(registry)
     }
 
     private fun item(
@@ -66,7 +64,7 @@ class TodoWriteToolTest {
         turnId = "t1",
     )
 
-    private fun executor() = implementations.resolve(ToolName(TodoWriteTool.NAME), ToolVersion(TodoWriteTool.VERSION))
+    private fun executor() = registry.executor(ToolName(TodoWriteTool.NAME), ToolVersion(TodoWriteTool.VERSION))
 
     private fun failed(result: ToolExecutorResult): ToolExecutorResult.Failed =
         result as? ToolExecutorResult.Failed ?: throw AssertionError("expected Failed, got $result")

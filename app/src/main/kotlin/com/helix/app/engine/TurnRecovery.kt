@@ -180,7 +180,13 @@ internal class TurnRecovery(
         // A backward wall-clock step between the dead process and this start (manual time
         // change, NTP correction) must not wedge recovery: clamp endedAt to startedAt so the
         // repository invariant holds while the audit keeps the real `now`.
-        storage.turns.updateState(turn, TurnState.INTERRUPTED, turn.stepCount, now.coerceAtLeast(turn.startedAt), null)
+        storage.turns.updateState(
+            turn,
+            TurnState.INTERRUPTED,
+            turn.stepCount,
+            now.coerceAtLeast(turn.startedAt),
+            if (turn.state == TurnState.CANCELLING.name) "USER_STOP" else turn.errorCode,
+        )
         val uncertain = interrupt.uncertainToolCalls.map { it.value }
         auditRecoveredTurn(turn.id, turn.sessionId, uncertain, calls, now)
         return TurnApplied(turn.id, uncertain, calls.cancelled, calls.parked)

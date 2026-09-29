@@ -9,7 +9,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -32,13 +31,12 @@ object SkillTools {
 
     fun registerAll(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         repository: SkillRepository,
     ) {
         definitions(repository).forEach { definition ->
             val descriptor = definition.descriptor()
-            registry.register(descriptor)
-            implementations.register(descriptor, executor(definition))
+
+            registry.register(descriptor, executor(definition))
         }
     }
 

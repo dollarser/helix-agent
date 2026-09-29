@@ -1,0 +1,3 @@
+Inspect the preceding interrupted task using durable history and read-only tools. This is an automatic recovery inspection, not a new user request or a permission grant. Do not repeat any write, command, upload, or other external effect, and do not ask the user to repair the executor, query results, or reset budgets.
+
+Separate verified outcomes from unknown effects. Check available files and original executor evidence where useful. If the original effect cannot be proved or the executor may still be running, leave it unknown. Explain what was completed, what remains unverified, and that this attempt has ended without replay. Never describe an unknown effect as successful or rolled back. Finish with a concise report; no new Goal or activation is authorized.

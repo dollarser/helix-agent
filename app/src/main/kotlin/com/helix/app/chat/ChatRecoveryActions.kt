@@ -20,6 +20,46 @@ internal class ChatRecoveryActions(
     ) -> com.helix.app.provider.SubscriptionRecoveredOutput?,
 ) {
     private val subscriptionRecoveryMutex = kotlinx.coroutines.sync.Mutex()
+    private val prootCollectionLock = Any()
+
+    private val automaticCollection =
+        AutomaticRecoveryCollection(
+            workScope,
+            screenState,
+            subscriptionRecoveryMutex,
+            subscriptionRecovery,
+            subscriptionResultRecovery,
+            ::collectProot,
+            ::updateSubscriptionRecovery,
+        )
+
+    fun collectAutomatically() = automaticCollection.collect()
+
+    /** Original identities only; callable while the conversation is not on screen. */
+    suspend fun inspectOriginal(turnId: String): String {
+        val turn = storage.turns.resolve(turnId)
+        val observations = mutableListOf<String>()
+        subscriptionRecoveryMutex.lock()
+        try {
+            subscriptionRecoveriesFor(storage, turn.sessionId, emptyList()).filter { it.turnId == turnId }.forEach {
+                val status = subscriptionRecovery(it.turnId, it.modelCallId, false)
+                val output = subscriptionResultRecovery(it.turnId, it.modelCallId, false)
+                observations += "subscription=${status.name}; archivedOutput=${output != null}"
+            }
+        } finally {
+            subscriptionRecoveryMutex.unlock()
+        }
+        storage.toolCalls
+            .listByTurn(turnId)
+            .filter {
+                it.name in setOf("bash", "code.linux.run") && it.state in setOf("INTERRUPTED", "NEEDS_REVIEW")
+            }.forEach {
+                val output = collectProot(turnId, it.callId, false)
+                observations += "prootOutput=${output != null}; " +
+                    "originalReceiptAcknowledged=${output?.acknowledged == true}"
+            }
+        return observations.joinToString("\n").ifEmpty { "No authoritative executor receipt is available." }
+    }
 
     fun inspectInterruptedSubscription(
         turnId: String,
@@ -95,7 +135,15 @@ internal class ChatRecoveryActions(
             current.copy(
                 subscriptionRecoveries =
                     current.subscriptionRecoveries.map {
-                        if (it.modelCallId == row.modelCallId) row else it
+                        if (it.modelCallId == row.modelCallId && it.turnId == row.turnId) {
+                            row.copy(
+                                output = row.output ?: it.output,
+                                localResultAvailable = row.localResultAvailable || it.localResultAvailable,
+                                outputUnavailable = row.outputUnavailable && it.output == null,
+                            )
+                        } else {
+                            it
+                        }
                     },
             )
         }
@@ -112,7 +160,7 @@ internal class ChatRecoveryActions(
                 screenState.value.toolTimeline.singleOrNull { it.turnId == turnId && it.callId == callId }
                     ?: return@launch
             if (!row.prootRecoveryAvailable || row.prootRecoveryBusy) return@launch
-            updateProotRecovery(callId, true, row.prootRecoveryReport)
+            updateProotRecovery(screenState, callId, true, row.prootRecoveryReport)
             val report =
                 try {
                     com.helix.app.proot.ProotToolModule
@@ -120,7 +168,7 @@ internal class ChatRecoveryActions(
                 } catch (_: Exception) {
                     com.helix.app.proot.ProotRecoveryReport.Unknown
                 }
-            updateProotRecovery(callId, false, report)
+            updateProotRecovery(screenState, callId, false, report)
         }
     }
 
@@ -145,20 +193,17 @@ internal class ChatRecoveryActions(
                 screenState.value.toolTimeline.singleOrNull { it.turnId == turnId && it.callId == callId }
                     ?: return@launch
             if (!row.prootRecoveryAvailable || row.prootRecoveryBusy) return@launch
-            updateProotRecovery(callId, true, row.prootRecoveryReport)
+            updateProotRecovery(screenState, callId, true, row.prootRecoveryReport)
             val output =
                 try {
                     if (retryAcknowledgement) {
-                        com.helix.app.proot.ProotToolModule
-                            .recoverInterruptedResult(storage, turnId, callId, false)
+                        collectProot(turnId, callId, false)
                     } else {
-                        com.helix.app.proot.ProotToolModule
-                            .recoverInterruptedResult(storage, turnId, callId, true)
-                            ?: com.helix.app.proot.ProotToolModule
-                                .recoverInterruptedResult(storage, turnId, callId, false)
+                        collectProot(turnId, callId, true)
+                            ?: collectProot(turnId, callId, false)
                     }
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                    updateProotRecovery(callId, false, row.prootRecoveryReport)
+                    updateProotRecovery(screenState, callId, false, row.prootRecoveryReport)
                     throw cancelled
                 } catch (_: Exception) {
                     row.prootRecoveredOutput?.copy(acknowledged = false)
@@ -182,18 +227,28 @@ internal class ChatRecoveryActions(
         }
     }
 
-    private fun updateProotRecovery(
+    private fun collectProot(
+        turnId: String,
         callId: String,
-        busy: Boolean,
-        report: com.helix.app.proot.ProotRecoveryReport?,
-    ) {
-        screenState.update { current ->
-            current.copy(
-                toolTimeline =
-                    current.toolTimeline.map {
-                        if (it.callId == callId) it.copy(prootRecoveryBusy = busy, prootRecoveryReport = report) else it
-                    },
-            )
-        }
+        localOnly: Boolean,
+    ) = synchronized(prootCollectionLock) {
+        com.helix.app.proot.ProotToolModule
+            .recoverInterruptedResult(storage, turnId, callId, localOnly)
+    }
+}
+
+private fun updateProotRecovery(
+    screenState: MutableStateFlow<ChatScreenState>,
+    callId: String,
+    busy: Boolean,
+    report: com.helix.app.proot.ProotRecoveryReport?,
+) {
+    screenState.update { current ->
+        current.copy(
+            toolTimeline =
+                current.toolTimeline.map {
+                    if (it.callId == callId) it.copy(prootRecoveryBusy = busy, prootRecoveryReport = report) else it
+                },
+        )
     }
 }

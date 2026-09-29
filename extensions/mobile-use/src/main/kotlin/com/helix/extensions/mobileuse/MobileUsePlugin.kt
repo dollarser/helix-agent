@@ -5,10 +5,10 @@ import com.helix.core.policy.UserScope
 import com.helix.extensions.plugin.HelixPlugin
 import com.helix.extensions.plugin.PluginManifest
 import com.helix.extensions.plugin.PluginManifestReader
-import com.helix.extensions.plugin.PluginToolBinding
 import com.helix.tools.automation.AutomationPermissionCenter
 import com.helix.tools.automation.AutomationTools
 import com.helix.tools.automation.PermissionCenterAutomationToolPort
+import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolOrigin
 
 /**
@@ -37,9 +37,9 @@ class MobileUsePlugin(
         require(manifest.helixRuntimeId == RUNTIME_ID) { "unexpected Mobile Use runtime binding" }
     }
 
-    override fun tools(): List<PluginToolBinding> =
+    override fun tools(): List<ToolBinding> =
         automation.descriptors().map { descriptor ->
-            PluginToolBinding(descriptor, automation.executor(descriptor.name.value))
+            ToolBinding(descriptor, automation.executor(descriptor.name.value))
         }
 
     fun scopeFor(toolName: String?): UserScope? =

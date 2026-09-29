@@ -6,6 +6,7 @@ package com.helix.tools.framework
  * This is not authorization, a job state machine, or a timer that assumes effects ended.
  * One application-process instance must cover every entry point using the same store.
  */
+@Suppress("TooManyFunctions") // Keep ownership admission and trusted control identity in one authority.
 class ExecutionOwnership(
     private val store: Store,
 ) {
@@ -113,6 +114,9 @@ class ExecutionOwnership(
                     else -> runOrdinary(executor, call, exclusive)
                 }
         }
+
+    /** Only the concrete trusted control binding may use reserved reconciliation capacity. */
+    internal fun isControlExecutor(executor: ToolExecutor): Boolean = executor is ControlExecutor
 
     /** Trusted composition only: closed session metadata, never a descriptor-based exemption. */
     fun metadataExecutor(executor: ToolExecutor): ToolExecutor = MetadataExecutor(executor)

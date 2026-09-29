@@ -2,6 +2,10 @@ package com.helix.app.chat
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.foreground.DataSyncForegroundController
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.provider.LoopbackModelServer
@@ -11,11 +15,14 @@ import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.CancelResult
 import com.helix.core.agent.Goal
 import com.helix.core.model.AgentMode
+import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
+import com.helix.core.model.ModelEvent
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
+import com.helix.core.storage.entity.GoalControlEntity
 import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.provider.api.CleartextAuthorization
@@ -26,6 +33,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -160,7 +169,10 @@ class GoalInputSchedulingDeviceTest {
                 assertEquals(1, storage.goalRuns.listByGoal(goal).size)
                 assertEquals(1, wire.count())
 
-                chat.setMode(AgentMode.ACT)
+                // Terminal Room/UI state can precede release of the live execution lease.
+                kotlinx.coroutines.withTimeout(15_000) {
+                    while (!chat.setModeFromComposer(session, AgentMode.ACT)) kotlinx.coroutines.delay(25)
+                }
                 val fresh = accepted(chat, submission(session, "A new explicit user task after stopping"))
                 wire.awaitRequest(1)
                 assertNull(storage.goalTurnBindings.byTurn(fresh))
@@ -312,6 +324,101 @@ class GoalInputSchedulingDeviceTest {
         fun body(index: Int): String = bodies[index]
     }
 
+    @Test fun manualCompactionDoesNotCreateAGoalOrContinue() =
+        runBlocking {
+            manualCompactionFixture(existingGoal = false, cancel = false)
+        }
+
+    @Test fun manualCompactionPreservesPausedGoalAndUsage() =
+        runBlocking {
+            manualCompactionFixture(existingGoal = true, cancel = false)
+        }
+
+    @Test fun cancelledManualCompactionPreservesGoalAndHistory() =
+        runBlocking {
+            manualCompactionFixture(existingGoal = true, cancel = true)
+        }
+
+    @Test fun emptyHistoryCompactionAndRetryNeverBecomeGoalWork() =
+        runBlocking {
+            fixture { chat, session, wire ->
+                val storage = compose.container().storage
+                val first = accepted(chat, submission(session, "/compact"))
+                compose.waitUntil(15_000) {
+                    storage.turns.resolve(first).endedAt != null &&
+                        !chat.screen.value.isSending && chat.screen.value.retryTargetTurnId == first
+                }
+                assertEquals("CONTEXT_NOT_COMPACTABLE", storage.turns.resolve(first).errorCode)
+                chat.retry()
+                compose.waitUntil(15_000) {
+                    storage.turns.listBySession(session).size == 2 && !chat.screen.value.isSending
+                }
+                storage.turns.listBySession(session).forEach { assertNull(storage.goalTurnBindings.byTurn(it.id)) }
+                assertEquals(0, wire.count())
+                assertTrue(GoalSummaryQuery(storage).forSession(session).isEmpty())
+                assertEquals(AgentMode.GOAL, chat.runControl.value.mode)
+            }
+        }
+
+    @Suppress("LongMethod") // One real admission, model request and durable settlement assertion sequence.
+    private suspend fun manualCompactionFixture(existingGoal: Boolean, cancel: Boolean) {
+        fixture { chat, session, wire ->
+            val storage = compose.container().storage
+            val goal =
+                if (existingGoal) chat.createGoal("Keep the original objective", emptyList(), goalBudget) else null
+            if (goal != null) {
+                storage.goals.updateGoal(storage.goals.resolve(goal).copy(state = "PAUSED"))
+                storage.goalControls.insert(GoalControlEntity(goal, session, 0, null, null))
+            }
+            val before = goal?.let(storage.goals::resolve)
+            repeat(3) {
+                val old =
+                    TurnCoordinator.start(
+                        storage,
+                        object : Clock {
+                            override fun now() = java.time.Instant.now()
+                        },
+                        { UUID.randomUUID().toString() },
+                        TurnStartSpec(
+                            session,
+                            UUID.randomUUID().toString(),
+                            UUID.randomUUID().toString(),
+                            "{}",
+                            "Historical context ".repeat(600),
+                        ),
+                    )
+                old.beginModelStream().apply {
+                    apply(ModelEvent.TextDelta("Previous answer"))
+                    apply(ModelEvent.Completed("stop"))
+                }
+                old.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+            }
+            val turn = accepted(chat, submission(session, "/compact"))
+            wire.awaitRequest(0)
+            assertNull(storage.goalTurnBindings.byTurn(turn))
+            val request = Json.parseToJsonElement(wire.body(0)) as JsonObject
+            assertTrue(request["tools"] == null || request["tools"].toString() == "[]")
+            if (cancel) chat.stopTurn(turn)
+            wire.release(0)
+            compose.waitUntil(15_000) {
+                storage.turns.resolve(turn).endedAt != null && !chat.screen.value.isSending
+            }
+            assertEquals(if (cancel) "CANCELLED" else "COMPLETED", storage.turns.resolve(turn).state)
+            assertFalse(wire.entered[1].await(1, TimeUnit.SECONDS))
+            assertEquals(1, wire.count())
+            assertTrue(storage.toolCalls.listByTurn(turn).isEmpty())
+            assertEquals(AgentMode.GOAL, chat.runControl.value.mode)
+            if (goal == null) {
+                assertTrue(GoalSummaryQuery(storage).forSession(session).isEmpty())
+            } else {
+                assertEquals(before, storage.goals.resolve(goal))
+                assertTrue(storage.goalRuns.listByGoal(goal).isEmpty())
+            }
+            val checkpoint = ContextCompaction.checkpoint(storage, storage.messages.listBySession(session))
+            if (cancel) assertNull(checkpoint) else assertNotNull(checkpoint)
+        }
+    }
+
     private suspend fun fixture(block: suspend (ChatService, String, Wire) -> Unit) {
         compose.resetDeterministicUiState()
         val container = compose.container()
@@ -346,6 +453,9 @@ class GoalInputSchedulingDeviceTest {
                 configureGoalBudget(session)
                 block(chat, session, wire)
             } finally {
+                println("Goal fixture turns: " + container.storage.turns.listBySession(session))
+                println("Goal fixture inputs: " + container.storage.sessionInputs.listPending(session))
+                println("Goal fixture sending: " + chat.screen.value.isSending)
                 chat.stop()
                 wire.releaseAll()
                 compose.waitUntil(15_000) { !chat.screen.value.isSending }

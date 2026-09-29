@@ -40,6 +40,7 @@ internal object ModelToolExposureOrder {
         coreFiles.keys + GoalLifecycleTools.names +
             setOf(
                 "tools.search",
+                "ask_user",
                 ToolResultReadTool.NAME,
                 "code.javascript.run",
                 "plan.submit",
@@ -49,7 +50,6 @@ internal object ModelToolExposureOrder {
                 "skills.disable",
                 "skills.read",
                 "skills.read_resource",
-                "time.now",
             ) + if (preferUi) coreUi else emptySet()
 
     fun prioritize(
@@ -69,7 +69,7 @@ internal object ModelToolExposureOrder {
         val name = tool.name.value
         return when {
             name in GoalLifecycleTools.names || name == ToolResultReadTool.NAME -> 0
-            name == "tools.search" -> 10
+            name == "tools.search" || name == "ask_user" -> 10
             name in coreFiles -> 20 + requireNotNull(coreFiles[name])
             preferUi && name in coreUi -> 30
             else -> 100

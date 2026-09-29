@@ -84,6 +84,7 @@ class TurnEngine internal constructor(
         clientRequestId: String,
     ): String? = admission.recoveryPredecessor(sessionId, clientRequestId)
 
+    @Suppress("LongParameterList") // Mirrors the atomic admission boundary.
     internal fun admit(
         spec: TurnStartSpec,
         control: RunControlConfig,
@@ -92,6 +93,7 @@ class TurnEngine internal constructor(
         modelId: String,
         freshGuard: () -> Boolean = { true },
         resolveGoal: () -> String? = { null },
+        recoveryInspection: Boolean = false,
     ): TurnAdmissionResult =
         admission.start(
             spec = spec,
@@ -101,6 +103,7 @@ class TurnEngine internal constructor(
             modelId = modelId,
             freshGuard = freshGuard,
             resolveGoal = resolveGoal,
+            recoveryInspection = recoveryInspection,
         )
 
     internal suspend fun resolveReview(command: ReviewResolutionCommand): TurnReviewResolutionResult =
@@ -109,6 +112,14 @@ class TurnEngine internal constructor(
     internal fun sessionBlocker(sessionId: String): SessionTurnBlocker? = DurableSessionGate(storage).blocker(sessionId)
 
     internal fun recoverOnStartup(): TurnRecovery.Report = TurnRecovery(storage, clock).recover()
+
+    internal fun finishAutomaticRecovery(
+        parentId: String,
+        reason: String,
+        notice: String? = null,
+    ) {
+        AutomaticRecoverySettlement(storage, clock).finish(parentId, reason, notice)
+    }
 
     /** Atomically parks the Turn, bound Goal and pending session delivery before dropping the live driver. */
     internal fun parkForReview(
@@ -162,6 +173,7 @@ class TurnEngine internal constructor(
             val turn = storage.turns.resolve(turnId)
             require(turn.sessionId == sessionId) { "turn/session mismatch" }
             val phase = TurnState.valueOf(turn.state)
+            recordUserStop(turn, phase, reason)
             decision =
                 when {
                     phase.isTerminal -> {
@@ -195,6 +207,20 @@ class TurnEngine internal constructor(
                 }
         }
         return decision
+    }
+
+    private fun recordUserStop(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        phase: TurnState,
+        reason: String,
+    ) {
+        if (reason != "USER_STOP") return
+        if (phase == TurnState.NEEDS_REVIEW || phase == TurnState.INTERRUPTED) {
+            storage.turns.updateState(turn, phase, turn.stepCount, turn.endedAt, reason)
+            storage.sessionInputs.parkSessionInputs(turn.sessionId, reason, clock.now().toEpochMilli())
+        } else if (!phase.isTerminal) {
+            storage.turns.requestPause(turn.id, clock.now().toEpochMilli())
+        }
     }
 }
 

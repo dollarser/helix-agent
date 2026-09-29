@@ -16,18 +16,16 @@ private const val MAX_DIFF_SIDE_BYTES = 1024L * 1024L
 private const val MAX_DIFF_SIDE_KIB = MAX_DIFF_SIDE_BYTES / 1024
 private const val MAX_DIFF_LINES = 50_000
 private const val DIFF_CONTEXT = 5
+private const val MAX_PREVIEW_CHARS = 64 * 1024
+
+private class DiffWorkLimit : RuntimeException()
+
 private const val NO_NEWLINE_MARKER = "\\ No newline at end of file\n"
 
 /**
- * Renders ONE UNSTAGED (worktree-vs-index) diff entry as a unified diff WITHOUT touching the
- * repository — [GitWorkspaceReader] is read-only, and this is the half of the diff that used to
- * require a write. [org.eclipse.jgit.diff.DiffFormatter] cannot render an unstaged pair: JGit
- * hashes the worktree side into the [DiffEntry] but never stores it in the object database, so
- * the diff is computed here instead — the old side is read from the odb (the index blob always
- * exists there), the new side straight from the worktree file, both bounded by
- * [MAX_DIFF_SIDE_BYTES], and the lines are diffed with [MyersDiff.INSTANCE] over a line
- * [Sequence] whose [Edit] offsets are therefore line indices. Everything is local to the call:
- * two concurrent renders, or a render racing a real `git` process, share no state.
+ * Renders staged (HEAD/index) or unstaged (index/worktree) changes without repository writes.
+ * Both sides have the same byte, line and comparison-work bounds. Unstaged content comes
+ * directly from the worktree; its hash need not exist in the object database.
  */
 internal class WorktreeDiffRenderer(
     private val repoDir: File,
@@ -40,9 +38,18 @@ internal class WorktreeDiffRenderer(
     fun render(
         repo: Repository,
         entry: DiffEntry,
+        staged: Boolean = false,
     ): String {
         val oldBytes = readOdbSide(repo, entry.oldId?.toObjectId())
-        val newBytes = readWorktreeSide(File(repoDir, entry.newPath))
+        val newBytes =
+            if (staged) {
+                readOdbSide(
+                    repo,
+                    entry.newId?.toObjectId(),
+                )
+            } else {
+                readWorktreeSide(File(repoDir, entry.newPath))
+            }
         if (oldBytes == null || newBytes == null) {
             return "diff not rendered: ${nameOf(entry)} exceeds the $MAX_DIFF_SIDE_KIB KiB per-side limit\n"
         }
@@ -54,7 +61,16 @@ internal class WorktreeDiffRenderer(
         return if (old.lines.size + new.lines.size > MAX_DIFF_LINES) {
             "diff not rendered: ${nameOf(entry)} exceeds the $MAX_DIFF_LINES-line limit\n"
         } else {
-            unifiedEntry(entry, old, new, lineDiff(old, new))
+            try {
+                val rendered = unifiedEntry(entry, old, new, lineDiff(old, new))
+                if (rendered.length > MAX_PREVIEW_CHARS) {
+                    rendered.take(MAX_PREVIEW_CHARS) + "\n[Diff preview truncated]\n"
+                } else {
+                    rendered
+                }
+            } catch (_: DiffWorkLimit) {
+                "diff not rendered: comparison work limit exceeded\n"
+            }
         }
     }
 
@@ -65,19 +81,29 @@ internal class WorktreeDiffRenderer(
     ): ByteArray? {
         if (id == null || id == ObjectId.zeroId()) return ByteArray(0)
         return try {
-            repo.open(id).getBytes(MAX_DIFF_SIDE_BYTES.toInt())
+            val loader = repo.open(id)
+            if (loader.size > MAX_DIFF_SIDE_BYTES) null else loader.getBytes(MAX_DIFF_SIDE_BYTES.toInt())
         } catch (_: LargeObjectException) {
             null
         }
     }
 
     /** The new side: the worktree file itself; `null` when it exceeds the cap. */
-    private fun readWorktreeSide(file: File): ByteArray? =
-        when {
-            !file.isFile -> ByteArray(0)
-            file.length() > MAX_DIFF_SIDE_BYTES -> null
-            else -> file.readBytes()
+    @Suppress("ReturnCount") // Absent, oversized, and bounded content are distinct read outcomes.
+    private fun readWorktreeSide(file: File): ByteArray? {
+        if (!file.isFile) return ByteArray(0)
+        if (file.length() > MAX_DIFF_SIDE_BYTES) return null
+        return file.inputStream().use { input ->
+            val bytes = ByteArray(MAX_DIFF_SIDE_BYTES.toInt() + 1)
+            var count = 0
+            while (count < bytes.size) {
+                val read = input.read(bytes, count, bytes.size - count)
+                if (read < 0) break
+                count += read
+            }
+            if (count > MAX_DIFF_SIDE_BYTES) null else bytes.copyOf(count)
         }
+    }
 
     /** The path the human sees for [entry] (a deleted file is known by its old path). */
     private fun nameOf(entry: DiffEntry): String =
@@ -245,12 +271,21 @@ private class LineSequence(
  * "\ No newline at end of file" marker instead).
  */
 private class LineComparator : SequenceComparator<LineSequence>() {
+    private var remaining = 2_000_000
+
+    private fun countWork() {
+        if (--remaining < 0) throw DiffWorkLimit()
+    }
+
     override fun equals(
         a: LineSequence,
         aOffset: Int,
         b: LineSequence,
         bOffset: Int,
-    ): Boolean = identity(a, aOffset) == identity(b, bOffset)
+    ): Boolean {
+        countWork()
+        return identity(a, aOffset) == identity(b, bOffset)
+    }
 
     override fun hash(
         s: LineSequence,

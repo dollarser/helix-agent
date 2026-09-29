@@ -2,6 +2,7 @@ package com.helix.app.engine
 
 import android.util.Log
 import com.helix.app.agent.AgentLoop
+import com.helix.app.agent.AutomaticGoalContinuation
 import com.helix.app.agent.ContextCapacityException
 import com.helix.app.agent.GoalTimeLimitException
 import com.helix.app.agent.ModelStreamTerminal
@@ -205,7 +206,11 @@ internal class TurnExecutionDriver(
         val turnId = request.coordinator.id
         val effective = consumeSystemStop(turnId)?.let { outcome.copy(errorCode = it) } ?: outcome
         val settled = settleTerminal(request.coordinator, effective)
-        if (settled.state != TurnState.COMPLETED) {
+        val turn = storage.turns.resolve(turnId)
+        val goalLocalLimit =
+            storage.goalTurnBindings.byTurn(turnId) != null &&
+                AutomaticGoalContinuation.accepts(settled.state.name, settled.errorCode, turn.pauseRequestedAt)
+        if (settled.state != TurnState.COMPLETED && !goalLocalLimit) {
             storage.sessionInputs.parkSessionInputs(
                 request.sessionId,
                 "TURN_NOT_COMPLETED",

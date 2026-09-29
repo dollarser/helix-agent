@@ -55,7 +55,7 @@ import kotlin.time.Duration.Companion.seconds
 class ToolSchedulerTest {
     private lateinit var clock: FakeClock
     private lateinit var registry: ToolRegistry
-    private lateinit var impls: ToolImplementationRegistry
+
     private lateinit var broker: ScriptedBroker
     private lateinit var sink: RecordingSink
     private lateinit var dispatcher: ToolDispatcher
@@ -65,11 +65,11 @@ class ToolSchedulerTest {
     fun setUp() {
         clock = FakeClock(Instant.parse("2026-01-01T00:00:00Z"))
         registry = ToolRegistry()
-        impls = ToolImplementationRegistry()
+
         val center = CapabilityCenter(RecordingResolver(usableCaps, clock))
         broker = ScriptedBroker()
         sink = RecordingSink()
-        dispatcher = ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink)
+        dispatcher = ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink)
     }
 
     /** An executor that holds its slot for [holdMillis] and returns the fixed payload. */
@@ -110,8 +110,8 @@ class ToolSchedulerTest {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        registry.register(d)
-        impls.register(d, executor)
+
+        registry.register(d, executor)
     }
 
     private fun call(
@@ -636,7 +636,6 @@ class ToolSchedulerTest {
             ToolDispatcher(
                 clock,
                 registry,
-                impls,
                 CapabilityCenter(RecordingResolver(usableCaps, clock)),
                 PolicyEngine(clock),
                 ThrowingBroker(),
@@ -680,7 +679,6 @@ class ToolSchedulerTest {
             ToolDispatcher(
                 clock,
                 registry,
-                impls,
                 CapabilityCenter(RecordingResolver(usableCaps, clock)),
                 PolicyEngine(clock),
                 PerCallThrowingBroker(),
@@ -1078,7 +1076,6 @@ class ToolSchedulerTest {
         ToolDispatcher(
             clock,
             registry,
-            impls,
             CapabilityCenter(RecordingResolver(usableCaps, clock)),
             PolicyEngine(clock),
             broker,
@@ -1088,4 +1085,77 @@ class ToolSchedulerTest {
             toolAvailability = source,
             effectClassifier = FixedClassifier(),
         )
+
+    @Test fun queuedReadCannotSwitchToAReplacementWriteExecutor() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val executions = AtomicInteger()
+        register(
+            "blocking",
+            ToolOperationClass.LOCAL_MUTATION,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    started.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "queued",
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    executions.incrementAndGet()
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        broker.script(ApprovalAcquisition.Approved(ApprovalProof("first", "a".repeat(64))))
+        val scheduler = ToolScheduler(clock, dispatcher, registry)
+        val result =
+            CompletableFuture.supplyAsync {
+                scheduler.scheduleBatch(listOf(call("first", "blocking"), call("second", "queued")))
+            }
+        try {
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            val candidates =
+                registry.snapshot().map { registered ->
+                    if (registered.descriptor.name.value == "queued") {
+                        registered.binding.copy(
+                            descriptor = registered.descriptor.copy(operationClass = ToolOperationClass.LOCAL_MUTATION),
+                        )
+                    } else {
+                        registered.binding
+                    }
+                }
+            registry.replaceOwner(candidates.first().owner, candidates)
+        } finally {
+            release.countDown()
+        }
+        val batch = result.get(5, TimeUnit.SECONDS)
+        val outcome = (batch.settlements[1] as ToolScheduler.BatchSettlement.Outcome).outcome
+        assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, (outcome as ToolDispatchOutcome.Denied).code)
+        assertEquals(0, executions.get())
+        assertEquals(1, broker.acquireCalls.size)
+    }
+
+    @Test fun missingPinnedBindingCannotBecomeANewlyRegisteredTool() {
+        val executions = AtomicInteger()
+        val request = call("missing", "late").copy(bindingPinned = true)
+        register(
+            "late",
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    executions.incrementAndGet()
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        val result = ToolScheduler(clock, dispatcher, registry).scheduleBatch(listOf(request))
+        val outcome = (result.settlements.single() as ToolScheduler.BatchSettlement.Outcome).outcome
+        assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, (outcome as ToolDispatchOutcome.Denied).code)
+        assertEquals(0, executions.get())
+    }
 }

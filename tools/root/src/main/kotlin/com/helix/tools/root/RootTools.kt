@@ -10,7 +10,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -60,13 +59,10 @@ class RootTools(
             ),
         )
 
-    fun register(
-        registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
-    ) {
+    fun register(registry: ToolRegistry) {
         descriptors().forEach { descriptor ->
-            registry.register(descriptor)
-            implementations.register(descriptor, executor(descriptor.name.value))
+
+            registry.register(descriptor, executor(descriptor.name.value))
         }
     }
 

@@ -53,6 +53,10 @@ object GoalReducer {
         event: GoalEvent,
     ): GoalStep =
         when (event) {
+            GoalEvent.RecoveryInspection -> {
+                onContinued(state, GoalEvent.Continued(GoalWakeReason.FOREGROUND_CONTINUATION), recovery = true)
+            }
+
             is GoalEvent.Ready -> {
                 onReady(state, event)
             }
@@ -142,11 +146,15 @@ object GoalReducer {
     private fun onContinued(
         state: Goal,
         event: GoalEvent.Continued,
+        recovery: Boolean = false,
     ): GoalStep {
         // A parked goal whose lifetime budget is exhausted stays parked: continuing it is
         // ignored (not failed) until the user extends the budget with BudgetsUpdated.
         val resumable =
-            state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED) && state.canStartRun()
+            (
+                state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED) ||
+                    (recovery && state.state == GoalState.BLOCKED)
+            ) && state.canStartRun()
         if (!resumable) return GoalStep.unchanged(state)
         val next =
             state.copy(

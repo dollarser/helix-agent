@@ -18,7 +18,7 @@
     <string name="ui_residence_user_authorized_lan">LAN (authorized by host:port)</string>
     <string name="ui_residence_public_cloud">Public cloud</string>
     <string name="ui_residence_custom_remote_unknown">Unknown remote destination</string>
-    <string name="disclosure_title">Confirm sending this data</string>
+    <string name="disclosure_title">Data transfer approval</string>
     <string name="disclosure_provider">Provider: %1$s (%2$s)</string>
     <string name="disclosure_destination">Destination: %1$s</string>
     <string name="disclosure_residence">Data residence: %1$s</string>
@@ -585,7 +585,7 @@
     <string name="tool_failure_generic">Tool execution failed</string>
     <string name="tool_failure_mcp">MCP tool execution failed</string>
     <string name="tool_failure_a2a">A2A task execution failed</string>
-    <string name="tool_failure_requires_review">The execution outcome is uncertain; review its status before retrying</string>
+    <string name="tool_failure_requires_review">The execution outcome is uncertain; automatic inspection will not replay it</string>
     <string name="tool_state_interrupted">Interrupted (to resume)</string>
     <string name="tool_state_needs_review">Needs review</string>
     <string name="tool_state_processing">Processing</string>
@@ -725,7 +725,7 @@
     <string name="subscription_recovery_stopping">Stop requested. Query again to confirm its status.</string>
     <string name="subscription_recovery_view">Recover model reply</string>
     <string name="subscription_recovery_result_unavailable">A verified result could not be recovered. Try again later.</string>
-    <string name="subscription_recovery_result_saved">Reply saved. The task remains interrupted. Review the reply before deciding what to do next.</string>
+    <string name="subscription_recovery_result_saved">Reply saved automatically. The original interruption and unknown outcomes remain recorded.</string>
     <string name="subscription_recovery_no_text">This result contains no displayable reply text.</string>
     <string name="subscription_recovery_page">Page %1$d of %2$d</string>
     <string name="subscription_recovery_previous">Previous page</string>
@@ -1164,7 +1164,7 @@
     <string name="recovery_denied">Refused actions: %1$s</string>
     <string name="recovery_pending">Side effects to verify: %1$s</string>
     <string name="recovery_artifacts">Available artifacts: %1$d</string>
-    <string name="recovery_next">Next action: %1$s</string>
+    <string name="recovery_next">Optional action: %1$s</string>
     <string name="recovery_btn_reconnect">Reconnect</string>
     <string name="recovery_btn_query">Query result</string>
     <string name="recovery_btn_grant">Grant permission</string>
@@ -1548,4 +1548,17 @@
     <string name="chat_capture_unavailable">Unable to open the camera or prepare the photo. Check available storage and camera access, or choose an existing photo.</string>
     <string name="artifacts_share_unavailable">Could not open sharing. Try again later or use another export option.</string>
     <string name="chat_picker_unavailable">Could not open the file picker. Check that the system Files app is available and try again.</string>
+    <string name="quickjs_native_title">QuickJS native access</string>
+    <string name="quickjs_native_description">Off by default: scripts run in isolation. Enabling allows access to app-accessible files (including private data), network and Android APIs, subject to system permissions. Run trusted scripts only. Disabling interrupts native tasks but does not undo completed operations.</string>
+    <string name="quickjs_native_enable">Enable</string>
+    <string name="quickjs_native_cancel">Cancel</string>
+    <string name="user_question_custom">Custom answer (overrides choices)</string>
+    <string name="user_question_failed">Answer not sent. Check the conversation and try again.</string>
+    <string name="user_question_send">Send answer</string>
+    <string name="user_question_skip">Skip</string>
+    <string name="user_question_title">Your preference</string>
+    <string name="automatic_recovery_unavailable">The task was interrupted and the current model, authorization or remaining budget cannot complete automatic inspection. This attempt has ended. Completed actions and unknown outcomes are preserved and will not be replayed.</string>
+    <string name="session_input_recovery_ended">A queued request could not be revalidated automatically and has ended without being executed again. Its original content is retained; completed actions are unchanged.</string>
+    <string name="git_diff_read_error">Could not read the diff. Refresh the repository and try again.</string>
+    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Refresh the available tools before making a new call.</string>
 </resources>

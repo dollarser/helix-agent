@@ -10,7 +10,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolVisualPreparation
@@ -119,11 +118,10 @@ object ViewImageTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         preparation: ToolVisualPreparation,
     ) {
         val descriptor = descriptor()
-        registry.register(descriptor)
-        implementations.register(descriptor, executor(preparation))
+
+        registry.register(descriptor, executor(preparation))
     }
 }

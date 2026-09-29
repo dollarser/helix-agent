@@ -41,6 +41,7 @@ data class RequestContextManifest(
     val messages: List<MessageRefEntry>,
     val inputIds: List<String>,
     val isTruncated: Boolean = false,
+    val tools: List<ExposedToolBinding> = emptyList(),
 ) {
     companion object {
         const val MAX_SINGLE_LINE_BYTES = 256 * 1024 // 256 KiB JSONL single line limit
@@ -86,7 +87,31 @@ object CompactManifestCodec {
             if (index > 0) sb.append(",")
             sb.append("\"").append(escapeJson(id)).append("\"")
         }
-        sb.append("]}")
+        sb.append("]")
+        if (manifest.tools.isNotEmpty()) {
+            sb.append(",\"tools\":[")
+            manifest.tools.forEachIndexed { index, tool ->
+                if (index > 0) sb.append(',')
+                val ref = tool.binding
+                val fields =
+                    listOf(
+                        tool.exposedName,
+                        ref.name.value,
+                        ref.version.value.toString(),
+                        ref.contractHash,
+                        ref.owner,
+                        ref.implementationRevision,
+                        ref.incarnation,
+                    )
+                sb.append(
+                    fields.joinToString(prefix = "[", postfix = "]", separator = ",") {
+                        "\"${escapeJson(it)}\""
+                    },
+                )
+            }
+            sb.append(']')
+        }
+        sb.append('}')
 
         val result = sb.toString()
         return result
@@ -101,7 +126,10 @@ object CompactManifestCodec {
         checkpoint: Long? = null,
         messages: List<MessageRefEntry>,
         inputIds: List<String>,
+        tools: List<ExposedToolBinding> = emptyList(),
     ): RequestContextManifest {
+        require(tools.size <= ModelRequest.MAX_TOOLS)
+        require(tools.map { it.exposedName }.distinct().size == tools.size)
         var safeMessages = messages.take(RequestContextManifest.MAX_SAFE_MESSAGES)
         var safeInputs = inputIds.take(RequestContextManifest.MAX_SAFE_INPUT_IDS)
         var truncated = (messages.size > safeMessages.size) || (inputIds.size > safeInputs.size)
@@ -114,6 +142,7 @@ object CompactManifestCodec {
                 messages = safeMessages,
                 inputIds = safeInputs,
                 isTruncated = truncated,
+                tools = tools,
             )
 
         // If byte length still exceeds 256 KiB (e.g. extreme Unicode input IDs), drop older entries
@@ -138,10 +167,14 @@ object CompactManifestCodec {
                     messages = safeMessages,
                     inputIds = safeInputs,
                     isTruncated = true,
+                    tools = tools,
                 )
             encoded = encodeCompact(candidate)
         }
 
+        require(encoded.toByteArray(Charsets.UTF_8).size <= RequestContextManifest.MAX_SINGLE_LINE_BYTES) {
+            "request binding manifest exceeds the storage budget"
+        }
         return candidate
     }
 
@@ -154,7 +187,7 @@ object CompactManifestCodec {
                 '\n' -> out.append("\\n")
                 '\r' -> out.append("\\r")
                 '\t' -> out.append("\\t")
-                else -> out.append(c)
+                else -> if (c < ' ') out.append("\\u%04x".format(c.code)) else out.append(c)
             }
         }
         return out.toString()

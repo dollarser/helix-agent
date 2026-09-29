@@ -57,6 +57,29 @@ class ProviderRowUiModelDiscoveryTest {
         assertNull(row.capabilitiesForModel("unknown"))
     }
 
+    @Test fun compactionAndNormalPreferencesResolveAgainstTheActualModel() {
+        val store = ProviderTestStatusStore(InMemoryLineStore())
+        store.recordPassed(
+            "prov_1",
+            1000,
+            capabilities.copy(reasoning = true),
+            listOf("fixture-model-a", "plain", "high"),
+        )
+        val row =
+            providerRowUi(entity(), store.statusFor("prov_1")).copy(
+                modelMetadata =
+                    mapOf(
+                        "plain" to ModelMetadata(emptyList(), false, 8192),
+                        "high" to ModelMetadata(listOf(ReasoningEffort.HIGH), false, 8192),
+                    ),
+            )
+        assertEquals(ReasoningEffort.LOW, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor(row.model)))
+        assertEquals(ReasoningEffort.OFF, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor("plain")))
+        assertEquals(ReasoningEffort.OFF, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor("high")))
+        assertEquals(ReasoningEffort.HIGH, supportedReasoning(ReasoningEffort.HIGH, row.reasoningOptionsFor("high")))
+        assertEquals(ReasoningEffort.OFF, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor("unknown")))
+    }
+
     private fun entity() =
         ProviderConfigEntity(
             id = "prov_1",

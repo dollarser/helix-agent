@@ -13,7 +13,6 @@ import com.helix.extensions.skills.connector.ConnectorPackageReader
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -95,14 +94,13 @@ class ConnectorSendBoundaryDeviceTest {
         private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         private val c = app.appContainer
         private val registry = ToolRegistry()
-        private val implementations = ToolImplementationRegistry()
+
         private val session = "connector-send-${UUID.randomUUID()}"
         private val mcp =
             McpAppService(
                 McpStorageBridge(c.storage),
                 { SafetyProfile.ADVANCED },
                 registry,
-                implementations,
                 lanScopes = { setOf(NetworkOriginScope("127.0.0.1", port)) },
                 sourceAvailable = c.connectorService.catalog::endpointAvailable,
             )
@@ -137,7 +135,7 @@ class ConnectorSendBoundaryDeviceTest {
             val snapshot = runBlocking { mcp.testConnection(endpoint.id) }
             mcp.enable(snapshot, setOf(InAppMcpServer.TOOL_NAME))
             descriptor = registry.all().single()
-            captured = implementations.resolve(descriptor.name, descriptor.version)
+            captured = registry.executor(descriptor.name, descriptor.version)
         }
 
         fun select(enabled: Boolean) = service.catalog.select(session, record.id, enabled)

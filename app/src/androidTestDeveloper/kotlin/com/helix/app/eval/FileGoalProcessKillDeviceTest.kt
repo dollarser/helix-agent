@@ -115,14 +115,12 @@ class FileGoalProcessKillDeviceTest {
     }
 
     /** Test APK only: hold the original executor result, without replacing its file operation or policy path. */
-    @Suppress("UNCHECKED_CAST")
     private fun holdPublishedResult() {
-        val registry = container.toolPipeline.implementations
+        val registry = container.toolPipeline.registry
         val descriptor = requireNotNull(container.toolPipeline.resolveLatest("write"))
-        val original = registry.resolve(descriptor.name, descriptor.version)
-        val field = registry.javaClass.getDeclaredField("byNameVersion").apply { isAccessible = true }
-        val entries = field.get(registry) as MutableMap<Any, ToolExecutor>
-        entries[descriptor.name to descriptor.version] =
+        val originalBinding = registry.resolveBinding(descriptor.name, descriptor.version)
+        val original = originalBinding.executor
+        val wrapped =
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     val result = original.execute(call)
@@ -132,6 +130,22 @@ class FileGoalProcessKillDeviceTest {
                     error("Host missed the file publication boundary")
                 }
             }
+        registry.replaceOwner(
+            originalBinding.ref.owner,
+            registry
+                .snapshot()
+                .filter { it.ref.owner == originalBinding.ref.owner }
+                .map {
+                    if (it.ref == originalBinding.ref) {
+                        it.binding.copy(
+                            executor = wrapped,
+                            implementationRevision = "test-result-hold",
+                        )
+                    } else {
+                        it.binding
+                    }
+                },
+        )
     }
 
     private suspend fun configure(

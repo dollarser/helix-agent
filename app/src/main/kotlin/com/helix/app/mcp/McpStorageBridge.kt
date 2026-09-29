@@ -17,12 +17,14 @@ class McpStorageBridge(
     private val capabilities: McpCapabilityRepository,
     private val credentialLookup: McpCredentialLookup,
     private val credentialDelete: (SecretAlias) -> Unit,
+    private val transaction: (() -> Unit) -> Unit,
 ) {
     constructor(storage: HelixStorage) : this(
         servers = storage.mcpServers,
         capabilities = storage.mcpCapabilities,
         credentialLookup = McpCredentialLookup { alias -> storage.secrets.get(alias) },
         credentialDelete = storage.secrets::delete,
+        transaction = storage::withTransaction,
     )
 
     fun registerDisabled(
@@ -81,6 +83,24 @@ class McpStorageBridge(
         require(names.all { it in available }) { "MCP tool selection contains an unknown tool" }
         rows.filter { it.kind == "tool" }.forEach { row ->
             capabilities.setEnabled(row.rowId, row.name in names)
+        }
+    }
+
+    fun disable(serverId: String) {
+        transaction {
+            setServerEnabled(serverId, false)
+            setEnabledTools(serverId, emptySet())
+        }
+    }
+
+    fun enableSnapshot(
+        snapshot: McpHandshakeSnapshot,
+        toolNames: Set<String>,
+    ) {
+        transaction {
+            persistHandshake(snapshot)
+            setEnabledTools(snapshot.serverId.value, toolNames)
+            setServerEnabled(snapshot.serverId.value, true)
         }
     }
 

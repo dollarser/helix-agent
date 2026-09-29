@@ -80,7 +80,6 @@ import com.helix.tools.browser.BrowserTools
 import com.helix.tools.framework.TimeNowTool
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -260,13 +259,17 @@ internal class DefaultAppContainer(
             }
         }
 
-    private val toolRegistry: ToolRegistry = ToolRegistry()
-
-    private val toolImplementations: ToolImplementationRegistry = ToolImplementationRegistry()
+    private val toolRegistry: ToolRegistry =
+        ToolRegistry(
+            hostImplementationRevision = "${context.packageName}:${context.packageManager.getPackageInfo(
+                context.packageName,
+                0,
+            ).lastUpdateTime}",
+        )
 
     override val pluginRegistry =
         com.helix.extensions.plugin
-            .PluginRegistry(toolRegistry, toolImplementations)
+            .PluginRegistry(toolRegistry)
 
     private val skillsRoot: Path = java.io.File(context.filesDir, "skills").toPath()
 
@@ -406,6 +409,10 @@ internal class DefaultAppContainer(
      * (never main) executor thread.
      */
     private val jsExecutionClient: JsExecutionClient = JsExecutionClient(context)
+    override val userQuestions by lazy {
+        com.helix.app.chat
+            .UserQuestionService(storage)
+    }
 
     /**
      * The persisted SAF tree grant registry (HXA-044/HXA-057): one shared [SafGrantStore] under the
@@ -477,50 +484,47 @@ internal class DefaultAppContainer(
         // consumer is a no-op). Runs before any tool can resolve an af- scope.
         AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
-        TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        TimeNowTool.register(toolRegistry, appClock)
         com.helix.app.memory.MemoryTools
-            .register(toolRegistry, toolImplementations, memory)
+            .register(toolRegistry, memory)
         com.helix.app.chat.ToolResultReadTool
-            .register(toolRegistry, toolImplementations, storage)
+            .register(toolRegistry, storage)
         com.helix.app.goal.GoalLifecycleTools
             .register(
                 toolRegistry,
-                toolImplementations,
                 executionOwnership::metadataExecutor,
             ) { chatService.executeGoalTool(it) }
         com.helix.app.goal.GoalReportTool
-            .register(toolRegistry, toolImplementations, storage, executionOwnership::metadataExecutor)
+            .register(toolRegistry, storage, executionOwnership::metadataExecutor)
         // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
         // versioned PlanArtifact REVIEW_REQUIRED through the same repository the review
         // loop (ChatService.planReview) drives.
         com.helix.app.plan.PlanTools
-            .register(toolRegistry, toolImplementations, storage.plans, {
+            .register(toolRegistry, storage.plans, {
                 idGenerator.next()
             }, executionOwnership::metadataExecutor)
         // HX2-07: `todo.write` — the model's working-memory ledger; read-only L0 echo whose
         // durable record is the dispatcher's own tool-call row (like `goal.report`).
         com.helix.app.todo.TodoWriteTool
-            .register(toolRegistry, toolImplementations, executionOwnership::metadataExecutor)
+            .register(toolRegistry, executionOwnership::metadataExecutor)
         // HXA-095: developer registers only the five high-level Root reads; consumer is a
         // flavor-local no-op and therefore has neither libsu classes nor Root descriptors.
-        RootModule.register(context, appClock, toolRegistry, toolImplementations)
+        RootModule.register(context, appClock, toolRegistry)
         // HXA-097: developer exposes the accepted snapshot/token/action contracts; consumer
         // remains a flavor-local no-op with no Accessibility tool descriptors.
         AutomationModule.register(context, pluginRegistry)
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
         // and allowed-tools hints cannot register tools or grant authority.
-        SkillTools.registerAll(toolRegistry, toolImplementations, skillRepository)
+        SkillTools.registerAll(toolRegistry, skillRepository)
         com.helix.app.skills.SkillAuthoringTools
-            .register(toolRegistry, toolImplementations, skillAuthoringService)
+            .register(toolRegistry, skillAuthoringService)
         com.helix.app.skills.SkillInstallationTools.register(
             toolRegistry,
-            toolImplementations,
             skillInstallationService,
         )
         com.helix.app.connector.ConnectorInstallationTools.register(
             toolRegistry,
-            toolImplementations,
             connectorInstallationService,
         )
         // Tool writes register their artifacts through the sink (doc 02 §8): the file is
@@ -528,17 +532,14 @@ internal class DefaultAppContainer(
         // writing session/turn — the same file-first contract as the A2A import path.
         AppWorkspaceTools.register(
             toolRegistry,
-            toolImplementations,
             workspaceStore,
             toolVision.artifactSink,
         )
-        toolVision.registerTools(toolRegistry, toolImplementations, browser)
+        toolVision.registerTools(toolRegistry, browser)
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
-        CodeJavascriptRunTool.register(toolRegistry, toolImplementations) { params, cancel ->
-            jsExecutionClient.execute(params, cancel)
-        }
+        registerSessionRuntimeTools(toolRegistry, jsExecutionClient, userQuestions)
         // HXA-085: the PRoot `code.linux.run` tool (developer flavor only; the consumer
         // no-op registers nothing). Registration does NO bind and starts NO process
         // (ADR-0007): the availability gate runs per execution, and the only bind paths
@@ -546,18 +547,16 @@ internal class DefaultAppContainer(
         ProotToolModule.registerTools(
             context,
             toolRegistry,
-            toolImplementations,
             workspaceStore,
             storage,
             executionOwnership,
             { chatService },
         )
         com.helix.app.settings.HelixSettingsTool
-            .register(toolRegistry, toolImplementations) { this }
+            .register(toolRegistry) { this }
         AppAndroidTools.register(
             context,
             toolRegistry,
-            toolImplementations,
             object : EgressPolicyProvider {
                 override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, lanScopeStore.current())
             },
@@ -629,7 +628,6 @@ internal class DefaultAppContainer(
                 ToolDispatcher(
                     clock = appClock,
                     registry = toolRegistry,
-                    implementations = toolImplementations,
                     capabilityCenter = capabilityCenter,
                     policyEngine = PolicyEngine(appClock),
                     approvals = broker,
@@ -669,14 +667,13 @@ internal class DefaultAppContainer(
                 )
             ToolPipeline(
                 toolRegistry,
-                toolImplementations,
                 dispatcher,
                 broker,
                 auditSink,
                 scheduler,
                 disabledToolFilter = disabledToolFilter,
             ).also {
-                it.mcpDiscovery.register(toolImplementations)
+                it.mcpDiscovery.register(toolRegistry)
             }
         }
 
@@ -726,7 +723,6 @@ internal class DefaultAppContainer(
             profile = { profileStore.profile },
             lanScopes = lanScopeStore::current,
             registry = toolRegistry,
-            implementations = toolImplementations,
         ).also { service ->
             toolPipeline.installMcpFactsProvider(service::dispatchFacts)
         }
@@ -773,7 +769,6 @@ internal class DefaultAppContainer(
         A2aAppService(
             storage = A2aStorageBridge(storage),
             registry = toolRegistry,
-            implementations = toolImplementations,
             runner =
                 A2aTaskRunner(
                     storage = storage,

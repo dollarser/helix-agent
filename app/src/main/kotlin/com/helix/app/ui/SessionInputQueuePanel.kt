@@ -449,5 +449,6 @@ private fun stateLabel(state: SessionInputState): String =
             SessionInputState.NEEDS_ATTENTION -> R.string.session_input_state_needs_attention
             SessionInputState.APPENDED -> R.string.session_input_state_appended
             SessionInputState.WITHDRAWN -> R.string.session_input_state_withdrawn
+            SessionInputState.FAILED -> R.string.tool_state_failed
         },
     )

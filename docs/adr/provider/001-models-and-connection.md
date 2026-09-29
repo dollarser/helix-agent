@@ -86,3 +86,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history — 2026-09-30：探测归属与实际模型
+
+历史审查修复保持现有配置契约：异步探测只能向开始时同一配置生命周期发布目录、窗口、能力与连接状态；修改/删除或更新探测会使旧结果失效。网络工作随调用方取消，已获准的短本地发布完成收尾。压缩与普通请求均按实际会话模型解析支持的推理强度，不能从默认模型能力推断另一模型支持 LOW。实现与验证边界见[审查收口](../../bug-fixes/2026-09-30-historical-correctness-audit.md)。

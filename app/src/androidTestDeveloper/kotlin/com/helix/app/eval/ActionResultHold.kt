@@ -11,17 +11,15 @@ internal class ActionResultHold {
     private val completed = AtomicBoolean(false)
     val reached: Boolean get() = completed.get()
 
-    @Suppress("UNCHECKED_CAST")
     fun install(
         container: AppContainer,
         tool: String,
     ) {
-        val registry = container.toolPipeline.implementations
+        val registry = container.toolPipeline.registry
         val descriptor = requireNotNull(container.toolPipeline.resolveLatest(tool))
-        val original = registry.resolve(descriptor.name, descriptor.version)
-        val field = registry.javaClass.getDeclaredField("byNameVersion").apply { isAccessible = true }
-        val entries = field.get(registry) as MutableMap<Any, ToolExecutor>
-        entries[descriptor.name to descriptor.version] =
+        val originalBinding = registry.resolveBinding(descriptor.name, descriptor.version)
+        val original = originalBinding.executor
+        val wrapped =
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     val result = original.execute(call)
@@ -31,5 +29,21 @@ internal class ActionResultHold {
                     error("Host missed the action result boundary")
                 }
             }
+        registry.replaceOwner(
+            originalBinding.ref.owner,
+            registry
+                .snapshot()
+                .filter { it.ref.owner == originalBinding.ref.owner }
+                .map {
+                    if (it.ref == originalBinding.ref) {
+                        it.binding.copy(
+                            executor = wrapped,
+                            implementationRevision = "test-result-hold",
+                        )
+                    } else {
+                        it.binding
+                    }
+                },
+        )
     }
 }

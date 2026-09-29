@@ -243,7 +243,7 @@ class HelixStorage internal constructor(
     val a2aTasks: A2aTaskRepository by lazy { A2aTaskRepository(database.a2aTaskDao()) }
 
     fun withTransaction(block: () -> Unit) {
-        database.runInTransaction(Runnable { block() })
+        contentStore.withPublication { database.runInTransaction(Runnable { block() }) }
     }
 
     /** Closes the database; a later [open] over the same file sees exactly the committed rows. */
@@ -258,39 +258,43 @@ class HelixStorage internal constructor(
      * are returned to the app layer, which owns the scoped filesystem and deletes only paths no
      * surviving artifact row references.
      */
-    fun deleteSessionPermanently(sessionId: String): SessionDeletionManifest {
-        require(sessionId.isNotBlank()) { "sessionId must not be blank" }
-        val messageRefs = database.messageDao().contentRefsBySession(sessionId)
-        val referenceRefs = database.messageReferenceSnapshotDao().contentRefsByTargetSession(sessionId)
-        val resultRefs = database.toolResultDao().contentRefsBySession(sessionId)
-        val inputRefs = database.sessionInputDao().contentRefsBySession(sessionId)
-        val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
-        database.runInTransaction {
-            require(database.sessionDao().byId(sessionId) != null) { "session not found: $sessionId" }
-            goalControls.bySession(sessionId).forEach { control ->
-                val goal = goals.resolve(control.goalId)
-                check(goal.state != "RUNNING" && goalRuns.listOpenByGoal(goal.id).isEmpty())
-                auditEvents.deleteByCorrelations(listOf(goal.correlationId, goal.id))
-                goals.delete(goal.id)
-                goal.planId?.takeIf { goals.countByPlan(it) == 0 }?.let(plans::delete)
+    fun deleteSessionPermanently(sessionId: String): SessionDeletionManifest =
+        contentStore.withPublication {
+            require(sessionId.isNotBlank()) { "sessionId must not be blank" }
+            val messageRefs = database.messageDao().contentRefsBySession(sessionId)
+            val referenceRefs = database.messageReferenceSnapshotDao().contentRefsByTargetSession(sessionId)
+            val resultRefs = database.toolResultDao().contentRefsBySession(sessionId)
+            val inputRefs = database.sessionInputDao().contentRefsBySession(sessionId)
+            val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
+            database.runInTransaction {
+                require(database.sessionDao().byId(sessionId) != null) { "session not found: $sessionId" }
+                goalControls.bySession(sessionId).forEach { control ->
+                    val goal = goals.resolve(control.goalId)
+                    check(goal.state != "RUNNING" && goalRuns.listOpenByGoal(goal.id).isEmpty())
+                    auditEvents.deleteByCorrelations(listOf(goal.correlationId, goal.id))
+                    goals.delete(goal.id)
+                    goal.planId?.takeIf { goals.countByPlan(it) == 0 }?.let(plans::delete)
+                }
+                database.interactionReceiptDao().deleteBySession(sessionId)
+                database.auditEventDao().deleteForSession(sessionId)
+                check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
             }
-            database.interactionReceiptDao().deleteBySession(sessionId)
-            database.auditEventDao().deleteForSession(sessionId)
-            check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
+            val deletedBodies =
+                (messageRefs + referenceRefs + resultRefs + inputRefs).distinct().mapNotNull { encoded ->
+                    val stillReferenced =
+                        database.messageDao().countByContentRef(encoded) > 0 ||
+                            database.messageReferenceSnapshotDao().countByContentRef(encoded) > 0 ||
+                            database.toolResultDao().countByContentRef(encoded) > 0 ||
+                            database.sessionInputDao().countByContentRef(encoded) > 0
+                    if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null
+                }
+            val unreferencedPaths =
+                artifactPaths.distinct().filter { path ->
+                    database.artifactDao().countByRelativePath(path) == 0
+                }
+            composerDrafts.removeSession(sessionId)
+            SessionDeletionManifest(sessionId, deletedBodies.size, unreferencedPaths)
         }
-        val deletedBodies =
-            (messageRefs + referenceRefs + resultRefs + inputRefs).distinct().mapNotNull { encoded ->
-                val stillReferenced =
-                    database.messageDao().countByContentRef(encoded) > 0 ||
-                        database.messageReferenceSnapshotDao().countByContentRef(encoded) > 0 ||
-                        database.toolResultDao().countByContentRef(encoded) > 0 ||
-                        database.sessionInputDao().countByContentRef(encoded) > 0
-                if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null
-            }
-        val unreferencedPaths = artifactPaths.distinct().filter { database.artifactDao().countByRelativePath(it) == 0 }
-        composerDrafts.removeSession(sessionId)
-        return SessionDeletionManifest(sessionId, deletedBodies.size, unreferencedPaths)
-    }
 
     /**
      * Reclaims abandoned temporary write files and orphaned large content bodies that have

@@ -13,13 +13,11 @@ import com.helix.tools.files.FilesSearchTool
 import com.helix.tools.files.FilesStatTool
 import com.helix.tools.files.ReadTool
 import com.helix.tools.files.WriteTool
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 
 internal object AppWorkspaceTools {
     fun register(
         toolRegistry: ToolRegistry,
-        toolImplementations: ToolImplementationRegistry,
         workspaceStore: WorkspaceArtifactStore,
         artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
     ) {
@@ -28,23 +26,23 @@ internal object AppWorkspaceTools {
         // security-descriptor change invalidates any approval minted for the old contract.
         // Only the IMPLEMENTATIONS take [artifactSink] — the descriptors (and their contract
         // hash) are unchanged, so minted approvals stay valid.
-        ReadTool.register(toolRegistry, toolImplementations, workspaceStore)
-        WriteTool.register(toolRegistry, toolImplementations, workspaceStore, artifactSink)
-        EditTool.register(toolRegistry, toolImplementations, workspaceStore, artifactSink)
-        FilesListTool.register(toolRegistry, toolImplementations, workspaceStore)
-        FilesSearchTool.register(toolRegistry, toolImplementations, workspaceStore)
-        FilesStatTool.register(toolRegistry, toolImplementations, workspaceStore)
-        FilesMkdirTool.register(toolRegistry, toolImplementations, workspaceStore)
+        ReadTool.register(toolRegistry, workspaceStore)
+        WriteTool.register(toolRegistry, workspaceStore, artifactSink)
+        EditTool.register(toolRegistry, workspaceStore, artifactSink)
+        FilesListTool.register(toolRegistry, workspaceStore)
+        FilesSearchTool.register(toolRegistry, workspaceStore)
+        FilesStatTool.register(toolRegistry, workspaceStore)
+        FilesMkdirTool.register(toolRegistry, workspaceStore)
         // HXA-043: explicit conflict policy (copy/move refuse an existing destination without
         // overwrite) and delete-into-trash; restore and purge stay store seams, not model
         // tools.
-        FilesCopyTool.register(toolRegistry, toolImplementations, workspaceStore)
-        FilesMoveTool.register(toolRegistry, toolImplementations, workspaceStore)
-        FilesDeleteTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesCopyTool.register(toolRegistry, workspaceStore)
+        FilesMoveTool.register(toolRegistry, workspaceStore)
+        FilesDeleteTool.register(toolRegistry, workspaceStore)
         // HXA-047: restricted zip/tar create + extract. The format codec and the Zip Slip /
         // expansion / entry-type defenses are shared; the tools only admit scope + region and
         // route containment/quota through the store. Archive writes into work/ only.
-        FilesArchiveTool.register(toolRegistry, toolImplementations, workspaceStore)
-        FilesExtractTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesArchiveTool.register(toolRegistry, workspaceStore)
+        FilesExtractTool.register(toolRegistry, workspaceStore)
     }
 }

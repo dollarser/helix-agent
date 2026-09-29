@@ -15,19 +15,20 @@ class ToolResultRepository(
         status: String,
         summary: String,
         content: String?,
-    ): ToolResultEntity {
-        require(status.isNotBlank()) { "status must not be blank" }
-        require(summary.isNotBlank()) { "summary must not be blank" }
-        val contentRef =
-            if (content == null || content.isBlank()) {
-                null
-            } else {
-                contentStore.write(content).toStorageString()
-            }
-        return appendPrepared(id, toolCallId, status, summary, contentRef)
-    }
+    ): ToolResultEntity =
+        contentStore.withPublication {
+            require(status.isNotBlank()) { "status must not be blank" }
+            require(summary.isNotBlank()) { "summary must not be blank" }
+            val contentRef =
+                if (content == null || content.isBlank()) {
+                    null
+                } else {
+                    contentStore.write(content).toStorageString()
+                }
+            appendPrepared(id, toolCallId, status, summary, contentRef)
+        }
 
-    /** Content is materialized before the caller's transaction; only its index is committed here. */
+    /** Caller holds publication coordination from content materialization through this index commit. */
     fun appendPrepared(
         id: String,
         toolCallId: String,

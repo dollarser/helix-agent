@@ -162,12 +162,12 @@ class GitWorkspaceReaderTest {
     }
 
     @Test
-    fun `diffFor falls back to the staged diff when the worktree is clean`() {
+    fun `diffFor explicitly reads the staged area when the worktree is clean`() {
         val root = tmp.newFolder("ws")
         val git = initRepo(root)
         File(root, "a.txt").writeText("one\nstaged-line\n")
         git.add().addFilepattern("a.txt").call()
-        val diff = GitWorkspaceReader(root).diffFor("a.txt")
+        val diff = GitWorkspaceReader(root).diffFor("a.txt", GitChangeArea.STAGED)
         assertTrue(diff.contains("+staged-line"))
     }
 

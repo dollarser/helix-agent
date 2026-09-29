@@ -82,11 +82,7 @@ internal class AgentLoop(
             control,
             providerService.contextSettings(providerId, context.model),
             context.messages.lastOrNull()?.text == ContextCompaction.COMMAND,
-            if (providerService.capabilitiesFor(providerId)?.reasoning == true) {
-                com.helix.core.model.ReasoningEffort.LOW
-            } else {
-                com.helix.core.model.ReasoningEffort.OFF
-            },
+            providerService.resolveReasoning(providerId, context.model, com.helix.core.model.ReasoningEffort.LOW),
         )
 
     /**
@@ -122,6 +118,8 @@ internal class AgentLoop(
         var manualCommandPending = context.messages.lastOrNull()?.text == ContextCompaction.COMMAND
         var compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
         var toolRounds = runtimeRecord?.admittedToolRounds ?: 0
+        var finalResponsePending = false
+        var modelRetries = 0
         val budgetTracker =
             runtimeRecord?.let {
                 TurnBudgetTracker.restore(
@@ -142,6 +140,7 @@ internal class AgentLoop(
                 toolExecutor.resetLoopProgress(turnId)
                 context = contextAssembler.buildBackfill(sessionId, turnId, control)
             }
+            if (finalResponsePending) context = context.copy(tools = emptyList())
             coordinator.recordDiagnostic(
                 "budget.request",
                 RequestBudgetDiagnostics.request(
@@ -217,6 +216,29 @@ internal class AgentLoop(
                 RequestBudgetDiagnostics.result(accountingFailure?.errorCode ?: decision.errorCode, acc, budgetTracker),
             )
             accountingFailure?.let { return TurnLoopResult.Terminal(it) }
+            val retryDelay =
+                ModelRecoveryPolicy.retryDelayMillis(
+                    provider is com.helix.provider.api.WireModelProvider,
+                    modelRetries,
+                    acc,
+                )
+            if (retryDelay != null && decision.state == TurnState.FAILED) {
+                coordinator.recordDiagnostic("model.automatic_retry", "{\"attempt\":${modelRetries + 1}}")
+                coordinator.retryEmptyModelStream(idGenerator())
+                modelRetries += 1
+                kotlinx.coroutines.delay(retryDelay)
+                continue
+            }
+            if (finalResponsePending && compaction == null) {
+                // Never dispatch even if a provider ignores the empty schema and emits a call.
+                val terminal =
+                    if (decision.state == TurnState.COMPLETED) {
+                        ModelStreamTerminal(TurnState.FAILED, "TOOL_LOOP_NO_PROGRESS")
+                    } else {
+                        decision
+                    }
+                return TurnLoopResult.Terminal(terminal)
+            }
             if (compaction != null) {
                 val finished =
                     compactionRound
@@ -244,7 +266,17 @@ internal class AgentLoop(
             } else {
                 if (decision.state != TurnState.COMPLETED) return TurnLoopResult.Terminal(decision)
                 compactionRound.observe(context, acc.inputTokens)
-                when (val round = runToolRound(coordinator, acc, toolRounds, control, context.directory)) {
+                when (
+                    val round =
+                        runToolRound(
+                            coordinator,
+                            acc,
+                            toolRounds,
+                            control,
+                            context.directory,
+                            request.tools,
+                        )
+                ) {
                     is ToolRoundLimit -> {
                         coordinator.recordDiagnostic(
                             "budget.result",
@@ -263,7 +295,8 @@ internal class AgentLoop(
                     }
 
                     is ToolRoundNoProgress -> {
-                        return TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "TOOL_LOOP_NO_PROGRESS"))
+                        finalResponsePending = true
+                        context = contextAssembler.buildBackfill(sessionId, turnId, control)
                     }
 
                     else -> {
@@ -351,6 +384,10 @@ internal class AgentLoop(
                     checkpoint = context.checkpoint,
                     messages = context.messageRefs,
                     inputIds = inputIds,
+                    tools =
+                        com.helix.core.model
+                            .ModelToolBindings(request.tools)
+                            .entries,
                 )
             } else {
                 CompactManifestCodec.bounded(
@@ -443,13 +480,14 @@ internal class AgentLoop(
         toolRounds: Int,
         control: RunControlConfig,
         directory: com.helix.core.workspace.FileScopePath?,
+        exposedTools: List<com.helix.core.model.ModelToolSchema>,
     ): ToolRoundResult? {
         val turnId = coordinator.id
         val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
         if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
         runtimeAccounting.checkpointToolRound(turnId, toolRounds)
-        val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls, directory), idGenerator)
+        val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls, directory, exposedTools), idGenerator)
         coordinator.beginToolBatch(localBatch.calls.map { it.callId })
         coordinator.commitModelToolStep(toolExecutor.assistantToolStepJson(localBatch))
         val turn = storage.turns.resolve(turnId)
@@ -458,21 +496,29 @@ internal class AgentLoop(
         val progress = toolExecutor.loopProgress(turnId)
         val nextCallId = idGenerator()
         coordinator.openNextModelCall(
-            settled.calls.map {
-                toolExecutor.toolResultDraft(
-                    it.copy(callId = localBatch.wireId(it.callId), resultReference = "$turnId/${it.callId}"),
-                )
-            } +
-                if (progress == ToolLoopProgress.Decision.WARN) {
+            (
+                if (progress != ToolLoopProgress.Decision.CONTINUE) {
                     listOf(
                         TurnMessageDraft(
                             com.helix.core.model.ModelRole.SYSTEM,
-                            "loop_warning",
-                            ToolLoopProgress.WARNING,
+                            if (progress == ToolLoopProgress.Decision.STOP) "loop_exhausted" else "loop_warning",
+                            if (progress ==
+                                ToolLoopProgress.Decision.STOP
+                            ) {
+                                ToolLoopProgress.EXHAUSTED
+                            } else {
+                                ToolLoopProgress.WARNING
+                            },
                         ),
                     )
                 } else {
                     emptyList()
+                }
+            ) +
+                settled.calls.map {
+                    toolExecutor.toolResultDraft(
+                        it.copy(callId = localBatch.wireId(it.callId), resultReference = "$turnId/${it.callId}"),
+                    )
                 },
             nextCallId,
         )

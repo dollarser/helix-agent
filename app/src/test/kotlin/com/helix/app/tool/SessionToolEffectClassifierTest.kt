@@ -7,6 +7,7 @@ import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.core.model.isReviewModeAdmitted
 import com.helix.core.policy.DataOrigin
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
@@ -27,6 +28,18 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun settingsMutationCannotBorrowMetadataOrReadOnlyAdmission() {
+        val tool =
+            com.helix.app.settings.HelixSettingsApplyTool
+                .descriptor()
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, tool.operationClass)
+        val effects =
+            SessionToolEffectClassifier { "scope:ws:project" }
+                .classify(request("""{"mode":"ACT"}"""), tool)
+        assertEquals(setOf(OperationEffect.DEVICE_SYSTEM_MUTATION), effects.footprint.effects)
+        assertFalse(tool.operationClass.isReviewModeAdmitted)
+    }
+
     @Test fun imageReadingDoesNotBypassExternalFileClassification() {
         val classifier = SessionToolEffectClassifier { "scope:ws-1:project" }
         val imageTool =
@@ -91,6 +104,16 @@ class SessionToolEffectClassifierTest {
             OperationEffect.REMOTE_BUSINESS_MUTATION,
             OperationEffect.DEVICE_SYSTEM_MUTATION,
         )
+
+    @Test fun nativeJavascriptCannotBorrowTheOfflineEffectFootprint() {
+        val native =
+            bound.classify(
+                request("""{"access":"native","code":"return 1"}"""),
+                descriptor("code.javascript.run", ToolOperationClass.CODE_EXECUTION),
+            )
+        assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), native.footprint.effects)
+        assertEquals(linuxUndetermined, native.footprint.undeterminedEffects)
+    }
 
     @Test
     fun theShellLaneDeterminesOnlyCommandExecutionAndFlagsRmRf() {

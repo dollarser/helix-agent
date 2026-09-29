@@ -4,7 +4,7 @@
 
 | 执行域 | 打包与进程 | 真实边界 |
 | --- | --- | --- |
-| QuickJS | 非导出 isolated process | isolated UID；无特权主机桥接；生成代码不在主进程运行 |
+| QuickJS | 默认非导出 isolated process；用户开启原生总开关后可选应用 UID 私有进程 | 默认无特权桥；原生包含文件/网络/Java/Android，不提供三类独立隔离；生成代码不在 UI 进程运行 |
 | PRoot | developer 内置模块、私有 :proot 进程 | 共享应用 UID；可信开发者环境，不是内核沙箱，不承诺离线或只读隔离 |
 | Subscriptions | developer 内置模块、私有 :subscriptions 进程 | 正常 API 隐藏 token；同 UID 不构成凭据隔离 |
 | Root | 用户显式授予的可选能力 | 系统授权只满足能力条件，不能替代工具授权 |

@@ -17,7 +17,7 @@ import java.util.UUID
 
 /**
  * Explicit USER recovery, not a model ToolCall. Only fixed original-call arguments reach the
- * shared host implementations; model entry points continue through the Dispatcher.
+ * shared host registry; model entry points continue through the Dispatcher.
  */
 internal class DetachedJobUserActions(
     private val storage: HelixStorage,

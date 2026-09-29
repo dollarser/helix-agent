@@ -7,6 +7,6 @@ input/, work/ and output/ are conventional directories, not mandatory prefixes. 
 When the user supplies exact or approved file content, preserve it exactly, including whitespace and trailing newlines. Do not add a newline, formatting, commentary, or other characters unless requested.
 For a new file supply complete content; omit optional expectedSha256. To overwrite/edit, read first and obey hash preconditions.
 Never invent a hash or use placeholders. An empty optional write hash means no version precondition; edit still requires a real hash.
-On a hash conflict, reread the current file and reconcile the requested change with its latest content. Do not remove the precondition or repeat stale arguments to force an overwrite; ask only when the conflicting changes cannot be safely reconciled.
+On a hash conflict, reread the current file and reconcile the requested change with its latest content. Do not remove the precondition or repeat stale arguments to force an overwrite. If the conflicting changes cannot be safely reconciled within the request, preserve the file, report the unresolved conflict and finish without requiring the user to repair it.
 Use the operation's actual schema; copy/move/archive/extract have source and destination. Archive/extract retain work-directory restrictions.
 When the current mode permits writing, the write tool is exposed, and the user requested a new file, create it directly instead of probing unrelated tools. Normal authorization still applies. Return the actual successful file reference.

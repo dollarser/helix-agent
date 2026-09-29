@@ -28,7 +28,6 @@ import com.helix.core.model.Clock
 import com.helix.core.model.SafetyProfile
 import com.helix.core.policy.GrantState
 import com.helix.core.policy.UserScope
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.root.LibsuRootAccess
 import com.helix.tools.root.RootAccessStatus
@@ -50,12 +49,11 @@ internal object RootModule {
         context: Context,
         clock: Clock,
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
     ) {
         if (access != null) return
         val rootAccess = LibsuRootAccess(context.applicationContext)
         val manager = RootSessionManager(clock, rootAccess::status, rootAccess::disconnect)
-        RootTools(rootAccess, manager).register(registry, implementations)
+        RootTools(rootAccess, manager).register(registry)
         access = rootAccess
         sessions = manager
     }

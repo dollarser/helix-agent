@@ -1,8 +1,12 @@
 # 当前实施状态
 
-更新：2026-09-29。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+更新：2026-09-30。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+
+本次整合提交包含此前恢复/QuickJS、历史正确性修复和 HXA-231 R1；追加 API36 Consumer 49/49、Developer 50/50、真实 SGLang 15/15 及完整主机门禁，见[最终证据](../evidence/development/r1-device-service-closeout-2026-09-30.md)。旧条目中的未提交/未推送描述保留其记录时点，不代表当前远端状态；此次不是发布 APK 或 clean 正式 P5。
 
 ## Completed
+
+- 2026-09-29 手动压缩 Goal 隔离：`/compact` 及其重试不再创建/绑定 Goal 或触发自动续跑，保留目标状态、用量与会话模式。双渠道主机定向检查与 API36 各 27/27 通过；范围及中间失败见[修复记录](../bug-fixes/2026-09-29-manual-compaction-goal-isolation.md)。本轮未提交/推送，已发布 APK 尚不包含此修复；真机 not requested。
 
 - 2026-09-29 系统 UI 恢复收口：补齐文件/照片/产物导出选择器失败提示、分享拒绝与重试反馈；许可证页适配系统栏、独立滚动和大字体。双渠道主机检查通过，API36 consumer 3/3、developer 4/4，追加 320dp 大字体 1/1；详见[记录](../bug-fixes/2026-09-29-external-ui-recovery.md)。本次本地提交纳入，未推送，真机 not requested。
 
@@ -46,13 +50,20 @@
 
 ## 候选与有限接受范围
 
-[候选需求与待裁决索引](candidate-decisions.md)统一导航未来需求、有限接受的设计及其实现边界；当前执行顺序仍由本页决定。2026-09-29 所有者明确本轮先收敛现有实现与文档，R1 保留为下一实施任务，不自动启用其他候选。本轮变更与主分支整合验证见[收敛证据](../evidence/development/contract-document-convergence-2026-09-29.md)；其他未提交工作保持独立归属。
+[候选需求与待裁决索引](candidate-decisions.md)统一导航未来需求、有限接受的设计及其实现边界；当前执行顺序仍由本页决定。2026-09-29 的文档收敛已结束；2026-09-30 所有者进一步授权完整 R1，不自动启用其他候选。本轮变更与主分支整合验证见[收敛证据](../evidence/development/contract-document-convergence-2026-09-29.md)；其他未提交工作保持独立归属。
+
+## 本轮架构交付
+
+- [HXA-231](../completion-records/HXA-231.md)：所有者授权先做有界问题收口与当前基线，再实施 R1 原子工具绑定。前置收口修复模型发布最终读取后取消仍发布的问题；全量 host gate 通过，独占 API36 developer 13/13、consumer 4/4，实际发布中进程骤停与低空间注入分别留证，见[前置基线](../evidence/development/pre-r1-closeout-2026-09-28.md)。2026-09-30 已完成 R1 原子绑定生产迁移与完整主机门禁，见[当前证据](../evidence/development/hxa231-atomic-binding-2026-09-30.md)；随后授权的设备/服务回归已完成，见页首最终证据；后续 R2/J1 根据内测反馈决定，不同时扩张。
 
 ## In progress
 
+- 2026-09-30 历史正确性审查：修复 Provider 过期探测发布/取消、压缩实际模型参数、Git 区域/首次提交/错误/预算、内容发布与删除并发，以及真实执行线程容量；范围、验证及遗留问题见[收口记录](../bug-fixes/2026-09-30-historical-correctness-audit.md)。随后按所有者要求实施 HXA-231 R1，工具搜索另补精确命中/零命中保留；完整插件生命周期未启动；随后有界设备和真实服务回归通过，纳入本次整合提交。
+
+- [HXA-232](tasks/HXA-232.md)：2026-09-29 所有者授权自主恢复优化，已有交付边界如下。自动化已授权目标恢复、Goal 局部额度续跑、无进展收尾及空响应网络退避重试首批代码通过主机 gate，见[实施记录](../bug-fixes/2026-09-29-autonomous-recovery.md)。2026-09-30 追加 QuickJS 用户原生总开关、持久结构化反问、提示词资源化和原 Runtime 结果有界自动收集，见[增量记录](../evidence/development/quickjs-questions-host-2026-09-30.md)。后续修复反问工具注册 schema、慢订阅任务轮询与已收集输出保留，并接入配置修改工具授权；已补齐原执行器查询、持久去重只读核查及原 Goal 账本绑定、队列自动重验证/明确失败终态与外发统一授权交互。不能证明的副作用保留 UNKNOWN；不把核查成功当作任务成功。后续所有者明确授权 API36 定向验证，Consumer / Developer 各 57/57 通过，修复原生 API 异常跨 JNI 传递并校正旧夹具，见[设备证据](../evidence/development/hxa232-api36-2026-09-30.md)。真实模型恢复完成率、完整进程故障矩阵及 OEM 尚未验收，不声称全产品通过；既有实现纳入本次整合提交。
+
 - 偶发问题追加收口（2026-09-29）：修复 SAF 撤销后不刷新及异步来源结果发布，双渠道 API36 10/10；澄清 Goal 仅规划提示，冻结版本三轮均 1 次模型调用/0 工具、Goal PAUSED。诊断能力探测 3/3、skill-003 3/3，但后者两轮仍有额外只读调用。全量主机 gate 通过；历史截断/探测偶发失败未复现、额外调用仍开放。失败与修复范围见[增量证据](../evidence/development/intermittent-closeout-2026-09-28.md)；已提交为 `70456eb5` 并快进到本地 main，未推送。
 
-- [HXA-231](tasks/HXA-231.md)：所有者授权先做有界问题收口与当前基线，再实施 R1 原子工具绑定。前置收口修复模型发布最终读取后取消仍发布的问题；全量 host gate 通过，独占 API36 developer 13/13、consumer 4/4，实际发布中进程骤停与低空间注入分别留证，见[前置基线](../evidence/development/pre-r1-closeout-2026-09-28.md)。R1 尚未实现，任务保持开放；后续 R2/J1 根据内测反馈决定，不同时扩张。
 
 
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
@@ -65,7 +76,7 @@
 
 本地 main 在 `70456eb5` 后继续整合了契约收敛、视觉/输入恢复与 Provider 设置交互；提交及联合验证见[分支收敛记录](../evidence/development/branch-convergence-2026-09-29.md)，本轮未推送。当前非重构收口集中于事实对齐、主机发行门禁和[内测准备](internal-pilot.md)，不是新的产品功能开发。[发行就绪条件](release-readiness.md)只维护非重构依赖和退出条件。
 
-下一实施项仍是 HXA-231 的 R1。后续 Core/上下文、插件、通用等待等不自动启动；选择原则见[开发策略](feature-refactor-strategy.md)，技术方案见[Harness](../architecture/harness-refactor-plan.md)，不因本次文档归类改变任务范围。
+2026-09-30 所有者要求的完整 HXA-231 R1 已完成主机与有界 API36/真实 SGLang 验证：原子工具绑定、请求快照身份、调度/审批/执行同源和撤销准入。下一步优先内测，按具体设备/账号授权补齐尚未覆盖的故障矩阵；本次 candidate 15/15 不替代未来需要 clean 锚点时的正式 P5。HXA-232 保留其既有交付与未验证边界。后续 Core/上下文、插件、通用等待等不自动启动；选择原则见[开发策略](feature-refactor-strategy.md)，技术方案见[Harness](../architecture/harness-refactor-plan.md)。
 
 非重构工作继续内测与已授权的指定手机实际流程，配置→聊天工具→重开验收仍需恢复设备条件；真实用户试用尚未执行。P0～P4 和 P7 已交付切片不重新排为底座开发；剩余模型效果、OEM/资源与账号问题按下方边界处理。
 
@@ -90,7 +101,7 @@
 - **执行引擎**：TurnEngine 已统一拥有 fresh admission、AgentLoop live driver/observation、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate；Turn state mutation 有 expected-state/step CAS；SessionWorkScheduler 单独仲裁 Queue 与 Goal continuation；TurnCoordinator 只保留 model/tool/compaction round checkpoint。Room 是 HXA-221 的 v1 clean-slate durable truth，old Turn execution-terminal + successor Turn continuation 已完成。
 - **授权与 Goal**：209 实现用户选择的会话预设/CUSTOM、工具启用/禁用与执行前解析；208 按 ADR-GOAL-001 交付。模型及外部扩展不能授予权限；Goal persistence 不扩大 scope。Plan 审阅到执行见 192。
 - **上下文与结果**：默认启动为 Conversation-first；RunControl/Expert/Skill/Connector/Permission 是 per-Session config，Turn 在 admission 再冻结；Other-conversation Reference 在 submission acceptance 冻结为 bounded immutable snapshot，不持 live Session pointer。Tool presentation 现在优先显示模型生成的 per-call intent，但 reserved metadata 在业务 validation/permission/effect/dispatcher 前 strip，Harness 继续独占 status/result/approval/UNKNOWN truth。大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
-- **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；本地 Runtime/模型资产已实现，host gate 与完整 loop/真实模型验收边界见 HXA-222。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
+- **Runtime / Provider**：QuickJS 默认在非导出 isolated UID 服务；用户开启原生总开关后可选择应用 UID 私有进程，文件/网络/Android 能力整体授权，不声称凭据隔离；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；本地 Runtime/模型资产已实现，host gate 与完整 loop/真实模型验收边界见 HXA-222。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
 - **应用能力**：手动文件管理与 Agent scope 分离；搜索、主题、准备、终端管理、导出不因 UI 存在而成为 Agent Tool。WebView 由浏览器 Activity owner 持有。
 - **扩展**：MCP、Skill、A2A Client 经统一工具管线；A2A 是外部服务而非本地子 Agent。市场与离线签名索引不等于在线分发系统；OAuth 本地切片不等于外部服务验收。
 

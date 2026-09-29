@@ -178,28 +178,34 @@ Accessibility Service 用于用户主动开启的跨 App UI 自动化。参考 A
 | Tool | 操作类型 | 说明 |
 | --- | --- | --- |
 | `ui.snapshot` | READ_ONLY | 获取当前窗口的裁剪节点树和包名 |
-| `ui.find` | READ_ONLY | 在已有 snapshot 中匹配文本/属性 |
+| `ui.find` | READ_ONLY | 当前实现先抓取新 snapshot 再匹配文本/属性；新观察替换先前 token |
 | `ui.click` | EXTERNAL_ACTION | node token + 预期包名/窗口 ID |
 | `ui.long_click` | EXTERNAL_ACTION | 按当前会话操作规则授权 |
 | `ui.set_text` | EXTERNAL_ACTION | 密码/验证码/支付字段拒绝 |
 | `ui.set_progress` | EXTERNAL_ACTION | token 绑定的原生数值控件；必须声明支持该动作并处于节点 range 内，按当前规则授权 |
 | `ui.scroll` | EXTERNAL_ACTION | 有方向和次数限制 |
 | `ui.back` / `ui.home` | EXTERNAL_ACTION | 系统全局动作 |
-| `ui.wait` | READ_ONLY | 有界等待 UI 条件，不得无限轮询 |
+| `ui.wait` | READ_ONLY | 当前为有界轮询查找匹配节点；暂停/授权阻塞立即返回，尚非通用 UI 条件等待 |
 
-MVP 不提供坐标盲点。节点动作失败时可以把截图和节点树返回给模型，但必须在发送前显示包含当前屏幕内容的隐私提示，Context 标记 `UNTRUSTED_ACCESSIBILITY_CONTENT`，并且截图/完整节点文本默认不长期保存。若未来增加坐标点击，必须另行设计精确目标与授权边界。
+MVP 不提供坐标盲点，当前 Mobile Use 只返回受限语义节点，未提供手机屏幕截图工具。已有 HXA-225 自主读图/浏览器视觉回填不等于可以获取其他 App 的屏幕。未来截图候选须复用类型化图片来源、披露与预算，不能用普通 Base64 文本冒充视觉输入；节点文本与图片内容不能授予权限，留存和受保护窗口需分别规定。若增加坐标点击，须另行设计目标身份与授权边界，不能以节点失败为由自动切换到盲点。
 
 ### 5.3 强制防护
 
 - 默认拒绝 Settings/SystemUI、权限控制器、Root 管理器、软件安装器、支付/银行、密码管理器、认证器及生物识别相关包；锁屏仍中止会话。用户可在 Advanced 权限中心为本次会话显式授权已安装的系统 Settings、SystemUI 及精确 Settings Intelligence 搜索组件；UI 展示包名，启动时纳入目标白名单。该选择默认关闭，不持久化，不由工具或模型授予。它允许更改设备设置，并非对 Settings 内每个页面的精细授权。
 - 默认拒绝点击语义：支付、转账、购买、发送、发布、删除账号、授权、允许安装、开启 Root。
-- 单次 session 默认 5 分钟、30 个动作；每 10 个动作强制检查点。
+- 单次 session 默认 5 分钟、30 个动作；HXA-232 取消每 10 个动作的人工确认，不自动续期或扩大原许可额度。
 - 检查点同时考虑经过时间、目标 package/window 和敏感语义变化；连续快速批准不会升级为自动允许。Advanced 只能在发布硬上限内调整 session/动作预算，除上述显式 Settings/SystemUI 会话授权外，不能关闭其他敏感目标或敏感语义拒绝。
 - snapshot token 绑定 package、windowId、node fingerprint 和 generation。
-- 越出已授权包集合时暂停；不得自动跟随 Intent 扩大范围。权限中心允许用户确认恢复到本次已授权目标，返回后再次验证 snapshot 和敏感限制，一次确认不跨 session 或 checkpoint。read 工具返回恢复提示，wait 对授权阻塞立即返回。
+- 越出已授权包集合时暂停；不得自动跟随 Intent 扩大范围。返回已授权目标后，成功的新 snapshot 自动恢复现有会话，仍校验敏感限制与锁屏；不恢复过期/已停止许可或旧 token。read 工具返回恢复事实，wait 对授权阻塞立即返回；新目标需要真实授权。
 - `FLAG_SECURE`、无法读取的 WebView/Canvas 和 OEM 自定义界面必须返回 `UNSUPPORTED_UI`，不能假装识别成功。
 - 用户按停止、锁屏、服务断开、前台通知被关闭或 App 强制停止时立即中止。
 - 任务审计只保存必要的结构化节点摘要；截图和完整文本默认不长期保存。
+
+### 5.4 设备就绪、锁屏与后台的现状
+
+当前源码收到 `ACTION_SCREEN_OFF` 即结束 Mobile Use 许可，安全锁定也结束；这比“只有需要认证才停止”更保守。它不意味着所有无关非 GUI Runtime 工作必须结束，后者仍遵守各自 owner、授权、资源与租期合同。Helix UI 在后台、目标 App 可交互，与目标 App 隐藏或设备安全锁定不是同一种运行状态。
+
+亮屏、显示自己的锁屏上层 Activity、请求系统解除 Keyguard 与完成用户认证分别处理；不提供模型输入 PIN 或绕过安全锁。后续“记录阻碍 → 用户恢复设备条件 → 重新准入/观察 → 继续”是待接受设计，不恢复旧节点 token、过期许可或已结束 Turn 的执行栈。详细讨论、源码依据、候选切片与测试矩阵见 [Mobile Use 设备就绪与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)；本段不改变 §5.3 的现行防护。
 
 ## 6. Root 能力
 

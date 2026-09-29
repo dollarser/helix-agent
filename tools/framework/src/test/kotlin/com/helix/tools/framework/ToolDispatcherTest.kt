@@ -56,7 +56,7 @@ import kotlin.time.Duration.Companion.seconds
 class ToolDispatcherTest {
     private lateinit var clock: FakeClock
     private lateinit var registry: ToolRegistry
-    private lateinit var impls: ToolImplementationRegistry
+
     private lateinit var broker: ScriptedBroker
     private lateinit var sink: RecordingSink
     private lateinit var dispatcher: ToolDispatcher
@@ -66,11 +66,69 @@ class ToolDispatcherTest {
     fun setUp() {
         clock = FakeClock(Instant.parse("2026-01-01T00:00:00Z"))
         registry = ToolRegistry()
-        impls = ToolImplementationRegistry()
+
         val center = CapabilityCenter(RecordingResolver(usableCaps, clock))
         broker = ScriptedBroker()
         sink = RecordingSink()
-        dispatcher = ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink)
+        dispatcher = ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink)
+    }
+
+    @Test fun replacementWhileApprovalWaitsCannotExecuteEitherImplementation() {
+        val d = descriptor()
+        var ran = 0
+        registry.register(
+            d,
+            CaptureExecutor {
+                ran++
+                ToolExecutorResult.Completed(emptyObject())
+            },
+            "old",
+        )
+        val exposed = registry.resolveBinding(d.name, d.version).ref
+        broker.acquireHook = { approval ->
+            registry.replaceOwner(
+                exposed.owner,
+                listOf(
+                    ToolBinding(
+                        d,
+                        CaptureExecutor {
+                            ran++
+                            ToolExecutorResult.Completed(emptyObject())
+                        },
+                        "new",
+                    ),
+                ),
+            )
+            broker.script(ApprovalAcquisition.Approved(ApprovalProof(approval.binding.hash, approval.binding.hash)))
+        }
+        val result = dispatcher.dispatch(request(d.name, d.version, emptyArgs()).copy(bindingRef = exposed))
+        assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, (result as ToolDispatchOutcome.Denied).code)
+        assertEquals(0, ran)
+        assertTrue(broker.consumeCalls.isEmpty())
+    }
+
+    @Test fun unrelatedBindingPublicationDuringApprovalDoesNotInvalidateTheRequest() {
+        val d = descriptor()
+        var ran = 0
+        registry.register(
+            d,
+            CaptureExecutor {
+                ran++
+                ToolExecutorResult.Completed(emptyObject())
+            },
+        )
+        val exposed = registry.resolveBinding(d.name, d.version).ref
+        broker.acquireHook = { approval ->
+            registry.register(
+                descriptor(name = "unrelated"),
+                CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
+            )
+            broker.script(ApprovalAcquisition.Approved(ApprovalProof(approval.binding.hash, approval.binding.hash)))
+        }
+        val result = dispatcher.dispatch(request(d.name, d.version, emptyArgs()).copy(bindingRef = exposed))
+        assertTrue(result is ToolDispatchOutcome.Succeeded)
+        assertEquals(1, ran)
+        assertEquals(1, broker.consumeCalls.size)
     }
 
     // ------------------------------------------------------------------ validate stage
@@ -98,12 +156,13 @@ class ToolDispatcherTest {
     }
 
     @Test
-    fun contractWithoutImplementationIsRejectedClosed() {
+    fun rejectedBindingBatchNeverExposesAPartialContract() {
         val d = descriptor()
-        registry.register(d)
+        val binding = ToolBinding(d, CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) })
+        assertThrows(IllegalArgumentException::class.java) { registry.registerBatch(listOf(binding, binding)) }
         val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
         val denied = outcome as ToolDispatchOutcome.Denied
-        assertEquals(DispatchOutcomeCode.NO_IMPLEMENTATION, denied.code)
+        assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, denied.code)
         assertEquals(DecisionSource.FRAMEWORK, sink.events.single().decisionSource)
     }
 
@@ -263,7 +322,6 @@ class ToolDispatcherTest {
             ToolDispatcher(
                 clock,
                 registry,
-                impls,
                 center,
                 PolicyEngine(clock),
                 broker,
@@ -780,7 +838,6 @@ class ToolDispatcherTest {
             ToolDispatcher(
                 clock,
                 registry,
-                impls,
                 CapabilityCenter(RecordingResolver(usableCaps, clock)),
                 PolicyEngine(clock),
                 broker,
@@ -855,7 +912,7 @@ class ToolDispatcherTest {
 
     @Test
     fun timeNowRunsTheNoApprovalPathEndToEnd() {
-        TimeNowTool.register(registry, impls, clock)
+        TimeNowTool.register(registry, clock)
         val outcome = dispatcher.dispatch(request(tool(TimeNowTool.NAME), version(TimeNowTool.VERSION), emptyArgs()))
         val succeeded = outcome as ToolDispatchOutcome.Succeeded
         assertEquals(0, broker.acquireCalls.size)
@@ -875,7 +932,7 @@ class ToolDispatcherTest {
 
     @Test
     fun timeNowRejectsNonEmptyArgumentsAtTheValidateStage() {
-        TimeNowTool.register(registry, impls, clock)
+        TimeNowTool.register(registry, clock)
         val outcome =
             dispatcher.dispatch(
                 request(tool(TimeNowTool.NAME), version(TimeNowTool.VERSION), json("""{"tz":"utc"}""")),
@@ -1346,8 +1403,7 @@ class ToolDispatcherTest {
         d: ToolDescriptor,
         executor: ToolExecutor,
     ) {
-        registry.register(d)
-        impls.register(d, executor)
+        registry.register(d, executor)
     }
 
     // One parameter per request fact the tests exercise.

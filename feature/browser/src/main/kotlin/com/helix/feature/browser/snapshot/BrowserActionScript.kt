@@ -19,7 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * `nodeIndex` the host minted in the last snapshot maps to the same DOM element, re-read the
  * field's live attributes at that element, and apply the SAME sensitive-field policy the host
  * re-applies in :tools:browser (`SensitiveFieldClassifier`). An action is PERFORMED only when
- * both agree the field is normal (fail-closed). The two implementations are pinned to agree
+ * both agree the field is normal (fail-closed). The two registry are pinned to agree
  * by the classifier unit tests (Kotlin) and the on-device refusal test (JS).
  */
 object BrowserActionScript {

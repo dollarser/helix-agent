@@ -10,7 +10,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -31,7 +30,6 @@ internal object ToolResultReadTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         storage: HelixStorage,
     ) {
         val descriptor =
@@ -57,8 +55,8 @@ internal object ToolResultReadTool {
                 ExecutionTargetType.LOCAL_ANDROID,
                 ToolOrigin.BuiltInOrigin,
             )
-        registry.register(descriptor)
-        implementations.register(
+
+        registry.register(
             descriptor,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = read(storage, call)

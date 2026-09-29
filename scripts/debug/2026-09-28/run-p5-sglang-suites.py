@@ -92,6 +92,13 @@ def main():
                 subprocess.run(prefix + ["shell", "am", "force-stop", APP_PACKAGE], check=False)
                 subprocess.run(prefix + ["shell", "am", "force-stop", APP_PACKAGE + ".test"], check=False)
         host_wall_ms = round((time.monotonic() - started) * 1000)
+        # Preserve delivery failures before the next case clears the disposable app.
+        # A NO_TURN_CREATED record alone cannot distinguish a fixture race from admission failure.
+        with (out / f"sglang-{suite}-{case_id}-delivery.log").open("w") as diagnostic:
+            subprocess.run(
+                prefix + ["logcat", "-d", "-s", "SessionInputDelivery:W", "HelixChat:E", "AndroidRuntime:E"],
+                stdout=diagnostic, stderr=subprocess.STDOUT, check=False, timeout=20,
+            )
         device_dir = target / "device"
         records = [json.loads(path.read_text()) for path in sorted(device_dir.glob("*.json"))] if device_dir.is_dir() else []
         if records:

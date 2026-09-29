@@ -105,7 +105,11 @@ object AutomationServiceController {
         val session =
             sessionManager.current()
                 ?: return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
-        return connectedService.captureSnapshot(session).copy(pauseReason = sessionManager.pauseReason)
+        val result = connectedService.captureSnapshot(session)
+        result.snapshot?.let { snapshot ->
+            sessionManager.resumeOnVerifiedTarget(snapshot.packageName)
+        }
+        return result.copy(pauseReason = sessionManager.pauseReason)
     }
 
     @Synchronized

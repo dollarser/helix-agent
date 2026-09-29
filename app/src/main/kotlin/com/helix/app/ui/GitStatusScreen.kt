@@ -247,9 +247,9 @@ private fun GitDiffDialog(
     change: GitChange,
     onDismiss: () -> Unit,
 ) {
-    var diff by remember(change.id) { mutableStateOf("") }
-    LaunchedEffect(change.id) {
-        diff = withContext(Dispatchers.IO) { reader.diffFor(change.path) }
+    var diff by remember(reader, change.id) { mutableStateOf<com.helix.app.git.GitDiffResult?>(null) }
+    LaunchedEffect(reader, change.id) {
+        diff = withContext(Dispatchers.IO) { reader.readDiff(change.path, change.area) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -259,15 +259,27 @@ private fun GitDiffDialog(
                 Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
                     Text(change.path, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.height(4.dp))
-                    if (diff.isEmpty()) {
-                        Text(stringResource(R.string.git_diff_empty))
-                    } else {
-                        Text(
-                            diff,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.testTag("git-diff"),
-                        )
+                    when (val result = diff) {
+                        null -> {
+                            Text(stringResource(R.string.egress_loading))
+                        }
+
+                        com.helix.app.git.GitDiffResult.Empty -> {
+                            Text(stringResource(R.string.git_diff_empty))
+                        }
+
+                        com.helix.app.git.GitDiffResult.Error -> {
+                            Text(stringResource(R.string.git_diff_read_error))
+                        }
+
+                        is com.helix.app.git.GitDiffResult.Text -> {
+                            Text(
+                                result.content,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.testTag("git-diff"),
+                            )
+                        }
                     }
                 }
             }

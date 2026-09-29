@@ -87,6 +87,8 @@ Accessibility/Shizuku/Root/Intent 等是 capability provider，不是权限绕�
 
 模型应使用类型化 action 与当前观察事实，不把“视觉模型能看屏幕”理解成可自动获得系统权限。
 
+2026-09-29 的 [Mobile Use 设备就绪与可靠性专题](../topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)固化了钉钉界面辅助、锁屏与后台讨论，并核对生产代码。优先检查动作发出后的失败分类、现有 `ui.wait` 与测试接线、token/截断元数据、启动与恢复反馈；自动解锁、手机截图和调整授权寿命是另外的候选范围。源码风险不等于已经在真实业务复现，专题不修改当前实施顺序。
+
 ## 7. 冲突裁决
 
 | 冲突 | 裁决 |

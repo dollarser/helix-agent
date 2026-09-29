@@ -11,7 +11,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonPrimitive
@@ -97,11 +96,10 @@ object ClipboardReadTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         bridge: AndroidSystemBridge,
     ) {
         val d = descriptor()
-        registry.register(d)
-        implementations.register(d, executor(bridge))
+
+        registry.register(d, executor(bridge))
     }
 }

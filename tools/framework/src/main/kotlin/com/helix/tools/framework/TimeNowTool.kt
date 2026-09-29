@@ -90,12 +90,11 @@ object TimeNowTool {
     /** Registers both the contract and the implementation in the given registries. */
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         clock: Clock,
     ) {
         val descriptor = descriptor()
-        registry.register(descriptor)
-        implementations.register(descriptor, executor(clock))
+
+        registry.register(descriptor, executor(clock))
     }
 
     private fun stringSchema(): JsonObject = buildJsonObject { put("type", JsonPrimitive("string")) }

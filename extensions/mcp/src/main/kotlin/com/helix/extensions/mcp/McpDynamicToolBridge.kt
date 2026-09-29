@@ -14,7 +14,6 @@ import com.helix.tools.framework.McpToolSpec
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -30,7 +29,7 @@ import java.security.MessageDigest
 import kotlin.time.Duration.Companion.seconds
 
 fun interface McpToolCaller {
-    /** Executes only after Dispatcher policy/approval; implementations must honor deadline/cancel. */
+    /** Executes only after Dispatcher policy/approval; registry must honor deadline/cancel. */
     fun call(
         call: ExecutableToolCall,
         serverToolName: String,
@@ -116,10 +115,25 @@ class McpDynamicToolBridge(
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
+        beforePublish: () -> Unit = {},
     ) {
-        registry.replaceMcpServer(config.id.value, descriptors)
-        implementations.replaceMcpServer(config.id.value, executors.entries.map { it.key to it.value })
+        registry.replaceMcpServer(
+            config.id.value,
+            executors.map { (descriptor, executor) ->
+                com.helix.tools.framework.ToolBinding(
+                    descriptor,
+                    executor,
+                    MessageDigest
+                        .getInstance(
+                            "SHA-256",
+                        ).digest((config.endpoint.full + "\n" + descriptor.contractHash.hex).toByteArray())
+                        .joinToString("") {
+                            "%02x".format(it)
+                        },
+                )
+            },
+            beforePublish = beforePublish,
+        )
     }
 
     fun descriptors(): List<ToolDescriptor> = descriptors

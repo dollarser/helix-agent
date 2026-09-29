@@ -12,6 +12,7 @@ import com.helix.provider.api.ProviderConfig
 @Suppress("LongParameterList")
 internal class ProviderConnectionProbe(
     private val storage: HelixStorage,
+    private val gate: ProviderProbeGate,
     private val factory: ProviderFactory,
     private val testStatus: ProviderTestStatusStore,
     private val probe: CapabilityProbe,
@@ -25,79 +26,120 @@ internal class ProviderConnectionProbe(
     suspend fun run(
         providerId: String,
         detectCapabilities: Boolean = false,
-    ): ProbeOutcome =
-        try {
-            runChecked(providerId, detectCapabilities)
-        } catch (failure: com.helix.provider.api.local.LocalRuntimeException) {
-            if (!detectCapabilities) {
-                testStatus.recordFailed(providerId, clock.now().toEpochMilli(), 1, failure.code, false)
-            }
-            ProbeOutcome.Failed(1, failure.code, failure.code.name, false)
-        }
+    ): ProbeOutcome = runChecked(providerId, detectCapabilities)
 
     private suspend fun runChecked(
         providerId: String,
         detectCapabilities: Boolean,
     ): ProbeOutcome {
-        val config = storedConfig(providerId)
-        val provider = factory.create(config)
-        if (config.transport is com.helix.core.model.ProviderTransport.Network) onNetworkOperation()
-        val outcome =
-            if (detectCapabilities) {
-                managed.probe(config, provider) ?: probe.probe(
-                    provider,
-                    includeVision = config.transport !is com.helix.core.model.ProviderTransport.OnDeviceLocal,
-                )
-            } else {
-                ProviderConnectionCheck.run(
-                    config,
-                    provider,
-                    (testStatus.statusFor(config.id) as? ConnectionTestStatus.Passed)?.capabilities,
-                )
+        val (token, snapshot) =
+            gate.begin(providerId) {
+                storage.providerConfigs.resolve(providerId) to storedConfig(providerId)
             }
-        when (outcome) {
-            is ProbeOutcome.Ok -> {
-                testStatus.modelMetadata.write(config.id, config.transport.cacheKey, provider.modelMetadata())
-                // Reuse this provider's catalog instead of cold-binding and fetching it twice.
-                discoverContextWindow(providerId, config.model, provider.contextWindow(config.model))
-                storage.providerConfigs.overwrite(
-                    storage.providerConfigs.resolve(providerId).let { e ->
-                        ProviderConfigSpec(
-                            id = e.id,
-                            displayName = e.displayName,
-                            protocol = e.protocol?.let(ProviderProtocol::parse),
-                            endpoint = e.endpoint,
-                            model = e.model,
-                            headersJson = e.headersJson,
-                            secretAlias = e.secretAlias,
-                            provisioningKind = e.provisioningKind,
-                            transportKind = e.transportKind,
-                            authKind = e.authKind,
-                            capabilitySnapshot = ProviderCapabilities.toJsonString(outcome.capabilities),
-                        )
-                    },
-                )
-                testStatus.recordPassed(
-                    providerId,
-                    clock.now().toEpochMilli(),
-                    outcome.capabilities,
-                    outcome.models,
-                )
-            }
+        val config = snapshot.second
+        val result = collectResult(config, detectCapabilities)
+        val outcome = result.outcome
+        var current = false
+        gate.publish(providerId, token) {
+            if (storage.providerConfigs.find(providerId) != snapshot.first) return@publish
+            current = true
+            when (outcome) {
+                is ProbeOutcome.Ok -> {
+                    publishSuccess(providerId, config, outcome, result)
+                }
 
-            is ProbeOutcome.Failed -> {
-                // Capability failures do not revoke a separately verified connection.
-                if (detectCapabilities) return outcome
-                testStatus.modelMetadata.write(config.id, config.transport.cacheKey, emptyMap())
-                testStatus.recordFailed(
-                    providerId,
-                    clock.now().toEpochMilli(),
-                    outcome.phase,
-                    outcome.code,
-                    outcome.retryable,
-                )
+                is ProbeOutcome.Failed -> {
+                    // Capability failures do not revoke a separately verified connection.
+                    if (detectCapabilities) return@publish
+                    testStatus.modelMetadata.write(config.id, config.transport.cacheKey, emptyMap())
+                    testStatus.recordFailed(
+                        providerId,
+                        clock.now().toEpochMilli(),
+                        outcome.phase,
+                        outcome.code,
+                        outcome.retryable,
+                    )
+                }
             }
         }
-        return outcome
+        return if (current) {
+            outcome
+        } else {
+            ProbeOutcome.Failed(
+                0,
+                com.helix.core.model.ModelErrorCode.PROTOCOL,
+                "PROBE_SUPERSEDED",
+                false,
+            )
+        }
+    }
+
+    private data class Result(
+        val outcome: ProbeOutcome,
+        val metadata: Map<String, com.helix.provider.api.ModelMetadata> = emptyMap(),
+        val window: Long? = null,
+    )
+
+    private suspend fun collectResult(
+        config: ProviderConfig,
+        detectCapabilities: Boolean,
+    ): Result =
+        try {
+            val provider = factory.create(config)
+            if (config.transport is com.helix.core.model.ProviderTransport.Network) onNetworkOperation()
+            val outcome =
+                run {
+                    if (detectCapabilities) {
+                        managed.probe(config, provider) ?: probe.probe(
+                            provider,
+                            includeVision = config.transport !is com.helix.core.model.ProviderTransport.OnDeviceLocal,
+                        )
+                    } else {
+                        ProviderConnectionCheck.run(
+                            config,
+                            provider,
+                            (testStatus.statusFor(config.id) as? ConnectionTestStatus.Passed)?.capabilities,
+                        )
+                    }
+                }
+            val metadata = if (outcome is ProbeOutcome.Ok) provider.modelMetadata() else emptyMap()
+            val window = if (outcome is ProbeOutcome.Ok) provider.contextWindow(config.model) else null
+            Result(outcome, metadata, window)
+        } catch (failure: com.helix.provider.api.local.LocalRuntimeException) {
+            Result(ProbeOutcome.Failed(1, failure.code, failure.code.name, false))
+        }
+
+    private suspend fun publishSuccess(
+        providerId: String,
+        config: ProviderConfig,
+        outcome: ProbeOutcome.Ok,
+        result: Result,
+    ) {
+        testStatus.modelMetadata.write(config.id, config.transport.cacheKey, result.metadata)
+        // Reuse this provider's catalog instead of cold-binding and fetching it twice.
+        discoverContextWindow(providerId, config.model, result.window)
+        storage.providerConfigs.overwrite(
+            storage.providerConfigs.resolve(providerId).let { e ->
+                ProviderConfigSpec(
+                    id = e.id,
+                    displayName = e.displayName,
+                    protocol = e.protocol?.let(ProviderProtocol::parse),
+                    endpoint = e.endpoint,
+                    model = e.model,
+                    headersJson = e.headersJson,
+                    secretAlias = e.secretAlias,
+                    provisioningKind = e.provisioningKind,
+                    transportKind = e.transportKind,
+                    authKind = e.authKind,
+                    capabilitySnapshot = ProviderCapabilities.toJsonString(outcome.capabilities),
+                )
+            },
+        )
+        testStatus.recordPassed(
+            providerId,
+            clock.now().toEpochMilli(),
+            outcome.capabilities,
+            outcome.models,
+        )
     }
 }

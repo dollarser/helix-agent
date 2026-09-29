@@ -8,7 +8,6 @@ import com.helix.core.model.Clock
 import com.helix.core.model.SafetyProfile
 import com.helix.core.policy.GrantState
 import com.helix.core.policy.UserScope
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 
 /** Consumer distribution has no libsu dependency, Root registry entries or Root UI. */
@@ -17,7 +16,6 @@ internal object RootModule {
         context: Context,
         clock: Clock,
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
     ) = Unit
 
     fun capabilityState(): GrantState = GrantState.UNAVAILABLE

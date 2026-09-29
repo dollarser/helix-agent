@@ -186,16 +186,12 @@ private fun ApprovalCardActions(
 ) {
     when (card.state) {
         ApprovalCardState.PENDING -> {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onApprove,
-                    modifier = Modifier.testTag("approval-approve-${card.approvalId}"),
-                ) { Text(stringResource(ApprovalCardUi.ACTIONS[0])) }
-                OutlinedButton(
-                    onClick = onDeny,
-                    modifier = Modifier.testTag("approval-deny-${card.approvalId}"),
-                ) { Text(stringResource(ApprovalCardUi.ACTIONS[1])) }
-            }
+            AuthorizationActions(
+                "approval-approve-${card.approvalId}",
+                "approval-deny-${card.approvalId}",
+                onApprove,
+                onDeny,
+            )
             Text(
                 stringResource(R.string.approval_no_permanent_allow),
                 style = MaterialTheme.typography.bodySmall,

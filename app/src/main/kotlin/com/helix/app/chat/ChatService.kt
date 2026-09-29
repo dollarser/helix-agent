@@ -115,6 +115,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.jvm.Volatile
 
@@ -217,7 +218,6 @@ class ChatService(
     private val sessionRunControls = SessionRunControlStore(storage, runControlStore)
     private val workspaceRecovery = SessionWorkspaceRecovery(storage, bindSessionDirectory)
     private val _runControl = MutableStateFlow(sessionRunControls.defaultSnapshot())
-    private val runControlEdits = Mutex()
     val toolVisionConsent =
         com.helix.app.vision
             .ToolVisionConsent(storage.interactionReceipts, clock)
@@ -237,6 +237,7 @@ class ChatService(
     private val projection = ChatScreenProjection(storage, providerService, strings, labels::modelTerminalCodeRes)
     private val stagingProcessor = StagedAttachmentProcessor(storage, attachmentStaging, idGenerator, strings)
     private val workScope = scope
+    private val sessionActions = SessionActionQueue(workScope)
     private val toolCalls by lazy {
         ChatToolCalls(
             storage,
@@ -405,28 +406,31 @@ class ChatService(
         sessionId: String,
         mode: AgentMode,
     ): Boolean =
-        workScope
-            .async {
-                synchronized(turnGate) {
-                    if (openSessionId != sessionId || preparingDraft || pendingSend != null) {
-                        return@synchronized false
+        sessionActions
+            .submit {
+                submissionGate.withLock {
+                    synchronized(turnGate) {
+                        if (openSessionId != sessionId || preparingDraft || pendingSend != null) {
+                            return@synchronized false
+                        }
+                        if (turnEngine.liveExecution.hasActive(sessionId) || turnGateHolds(sessionId)) {
+                            return@synchronized false
+                        }
+                        val draft = sessionDraft?.takeIf { it.session.id == sessionId }
+                        if (draft != null) {
+                            val next = draft.control.copy(mode = mode)
+                            drafts.control(sessionId, next)
+                            _runControl.value = next
+                        } else {
+                            val session = storage.sessions.find(sessionId) ?: return@synchronized false
+                            if (session.archivedAt != null) return@synchronized false
+                            val next =
+                                sessionRunControls.ensure(sessionId, clock.now().toEpochMilli()).copy(mode = mode)
+                            sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                            _runControl.value = next
+                        }
+                        true
                     }
-                    if (turnEngine.liveExecution.hasActive(sessionId) || turnGateHolds(sessionId)) {
-                        return@synchronized false
-                    }
-                    val draft = sessionDraft?.takeIf { it.session.id == sessionId }
-                    if (draft != null) {
-                        val next = draft.control.copy(mode = mode)
-                        drafts.control(sessionId, next)
-                        _runControl.value = next
-                    } else {
-                        val session = storage.sessions.find(sessionId) ?: return@synchronized false
-                        if (session.archivedAt != null) return@synchronized false
-                        val next = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli()).copy(mode = mode)
-                        sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
-                        _runControl.value = next
-                    }
-                    true
                 }
             }.await()
 
@@ -513,27 +517,84 @@ class ChatService(
     ) {
         val sessionId = openSessionId ?: return
         require(turnEngine.liveExecution.active(sessionId) == null) { "cannot change $label during a turn" }
-        sessionDraft?.takeIf { it.session.id == sessionId }?.let { draft ->
-            val next = transform(draft.control)
-            drafts.control(sessionId, next)
-            _runControl.value = next
-            return
-        }
-        workScope.launch {
-            runControlEdits.withLock {
-                if (openSessionId != sessionId || storage.sessions.find(sessionId)?.archivedAt != null) return@withLock
-                val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
-                val next = transform(current)
-                sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
-                if (openSessionId == sessionId && sessionDraft == null) _runControl.value = next
+        sessionActions.submit {
+            submissionGate.withLock {
+                synchronized(turnGate) {
+                    if (openSessionId != sessionId || turnEngine.liveExecution.hasActive(sessionId)) return@synchronized
+                    val draft = sessionDraft?.takeIf { it.session.id == sessionId }
+                    if (draft != null) {
+                        val next = transform(draft.control)
+                        drafts.control(sessionId, next)
+                        _runControl.value = next
+                    } else {
+                        val session = storage.sessions.find(sessionId) ?: return@synchronized
+                        if (session.archivedAt != null) return@synchronized
+                        val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
+                        val next = transform(current)
+                        sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                        _runControl.value = next
+                    }
+                }
+                refreshScreen()
             }
-            refreshScreen()
         }
     }
 
     /** Serializes per-session turn admission (one active turn per session). */
     private val turnGate = Any()
     private val goalContinuation = GoalContinuationDriver(storage)
+    private val automaticTurnRecovery by lazy {
+        AutomaticTurnRecovery(storage, clock, ::startRecoveryInspection, turnEngine::finishAutomaticRecovery) {
+            str(R.string.automatic_recovery_unavailable)
+        }
+    }
+
+    @Suppress("ReturnCount") // Stop before admitting a successor when any original binding is unavailable.
+    private suspend fun startRecoveryInspection(
+        parentId: String,
+        snapshot: com.helix.app.engine.TurnRuntimeSnapshot,
+    ): String? {
+        val parent = storage.turns.resolve(parentId)
+        val session = storage.sessions.resolve(parent.sessionId)
+        if (session.archivedAt != null || turnEngine.liveExecution.hasActive(session.id)) return null
+        if (session.providerId != snapshot.providerId || session.modelId != snapshot.modelId) return null
+        if (providerSnapshot(snapshot.providerId, snapshot.modelId) != snapshot.providerSnapshot) return null
+        val executorObservation =
+            try {
+                recovery.inspectOriginal(parentId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                "Original executor reconciliation unavailable; effects remain unknown."
+            }
+        val goalId = storage.goalTurnBindings.byTurn(parentId)?.let { storage.goalRuns.resolve(it.runId).goalId }
+        val limits =
+            com.helix.app.engine.AutomaticRecoveryPolicy
+                .limits(snapshot, goalId != null) ?: return null
+        return launchTurn(
+            text = packagedPromptTemplates.text("automatic-recovery").trim() + "\n\n" + executorObservation,
+            providerId = snapshot.providerId,
+            goalId = goalId,
+            requestedSessionId = parent.sessionId,
+            controlOverride = snapshot.control.copy(mode = AgentMode.PLAN, budgets = limits),
+            clientRequestId =
+                com.helix.app.engine.AutomaticRecoveryPolicy
+                    .requestId(parentId),
+            recoveryParent = parentId,
+        )
+    }
+
+    private fun requestAutomaticRecovery(turnId: String) {
+        workScope.launch {
+            submissionGate.withLock {
+                automaticTurnRecovery.recover(turnId)
+            }
+            requestSessionDrain(storage.turns.resolve(turnId).sessionId)
+            refreshScreen()
+            refreshBackgroundTasks()
+        }
+    }
+
     private val sessionWorkScheduler by lazy {
         SessionWorkScheduler(
             storage = storage,
@@ -548,6 +609,11 @@ class ChatService(
             refreshProjection = {
                 refreshScreen()
                 refreshBackgroundTasks()
+            },
+            recoverInputs = { session ->
+                AutomaticInputRecovery(storage, clock, { validatedInput(it) != null }) {
+                    str(R.string.session_input_recovery_ended)
+                }.recover(session)
             },
         )
     }
@@ -821,8 +887,17 @@ class ChatService(
     /** Startup recovery commits before this notification; refresh any already-open conversation. */
     fun onRecoveryCompleted() {
         workScope.launch {
+            storage.sessions.list().filter { it.archivedAt == null }.forEach { session ->
+                storage.turns.listBySession(session.id).lastOrNull()?.let { turn ->
+                    submissionGate.withLock { automaticTurnRecovery.recover(turn.id) }
+                }
+            }
             refreshSessionsNow()
             refreshScreen()
+            storage.sessions
+                .list()
+                .filter { it.archivedAt == null }
+                .forEach { requestSessionDrain(it.id) }
         }
     }
 
@@ -1377,17 +1452,38 @@ class ChatService(
         providerId: String?,
         modelId: String?,
         reasoning: ReasoningEffort?,
+    ): Boolean = applySettings(sessionId, mode, providerId, modelId, reasoning, null)
+
+    /** Dispatcher-authorized mutation of future input defaults; never changes the live Turn snapshot. */
+    internal suspend fun applyToolSettings(call: com.helix.tools.framework.ExecutableToolCall): Boolean =
+        applySettings(
+            requireNotNull(call.sessionId),
+            call.args["mode"]
+                ?.jsonPrimitive
+                ?.content
+                ?.let(AgentMode::valueOf),
+            call.args["providerId"]?.jsonPrimitive?.content,
+            call.args["model"]?.jsonPrimitive?.content,
+            call.args["reasoning"]?.jsonPrimitive?.content?.let {
+                ReasoningEffort.valueOf(it.uppercase(java.util.Locale.ROOT))
+            },
+            call,
+        )
+
+    @Suppress("CyclomaticComplexMethod", "LongParameterList") // Revalidate UI or trusted executor ownership atomically.
+    private suspend fun applySettings(
+        sessionId: String,
+        mode: AgentMode?,
+        providerId: String?,
+        modelId: String?,
+        reasoning: ReasoningEffort?,
+        call: com.helix.tools.framework.ExecutableToolCall?,
     ): Boolean =
         workScope
             .async {
                 val applied =
                     synchronized(turnGate) {
-                        if (openSessionId != sessionId || pendingSend != null || preparingDraft) {
-                            return@synchronized false
-                        }
-                        if (turnEngine.liveExecution.hasActive(sessionId) || turnGateHolds(sessionId)) {
-                            return@synchronized false
-                        }
+                        if (!settingsChangeAdmitted(sessionId, call)) return@synchronized false
                         val session = storage.sessions.find(sessionId) ?: return@synchronized false
                         if (session.archivedAt != null) return@synchronized false
                         val targetProvider = providerId ?: session.providerId ?: return@synchronized false
@@ -1408,11 +1504,14 @@ class ChatService(
                                 mode = mode ?: current.mode,
                                 reasoning = reasoning ?: if (modelChanged) ReasoningEffort.OFF else current.reasoning,
                             )
+                        if (call != null && (call.cancel.isCancelled() || !clock.now().isBefore(call.deadline))) {
+                            return@synchronized false
+                        }
                         storage.withTransaction {
                             storage.sessions.selectModel(sessionId, targetProvider, targetModel)
                             sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
                         }
-                        _runControl.value = next
+                        if (openSessionId == sessionId) _runControl.value = next
                         true
                     }
                 if (applied) {
@@ -1421,6 +1520,22 @@ class ChatService(
                 }
                 applied
             }.await()
+
+    private fun settingsChangeAdmitted(
+        sessionId: String,
+        call: com.helix.tools.framework.ExecutableToolCall?,
+    ): Boolean {
+        if (pendingSend != null || preparingDraft) return false
+        val active = turnEngine.liveExecution.active(sessionId)
+        return if (call == null) {
+            openSessionId == sessionId && active == null && !turnGateHolds(sessionId)
+        } else {
+            val turnId = call.turnId
+            call.toolName == "helix.settings.apply" && turnId != null && active?.turnId == turnId &&
+                storage.sessionInputs.listPending(sessionId).isEmpty() && !call.cancel.isCancelled() &&
+                clock.now().isBefore(call.deadline) && storage.turns.resolve(turnId).state != TurnState.CANCELLING.name
+        }
+    }
 
     private fun selectPersistedSessionModel(
         sessionId: String,
@@ -2025,9 +2140,26 @@ class ChatService(
         }
 
     /** Service-owned admission survives caller cancellation; never reads an outcome from UI state. */
+    fun sendQuestionAnswer(request: ChatSubmission): kotlinx.coroutines.Deferred<ChatSubmissionReceipt> =
+        sessionActions.submit {
+            submissionGate.withLock {
+                val outcome =
+                    submissionAttempt {
+                        if (openSessionId != request.sessionId || !validHumanInput(request)) {
+                            ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+                        } else if (pendingSubmission != null || pendingInputResume != null || preparingDraft) {
+                            ChatSubmissionOutcome.Rejected("CONFIRMATION_PENDING")
+                        } else {
+                            completedSubmission(request) ?: sendNow(request.text, submission = request, textOnly = true)
+                        }
+                    }
+                ChatSubmissionReceipt(request, outcome)
+            }
+        }
+
     fun sendSubmission(request: ChatSubmission): kotlinx.coroutines.Deferred<ChatSubmissionReceipt> {
         val snapshot = request.copy(attachmentIds = request.attachmentIds.toList())
-        return workScope.async {
+        return sessionActions.submit {
             submissionGate.withLock {
                 val outcome = submissionAttempt { admitSubmission(snapshot) }
                 val receipt = ChatSubmissionReceipt(snapshot, outcome)
@@ -2200,11 +2332,12 @@ class ChatService(
         text: String,
         goalId: String? = null,
         submission: ChatSubmission? = null,
+        textOnly: Boolean = false,
     ): ChatSubmissionOutcome {
         if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
             return submissionBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
         }
-        val staged = stagedAttachments
+        val staged = if (textOnly) emptyList() else stagedAttachments
         val hasReference = submission?.referenceSourceSessionId != null
         // An attachment-only send is valid (ADR-0014 §5): blank text is admitted while
         // staged attachments ride the send; blank text with nothing staged is still the
@@ -2476,7 +2609,10 @@ class ChatService(
         submission: ChatSubmission,
         reference: ConversationReferenceSnapshotInput?,
     ): ChatSubmissionOutcome {
-        val staged = stagedAttachments
+        // A question answer has its own text-only input identity, independent of the composer.
+        val questionAnswer =
+            submission.clientRequestId.startsWith("answer:question:") && submission.attachmentIds.isEmpty()
+        val staged = if (questionAnswer) emptyList() else stagedAttachments
         // ADR-0014 §5: the user approved a SPECIFIC enumerated set of attachments — the dialog
         // listed exactly [approvedAttachmentIds]. If the staged set has since changed, a file
         // staged while the dialog was up or one removed since — the approval no longer covers
@@ -3647,6 +3783,7 @@ class ChatService(
         queuedInput: SessionInputRecord? = null,
         requireQueueHead: Boolean = true,
         regenerateMessageId: String? = null,
+        recoveryParent: String? = null,
     ): String? {
         // The unified AgentRuntime (HX2-01) starts turns for an explicit session with an explicit
         // per-turn control; the in-session send path passes neither and falls back to the open
@@ -3657,6 +3794,17 @@ class ChatService(
         // Turn's mode, tool table, dispatcher mode, or limits.
         val selectedControl = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
         val control = controlOverride ?: selectedControl
+        val sourceText =
+            text ?: retryTurnId?.let { sourceTurn ->
+                storage.messages
+                    .listBySession(sessionId)
+                    .lastOrNull { it.turnId == sourceTurn && it.role == "USER" }
+                    ?.let {
+                        com.helix.app.agent.ContextHistory
+                            .read(storage, it)
+                    }
+            }
+        val manualCompaction = sourceText == ContextCompaction.COMMAND
         // The Room read runs OUTSIDE the gate: a suspend point must never be reached while holding the monitor.
         val snapshot =
             try {
@@ -3697,7 +3845,9 @@ class ChatService(
                     continuation == null &&
                     (queuedInput != null || directUserRequest)
             val recoveryFromTurnId =
-                if (canRecover) {
+                if (recoveryParent != null) {
+                    recoveryParent
+                } else if (canRecover) {
                     turnEngine.recoveryPredecessor(sessionId, clientRequestId)
                 } else {
                     null
@@ -3778,32 +3928,52 @@ class ChatService(
             val admission =
                 turnEngine.admit(
                     spec = spec,
-                    control = control,
+                    // Maintenance consumes a model call, but never Goal authority or activation.
+                    control =
+                        if (manualCompaction) {
+                            control.copy(
+                                mode = AgentMode.CHAT,
+                                chatToolsEnabled = false,
+                            )
+                        } else {
+                            control
+                        },
                     wakeReason = wakeReason,
                     providerId = providerId,
                     modelId = admittedModelId,
+                    recoveryInspection = recoveryParent != null,
                     freshGuard = {
                         val queuedStillValid =
                             queuedInput == null || queueStillConsumable(queuedInput, requireQueueHead)
                         val live = storage.sessions.resolve(sessionId)
-                        queuedStillValid && live.providerId == providerId && live.modelId == session.modelId
+                        val recoveryStillValid =
+                            recoveryParent == null ||
+                                com.helix.app.engine.AutomaticRecoveryPolicy
+                                    .eligible(storage.turns.resolve(recoveryParent))
+                        queuedStillValid && recoveryStillValid && live.providerId == providerId &&
+                            live.modelId == session.modelId
                     },
                     resolveGoal = {
                         val effectiveGoalId =
-                            goalId ?: if (control.mode == AgentMode.GOAL && !text.isNullOrBlank()) {
-                                goalLifecycle
-                                    .current(sessionId)
-                                    ?.takeIf {
-                                        it.state !in setOf("COMPLETED", "FAILED", "CANCELLED")
-                                    }?.id ?: GoalSummaryQuery(storage)
-                                    .forSession(sessionId)
-                                    .firstOrNull {
-                                        it.status.state !in setOf("COMPLETED", "FAILED", "CANCELLED") &&
-                                            storage.goalTurnBindings.sessionForGoal(it.id) == sessionId
-                                    }?.id ?: GoalRunCoordinator(storage, clock, idGenerator)
-                                    .create(text, emptyList(), control.goalBudgets)
-                            } else {
+                            if (manualCompaction) {
                                 null
+                            } else {
+                                goalId
+                                    ?: if (control.mode == AgentMode.GOAL && !text.isNullOrBlank()) {
+                                        goalLifecycle
+                                            .current(sessionId)
+                                            ?.takeIf {
+                                                it.state !in setOf("COMPLETED", "FAILED", "CANCELLED")
+                                            }?.id ?: GoalSummaryQuery(storage)
+                                            .forSession(sessionId)
+                                            .firstOrNull {
+                                                it.status.state !in setOf("COMPLETED", "FAILED", "CANCELLED") &&
+                                                    storage.goalTurnBindings.sessionForGoal(it.id) == sessionId
+                                            }?.id ?: GoalRunCoordinator(storage, clock, idGenerator)
+                                            .create(text, emptyList(), control.goalBudgets)
+                                    } else {
+                                        null
+                                    }
                             }
                         if (effectiveGoalId != null) goalLifecycle.bind(effectiveGoalId, sessionId)
                         effectiveGoalId
@@ -3838,11 +4008,12 @@ class ChatService(
                         return null
                     }
                 }
-            if (revisedMessageId != null) revokeGoalIntent(sessionId)
+            if (manualCompaction || revisedMessageId != null) revokeGoalIntent(sessionId)
             val coordinator = started.coordinator
             val effectiveControl = started.control
             val effectiveGoalId = started.goalId
-            if (directUserRequest && queuedInput == null && !text.isNullOrBlank()) {
+            val canAuthorizeGoal = !manualCompaction && directUserRequest && queuedInput == null
+            if (canAuthorizeGoal && !text.isNullOrBlank()) {
                 goalUserRequests[turnId] = listOf(GoalUserRequest(sessionId, text, providerId, control, snapshot))
             }
             if (continuousGoal && effectiveGoalId != null) {
@@ -3952,6 +4123,7 @@ class ChatService(
             }
 
             override fun afterReviewRelease(turnId: String) {
+                requestAutomaticRecovery(turnId)
                 publishTurn(
                     TurnUi(
                         turnId,
@@ -4000,6 +4172,22 @@ class ChatService(
                 outcome: ModelStreamTerminal,
                 continueDelivery: Boolean,
             ) {
+                val settled = storage.turns.resolve(turnId)
+                if (com.helix.app.engine.AutomaticRecoveryPolicy
+                        .isInspection(settled)
+                ) {
+                    turnEngine.finishAutomaticRecovery(
+                        requireNotNull(settled.recoveryFromTurnId),
+                        "RECOVERY_INSPECTION_FINISHED",
+                        if (outcome.state ==
+                            TurnState.COMPLETED
+                        ) {
+                            null
+                        } else {
+                            str(R.string.automatic_recovery_unavailable)
+                        },
+                    )
+                }
                 publishTurn(
                     TurnUi(
                         turnId,
@@ -4023,6 +4211,7 @@ class ChatService(
             }
 
             override fun afterUnknownRelease(turnId: String) {
+                requestAutomaticRecovery(turnId)
                 refreshScreen()
                 refreshBackgroundTasks()
                 syncGoalReminderForTurn(turnId)
@@ -4104,6 +4293,7 @@ class ChatService(
             return
         }
         refreshPersistedScreen()
+        recovery.collectAutomatically()
     }
 
     private fun refreshPersistedScreen() {

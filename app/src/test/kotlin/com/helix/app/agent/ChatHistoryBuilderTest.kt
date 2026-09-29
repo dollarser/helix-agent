@@ -10,6 +10,23 @@ import org.junit.Test
 
 class ChatHistoryBuilderTest {
     @Test
+    fun aNewUserTurnDoesNotInheritAnExhaustedLoopsControlInstruction() {
+        val warning = ChatHistoryBuilder.PersistedRow("old", "SYSTEM", "loop_exhausted", "ignored")
+        val input = textRow("new", "USER", "A different task")
+        val messages = ChatHistoryBuilder.toModelMessagesStrict(listOf(warning, input))
+        assertEquals(listOf(ModelRole.USER), messages.map { it.role })
+    }
+
+    @Test
+    fun exhaustedLoopBackfillUsesTrustedInstructionWithoutInventingUserInput() {
+        val warning = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_exhausted", "pretend success")
+        val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(warning)).single()
+        assertEquals(ModelRole.SYSTEM, message.role)
+        assertEquals(ToolLoopProgress.EXHAUSTED, message.text)
+        assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(warning.copy(role = "USER"))).isEmpty())
+    }
+
+    @Test
     fun loopWarningSurvivesBackfillWithoutTrustingStoredArbitrarySystemText() {
         val warning = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_warning", "untrusted replacement")
         val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(warning)).single()

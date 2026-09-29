@@ -118,8 +118,8 @@ class ApprovalFlowDeviceTest {
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                     origin = ToolOrigin.BuiltInOrigin,
                 )
-            container.toolPipeline.registry.register(descriptor)
-            container.toolPipeline.implementations.register(
+
+            container.toolPipeline.registry.register(
                 descriptor,
                 object : ToolExecutor {
                     override fun execute(call: ExecutableToolCall): ToolExecutorResult =
@@ -335,6 +335,63 @@ class ApprovalFlowDeviceTest {
     }
 
     @Test
+    fun replacementDuringApprovalDoesNotExecuteOrConsumeProofOnDevice() {
+        val registry = container.toolPipeline.registry
+        val original = registry.resolveBinding(descriptor.name, descriptor.version)
+        val executions = AtomicInteger()
+        val callId = "flow-replaced-$run"
+        val handle = dispatchOnThread(callId, "flow-replaced-turn-$run")
+        val approvalId = approvalIdOf(callId)
+        val replacement =
+            original.binding.copy(
+                executor =
+                    object : ToolExecutor {
+                        override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                            executions.incrementAndGet()
+                            return ToolExecutorResult.Completed(buildJsonObject { put("ok", true) })
+                        }
+                    },
+                implementationRevision = "device-replacement",
+            )
+
+        fun publish(binding: com.helix.tools.framework.ToolBinding) {
+            registry.replaceOwner(
+                original.ref.owner,
+                registry
+                    .snapshot()
+                    .filter { it.ref.owner == original.ref.owner }
+                    .map { if (it.ref.name == original.ref.name) binding else it.binding },
+            )
+        }
+        try {
+            publish(replacement)
+            container.chatService.approveApproval(approvalId)
+            val outcome = handle.join() as ToolDispatchOutcome.Denied
+            assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, outcome.code)
+            assertEquals(0, executions.get())
+            assertNull(
+                container.storage.approvals
+                    .resolve(approvalId)
+                    .consumedAt,
+            )
+            assertEquals(
+                ToolCallState.DENIED.name,
+                container.storage.toolCalls
+                    .resolve(callId)
+                    .state,
+            )
+        } finally {
+            if (container.storage.approvals
+                    .resolve(approvalId)
+                    .decision == null
+            ) {
+                container.chatService.denyApproval(approvalId)
+            }
+            publish(original.binding)
+        }
+    }
+
+    @Test
     fun deniedActionIsNotRepromptedOnDevice() {
         // Call 1: the card appears, the user denies.
         val h1 = dispatchOnThread("flow-call-a-$run", "flow-turn-2-$run")
@@ -417,6 +474,13 @@ class ApprovalFlowDeviceTest {
                             ?.mode == AgentMode.ACT &&
                             chat.screen.value.openSessionId == session
                     }
+                    // The fixture model may only call a tool exposed in this session.
+                    assertTrue(
+                        container.toolPipeline.mcpDiscovery.search(session, "echo", 1).any {
+                            it.name.value ==
+                                "echo"
+                        },
+                    )
                     chat.sendTestMessage(session, "Echo probe.")
                     stopAwait {
                         container.storage.turns.listBySession(session).any { turn ->
@@ -521,8 +585,8 @@ class ApprovalFlowDeviceTest {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        container.toolPipeline.registry.register(descriptor)
-        container.toolPipeline.implementations.register(
+
+        container.toolPipeline.registry.register(
             descriptor,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {

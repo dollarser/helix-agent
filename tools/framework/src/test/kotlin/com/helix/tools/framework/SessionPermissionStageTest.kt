@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class SessionPermissionStageTest {
     private lateinit var clock: TestClock
     private lateinit var registry: ToolRegistry
-    private lateinit var impls: ToolImplementationRegistry
+
     private lateinit var center: CapabilityCenter
     private lateinit var broker: TestBroker
     private lateinit var sink: RecordingSink
@@ -63,7 +63,7 @@ class SessionPermissionStageTest {
     fun setUp() {
         clock = TestClock()
         registry = ToolRegistry()
-        impls = ToolImplementationRegistry()
+
         center = CapabilityCenter(GrantingResolver(clock))
         broker = TestBroker()
         sink = RecordingSink()
@@ -319,7 +319,7 @@ class SessionPermissionStageTest {
     @Test
     fun theStageIsInertWhenTheSeamsAreUnwired() {
         val dispatcher =
-            ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink, { emptySet() })
+            ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink, { emptySet() })
         val executor = registerL0Tool()
         assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
         assertEquals(1, executor.invocations)
@@ -375,7 +375,7 @@ class SessionPermissionStageTest {
         assertEquals(ToolOperationClass.PRIVILEGED, sink.events.single().operationClass)
 
         val unwired =
-            ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink, { emptySet() })
+            ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink, { emptySet() })
         broker.script(ApprovalAcquisition.Denied)
         val denied = unwired.dispatch(request()) as ToolDispatchOutcome.Denied
         assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, denied.code)
@@ -508,7 +508,6 @@ class SessionPermissionStageTest {
         ToolDispatcher(
             clock,
             registry,
-            impls,
             center,
             PolicyEngine(clock),
             broker,
@@ -529,8 +528,7 @@ class SessionPermissionStageTest {
         d: ToolDescriptor,
         executor: ToolExecutor,
     ) {
-        registry.register(d)
-        impls.register(d, executor)
+        registry.register(d, executor)
     }
 
     private fun request(scope: UserScope? = null): ToolDispatchRequest =

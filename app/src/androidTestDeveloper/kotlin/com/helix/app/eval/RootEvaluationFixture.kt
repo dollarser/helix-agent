@@ -25,7 +25,6 @@ import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.root.RootAccessStatus
 import com.helix.tools.root.RootGrantState
@@ -70,13 +69,13 @@ internal class RootEvaluationFixture(
     val sessions = RootSessionManager(clock, port::status) {}
     val tools = RootTools(port, sessions)
     val registry = ToolRegistry()
-    private val implementations = ToolImplementationRegistry()
+
     private val originalScope = if (caseId == "root-002") sessions.start().scope else null
     private val dispatcher: ToolDispatcher
 
     init {
         if (caseId == "root-002") now = now.plusSeconds(601)
-        tools.register(registry, implementations)
+        tools.register(registry)
         val capabilities =
             CapabilityCenter(
                 object : CapabilityResolver {
@@ -105,7 +104,7 @@ internal class RootEvaluationFixture(
                 }
             }
         dispatcher =
-            ToolDispatcher(clock, registry, implementations, capabilities, PolicyEngine(clock), approvals, sink)
+            ToolDispatcher(clock, registry, capabilities, PolicyEngine(clock), approvals, sink)
     }
 
     fun dispatch(

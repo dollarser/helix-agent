@@ -1,161 +1,89 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.ToolBindingRef
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 
-/**
- * The in-process tool registry (HXA-030): the single source of registered
- * tool contracts for the Agent core, Policy and UI.
- *
- * Semantics:
- * - a tool's identity is (name, version). Registering an EXISTING (name,
- *   version) pair FAILS (duplicate registration is an error, never a
- *   silent overwrite — a silent overwrite could invalidate approvals bound
- *   to the previous contract);
- * - the same NAME at a NEW version is a legal evolution (old approvals bound
- *   to the old version/schema hash remain bound to it; the new version needs
- *   its own approvals — HXA-034);
- * - the namespace + MCP class-floor invariants live in [ToolDescriptor]'s
- *   constructor (single enforcement point), so every registered descriptor
- *   already satisfies them;
- * - the registry is thread-safe: registrations are synchronized and every
- *   read returns an immutable snapshot.
- *
- * The registry holds descriptors only. Schema SUBSET validity is enforced in
- * the [ToolDescriptor] constructor (HXA-031), so the registry never sees an
- * out-of-subset schema; policy is NOT evaluated here (HXA-033); execution
- * happens only in the dispatcher (HXA-035).
- */
+/** One atomic descriptor/executor fact source for exposure, scheduling and execution admission. */
+@Suppress("TooManyFunctions") // One publication authority exposes catalog, reference lookup and admission.
 class ToolRegistry(
-    sources: List<ToolSource> = emptyList(),
+    /** Stable for one host installation, changes when packaged native code is replaced. */
+    private val hostImplementationRevision: String = "test-host",
 ) {
-    private val lock = Any()
-    private val byNameVersion: MutableMap<Pair<ToolName, ToolVersion>, ToolDescriptor> = LinkedHashMap()
+    private val store = ToolBindingStore(hostImplementationRevision)
 
-    init {
-        sources.forEach { source ->
-            source.load().forEach { descriptor ->
-                registerInternal(descriptor)
-            }
-        }
-    }
+    fun register(
+        descriptor: ToolDescriptor,
+        executor: ToolExecutor,
+        implementationRevision: String = descriptor.contractHash.hex,
+    ): ToolDescriptor =
+        registerBatch(listOf(ToolBinding(descriptor, executor, implementationRevision))).single().descriptor
 
-    /**
-     * Registers one descriptor. Fails (IllegalArgumentException) on a
-     * duplicate (name, version) or an invariant violation — see the class
-     * KDoc. Dynamic (MCP) registrations use the same path as construction.
+    fun registerBatch(bindings: List<ToolBinding>): List<RegisteredToolBinding> = store.register(bindings)
+
+    /** Validate first; optional local storage commit precedes publication without holding admission's lock.
+     * The callback must commit atomically or throw, cannot publish recursively, and cannot execute tools/network.
      */
-    fun register(descriptor: ToolDescriptor): ToolDescriptor =
-        synchronized(lock) {
-            registerInternal(descriptor)
-            descriptor
-        }
+    fun replaceOwner(
+        owner: String,
+        bindings: List<ToolBinding>,
+        beforePublish: () -> Unit = {},
+    ): List<RegisteredToolBinding> = store.replace(owner, bindings, beforePublish)
 
-    /** Atomically replaces every dynamic descriptor owned by one MCP server snapshot. */
     fun replaceMcpServer(
         serverId: String,
-        descriptors: List<ToolDescriptor>,
-    ): List<ToolDescriptor> =
-        synchronized(lock) {
-            require(descriptors.all { (it.origin as? ToolOrigin.McpOrigin)?.serverId == serverId }) {
-                "replacement descriptors must all belong to MCP server $serverId"
-            }
-            requireNoDuplicates(descriptors)
-            val retained =
-                byNameVersion.filterValues { descriptor ->
-                    (descriptor.origin as? ToolOrigin.McpOrigin)?.serverId != serverId
-                }
-            descriptors.forEach { descriptor ->
-                require(retained[descriptor.name to descriptor.version] == null) {
-                    "MCP replacement collides with existing tool ${descriptor.name.value} v${descriptor.version.value}"
-                }
-            }
-            byNameVersion.clear()
-            byNameVersion.putAll(retained)
-            descriptors.forEach { descriptor -> byNameVersion[descriptor.name to descriptor.version] = descriptor }
-            descriptors.toList()
-        }
+        bindings: List<ToolBinding>,
+        beforePublish: () -> Unit = {},
+    ): List<ToolDescriptor> = replaceOwner(bindingOwner("mcp", serverId), bindings, beforePublish).map { it.descriptor }
 
-    /** Atomically replaces every dynamic descriptor owned by one A2A Agent snapshot. */
     fun replaceA2aAgent(
         agentId: String,
-        descriptors: List<ToolDescriptor>,
-    ): List<ToolDescriptor> =
-        synchronized(lock) {
-            require(descriptors.all { (it.origin as? ToolOrigin.A2aOrigin)?.agentId == agentId }) {
-                "replacement descriptors must all belong to A2A Agent $agentId"
-            }
-            requireNoDuplicates(descriptors)
-            val retained =
-                byNameVersion.filterValues { descriptor ->
-                    (descriptor.origin as? ToolOrigin.A2aOrigin)?.agentId != agentId
-                }
-            descriptors.forEach { descriptor ->
-                require(retained[descriptor.name to descriptor.version] == null) {
-                    "A2A replacement collides with existing tool ${descriptor.name.value} v${descriptor.version.value}"
-                }
-            }
-            byNameVersion.clear()
-            byNameVersion.putAll(retained)
-            descriptors.forEach { descriptor -> byNameVersion[descriptor.name to descriptor.version] = descriptor }
-            descriptors.toList()
-        }
+        bindings: List<ToolBinding>,
+        beforePublish: () -> Unit = {},
+    ): List<ToolDescriptor> = replaceOwner(bindingOwner("a2a", agentId), bindings, beforePublish).map { it.descriptor }
 
-    /** The exact (name, version) contract; fails when unknown. */
+    fun snapshot(): List<RegisteredToolBinding> = store.snapshot()
+
+    fun resolveBinding(
+        name: ToolName,
+        version: ToolVersion,
+    ): RegisteredToolBinding =
+        requireNotNull(store.resolve(name, version)) { "unknown tool ${name.value} v${version.value}" }
+
+    fun resolveBinding(ref: ToolBindingRef): RegisteredToolBinding? = store.resolve(ref)
+
+    fun <T : Any> admit(
+        ref: ToolBindingRef,
+        commit: () -> T,
+    ): T? = store.admit(ref, commit)
+
     fun resolve(
         name: ToolName,
         version: ToolVersion,
-    ): ToolDescriptor {
-        val descriptor =
-            synchronized(lock) { byNameVersion[name to version] }
-        require(descriptor != null) { "unknown tool ${name.value} v$version" }
-        return descriptor
-    }
+    ): ToolDescriptor = resolveBinding(name, version).descriptor
 
-    /** The highest registered version of [name], or null when the name is unknown. */
+    fun executor(
+        name: ToolName,
+        version: ToolVersion,
+    ): ToolExecutor = resolveBinding(name, version).executor
+
+    fun contains(
+        name: ToolName,
+        version: ToolVersion,
+    ): Boolean = store.resolve(name, version) != null
+
     fun resolveLatest(name: ToolName): ToolDescriptor? =
-        synchronized(lock) {
-            byNameVersion.values.filter { it.name == name }.maxByOrNull { it.version.value }
-        }
+        all().filter { it.name == name }.maxByOrNull { it.version.value }
 
-    /** Every registered (name, version) contract, sorted by name then version. */
     fun all(): List<ToolDescriptor> =
-        synchronized(lock) {
-            byNameVersion.values.sortedWith(compareBy({ it.name.value }, { it.version.value }))
-        }
+        snapshot().map { it.descriptor }.sortedWith(compareBy({ it.name.value }, { it.version.value }))
 
-    /**
-     * The MODE VIEW of the registry: the latest version of every tool whose
-     * operation class is in [allowedOperationClasses], sorted by name.
-     *
-     * This is a generic operation-class view of the registry. The read-gated
-     * modes (Plan, Chat) admit READ_ONLY or METADATA — the filter is on the
-     * OPERATION CLASS ONLY; a risk-level (L0/L1) check can never substitute
-     * it (doc 02 section 7; core:agent ModePolicy is the authoritative
-     * per-turn filter and enforces the same rule per call).
-     */
-    fun visibleFor(allowedOperationClasses: Set<ToolOperationClass>): List<ToolDescriptor> {
-        val latestByName = LinkedHashMap<ToolName, ToolDescriptor>()
-        all().forEach { descriptor ->
-            val current = latestByName[descriptor.name]
-            if (current == null || descriptor.version.value > current.version.value) {
-                latestByName[descriptor.name] = descriptor
-            }
-        }
-        return latestByName.values
+    fun visibleFor(allowedOperationClasses: Set<ToolOperationClass>): List<ToolDescriptor> =
+        all()
+            .groupBy { it.name }
+            .values
+            .map { versions -> versions.maxBy { it.version.value } }
             .filter { it.operationClass in allowedOperationClasses }
             .sortedBy { it.name.value }
-    }
-
-    private fun registerInternal(descriptor: ToolDescriptor) {
-        // The namespace/class-floor invariants are enforced once, in
-        // ToolDescriptor's constructor (single enforcement point); the
-        // registry owns the uniqueness rule only.
-        val key = descriptor.name to descriptor.version
-        require(byNameVersion[key] == null) {
-            "duplicate tool registration: ${descriptor.name.value} v${descriptor.version.value}"
-        }
-        byNameVersion[key] = descriptor
-    }
 }

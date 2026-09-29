@@ -7,7 +7,6 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
@@ -59,10 +58,10 @@ class SkillToolsTest {
                 root.resolve("trash"),
             )
         val registry = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
-        SkillTools.registerAll(registry, implementations, repository)
 
-        val listOutput = execute(registry, implementations, SkillTools.LIST, "{}")
+        SkillTools.registerAll(registry, repository)
+
+        val listOutput = execute(registry, SkillTools.LIST, "{}")
         val entries = listOutput["entries"]!!.jsonArray
         assertEquals(9, entries.size)
         assertEquals("9", listOutput.getValue("nextOffset").jsonPrimitive.content)
@@ -74,18 +73,17 @@ class SkillToolsTest {
         val hash = selected.getValue("snapshotHash").jsonPrimitive.content
 
         val disableArgs = keyArgs(source, name, hash, extra = "\"scope\":\"SESSION\",\"sessionId\":\"s1\"")
-        execute(registry, implementations, SkillTools.DISABLE, disableArgs, "s1")
+        execute(registry, SkillTools.DISABLE, disableArgs, "s1")
         val failedRead =
             executeRaw(
                 registry,
-                implementations,
                 SkillTools.READ,
                 keyArgs(source, name, hash, "\"sessionId\":\"s2\""),
                 "s1",
             )
         assertTrue(failedRead is ToolExecutorResult.Failed)
 
-        val read = execute(registry, implementations, SkillTools.READ, keyArgs(source, name, hash))
+        val read = execute(registry, SkillTools.READ, keyArgs(source, name, hash))
         assertEquals("built-in", read.getValue("trust").jsonPrimitive.content)
         val instructions = read.getValue("instructions").jsonPrimitive.content
         assertTrue(instructions.startsWith("---\n"))
@@ -106,15 +104,15 @@ class SkillToolsTest {
                 root.resolve("trash"),
             )
         val registry = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
-        SkillTools.registerAll(registry, implementations, repository)
 
-        val first = execute(registry, implementations, SkillTools.LIST, "{\"limit\":2}")
+        SkillTools.registerAll(registry, repository)
+
+        val first = execute(registry, SkillTools.LIST, "{\"limit\":2}")
         assertEquals(2, first.getValue("entries").jsonArray.size)
         assertEquals("2", first.getValue("nextOffset").jsonPrimitive.content)
         assertEquals("false", first.getValue("eof").jsonPrimitive.content)
 
-        val second = execute(registry, implementations, SkillTools.LIST, "{\"offset\":2,\"limit\":256}")
+        val second = execute(registry, SkillTools.LIST, "{\"offset\":2,\"limit\":256}")
         assertEquals(7, second.getValue("entries").jsonArray.size)
         assertEquals("9", second.getValue("nextOffset").jsonPrimitive.content)
         assertEquals("true", second.getValue("eof").jsonPrimitive.content)
@@ -122,12 +120,11 @@ class SkillToolsTest {
 
     private fun execute(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         name: String,
         args: String,
         sessionId: String? = null,
     ): JsonObject {
-        val result = executeRaw(registry, implementations, name, args, sessionId) as ToolExecutorResult.Completed
+        val result = executeRaw(registry, name, args, sessionId) as ToolExecutorResult.Completed
         val output = result.output
         val descriptor = registry.resolve(ToolName(name), ToolVersion(1))
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, output))
@@ -136,7 +133,6 @@ class SkillToolsTest {
 
     private fun executeRaw(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         name: String,
         args: String,
         sessionId: String? = null,
@@ -144,7 +140,7 @@ class SkillToolsTest {
         val descriptor = registry.resolve(ToolName(name), ToolVersion(1))
         val arguments = Json.parseToJsonElement(args).jsonObject
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, arguments))
-        return implementations.resolve(descriptor.name, descriptor.version).execute(
+        return registry.executor(descriptor.name, descriptor.version).execute(
             ExecutableToolCall(
                 toolCallId = "call-$name",
                 toolName = name,

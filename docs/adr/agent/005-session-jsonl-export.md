@@ -37,7 +37,9 @@ manifest 的目标是：
 - 不保存模型内部 reasoning；
 - 不把当前 UI state 当历史事实。
 
-旧 ModelCall 缺 manifest 时输出 unknown/unavailable，不根据时间邻近或当前配置猜造。
+HXA-231 增量在同一 manifest 的 `tools` 中记录实际曝光名称及绑定身份；tuple 结构和稳定/进程身份语义以 [ADR-TOOLS-001](../tools/001-descriptor-contract.md) 为准。它不包含 executor、凭证或 endpoint 原文，不进入 Provider wire；工具引用不为缩小 manifest 而静默裁剪，超出既有 256 KiB 上限明确拒绝。导出仍经过现有 redaction/sanitizer，记录不能用来重新授权执行。
+
+旧 ModelCall 缺 manifest 或 tools 时输出 unknown/unavailable，不根据时间邻近或当前配置猜造。
 
 ### 3. 用户主动导出单会话 JSONL
 
@@ -135,3 +137,5 @@ HXA-211/217 的完成记录保留当时实际验证；本 ADR 只维护当前功
 - [HXA-211](../../completion-records/HXA-211.md)
 - [HXA-217](../../completion-records/HXA-217.md)
 - [实施状态](../../development/status.md)
+
+- **2026-09-30**：HXA-231 在现有请求清单加入实际曝光 BindingRef；不新增持久事实源或导出格式版本。

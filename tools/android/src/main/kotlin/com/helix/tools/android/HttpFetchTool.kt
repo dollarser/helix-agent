@@ -9,7 +9,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
@@ -203,12 +202,11 @@ object HttpFetchTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         bridge: HttpFetchBridge,
     ) {
         val d = descriptor()
-        registry.register(d)
-        implementations.register(d, executor(bridge))
+
+        registry.register(d, executor(bridge))
     }
 }
 
@@ -219,13 +217,12 @@ object HttpFetchTools {
     /**
      * Registers the `http.fetch` contract and implementation against the shared [bridge]. Called
      * once from the app container (which owns the production [HttpFetchBridgeImpl]); tests build a
-     * [ToolRegistry] / [ToolImplementationRegistry] pair and a fake bridge.
+     * [ToolRegistry] / [ToolRegistry] pair and a fake bridge.
      */
     fun registerAll(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         bridge: HttpFetchBridge,
     ) {
-        HttpFetchTool.register(registry, implementations, bridge)
+        HttpFetchTool.register(registry, bridge)
     }
 }

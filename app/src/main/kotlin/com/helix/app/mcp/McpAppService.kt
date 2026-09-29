@@ -12,7 +12,6 @@ import com.helix.extensions.mcp.McpSsrfEndpointGate
 import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.extensions.mcp.McpToolRuntime
 import com.helix.tools.framework.ToolDescriptor
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
 import java.util.concurrent.ConcurrentHashMap
@@ -22,7 +21,6 @@ class McpAppService(
     private val storage: McpStorageBridge,
     private val profile: () -> SafetyProfile,
     private val registry: ToolRegistry,
-    private val implementations: ToolImplementationRegistry,
     lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
     private val prepareCredential: suspend (McpServerConfig) -> Unit = {},
     private val sourceAvailable: (String, String?) -> Boolean = { _, _ -> true },
@@ -92,7 +90,6 @@ class McpAppService(
     }
 
     /** User action after reviewing the test snapshot and exact tool selection. */
-    @Suppress("TooGenericExceptionCaught") // any failed registration must roll persisted enablement back closed
     fun enable(
         snapshot: McpHandshakeSnapshot,
         toolNames: Set<String>,
@@ -128,27 +125,23 @@ class McpAppService(
                         }
                     },
             )
-        storage.persistHandshake(snapshot)
-        storage.setEnabledTools(snapshot.serverId.value, toolNames)
-        storage.setServerEnabled(snapshot.serverId.value, true)
-        try {
-            bridge.register(registry, implementations)
-            activeBridges[snapshot.serverId.value] = bridge
-        } catch (failure: Throwable) {
-            storage.setServerEnabled(snapshot.serverId.value, false)
-            storage.setEnabledTools(snapshot.serverId.value, emptySet())
-            throw failure
+        synchronized(callGate) {
+            bridge.register(registry) {
+                storage.enableSnapshot(snapshot, toolNames)
+                activeBridges[snapshot.serverId.value] = bridge
+            }
         }
     }
 
     fun isActive(serverId: String): Boolean = activeBridges.containsKey(serverId)
 
     fun disable(serverId: String) {
-        activeBridges.remove(serverId)
-        storage.setServerEnabled(serverId, false)
-        storage.setEnabledTools(serverId, emptySet())
-        registry.replaceMcpServer(serverId, emptyList())
-        implementations.replaceMcpServer(serverId, emptyList())
+        synchronized(callGate) {
+            registry.replaceMcpServer(serverId, emptyList()) {
+                storage.disable(serverId)
+                activeBridges.remove(serverId)
+            }
+        }
     }
 
     fun delete(serverId: String) {

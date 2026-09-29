@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import android.util.Log
+import com.helix.app.agent.AutomaticGoalContinuation
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
@@ -34,6 +35,7 @@ internal class SessionWorkScheduler(
     private val consumeQueueInput: suspend (SessionInputRecord) -> Unit,
     private val submitContinuation: suspend (SubmitTurnCommand) -> Unit,
     private val refreshProjection: () -> Unit,
+    private val recoverInputs: suspend (String) -> Unit = {},
 ) {
     /**
      * Called after durable terminal settlement but before the live owner is released.
@@ -46,11 +48,7 @@ internal class SessionWorkScheduler(
         state: TurnState,
     ): Boolean =
         synchronized(turnGate) {
-            if (state != TurnState.COMPLETED) {
-                goalContinuation.disarm(sessionId)
-                return@synchronized false
-            }
-
+            val turn = storage.turns.resolve(turnId)
             storage.sessionInputs
                 .listPending(sessionId)
                 .filter {
@@ -65,6 +63,14 @@ internal class SessionWorkScheduler(
                         clock.now().toEpochMilli(),
                     )
                 }
+
+            val boundGoal = storage.goalTurnBindings.byTurn(turnId) != null
+            if ((!boundGoal && state != TurnState.COMPLETED) ||
+                !AutomaticGoalContinuation.accepts(state.name, turn.errorCode, turn.pauseRequestedAt)
+            ) {
+                goalContinuation.disarm(sessionId)
+                return@synchronized state != TurnState.CANCELLED && turn.pauseRequestedAt == null
+            }
 
             val queue = storage.sessionInputs.headQueue(sessionId)
             if (queue?.state == SessionInputState.PENDING) {
@@ -88,11 +94,15 @@ internal class SessionWorkScheduler(
     fun requestDrain(
         sessionId: String,
         handoffTurnId: String? = null,
+        recoveryAttempt: Int = 0,
     ) {
         scope.launch {
             submissionGate.withLock {
                 var releaseHandoff = handoffTurnId
                 try {
+                    if (synchronized(turnGate) { hasLiveTurn(sessionId) }) return@withLock
+                    if (stopped(sessionId)) return@withLock
+                    recoverInputs(sessionId)
                     val input =
                         synchronized(turnGate) {
                             if (hasLiveTurn(sessionId)) return@withLock
@@ -130,10 +140,32 @@ internal class SessionWorkScheduler(
                 } finally {
                     releaseHandoff?.let { synchronized(turnGate) { goalContinuation.finishHandoff(sessionId, it) } }
                     refreshProjection()
+                    retryDrainIfNeeded(sessionId, recoveryAttempt)
                 }
             }
         }
     }
+
+    private fun retryDrainIfNeeded(
+        sessionId: String,
+        attempt: Int,
+    ) {
+        if (attempt < 2 && needsAnotherDrain(sessionId)) requestDrain(sessionId, recoveryAttempt = attempt + 1)
+    }
+
+    private fun stopped(sessionId: String): Boolean {
+        val latest = storage.turns.listBySession(sessionId).lastOrNull()
+        return latest?.state == "CANCELLED" || latest?.pauseRequestedAt != null || latest?.errorCode == "USER_STOP"
+    }
+
+    private fun needsAnotherDrain(sessionId: String): Boolean =
+        synchronized(turnGate) {
+            val turn = storage.turns.listBySession(sessionId).lastOrNull()
+            val input = storage.sessionInputs.headQueue(sessionId)
+            !hasLiveTurn(sessionId) && turn?.state != "CANCELLED" && turn?.pauseRequestedAt == null &&
+                turn?.errorCode != "USER_STOP" && input?.state == SessionInputState.NEEDS_ATTENTION &&
+                AutomaticInputRecovery.recoverable(input.blockedReason)
+        }
 
     private companion object {
         const val TAG = "SessionWorkScheduler"

@@ -67,7 +67,12 @@ class A2aStorageBridge(
         }
     }
 
-    fun persistSnapshot(snapshot: A2aAgentCardSnapshot) {
+    fun persistSnapshot(snapshot: A2aAgentCardSnapshot) =
+        storage.contentStore.withPublication {
+            persistSnapshotCoordinated(snapshot)
+        }
+
+    private fun persistSnapshotCoordinated(snapshot: A2aAgentCardSnapshot) {
         val config = load(snapshot.agentId.value)
         require(config.cardEndpoint.origin == snapshot.selectedInterface.endpoint.origin) {
             "A2A Agent Card origin changed during discovery"
@@ -94,15 +99,24 @@ class A2aStorageBridge(
         )
     }
 
-    fun enable(
-        agentId: String,
+    fun enableSnapshot(
+        snapshot: A2aAgentCardSnapshot,
         skillIds: Set<String>,
     ) {
         require(skillIds.isNotEmpty()) { "at least one A2A Skill must be selected" }
-        val available = storage.a2aCapabilities.listByAgent(agentId).mapTo(mutableSetOf()) { it.skillId }
+        val available = snapshot.skills.mapTo(mutableSetOf()) { it.id }
         require(skillIds.all { it in available }) { "A2A Skill selection contains an unknown Skill" }
-        storage.a2aAgents.setEnabled(agentId, true)
-        available.forEach { skillId -> storage.a2aCapabilities.setEnabled(agentId, skillId, skillId in skillIds) }
+        val agentId = snapshot.agentId.value
+        // Keep the established content -> Room order shared with cleanup and other publishers.
+        storage.contentStore.withPublication {
+            storage.withTransaction {
+                persistSnapshotCoordinated(snapshot)
+                storage.a2aAgents.setEnabled(agentId, true)
+                available.forEach { skillId ->
+                    storage.a2aCapabilities.setEnabled(agentId, skillId, skillId in skillIds)
+                }
+            }
+        }
     }
 
     fun disable(agentId: String) {

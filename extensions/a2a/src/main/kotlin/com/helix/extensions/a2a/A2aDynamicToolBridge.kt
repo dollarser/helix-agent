@@ -10,7 +10,6 @@ import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -135,10 +134,28 @@ class A2aDynamicToolBridge(
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
+        beforePublish: () -> Unit = {},
     ) {
-        registry.replaceA2aAgent(agentId.value, descriptors)
-        implementations.replaceA2aAgent(agentId.value, executors)
+        registry.replaceA2aAgent(
+            agentId.value,
+            executors.map { (descriptor, executor) ->
+                com.helix.tools.framework
+                    .ToolBinding(
+                        descriptor,
+                        executor,
+                        MessageDigest
+                            .getInstance("SHA-256")
+                            .digest(
+                                (
+                                    skillsById
+                                        .getValue((descriptor.origin as ToolOrigin.A2aOrigin).skillId)
+                                        .interfaceSnapshot.endpoint.full + "\n" + descriptor.contractHash.hex
+                                ).toByteArray(Charsets.UTF_8),
+                            ).joinToString("") { "%02x".format(it) },
+                    )
+            },
+            beforePublish = beforePublish,
+        )
     }
 
     fun descriptors(): List<ToolDescriptor> = descriptors

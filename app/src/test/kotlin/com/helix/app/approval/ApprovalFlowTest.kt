@@ -31,7 +31,6 @@ import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -63,7 +62,7 @@ import kotlin.time.Duration.Companion.seconds
 class ApprovalFlowTest {
     private lateinit var clock: FakeClock
     private lateinit var registry: ToolRegistry
-    private lateinit var impls: ToolImplementationRegistry
+
     private lateinit var broker: HoldingBroker
     private lateinit var sink: RecordingSink
     private lateinit var dispatcher: ToolDispatcher
@@ -73,7 +72,7 @@ class ApprovalFlowTest {
     fun setUp() {
         clock = FakeClock(Instant.parse("2026-01-01T00:00:00Z"))
         registry = ToolRegistry()
-        impls = ToolImplementationRegistry()
+
         val center =
             CapabilityCenter(
                 object : CapabilityResolver {
@@ -89,7 +88,7 @@ class ApprovalFlowTest {
             )
         broker = HoldingBroker()
         sink = RecordingSink()
-        dispatcher = ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink)
+        dispatcher = ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink)
         l2Descriptor =
             ToolDescriptor(
                 name = ToolName("fs.write"),
@@ -105,8 +104,8 @@ class ApprovalFlowTest {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        registry.register(l2Descriptor)
-        impls.register(
+
+        registry.register(
             l2Descriptor,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult =
@@ -174,7 +173,7 @@ class ApprovalFlowTest {
         val pendingBinding = broker.acquireCalls.single().binding
 
         // The binding is structurally profile-blind (HXA-034 / ADR-0005 / security doc
-        // section 7.3): the canonical binding JSON has exactly the ten trusted fact
+        // section 7.3): the canonical binding JSON has exactly the eleven trusted fact
         // fields (HXA-042 added the full-descriptor contractHash, ADR-0011) and NO
         // profile field — switching the profile cannot change the pending decision,
         // the pending record or the mint.
@@ -185,6 +184,7 @@ class ApprovalFlowTest {
                 "argsHash",
                 "contractHash",
                 "executionTarget",
+                "implementationIdentity",
                 "scopeRef",
                 "schemaHash",
                 "sessionId",

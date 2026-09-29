@@ -6,11 +6,13 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
@@ -38,6 +40,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -90,6 +93,21 @@ class ConversationReceiptRaceDeviceTest {
                 assertTrue(chat.saveComposerDraft(request))
                 val binding =
                     MessageAttachmentRepository.Binding(attachmentId, "REFERENCE", artifact.sha256)
+                val acceptedBody =
+                    com.helix.app.chat.AttachmentContext.buildUserMessageContent(
+                        request.text,
+                        listOf(
+                            com.helix.app.chat.AttachmentContextBlock.Text(
+                                "honest.txt",
+                                com.helix.core.model.TextAttachmentKind.TXT,
+                                "hello\n",
+                                artifact.sha256,
+                                false,
+                                6,
+                                "input/attachments/$attachmentId/honest.txt",
+                            ),
+                        ),
+                    )
                 val coordinator =
                     TurnCoordinator.start(
                         storage,
@@ -104,14 +122,15 @@ class ConversationReceiptRaceDeviceTest {
                             "accepted-attachment-turn",
                             "accepted-attachment-model-call",
                             "fixture",
-                            request.text,
+                            acceptedBody,
                             attachments = listOf(binding),
                             clientRequestId = request.clientRequestId,
-                            inputFingerprint = TurnInputFingerprint.of(request.text, listOf(binding)),
+                            inputFingerprint = TurnInputFingerprint.of(acceptedBody, listOf(binding)),
                         ),
                     )
                 coordinator.beginModelStream()
                 coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+                assertNotNull(chat.acceptedComposerReceipt(request))
                 assertTrue(chat.currentStagedAttachmentIds(session).isEmpty())
 
                 chat.openSession(session)
@@ -264,6 +283,7 @@ class ConversationReceiptRaceDeviceTest {
                     }
 
                     val target = requireNotNull(storage.messages.latestUser(session)).id
+                    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-edit-$target"))
                     compose
                         .onNodeWithTag("chat-edit-$target")
                         .performScrollTo()

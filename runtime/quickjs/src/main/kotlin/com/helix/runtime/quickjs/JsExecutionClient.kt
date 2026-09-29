@@ -53,6 +53,7 @@ data class JsExecuteParams(
     val outputFile: File? = null,
     val debugInjectCrash: Boolean = false,
     val debugCrashAfterMs: Long = CRASH_SEAM_DEFAULT_DELAY_MS,
+    val nativeAccess: Boolean = false,
 ) {
     companion object {
         const val CRASH_SEAM_DEFAULT_DELAY_MS: Long = 250L
@@ -95,6 +96,28 @@ class JsExecutionClient(
         params: JsExecuteParams,
         cancellation: JsCancellation? = null,
     ): JsExecutionResult {
+        val access = JsNativeAccessSettings(context)
+        val revision = access.revision
+        if (params.nativeAccess && !access.allows(revision)) {
+            return JsExecutionResult.clientFailure(
+                params.executionId,
+                JsExecutionStatus.REQUEST_REJECTED,
+                "QUICKJS_NATIVE_ACCESS_DISABLED: user has not enabled native access in Runtime settings",
+                params.inputJsonUtf8?.let(JsHash::sha256Hex) ?: "",
+            )
+        }
+        val effectiveCancellation =
+            JsCancellation {
+                cancellation?.isCancelled() == true || (params.nativeAccess && !access.allows(revision))
+            }
+        return executeAuthorized(params, effectiveCancellation)
+    }
+
+    @Suppress("ReturnCount", "TooGenericExceptionCaught") // Every transport failure retains execution truth.
+    private fun executeAuthorized(
+        params: JsExecuteParams,
+        cancellation: JsCancellation,
+    ): JsExecutionResult {
         val inputSha = params.inputJsonUtf8?.let(JsHash::sha256Hex) ?: ""
         val preflight = JsClientPreflight.preflightReject(params, cancellation, inputSha)
         if (preflight != null) return preflight
@@ -133,7 +156,7 @@ class JsExecutionClient(
                 )
 
             val boundInstance =
-                bindInstance(params.executionId, cancellation, inputSha)
+                bindInstance(params.executionId, cancellation, inputSha, params.nativeAccess)
                     ?: return JsExecutionResult.clientFailure(
                         params.executionId,
                         JsExecutionStatus.BIND_FAILED,
@@ -167,6 +190,7 @@ class JsExecutionClient(
         val connection: ServiceConnection,
         val dead: AtomicBoolean,
         val deathRecipient: IBinder.DeathRecipient,
+        val nativeAccess: Boolean,
     )
 
     @Suppress("SwallowedException") // a raced death is recorded on the dead flag, not an error
@@ -174,6 +198,7 @@ class JsExecutionClient(
         executionId: String,
         cancellation: JsCancellation?,
         inputSha: String,
+        nativeAccess: Boolean,
     ): BoundInstance? {
         val instanceName = JsInstanceName.forExecution(executionId)
         val connected = CountDownLatch(1)
@@ -190,14 +215,7 @@ class JsExecutionClient(
 
                 override fun onServiceDisconnected(name: ComponentName) = Unit
             }
-        val bindAccepted =
-            context.bindIsolatedService(
-                Intent(context, JsExecutionService::class.java),
-                Context.BIND_AUTO_CREATE,
-                instanceName,
-                context.mainExecutor,
-                connection,
-            )
+        val bindAccepted = bindService(nativeAccess, instanceName, connection)
         if (!bindAccepted) return null
         var handedOff = false
         try {
@@ -235,7 +253,7 @@ class JsExecutionClient(
             } catch (e: DeadObjectException) {
                 dead.set(true)
             }
-            val instance = BoundInstance(binder, connection, dead, deathRecipient)
+            val instance = BoundInstance(binder, connection, dead, deathRecipient, nativeAccess)
             handedOff = true
             return instance
         } finally {
@@ -244,6 +262,28 @@ class JsExecutionClient(
             if (!handedOff) runCatching { context.unbindService(connection) }
         }
     }
+
+    private fun bindService(
+        nativeAccess: Boolean,
+        instanceName: String,
+        connection: ServiceConnection,
+    ): Boolean =
+        if (nativeAccess) {
+            context.bindService(
+                Intent(context, JsNativeExecutionService::class.java),
+                Context.BIND_AUTO_CREATE,
+                context.mainExecutor,
+                connection,
+            )
+        } else {
+            context.bindIsolatedService(
+                Intent(context, JsExecutionService::class.java),
+                Context.BIND_AUTO_CREATE,
+                instanceName,
+                context.mainExecutor,
+                connection,
+            )
+        }
 
     /** A bind-phase failure carries a pre-built failure result through the finally cleanup. */
     private fun bindFailure(
@@ -254,6 +294,18 @@ class JsExecutionClient(
     ): Nothing = throw JsClientFailure(JsExecutionResult.clientFailure(executionId, status, detail, inputSha))
 
     private fun release(bound: BoundInstance) {
+        // Native code can block in Java or create threads. Tear down its private process
+        // even after success; an engine interrupt alone cannot reclaim those resources.
+        if (bound.nativeAccess) {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            try {
+                runCatching { bound.binder.transact(JsProtocol.CODE_TERMINATE_NATIVE, data, reply, 0) }
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
         runCatching { bound.binder.unlinkToDeath(bound.deathRecipient, 0) }
         runCatching { context.unbindService(bound.connection) }
     }

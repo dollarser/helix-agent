@@ -41,6 +41,7 @@ internal class TurnAdmission(
             inputFingerprint,
         )
 
+    @Suppress("LongParameterList") // One atomic admission request; mirrors the Engine entrypoint.
     fun start(
         spec: TurnStartSpec,
         control: RunControlConfig,
@@ -49,6 +50,7 @@ internal class TurnAdmission(
         modelId: String,
         freshGuard: () -> Boolean = { true },
         resolveGoal: () -> String? = { null },
+        recoveryInspection: Boolean = false,
     ): TurnAdmissionResult {
         var result: TurnAdmissionResult? = null
         storage.withTransaction {
@@ -70,13 +72,13 @@ internal class TurnAdmission(
                 return@withTransaction
             }
             validateRecoveryPredecessor(spec)
-
             val goalId = resolveGoal()
+            if (recoveryInspection) validateInspection(spec, control, goalId)
             applyHistoryMutation(spec, goalId)
             val goalStart =
                 goalId?.let {
                     GoalRunCoordinator(storage, clock, idGenerator).start(
-                        GoalTurnStart(it, wakeReason, spec, control.budgets),
+                        GoalTurnStart(it, wakeReason, spec, control.budgets, recoveryInspection),
                     )
                 }
             if (goalId != null && goalStart == null) {
@@ -86,7 +88,12 @@ internal class TurnAdmission(
 
             val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
             val effectiveControl =
-                goalStart?.let { control.copy(mode = AgentMode.GOAL, budgets = it.budgets) } ?: control
+                goalStart?.let {
+                    control.copy(
+                        mode = if (recoveryInspection) AgentMode.PLAN else AgentMode.GOAL,
+                        budgets = it.budgets,
+                    )
+                } ?: control
             storage.turnRuntimeRecords.create(
                 TurnRuntimeRecordCodec.startRecord(
                     turnId = spec.turnId,
@@ -100,6 +107,25 @@ internal class TurnAdmission(
             result = TurnAdmissionResult.Started(AdmittedTurn(coordinator, effectiveControl, goalId))
         }
         return requireNotNull(result) { "Turn admission produced no decision" }
+    }
+
+    private fun validateInspection(
+        spec: TurnStartSpec,
+        control: RunControlConfig,
+        goalId: String?,
+    ) {
+        require(control.mode == AgentMode.PLAN && spec.recoveryFromTurnId != null)
+        val parent = storage.turns.resolve(requireNotNull(spec.recoveryFromTurnId))
+        require(spec.clientRequestId == AutomaticRecoveryPolicy.requestId(parent.id))
+        require(AutomaticRecoveryPolicy.eligible(parent))
+        require(
+            storage.turns
+                .listBySession(spec.sessionId)
+                .lastOrNull()
+                ?.id == parent.id,
+        )
+        val originalGoal = storage.goalTurnBindings.byTurn(parent.id)?.let { storage.goalRuns.resolve(it.runId).goalId }
+        require(goalId == originalGoal) { "RECOVERY_GOAL_BINDING_MISMATCH" }
     }
 
     private fun validateRecoveryPredecessor(spec: TurnStartSpec) {

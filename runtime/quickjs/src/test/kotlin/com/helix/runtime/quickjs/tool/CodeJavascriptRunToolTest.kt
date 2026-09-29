@@ -98,7 +98,7 @@ class CodeJavascriptRunToolTest {
     fun descriptorIsL2CodeExecutionOnTheQuickJsLane() {
         val d = CodeJavascriptRunTool.descriptor()
         assertEquals("code.javascript.run", d.name.value)
-        assertEquals(1, d.version.value)
+        assertEquals(2, d.version.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_QUICKJS, d.executionTarget)
         assertEquals(Idempotency.NON_IDEMPOTENT, d.idempotency)
@@ -115,7 +115,7 @@ class CodeJavascriptRunToolTest {
         val props = CodeJavascriptRunTool.descriptor().inputSchema["properties"]?.jsonObject
         assertNotNull("input schema must declare properties", props)
         // ONLY the model-visible business inputs — NO limit/timeout/memory/source/output param.
-        assertEquals(setOf("code", "input"), props!!.keys)
+        assertEquals(setOf("access", "code", "input"), props!!.keys)
         val codeSchema = props["code"]?.jsonObject
         assertEquals("string", codeSchema?.get("type")?.jsonPrimitive?.content)
         // The code is bounded; `input` is the optional JSON value (a type union, no size param).
@@ -131,6 +131,35 @@ class CodeJavascriptRunToolTest {
                 ?.jsonPrimitive
                 ?.booleanOrNull,
         )
+    }
+
+    @Test
+    fun nativeModeHasAppReachAndNeverClaimsFailedExecutionWasEffectFree() {
+        val args = JsonObject(successArgs() + ("access" to JsonPrimitive("native")))
+        for (status in listOf(JsExecutionStatus.TIMEOUT, JsExecutionStatus.CANCELLED)) {
+            val runner = CapturingExecutor(jsResult(status))
+            val result = CodeJavascriptRunTool.executor(runner).execute(call(args))
+            assertTrue(runner.lastParams!!.nativeAccess)
+            when (result) {
+                is ToolExecutorResult.TimedOutWithEffectTruth -> {
+                    assertFalse(result.sideEffectFree)
+                    assertTrue(result.requiresReview)
+                }
+
+                is ToolExecutorResult.CancelledWithEffectTruth -> {
+                    assertFalse(result.sideEffectFree)
+                    assertTrue(result.requiresReview)
+                }
+
+                else -> {
+                    error("Expected effect-aware stop")
+                }
+            }
+        }
+        for (status in listOf(JsExecutionStatus.JS_ERROR, JsExecutionStatus.OOM, JsExecutionStatus.OUTPUT_LIMIT)) {
+            val result = CodeJavascriptRunTool.executor(CapturingExecutor(jsResult(status))).execute(call(args))
+            assertFalse((result as ToolExecutorResult.Failed).sideEffectFree)
+        }
     }
 
     // ---------------------------------------------------------------- executor: limits are fixed
@@ -307,7 +336,15 @@ class CodeJavascriptRunToolTest {
 
     @Test
     fun codeExecutionToolIsExcludedFromTheReadOnlyPlanView() {
-        val registry = ToolRegistry().also { it.register(CodeJavascriptRunTool.descriptor()) }
+        val registry =
+            ToolRegistry().also {
+                it.register(
+                    CodeJavascriptRunTool.descriptor(),
+                    object : com.helix.tools.framework.ToolExecutor {
+                        override fun execute(call: ExecutableToolCall) = ToolExecutorResult.Cancelled
+                    },
+                )
+            }
         val planView = registry.visibleFor(setOf(ToolOperationClass.READ_ONLY))
         assertTrue(
             "a CODE_EXECUTION tool must never appear in the Plan (READ_ONLY) tool table",

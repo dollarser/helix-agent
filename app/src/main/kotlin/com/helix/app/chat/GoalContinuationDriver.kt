@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.agent.AutomaticGoalContinuation
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.GoalContinuationRequest
@@ -178,7 +179,8 @@ internal class GoalContinuationDriver(
         }
         val binding = storage.goalTurnBindings.byTurn(turn.id) ?: return false
         val run = storage.goalRuns.resolve(binding.runId)
-        return turn.state == "COMPLETED" && turn.pauseRequestedAt == null && run.endedAt != null &&
+        return AutomaticGoalContinuation.accepts(turn.state, turn.errorCode, turn.pauseRequestedAt) &&
+            run.endedAt != null &&
             run.outcome == "RUN_FINISHED" && goal.state.name == "PAUSED" && goal.hasRunBudgetHeadroom() &&
             storage.goalRuns
                 .listByGoal(activation.goalId)

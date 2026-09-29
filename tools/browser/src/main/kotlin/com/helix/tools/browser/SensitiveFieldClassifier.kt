@@ -32,7 +32,7 @@ object SensitiveFieldClassifier {
 
     // The name/placeholder/payment + one-time-code signals. IGNORE_CASE. These strings are
     // duplicated verbatim inside the fixed action script (BrowserActionScript); the two
-    // implementations are pinned to agree by the classifier unit tests + the on-device refusal
+    // registry are pinned to agree by the classifier unit tests + the on-device refusal
     // test, so a one-sided drift is caught (the same two-sided pin as BrowserSnapshotScript).
     private val PAYMENT_NAME =
         Regex(

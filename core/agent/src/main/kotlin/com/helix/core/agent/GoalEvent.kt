@@ -11,6 +11,9 @@ import com.helix.core.model.Sha256
  * rejected, never guessed at).
  */
 sealed interface GoalEvent {
+    /** Trusted host only: a read-only successor inspects an interrupted/unknown attempt within the same ledger. */
+    data object RecoveryInspection : GoalEvent
+
     /**
      * User finalized the draft. Optionally attaches the plan the goal was created from; when
      * present, the plan's hash is recorded so later runs can reference the exact plan version

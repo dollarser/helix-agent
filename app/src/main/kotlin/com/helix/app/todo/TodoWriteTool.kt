@@ -12,7 +12,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -74,7 +73,6 @@ internal object TodoWriteTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
         val descriptor =
@@ -101,8 +99,8 @@ internal object TodoWriteTool {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        registry.register(descriptor)
-        implementations.register(
+
+        registry.register(
             descriptor,
             decorate(
                 object : ToolExecutor {

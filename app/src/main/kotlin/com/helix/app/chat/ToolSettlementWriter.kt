@@ -21,8 +21,14 @@ internal class ToolSettlementWriter(
     ) {
         // Room cannot roll back files. A failed commit can leave an unreferenced content
         // object, but never a terminal call without its result or its budget settlement.
-        val contentRef = content?.takeIf { it.isNotBlank() }?.let { storage.contentStore.write(it).toStorageString() }
         storage.withTransaction {
+            val contentRef =
+                content?.takeIf { it.isNotBlank() }?.let {
+                    storage.contentStore
+                        .write(
+                            it,
+                        ).toStorageString()
+                }
             val existing = storage.toolResults.byToolCall(call.id)
             if (existing == null) {
                 val result = storage.toolResults.appendPrepared(idGenerator(), call.id, status, summary, contentRef)

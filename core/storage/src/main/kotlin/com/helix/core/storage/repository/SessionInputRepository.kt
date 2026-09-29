@@ -263,6 +263,55 @@ class SessionInputRepository internal constructor(
             true
         }
 
+    /** Ends an unconsumed input without attributing a withdrawal to the user. */
+    fun failPending(
+        inputId: String,
+        expectedRevision: Long,
+        reason: String,
+        at: Long,
+    ): Boolean =
+        transaction {
+            SessionInputValidation.park(reason, at)
+            val old = editable(inputId, expectedRevision) ?: return@transaction false
+            check(
+                dao.update(
+                    old.copy(
+                        state = SessionInputState.FAILED.name,
+                        revision = Math.addExact(old.revision, 1L),
+                        blockedReason = reason,
+                        updatedAt = maxOf(old.updatedAt, at),
+                    ),
+                ) == 1,
+            )
+            true
+        }
+
+    /** Transfers an unconsumed Steer to the ordinary queue; immutable content/configuration stay bound. */
+    fun requeueAfterTargetFinished(
+        inputId: String,
+        expectedRevision: Long,
+        at: Long,
+    ): Boolean =
+        transaction {
+            val old = editable(inputId, expectedRevision) ?: return@transaction false
+            if (old.delivery != SessionInputDelivery.STEER.name) return@transaction false
+            val target = old.expectedTurnId?.let { database.turnDao().byId(it) } ?: return@transaction false
+            if (!TurnState.valueOf(target.state).isTerminal) return@transaction false
+            check(
+                dao.update(
+                    old.copy(
+                        delivery = SessionInputDelivery.QUEUE.name,
+                        expectedTurnId = null,
+                        state = SessionInputState.NEEDS_ATTENTION.name,
+                        blockedReason = "STEER_TARGET_FINISHED",
+                        revision = Math.addExact(old.revision, 1L),
+                        updatedAt = maxOf(old.updatedAt, at),
+                    ),
+                ) == 1,
+            )
+            true
+        }
+
     /** Caller inserts USER + bindings in the same outer transaction; false must abort that consumption. */
     fun markAppended(
         inputId: String,
@@ -442,7 +491,7 @@ class SessionInputRepository internal constructor(
     }
 
     private fun <T> transaction(block: () -> T): T =
-        database.runInTransaction(java.util.concurrent.Callable { block() })
+        contentStore.withPublication { database.runInTransaction(java.util.concurrent.Callable { block() }) }
 
     companion object {
         const val MAX_PENDING_COUNT = 32

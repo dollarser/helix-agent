@@ -7,7 +7,6 @@ import com.helix.core.policy.DataSensitivity
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
@@ -39,13 +38,13 @@ class McpDynamicToolBridgeTest {
     @Test
     fun schemaChangeReplacesDynamicContractAndInvalidatesItsHash() {
         val registry = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
+
         val first = bridge(metadata(schemaHash = "a".repeat(64)))
-        first.register(registry, implementations)
+        first.register(registry)
         val firstContract = registry.all().single().contractHash
 
         val second = bridge(metadata(schemaHash = "b".repeat(64)))
-        second.register(registry, implementations)
+        second.register(registry)
 
         assertEquals(1, registry.all().size)
         assertNotEquals(firstContract, registry.all().single().contractHash)
@@ -68,7 +67,7 @@ class McpDynamicToolBridgeTest {
     @Test
     fun resultBlocksFlowThroughTheRegisteredImplementationAsBoundedJson() {
         val registry = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
+
         val bridge =
             bridge(metadata()) {
                 McpToolResult(
@@ -77,11 +76,11 @@ class McpDynamicToolBridgeTest {
                     structuredContent = buildJsonObject { put("count", 1) },
                 )
             }
-        bridge.register(registry, implementations)
+        bridge.register(registry)
         val descriptor = registry.all().single()
 
         val result =
-            implementations.resolve(descriptor.name, descriptor.version).execute(
+            registry.executor(descriptor.name, descriptor.version).execute(
                 ExecutableToolCall(
                     toolCallId = "call-1",
                     toolName = descriptor.name.value,

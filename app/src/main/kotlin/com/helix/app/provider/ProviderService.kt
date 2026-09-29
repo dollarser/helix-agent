@@ -112,7 +112,7 @@ class ProviderService(
         providerId: String,
         model: String,
         settings: ProviderContextSettings,
-    ) {
+    ) = probeGate.mutate(providerId) {
         val config = storedConfig(providerId)
         val local = config.transport is com.helix.core.model.ProviderTransport.OnDeviceLocal
         if (local) {
@@ -138,14 +138,22 @@ class ProviderService(
         providerId: String,
         model: String,
     ): ProviderContextSettings =
-        withContext(workScope.coroutineContext) {
-            val config = storedConfig(providerId)
-            val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
+            val (token, config) = probeGate.begin(providerId) { storedConfig(providerId) }
             val detected = factory.create(config).contextWindow(model)
-            val updated = previous.copy(serverWindow = detected)
-            contextSettingsStore.write(providerId, config.transport.cacheKey, model, updated)
-            _contextRevision.value++
-            updated
+            probeGate.publish(providerId, token) {
+                if (storedConfig(providerId) == config) {
+                    val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
+                    contextSettingsStore.write(
+                        providerId,
+                        config.transport.cacheKey,
+                        model,
+                        previous.copy(serverWindow = detected),
+                    )
+                    _contextRevision.value++
+                }
+            }
+            contextSettings(providerId, model)
         }
 
     private val workScope = scope
@@ -162,9 +170,12 @@ class ProviderService(
     private val _networkOperations = MutableStateFlow(0)
     val networkOperations: StateFlow<Int> = _networkOperations.asStateFlow()
 
+    private val probeGate = ProviderProbeGate()
+
     private val connectionProbe =
         ProviderConnectionProbe(
             storage,
+            probeGate,
             factory,
             testStatus,
             probe,
@@ -285,74 +296,78 @@ class ProviderService(
         cleartextConfirmed: Boolean,
     ) {
         withContext(workScope.coroutineContext) {
-            require(!managed.isManaged(providerId)) { "managed provider cannot be edited" }
-            require(draft.cleartext == null || cleartextConfirmed) {
-                "cleartext http to ${draft.endpoint.origin} requires the explicit per-host:port confirmation"
-            }
-            val existing = storage.providerConfigs.resolve(providerId)
-            require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
-            val alias =
-                when {
-                    apiKey.isNullOrBlank() -> {
-                        existing.secretAlias
-                    }
-
-                    // keep the stored key
-                    else -> {
-                        val updatedAlias =
-                            existing.secretAlias?.takeUnless { it == ProviderFactory.NO_KEY_ALIAS } ?: idGenerator()
-                        storage.secrets.put(SecretAlias(updatedAlias), apiKey)
-                        updatedAlias
-                    }
+            probeGate.mutate(providerId) {
+                require(!managed.isManaged(providerId)) { "managed provider cannot be edited" }
+                require(draft.cleartext == null || cleartextConfirmed) {
+                    "cleartext http to ${draft.endpoint.origin} requires the explicit per-host:port confirmation"
                 }
-            storage.providerConfigs.overwrite(
-                ProviderConfigSpec(
-                    id = providerId,
-                    displayName = draft.displayName,
-                    protocol = draft.protocol,
-                    endpoint = draft.endpoint.full,
-                    model = draft.model,
-                    headersJson = draft.headersJson,
-                    secretAlias = alias,
-                    authKind = if (alias == null) "NONE" else "SECRET",
-                    capabilitySnapshot = UNTESTED_SNAPSHOT,
-                ),
-            )
-            // Editing invalidates the previous test result (new endpoint/model):
-            // the provider must be re-tested before it is selectable again.
-            testStatus.clear(providerId)
-            draft.cleartext?.let { bindings.authorize(it) }
-            pruneBindingsToPersistedEndpoints()
-            refreshNow()
+                val existing = storage.providerConfigs.resolve(providerId)
+                require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
+                val alias =
+                    when {
+                        apiKey.isNullOrBlank() -> {
+                            existing.secretAlias
+                        }
+
+                        // keep the stored key
+                        else -> {
+                            val updatedAlias =
+                                existing.secretAlias?.takeUnless { it == ProviderFactory.NO_KEY_ALIAS } ?: idGenerator()
+                            storage.secrets.put(SecretAlias(updatedAlias), apiKey)
+                            updatedAlias
+                        }
+                    }
+                storage.providerConfigs.overwrite(
+                    ProviderConfigSpec(
+                        id = providerId,
+                        displayName = draft.displayName,
+                        protocol = draft.protocol,
+                        endpoint = draft.endpoint.full,
+                        model = draft.model,
+                        headersJson = draft.headersJson,
+                        secretAlias = alias,
+                        authKind = if (alias == null) "NONE" else "SECRET",
+                        capabilitySnapshot = UNTESTED_SNAPSHOT,
+                    ),
+                )
+                // Editing invalidates the previous test result (new endpoint/model):
+                // the provider must be re-tested before it is selectable again.
+                testStatus.clear(providerId)
+                draft.cleartext?.let { bindings.authorize(it) }
+                pruneBindingsToPersistedEndpoints()
+                refreshNow()
+            }
         }
     }
 
     /** Deletes the provider (sessions keep their rows, providerId nulled by the FK). */
     suspend fun delete(providerId: String) {
         withContext(workScope.coroutineContext) {
-            require(!managed.isManaged(providerId)) { "managed provider cannot be deleted" }
-            val entity = storage.providerConfigs.resolve(providerId)
-            if (entity.secretAlias != null && entity.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
-                storage.secrets.delete(SecretAlias(requireNotNull(entity.secretAlias)))
+            probeGate.mutate(providerId) {
+                require(!managed.isManaged(providerId)) { "managed provider cannot be deleted" }
+                val entity = storage.providerConfigs.resolve(providerId)
+                if (entity.secretAlias != null && entity.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
+                    storage.secrets.delete(SecretAlias(requireNotNull(entity.secretAlias)))
+                }
+                if (entity.provisioningKind == "ON_DEVICE_ASSET") localModels?.delete(entity.model)
+                storage.providerConfigs.delete(providerId)
+                testStatus.selectedModels.write(providerId, emptyList())
+                testStatus.clear(providerId)
+                pruneBindingsToPersistedEndpoints()
+                refreshNow()
             }
-            if (entity.provisioningKind == "ON_DEVICE_ASSET") localModels?.delete(entity.model)
-            storage.providerConfigs.delete(providerId)
-            testStatus.selectedModels.write(providerId, emptyList())
-            testStatus.clear(providerId)
-            pruneBindingsToPersistedEndpoints()
-            refreshNow()
         }
     }
 
     /** Catalog discovery plus one short text reply; independent of optional capability detection. */
     suspend fun runConnectionTest(providerId: String): ProbeOutcome =
-        withContext(workScope.coroutineContext) {
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
             connectionProbe.run(providerId).also { refreshNow() }
         }
 
     /** Explicit capability detection; failures never invalidate a passed connection. */
     suspend fun runCapabilityTest(providerId: String): ProbeOutcome =
-        withContext(workScope.coroutineContext) {
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
             connectionProbe.run(providerId, detectCapabilities = true).also { refreshNow() }
         }
 
@@ -412,7 +427,7 @@ class ProviderService(
      * Runs on the service's IO scope (Room read).
      */
     suspend fun storedConfig(providerId: String): ProviderConfig =
-        withContext(workScope.coroutineContext) {
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
             configFrom(storage.providerConfigs.resolve(providerId))
         }
 
@@ -518,13 +533,15 @@ class ProviderService(
             if (model == null) {
                 ProviderCapabilities.parse(storage.providerConfigs.resolve(providerId).capabilitySnapshot)
             } else {
-                withContext(workScope.coroutineContext) {
+                withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
                     val entity = storage.providerConfigs.resolve(providerId)
                     rowUi(entity)
                         .copy(capabilities = ProviderCapabilities.parse(entity.capabilitySnapshot))
                         .capabilitiesForModel(model)
                 }
             }
+        }.onFailure { failure ->
+            if (failure is kotlinx.coroutines.CancellationException) throw failure
         }.getOrNull()
 
     fun metadataFor(
@@ -536,18 +553,18 @@ class ProviderService(
             ?.modelMetadata
             ?.get(model)
 
+    fun resolveReasoning(
+        providerId: String,
+        model: String,
+        preferred: ReasoningEffort,
+    ): ReasoningEffort = supportedReasoning(preferred, reasoningOptions(providerId, model))
+
     fun reasoningOptions(
         providerId: String,
         model: String,
     ): List<ReasoningEffort> {
-        val row = rows.value.firstOrNull { it.id == providerId && it.chatSelectable } ?: return emptyList()
-        val explicit = row.modelMetadata[model]?.reasoningEfforts
-        return when {
-            explicit != null && explicit.isNotEmpty() -> listOf(ReasoningEffort.OFF) + explicit
-            explicit != null -> emptyList()
-            model == row.model && row.capabilities?.reasoning == true -> ReasoningEffort.FALLBACK
-            else -> emptyList()
-        }
+        val row = rows.value.firstOrNull { it.id == providerId } ?: return emptyList()
+        return row.reasoningOptionsFor(model)
     }
 
     /**
@@ -561,28 +578,30 @@ class ProviderService(
         providerId: String,
         enabled: Boolean,
     ) {
-        require(!managed.isManaged(providerId)) { "managed provider capabilities cannot be overridden" }
-        val row = storage.providerConfigs.resolve(providerId)
-        val current =
-            runCatching { ProviderCapabilities.parse(row.capabilitySnapshot) }.getOrNull()
-                ?: ProviderCapabilities.parse(UNTESTED_SNAPSHOT)
-        val declared = current.copy(vision = enabled).withManualSource()
-        storage.providerConfigs.overwrite(
-            ProviderConfigSpec(
-                id = row.id,
-                displayName = row.displayName,
-                protocol = row.protocol?.let(ProviderProtocol::parse),
-                endpoint = row.endpoint,
-                model = row.model,
-                headersJson = row.headersJson,
-                secretAlias = row.secretAlias,
-                provisioningKind = row.provisioningKind,
-                transportKind = row.transportKind,
-                authKind = row.authKind,
-                capabilitySnapshot = ProviderCapabilities.toJsonString(declared),
-            ),
-        )
-        refresh()
+        probeGate.mutate(providerId) {
+            require(!managed.isManaged(providerId)) { "managed provider capabilities cannot be overridden" }
+            val row = storage.providerConfigs.resolve(providerId)
+            val current =
+                runCatching { ProviderCapabilities.parse(row.capabilitySnapshot) }.getOrNull()
+                    ?: ProviderCapabilities.parse(UNTESTED_SNAPSHOT)
+            val declared = current.copy(vision = enabled).withManualSource()
+            storage.providerConfigs.overwrite(
+                ProviderConfigSpec(
+                    id = row.id,
+                    displayName = row.displayName,
+                    protocol = row.protocol?.let(ProviderProtocol::parse),
+                    endpoint = row.endpoint,
+                    model = row.model,
+                    headersJson = row.headersJson,
+                    secretAlias = row.secretAlias,
+                    provisioningKind = row.provisioningKind,
+                    transportKind = row.transportKind,
+                    authKind = row.authKind,
+                    capabilitySnapshot = ProviderCapabilities.toJsonString(declared),
+                ),
+            )
+            refresh()
+        }
     }
 
     private companion object {

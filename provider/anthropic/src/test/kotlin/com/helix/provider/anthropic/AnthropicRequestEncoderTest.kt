@@ -494,4 +494,33 @@ class AnthropicRequestEncoderTest {
             )
         assertThrows(IllegalArgumentException::class.java) { encoder.encode(request) }
     }
+
+    @Test fun hostBindingIdentityNeverLeaksOntoProviderWire() {
+        val request =
+            ModelRequest(
+                model = "model-test",
+                messages = listOf(ModelMessage(ModelRole.USER, "read")),
+                tools = listOf(ModelToolSchema(ToolName("read"), "read", """{"type":"object"}""")),
+                maxOutputTokens = 128,
+            )
+        val bound =
+            request.copy(
+                tools =
+                    request.tools.map { schema ->
+                        schema.copy(
+                            bindingRef =
+                                com.helix.core.model.ToolBindingRef(
+                                    schema.name,
+                                    com.helix.core.model
+                                        .ToolVersion(1),
+                                    "a".repeat(64),
+                                    "private-owner",
+                                    "implementation-revision",
+                                    "incarnation",
+                                ),
+                        )
+                    },
+            )
+        assertEquals(encoder.encode(request), encoder.encode(bound))
+    }
 }

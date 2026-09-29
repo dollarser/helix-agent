@@ -9,14 +9,12 @@ import com.helix.tools.android.HttpFetchBridgeImpl
 import com.helix.tools.android.HttpFetchTools
 import com.helix.tools.android.NotificationsBridgeImpl
 import com.helix.tools.android.NotificationsCalendarTools
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 
 internal object AppAndroidTools {
     fun register(
         context: Context,
         toolRegistry: ToolRegistry,
-        toolImplementations: ToolImplementationRegistry,
         egressPolicy: EgressPolicyProvider,
     ) {
         // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
@@ -26,7 +24,6 @@ internal object AppAndroidTools {
         // (e.g. the share text) before the user approves — that IS "分享输入先预览" (doc 02 §5.4).
         AndroidSystemTools.registerAll(
             toolRegistry,
-            toolImplementations,
             AndroidSystemBridgeImpl(context),
         )
         // HXA-065: the notifications.query / calendar.prepare_event / calendar.commit_event tools.
@@ -38,7 +35,6 @@ internal object AppAndroidTools {
         // permission is off (doc 09 §11 / overview.md §11).
         NotificationsCalendarTools.registerAll(
             toolRegistry,
-            toolImplementations,
             NotificationsBridgeImpl(context),
             CalendarBridgeImpl(context),
         )
@@ -52,7 +48,6 @@ internal object AppAndroidTools {
         // at every connection/redirect; Advanced alone never creates one.
         HttpFetchTools.registerAll(
             toolRegistry,
-            toolImplementations,
             HttpFetchBridgeImpl(
                 egressPolicy,
             ),

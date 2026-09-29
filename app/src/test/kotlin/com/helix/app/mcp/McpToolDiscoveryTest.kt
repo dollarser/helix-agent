@@ -9,7 +9,6 @@ import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -22,9 +21,28 @@ import java.time.Instant
 
 class McpToolDiscoveryTest {
     private val registry = ToolRegistry()
-    private val implementations = ToolImplementationRegistry()
-    private val discovery = McpToolDiscovery(registry).also { it.register(implementations) }
+
+    private val discovery = McpToolDiscovery(registry).also { it.register(registry) }
     private val search = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
+
+    private val fixtureExecutor =
+        object : com.helix.tools.framework.ToolExecutor {
+            override fun execute(call: ExecutableToolCall) =
+                ToolExecutorResult.Completed(kotlinx.serialization.json.buildJsonObject {})
+        }
+
+    private fun registerFixture(descriptor: ToolDescriptor) = registry.register(descriptor, fixtureExecutor)
+
+    private fun replaceCatalog(
+        server: String,
+        descriptors: List<ToolDescriptor>,
+    ) = registry.replaceMcpServer(
+        server,
+        descriptors.map {
+            com.helix.tools.framework
+                .ToolBinding(it, fixtureExecutor)
+        },
+    )
 
     private fun remote(index: Int): ToolDescriptor =
         search.copy(
@@ -34,7 +52,48 @@ class McpToolDiscoveryTest {
             origin = ToolOrigin.McpOrigin("catalog", "2025-03-26", "a".repeat(64)),
         )
 
-    private fun catalog(count: Int = 500) = registry.replaceMcpServer("catalog", (0 until count).map(::remote))
+    private fun catalog(count: Int = 500) = replaceCatalog("catalog", (0 until count).map(::remote))
+
+    @Test fun searchChecksAvailabilityOnlyForMatchingCandidatesUntilWindowIsFull() {
+        catalog()
+        val checked = mutableListOf<String>()
+        val filtered =
+            McpToolDiscovery(registry) { _, descriptor ->
+                checked += descriptor.name.value
+                descriptor.name.value != "mcp.catalog.tool_0"
+            }
+        assertEquals(listOf(remote(499)), filtered.search("session", "tool_499", 1))
+        assertEquals(listOf("mcp.catalog.tool_499"), checked)
+        checked.clear()
+        assertEquals(listOf(remote(1)), filtered.search("session", "catalog", 1))
+        assertEquals(listOf("mcp.catalog.tool_0", "mcp.catalog.tool_1"), checked)
+    }
+
+    @Test fun exactNameAndNameMatchesRankAheadOfDescriptionMentions() {
+        val exact = search.copy(name = ToolName("files.archive"), description = "Create an archive")
+        val mention = search.copy(name = ToolName("aaa.helper"), description = "Use files.archive to archive files")
+        registerFixture(exact)
+        registerFixture(mention)
+        assertEquals(listOf(exact), discovery.search("session", "files.archive", 1))
+        assertEquals(exact, discovery.search("session", "archive", 2).first())
+    }
+
+    @Test fun missCannotRetainReplacedOrDisabledBindings() {
+        catalog()
+        var enabled = true
+        val filtered = McpToolDiscovery(registry) { _, _ -> enabled }
+        filtered.search("session", "tool_499", 1)
+        enabled = false
+        assertTrue(filtered.search("session", "absent", 1).isEmpty())
+        enabled = true
+        assertEquals(listOf(search), filtered.visible("session", registry.all()))
+        filtered.search("session", "tool_499", 1)
+        replaceCatalog("catalog", listOf(remote(499).copy(description = "replacement")))
+        filtered.search("session", "absent", 1)
+        // Add a large directory to avoid the independent small-catalog automatic exposure.
+        replaceCatalog("catalog", (0 until 500).map { remote(it).copy(description = "replacement") })
+        assertEquals(listOf(search), filtered.visible("session", registry.all()))
+    }
 
     @Test
     fun lateCatalogToolIsDiscoverableWithoutExposingAllSchemas() {
@@ -72,10 +131,10 @@ class McpToolDiscoveryTest {
     fun newSearchReplacesWindowAndNeverGrowsBeyondSixteen() {
         catalog()
         assertEquals(16, discovery.search("session", "catalog", 16).size)
-        discovery.search("session", "tool_499", 1)
+        val selected = discovery.search("session", "tool_499", 1)
         assertEquals(2, discovery.visible("session", registry.all()).size)
-        discovery.search("session", "no match", 8)
-        assertEquals(listOf(search), discovery.visible("session", registry.all()))
+        assertTrue(discovery.search("session", "no match", 8).isEmpty())
+        assertEquals(listOf(search) + selected, discovery.visible("session", registry.all()))
     }
 
     @Test
@@ -91,11 +150,11 @@ class McpToolDiscoveryTest {
                             """{"type":"object","properties":{"changed":{"type":"boolean"}},"additionalProperties":false}""",
                         ).jsonObject,
             )
-        registry.replaceMcpServer("catalog", old.map { if (it == selected) changed else it })
+        replaceCatalog("catalog", old.map { if (it == selected) changed else it })
         assertFalse(selected.contractHash == changed.contractHash)
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
         assertEquals(listOf(changed), discovery.search("session", "tool_499", 1))
-        registry.replaceMcpServer("catalog", emptyList())
+        replaceCatalog("catalog", emptyList())
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
         assertTrue(discovery.search("session", "catalog", 8).isEmpty())
     }
@@ -132,13 +191,13 @@ class McpToolDiscoveryTest {
                 },
                 "session",
             )
-        assertEquals(ToolExecutorResult.Cancelled, implementations.resolve(search.name, ToolVersion(1)).execute(call))
+        assertEquals(ToolExecutorResult.Cancelled, registry.executor(search.name, ToolVersion(1)).execute(call))
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
 
     @Test fun optionalBuiltInIsSearchableAndOnlyLoadedForItsSession() {
         val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
-        registry.register(local)
+        registerFixture(local)
         assertFalse(local in discovery.visible("session", registry.all()))
         assertEquals(listOf(local), discovery.search("session", "archive", 8))
         assertTrue(local in discovery.visible("session", registry.all()))
@@ -149,7 +208,7 @@ class McpToolDiscoveryTest {
 
     @Test fun builtInDisableAppliesToSearchAndLoadedSchemas() {
         val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
-        registry.register(local)
+        registerFixture(local)
         var enabled = true
         val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != local || enabled }
         assertEquals(listOf(local), filtered.search("session", "archive", 8))
@@ -160,7 +219,7 @@ class McpToolDiscoveryTest {
 
     @Test fun defaultsAndDiscoveryShareOneBoundedSurface() {
         val locals = (0 until 100).map { search.copy(name = ToolName("local.tool_$it")) }
-        locals.forEach(registry::register)
+        locals.forEach(::registerFixture)
         val defaults = setOf("local.tool_0", "local.tool_1")
         assertEquals(3, discovery.visible("session", registry.all(), defaults).size)
         discovery.search("session", "local.tool_99", 1)
@@ -170,7 +229,7 @@ class McpToolDiscoveryTest {
 
     @Test fun currentModeAdmissionAlsoBoundsSearchResults() {
         val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
-        registry.register(local)
+        registerFixture(local)
         discovery.visible("session", listOf(search))
         assertTrue(discovery.search("session", "archive", 8).isEmpty())
         discovery.visible("session", listOf(search, local))

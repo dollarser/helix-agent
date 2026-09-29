@@ -1,0 +1,1 @@
+Harness stopped repeated tool execution after a strategy-change warning produced no progress. No tools are available in this final response. Summarize verified completed work and the unresolved reason, then finish. Do not request manual recovery or claim the task succeeded.

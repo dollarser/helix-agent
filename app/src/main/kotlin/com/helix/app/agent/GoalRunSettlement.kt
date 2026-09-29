@@ -55,7 +55,11 @@ internal class GoalRunSettlement(
                 null
             }
         val (event, outcome) =
-            if (report?.status == "complete") {
+            if (com.helix.app.engine.AutomaticRecoveryPolicy
+                    .isInspection(turn)
+            ) {
+                inspectionFinished(goal.correlationId)
+            } else if (report?.status == "complete") {
                 GoalEvent.CompleteRequested to "MODEL_COMPLETED"
             } else if (report?.status == "blocked") {
                 GoalEvent.Blocked to "BLOCKED(MODEL_REPORTED)"
@@ -66,12 +70,7 @@ internal class GoalRunSettlement(
             }
         val next = GoalReducer.reduce(goal, event)
         check(!next.ignored) { "Goal settlement was not applicable" }
-        val settledOutcome =
-            if (next.state.state == GoalState.BLOCKED && !outcome.startsWith("BLOCKED(")) {
-                "BUDGET_EXHAUSTED(remainingBudget)"
-            } else {
-                outcome
-            }
+        val settledOutcome = settledOutcome(next.state.state, outcome)
         storage.goals.updateGoal(next.state.toStoredGoal())
         recordReport(goal, report)
         storage.goalRuns.finish(
@@ -93,6 +92,16 @@ internal class GoalRunSettlement(
         )
     }
 
+    private fun settledOutcome(
+        state: GoalState,
+        outcome: String,
+    ): String =
+        if (state == GoalState.BLOCKED && !outcome.startsWith("BLOCKED(")) {
+            "BUDGET_EXHAUSTED(remainingBudget)"
+        } else {
+            outcome
+        }
+
     private fun recordReport(
         goal: com.helix.core.agent.Goal,
         report: com.helix.app.goal.GoalModelReport?,
@@ -110,6 +119,17 @@ internal class GoalRunSettlement(
     }
 
     internal companion object {
+        private fun inspectionFinished(correlationId: com.helix.core.model.CorrelationId): Pair<GoalEvent, String> =
+            GoalEvent.WakeFailed(
+                HelixError(
+                    ErrorCode.EXECUTION,
+                    "Recovery inspection ended; original effects retained",
+                    false,
+                    emptyMap(),
+                    correlationId,
+                ),
+            ) to "RECOVERY_INSPECTION_FINISHED"
+
         fun decision(
             correlationId: com.helix.core.model.CorrelationId,
             state: TurnState,
@@ -138,10 +158,15 @@ internal class GoalRunSettlement(
                 }
 
                 errorCode == "TOOL_LOOP_NO_PROGRESS" -> {
-                    GoalEvent.InputRequired(
-                        "Repeated tool calls made no progress; revise the approach before continuing",
-                    ) to
-                        "INPUT_REQUIRED(TOOL_LOOP_NO_PROGRESS)"
+                    GoalEvent.WakeFailed(
+                        HelixError(
+                            ErrorCode.EXECUTION,
+                            "No progress after strategy warning",
+                            false,
+                            emptyMap(),
+                            correlationId,
+                        ),
+                    ) to "FAILED(TOOL_LOOP_NO_PROGRESS)"
                 }
 
                 errorCode in TURN_LIMITS -> {

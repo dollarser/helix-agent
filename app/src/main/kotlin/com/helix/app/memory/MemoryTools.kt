@@ -9,7 +9,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -28,7 +27,6 @@ internal object MemoryTools {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         service: MemoryService,
     ) {
         (reads + writes).forEach { name ->
@@ -55,8 +53,8 @@ internal object MemoryTools {
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                     origin = ToolOrigin.BuiltInOrigin,
                 )
-            registry.register(descriptor)
-            implementations.register(
+
+            registry.register(
                 descriptor,
                 object : ToolExecutor {
                     override fun execute(call: ExecutableToolCall): ToolExecutorResult = execute(service, call)

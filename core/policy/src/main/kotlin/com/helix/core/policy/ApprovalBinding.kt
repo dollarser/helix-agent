@@ -39,8 +39,10 @@ data class ApprovalBinding(
     val executionTarget: ExecutionTargetType,
     val uiToken: String,
     val argsHash: String,
+    val implementationIdentity: String = "",
 ) {
     init {
+        require(implementationIdentity.length <= 16384) { "implementation identity is too long" }
         require(toolCallId.length in 1..64) { "toolCallId must be 1..64 chars" }
         require(toolName.length in 1..128) { "toolName must be 1..128 chars" }
         require(toolVersion.length in 1..32) { "toolVersion must be 1..32 chars" }
@@ -65,6 +67,8 @@ data class ApprovalBinding(
                 append(escape(contractHash))
                 append("\",\"executionTarget\":\"")
                 append(escape(executionTarget.name))
+                append("\",\"implementationIdentity\":\"")
+                append(escape(implementationIdentity))
                 append("\",\"scopeRef\":\"")
                 append(escape(scopeRef))
                 append("\",\"schemaHash\":\"")

@@ -691,8 +691,8 @@ class TaskJourneyDeviceTest {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        container.toolPipeline.registry.register(descriptor)
-        container.toolPipeline.implementations.register(
+
+        container.toolPipeline.registry.register(
             descriptor,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {

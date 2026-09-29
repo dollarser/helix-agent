@@ -18,7 +18,6 @@ import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.client.RepairEntryResult
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
 import com.helix.runtime.proot.ipc.UnavailableCause
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
@@ -80,7 +79,6 @@ internal object ProotToolModule {
     fun registerTools(
         context: Context,
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
         ownership: com.helix.tools.framework.ExecutionOwnership,
@@ -135,14 +133,13 @@ internal object ProotToolModule {
                     Unit
                 },
             )
-        LinuxRunTool.register(registry, implementations, executor)
+        LinuxRunTool.register(registry, executor)
         userJobActions =
             DetachedJobRegistration.register(
                 context,
                 storage,
                 workspaceStore,
                 registry,
-                implementations,
                 ownership,
                 chat,
                 { availabilityGate() },

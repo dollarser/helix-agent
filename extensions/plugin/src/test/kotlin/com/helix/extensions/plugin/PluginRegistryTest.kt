@@ -5,10 +5,10 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.Idempotency
+import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
@@ -21,8 +21,8 @@ class PluginRegistryTest {
     @Test
     fun registersExactPluginProvenanceIntoExistingToolRegistries() {
         val tools = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
-        val plugins = PluginRegistry(tools, implementations)
+
+        val plugins = PluginRegistry(tools)
         val plugin = plugin("mobile-use")
 
         plugins.register(plugin)
@@ -35,8 +35,8 @@ class PluginRegistryTest {
     @Test
     fun duplicatePluginIdAndMismatchedOriginFailClosed() {
         val tools = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
-        val plugins = PluginRegistry(tools, implementations)
+
+        val plugins = PluginRegistry(tools)
         plugins.register(plugin("mobile-use"))
         assertThrows(IllegalArgumentException::class.java) { plugins.register(plugin("mobile-use")) }
 
@@ -45,16 +45,17 @@ class PluginRegistryTest {
     }
 
     @Test
-    fun orphanImplementationCollisionIsRejectedBeforeAnyDescriptorIsPublished() {
+    fun bindingCollisionKeepsOriginalAndDoesNotPublishPlugin() {
         val tools = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
-        val plugins = PluginRegistry(tools, implementations)
+
+        val plugins = PluginRegistry(tools)
         val plugin = plugin("mobile-use")
         val binding = plugin.tools().single()
-        implementations.register(binding.descriptor, binding.executor)
+        tools.register(binding.descriptor, binding.executor)
+        val before = tools.snapshot()
 
         assertThrows(IllegalArgumentException::class.java) { plugins.register(plugin) }
-        assertEquals(emptyList<ToolDescriptor>(), tools.all())
+        assertEquals(before, tools.snapshot())
         assertEquals(emptyList<PluginManifest>(), plugins.all())
     }
 
@@ -97,7 +98,29 @@ class PluginRegistryTest {
         return object : HelixPlugin {
             override val manifest = manifest
 
-            override fun tools() = listOf(PluginToolBinding(descriptor, executor))
+            override fun tools() = listOf(ToolBinding(descriptor, executor))
         }
+    }
+
+    @Test fun collisionInTheLastPluginToolDoesNotPublishEarlierCandidates() {
+        val tools = ToolRegistry()
+        val plugins = PluginRegistry(tools)
+        val source = plugin("mobile-use")
+        val binding = source.tools().single()
+        tools.register(binding.descriptor.copy(origin = ToolOrigin.BuiltInOrigin), binding.executor)
+        val before = tools.snapshot()
+        val batch =
+            object : HelixPlugin {
+                override val manifest = source.manifest
+
+                override fun tools() =
+                    listOf(
+                        binding.copy(descriptor = binding.descriptor.copy(name = ToolName("new.tool"))),
+                        binding,
+                    )
+            }
+        assertThrows(IllegalArgumentException::class.java) { plugins.register(batch) }
+        assertEquals(before, tools.snapshot())
+        assertEquals(emptyList<PluginManifest>(), plugins.all())
     }
 }

@@ -16,7 +16,7 @@
     <string name="ui_residence_user_authorized_lan">局域网（已按 host:port 授权）</string>
     <string name="ui_residence_public_cloud">公共云</string>
     <string name="ui_residence_custom_remote_unknown">未知远程目的地</string>
-    <string name="disclosure_title">确认发送本次数据</string>
+    <string name="disclosure_title">数据外发审批</string>
     <string name="disclosure_provider">Provider：%1$s（%2$s）</string>
     <string name="disclosure_destination">目的地：%1$s</string>
     <string name="disclosure_residence">数据驻留：%1$s</string>
@@ -580,10 +580,11 @@
     <string name="tool_state_completed">已执行成功</string>
     <string name="tool_state_denied">已拒绝</string>
     <string name="tool_state_failed">执行失败</string>
+    <string name="session_input_recovery_ended">一条排队请求未能通过自动恢复校验，已结束且未重新执行。原请求内容仍保留；已完成的操作不受影响。</string>
     <string name="tool_failure_generic">工具执行失败</string>
     <string name="tool_failure_mcp">MCP 工具执行失败</string>
     <string name="tool_failure_a2a">A2A 任务执行失败</string>
-    <string name="tool_failure_requires_review">执行结果不确定；复核状态后再重试</string>
+    <string name="tool_failure_requires_review">执行结果不确定；系统自动核查，不会重复执行</string>
     <string name="tool_state_interrupted">已中断（待恢复）</string>
     <string name="tool_state_needs_review">待复核</string>
     <string name="tool_state_processing">处理中</string>
@@ -723,7 +724,7 @@
     <string name="subscription_recovery_stopping">已请求停止，请再次查询状态。</string>
     <string name="subscription_recovery_view">取回模型回复</string>
     <string name="subscription_recovery_result_unavailable">暂时无法取回经过校验的结果，请稍后重试。</string>
-    <string name="subscription_recovery_result_saved">回复已保存。任务仍处于中断状态，请核对后决定下一步。</string>
+    <string name="subscription_recovery_result_saved">回复已自动保存。原任务的中断与未知结果仍如实保留。</string>
     <string name="subscription_recovery_no_text">该结果不含可显示的回复正文。</string>
     <string name="subscription_recovery_page">第 %1$d / %2$d 页</string>
     <string name="subscription_recovery_previous">上一页</string>
@@ -1161,7 +1162,7 @@
     <string name="recovery_denied">已拒绝动作：%1$s</string>
     <string name="recovery_pending">待核查副作用：%1$s</string>
     <string name="recovery_artifacts">可用产物：%1$d</string>
-    <string name="recovery_next">下一操作：%1$s</string>
+    <string name="recovery_next">可选操作：%1$s</string>
     <string name="recovery_btn_reconnect">重新连接</string>
     <string name="recovery_btn_query">查询结果</string>
     <string name="recovery_btn_grant">补充权限</string>
@@ -1545,4 +1546,16 @@
     <string name="chat_capture_unavailable">无法打开相机或准备照片，请检查可用空间和相机权限，或选择已有照片。</string>
     <string name="artifacts_share_unavailable">无法打开分享面板，请稍后重试或选择其他导出方式。</string>
     <string name="chat_picker_unavailable">无法打开文件选择器，请检查系统文件应用是否可用后重试。</string>
+    <string name="quickjs_native_title">QuickJS 原生访问</string>
+    <string name="quickjs_native_description">默认关闭，脚本在隔离环境运行。开启后，脚本可访问应用可读写的文件（包括私有数据）、网络及 Android API，仍受系统权限限制。仅运行可信脚本。关闭会中断原生任务，但不会撤销已发生的操作。</string>
+    <string name="quickjs_native_enable">开启</string>
+    <string name="quickjs_native_cancel">取消</string>
+    <string name="user_question_custom">自定义回答（填写后优先使用）</string>
+    <string name="user_question_failed">回答尚未发送，请检查会话状态后重试。</string>
+    <string name="user_question_send">发送回答</string>
+    <string name="user_question_skip">跳过</string>
+    <string name="user_question_title">需要你的选择</string>
+    <string name="automatic_recovery_unavailable">原任务发生中断，当前模型、授权或剩余额度不足以完成自动核查；本次尝试已结束。已有操作与未知结果保持原样，不会自动重放。</string>
+    <string name="git_diff_read_error">无法读取差异，请刷新仓库后重试。</string>
+    <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请重新获取当前可用工具后发起新调用。</string>
 </resources>

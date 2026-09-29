@@ -180,6 +180,8 @@ data class ModelToolSchema(
     val name: ToolName,
     val description: String,
     val inputSchemaJson: String,
+    /** Trusted host identity; provider encoders never put it on the wire. */
+    val bindingRef: ToolBindingRef? = null,
 ) {
     init {
         require(description.isNotBlank()) { "tool description must not be blank" }

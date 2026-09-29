@@ -24,7 +24,7 @@ fun interface ContentReferenceChecker {
  * Safety principles:
  * - Read-only inspection of physical files before any action;
  * - Grace period protection: files modified within [gracePeriodMillis] are never touched,
- *   preventing race conditions against concurrent writes and uncommitted transactions;
+ *   providing retention only; root-coordinated publication prevents concurrent reference races;
  * - Strict reference check against all Room tables referencing ContentRef;
  * - Fail-safe and bounded: file deletion exceptions are caught and never crash callers.
  */
@@ -54,6 +54,16 @@ object StorageGarbageCollector {
         referenceChecker: ContentReferenceChecker,
         gracePeriodMillis: Long = DEFAULT_GRACE_PERIOD_MS,
         now: Long = System.currentTimeMillis(),
+    ): StorageGcResult =
+        ContentLifecycle.coordinate(contentRoot) {
+            collectCoordinated(contentRoot, referenceChecker, gracePeriodMillis, now)
+        }
+
+    private fun collectCoordinated(
+        contentRoot: File,
+        referenceChecker: ContentReferenceChecker,
+        gracePeriodMillis: Long,
+        now: Long,
     ): StorageGcResult {
         if (!contentRoot.exists() || !contentRoot.isDirectory ||
             java.nio.file.Files

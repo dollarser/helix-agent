@@ -392,4 +392,33 @@ class ResponsesRequestEncoderTest {
         assertEquals("Follow up", str(content[0].jsonObject, "text"))
         assertEquals("data:image/png;base64,aW1hZ2U=", str(content[1].jsonObject, "image_url"))
     }
+
+    @Test fun hostBindingIdentityNeverLeaksOntoProviderWire() {
+        val request =
+            ModelRequest(
+                model = "model-test",
+                messages = listOf(ModelMessage(ModelRole.USER, "read")),
+                tools = listOf(ModelToolSchema(ToolName("read"), "read", """{"type":"object"}""")),
+                maxOutputTokens = 128,
+            )
+        val bound =
+            request.copy(
+                tools =
+                    request.tools.map { schema ->
+                        schema.copy(
+                            bindingRef =
+                                com.helix.core.model.ToolBindingRef(
+                                    schema.name,
+                                    com.helix.core.model
+                                        .ToolVersion(1),
+                                    "a".repeat(64),
+                                    "private-owner",
+                                    "implementation-revision",
+                                    "incarnation",
+                                ),
+                        )
+                    },
+            )
+        assertEquals(encoder.encode(request), encoder.encode(bound))
+    }
 }

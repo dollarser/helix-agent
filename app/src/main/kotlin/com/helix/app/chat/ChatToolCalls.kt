@@ -196,17 +196,29 @@ internal class ChatToolCalls(
     override fun prepareModelCalls(
         calls: List<BufferedModelToolCall>,
         directory: com.helix.core.workspace.FileScopePath?,
-    ): List<BufferedModelToolCall> =
-        calls.map { call ->
+        exposedTools: List<com.helix.core.model.ModelToolSchema>,
+    ): List<BufferedModelToolCall> {
+        val exposed =
+            com.helix.core.model
+                .ModelToolBindings(exposedTools)
+        return calls.map { call ->
+            val ref = exposed.resolve(call.name)
+            val descriptor = ref?.let(toolPipeline.registry::resolveBinding)?.descriptor
             val extracted = ToolPresentationMetadata.extract(call.arguments)
             val arguments =
-                if (directory != null && FileToolArguments.handles(toolPipeline.resolveLatest(call.name))) {
+                if (directory != null && FileToolArguments.handles(descriptor)) {
                     FileToolArguments.bindRequest(extracted.businessArgumentsJson, directory)
                 } else {
                     extracted.businessArgumentsJson
                 }
-            call.copy(arguments = arguments, presentation = extracted.presentation)
+            call.copy(
+                arguments = arguments,
+                presentation = extracted.presentation,
+                bindingRef = ref,
+                bindingRequired = true,
+            )
         }
+    }
 
     override fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)
 
@@ -334,6 +346,8 @@ internal class ChatToolCalls(
                 call.presentation.modelIntent,
                 control.mode,
                 control.chatToolsEnabled,
+                call.bindingRef,
+                call.bindingRequired,
             )
         }
 
@@ -376,7 +390,7 @@ internal class ChatToolCalls(
 
     /**
      * The per-call preparation of the tool pipeline (roadmap HXA-036/037; doc 11: the
-     * Dispatcher is the only path between model-requested calls and implementations):
+     * Dispatcher is the only path between model-requested calls and registry):
      * validate the name/arguments, persist the tool_call row with the canonical bytes,
      * publish the timeline row, build the trusted dispatch request and register the card
      * facts. Malformed input the dispatcher can never see (an invalid tool name,
@@ -391,6 +405,8 @@ internal class ChatToolCalls(
         modelIntent: String?,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
+        bindingRef: com.helix.core.model.ToolBindingRef? = null,
+        bindingRequired: Boolean = false,
     ): PreparedToolCall {
         val businessArgs = rawArgsJson
         return if (GoalToolCallBudget(storage, clock).reserve(turn.id, toolCallId)) {
@@ -402,6 +418,8 @@ internal class ChatToolCalls(
                 modelIntent,
                 mode,
                 chatToolsEnabled,
+                bindingRef,
+                bindingRequired,
             )
         } else {
             PreparedToolCall(
@@ -432,9 +450,20 @@ internal class ChatToolCalls(
         modelIntent: String?,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
+        bindingRef: com.helix.core.model.ToolBindingRef? = null,
+        bindingRequired: Boolean = false,
     ): PreparedToolCall {
-        val toolName = runCatching { ToolName(toolNameRaw) }.getOrNull()
-        val descriptor = toolPipeline.resolveLatest(toolNameRaw)
+        val selectedRef =
+            bindingRef ?: if (!bindingRequired) {
+                toolPipeline
+                    .resolveLatest(
+                        toolNameRaw,
+                    )?.let { toolPipeline.registry.resolveBinding(it.name, it.version).ref }
+            } else {
+                null
+            }
+        val toolName = selectedRef?.name
+        val descriptor = selectedRef?.let(toolPipeline.registry::resolveBinding)?.descriptor
         val args = parseToolArgs(rawArgsJson, descriptor, turn.sessionId)
         return invalidToolCallRejection(
             turn,
@@ -456,6 +485,7 @@ internal class ChatToolCalls(
                 modelIntent,
                 mode,
                 chatToolsEnabled,
+                selectedRef,
             )
     }
 
@@ -470,6 +500,7 @@ internal class ChatToolCalls(
         modelIntent: String?,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
+        bindingRef: com.helix.core.model.ToolBindingRef? = null,
     ): PreparedToolCall {
         val canonical = CanonicalArgs.canonicalize(args)
         recoveryEffectRejection(turn, toolCallId, toolNameRaw, canonical, descriptor, modelIntent)?.let { return it }
@@ -479,7 +510,7 @@ internal class ChatToolCalls(
                 turnId = turn.id,
                 callId = toolCallId,
                 name = toolNameRaw,
-                version = descriptor?.version?.value?.toString() ?: "0",
+                version = (bindingRef?.version ?: descriptor?.version)?.value?.toString() ?: "0",
                 argsJson = canonical,
                 state = ToolCallState.PENDING.name,
                 modelIntent = modelIntent,
@@ -506,7 +537,7 @@ internal class ChatToolCalls(
                     currentProfile,
                     mode,
                     chatToolsEnabled,
-                ).copy(onExecutionStarting = {
+                ).copy(bindingRef = bindingRef, bindingPinned = true, onExecutionStarting = {
                     executionStartTimes[toolCallId] = clock.now().toEpochMilli()
                     storage.toolCalls.updateState(row, ToolCallState.RUNNING)
                     timeline.publishToolRow(
@@ -532,7 +563,10 @@ internal class ChatToolCalls(
         descriptor: ToolDescriptor?,
         modelIntent: String?,
     ): PreparedToolCall? {
-        val unresolved = UnresolvedEffectPolicy.hasUnresolvedEffects(storage, turn.sessionId)
+        val unresolved =
+            UnresolvedEffectPolicy.hasUnresolvedEffects(storage, turn.sessionId) ||
+                com.helix.app.engine.AutomaticRecoveryPolicy
+                    .isInspection(turn)
         if (descriptor == null || UnresolvedEffectPolicy.permits(unresolved, descriptor.operationClass)) return null
         val denied =
             outcomeStore.persistPreDispatchDenied(
@@ -607,7 +641,7 @@ internal class ChatToolCalls(
                         rawArgsJson,
                         "unknown",
                         DispatchOutcomeCode.UNKNOWN_TOOL,
-                        str(R.string.tool_rejected_bad_name),
+                        str(R.string.tool_rejected_binding_unavailable),
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
                     ),

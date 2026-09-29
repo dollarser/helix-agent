@@ -41,6 +41,9 @@ internal class ModelStreamState(
     val text: String
         get() = textBuffer.toString()
 
+    val hasToolCallFragments: Boolean
+        get() = calls.isNotEmpty()
+
     val outputSizeBytes: Long
         get() =
             text.toByteArray().size.toLong() +
@@ -237,6 +240,8 @@ internal data class BufferedModelToolCall(
     val name: String,
     val arguments: String,
     val presentation: com.helix.core.model.ToolCallPresentation = com.helix.core.model.ToolCallPresentation.EMPTY,
+    val bindingRef: com.helix.core.model.ToolBindingRef? = null,
+    val bindingRequired: Boolean = false,
 )
 
 /**

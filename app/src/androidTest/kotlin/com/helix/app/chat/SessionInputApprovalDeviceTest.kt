@@ -253,6 +253,7 @@ class SessionInputApprovalDeviceTest {
             }
         }
 
+    @Suppress("LongMethod") // Registers, discovers and exercises the exact fixture tools under real authorization.
     private suspend fun fixture(
         failRead: Boolean = false,
         block: suspend (Fixture) -> Unit,
@@ -301,6 +302,13 @@ class SessionInputApprovalDeviceTest {
                         .forSession(session)
                         ?.mode == AgentMode.ACT
                 }
+                // Optional tools use the normal discovery window; fixture registration is not exposure.
+                assertEquals(
+                    2,
+                    container.toolPipeline.mcpDiscovery
+                        .search(session, "hxatest.input.approval", 2)
+                        .size,
+                )
                 block(Fixture(container, chat, session, requests, safeExecutions, askExecutions))
             } finally {
                 chat.stop()
@@ -345,8 +353,8 @@ class SessionInputApprovalDeviceTest {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        container.toolPipeline.registry.register(descriptor)
-        container.toolPipeline.implementations.register(
+
+        container.toolPipeline.registry.register(
             descriptor,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {

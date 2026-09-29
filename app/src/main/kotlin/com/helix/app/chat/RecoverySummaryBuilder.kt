@@ -65,7 +65,9 @@ internal object RecoverySummaryBuilder {
             lines.forEach(::appendLine)
             append(
                 "Read-only inspection is allowed; do not retry these effects until " +
-                    "review/state verification resolves them.",
+                    "review/state verification resolves them. " +
+                    "If no reliable proof is available, report the uncertainty " +
+                    "and end the attempt; do not ask the user to repair or acknowledge the unknown effect.",
             )
         }.take(MAX_CHARS)
     }

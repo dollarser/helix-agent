@@ -288,8 +288,8 @@ internal fun ConversationSection(
                         onEdit = null,
                         onRegenerate =
                             intents.onRegenerateLatest?.takeIf { _ ->
-                                !screen.isSending &&
-                                    it.id == screen.messages.lastOrNull { m -> m.role != "user" }?.id
+                                !screen.isSending && it.role == "assistant" &&
+                                    it.id == screen.messages.lastOrNull { m -> m.role == "assistant" }?.id
                             },
                         searchQuery = activeSearchQuery,
                         isCurrentMatch = it.id == currentTargetId,

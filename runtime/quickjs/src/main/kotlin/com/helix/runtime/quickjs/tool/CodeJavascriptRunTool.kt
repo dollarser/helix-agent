@@ -16,7 +16,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -70,7 +69,7 @@ fun interface JsExecutor {
 object CodeJavascriptRunTool {
     const val NAME: String = "code.javascript.run"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     /** The §4.1 source limit, expressed as a coarse model-facing code-point ceiling. */
     private const val MAX_SOURCE_CODE_POINTS: Long = JsExecutionLimits.DEFAULT_MAX_SOURCE_BYTES.toLong()
@@ -88,9 +87,15 @@ object CodeJavascriptRunTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Run Agent-generated JavaScript (a `helixMain` body) in an isolated, offline " +
-                    "QuickJS process and return its JSON result. No network, file or Android " +
-                    "access; fixed 10 s / 64 MiB / 256 KiB output limits.",
+                "Run JavaScript function body; return JSON. Default access=isolated is offline. " +
+                    "Set access=native for direct app-UID file/network/Android access in a private process. " +
+                    "Native APIs: native.files.readText/writeText/list/mkdirs/delete(path,...); " +
+                    "native.net.request(url,method='GET',body=null,headers={}); native.android.context; " +
+                    "native.java.create(type,types=[],args=[]), call(target,method,types=[],args=[]), " +
+                    "staticCall(type,method,types=[],args=[]), field(target,name), staticField(type,name). " +
+                    "Java types are exact names (e.g. java.lang.String, int); objects are opaque handles. " +
+                    "Native access includes app-private files; Android grants still apply. Synchronous APIs, " +
+                    "10 s execution, 256 KiB output; 64 MiB limits JS heap only, not native allocations.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
@@ -113,6 +118,7 @@ object CodeJavascriptRunTool {
             put(
                 "properties",
                 buildJsonObject {
+                    put("access", accessSchema())
                     put(
                         "code",
                         buildJsonObject {
@@ -157,6 +163,14 @@ object CodeJavascriptRunTool {
             )
             put("required", JsonArray(listOf(JsonPrimitive("code"))))
             put("additionalProperties", JsonPrimitive(false))
+        }
+
+    private fun accessSchema(): JsonObject =
+        buildJsonObject {
+            put("type", "string")
+            put("enum", JsonArray(listOf(JsonPrimitive("isolated"), JsonPrimitive("native"))))
+            put("default", "isolated")
+            put("description", "native grants direct app-UID reach for this entire script; not workspace confined.")
         }
 
     private fun outputSchema(): JsonObject =
@@ -217,6 +231,7 @@ object CodeJavascriptRunTool {
                 ?: return ToolExecutorResult.Failed("invalid 'code.javascript.run' arguments: 'code' must be a string")
         val inputBytes: ByteArray? =
             call.args["input"]?.let { CanonicalArgs.canonicalize(it).toByteArray(StandardCharsets.UTF_8) }
+        val nativeAccess = (call.args["access"] as? JsonPrimitive)?.content == "native"
         val limits = JsExecutionLimits.DEFAULTS
         val params =
             JsExecuteParams(
@@ -224,31 +239,31 @@ object CodeJavascriptRunTool {
                 source = code,
                 inputJsonUtf8 = inputBytes,
                 limits = limits,
+                nativeAccess = nativeAccess,
             )
         val result = runner.execute(params, JsCancellation { call.cancel.isCancelled() })
         // The isolated engine acknowledges an in-flight interrupt as INTERRUPTED. Only the
         // live caller cancellation signal authorizes interpreting that acknowledgement as Stop.
         return if (result.status == JsExecutionStatus.INTERRUPTED && call.cancel.isCancelled()) {
             ToolExecutorResult.CancelledWithEffectTruth(
-                detail = "JavaScript execution was cancelled inside the isolated offline runtime.",
-                sideEffectFree = true,
-                requiresReview = false,
-                auditDetail = executionDetail(result, code, inputBytes, limits),
+                detail = "JavaScript execution was cancelled; native effects, if enabled, require review.",
+                sideEffectFree = !nativeAccess,
+                requiresReview = nativeAccess,
+                auditDetail = executionDetail(result, code, inputBytes, limits, nativeAccess),
             )
         } else {
-            mapResult(result, code, inputBytes, limits)
+            mapResult(result, code, inputBytes, limits, nativeAccess)
         }
     }
 
     /** Registers both the contract and the implementation in the given registries. */
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         runner: JsExecutor,
     ) {
         val d = descriptor()
-        registry.register(d)
-        implementations.register(d, executor(runner))
+
+        registry.register(d, executor(runner))
     }
 
     /**
@@ -260,8 +275,9 @@ object CodeJavascriptRunTool {
         code: String,
         inputBytes: ByteArray?,
         limits: JsExecutionLimits,
+        nativeAccess: Boolean,
     ): ToolExecutorResult {
-        val audit = executionDetail(result, code, inputBytes, limits)
+        val audit = executionDetail(result, code, inputBytes, limits, nativeAccess)
         return when (result.status) {
             JsExecutionStatus.SUCCESS -> {
                 successResult(result, audit)
@@ -270,25 +286,24 @@ object CodeJavascriptRunTool {
             JsExecutionStatus.TIMEOUT -> {
                 ToolExecutorResult.TimedOutWithEffectTruth(
                     detail =
-                        "JavaScript execution exceeded its isolated runtime deadline; " +
-                            "no external effects were possible.",
-                    sideEffectFree = true,
-                    requiresReview = false,
+                        "JavaScript execution exceeded its deadline; native effects, if enabled, require review.",
+                    sideEffectFree = !nativeAccess,
+                    requiresReview = nativeAccess,
                     auditDetail = audit,
                 )
             }
 
             JsExecutionStatus.CANCELLED -> {
                 ToolExecutorResult.CancelledWithEffectTruth(
-                    detail = "JavaScript execution was cancelled inside the isolated offline runtime.",
-                    sideEffectFree = true,
-                    requiresReview = false,
+                    detail = "JavaScript execution was cancelled; native effects, if enabled, require review.",
+                    sideEffectFree = !nativeAccess,
+                    requiresReview = nativeAccess,
                     auditDetail = audit,
                 )
             }
 
             else -> {
-                failureResult(result, audit)
+                failureResult(result, audit, nativeAccess)
             }
         }
     }
@@ -313,9 +328,16 @@ object CodeJavascriptRunTool {
     private fun failureResult(
         result: JsExecutionResult,
         audit: JsonObject,
+        nativeAccess: Boolean,
     ): ToolExecutorResult.Failed {
         val (detail, sideEffectFree) = failureSpec(result)
-        return ToolExecutorResult.Failed(detail, sideEffectFree = sideEffectFree, auditDetail = audit)
+        val rejectedBeforeExecution =
+            result.status in setOf(JsExecutionStatus.REQUEST_REJECTED, JsExecutionStatus.BIND_FAILED)
+        return ToolExecutorResult.Failed(
+            detail,
+            sideEffectFree = sideEffectFree && (!nativeAccess || rejectedBeforeExecution),
+            auditDetail = audit,
+        )
     }
 
     /** The (model-visible message, confirmed side-effect-free?) for each failure status. */
@@ -370,6 +392,7 @@ object CodeJavascriptRunTool {
         code: String,
         inputBytes: ByteArray?,
         limits: JsExecutionLimits,
+        nativeAccess: Boolean,
     ): JsonObject =
         buildJsonObject {
             put("status", JsonPrimitive(result.status.name))
@@ -390,7 +413,7 @@ object CodeJavascriptRunTool {
                 },
             )
             // The service identity is present (>= 0) only when an isolated instance actually ran.
-            put("isolated", JsonPrimitive(result.serviceUid >= 0))
+            put("isolated", JsonPrimitive(!nativeAccess && result.serviceUid >= 0))
         }
 
     /** Bounds the engine detail for the model-visible message (never the audit, which keeps it raw). */

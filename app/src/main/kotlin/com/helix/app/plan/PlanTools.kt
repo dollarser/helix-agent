@@ -14,7 +14,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolSchema
@@ -158,14 +157,13 @@ object PlanTools {
     /** Registers both the contract and the implementation in the given registries. */
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         plans: PlanRepository,
         idGenerator: () -> String,
         decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
         val descriptor = descriptor()
-        registry.register(descriptor)
-        implementations.register(descriptor, decorate(executor(plans, idGenerator)))
+
+        registry.register(descriptor, decorate(executor(plans, idGenerator)))
     }
 
     // --- argument projection: schema-validated JSON -> the validated domain type ---

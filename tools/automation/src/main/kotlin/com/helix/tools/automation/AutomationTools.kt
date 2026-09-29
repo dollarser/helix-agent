@@ -10,7 +10,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -63,13 +62,10 @@ class AutomationTools(
             descriptor(WAIT, ToolOperationClass.READ_ONLY, waitInput(), findOutput()),
         )
 
-    fun register(
-        registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
-    ) {
+    fun register(registry: ToolRegistry) {
         descriptors().forEach { descriptor ->
-            registry.register(descriptor)
-            implementations.register(descriptor, executor(descriptor.name.value))
+
+            registry.register(descriptor, executor(descriptor.name.value))
         }
     }
 
@@ -193,12 +189,16 @@ class AutomationTools(
             result.targetPackage?.let { put("targetPackage", JsonPrimitive(it)) }
             result.pauseReason?.let { put("pauseReason", JsonPrimitive(it.name)) }
             if (result.pauseReason != null || result.status == AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED) {
-                put("requiresUserConfirmation", JsonPrimitive(true))
+                put(
+                    "requiresAuthorization",
+                    JsonPrimitive(result.status == AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED),
+                )
                 put(
                     "recoveryHint",
                     JsonPrimitive(
-                        "Stop tool retries and ask the user to confirm recovery in Settings > Permissions > " +
-                            "Accessibility automation. A new target needs explicit authorization.",
+                        "Inspect the current target with ui.snapshot. A verified return to an already authorized " +
+                            "target resumes automatically. A new target needs authorization; never bypass it. " +
+                            "If no permitted path exists, report the incomplete work and stop.",
                     ),
                 )
             }
@@ -283,11 +283,19 @@ class AutomationTools(
         output: JsonObject,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(if (name in setOf(SCROLL, SNAPSHOT, FIND, WAIT)) 2 else 1),
+        ToolVersion(
+            if (name in setOf(SNAPSHOT, FIND, WAIT)) {
+                3
+            } else if (name == SCROLL) {
+                2
+            } else {
+                1
+            },
+        ),
         "Bounded token-only Accessibility operation: $name. " +
             "Each snapshot/find replaces all earlier tokens; use tokens from the latest observation. " +
-            "On requiresUserConfirmation, SESSION_PAUSED or CHECKPOINT_REQUIRED, " +
-            "stop retrying and ask the user to resume. " +
+            "On SESSION_PAUSED, inspect the current target before acting. " +
+            "Only an already authorized target can resume automatically. " +
             "scroll operates a scrollable node, not a screen swipe or app drawer gesture. " +
             "Use ui.set_progress with range.min/max for a slider that reports canSetProgress.",
         input,
@@ -355,7 +363,7 @@ class AutomationTools(
                 "status" to str(64),
                 "targetPackage" to str(255),
                 "pauseReason" to str(64),
-                "requiresUserConfirmation" to bool(),
+                "requiresAuthorization" to bool(),
                 "recoveryHint" to str(512),
                 "nodes" to array(nodeSchema(), 50),
             ),
@@ -368,7 +376,7 @@ class AutomationTools(
                 "status" to str(64),
                 "targetPackage" to str(255),
                 "pauseReason" to str(64),
-                "requiresUserConfirmation" to bool(),
+                "requiresAuthorization" to bool(),
                 "recoveryHint" to str(512),
                 "packageName" to str(255),
                 "windowId" to integer(0),

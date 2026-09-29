@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.core.model.SecretAlias
 import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.tools.framework.ToolRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -139,16 +140,12 @@ class ConnectorDeviceTest {
         val registry =
             com.helix.tools.framework
                 .ToolRegistry()
-        val implementations =
-            com.helix.tools.framework
-                .ToolImplementationRegistry()
         val mcp =
             com.helix.app.mcp.McpAppService(
                 com.helix.app.mcp
                     .McpStorageBridge(container.storage),
                 { com.helix.core.model.SafetyProfile.STANDARD },
                 registry,
-                implementations,
             )
         val config = mcp.registerDisabled("lifecycle-${UUID.randomUUID()}", "https://connector.invalid/mcp", null)
         // Synthetic metadata isolates activation lifecycle; this is not a connection-test result.
@@ -185,7 +182,7 @@ class ConnectorDeviceTest {
             )
         mcp.enable(snapshot, setOf("search"))
         val descriptor = registry.all().single()
-        val captured = implementations.resolve(descriptor.name, descriptor.version)
+        val captured = registry.executor(descriptor.name, descriptor.version)
         val call =
             com.helix.tools.framework.ExecutableToolCall(
                 "connector-lifecycle",
@@ -203,7 +200,7 @@ class ConnectorDeviceTest {
             assertTrue(mcp.isActive(config.id.value))
             val replaced = captured.execute(call) as com.helix.tools.framework.ToolExecutorResult.Failed
             assertEquals("MCP tool failed: IllegalStateException", replaced.detail)
-            val current = implementations.resolve(descriptor.name, descriptor.version)
+            val current = registry.executor(descriptor.name, descriptor.version)
             mcp.disable(config.id.value)
             assertFalse(mcp.isActive(config.id.value))
             assertTrue(registry.all().isEmpty())

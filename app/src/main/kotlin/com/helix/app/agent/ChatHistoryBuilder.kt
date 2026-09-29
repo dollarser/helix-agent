@@ -91,8 +91,20 @@ object ChatHistoryBuilder {
                     toolResultMessage(row, strict)
                 }
 
+                "user_question", "user_question_dismissed" -> {
+                    null
+                }
+
+                "loop_exhausted" -> {
+                    if (currentControlNotice(row, rows)) {
+                        ModelMessage(ModelRole.SYSTEM, ToolLoopProgress.EXHAUSTED)
+                    } else {
+                        null
+                    }
+                }
+
                 "loop_warning" -> {
-                    if (row.role == ModelRole.SYSTEM.name) {
+                    if (currentControlNotice(row, rows)) {
                         ModelMessage(ModelRole.SYSTEM, ToolLoopProgress.WARNING)
                     } else {
                         null
@@ -104,6 +116,11 @@ object ChatHistoryBuilder {
                 }
             }
         }
+
+    private fun currentControlNotice(
+        row: PersistedRow,
+        rows: List<PersistedRow>,
+    ): Boolean = row.role == ModelRole.SYSTEM.name && row.turnId == rows.lastOrNull { it.turnId != null }?.turnId
 
     private fun textMessage(row: PersistedRow): ModelMessage? {
         val text = row.content?.takeIf { it.isNotBlank() } ?: return null

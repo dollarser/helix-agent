@@ -9,14 +9,13 @@ import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.tools.framework.AuditSink
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.serialization.json.JsonObject
 
 /**
  * The app's tool pipeline bundle (roadmap HXA-036/037): the registered tool contracts +
- * implementations, the production [ToolDispatcher] (doc 11: Dispatcher 唯一入口), the
+ * registry, the production [ToolDispatcher] (doc 11: Dispatcher 唯一入口), the
  * deterministic [ToolScheduler] (bounded platform-decided parallelism, call-order
  * back-fill) and the storage-backed [StorageApprovalBroker]. AppContainer constructs it
  * once per process (doc 02 section 12: AppContainer creates the process-level Tool
@@ -29,7 +28,6 @@ import kotlinx.serialization.json.JsonObject
  */
 class ToolPipeline(
     val registry: ToolRegistry,
-    val implementations: ToolImplementationRegistry,
     val dispatcher: ToolDispatcher,
     val broker: StorageApprovalBroker,
     val auditSink: AuditSink,

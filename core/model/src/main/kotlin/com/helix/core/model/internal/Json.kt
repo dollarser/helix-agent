@@ -313,7 +313,7 @@ private class JsonParser(
     }
 }
 
-// Region: strict decode helpers shared by domain type `parse` implementations.
+// Region: strict decode helpers shared by domain type `parse` registry.
 
 internal fun JsonNode.requireObject(
     kind: String,

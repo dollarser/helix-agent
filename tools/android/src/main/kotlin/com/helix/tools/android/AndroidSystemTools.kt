@@ -2,7 +2,6 @@
 
 package com.helix.tools.android
 
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -116,19 +115,18 @@ internal fun bounded(detail: String): String {
 // ===========================================================================
 object AndroidSystemTools {
     /**
-     * Registers the four `android.*` / `clipboard.*` contracts and implementations against the shared
+     * Registers the four `android.*` / `clipboard.*` contracts and registry against the shared
      * [bridge]. Called once from the app container (which owns the production
-     * [AndroidSystemBridgeImpl]); tests build a [ToolRegistry] / [ToolImplementationRegistry] pair and
+     * [AndroidSystemBridgeImpl]); tests build a [ToolRegistry] / [ToolRegistry] pair and
      * a fake bridge.
      */
     fun registerAll(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         bridge: AndroidSystemBridge,
     ) {
-        AndroidOpenUriTool.register(registry, implementations, bridge)
-        ClipboardReadTool.register(registry, implementations, bridge)
-        ClipboardWriteTool.register(registry, implementations, bridge)
-        AndroidShareTool.register(registry, implementations, bridge)
+        AndroidOpenUriTool.register(registry, bridge)
+        ClipboardReadTool.register(registry, bridge)
+        ClipboardWriteTool.register(registry, bridge)
+        AndroidShareTool.register(registry, bridge)
     }
 }

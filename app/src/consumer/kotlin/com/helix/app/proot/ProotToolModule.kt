@@ -5,7 +5,6 @@ import com.helix.app.readiness.RuntimeReadiness
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 
 /**
@@ -60,7 +59,6 @@ internal object ProotToolModule {
     fun registerTools(
         context: Context,
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
         ownership: com.helix.tools.framework.ExecutionOwnership,

@@ -33,7 +33,18 @@ class McpToolDiscoveryDeviceTest {
                     origin = ToolOrigin.McpOrigin(server, "2025-03-26", "a".repeat(64)),
                 )
             }
-        pipeline.registry.replaceMcpServer(server, catalog)
+        pipeline.registry.replaceMcpServer(
+            server,
+            catalog.map {
+                com.helix.tools.framework.ToolBinding(
+                    it,
+                    object : com.helix.tools.framework.ToolExecutor {
+                        override fun execute(call: com.helix.tools.framework.ExecutableToolCall) =
+                            com.helix.tools.framework.ToolExecutorResult.Cancelled
+                    },
+                )
+            },
+        )
         try {
             val result =
                 chat.dispatchToolCall(

@@ -71,10 +71,10 @@ class TimeNowToolTest {
     @Test
     fun duplicateRegistrationFailsOnBothRegistries() {
         val registry = ToolRegistry()
-        val impls = ToolImplementationRegistry()
-        TimeNowTool.register(registry, impls, clock)
+
+        TimeNowTool.register(registry, clock)
         try {
-            TimeNowTool.register(registry, impls, clock)
+            TimeNowTool.register(registry, clock)
             throw AssertionError("duplicate time.now registration must fail")
         } catch (expected: IllegalArgumentException) {
             assertTrue(expected.message?.contains("duplicate") ?: false)

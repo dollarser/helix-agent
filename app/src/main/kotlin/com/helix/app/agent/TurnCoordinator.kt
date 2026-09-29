@@ -215,6 +215,32 @@ internal class TurnCoordinator private constructor(
 
     fun currentStream(): ModelStreamState = runtime.currentStream()
 
+    /** Failed inference remains a distinct charged attempt; no tool or user message is replayed. */
+    fun retryEmptyModelStream(nextModelCallId: String) {
+        val current = runtime.snapshot()
+        val stream = runtime.currentStream()
+        require(current.phase == TurnState.RECEIVING_MODEL && current.batchCalls.isEmpty())
+        require(
+            !current.modelCallClosed && stream.retryableError && stream.outputSizeBytes == 0L &&
+                !stream.hasToolCallFragments,
+        )
+        storage.withTransaction {
+            val turn = requireNotCancelling()
+            storage.modelCalls.update(storage.modelCalls.resolve(current.modelCallId), "FAILED", stream.usageJson, null)
+            val building =
+                storage.turns.updateState(
+                    turn,
+                    TurnState.BUILDING_CONTEXT,
+                    current.modelStep + 1,
+                    null,
+                    null,
+                )
+            storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
+            storage.turns.updateState(building, TurnState.WAITING_MODEL, current.modelStep + 1, null, null)
+        }
+        runtime.closeSummary(nextModelCallId)
+    }
+
     /** Snapshot-only seam: the Engine owns the terminal transaction that consumes these facts. */
     fun terminalCheckpoint(): TurnTerminalCheckpoint {
         val current = runtime.snapshot()

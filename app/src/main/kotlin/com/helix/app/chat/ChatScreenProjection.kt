@@ -118,12 +118,16 @@ internal class ChatScreenProjection(
         return storage.messages
             .listBySession(sessionId)
             .filter {
-                it.role in setOf(ModelRole.USER.name, ModelRole.ASSISTANT.name) &&
+                (
+                    it.role in setOf(ModelRole.USER.name, ModelRole.ASSISTANT.name) ||
+                        (it.role == "SYSTEM" && it.kind == "RECOVERY_NOTICE")
+                ) &&
                     it.kind !in
                     setOf(
                         ContextCompaction.KIND,
                         ChatHistoryBuilder.KIND_TOOL_CALLS,
                         ChatHistoryBuilder.KIND_TOOL_RESULT,
+                        UserQuestionService.KIND,
                     )
             }.mapNotNull { entity ->
                 val content = storage.messages.readContent(entity)

@@ -52,6 +52,7 @@ internal interface TurnToolExecutor {
     fun prepareModelCalls(
         calls: List<BufferedModelToolCall>,
         directory: com.helix.core.workspace.FileScopePath? = null,
+        exposedTools: List<com.helix.core.model.ModelToolSchema> = emptyList(),
     ): List<BufferedModelToolCall> = calls
 
     /** The assistant tool step the loop persists before running the batch. */

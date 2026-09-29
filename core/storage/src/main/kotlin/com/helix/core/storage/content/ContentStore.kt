@@ -12,6 +12,9 @@ private const val CONTENT_BUFFER_SIZE = 8192
  * reads can be verified against the reference; writes are idempotent.
  */
 interface ContentStore {
+    /** Hold from materialization/reuse until the referring transaction commits or rolls back. */
+    fun <T> withPublication(block: () -> T): T = synchronized(this, block)
+
     /** Stores [content] and returns its verified reference. */
     fun write(content: String): ContentRef
 
@@ -38,7 +41,11 @@ interface ContentStore {
 class FileContentStore(
     val root: File,
 ) : ContentStore {
-    override fun write(content: String): ContentRef {
+    override fun <T> withPublication(block: () -> T): T = ContentLifecycle.coordinate(root, block)
+
+    override fun write(content: String): ContentRef = withPublication { writeContent(content) }
+
+    private fun writeContent(content: String): ContentRef {
         val bytes = content.toByteArray(Charsets.UTF_8)
         val hash = sha256Hex(bytes)
         val dir = File(root, ContentRef.expectedPath(hash).substringBeforeLast('/'))

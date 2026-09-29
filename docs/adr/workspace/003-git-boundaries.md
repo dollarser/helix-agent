@@ -39,3 +39,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history — 2026-09-30：只读差异正确性
+
+只读差异选择绑定路径与 STAGED/UNSTAGED 区域，不隐式回退；无 HEAD 时以空树读取暂存区。读取失败不等于无差异；两个区域共享有界读取、计算与预览，过大/二进制/截断明确呈现。本轮不增加 Git 写操作；主机验证见[审查收口](../../bug-fixes/2026-09-30-historical-correctness-audit.md)。

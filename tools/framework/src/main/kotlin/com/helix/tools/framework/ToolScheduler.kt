@@ -139,7 +139,18 @@ class ToolScheduler(
     private fun scheduleReservedBatch(calls: List<ToolDispatchRequest>): BatchResult {
         val stamped =
             calls.map { call ->
-                call.copy(queuedAt = clock.now().toEpochMilli())
+                call.copy(
+                    queuedAt = clock.now().toEpochMilli(),
+                    bindingRef =
+                        call.bindingRef ?: if (call.bindingPinned) {
+                            null
+                        } else {
+                            runCatching {
+                                registry.resolveBinding(call.toolName, call.toolVersion).ref
+                            }.getOrNull()
+                        },
+                    bindingPinned = true,
+                )
             }
         val footprints =
             stamped.map { call ->
@@ -335,7 +346,7 @@ class ToolScheduler(
     @Suppress("SwallowedException")
     private fun resolveDescriptor(call: ToolDispatchRequest): ToolDescriptor? =
         try {
-            registry.resolve(call.toolName, call.toolVersion)
+            call.bindingRef?.let(registry::resolveBinding)?.descriptor
         } catch (e: IllegalArgumentException) {
             null
         }

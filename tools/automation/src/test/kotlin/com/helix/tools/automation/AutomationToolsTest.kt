@@ -56,8 +56,10 @@ class AutomationToolsTest {
         val result = completed(execute(AutomationTools.WAIT, args("text" to "Continue")))
         assertEquals(1, port.snapshots)
         assertEquals("com.other.app", result["targetPackage"]?.jsonPrimitive?.content)
-        assertEquals("true", result["requiresUserConfirmation"]?.jsonPrimitive?.content)
+        assertEquals("true", result["requiresAuthorization"]?.jsonPrimitive?.content)
         assertEquals("TARGET_CHANGED", result["pauseReason"]?.jsonPrimitive?.content)
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.WAIT }
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, result))
     }
 
     @Test

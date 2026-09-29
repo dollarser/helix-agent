@@ -117,11 +117,8 @@ MVP 私有字段：
 
 ```kotlin
 interface HelixPlugin {
-    val descriptor: PluginDescriptor
-    fun register(
-        tools: ToolRegistry,
-        implementations: ToolImplementationRegistry,
-    )
+    val manifest: PluginManifest
+    fun tools(): List<ToolBinding>
 }
 ```
 
@@ -301,6 +298,8 @@ Mobile Use（开发者插件）
 
 插件安装/存在本身不能自动获得 Accessibility authority。
 
+锁屏、后台与真实跨 App 任务的现状及后续建议见 [Mobile Use 设备就绪与可靠性评审](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)。当前短时 AutomationSession 不等同聊天 Session；现行熄屏/安全锁定结束许可、检查点和权限规则不因本专题而改变。就绪诊断、生产等待与动作后核查优先复用现有服务；用户解锁后接续和有条件亮屏仍是候选，不新增 Plugin AgentLoop。
+
 ## 7. 安全不变量
 
 ### 7.1 Tool pipeline 唯一入口不变
@@ -430,6 +429,8 @@ mobile screenshot
 
 不要把 base64 图片塞进普通 ToolResult JSON。
 
+屏幕采集权限、API30/34 支持差异、受保护窗口、树/图像身份关联和 HXA-225 复用边界见上述评审 §4.8；这不是已有手机截图功能或绕过锁屏的证明。
+
 ## 11. 与 MCP Mobile Use 的关系
 
 未来 Plugin 可有多个 runtime/provider：
@@ -518,7 +519,7 @@ Mobile Use
 | Connector package/catalog | 目前承担 Plugin 安装身份/ownership | **迁移到 Plugin package/catalog** |
 | Marketplace | Plugin 发现/安装 UI；组件作为 badge/capability | **重构顶层模型** |
 | `ToolRegistry` | 所有模型可调用工具的唯一 descriptor registry | **必须保留唯一** |
-| `ToolImplementationRegistry` | executor registry | **短期保留，后续与 descriptor 做原子 binding** |
+| `ToolBindingStore` / `ToolRegistry` | 不可分 descriptor/executor 快照 | R1 已删除独立实现表；生命周期扩展复用原子发布 |
 | `PluginRegistry` | Plugin identity/native runtime contribution catalog | **App 级唯一实例** |
 
 因此最终不是：
@@ -626,32 +627,11 @@ MCP connected    != all MCP tools model-visible
 
 所有来源最终仍进入同一个 ToolRegistry + Dispatcher。
 
-### 15.7 `ToolRegistry` / `ToolImplementationRegistry` 双表需要后续原子化
+### 15.7 原子绑定沿用 HXA-231
 
-当前 dynamic MCP/A2A replace 是：
+早期 P0 的双注册表与逐项注册方案已由 R1 替换。`HelixPlugin.tools()` 返回统一 `ToolBinding`，`PluginRegistry` 验证全部来源/重复项后一次发布；MCP/A2A 使用同一原子 owner 替换入口。模型请求持有实际曝光 BindingRef，调度、审批和执行不能查到不同实现。
 
-```text
-registry.replace...
-implementations.replace...
-```
-
-Dispatcher validation 也分别 resolve descriptor 和 executor。两个 registry 各自线程安全，但跨 registry 没有单一原子 snapshot，因此动态替换理论上存在短暂 descriptor/executor 错配窗口。
-
-这不是 Plugin 特有问题，Plugin 扩展只会让它更明显。建议 P1 引入统一 `ToolBindingRegistry`（或等价的 paired binding snapshot）：
-
-```text
-ToolBinding = descriptor + executor
-```
-
-要求：
-
-- register/replace/remove 原子；
-- Dispatcher 一次 resolve 得到同一 binding snapshot；
-- schema/model exposure 仍可只读取 descriptor projection；
-- MCP/A2A replace owner snapshot 通过同一原子入口；
-- approval contract 继续绑定 descriptor `contractHash`。
-
-本次 P0 先为 bundled Plugin 做全量 collision preflight，避免半注册；不在混合 WIP 上扩大到 Dispatcher 核心重构。
+稳定实现身份、撤销准入、失败保留旧快照与验证边界统一见 [工具 ADR](../adr/tools/001-descriptor-contract.md) 和 [HXA-231](../completion-records/HXA-231.md)。本计划未来的包安装/更新/卸载不得恢复独立可写实现表，也不以 R1 完成推导整个插件生命周期已实现。
 
 ### 15.8 PluginRegistry 必须是 App 级唯一实例
 

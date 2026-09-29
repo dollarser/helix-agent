@@ -9,7 +9,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -47,15 +46,29 @@ internal class McpToolDiscovery(
             latest()
                 .filter { descriptor ->
                     descriptor.name.value != "tools.search" &&
-                        availability(sessionId, descriptor) &&
                         (admittedWindows[sessionId]?.contains(descriptor) != false) &&
                         words.all {
                             it in "${descriptor.name.value} ${descriptor.description}".lowercase()
                         }
-                }.sortedBy { it.name.value }
+                }.sortedWith(
+                    compareBy<ToolDescriptor> { it.name.value.lowercase() != query.trim().lowercase() }
+                        .thenBy { descriptor -> words.count { it !in descriptor.name.value.lowercase() } }
+                        .thenBy { it.name.value },
+                ).asSequence()
+                // Availability can read durable session policy. Only inspect matching
+                // candidates, stopping when the bounded result window is full.
+                .filter { availability(sessionId, it) }
                 .take(limit)
-        // A fresh bounded window, rather than ever-growing schemas across the conversation.
-        loaded[sessionId] = matches
+                .toList()
+        // Successful searches replace the bounded window. A miss must not erase useful work;
+        // prune stale/disabled/unadmitted entries even when no replacement was found.
+        loaded[sessionId] =
+            matches.ifEmpty {
+                val current = latest().toSet()
+                loaded[sessionId].orEmpty().filter {
+                    it in current && availability(sessionId, it) && admittedWindows[sessionId]?.contains(it) != false
+                }
+            }
         while (loaded.size > MAX_SESSIONS) loaded.remove(loaded.keys.first())
         return matches
     }
@@ -92,7 +105,7 @@ internal class McpToolDiscovery(
             .values
             .map { it.maxBy { version -> version.version.value } }
 
-    fun register(implementations: ToolImplementationRegistry) {
+    fun register(registry: ToolRegistry) {
         val descriptor =
             ToolDescriptor(
                 name = ToolName("tools.search"),
@@ -101,7 +114,8 @@ internal class McpToolDiscovery(
                     "Search user-enabled tools by name or description: files, browser, Android UI, Linux, Skills, " +
                         "connectors, MCP and A2A. Search when a needed tool is absent; " +
                         "use concise keywords or its name. " +
-                        "Matched schemas replace the session discovery window on the next request. " +
+                        "Matches replace the bounded session discovery window; " +
+                        "a miss preserves still-available tools. " +
                         "Discovery grants no execution permission.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
@@ -113,8 +127,8 @@ internal class McpToolDiscovery(
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        registry.register(descriptor)
-        implementations.register(
+
+        registry.register(
             descriptor,
             object : ToolExecutor {
                 @Suppress("ReturnCount") // Cancellation and missing local context are distinct terminal results.

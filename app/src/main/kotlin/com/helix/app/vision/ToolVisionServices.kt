@@ -8,6 +8,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
+import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
@@ -36,14 +37,12 @@ internal class ToolVisionServices(
 
     fun registerTools(
         registry: com.helix.tools.framework.ToolRegistry,
-        implementations: com.helix.tools.framework.ToolImplementationRegistry,
         browser: com.helix.feature.browser.BrowserController,
     ) {
         com.helix.tools.files.ViewImageTool
-            .register(registry, implementations, preparation)
+            .register(registry, preparation)
         com.helix.tools.browser.BrowserTools.registerAll(
             registry,
-            implementations,
             com.helix.feature.browser
                 .BrowserToolBridgeImpl(browser, workspace, scopeId),
             preparation,

@@ -8,7 +8,6 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.extensions.a2a.A2aClients
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -134,7 +133,7 @@ class A2aDiscoveryDeviceTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val workspaceRoot = context.filesDir.resolve("a2a-workspace-${System.nanoTime()}").apply { mkdirs() }
         val registry = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
+
         val runner =
             A2aTaskRunner(
                 storage = storage,
@@ -143,7 +142,7 @@ class A2aDiscoveryDeviceTest {
                 resolveWorkspaceFile = { error("A2A discovery fixture does not resolve artifacts") },
                 client = A2aClients.task(),
             )
-        return A2aAppService(bridge, registry, implementations, runner) to registry
+        return A2aAppService(bridge, registry, runner) to registry
     }
 
     private fun card(

@@ -90,20 +90,7 @@ fun DisclosureDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                modifier = Modifier.testTag("egress-confirm"),
-            ) {
-                Text(stringResource(R.string.common_send))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.testTag("egress-dismiss"),
-            ) {
-                Text(stringResource(R.string.common_cancel))
-            }
+            AuthorizationActions("egress-confirm", "egress-dismiss", onConfirm, onDismiss)
         },
         modifier = Modifier.testTag("egress-disclosure-dialog"),
     )

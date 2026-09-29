@@ -14,7 +14,6 @@ import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -49,10 +48,10 @@ class DetachedJobRegistrationDeviceTest {
         val workspace = WorkspaceArtifactStore({ root.toPath() }).also { it.ensureLayout("app") }
         val owner = ExecutionOwnership(ExecutionOwnershipStore(File(root, "owner")))
         val registry = ToolRegistry()
-        val implementations = ToolImplementationRegistry()
+
         var budgetAccesses = 0
         val userActions =
-            DetachedJobRegistration.register(context, storage, workspace, registry, implementations, owner, {
+            DetachedJobRegistration.register(context, storage, workspace, registry, owner, {
                 budgetAccesses++
                 context.appContainer.chatService
             }, { LinuxRuntimeGate.READY }, { emptySet() })
@@ -80,10 +79,10 @@ class DetachedJobRegistrationDeviceTest {
             )
         try {
             if (manual) {
-                exerciseUserActions(implementations, owner, start, root, userActions)
+                exerciseUserActions(registry, owner, start, root, userActions)
                 assertEquals(1, storage.toolCalls.listByTurn(id).size)
             } else {
-                exercise(implementations, owner, start, root)
+                exercise(registry, owner, start, root)
             }
             assertEquals(2, budgetAccesses)
         } finally {
@@ -104,12 +103,12 @@ class DetachedJobRegistrationDeviceTest {
         }
 
     private fun exercise(
-        implementations: ToolImplementationRegistry,
+        registry: ToolRegistry,
         owner: ExecutionOwnership,
         start: ExecutableToolCall,
         root: File,
     ) {
-        val accepted = execute(implementations, owner, start) as ToolExecutorResult.Completed
+        val accepted = execute(registry, owner, start) as ToolExecutorResult.Completed
         assertEquals(
             "true",
             accepted.output.jsonObject
@@ -127,7 +126,7 @@ class DetachedJobRegistrationDeviceTest {
         val until = android.os.SystemClock.elapsedRealtime() + 20_000
         var terminal = false
         while (!terminal && android.os.SystemClock.elapsedRealtime() < until) {
-            val state = execute(implementations, owner, control) as ToolExecutorResult.Completed
+            val state = execute(registry, owner, control) as ToolExecutorResult.Completed
             terminal = state.output.jsonObject
                 .getValue("terminal")
                 .jsonPrimitive.content == "true"
@@ -135,7 +134,7 @@ class DetachedJobRegistrationDeviceTest {
         }
         assertTrue(terminal)
         assertTrue(
-            execute(implementations, owner, control.copy(toolName = DetachedJobTools.COLLECT))
+            execute(registry, owner, control.copy(toolName = DetachedJobTools.COLLECT))
                 is ToolExecutorResult.Completed,
         )
         assertEquals("registered-result", File(root, "output/result.txt").readText())
@@ -143,19 +142,19 @@ class DetachedJobRegistrationDeviceTest {
     }
 
     private fun execute(
-        registry: ToolImplementationRegistry,
+        registry: ToolRegistry,
         owner: ExecutionOwnership,
         call: ExecutableToolCall,
-    ) = owner.guard(registry.resolve(ToolName(call.toolName), ToolVersion(1))).execute(call)
+    ) = owner.guard(registry.executor(ToolName(call.toolName), ToolVersion(1))).execute(call)
 
     private fun exerciseUserActions(
-        implementations: ToolImplementationRegistry,
+        registry: ToolRegistry,
         owner: ExecutionOwnership,
         start: ExecutableToolCall,
         root: File,
         actions: DetachedJobUserActions,
     ) {
-        assertTrue(execute(implementations, owner, start) is ToolExecutorResult.Completed)
+        assertTrue(execute(registry, owner, start) is ToolExecutorResult.Completed)
         val job =
             BackgroundJobUi(
                 start.toolCallId,

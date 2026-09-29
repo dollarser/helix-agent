@@ -64,7 +64,7 @@ class MessageReferenceSnapshotRepository(
         messageId: String,
         inputs: List<ConversationReferenceSnapshotInput>,
         nowEpochMillis: Long,
-    ) {
+    ) = contentStore.withPublication {
         require(inputs.size <= MAX_REFERENCES_PER_MESSAGE)
         inputs.forEachIndexed { ordinal, input ->
             val ref = contentStore.write(input.content)

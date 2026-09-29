@@ -69,7 +69,7 @@ class SkillAuthoringDeviceTest {
             val args = buildJsonObject { put("path", JsonPrimitive(path)) }
             assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, args))
             val result =
-                container.toolPipeline.implementations.resolve(descriptor.name, descriptor.version).execute(
+                container.toolPipeline.registry.executor(descriptor.name, descriptor.version).execute(
                     ExecutableToolCall(
                         "preview",
                         "skills.preview",

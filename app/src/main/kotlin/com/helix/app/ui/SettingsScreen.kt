@@ -175,6 +175,7 @@ internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
             .testTag("screen-setup-runtime"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        SettingsGroup { QuickJsSettingsSection() }
         if (profile == SafetyProfile.ADVANCED && ProotToolModule.AVAILABLE) {
             SettingsGroup { ProotRuntimeSection() }
         } else {

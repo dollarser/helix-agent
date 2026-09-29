@@ -34,6 +34,9 @@ object JsProtocol {
     /** Sets the instance's interrupt flag (main-process watchdog / cancellation). */
     const val CODE_INTERRUPT: Int = FIRST_CALL_TRANSACTION + 2
 
+    /** Only the same-UID native service accepts process teardown. */
+    const val CODE_TERMINATE_NATIVE: Int = FIRST_CALL_TRANSACTION + 3
+
     val TRANSACTION_CODES: Set<Int> = setOf(CODE_INFO, CODE_EXECUTE, CODE_INTERRUPT)
 
     /**

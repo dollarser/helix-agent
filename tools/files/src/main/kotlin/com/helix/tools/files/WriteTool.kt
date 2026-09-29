@@ -18,7 +18,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -297,13 +296,12 @@ object WriteTool {
     /** Registers both the contract and the implementation in the given registries. */
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         store: WorkspaceArtifactStore,
         artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
     ) {
         val d = descriptor()
-        registry.register(d)
-        implementations.register(d, executor(store, artifactSink))
+
+        registry.register(d, executor(store, artifactSink))
     }
 
     /** A parsed `write` argument set, or null when any required field is missing or malformed. */

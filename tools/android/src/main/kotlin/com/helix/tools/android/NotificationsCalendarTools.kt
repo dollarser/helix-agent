@@ -2,7 +2,6 @@
 
 package com.helix.tools.android
 
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -76,19 +75,18 @@ internal fun notificationsCalendarToolsNotificationEntrySchema(): JsonObject =
 // ===========================================================================
 object NotificationsCalendarTools {
     /**
-     * Registers the three `notifications.*` / `calendar.*` contracts and implementations against the
+     * Registers the three `notifications.*` / `calendar.*` contracts and registry against the
      * shared [notifications] / [calendar] bridges. Called once from the app container (which owns the
      * production [NotificationsBridgeImpl] / [CalendarBridgeImpl]); tests build a [ToolRegistry] /
-     * [ToolImplementationRegistry] pair and fake bridges.
+     * [ToolRegistry] pair and fake bridges.
      */
     fun registerAll(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         notifications: NotificationsBridge,
         calendar: CalendarBridge,
     ) {
-        NotificationsQueryTool.register(registry, implementations, notifications)
-        CalendarPrepareEventTool.register(registry, implementations, calendar)
-        CalendarCommitEventTool.register(registry, implementations, calendar)
+        NotificationsQueryTool.register(registry, notifications)
+        CalendarPrepareEventTool.register(registry, calendar)
+        CalendarCommitEventTool.register(registry, calendar)
     }
 }

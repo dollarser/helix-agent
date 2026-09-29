@@ -13,10 +13,23 @@ import org.junit.Test
 import java.util.concurrent.Executors
 
 class ToolRegistryTest {
+    private val executor =
+        object : ToolExecutor {
+            override fun execute(call: ExecutableToolCall) =
+                ToolExecutorResult.Completed(kotlinx.serialization.json.buildJsonObject {})
+        }
+
+    private fun registryFromSources(sources: List<ToolSource> = emptyList()): ToolRegistry =
+        ToolRegistry().also { registry ->
+            registry.registerBatch(sources.flatMap { it.load() }.map { ToolBinding(it, executor) })
+        }
+
+    private fun ToolRegistry.registerTest(descriptor: ToolDescriptor) = register(descriptor, executor)
+
     @Test
     fun constructsFromSourcesAndResolves() {
         val registry =
-            ToolRegistry(
+            registryFromSources(
                 listOf(
                     BuiltInToolSource(
                         listOf(
@@ -37,7 +50,7 @@ class ToolRegistryTest {
 
     @Test
     fun resolvingAnUnknownToolFails() {
-        val registry = ToolRegistry(listOf(BuiltInToolSource(listOf(builtIn()))))
+        val registry = registryFromSources(listOf(BuiltInToolSource(listOf(builtIn()))))
         assertThrows(IllegalArgumentException::class.java) {
             registry.resolve(ToolName("nope"), ToolVersion(1))
         }
@@ -48,7 +61,7 @@ class ToolRegistryTest {
     fun duplicateRegistrationFails() {
         // same (name, version) through two sources
         assertThrows(IllegalArgumentException::class.java) {
-            ToolRegistry(
+            registryFromSources(
                 listOf(
                     BuiltInToolSource(listOf(builtIn(name = "read"))),
                     BuiltInToolSource(listOf(builtIn(name = "read"))),
@@ -56,9 +69,9 @@ class ToolRegistryTest {
             )
         }
         // dynamic registration of an existing (name, version)
-        val registry = ToolRegistry(listOf(BuiltInToolSource(listOf(builtIn(name = "read")))))
+        val registry = registryFromSources(listOf(BuiltInToolSource(listOf(builtIn(name = "read")))))
         assertThrows(IllegalArgumentException::class.java) {
-            registry.register(builtIn(name = "read"))
+            registry.registerTest(builtIn(name = "read"))
         }
         // the registry is unchanged after the failed registration
         assertEquals(1, registry.all().size)
@@ -66,9 +79,9 @@ class ToolRegistryTest {
 
     @Test
     fun versionEvolutionIsLegalAndResolvesToTheLatest() {
-        val registry = ToolRegistry(emptyList())
-        registry.register(builtIn(name = "read", version = 1))
-        registry.register(builtIn(name = "read", version = 2))
+        val registry = registryFromSources(emptyList())
+        registry.registerTest(builtIn(name = "read", version = 1))
+        registry.registerTest(builtIn(name = "read", version = 2))
         assertEquals(2, registry.all().size)
         assertEquals(1, registry.resolve(ToolName("read"), ToolVersion(1)).version.value)
         assertEquals(2, registry.resolve(ToolName("read"), ToolVersion(2)).version.value)
@@ -86,7 +99,7 @@ class ToolRegistryTest {
         // and a risk-level check cannot substitute it (doc 02 section 7;
         // core:agent ModePolicy enforces the same rule per call).
         val registry =
-            ToolRegistry(
+            registryFromSources(
                 listOf(
                     BuiltInToolSource(
                         listOf(
@@ -115,7 +128,7 @@ class ToolRegistryTest {
     @Test
     fun allIsSortedByNameThenVersion() {
         val registry =
-            ToolRegistry(
+            registryFromSources(
                 listOf(
                     BuiltInToolSource(
                         listOf(
@@ -139,14 +152,14 @@ class ToolRegistryTest {
 
     @Test
     fun registrationAndResolutionAreThreadSafe() {
-        val registry = ToolRegistry(emptyList())
+        val registry = registryFromSources(emptyList())
         val pool = Executors.newFixedThreadPool(8)
         try {
             val futures =
                 (0 until 8).map { worker ->
                     pool.submit {
                         (0 until 50).forEach { i ->
-                            registry.register(
+                            registry.registerTest(
                                 builtIn(name = "t$worker", version = i, operationClass = ToolOperationClass.READ_ONLY),
                             )
                             registry.resolve(ToolName("t$worker"), ToolVersion(i))

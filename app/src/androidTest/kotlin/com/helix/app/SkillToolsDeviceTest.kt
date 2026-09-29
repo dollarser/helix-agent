@@ -133,7 +133,7 @@ class SkillToolsDeviceTest {
         val arguments = Json.parseToJsonElement(args).jsonObject
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, arguments))
         val result =
-            container.toolPipeline.implementations.resolve(descriptor.name, descriptor.version).execute(
+            container.toolPipeline.registry.executor(descriptor.name, descriptor.version).execute(
                 ExecutableToolCall(
                     toolCallId = "device-$name-${System.nanoTime()}",
                     toolName = name,

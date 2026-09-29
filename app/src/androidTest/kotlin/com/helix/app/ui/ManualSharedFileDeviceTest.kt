@@ -52,7 +52,7 @@ class ManualSharedFileDeviceTest {
                         .ToolVersion(1),
                 )
             val result =
-                pipeline.implementations.resolve(descriptor.name, descriptor.version).execute(
+                pipeline.registry.executor(descriptor.name, descriptor.version).execute(
                     com.helix.tools.framework.ExecutableToolCall(
                         toolCallId = "manual-boundary",
                         toolName = "read",

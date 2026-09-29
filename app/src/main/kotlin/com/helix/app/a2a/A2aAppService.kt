@@ -10,7 +10,6 @@ import com.helix.extensions.a2a.A2aSessionCheckpointTracker
 import com.helix.extensions.a2a.A2aToolCaller
 import com.helix.extensions.a2a.A2aToolDispatchFacts
 import com.helix.tools.framework.ToolDescriptor
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
@@ -18,12 +17,11 @@ import kotlinx.serialization.json.JsonObject
 class A2aAppService(
     private val storage: A2aStorageBridge,
     private val registry: ToolRegistry,
-    private val implementations: ToolImplementationRegistry,
     private val runner: A2aTaskRunner,
     private val discovery: A2aDiscoveryService = A2aClients.discovery(storage.credentials()),
 ) {
-    private val activeBridges = mutableMapOf<String, A2aDynamicToolBridge>()
-    private val trackers = mutableMapOf<String, A2aSessionCheckpointTracker>()
+    private val activeBridges = java.util.concurrent.ConcurrentHashMap<String, A2aDynamicToolBridge>()
+    private val trackers = java.util.concurrent.ConcurrentHashMap<String, A2aSessionCheckpointTracker>()
 
     init {
         storage.enabledAgentIds().forEach(::registerEnabledAgent)
@@ -37,11 +35,16 @@ class A2aAppService(
 
     suspend fun testConnection(id: String): A2aAgentCardSnapshot =
         discovery.discover(storage.load(id)).also { snapshot ->
-            storage.persistSnapshot(snapshot)
-            if (storage.load(id).enabled) {
-                registerEnabledAgent(id)
-            } else {
-                unregisterAgent(id)
+            val current = activeBridges[id]
+            val sameCard =
+                current?.descriptors()?.all {
+                    (it.origin as ToolOrigin.A2aOrigin).cardHash == snapshot.cardHash.hex
+                } == true
+            if (!sameCard) {
+                registry.replaceA2aAgent(id, emptyList()) {
+                    storage.persistSnapshot(snapshot)
+                    activeBridges.remove(id)
+                }
             }
         }
 
@@ -53,9 +56,24 @@ class A2aAppService(
         require(skillIds.all { selected -> snapshot.skills.any { it.id == selected } }) {
             "A2A Skill selection contains an unknown Skill"
         }
-        storage.persistSnapshot(snapshot)
-        storage.enable(snapshot.agentId.value, skillIds)
-        registerEnabledAgent(snapshot.agentId.value)
+        require(skillIds.isNotEmpty()) { "at least one A2A Skill must be selected" }
+        val skills =
+            snapshot.skills.filter { it.id in skillIds }.map { skill ->
+                com.helix.extensions.a2a.A2aEnabledSkill(
+                    snapshot.agentId,
+                    skill.id,
+                    snapshot.selectedInterface,
+                    snapshot.cardHash.hex,
+                    skill.contentHash.hex,
+                    skill.inputModes,
+                    skill.outputModes,
+                )
+            }
+        val bridge = A2aDynamicToolBridge(snapshot.agentId, skills, A2aToolCaller(runner::execute))
+        bridge.register(registry) {
+            storage.enableSnapshot(snapshot, skillIds)
+            activeBridges[snapshot.agentId.value] = bridge
+        }
     }
 
     fun disable(agentId: String) {
@@ -71,7 +89,6 @@ class A2aAppService(
 
     private fun unregisterAgent(agentId: String) {
         registry.replaceA2aAgent(agentId, emptyList())
-        implementations.replaceA2aAgent(agentId, emptyList())
         activeBridges.remove(agentId)
     }
 
@@ -102,19 +119,10 @@ class A2aAppService(
         val skills = storage.enabledSkills(agentId)
         if (skills.isEmpty()) {
             registry.replaceA2aAgent(agentId, emptyList())
-            implementations.replaceA2aAgent(agentId, emptyList())
             activeBridges.remove(agentId)
             return
         }
         val bridge = A2aDynamicToolBridge(skills.first().agentId, skills, A2aToolCaller(runner::execute))
-        try {
-            bridge.register(registry, implementations)
-            activeBridges[agentId] = bridge
-        } catch (failure: IllegalArgumentException) {
-            storage.disable(agentId)
-            registry.replaceA2aAgent(agentId, emptyList())
-            implementations.replaceA2aAgent(agentId, emptyList())
-            throw failure
-        }
+        bridge.register(registry) { activeBridges[agentId] = bridge }
     }
 }

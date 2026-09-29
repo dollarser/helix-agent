@@ -64,9 +64,9 @@ data class AutomationSessionStartResult(
 
 /**
  * Process-local, single-session lifecycle. Five minutes and 30 actions remain both the defaults
- * and release hard maxima; callers may only choose a smaller positive budget. Every ten attempts
- * requires a fresh user confirmation, including failed or refused attempts, and confirmations
- * cannot be banked. Clock rollback, expiry, budget exhaustion, allowlist reduction, screen lock,
+ * and release hard maxima; callers may only choose a smaller positive budget. Routine actions
+ * within that grant do not require periodic human confirmation.
+ * Clock rollback, expiry, budget exhaustion, allowlist reduction, screen lock,
  * or service loss closes the session rather than preserving a stale grant.
  */
 @Suppress("TooManyFunctions")
@@ -183,6 +183,19 @@ class AutomationSessionManager(
     @Synchronized
     fun isPaused(): Boolean = current() != null && pauseReason != null
 
+    /** A fresh, policy-checked snapshot can restore the existing grant, never extend it. */
+    @Synchronized
+    fun resumeOnVerifiedTarget(packageName: String): Boolean {
+        val session = current() ?: return false
+        val permitted =
+            pauseReason == AutomationPauseReason.TARGET_CHANGED && packageName in session.scope.allowedPackages
+        if (permitted) {
+            pauseReason = null
+            resumeTarget = null
+        }
+        return permitted
+    }
+
     @Synchronized
     fun resumeAfterUserConfirmation(): Boolean {
         if (current() == null || pauseReason == null) return false
@@ -210,11 +223,6 @@ class AutomationSessionManager(
             session.attemptedActions >= session.scope.maxActions -> {
                 check(stop(AutomationStopReason.ACTION_BUDGET_EXHAUSTED))
                 AutomationActionCompletion.BUDGET_EXHAUSTED
-            }
-
-            session.attemptedActions % CHECKPOINT_INTERVAL == 0 -> {
-                check(pause(AutomationPauseReason.CHECKPOINT))
-                AutomationActionCompletion.CHECKPOINT_REQUIRED
             }
 
             else -> {

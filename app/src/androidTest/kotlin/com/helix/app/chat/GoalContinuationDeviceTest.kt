@@ -43,6 +43,43 @@ class GoalContinuationDeviceTest {
     private val limits = TurnBudgets(5, 10, 800, 800, 5_000)
     private val ids = { UUID.randomUUID().toString() }
 
+    @Test fun localBudgetLimitRetainsGoalIdentityAndRevalidatesTheClaim() =
+        fixture { storage ->
+            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val goal = coordinator.create("Finish work", emptyList(), budgets)
+            val first =
+                requireNotNull(
+                    coordinator.start(
+                        GoalTurnStart(
+                            goal,
+                            GoalWakeReason.USER_OPEN,
+                            TurnStartSpec("session", "limited", "limited-model", "snapshot", "work"),
+                            limits,
+                        ),
+                    ),
+                )
+            val driver = GoalContinuationDriver(storage)
+            val control =
+                RunControlConfig(
+                    mode = AgentMode.GOAL,
+                    chatToolsEnabled = false,
+                    budgets = limits,
+                    goalBudgets = budgets,
+                )
+            driver.started("session", goal, "provider", control, "limited", null, "snapshot")
+            first.coordinator.beginModelStream()
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "MODEL_CALL_LIMIT"))
+            val next = requireNotNull(driver.next("session", "limited"))
+            assertEquals(goal, next.goalId?.value)
+            assertEquals(budgets, next.goalBudgets)
+            assertEquals("goal-next-limited", next.clientRequestId)
+            assertEquals(next.clientRequestId, driver.next("session", "limited")?.clientRequestId)
+            assertTrue(driver.admits("session", goal, requireNotNull(next.goalContinuation), "snapshot"))
+            assertFalse(driver.admits("session", goal, next.goalContinuation!!, "changed snapshot"))
+            driver.disarm("session")
+            assertNull(driver.next("session", "limited"))
+        }
+
     @Test fun userSuccessorPreservesGoalPredecessorUntilExplicitStop() =
         fixture { storage ->
             val coordinator = GoalRunCoordinator(storage, clock, ids)

@@ -7,11 +7,13 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.helix.app.MainActivity
@@ -24,6 +26,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.provider.api.CleartextAuthorization
 import com.helix.provider.api.ProbeOutcome
+import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -38,6 +41,50 @@ import java.util.UUID
 
 class ChatSubmissionReceiptDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun immediateSendWaitsForEarlierModeAndBudgetEdits() =
+        runBlocking {
+            val container = compose.container()
+            val chat = container.chatService
+            LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
+                server.start()
+                val provider = createProvider(server.port)
+                try {
+                    repeat(5) { index ->
+                        val session = chat.createSession("Ordered send $index", provider, "fixture-model-a")
+                        try {
+                            chat.openSession(session)
+                            val budgets =
+                                com.helix.core.model
+                                    .TurnBudgets(8, 6, 131072, 4096, 131072)
+                            chat.setMode(com.helix.core.model.AgentMode.PLAN)
+                            chat.setTurnBudgets(budgets)
+                            val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "Echo probe.")
+                            // No waiting for UI/Room between edits and Send: user action order is the contract.
+                            val receipt = chat.sendSubmission(request).await()
+                            assertTrue(receipt.toString(), receipt.outcome is ChatSubmissionOutcome.Accepted)
+                            val input = requireNotNull(container.storage.sessionInputs.get(request.clientRequestId))
+                            assertEquals("PLAN", input.configuration.mode)
+                            assertNotNull(input.consumedTurnId)
+                            assertEquals(
+                                budgets,
+                                container.storage.sessionRunControls
+                                    .forSession(session)
+                                    ?.budgets,
+                            )
+                        } finally {
+                            chat.stop()
+                            compose.waitUntil(10_000) { !chat.screen.value.isSending }
+                            chat.closeSession()
+                            container.storage.sessions.archive(session, System.currentTimeMillis())
+                        }
+                    }
+                } finally {
+                    container.providerService.delete(provider)
+                }
+            }
+        }
 
     @Test
     fun unverifiedProviderRejectsSubmissionWithoutConsumingSavedDraft() =
@@ -343,6 +390,8 @@ class ChatSubmissionReceiptDeviceTest {
             LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
                 server.start()
                 val provider = createProvider(server.port)
+                // Provider probing is complete; ordinary answers must not replay the probe's echo call.
+                server.forceTextResponses = true
                 val session = chat.createSession("Regenerate UI", provider, "fixture-model-a")
                 try {
                     compose.runOnUiThread { chat.openSession(session) }
@@ -357,9 +406,12 @@ class ChatSubmissionReceiptDeviceTest {
                         chat.screen.value.messages
                             .last { it.role == "assistant" }
                             .id
+                    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-regenerate-$answer"))
                     compose.onNodeWithTag("chat-regenerate-$answer").performClick()
                     awaitRegenerateAnswer(session, answer)
-                    assertEquals(2, storage.turns.listBySession(session).size)
+                    val turns = storage.turns.listBySession(session)
+                    assertEquals(2, turns.size)
+                    assertTrue(turns.all { it.state == "COMPLETED" })
                     assertNotNull(storage.messages.resolve(answer).supersededBy)
                     assertEquals(1, storage.messages.listBySession(session).count { it.role == "USER" })
                 } finally {
@@ -372,7 +424,7 @@ class ChatSubmissionReceiptDeviceTest {
 
     @Test
     @Suppress("LongMethod") // Executor proposal, session boundary, visible confirmation and atomic rejection.
-    fun settingsProposalCannotChangeConfigurationWithoutUserConfirmation() =
+    fun settingsMutationRequiresAuthorizedApplyInsteadOfLegacyProposal() =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -401,13 +453,10 @@ class ChatSubmissionReceiptDeviceTest {
                     val registry =
                         com.helix.tools.framework
                             .ToolRegistry()
-                    val implementations =
-                        com.helix.tools.framework
-                            .ToolImplementationRegistry()
                     com.helix.app.settings.HelixSettingsTool
-                        .register(registry, implementations) { container }
+                        .register(registry) { container }
                     val executor =
-                        implementations.resolve(
+                        registry.executor(
                             com.helix.core.model
                                 .ToolName("helix.settings"),
                             com.helix.core.model
@@ -433,18 +482,23 @@ class ChatSubmissionReceiptDeviceTest {
                         executor.execute(call.copy(deadline = java.time.Instant.EPOCH)),
                     )
                     assertTrue(requireNotNull(container.settingsRequests).pending.value.isEmpty())
-                    val result = executor.execute(call) as com.helix.tools.framework.ToolExecutorResult.Completed
-                    assertEquals(
-                        kotlinx.serialization.json.JsonPrimitive(false),
-                        (result.output as kotlinx.serialization.json.JsonObject)["applied"],
-                    )
-                    assertEquals(
-                        session,
-                        requireNotNull(container.settingsRequests)
-                            .pending.value
-                            .single()
-                            .sessionId,
-                    )
+                    assertTrue(executor.execute(call) is com.helix.tools.framework.ToolExecutorResult.Failed)
+                    assertTrue(requireNotNull(container.settingsRequests).pending.value.isEmpty())
+                    assertEquals(before, chat.runControl.value.mode)
+                    val applyExecutor =
+                        registry.executor(
+                            com.helix.core.model
+                                .ToolName("helix.settings.apply"),
+                            com.helix.core.model
+                                .ToolVersion(1),
+                        )
+                    val applyCall =
+                        call.copy(
+                            toolName = "helix.settings.apply",
+                            args = buildJsonObject { put("mode", "PLAN") },
+                            turnId = "stale-turn",
+                        )
+                    assertTrue(applyExecutor.execute(applyCall) is com.helix.tools.framework.ToolExecutorResult.Failed)
                     assertEquals(before, chat.runControl.value.mode)
                     assertFalse(
                         chat.applyUserSettings(
@@ -455,9 +509,7 @@ class ChatSubmissionReceiptDeviceTest {
                             null,
                         ),
                     )
-                    compose.onNodeWithText("Submission receipt fixture", substring = true).assertIsDisplayed()
-                    compose.onNodeWithTag("helix-settings-confirm").performClick()
-                    compose.waitUntil(10_000) { chat.runControl.value.mode == com.helix.core.model.AgentMode.PLAN }
+                    assertTrue(chat.applyUserSettings(session, com.helix.core.model.AgentMode.PLAN, null, null, null))
                     assertEquals(com.helix.core.model.AgentMode.PLAN, chat.runControl.value.mode)
                     assertFalse(chat.applyUserSettings(session, null, null, "missing-model", null))
                     assertEquals(com.helix.core.model.AgentMode.PLAN, chat.runControl.value.mode)
@@ -496,6 +548,85 @@ class ChatSubmissionReceiptDeviceTest {
             )
         }
     }
+
+    @Test
+    @Suppress("LongMethod") // Real question UI, independent composer and durable answer identity.
+    fun questionCustomAnswerSurvivesReopenWithoutConsumingIndependentDraft() =
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val chat = container.chatService
+            val questions = requireNotNull(container.userQuestions)
+            LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
+                server.start()
+                val provider = createProvider(server.port)
+                val session = chat.createSession("Question UI", provider, "fixture-model-a")
+                val questionId = "question-ui-${UUID.randomUUID()}"
+                val draft = ChatSubmission(session, 0, UUID.randomUUID().toString(), "Keep my independent draft")
+                try {
+                    assertTrue(chat.saveComposerDraft(draft))
+                    questions.offer(
+                        questionId,
+                        session,
+                        null,
+                        buildJsonObject {
+                            put("question", "Which output format?")
+                            put(
+                                "options",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        kotlinx.serialization.json.JsonPrimitive("PDF"),
+                                        kotlinx.serialization.json.JsonPrimitive("Markdown"),
+                                    ),
+                                ),
+                            )
+                        },
+                    )
+                    chat.openSession(session)
+                    compose.waitUntil(10_000) {
+                        chat.screen.value.openSessionId == session && !chat.screen.value.isDraft
+                    }
+                    compose.onNodeWithText("Which output format?").assertIsDisplayed()
+                    compose.onNodeWithText("PDF").performClick()
+                    compose
+                        .onNodeWithText(compose.activity.getString(R.string.user_question_custom))
+                        .performTextInput("Plain text please")
+                    compose.onNodeWithText(compose.activity.getString(R.string.user_question_send)).performClick()
+                    compose.waitUntil(15_000) {
+                        container.storage.sessionInputs
+                            .get("answer:$questionId")
+                            ?.consumedTurnId != null &&
+                            !chat.screen.value.isSending
+                    }
+                    assertEquals(draft.text, chat.loadComposerDraft(session)?.text)
+                    val answer = requireNotNull(container.storage.sessionInputs.get("answer:$questionId"))
+                    assertEquals(
+                        "Which output format?\nPlain text please",
+                        container.storage.sessionInputs.readText(answer),
+                    )
+                    assertTrue(questions.pending(session).isEmpty())
+                    chat.closeSession()
+                    chat.openSession(session)
+                    compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
+                    assertTrue(questions.pending(session).isEmpty())
+                    assertEquals(
+                        1,
+                        container.storage.turns
+                            .listBySession(session)
+                            .size,
+                    )
+                    assertEquals(draft.text, chat.loadComposerDraft(session)?.text)
+                } finally {
+                    container.storage.turns
+                        .listBySession(session)
+                        .forEach { chat.stopTurn(it.id) }
+                    compose.waitUntil(10_000) { !chat.screen.value.isSending }
+                    chat.closeSession()
+                    container.storage.sessions.archive(session, System.currentTimeMillis())
+                    container.providerService.delete(provider)
+                }
+            }
+        }
 
     private suspend fun createProvider(
         port: Int,

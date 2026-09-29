@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GoalRunSettlementTest {
-    @Test fun noProgressRequiresUserDirectionInsteadOfAutomaticContinuation() {
+    @Test fun persistentNoProgressEndsWithoutRequiringUserRepair() {
         val (event, outcome) =
             GoalRunSettlement.decision(
                 CorrelationId("goal"),
@@ -16,8 +16,8 @@ class GoalRunSettlementTest {
                 "TOOL_LOOP_NO_PROGRESS",
                 false,
             )
-        assertTrue(event is GoalEvent.InputRequired)
-        assertEquals("INPUT_REQUIRED(TOOL_LOOP_NO_PROGRESS)", outcome)
+        assertTrue(event is GoalEvent.WakeFailed)
+        assertEquals("FAILED(TOOL_LOOP_NO_PROGRESS)", outcome)
     }
 
     @Test fun uncertainEffectsTakePrecedenceOverNoProgress() {

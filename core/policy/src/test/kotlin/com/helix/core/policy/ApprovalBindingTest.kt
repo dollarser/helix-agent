@@ -59,6 +59,7 @@ class ApprovalBindingTest {
         // HXA-042 (ADR-0011): the full security-descriptor contract is bound, so a contract
         // change (even one that keeps name/version/schema constant) is a different binding.
         assertDifferentHash(base.copy(contractHash = "e".repeat(64)), original)
+        assertDifferentHash(base.copy(implementationIdentity = "different implementation"), original)
         assertDifferentHash(base.copy(scopeRef = "workspace:ws-2"), original)
         assertDifferentHash(base.copy(sessionId = "session-2"), original)
         assertDifferentHash(base.copy(executionTarget = ExecutionTargetType.LOCAL_QUICKJS), original)
@@ -73,7 +74,7 @@ class ApprovalBindingTest {
         val argsHash = "b".repeat(64)
         val expected =
             """{"argsHash":"$argsHash","contractHash":"$contractHash","executionTarget":"LOCAL_ANDROID","""" +
-                """scopeRef":"workspace:ws-1","schemaHash":"$schemaHash","""" +
+                """implementationIdentity":"","scopeRef":"workspace:ws-1","schemaHash":"$schemaHash","""" +
                 """sessionId":"session-1","toolCallId":"toolcall-1","toolName":"bash","""" +
                 """toolVersion":"1","uiToken":"ui:approval-page:tok-1"}"""
         assertEquals(expected, base.canonicalJson)

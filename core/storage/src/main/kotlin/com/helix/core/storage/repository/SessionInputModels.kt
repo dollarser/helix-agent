@@ -3,7 +3,7 @@ package com.helix.core.storage.repository
 /** Delivery is chosen by a trusted user entry point, never inferred from model content. */
 enum class SessionInputDelivery { QUEUE, STEER }
 
-enum class SessionInputState { PENDING, NEEDS_ATTENTION, APPENDED, WITHDRAWN }
+enum class SessionInputState { PENDING, NEEDS_ATTENTION, APPENDED, WITHDRAWN, FAILED }
 
 data class InputAttachment(
     val artifactId: String,

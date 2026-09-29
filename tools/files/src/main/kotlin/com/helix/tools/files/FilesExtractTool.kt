@@ -18,7 +18,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -220,11 +219,10 @@ object FilesExtractTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         store: WorkspaceArtifactStore,
     ) {
         val d = descriptor()
-        registry.register(d)
-        implementations.register(d, executor(store))
+
+        registry.register(d, executor(store))
     }
 }

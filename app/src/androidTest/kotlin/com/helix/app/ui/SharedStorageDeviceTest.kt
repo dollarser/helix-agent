@@ -125,7 +125,7 @@ class SharedStorageDeviceTest {
         val pipeline = compose.container().toolPipeline
         val descriptor = pipeline.registry.resolve(ToolName("read"), ToolVersion(1))
         val result =
-            pipeline.implementations.resolve(descriptor.name, descriptor.version).execute(
+            pipeline.registry.executor(descriptor.name, descriptor.version).execute(
                 ExecutableToolCall(
                     toolCallId = "manual-root-boundary",
                     toolName = "read",

@@ -38,7 +38,6 @@ import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 /**
  * The trusted dispatch request (roadmap HXA-035): one model-requested tool call plus the
@@ -80,6 +79,8 @@ data class ToolDispatchRequest(
      * (non-scheduled) dispatch. Audit-only: never part of the binding hash.
      */
     val queuedAt: Long? = null,
+    val bindingRef: com.helix.core.model.ToolBindingRef? = null,
+    val bindingPinned: Boolean = false,
     /**
      * SCHEDULER metadata (roadmap HXA-037; doc 11 section 3.3): the hard attempt cap for
      * this call. 1 (default) = exactly one attempt (HXA-035 behavior). 2 = one bounded
@@ -160,7 +161,7 @@ sealed interface ToolDispatchOutcome {
 
 /**
  * The tool dispatcher (roadmap HXA-035; architecture doc section 5.3/7.1): the SINGLE
- * entry point between model-requested tool calls and tool implementations (doc 11:
+ * entry point between model-requested tool calls and tool registry (doc 11:
  * "Dispatcher 唯一入口；target 在 approval hash 中，失败不回退到低隔离执行域").
  *
  * Pipeline per dispatch:
@@ -212,7 +213,6 @@ sealed interface ToolDispatchOutcome {
 class ToolDispatcher(
     private val clock: Clock,
     private val registry: ToolRegistry,
-    private val implementations: ToolImplementationRegistry,
     private val capabilityCenter: CapabilityCenter,
     private val policyEngine: PolicyEngine,
     private val approvals: ApprovalBroker,
@@ -242,6 +242,16 @@ class ToolDispatcher(
         }
     }
 
+    private fun pinBinding(request: ToolDispatchRequest): ToolDispatchRequest =
+        if (request.bindingPinned || request.bindingRef != null) {
+            request
+        } else {
+            request.copy(
+                bindingRef = orNull { registry.resolveBinding(request.toolName, request.toolVersion).ref },
+                bindingPinned = true,
+            )
+        }
+
     private val deadlineRunner = ToolDeadlineRunner(clock, EXECUTOR_SERVICE)
 
     private val deniedLock = Any()
@@ -264,8 +274,10 @@ class ToolDispatcher(
      * attempt durably before propagating, and a throwing audit sink must not lose the
      * original root cause. Catching less would let an undeclared type escape unaudited.
      */
-    @Suppress("TooGenericExceptionCaught")
-    fun dispatch(request: ToolDispatchRequest): ToolDispatchOutcome {
+
+    @Suppress("TooGenericExceptionCaught") // Every started attempt must settle audit before rethrowing.
+    fun dispatch(unboundRequest: ToolDispatchRequest): ToolDispatchOutcome {
+        val request = pinBinding(unboundRequest)
         var attempt = 0
         var carriedProof: ApprovalProof? = null
         // The re-minted retry reuses the SAME binding (same record): its audit rows must
@@ -565,13 +577,12 @@ class ToolDispatcher(
         request: ToolDispatchRequest,
         ctx: DispatchContext,
     ): ToolDescriptor? {
-        val descriptor = orNull { registry.resolve(request.toolName, request.toolVersion) }
-        val executor =
-            if (descriptor != null) {
-                orNull { implementations.resolve(request.toolName, request.toolVersion) }
-            } else {
-                null
-            }
+        val binding =
+            request.bindingRef
+                ?.let(registry::resolveBinding)
+                ?.takeIf { it.ref.name == request.toolName && it.ref.version == request.toolVersion }
+        val descriptor = binding?.descriptor
+        val executor = binding?.executor
         val validation: ToolSchemaValidation =
             descriptor?.let { ToolSchemaValidator.validate(it.inputSchema, request.args) }
                 ?: ToolSchemaValidation.Valid
@@ -584,17 +595,6 @@ class ToolDispatcher(
                     ToolDispatchOutcome.Denied(
                         DispatchOutcomeCode.UNKNOWN_TOOL,
                         "unregistered tool: ${request.toolName.value} v${request.toolVersion.value}",
-                    ),
-                    DecisionSource.FRAMEWORK,
-                )
-            }
-
-            executor == null -> {
-                stopped(
-                    ctx,
-                    ToolDispatchOutcome.Denied(
-                        DispatchOutcomeCode.NO_IMPLEMENTATION,
-                        "no registered implementation: ${request.toolName.value} v${request.toolVersion.value}",
                     ),
                     DecisionSource.FRAMEWORK,
                 )
@@ -619,7 +619,7 @@ class ToolDispatcher(
 
     /**
      * A registry (name, version) lookup that turns the "unknown" signal into null.
-     * `IllegalArgumentException` is exactly the signal both registries throw for an
+     * `IllegalArgumentException` is exactly the signal the binding registry throws for an
      * unknown (name, version) pair — swallowing ONLY that type (with no text) is what
      * maps it to a stable rejection code downstream; every other exception propagates.
      */
@@ -709,6 +709,14 @@ class ToolDispatcher(
         }
     }
 
+    /** Reserve control capacity only for the trusted execution wrapper. */
+    private fun executionRunner(executor: ToolExecutor): ToolDeadlineRunner =
+        if (executionOwnership?.isControlExecutor(executor) == true) {
+            ToolDeadlineRunner(clock, ToolExecutionPools.control)
+        } else {
+            deadlineRunner
+        }
+
     /** Stages 5-6: cancel gate, then execution — spending the proof exactly when it starts. */
     private fun executeStage(
         request: ToolDispatchRequest,
@@ -735,7 +743,7 @@ class ToolDispatcher(
                             NoResourceKeys,
                         ).exclusive,
             ) ?: executor
-        val result = deadlineRunner.executeWithinDeadline(guardedExecutor, call)
+        val result = executionRunner(executor).executeWithinDeadline(guardedExecutor, call)
         // Preserve only executor-supplied redacted metadata; generic watchdog outcomes have none.
         ctx.executionDetail = executorAuditDetail(result)
         return when (result) {
@@ -790,14 +798,24 @@ class ToolDispatcher(
             val started: Instant? =
                 if (request.cancel.isCancelled()) {
                     stopped(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
-                } else if (sessionPermissions != null && !mayStart(request, descriptor, proof, ctx)) {
+                } else if (!mayStart(request, descriptor, proof, ctx)) {
                     null
                 } else {
-                    proof?.let { approvals.consume(it) }
-                    clock.now().also {
-                        ctx.executionStartedAt = it.toEpochMilli()
-                        ctx.sessionPermissionAtStart = ctx.sessionPermissionEvaluated
-                    }
+                    val ref = requireNotNull(request.bindingRef)
+                    registry.admit(ref) {
+                        proof?.let { approvals.consume(it) }
+                        clock.now().also {
+                            ctx.executionStartedAt = it.toEpochMilli()
+                            ctx.sessionPermissionAtStart = ctx.sessionPermissionEvaluated
+                        }
+                    } ?: stopped(
+                        ctx,
+                        ToolDispatchOutcome.Denied(
+                            DispatchOutcomeCode.UNKNOWN_TOOL,
+                            "tool binding was replaced or revoked before admission; rediscover before a new call",
+                        ),
+                        DecisionSource.FRAMEWORK,
+                    )
                 }
             if (started != null || ctx.stopped != null) return started
             // A new ASK arrived after the first evaluation. Acquire, then recheck again.
@@ -815,7 +833,7 @@ class ToolDispatcher(
         proof: ApprovalProof?,
         ctx: DispatchContext,
     ): Boolean {
-        if (orNull { registry.resolve(request.toolName, request.toolVersion) } != descriptor) {
+        if (request.bindingRef?.let(registry::resolveBinding)?.descriptor != descriptor) {
             stopped<Unit>(
                 ctx,
                 ToolDispatchOutcome.Denied(DispatchOutcomeCode.UNKNOWN_TOOL, "tool contract changed before start"),
@@ -1074,6 +1092,15 @@ class ToolDispatcher(
             executionTarget = request.executionTarget,
             uiToken = request.uiToken,
             argsHash = sha256Hex(CanonicalArgs.canonicalize(request.args)),
+            implementationIdentity =
+                request.bindingRef
+                    ?.let { ref ->
+                        kotlinx.serialization.json
+                            .JsonArray(
+                                listOf(ref.owner, ref.implementationRevision)
+                                    .map { kotlinx.serialization.json.JsonPrimitive(it) },
+                            ).toString()
+                    }.orEmpty(),
         )
 
     private fun deniedFor(turnId: String): Set<String> =
@@ -1127,15 +1154,8 @@ class ToolDispatcher(
         /** Bounded memory for same-turn denial sets (least-recently-used eviction). */
         const val MAX_TRACKED_TURNS = 128
 
-        /**
-         * One daemon thread per in-flight tool execution (cached pool): a thread stuck past its
-         * deadline is abandoned, and it must not keep another dispatch from starting its own.
-         * Daemons so a stuck tool cannot hold the JVM open.
-         */
-        val EXECUTOR_SERVICE: ExecutorService =
-            Executors.newCachedThreadPool { r ->
-                Thread(r, "tool-executor").apply { isDaemon = true }
-            }
+        /** Bounded real workers; timed-out tasks retain capacity until the executor actually exits. */
+        val EXECUTOR_SERVICE: ExecutorService = ToolExecutionPools.ordinary
     }
 
     /** Per-dispatch mutable state shared by the stage methods (one instance per dispatch). */

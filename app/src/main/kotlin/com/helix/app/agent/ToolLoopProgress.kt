@@ -5,12 +5,17 @@ internal object ToolLoopProgress {
     enum class Decision { CONTINUE, WARN, STOP }
 
     const val WINDOW = 12
-    const val WARNING =
-        "Harness observation: recent tool calls repeat the same arguments and results without progress. " +
-            "Use the existing evidence, change the approach, or explain the blocker. " +
-            "Do not repeat the unchanged sequence."
+    val EXHAUSTED =
+        com.helix.app.chat.packagedPromptTemplates
+            .text("loop-exhausted")
+            .trim()
 
-    /** Null marks progress, a mutation, uncertain effects, or an explicitly live observation. */
+    val WARNING =
+        com.helix.app.chat.packagedPromptTemplates
+            .text("loop-warning")
+            .trim()
+
+/** Null marks progress, a mutation, uncertain effects, or an explicitly live observation. */
     fun evaluate(observations: List<String?>): Decision {
         val tail = observations.takeLast(WINDOW)
         var decision = Decision.CONTINUE

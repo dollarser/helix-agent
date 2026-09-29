@@ -1,6 +1,6 @@
 # 候选需求与待裁决索引
 
-本页只索引设计状态、已实现边界和进入开发的条件，不安排第二份实施计划。当前执行顺序以 [status](status.md) 为准，正式任务以 [roadmap](roadmap.md) 为准；需求正文留在产品需求，设计正文留在对应 ADR/方案。核对日期：2026-09-29。
+本页只索引设计状态、已实现边界和进入开发的条件，不安排第二份实施计划。当前执行顺序以 [status](status.md) 为准，正式任务以 [roadmap](roadmap.md) 为准；需求正文留在产品需求，设计正文留在对应 ADR/方案。核对日期：2026-09-30。
 
 ## 状态如何解释
 
@@ -15,8 +15,8 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 
 | 项目与来源 | 设计/任务状态 | 当前实现与缺口 | 进入下一步的条件 |
 | --- | --- | --- | --- |
-| [工具描述与审批契约](../adr/tools/001-descriptor-contract.md) | 整份 ADR 仍 proposed；已有 HXA-042 实现 | descriptor contractHash、ApprovalBinding 和机械门禁已存在；本轮修复结构化来源编码，不重做 HXA-042。原子绑定尚未实现 | R1 在同一 ADR 明确稳定实现身份、撤销和请求快照边界；不能用历史完成记录自动接受整份新规范 |
-| [R1 原子工具绑定](tasks/HXA-231.md) | 已授权、开放 | descriptor 与 executor 仍有独立注册事实源；有界前置问题收口不等于 R1 完成 | 直接按 HXA-231 推进并完成来源迁移、请求/审批/执行交错验收；本轮不实施 R1 |
+| [工具描述与审批契约](../adr/tools/001-descriptor-contract.md) | accepted，2026-09-30 所有者授权 R1 | contractHash、稳定实现身份、请求绑定与撤销规则已统一到同一 ADR | 实现验证见 HXA-231；不扩展成完整插件生命周期 |
+| [R1 原子工具绑定](../completion-records/HXA-231.md) | 已交付（主机范围） | 单一 binding 事实源、请求/调度/审批/执行绑定及全部来源迁移通过主机门禁 | 明确授权后有界设备/服务回归；后续 Core/插件/Job 不自动启动 |
 | [Project Memory](../adr/agent/013-markdown-memory.md) | Global 首版及隔离边界 accepted；完整 Project 接线未启用 | Global 已交付，Project API/隔离测试存在；生产 `MemoryService` 默认 resolver 返回 null | 显式 Project 身份、会话关联、请求冻结与权限隔离方案及生产验收任务；不能用 Workspace 路径自动推导 Project |
 | [子 Agent / Workflow](../adr/agent/004-bounded-delegation.md) | 有界设计 accepted，不直接启用生产子 Agent | [HXA-105](../completion-records/HXA-105.md) 是隔离 Spike；没有因此获得生产 `agent.spawn` 或任意 Workflow DSL | 独立任务限定只读、父预算、取消、持久拓扑、最小上下文和实际收益 |
 | [OAuth / Connector](tasks/HXA-125.md)、[动态注册](tasks/HXA-126.md)、[订阅](tasks/HXA-190.md) | 正式开放任务，不是未接受提案 | 已有实现基础；真实服务验证与剩余实现分别由任务记账 | 按各任务区分可实现部分和账号/服务输入；缺账号不等于全部实现完成 |
@@ -54,6 +54,7 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 
 | 来源/项目 | 当前边界 | 进入条件 |
 | --- | --- | --- |
+| [Mobile Use 设备就绪、锁屏接续与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md) | 已有受限语义自动化与 ui.wait；当前熄屏/锁定结束许可，不支持自动解开安全锁；动作失败分类、观察和启动反馈存在本次评审项 | 先验证并修复执行事实/等待反馈风险；锁屏后用户接续、有条件亮屏、预算/checkpoint 调整分别接受，不自动启用定时任务或无人值守打卡 |
 | [Schedule / Channel 自动激活](../evidence/research-history/helix-agent-complete-research-and-product-plan.md) | Goal 连续执行/提醒已存在，不等于定时或外部事件创建任务 | 用户开启、事件身份、去重、错过执行、重启 disarm、权限与预算 |
 | 同来源：可选 CompletionHook | 研究候选；不恢复普通 Goal 强制 verifier | 用户选择、确定性验收、超时/取消/记账、失败后可修复 |
 | 同来源：QuickJS Code Mode | 已有隔离 JavaScript，不等于可组合特权工具 | 先证明收益，明确受控工具调用、跨 UID、嵌套等待、取消和预算 |

@@ -70,7 +70,15 @@ class SessionToolEffectClassifier(
                 collectedOutput(request)
             }
 
-            LINUX_JOB_CANCEL, QUICKJS_RUN -> {
+            QUICKJS_RUN -> {
+                if ((request.args["access"] as? JsonPrimitive)?.content == "native") {
+                    linuxClassification(JsonObject(emptyMap()))
+                } else {
+                    CallEffectClassification(OperationFootprint(effects = setOf(OperationEffect.COMMAND_EXECUTION)))
+                }
+            }
+
+            LINUX_JOB_CANCEL -> {
                 CallEffectClassification(
                     OperationFootprint(effects = setOf(OperationEffect.COMMAND_EXECUTION)),
                 )
@@ -92,8 +100,8 @@ class SessionToolEffectClassifier(
                 undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
             }
 
-            descriptor.origin == ToolOrigin.BuiltInOrigin && name in memoryEffects -> {
-                CallEffectClassification(OperationFootprint(setOf(memoryEffects.getValue(name))))
+            descriptor.origin == ToolOrigin.BuiltInOrigin && name in builtInEffects -> {
+                CallEffectClassification(OperationFootprint(setOf(builtInEffects.getValue(name))))
             }
 
             name in FILE_READ_TOOLS -> {
@@ -264,11 +272,12 @@ class SessionToolEffectClassifier(
     }
 
     companion object {
-        private val memoryEffects =
+        private val builtInEffects =
             com.helix.app.memory.MemoryTools.reads
                 .associateWith { OperationEffect.FILE_READ_EXTERNAL } +
                 com.helix.app.memory.MemoryTools.writes
-                    .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL }
+                    .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL } +
+                mapOf("helix.settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION)
 
         const val LINUX_RUN: String = "code.linux.run"
         const val LINUX_JOB_START: String = "code.linux.job.start"

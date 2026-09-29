@@ -35,6 +35,7 @@ import com.helix.feature.files.SafSourceOpener
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.CredentialLookup
 import com.helix.provider.api.ProviderCapabilities
+import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -1578,7 +1579,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         storage: HelixStorage,
     ): com.helix.app.tool.ToolPipeline {
         val shared = app.appContainer.toolPipeline
-        val implementations = fixtureImplementations(shared, storage)
+        val registry = fixtureImplementations(shared, storage)
         val clock =
             com.helix.core.model
                 .SystemClock()
@@ -1607,8 +1608,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val dispatcher =
             com.helix.tools.framework.ToolDispatcher(
                 clock = clock,
-                registry = shared.registry,
-                implementations = implementations,
+                registry = registry,
                 capabilityCenter = app.appContainer.capabilityCenter,
                 policyEngine =
                     com.helix.core.policy
@@ -1622,13 +1622,12 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         .SessionToolEffectClassifier(workspace),
             )
         return com.helix.app.tool.ToolPipeline(
-            shared.registry,
-            implementations,
+            registry,
             dispatcher,
             broker,
             audit,
             com.helix.tools.framework
-                .ToolScheduler(clock, dispatcher, shared.registry),
+                .ToolScheduler(clock, dispatcher, registry),
         )
     }
 
@@ -1636,10 +1635,10 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     private fun fixtureImplementations(
         shared: com.helix.app.tool.ToolPipeline,
         storage: HelixStorage,
-    ): com.helix.tools.framework.ToolImplementationRegistry {
-        val implementations =
+    ): com.helix.tools.framework.ToolRegistry {
+        val registry =
             com.helix.tools.framework
-                .ToolImplementationRegistry()
+                .ToolRegistry()
         val store = WorkspaceArtifactStore(ScopeRootResolver(storage.workspaces::managedDirectory))
         shared.registry.all().forEach { descriptor ->
             val executor =
@@ -1647,11 +1646,11 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     com.helix.tools.files.ReadTool
                         .executor(store)
                 } else {
-                    requireNotNull(shared.implementations.resolve(descriptor.name, descriptor.version))
+                    requireNotNull(shared.registry.executor(descriptor.name, descriptor.version))
                 }
-            implementations.register(descriptor, executor)
+            registry.register(descriptor, executor)
         }
-        return implementations
+        return registry
     }
 
     /**

@@ -101,12 +101,10 @@ internal object ToolPresentationMetadata {
             ?.takeIf { ForbiddenContentGuard.reasonFor(it) == null }
             ?.takeIf { !RESULT_CLAIM_PREFIX.containsMatchIn(it) }
 
-    const val PROMPT_GUIDANCE =
-        "[TOOL_PRESENTATION]\n" +
-            "When calling a tool, include __helix_intent as a brief single-line user-facing purpose. " +
-            "Describe what you are trying to do, not what supposedly succeeded or failed. " +
-            "This field is display metadata only and never grants permission or changes tool behavior.\n" +
-            "[/TOOL_PRESENTATION]"
+    val PROMPT_GUIDANCE =
+        com.helix.app.chat.packagedPromptTemplates
+            .text("tool-presentation")
+            .trim()
 
     private val RESULT_CLAIM_PREFIX =
         Regex(

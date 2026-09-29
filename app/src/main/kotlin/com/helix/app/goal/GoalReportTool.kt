@@ -10,7 +10,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -37,17 +36,15 @@ internal object GoalReportTool {
 
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         storage: HelixStorage,
         decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
-        registerName(NAME, registry, implementations, storage, decorate)
+        registerName(NAME, registry, storage, decorate)
     }
 
     private fun registerName(
         name: String,
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         storage: HelixStorage,
         decorate: (ToolExecutor) -> ToolExecutor,
     ) {
@@ -74,8 +71,8 @@ internal object GoalReportTool {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        registry.register(descriptor)
-        implementations.register(
+
+        registry.register(
             descriptor,
             decorate(
                 object : ToolExecutor {

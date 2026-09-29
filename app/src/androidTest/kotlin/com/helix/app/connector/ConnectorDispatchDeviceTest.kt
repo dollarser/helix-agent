@@ -59,8 +59,8 @@ class ConnectorDispatchDeviceTest {
             SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
             0,
         )
-        pipeline.registry.register(descriptor)
-        pipeline.implementations.register(
+
+        pipeline.registry.register(
             descriptor,
             object : ToolExecutor {
                 override fun execute(call: com.helix.tools.framework.ExecutableToolCall): ToolExecutorResult {
@@ -119,7 +119,7 @@ class ConnectorDispatchDeviceTest {
             pending?.let { pipeline.broker.cancel(it) }
             if (!result.isDone) runCatching { result.get(30, TimeUnit.SECONDS) }
             pipeline.registry.replaceMcpServer(id, emptyList())
-            pipeline.implementations.replaceMcpServer(id, emptyList())
+            pipeline.registry.replaceMcpServer(id, emptyList())
             pipeline.endTurn(turn)
             c.chatService.closeSession()
             c.connectorService.remove(record)

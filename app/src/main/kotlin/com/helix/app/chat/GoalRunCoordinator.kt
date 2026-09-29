@@ -24,6 +24,7 @@ internal data class GoalTurnStart(
     val wakeReason: GoalWakeReason,
     val turn: TurnStartSpec,
     val turnLimits: TurnBudgets,
+    val recoveryInspection: Boolean = false,
 )
 
 internal data class StartedGoalTurn(
@@ -93,6 +94,7 @@ internal class GoalRunCoordinator(
      * Android tests are fixture construction, not a second runtime admission seam.
      */
     fun start(request: GoalTurnStart): StartedGoalTurn? {
+        if (request.recoveryInspection) return RecoveryGoalRunStart(storage, clock, idGenerator).start(request)
         var started: StartedGoalTurn? = null
         storage.withTransaction {
             val previous = storage.goals.resolve(request.goalId).toRuntimeGoal()

@@ -11,7 +11,6 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
-import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +50,6 @@ class HelixSettingsRequests {
 internal object HelixSettingsTool {
     fun register(
         registry: ToolRegistry,
-        implementations: ToolImplementationRegistry,
         container: () -> AppContainer,
     ) {
         val descriptor =
@@ -60,7 +58,8 @@ internal object HelixSettingsTool {
                 version = ToolVersion(1),
                 description =
                     "Inspect capabilities/models or propose settings for THIS session. " +
-                        "propose shows a confirmation after the turn; it does NOT apply changes. " +
+                        "Use helix.settings.apply for authorized configuration changes. " +
+                        "propose is a legacy optional UI shortcut; it does NOT apply changes. " +
                         "Use page for a settings shortcut. Never claim changes already applied. " +
                         "Missing permissions require user action. Advanced never bypasses permissions.",
                 inputSchema =
@@ -86,13 +85,14 @@ internal object HelixSettingsTool {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
             )
-        registry.register(descriptor)
-        implementations.register(
+
+        registry.register(
             descriptor,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = executeSettings(call, container())
             },
         )
+        HelixSettingsApplyTool.register(registry, container)
     }
 
     @Suppress("ReturnCount") // Cancellation, expiration, proposal and inspection are distinct outcomes.
@@ -105,6 +105,12 @@ internal object HelixSettingsTool {
             return ToolExecutorResult.TimedOut
         }
         if (call.args["action"]?.jsonPrimitive?.content == "propose") {
+            if (call.args.keys.any { it in setOf("mode", "providerId", "model", "reasoning") }) {
+                return ToolExecutorResult.Failed(
+                    "Use helix.settings.apply. Configuration changes require normal tool authorization.",
+                    sideEffectFree = true,
+                )
+            }
             val session = requireNotNull(call.sessionId)
             requireNotNull(app.settingsRequests).offer(
                 HelixSettingsRequests.Proposal(

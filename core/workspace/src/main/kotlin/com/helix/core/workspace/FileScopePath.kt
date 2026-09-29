@@ -92,7 +92,7 @@ class FileScopePath(
 }
 
 /**
- * Resolves the real root of a scope. Production implementations live in the platform adapters
+ * Resolves the real root of a scope. Production registry live in the platform adapters
  * (app/feature modules): they look the scope up in user data and return the directory the scope
  * covers. The resolver never returns a value to the model — only to the containment check in
  * [resolveFileScopePath].

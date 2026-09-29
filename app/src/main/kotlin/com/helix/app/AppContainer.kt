@@ -39,6 +39,7 @@ internal const val APP_SCOPE_ID = "app"
  * section 16).
  */
 interface AppContainer {
+    val userQuestions: com.helix.app.chat.UserQuestionService? get() = null
     val settingsRequests: com.helix.app.settings.HelixSettingsRequests? get() = null
     val storageUsage: com.helix.app.storage.StorageUsageService? get() = null
     val diagnosticReport: com.helix.app.diagnostics.DiagnosticReportService? get() = null
@@ -83,7 +84,7 @@ interface AppContainer {
     val capabilityCenter: CapabilityCenter
 
     /**
-     * The tool pipeline (roadmap HXA-036): registered tool contracts + implementations,
+     * The tool pipeline (roadmap HXA-036): registered tool contracts + registry,
      * the dispatcher (doc 11 single entry point) and the storage-backed approval broker.
      * The UI reaches it ONLY through the chat service — never the dispatcher or broker
      * directly (AGENTS: UI never touches the execution layer).
