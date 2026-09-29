@@ -65,6 +65,8 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 
 ### 2.4 未排期未来能力候选
 
+跨 ADR/任务的接受与实现边界见[候选索引](../development/candidate-decisions.md)；本节仍是 FUT 需求正文来源。
+
 下列需求只记录方向与 Android 可行性边界，不分配当前 HXA，不得显示为已实现或确定交付：
 
 | ID | 候选需求 | 当前可验收口径 |

@@ -9,8 +9,8 @@ package com.helix.tools.framework
  */
 sealed interface ToolOrigin {
     /**
-     * The origin's SECURITY-RELEVANT canonical form (ADR-0011, HXA-042): the stable string
-     * the [ToolDescriptor.contractHash] hashes over. For [McpOrigin] this is the server it is
+     * The existing source-availability/presentation key. It is not a lossless tuple encoding;
+     * [ToolDescriptor.contractHash] encodes the typed fields separately. For [McpOrigin] this is the server it is
      * bound to and the negotiated protocol version (a server update that changes either
      * invalidates prior approvals). [McpOrigin.serverProvidedHints] are EXCLUDED on purpose:
      * they are untrusted, display-only server text that is never consumed for classification,

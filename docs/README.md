@@ -12,8 +12,9 @@
 | 执行引擎与端侧差距 | [Helix 与 Codex、DSH、Claude Code 对比（历史 Helix 基线）](research/modules/01-architecture-and-execution-engine.md)（竞品机制仍可参考；当前实现看 ADR/HXA） |
 | 对话历史与运行中干预 | [上下文、编辑重发与转向优化](research/modules/02-context-input-and-session.md)（研究基线；当前执行/输入/review 契约见 [ADR-AGENT-001](adr/agent/001-turn-coordination.md)，请求追踪见 [ADR-AGENT-005](adr/agent/005-session-jsonl-export.md)） |
 | UI 与交互优化 | [审查核验与优化方案](research/modules/03-ui-ia-and-workbench.md)（当前源码校正、会话与工作台设计、实施顺序及验收目标；集成版已记录实施状态） · [第一批重构交付](completion-records/HXA-218.md) · [产物就地预览](completion-records/HXA-219.md) |
-| 工具曝光与能力复用优化 | [优化方向建议](research/modules/04-tools-browser-and-extensions.md)（未立项） |
-| 端侧模型 Provider（候选） | [本机小模型接入方案](research/modules/05-runtime-provider-and-on-device-models.md)（现状核实、consumer 明文阻断、引擎选型、分阶段路径；未立项） |
+| 工具曝光与能力复用优化 | 核心工具优先与发现已有实现；[后续优化建议](research/modules/04-tools-browser-and-extensions.md)按 eval 和当前任务决定，不重开已修问题 |
+| 端侧模型 Provider | [当前决定](adr/provider/001-models-and-connection.md) · [HXA-222 交付](completion-records/HXA-222.md) · [早期研究](research/modules/05-runtime-provider-and-on-device-models.md)（研究基线不代表当前未立项） |
+| 候选需求与待裁决范围 | [状态与来源索引](development/candidate-decisions.md)（不另排实施计划） |
 | 当前决定 | [按主题组织的 ADR](adr/README.md) |
 | 已交付结果 | [完成记录索引](completion-records/index.md) |
 | 历史诊断和研究 | [证据索引](evidence/README.md)、[研究入口](research/README.md) |

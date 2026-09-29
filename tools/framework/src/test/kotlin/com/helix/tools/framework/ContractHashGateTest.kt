@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
  * HXA-042 gate (roadmap + ADR-0011): the FIRST non-`time.now` business tools register, so the
  * descriptor approval-invalidation gap must be closed by MECHANICAL TEST, not KDoc. A contract
  * that keeps `(name, version, schemaHash)` constant but changes a security field (timeout, output
- * cap, required capabilities, operation class, base risk, idempotency, or origin) MUST produce a
+ * cap, required capabilities, operation class, idempotency, or origin) MUST produce a
  * different `ApprovalBinding` hash — so an approval minted for the old contract is a DIFFERENT
  * binding and a stale credential can never authorize the changed one.
  *
@@ -29,6 +29,46 @@ import kotlin.time.Duration.Companion.seconds
  * is bound into the approval hash.
  */
 class ContractHashGateTest {
+    @Test
+    fun ambiguousMcpSourceTextCannotReuseApprovalContract() {
+        val first = mcpDescriptor("server", "x:y")
+        val second =
+            first.copy(
+                origin = (first.origin as ToolOrigin.McpOrigin).copy(serverId = "server:x", protocolVersion = "y"),
+            )
+        assertEquals(first.origin.canonicalOf(), second.origin.canonicalOf())
+        assertEquals(first.schemaHash, second.schemaHash)
+        assertNotEquals(first.contractHash, second.contractHash)
+        assertNotEquals(bindingFor(first).hash, bindingFor(second).hash)
+    }
+
+    @Test
+    fun ambiguousA2aSourceTextCannotReuseApprovalContract() {
+        val first =
+            descriptor().copy(
+                name = ToolName("a2a.remote.tool"),
+                operationClass = ToolOperationClass.NETWORK,
+                origin =
+                    ToolOrigin.A2aOrigin(
+                        "agent",
+                        "x:y",
+                        "https://example.test",
+                        "JSONRPC",
+                        "1.0",
+                        "a".repeat(64),
+                        "b".repeat(64),
+                    ),
+            )
+        val second =
+            first.copy(
+                origin = (first.origin as ToolOrigin.A2aOrigin).copy(agentId = "agent:x", skillId = "y"),
+            )
+        assertEquals(first.origin.canonicalOf(), second.origin.canonicalOf())
+        assertEquals(first.schemaHash, second.schemaHash)
+        assertNotEquals(first.contractHash, second.contractHash)
+        assertNotEquals(bindingFor(first).hash, bindingFor(second).hash)
+    }
+
     // ------------------------------------------------------------------ per-field coverage
 
     @Test

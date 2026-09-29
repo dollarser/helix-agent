@@ -8,7 +8,9 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.isReviewModeAdmitted
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.security.MessageDigest
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -116,7 +118,7 @@ data class ToolDescriptor(
      * the security fields. Binding [contractHash] into [com.helix.core.policy.ApprovalBinding]
      * is what makes a contract that keeps `(name, version, schemaHash)` constant but changes a
      * security field (a longer timeout, a bigger output cap, a newly-required capability, a
-     * higher risk class) a DIFFERENT approval binding — so an approval minted for the old
+     * different operation class) a DIFFERENT approval binding — so an approval minted for the old
      * contract is rejected (roadmap HXA-042 gate). [schemaHash] stays on the descriptor (and
      * on the binding) on its own: it names the schema contract for the model table and audit
      * independently of the security set.
@@ -164,13 +166,11 @@ data class ToolDescriptor(
         }
 
         /**
-         * The full security-descriptor contract (ADR-0011): SHA-256 over a canonical form of
-         * every descriptor field, in a FIXED field order, joined by a byte that cannot occur in
-         * the field values (a NUL — descriptions and hex digests are all above NUL). Every
-         * field is canonicalized to a stable string ([canonicalOf]), so equal descriptors hash
-         * identically and ANY field change (including a schema change, via [schemaHash])
-         * changes the digest. This is deliberately the superset of [schemaHash] — it is the
-         * value the approval binding hashes over (see [contractHash]).
+         * Versioned JSON arrays preserve field boundaries, including remote origin fields.
+         * Source availability keys ([ToolOrigin.canonicalOf]) are NOT unambiguous security
+         * encodings: user/remote fields may contain their delimiter. Keep those existing
+         * preference keys separate so a hash correction cannot reset disabled tools.
+         * Display-only MCP hints remain excluded. The v2 encoding invalidates old approvals.
          */
         fun contractHashOf(descriptor: ToolDescriptor): Sha256 =
             Sha256(
@@ -181,22 +181,54 @@ data class ToolDescriptor(
                 ),
             )
 
-        /** NUL-joined canonical field list; see [contractHashOf] for why the order is fixed. */
+        /** Fixed-order, escaped strings; schema identity retains its existing encoding. */
         private fun ToolDescriptor.contractCanonicalForm(): String =
-            listOf(
-                name.value,
-                version.value.toString(),
-                description,
-                schemaHash.hex,
-                operationClass.name,
-                timeout.inWholeMilliseconds.toString(),
-                maxOutputBytes.toString(),
-                // ADR-0011: capabilities canonicalize BY NAME — a set's iteration order is not
-                // stable across equal constructions, and the digest must not depend on it.
-                requiredCapabilities.sortedBy { it.name }.joinToString(separator = ",") { it.name },
-                idempotency.name,
-                executionTarget.name,
-                origin.canonicalOf(),
-            ).joinToString(separator = SCHEMA_HASH_SEPARATOR)
+            JsonArray(
+                listOf(
+                    "helix-tool-contract-v2",
+                    name.value,
+                    version.value.toString(),
+                    description,
+                    schemaHash.hex,
+                    operationClass.name,
+                    timeout.inWholeMilliseconds.toString(),
+                    maxOutputBytes.toString(),
+                    // ADR-0011: capabilities canonicalize BY NAME — a set's iteration order is not
+                    // stable across equal constructions, and the digest must not depend on it.
+                    requiredCapabilities.sortedBy { it.name }.joinToString(separator = ",") { it.name },
+                    idempotency.name,
+                    executionTarget.name,
+                ).map(::JsonPrimitive) + listOf(origin.contractIdentity()),
+            ).toString()
+
+        private fun ToolOrigin.contractIdentity(): JsonArray =
+            JsonArray(
+                when (this) {
+                    ToolOrigin.BuiltInOrigin -> {
+                        listOf("built-in")
+                    }
+
+                    is ToolOrigin.PluginOrigin -> {
+                        listOf("plugin", pluginId, pluginVersion, runtimeId)
+                    }
+
+                    is ToolOrigin.McpOrigin -> {
+                        listOf("mcp", serverId, protocolVersion, sourceSchemaHash)
+                    }
+
+                    is ToolOrigin.A2aOrigin -> {
+                        listOf(
+                            "a2a",
+                            agentId,
+                            skillId,
+                            interfaceOrigin,
+                            binding,
+                            protocolVersion,
+                            cardHash,
+                            skillHash,
+                        )
+                    }
+                }.map(::JsonPrimitive),
+            )
     }
 }

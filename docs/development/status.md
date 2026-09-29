@@ -39,6 +39,10 @@
 
 - HXA-222 本地模型首版已完成本地范围交付，见[完成记录](../completion-records/HXA-222.md)：类型化 Provider/Room v1、private-process Binder/JNI、资产/UI、可调 context、内存预检、模板 grammar 与真实能力探测已落地；完整 host gate、API36 生命周期及 320/360/412dp 大字体 UI 通过。4B/8K/8 GiB 固定任务 6 轮模型调用、6 次工具调用、产物回读和独立数值断言通过，约 14 分 46 秒；0.6B/1.7B 错误计算及首轮 4B 未完成仍保留。详见[收口证据](../evidence/development/hxa222-closeout-2026-09-28.md)与[会话分析](../evidence/development/hxa222-session-analysis-2026-09-28.md)。真机、真实远端账号、Android HTTP 下载端到端未验；未提交或推送。
 
+## 候选与有限接受范围
+
+[候选需求与待裁决索引](candidate-decisions.md)统一导航未来需求、有限接受的设计及其实现边界；当前执行顺序仍由本页决定。2026-09-29 所有者明确本轮先收敛现有实现与文档，R1 保留为下一实施任务，不自动启用其他候选。本轮变更与主分支整合验证见[收敛证据](../evidence/development/contract-document-convergence-2026-09-29.md)；其他未提交工作保持独立归属。
+
 ## In progress
 
 - 偶发问题追加收口（2026-09-29）：修复 SAF 撤销后不刷新及异步来源结果发布，双渠道 API36 10/10；澄清 Goal 仅规划提示，冻结版本三轮均 1 次模型调用/0 工具、Goal PAUSED。诊断能力探测 3/3、skill-003 3/3，但后者两轮仍有额外只读调用。全量主机 gate 通过；历史截断/探测偶发失败未复现、额外调用仍开放。失败与修复范围见[增量证据](../evidence/development/intermittent-closeout-2026-09-28.md)，未提交/推送。

@@ -2,19 +2,21 @@
 
 Status: proposed
 Date: 2026-09-16
-HXA: HXA-042
+HXA: HXA-042, HXA-231
 Deciders: pending
 
 ## Context
 
-工具参数 schema 不能表达执行目标、风险、限制和能力变化；审批绑定需要可验证的工具契约身份。
+工具参数 schema 不能表达执行目标、限制和能力变化；审批绑定需要可验证的工具契约身份。
+
+`proposed` 指整份长期规范仍需结合 R1 裁决，不表示功能尚未开发：[HXA-042](../../completion-records/HXA-042.md) 已交付 contractHash、审批绑定与测试；HXA-231 已获原子绑定实施授权但尚未完成。本轮仅核对并修复现有审批契约编码，不把既有代码或修复自动等同于接受完整 R1 规范。
 
 ## Decision
 
-1. 引入覆盖**整个安全 descriptor** 的 `ToolDescriptor.contractHash`：对 descriptor 的规范化形式做 SHA-256。规范化形式用 NUL 分隔拼接：`name`、`version`、`description`、`schemaHash`、`operationClass`、`timeout`(ms)、`maxOutputBytes`、`requiredCapabilities`(按 name 排序)、`idempotency`、`executionTarget`、`origin.canonicalOf()`。`contractHash` 是 `schemaHash` 的**超集**（schema 变则两者都变）。
+1. 引入覆盖**整个安全 descriptor** 的 `ToolDescriptor.contractHash`：对 descriptor 的规范化形式做 SHA-256。当前实现使用固定顺序 JSON array：首项 `helix-tool-contract-v2`，随后为字符串字段 `name`、`version`、`description`、`schemaHash`、`operationClass`、`timeout`(ms)、`maxOutputBytes`、`requiredCapabilities`(按 name 排序并用逗号连接)、`idempotency`、`executionTarget`，末项为来源字段 JSON array。来源依次为 `built-in`；`plugin/pluginId/pluginVersion/runtimeId`；`mcp/serverId/protocolVersion/sourceSchemaHash`；`a2a/agentId/skillId/interfaceOrigin/binding/protocolVersion/cardHash/skillHash`（斜线在这里分隔字段说明，不是运行时拼接符）。字符串按 JSON 转义、无空白编码后取 UTF-8 SHA-256，避免分隔符进入来源字段造成碰撞。`schemaHash` 原算法不变。`contractHash` 是 `schemaHash` 的**超集**（schema 变则两者都变）。
 2. `contractHash` 作为**直接字段**并入 `ApprovalBinding`（在 `schemaHash` 之后），进入 binding 的 `canonicalJson` 与 `hash`。`executionTarget` 已是 binding 既有直接字段（HXA-034/035 精确绑定），保持不变。
-3. `origin.canonicalOf()` 刻意**排除** `serverProvidedHints`：这些是不可信的、展示用文本，若纳入契约会让一个 MCP 服务器通过编辑 hint 使已授予的审批失效（反被服务器握有否决权）。`serverProvidedHints` 变化**不得**改变 `contractHash`（机械测试强制这一反向不变量）。
-4. `description` **纳入**契约（fail-closed）：description 是模型可见的工具语义，若改动却保持 `schemaHash` 不变会误导模型；把它纳入 contractHash 使任何描述变化都强制新审批。代价是描述文案改动会使既有审批失效——这被判定为正确方向（宁可失效也不放行），且生产工具描述是代码常量、非用户可改。
+3. 来源契约编码刻意**排除** `serverProvidedHints`：这些是不可信的、展示用文本，若纳入契约会让一个 MCP 服务器通过编辑 hint 使已授予的审批失效（反被服务器握有否决权）。`serverProvidedHints` 变化**不得**改变 `contractHash`（机械测试强制这一反向不变量）。
+4. `description` **纳入**契约（fail-closed）：description 是模型可见的工具语义，若改动却保持 `schemaHash` 不变会误导模型；把它纳入 contractHash 使任何描述变化都强制新审批。代价是描述文案改动会使既有审批失效——这被判定为正确方向（宁可失效也不放行），内置描述由产品代码维护，外部描述仍是不可信声明，不能授予权限。
 5. `ToolDispatcher.buildBinding` 在批准时从**当前注册** descriptor 取 `contractHash` 写入 binding（与 `schemaHash` 同源、同点）。
 6. 机械门禁：`ContractHashGateTest`（`tools/framework`）逐字段证明每个安全字段单独变化都保持 `schemaHash` 不变而改变 `contractHash`，进而改变 `ApprovalBinding.hash`（旧凭证不匹配）；`ToolDispatcherTest` 证明 dispatcher 实际把当前 descriptor 的 `contractHash` 绑进呈现给 broker 的 binding。二者是"拒绝"的证据，不是 KDoc 约定。
 
@@ -26,11 +28,13 @@ Deciders: pending
 
 ## Consequences
 
-同一主题使用一份有效契约，避免并行实现各自解释权限和生命周期。代价是实现、UI、数据与恢复需要一起验证；accepted 表示决定，不代表相关任务全部完成。
+v2 编码使旧 contractHash/精确批准不再匹配，须重新审批，不能兼容重用旧凭证。现有 `origin.canonicalOf()` 仍供来源启停键和展示使用，本轮不迁移这些键，避免把已有禁用设置意外恢复为默认启用。R1 必须单独处理稳定绑定身份、所有权、请求引用及撤销；此修复不声称已解决双注册表或完整来源生命周期。
+
+同一主题维护一份规范；接受设计和实现验收仍分开记账。
 
 ## Verification
 
-此方案仍 proposed，不因代码中存在 contractHash 字段就视为整份字段集合和规范化方案已接受。验收需逐字段变化、外部来源碰撞、描述变更及无关提示不影响契约的机械测试。
+此方案仍 proposed，不因代码中存在 contractHash 字段就视为整份字段集合和规范化方案已接受。验收需逐字段变化、外部来源碰撞、描述变更及无关提示不影响契约的机械测试。当前编码修复及实际运行见[收敛证据](../../evidence/development/contract-document-convergence-2026-09-29.md)，不借用历史 HXA-042 数字证明新编码。
 
 ## Reconsider when
 
@@ -45,3 +49,7 @@ Deciders: pending
 ## Decision history — 2026-09-28
 
 按所有者授权移除风险等级，contractHash 不再包含 baseRisk；operationClass、scope/目标与其余执行约束继续绑定。规范形式变化使旧批准失效，不能跨契约重用。
+
+## Decision history — 2026-09-29
+
+所有者要求先收敛现有实现与文档，R1 保留下一任务。核对发现旧来源冒号拼接存在不同字段元组的身份碰撞；修复审批哈希为版本化、结构化编码，并保留来源启停键。ADR 仍 proposed，完整原子绑定的身份/撤销/迁移决定在 R1 同主题收敛。

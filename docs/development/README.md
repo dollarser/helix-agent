@@ -3,6 +3,7 @@
 本目录只保存**当前代码/产品开发控制面**，不是历史证据库。HXA 主要记录实现、重构、修复、迁移、验证和发布类开发工作；纯文档整理、索引重构或 Research 综合不单独创建 HXA。
 
 - [status.md](status.md)：唯一当前状态、In progress、Next task 与 Blocked 入口。
+- [候选需求与待裁决索引](candidate-decisions.md)：区分接受范围、已实现基础、未启用功能和进入开发条件；不维护第二份计划。
 - [roadmap.md](roadmap.md)：HXA 清单/长期排序；不是第二份 current plan。
 - [tasks/](tasks/)：所有尚未完成的 HXA 规格，包括进行中、外部依赖、发行队列和未来已授权任务。真正当前执行项必须同时出现在 `status.md`。
 - [implementation-guide.md](implementation-guide.md)：通用开发/交接流程。

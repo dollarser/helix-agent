@@ -299,7 +299,7 @@ graph BT
 
 ### 阶段四（P1 候选）：Workspace 差异快照与可回滚机制（Rollback as a Multiplier）
 
-> **核心原则**：可回滚性是能力放大器，但 Helix 的 Workspace binding ADR 仍未接受，以下是能力目标而非当前已交付契约。
+> **核心原则**：可回滚性是能力放大器，但 [Workspace binding](../../adr/workspace/004-workspace-binding.md) 已接受且 HXA-210 已交付；以下 checkpoint/按归属回滚仍是独立候选，不由 Workspace 交付推导为已实现。
 
 1. **Git/Workspace checkpoint**：
    - 对适用的 Git 项目，可在复杂探索前建立显式 checkpoint/worktree/差异锚点；必须保留并行用户变更，不能用粗暴 reset/stash 作为默认回滚。

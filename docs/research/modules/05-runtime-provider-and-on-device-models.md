@@ -1,6 +1,6 @@
 # Runtime、Provider 与端侧模型
 
-> 更新：2026-09-25。综合 Runtime/Provider/端侧模型研究；不替代 Runtime/Provider ADR。
+> 研究基线：2026-09-25。后续 HXA-222 已交付端侧模型首版，当前引擎与验收范围见[Provider ADR](../../adr/provider/001-models-and-connection.md)和[完成记录](../../completion-records/HXA-222.md)。下文保留当时比较，不作为当前未立项或候选状态的依据。
 
 ## 1. Runtime 应按执行边界分层
 
