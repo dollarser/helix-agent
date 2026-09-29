@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -248,15 +249,32 @@ internal fun HelixApp(container: AppContainer) {
     fun navigateToConversationRoot() {
         navController.navigate(ShellDestination.Sessions.route) {
             launchSingleTop = true
-            popUpTo(repository.initialDestination.route)
         }
     }
 
     HelixTheme {
+        com.helix.app.ui.HelixSettingsProposalDialog(container) { page ->
+            navController.navigate(
+                when (page) {
+                    "models" -> ShellDestination.Models.route
+                    "permissions" -> SETTINGS_PERMISSIONS_ROUTE
+                    "session" -> CONVERSATION_SETTINGS_ROUTE
+                    else -> ShellDestination.Settings.route
+                },
+            ) { launchSingleTop = true }
+        }
+        val windowWidth = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width
+        val drawerWidth = with(androidx.compose.ui.platform.LocalDensity.current) { (windowWidth * 2f / 3f).toDp() }
         ModalNavigationDrawer(
             drawerState = drawerState,
+            gesturesEnabled = drawerState.isOpen,
             drawerContent = {
-                ModalDrawerSheet {
+                ModalDrawerSheet(
+                    modifier =
+                        Modifier
+                            .width(drawerWidth)
+                            .testTag("drawer-panel"),
+                ) {
                     val context = androidx.compose.ui.platform.LocalContext.current
                     GroupedNavigation(
                         destinations = repository.destinations,
@@ -269,11 +287,6 @@ internal fun HelixApp(container: AppContainer) {
                         onNewConversation = {
                             container.chatService.newSessionDraft()
                             navigateToConversationRoot()
-                            scope.launch { drawerState.close() }
-                        },
-                        onSearchConversations = {
-                            container.chatService.clearSessionSearch()
-                            navController.navigate(CONVERSATION_SEARCH_ROUTE) { launchSingleTop = true }
                             scope.launch { drawerState.close() }
                         },
                         onAllConversations = {

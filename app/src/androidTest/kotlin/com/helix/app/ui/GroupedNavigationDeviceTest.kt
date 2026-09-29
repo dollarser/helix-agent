@@ -33,7 +33,6 @@ class GroupedNavigationDeviceTest {
         val visited = mutableListOf<ShellDestination>()
         var currentOpened = 0
         var created = 0
-        var searched = 0
         var allOpened = 0
         val recentOpened = mutableListOf<String>()
         compose.setContent {
@@ -55,7 +54,6 @@ class GroupedNavigationDeviceTest {
                                 ),
                             onCurrentConversation = { currentOpened++ },
                             onNewConversation = { created++ },
-                            onSearchConversations = { searched++ },
                             onAllConversations = { allOpened++ },
                             onOpenConversation = { recentOpened += it },
                         ) {
@@ -71,11 +69,7 @@ class GroupedNavigationDeviceTest {
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        compose
-            .onNodeWithTag("drawer-search-conversations")
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performClick()
+        compose.onNodeWithTag("drawer-search-conversations").assertDoesNotExist()
         compose
             .onNodeWithTag("drawer-current-conversation")
             .performScrollTo()
@@ -120,7 +114,6 @@ class GroupedNavigationDeviceTest {
             assertEquals(ShellDestination.entries.filter { it != ShellDestination.Sessions }, visited)
             assertEquals(1, currentOpened)
             assertEquals(1, created)
-            assertEquals(1, searched)
             assertEquals(1, allOpened)
             assertEquals(listOf("recent-1"), recentOpened)
         }

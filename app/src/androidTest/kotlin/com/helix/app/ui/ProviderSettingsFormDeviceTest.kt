@@ -41,6 +41,11 @@ class ProviderSettingsFormDeviceTest {
                 )
             }
         }
+        compose.onNodeWithTag("provider-form-protocol").performScrollTo().performClick()
+        compose.onNodeWithTag("provider-protocol-ANTHROPIC_MESSAGES").performClick()
+        compose.runOnIdle {
+            assertEquals(com.helix.core.model.ProviderProtocol.ANTHROPIC_MESSAGES, state.value.protocol)
+        }
         compose.onNodeWithTag("provider-form-key").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("provider-form-save").assertIsEnabled()
         compose

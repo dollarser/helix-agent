@@ -29,6 +29,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 组件要求 compileSdk 37；本次明确升级 compileSdk 至 37、Compose BOM 至 2026.09.00，保持 targetSdk 36 和 minSdk 29。CI 同时保留用于既有兼容探针的 API36 SDK。原生 ABI 为 arm64-v8a/x86_64；16 KiB ELF/ZIP 静态检查和真实 16 KiB 设备运行分别记账。OSC 自动剪贴板、图片及链接自动打开不启用，模型不获得终端输入能力。生产页面验收以 197 任务和证据为准，构建接线不代表验收完成。
 
+当前抽屉开启的手动终端使用应用私有 `workspaces/app/terminal` 目录，不依赖选中会话；文件管理器显式传入 scope 路径时仍使用该目录。终端 detach/attach 与租期不变，关闭或切换聊天不停止终端，Advanced 及执行互斥约束仍适用。
+
 ## Alternatives considered
 
 通用持久 shell 替代全部 Job 会破坏身份与结算；仅最终输出不足以支持交互；每个按键做 Tool Approval 无法形成可用终端。
@@ -50,3 +52,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history
+
+- 2026-09-29：所有者要求终端独立于聊天；抽屉启动目录改为独立目录，显式目录入口保留原语义。

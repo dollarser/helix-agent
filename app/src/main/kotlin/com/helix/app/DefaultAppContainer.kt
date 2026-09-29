@@ -114,6 +114,10 @@ internal class DefaultAppContainer(
 
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
 
+    override val settingsRequests =
+        com.helix.app.settings
+            .HelixSettingsRequests()
+
     override val profileStore: SafetyProfileStore =
         PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
 
@@ -127,16 +131,9 @@ internal class DefaultAppContainer(
                     if (reference.startsWith("scope:")) {
                         FileScopePath.fromModelReference(reference)
                     } else {
-                        val referenceAtStart =
-                            requireNotNull(chatService.screen.value.directoryRef) {
-                                appContext.getString(R.string.workspace_local_backend_unavailable)
-                            }
-                        val base = FileScopePath.fromModelReference(referenceAtStart)
-                        val relative = FileScopePath(base.scopeId, reference).relativePath
-                        FileScopePath(
-                            base.scopeId,
-                            listOf(base.relativePath, relative).filter(String::isNotEmpty).joinToString("/"),
-                        )
+                        // Drawer terminals own a stable directory independent of chat selection.
+                        val relative = FileScopePath("app", reference).relativePath
+                        FileScopePath("app", listOf("terminal", relative).filter(String::isNotEmpty).joinToString("/"))
                     }
                 resolveFileScopePath(path, scopeRoots).toFile().also { target ->
                     val supported =
@@ -149,6 +146,7 @@ internal class DefaultAppContainer(
                     require(supported.any { target.canonicalFile.toPath().startsWith(it) }) {
                         appContext.getString(com.helix.app.R.string.workspace_local_backend_unavailable)
                     }
+                    if (!reference.startsWith("scope:")) check(target.isDirectory || target.mkdirs())
                 }
             },
         )
@@ -554,6 +552,8 @@ internal class DefaultAppContainer(
             executionOwnership,
             { chatService },
         )
+        com.helix.app.settings.HelixSettingsTool
+            .register(toolRegistry, toolImplementations) { this }
         AppAndroidTools.register(
             context,
             toolRegistry,

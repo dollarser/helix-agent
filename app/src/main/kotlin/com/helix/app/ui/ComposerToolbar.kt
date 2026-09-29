@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -61,22 +62,22 @@ internal fun ComposerToolbar(
 ) {
     var options by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f)) {
-            ComposerOptionRow {
-                ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
-                modelSelector?.let { model -> ComposerOptionPill { model() } }
-                permissionMode?.let { permission ->
-                    ComposerOptionPill {
-                        TextButton(onClick = onPermission, modifier = Modifier.testTag("chat-permission-menu")) {
-                            Text("🛡 ${stringResource(permission.labelRes())}")
-                        }
-                    }
-                }
-            }
+        Box(Modifier.widthIn(max = 80.dp)) {
+            ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
         }
         IconButton({ options = true }, modifier = Modifier.size(48.dp).testTag("chat-composer-options")) {
             Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_composer_options))
         }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+            modelSelector?.invoke()
+        }
+        ComposerReasoningMenu(
+            reasoning,
+            reasoningSupported && !isSending,
+            onReasoning,
+            modifier = Modifier.widthIn(max = 104.dp),
+            efforts = reasoningOptions,
+        )
     }
     if (options) {
         ConversationSheet(
@@ -84,7 +85,11 @@ internal fun ComposerToolbar(
             "chat-composer-options",
             { options = false },
         ) {
-            ComposerReasoningMenu(reasoning, reasoningSupported && !isSending, onReasoning, efforts = reasoningOptions)
+            permissionMode?.let { permission ->
+                TextButton(onClick = onPermission, modifier = Modifier.testTag("chat-permission-menu")) {
+                    Text("🛡 ${stringResource(permission.labelRes())}")
+                }
+            }
             trailingOptions()
         }
     }

@@ -65,10 +65,14 @@ class ConversationComposerDeviceTest {
         val send = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
         val mode = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
         val options = compose.onNodeWithTag("chat-composer-options").getUnclippedBoundsInRoot()
-        listOf(attach, voice, send, mode, options).forEach { bounds ->
-            assertTrue("Composer actions stay in the compact row below editing", bounds.top >= field.bottom)
+        listOf(attach, voice, send).forEach { bounds ->
+            assertTrue("Voice, attachments and send stay above editing", bounds.bottom <= field.top)
         }
-        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
+        listOf(mode, options).forEach { bounds ->
+            assertTrue("Mode controls stay below editing", bounds.top >= field.bottom)
+        }
+        assertTrue(voice.right <= attach.left && attach.right <= send.left)
+        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed().assertIsNotEnabled()
         compose.onNodeWithTag("chat-send").assertIsNotEnabled()
         compose.runOnIdle { attachments.value = true }
         compose.onNodeWithTag("chat-send").assertIsEnabled()
@@ -204,7 +208,7 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-mode-menu").assertIsNotEnabled()
     }
 
-    @Test fun optionsRemainInOneScrollableRowOnANarrowScreen() {
+    @Test fun modeModelAndReasoningRemainBelowEditingOnANarrowScreen() {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
@@ -231,23 +235,19 @@ class ConversationComposerDeviceTest {
             }
         }
         assertFits("chat-input", "chat-add", "chat-send")
-        val modeBefore = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
-        compose.onNodeWithTag("chat-options-row").performTouchInput { swipeLeft() }
-        val modeAfter = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
-        assertTrue("Horizontal gesture reveals offscreen options", modeAfter.left < modeBefore.left)
-        compose.onNodeWithTag("chat-model-menu").performScrollTo().assertIsDisplayed()
-        val model = compose.onNodeWithTag("chat-options-row").getUnclippedBoundsInRoot()
-        val options = compose.onNodeWithTag("chat-composer-options").getUnclippedBoundsInRoot()
-        assertTrue("The options action has its own touch target", options.right - options.left >= 48.dp)
-        assertTrue("Model does not overlap the options action", model.right <= options.left)
-        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
-        compose.onNodeWithTag("chat-composer-options").performClick()
-        compose.onNodeWithTag("chat-reasoning-menu").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("chat-composer-options-close").performClick()
-        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
+        val voice = compose.onNodeWithTag("chat-voice").getUnclippedBoundsInRoot()
+        val add = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
+        val send = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
+        val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
+        val mode = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
+        val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
+        val reasoning = compose.onNodeWithTag("chat-reasoning-menu").getUnclippedBoundsInRoot()
+        assertTrue(voice.left < add.left && add.left < send.left)
+        assertTrue(voice.bottom <= input.top)
+        assertTrue(mode.top >= input.bottom)
+        assertTrue(mode.right <= model.left && model.right <= reasoning.left)
+        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
         compose.onNodeWithTag("chat-copy-input").assertDoesNotExist()
-        compose.onNodeWithTag("chat-mode-menu").performScrollTo().assertIsDisplayed()
-        assertEquals(modeBefore.top, compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot().top)
     }
 
     @Test fun serverDefinedEffortsUpdateWithoutACompiledOptionList() {

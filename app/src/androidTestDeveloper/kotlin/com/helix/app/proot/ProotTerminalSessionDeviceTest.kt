@@ -28,12 +28,16 @@ class ProotTerminalSessionDeviceTest {
     @Test
     fun manualSessionMapsRealWorkspaceReconnectsAndSettlesOriginalOwner() {
         ensureInstalledRuntime(context)
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(com.helix.app.terminal.ManualTerminalActivity::class.java).use {
             runBlocking {
+                container.chatService.closeSession()
+                withTimeout(5_000) {
+                    while (container.chatService.screen.value.openSessionId != null) delay(25)
+                }
                 val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val relative = "terminal-test-${UUID.randomUUID()}"
-                val directory = File(context.filesDir, "workspaces/app/$relative").apply { check(mkdirs()) }
+                val directory = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.STANDARD)
                     assertTrue(runCatching { terminal.start(relative) }.isFailure)
@@ -105,7 +109,7 @@ class ProotTerminalSessionDeviceTest {
                 val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val relative = "terminal-lease-${UUID.randomUUID()}"
-                val directory = File(context.filesDir, "workspaces/app/$relative").apply { check(mkdirs()) }
+                val directory = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     terminal.start(relative, leaseMs = 7000)

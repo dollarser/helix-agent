@@ -22,7 +22,7 @@ internal data class ProviderFormDiscovery(
 )
 
 internal fun ProviderForm.catalogIdentity() =
-    listOf(fields.endpoint, fields.apiKey, fields.headerName, fields.headerValue)
+    listOf(protocol.name, fields.endpoint, fields.apiKey, fields.headerName, fields.headerValue)
 
 @Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal suspend fun discoverProviderForm(
@@ -39,7 +39,7 @@ internal suspend fun discoverProviderForm(
                 }
         val outcome =
             ProviderComposer.compose(
-                form.template.copy(credentialRequired = false, defaultHeaders = emptyMap()),
+                form.template.copy(protocol = form.protocol, credentialRequired = false, defaultHeaders = emptyMap()),
                 form.fields.name.trim(),
                 form.fields.endpoint.trim(),
                 "catalog-discovery",

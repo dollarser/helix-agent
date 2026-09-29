@@ -48,6 +48,7 @@ internal data class ProviderForm(
     val error: SaveResult.Rejected?,
     val selectedModels: Set<String> = emptySet(),
     val preservedHeaders: Map<String, String> = emptyMap(),
+    val protocol: com.helix.core.model.ProviderProtocol = template.protocol,
 ) {
     data class FormFields(
         val name: String,
@@ -139,6 +140,7 @@ internal fun ProviderFormDialog(
     val discovering = discoveryState.running
     val discoveryMessage = discoveryState.message
     var advanced by remember { mutableStateOf(false) }
+    var protocolsOpen by remember { mutableStateOf(false) }
     val cleartext =
         remember(form.fields.endpoint) {
             tryParseEndpoint(form.fields.endpoint)?.let { CleartextAuthorization.requiredFor(it) }
@@ -175,6 +177,31 @@ internal fun ProviderFormDialog(
                     singleLine = true,
                     modifier = Modifier.testTag("provider-form-name"),
                 )
+                androidx.compose.foundation.layout.Box {
+                    TextButton(
+                        onClick = { protocolsOpen = true },
+                        enabled = !saving && !discovering,
+                        modifier = Modifier.testTag("provider-form-protocol"),
+                    ) {
+                        Text(stringResource(R.string.provider_form_protocol, UiLabels.protocolLabel(form.protocol)))
+                    }
+                    androidx.compose.material3.DropdownMenu(protocolsOpen, { protocolsOpen = false }) {
+                        listOf(
+                            com.helix.core.model.ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                            com.helix.core.model.ProviderProtocol.OPENAI_RESPONSES,
+                            com.helix.core.model.ProviderProtocol.ANTHROPIC_MESSAGES,
+                        ).forEach { protocol ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(UiLabels.protocolLabel(protocol)) },
+                                onClick = {
+                                    protocolsOpen = false
+                                    onField(form.copy(protocol = protocol, selectedModels = emptySet()))
+                                },
+                                modifier = Modifier.testTag("provider-protocol-${protocol.name}"),
+                            )
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = form.fields.endpoint,
                     onValueChange = { onField(form.copy(fields = form.fields.copy(endpoint = it))) },
@@ -394,7 +421,7 @@ private suspend fun applySave(
             }
     val outcome =
         ProviderComposer.compose(
-            form.template.copy(credentialRequired = false, defaultHeaders = emptyMap()),
+            form.template.copy(protocol = form.protocol, credentialRequired = false, defaultHeaders = emptyMap()),
             form.fields.name.trim(),
             form.fields.endpoint.trim(),
             form.fields.model

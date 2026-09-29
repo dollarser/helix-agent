@@ -39,6 +39,7 @@ internal const val APP_SCOPE_ID = "app"
  * section 16).
  */
 interface AppContainer {
+    val settingsRequests: com.helix.app.settings.HelixSettingsRequests? get() = null
     val storageUsage: com.helix.app.storage.StorageUsageService? get() = null
     val diagnosticReport: com.helix.app.diagnostics.DiagnosticReportService? get() = null
 

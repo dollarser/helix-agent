@@ -31,7 +31,6 @@ internal fun GroupedNavigation(
     conversation: ConversationDrawerState,
     onCurrentConversation: () -> Unit,
     onNewConversation: () -> Unit,
-    onSearchConversations: () -> Unit,
     onAllConversations: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onNavigate: (ShellDestination) -> Unit,
@@ -53,12 +52,6 @@ internal fun GroupedNavigation(
             selected = false,
             onClick = onNewConversation,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-new-conversation"),
-        )
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.drawer_search_conversations)) },
-            selected = currentRoute == CONVERSATION_SEARCH_ROUTE,
-            onClick = onSearchConversations,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-search-conversations"),
         )
         conversation.currentSessionId?.let {
             Text(

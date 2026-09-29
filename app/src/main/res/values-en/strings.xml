@@ -1527,4 +1527,11 @@
     <string name="provider_discovery_failed">Could not fetch models. Check the endpoint and credentials, or enter a model ID.</string>
     <string name="provider_groups_back">Back to model sources</string>
     <string name="provider_context_load_failed">Could not load context settings or detect the window. Retry, or edit settings that loaded successfully.</string>
+    <string name="provider_form_protocol">Protocol: %1$s</string>
+    <string name="helix_settings_proposal_title">Suggested settings</string>
+    <string name="helix_settings_proposal_body">Apply these settings to future requests in this conversation? Permissions and Advanced mode will not change.</string>
+    <string name="helix_settings_proposal_failed">Settings were not changed. The conversation is busy or a model or option is unavailable.</string>
+    <string name="helix_settings_open">Open settings</string>
+    <string name="helix_settings_apply">Apply settings</string>
+    <string name="helix_settings_reasoning">Reasoning effort</string>
 </resources>

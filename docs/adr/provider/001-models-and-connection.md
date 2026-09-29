@@ -44,6 +44,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 模型不打包入 APK。显式 direct HTTPS URL + SHA-256 + 大小下载，Range 重试、临时文件校验及原子发布；每资产最多 8 GiB、总资产 12 GiB、最多 16 个，仅保留一个待续传文件。切换模型不自动删除此前下载；用户可先明确确认清理后再下载其他模型。清理只处理私有下载目录内已识别的普通残片文件及模型资产目录中的中断发布副本，与下载共用互斥锁并校验确认快照；忙碌或快照变化时保留文件并允许刷新重试。占用展示是已识别模型与下载残片的逻辑文件大小，不代表应用总占用。模型文件在开发期 Room baseline 重建后重新登记为未测试。
 - native source 固定 commit 与 archive SHA-256，许可证随 APK 携带；版本事实和设备验收边界写入 HXA-222 证据。共享 UID 的 private process 提供 crash/lifecycle 隔离，不构成凭据安全沙箱。
 
+自配置 Provider 的协议可由用户显式选择 OpenAI Chat Completions、OpenAI Responses 或 Anthropic Messages，不由品牌模板锁定。协议变更使在线目录结果失效；保存与目录探测使用所选协议，保存后的能力与连接需按现有流程重新验证。订阅及本地模型不暴露无意义的 HTTP 协议切换。
+
 ## Alternatives considered
 
 不以目录第一项或名称猜廉价模型；不把认证成功显示成全部能力通过；不以修改全局 Provider 设置实现会话切换。不把本地模型限制为摘要/辅助调用，也不把 `127.0.0.1` 假 endpoint 当作正式 `OnDeviceLocal` 抽象。不采用 `ProviderKind = API | SUBSCRIPTION | LOCAL` 单枚举，因为它会把 provisioning、transport、residence 与 auth 四个不同问题压成一个维度，并错误地把 Ollama/SGLang/vLLM 或 managed subscription 分类成特殊 Agent 路径。
@@ -57,6 +59,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号或设备验证按各自显式授权执行。
 
 ## Decision history
+
+- 2026-09-29：所有者要求自配置 Provider 支持协议选择，协议与厂商品牌解耦。
 
 - **2026-09-29**：所有者明确上述三级来源入口、可选 Key、配置字段顺序、模型发现多选及订阅操作一致性要求。
 

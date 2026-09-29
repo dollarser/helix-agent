@@ -815,19 +815,15 @@ class ChatService(
         if (openSessionId != null || preparingDraft) return
         workScope.launch {
             if (openSessionId != null || preparingDraft) return@launch
-            when (val target = conversationLaunchStore.target()) {
-                ConversationLaunchTarget.NewDraft -> {
+            val target = conversationLaunchStore.target()
+            val session = (target as? ConversationLaunchTarget.Session)?.let { storage.sessions.find(it.sessionId) }
+            // Resolve Room off-main, then arbitrate with explicit UI navigation in one UI turn.
+            withContext(Dispatchers.Main.immediate) {
+                if (openSessionId != null || preparingDraft) return@withContext
+                if (session != null && session.archivedAt == null) {
+                    openSession(session.id)
+                } else {
                     newSessionDraft()
-                }
-
-                is ConversationLaunchTarget.Session -> {
-                    val session = storage.sessions.find(target.sessionId)
-                    if (session != null && session.archivedAt == null) {
-                        openSession(target.sessionId)
-                    } else {
-                        conversationLaunchStore.selectNewDraft()
-                        newSessionDraft()
-                    }
                 }
             }
         }
@@ -1342,6 +1338,59 @@ class ChatService(
             }
         }
     }
+
+    /** Explicit UI confirmation only; model tool output cannot call this path. */
+    @Suppress("CyclomaticComplexMethod") // Atomic revalidation of a user-confirmed multi-field change.
+    suspend fun applyUserSettings(
+        sessionId: String,
+        mode: AgentMode?,
+        providerId: String?,
+        modelId: String?,
+        reasoning: ReasoningEffort?,
+    ): Boolean =
+        workScope
+            .async {
+                val applied =
+                    synchronized(turnGate) {
+                        if (openSessionId != sessionId || pendingSend != null || preparingDraft) {
+                            return@synchronized false
+                        }
+                        if (turnEngine.liveExecution.hasActive(sessionId) || turnGateHolds(sessionId)) {
+                            return@synchronized false
+                        }
+                        val session = storage.sessions.find(sessionId) ?: return@synchronized false
+                        if (session.archivedAt != null) return@synchronized false
+                        val targetProvider = providerId ?: session.providerId ?: return@synchronized false
+                        val targetModel = modelId ?: session.modelId ?: return@synchronized false
+                        val row =
+                            providerService.rows.value.firstOrNull {
+                                it.id == targetProvider && it.chatSelectable
+                            } ?: return@synchronized false
+                        if (targetModel !in (row.backendModels.orEmpty() + row.model)) return@synchronized false
+                        val efforts = providerService.reasoningOptions(targetProvider, targetModel)
+                        if (reasoning != null && reasoning != ReasoningEffort.OFF && reasoning !in efforts) {
+                            return@synchronized false
+                        }
+                        val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
+                        val modelChanged = targetProvider != session.providerId || targetModel != session.modelId
+                        val next =
+                            current.copy(
+                                mode = mode ?: current.mode,
+                                reasoning = reasoning ?: if (modelChanged) ReasoningEffort.OFF else current.reasoning,
+                            )
+                        storage.withTransaction {
+                            storage.sessions.selectModel(sessionId, targetProvider, targetModel)
+                            sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                        }
+                        _runControl.value = next
+                        true
+                    }
+                if (applied) {
+                    refreshSessionsNow()
+                    refreshScreen()
+                }
+                applied
+            }.await()
 
     private fun selectPersistedSessionModel(
         sessionId: String,
@@ -2931,11 +2980,13 @@ class ChatService(
      * The target assistant message (and any subsequent turn artifacts) are superseded in Room,
      * retaining their audit history while re-driving the model with the original user input.
      */
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "CyclomaticComplexMethod") // Session, history and provider checks precede retry.
     fun regenerateLatestTurn(assistantMessageId: String) {
-        val session = currentSession() ?: return
-        if (turnEngine.liveExecution.hasActive(session.id)) return
+        val clickedSessionId = openSessionId ?: return
+        if (turnEngine.liveExecution.hasActive(clickedSessionId)) return
         workScope.launch {
+            if (openSessionId != clickedSessionId) return@launch
+            val session = storage.sessions.resolve(clickedSessionId)
             val assistant = runCatching { storage.messages.resolve(assistantMessageId) }.getOrNull() ?: return@launch
             if (assistant.sessionId != session.id || assistant.role != "ASSISTANT") return@launch
             if (assistant.supersededBy != null) return@launch
@@ -2970,6 +3021,7 @@ class ChatService(
                     goalId = goalId,
                     clientRequestId = requestId,
                     regenerateMessageId = assistantMessageId,
+                    expectedSessionId = clickedSessionId,
                 )
             if (started) {
                 refreshScreen()
@@ -3986,8 +4038,12 @@ class ChatService(
      * would orphan it too). Such a refresh must degrade to the session list, never throw on
      * this work-scope coroutine — an uncaught exception there kills the whole app process.
      */
+    @Suppress("ReturnCount") // Ephemeral drafts must exit before the persisted orphan recovery path.
     private fun resolvableOpenSessionId(): String? {
         val id = openSessionId ?: return null
+        // A persisted refresh can start before the user opens an ephemeral draft.
+        // It must not classify that legitimate in-memory identity as an orphan.
+        if (sessionDraft?.session?.id == id) return null
         return if (runCatching { storage.sessions.resolve(id) }.isSuccess) {
             id
         } else {

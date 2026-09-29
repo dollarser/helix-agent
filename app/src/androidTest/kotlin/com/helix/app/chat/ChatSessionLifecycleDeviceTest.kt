@@ -70,6 +70,43 @@ class ChatSessionLifecycleDeviceTest {
     }
 
     @Test
+    fun queuedPersistedRefreshCannotDiscardTheLastSelectedDraft() {
+        val chat = container.chatService
+        val instrumentation =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getInstrumentation()
+        repeat(30) { index ->
+            instrumentation.runOnMainSync {
+                chat.openSession("missing-draft-$run-$index")
+                chat.newSessionDraft()
+            }
+            chat.onRecoveryCompleted()
+        }
+        val deadline = System.currentTimeMillis() + 10_000
+        var confirmed: String? = null
+        while (confirmed == null && System.currentTimeMillis() < deadline) {
+            val screen = chat.screen.value
+            val candidate = screen.openSessionId
+            // Confirm the projection names the actual current draft, not the preceding queued frame.
+            // Clearing an already-empty directory neither creates a row nor changes the open identity.
+            if (screen.isDraft && candidate != null &&
+                runBlocking { chat.setSessionDirectory(null, candidate).await() }
+            ) {
+                confirmed = candidate
+            } else {
+                Thread.sleep(20)
+            }
+        }
+        val selected = requireNotNull(confirmed) { "The explicit new conversation must remain an ephemeral draft" }
+        repeat(20) {
+            Thread.sleep(50)
+            assertTrue(chat.screen.value.isDraft)
+            assertEquals(selected, chat.screen.value.openSessionId)
+            assertNull(container.storage.sessions.find(selected))
+        }
+    }
+
+    @Test
     fun openingAnUnknownSessionDegradesToTheSessionListWithoutCrashing() {
         // Never persisted. Before the fix this killed the app process during the async
         // refresh; the test dying with it would be the regression.

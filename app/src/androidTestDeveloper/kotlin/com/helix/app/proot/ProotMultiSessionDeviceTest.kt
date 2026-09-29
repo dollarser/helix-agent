@@ -90,8 +90,8 @@ class ProotMultiSessionDeviceTest {
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-test-ws1-${UUID.randomUUID()}"
                 val rel2 = "multi-test-ws2-${UUID.randomUUID()}"
-                val dir1 = File(context.filesDir, "workspaces/app/$rel1").apply { check(mkdirs()) }
-                val dir2 = File(context.filesDir, "workspaces/app/$rel2").apply { check(mkdirs()) }
+                val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
+                val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
@@ -151,9 +151,9 @@ class ProotMultiSessionDeviceTest {
                 val rel1 = "multi-cap-1-${UUID.randomUUID()}"
                 val rel2 = "multi-cap-2-${UUID.randomUUID()}"
                 val rel3 = "multi-cap-3-${UUID.randomUUID()}"
-                val dir1 = File(context.filesDir, "workspaces/app/$rel1").apply { check(mkdirs()) }
-                val dir2 = File(context.filesDir, "workspaces/app/$rel2").apply { check(mkdirs()) }
-                val dir3 = File(context.filesDir, "workspaces/app/$rel3").apply { check(mkdirs()) }
+                val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
+                val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
+                val dir3 = File(context.filesDir, "workspaces/app/terminal/$rel3").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
@@ -194,7 +194,7 @@ class ProotMultiSessionDeviceTest {
                 val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-obs-${UUID.randomUUID()}"
-                val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+                val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val session = terminal.start(rel, 30_000)
@@ -246,8 +246,8 @@ class ProotMultiSessionDeviceTest {
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-settle-1-${UUID.randomUUID()}"
                 val rel2 = "multi-settle-2-${UUID.randomUUID()}"
-                val dir1 = File(context.filesDir, "workspaces/app/$rel1").apply { check(mkdirs()) }
-                val dir2 = File(context.filesDir, "workspaces/app/$rel2").apply { check(mkdirs()) }
+                val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
+                val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
@@ -302,7 +302,7 @@ class ProotMultiSessionDeviceTest {
                 val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-agent-${UUID.randomUUID()}"
-                val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+                val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
                 val ownership = checkNotNull(container.executionOwnership)
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
@@ -355,7 +355,7 @@ class ProotMultiSessionDeviceTest {
                 val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-soak-${UUID.randomUUID()}"
-                val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+                val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
                 val observedPids = mutableListOf<Int>()
                 val initialFds = File("/proc/self/fd").listFiles()?.size ?: -1
                 val initialThreads = File("/proc/self/task").listFiles()?.size ?: Thread.activeCount()
@@ -383,8 +383,8 @@ class ProotMultiSessionDeviceTest {
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-crash-1-${UUID.randomUUID()}"
                 val rel2 = "multi-crash-2-${UUID.randomUUID()}"
-                val dir1 = File(context.filesDir, "workspaces/app/$rel1").apply { check(mkdirs()) }
-                val dir2 = File(context.filesDir, "workspaces/app/$rel2").apply { check(mkdirs()) }
+                val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
+                val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
@@ -563,7 +563,7 @@ private object MultiSessionTestSupport {
         context: Context,
     ) {
         val rel = "multi-fresh-${UUID.randomUUID()}"
-        val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+        val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
         try {
             val session = terminal.start(rel, 30_000)
             assertTrue(terminal.hasSession())

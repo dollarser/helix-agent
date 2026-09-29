@@ -216,11 +216,11 @@ private fun MessageActionRow(
             }
         }
         if (!isUser && onRegenerate != null) {
-            TextButton(
+            IconButton(
                 onClick = { onRegenerate(message.id) },
-                modifier = Modifier.testTag("chat-regenerate-${message.id}"),
+                modifier = Modifier.size(48.dp).testTag("chat-regenerate-${message.id}"),
             ) {
-                Text(stringResource(R.string.chat_regenerate_action))
+                Icon(painterResource(R.drawable.ic_chat_regenerate), stringResource(R.string.chat_regenerate_action))
             }
         }
         if (onFork != null) {

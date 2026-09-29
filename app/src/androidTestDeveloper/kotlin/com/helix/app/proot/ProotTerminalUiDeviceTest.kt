@@ -53,7 +53,7 @@ class ProotTerminalUiDeviceTest {
         AppLanguageStore.applyChoice(context, language)
         val terminal = checkNotNull(container.manualTerminal)
         val relative = "terminal-ui-${UUID.randomUUID()}"
-        val workspace = File(context.filesDir, "workspaces/app/$relative").apply { check(mkdirs()) }
+        val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
         val intent =
             Intent(
@@ -131,7 +131,7 @@ class ProotTerminalUiDeviceTest {
         val previous = container.profileStore.profile
         val terminal = checkNotNull(container.manualTerminal)
         val relative = "terminal-pressure-${UUID.randomUUID()}"
-        val workspace = File(context.filesDir, "workspaces/app/$relative").apply { check(mkdirs()) }
+        val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
         val intent =
             Intent(context, ManualTerminalActivity::class.java)

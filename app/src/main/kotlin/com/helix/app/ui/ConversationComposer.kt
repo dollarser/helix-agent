@@ -117,6 +117,49 @@ internal fun ConversationComposer(
                 .fillMaxWidth()
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
         ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    actions.onVoice,
+                    enabled = availability.input,
+                    modifier = Modifier.testTag("chat-voice"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
+                }
+                androidx.compose.foundation.layout
+                    .Spacer(Modifier.weight(1f))
+                IconButton(
+                    { addOpen = true },
+                    enabled = availability.canAttach() || availability.input,
+                    modifier = Modifier.testTag("chat-add"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_composer_add), stringResource(R.string.composer_add_title))
+                }
+                if (isSending) {
+                    IconButton(
+                        onClick = actions.onStop,
+                        enabled = turnState != TurnState.CANCELLING,
+                        modifier = Modifier.testTag("chat-stop"),
+                    ) {
+                        Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
+                    }
+                }
+                val sendEnabled =
+                    input.isNotBlank() ||
+                        ((!goalMode || isSending) && (hasAttachments || referenceLabel != null))
+                IconButton(
+                    onClick = actions.onSend,
+                    enabled = sendEnabled && availability.delivery,
+                    modifier = Modifier.testTag("chat-send"),
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_composer_send),
+                        stringResource(R.string.common_send),
+                    )
+                }
+            }
             OutlinedTextField(
                 value = input,
                 onValueChange = onInput,
@@ -149,66 +192,25 @@ internal fun ConversationComposer(
                     }
                 }
             }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(
-                    { addOpen = true },
-                    enabled = availability.canAttach() || availability.input,
-                    modifier = Modifier.testTag("chat-add"),
-                ) {
-                    Icon(painterResource(R.drawable.ic_composer_add), stringResource(R.string.composer_add_title))
-                }
-                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
-                    ComposerToolbar(
-                        mode,
-                        onMode,
-                        reasoning,
-                        reasoningSupported,
-                        onReasoning,
-                        isSending,
-                        modelSelector,
-                        permissionMode = permissionMode,
-                        onPermission = onPermission,
-                        reasoningOptions = reasoningOptions,
-                        trailingOptions = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
-                                ContextWindowIndicator(contextUsage, onCompact, canCompact)
-                            }
-                        },
-                    )
-                }
-                IconButton(
-                    actions.onVoice,
-                    enabled = availability.input,
-                    modifier = Modifier.testTag("chat-voice"),
-                ) {
-                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
-                }
-                if (isSending) {
-                    IconButton(
-                        onClick = actions.onStop,
-                        enabled = turnState != TurnState.CANCELLING,
-                        modifier = Modifier.testTag("chat-stop"),
-                    ) {
-                        Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
-                    }
-                }
-                val sendEnabled =
-                    input.isNotBlank() ||
-                        ((!goalMode || isSending) && (hasAttachments || referenceLabel != null))
-                IconButton(
-                    onClick = actions.onSend,
-                    enabled = sendEnabled && availability.delivery,
-                    modifier = Modifier.testTag("chat-send"),
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_composer_send),
-                        stringResource(R.string.common_send),
-                    )
-                }
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+                ComposerToolbar(
+                    mode,
+                    onMode,
+                    reasoning,
+                    reasoningSupported,
+                    onReasoning,
+                    isSending,
+                    modelSelector,
+                    permissionMode = permissionMode,
+                    onPermission = onPermission,
+                    reasoningOptions = reasoningOptions,
+                    trailingOptions = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
+                            ContextWindowIndicator(contextUsage, onCompact, canCompact)
+                        }
+                    },
+                )
             }
         }
     }

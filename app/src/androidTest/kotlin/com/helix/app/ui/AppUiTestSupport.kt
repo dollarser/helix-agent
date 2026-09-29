@@ -101,10 +101,11 @@ fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
         navigatePrimary("sessions")
         onNodeWithTag("open-navigation").performClick()
         waitForIdle()
-        onNodeWithTag(
-            if (route == CONVERSATION_HISTORY_ROUTE) "drawer-all-conversations" else "drawer-search-conversations",
-        ).performScrollTo().performClick()
+        onNodeWithTag("drawer-all-conversations").performScrollTo().performClick()
         waitForIdle()
+        if (route == CONVERSATION_SEARCH_ROUTE) {
+            onNodeWithTag("chat-session-search-field").performClick()
+        }
         return
     }
     val path =
