@@ -4,6 +4,8 @@
 
 ## Completed
 
+- 2026-09-29 最终本地收口：生产修复已提交 `8c7a95b4`，全量主机门禁及双渠道 AndroidTest APK 通过；clean P5 完整15/15、准备1/1，追加实际 Agent 工具图片识别1/1，见[最终收口](../evidence/development/final-closeout-2026-09-29.md)。未推送；手机启动已修复，但后续实际流程因设备断连仍 pending。
+
 - 2026-09-29 开发期覆盖升级：按所有者要求，Room v1 identity 不兼容时直接删库重建，数据库外文件保留；不增加迁移或恢复 UI。storage JVM、AndroidTest APK、developer APK、spotlessCheck/detekt 通过；PLC110/API35 定向 FreshSchemaDeviceTest 2/2，修复 APK 已覆盖安装并启动。旧会话及配置不保留；兼容库重开不清空。本轮纳入最终收口提交，未推送。
 
 - 合并后 API36 定向回归（2026-09-29）：修复 Activity 输入快照的跨会话恢复边界；双渠道功能76/76、大字体24/24、实际进程恢复均通过，本机 SGLang 兼容代理的三协议9/9通过。见[设备证据](../evidence/development/merged-api36-regression-2026-09-29.md)。本轮修复纳入最终收口提交；不替代全量设备、原生服务端接口或真实视觉识别验收。
@@ -75,10 +77,10 @@
 - **P0/P1：整合与 Memory/Workspace**。本地整合检查点及 API29/API36 × 双渠道专项各 31/31，包含实际进程恢复、fork/目录失效和请求绑定。见 [整合](../evidence/development/post-hxa-integration-checkpoint-2026-09-28.md)、[P1](../evidence/development/p1-memory-workspace-device-acceptance-2026-09-28.md)。
 - **P2：SAF**。此前 4 次未复现不是关闭依据；2026-09-29 已复现并修复撤销后不刷新及来源状态发布，双渠道 10/10。保留历史失败和设备范围，见[追加收口](../evidence/development/intermittent-closeout-2026-09-28.md)。
 - **P3/P4：本地模型安装与首次成功**。精选入口当前聚焦 Qwen3 4B Instruct 2507 Q4_K_M，支持 ModelScope/Hugging Face 及高级导入；Android HTTP 安装、Provider/probe、write/read 产物和进程死亡重开已有证据。见 [P3](../evidence/development/p3-local-model-install-2026-09-28.md)、[P4](../evidence/development/p4-first-success-journey-2026-09-28.md)。0.6B/1.7B 只留历史，不继续主动测试。
-- **P5/P6：系统基线与优化**。最新完整 clean 锚点仍为 `8f0aa933` 的 15/15；当前 main 的完整 P5 尚未刷新，2026-09-29 Goal 3/3 不能替代它。SGLang 测 Harness，本地 4B 只证明设备内最低能力，身份/统计口径见[系统基线](harness-system-baseline.md)。BFCL 小样本及 AndroidWorld 亮度适配仅是诊断，后者授权/预算修复见[自动化证据](../evidence/development/automation-recovery-progress-2026-09-28.md)，不作为官方榜单。
+- **P5/P6：系统基线与优化**。最新完整 clean 锚点为 `8c7a95b4` 的 **15/15**，准备 smoke 1/1；覆盖当前生产修复，见[最终收口](../evidence/development/final-closeout-2026-09-29.md)。SGLang 测 Harness，本地 4B 只证明设备内最低能力，身份/统计口径见[系统基线](harness-system-baseline.md)。BFCL 小样本及 AndroidWorld 亮度适配仅是诊断，后者授权/预算修复见[自动化证据](../evidence/development/automation-recovery-progress-2026-09-28.md)，不作为官方榜单。
 - **P7：本地恢复和支持切片**。恢复 UI、主动脱敏诊断、模型残片/分类空间、孤立正文保护与实际发布中断恢复已经实现并验收。见 [恢复](../evidence/development/p7-recovery-first-batch-2026-09-28.md)、[支持 UI](../evidence/development/p7-recovery-diagnostics-storage-2026-09-28.md)、[模型空间](../evidence/development/p7-model-storage-2026-09-28.md)、[分类空间](../evidence/development/p7-data-space-2026-09-28.md)、[发布残留](../evidence/development/p7-publication-residue-2026-09-28.md)、[实际发布中断](../evidence/development/pre-r1-closeout-2026-09-28.md)。剩余真机满盘、OEM/JNI/Binder 长稳和模型偶发边界单独保留，不把 P7 笼统写成全部完成。
 
-按所有者 2026-09-29 指令，HXA-225 自主视觉已完成主机交付；后续继续 HXA-231 已授权 R1，本轮不夹带实施；非重构工作优先小范围试用与指定真机验证，再用实际反馈决定优化。内测步骤及反馈表已准备，真实用户试用尚未执行。Memory off/on 效果、本地模型真机性能与首发服务验收均不是已有设备恢复证据的自动延伸。完整 P5 在源码/APK 冻结并具备当前设备/服务授权后执行，不无限重复定向测试。
+按所有者 2026-09-29 指令，HXA-225 自主视觉已完成主机交付；后续继续 HXA-231 已授权 R1，本轮不夹带实施；非重构工作优先小范围试用与指定真机验证，再用实际反馈决定优化。内测步骤及反馈表已准备，真实用户试用尚未执行；本轮手机配置→聊天工具→重开验收因设备断连待继续。Memory off/on 效果、本地模型真机性能与首发服务验收均不是已有设备恢复证据的自动延伸。完整 P5 在源码/APK 冻结并具备当前设备/服务授权后执行，不无限重复定向测试。
 
 当前开发期 Room 继续 v1 baseline、仅保留文件的约定；正式数据升级、备份与签名身份归 HXA-122，不提前承诺。发行沿用 120 → 122 → 121 → 123；账号、真机和发行输入不阻塞无依赖本地工作。
 
