@@ -25,7 +25,7 @@ import java.nio.file.Files
  * output import into the Workspace `output/` region. Runs on the dispatcher's executor
  * thread (blocking, deadline-bounded).
  */
-@Suppress("TooManyFunctions") // one step per job phase (gate/snapshot/screen/submit/wait/import)
+@Suppress("TooManyFunctions", "LongParameterList") // Explicit existing ports plus the shared physical owner.
 internal class LinuxJobExecution(
     private val client: ProotJobClient,
     private val gate: () -> LinuxRuntimeGate,
@@ -36,8 +36,10 @@ internal class LinuxJobExecution(
     private val recheckBeforeSubmit: (ParsedLinuxCall) -> ToolExecutorResult?,
     private val beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
     private val persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
+    ownership: com.helix.tools.framework.ExecutionOwnership? = null,
 ) : LinuxExecutor {
     private val inputSnapshot = LinuxInputSnapshot(store)
+    private val executionOwner = ownership?.let(::ForegroundProotOwnership)
 
     @Suppress("TooGenericExceptionCaught", "SwallowedException", "ReturnCount")
     override fun execute(
@@ -213,6 +215,7 @@ internal class LinuxJobExecution(
                             outputZip,
                             outputMode,
                         ).use { outputPfd ->
+                            executionOwner?.retain(call.toolCallId, spec)
                             client.submit(spec, inputPfd, outputPfd) {
                                 if (isCancelled()) {
                                     0L
@@ -226,10 +229,13 @@ internal class LinuxJobExecution(
                 }
         when (submit) {
             is ProotJobClient.SubmitOutcome.Unavailable -> {
-                return submissionFailure(submit.cause)
+                val failure = submissionFailure(submit.cause)
+                if (failure.sideEffectFree) executionOwner?.notSubmitted(call.toolCallId, spec)
+                return failure
             }
 
             is ProotJobClient.SubmitOutcome.Rejected -> {
+                executionOwner?.notSubmitted(call.toolCallId, spec)
                 return failed("the Runtime refused the job: " + submit.refusal.wire, submit.refusal.wire)
             }
 
@@ -239,14 +245,18 @@ internal class LinuxJobExecution(
         }
         if (isCancelled()) {
             client.cancel(spec.jobId)
-            return ToolExecutorResult.Cancelled
+            return ToolExecutorResult.CancelledWithEffectTruth(
+                "Stop requested for original PRoot job; execution exit remains unconfirmed.",
+                sideEffectFree = false,
+                requiresReview = true,
+            )
         }
         // 5) Wait: bounded polling; a binder loss never replays the job (ADR-0007).
         // The wait window is the REMAINING time until the bound deadline plus a short
         // grace for the terminal commit (the companion's watchdog kills the process
         // group AT the deadline, so the terminal state is committed shortly after).
         val waitMs =
-            (call.deadlineEpochMs - System.currentTimeMillis()).coerceAtLeast(0L) + 30_000L
+            budget.remainingMillis(android.os.SystemClock.elapsedRealtime()) + 30_000L
         val outcome =
             client.awaitTerminal(spec.jobId, pollIntervalMs = 500L, timeoutMs = waitMs) {
                 !isCancelled()
@@ -294,11 +304,14 @@ internal class LinuxJobExecution(
         }
         // 6) Terminal: verify the record + import the hash-verified output archive.
         val record = (outcome as ProotJobClient.AwaitOutcome.Terminal).record
+        require(record.executionId == spec.executionId && record.inputManifestSha256 == spec.inputManifestSha256)
+        executionOwner?.stopped(call.toolCallId, spec, record)
         if (record.state != com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED) {
             return failed(
                 "the job ended " + record.state.wire + (record.exitCode?.let { " (exit code $it)" }.orEmpty()),
                 "JOB_" + record.state.wire,
                 sideEffectFree = false,
+                requiresReview = record.state == com.helix.runtime.proot.ipc.ProotJobState.ORPHANED,
             )
         }
         if (!outputZip.isFile || outputZip.length() == 0L) {

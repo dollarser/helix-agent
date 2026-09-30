@@ -20,8 +20,16 @@ internal fun sweepProotOrphans(
     store: ProotJobStore,
     kill: (Int) -> Unit,
 ) {
-    store.prune(System.currentTimeMillis())
-    store.activeJobIds().forEach { jobId ->
+    val active =
+        try {
+            store.prune(System.currentTimeMillis())
+            store.activeJobIds()
+        } catch (_: Exception) {
+            // Keep the service available for evidence inspection; new admission still refuses the corrupt journal.
+            android.util.Log.e("ProotRecovery", "Journal unavailable; execution remains blocked")
+            return
+        }
+    active.forEach { jobId ->
         val record = store.load(jobId) ?: return@forEach
         if (record.state.isTerminal) return@forEach
         val procMeta = File(store.jobDir(jobId), "proc.txt")

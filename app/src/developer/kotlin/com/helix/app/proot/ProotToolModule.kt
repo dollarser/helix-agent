@@ -51,6 +51,8 @@ internal object ProotToolModule {
     private lateinit var jobClient: ProotJobClient
     private lateinit var idGenerator: IdGenerator
     private lateinit var userJobActions: DetachedJobUserActions
+    private var executionOwnership: com.helix.tools.framework.ExecutionOwnership? = null
+    private var foregroundObserver: com.helix.app.chat.AutomaticRuntimeCollection? = null
     private var store: WorkspaceArtifactStore? = null
     private var secretValues: () -> Set<String> = { emptySet() }
     private val jobSeq =
@@ -83,9 +85,11 @@ internal object ProotToolModule {
         storage: HelixStorage,
         ownership: com.helix.tools.framework.ExecutionOwnership,
         chat: () -> com.helix.app.chat.ChatService,
+        scope: kotlinx.coroutines.CoroutineScope? = null,
     ) {
         wireForTest(context)
         idGenerator = RandomIdGenerator()
+        prepareForegroundRecovery(ownership, scope)
         store = workspaceStore
         // The screening snapshot: the CURRENT secret VALUES of this installation, read
         // on every execution (not cached — a value rotated mid-session is still
@@ -107,7 +111,10 @@ internal object ProotToolModule {
                 SessionToolEffectClassifier(prootWorkspace),
                 LinuxRunTool.descriptor(),
             )
-        val bindingStore = ProotJobBindingStore(storage, sessionPermissions::configFor)
+        val bindingStore =
+            ProotJobBindingStore(storage, sessionPermissions::configFor) {
+                DetachedJobBootProof.current(appContext)
+            }
         val executor =
             LinuxRunTool.ProductionLinuxExecutor(
                 client = jobClient,
@@ -118,22 +125,18 @@ internal object ProotToolModule {
                 knownSecretValues = secretValues,
                 recheckBeforeSubmit = recheck::check,
                 beforeSubmit = bindingStore::record,
+                ownership = ownership,
                 persistVerifiedResult = { call, record, archive ->
-                    val results =
-                        ProotResultStore(
-                            storage,
-                            File(context.filesDir, "workspaces/app"),
-                            File(context.cacheDir, "proot-results"),
-                        )
-                    val client =
-                        com.helix.runtime.proot.client
-                            .ProotResultClient(supervisor)
-                    ProotResultCommitter(storage, results, client::acknowledge)
-                        .commit(requireNotNull(call.turnId), call.toolCallId, record, archive)
-                    Unit
+                    persistForegroundResult(storage, call, record, archive)
                 },
             )
-        LinuxRunTool.register(registry, executor)
+        LinuxRunTool.register(registry) { call, cancel ->
+            try {
+                executor.execute(call, cancel)
+            } finally {
+                observeForegroundExecution(storage)
+            }
+        }
         userJobActions =
             DetachedJobRegistration.register(
                 context,
@@ -147,13 +150,44 @@ internal object ProotToolModule {
             )
     }
 
+    private fun prepareForegroundRecovery(
+        ownership: com.helix.tools.framework.ExecutionOwnership,
+        scope: kotlinx.coroutines.CoroutineScope?,
+    ) {
+        executionOwnership = ownership
+        foregroundObserver =
+            scope?.let {
+                com.helix.app.chat.AutomaticRuntimeCollection(
+                    kotlinx.coroutines.CoroutineScope(it.coroutineContext + kotlinx.coroutines.Dispatchers.IO),
+                )
+            }
+    }
+
+    private fun persistForegroundResult(
+        storage: HelixStorage,
+        call: LinuxRunTool.ParsedLinuxCall,
+        record: com.helix.runtime.proot.ipc.ProotJobRecord,
+        archive: File,
+    ) {
+        val results =
+            ProotResultStore(
+                storage,
+                File(appContext.filesDir, "workspaces/app"),
+                File(appContext.cacheDir, "proot-results"),
+            )
+        val client =
+            com.helix.runtime.proot.client
+                .ProotResultClient(supervisor)
+        ProotResultCommitter(storage, results, client::acknowledge)
+            .commit(requireNotNull(call.turnId), call.toolCallId, record, archive)
+    }
+
     private fun workspaceFor(
         storage: HelixStorage,
         sessionId: String,
     ): String? =
         storage.sessions
-            .list()
-            .firstOrNull { it.id == sessionId }
+            .find(sessionId)
             ?.let { it.directoryRef ?: APP_SCOPE_ID }
 
     private fun currentSecretValues(storage: HelixStorage): Set<String> {
@@ -190,7 +224,42 @@ internal object ProotToolModule {
         turnId: String,
         callId: String,
         stop: Boolean,
-    ): ProotRecoveryReport = ProotJobRecovery(storage, jobClient).inspect(turnId, callId, stop)
+    ): ProotRecoveryReport {
+        recoverForegroundExecution(storage)
+        return ProotJobRecovery(storage, jobClient).inspect(turnId, callId, stop)
+    }
+
+    /** Observe the retained original execution; never submit or renew a budget. */
+    fun observeForegroundExecution(storage: HelixStorage) {
+        val host = executionOwnership ?: return
+        val owner =
+            host.retainedOwner()?.takeIf {
+                it.executionId.startsWith(ForegroundProotOwnership.PREFIX)
+            } ?: return
+        foregroundObserver?.request("${owner.executionId}:${owner.generation}") {
+            if (host.retainedOwner() != owner) {
+                com.helix.app.chat.AutomaticRuntimeCollection.Observation.COMPLETE
+            } else {
+                recoverForegroundExecution(storage)
+                if (host.retainedOwner() != owner) {
+                    com.helix.app.chat.AutomaticRuntimeCollection.Observation.COMPLETE
+                } else {
+                    com.helix.app.chat.AutomaticRuntimeCollection.Observation.RUNNING
+                }
+            }
+        }
+    }
+
+    /** Only a persisted unfinished foreground execution permits this recovery query at startup. */
+    fun recoverForegroundExecution(storage: HelixStorage) {
+        val host = executionOwnership ?: return
+        val owner =
+            host.retainedOwner()?.takeIf {
+                it.executionId.startsWith(ForegroundProotOwnership.PREFIX)
+            } ?: return
+        val binding = ProotJobBindingStore(storage).resolve(owner.generation)
+        ForegroundProotOwnership(host).recover(binding, DetachedJobBootProof.current(appContext), jobClient::query)
+    }
 
     fun recoverInterruptedResult(
         storage: HelixStorage,

@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicReference
  * The runner owns lifecycle, watchdog and terminal publication in one process-wide
  * object. Bounded capture and archive encoding are independent helpers.
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass") // One owner for existing shared Runtime lifecycle maps.
 class ProotJobRunner private constructor(
     private val context: Context,
 ) : ProotJobHandler,
@@ -118,7 +118,8 @@ class ProotJobRunner private constructor(
     private val manualTerminalReservations = ConcurrentHashMap.newKeySet<String>()
 
     private fun isExecutionAvailable(): Boolean =
-        store.activeJobIds().isEmpty() && store.pruneAndBudgetAvailable(System.currentTimeMillis())
+        liveJobs.isEmpty() && store.activeJobIds().isEmpty() &&
+            store.pruneAndBudgetAvailable(System.currentTimeMillis())
 
     @Synchronized
     internal fun reserveDetached(jobId: String): Boolean {
@@ -208,8 +209,31 @@ class ProotJobRunner private constructor(
     ): ProotJobSubmitResult = submitWithOwner(spec, inputPfd, outputPfd, null)
 
     @Synchronized
-    @Suppress("ReturnCount") // one return per distinct submit verdict
     private fun submitWithOwner(
+        spec: ProotJobSpec,
+        inputPfd: ParcelFileDescriptor,
+        outputPfd: ParcelFileDescriptor,
+        owner: android.os.IBinder?,
+        detached: Boolean = false,
+    ): ProotJobSubmitResult {
+        var handedOff = false
+        return try {
+            submitChecked(spec, inputPfd, outputPfd, owner, detached).also {
+                handedOff = it is ProotJobSubmitResult.Accepted
+            }
+        } finally {
+            if (!handedOff) {
+                try {
+                    inputPfd.close()
+                } finally {
+                    outputPfd.close()
+                }
+            }
+        }
+    }
+
+    @Suppress("ReturnCount") // One refusal per admission boundary.
+    private fun submitChecked(
         spec: ProotJobSpec,
         inputPfd: ParcelFileDescriptor,
         outputPfd: ParcelFileDescriptor,
@@ -221,29 +245,31 @@ class ProotJobRunner private constructor(
         val entries = store.entries()
         val existing = entries[spec.jobId]
         if (existing != null) {
-            inputPfd.close()
-            outputPfd.close()
-            return ProotJobSubmitResult.Duplicate(existing)
+            return if (existing.executionId == spec.executionId &&
+                existing.inputManifestSha256 == spec.inputManifestSha256
+            ) {
+                ProotJobSubmitResult.Duplicate(existing)
+            } else {
+                ProotJobSubmitResult.Rejected(ProotJobRefusal.INVALID_SPEC)
+            }
         }
         // The same executionId under a different jobId is the same job: never
         // start twice, return the existing record.
         val sameExecution = entries.values.firstOrNull { it.executionId == spec.executionId }
         if (sameExecution != null) {
-            inputPfd.close()
-            outputPfd.close()
-            return ProotJobSubmitResult.Duplicate(sameExecution)
+            return if (sameExecution.inputManifestSha256 == spec.inputManifestSha256) {
+                ProotJobSubmitResult.Duplicate(sameExecution)
+            } else {
+                ProotJobSubmitResult.Rejected(ProotJobRefusal.INVALID_SPEC)
+            }
         }
         val reservationMatches =
             (if (detached) detachedReservation == spec.jobId else detachedReservation == null) &&
                 manualTerminalReservations.isEmpty()
-        if (!reservationMatches) {
-            inputPfd.close()
-            outputPfd.close()
+        if (!reservationMatches || liveJobs.isNotEmpty() || store.activeJobIds().isNotEmpty()) {
             return ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
         }
         if (!store.pruneAndBudgetAvailable(now)) {
-            inputPfd.close()
-            outputPfd.close()
             return ProotJobSubmitResult.Rejected(ProotJobRefusal.JOURNAL_FULL)
         }
         val pending =
@@ -257,9 +283,17 @@ class ProotJobRunner private constructor(
         store.put(pending)
         executionWindows[spec.jobId] = window
         cancellationFlags.putIfAbsent(spec.jobId, AtomicBoolean(false))
-        if (owner != null) owners.watch(spec.jobId, owner) { cancel(spec.jobId) }
-        jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd, window) }
-        return ProotJobSubmitResult.Accepted(pending)
+        return try {
+            if (owner != null) owners.watch(spec.jobId, owner) { cancel(spec.jobId) }
+            jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd, window) }
+            ProotJobSubmitResult.Accepted(pending)
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            owners.release(spec.jobId)
+            executionWindows.remove(spec.jobId)
+            cancellationFlags.remove(spec.jobId)
+            store.put(pending.copy(state = ProotJobState.FAILED, terminalAtEpochMs = System.currentTimeMillis()))
+            ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
+        }
     }
 
     override fun submitOwned(
@@ -297,9 +331,12 @@ class ProotJobRunner private constructor(
             val jobDir = store.jobDir(spec.jobId)
             val workspace = File(jobDir, "workspace")
             val inputArchive = File(jobDir, "input.zip")
-            inputPfd.use { pfd ->
-                FileInputStream(pfd.fileDescriptor).use { input ->
-                    FileOutputStream(inputArchive).use { out -> input.copyTo(out) }
+            ParcelFileDescriptor.AutoCloseInputStream(inputPfd).use { input ->
+                FileOutputStream(inputArchive).use { out ->
+                    copyJobInput(input, out) {
+                        cancelRequested.get() ||
+                            executionWindow.remainingMs(SystemClock.elapsedRealtime()) == 0L
+                    }
                 }
             }
             val extraction =
@@ -537,6 +574,14 @@ class ProotJobRunner private constructor(
                 }
             terminalFailed(pending, outputPfd, exit, "lifecycle failure: ${e.message?.take(120)}")
         } finally {
+            // A terminal UNKNOWN/ORPHANED record is not permission to overlap a still-live process.
+            live?.let { job ->
+                ProotExecutionExit.awaitExit(
+                    { job.process.isAlive },
+                    { killProcessGroup(job.pid) },
+                    { job.process.waitFor(1000, TimeUnit.MILLISECONDS) },
+                )
+            }
             log?.finish()
             live?.watchdog?.cancel(false)
             liveJobs.remove(spec.jobId)
@@ -721,8 +766,10 @@ class ProotJobRunner private constructor(
         if (store.load(record.jobId)?.state?.isTerminal == true) return
         val now = SystemClock.elapsedRealtime()
         val elapsed = executionWindows[record.jobId]?.elapsedMs(now)
+        val physical = ProotExecutionExit.terminalState(record.state, liveJobs[record.jobId]?.process?.isAlive == true)
         store.put(
             record
+                .copy(state = physical)
                 .copy(
                     elapsedDurationMs = elapsed,
                     terminalElapsedMs = now.takeIf { elapsed != null },
@@ -838,6 +885,7 @@ private fun ProotJobRecord.withStopReason(
     copy(
         state =
             when {
+                state == ProotJobState.ORPHANED -> state
                 cancelled -> ProotJobState.CANCELLED
                 leaseExpired -> ProotJobState.TIMED_OUT
                 else -> state

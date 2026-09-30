@@ -98,6 +98,7 @@ class ProotRuntimeSupervisor(
                 // API 26+: a dead binding releases the waiter. Missing callbacks are
                 // independently bounded by the connection deadline.
                 override fun onBindingDied(name: ComponentName) {
+                    binderRef.set(null)
                     latch.countDown()
                 }
             }
@@ -119,6 +120,9 @@ class ProotRuntimeSupervisor(
             } catch (e: SecurityException) {
                 unbindQuietly(connection)
                 return ProotConnection.Refused(UnavailableCause.SIGNATURE_MISMATCH)
+            } catch (_: RuntimeException) {
+                unbindQuietly(connection)
+                return ProotConnection.Refused(UnavailableCause.BIND_REFUSED)
             }
         if (!accepted) {
             unbindQuietly(connection)
@@ -131,7 +135,7 @@ class ProotRuntimeSupervisor(
                 Thread.currentThread().interrupt()
                 false
             }
-        val binder = binderRef.get()
+        val binder = binderRef.get()?.takeIf { it.isBinderAlive }
         if (completed && binder != null) {
             activeConnection = connection
             return ProotConnection.Opened(binder)

@@ -11,6 +11,7 @@ internal class ProotJobRecovery(
     private val storage: HelixStorage,
     private val client: ProotJobClient,
 ) {
+    @Suppress("ReturnCount") // Unknown query, ordinary result and failed stop remain separate outcomes.
     fun inspect(
         turnId: String,
         callId: String,
@@ -23,26 +24,55 @@ internal class ProotJobRecovery(
         val binding = ProotJobBindingStore(storage).resolve(callId)
         check(binding.getValue("turnId").jsonPrimitive.content == turnId)
         val jobId = binding.getValue("jobId").jsonPrimitive.content
-        val queried =
-            client.query(jobId) as? ProotJobClient.JobStateOutcome.Ok
+        val execution = binding.getValue("executionId").jsonPrimitive.content
+        val hash = binding.getValue("inputManifestSha256").jsonPrimitive.content
+        val record =
+            verifiedProotRecoveryRecord(client.query(jobId), jobId, execution, hash)
                 ?: return ProotRecoveryReport.Unknown
-        val record = queried.record
-        check(record.executionId == binding.getValue("executionId").jsonPrimitive.content)
-        check(record.inputManifestSha256 == binding.getValue("inputManifestSha256").jsonPrimitive.content)
-        return if (stop && !record.state.isTerminal) {
-            client.cancel(jobId)
-            ProotRecoveryReport(R.string.proot_recovery_stop_requested)
+        if (!stop || record.state.isTerminal) return prootRecoveryReport(record)
+        val stopped =
+            verifiedProotRecoveryRecord(client.cancel(jobId), jobId, execution, hash)
+                ?: return ProotRecoveryReport.Unknown
+        return if (stopped.state.isTerminal) {
+            prootRecoveryReport(stopped)
         } else {
-            prootRecoveryReport(record)
+            ProotRecoveryReport(R.string.proot_recovery_stop_requested, status = ProotRecoveryStatus.RUNNING)
         }
     }
 }
 
 internal fun prootRecoveryReport(record: com.helix.runtime.proot.ipc.ProotJobRecord): ProotRecoveryReport =
     when {
-        record.evidenceExpired -> ProotRecoveryReport(R.string.proot_recovery_expired)
-        !record.state.isTerminal -> ProotRecoveryReport(R.string.proot_recovery_running, canStop = true)
-        record.state == ProotJobState.SUCCEEDED -> ProotRecoveryReport(R.string.proot_recovery_succeeded)
-        record.state == ProotJobState.CANCELLED -> ProotRecoveryReport(R.string.proot_recovery_stopped)
-        else -> ProotRecoveryReport(R.string.proot_recovery_ended)
+        record.evidenceExpired -> {
+            ProotRecoveryReport(
+                R.string.proot_recovery_expired,
+                status = ProotRecoveryStatus.EXPIRED,
+            )
+        }
+
+        !record.state.isTerminal -> {
+            ProotRecoveryReport(
+                R.string.proot_recovery_running,
+                canStop = true,
+                status = ProotRecoveryStatus.RUNNING,
+            )
+        }
+
+        record.state == ProotJobState.SUCCEEDED -> {
+            ProotRecoveryReport(
+                R.string.proot_recovery_succeeded,
+                status = ProotRecoveryStatus.SUCCEEDED,
+            )
+        }
+
+        record.state == ProotJobState.CANCELLED -> {
+            ProotRecoveryReport(
+                R.string.proot_recovery_stopped,
+                status = ProotRecoveryStatus.TERMINAL,
+            )
+        }
+
+        else -> {
+            ProotRecoveryReport(R.string.proot_recovery_ended, status = ProotRecoveryStatus.TERMINAL)
+        }
     }

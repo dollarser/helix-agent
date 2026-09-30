@@ -21,42 +21,61 @@ class PtySessionClient(
     private val ready = CountDownLatch(1)
 
     @Volatile private var endpoint: IBinder? = null
+    private val lifecycle = Any()
     private var bound = false
+    private var started = false
+    private var closed = false
     private val connection =
         object : ServiceConnection {
             override fun onServiceConnected(
                 name: ComponentName,
                 service: IBinder,
             ) {
-                endpoint = service
-                ready.countDown()
+                synchronized(lifecycle) {
+                    if (!closed) endpoint = service
+                    ready.countDown()
+                }
             }
 
-            override fun onServiceDisconnected(name: ComponentName) {
-                endpoint = null
-                ready.countDown()
-            }
+            override fun onServiceDisconnected(name: ComponentName) = disconnected()
 
-            override fun onBindingDied(name: ComponentName) {
-                endpoint = null
-                ready.countDown()
-            }
+            override fun onBindingDied(name: ComponentName) = disconnected()
 
-            override fun onNullBinding(name: ComponentName) {
-                ready.countDown()
-            }
+            override fun onNullBinding(name: ComponentName) = disconnected()
         }
+
+    private fun disconnected() {
+        synchronized(lifecycle) {
+            closed = true
+            endpoint = null
+            ready.countDown()
+        }
+    }
 
     fun connect() {
         worker()
-        check(!bound) { "Manual terminal client already bound" }
-        bound =
-            context.bindService(
-                Intent().setComponent(ComponentName(context.packageName, PtySessionProtocol.SERVICE)),
-                connection,
-                Context.BIND_AUTO_CREATE,
-            )
-        check(bound && ready.await(20, TimeUnit.SECONDS) && endpoint != null) { "Manual terminal unavailable" }
+        synchronized(lifecycle) {
+            check(!started && !closed) { "Manual terminal client is one-shot" }
+            started = true
+        }
+        var handedOff = false
+        try {
+            synchronized(lifecycle) {
+                check(!closed) { "Manual terminal client was closed during connect" }
+                bound =
+                    context.bindService(
+                        Intent().setComponent(ComponentName(context.packageName, PtySessionProtocol.SERVICE)),
+                        connection,
+                        Context.BIND_AUTO_CREATE,
+                    )
+            }
+            check(bound && ready.await(20, TimeUnit.SECONDS) && endpoint?.isBinderAlive == true) {
+                "Manual terminal unavailable"
+            }
+            handedOff = true
+        } finally {
+            if (!handedOff) close()
+        }
     }
 
     /** Only the application's manual facade calls this transport; it is not registered as an Agent tool. */
@@ -86,10 +105,19 @@ class PtySessionClient(
     }
 
     override fun close() {
-        endpoint = null
-        if (bound) {
-            context.unbindService(connection)
+        synchronized(lifecycle) {
+            closed = true
+            endpoint = null
+            ready.countDown()
+            if (started) {
+                try {
+                    context.unbindService(connection)
+                } catch (_: IllegalArgumentException) {
+                    // Failed or already-released bindings have no remaining registration.
+                }
+            }
             bound = false
+            started = false
         }
     }
 

@@ -10,10 +10,10 @@ import java.security.MessageDigest
 
 /**
  * Service-side caller re-verification (architecture doc section 6.6 "Service 再校验
- * 调用 UID 对应包签名"). The platform signature permission already guarantees that
- * only an APK of the same signed set can attempt the bind; this check narrows
- * further: the caller UID must map to exactly ONE package of the main-app set, and
- * that package's signing certificate must match the set's own certificate.
+ * 调用 UID 对应包签名"). The production service is non-exported and accepts only the
+ * application UID. Package and certificate checks additionally reject ambiguous or
+ * inconsistent identity metadata; they do not isolate code already running with that UID.
+ * No separate manifest signature permission is assumed here.
  *
  * [verify] is pure logic over [PackageManager] so the device test can prove the
  * semantics (allowed-package match, certificate match/mismatch) with controlled

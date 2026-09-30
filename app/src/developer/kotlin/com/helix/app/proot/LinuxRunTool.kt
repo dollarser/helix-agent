@@ -500,6 +500,7 @@ object LinuxRunTool {
     // ------------------------------------------------------------------ production seam
 
     /** Compatibility constructor; all job execution is owned by [LinuxJobExecution]. */
+    @Suppress("LongParameterList") // Pass the existing production ports and single shared ownership explicitly.
     class ProductionLinuxExecutor(
         client: ProotJobClient,
         gate: () -> LinuxRuntimeGate,
@@ -510,6 +511,7 @@ object LinuxRunTool {
         recheckBeforeSubmit: (ParsedLinuxCall) -> ToolExecutorResult?,
         beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
         persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
+        ownership: com.helix.tools.framework.ExecutionOwnership? = null,
     ) : LinuxExecutor by LinuxJobExecution(
             client,
             gate,
@@ -520,6 +522,7 @@ object LinuxRunTool {
             recheckBeforeSubmit,
             beforeSubmit,
             persistVerifiedResult,
+            ownership,
         )
 
     @Suppress("SwallowedException", "TooGenericExceptionCaught")

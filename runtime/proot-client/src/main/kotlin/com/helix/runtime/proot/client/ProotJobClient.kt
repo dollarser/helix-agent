@@ -231,9 +231,11 @@ class ProotJobClient(
         timeoutMs: Long = 3_600_000L,
         shouldContinue: () -> Boolean = { true },
     ): AwaitOutcome {
-        val start = System.currentTimeMillis()
+        require(timeoutMs >= 0 && pollIntervalMs > 0)
+        val start = monotonicMillis()
         while (shouldContinue()) {
-            if (System.currentTimeMillis() - start > timeoutMs) return AwaitOutcome.TimedOut
+            val elapsed = monotonicMillis() - start
+            if (elapsed < 0 || elapsed > timeoutMs) return AwaitOutcome.TimedOut
             val step = awaitOneStep(jobId)
             if (step != null) return step
             try {
@@ -289,9 +291,17 @@ class ProotJobClient(
                 binder.transact(code, data, reply, 0)
                 val (status, payload) = ProotJobWire.readJobReply(reply)
                 when (status) {
-                    ProotRuntimeProtocol.REPLY_JOB_STATE -> JobStateOutcome.Ok(decodeRecord(payload))
-                    ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND -> JobStateOutcome.Unknown
-                    else -> JobStateOutcome.Refused(UnavailableCause.PROTOCOL_MISMATCH)
+                    ProotRuntimeProtocol.REPLY_JOB_STATE -> {
+                        matchedRecord(payload, jobId)
+                    }
+
+                    ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND -> {
+                        JobStateOutcome.Unknown
+                    }
+
+                    else -> {
+                        JobStateOutcome.Refused(UnavailableCause.PROTOCOL_MISMATCH)
+                    }
                 }
             } catch (e: ProotIpcException) {
                 JobStateOutcome.Refused(UnavailableCause.PROTOCOL_MISMATCH)
@@ -303,6 +313,18 @@ class ProotJobClient(
             }
         } finally {
             supervisor.closeConnection()
+        }
+    }
+
+    private fun matchedRecord(
+        payload: String?,
+        jobId: String,
+    ): JobStateOutcome {
+        val record = decodeRecord(payload)
+        return if (record.jobId == jobId) {
+            JobStateOutcome.Ok(record)
+        } else {
+            JobStateOutcome.Refused(UnavailableCause.PROTOCOL_MISMATCH)
         }
     }
 

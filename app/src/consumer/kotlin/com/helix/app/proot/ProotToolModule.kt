@@ -22,6 +22,12 @@ internal object ProotToolModule {
     const val AVAILABLE: Boolean = false
 
     @Suppress("UnusedParameter")
+    fun observeForegroundExecution(storage: HelixStorage) = Unit
+
+    @Suppress("UnusedParameter")
+    fun recoverForegroundExecution(storage: HelixStorage) = Unit
+
+    @Suppress("UnusedParameter")
     fun observeCommandLog(binding: CommandJobBindingFacts) = kotlinx.coroutines.flow.emptyFlow<CommandLiveOutput>()
 
     @Suppress("UnusedParameter")
@@ -63,6 +69,7 @@ internal object ProotToolModule {
         storage: HelixStorage,
         ownership: com.helix.tools.framework.ExecutionOwnership,
         chat: () -> com.helix.app.chat.ChatService,
+        scope: kotlinx.coroutines.CoroutineScope? = null,
     ) {
         // No-op: the consumer build ships no PRoot capability.
     }

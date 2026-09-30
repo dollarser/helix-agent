@@ -52,14 +52,17 @@ class ProotJobStore(
 
     fun outputFile(jobId: String): File = File(jobDir(jobId), OUTPUT_FILE)
 
-    /** Reads one record; null when the job is unknown. Malformed -> null (sweep candidate). */
+    /** Only an absent record means unknown. Corruption cannot authorize reusing an execution identity. */
+    @Synchronized
     fun load(jobId: String): ProotJobRecord? {
         val file = recordFile(jobId)
-        if (!file.isFile) return null
-        return parseQuietly(file)
+        if (!file.exists()) return null
+        check(file.isFile && file.length() <= MAX_TOTAL_RECORD_BYTES) { "Job journal is unreadable" }
+        return checkNotNull(parseQuietly(file)) { "Job journal is corrupt; execution identity must not be reused" }
     }
 
     /** All journal entries (id + parsed record); malformed files are skipped here and evicted below. */
+    @Synchronized
     fun entries(): Map<String, ProotJobRecord> {
         val dir = jobsDir
         if (!dir.isDirectory) return emptyMap()
@@ -78,6 +81,7 @@ class ProotJobStore(
      * Atomic record write (tmp + fsync + rename). The caller decides the state;
      * the store is the durability boundary, not a policy engine.
      */
+    @Synchronized
     fun put(record: ProotJobRecord) {
         val file = recordFile(record.jobId)
         file.parentFile?.mkdirs()
@@ -87,8 +91,14 @@ class ProotJobStore(
             out.flush()
             out.fd.sync()
         }
-        if (!tmp.renameTo(file)) {
-            tmp.copyTo(file, overwrite = true)
+        try {
+            java.nio.file.Files.move(
+                tmp.toPath(),
+                file.toPath(),
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+            )
+        } finally {
             tmp.delete()
         }
     }
@@ -174,8 +184,7 @@ class ProotJobStore(
     /** Orphan sweep input: non-terminal records still claiming a live process. */
     fun activeJobIds(): List<String> = entries().filterValues { !it.state.isTerminal }.keys.toList()
 
-    // A corrupt record is ABSENT at this seam; the runner's reconcile path
-    // surfaces it as ORPHANED, never as a crash.
+    // Decode failures are reported by load as a closed journal error, never as an absent execution.
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun parseQuietly(file: File): ProotJobRecord? =
         try {
