@@ -56,3 +56,5 @@ v1 正式锚点为 clean `99b7bee7`：15/15 通过；前一 clean `b436247f` 为
 当前工具曝光优化的正式绿色锚点为 clean `8f0aa933`：默认21项、有效自动化会话30项，完整 **15/15**，准备smoke1/1。仍用v2固定fixture/严格oracle，未改预算；精确文件内容提示和Skill读取/启停分组按失败证据修正。原13/15、后续14/15、定向诊断和探测准备失败全部保留，单轮通过不消除模型截断与多余调用。完整身份、性能口径及剩余边界见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。
 
 2026-09-29 整合后的当前绿色锚点为 clean `8c7a95b4`：完整 **15/15**、准备 smoke 1/1，单次完整运行无 case 重试。冻结源码、安装包、端到端统计和剩余边界见[最终收口](../evidence/development/final-closeout-2026-09-29.md)。本轮不是官方公开榜单，也不关闭模型偶发多余调用。
+
+2026-09-30 新的正式绿色锚点为 clean `92e93bf5`：完整 **15/15**、准备 smoke **1/1**，四组均通过，单次正式运行无 case 重试。独立干净检出重新构建制品，采用相同固定数据集与严格 oracle；模型管理 smoke 随当前 UI 契约更新。完整身份、先前定向失败及验证边界见[Runtime / Provider 设备收口](../evidence/development/runtime-provider-device-closeout-2026-09-30.md)。这是 Harness 固定系统基线，不是完整公开 benchmark 或真实账号验收。

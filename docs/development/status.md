@@ -59,7 +59,7 @@ HXA-232 的逐轮主机/设备证据留在任务文件，不在本页复制。HX
 
 后续结构与功能投入由实际瓶颈决定，选择方法见[开发策略](feature-refactor-strategy.md)，目标契约见[Harness 方案](../architecture/harness-refactor-plan.md)，非重构依赖见[内测](internal-pilot.md)和[发行就绪](release-readiness.md)。账号、真机和发行输入不阻塞无依赖的本地工作。
 
-最近记录的 clean 正式 P5 来自 `8c7a95b4`，详见[最终收口](../evidence/development/final-closeout-2026-09-29.md)和[系统基线](harness-system-baseline.md)。后续 candidate 验证不追溯变成 clean P5；新改动不自动继承历史绿色。
+最近记录的 clean 正式 P5 来自 `92e93bf5`，固定 15/15 与准备 smoke 1/1 通过，详见[Runtime / Provider 设备收口](../evidence/development/runtime-provider-device-closeout-2026-09-30.md)和[系统基线](harness-system-baseline.md)。此前 `8c7a95b4` 和各 candidate 证据保留；新改动不自动继承历史绿色。
 
 ## Blocked
 

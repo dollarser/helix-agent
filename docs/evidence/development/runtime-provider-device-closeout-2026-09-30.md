@@ -48,8 +48,23 @@ runtime-r9 的六组通过结果：
 
 `python3 -m unittest discover -s scripts/tests -p test_cli_result_owner_runner.py`：3/3。文档收口后的 `check-all.sh --source` 通过（658 Markdown、215 HXA、35 ADR、1905 个三语言资源键），秘密扫描与 `git diff --check` 通过。
 
-## 尚未完成的边界
+## Clean 正式 P5
 
-本记录随定向验证修复提交；clean P5 与推送尚待后续执行，未声明完成。初始主目录包含历史未跟踪脚本，不能作为 clean P5。最终记录须引用实际干净检出、源码/数据集/制品身份和结果。
+定向修复提交为 **`92e93bf50bd30536af4c924363dc14bdcdd60564`**。在同提交的干净独立检出中重新构建 developer APK / AndroidTest APK，准备 smoke **1/1**、Files **4/4**、JavaScript **4/4**、Skills **4/4**、Goal **3/3**，合计固定 P5 **15/15**。单次正式运行没有 case 重试，`dirty=false`、`baselineComplete=true`。模拟器正常关闭。
+
+初次干净构建缺少按规则不入 Git 的 Runtime 资源，停在 `verifyDeveloperRuntimeAssets`，没有执行 case。随后复制主目录已锁定资源，由构建任务重新校验锁文件，构建通过（431 tasks：197 executed / 208 from-cache / 26 up-to-date）。未升级运行时、未绕过制品校验。
+
+| 身份 | SHA-256 |
+| --- | --- |
+| fixed-evals.tsv | `f27bf8b51e61be248a6e642c22cefc3e5045d0d35e37518377eb9b8cdf85e795` |
+| Source manifest | `7d74f2d96240ae3847788ad9274507eb3bac5baa4d69c25f7c57a80836302a4f` |
+| Developer APK | `ae76fc6065ab4ca343394f99f80cfd43fd3e1f4c1ae79ae1642242b8b7e5d07a` |
+| AndroidTest APK | `2af5debac59f0187f1fca080004e92faebd1bbd072a328e37a5d8f3a3f371061` |
+
+模型为本地 SGLang `Qwen3.8-27B`，实际协议 `OPENAI_CHAT_COMPLETIONS`，服务窗口 262144。12 项同口径 Harness 端到端耗时 mean **7702.9 ms**、median **4114.5 ms**、p95/max **18760 ms**；Goal 三项没有混入该 elapsed 统计。不是模型纯推理速度、TTFT 或跨版本因果优化结论。
+
+完整原始 evidence 与两个 APK 已保存到主目录忽略路径 `build/remaining-closeout-clean-p5-evidence/`；核心汇总为 `p5-sglang-summary.json`，各 case 保留 source manifest、config、device record、envelope 和 verifier。正式 APK 与前述定向 APK 分开记账；后续文档提交不被追溯成另一次代码验证。
+
+## 尚未完成的边界
 
 真实订阅登录/刷新/远端取消、真实模型恢复完成率统计、手机/OEM、设备重启/低内存/热压、物理 16 KiB、真实用户内测与发行签名/升级契约继续开放。有限进程死亡验证不关闭完整 32 项 Runtime 平台矩阵。
