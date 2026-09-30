@@ -12,6 +12,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionActionQueueTest {
+    @Test fun modelSelectionsAreOrderedBeforeSendAndDoNotChangeAnEarlierSnapshot() =
+        runBlocking {
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            try {
+                val queue = SessionActionQueue(scope)
+                var model = "a"
+                val original = queue.submit { model }.await()
+                val release = CompletableDeferred<Unit>()
+                queue.submit {
+                    release.await()
+                    model = "b"
+                }
+                queue.submit { model = "c" }
+                val nextRequest = queue.submit { model }
+                assertFalse(nextRequest.isCompleted)
+                release.complete(Unit)
+                assertEquals("c", nextRequest.await())
+                assertEquals("a", original)
+            } finally {
+                scope.cancel()
+            }
+        }
+
     @Test fun sendWaitsForEarlierEditsEvenWhenTheDispatcherStartsItFirst() =
         runBlocking {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

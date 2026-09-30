@@ -16,12 +16,15 @@ internal fun conversationEntries(screen: ChatScreenState): List<ConversationEntr
     screen.messages.forEach { keys += it.turnId ?: "message-${it.id}" }
     screen.toolTimeline.forEach { keys += it.turnId }
     screen.subscriptionRecoveries.forEach { keys += it.turnId }
+    val messages = screen.messages.groupBy { it.turnId ?: "message-${it.id}" }
+    val tools = screen.toolTimeline.groupBy { it.turnId }
+    val recoveries = screen.subscriptionRecoveries.groupBy { it.turnId }
     return keys.map { key ->
         ConversationEntry(
             key,
-            screen.messages.filter { (it.turnId ?: "message-${it.id}") == key },
-            screen.toolTimeline.filter { it.turnId == key },
-            screen.subscriptionRecoveries.filter { it.turnId == key },
+            messages[key].orEmpty(),
+            tools[key].orEmpty(),
+            recoveries[key].orEmpty(),
         )
     }
 }

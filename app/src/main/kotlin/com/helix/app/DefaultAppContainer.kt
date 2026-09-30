@@ -89,6 +89,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.nio.file.Path
 
+@Suppress("LargeClass") // Existing composition root; stateful runtime recovery is delegated, not duplicated here.
 internal class DefaultAppContainer(
     context: Context,
 ) : AppContainer {
@@ -409,6 +410,10 @@ internal class DefaultAppContainer(
      * (never main) executor thread.
      */
     private val jsExecutionClient: JsExecutionClient = JsExecutionClient(context)
+    private val nativeRecovery by lazy {
+        com.helix.app.chat
+            .NativeJavascriptRecovery(executionOwnership, jsExecutionClient, appScope)
+    }
     override val userQuestions by lazy {
         com.helix.app.chat
             .UserQuestionService(storage)
@@ -539,7 +544,9 @@ internal class DefaultAppContainer(
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
-        registerSessionRuntimeTools(toolRegistry, jsExecutionClient, userQuestions)
+        registerSessionRuntimeTools(toolRegistry, jsExecutionClient, userQuestions, executionOwnership) {
+            nativeRecovery.observe()
+        }
         // HXA-085: the PRoot `code.linux.run` tool (developer flavor only; the consumer
         // no-op registers nothing). Registration does NO bind and starts NO process
         // (ADR-0007): the availability gate runs per execution, and the only bind paths
@@ -551,6 +558,7 @@ internal class DefaultAppContainer(
             storage,
             executionOwnership,
             { chatService },
+            scope = appScope,
         )
         com.helix.app.settings.HelixSettingsTool
             .register(toolRegistry) { this }
@@ -598,8 +606,7 @@ internal class DefaultAppContainer(
             // visible on one surface and missed on another (ADR section 1.1).
             val sessionWorkspace: (String) -> String? = { sessionId ->
                 storage.sessions
-                    .list()
-                    .firstOrNull { it.id == sessionId }
+                    .find(sessionId)
                     ?.let { it.directoryRef ?: APP_SCOPE_ID }
             }
             val sessionPermissions =
@@ -619,7 +626,7 @@ internal class DefaultAppContainer(
                         descriptor.origin.canonicalOf(),
                         descriptor.name.value,
                         sessionId,
-                        sessionWorkspace(sessionId),
+                        null, // SessionPermissionService resolves the session workspace once.
                     )
                 effectiveAvailability(states.global, states.workspace, states.session) !=
                     ToolAvailabilityState.DISABLED
@@ -673,7 +680,7 @@ internal class DefaultAppContainer(
                 scheduler,
                 disabledToolFilter = disabledToolFilter,
             ).also {
-                it.mcpDiscovery.register(toolRegistry)
+                it.mcpDiscovery.register(toolRegistry, executionOwnership::metadataExecutor)
             }
         }
 
@@ -885,6 +892,11 @@ internal class DefaultAppContainer(
 
     init {
         appScope.launch(Dispatchers.IO) { connectorService.cleanupRetired() }
+        appScope.launch(Dispatchers.IO) {
+            runCatching { ProotToolModule.observeForegroundExecution(storage) }
+                .onFailure { android.util.Log.e("ProotRecovery", "Original execution remains unconfirmed") }
+        }
+        nativeRecovery.observe()
     }
 
     private companion object {

@@ -45,36 +45,48 @@ internal object UserQuestionTool {
     fun register(
         registry: ToolRegistry,
         service: UserQuestionService,
+        metadata: (ToolExecutor) -> ToolExecutor = { it },
     ) {
         val descriptor = descriptor()
 
         registry.register(
             descriptor,
-            object : ToolExecutor {
-                @Suppress("ReturnCount") // Cancellation and expired calls cannot create a question.
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
-                    if (java.time.Instant
-                            .now()
-                            .isAfter(call.deadline)
-                    ) {
-                        return ToolExecutorResult.TimedOut
+            metadata(
+                object : ToolExecutor {
+                    @Suppress("ReturnCount") // Cancellation and expired calls cannot create a question.
+                    override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                        if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                        if (java.time.Instant
+                                .now()
+                                .isAfter(call.deadline)
+                        ) {
+                            return ToolExecutorResult.TimedOut
+                        }
+                        val session =
+                            call.sessionId
+                                ?: return ToolExecutorResult.Failed("QUESTION_SESSION_REQUIRED", sideEffectFree = true)
+                        val id = "question:$session:${call.turnId}:${call.toolCallId}"
+                        try {
+                            // Validate before entering storage: malformed arguments produced no effects.
+                            UserQuestionService.decode(id, session, call.args)
+                        } catch (_: IllegalArgumentException) {
+                            return ToolExecutorResult.Failed("QUESTION_INVALID_ARGUMENTS", sideEffectFree = true)
+                        }
+                        service.offer(id, session, call.turnId, call.args)
+                        return ToolExecutorResult.Completed(
+                            buildJsonObject {
+                                put("questionId", id)
+                                put("status", "AWAITING_ANSWER")
+                                put(
+                                    "note",
+                                    "No answer yet. Continue independent work; " +
+                                        "do not assume consent or repeat the question.",
+                                )
+                            },
+                        )
                     }
-                    val id = "question:${call.sessionId}:${call.turnId}:${call.toolCallId}"
-                    service.offer(id, requireNotNull(call.sessionId), call.turnId, call.args)
-                    return ToolExecutorResult.Completed(
-                        buildJsonObject {
-                            put("questionId", id)
-                            put("status", "AWAITING_ANSWER")
-                            put(
-                                "note",
-                                "No answer yet. Continue independent work; " +
-                                    "do not assume consent or repeat the question.",
-                            )
-                        },
-                    )
-                }
-            },
+                },
+            ),
         )
     }
 }

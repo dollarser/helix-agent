@@ -15,7 +15,6 @@ import com.helix.core.model.ErrorCode
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -81,20 +80,15 @@ internal class TurnExecutionDriver(
         hooks: TurnExecutionHooks,
     ): String {
         val turnId = request.coordinator.id
-        val startGate = CompletableDeferred<Unit>()
+        val startGate = TurnLaunchGate()
         val job =
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 run(loop, request, hooks, startGate)
             }
-        var started = false
-        try {
+        startGate.prepare {
             liveExecution.claim(request.sessionId, turnId, job, request.control)
             observations.open(turnId)
             hooks.beforeExecution(turnId)
-            started = true
-        } finally {
-            if (!started) job.cancel()
-            startGate.complete(Unit)
         }
         return turnId
     }
@@ -104,7 +98,7 @@ internal class TurnExecutionDriver(
         loop: AgentLoop,
         request: TurnExecutionRequest,
         hooks: TurnExecutionHooks,
-        startGate: CompletableDeferred<Unit>,
+        startGate: TurnLaunchGate,
     ) {
         val coordinator = request.coordinator
         val turnId = coordinator.id

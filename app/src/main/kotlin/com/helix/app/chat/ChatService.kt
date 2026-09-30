@@ -887,10 +887,8 @@ class ChatService(
     /** Startup recovery commits before this notification; refresh any already-open conversation. */
     fun onRecoveryCompleted() {
         workScope.launch {
-            storage.sessions.list().filter { it.archivedAt == null }.forEach { session ->
-                storage.turns.listBySession(session.id).lastOrNull()?.let { turn ->
-                    submissionGate.withLock { automaticTurnRecovery.recover(turn.id) }
-                }
+            storage.turns.latestForUnarchivedSessions().forEach { turn ->
+                submissionGate.withLock { automaticTurnRecovery.recover(turn.id) }
             }
             refreshSessionsNow()
             refreshScreen()
@@ -1414,32 +1412,34 @@ class ChatService(
         modelId: String,
     ) {
         val requestedSession = openSessionId ?: return
-        workScope.launch {
-            synchronized(turnGate) {
-                if (openSessionId != requestedSession || preparingDraft) return@synchronized
-                if (pendingSend != null || turnEngine.liveExecution.hasActive(requestedSession)) {
-                    return@synchronized
+        sessionActions.submit {
+            submissionGate.withLock {
+                synchronized(turnGate) {
+                    if (openSessionId != requestedSession || preparingDraft) return@synchronized
+                    if (pendingSend != null || turnEngine.liveExecution.hasActive(requestedSession)) {
+                        return@synchronized
+                    }
+                    val row =
+                        providerService.rows.value.firstOrNull { it.id == providerId && it.chatSelectable }
+                            ?: return@synchronized
+                    if (modelId !in (row.backendModels.orEmpty() + row.model)) return@synchronized
+                    val draft = sessionDraft?.takeIf { it.session.id == requestedSession }
+                    if (draft != null) {
+                        drafts.model(draft.session.id, providerId, modelId)
+                    } else if (!selectPersistedSessionModel(requestedSession, providerId, modelId)) {
+                        return@synchronized
+                    }
+                    val currentControl =
+                        draft?.control ?: sessionRunControls.ensure(requestedSession, clock.now().toEpochMilli())
+                    val nextControl = currentControl.copy(reasoning = ReasoningEffort.OFF)
+                    if (draft != null) {
+                        drafts.control(requestedSession, nextControl)
+                    } else {
+                        sessionRunControls.set(requestedSession, nextControl, clock.now().toEpochMilli())
+                    }
+                    if (openSessionId == requestedSession) _runControl.value = nextControl
+                    refreshScreen()
                 }
-                val row =
-                    providerService.rows.value.firstOrNull { it.id == providerId && it.chatSelectable }
-                        ?: return@synchronized
-                if (modelId !in (row.backendModels.orEmpty() + row.model)) return@synchronized
-                val draft = sessionDraft?.takeIf { it.session.id == requestedSession }
-                if (draft != null) {
-                    drafts.model(draft.session.id, providerId, modelId)
-                } else if (!selectPersistedSessionModel(requestedSession, providerId, modelId)) {
-                    return@synchronized
-                }
-                val currentControl =
-                    draft?.control ?: sessionRunControls.ensure(requestedSession, clock.now().toEpochMilli())
-                val nextControl = currentControl.copy(reasoning = ReasoningEffort.OFF)
-                if (draft != null) {
-                    drafts.control(requestedSession, nextControl)
-                } else {
-                    sessionRunControls.set(requestedSession, nextControl, clock.now().toEpochMilli())
-                }
-                if (openSessionId == requestedSession) _runControl.value = nextControl
-                refreshScreen()
             }
         }
     }
@@ -1479,47 +1479,80 @@ class ChatService(
         reasoning: ReasoningEffort?,
         call: com.helix.tools.framework.ExecutableToolCall?,
     ): Boolean =
-        workScope
-            .async {
-                val applied =
-                    synchronized(turnGate) {
-                        if (!settingsChangeAdmitted(sessionId, call)) return@synchronized false
-                        val session = storage.sessions.find(sessionId) ?: return@synchronized false
-                        if (session.archivedAt != null) return@synchronized false
-                        val targetProvider = providerId ?: session.providerId ?: return@synchronized false
-                        val targetModel = modelId ?: session.modelId ?: return@synchronized false
-                        val row =
-                            providerService.rows.value.firstOrNull {
-                                it.id == targetProvider && it.chatSelectable
-                            } ?: return@synchronized false
-                        if (targetModel !in (row.backendModels.orEmpty() + row.model)) return@synchronized false
-                        val efforts = providerService.reasoningOptions(targetProvider, targetModel)
-                        if (reasoning != null && reasoning != ReasoningEffort.OFF && reasoning !in efforts) {
-                            return@synchronized false
+        sessionActions
+            .submit {
+                submissionGate.withLock {
+                    val applied =
+                        synchronized(turnGate) {
+                            if (!settingsChangeAdmitted(sessionId, call)) return@synchronized false
+                            val session = storage.sessions.find(sessionId) ?: return@synchronized false
+                            if (session.archivedAt != null) return@synchronized false
+                            val targetProvider = providerId ?: session.providerId ?: return@synchronized false
+                            val targetModel = modelId ?: session.modelId ?: return@synchronized false
+                            val row =
+                                providerService.rows.value.firstOrNull {
+                                    it.id == targetProvider && it.chatSelectable
+                                } ?: return@synchronized false
+                            if (targetModel !in (row.backendModels.orEmpty() + row.model)) return@synchronized false
+                            val efforts = providerService.reasoningOptions(targetProvider, targetModel)
+                            if (reasoning != null && reasoning != ReasoningEffort.OFF && reasoning !in efforts) {
+                                return@synchronized false
+                            }
+                            val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
+                            val modelChanged = targetProvider != session.providerId || targetModel != session.modelId
+                            val nextReasoning =
+                                when {
+                                    reasoning != null -> reasoning
+                                    modelChanged -> ReasoningEffort.OFF
+                                    else -> current.reasoning
+                                }
+                            val next = current.copy(mode = mode ?: current.mode, reasoning = nextReasoning)
+                            val stopped =
+                                call?.let { it.cancel.isCancelled() || !clock.now().isBefore(it.deadline) } ?: false
+                            if (stopped) {
+                                return@synchronized false
+                            }
+                            persistSettings(sessionId, targetProvider, targetModel, next, call)
                         }
-                        val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
-                        val modelChanged = targetProvider != session.providerId || targetModel != session.modelId
-                        val next =
-                            current.copy(
-                                mode = mode ?: current.mode,
-                                reasoning = reasoning ?: if (modelChanged) ReasoningEffort.OFF else current.reasoning,
-                            )
-                        if (call != null && (call.cancel.isCancelled() || !clock.now().isBefore(call.deadline))) {
-                            return@synchronized false
-                        }
-                        storage.withTransaction {
-                            storage.sessions.selectModel(sessionId, targetProvider, targetModel)
-                            sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
-                        }
-                        if (openSessionId == sessionId) _runControl.value = next
-                        true
+                    if (applied) {
+                        refreshSessionsNow()
+                        refreshScreen()
                     }
-                if (applied) {
-                    refreshSessionsNow()
-                    refreshScreen()
+                    applied
                 }
-                applied
             }.await()
+
+    /** Caller owns turnGate; model defaults and controls commit together without mutating the active snapshot. */
+    private fun persistSettings(
+        sessionId: String,
+        providerId: String,
+        modelId: String,
+        next: RunControlConfig,
+        call: com.helix.tools.framework.ExecutableToolCall?,
+    ): Boolean {
+        var saved = false
+        storage.withTransaction {
+            val selected =
+                if (call == null) {
+                    storage.sessions.selectModel(sessionId, providerId, modelId)
+                    true
+                } else {
+                    storage.sessions.selectFutureModel(
+                        sessionId,
+                        providerId,
+                        modelId,
+                        requireNotNull(call.turnId),
+                        call.toolCallId,
+                    )
+                }
+            if (selected) {
+                sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                saved = true
+            }
+        }
+        if (saved && openSessionId == sessionId) _runControl.value = next
+        return saved
+    }
 
     private fun settingsChangeAdmitted(
         sessionId: String,
@@ -2177,7 +2210,9 @@ class ChatService(
             block()
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            // Preserve diagnosis without logging user text, credentials or raw filesystem paths.
+            Log.e(TAG, "Submission admission failed: ${error.javaClass.simpleName}")
             ChatSubmissionOutcome.Rejected("ADMISSION_FAILED")
         }
 
@@ -2894,6 +2929,7 @@ class ChatService(
      * cancellation (HXA-202 slice 3), so the Tasks dashboard shows "cancelling, awaiting
      * settlement" until the single settlement transaction commits the terminal state.
      */
+    @Suppress("TooGenericExceptionCaught") // UI stop failures must be visible without fabricating cancellation success.
     fun stopTask(
         turnId: String,
         pause: Boolean = false,
@@ -2907,8 +2943,15 @@ class ChatService(
                 if (storage.goalTurnBindings.byTurn(turnId) == null) return@launch
                 if (!storage.turns.requestPause(turnId, clock.now().toEpochMilli())) return@launch
             }
-            if (systemReason != null) turnEngine.requestSystemStop(turnId, systemReason)
-            stopTurn(turnId)
+            try {
+                if (systemReason != null) turnEngine.requestSystemStop(turnId, systemReason)
+                stopTurn(turnId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.e(TAG, "Task stop failed: ${error.javaClass.simpleName}")
+                setBlocked(str(R.string.tool_state_failed))
+            }
         }
     }
 

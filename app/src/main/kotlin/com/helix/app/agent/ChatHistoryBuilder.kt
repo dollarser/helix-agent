@@ -91,7 +91,7 @@ object ChatHistoryBuilder {
                     toolResultMessage(row, strict)
                 }
 
-                "user_question", "user_question_dismissed" -> {
+                "user_question", "user_question_dismissed", "user_question_history" -> {
                     null
                 }
 

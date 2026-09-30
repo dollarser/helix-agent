@@ -31,20 +31,35 @@ internal class ChatRecoveryActions(
             subscriptionResultRecovery,
             ::collectProot,
             ::updateSubscriptionRecovery,
+            {
+                turn,
+                call,
+                ->
+                com.helix.app.proot.ProotToolModule
+                    .inspectInterruptedJob(storage, turn, call, false)
+                    .status
+            },
         )
 
     fun collectAutomatically() = automaticCollection.collect()
 
     /** Original identities only; callable while the conversation is not on screen. */
+    @Suppress("TooGenericExceptionCaught") // Executor failure is UNKNOWN, not a success.
     suspend fun inspectOriginal(turnId: String): String {
         val turn = storage.turns.resolve(turnId)
-        val observations = mutableListOf<String>()
+        val observations = RecoveryEvidence { ForbiddenContentGuard.reasonFor(it) != null }
         subscriptionRecoveryMutex.lock()
         try {
             subscriptionRecoveriesFor(storage, turn.sessionId, emptyList()).filter { it.turnId == turnId }.forEach {
-                val status = subscriptionRecovery(it.turnId, it.modelCallId, false)
-                val output = subscriptionResultRecovery(it.turnId, it.modelCallId, false)
-                observations += "subscription=${status.name}; archivedOutput=${output != null}"
+                try {
+                    val status = subscriptionRecovery(it.turnId, it.modelCallId, false)
+                    val output = subscriptionResultRecovery(it.turnId, it.modelCallId, false)
+                    observations.add("subscription", it.modelCallId, status.name, output?.pages?.firstOrNull())
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    observations.add("subscription", it.modelCallId, "UNKNOWN:${error.javaClass.simpleName}", null)
+                }
             }
         } finally {
             subscriptionRecoveryMutex.unlock()
@@ -54,11 +69,37 @@ internal class ChatRecoveryActions(
             .filter {
                 it.name in setOf("bash", "code.linux.run") && it.state in setOf("INTERRUPTED", "NEEDS_REVIEW")
             }.forEach {
-                val output = collectProot(turnId, it.callId, false)
-                observations += "prootOutput=${output != null}; " +
-                    "originalReceiptAcknowledged=${output?.acknowledged == true}"
+                try {
+                    val status =
+                        com.helix.app.proot.ProotToolModule.inspectInterruptedJob(
+                            storage,
+                            turnId,
+                            it.callId,
+                            false,
+                        )
+                    val output =
+                        if (status.status == com.helix.app.proot.ProotRecoveryStatus.SUCCEEDED) {
+                            collectProot(turnId, it.callId, false)
+                        } else {
+                            collectProot(turnId, it.callId, true)
+                        }
+                    observations.add(
+                        "proot.stdout",
+                        it.callId,
+                        status.status.name,
+                        output?.stdout,
+                        output?.acknowledged,
+                    )
+                    if (!output?.stderr.isNullOrBlank()) {
+                        observations.add("proot.stderr", it.callId, status.status.name, output.stderr)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    observations.add("proot", it.callId, "UNKNOWN:${error.javaClass.simpleName}", null)
+                }
             }
-        return observations.joinToString("\n").ifEmpty { "No authoritative executor receipt is available." }
+        return observations.render()
     }
 
     fun inspectInterruptedSubscription(

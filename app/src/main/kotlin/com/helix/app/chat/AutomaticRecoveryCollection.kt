@@ -18,13 +18,22 @@ internal class AutomaticRecoveryCollection(
     private val subscriptionResultRecovery: (String, String, Boolean) -> SubscriptionRecoveredOutput?,
     private val collectProot: (String, String, Boolean) -> ProotRecoveredOutput?,
     private val updateSubscriptionRecovery: (SubscriptionRecoveryUi) -> Unit,
+    private val prootStatus: (String, String) -> com.helix.app.proot.ProotRecoveryStatus,
 ) {
-    private val automatic = AutomaticRuntimeCollection(scope)
+    private val automatic =
+        AutomaticRuntimeCollection(scope, onPaused = {
+            android.util.Log.w("RuntimeCollection", it)
+        })
+    private var observedSession: String? = null
 
     fun collect() {
         val screen = screenState.value
+        if (screen.openSessionId != observedSession) {
+            automatic.resetPaused()
+            observedSession = screen.openSessionId
+        }
         collectSubscriptions(screen)
-        collectProotResults(screen, automatic, screenState, collectProot)
+        collectProotResults(screen, automatic, screenState, collectProot, prootStatus)
     }
 
     private fun collectSubscriptions(screen: ChatScreenState) {
@@ -38,28 +47,26 @@ internal class AutomaticRecoveryCollection(
                         } ?: return@request AutomaticRuntimeCollection.Observation.DEFERRED
                     if (latest.output != null) return@request AutomaticRuntimeCollection.Observation.COMPLETE
                     val status = subscriptionRecovery(row.turnId, row.modelCallId, false)
-                    val output = subscriptionResultRecovery(row.turnId, row.modelCallId, false)
+                    val observation = SubscriptionCollectionPolicy.beforeCollect(status)
+                    val output =
+                        if (observation == null) {
+                            subscriptionResultRecovery(row.turnId, row.modelCallId, false)
+                        } else {
+                            subscriptionResultRecovery(row.turnId, row.modelCallId, true)
+                        }
                     updateSubscriptionRecovery(
                         latest.copy(
                             status = status,
                             output = output,
                             localResultAvailable = output != null || latest.localResultAvailable,
-                            outputUnavailable = output == null,
+                            outputUnavailable =
+                                output == null && observation != AutomaticRuntimeCollection.Observation.RUNNING,
                         ),
                     )
-                    when {
-                        output != null -> {
-                            AutomaticRuntimeCollection.Observation.COMPLETE
-                        }
-
-                        status == com.helix.app.provider.SubscriptionRecoveryStatus.RUNNING ||
-                            status == com.helix.app.provider.SubscriptionRecoveryStatus.STOP_REQUESTED -> {
-                            AutomaticRuntimeCollection.Observation.RUNNING
-                        }
-
-                        else -> {
-                            AutomaticRuntimeCollection.Observation.RETRY
-                        }
+                    if (output != null) {
+                        AutomaticRuntimeCollection.Observation.COMPLETE
+                    } else {
+                        observation ?: AutomaticRuntimeCollection.Observation.RETRY
                     }
                 } finally {
                     subscriptionRecoveryMutex.unlock()
@@ -74,6 +81,7 @@ private fun collectProotResults(
     automatic: AutomaticRuntimeCollection,
     screenState: MutableStateFlow<ChatScreenState>,
     collectProot: (String, String, Boolean) -> com.helix.app.proot.ProotRecoveredOutput?,
+    status: (String, String) -> com.helix.app.proot.ProotRecoveryStatus,
 ) {
     screen.toolTimeline.filter { it.prootRecoveryAvailable }.forEach { row ->
         automatic.request("proot:${row.turnId}:${row.callId}") {
@@ -84,6 +92,8 @@ private fun collectProotResults(
             if (latest.prootRecoveredOutput?.acknowledged == true) {
                 return@request AutomaticRuntimeCollection.Observation.COMPLETE
             }
+            val observation = ProotCollectionPolicy.beforeCollect(status(row.turnId, row.callId))
+            if (observation != null) return@request observation
             val output = collectProot(row.turnId, row.callId, false)
             screenState.update { current ->
                 current.copy(

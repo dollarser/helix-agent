@@ -243,6 +243,14 @@ class ToolEffectReviewServiceTest {
         override fun listBySession(sessionId: String): List<TurnEntity> =
             rows.values.filter { it.sessionId == sessionId }
 
+        // This fixture has only unarchived sessions; preserve insertion order for timestamp ties.
+        override fun latestForUnarchivedSessions(): List<TurnEntity> =
+            rows.values
+                .sortedBy { it.startedAt }
+                .groupBy { it.sessionId }
+                .values
+                .map { it.last() }
+
         override fun listActive(): List<TurnEntity> = rows.values.filter { !TurnState.valueOf(it.state).isTerminal }
 
         override fun updateState(

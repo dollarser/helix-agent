@@ -15,7 +15,7 @@ internal class AutomaticTurnRecovery(
     private val finish: (String, String, String?) -> Unit,
     private val unavailable: () -> String,
 ) {
-    @Suppress("ReturnCount") // Distinct durable admission and replay guards must fail closed.
+    @Suppress("ReturnCount", "TooGenericExceptionCaught") // Admission failures are logged and ended, never replayed.
     suspend fun recover(turnId: String) {
         val turn = storage.turns.resolve(turnId)
         if (AutomaticRecoveryPolicy.isInspection(turn)) {
@@ -45,7 +45,11 @@ internal class AutomaticTurnRecovery(
                 storage.turnRuntimeRecords.find(turnId)?.let { start(turnId, TurnRuntimeRecordCodec.decode(it)) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                android.util.Log.e(
+                    "AutomaticTurnRecovery",
+                    "Inspection admission failed: ${error.javaClass.simpleName}",
+                )
                 null
             }
         if (started == null && storage.turns.resolveByClientRequestId(id) == null) {

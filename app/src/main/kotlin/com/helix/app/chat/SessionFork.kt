@@ -35,7 +35,9 @@ internal class SessionFork(
                     if (row.id == plan.checkpointId) copyCheckpoint(plan, newSessionId, identities, sequences)
                     continue
                 }
-                val copied = storage.messages.copyHistory(row, identities.getValue(row.id), newSessionId)
+                // Copy questions as inert history, never as new answer requests in the branch.
+                val history = row.copy(kind = UserQuestionService.forkKind(row.kind))
+                val copied = storage.messages.copyHistory(history, identities.getValue(row.id), newSessionId)
                 sequences[row.sequence] = copied.sequence
                 storage.messageAttachments.bind(
                     copied.id,

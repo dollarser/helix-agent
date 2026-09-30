@@ -124,9 +124,7 @@ internal class ChatRequestAssembler(
         val request =
             ChatContextRequest(
                 model,
-                system.modelMessages() +
-                    persistedHistory(sessionId, null, null, system).messages +
-                    ModelMessage(ModelRole.USER, prompt),
+                persistedHistory(sessionId, null, null, system).messages,
                 tools,
                 control.budgets.maxOutputTokens,
                 com.helix.core.model.ReasoningEffort.OFF,
@@ -135,10 +133,9 @@ internal class ChatRequestAssembler(
                 workspaceBinding = binding,
             )
         val window = providerService.contextSettings(config.id, model).window
-        return com.helix.app.agent.ContextCapacity.failure(
-            request.messages.size,
-            request.inputTokens(),
-            minOf(request.maxOutputTokens, window / 4),
+        return com.helix.app.agent.ContextCapacity.forContinuation(
+            request,
+            prompt,
             control.budgets.maxInputTokens,
             window,
         ) == null
@@ -191,10 +188,11 @@ internal class ChatRequestAssembler(
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
-        val config = providerService.storedConfig(sessionProviderId(sessionId))
+        val target = modelTarget(sessionId, turnId)
+        val config = providerService.storedConfig(target.first)
         visionSessionBinder(sessionId)
         return ChatContextRequest(
-            model = storage.sessions.resolve(sessionId).modelId ?: config.model,
+            model = target.second ?: config.model,
             messages = history.messages,
             sourceMessageIds = history.messageIds,
             messageRefs = history.messageRefs,
@@ -204,7 +202,7 @@ internal class ChatRequestAssembler(
             reasoning =
                 providerService.resolveReasoning(
                     config.id,
-                    storage.sessions.resolve(sessionId).modelId ?: config.model,
+                    target.second ?: config.model,
                     control.reasoning,
                 ),
             prompt = system,
@@ -259,10 +257,11 @@ internal class ChatRequestAssembler(
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
             "a continuation must end with settled tool results or a user input"
         }
-        val config = providerService.storedConfig(sessionProviderId(sessionId))
+        val target = modelTarget(sessionId, turnId)
+        val config = providerService.storedConfig(target.first)
         visionSessionBinder(sessionId)
         return ChatContextRequest(
-            model = storage.sessions.resolve(sessionId).modelId ?: config.model,
+            model = target.second ?: config.model,
             messages = history.messages,
             sourceMessageIds = history.messageIds,
             messageRefs = history.messageRefs,
@@ -272,7 +271,7 @@ internal class ChatRequestAssembler(
             reasoning =
                 providerService.resolveReasoning(
                     config.id,
-                    storage.sessions.resolve(sessionId).modelId ?: config.model,
+                    target.second ?: config.model,
                     control.reasoning,
                 ),
             prompt = system,
@@ -394,13 +393,14 @@ internal class ChatRequestAssembler(
             "history USER rows and USER messages diverge — image binding refused"
         }
         val userImages = restoreUserImages(messages, userRows)
-        val config = providerService.storedConfig(sessionProviderId(sessionId))
+        val target = modelTarget(sessionId, currentTurnId)
+        val config = providerService.storedConfig(target.first)
         val restored =
             ToolVisualFeedback(storage, providerService, toolVisionConsent).restore(
                 sessionId,
                 currentTurnId,
                 config,
-                storage.sessions.resolve(sessionId).modelId ?: config.model,
+                target.second ?: config.model,
                 userImages,
                 historyRows,
                 imageVerifier::imageReferencesFor,
@@ -502,6 +502,20 @@ internal class ChatRequestAssembler(
             com.helix.core.model
                 .MessageRefEntry(id, role)
         }
+
+    /** Future Session defaults never retarget an already-admitted model/tool loop. */
+    private fun modelTarget(
+        sessionId: String,
+        turnId: String?,
+    ): Pair<String, String?> {
+        val runtime = turnId?.let(storage.turnRuntimeRecords::find)
+        if (runtime != null) {
+            require(storage.turns.resolve(runtime.turnId).sessionId == sessionId)
+            return runtime.providerId to runtime.modelId
+        }
+        val session = storage.sessions.resolve(sessionId)
+        return requireNotNull(session.providerId) to session.modelId
+    }
 
     private fun sessionProviderId(sessionId: String): String =
         requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }

@@ -7,6 +7,45 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ContextCapacityTest {
+    @Test fun continuationCountsAssembledSystemPromptOnceAndPreservesHistory() {
+        val system =
+            com.helix.core.model
+                .ModelMessage(com.helix.core.model.ModelRole.SYSTEM, "policy ".repeat(200))
+        val history = listOf(system)
+        val request = ChatContextRequest("fixture", history, emptyList(), 100, com.helix.core.model.ReasoningEffort.OFF)
+        val text = "Continue the original task"
+        val next =
+            request.copy(
+                messages =
+                    history +
+                        com.helix.core.model
+                            .ModelMessage(com.helix.core.model.ModelRole.USER, text),
+            )
+        val input = next.inputTokens()
+        assertNull(ContextCapacity.forContinuation(request, text, input, input + 100))
+        assertEquals("INPUT_TOKEN_LIMIT", ContextCapacity.forContinuation(request, text, input - 1, input + 100))
+        assertEquals(history, request.messages)
+        assertEquals(
+            "CONTEXT_WINDOW_LIMIT",
+            ContextCapacity.forContinuation(
+                request.copy(messages = listOf(system) + history),
+                text,
+                Long.MAX_VALUE,
+                input + 100,
+            ),
+        )
+    }
+
+    @Test fun continuationIncludesNewInputInTheMessageLimit() {
+        val history =
+            List(512) {
+                com.helix.core.model
+                    .ModelMessage(com.helix.core.model.ModelRole.USER, "message")
+            }
+        val request = ChatContextRequest("fixture", history, emptyList(), 100, com.helix.core.model.ReasoningEffort.OFF)
+        assertEquals("CONTEXT_MESSAGE_LIMIT", ContextCapacity.forContinuation(request, "next", Long.MAX_VALUE, 100000))
+    }
+
     @Test fun inputOutputAndMessageLimitsAreDistinctAndDoNotOverflow() {
         assertNull(ContextCapacity.failure(512, 900, 100, 900, 1000))
         assertEquals("CONTEXT_MESSAGE_LIMIT", ContextCapacity.failure(513, 900, 100, 900, 1000))

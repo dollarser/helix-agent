@@ -19,7 +19,11 @@ class UserQuestionService(
         val text: String,
         val options: List<String>,
         val multiple: Boolean,
+        val answerRequestId: String = "answer:$id",
     )
+
+    fun answerChanges(sessionId: String): kotlinx.coroutines.flow.Flow<Long> =
+        storage.sessionInputs.observeAnswerRevision(sessionId)
 
     fun offer(
         id: String,
@@ -38,18 +42,32 @@ class UserQuestionService(
     suspend fun pending(sessionId: String): List<Question> =
         withContext(Dispatchers.IO) {
             val rows = storage.messages.listBySession(sessionId)
-            val dismissed = rows.filter { it.kind == DISMISSED }.mapNotNull { storage.messages.readContent(it) }.toSet()
-            rows
-                .filter {
-                    it.kind == KIND && it.id !in dismissed && storage.sessionInputs.get(answerId(it.id)) == null &&
-                        completedQuestion(it)
-                }.map {
-                    decode(
-                        it.id,
-                        sessionId,
-                        Json.parseToJsonElement(requireNotNull(storage.messages.readContent(it))) as JsonObject,
-                    )
+            val dismissed = rows.filter { it.kind == DISMISSED }.mapNotNull(::readBody).toSet()
+            rows.filter { it.kind == KIND && it.id !in dismissed && completedQuestion(it) }.mapNotNull { row ->
+                val previous = storage.sessionInputs.latestAttempt(sessionId, "answer:${row.id}")
+                val requestId =
+                    QuestionAnswerAttempt.next(row.id, previous?.state?.name, previous?.sequence)
+                        ?: return@mapNotNull null
+                try {
+                    val body = readBody(row) ?: return@mapNotNull null
+                    val args = Json.parseToJsonElement(body) as? JsonObject ?: return@mapNotNull null
+                    decode(row.id, sessionId, args).copy(answerRequestId = requestId)
+                } catch (_: IllegalArgumentException) {
+                    android.util.Log.w("UserQuestion", "Ignored malformed question metadata")
+                    null
                 }
+            }
+        }
+
+    private fun readBody(row: com.helix.core.storage.entity.MessageEntity): String? =
+        try {
+            storage.messages.readContentBounded(row, 32 * 1024)
+        } catch (_: java.io.IOException) {
+            android.util.Log.w("UserQuestion", "Question metadata is unavailable")
+            null
+        } catch (_: IllegalArgumentException) {
+            android.util.Log.w("UserQuestion", "Question metadata reference is invalid")
+            null
         }
 
     private fun completedQuestion(row: com.helix.core.storage.entity.MessageEntity): Boolean =
@@ -85,7 +103,7 @@ class UserQuestionService(
         val result =
             chat
                 .sendQuestionAnswer(
-                    ChatSubmission(question.sessionId, 0, answerId(question.id), "${question.text}\n$value"),
+                    ChatSubmission(question.sessionId, 0, question.answerRequestId, "${question.text}\n$value"),
                 ).await()
                 .outcome
         return result is ChatSubmissionOutcome.Accepted || result is ChatSubmissionOutcome.Enqueued
@@ -95,19 +113,32 @@ class UserQuestionService(
         const val KIND = "user_question"
         const val DISMISSED = "user_question_dismissed"
 
-        private fun answerId(id: String) = "answer:$id"
+        const val HISTORY = "user_question_history"
+
+        internal fun forkKind(kind: String): String = if (kind == KIND || kind == DISMISSED) HISTORY else kind
 
         internal fun decode(
             id: String,
             sessionId: String,
             args: JsonObject,
         ): Question {
-            val text = requireNotNull(args["question"]?.jsonPrimitive?.content)
-            val options = (args["options"] as? JsonArray).orEmpty().map { it.jsonPrimitive.content }
+            fun text(value: kotlinx.serialization.json.JsonElement?): String =
+                requireNotNull((value as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }).content
+            val text = text(args["question"])
+            val options =
+                args["options"]
+                    ?.let { value ->
+                        requireNotNull(value as? JsonArray).map { text(it) }
+                    }.orEmpty()
             require(text.isNotBlank() && text.length <= 1000)
             require(options.size <= 6 && options.distinct().size == options.size)
             require(options.all { it.isNotBlank() && it.length <= 200 })
-            return Question(id, sessionId, text, options, args["multiple"]?.jsonPrimitive?.booleanOrNull ?: false)
+            val multiple =
+                args["multiple"]?.let {
+                    val primitive = it as? kotlinx.serialization.json.JsonPrimitive
+                    requireNotNull(primitive?.takeUnless { value -> value.isString }?.booleanOrNull)
+                } ?: false
+            return Question(id, sessionId, text, options, multiple)
         }
     }
 }

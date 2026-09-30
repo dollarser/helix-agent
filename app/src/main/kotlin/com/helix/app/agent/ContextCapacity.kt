@@ -1,9 +1,31 @@
 package com.helix.app.agent
 
+import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
+import com.helix.core.model.ModelRole
 
 /** Shared by task and summary admission; inputs remain estimates, not exact provider tokenization. */
 internal object ContextCapacity {
+    /** History already includes its system prompt, summaries and recovery notices. */
+    fun forContinuation(
+        assembled: ChatContextRequest,
+        text: String,
+        inputLimit: Long,
+        window: Long,
+    ): String? {
+        val request =
+            assembled.copy(
+                messages = assembled.messages + ModelMessage(ModelRole.USER, text),
+            )
+        return failure(
+            request.messages.size,
+            request.inputTokens(),
+            minOf(request.maxOutputTokens, window / 4),
+            inputLimit,
+            window,
+        )
+    }
+
     fun shouldCompact(
         request: ChatContextRequest,
         settings: com.helix.app.provider.ProviderContextSettings,
