@@ -263,5 +263,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-228 | 已交付 | Conversation-first Shell 与 Session Context Control | [交付证据](../completion-records/HXA-228.md) |
 | HXA-229 | 已交付 | Model-authored Agent Activity Presentation | [交付证据](../completion-records/HXA-229.md) |
 | HXA-230 | 已交付（主机范围） | Markdown-native Hierarchical Agent Memory | [完成记录](../completion-records/HXA-230.md) |
-| HXA-231 | 已交付（R1 主机范围） | 问题收口与原子工具绑定 | [完成记录](../completion-records/HXA-231.md) |
+| HXA-231 | 已交付（验证范围见记录） | 问题收口与原子工具绑定 | [完成记录](../completion-records/HXA-231.md) |
 | HXA-232 | 进行中 | 自主恢复与最小人工介入 | [任务规格](tasks/HXA-232.md) |

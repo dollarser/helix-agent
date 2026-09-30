@@ -9,6 +9,7 @@
 | 哪些建议还没有接受或启用？ | [候选需求与待裁决索引](development/candidate-decisions.md) |
 | 先做功能还是重构、何时停止？ | [开发原则与推进策略](development/feature-refactor-strategy.md) |
 | 如何实施和交接？ | [实施指南](development/implementation-guide.md)、[开发控制面](development/README.md) |
+| 如何减少开发阅读量？ | [CodeGraph 与按需导航](development/context-navigation.md)；已知任务直达相关章节/源码，不默认重读全仓 |
 | 现有结构与目标结构有什么不同？ | [架构入口](architecture/README.md)、[当前总体架构](architecture/overview.md)、[Harness 重构方案](architecture/harness-refactor-plan.md) |
 | 为什么作出这个长期决定？ | [按主题组织的 ADR](adr/README.md) |
 | 产品能做什么、怎么使用？ | [产品入口](product/README.md)、[需求](product/requirements.md)、[操作体验](product/task-experience.md) |
@@ -20,7 +21,7 @@
 
 - `product/`：需求、用户体验、定位和竞品分析，见 [product/README.md](product/README.md)；研究结论不直接成为实现要求。
 - `architecture/`：跨模块职责与当前契约，见 [architecture/README.md](architecture/README.md)；计划功能明确标注交付状态。
-- `adr/`：按功能保存**当前有效长期决策**；同一功能直接更新原 ADR，并在 `Decision history` 记录重要变化，不保存版本化 ADR 链。
+- `adr/`：按功能保存**当前有效长期决策**；已接受增量直接合入所属 Decision 正文，`Decision history` 只解释变更，不依赖读者叠加补丁，不保存版本化 ADR 链。
 - `development/`：当前开发控制面，见 [development/README.md](development/README.md)；`status.md` 是唯一当前状态/下一步入口，`roadmap.md` 是 HXA 索引，`tasks/HXA-NNN.md` 只保存未完成的代码/产品开发工作规格；纯文档整理/Research 综合不单独创建 HXA。
 - `completion-records/`：每个已完成 HXA 的交付快照、命令与证据，不作为今天的运行指令。
 - `evidence/`：验收过程、外部材料和诊断快照，不记录当前 Agent 分工。
@@ -42,4 +43,4 @@
 
 源码说明实际行为，ADR 说明接受的契约，两者不一致须记录差异，不能用其中一个静默覆盖另一个。较新的研究或外部资料不自动授予实现权限。
 
-本轮处理清单见[文档整理记录](evidence/development/documentation-convergence-2026-09-29.md)。
+改名、归档、正文承接及检查记录统一见[文档整理记录](evidence/development/documentation-convergence-2026-09-29.md)；日期化记录区分各轮结果，不作为新的当前排期。

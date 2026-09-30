@@ -1,12 +1,12 @@
 # Helix 本机 Harness 详细重构方案：Agent Core、工具治理与 Execution Host
 
-初稿：2026-09-28；详细扩写与契约收敛：2026-09-29；模型/Harness 职责与减法准则修订：2026-09-30。本文保留目标结构和迁移卡片，将最新讨论、相关源码与一手竞品资料融入职责、结果反馈、恢复、实施与验收。新增接口及策略调整是目标设计，不是已实现状态；各次来源和适用边界见 §12。
+初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30。本页维护目标结构、未实施阶段的技术卡片及验收。R1 已交付；后续 Core/上下文、插件、等待和策略变更不因本页存在而视作实现。历史证据与竞品来源见 §12，按原核验范围理解。
 
-**授权边界：**当前自主恢复工作归 [HXA-232](../development/tasks/HXA-232.md)，R1 的原有授权仍归 [HXA-231](../completion-records/HXA-231.md)；实际优先级只看 [status](../development/status.md)。本次用户授权把模型/Harness 职责优化纳入本方案，不等于启动全部代码迁移、放宽权限或设备/账号验证。R2/R3/J1/J2 及尚未接受的策略变化按相应 ADR/HXA 落地；已有接受的范围无需重复立项，本文不维护第二份实时进度。
+**授权与现状：**R1 完成范围和有限验证见 [HXA-231](../completion-records/HXA-231.md)，自主恢复的剩余范围见 [HXA-232](../development/tasks/HXA-232.md)；当前优先级只看 [status](../development/status.md)。R2/R3/J1/J2 及新策略需对应接受范围；文档优化不扩大权限、不启动代码或设备验证，也不要求既有范围重复立项。
 
 **阅读路径：**§1–3 是目标与规则分类；§4–7 仅作工作流导航，不重复定义底层契约；§8 是异步执行的规范正文；§9–12 是依赖、授权和证据；§13–17 分别定义接口/模块、绑定、上下文、插件；§18 只规定迁移步骤；§19–22 是验证、收益与完成检查。代码类型名是建议契约，不表示类已存在。
 
-**单一规范入口：**模型/Harness 职责及减法准则看 §13.6；工具绑定和模型结果反馈看 §15；Core/端口看 §13–14；上下文看 §16；插件看 §17；等待/后台化看 §8。实施卡通过章节引用使用契约，不另写一版同义规则。文档不是 ADR 的替代物：与有效 ADR 不同的提案须先接受，未接受前执行当前契约。
+**按任务读取：**职责与减法看 §13.6，结果反馈看 §15.6，Core/端口看 §13–14，上下文看 §16，插件生命周期看 §17，等待/后台化看 §8；卡片/测试看 §18–19，不要求每次全文加载。R1 的有效规范以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准，§15 只作衔接概要；其他提案与有效 ADR 不同时先裁决。
 
 **核心结论：模型主导任务策略，用户决定授权范围，Harness 忠实执行获准调用并回传真实结果。保留完整 Android 本机 Harness，默认本机模块化部署；不强制拆成多个服务，也不把业务路线和技术恢复写成第二个工作流大脑。**
 
@@ -54,7 +54,7 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 本次核对基于本地主目录源码，而非把研究中的问题列表直接当成待开发清单。
 
-**2026-09-30 职责修订的时效校准：**本次读取 `main/7480141b` 加并行工作树。HXA-232 已在源码中取消 Mobile Use 每十次动作确认，并让已授权目标经新快照验证后自动恢复；仍保留 5 分钟/30 动作上限。相应执行分支见 [AutomationSessionManager](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationSessionManager.kt) 的 `resumeOnVerifiedTarget/completeAction`，不能仅因旧 CHECKPOINT 常量还在就断言周期确认仍生效。[自主恢复审查](../research/harness-human-intervention-audit-2026-09-29.md)与 [Mobile Use 专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)保留历史发现；当前交付和验证以 HXA-232 的记录为准。本次只核对与职责有关的入口，不把先前 C02–C17 的全部行号、hash 或缺口重新声明为今日事实。
+**2026-09-30 职责修订的时效校准：**本次读取 `main/7480141b` 加并行工作树。HXA-232 已在源码中取消 Mobile Use 每十次动作确认，并让已授权目标经新快照验证后自动恢复；仍保留 5 分钟/30 动作上限。相应执行分支见 [AutomationSessionManager](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationSessionManager.kt) 的 `resumeOnVerifiedTarget/completeAction`，不能仅因旧 CHECKPOINT 常量还在就断言周期确认仍生效。[自主恢复审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与 [Mobile Use 专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)保留历史发现；当前交付和验证以 HXA-232 的记录为准。本次只核对与职责有关的入口，不把先前 C02–C17 的全部行号、hash 或缺口重新声明为今日事实。
 
 | 已有能力 | 本轮方向 |
 | --- | --- |
@@ -110,9 +110,7 @@ flowchart TB
 
 ## 4. R1：统一工具绑定与执行准入
 
-R1 交付一条工具绑定事实与完整准入链，不承担 Core 整体迁移或所有异步工具实现。**规范正文见 §15；操作步骤见 §18 的 R1-1～R1-3；测试见 §19 的 T01–T04、T18。**
-
-完成标志是全部 built-in/Plugin/MCP/A2A 来源切到原子发布，模型曝光、Scheduler、审批与 Dispatcher 一致，独立可写实现表及双写入口删除。现有工具优先级/发现机制只接入新绑定，不重做历史工具数量项目。
+**已完成，不再执行迁移清单。**全部 built-in/Plugin/MCP/A2A 已切入原子绑定，曝光/调度/审批/执行同源，独立可写实现表已删除；有效契约见[工具 ADR](../adr/tools/001-descriptor-contract.md)，生产迁移和验证见 [HXA-231](../completion-records/HXA-231.md)。后续沿用 §19 的 T01–T04、T18 适用回归，不将 R1 完成推广为 Core、异步或完整插件生命周期已交付。
 
 ## 5. R2：Core 解耦与统一上下文编译
 
@@ -261,7 +259,7 @@ J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、AN
 | 阶段 | 独立交付结果 | 退出条件 |
 | --- | --- | --- |
 | R0 | 当前事实表、源码基线、对应 ADR 变更提案与阶段任务 | 设计接受后才改变任务顺序；明确测试和 owner |
-| R1 | 单一工具绑定注册/读取路径 | 所有来源迁完；双表写路径删除；并发与撤销测试通过 |
+| R1（已交付基线） | 单一工具绑定注册/读取路径 | 复用 HXA-231；后续改动运行适用回归，不重做迁移 |
 | R2-A | Core 端口与接线迁移＋等价 ContextCompiler | 存储端口先行；纯 JVM Core 闭环与真实存储集成分别通过；旧入口删除 |
 | R2-B | 证据驱动的上下文策略优化 | 在 R2-A 等价基线上做单变量实验，报告收益与失败 |
 | J1 | Linux Job 的通用观察与有界 join | 原 owner 不变；等待/取消/恢复与上下文观察验收通过 |
@@ -271,7 +269,7 @@ J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、AN
 | R4 | 有证据的依赖与 owner 清理 | 无第二执行路径；若无实际问题可不做代码改动 |
 | R5 | 插件管理产品体验 | host gate 完整，设备与模型结果分别列出 |
 
-**排期与依赖分开。**当前顺序以 status 和有效 HXA 为准；2026-09-30 核对时 HXA-232 自主恢复优先，之后回到 HXA-231 R1。以下是架构依赖而非第二份排期，不授权将全部阶段串行执行或设为发行前置。职责收缩随已授权切片验收，不另起覆盖所有阶段的大重构。
+**排期与依赖分开。**R1 已交付，以下描述后续阶段依赖，不是第二份待办或发行前置。当前工作只看 status/HXA；职责收缩随获准切片验收，不据此另起全阶段大重构。
 
 依赖关系如下；编号用于交接，不表示当前全部已授权：
 
@@ -287,11 +285,11 @@ J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、AN
 | J2-1 | J1 观察/控制契约；Runtime 同执行与存活策略证据 | 手动 promotion UI、远程 Node |
 | J2-2 | J2-1 机制＋当前用户交互授权 | 自动 continuation |
 
-R2/J1/R3 的实际排期仍由内测瓶颈和当前任务决定；存储端口属于 R2 准备工作，不得反向使已授权 R1 等待全部 Core 重构。
+R2/J1/R3 按内测瓶颈和当前任务选择；R2 存储端口不能反向成为重开 R1 的理由。已有基线失效时修复具体回归，不恢复旧双注册表。
 
 每次只推进一个已授权切片，或在明确不重叠的文件/契约上并行；共享接口由一个实现 owner 收口。每个阶段保持可构建、可验证，不保留长期运行时双轨开关；阶段回退以源码为单位，不自动回滚用户文件、凭据或外部副作用。逐卡任务及退出条件见 §18。
 
-每阶段先定向测试，再完整执行 source/JVM、双渠道 unit/lint/debug APK/AndroidTest APK、spotlessCheck、detekt、check-all.sh --source 和 git diff --check。通过仓库 host-slot wrapper 运行工程任务；如所建 HXA 要求更广门禁，以它为准。无相关代码变更时不反复跑全工程。
+验证/提交流程统一见[实施指南](../development/implementation-guide.md#验证与提交)和当前 HXA；代码阶段先定向再跑完整适用主机 gate，重任务使用 host-slot。文档改动不因本方案列有代码任务而重复构建 APK。
 
 模型和设备验证需要当次授权。授权后先跑改动影响的轨迹，再在最终干净已提交源码运行既有 SGLang 系统基线；需要提交时按当前授权处理。BFCL 只作工具诊断，AndroidWorld 只作指定环境端到端补充，不替代 Helix 自身安全和恢复 oracle。固定模型、fixture、采样参数与 oracle；多轮报告成功率分母和长尾，不把一次成功当可靠性提升。
 
@@ -299,13 +297,13 @@ R2/J1/R3 的实际排期仍由内测瓶颈和当前任务决定；存储端口�
 
 ## 10. ADR 与任务落地
 
-接受范围与实现边界统一导航见[候选索引](../development/candidate-decisions.md)。2026-09-29 的“R1 下一步”是历史排期；后续 HXA-232 已有明确授权并优先处理。实时顺序只在 status 维护，不从本次职责准则推导新的实施授权，也不取消 R1 原有范围。
+接受/实现边界由[候选索引](../development/candidate-decisions.md)导航，进度只在 status 维护。R1 的决定已接受且迁移已交付；后续工作依据相关领域有效 ADR，不从旧排期或职责准则推导新授权。
 
 本提案不分配未经检查的 HXA 编号，不将 proposed ADR 自动标记 accepted。R1 已属于 HXA-231，不重复创建任务；其他阶段在接受后建立独立任务。不重新打开已完成的 HXA-220/223/227。
 
 | 设计领域 | 应更新的现有决定 |
 | --- | --- |
-| Binding 身份、原子发布、审批一致性 | [工具契约](../adr/tools/001-descriptor-contract.md)，当前仍 proposed；明确本轮接受的字段/边界 |
+| Binding 身份、原子发布、审批一致性 | [工具契约](../adr/tools/001-descriptor-contract.md)已接受；R1 交付后在同主题维护，不再待批或复制规范 |
 | 编译、信任、配对、压缩 | [上下文](../adr/agent/002-context-compaction.md)、[预算与结果投影](../adr/agent/006-model-data-budget-boundaries.md) |
 | 安装归属、启停、更新、恢复 | [Connector 安装与会话选择](../adr/connectors/003-ownership-and-installation.md)；在同一决定内推广包管理语义 |
 | 执行 owner 与恢复 | [Turn 执行](../adr/agent/001-turn-coordination.md)；保持现有语义，只有真实契约变化才追加决定 |
@@ -637,7 +635,7 @@ headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fa
 
 ## 15. 工具绑定、授权与结果契约
 
-§15.1–15.5 是 R1 的绑定/准入规范，§15.6 是相关阶段共用的结果反馈准则；§4 只作导航，§18 负责迁移顺序。现有 effect/approval/recovery 按有效 ADR 保持；新增反馈能力按实际任务范围落地，不把整套 Mobile Use 优化夹带进 R1。
+§15.1–15.5 保留后续阶段依赖的逻辑概要；R1 已接受的具体编码、字段与准入规范只在[工具 ADR](../adr/tools/001-descriptor-contract.md)维护，不以旧建议签名覆盖生产契约。§15.6 继续作为跨阶段反馈准则；Mobile Use 新策略不混入已完成 R1。
 
 ### 15.1 最小 binding 与原子发布
 
@@ -847,37 +845,15 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### R1-1：先实现原子 binding 容器
 
-**主要位置：**`tools/framework` 的 Registry/Execution 类型及测试。
-
-1. 保存 descriptor＋executor＋可信 owner＋实现 revision 为不可分割绑定。
-2. owner replace 构建候选后一次发布，碰撞/校验失败保持旧集合；remove 同样原子。
-3. 分开当前 registry revision 与跨请求稳定 binding identity，避免每次重新投影都使旧请求失效。
-4. 为 register/replace/remove、跨 owner 冲突和旧 snapshot 写 barrier/latch 测试。
-
-**删除：**本卡可保留仅委托新容器的内部桥接，不允许双写。**退出：**确定性交错下无半注册、无 descriptor/executor 错配，旧结构问题不靠 sleep 复现。
+已交付：ToolRegistry/ToolBindingStore 原子发布、冻结契约和稳定身份；原子性反例与实现见 [HXA-231](../completion-records/HXA-231.md)。标题保留用于定位，正文不再作为未来实施步骤。
 
 ### R1-2：迁移全部工具来源
 
-**主要位置：**内置工具装配、PluginRegistry、MCP/A2A 注册与测试工厂。
-
-1. 枚举所有 registration/replace/remove 调用，逐来源迁入同一容器。
-2. Plugin 与 connection owner 由可信安装/配置身份给出；防止名称前缀越权认领。
-3. Skill/Memory 等内容 repository 不搬入 Registry；只迁移真正的工具贡献。
-4. 用来源混合、重复安装、连接重建和停用 fixture 验证状态投影。
-
-**删除：**独立可写 ToolImplementationRegistry、双表替换 helper、重复 PluginToolBinding 类型或其可写版本。**退出：**生产和测试注册只剩一条事实源，不保留 fallback 回旧表。
+已交付：Built-in/Plugin/MCP/A2A 全部迁移，独立实现表和 PluginToolBinding 删除；Skill/Memory 内容仍独立。后续来源只接已有原子入口，不恢复双写。
 
 ### R1-3：连接请求、调度、审批和执行
 
-**主要位置：**modelTools/请求映射、ToolScheduler、ToolDispatcher。
-
-1. 为每次实际模型请求保存有界名称→BindingRef 映射。
-2. 工具请求只解析该映射；归一化业务参数后，Scheduler 与 Dispatcher 使用同 binding。
-3. 执行前复核绑定/来源/当前权限；无关 owner 更新不误失效，旧精确批准不跨不兼容身份复用。
-4. 验证正在审批时停用、准入与替换竞争、已启动后卸载、同名新实现等边界。
-5. 保留旧执行所需引用到结算，之后释放；历史仅存审计引用。
-
-**退出：**无错配并发判断，无旧名称跳到新实现；原调用序回填及未知副作用规则不回归。授权内调用不因来源迁移新增确认，无关更新不阻塞；被拒原因可进入模型结果。R1 不顺带更改 Mobile Use 预算/敏感策略，也不扩大成整个 Core 迁移。
+已交付：模型请求绑定贯穿参数、调度、审批、撤销与 executor；后续维护运行 T01–T04/T18 的适用回归并保留原效果事实。不能把此完成扩大为 Mobile Use 新预算/敏感策略或完整 Core 迁移。
 
 ### R2-A1：先准备领域端口与存储事务适配
 
@@ -1125,7 +1101,7 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 | 决定 | 本文建议 | 接受位置/约束 |
 | --- | --- | --- |
 | Core 接口与模块移动范围 | 逻辑分层、当前同进程；实际移出 UI/Room Entity 泄漏 | 现有 Agent 主题；不扩大当前 R1 HXA |
-| Binding 与实现变化对批准的影响 | 契约/实现身份/进程 generation 分开；无关更新不误失效 | Tools/Permissions ADR，完整 descriptor 契约仍需明确接受 |
+| Binding 的后续变更 | 复用已接受的契约/实现身份/进程 incarnation 分离，无关更新不误失效 | 当前规范已由 Tools/Permissions ADR 与 R1 承接；仅新增语义差异再裁决 |
 | J1 completion/控制/期限接线 | §8.3–8.5 已给出具体建议；单次结算、观察 effect-free 与原 Job unknown 分开 | Runtime/Tools ADR 接受后实现；不能在旧同步 execute 中嵌阻塞循环 |
 | 取消等待、停止 Turn、取消 Job 的关联 | 三个意图独立；Job 按原 lifetime/lease 合同处理 | Runtime/Agent ADR，不偷偷改变 Stop 体验 |
 | wait mode、lifetime 与分步交付 | AUTO 先验同执行机制，手动按钮可后续；不自动延长存活/额度 | J2-1/J2-2 分开记录 Runtime/产品接受和证据 |
@@ -1146,41 +1122,11 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 
 ### 22.1 每卡的固定执行顺序
 
-1. 读 status/当前 HXA/相关 ADR 与本文件对应卡；核对当前 SHA、工作树和授权范围。
-2. 写出本卡唯一改变的契约、受影响入口、删除清单和失败 oracle；按 §13.6 标明哪些是机制、策略、模型职责与真实用户交互。先补有价值的回归测试，不仅增加流程再用同一流程自证。
-3. 做最小完整纵向切换，保留可构建状态；临时适配只单向委托新实现，不双写。
-4. 跑定向主机测试，复核 diff、权限/取消/恢复和结果引用；满足当前阶段要求后跑完整 host gate。
-5. 设备、真实模型、账号、提交/推送分别核对本次授权；没有授权时准备步骤/fixture 并标 not requested，不私自执行。
-6. 交付代码/文档事实、命令、实际结果、失败和边界；更新当前任务的正式记录，不能只报“编译通过”。
-
-主机命令示例（仅在对应代码任务获授权且模块任务仍存在时使用）：
-
-```bash
-python3 scripts/with-host-slot.py -- ./gradlew :tools:framework:test :core:agent:test
-./scripts/check-docs.sh
-./scripts/check-all.sh --source
-git diff --check
-```
-
-完整双渠道及全部 JVM 命令以当前 HXA/verification-matrix 为准。GitHub Actions 只运行主机检查/构建/测试 APK 编译，不启动模拟器或真机。本次只是文档写作，不执行上述 Gradle 或设备任务。
+通用流程、现场核验、Git/设备/账号授权及验证命令只在[实施指南](../development/implementation-guide.md)和当前 HXA 维护。本方案特有要求：先按 §13.6 分类规则，再明确本卡契约/删除项/失败 oracle，完成单入口纵向迁移，运行 §19 适用回归；不能新增固定流程后只用该流程自证。
 
 ### 22.2 接手信息模板
 
-```text
-当前卡片与用户授权范围：
-起始 HEAD / 工作树归属 / 本卡改动文件：
-已接受契约与本卡新增决定：
-已完成的生产入口切换：
-已删除的旧路径及剩余临时桥接：
-保留的必要机制／移往配置或指导层的策略／删除的重复流程／待裁决项：
-模型实际收到的失败、结果与来源证据（适用 T22–T26）：
-实际验证命令、源码/制品身份、结果和失败：
-设备/模型/账号状态（passed / failed / not requested / pending）：
-已知限制与下一卡的必要输入：
-是否存在运行中的本任务 Job（只报告实际查询结果）：
-```
-
-卡片交接不能靠“继续上次”隐含权限、设备、账号、提交或后台执行。新接手者必须读真实当前状态，不把本文生成时的 SHA 当作永远有效的起点。
+复用[实施指南的交接模板](../development/implementation-guide.md#交接输出)，补充本卡编号、对应契约章节、临时桥接删除点和 T22–T26 中模型实际收到的反馈证据。未授权阶段只记录必要输入，不暗中加入下一卡。历史 SHA 不代替现场检查，已完成 R1 不因换接手者重做。
 
 ### 22.3 整体完成判据
 

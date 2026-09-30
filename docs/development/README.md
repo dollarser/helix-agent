@@ -7,6 +7,7 @@
 - [roadmap.md](roadmap.md)：HXA 清单/长期排序；不是第二份 current plan。
 - [tasks/](tasks/)：所有尚未完成的 HXA 规格，包括进行中、外部依赖、发行队列和未来已授权任务。真正当前执行项必须同时出现在 `status.md`。
 - [implementation-guide.md](implementation-guide.md)：通用开发/交接流程。
+- [context-navigation.md](context-navigation.md)：复用 CodeGraph 定位结构与关联，结合精确搜索、当前源码和 Git 差异按需读取；不维护平行导航或资料包系统。
 - [开发原则与后续推进策略](feature-refactor-strategy.md)：有限基础收敛、功能接入顺序、重构停止条件与评审分级；不替代 status/HXA 的当前排期。
 - [verification-matrix.md](verification-matrix.md)：公共主机、构建、设备验证规则。
 - [environment.md](environment.md)、[ci.md](ci.md)：开发环境与 GitHub CI 边界。

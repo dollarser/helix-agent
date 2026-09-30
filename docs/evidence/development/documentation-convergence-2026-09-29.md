@@ -73,3 +73,47 @@
 机械迁移覆盖文档和根入口；另有一个历史 debug 脚本仅修正生成 Markdown 时使用的 Goal 链接，没有执行该旧脚本。主 Harness 方案的技术内容、开发原则和 HXA-231 范围只修路径引用，没有借此扩大接受范围。
 
 文档通过不等于代码、设备或模型功能通过。发现并行 App/ADR 内容继续变化时保留其工作，不将它们计为本次实现。本次没有执行新的构建、设备、模型、账号、提交或推送操作。
+
+## 2026-09-30 内容、时效与按需阅读收敛
+
+本节是后续独立的文档整理记录，不覆盖上文 2026-09-29 的统计和结果。用户要求“总体优化文档”；本轮以 `main/b51687e0635dc33713ff86e52c49044049575668` 加已有工作树为起点，先快照全部文档和 AGENTS，再按当前 status、有效 ADR、完成记录及原方案核对。范围扫描覆盖根目录与 docs 的 653 份 Markdown，其中 docs 650 份；不是逐字重新审查全部历史和竞品。
+
+### 实际改动
+
+| 范围 | 处理与来源 |
+| --- | --- |
+| 当前状态 | status 的已完成流水账改为领域基线，开放任务、Next task、Blocked 和限制保留；移除需靠历史时点解释的提交/测试句，详细证据保留原路径 |
+| 过期声明 | 按 ADR-TOOLS-001 与 HXA-231 完成记录修正主方案的 proposed/待批、candidate/roadmap 的仅主机范围和重复 R1 待办；不授予新实现范围 |
+| Goal ADR | 只合并已接受的 HXA-232 增量：局部额度与总额度分别处理，无进展收尾回到状态正文，自动只读核查不等于解除 UNKNOWN；预算数值、四次模型/八轮核查、FAILED 收尾及原用户/平台边界不变 |
+| 主重构方案 | 保留 22 章、职责准则、结果反馈、Core/Job/Context/Plugin 契约与 26 组测试；R1-1～R1-3 退出待执行清单，保留完成入口；通用交接/验证改引用实施指南 |
+| Plugin 专项 | 保留 manifest 示例、host-known native、Mobile Use、工具接口演进理由与专项回归；通用安装/更新/选择规则只引用 Harness §17；删除平行 P0/P1/P2 排期和第二种 canonical 哈希描述 |
+| 开发策略/实施 | 保留十项原则、六类样本、五项停止条件、候选接入取舍；去掉重复依赖表/交接模板与旧“R1 下一步”。明确 CodeGraph/按需读取及文档任务不默认构建 APK |
+| 归档 | 两份已承接研究移动到 evidence/research-history，修复入链/出链并添加时效说明；HXA-232 不因此关闭，原发现和备选方案正文保留 |
+| 索引 | docs/README、research/README、research-history/README 对齐单一正文和新位置；不新增平行计划、Markdown 文件或文档管理系统 |
+
+移动映射：
+
+- `docs/research/harness-human-intervention-audit-2026-09-29.md` → `docs/evidence/research-history/harness-human-intervention-audit-2026-09-29.md`
+- `docs/research/quickjs-access-and-autonomous-recovery-2026-09-29.md` → `docs/evidence/research-history/quickjs-access-and-autonomous-recovery-2026-09-29.md`
+
+### 阅读体积与保留检查
+
+| 当前入口 | 之前行数 | 整理后行数 | 之前/之后 UTF-8 字节 |
+| --- | ---: | ---: | ---: |
+| status.md | 119 | 84 | 20,800 / 11,367 |
+| feature-refactor-strategy.md | 354 | 204 | 28,121 / 15,189 |
+| implementation-guide.md | 73 | 62 | 8,415 / 5,667 |
+| harness-refactor-plan.md | 1,205 | 1,151 | 135,063 / 131,547 |
+| plugin-platform-plan.md | 661 | 202 | 20,182 / 14,889 |
+
+这五页合计减少 709 行、33,922 字节；不是全仓 token、计费或开发效率的实测收益。没有通过删掉完整技术条款来强求主方案变短：对比快照确认 §8、§13、§14、§15.6、§16、§17、§19 七个契约/验证范围逐字不变，未完成的 R2/R3/J1/J2 卡片亦保留。
+
+一次性只读核验：`scripts/debug/2026-09-30/verify-document-convergence-509ac5c9.py`。它依赖本轮 ignored 快照 `build/documentation-convergence-20260930-509ac5c9/before.tar.gz`，仅输出同目录 `verification.json`，不接入常驻门禁，不是替代 CodeGraph 的工具。
+
+已执行的专项检查通过：Markdown 集合除两次移动外一致、根 AGENTS 未改、两份历史正文在相对链接归一后完全一致、七个技术范围及未完成卡保留、T01～T26 和十个 FUT ID 保留、全量可识别本地链接/章节锚点和改动空白检查。数目与最终状态由 `verification.json` 记录，不复制第二份滚动统计。
+
+中间核验两次停在快照读取：macOS tar 包含 `docs/._README.md` 等 AppleDouble 元数据。确认 `00051607` 魔数后仅排除这类元数据成员，继续严格解码真正 Markdown；没有忽略文档编码错误或跳过原文保留断言。修正后的完整专项检查通过。
+
+后续文档门禁发现实施指南改写后缺少四个按字面校验的契约表述，已恢复 status 完整路径、不得重做已完成 HXA、持久 Goal 须明确要求及 verification matrix 原称；没有放宽门禁。整理记录追加后发现尾部多余空行，已删除。一度专项 JSON 先报告内容检查通过、随后 Git 空白检查失败；现将 Git 结果纳入最终报告后再写出总状态，不据该中间 JSON 宣称全部通过。
+
+最终仓库门禁使用 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh` 及相应状态声明检查；命令结果单独留证。仅更新文档、路径和一次性核验材料，不改变 ADR 的接受状态、生产行为、任务优先级或设备/账号授权；不执行构建、设备、真实模型、Git 提交或推送。

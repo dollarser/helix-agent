@@ -16,6 +16,8 @@
 
 Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可证验收或商店审核。CI 保留独立的提交区间 whitespace 检查。
 
+代码导航复用已安装的 CodeGraph、限定范围的 `rg`、Git diff 和宿主读取工具，见[开发上下文导航](../docs/development/context-navigation.md)；不维护第二套导航脚本，也不把 CodeGraph 设为源码门禁的必装依赖。
+
 ## Stable validation runners
 
 Reusable entry points live directly in `scripts/`; logs and generated evidence belong in ignored `build/` directories.

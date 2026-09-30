@@ -4,13 +4,15 @@
 
 Helix is an Android single-device product with a complete store-facing Standard channel and an Advanced/developer capability set. Current scope is defined by `docs/development/status.md`, the active HXA, and accepted ADRs; capabilities that are not in the current HXA must not be added opportunistically. Future platform/product scope may be promoted only by an explicit owner-authorized roadmap/ADR change.
 
-Before changing code, read:
+Before changing code, establish scope through targeted reading:
 
-1. `README.md`;
-2. `docs/development/status.md` — the current-state and next-work authority;
-3. the active HXA linked from status/roadmap — the current work scope and acceptance;
-4. the relevant feature ADR/topic under `docs/adr/README.md`;
-5. module-specific architecture/development docs only as needed.
+1. `README.md` product/channel summary; load other sections only when relevant.
+2. `docs/development/status.md` current work/next-task sections — the live scope authority, not a remembered task order.
+3. The applicable HXA/current owner request and relevant ADR clauses, including status and applicable Decision history.
+4. The affected entry points, callers/shared-state owners and tests; architecture/plan sections only as needed.
+5. Historical research, completion records, bug-fix and evidence bodies only for relevant provenance or regression investigation; search metadata first.
+
+Use existing CodeGraph (MCP when available, otherwise CLI) for code structure, callers/callees, impact and task context; see [navigation](docs/development/context-navigation.md). An unavailable WebCodex semantic-navigation entry does not mean CodeGraph is unavailable. For known small changes, read the needed source range directly; use scoped `rg` for exact text or Markdown. Graph results are candidates: check current source hashes and root/nested AGENTS before edits. Return bounded hits, log deltas and test summaries; reread necessary material after compaction/reset/handoff, with no fixed task-token/file-count cap. Inventory installed tools before adding helpers; do not duplicate CodeGraph with another parser, index, packet format or wrapper.
 
 `roadmap.md` is an HXA inventory/index, not a second current plan. ADRs are feature-level living decisions: update the same ADR when that feature contract changes and append `Decision history`; create a new ADR only for a genuinely separate decision domain. Accepted ADRs authorize design, not completed implementation. Older wording is recovered from Git history, not from compatibility/supersession files. Do not restart completed HXA work or restore obsolete behavior.
 

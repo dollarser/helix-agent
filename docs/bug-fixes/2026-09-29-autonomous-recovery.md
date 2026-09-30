@@ -7,6 +7,8 @@ Affected modules: app, tools/automation
 
 日期：2026-09-29。基线：main `7480141b` 加未提交工作树。本记录覆盖 HXA-232 首批实现，不代表整个自主恢复闭环交付。
 
+> 后续承接：本文下方“尚未实现/等待验收”只描述首批交付时点。2026-09-30 的实现与有界验证、仍未覆盖的故障矩阵统一见 [HXA-232](../development/tasks/HXA-232.md)；保留本页原失败与测试事实，不以此恢复旧待办。
+
 ## Problem
 
 自动化每十次动作要求人工恢复，Goal 单轮额度耗尽不能自动接续；连续无进展转为等待用户处理。循环警告还可能使下一模型请求以 SYSTEM 消息结束，空响应的暂时网络错误也直接终止任务。
@@ -63,4 +65,4 @@ HXA-232 仍开放：UNKNOWN 的自动执行器对账/有依据核查、Runtime �
 
 - [HXA-232 自主恢复任务](../development/tasks/HXA-232.md)
 - [当前开发状态](../development/status.md)
-- [人工介入审查](../research/harness-human-intervention-audit-2026-09-29.md)
+- [人工介入审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)

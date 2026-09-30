@@ -1,4 +1,6 @@
-# QuickJS 访问配置与自主恢复：当前讨论边界
+# QuickJS 访问配置与自主恢复：历史讨论快照
+
+> **2026-09-30 归档说明：**“尚未选择/尚未实现”均为下文原日期的状态，不是现在仍缺少所有者决定。后续已选择默认隔离＋用户原生总开关，规范见 [QuickJS ADR](../../adr/runtime/003-quickjs.md)；自主恢复实现和有限验证见 [HXA-232](../../development/tasks/HXA-232.md)。本页保留备选方案及理由，不承诺完整故障矩阵已通过，也不将历史设备授权沿用到新任务。
 
 日期：2026-09-29。本文记录所有者追加需求与尚待选择的设计，不是生产交付或验证证据。实施仍以当前 ADR、status 和正式任务为准。
 
@@ -28,6 +30,6 @@ UI 展示“正在自动检查／恢复”及最终结果。模型判断无法�
 
 ## 相关契约
 
-- [QuickJS](../adr/runtime/003-quickjs.md)
-- [执行与恢复](../adr/agent/001-turn-coordination.md)
-- [权限与审计](../adr/permissions/003-dispatch-and-audit.md)
+- [QuickJS](../../adr/runtime/003-quickjs.md)
+- [执行与恢复](../../adr/agent/001-turn-coordination.md)
+- [权限与审计](../../adr/permissions/003-dispatch-and-audit.md)

@@ -1,6 +1,6 @@
 # 研究入口
 
-研究按综合模块、专题输入、历史快照分层。目录整理核对：2026-09-29，该次整理只核对仓库归属与交付引用。随后补充的工具曝光专题单独核验了相关外部一手资料；各专题分别标注日期与范围，不据此宣称全部竞品研究已刷新。
+研究按综合模块、专题输入、历史快照分层。目录归属与承接关系于 2026-09-30 收敛；各专题的外部核验日期与范围保持独立，不将本次文档整理说成竞品资料全部刷新。
 
 Research 不是实现授权，也不是 current backlog。使用顺序：
 
@@ -27,6 +27,7 @@ Research 不是实现授权，也不是 current backlog。使用顺序：
 | Workspace 与设备内模型 | [Workspace](../product/workspace.md)、[本地模型](../product/local-models.md)；不再以旧研究判断它们尚未立项 |
 | 自主图片读取与工具视觉回填 | [使用说明](../product/image-reading.md)、[HXA-225](../completion-records/HXA-225.md)；手机整屏截图仍是独立候选 |
 | 工具数量、MCP/Skill 大目录与按需发现 | [工具综合研究 §2](modules/04-tools-browser-and-extensions.md#2-tool-exposure)、[2026-09-29 专题](topics/tool-exposure-and-discovery-2026-09-29.md)；区分当前源码、历史评测和待接受策略 |
+| 自主恢复与 QuickJS 访问 | [HXA-232](../development/tasks/HXA-232.md)、[QuickJS ADR](../adr/runtime/003-quickjs.md)；[旧人工介入审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与[访问备选](../evidence/research-history/quickjs-access-and-autonomous-recovery-2026-09-29.md)已归历史，不恢复待选状态 |
 | 后续能力架构与实施顺序 | [Harness 方案](../architecture/harness-refactor-plan.md)、[开发原则](../development/feature-refactor-strategy.md)、[候选索引](../development/candidate-decisions.md) |
 
 以上只提供承接关系，当前完成/验证范围仍看 status 与具体证据；不能把部分交付扩大为全部能力完成。
