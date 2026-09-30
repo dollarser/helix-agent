@@ -61,6 +61,8 @@ internal fun ConversationSection(
     referenceLabel: String? = null,
     composerAvailability: ComposerAvailability = ComposerAvailability(),
     composerStatus: @Composable () -> Unit = {},
+    composerFeedback: @Composable () -> Unit = {},
+    composerOptions: @Composable () -> Unit = {},
     artifacts: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -427,8 +429,10 @@ internal fun ConversationSection(
                         .testTag("chat-voice-notice"),
             )
         }
-        composerStatus()
+        composerFeedback()
         ConversationComposer(
+            headerStatus = composerStatus,
+            optionsContent = composerOptions,
             input = input,
             onInput = onInput,
             isSending = screen.isSending,
@@ -445,6 +449,14 @@ internal fun ConversationSection(
                     screen.badge?.model,
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSelectModel,
+                    reasoningContent = {
+                        ComposerReasoningMenu(
+                            runControl.reasoning,
+                            screen.badge?.reasoningSupported == true && !screen.isSending,
+                            intents.onSetReasoning,
+                            efforts = screen.badge?.reasoningEfforts.orEmpty(),
+                        )
+                    },
                 )
             },
             permissionMode = permissionMode,
@@ -454,10 +466,6 @@ internal fun ConversationSection(
             canCompact =
                 !screen.isDraft && !screen.isSending &&
                     screen.pendingDisclosure == null && screen.pendingAttachments.isEmpty(),
-            reasoning = runControl.reasoning,
-            reasoningSupported = screen.badge?.reasoningSupported == true,
-            reasoningOptions = screen.badge?.reasoningEfforts.orEmpty(),
-            onReasoning = intents.onSetReasoning,
             turnState = screen.activeTurn?.state,
             availability = composerAvailability,
             actions =

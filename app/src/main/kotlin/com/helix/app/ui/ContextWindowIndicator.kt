@@ -37,7 +37,7 @@ internal fun ContextWindowIndicator(
 ) {
     var detailsOpen by remember { mutableStateOf(false) }
     val title = stringResource(R.string.chat_context_title)
-    val label = usage.percentage?.let { (if (usage.estimatedAfterCompaction) "≈" else "") + "$it%" } ?: "?"
+    val label = (if (usage.estimatedAfterCompaction) "≈" else "") + usage.percentageLabel
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
     val labelWidth = rememberTextMeasurer().measure(label, labelStyle, maxLines = 1).size.width
     val ringSize = with(LocalDensity.current) { (labelWidth.toDp() + 8.dp).coerceAtLeast(28.dp) }

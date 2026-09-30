@@ -29,6 +29,23 @@ import java.util.concurrent.CancellationException
 
 /** The real OkHttp request path with an in-process interceptor; no network or real account. */
 class AntigravityTransportTest {
+    private val client = AntigravityClientConfig("fixture-client", "fixture-parameter")
+
+    @Test fun unconfiguredClientDoesNotSendTokensOrStartRefresh() {
+        var requests = 0
+        http {
+            requests++
+            200 to "{}"
+        }.use { transport ->
+            val auth = AntigravityAuth(transport, AntigravityClientConfig("", ""))
+            assertThrows(AntigravityClientNotConfigured::class.java) {
+                auth.exchange(AntigravityOAuthProtocol.attempt(51121, client = client), "fixture-code")
+            }
+            assertThrows(AntigravityClientNotConfigured::class.java) { auth.current(vault()) }
+            assertEquals(0, requests)
+        }
+    }
+
     @Test fun authorizationFailureIsNotReplayedOrSentToAnotherEndpoint() {
         val requests = mutableListOf<Request>()
         fixture(action = { _, http, model ->
@@ -171,7 +188,11 @@ class AntigravityTransportTest {
                 }
             }
         http.use {
-            val session = AntigravityAuth(it).exchange(AntigravityOAuthProtocol.attempt(51121), "synthetic-code")
+            val session =
+                AntigravityAuth(
+                    it,
+                    client,
+                ).exchange(AntigravityOAuthProtocol.attempt(51121, client = client), "synthetic-code")
             assertEquals("fixture-project", session.accountId)
         }
         assertEquals(listOf("/token", "/v1internal:loadCodeAssist"), paths)
@@ -187,7 +208,7 @@ class AntigravityTransportTest {
             )
             200 to """{"access_token":"stale-refresh","expires_in":3600}"""
         }.use {
-            assertThrows(IllegalStateException::class.java) { AntigravityAuth(it).current(vault) }
+            assertThrows(IllegalStateException::class.java) { AntigravityAuth(it, client).current(vault) }
         }
         assertEquals("new-account", vault.load(CliSubscriptionProvider.ANTIGRAVITY).accessToken)
     }
@@ -204,7 +225,12 @@ class AntigravityTransportTest {
         )
         try {
             http(transport).use { http ->
-                AntigravitySubscriptionModel(vault, AntigravityReplayStore(directory), http = http).use {
+                AntigravitySubscriptionModel(
+                    vault,
+                    AntigravityReplayStore(directory),
+                    http = http,
+                    client = client,
+                ).use {
                     action(vault, http, it)
                 }
             }

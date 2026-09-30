@@ -25,8 +25,9 @@ internal class AntigravitySubscriptionModel(
     private val images: List<CliImageSnapshot> = emptyList(),
     private val http: AntigravityHttp = AntigravityHttp(),
     private val eventDirectory: java.io.File? = null,
+    client: AntigravityClientConfig = AntigravityClientConfig.build(),
 ) : Closeable {
-    private val auth = AntigravityAuth(http)
+    private val auth = AntigravityAuth(http, client)
 
     @Suppress("TooGenericExceptionCaught") // Untrusted wire/storage failures become typed failure, never success.
     fun run(
@@ -84,6 +85,10 @@ internal class AntigravitySubscriptionModel(
 
         private fun errorCode(error: Exception): ModelErrorCode =
             when (error) {
+                is AntigravityClientNotConfigured -> {
+                    ModelErrorCode.AUTH
+                }
+
                 is AntigravityHttpException -> {
                     when (error.status) {
                         401, 403 -> ModelErrorCode.AUTH

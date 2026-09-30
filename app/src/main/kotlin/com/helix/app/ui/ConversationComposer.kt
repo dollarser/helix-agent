@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
 import com.helix.core.model.AgentMode
-import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.launch
@@ -46,16 +45,14 @@ internal fun ConversationComposer(
     goalMode: Boolean = false,
     mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.ACT,
     onMode: suspend (AgentMode) -> Boolean = { false },
-    reasoning: ReasoningEffort = ReasoningEffort.OFF,
-    reasoningSupported: Boolean = false,
-    onReasoning: (ReasoningEffort) -> Unit = {},
     modelSelector: (@Composable () -> Unit)? = null,
     permissionMode: SessionPermissionMode? = null,
     onPermission: () -> Unit = {},
     contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
-    reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
+    headerStatus: @Composable () -> Unit = {},
+    optionsContent: @Composable () -> Unit = {},
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
@@ -92,6 +89,9 @@ internal fun ConversationComposer(
                 },
             )
         }
+        ComposerToolbar(mode, permissionMode, onPermission, headerStatus, optionsContent) {
+            ContextWindowIndicator(contextUsage, onCompact, canCompact)
+        }
         Column(
             Modifier
                 .fillMaxWidth()
@@ -108,8 +108,41 @@ internal fun ConversationComposer(
                 ) {
                     Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
                 }
-                androidx.compose.foundation.layout
-                    .Spacer(Modifier.weight(1f))
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = onInput,
+                    modifier = Modifier.weight(1f).testTag("chat-input"),
+                    placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
+                    enabled = availability.input && !commandPending,
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            disabledBorderColor = Color.Transparent,
+                        ),
+                    visualTransformation = { text ->
+                        val styled =
+                            androidx.compose.ui.text.AnnotatedString
+                                .Builder(text)
+                        if (command != null) {
+                            styled.addStyle(
+                                androidx.compose.ui.text.SpanStyle(
+                                    color = commandColor,
+                                    background = commandBackground,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                ),
+                                0,
+                                command.command.length + 1,
+                            )
+                        }
+                        androidx.compose.ui.text.input.TransformedText(
+                            styled.toAnnotatedString(),
+                            androidx.compose.ui.text.input.OffsetMapping.Identity,
+                        )
+                    },
+                    maxLines = 5,
+                )
+
                 IconButton(
                     { addOpen = true },
                     enabled = availability.canAttach() || availability.input,
@@ -202,40 +235,6 @@ internal fun ConversationComposer(
                     )
                 }
             }
-            OutlinedTextField(
-                value = input,
-                onValueChange = onInput,
-                modifier = Modifier.fillMaxWidth().testTag("chat-input"),
-                placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
-                enabled = availability.input && !commandPending,
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        disabledBorderColor = Color.Transparent,
-                    ),
-                visualTransformation = { text ->
-                    val styled =
-                        androidx.compose.ui.text.AnnotatedString
-                            .Builder(text)
-                    if (command != null) {
-                        styled.addStyle(
-                            androidx.compose.ui.text.SpanStyle(
-                                color = commandColor,
-                                background = commandBackground,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                            ),
-                            0,
-                            command.command.length + 1,
-                        )
-                    }
-                    androidx.compose.ui.text.input.TransformedText(
-                        styled.toAnnotatedString(),
-                        androidx.compose.ui.text.input.OffsetMapping.Identity,
-                    )
-                },
-                maxLines = 5,
-            )
             commandNotice?.let {
                 Text(
                     stringResource(it),
@@ -260,29 +259,8 @@ internal fun ConversationComposer(
                     }
                 }
             }
-            Text(
-                stringResource(R.string.chat_current_mode, mode.name),
-                Modifier.padding(horizontal = 16.dp).testTag("chat-current-mode"),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
-                ComposerToolbar(
-                    reasoning,
-                    reasoningSupported,
-                    onReasoning,
-                    isSending,
-                    modelSelector,
-                    permissionMode = permissionMode,
-                    onPermission = onPermission,
-                    reasoningOptions = reasoningOptions,
-                    trailingOptions = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
-                            ContextWindowIndicator(contextUsage, onCompact, canCompact)
-                        }
-                    },
-                )
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                modelSelector?.invoke()
             }
         }
     }

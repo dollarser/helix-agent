@@ -27,7 +27,7 @@ class ProviderModelPickerDeviceTest {
         val row = row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, "a", true) { _, _ -> error("No candidate selected") }
+                ComposerModelMenu(listOf(row), row.id, "a", true, onSelect = { _, _ -> error("No candidate selected") })
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -50,10 +50,10 @@ class ProviderModelPickerDeviceTest {
         var selected: Pair<String, String>? = null
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(subscription, local), null, null, true) { provider, model ->
+                ComposerModelMenu(listOf(subscription, local), null, null, true, onSelect = { provider, model ->
                     selected =
                         provider to model
-                }
+                })
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -62,6 +62,35 @@ class ProviderModelPickerDeviceTest {
         compose.onNodeWithText(localId).assertDoesNotExist()
         compose.onNodeWithTag("chat-model-local-$localId").performClick()
         compose.runOnIdle { assertEquals("local" to localId, selected) }
+    }
+
+    @Test fun reasoningWaitsForTheSelectedModelToBeApplied() {
+        val current = androidx.compose.runtime.mutableStateOf("a")
+        val row =
+            row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
+                .copy(modelSelection = ProviderModelSelection(listOf("a", "b"), "a", true))
+        var requested: String? = null
+        compose.setContent {
+            MaterialTheme {
+                ComposerModelMenu(listOf(row), row.id, current.value, true, { _, model -> requested = model }) {
+                    ComposerReasoningMenu(com.helix.core.model.ReasoningEffort.OFF, true, {})
+                }
+            }
+        }
+        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
+        compose.onNodeWithTag("chat-model-menu").performClick()
+        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
+        compose.onNodeWithTag("chat-model-api-b").performClick()
+        compose.runOnIdle { assertEquals("b", requested) }
+        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
+        // A rejected or delayed switch can return to the actual model without reapplying it.
+        compose.onNodeWithTag("chat-model-api-a").performClick()
+        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
+        compose.runOnIdle { assertEquals("b", requested) }
+        compose.onNodeWithTag("chat-model-api-b").performClick()
+        compose.runOnIdle { current.value = "b" }
+        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("chat-reasoning-medium").assertIsDisplayed()
     }
 
     private fun row(

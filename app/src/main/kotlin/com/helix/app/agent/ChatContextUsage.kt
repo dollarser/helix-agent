@@ -27,6 +27,15 @@ data class ChatContextUsage(
                 windowTokens?.takeIf { it > 0 }?.let { (used.toDouble() / it * PERCENT).toLong() }
             }
 
+    /** Preserve a measured nonzero context even when it occupies less than one percent. */
+    val percentageLabel: String
+        get() =
+            when {
+                percentage == null -> "?"
+                inputTokens != null && inputTokens > 0 && percentage == 0L -> "<1%"
+                else -> "$percentage%"
+            }
+
     companion object {
         private const val PERCENT = 100
     }

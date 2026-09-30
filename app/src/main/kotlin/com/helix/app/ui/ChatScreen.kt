@@ -369,6 +369,8 @@ fun ChatScreen(
                             ),
                         )
                     }
+                },
+                composerOptions = {
                     SessionInputDeliverySelector(
                         delivery = buffer.value.delivery,
                         expectedTurnId = buffer.value.expectedTurnId,
@@ -376,6 +378,8 @@ fun ChatScreen(
                         enabled = buffer.editable && !buffer.sending && screen.pendingDisclosure == null,
                         onSelect = buffer::delivery,
                     )
+                },
+                composerFeedback = {
                     if (buffer.missingAttachments.isNotEmpty()) {
                         Text(stringResource(R.string.chat_draft_attachment_missing))
                         TextButton(onClick = buffer::discardMissingAttachments) {

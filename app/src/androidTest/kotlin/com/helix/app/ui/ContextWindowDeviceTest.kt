@@ -23,6 +23,8 @@ class ContextWindowDeviceTest {
         val usage = mutableStateOf(ChatContextUsage())
         compose.setContent { MaterialTheme { ContextWindowIndicator(usage.value) } }
         compose.onNodeWithText("?").assertIsDisplayed()
+        compose.runOnIdle { usage.value = ChatContextUsage(500, 262144) }
+        compose.onNodeWithText("<1%").assertIsDisplayed()
         compose.runOnIdle { usage.value = ChatContextUsage(8500, 10000) }
         compose.onNodeWithText("85%").assertIsDisplayed()
         compose.onNodeWithTag("chat-context-window").performClick()

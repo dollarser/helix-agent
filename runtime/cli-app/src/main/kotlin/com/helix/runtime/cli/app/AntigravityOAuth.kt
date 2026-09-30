@@ -16,10 +16,8 @@ import java.util.Base64
 
 internal class AntigravityOnboardingRequired : IllegalStateException("Antigravity project unavailable")
 
-/** Public installed-app identity from dsh-plugin-subscriptions, not a user credential (see evidence/notice). */
+/** OAuth client identity is supplied by the build owner, never inherited from an upstream app. */
 internal object AntigravityOAuthProtocol {
-    const val CLIENT_ID = ""
-    const val DESKTOP_CLIENT_PARAMETER = ""
     const val CALLBACK = "/oauth-callback"
     private val scopes =
         listOf(
@@ -34,7 +32,9 @@ internal object AntigravityOAuthProtocol {
     fun attempt(
         port: Int,
         random: SecureRandom = SecureRandom(),
+        client: AntigravityClientConfig = AntigravityClientConfig.build(),
     ): CodexOAuthAttempt {
+        client.requireConfigured()
         require(port in 1..65535)
 
         fun randomValue(size: Int): String =
@@ -54,7 +54,7 @@ internal object AntigravityOAuthProtocol {
             "https://accounts.google.com/o/oauth2/v2/auth"
                 .toHttpUrl()
                 .newBuilder()
-                .addQueryParameter("client_id", CLIENT_ID)
+                .addQueryParameter("client_id", client.id)
                 .addQueryParameter("redirect_uri", redirect)
                 .addQueryParameter("response_type", "code")
                 .addQueryParameter("scope", scopes.joinToString(" "))
@@ -118,6 +118,7 @@ internal object AntigravityOAuthProtocol {
 /** No automatic onboarding, account rotation, paid-tier choice or eligibility bypass. */
 internal class AntigravityAuth(
     private val http: AntigravityHttp,
+    private val client: AntigravityClientConfig = AntigravityClientConfig.build(),
 ) : Closeable {
     fun exchange(
         attempt: CodexOAuthAttempt,
@@ -150,6 +151,7 @@ internal class AntigravityAuth(
     }
 
     fun current(vault: CliSubscriptionCredentialVault): CliCredentialSnapshot {
+        client.requireConfigured()
         val platform = CliSubscriptionProvider.ANTIGRAVITY
         if (!vault.contains(platform)) throw AntigravityHttpException(401)
         val before = vault.snapshot(platform)
@@ -169,11 +171,10 @@ internal class AntigravityAuth(
         return after
     }
 
-    private fun clientFields(): Map<String, String> =
-        mapOf(
-            "client_id" to AntigravityOAuthProtocol.CLIENT_ID,
-            "client_secret" to AntigravityOAuthProtocol.DESKTOP_CLIENT_PARAMETER,
-        )
+    private fun clientFields(): Map<String, String> {
+        client.requireConfigured()
+        return mapOf("client_id" to client.id, "client_secret" to client.secret)
+    }
 
     override fun close() = http.close()
 }

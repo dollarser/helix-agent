@@ -19,6 +19,14 @@ class ChatContextUsageTest {
         assertEquals(85L, ChatContextUsage(8500, 10000).percentage)
     }
 
+    @Test fun smallNonzeroUsageIsNotDisplayedAsZero() {
+        assertEquals("<1%", ChatContextUsage(500, 262144).percentageLabel)
+        assertEquals("0%", ChatContextUsage(0, 262144).percentageLabel)
+        assertEquals("25%", ChatContextUsage(65536, 262144).percentageLabel)
+        assertEquals("?", ChatContextUsage(null, 262144).percentageLabel)
+        assertEquals("?", ChatContextUsage(500, null).percentageLabel)
+    }
+
     @Test fun onlyMatchingModelAndEndpointCanSupplyUsage() {
         val snapshot = """{"transportIdentity":"https://example.test/v1","model":"a"}"""
         val usage = """{"inputTokens":85,"outputTokens":10}"""

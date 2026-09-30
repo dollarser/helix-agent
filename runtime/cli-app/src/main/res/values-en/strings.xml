@@ -141,4 +141,5 @@
     <string name="antigravity_failed">Google sign-in did not complete. Check network, eligibility and consent before retrying. This failure does not replace an existing login.</string>
     <string name="antigravity_onboarding">No Antigravity project was returned. Complete onboarding or eligibility verification in the official client, then sign in again.</string>
     <string name="antigravity_cancelled">This sign-in attempt was cancelled.</string>
+    <string name="antigravity_not_configured">This build does not configure Antigravity sign-in. Use a build with an authorized OAuth client, or choose another provider.</string>
 </resources>

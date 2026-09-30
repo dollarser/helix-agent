@@ -45,7 +45,7 @@ class ConversationComposerDeviceTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
                 MaterialTheme {
-                    Column(Modifier.width(240.dp)) {
+                    Column(Modifier.width(320.dp)) {
                         ConversationComposer(
                             input.value,
                             { input.value = it },
@@ -66,13 +66,13 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
         val options = compose.onNodeWithTag("chat-composer-options").getUnclippedBoundsInRoot()
         listOf(attach, voice, send).forEach { bounds ->
-            assertTrue("Voice, attachments and send stay above editing", bounds.bottom <= field.top)
+            assertTrue("Actions share the editing row", bounds.top < field.bottom && bounds.bottom > field.top)
         }
         listOf(options).forEach { bounds ->
-            assertTrue("Options stay below editing", bounds.top >= field.bottom)
+            assertTrue("Options stay above editing", bounds.bottom <= field.top)
         }
         assertTrue(voice.right <= attach.left && attach.right <= send.left)
-        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-send").assertIsNotEnabled()
         compose.runOnIdle { attachments.value = true }
         compose.onNodeWithTag("chat-send").assertIsEnabled()
@@ -187,13 +187,16 @@ class ConversationComposerDeviceTest {
                     sending.value,
                     false,
                     ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
-                    reasoning = reasoning.value,
-                    reasoningSupported = true,
-                    onReasoning = { reasoning.value = it },
+                    modelSelector = {
+                        ComposerModelMenu(emptyList(), null, "selected-model", !sending.value, { _, _ -> }) {
+                            ComposerReasoningMenu(reasoning.value, !sending.value, { reasoning.value = it })
+                        }
+                    },
                 )
             }
         }
-        compose.onNodeWithTag("chat-composer-options").performClick()
+        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
+        compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-medium").performClick()
         compose.runOnIdle {
@@ -202,18 +205,18 @@ class ConversationComposerDeviceTest {
         }
         compose.onNodeWithTag("chat-reasoning-menu").performClick()
         compose.runOnIdle { sending.value = true }
-        compose.onNodeWithTag("chat-reasoning-menu").assertIsNotEnabled()
+        compose.onNodeWithTag("chat-model-menu").assertIsNotEnabled()
+        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-reasoning-medium").assertDoesNotExist()
-        compose.onNodeWithTag("chat-composer-options-close").performClick()
         compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
     }
 
-    @Test fun modelAndReasoningRemainBelowEditingOnANarrowScreen() {
+    @Test fun modelStaysBelowEditingAndReasoningLivesInsidePicker() {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
                 MaterialTheme {
-                    Column(Modifier.width(240.dp)) {
+                    Column(Modifier.width(320.dp)) {
                         ConversationComposer(
                             "Draft",
                             {},
@@ -241,12 +244,11 @@ class ConversationComposerDeviceTest {
         val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
         compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
         val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
-        val reasoning = compose.onNodeWithTag("chat-reasoning-menu").getUnclippedBoundsInRoot()
         assertTrue(voice.left < add.left && add.left < send.left)
-        assertTrue(voice.bottom <= input.top)
+        assertTrue(voice.top < input.bottom && voice.bottom > input.top)
         assertTrue(model.top >= input.bottom)
-        assertTrue(model.right <= reasoning.left)
-        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
+        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
+        compose.onNodeWithTag("chat-context-window").assertIsDisplayed()
         compose.onNodeWithTag("chat-copy-input").assertDoesNotExist()
     }
 
@@ -268,6 +270,45 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-reasoning-adaptive_next").assertDoesNotExist()
         compose.onNodeWithTag("chat-reasoning-low").performClick()
         compose.runOnIdle { assertEquals(ReasoningEffort.LOW, selected) }
+    }
+
+    @Test fun commonPhoneWidthsKeepHeaderAndEditingOnTheirOwnRows() {
+        val width = mutableStateOf(320)
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
+                MaterialTheme {
+                    Column(Modifier.width(width.value.dp)) {
+                        ConversationComposer(
+                            "message",
+                            {},
+                            false,
+                            false,
+                            ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
+                            headerStatus = { SessionInputDeliveryCountText(2, 4) },
+                        )
+                    }
+                }
+            }
+        }
+        for (size in listOf(320, 360, 412)) {
+            compose.runOnIdle { width.value = size }
+            assertFits(
+                "chat-input",
+                "chat-voice",
+                "chat-add",
+                "chat-send",
+                "chat-context-window",
+                "chat-composer-options",
+            )
+            val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
+            val voice = compose.onNodeWithTag("chat-voice").getUnclippedBoundsInRoot()
+            val add = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
+            val header = compose.onNodeWithTag("chat-composer-header").getUnclippedBoundsInRoot()
+            assertTrue(voice.right <= input.left && input.right <= add.left)
+            assertTrue(header.bottom <= input.top)
+            compose.onNodeWithTag("chat-current-mode").assertIsDisplayed()
+        }
     }
 
     private fun assertFits(vararg tags: String) {

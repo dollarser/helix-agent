@@ -78,7 +78,7 @@ Helix 可以在明确授权后操作支持的应用界面。当前已有系统�
 
 当前源码的 Standard/consumer 版仅支持 **API / 自建服务**与**设备内本地模型**；Advanced/developer 包额外提供第三方账号订阅接入。这里说的是安装包渠道，不是聊天权限模式。账号订阅顺序为 Codex、Claude、Google Antigravity、GitHub Copilot、Grok (X Premium)。适配器可用性与账号权益仍需逐服务验证，不代表官方授权或全部功能已实测。
 
-使用 endpoint + API Key 的套餐（如 Kimi Code、MiniMax Token Plan）仍放在 API 接入中，两渠道均保留。使用匹配套餐和地区的密钥，不要混用按量 Key；Helix 不自动切换计费账号。Antigravity 为实验性适配，须先在官方客户端完成资格验证/开通，真实账号和手机验收范围见[接入记录](docs/evidence/development/subscription-antigravity-2026-09-30.md)。上述源码增量不表示已发布的 v0.0.3 APK 包含全部新改动。
+使用 endpoint + API Key 的套餐（如 Kimi Code、MiniMax Token Plan）仍放在 API 接入中，两渠道均保留。使用匹配套餐和地区的密钥，不要混用按量 Key；Helix 不自动切换计费账号。Antigravity 为实验性适配，默认构建不含 OAuth 客户端配置，登录需使用由构建者配置获准客户端的版本，并先在官方客户端完成资格验证/开通，真实账号和手机验收范围见[接入记录](docs/evidence/development/subscription-antigravity-2026-09-30.md)。上述源码增量不表示已发布的 v0.0.3 APK 包含全部新改动。
 
 ## 开始第一个任务
 

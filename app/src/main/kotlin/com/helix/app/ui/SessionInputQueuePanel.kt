@@ -131,12 +131,12 @@ internal fun SessionInputQueuePanel(
         }
     val appendedCount = records.count { it.state == SessionInputState.APPENDED }
     Column(
-        modifier = Modifier.fillMaxWidth().testTag("session-input-queue-panel"),
+        modifier = Modifier.testTag("session-input-queue-panel"),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         TextButton(
             onClick = { expanded = !expanded },
-            modifier = Modifier.fillMaxWidth().testTag("session-input-queue-toggle"),
+            modifier = Modifier.testTag("session-input-queue-toggle"),
         ) {
             if (records.isEmpty()) {
                 Text(stringResource(R.string.session_input_delivery_title))
@@ -144,160 +144,165 @@ internal fun SessionInputQueuePanel(
                 SessionInputDeliveryCountText(pendingCount, appendedCount)
             }
         }
-        if (loading) Text(stringResource(R.string.session_input_loading))
-        if (loadFailed) {
-            Text(
-                stringResource(R.string.session_input_load_failed),
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag("session-input-queue-error"),
-            )
-            TextButton(onClick = { scope.launch { refreshQueue() } }) {
-                Text(stringResource(R.string.session_input_refresh))
-            }
-        }
-        notice?.let { resource ->
-            Text(
-                stringResource(resource),
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag("session-input-queue-notice"),
-            )
-        }
         if (expanded) {
-            records.forEach { record ->
-                SessionInputQueueRow(
-                    state =
-                        SessionInputQueueRowState(
-                            record = record,
-                            body = bodies[record.inputId],
-                            editing = editingId == record.inputId,
-                            editText = editText,
-                            busy = busy[record.inputId] == true,
-                        ),
-                    actions =
-                        SessionInputQueueRowActions(
-                            onExpand = {
-                                if (bodies.containsKey(record.inputId)) {
-                                    bodies.remove(record.inputId)
-                                } else {
-                                    scope.launch {
-                                        val loaded =
-                                            preservingCancellation {
-                                                service.readSessionInput(record.inputId).await()
-                                            }.getOrNull()
-                                        bodies[record.inputId] = loaded
-                                    }
-                                }
-                            },
-                            onEdit = {
-                                editGeneration += 1
-                                val generation = editGeneration
-                                editingId = record.inputId
-                                editText = bodies[record.inputId] ?: ""
-                                if (!bodies.containsKey(record.inputId)) {
-                                    scope.launch {
-                                        val loaded =
-                                            preservingCancellation {
-                                                service.readSessionInput(record.inputId).await()
-                                            }.getOrNull()
-                                        bodies[record.inputId] = loaded
-                                        val sameEditor = editingId == record.inputId && editGeneration == generation
-                                        if (sameEditor && loaded != null) {
-                                            editText = loaded
+            ConversationSheet(stringResource(R.string.session_input_delivery_title), "session-input-queue", {
+                expanded =
+                    false
+            }) {
+                if (loading) Text(stringResource(R.string.session_input_loading))
+                if (loadFailed) {
+                    Text(
+                        stringResource(R.string.session_input_load_failed),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("session-input-queue-error"),
+                    )
+                    TextButton(onClick = { scope.launch { refreshQueue() } }) {
+                        Text(stringResource(R.string.session_input_refresh))
+                    }
+                }
+                notice?.let { resource ->
+                    Text(
+                        stringResource(resource),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("session-input-queue-notice"),
+                    )
+                }
+                records.forEach { record ->
+                    SessionInputQueueRow(
+                        state =
+                            SessionInputQueueRowState(
+                                record = record,
+                                body = bodies[record.inputId],
+                                editing = editingId == record.inputId,
+                                editText = editText,
+                                busy = busy[record.inputId] == true,
+                            ),
+                        actions =
+                            SessionInputQueueRowActions(
+                                onExpand = {
+                                    if (bodies.containsKey(record.inputId)) {
+                                        bodies.remove(record.inputId)
+                                    } else {
+                                        scope.launch {
+                                            val loaded =
+                                                preservingCancellation {
+                                                    service.readSessionInput(record.inputId).await()
+                                                }.getOrNull()
+                                            bodies[record.inputId] = loaded
                                         }
                                     }
-                                }
-                            },
-                            onEditText = {
-                                editGeneration += 1
-                                editText = it
-                            },
-                            onSaveEdit = {
-                                val submittedText = editText
-                                busy[record.inputId] = true
-                                notice = null
-                                scope.launch {
-                                    runInputAction(
-                                        action = {
-                                            val saved =
-                                                service
-                                                    .editSessionInput(
-                                                        record.inputId,
-                                                        record.revision,
-                                                        submittedText,
-                                                    ).await()
-                                            if (saved) {
-                                                editingId = null
-                                                refreshQueue()
-                                            } else {
-                                                notice = R.string.session_input_revision_stale
-                                                refreshQueue()
+                                },
+                                onEdit = {
+                                    editGeneration += 1
+                                    val generation = editGeneration
+                                    editingId = record.inputId
+                                    editText = bodies[record.inputId] ?: ""
+                                    if (!bodies.containsKey(record.inputId)) {
+                                        scope.launch {
+                                            val loaded =
+                                                preservingCancellation {
+                                                    service.readSessionInput(record.inputId).await()
+                                                }.getOrNull()
+                                            bodies[record.inputId] = loaded
+                                            val sameEditor = editingId == record.inputId && editGeneration == generation
+                                            if (sameEditor && loaded != null) {
+                                                editText = loaded
                                             }
-                                        },
-                                        onFailure = { notice = R.string.session_input_action_failed },
-                                        onComplete = { busy[record.inputId] = false },
-                                    )
-                                }
-                            },
-                            onCancelEdit = { editingId = null },
-                            onWithdraw = {
-                                busy[record.inputId] = true
-                                notice = null
-                                scope.launch {
-                                    runInputAction(
-                                        action = {
-                                            val withdrawn =
-                                                service
-                                                    .withdrawSessionInput(
-                                                        record.inputId,
-                                                        record.revision,
-                                                    ).await()
-                                            if (withdrawn) {
-                                                refreshQueue()
-                                            } else {
-                                                notice = R.string.session_input_revision_stale
-                                                refreshQueue()
-                                            }
-                                        },
-                                        onFailure = { notice = R.string.session_input_action_failed },
-                                        onComplete = { busy[record.inputId] = false },
-                                    )
-                                }
-                            },
-                            onResume = {
-                                busy[record.inputId] = true
-                                notice = null
-                                scope.launch {
-                                    runInputAction(
-                                        action = {
-                                            val outcome =
-                                                service
-                                                    .resumeSessionInput(
-                                                        record.inputId,
-                                                        record.revision,
-                                                    ).await()
-                                            when (outcome) {
-                                                is ChatSubmissionOutcome.Accepted,
-                                                is ChatSubmissionOutcome.Enqueued,
-                                                -> {
+                                        }
+                                    }
+                                },
+                                onEditText = {
+                                    editGeneration += 1
+                                    editText = it
+                                },
+                                onSaveEdit = {
+                                    val submittedText = editText
+                                    busy[record.inputId] = true
+                                    notice = null
+                                    scope.launch {
+                                        runInputAction(
+                                            action = {
+                                                val saved =
+                                                    service
+                                                        .editSessionInput(
+                                                            record.inputId,
+                                                            record.revision,
+                                                            submittedText,
+                                                        ).await()
+                                                if (saved) {
+                                                    editingId = null
+                                                    refreshQueue()
+                                                } else {
+                                                    notice = R.string.session_input_revision_stale
                                                     refreshQueue()
                                                 }
-
-                                                ChatSubmissionOutcome.PendingConfirmation -> {
-                                                    notice = R.string.session_input_resume_not_accepted
+                                            },
+                                            onFailure = { notice = R.string.session_input_action_failed },
+                                            onComplete = { busy[record.inputId] = false },
+                                        )
+                                    }
+                                },
+                                onCancelEdit = { editingId = null },
+                                onWithdraw = {
+                                    busy[record.inputId] = true
+                                    notice = null
+                                    scope.launch {
+                                        runInputAction(
+                                            action = {
+                                                val withdrawn =
+                                                    service
+                                                        .withdrawSessionInput(
+                                                            record.inputId,
+                                                            record.revision,
+                                                        ).await()
+                                                if (withdrawn) {
+                                                    refreshQueue()
+                                                } else {
+                                                    notice = R.string.session_input_revision_stale
+                                                    refreshQueue()
                                                 }
+                                            },
+                                            onFailure = { notice = R.string.session_input_action_failed },
+                                            onComplete = { busy[record.inputId] = false },
+                                        )
+                                    }
+                                },
+                                onResume = {
+                                    busy[record.inputId] = true
+                                    notice = null
+                                    scope.launch {
+                                        runInputAction(
+                                            action = {
+                                                val outcome =
+                                                    service
+                                                        .resumeSessionInput(
+                                                            record.inputId,
+                                                            record.revision,
+                                                        ).await()
+                                                when (outcome) {
+                                                    is ChatSubmissionOutcome.Accepted,
+                                                    is ChatSubmissionOutcome.Enqueued,
+                                                    -> {
+                                                        refreshQueue()
+                                                    }
 
-                                                is ChatSubmissionOutcome.Rejected -> {
-                                                    notice = R.string.session_input_resume_not_accepted
+                                                    ChatSubmissionOutcome.PendingConfirmation -> {
+                                                        notice = R.string.session_input_resume_not_accepted
+                                                    }
+
+                                                    is ChatSubmissionOutcome.Rejected -> {
+                                                        notice = R.string.session_input_resume_not_accepted
+                                                    }
                                                 }
-                                            }
-                                        },
-                                        onFailure = { notice = R.string.session_input_action_failed },
-                                        onComplete = { busy[record.inputId] = false },
-                                    )
-                                }
-                            },
-                        ),
-                )
+                                            },
+                                            onFailure = { notice = R.string.session_input_action_failed },
+                                            onComplete = { busy[record.inputId] = false },
+                                        )
+                                    }
+                                },
+                            ),
+                    )
+                }
             }
         }
     }
@@ -312,6 +317,8 @@ internal fun SessionInputDeliveryCountText(
     Text(
         stringResource(R.string.session_input_delivery_count, pendingCount, appendedCount),
         modifier = Modifier.testTag("session-input-delivery-count"),
+        maxLines = 1,
+        softWrap = false,
     )
 }
 

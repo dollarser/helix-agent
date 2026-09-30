@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -29,7 +28,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
 
 @Composable
@@ -43,35 +41,34 @@ internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
     )
 }
 
-/** Model/reasoning stay inline; secondary controls share one bounded sheet in the composer action row. */
+/** Mode, delivery status, context and secondary actions share the composer's top edge. */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
 internal fun ComposerToolbar(
-    reasoning: ReasoningEffort,
-    reasoningSupported: Boolean,
-    onReasoning: (ReasoningEffort) -> Unit,
-    isSending: Boolean,
-    modelSelector: (@Composable () -> Unit)?,
-    permissionMode: SessionPermissionMode? = null,
-    onPermission: () -> Unit = {},
-    reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
-    trailingOptions: @Composable () -> Unit = {},
+    mode: com.helix.core.model.AgentMode,
+    permissionMode: SessionPermissionMode?,
+    onPermission: () -> Unit,
+    headerStatus: @Composable () -> Unit,
+    optionsContent: @Composable () -> Unit,
+    contextIndicator: @Composable () -> Unit,
 ) {
     var options by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().testTag("chat-composer-header"), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            mode.name,
+            Modifier.testTag("chat-current-mode"),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+        )
+        Row(
+            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) { headerStatus() }
+        contextIndicator()
         IconButton({ options = true }, modifier = Modifier.size(48.dp).testTag("chat-composer-options")) {
             Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_composer_options))
         }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-            modelSelector?.invoke()
-        }
-        ComposerReasoningMenu(
-            reasoning,
-            reasoningSupported && !isSending,
-            onReasoning,
-            modifier = Modifier.widthIn(max = 104.dp),
-            efforts = reasoningOptions,
-        )
     }
     if (options) {
         ConversationSheet(
@@ -79,12 +76,12 @@ internal fun ComposerToolbar(
             "chat-composer-options",
             { options = false },
         ) {
+            optionsContent()
             permissionMode?.let { permission ->
                 TextButton(onClick = onPermission, modifier = Modifier.testTag("chat-permission-menu")) {
                     Text("🛡 ${stringResource(permission.labelRes())}")
                 }
             }
-            trailingOptions()
         }
     }
 }

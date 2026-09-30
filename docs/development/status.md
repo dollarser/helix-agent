@@ -18,6 +18,8 @@
 | 设备内模型 | [HXA-222](../completion-records/HXA-222.md)、[收口](../evidence/development/hxa222-closeout-2026-09-28.md)、[安装](../evidence/development/p3-local-model-install-2026-09-28.md)/[首次使用](../evidence/development/p4-first-success-journey-2026-09-28.md) | 本地 Provider 可驱动完整 Loop，不等于所有设备与任务质量已验证 |
 | Eval/整合 | [HXA-227](../completion-records/HXA-227.md)、[设备基线](../evidence/development/hxa227-device-baseline-2026-09-27.md)、[历史真机验收](../evidence/development/physical-oneplus-acceptance-2026-09-24.md) | 每份证据仅覆盖原基线；公共 benchmark 与生产 Harness 分开报告 |
 
+2026-09-30 所有者追加的[输入布局与模型/推理入口收敛](../bug-fixes/2026-09-30-composer-layout.md)记录当前改动及主机/设备验证边界。
+
 最近的界面与输入修复分别见[压缩/Goal 隔离](../bug-fixes/2026-09-29-manual-compaction-goal-isolation.md)、[系统选择器与分享](../bug-fixes/2026-09-29-external-ui-recovery.md)、[输入恢复/Runtime](../bug-fixes/2026-09-29-interaction-recovery-audit.md)、[命令/语音入口](../bug-fixes/2026-09-29-slash-runtime-voice.md)、[交互/配置](../bug-fixes/2026-09-29-interaction-settings.md)。较早配置“建议后另确认”和自动化周期确认须结合 HXA-232 的后续变更理解，不能恢复为当前规则。
 
 开发期 Room 仍采用 v1 baseline：不兼容库重建、数据库外文件保留，兼容库重开不清空。验证与实际工具看图见[最终收口](../evidence/development/final-closeout-2026-09-29.md)；正式数据升级和签名身份归 HXA-122。

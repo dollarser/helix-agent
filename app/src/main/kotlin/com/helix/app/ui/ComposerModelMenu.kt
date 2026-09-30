@@ -58,7 +58,7 @@ private fun ConversationModelItem(
                 }
             }
         },
-        onClick = { if (enabled && !current && row.modelSelectable(model)) onSelect() },
+        onClick = { if (enabled && row.modelSelectable(model)) onSelect() },
         enabled = enabled && row.modelSelectable(model),
         modifier = Modifier.semantics { selected = current }.testTag("chat-model-${row.id}-$model"),
     )
@@ -72,9 +72,11 @@ internal fun ComposerModelMenu(
     model: String?,
     enabled: Boolean,
     onSelect: (String, String) -> Unit,
+    reasoningContent: (@Composable () -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var requestedModel by remember { mutableStateOf<Pair<String, String>?>(null) }
     val currentProvider = providers.firstOrNull { it.id == providerId }
     val currentLabel = model?.let { currentProvider?.modelLabel(it) ?: it }
     val entries =
@@ -83,7 +85,10 @@ internal fun ComposerModelMenu(
             .filter { (row, candidate) -> matchesModelQuery(row, candidate, query) }
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
     Box {
-        TextButton({ expanded = true }, enabled = enabled, modifier = Modifier.testTag("chat-model-menu")) {
+        TextButton({
+            requestedModel = null
+            expanded = true
+        }, enabled = enabled, modifier = Modifier.testTag("chat-model-menu")) {
             Text(
                 "${currentLabel ?: stringResource(R.string.chat_select_model)} ▾",
                 maxLines = 1,
@@ -109,6 +114,7 @@ internal fun ComposerModelMenu(
                                 modifier = Modifier.testTag("chat-model-hidden-current"),
                             )
                         }
+                        ModelReasoningOptions(providerId, model, requestedModel, reasoningContent)
                         LazyColumn(Modifier.heightIn(max = 360.dp)) {
                             if (entries.isEmpty()) {
                                 item {
@@ -123,8 +129,9 @@ internal fun ComposerModelMenu(
                             }) { (row, candidate) ->
                                 val current = row.id == providerId && candidate == model
                                 ConversationModelItem(row, candidate, current, enabled) {
-                                    expanded = false
-                                    onSelect(row.id, candidate)
+                                    requestedModel = row.id to candidate
+                                    if (reasoningContent == null) expanded = false
+                                    if (!current) onSelect(row.id, candidate)
                                 }
                             }
                         }
@@ -133,9 +140,23 @@ internal fun ComposerModelMenu(
                 confirmButton = {
                     TextButton(
                         onClick = { expanded = false },
+                        modifier = Modifier.testTag("chat-model-picker-close"),
                     ) { Text(stringResource(R.string.chat_details_close)) }
                 },
             )
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ModelReasoningOptions(
+    provider: String?,
+    model: String?,
+    requested: Pair<String, String>?,
+    content: (@Composable () -> Unit)?,
+) {
+    if (model != null && (requested == null || requested == (provider to model))) {
+        androidx.compose.runtime.key(provider, model) { content?.invoke() }
     }
 }

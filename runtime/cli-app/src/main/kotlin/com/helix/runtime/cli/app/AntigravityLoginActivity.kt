@@ -16,6 +16,7 @@ class AntigravityLoginActivity : Activity() {
         val auth: AntigravityAuth,
     )
 
+    private val client = AntigravityClientConfig.build()
     private val guard = Any()
     private var active: Attempt? = null
     private var destroyed = false
@@ -67,7 +68,7 @@ class AntigravityLoginActivity : Activity() {
     private fun startLogin() {
         val attempt =
             synchronized(guard) {
-                if (active != null || destroyed) return
+                if (active != null || destroyed || !client.configured) return
                 try {
                     val server = CodexLoopbackServer.bindEphemeral()
                     Attempt(server, AntigravityAuth(AntigravityHttp())).also { active = it }
@@ -140,9 +141,9 @@ class AntigravityLoginActivity : Activity() {
     }
 
     private fun render(message: Int) {
-        status.setText(message)
+        status.setText(if (client.configured) message else R.string.antigravity_not_configured)
         val busy = synchronized(guard) { active != null }
-        login.isEnabled = !busy
+        login.isEnabled = !busy && client.configured
         cancel.isEnabled = busy
         logout.isEnabled = !busy && vault.contains(CliSubscriptionProvider.ANTIGRAVITY)
     }

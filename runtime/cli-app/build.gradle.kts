@@ -2,12 +2,27 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+val antigravityClientId = providers.environmentVariable("HELIX_ANTIGRAVITY_CLIENT_ID").orElse("")
+val antigravityClientSecret = providers.environmentVariable("HELIX_ANTIGRAVITY_CLIENT_SECRET").orElse("")
+require(antigravityClientId.get().isEmpty() == antigravityClientSecret.get().isEmpty()) {
+    "Configure both Antigravity OAuth client parameters or neither"
+}
+
+fun oauthLiteral(value: String): String {
+    require(value.length <= 512 && value.all { (it.isLetterOrDigit() && it.code < 128) || it in "._-" }) {
+        "Invalid Antigravity OAuth build configuration"
+    }
+    return "\"$value\""
+}
+
 android {
     namespace = "com.helix.runtime.cli.app"
     compileSdk = 37
 
     defaultConfig {
         minSdk = 29
+        buildConfigField("String", "ANTIGRAVITY_CLIENT_ID", oauthLiteral(antigravityClientId.get()))
+        buildConfigField("String", "ANTIGRAVITY_CLIENT_SECRET", oauthLiteral(antigravityClientSecret.get()))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

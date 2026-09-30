@@ -15,7 +15,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 使用明确标注的第三方协议适配器，通过自身登录流程交换/刷新 OAuth；不导入浏览器 Cookie、其他 App/CLI 的凭据。正常主进程 API 仅接收公开目录与模型结果，token 留在订阅模块；共享 UID 不构成 token 隔离保证。
 - consumer 不包含订阅实现，developer 包含完整模块。发行资格和第三方服务条款需要真实渠道证据，不能把技术可用当发布许可。
 - 账号订阅的固定展示顺序为 **Codex、Claude、Google Antigravity、GitHub Copilot、Grok (X Premium)**，不依赖数据库顺序或本地化名称。API Key 型套餐不进入此清单，仍属于普通 API 来源。
-- Google Antigravity 作为 developer-only 适配器，以 `dsh-plugin-subscriptions` 的固定 MIT 源码版本作为协议依据：独立 Google OAuth code + PKCE、仅本机 loopback 回调、令牌刷新、`loadCodeAssist` 项目发现、认证模型目录以及 Gemini-shaped SSE。公开安装应用身份只用于本次明确授权的第三方接入，不代表 Google 授权发行；界面必须披露非官方、资格、条款和额度风险。不得导入其他程序的用户令牌、轮换未授权 client 或绕过资格校验。
+- Google Antigravity 作为 developer-only 适配器，以 `dsh-plugin-subscriptions` 的固定 MIT 源码版本作为协议依据：独立 Google OAuth code + PKCE、仅本机 loopback 回调、令牌刷新、`loadCodeAssist` 项目发现、认证模型目录以及 Gemini-shaped SSE。不内置或复用上游应用身份，OAuth 客户端由构建者显式配置获准使用的 installed-app 参数，缺配置时不可登录；界面必须披露非官方、资格、条款和额度风险。不得导入其他程序的用户令牌、轮换未授权 client 或绕过资格校验。
 - 登录没有项目时要求用户先在官方客户端完成开通，不自动选择付费 tier、调用 onboarding 或购买套餐。普通 token 刷新保留登录 revision；过期刷新不能覆盖较新登录或复活退出。
 - Antigravity 请求的原始签名 parts 留在订阅 Runtime 私有存储，绑定模型、登录 revision、消息和调用身份；工具回填保留原始函数 ID。签名不可放入业务参数，缺失/错绑/损坏不能用跳过校验的魔法值替代。工具仅在明确 STOP 且必要重放证据保存后交付；截断、断流及错误终态不释放待定调用。
 - Google 生成使用现有增量事件与磁盘 spool，不设新的累计回复大小或总生成时长限制。OAuth/目录短请求、单 SSE 帧、工具扇出和未来请求/重放证据仍有资源边界；证据不可重放时报告失败，不伪造成功。当前新生成不进行不确定 POST 重放或跨 origin 自动回退。
@@ -51,3 +51,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history — 2026-09-30：Antigravity 构建配置
+
+所有者授权移除内置 Google OAuth 客户端参数，不再复用上游应用身份。构建者须通过环境变量 `HELIX_ANTIGRAVITY_CLIENT_ID` 和 `HELIX_ANTIGRAVITY_CLIENT_SECRET` 同时提供自己获准使用的 installed-app 客户端参数；默认均为空，缺少配置时登录入口明确解释原因并禁用，其他 Provider 不受影响。不把这些参数当作移动端可保密的秘密，不使用 confidential-client 凭据；参数会进入构建产物，不记录到源码、日志、证据或版本历史。生成与刷新路径也校验配置，不通过隐藏按钮替代运行时边界。

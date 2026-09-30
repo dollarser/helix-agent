@@ -22,10 +22,22 @@ import java.security.MessageDigest
 import java.util.Base64
 
 class AntigravityProtocolTest {
+    private val client = AntigravityClientConfig("fixture-client", "fixture-parameter")
+
+    @Test fun missingClientCannotStartAuthorization() {
+        for (config in listOf(AntigravityClientConfig("", ""), AntigravityClientConfig("id", ""))) {
+            assertThrows(AntigravityClientNotConfigured::class.java) {
+                AntigravityOAuthProtocol.attempt(51121, client = config)
+            }
+        }
+        assertFalse(client.toString().contains("fixture-parameter"))
+    }
+
     @Test fun loginUsesDistinctStatePkceAndLoopbackRedirect() {
-        val attempt = AntigravityOAuthProtocol.attempt(51121)
+        val attempt = AntigravityOAuthProtocol.attempt(51121, client = client)
         val url = attempt.authorizeUrl.toHttpUrl()
         assertEquals("accounts.google.com", url.host)
+        assertEquals("fixture-client", url.queryParameter("client_id"))
         assertEquals("http://127.0.0.1:51121/oauth-callback", url.queryParameter("redirect_uri"))
         assertEquals("S256", url.queryParameter("code_challenge_method"))
         val expected =
@@ -33,7 +45,7 @@ class AntigravityProtocolTest {
                 MessageDigest.getInstance("SHA-256").digest(attempt.verifier.toByteArray(Charsets.US_ASCII)),
             )
         assertEquals(expected, url.queryParameter("code_challenge"))
-        assertNotEquals(attempt.state, AntigravityOAuthProtocol.attempt(51121).state)
+        assertNotEquals(attempt.state, AntigravityOAuthProtocol.attempt(51121, client = client).state)
     }
 
     @Test fun callbackRejectsMissingWrongOrDuplicateStateAndCode() {
