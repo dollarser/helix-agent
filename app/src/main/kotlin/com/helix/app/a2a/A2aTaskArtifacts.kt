@@ -101,7 +101,8 @@ internal class A2aTaskArtifacts(
                         existing.sha256 == expectedHash &&
                         file.isFile &&
                         file.length() == existing.size &&
-                        FileContentStore.sha256Hex(file.readBytes()) == existing.sha256,
+                        com.helix.core.workspace.AtomicFileWriter
+                            .sha256Hex(file.toPath()) == existing.sha256,
                 ) { "saved A2A Artifact no longer matches the remote Task snapshot" }
                 return@synchronized artifactReference(
                     existing.id,

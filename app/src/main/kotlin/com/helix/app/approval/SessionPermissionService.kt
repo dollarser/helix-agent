@@ -61,7 +61,7 @@ class SessionPermissionService(
         workspaceRef: String?,
     ): ToolAvailabilityStates {
         val sessionWorkspace = sessionId?.let { workspaceFor(it) }
-        if (sessionWorkspace == null || sessionWorkspace == workspaceRef) {
+        if (workspaceRef == null || sessionWorkspace == null || sessionWorkspace == workspaceRef) {
             return availability.statesFor(sourceRef, toolName, sessionId, sessionWorkspace ?: workspaceRef)
         }
         // The call asserts a trusted second workspace: read both, and a disable in EITHER

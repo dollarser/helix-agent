@@ -497,9 +497,9 @@ class FileManagerService internal constructor(
         } catch (e: FileNotFoundException) {
             FileOpResult.NotFound(loc(R.string.files_error_source_missing))
         } catch (e: IllegalArgumentException) {
-            FileOpResult.Error(e.message ?: loc(R.string.files_error_invalid_operation))
+            FileOpResult.Error(loc(R.string.files_error_invalid_operation))
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: loc(R.string.files_error_operation_failed))
+            FileOpResult.Error(loc(R.string.files_error_operation_failed))
         }
     }
 
@@ -513,7 +513,8 @@ class FileManagerService internal constructor(
         } catch (_: FileAlreadyExistsException) {
             FileOpResult.Conflict
         } catch (failure: Exception) {
-            FileOpResult.Error(failure.message ?: loc(R.string.files_error_operation_failed))
+            android.util.Log.w("FileManager", "File operation failed: ${failure.javaClass.simpleName}")
+            FileOpResult.Error(loc(R.string.files_error_operation_failed))
         }
 
     /** Creates a directory [name] under [parentRel] (inside a user region). Refuses an existing path. */
@@ -539,7 +540,7 @@ class FileManagerService internal constructor(
         } catch (e: FileAlreadyExistsException) {
             FileOpResult.Conflict
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: loc(R.string.files_error_mkdir_failed))
+            FileOpResult.Error(loc(R.string.files_error_mkdir_failed))
         }
     }
 

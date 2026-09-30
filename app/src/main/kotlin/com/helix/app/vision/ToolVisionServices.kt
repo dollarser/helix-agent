@@ -63,5 +63,13 @@ internal class ToolVisionServices(
                     session.providerId?.let { providers.capabilitiesFor(it, session.modelId)?.vision } == true
                 }
             },
+            turnVisionAvailable = { sessionId, turnId ->
+                runBlocking {
+                    val runtime = storage.turnRuntimeRecords.find(turnId)
+                    val session = storage.sessions.resolve(sessionId)
+                    val provider = runtime?.providerId ?: session.providerId
+                    provider?.let { providers.capabilitiesFor(it, runtime?.modelId ?: session.modelId)?.vision } == true
+                }
+            },
         )
 }

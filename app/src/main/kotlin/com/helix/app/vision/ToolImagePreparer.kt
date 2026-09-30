@@ -32,6 +32,7 @@ class ToolImagePreparer(
     private val clock: Clock,
     private val visionAvailable: (String) -> Boolean,
     private val normalize: (Path, String, Path) -> NormalizationOutcome = ImageNormalizer::normalize,
+    private val turnVisionAvailable: ((String, String) -> Boolean)? = null,
 ) : ToolVisualPreparation {
     private val decodeSlot = Semaphore(1, true)
 
@@ -43,7 +44,9 @@ class ToolImagePreparer(
         val session = call.sessionId ?: throw VisualPreparationException("SESSION_REQUIRED")
         val turn = call.turnId ?: throw VisualPreparationException("TURN_REQUIRED")
         if (storage.turns.resolve(turn).sessionId != session) throw VisualPreparationException("SESSION_MISMATCH")
-        if (!visionAvailable(session)) throw VisualPreparationException("VISION_UNAVAILABLE")
+        if (!(turnVisionAvailable?.invoke(session, turn) ?: visionAvailable(session))) {
+            throw VisualPreparationException("VISION_UNAVAILABLE")
+        }
         val path = FileScopePath.fromModelReference(reference)
         var acquired = false
         var directory: File? = null

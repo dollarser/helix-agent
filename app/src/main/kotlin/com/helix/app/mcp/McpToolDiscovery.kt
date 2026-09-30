@@ -73,22 +73,28 @@ internal class McpToolDiscovery(
         return matches
     }
 
-    @Synchronized
     fun visible(
         sessionId: String,
         admitted: List<ToolDescriptor>,
         defaultNames: Set<String> = emptySet(),
     ): List<ToolDescriptor> {
-        admittedWindows[sessionId] = admitted.filter { availability(sessionId, it) }.toSet()
-        while (admittedWindows.size > MAX_SESSIONS) admittedWindows.remove(admittedWindows.keys.first())
-        val selected = loaded[sessionId].orEmpty().filter { it in admitted && availability(sessionId, it) }
-        loaded[sessionId]?.let { loaded[sessionId] = selected }
+        // One availability read per candidate, outside the shared discovery-window lock.
+        // Execution still performs its independent live authorization check.
+        val available = admitted.filter { availability(sessionId, it) }
+        val selected =
+            synchronized(this) {
+                admittedWindows[sessionId] = available.toSet()
+                while (admittedWindows.size > MAX_SESSIONS) admittedWindows.remove(admittedWindows.keys.first())
+                loaded[sessionId].orEmpty().filter { it in available }.also { current ->
+                    loaded[sessionId]?.let { loaded[sessionId] = current }
+                }
+            }
         // A disable that landed while a tool was in the session window removes it here too —
         // the window replacement re-reads the same shared predicate (ADR section 1.1).
-        val mcp = admitted.filter { it.origin is ToolOrigin.McpOrigin && availability(sessionId, it) }
+        val mcp = available.filter { it.origin is ToolOrigin.McpOrigin }
         val local =
-            admitted.filter {
-                it.origin !is ToolOrigin.McpOrigin && availability(sessionId, it) &&
+            available.filter {
+                it.origin !is ToolOrigin.McpOrigin &&
                     (it.name.value == "tools.search" || it.name.value in defaultNames)
             }
         val discovery = local.filter { it.name.value == "tools.search" }
@@ -105,7 +111,10 @@ internal class McpToolDiscovery(
             .values
             .map { it.maxBy { version -> version.version.value } }
 
-    fun register(registry: ToolRegistry) {
+    fun register(
+        registry: ToolRegistry,
+        metadata: (ToolExecutor) -> ToolExecutor = { it },
+    ) {
         val descriptor =
             ToolDescriptor(
                 name = ToolName("tools.search"),
@@ -130,36 +139,39 @@ internal class McpToolDiscovery(
 
         registry.register(
             descriptor,
-            object : ToolExecutor {
-                @Suppress("ReturnCount") // Cancellation and missing local context are distinct terminal results.
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
-                    val session = call.sessionId ?: return ToolExecutorResult.Failed("MCP_DISCOVERY_SESSION_REQUIRED")
-                    val query =
-                        call.args
-                            .getValue("query")
-                            .jsonPrimitive.content
-                    val limit = call.args["limit"]?.jsonPrimitive?.intOrNull ?: 8
-                    if (query.isBlank()) return ToolExecutorResult.Failed("MCP_DISCOVERY_QUERY_REQUIRED")
-                    val matches = search(session, query, limit)
-                    return ToolExecutorResult.Completed(
-                        buildJsonObject {
-                            put(
-                                "tools",
-                                JsonArray(
-                                    matches.map { tool ->
-                                        buildJsonObject {
-                                            put("name", JsonPrimitive(tool.name.value))
-                                            put("description", JsonPrimitive(tool.description.take(240)))
-                                            put("version", JsonPrimitive(tool.version.value))
-                                        }
-                                    },
-                                ),
-                            )
-                        },
-                    )
-                }
-            },
+            metadata(
+                object : ToolExecutor {
+                    @Suppress("ReturnCount") // Cancellation and missing local context are distinct terminal results.
+                    override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                        if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                        val session =
+                            call.sessionId ?: return ToolExecutorResult.Failed("MCP_DISCOVERY_SESSION_REQUIRED")
+                        val query =
+                            call.args
+                                .getValue("query")
+                                .jsonPrimitive.content
+                        val limit = call.args["limit"]?.jsonPrimitive?.intOrNull ?: 8
+                        if (query.isBlank()) return ToolExecutorResult.Failed("MCP_DISCOVERY_QUERY_REQUIRED")
+                        val matches = search(session, query, limit)
+                        return ToolExecutorResult.Completed(
+                            buildJsonObject {
+                                put(
+                                    "tools",
+                                    JsonArray(
+                                        matches.map { tool ->
+                                            buildJsonObject {
+                                                put("name", JsonPrimitive(tool.name.value))
+                                                put("description", JsonPrimitive(tool.description.take(240)))
+                                                put("version", JsonPrimitive(tool.version.value))
+                                            }
+                                        },
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                },
+            ),
         )
     }
 

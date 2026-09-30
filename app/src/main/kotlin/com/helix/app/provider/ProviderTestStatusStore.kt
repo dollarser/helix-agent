@@ -151,18 +151,23 @@ class ProviderTestStatusStore(
 
     /** Drops the recorded status (provider deleted). */
     fun clear(providerId: String) {
-        backing.setLines(KEY, backing.lines(KEY).filterNot { it.startsWith("$providerId|") })
+        synchronized(WRITE_LOCK) {
+            backing.setLines(KEY, backing.lines(KEY).filterNot { it.startsWith("$providerId|") })
+        }
     }
 
     private fun replace(
         providerId: String,
         line: String,
     ) {
-        val current = backing.lines(KEY).filterNot { it.startsWith("$providerId|") }
-        backing.setLines(KEY, current + line)
+        synchronized(WRITE_LOCK) {
+            val current = backing.lines(KEY).filterNot { it.startsWith("$providerId|") }
+            backing.setLines(KEY, current + line)
+        }
     }
 
     private companion object {
+        val WRITE_LOCK = Any()
         const val KEY = "provider_test_status"
         const val FIELD_COUNT = 8
         const val NO_MODEL_LIST = "null"

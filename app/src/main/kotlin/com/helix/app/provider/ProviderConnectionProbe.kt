@@ -33,7 +33,7 @@ internal class ProviderConnectionProbe(
         detectCapabilities: Boolean,
     ): ProbeOutcome {
         val (token, snapshot) =
-            gate.begin(providerId) {
+            gate.begin(providerId, if (detectCapabilities) "capabilities" else "connection") {
                 storage.providerConfigs.resolve(providerId) to storedConfig(providerId)
             }
         val config = snapshot.second
@@ -41,11 +41,26 @@ internal class ProviderConnectionProbe(
         val outcome = result.outcome
         var current = false
         gate.publish(providerId, token) {
-            if (storage.providerConfigs.find(providerId) != snapshot.first) return@publish
+            // A different successful probe may refresh capabilities without changing the endpoint/configuration.
+            if (storage.providerConfigs.find(providerId)?.copy(capabilitySnapshot = snapshot.first.capabilitySnapshot)
+                != snapshot.first
+            ) {
+                return@publish
+            }
             current = true
             when (outcome) {
                 is ProbeOutcome.Ok -> {
-                    publishSuccess(providerId, config, outcome, result)
+                    val latest =
+                        ProviderCapabilities.parse(
+                            storage.providerConfigs.resolve(providerId).capabilitySnapshot,
+                        )
+                    val capabilities =
+                        ProviderProbePublication.capabilities(
+                            detectCapabilities,
+                            outcome.capabilities,
+                            latest,
+                        )
+                    publishSuccess(providerId, config, outcome.copy(capabilities = capabilities), result)
                 }
 
                 is ProbeOutcome.Failed -> {

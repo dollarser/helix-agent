@@ -139,10 +139,10 @@ class ProviderService(
         model: String,
     ): ProviderContextSettings =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            val (token, config) = probeGate.begin(providerId) { storedConfig(providerId) }
+            val (token, config) = probeGate.begin(providerId, "context:$model") { storedConfig(providerId) }
             val detected = factory.create(config).contextWindow(model)
             probeGate.publish(providerId, token) {
-                if (storedConfig(providerId) == config) {
+                if (storedConfig(providerId).copy(capabilitySnapshot = config.capabilitySnapshot) == config) {
                     val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
                     contextSettingsStore.write(
                         providerId,

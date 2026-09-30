@@ -10,6 +10,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderProbeGateTest {
+    @Test fun independentProbeKindsDoNotSupersedeEachOtherButEditsInvalidateAll() =
+        runBlocking {
+            val gate = ProviderProbeGate()
+            val connection = gate.begin("p", "connection") { "A" }.first
+            val capabilities = gate.begin("p", "capabilities") { "A" }.first
+            val context = gate.begin("p", "context:model") { "A" }.first
+            assertTrue(gate.publish("p", connection) {})
+            assertTrue(gate.publish("p", capabilities) {})
+            assertTrue(gate.publish("p", context) {})
+            gate.mutate("p") {}
+            listOf(connection, capabilities, context).forEach { token ->
+                assertFalse(gate.publish("p", token) { error("old configuration survived edit") })
+            }
+        }
+
     @Test fun editInvalidatesAnAlreadyReturnedButNotPublishedSuccess() =
         runBlocking {
             val gate = ProviderProbeGate()

@@ -210,8 +210,8 @@ class ContentResolverSafTreeReader(
         val uri = DocumentsContract.buildChildDocumentsUri(authority, parentDocId)
         return try {
             resolver.query(uri, DOC_COLUMNS, null, null, null)
-        } catch (e: Exception) {
-            throw notFound(parentDocId)
+        } catch (failure: Exception) {
+            throw providerFailure(failure)
         }
     }
 
@@ -239,13 +239,20 @@ class ContentResolverSafTreeReader(
         )
     }
 
-    /** A single document's metadata, or null when it cannot be read. */
+    private fun providerFailure(failure: Exception): Exception =
+        when (failure) {
+            is java.util.concurrent.CancellationException, is SecurityException, is java.io.IOException -> failure
+            else -> java.io.IOException("Document provider query failed", failure)
+        }
+
+    /** Null means absent metadata, not an authorization or provider failure. */
+    @Suppress("TooGenericExceptionCaught") // Provider errors retain cancellation and access truth.
     private fun documentMetadata(
         authority: String,
         docId: String,
     ): SafTreeChild? {
         val uri = DocumentsContract.buildDocumentUri(authority, docId)
-        return runCatching {
+        return try {
             resolver.query(uri, DOC_COLUMNS, null, null, null)?.use { cursor ->
                 if (!cursor.moveToFirst()) return@use null
                 SafTreeChild(
@@ -256,7 +263,11 @@ class ContentResolverSafTreeReader(
                     lastModifiedEpochMillis = cursor.longOrNull(4) ?: -1L,
                 )
             }
-        }.getOrNull()
+        } catch (_: java.io.FileNotFoundException) {
+            null
+        } catch (failure: Exception) {
+            throw providerFailure(failure)
+        }
     }
 
     private fun segments(relativePath: String): List<String> = relativePath.split('/').filter { it.isNotEmpty() }
