@@ -35,15 +35,22 @@ import java.util.concurrent.atomic.AtomicReference
  * (monotonic deadline + client interrupt flag) set before `evaluate`, and closed on
  * the same thread.
  *
- * Normal control plane is exclusively: interrupt transaction, deadline-driven interrupt,
- * unbind + system reclamation. This service NEVER calls `killProcess`/`System.exit` as
- * control flow. The only exception is the DEBUG-gated, explicitly-flagged crash-injection
- * seam used by instrumented crash tests (see [startCrashSeam]); release builds compile it
- * out and HXA-053's production tool path never sets the flag.
+ * Isolated executions use interrupt/deadline and unbind + system reclamation. The explicit
+ * native subclass additionally has a private-process watchdog: blocked Java calls or Binder
+ * starvation cannot disable its hard lifetime deadline. Native process termination does not
+ * roll back effects. The separate DEBUG crash-injection seam is only for device tests.
  */
 open class JsExecutionService : Service() {
     protected open val nativeAccess: Boolean = false
-    private val binder by lazy { ExecutionBinder(if (nativeAccess) this else null) }
+    private val nativeWatchdog by lazy {
+        if (nativeAccess) {
+            check(android.app.Application.getProcessName() == packageName + ":helix_js_native")
+            JsNativeWatchdog(45_000L) { Process.killProcess(Process.myPid()) }.also { it.start() }
+        } else {
+            null
+        }
+    }
+    private val binder by lazy { ExecutionBinder(if (nativeAccess) this else null, nativeWatchdog) }
 
     override fun onBind(intent: Intent): IBinder = binder
 
@@ -54,6 +61,7 @@ open class JsExecutionService : Service() {
     @Suppress("TooManyFunctions") // one method per protocol phase
     private class ExecutionBinder(
         private val nativeContext: android.content.Context?,
+        private val nativeWatchdog: JsNativeWatchdog?,
     ) : Binder() {
         private val slot = AtomicReference<SlotState>(SlotState.IDLE)
         private val interruptRequested = AtomicBoolean(false)
@@ -69,7 +77,7 @@ open class JsExecutionService : Service() {
                 JsProtocol.CODE_TERMINATE_NATIVE -> {
                     check(nativeContext != null && Binder.getCallingUid() == Process.myUid())
                     check(android.app.Application.getProcessName() == nativeContext.packageName + ":helix_js_native")
-                    Process.killProcess(Process.myPid())
+                    requireNotNull(nativeWatchdog).requestStop()
                     true
                 }
 
@@ -123,9 +131,18 @@ open class JsExecutionService : Service() {
                         replyWith(reply, JsExecutionStatus.REQUEST_REJECTED, "malformed EXECUTE parcel: $t", "", null)
                         return
                     }
+            envelope.use { executeOwnedEnvelope(request, it, reply, interruptRequested) }
+        }
+
+        private fun executeOwnedEnvelope(
+            request: JsExecutionRequest,
+            envelope: JsExecutionWire.ExecuteEnvelope,
+            reply: Parcel,
+            interruptRequested: AtomicBoolean,
+        ) {
             val rejection = JsServiceValidation.validateRequest(request, envelope)
             if (rejection != null) {
-                markUsed()
+                slot.compareAndSet(SlotState.IDLE, SlotState.DONE)
                 replyWith(reply, JsExecutionStatus.REQUEST_REJECTED, rejection, "", request)
                 return
             }
@@ -140,6 +157,9 @@ open class JsExecutionService : Service() {
                 replyWith(reply, JsExecutionStatus.REQUEST_REJECTED, reason, "", request)
                 return
             }
+            // Arm before reading payloads or entering Java/native code; invalid later payloads
+            // must not leave an unbounded private process either.
+            nativeWatchdog?.shortenTo(request.deadlineNanos + 2_000_000_000L)
             runPayloadAndExecute(request, envelope, reply, interruptRequested)
         }
 

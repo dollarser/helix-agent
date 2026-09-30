@@ -77,6 +77,55 @@ class NativeJavascriptDeviceTest {
         nativeAccess = true,
     )
 
+    @Test fun nativeSuccessReturnsOnlyAfterOriginalBinderDeath() {
+        assertNativeDeathBeforeReturn(params("return 42;"), JsExecutionStatus.SUCCESS)
+    }
+
+    @Test fun blockedNativeCallReturnsOnlyAfterOriginalBinderDeath() {
+        assertNativeDeathBeforeReturn(
+            params("native.java.staticCall('java.lang.Thread','sleep',['long'],['30000']); return 1;"),
+            JsExecutionStatus.TIMEOUT,
+        )
+    }
+
+    private fun assertNativeDeathBeforeReturn(
+        request: JsExecuteParams,
+        expected: JsExecutionStatus,
+    ) {
+        val connected = java.util.concurrent.CountDownLatch(1)
+        val original = AtomicReference<android.os.IBinder?>()
+        val connection =
+            object : android.content.ServiceConnection {
+                override fun onServiceConnected(
+                    name: android.content.ComponentName,
+                    service: android.os.IBinder,
+                ) {
+                    original.compareAndSet(null, service)
+                    connected.countDown()
+                }
+
+                override fun onServiceDisconnected(name: android.content.ComponentName) = Unit
+            }
+        val bound =
+            context.bindService(
+                android.content.Intent(context, JsNativeExecutionService::class.java),
+                android.content.Context.BIND_AUTO_CREATE,
+                context.mainExecutor,
+                connection,
+            )
+        assertTrue(bound)
+        try {
+            assertTrue(connected.await(15, java.util.concurrent.TimeUnit.SECONDS))
+            val binder = requireNotNull(original.get())
+            val result = client.execute(request)
+            assertEquals(result.detail, expected, result.status)
+            // Another observer still holds a binding; unbind/reclamation alone cannot satisfy this.
+            assertFalse("Original native Binder is still alive when execute returns", binder.isBinderAlive)
+        } finally {
+            context.unbindService(connection)
+        }
+    }
+
     @Test fun nativeFilesAndAndroidRunInPrivateAppUidProcess() {
         val file = File(context.cacheDir, "native-${UUID.randomUUID()}.txt")
         try {

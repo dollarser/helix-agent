@@ -26,12 +26,12 @@ class LocalModelRuntimeService : Service() {
                 threads: Int,
             ): Int =
                 synchronized(lock) {
-                    checkCaller()
-                    check(active == null)
-                    require(contextTokens in 512..32768 && threads in 1..8)
-                    require(size in 1..com.helix.provider.api.local.ModelAssetRef.MAX_ASSET_BYTES)
-                    require(sha256.matches(Regex("[a-f0-9]{64}")))
                     asset.use {
+                        checkCaller()
+                        check(active == null)
+                        require(contextTokens in 512..32768 && threads in 1..8)
+                        require(size in 1..com.helix.provider.api.local.ModelAssetRef.MAX_ASSET_BYTES)
+                        require(sha256.matches(Regex("[a-f0-9]{64}")))
                         // Hash the handed-off descriptor, not a re-opened path.
                         val digest = MessageDigest.getInstance("SHA-256")
                         var actual = 0L
@@ -64,29 +64,31 @@ class LocalModelRuntimeService : Service() {
                 request: ParcelFileDescriptor,
                 result: ParcelFileDescriptor,
             ) {
-                checkCaller()
-                synchronized(lock) {
-                    check(loaded && active == null)
-                    require(generationId.matches(Regex("[A-Za-z0-9_-]{1,64}")))
-                    active = generationId
-                    output = result
-                    LlamaNative.prepare()
-                    worker.execute {
+                var handedOff = false
+                try {
+                    checkCaller()
+                    synchronized(lock) {
+                        check(loaded && active == null)
+                        require(generationId.matches(Regex("[A-Za-z0-9_-]{1,64}")))
+                        LlamaNative.prepare()
+                        active = generationId
+                        output = result
                         try {
-                            val bytes = ParcelFileDescriptor.AutoCloseInputStream(request).use { it.readBounded() }
-                            val reply = LlamaNative.generate(bytes)
-                            require(reply.size <= MAX_MESSAGE_BYTES)
-                            ParcelFileDescriptor.AutoCloseOutputStream(result).use { it.write(reply) }
-                        } catch (failure: java.io.IOException) {
-                            // Broken/closed result pipe is cancellation or client loss, never success.
-                            LlamaNative.cancel()
+                            worker.execute { runGeneration(request, result) }
+                            handedOff = true
                         } finally {
-                            request.close()
-                            result.close()
-                            synchronized(lock) {
+                            if (!handedOff) {
                                 active = null
                                 output = null
                             }
+                        }
+                    }
+                } finally {
+                    if (!handedOff) {
+                        try {
+                            request.close()
+                        } finally {
+                            result.close()
                         }
                     }
                 }
@@ -124,6 +126,34 @@ class LocalModelRuntimeService : Service() {
                 Process.killProcess(Process.myPid())
             }
         }
+
+    private fun runGeneration(
+        request: ParcelFileDescriptor,
+        result: ParcelFileDescriptor,
+    ) {
+        try {
+            val bytes = ParcelFileDescriptor.AutoCloseInputStream(request).use { it.readBounded() }
+            val reply = LlamaNative.generate(bytes)
+            require(reply.size <= MAX_MESSAGE_BYTES)
+            ParcelFileDescriptor.AutoCloseOutputStream(result).use { it.write(reply) }
+        } catch (_: java.io.IOException) {
+            // Closed result pipe is client loss, not success.
+            LlamaNative.cancel()
+        } finally {
+            try {
+                request.close()
+            } finally {
+                try {
+                    result.close()
+                } finally {
+                    synchronized(lock) {
+                        active = null
+                        output = null
+                    }
+                }
+            }
+        }
+    }
 
     override fun onBind(intent: Intent): IBinder = binder
 

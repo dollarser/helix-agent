@@ -14,7 +14,6 @@ import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /** Cancellation token for an execution. HXA-053 wires the Dispatcher's own signal. */
@@ -84,8 +83,10 @@ data class JsExecuteParams(
  * - anything unclassifiable → [JsExecutionStatus.UNKNOWN]. The catch-all never returns
  *   success.
  *
- * Every wait is bounded; every resource (bind, death link, PFDs, temp files) is released
- * in the `finally` path.
+ * Bind and result waits are bounded. Native cleanup keeps the executor's effect permit
+ * until the original Binder death is observed; the service has an independent hard-lifetime
+ * watchdog. In a kernel/runtime failure with no exit proof, cleanup deliberately stays
+ * fail-closed while the outer Dispatcher may time out. No PID-based kill is sent by this client.
  */
 @Suppress("TooManyFunctions") // one method per protocol phase (preflight / transport / bind / wait / finalize)
 class JsExecutionClient(
@@ -111,6 +112,13 @@ class JsExecutionClient(
                 cancellation?.isCancelled() == true || (params.nativeAccess && !access.allows(revision))
             }
         return executeAuthorized(params, effectiveCancellation)
+    }
+
+    /** Host recovery only: retire the singleton native component without submitting or replaying any code. */
+    fun retireNativeHost(originalExecutionId: String): Boolean {
+        val bound = bindInstance(originalExecutionId, null, "", true) ?: return false
+        release(bound)
+        return bound.dead.isObserved()
     }
 
     @Suppress("ReturnCount", "TooGenericExceptionCaught") // Every transport failure retains execution truth.
@@ -174,9 +182,12 @@ class JsExecutionClient(
             // stable UNKNOWN, never a success and never an unhandled throw.
             return clientUnknown(params.executionId, inputSha, e)
         } finally {
-            bound?.let { release(it) }
-            pfdHolders.forEach { it.closeQuietly() }
-            tempFiles.forEach { it.delete() }
+            try {
+                bound?.let { release(it) }
+            } finally {
+                pfdHolders.forEach { it.closeQuietly() }
+                tempFiles.forEach { it.delete() }
+            }
         }
     }
 
@@ -188,7 +199,7 @@ class JsExecutionClient(
     private data class BoundInstance(
         val binder: IBinder,
         val connection: ServiceConnection,
-        val dead: AtomicBoolean,
+        val dead: JsProcessDeath,
         val deathRecipient: IBinder.DeathRecipient,
         val nativeAccess: Boolean,
     )
@@ -213,12 +224,23 @@ class JsExecutionClient(
                     connected.countDown()
                 }
 
-                override fun onServiceDisconnected(name: ComponentName) = Unit
+                override fun onServiceDisconnected(name: ComponentName) {
+                    binderHolder.set(null)
+                    connected.countDown()
+                }
+
+                override fun onNullBinding(name: ComponentName) {
+                    connected.countDown()
+                }
+
+                override fun onBindingDied(name: ComponentName) {
+                    binderHolder.set(null)
+                    connected.countDown()
+                }
             }
-        val bindAccepted = bindService(nativeAccess, instanceName, connection)
-        if (!bindAccepted) return null
         var handedOff = false
         try {
+            if (!bindService(nativeAccess, instanceName, connection)) return null
             val startedAt = System.nanoTime()
             while (!connected.await(POLL_MS, TimeUnit.MILLISECONDS)) {
                 if (cancellation?.isCancelled() == true) {
@@ -241,17 +263,18 @@ class JsExecutionClient(
                         "onServiceConnected delivered no binder",
                         inputSha,
                     )
-            val dead = AtomicBoolean(false)
+            val dead = JsProcessDeath()
             val deathRecipient =
                 object : IBinder.DeathRecipient {
                     override fun binderDied() {
-                        dead.set(true)
+                        dead.record()
                     }
                 }
             try {
                 binder.linkToDeath(deathRecipient, 0)
-            } catch (e: DeadObjectException) {
-                dead.set(true)
+            } catch (e: RemoteException) {
+                // linkToDeath specifically reports that the target process has already died.
+                dead.record()
             }
             val instance = BoundInstance(binder, connection, dead, deathRecipient, nativeAccess)
             handedOff = true
@@ -294,20 +317,15 @@ class JsExecutionClient(
     ): Nothing = throw JsClientFailure(JsExecutionResult.clientFailure(executionId, status, detail, inputSha))
 
     private fun release(bound: BoundInstance) {
-        // Native code can block in Java or create threads. Tear down its private process
-        // even after success; an engine interrupt alone cannot reclaim those resources.
-        if (bound.nativeAccess) {
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                runCatching { bound.binder.transact(JsProtocol.CODE_TERMINATE_NATIVE, data, reply, 0) }
-            } finally {
-                data.recycle()
-                reply.recycle()
+        try {
+            if (bound.nativeAccess) {
+                // Keep the original death link and effect permit even when delivery fails.
+                bound.dead.stopAndAwait { sendControl(bound, JsProtocol.CODE_TERMINATE_NATIVE) }
             }
+        } finally {
+            runCatching { bound.binder.unlinkToDeath(bound.deathRecipient, 0) }
+            runCatching { context.unbindService(bound.connection) }
         }
-        runCatching { bound.binder.unlinkToDeath(bound.deathRecipient, 0) }
-        runCatching { context.unbindService(bound.connection) }
     }
 
     /**
@@ -335,13 +353,10 @@ class JsExecutionClient(
         while (!giveUp && !workerDone.await(POLL_MS, TimeUnit.MILLISECONDS)) {
             val now = System.nanoTime()
             if (cancellation?.isCancelled() == true && cancelledAtNanos == null) {
-                // Cancel in flight: deliver the interrupt once, then bound the wait. The
-                // engine interrupts at the next poll (HXA-050-verified mechanism), so a
-                // short grace suffices; a non-replying live instance degrades to a
-                // synthesized INTERRUPTED (interrupt was delivered, never a retry).
+                // Record caller intent even if control delivery fails. It is not exit proof.
+                cancelledAtNanos = now
                 if (sendInterrupt(bound)) {
                     interruptSent = true
-                    cancelledAtNanos = now
                 } else {
                     giveUp = true
                 }
@@ -378,10 +393,8 @@ class JsExecutionClient(
                         reply.recycle()
                     }
                 } catch (t: DeadObjectException) {
-                    bound.dead.set(true)
                     workerHolder.set(t)
                 } catch (t: RemoteException) {
-                    bound.dead.set(true)
                     workerHolder.set(t)
                 } catch (t: Throwable) {
                     workerHolder.set(t)
@@ -406,7 +419,7 @@ class JsExecutionClient(
                 holder
             }
 
-            holder is DeadObjectException || holder is RemoteException || bound.dead.get() -> {
+            bound.dead.isObserved() -> {
                 clientCrashed(executionId, inputSha)
             }
 
@@ -414,15 +427,11 @@ class JsExecutionClient(
                 clientUnknown(executionId, inputSha, holder)
             }
 
-            bound.dead.get() -> {
-                clientCrashed(executionId, inputSha)
-            }
-
             cancelledAtNanos != null -> {
                 JsExecutionResult.clientFailure(
                     executionId,
                     JsExecutionStatus.INTERRUPTED,
-                    "interrupt delivered to live instance; reply not received within grace",
+                    "cancellation requested; execution reply unavailable, effects are not assumed rolled back",
                     inputSha,
                 )
             }
@@ -437,19 +446,17 @@ class JsExecutionClient(
             }
         }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // failed transact = binder died; dead flag
-    private fun sendInterrupt(bound: BoundInstance): Boolean {
+    private fun sendInterrupt(bound: BoundInstance): Boolean = sendControl(bound, JsProtocol.CODE_INTERRUPT)
+
+    @Suppress("TooGenericExceptionCaught") // Delivery failure is unknown, not process-death evidence.
+    private fun sendControl(bound: BoundInstance, code: Int): Boolean {
         val data = Parcel.obtain()
-        val reply = Parcel.obtain()
-        try {
-            bound.binder.transact(JsProtocol.CODE_INTERRUPT, data, reply, 0)
-            return true
-        } catch (t: Throwable) {
-            bound.dead.set(true)
-            return false
+        return try {
+            bound.binder.transact(code, data, null, IBinder.FLAG_ONEWAY)
+        } catch (_: Exception) {
+            false
         } finally {
             data.recycle()
-            reply.recycle()
         }
     }
 
@@ -493,7 +500,11 @@ class JsExecutionClient(
             try {
                 val bytes =
                     if (params.outputFile != null) {
-                        readBounded(params.outputFile.absoluteFile, result.outputBytes)
+                        JsBoundedOutput.read(
+                            params.outputFile.absoluteFile,
+                            result.outputBytes,
+                            params.limits.maxOutputBytes.toLong(),
+                        )
                     } else {
                         result.outputUtf8
                     }
@@ -532,17 +543,6 @@ class JsExecutionClient(
                 clientUnknown(result.executionId, inputSha, e)
             }
         return outcome
-    }
-
-    private fun readBounded(
-        file: File,
-        expectedBytes: Long,
-    ): ByteArray {
-        val bytes = file.readBytes()
-        if (bytes.size.toLong() != expectedBytes) {
-            throw IOException("output file has ${bytes.size} bytes, expected $expectedBytes")
-        }
-        return bytes
     }
 
     companion object {

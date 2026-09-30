@@ -44,7 +44,19 @@ internal object JsExecutionWire {
         val inputTotalBytes: Long,
         val flags: Int,
         val crashAfterMs: Int,
-    )
+    ) : java.io.Closeable {
+        override fun close() {
+            try {
+                sourcePfd?.close()
+            } finally {
+                try {
+                    inputPfd?.close()
+                } finally {
+                    outputPfd?.close()
+                }
+            }
+        }
+    }
 
     fun writeExecute(
         data: Parcel,
@@ -62,6 +74,7 @@ internal object JsExecutionWire {
         data.writeInt(envelope.crashAfterMs)
     }
 
+    @Suppress("ThrowsCount") // Each malformed wire boundary is rejected before executor admission.
     fun readExecute(data: Parcel): Pair<JsExecutionRequest, ExecuteEnvelope> {
         val version = data.readInt()
         if (version != JsProtocol.PROTOCOL_VERSION) {
@@ -70,15 +83,29 @@ internal object JsExecutionWire {
         val request =
             data.readParcelable(JsExecutionRequest::class.java.classLoader) as? JsExecutionRequest
                 ?: throw ProtocolException("missing JsExecutionRequest in EXECUTE parcel")
-        val sourcePfd = readPfd(data)
-        val inputPfd = readPfd(data)
-        val outputPfd = readPfd(data)
-        val sourceTotalBytes = data.readInt()
-        val inputTotalBytes = data.readLong()
-        val flags = data.readInt()
-        val crashAfterMs = data.readInt()
-        return request to
-            ExecuteEnvelope(sourcePfd, inputPfd, outputPfd, sourceTotalBytes, inputTotalBytes, flags, crashAfterMs)
+        val descriptors = mutableListOf<ParcelFileDescriptor>()
+        var handedOff = false
+        try {
+            val sourcePfd = readPfd(data)?.also(descriptors::add)
+            val inputPfd = readPfd(data)?.also(descriptors::add)
+            val outputPfd = readPfd(data)?.also(descriptors::add)
+            if (data.dataAvail() < 20) throw ProtocolException("truncated EXECUTE envelope")
+            val envelope =
+                ExecuteEnvelope(
+                    sourcePfd,
+                    inputPfd,
+                    outputPfd,
+                    data.readInt(),
+                    data.readLong(),
+                    data.readInt(),
+                    data.readInt(),
+                )
+            if (data.dataAvail() != 0) throw ProtocolException("trailing EXECUTE data")
+            handedOff = true
+            return request to envelope
+        } finally {
+            if (!handedOff) descriptors.forEach { runCatching { it.close() } }
+        }
     }
 
     fun writeResult(
@@ -133,7 +160,11 @@ internal object JsExecutionWire {
     }
 
     private fun readPfd(parcel: Parcel): ParcelFileDescriptor? =
-        if (parcel.readByte() == 1.toByte()) parcel.readFileDescriptor() else null
+        when (parcel.readByte().toInt()) {
+            0 -> null
+            1 -> parcel.readFileDescriptor() ?: throw ProtocolException("missing payload descriptor")
+            else -> throw ProtocolException("invalid descriptor presence flag")
+        }
 
     const val KEY_PID: String = "pid"
 

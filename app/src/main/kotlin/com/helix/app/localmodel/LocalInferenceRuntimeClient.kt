@@ -39,19 +39,22 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /** Main-process supervisor. One loaded model and one generation; death invalidates every handle. */
-@Suppress("SwallowedException") // Binder failure is mapped to closed runtime facts; no remote diagnostics escape.
+@Suppress("SwallowedException", "TooManyFunctions") // Explicit port phases and cleanup share one generation owner.
 class LocalInferenceRuntimeClient(
     private val context: Context,
     private val store: ModelAssetStore,
 ) : LocalInferenceRuntimePort {
     private val ownership = Mutex()
-    private val io =
-        java.util.concurrent.Executors
-            .newFixedThreadPool(2)
+    private val io = LocalRuntimeCalls("helix-model-io")
+    private val controls = LocalRuntimeCalls("helix-model-control")
+    private val termination = LocalRuntimeCalls("helix-model-shutdown", 1)
     private val exited = java.util.Collections.synchronizedSet(linkedSetOf<String>())
-    private var remote: ILocalModelRuntime? = null
-    private var binding: ServiceConnection? = null
-    private var death = CompletableDeferred<Unit>()
+
+    @Volatile private var remote: ILocalModelRuntime? = null
+
+    @Volatile private var binding: ServiceConnection? = null
+
+    @Volatile private var death = CompletableDeferred<Unit>()
 
     @Volatile private var loaded: LoadedLocalModel? = null
 
@@ -61,6 +64,8 @@ class LocalInferenceRuntimeClient(
     @Suppress("TooGenericExceptionCaught") // Every failed bind must release its ServiceConnection before propagation.
     private suspend fun connect(): ILocalModelRuntime {
         remote?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+        loaded = null
+        modelWindow = null
         val ready = CompletableDeferred<ILocalModelRuntime>()
         val instanceDeath = CompletableDeferred<Unit>()
         death = instanceDeath
@@ -84,6 +89,10 @@ class LocalInferenceRuntimeClient(
                     instanceDeath.complete(Unit)
                 }
 
+                override fun onBindingDied(name: ComponentName) {
+                    ready.completeExceptionally(LocalRuntimeException(ModelErrorCode.LOCAL_RUNTIME_CRASHED))
+                }
+
                 override fun onNullBinding(name: ComponentName) {
                     ready.completeExceptionally(LocalRuntimeException(ModelErrorCode.LOCAL_RUNTIME_CRASHED))
                 }
@@ -91,15 +100,14 @@ class LocalInferenceRuntimeClient(
         binding?.let(context::unbindService)
         binding = connection
         val intent = Intent(context, LocalModelRuntimeService::class.java)
-        if (!context.bindService(intent, connection, Context.BIND_AUTO_CREATE)) {
-            binding = null
-            throw LocalRuntimeException(ModelErrorCode.LOCAL_RUNTIME_CRASHED)
-        }
         return try {
+            if (!context.bindService(intent, connection, Context.BIND_AUTO_CREATE)) {
+                throw LocalRuntimeException(ModelErrorCode.LOCAL_RUNTIME_CRASHED)
+            }
             withTimeout(10000) { ready.await() }.also { remote = it }
         } catch (failure: Exception) {
-            context.unbindService(connection)
-            binding = null
+            runCatching { context.unbindService(connection) }.exceptionOrNull()?.let(failure::addSuppressed)
+            if (binding === connection) binding = null
             throw failure
         }
     }
@@ -115,6 +123,11 @@ class LocalInferenceRuntimeClient(
 
     override suspend fun load(request: LocalModelLoadRequest): LoadedLocalModel =
         ownership.withLock {
+            if (remote?.asBinder()?.isBinderAlive == false) {
+                loaded = null
+                active = null
+                modelWindow = null
+            }
             loaded
                 ?.takeIf { it.request == request && remote?.asBinder()?.isBinderAlive == true }
                 ?.let { return@withLock it }
@@ -132,7 +145,7 @@ class LocalInferenceRuntimeClient(
                 }
             val window =
                 try {
-                    blocking({ service.shutdown() }) {
+                    io.call {
                         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use {
                             service.load(
                                 it,
@@ -170,24 +183,27 @@ class LocalInferenceRuntimeClient(
         flow {
             ownership.withLock {
                 check(loaded?.handle == request.modelHandle && active == null)
-                val service = connect()
+                val service =
+                    remote?.takeIf { it.asBinder().isBinderAlive }
+                        ?: throw LocalRuntimeException(ModelErrorCode.LOCAL_RUNTIME_CRASHED)
                 val bytes = LocalRuntimeCodec.encode(request.request)
                 val directory = File(context.cacheDir, "model-requests").also { check(it.mkdirs() || it.isDirectory) }
                 val input = File.createTempFile("request-", ".tmp", directory)
                 val pipe = ParcelFileDescriptor.createPipe()
                 active = request.generationId
                 var forcedExit = false
+                var submissionAcknowledged = false
                 try {
                     withContext(Dispatchers.IO) { input.writeBytes(bytes) }
-                    ParcelFileDescriptor.open(input, ParcelFileDescriptor.MODE_READ_ONLY).use {
-                        service.generate(request.generationId, it, pipe[1])
+                    io.call {
+                        ParcelFileDescriptor.open(input, ParcelFileDescriptor.MODE_READ_ONLY).use {
+                            service.generate(request.generationId, it, pipe[1])
+                        }
                     }
+                    submissionAcknowledged = true
                     pipe[1].close()
                     val reply =
-                        blocking({
-                            pipe[0].close()
-                            service.cancel(request.generationId)
-                        }) {
+                        io.call(onCancel = { runCatching { pipe[0].close() } }) {
                             readReply(pipe[0])
                         }
                     if (!service.asBinder().isBinderAlive) {
@@ -197,25 +213,56 @@ class LocalInferenceRuntimeClient(
                 } catch (failure: android.os.RemoteException) {
                     throw LocalRuntimeException(ModelErrorCode.LOCAL_RUNTIME_CRASHED)
                 } finally {
-                    withContext(NonCancellable) {
-                        try {
-                            cancel(request.generationId)
-                        } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
-                            terminate()
-                            forcedExit = true
-                        } catch (failure: LocalRuntimeException) {
-                            terminate()
-                            forcedExit = true
-                        }
-                    }
-                    exited.add(request.generationId)
-                    if (exited.size > 32) exited.remove(exited.first())
-                    pipe.forEach { it.close() }
-                    input.delete()
-                    active = null
+                    forcedExit = finishGeneration(request.generationId, submissionAcknowledged, pipe, input)
                 }
                 if (forcedExit) throw LocalRuntimeException(ModelErrorCode.LOCAL_CANCEL_TIMEOUT)
             }
+        }
+
+    private suspend fun finishGeneration(
+        generationId: String,
+        acknowledged: Boolean,
+        pipe: Array<ParcelFileDescriptor>,
+        input: File,
+    ): Boolean {
+        var confirmed = false
+        try {
+            val forced = withContext(NonCancellable) { confirmGenerationExit(generationId, acknowledged) }
+            confirmed = true
+            return forced
+        } finally {
+            // A failed termination retains active ownership but never leaks local resources.
+            if (confirmed) {
+                synchronized(exited) {
+                    exited.add(generationId)
+                    if (exited.size > 32) exited.remove(exited.first())
+                }
+                active = null
+            }
+            pipe.forEach { runCatching { it.close() } }
+            input.delete()
+        }
+    }
+
+    private suspend fun confirmGenerationExit(
+        generationId: String,
+        acknowledged: Boolean,
+    ): Boolean =
+        try {
+            if (acknowledged) {
+                cancel(generationId)
+                false
+            } else {
+                // A queued generate may start after an early cancel reports no active worker.
+                terminate()
+                true
+            }
+        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            terminate()
+            true
+        } catch (_: LocalRuntimeException) {
+            terminate()
+            true
         }
 
     // Exit proofs: recorded completion, absent process, dead Binder, or native acknowledgement.
@@ -226,7 +273,7 @@ class LocalInferenceRuntimeClient(
         if (!service.asBinder().isBinderAlive) return LocalCancelResult.EXITED
         return try {
             withTimeout(4000) {
-                while (service.cancel(generationId) != 2) delay(20)
+                while (controls.call { service.cancel(generationId) } != 2) delay(20)
                 LocalCancelResult.EXITED
             }
         } catch (failure: android.os.RemoteException) {
@@ -241,7 +288,8 @@ class LocalInferenceRuntimeClient(
         if (!ownership.tryLock()) return LocalUnloadResult.BUSY
         return try {
             val matching = loaded?.handle == modelHandle
-            if (matching && remote?.unload() == false) {
+            val service = remote
+            if (matching && withTimeout(4000) { controls.call { service?.unload() } } == false) {
                 LocalUnloadResult.BUSY
             } else {
                 if (matching) loaded = null
@@ -258,7 +306,7 @@ class LocalInferenceRuntimeClient(
             check(active == null) { "Model is in use" }
             if (loaded?.request?.asset == asset) {
                 val service = remote?.takeIf { it.asBinder().isBinderAlive }
-                check(service?.unload() != false) { "Model is in use" }
+                check(withTimeout(4000) { controls.call { service?.unload() } } != false) { "Model is in use" }
                 loaded = null
             }
             withContext(Dispatchers.IO) { store.delete(asset) }
@@ -274,32 +322,14 @@ class LocalInferenceRuntimeClient(
             LocalRuntimeStatus(null, null)
         }
 
-    @Suppress("TooGenericExceptionCaught") // Propagate worker failures across the continuation boundary unchanged.
-    private suspend fun <T> blocking(onCancel: () -> Unit, action: () -> T): T =
-        suspendCancellableCoroutine { continuation ->
-            continuation.invokeOnCancellation {
-                try {
-                    onCancel()
-                } catch (failure: android.os.RemoteException) {
-                    // The caller still verifies death in its non-cancellable cleanup.
-                } catch (failure: java.io.IOException) {
-                    // Already-closed pipe; caller still awaits native exit.
-                }
-            }
-            io.execute {
-                try {
-                    continuation.resume(action())
-                } catch (failure: Exception) {
-                    continuation.resumeWithException(failure)
-                }
-            }
-        }
-
     override suspend fun terminate() {
         val service = remote
+        val originalDeath = death
+        val originalBinding = binding
         if (service != null && service.asBinder().isBinderAlive) {
             try {
-                service.shutdown()
+                // Keep this lane independent of blocked load/generate/read calls.
+                withTimeout(4000) { termination.call { service.shutdown() } }
             } catch (failure: android.os.RemoteException) {
                 if (service.asBinder().isBinderAlive) {
                     throw LocalRuntimeException(ModelErrorCode.LOCAL_CANCEL_TIMEOUT)
@@ -307,17 +337,21 @@ class LocalInferenceRuntimeClient(
             }
             val exited =
                 kotlinx.coroutines.withTimeoutOrNull(5000) {
-                    death.await()
+                    originalDeath.await()
                     true
                 } ?: false
             if (!exited && service.asBinder().isBinderAlive) {
                 throw LocalRuntimeException(ModelErrorCode.LOCAL_CANCEL_TIMEOUT)
             }
         }
-        binding?.let(context::unbindService)
-        binding = null
-        remote = null
-        loaded = null
-        active = null
+        // A stale stop completion cannot clear a newer binding or loaded handle.
+        if (remote === service && binding === originalBinding) {
+            originalBinding?.let { runCatching { context.unbindService(it) } }
+            binding = null
+            remote = null
+            loaded = null
+            modelWindow = null
+            active = null
+        }
     }
 }

@@ -14,6 +14,21 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
+/** Resolve the pinned test artifact only when a QuickJS test task needs its inputs. */
+abstract class ZiplineAarArguments : org.gradle.process.CommandLineArgumentProvider {
+    @get:org.gradle.api.tasks.InputFiles
+    @get:org.gradle.api.tasks.PathSensitive(org.gradle.api.tasks.PathSensitivity.NONE)
+    abstract val artifacts: org.gradle.api.file.ConfigurableFileCollection
+
+    override fun asArguments(): Iterable<String> {
+        val aar =
+            requireNotNull(artifacts.files.singleOrNull { it.name.endsWith(".aar") }) {
+                "Pinned zipline-android AAR is required by the QuickJS native-library test"
+            }
+        return listOf("-Dhelix.zipline.aar=${aar.absolutePath}")
+    }
+}
+
 val detektCli by configurations.creating {
     isCanBeConsumed = false
     isCanBeResolved = true
@@ -408,31 +423,19 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
-                // The 16 KiB-page ELF spike test (QuickJsNativeLibraryElfTest) parses the
-                // zipline-android AAR's .so files; pass the AAR path in as a system property
-                // (same pattern as :core:storage's `helix.schema.dir`). The lookup runs at
-                // configuration time because configuration-cache is on and the path is a
-                // build input recorded in the cache. `implementation` is canBeResolved=false
-                // under AGP, so the resolvable debug runtime classpath is the lookup surface.
+                // Keep artifact identity as a lazy task input, not a configuration-time file lookup.
                 afterEvaluate {
-                    val ziplineAar =
+                    val artifacts =
                         configurations
                             .getByName("debugRuntimeClasspath")
                             .incoming
                             .artifactView {
-                                lenient(true)
-                                componentFilter {
-                                    (it as? ModuleComponentIdentifier)?.module == "zipline-android"
-                                }
+                                componentFilter { (it as? ModuleComponentIdentifier)?.module == "zipline-android" }
                             }.files
-                            .firstOrNull { it.name.endsWith(".aar") }
-                    requireNotNull(ziplineAar) {
-                        "zipline-android .aar not found on :runtime:quickjs " +
-                            "debugRuntimeClasspath; QuickJsNativeLibraryElfTest needs it. " +
-                            "Check the zipline pin in gradle/libs.versions.toml."
-                    }
+                    val arguments = objects.newInstance(ZiplineAarArguments::class.java)
+                    arguments.artifacts.from(artifacts)
                     tasks.withType<Test>().configureEach {
-                        systemProperty("helix.zipline.aar", ziplineAar.absolutePath)
+                        jvmArgumentProviders.add(arguments)
                     }
                 }
             }
