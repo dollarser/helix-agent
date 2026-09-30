@@ -18,10 +18,10 @@ class ProviderTemplateCatalogTest {
     private val catalog = ProviderTemplateCatalog.all
 
     @Test
-    fun catalogHasFifteenTemplatesP0ThenP1() {
-        assertEquals(15, catalog.size)
+    fun catalogHasEighteenTemplatesP0ThenP1() {
+        assertEquals(18, catalog.size)
         assertEquals(5, catalog.count { it.priority == TemplatePriority.P0 })
-        assertEquals(10, catalog.count { it.priority == TemplatePriority.P1 })
+        assertEquals(13, catalog.count { it.priority == TemplatePriority.P1 })
         // doc order: the P0 block comes first, P1 after it
         val firstP1Index = catalog.indexOfFirst { it.priority == TemplatePriority.P1 }
         assertTrue(catalog.take(firstP1Index).all { it.priority == TemplatePriority.P0 })
@@ -50,15 +50,28 @@ class ProviderTemplateCatalogTest {
                 "groq",
                 "vllm",
                 "lm-studio",
+                "kimi-code",
+                "minimax-token-cn",
+                "minimax-token-global",
             ),
             catalog.filter { it.priority == TemplatePriority.P1 }.map { it.id }.toSet(),
         )
     }
 
+    @Test fun planKeysUseNormalApiTemplatesWithoutCredentialOrModelDefaults() {
+        listOf("kimi-code", "minimax-token-cn", "minimax-token-global").forEach { id ->
+            val template = requireNotNull(ProviderTemplateCatalog.byId(id))
+            assertEquals(ProviderProtocol.ANTHROPIC_MESSAGES, template.protocol)
+            assertTrue(template.credentialRequired)
+            assertTrue(template.defaultHeaders.isEmpty())
+            assertTrue(template.notes.single().contains("not be interchangeable"))
+        }
+    }
+
     @Test
     fun idsAreUniqueStableSlugs() {
         val ids = catalog.map { it.id }
-        assertEquals(15, ids.toSet().size)
+        assertEquals(18, ids.toSet().size)
         val slugPattern = Regex("[a-z][a-z0-9]*(-[a-z0-9]+)*")
         assertTrue(ids.all { it.matches(slugPattern) })
     }
@@ -66,7 +79,7 @@ class ProviderTemplateCatalogTest {
     @Test
     fun displayNamesAreUniqueAndNonBlank() {
         val names = catalog.map { it.displayName }
-        assertEquals(15, names.toSet().size)
+        assertEquals(18, names.toSet().size)
         assertTrue(names.all { it.isNotBlank() })
     }
 
@@ -76,7 +89,7 @@ class ProviderTemplateCatalogTest {
         assertEquals(ProviderProtocol.OPENAI_RESPONSES, byId.getValue("openai").protocol)
         assertEquals(ProviderProtocol.ANTHROPIC_MESSAGES, byId.getValue("anthropic").protocol)
         catalog
-            .filter { it.id != "openai" && it.id != "anthropic" }
+            .filter { it.id !in setOf("openai", "anthropic", "kimi-code", "minimax-token-cn", "minimax-token-global") }
             .forEach { template ->
                 assertEquals(
                     "template ${template.id} must pin one explicit protocol",
@@ -100,7 +113,7 @@ class ProviderTemplateCatalogTest {
                     }
                 template.id to endpoint
             }
-        assertEquals(15, expected.size)
+        assertEquals(18, expected.size)
         checkEndpoint(expected, "openai", "https", "api.openai.com", 443, "/v1")
         checkEndpoint(expected, "anthropic", "https", "api.anthropic.com", 443, "/v1")
         assertNull(expected.getValue("generic-openai"))
@@ -112,6 +125,9 @@ class ProviderTemplateCatalogTest {
         checkEndpoint(expected, "moonshot-kimi", "https", "api.moonshot.cn", 443, "/v1")
         checkEndpoint(expected, "zhipu-glm", "https", "open.bigmodel.cn", 443, "/api/paas/v4")
         checkEndpoint(expected, "minimax", "https", "api.minimaxi.com", 443, "/v1")
+        checkEndpoint(expected, "kimi-code", "https", "api.kimi.ai", 443, "/coding/v1")
+        checkEndpoint(expected, "minimax-token-cn", "https", "api.minimax.cn", 443, "/anthropic/v1")
+        checkEndpoint(expected, "minimax-token-global", "https", "api.minimax.io", 443, "/anthropic/v1")
         checkEndpoint(expected, "xai", "https", "api.x.ai", 443, "/v1")
         checkEndpoint(expected, "groq", "https", "api.groq.com", 443, "/openai/v1")
         assertNull(expected.getValue("vllm"))

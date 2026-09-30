@@ -16,18 +16,31 @@ reports = {
     "developer": "app/build/test-results/testDeveloperDebugUnitTest",
     "cli-app": "runtime/cli-app/build/test-results/testDebugUnitTest",
     "cli-client": "runtime/cli-client/build/test-results/testDebugUnitTest",
+    "provider-catalog": "provider/catalog/build/test-results/test",
     "proot-app": "runtime/proot-app/build/test-results/testDebugUnitTest",
     "proot-client": "runtime/proot-client/build/test-results/testDebugUnitTest",
 }
 result = {"observed_at": datetime.now(timezone.utc).isoformat(),
           "head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
           "reports": {}, "apks": {}}
+focus_names = {
+    'AntigravityProtocolTest', 'AntigravityTransportTest', 'AntigravityStreamTest',
+    'AntigravityThinkingTest', 'ProviderChannelPolicyTest', 'ManagedSubscriptionCatalogTest',
+    'CliToolImageCodecTest', 'ProviderTemplateCatalogTest',
+}
+result['focused_reports'] = {}
+
 for name, directory in reports.items():
     files = sorted((root / directory).glob("TEST-*.xml"))
     assert files, f"Missing reports: {directory}"
     totals = dict.fromkeys(("tests", "failures", "errors", "skipped"), 0)
     for file in files:
         suite = ET.parse(file).getroot()
+        suite_name = suite.get('name', '').split('.')[-1]
+        if suite_name in focus_names:
+            result['focused_reports'][f'{name}/{suite_name}'] = {
+                key: suite.get(key) for key in ('tests', 'failures', 'errors', 'skipped', 'timestamp')
+            }
         for key in totals:
             totals[key] += int(suite.get(key, "0"))
     result["reports"][name] = {"directory": directory, **totals}

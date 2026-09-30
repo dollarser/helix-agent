@@ -69,14 +69,18 @@ class ProviderService(
                 .InMemoryLineStore(),
         ),
     val localModels: com.helix.app.localmodel.LocalModelService? = null,
+    private val managedAccountsEnabled: Boolean = true,
 ) {
     private val _contextRevision = MutableStateFlow(0L)
     private val accountSync = Mutex()
+    val sourceGroups: List<com.helix.core.model.ProviderProvisioningKind>
+        get() = ProviderChannelPolicy.groups(managedAccountsEnabled)
 
     /** Local readiness handshake only; it never sends a generation request. */
     suspend fun refreshManagedAccounts() =
         withContext(Dispatchers.IO) {
             accountSync.withLock {
+                if (!managedAccountsEnabled) return@withLock
                 val sources = storage.providerConfigs.list().filter { managed.isManaged(it.id) }
                 if (sources.isEmpty()) return@withLock
                 val observed =
@@ -338,13 +342,18 @@ class ProviderService(
     private fun refreshNow() {
         _rows.value =
             try {
-                storage.providerConfigs.list().mapNotNull { entity ->
-                    try {
-                        rowUi(entity)
-                    } catch (_: IllegalArgumentException) {
-                        null
-                    }
-                }
+                storage.providerConfigs
+                    .list()
+                    .mapNotNull { entity ->
+                        if (!ProviderChannelPolicy.permits(entity.provisioningKind, managedAccountsEnabled)) {
+                            return@mapNotNull null
+                        }
+                        try {
+                            rowUi(entity)
+                        } catch (_: IllegalArgumentException) {
+                            null
+                        }
+                    }.sortedBy { ProviderChannelPolicy.rank(it.id, managed.providerIds) }
             } catch (e: IllegalArgumentException) {
                 // A corrupt provider row fails closed: it is not shown (it
                 // cannot be selected for chat), and the provider screen shows
@@ -580,33 +589,21 @@ class ProviderService(
      */
     suspend fun storedConfig(providerId: String): ProviderConfig =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            configFrom(storage.providerConfigs.resolve(providerId))
+            val entity = storage.providerConfigs.resolve(providerId)
+            require(ProviderChannelPolicy.permits(entity.provisioningKind, managedAccountsEnabled)) {
+                "Managed subscriptions are not available in this channel"
+            }
+            configFrom(entity)
         }
 
     suspend fun openManagedAccount(providerId: String): ManagedProviderAccountResult =
         withContext(workScope.coroutineContext) {
-            if (!managed.isManaged(providerId)) {
+            if (!managedAccountsEnabled || !managed.isManaged(providerId)) {
                 ManagedProviderAccountResult.NOT_SUPPORTED
             } else {
                 managed.openAccount(providerId)
             }
         }
-
-    /** Decodes one persisted row into its typed config (throws IAE on corruption). */
-    private fun configFrom(e: ProviderConfigEntity): ProviderConfig =
-        ProviderConfig.fromStorage(
-            e.id,
-            e.displayName,
-            e.protocol,
-            e.endpoint,
-            e.model,
-            e.headersJson,
-            e.secretAlias,
-            e.capabilitySnapshot,
-            e.provisioningKind,
-            e.transportKind,
-            e.authKind,
-        )
 
     /**
      * The send-path cleartext gate (doc 10 section 2.5; HXA-027 boundary):

@@ -19,6 +19,9 @@
         <activity android:name="com.helix.runtime.cli.app.ClaudeLoginActivity"
             android:process=":subscriptions" android:exported="false"
             android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <activity android:name="com.helix.runtime.cli.app.AntigravityLoginActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
         <activity android:name="com.helix.runtime.cli.app.GrokLoginActivity"
             android:process=":subscriptions" android:exported="false"
             android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />

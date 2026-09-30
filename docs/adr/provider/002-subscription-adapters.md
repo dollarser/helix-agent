@@ -14,6 +14,11 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 订阅模型是 ModelProvider，不是 Dispatcher 下的普通工具执行目标。链路为 Provider → 订阅 client → 私有 Binder/PFD → developer 的 :subscriptions → 服务端。
 - 使用明确标注的第三方协议适配器，通过自身登录流程交换/刷新 OAuth；不导入浏览器 Cookie、其他 App/CLI 的凭据。正常主进程 API 仅接收公开目录与模型结果，token 留在订阅模块；共享 UID 不构成 token 隔离保证。
 - consumer 不包含订阅实现，developer 包含完整模块。发行资格和第三方服务条款需要真实渠道证据，不能把技术可用当发布许可。
+- 账号订阅的固定展示顺序为 **Codex、Claude、Google Antigravity、GitHub Copilot、Grok (X Premium)**，不依赖数据库顺序或本地化名称。API Key 型套餐不进入此清单，仍属于普通 API 来源。
+- Google Antigravity 作为 developer-only 适配器，以 `dsh-plugin-subscriptions` 的固定 MIT 源码版本作为协议依据：独立 Google OAuth code + PKCE、仅本机 loopback 回调、令牌刷新、`loadCodeAssist` 项目发现、认证模型目录以及 Gemini-shaped SSE。公开安装应用身份只用于本次明确授权的第三方接入，不代表 Google 授权发行；界面必须披露非官方、资格、条款和额度风险。不得导入其他程序的用户令牌、轮换未授权 client 或绕过资格校验。
+- 登录没有项目时要求用户先在官方客户端完成开通，不自动选择付费 tier、调用 onboarding 或购买套餐。普通 token 刷新保留登录 revision；过期刷新不能覆盖较新登录或复活退出。
+- Antigravity 请求的原始签名 parts 留在订阅 Runtime 私有存储，绑定模型、登录 revision、消息和调用身份；工具回填保留原始函数 ID。签名不可放入业务参数，缺失/错绑/损坏不能用跳过校验的魔法值替代。工具仅在明确 STOP 且必要重放证据保存后交付；截断、断流及错误终态不释放待定调用。
+- Google 生成使用现有增量事件与磁盘 spool，不设新的累计回复大小或总生成时长限制。OAuth/目录短请求、单 SSE 帧、工具扇出和未来请求/重放证据仍有资源边界；证据不可重放时报告失败，不伪造成功。当前新生成不进行不确定 POST 重放或跨 origin 自动回退。
 - Copilot 的 developer/Advanced 个人侧载 Device Flow 使用已明确接受的固定 client ID `Iv1.b507a08c87ecfe98` 与 endpoint，标明第三方、非官方及服务中断风险，不宣称注册者授权 Helix。不得搜索或轮换未知身份；Device Flow/entitlement 失败时不保留无效登录凭据。商店/官方发行仍需自有身份及可核验服务商授权。协议适配不等于采用官方 Copilot SDK。
 - 每个模型 Job 显式携带平台/账号/目标路由，不从 prompt 或模型名前缀猜平台。认证、endpoint 与模型绑定变更时重新校验，不把凭据发给新 origin。
 - Runtime 冷绑定仅由用户发起的连接、登录、修复或真实请求触发。被动 Registry 刷新不启动 Runtime。请求期间遵守 Android FGS 生命周期；解绑、取消和系统超时释放资源，不自动重启。
@@ -36,6 +41,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
+
+## Decision history
+
+- 2026-09-30：所有者授权参考 `V1ki/dsh-plugin-subscriptions` 增加 Antigravity、固定账号顺序并排除 consumer；后续明确 Key 型套餐仍归 API。实现与实际验证见[接入记录](../../evidence/development/subscription-antigravity-2026-09-30.md)。本决定不把真实账号、设备或发行授权记成通过。
 
 ## References
 

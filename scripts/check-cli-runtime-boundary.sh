@@ -14,6 +14,7 @@ manifest="$($build_tools/aapt2 dump xmltree "$apk" --file AndroidManifest.xml)"
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CodexLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CopilotLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivity' >/dev/null
+printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.AntigravityLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
 case "${1:-}" in
     "") python3 "$repo_root/scripts/verify-integrated-runtime-apks.py" ;;
@@ -93,9 +94,14 @@ developer_provider="$repo_root/app/src/developer/kotlin/com/helix/app/provider/C
 developer_module="$repo_root/app/src/developer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 consumer_module="$repo_root/app/src/consumer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 rg -F 'CodexSubscriptionProvider(context, config, imageSource = imageSource)' "$developer_module" >/dev/null
-rg -U 'ComponentName\(\s*context\.packageName,\s*when\s*\(providerId\)' "$developer_module" >/dev/null
-rg -F 'CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY' "$developer_module" >/dev/null
-rg -F 'CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"' "$developer_module" >/dev/null
+# Registration and UI routing now share one ordered catalog; retain exact activity/platform checks.
+catalog="$repo_root/app/src/developer/kotlin/com/helix/app/provider/ManagedSubscriptionCatalog.kt"
+rg -F 'ManagedSubscriptionCatalog.find(providerId)' "$developer_module" >/dev/null
+rg -F '"com.helix.runtime.cli.app."' "$developer_module" >/dev/null
+rg -F '"CodexLoginActivity"' "$catalog" >/dev/null
+rg -F '"ClaudeLoginActivity"' "$catalog" >/dev/null
+rg -F '"AntigravityLoginActivity"' "$catalog" >/dev/null
+rg -F 'CliModelProvider.ANTIGRAVITY' "$catalog" >/dev/null
 rg -F 'toolCalls = false' "$developer_module" >/dev/null
 rg -F 'vision = false' "$developer_module" >/dev/null
 rg -F 'CliModelJobClient' "$developer_provider" >/dev/null
@@ -103,7 +109,7 @@ rg -U 'override fun create\(\s*context: Context,\s*config: ProviderConfig,\s*ima
 rg -F 'ManagedProviderAccountResult.NOT_SUPPORTED' "$consumer_module" >/dev/null
 consumer_apk="$repo_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
 test -f "$consumer_apk"
-if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProvider|runtime/cli/client|subscription-(codex|claude|grok|copilot)'; then
+if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProvider|AntigravityLoginActivity|runtime/cli/(client|app)|subscription-(codex|claude|antigravity|grok|copilot)'; then
     echo "consumer APK contains subscription implementation" >&2
     exit 1
 fi

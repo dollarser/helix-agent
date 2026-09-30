@@ -211,6 +211,7 @@ internal class DefaultAppContainer(
             ProviderService(
                 storage = storage,
                 localModels = localModels,
+                managedAccountsEnabled = SubscriptionProviderModule.providerIds.isNotEmpty(),
                 factory =
                     productionProviderFactory(appContext, credentials, localModels) { visionImageSource },
                 bindings = CleartextBindingStore(lineStore),
@@ -219,6 +220,7 @@ internal class DefaultAppContainer(
                 idGenerator = { idGenerator.next() },
                 managed =
                     ManagedProviderHooks(
+                        providerIds = SubscriptionProviderModule.providerIds,
                         isManaged = SubscriptionProviderModule::isManaged,
                         accounts = { SubscriptionProviderModule.accountStates(appContext) },
                         probe = SubscriptionProviderModule::probe,

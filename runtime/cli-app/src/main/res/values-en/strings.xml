@@ -132,4 +132,13 @@
     <string name="codex_smoke_protocol_hint">Retry. If it persists, report this stage and HTTP status to investigate the protocol or model response.</string>
     <string name="codex_connection_success">Subscription connected. Authentication and model catalog verified; no generation was requested. Test specific model capabilities in Helix.</string>
     <string name="subscription_dns_default_host">chatgpt.com</string>
+    <string name="antigravity_title">Google Antigravity</string>
+    <string name="antigravity_warning">Experimental third-party integration, not an official Google client. Sign-in opens the browser for Google consent; tokens stay in the subscription runtime. Google controls eligibility, region, usage and terms; availability and account safety are not guaranteed. Complete onboarding in the official Antigravity client first. Helix does not bypass eligibility checks or buy a plan. Model tests and generation consume account quota.</string>
+    <string name="antigravity_login">Sign in with Google</string>
+    <string name="antigravity_waiting">Complete Google consent in your browser, then return to Helix.</string>
+    <string name="antigravity_logged_in">Google login saved. Return to Helix to refresh the catalog and select conversation models.</string>
+    <string name="antigravity_logged_out">Not signed in to Google Antigravity.</string>
+    <string name="antigravity_failed">Google sign-in did not complete. Check network, eligibility and consent before retrying. This failure does not replace an existing login.</string>
+    <string name="antigravity_onboarding">No Antigravity project was returned. Complete onboarding or eligibility verification in the official client, then sign in again.</string>
+    <string name="antigravity_cancelled">This sign-in attempt was cancelled.</string>
 </resources>

@@ -20,6 +20,29 @@ class CliToolImageCodecTest {
     private val bytes = byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10, 0)
     private val base64 = Base64.getEncoder().encodeToString(bytes)
 
+    @Test fun antigravityImagesRoundTripWithoutBecomingCodex() {
+        val original = image("google-tool")
+        val image = original.copy(binding = requireNotNull(original.binding).copy(modelId = "google-model"))
+        val request = ModelRequest("google-model", listOf(tool(listOf(image))))
+        val encoded =
+            CliModelRequestCodec.encode(
+                request,
+                CliModelProvider.ANTIGRAVITY,
+                listOf(CliImageSnapshot(image, base64)),
+            )
+        val decoded = CliModelRequestCodec.decodeEnvelope(encoded)
+        assertEquals(CliModelProvider.ANTIGRAVITY, decoded.provider)
+        assertEquals("google-model", decoded.request.model)
+        assertEquals(base64, decoded.images.single().base64)
+        val forged = encoded.decodeToString().replace("\"providerId\":\"antigravity\"", "\"providerId\":\"grok\"")
+        assertThrows(IllegalArgumentException::class.java) { CliModelRequestCodec.decodeEnvelope(forged.toByteArray()) }
+    }
+
+    @Test fun antigravityPublicStateCarriesNoCredentialAndAcceptsTheNewProvider() {
+        val states = mapOf("antigravity" to CliAccountState("LOGGED_OUT"))
+        assertEquals(states, CliAccountState.decode(CliAccountState.encode(states)))
+    }
+
     @Test fun toolPixelsKeepRoleAndCallAcrossRuntimeBoundary() {
         val image = image("tool-message")
         val message = tool(listOf(image))

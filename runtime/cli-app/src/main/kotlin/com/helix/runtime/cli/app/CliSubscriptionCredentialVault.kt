@@ -26,8 +26,9 @@ enum class CliSubscriptionProvider(
 ) {
     CODEX("codex"),
     CLAUDE("claude"),
-    GROK("grok"),
+    ANTIGRAVITY("antigravity"),
     COPILOT("copilot"),
+    GROK("grok"),
 }
 
 internal data class CliSubscriptionSession(

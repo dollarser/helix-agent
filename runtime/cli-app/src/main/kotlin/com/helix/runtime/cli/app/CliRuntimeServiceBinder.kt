@@ -12,7 +12,10 @@ internal class CliRuntimeServiceBinder(
     private val statusProvider: () -> String,
     private val callerVerifier: (Int) -> Boolean,
     private val jobRunner: CodexPayloadJobRunner? = null,
-    private val catalogProvider: (() -> com.helix.runtime.cli.client.CliModelCatalog)? = null,
+    private val catalogProvider: (
+        (com.helix.runtime.cli.client.CliModelProvider) ->
+        com.helix.runtime.cli.client.CliModelCatalog
+    )? = null,
 ) : Binder() {
     @Suppress("ReturnCount") // Unknown transaction, rejected caller, and success are distinct outcomes.
     override fun onTransact(
@@ -40,7 +43,12 @@ internal class CliRuntimeServiceBinder(
                 }
 
                 CliRuntimeProtocol.TRANSACTION_MODEL_CATALOG -> {
-                    val catalog = requireNotNull(catalogProvider).invoke()
+                    val id = requireNotNull(data.readString())
+                    val target =
+                        com.helix.runtime.cli.client.CliModelProvider.entries
+                            .single { it.wireId == id }
+                    require(data.dataAvail() == 0)
+                    val catalog = requireNotNull(catalogProvider).invoke(target)
                     val document =
                         com.helix.runtime.cli.client.CliModelCatalogCodec
                             .encode(catalog)

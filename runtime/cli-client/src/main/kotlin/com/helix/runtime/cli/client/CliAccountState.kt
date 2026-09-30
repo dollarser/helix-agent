@@ -22,7 +22,7 @@ data class CliAccountState(
 
     companion object {
         private val REVISION = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
-        private val PROVIDERS = setOf("codex", "claude", "grok", "copilot")
+        private val PROVIDERS = CliModelProvider.entries.map { it.wireId }.toSet()
 
         fun encode(accounts: Map<String, CliAccountState>): JsonObject {
             require(accounts.keys.all { it in PROVIDERS })

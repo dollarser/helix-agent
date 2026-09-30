@@ -19,6 +19,7 @@ class CliSubscriptionCredentialVaultTest {
             mapOf(
                 "codex" to "LOGGED_IN",
                 "claude" to "LOGGED_OUT",
+                "antigravity" to "LOGGED_OUT",
                 "grok" to "LOGGED_OUT",
                 "copilot" to "LOGGED_OUT",
             ),
@@ -59,7 +60,7 @@ class CliSubscriptionCredentialVaultTest {
 
     @Test fun providerSetIsClosedAndOversizedCredentialIsRejectedBeforeStorage() {
         assertEquals(
-            setOf("codex", "claude", "grok", "copilot"),
+            setOf("codex", "claude", "antigravity", "copilot", "grok"),
             CliSubscriptionProvider.entries.map { it.wireId }.toSet(),
         )
         assertThrows(IllegalArgumentException::class.java) {

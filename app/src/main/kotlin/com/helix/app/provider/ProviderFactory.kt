@@ -39,8 +39,13 @@ class ProviderFactory(
     /** Draft catalog requests use a transient credential, never a saved provider or key. */
     fun forDraft(credentials: CredentialLookup): ProviderFactory = ProviderFactory(credentials, wire, imageSource)
 
-    fun create(config: ProviderConfig): ModelProvider =
-        additionalFactory(config) ?: when (config.network.protocol) {
+    fun create(config: ProviderConfig): ModelProvider {
+        val managed = additionalFactory(config)
+        require(
+            config.connection.provisioning != com.helix.core.model.ProviderProvisioningKind.MANAGED_ACCOUNT ||
+                managed != null,
+        ) { "No managed subscription adapter in this channel" }
+        return managed ?: when (config.network.protocol) {
             ProviderProtocol.OPENAI_RESPONSES -> {
                 OpenAiResponsesProvider(
                     config,
@@ -63,6 +68,7 @@ class ProviderFactory(
                 AnthropicProvider(config, credentials, wire, anthropicImages(config))
             }
         }
+    }
 
     // HXA-055: the three adapters keep their INDEPENDENT resolver types (no shared protocol
     // code by design); they all delegate to the single app-side [imageSource], which resolves

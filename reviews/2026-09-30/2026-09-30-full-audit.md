@@ -1,5 +1,9 @@
 # Helix 全量代码审查报告
 
+## 最新：已提交收尾与订阅增量
+
+此前 Runtime/Provider 链路已收尾并提交 `15b89830`，不是仍等待提交。所有者随后要求的 Google Antigravity、固定账号顺序与 consumer 渠道排除属于独立增量；Kimi/MiniMax Key 型套餐仍归 API。协议、签名回填、测试和未验证边界统一见[接入证据](../../docs/evidence/development/subscription-antigravity-2026-09-30.md)，不由下方历史表推导新接入已经通过真实账号验收。
+
 ## 最新：Provider 完整使用链路收口
 
 所有者追加要求完成选择回执、来源/模型失败隔离、账号状态同步、非默认模型完整请求链路、验证与整理提交。当前修复、测试制品、设备未执行边界及提交口径见[收口记录](../../docs/evidence/development/provider-chain-closeout-2026-09-30.md)。下文的“当前/未提交/测试数”均是各阶段历史快照，不覆盖此后已验证和提交的内容。

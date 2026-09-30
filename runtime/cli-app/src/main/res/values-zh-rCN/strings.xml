@@ -132,4 +132,13 @@
     <string name="codex_smoke_protocol_hint">请重试；若持续失败，请提供此阶段和 HTTP 状态以排查协议或模型响应。</string>
     <string name="codex_connection_success">订阅连接正常：认证与模型目录已验证，未调用模型生成。具体模型能力请在 Helix 中检测。</string>
     <string name="subscription_dns_default_host">chatgpt.com</string>
+    <string name="antigravity_title">Google Antigravity</string>
+    <string name="antigravity_warning">实验性第三方接入，并非 Google 官方客户端。登录会打开浏览器并请求 Google 授权，令牌仅保存在订阅运行时。账号资格、地区、额度及服务条款由 Google 决定；不保证可用或无封号风险。请先在官方 Antigravity 完成开通；此处不会绕过资格检查或自动购买套餐。模型测试和生成会消耗账号额度。</string>
+    <string name="antigravity_login">使用 Google 账号登录</string>
+    <string name="antigravity_waiting">请在浏览器中完成 Google 授权，然后返回 Helix。</string>
+    <string name="antigravity_logged_in">Google 登录已保存。请返回 Helix 刷新目录并选择会话模型。</string>
+    <string name="antigravity_logged_out">尚未登录 Google Antigravity。</string>
+    <string name="antigravity_failed">Google 登录未完成。请检查网络、账号资格与授权，再重试；原有登录不会被本次失败覆盖。</string>
+    <string name="antigravity_onboarding">未取得 Antigravity 项目。请先使用官方客户端完成开通或资格验证，再回来登录。</string>
+    <string name="antigravity_cancelled">已取消本次登录。</string>
 </resources>

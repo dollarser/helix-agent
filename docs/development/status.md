@@ -49,6 +49,8 @@ HXA-232 的逐轮主机/设备证据留在任务文件，不在本页复制。HX
 
 随后所有者授权的 [Provider 使用链路收口](../evidence/development/provider-chain-closeout-2026-09-30.md)补齐真实应用回执、来源/模型失败分离、账号状态同步与精确模型请求；提交和最终验证以记录为准。设备旅程已准备，不据此声称实际内测通过。
 
+2026-09-30 上述 Runtime/Provider 收尾已形成 `15b89830`。所有者追加的 [Antigravity 与订阅渠道边界](../evidence/development/subscription-antigravity-2026-09-30.md)保留五个账号入口并固定排序；consumer 只支持 API/本地模型。Kimi/MiniMax 的 Key 型套餐归 API。新增接入的主机、制品和真实账号边界以该记录为准，不用旧绿色替代。
+
 ## Next task
 
 **优先内测，并按当前明确的设备/账号授权补齐开放故障矩阵。** 继续配置→聊天工具→重开等实际用户流程；指定手机流程仍需恢复设备条件，真实用户试用尚未执行。P0～P4、P7 和 R1 的已有交付不重新排为底座开发。

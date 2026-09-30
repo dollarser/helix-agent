@@ -1607,4 +1607,5 @@
     <string name="provider_model_generation_passed">基础生成：已验证</string>
     <string name="provider_model_generation_test">测试基础生成</string>
     <string name="provider_model_probe_cost">生成与能力测试会发送合成请求，网络来源可能消耗额度。本地模型测试会使用设备计算资源。</string>
+    <string name="provider_note_plan_api">这是 API Key 接入，不是账号订阅登录。请使用对应套餐、地区和地址签发的密钥；套餐密钥与按量计费密钥可能不互通。Helix 不会自动回退到按量计费或其他账号。</string>
 </resources>

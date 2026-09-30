@@ -8,6 +8,8 @@ import com.helix.provider.api.ProviderConfig
 
 /** Shared variant contract; Consumer supplies no registration, client, probe override or account UI. */
 internal interface SubscriptionProviderIntegration {
+    val providerIds: List<String> get() = emptyList()
+
     fun recoverInterruptedResult(
         context: Context,
         storage: HelixStorage,

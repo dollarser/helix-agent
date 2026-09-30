@@ -45,8 +45,12 @@ internal class CodexSubscriptionProvider(
     ) : this(
         config,
         RuntimeSubscriptionJobExecutor(context.applicationContext, platform, imageSource, config),
-        if (platform == CliModelProvider.CODEX) {
-            { runInterruptible(Dispatchers.IO) { CliModelCatalogClient(CliRuntimeSupervisor(context)).fetch() } }
+        if (platform in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY)) {
+            {
+                runInterruptible(
+                    Dispatchers.IO,
+                ) { CliModelCatalogClient(CliRuntimeSupervisor(context)).fetch(platform) }
+            }
         } else {
             null
         },

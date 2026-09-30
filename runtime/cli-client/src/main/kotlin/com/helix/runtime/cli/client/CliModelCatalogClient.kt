@@ -8,7 +8,7 @@ import com.helix.core.model.ModelErrorCode
 class CliModelCatalogClient(
     private val supervisor: CliRuntimeSupervisor,
 ) {
-    fun fetch(): CliModelCatalog {
+    fun fetch(provider: CliModelProvider = CliModelProvider.CODEX): CliModelCatalog {
         val connection = supervisor.openConnection()
         if (connection !is CliRuntimeConnection.Opened) {
             return CliModelCatalog.Failed(ModelErrorCode.TRANSPORT, true)
@@ -17,6 +17,7 @@ class CliModelCatalogClient(
         val reply = Parcel.obtain()
         return try {
             data.writeInterfaceToken(CliRuntimeProtocol.DESCRIPTOR)
+            data.writeString(provider.wireId)
             if (!connection.binder.transact(CliRuntimeProtocol.TRANSACTION_MODEL_CATALOG, data, reply, 0)) {
                 CliModelCatalog.Failed(ModelErrorCode.PROTOCOL, false)
             } else if (reply.readInt() != CliRuntimeProtocol.REPLY_OK) {

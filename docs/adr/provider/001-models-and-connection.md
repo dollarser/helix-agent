@@ -11,7 +11,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
-- Provider 管理首页固定为本地模型、API / 自建服务（填写 endpoint）、订阅账号三个入口；进入分类才显示 Provider 子列表及该类新增/管理入口。分类不改变底层正交维度。
+- Provider 管理首页按构建渠道提供入口：Standard/consumer 只有本地模型与 API / 自建服务；Advanced/developer 额外提供订阅账号。订阅受构建依赖、来源解析和适配器准入共同限制，不仅隐藏按钮；旧受管记录不删除但不能在 consumer 调用。进入分类才显示相应来源。开发者包中的交互/权限模式不改变安装包渠道。
+- **按接入方式分类，不按付费方式分类。** Kimi Code、MiniMax Token Plan 等若使用 endpoint + API Key，属于 `USER_CONFIGURED`，两渠道均可接入；不登记为 managed subscription，不要求专用登录 Runtime。套餐 Key 与按量 Key 的适用范围由厂商决定，Helix 不自动切换计费来源。
 - 网络首次接入表单顺序为名称、endpoint、API Key、高级选项（自定义 header 名称和值）、初始模型。API Key 始终显示且可留空，服务端认证失败由连接测试报告；编辑时留空保留已有密钥，不因模板非必填而删除。已有来源的接入设置不承载模型多选，候选与默认使用统一模型管理。高级 header 仍受原有白名单约束，不能代替凭据存储。
 - 保存前可显式在线发现模型并多选，也可手输 ID。发现使用当前表单和临时凭据，不能保存临时 Provider 或连接成功状态；明文 endpoint 仍需先确认，过期响应不得覆盖修改后的表单。用户选择持久保存，但不充当能力检测证据。
 - 三类来源共用模型管理：完整目录、显式有序候选、可空默认与精确模型证据分开。空选择不回退全量，目录刷新不改变偏好；默认必须属于候选，移除默认不自动选中其他模型。API/订阅可手动添加模型 ID；设备内只允许已安装资产。候选隐藏不删除文件、不退出账号、不改变现有 Session/Turn 的目标。
@@ -68,6 +69,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号或设备验证按各自显式授权执行。
 
 ## Decision history
+
+- **2026-09-30（订阅渠道与 Key 分类）**：所有者指定 consumer 只保留 API/本地模型；developer 的账号订阅顺序为 Codex、Claude、Google Antigravity、GitHub Copilot、Grok (X Premium)。Key 型套餐仍使用普通 API 表单和模型管理，详见[新增接入证据](../../evidence/development/subscription-antigravity-2026-09-30.md)。
 
 - **2026-09-30 Provider 使用链路收口**：所有者要求完成使用链路、验证与候选提交，明确应用回执、三级健康、登录 revision 和实际适配器目标；不扩展为 Project Memory 或其他候选。实现及验证见[收口记录](../../evidence/development/provider-chain-closeout-2026-09-30.md)。
 

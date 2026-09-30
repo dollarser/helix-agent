@@ -39,6 +39,16 @@ class CliRuntimeService : Service() {
             fixtureExecution(request, stop)?.let { return@executeModel it }
             stop.checkActive()
             networkForeground.begin()
+            if (envelope.provider == CliModelProvider.ANTIGRAVITY) {
+                return@executeModel stop.using(
+                    AntigravitySubscriptionModel(
+                        vault,
+                        AntigravityReplayStore(java.io.File(filesDir, "antigravity-replay")),
+                        envelope.images,
+                        eventDirectory = java.io.File(cacheDir, "model-events"),
+                    ),
+                ) { it.run(request, onEvents) }
+            }
             if (envelope.provider == CliModelProvider.CLAUDE) {
                 return@executeModel stop.using(ClaudeSubscriptionModel(vault, claudeOauth::refresh)) {
                     it.run(request)
@@ -117,10 +127,28 @@ class CliRuntimeService : Service() {
             statusProvider = { CliEmbeddedBaseline.status(this) },
             callerVerifier = { uid -> CliCallerVerifier.verify(this, uid) },
             jobRunner = runner,
-            catalogProvider = {
+            catalogProvider = { provider ->
                 networkForeground.begin()
                 val vault = CliSubscriptionCredentialVault(this)
-                CodexModelCatalog(vault, CodexLoginController(vault, oauthTransport.value)).fetch()
+                when (provider) {
+                    CliModelProvider.CODEX -> {
+                        CodexModelCatalog(vault, CodexLoginController(vault, oauthTransport.value)).fetch()
+                    }
+
+                    CliModelProvider.ANTIGRAVITY -> {
+                        AntigravitySubscriptionModel(
+                            vault,
+                            AntigravityReplayStore(java.io.File(filesDir, "antigravity-replay")),
+                        ).use { it.catalog() }
+                    }
+
+                    else -> {
+                        com.helix.runtime.cli.client.CliModelCatalog.Failed(
+                            com.helix.core.model.ModelErrorCode.PROTOCOL,
+                            false,
+                        )
+                    }
+                }
             },
         )
 

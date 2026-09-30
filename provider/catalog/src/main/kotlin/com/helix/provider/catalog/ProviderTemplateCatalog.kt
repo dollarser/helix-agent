@@ -6,7 +6,7 @@ import com.helix.core.model.ProviderProtocol
 /**
  * The built-in provider template catalog (roadmap HXA-026, provider doc section 2.2/2.3).
  *
- * 15 templates: the P0 set (OpenAI, Anthropic, Generic OpenAI-compatible, Ollama, SGLang)
+ * Templates: the P0 set (OpenAI, Anthropic, Generic OpenAI-compatible, Ollama, SGLang)
  * plus the P1 set (DeepSeek, DashScope/Qwen, OpenRouter, Moonshot/Kimi, Zhipu/GLM,
  * MiniMax, xAI, Groq, vLLM, LM Studio).
  *
@@ -273,7 +273,47 @@ public object ProviderTemplateCatalog {
 
     // endregion
 
-    /** All 15 templates, P0 first in doc order, then P1 in doc order. */
+    /** API-key plans use the same API form in BOTH channels, not managed login. */
+    public val kimiCode: ProviderTemplate =
+        planApi(
+            "kimi-code",
+            "Kimi Code (API Key)",
+            "https://api.kimi.ai/coding/v1",
+        )
+    public val minimaxToken: ProviderTemplate =
+        planApi(
+            "minimax-token-cn",
+            "MiniMax Token Plan (China, API Key)",
+            "https://api.minimax.cn/anthropic/v1",
+        )
+    public val minimaxTokenGlobal: ProviderTemplate =
+        planApi(
+            "minimax-token-global",
+            "MiniMax Token Plan (Global, API Key)",
+            "https://api.minimax.io/anthropic/v1",
+        )
+
+    private fun planApi(
+        id: String,
+        label: String,
+        endpoint: String,
+    ): ProviderTemplate =
+        ProviderTemplate(
+            id = id,
+            displayName = label,
+            priority = TemplatePriority.P1,
+            protocol = ProviderProtocol.ANTHROPIC_MESSAGES,
+            defaultEndpoint = NormalizedEndpoint.parse(endpoint),
+            defaultHeaders = emptyMap(),
+            credentialRequired = true,
+            notes =
+                listOf(
+                    "Use the key issued for this plan and endpoint. Billing keys may not be interchangeable. " +
+                        "Helix does not automatically fall back to pay-as-you-go or another account.",
+                ),
+        )
+
+    /** All API templates, P0 first then P1; billing does not change authentication. */
     public val all: List<ProviderTemplate>
         get() =
             listOf(
@@ -292,6 +332,9 @@ public object ProviderTemplateCatalog {
                 groq,
                 vllm,
                 lmStudio,
+                kimiCode,
+                minimaxToken,
+                minimaxTokenGlobal,
             )
 
     /** Templates by id; null for unknown ids (no guess, fail closed at the call site). */

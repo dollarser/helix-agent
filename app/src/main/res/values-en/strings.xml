@@ -1607,4 +1607,5 @@
     <string name="provider_model_generation_passed">Basic generation: verified</string>
     <string name="provider_model_generation_test">Test basic generation</string>
     <string name="provider_model_probe_cost">Generation and capability tests send synthetic requests and may consume provider quota. Local tests use device resources.</string>
+    <string name="provider_note_plan_api">This is API Key access, not managed account sign-in. Use the key issued for the selected plan, region and endpoint. Plan keys and pay-as-you-go keys may not be interchangeable. Helix never automatically falls back to pay-as-you-go or another account.</string>
 </resources>

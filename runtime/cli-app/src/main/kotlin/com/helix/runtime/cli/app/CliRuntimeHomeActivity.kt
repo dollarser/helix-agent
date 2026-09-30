@@ -20,9 +20,10 @@ class CliRuntimeHomeActivity : Activity() {
         column.addView(TextView(this).apply { setText(R.string.runtime_home_help) })
         listOf(
             "Codex" to CodexLoginActivity::class.java,
-            "GitHub Copilot" to CopilotLoginActivity::class.java,
             "Claude" to ClaudeLoginActivity::class.java,
-            "Grok" to GrokLoginActivity::class.java,
+            "Google Antigravity" to AntigravityLoginActivity::class.java,
+            "GitHub Copilot" to CopilotLoginActivity::class.java,
+            "Grok (X Premium)" to GrokLoginActivity::class.java,
         ).forEach { (label, activity) ->
             column.addView(
                 Button(this).apply {

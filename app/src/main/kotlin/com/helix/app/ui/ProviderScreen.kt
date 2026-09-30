@@ -63,6 +63,9 @@ fun ProviderManager(
     val currentSession by sessionFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     var group by rememberSaveable { mutableStateOf<ProviderProvisioningKind?>(null) }
+    androidx.compose.runtime.LaunchedEffect(providerService.sourceGroups) {
+        if (group != null && group !in providerService.sourceGroups) group = null
+    }
     BackHandler(group != null) { group = null }
     var discovery by remember { mutableStateOf<List<String>>(emptyList()) }
     var discovering by remember { mutableStateOf(false) }
@@ -112,11 +115,7 @@ fun ProviderManager(
             Text(stringResource(R.string.provider_screen_title), style = MaterialTheme.typography.titleMedium)
         }
         if (group == null) {
-            listOf(
-                ProviderProvisioningKind.ON_DEVICE_ASSET,
-                ProviderProvisioningKind.USER_CONFIGURED,
-                ProviderProvisioningKind.MANAGED_ACCOUNT,
-            ).forEach { category ->
+            providerService.sourceGroups.forEach { category ->
                 OutlinedButton(onClick = {
                     group = category
                 }, modifier = Modifier.fillMaxWidth().testTag("provider-group-${category.name}")) {

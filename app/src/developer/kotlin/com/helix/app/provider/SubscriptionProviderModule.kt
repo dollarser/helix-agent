@@ -25,6 +25,9 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     const val CLAUDE_ID = "subscription-claude"
     const val GROK_ID = "subscription-grok"
     const val COPILOT_ID = "subscription-copilot"
+    const val ANTIGRAVITY_ID = "subscription-antigravity"
+    override val providerIds: List<String> get() = ManagedSubscriptionCatalog.entries.map { it.id }
+
     private val capabilities =
         ProviderCapabilities(
             streaming = true,
@@ -59,73 +62,32 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                 .CliModelJobClient(CliRuntimeSupervisor(context)),
         ).inspect(turnId, modelCallId, stop)
 
-    @Suppress("LongMethod") // Four independently persisted managed account configurations.
     override fun ensureRegistered(storage: HelixStorage) {
-        val existingCopilot = runCatching { storage.providerConfigs.resolve(COPILOT_ID) }.getOrNull()
-        if (existingCopilot == null || existingCopilot.model == "auto") {
+        ManagedSubscriptionCatalog.entries.forEach { entry ->
+            val existing = storage.providerConfigs.find(entry.id)
             val spec =
                 ProviderConfigSpec(
-                    id = COPILOT_ID,
-                    displayName = "Copilot Subscription (experimental)",
-                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                    endpoint = "https://api.githubcopilot.com",
-                    model = "claude-haiku-4.5",
+                    id = entry.id,
+                    displayName = entry.label,
+                    protocol = entry.protocol,
+                    endpoint = entry.endpoint,
+                    model =
+                        existing?.model?.takeUnless { entry.id == COPILOT_ID && it == "auto" }
+                            ?: entry.initialModel,
                     headersJson = "{}",
                     secretAlias = null,
                     provisioningKind = "MANAGED_ACCOUNT",
                     authKind = "MANAGED_ACCOUNT",
-                    capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
+                    capabilitySnapshot =
+                        existing?.capabilitySnapshot
+                            ?: ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
                 )
-            // Replace only the invalid pre-release default; preserve every other configured model.
-            if (existingCopilot == null) storage.providerConfigs.save(spec) else storage.providerConfigs.overwrite(spec)
+            if (existing == null) {
+                storage.providerConfigs.save(spec)
+            } else if (existing.displayName != entry.label || existing.model != spec.model) {
+                storage.providerConfigs.overwrite(spec)
+            }
         }
-        if (runCatching { storage.providerConfigs.resolve(GROK_ID) }.isFailure) {
-            storage.providerConfigs.save(
-                ProviderConfigSpec(
-                    id = GROK_ID,
-                    displayName = "Grok Subscription (experimental)",
-                    protocol = ProviderProtocol.OPENAI_RESPONSES,
-                    endpoint = "https://api.x.ai/v1",
-                    model = "grok-4",
-                    headersJson = "{}",
-                    secretAlias = null,
-                    provisioningKind = "MANAGED_ACCOUNT",
-                    authKind = "MANAGED_ACCOUNT",
-                    capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
-                ),
-            )
-        }
-        if (runCatching { storage.providerConfigs.resolve(CLAUDE_ID) }.isFailure) {
-            storage.providerConfigs.save(
-                ProviderConfigSpec(
-                    id = CLAUDE_ID,
-                    displayName = "Claude Subscription (experimental)",
-                    protocol = ProviderProtocol.ANTHROPIC_MESSAGES,
-                    endpoint = "https://api.anthropic.com/v1",
-                    model = "claude-sonnet-5",
-                    headersJson = "{}",
-                    secretAlias = null,
-                    provisioningKind = "MANAGED_ACCOUNT",
-                    authKind = "MANAGED_ACCOUNT",
-                    capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
-                ),
-            )
-        }
-        if (runCatching { storage.providerConfigs.resolve(CODEX_ID) }.isSuccess) return
-        storage.providerConfigs.save(
-            ProviderConfigSpec(
-                id = CODEX_ID,
-                displayName = "Codex Subscription (experimental)",
-                protocol = ProviderProtocol.OPENAI_RESPONSES,
-                endpoint = "https://chatgpt.com/backend-api/codex",
-                model = "gpt-6-astra",
-                headersJson = "{}",
-                secretAlias = null,
-                provisioningKind = "MANAGED_ACCOUNT",
-                authKind = "MANAGED_ACCOUNT",
-                capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
-            ),
-        )
     }
 
     override fun create(
@@ -135,19 +97,21 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     ): ModelProvider? =
         when (config.id) {
             CODEX_ID -> CodexSubscriptionProvider(context, config, imageSource = imageSource)
+            ANTIGRAVITY_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.ANTIGRAVITY, imageSource)
             CLAUDE_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.CLAUDE)
             GROK_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.GROK)
             COPILOT_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.COPILOT)
             else -> null
         }
 
-    override fun isManaged(providerId: String): Boolean = providerId in setOf(CODEX_ID, CLAUDE_ID, GROK_ID, COPILOT_ID)
+    override fun isManaged(providerId: String): Boolean = ManagedSubscriptionCatalog.find(providerId) != null
 
     override suspend fun probe(
         config: ProviderConfig,
         provider: ModelProvider,
     ): ProbeOutcome? {
-        if (!isManaged(config.id)) return null
+        // Google uses the shared synthetic tool/vision probe, not the text-only legacy override.
+        if (!isManaged(config.id) || config.id == ANTIGRAVITY_ID) return null
         return if (config.id == CODEX_ID && provider is CodexSubscriptionProvider) {
             CodexCapabilityProbe(provider, allReasoningEfforts = false) { phase ->
                 android.util.Log.d("HelixCapabilityProbe", phase)
@@ -174,13 +138,7 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
             .setComponent(
                 ComponentName(
                     context.packageName,
-                    when (providerId) {
-                        CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY
-                        CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"
-                        GROK_ID -> "com.helix.runtime.cli.app.GrokLoginActivity"
-                        COPILOT_ID -> "com.helix.runtime.cli.app.CopilotLoginActivity"
-                        else -> error("unsupported subscription provider")
-                    },
+                    "com.helix.runtime.cli.app." + requireNotNull(ManagedSubscriptionCatalog.find(providerId)).activity,
                 ),
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 

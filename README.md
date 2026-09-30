@@ -74,6 +74,12 @@ Helix 可以在明确授权后操作支持的应用界面。当前已有系统�
 
 如果覆盖安装提示签名冲突，请先保留现有数据，不要直接卸载或清除数据。不同来源的开发包可能无法直接覆盖安装。
 
+## 模型接入与版本
+
+当前源码的 Standard/consumer 版仅支持 **API / 自建服务**与**设备内本地模型**；Advanced/developer 包额外提供第三方账号订阅接入。这里说的是安装包渠道，不是聊天权限模式。账号订阅顺序为 Codex、Claude、Google Antigravity、GitHub Copilot、Grok (X Premium)。适配器可用性与账号权益仍需逐服务验证，不代表官方授权或全部功能已实测。
+
+使用 endpoint + API Key 的套餐（如 Kimi Code、MiniMax Token Plan）仍放在 API 接入中，两渠道均保留。使用匹配套餐和地区的密钥，不要混用按量 Key；Helix 不自动切换计费账号。Antigravity 为实验性适配，须先在官方客户端完成资格验证/开通，真实账号和手机验收范围见[接入记录](docs/evidence/development/subscription-antigravity-2026-09-30.md)。上述源码增量不表示已发布的 v0.0.3 APK 包含全部新改动。
+
 ## 开始第一个任务
 
 1. **配置模型**：进入模型管理，添加你使用的模型服务并完成连接测试；也可以进入本地模型目录下载安装。网络服务可能需要你自己的 API Key，并按服务方规则计费。

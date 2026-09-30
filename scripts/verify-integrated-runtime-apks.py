@@ -18,7 +18,7 @@ COMPONENTS = {
     "com.helix.runtime.proot.app.ProotTerminalService": ("service", ":proot"),
     "com.helix.runtime.proot.app.ProotJobStopReceiver": ("receiver", ":proot"),
 }
-for activity in ("CodexLoginActivity", "CopilotLoginActivity", "ClaudeLoginActivity",
+for activity in ("CodexLoginActivity", "CopilotLoginActivity", "ClaudeLoginActivity", "AntigravityLoginActivity",
                  "GrokLoginActivity", "CliRuntimeHomeActivity", "SubscriptionNetworkSettingsActivity"):
     COMPONENTS["com.helix.runtime.cli.app." + activity] = ("activity", ":subscriptions")
 for activity in ("ProotRepairActivity", "ProotLegalActivity"):
@@ -72,6 +72,7 @@ def verify(flavor, build_type):
     assert len(launchers) == 1, f"{flavor} has extra launcher"
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
+        assert ("assets/licenses/dsh-plugin-subscriptions.txt" in names) == developer
         assert not any(name.startswith("assets/companions/") or name.endswith(".apk") for name in names)
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"

@@ -17,6 +17,7 @@ internal fun localizedProviderNotes(template: ProviderTemplate): List<String> {
             "openrouter" -> R.string.provider_note_openrouter
             "vllm" -> R.string.provider_note_vllm
             "lm-studio" -> R.string.provider_note_lmstudio
+            "kimi-code", "minimax-token-cn", "minimax-token-global" -> R.string.provider_note_plan_api
             else -> null
         }
     return if (resource == null) template.notes else listOf(stringResource(resource))

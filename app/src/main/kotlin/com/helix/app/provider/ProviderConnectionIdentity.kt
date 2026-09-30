@@ -14,3 +14,19 @@ internal fun providerConnectionChanged(
         com.helix.core.model.ProviderHeaders
             .parse(draft.headersJson) ||
         !newKey.isNullOrBlank()
+
+/** Pure storage decoding shared with the service; it does not admit execution. */
+internal fun configFrom(e: com.helix.core.storage.entity.ProviderConfigEntity): ProviderConfig =
+    ProviderConfig.fromStorage(
+        e.id,
+        e.displayName,
+        e.protocol,
+        e.endpoint,
+        e.model,
+        e.headersJson,
+        e.secretAlias,
+        e.capabilitySnapshot,
+        e.provisioningKind,
+        e.transportKind,
+        e.authKind,
+    )

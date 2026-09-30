@@ -32,8 +32,9 @@ enum class CliModelProvider(
 ) {
     CODEX("codex"),
     CLAUDE("claude"),
-    GROK("grok"),
+    ANTIGRAVITY("antigravity"),
     COPILOT("copilot"),
+    GROK("grok"),
 }
 
 data class CliModelEnvelope(
@@ -55,12 +56,12 @@ object CliModelRequestCodec {
         require(images.map { it.reference }.toSet() == references && images.size == references.size) {
             "image snapshots must exactly match message references"
         }
-        require(images.isEmpty() || provider == CliModelProvider.CODEX)
+        require(images.isEmpty() || provider in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY))
         val wireImages = transportImages(images)
         require(wireImages.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
         val version =
             if (images.isNotEmpty()) {
-                3
+                if (provider == CliModelProvider.CODEX) 3 else 4
             } else if (provider == CliModelProvider.CODEX) {
                 1
             } else {
@@ -69,10 +70,10 @@ object CliModelRequestCodec {
         val bytes =
             buildJsonObject {
                 put("version", version)
-                if (version == 3) put("images", encodeImages(wireImages))
+                if (version >= 3) put("images", encodeImages(wireImages))
                 if (provider != CliModelProvider.CODEX) put("providerId", provider.wireId)
                 put("model", request.model)
-                put("messages", buildJsonArray { request.messages.forEach { add(encodeMessage(it, version == 3)) } })
+                put("messages", buildJsonArray { request.messages.forEach { add(encodeMessage(it, version >= 3)) } })
                 put("tools", buildJsonArray { request.tools.forEach { add(encodeTool(it)) } })
                 request.temperature?.let { put("temperature", it) }
                 request.maxOutputTokens?.let { put("maxOutputTokens", it) }
@@ -89,7 +90,7 @@ object CliModelRequestCodec {
         require(bytes.isNotEmpty())
         val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
         val version = root.getValue("version").jsonPrimitive.long
-        require(version in 1L..3L)
+        require(version in 1L..4L)
         root.strictObject(
             when (version) {
                 1L -> {
@@ -100,14 +101,17 @@ object CliModelRequestCodec {
                     REQUEST_KEYS + "providerId"
                 }
 
+                3L -> {
+                    REQUEST_KEYS + "images"
+                }
+
                 else -> {
-                    REQUEST_KEYS +
-                        "images"
+                    REQUEST_KEYS + setOf("images", "providerId")
                 }
             },
         )
         val provider =
-            if (version != 2L) {
+            if (version == 1L || version == 3L) {
                 CliModelProvider.CODEX
             } else {
                 val id = root.getValue("providerId").jsonPrimitive
@@ -117,7 +121,7 @@ object CliModelRequestCodec {
         val request =
             ModelRequest(
                 model = root.getValue("model").jsonPrimitive.content,
-                messages = root.getValue("messages").jsonArray.map { decodeMessage(it, version == 3L) },
+                messages = root.getValue("messages").jsonArray.map { decodeMessage(it, version >= 3L) },
                 tools = root.getValue("tools").jsonArray.map(::decodeTool),
                 temperature = root["temperature"]?.jsonPrimitive?.double,
                 maxOutputTokens = root["maxOutputTokens"]?.jsonPrimitive?.long,
@@ -125,9 +129,10 @@ object CliModelRequestCodec {
                 stopSequences = root.getValue("stopSequences").jsonArray.map { it.jsonPrimitive.content },
                 reasoning = ReasoningEffort.valueOf(root.getValue("reasoning").jsonPrimitive.content),
             )
-        val images = if (version == 3L) decodeImages(root.getValue("images").jsonArray) else emptyList()
+        val images = if (version >= 3L) decodeImages(root.getValue("images").jsonArray) else emptyList()
         val references = request.messages.flatMap { it.images }.toSet()
         require(images.map { it.reference }.toSet() == references && images.size == references.size)
+        require(images.isEmpty() || provider in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY))
         require(images.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
         return CliModelEnvelope(provider, request, images)
     }

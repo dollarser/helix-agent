@@ -24,10 +24,19 @@ internal class CodexLoopbackServer private constructor(
         executor.execute {
             val result =
                 try {
-                    socket.soTimeout = timeoutMillis
+                    val deadline =
+                        System.nanoTime() +
+                            java.util.concurrent.TimeUnit.MILLISECONDS
+                                .toNanos(timeoutMillis.toLong())
                     var parsed: CodexCallbackResult = CodexCallbackResult.Ignored
                     while (!closed.get() && parsed is CodexCallbackResult.Ignored) {
+                        val remaining =
+                            java.util.concurrent.TimeUnit.NANOSECONDS
+                                .toMillis(deadline - System.nanoTime())
+                        if (remaining <= 0) throw SocketTimeoutException()
+                        socket.soTimeout = remaining.coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(1)
                         socket.accept().use { client ->
+                            client.soTimeout = minOf(socket.soTimeout, 5000)
                             parsed =
                                 parseCallback(readTarget(client.getInputStream().buffered()), expectedState)
                             respond(client, parsed)
@@ -103,7 +112,10 @@ internal class CodexLoopbackServer private constructor(
             var last: Exception? = null
             for (port in intArrayOf(1455, 1457)) {
                 try {
-                    return CodexLoopbackServer(ServerSocket(port, 4), timeoutMillis)
+                    return CodexLoopbackServer(
+                        ServerSocket(port, 4, java.net.InetAddress.getByName("127.0.0.1")),
+                        timeoutMillis,
+                    )
                 } catch (error: IOException) {
                     last = error
                 }
@@ -113,7 +125,7 @@ internal class CodexLoopbackServer private constructor(
 
         fun bindEphemeral(timeoutMillis: Int = TIMEOUT_MILLIS): CodexLoopbackServer {
             require(timeoutMillis in 1..TIMEOUT_MILLIS)
-            return CodexLoopbackServer(ServerSocket(0, 4), timeoutMillis)
+            return CodexLoopbackServer(ServerSocket(0, 4, java.net.InetAddress.getByName("127.0.0.1")), timeoutMillis)
         }
     }
 }
