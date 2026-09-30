@@ -40,7 +40,7 @@ class ProviderConnectionCheckTest {
             val invalid =
                 listOf(
                     listOf(ModelEvent.Completed("stop")),
-                    listOf(ModelEvent.ReasoningDelta(" "), ModelEvent.Completed("length")),
+                    listOf(ModelEvent.ReasoningDelta(" "), ModelEvent.Completed("stop")),
                     listOf(ModelEvent.ReasoningDelta("thinking"), ModelEvent.Usage(10, 16)),
                     listOf(ModelEvent.Completed("stop"), ModelEvent.ReasoningDelta("late")),
                 )
@@ -49,6 +49,15 @@ class ProviderConnectionCheckTest {
                 assertEquals(ModelErrorCode.PROTOCOL, result.code)
                 assertEquals(3, result.phase)
             }
+        }
+
+    @Test fun emptyTokenLimitedResponseIsNotAProtocolViolationOrSuccess() =
+        runBlocking {
+            val provider = Fixture(null, listOf(ModelEvent.Usage(10, 2048), ModelEvent.Completed("length")))
+            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            assertEquals(ModelErrorCode.OUTPUT_TOKEN_LIMIT, result.code)
+            assertEquals(1, provider.generations)
+            assertEquals(2048L, provider.lastRequest?.maxOutputTokens)
         }
 
     @Test fun errorAfterReasoningIsNotAConnectedResult() =
@@ -181,6 +190,7 @@ class ProviderConnectionCheckTest {
     ) : ModelProvider,
         SubscriptionConnectionProvider {
         var generations = 0
+        var lastRequest: ModelRequest? = null
         var fallbackCatalogCalls = 0
         override val descriptor =
             ProviderDescriptor(config.id, config.displayName, config.protocol, config.model, config.endpoint)
@@ -197,6 +207,7 @@ class ProviderConnectionCheckTest {
         override fun stream(request: ModelRequest) =
             flowOf(*events.toTypedArray()).also {
                 generations++
+                lastRequest = request
             }
     }
 }

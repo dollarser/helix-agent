@@ -283,7 +283,11 @@ class ConversationReceiptRaceDeviceTest {
                     }
 
                     val target = requireNotNull(storage.messages.latestUser(session)).id
-                    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-edit-$target"))
+                    compose
+                        .onNodeWithTag(
+                            "chat-timeline",
+                        ).performScrollToNode(hasTestTag("chat-message-toggle-$target"))
+                    compose.onNodeWithTag("chat-message-toggle-$target").performClick()
                     compose
                         .onNodeWithTag("chat-edit-$target")
                         .performScrollTo()
@@ -376,8 +380,9 @@ class ConversationReceiptRaceDeviceTest {
             try {
                 chat.openSession(session)
                 compose.waitUntil(WAIT_MILLIS) {
-                    compose.onAllNodesWithTag("chat-edit-$message").fetchSemanticsNodes().size == 1
+                    compose.onAllNodesWithTag("chat-message-toggle-$message").fetchSemanticsNodes().size == 1
                 }
+                compose.onNodeWithTag("chat-message-toggle-$message").performScrollTo().performClick()
                 compose
                     .onNodeWithTag("chat-edit-$message")
                     .performScrollTo()
@@ -411,6 +416,7 @@ class ConversationReceiptRaceDeviceTest {
                 InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
                 compose.waitUntil(WAIT_MILLIS) { revisionInputCount() == 0 }
 
+                compose.onNodeWithTag("chat-message-toggle-$message").performScrollTo().performClick()
                 compose
                     .onNodeWithTag("chat-edit-$message")
                     .performScrollTo()

@@ -265,10 +265,11 @@ internal fun ConversationSection(
             val activeSearchQuery = searchController.query.takeIf { searchActive && it.isNotBlank() }
 
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->
-                items(entry.messages.filter { it.role == "user" }, key = { it.id }) {
+                val forkMessageId = entry.forkMessageId(screen)
+                items(entry.initialMessages, key = { it.id }) {
                     MessageRow(
                         it,
-                        intents.onFork,
+                        null,
                         intents.onEditLatest?.takeIf { _ ->
                             it.id == screen.messages.lastOrNull { message -> message.role == "user" }?.id
                         },
@@ -283,11 +284,15 @@ internal fun ConversationSection(
                         activeCallId = currentTargetId,
                     )
                 }
-                items(entry.messages.filter { it.role != "user" }, key = { it.id }) {
+                items(entry.followingMessages, key = { it.id }) {
                     MessageRow(
                         message = it,
-                        onFork = intents.onFork,
-                        onEdit = null,
+                        onFork = intents.onFork?.takeIf { _ -> it.id == forkMessageId },
+                        onEdit =
+                            intents.onEditLatest?.takeIf { _ ->
+                                it.role == "user" &&
+                                    it.id == screen.messages.lastOrNull { message -> message.role == "user" }?.id
+                            },
                         onRegenerate =
                             intents.onRegenerateLatest?.takeIf { _ ->
                                 !screen.isSending && it.role == "assistant" &&

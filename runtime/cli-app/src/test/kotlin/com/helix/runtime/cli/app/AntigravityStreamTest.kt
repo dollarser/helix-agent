@@ -10,6 +10,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AntigravityStreamTest {
+    @Test fun emptyTokenLimitedResponseRetainsItsTerminalReason() {
+        val decoder = AntigravityStreamDecoder(emptyMap()) { _, _ -> error("No tool replay") }
+        val events = decoder.feed(frame("[]", "MAX_TOKENS").toByteArray()) + decoder.finish()
+        assertEquals("length", events.filterIsInstance<ModelEvent.Completed>().single().finishReason)
+        assertFalse(events.any { it is ModelEvent.Error || it is ModelEvent.TextDelta })
+    }
+
     @Test fun fragmentedUtf8AndCrLfProduceOneTerminal() {
         val decoder = AntigravityStreamDecoder(emptyMap()) { _, _ -> error("No tool replay") }
         val bytes = frame("""[{"text":"你好"}]""", "STOP").replace("\n", "\r\n").toByteArray()

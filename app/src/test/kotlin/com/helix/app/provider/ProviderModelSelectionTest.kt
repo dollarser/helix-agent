@@ -23,7 +23,6 @@ class ProviderModelSelectionTest {
         val reopened = ProviderSelectedModels(backing).selection("p")
         assertTrue(reopened.configured)
         assertTrue(reopened.models.isEmpty())
-        assertNull(reopened.defaultModel)
     }
 
     @Test fun everyProvisioningTypeUsesOnlyExplicitChoicesNotDefaultOrCatalog() {
@@ -31,21 +30,27 @@ class ProviderModelSelectionTest {
             val source = row(type)
             assertTrue(source.conversationModels.isEmpty())
             assertFalse(source.offersConversationModels)
-            val selected = source.copy(modelSelection = ProviderModelSelection(listOf("b"), "b", true))
+            val selected = source.copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true))
             assertEquals(listOf("b"), selected.conversationModels)
             assertEquals(listOf("a", "b", "new"), selected.backendModels)
             assertEquals("a", selected.model)
-            assertEquals("b", selected.defaultConversationModel)
             assertTrue(selected.offersConversationModels)
         }
     }
 
-    @Test fun removingDefaultClearsItAndNeverSilentlyEnablesAnotherModel() {
-        val choice = ProviderModelSelection().chooseDefault("a").toggle("b", true).toggle("a", false)
+    @Test fun removingAChoiceNeverSilentlyEnablesAnotherModel() {
+        val choice = ProviderModelSelection().toggle("a", true).toggle("b", true).toggle("a", false)
         assertEquals(listOf("b"), choice.models)
-        assertNull(choice.defaultModel)
         assertTrue(choice.toggle("b", false).models.isEmpty())
-        assertThrows(IllegalArgumentException::class.java) { ProviderModelSelection(listOf("a"), "hidden", true) }
+    }
+
+    @Test fun retiredDefaultIsIgnoredAndNoLongerWritten() {
+        val backing = InMemoryLineStore()
+        backing.setLines("provider-model-selection-v2-p", listOf("""{"models":["b"],"default":"b","custom":[]}"""))
+        val store = ProviderSelectedModels(backing)
+        assertEquals(listOf("b"), store.selection("p").models)
+        store.save("p", store.selection("p"))
+        assertFalse(backing.lines("provider-model-selection-v2-p").single().contains("default"))
     }
 
     @Test fun customChoicesAndOrderingSurviveHidingAndReopen() {
@@ -54,7 +59,7 @@ class ProviderModelSelectionTest {
             ProviderModelSelection()
                 .addCustom("custom/a")
                 .addCustom("b")
-                .chooseDefault("b")
+                .toggle("b", true)
                 .moveFirst("b")
                 .toggle("custom/a", false)
         store.save("p", value)
@@ -66,8 +71,8 @@ class ProviderModelSelectionTest {
     @Test fun staleDialogCannotOverwriteAnotherEntryPoint() {
         val store = ProviderSelectedModels(InMemoryLineStore())
         val stale = store.selection("p")
-        store.save("p", stale.chooseDefault("new"), stale)
-        assertThrows(IllegalStateException::class.java) { store.save("p", stale.chooseDefault("old"), stale) }
+        store.save("p", stale.toggle("new", true), stale)
+        assertThrows(IllegalStateException::class.java) { store.save("p", stale.toggle("old", true), stale) }
         assertEquals(listOf("new"), store.read("p"))
     }
 

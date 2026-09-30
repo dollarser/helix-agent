@@ -103,6 +103,7 @@ class MessageEditResendFlowDeviceTest {
                     chat.setMode(AgentMode.CHAT)
                     compose.waitUntil(10_000) { chat.screen.value.messages.size == 3 }
                     compose.onNodeWithTag("chat-edit-$first").assertDoesNotExist()
+                    compose.onNodeWithTag("chat-message-toggle-$target").performScrollTo().performClick()
                     compose.onNodeWithTag("chat-edit-$target").performScrollTo().performClick()
                     compose.waitUntil(
                         10_000,

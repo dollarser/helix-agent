@@ -36,9 +36,11 @@ internal class AntigravitySubscriptionModel(
     ): CodexModelExecution {
         val events =
             try {
+                AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.START)
                 val account = auth.current(vault)
                 val wire = AntigravityRequest(request, images) { replay.read(request.model, account.revision, it) }
                 val payload = wire.encode(requireNotNull(account.session.accountId))
+                AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.ENCODED)
                 check(vault.snapshot(CliSubscriptionProvider.ANTIGRAVITY).revision == account.revision)
                 val decoder =
                     AntigravityStreamDecoder(wire.names) { message, parts ->
@@ -48,6 +50,7 @@ internal class AntigravitySubscriptionModel(
             } catch (cancelled: java.util.concurrent.CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
+                AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.EXCEPTION)
                 listOf(ModelEvent.Error(errorCode(error), false))
             }
         return CodexModelExecution(request.model, events)

@@ -23,6 +23,73 @@ class ProviderModelPickerDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val caps = ProviderCapabilities(true, true, false, false, false, false, 8192, CapabilitySource.PROBED)
 
+    @Test fun modelNameTogglesTheOnlySelectionControl() {
+        val selected = androidx.compose.runtime.mutableStateOf(ProviderModelSelection())
+        val busy = androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            MaterialTheme {
+                ProviderModelChoiceRow(
+                    row("subscription", ProviderProvisioningKind.MANAGED_ACCOUNT, "a"),
+                    "a",
+                    selected.value,
+                    busy.value,
+                    false,
+                    { selected.value = selected.value.toggle("a", it) },
+                    {},
+                    {},
+                    {},
+                    {},
+                    {},
+                )
+            }
+        }
+        compose.onNodeWithText("a").performClick()
+        compose.runOnIdle { assertEquals(listOf("a"), selected.value.models) }
+        compose.onNodeWithTag("provider-model-default-a").assertDoesNotExist()
+        compose.onNodeWithText("a").performClick()
+        compose.runOnIdle {
+            assertEquals(emptyList<String>(), selected.value.models)
+            busy.value = true
+        }
+        compose.onNodeWithText("a").performClick()
+        compose.runOnIdle { assertEquals(emptyList<String>(), selected.value.models) }
+    }
+
+    @Test fun allSubscriptionsKeepOnlyAccountAndModelManagementActions() {
+        val source = androidx.compose.runtime.mutableStateOf("codex")
+        compose.setContent {
+            MaterialTheme {
+                ProviderRow(
+                    row(source.value, ProviderProvisioningKind.MANAGED_ACCOUNT, "a"),
+                    false,
+                    ProviderRowActions({}, {}, {}, {}, {}),
+                    false,
+                )
+            }
+        }
+        listOf("codex", "grok", "claude", "antigravity", "copilot").forEach { id ->
+            compose.runOnIdle { source.value = id }
+            compose.onNodeWithTag("provider-context-$id").assertDoesNotExist()
+            compose.onNodeWithTag("provider-capabilities").assertDoesNotExist()
+            val login =
+                compose
+                    .onNodeWithTag("provider-manage-account")
+                    .fetchSemanticsNode()
+                    .boundsInRoot.top
+            val models =
+                compose
+                    .onNodeWithTag("provider-manage-models-$id")
+                    .fetchSemanticsNode()
+                    .boundsInRoot.top
+            val connection =
+                compose
+                    .onNodeWithTag("provider-test")
+                    .fetchSemanticsNode()
+                    .boundsInRoot.top
+            org.junit.Assert.assertTrue(login < models && models < connection)
+        }
+    }
+
     @Test fun hiddenCurrentIsExplainedButNotReinsertedIntoAnEmptyPicker() {
         val row = row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
         compose.setContent {
@@ -40,12 +107,12 @@ class ProviderModelPickerDeviceTest {
         val localId = "a".repeat(64)
         val subscription =
             row("subscription", ProviderProvisioningKind.MANAGED_ACCOUNT, "a")
-                .copy(modelSelection = ProviderModelSelection(listOf("b"), "b", true))
+                .copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true))
         val local =
             row("local", ProviderProvisioningKind.ON_DEVICE_ASSET, localId)
                 .copy(
                     displayName = "Local fixture",
-                    modelSelection = ProviderModelSelection(listOf(localId), localId, true),
+                    modelSelection = ProviderModelSelection(listOf(localId), configured = true),
                 )
         var selected: Pair<String, String>? = null
         compose.setContent {
@@ -68,7 +135,7 @@ class ProviderModelPickerDeviceTest {
         val current = androidx.compose.runtime.mutableStateOf("a")
         val row =
             row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
-                .copy(modelSelection = ProviderModelSelection(listOf("a", "b"), "a", true))
+                .copy(modelSelection = ProviderModelSelection(listOf("a", "b"), configured = true))
         var requested: String? = null
         compose.setContent {
             MaterialTheme {

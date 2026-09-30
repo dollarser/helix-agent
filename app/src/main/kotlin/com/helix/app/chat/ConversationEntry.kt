@@ -6,7 +6,24 @@ internal data class ConversationEntry(
     val messages: List<MessageUi>,
     val tools: List<ToolTimelineRow>,
     val recoveries: List<SubscriptionRecoveryUi>,
-)
+) {
+    // Only the initial user input precedes the operations block. Later user answers
+    // stay between the assistant messages that preceded and followed them.
+    val initialMessages: List<MessageUi> get() = messages.takeWhile { it.role == "user" }
+    val followingMessages: List<MessageUi> get() = messages.drop(initialMessages.size)
+
+    fun forkMessageId(screen: ChatScreenState): String? {
+        val turn = screen.turns.firstOrNull { it.id == key }
+        val running =
+            (turn != null && !turn.state.isTerminal) ||
+                (screen.activeTurn?.id == key && screen.isSending)
+        val candidate = messages.lastOrNull { it.role == "assistant" }
+        val inheritedIntermediate =
+            candidate?.turnId == null && candidate != null &&
+                screen.messages.getOrNull(screen.messages.indexOf(candidate) + 1)?.role == "assistant"
+        return candidate?.id?.takeUnless { running || inheritedIntermediate }
+    }
+}
 
 internal fun conversationEntries(screen: ChatScreenState): List<ConversationEntry> {
     val keys = linkedSetOf<String>()

@@ -32,10 +32,13 @@ internal fun GroupedNavigation(
     onCurrentConversation: () -> Unit,
     onNewConversation: () -> Unit,
     onAllConversations: () -> Unit,
-    onOpenConversation: (String) -> Unit,
+    footer: @Composable () -> Unit = {},
     onNavigate: (ShellDestination) -> Unit,
 ) {
-    val navigationDestinations = destinations.filter { it != ShellDestination.Sessions }
+    val navigationDestinations =
+        destinations
+            .filter { it != ShellDestination.Sessions }
+            .sortedBy { if (it == ShellDestination.Models) 0 else 1 }
     val initialExpanded =
         remember(navigationDestinations, currentRoute) {
             navigationDestinations
@@ -45,117 +48,95 @@ internal fun GroupedNavigation(
         }
     var expandedGroups by remember(currentRoute) { mutableStateOf(initialExpanded) }
 
-    Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).testTag("navigation-groups")) {
-        Text("Helix", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(24.dp))
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.drawer_new_conversation)) },
-            selected = false,
-            onClick = onNewConversation,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-new-conversation"),
-        )
-        conversation.currentSessionId?.let {
-            Text(
-                stringResource(R.string.drawer_current_conversation),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 28.dp, end = 16.dp, top = 12.dp, bottom = 2.dp),
-            )
+    Column(Modifier.fillMaxHeight()) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).testTag("navigation-groups")) {
+            Text("Helix", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(24.dp))
             NavigationDrawerItem(
-                label = {
-                    Text(
-                        conversation.currentTitle.ifBlank { stringResource(R.string.chat_new_session) },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                selected = currentRoute == ShellDestination.Sessions.route,
-                onClick = onCurrentConversation,
-                modifier =
-                    Modifier
-                        .padding(horizontal = 12.dp, vertical = 2.dp)
-                        .testTag("drawer-current-conversation"),
+                label = { Text(stringResource(R.string.drawer_new_conversation)) },
+                selected = false,
+                onClick = onNewConversation,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-new-conversation"),
             )
-        }
-        Text(
-            stringResource(R.string.drawer_recent),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier =
-                Modifier
-                    .padding(
-                        start = 28.dp,
-                        end = 16.dp,
-                        top = 12.dp,
-                        bottom = 2.dp,
-                    ).testTag("drawer-recent"),
-        )
-        conversation.recent
-            .filterNot { it.isArchived || it.id == conversation.currentSessionId }
-            .forEach { session ->
+            conversation.currentSessionId?.let {
+                Text(
+                    stringResource(R.string.drawer_current_conversation),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 28.dp, end = 16.dp, top = 12.dp, bottom = 2.dp),
+                )
                 NavigationDrawerItem(
-                    label = { Text(session.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    selected = false,
-                    onClick = { onOpenConversation(session.id) },
+                    label = {
+                        Text(
+                            conversation.currentTitle.ifBlank { stringResource(R.string.chat_new_session) },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    selected = currentRoute == ShellDestination.Sessions.route,
+                    onClick = onCurrentConversation,
                     modifier =
                         Modifier
-                            .padding(start = 28.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
-                            .testTag("drawer-recent-${session.id}"),
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                            .testTag("drawer-current-conversation"),
                 )
             }
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.drawer_all_conversations)) },
-            selected = currentRoute == CONVERSATION_HISTORY_ROUTE,
-            onClick = onAllConversations,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-all-conversations"),
-        )
-        HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        navigationDestinations.groupBy { it.navigationGroup() }.forEach { (group, entries) ->
-            if (entries.size == 1) {
-                val destination = entries.first()
-                NavigationDrawerItem(
-                    label = { Text(stringResource(destination.titleRes)) },
-                    selected = destination.route == currentRoute,
-                    onClick = { onNavigate(destination) },
-                    modifier =
-                        Modifier
-                            .padding(horizontal = 12.dp, vertical = 2.dp)
-                            .testTag("navigation-${destination.route}"),
-                )
-            } else {
-                val isExpanded = group in expandedGroups
-                val hasSelectedChild = entries.any { it.route == currentRoute }
-                NavigationDrawerItem(
-                    label = { Text(stringResource(group)) },
-                    selected = !isExpanded && hasSelectedChild,
-                    badge = { Text(if (isExpanded) "▴" else "▾") },
-                    onClick = {
-                        expandedGroups =
-                            if (isExpanded) {
-                                expandedGroups - group
-                            } else {
-                                expandedGroups + group
-                            }
-                    },
-                    modifier =
-                        Modifier
-                            .padding(horizontal = 12.dp, vertical = 2.dp)
-                            .testTag(navigationGroupTag(group)),
-                )
-                if (isExpanded) {
-                    entries.forEach { destination ->
-                        NavigationDrawerItem(
-                            label = { Text(stringResource(destination.titleRes)) },
-                            selected = destination.route == currentRoute,
-                            onClick = { onNavigate(destination) },
-                            modifier =
-                                Modifier
-                                    .padding(start = 28.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
-                                    .testTag("navigation-${destination.route}"),
-                        )
+            NavigationDrawerItem(
+                label = { Text(stringResource(R.string.drawer_all_conversations)) },
+                selected = currentRoute == CONVERSATION_HISTORY_ROUTE,
+                onClick = onAllConversations,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-all-conversations"),
+            )
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            navigationDestinations.groupBy { it.navigationGroup() }.forEach { (group, entries) ->
+                if (entries.size == 1) {
+                    val destination = entries.first()
+                    NavigationDrawerItem(
+                        label = { Text(stringResource(destination.titleRes)) },
+                        selected = destination.route == currentRoute,
+                        onClick = { onNavigate(destination) },
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 12.dp, vertical = 2.dp)
+                                .testTag("navigation-${destination.route}"),
+                    )
+                } else {
+                    val isExpanded = group in expandedGroups
+                    val hasSelectedChild = entries.any { it.route == currentRoute }
+                    NavigationDrawerItem(
+                        label = { Text(stringResource(group)) },
+                        selected = !isExpanded && hasSelectedChild,
+                        badge = { Text(if (isExpanded) "▴" else "▾") },
+                        onClick = {
+                            expandedGroups =
+                                if (isExpanded) {
+                                    expandedGroups - group
+                                } else {
+                                    expandedGroups + group
+                                }
+                        },
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 12.dp, vertical = 2.dp)
+                                .testTag(navigationGroupTag(group)),
+                    )
+                    if (isExpanded) {
+                        entries.forEach { destination ->
+                            NavigationDrawerItem(
+                                label = { Text(stringResource(destination.titleRes)) },
+                                selected = destination.route == currentRoute,
+                                onClick = { onNavigate(destination) },
+                                modifier =
+                                    Modifier
+                                        .padding(start = 28.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
+                                        .testTag("navigation-${destination.route}"),
+                            )
+                        }
                     }
                 }
             }
         }
+        HorizontalDivider()
+        footer()
     }
 }
 
@@ -173,10 +154,14 @@ private fun ShellDestination.navigationGroup(): Int =
         ShellDestination.Sessions -> R.string.nav_group_conversations
 
         ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
-        ShellDestination.Files, ShellDestination.Browser, ShellDestination.Terminal,
+        ShellDestination.Files, ShellDestination.Browser,
         -> R.string.nav_group_work
 
-        ShellDestination.Models, ShellDestination.Extensions, ShellDestination.Setup -> R.string.nav_group_configure
+        ShellDestination.Models -> R.string.nav_models
+
+        ShellDestination.Terminal -> R.string.nav_terminal
+
+        ShellDestination.Extensions, ShellDestination.Setup -> R.string.nav_group_configure
 
         ShellDestination.Settings -> R.string.nav_group_settings
     }

@@ -25,8 +25,6 @@ class LocalModelDialogDeviceTest {
             MaterialTheme {
                 LocalModelDialog(
                     providerService = app.appContainer.providerService,
-                    currentSessionAvailable = false,
-                    onUseCurrentSession = { _, _ -> com.helix.app.chat.SessionModelSelectionResult.APPLIED },
                     onDismiss = {},
                 )
             }
@@ -43,17 +41,11 @@ class LocalModelDialogDeviceTest {
     @Test fun failedAdvancedDownloadPreservesDraftAndCanBeDismissed() {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val visible = mutableStateOf(true)
-        var used = false
         compose.setContent {
             MaterialTheme {
                 if (visible.value) {
                     LocalModelDialog(
                         providerService = app.appContainer.providerService,
-                        currentSessionAvailable = true,
-                        onUseCurrentSession = { _, _ ->
-                            used = true
-                            com.helix.app.chat.SessionModelSelectionResult.APPLIED
-                        },
                     ) { visible.value = false }
                 }
             }
@@ -85,6 +77,5 @@ class LocalModelDialogDeviceTest {
             .assertTextContains("http://invalid.example/model.gguf")
         compose.onNodeWithTag("local-model-cancel").assertIsDisplayed().performClick()
         compose.onNodeWithTag("local-model-name").assertDoesNotExist()
-        assertFalse(used)
     }
 }

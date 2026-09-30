@@ -52,7 +52,7 @@ internal fun ProviderRow(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
-            StatusChip(row.status)
+            StatusChip(row.status, row.managedExternally)
         }
         row.accountState?.let { account ->
             Text(stringResource(managedAccountLabel(account)), Modifier.testTag("provider-account-state"))
@@ -65,22 +65,24 @@ internal fun ProviderRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            buildString {
-                append(
-                    stringResource(
-                        R.string.provider_row_model,
-                        row.modelLabel(row.model),
-                        UiLabels.protocolLabel(row.protocol),
-                    ),
-                )
-                if (row.hasKey) append(stringResource(R.string.provider_row_has_key))
-                if (row.isCleartext) append(stringResource(R.string.provider_row_cleartext))
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val detail = statusDetail(row)
+        if (!row.managedExternally) {
+            Text(
+                buildString {
+                    append(
+                        stringResource(
+                            R.string.provider_row_model,
+                            row.modelLabel(row.model),
+                            UiLabels.protocolLabel(row.protocol),
+                        ),
+                    )
+                    if (row.hasKey) append(stringResource(R.string.provider_row_has_key))
+                    if (row.isCleartext) append(stringResource(R.string.provider_row_cleartext))
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val detail = if (row.managedExternally && row.status is ConnectionTestStatus.Passed) null else statusDetail(row)
         if (detail != null) {
             Text(
                 detail,
@@ -104,17 +106,6 @@ internal fun ProviderRow(
                 )
             }
         }
-        Text(stringResource(R.string.provider_models_selected_count, row.conversationModels.size))
-        val defaultLabel =
-            row.defaultConversationModel?.let(row::modelLabel)
-                ?: stringResource(R.string.provider_models_no_default)
-        Text(stringResource(R.string.provider_models_default_value, defaultLabel))
-        OutlinedButton(
-            onClick = actions.onManageModels,
-            modifier = Modifier.fillMaxWidth().testTag("provider-manage-models-${row.id}"),
-        ) {
-            Text(stringResource(R.string.provider_models_manage))
-        }
         if (row.managedExternally) {
             OutlinedButton(
                 onClick = actions.onManageAccount,
@@ -123,14 +114,23 @@ internal fun ProviderRow(
                 Text(stringResource(R.string.provider_subscription_manage_account))
             }
         }
+        Text(stringResource(R.string.provider_models_selected_count, row.conversationModels.size))
         OutlinedButton(
-            onClick = actions.onContext,
-            modifier = Modifier.fillMaxWidth().testTag("provider-context-${row.id}"),
+            onClick = actions.onManageModels,
+            modifier = Modifier.fillMaxWidth().testTag("provider-manage-models-${row.id}"),
         ) {
-            Text(stringResource(R.string.chat_context_title))
+            Text(stringResource(R.string.provider_models_manage))
         }
-        // HXA-059: the backend model list + the capability probe result (see the section helper).
-        ProviderCapabilityResult(capabilityOutcome)
+        if (!row.managedExternally) {
+            OutlinedButton(
+                onClick = actions.onContext,
+                modifier = Modifier.fillMaxWidth().testTag("provider-context-${row.id}"),
+            ) {
+                Text(stringResource(R.string.chat_context_title))
+            }
+            // HXA-059: the backend model list + the capability probe result (see the section helper).
+            ProviderCapabilityResult(capabilityOutcome)
+        }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = actions.onTest,
@@ -141,26 +141,30 @@ internal fun ProviderRow(
                     stringResource(
                         if (testing && !detectingCapabilities) {
                             R.string.provider_testing
+                        } else if (row.managedExternally) {
+                            R.string.provider_account_connection_test
                         } else {
                             R.string.provider_connection_test
                         },
                     ),
                 )
             }
-            OutlinedButton(
-                onClick = actions.onDetectCapabilities,
-                enabled = !testing && row.chatSelectable,
-                modifier = Modifier.fillMaxWidth().testTag("provider-capabilities"),
-            ) {
-                Text(
-                    stringResource(
-                        if (detectingCapabilities) {
-                            R.string.provider_capabilities_testing
-                        } else {
-                            R.string.provider_capabilities_test
-                        },
-                    ),
-                )
+            if (!row.managedExternally) {
+                OutlinedButton(
+                    onClick = actions.onDetectCapabilities,
+                    enabled = !testing && row.chatSelectable,
+                    modifier = Modifier.fillMaxWidth().testTag("provider-capabilities"),
+                ) {
+                    Text(
+                        stringResource(
+                            if (detectingCapabilities) {
+                                R.string.provider_capabilities_testing
+                            } else {
+                                R.string.provider_capabilities_test
+                            },
+                        ),
+                    )
+                }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -201,7 +205,10 @@ internal fun ProviderRow(
 
 @Composable
 @Suppress("FunctionName")
-private fun StatusChip(status: ConnectionTestStatus) {
+private fun StatusChip(
+    status: ConnectionTestStatus,
+    accountOnly: Boolean = false,
+) {
     val (color, tag) =
         when (status) {
             ConnectionTestStatus.Untested -> {
@@ -224,7 +231,9 @@ private fun StatusChip(status: ConnectionTestStatus) {
 
             is ConnectionTestStatus.Passed -> {
                 stringResource(
-                    if (status.capabilities.source == com.helix.provider.api.CapabilitySource.CONNECTION_ONLY) {
+                    if (accountOnly) {
+                        R.string.provider_account_connected
+                    } else if (status.capabilities.source == com.helix.provider.api.CapabilitySource.CONNECTION_ONLY) {
                         R.string.conn_connection_only
                     } else {
                         R.string.conn_passed

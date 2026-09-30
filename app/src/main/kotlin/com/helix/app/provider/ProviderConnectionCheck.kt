@@ -57,13 +57,19 @@ internal object ProviderConnectionCheck {
                     ModelRequest(
                         model = config.model,
                         messages = listOf(ModelMessage(ModelRole.USER, "Reply only OK.")),
-                        maxOutputTokens = 16,
+                        // Native thinking may consume output tokens before emitting any delta.
+                        maxOutputTokens = 2048,
                     ),
                 ).toList()
         val error = events.filterIsInstance<ModelEvent.Error>().firstOrNull()
         val outcome =
             if (error != null) {
                 ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
+            } else if ((events.lastOrNull { it !is ModelEvent.Usage } as? ModelEvent.Completed)?.finishReason ==
+                "length" &&
+                events.none { it.hasGeneratedContent() }
+            ) {
+                ProbeOutcome.Failed(3, ModelErrorCode.OUTPUT_TOKEN_LIMIT, "connection output budget exhausted", false)
             } else if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
                 events.none { it.hasGeneratedContent() }
             ) {

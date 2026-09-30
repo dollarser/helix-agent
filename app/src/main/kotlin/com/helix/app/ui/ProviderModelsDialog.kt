@@ -39,8 +39,6 @@ import kotlinx.coroutines.launch
 internal fun ProviderModelsDialog(
     row: ProviderRowUi,
     service: ProviderService,
-    currentSessionAvailable: Boolean,
-    onUseCurrentSession: suspend (String, String) -> com.helix.app.chat.SessionModelSelectionResult,
     onDismiss: () -> Unit,
 ) {
     val rows by service.rows.collectAsStateWithLifecycle()
@@ -55,7 +53,6 @@ internal fun ProviderModelsDialog(
     var manual by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
-    var selectionResult by remember { mutableStateOf<com.helix.app.chat.SessionModelSelectionResult?>(null) }
     var catalogUnsupported by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -102,10 +99,6 @@ internal fun ProviderModelsDialog(
                     Text(stringResource(R.string.provider_models_selection_help))
                     Text(stringResource(R.string.provider_model_probe_cost))
                     Text(stringResource(R.string.provider_models_selected_count, selection.models.size))
-                    val defaultLabel =
-                        selection.defaultModel?.let(current::modelLabel)
-                            ?: stringResource(R.string.provider_models_no_default)
-                    Text(stringResource(R.string.provider_models_default_value, defaultLabel))
                     OutlinedTextField(
                         query,
                         { query = it },
@@ -121,7 +114,7 @@ internal fun ProviderModelsDialog(
                         TextButton(
                             onClick = {
                                 selection =
-                                    selection.copy(models = emptyList(), defaultModel = null, configured = true)
+                                    selection.copy(models = emptyList(), configured = true)
                             },
                             enabled = !busy,
                             modifier = Modifier.testTag("provider-model-clear"),
@@ -149,10 +142,6 @@ internal fun ProviderModelsDialog(
                         Text(stringResource(R.string.provider_models_local_help))
                     }
                     if (selection.models.isEmpty()) Text(stringResource(R.string.provider_models_empty))
-                    selectionResult?.let {
-                        Text(stringResource(R.string.model_selection_saved_but_not_applied))
-                        Text(stringResource(it.messageRes), Modifier.testTag("provider-model-selection-result"))
-                    }
                     if (live == null || error) Text(stringResource(R.string.provider_models_operation_failed))
                     if (live?.modelSelection != baseline) {
                         Text(stringResource(R.string.provider_models_stale))
@@ -177,28 +166,11 @@ internal fun ProviderModelsDialog(
                         busy,
                         expanded = expanded == model,
                         onToggle = { selection = selection.toggle(model, it) },
-                        onDefault = { selection = selection.chooseDefault(model) },
                         onExpand = { expanded = if (expanded == model) null else model },
                         onContext = { contextModel = model },
                         onTest = { perform { service.runConnectionTest(row.id, model, verifyGeneration = true) } },
                         onProbe = { perform { service.runCapabilityTest(row.id, model) } },
                         onMove = { selection = selection.moveFirst(model) },
-                        onUse =
-                            if (currentSessionAvailable && current.modelSelectable(model) &&
-                                model in selection.models
-                            ) {
-                                {
-                                    perform {
-                                        save()
-                                        selectionResult = onUseCurrentSession(row.id, model)
-                                        if (selectionResult == com.helix.app.chat.SessionModelSelectionResult.APPLIED) {
-                                            onDismiss()
-                                        }
-                                    }
-                                }
-                            } else {
-                                null
-                            },
                     )
                 }
                 if (current.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET) {

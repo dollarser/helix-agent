@@ -54,13 +54,8 @@ import kotlinx.coroutines.launch
  */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
-fun ProviderManager(
-    providerService: ProviderService,
-    chatService: ChatService,
-) {
+fun ProviderManager(providerService: ProviderService) {
     val rows by providerService.rows.collectAsStateWithLifecycle()
-    val sessionFlow = remember(chatService) { chatService.screen.map { it.openSessionId }.distinctUntilChanged() }
-    val currentSession by sessionFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     var group by rememberSaveable { mutableStateOf<ProviderProvisioningKind?>(null) }
     androidx.compose.runtime.LaunchedEffect(providerService.sourceGroups) {
@@ -83,26 +78,16 @@ fun ProviderManager(
     var accountFailureId by remember { mutableStateOf<String?>(null) }
 
     if (localModelOpen) {
-        val targetSession = remember { currentSession }
         providerService.localModels?.let {
             LocalModelDialog(
                 providerService = providerService,
-                currentSessionAvailable = currentSession != null,
-                onUseCurrentSession = { provider, model ->
-                    chatService.requestSessionModelSelection(targetSession, provider, model).await()
-                },
             ) { localModelOpen = false }
         }
     }
     modelsRow?.let { row ->
-        val targetSession = remember(row.id) { currentSession }
         ProviderModelsDialog(
             row,
             providerService,
-            targetSession != null,
-            onUseCurrentSession = { provider, model ->
-                chatService.requestSessionModelSelection(targetSession, provider, model).await()
-            },
             onDismiss = { modelsRow = null },
         )
     }
@@ -173,7 +158,7 @@ fun ProviderManager(
                                     try {
                                         providerService.runConnectionTest(
                                             row.id,
-                                            row.defaultConversationModel ?: row.model,
+                                            row.model,
                                         )
                                     } catch (e: Exception) {
                                         // A row that cannot even be resolved (corruption) fails
@@ -197,7 +182,7 @@ fun ProviderManager(
                                         val result =
                                             providerService.runCapabilityTest(
                                                 row.id,
-                                                row.defaultConversationModel ?: row.model,
+                                                row.model,
                                             )
                                         capabilityResults = capabilityResults + (row.id to result)
                                     } catch (e: kotlinx.coroutines.CancellationException) {

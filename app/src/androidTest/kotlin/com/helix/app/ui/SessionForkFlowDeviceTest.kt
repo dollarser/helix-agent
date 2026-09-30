@@ -57,7 +57,11 @@ class SessionForkFlowDeviceTest {
                     chat.openSession(source)
                     chat.setMode(AgentMode.CHAT)
                     compose.waitUntil(10_000) { chat.screen.value.messages.size == 3 }
-                    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-fork-$target"))
+                    compose
+                        .onNodeWithTag(
+                            "chat-timeline",
+                        ).performScrollToNode(hasTestTag("chat-message-toggle-$target"))
+                    compose.onNodeWithTag("chat-message-toggle-$target").performClick()
                     compose.onNodeWithTag("chat-fork-$target").performClick()
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
                     val branch = requireNotNull(chat.screen.value.openSessionId)
@@ -120,21 +124,24 @@ class SessionForkFlowDeviceTest {
             val source = UUID.randomUUID().toString()
             val first = UUID.randomUUID().toString()
             val last = UUID.randomUUID().toString()
+            val followup = UUID.randomUUID().toString()
             storage.sessions.create(source, "Recovery fork fixture", null, null, 1)
-            storage.messages.append(first, source, null, "USER", "TEXT", "safe prefix")
+            storage.messages.append(first, source, null, "ASSISTANT", "TEXT", "safe prefix")
+            storage.messages.append(followup, source, null, "USER", "TEXT", "Continue")
             storage.messages.append(UUID.randomUUID().toString(), source, null, "ASSISTANT", "TOOL_CALLS", "invalid")
             storage.messages.append(last, source, null, "ASSISTANT", "TEXT", "after corrupt protocol")
             chat.openSession(source)
             compose.waitUntil(10_000) {
                 chat.screen.value.openSessionId == source &&
                     chat.screen.value.messages
-                        .map { it.id } == listOf(first, last)
+                        .map { it.id } == listOf(first, followup, last)
             }
             try {
                 compose.waitUntil(
                     10_000,
                 ) { compose.onAllNodesWithTag("chat-timeline").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-fork-$last"))
+                compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-message-toggle-$last"))
+                compose.onNodeWithTag("chat-message-toggle-$last").performClick()
             } catch (error: AssertionError) {
                 compose.onAllNodes(isRoot(), useUnmergedTree = true).printToLog("ForkBaseline")
                 throw error
@@ -146,7 +153,8 @@ class SessionForkFlowDeviceTest {
             }
             assertEquals(source, chat.screen.value.openSessionId)
             compose.onNodeWithTag("chat-blocked-reason").assertExists()
-            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-fork-$first"))
+            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-message-toggle-$first"))
+            compose.onNodeWithTag("chat-message-toggle-$first").performClick()
             compose.onNodeWithTag("chat-fork-$first").performClick()
             compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
             assertEquals(

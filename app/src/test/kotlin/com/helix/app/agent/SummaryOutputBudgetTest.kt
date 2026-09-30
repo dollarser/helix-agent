@@ -23,8 +23,9 @@ class SummaryOutputBudgetTest {
     }
 
     @Test fun reasoningModelsHaveHeadroomWithoutExpandingSummaryProse() {
-        assertEquals(SummaryOutputBudget(2048, 16384), SummaryOutputBudget.forRequest(4000, 32768, 262144))
-        assertEquals(SummaryOutputBudget(2048, 8192), SummaryOutputBudget.forRequest(4000, 8192, 262144))
+        assertEquals(SummaryOutputBudget(500, 16384), SummaryOutputBudget.forRequest(4000, 32768, 262144))
+        assertEquals(SummaryOutputBudget(500, 8192), SummaryOutputBudget.forRequest(4000, 8192, 262144))
+        assertEquals(SummaryOutputBudget(128, 8192), SummaryOutputBudget.forRequest(800, 8192, 262144))
         assertEquals(SummaryOutputBudget(4096, 16384), SummaryOutputBudget.forRequest(100000, 32768, 262144))
     }
 

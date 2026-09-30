@@ -41,6 +41,55 @@ class ContextCompactionDeviceTest {
 
     private fun next() = "context-${sequence++}"
 
+    @Test fun manualNoGainCompletesWithoutCheckpointOrHistoryReplacement() {
+        withStorage { storage ->
+            val coordinator = seed(storage)
+            val originals = storage.messages.listBySession("s").associate { it.id to storage.messages.readContent(it) }
+            val plan =
+                requireNotNull(
+                    ContextCompaction.plan(
+                        storage,
+                        "s",
+                        request(storage),
+                        control,
+                        ProviderContextSettings(),
+                        true,
+                        coordinator.id,
+                    ),
+                ).copy(originalInputTokens = 32)
+            val round =
+                com.helix.app.agent.ContextCompactionRound(
+                    storage,
+                    "s",
+                    coordinator.id,
+                    control,
+                    ProviderContextSettings(),
+                    true,
+                )
+            val stream = coordinator.beginModelStream(compacting = true)
+            stream.apply(ModelEvent.TextDelta("No useful reduction is possible."))
+            stream.apply(ModelEvent.Usage(872, 971))
+            stream.apply(ModelEvent.Completed("stop"))
+            val result =
+                kotlinx.coroutines.runBlocking {
+                    round.finish(plan, stream, stream.terminal(false), coordinator, next(), "Compacted", "Unchanged")
+                }
+            assertEquals(TurnState.COMPLETED, result?.state)
+            coordinator.settleFixtureTerminal(requireNotNull(result))
+            assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
+            originals.forEach { (id, text) ->
+                assertEquals(text, storage.messages.readContent(storage.messages.resolve(id)))
+            }
+            val call = storage.modelCalls.listByTurn(coordinator.id).single()
+            assertEquals("COMPLETED", call.state)
+            assertTrue(
+                com.helix.app.agent.ChatContextProjection
+                    .isSummary(storage, call.id),
+            )
+            assertEquals("Unchanged", storage.messages.readContent(storage.messages.listBySession("s").last()))
+        }
+    }
+
     @Test fun completedSummaryPreservesHistoryAndSurvivesReopen() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "context-${UUID.randomUUID()}.db"

@@ -40,8 +40,6 @@ import kotlinx.coroutines.launch
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "SwallowedException", "CyclomaticComplexMethod")
 internal fun LocalModelDialog(
     providerService: ProviderService,
-    currentSessionAvailable: Boolean,
-    onUseCurrentSession: suspend (String, String) -> com.helix.app.chat.SessionModelSelectionResult,
     onDismiss: () -> Unit,
 ) {
     var advanced by remember { mutableStateOf(false) }
@@ -52,7 +50,6 @@ internal fun LocalModelDialog(
     var hash by remember { mutableStateOf("") }
     var size by remember { mutableStateOf("") }
     var failure by remember { mutableStateOf(false) }
-    var selectionResult by remember { mutableStateOf<com.helix.app.chat.SessionModelSelectionResult?>(null) }
     var progress by remember { mutableStateOf<LocalModelTransferProgress?>(null) }
     var result by remember { mutableStateOf<LocalModelInstallResult?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
@@ -175,7 +172,6 @@ internal fun LocalModelDialog(
                 if (failure) {
                     Text(stringResource(R.string.local_model_failed), Modifier.testTag("local-model-error"))
                 }
-                selectionResult?.let { Text(stringResource(it.messageRes)) }
                 result?.let { installed ->
                     val connected = installed.connection is ProbeOutcome.Ok
                     val capabilityPassed = installed.capabilities is ProbeOutcome.Ok
@@ -199,37 +195,6 @@ internal fun LocalModelDialog(
                                 },
                             ),
                         )
-                    }
-                    Text(
-                        stringResource(R.string.local_model_use_current_only),
-                        Modifier.testTag("local-model-session-scope-note"),
-                    )
-                    TextButton(
-                        onClick = {
-                            job =
-                                scope.launch {
-                                    try {
-                                        // Installing/unloading does not select a model. This explicit action does.
-                                        providerService.saveSelectedModels(
-                                            installed.providerId,
-                                            listOf(installed.modelId),
-                                        )
-                                        selectionResult = onUseCurrentSession(installed.providerId, installed.modelId)
-                                    } catch (
-                                        cancelled: CancellationException,
-                                    ) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        failure = true
-                                    } finally {
-                                        job = null
-                                    }
-                                }
-                        },
-                        enabled = currentSessionAvailable && connected && job == null,
-                        modifier = Modifier.testTag("local-model-use-current"),
-                    ) {
-                        Text(stringResource(R.string.provider_models_save_use))
                     }
                 }
             }

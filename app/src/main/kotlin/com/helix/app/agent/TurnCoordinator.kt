@@ -655,11 +655,13 @@ internal class TurnCoordinator private constructor(
     }
 
     /** A completed summary is durable before the next request replaces any history. */
+    @Suppress("CyclomaticComplexMethod") // Commit or discard the summary with its call outcome in one transaction.
     fun commitCompaction(
         plan: ContextCompaction.Plan,
         nextModelCallId: String?,
         notice: String? = null,
         failureReason: String? = null,
+        saveSummary: Boolean = true,
     ) {
         val current = runtime.snapshot()
         val stream = runtime.currentStream()
@@ -668,9 +670,10 @@ internal class TurnCoordinator private constructor(
         if (failureReason == null) require(stream.completed && stream.terminal(false).state == TurnState.COMPLETED)
         require(!current.modelCallClosed && current.batchCalls.isEmpty())
         require(nextModelCallId == null || nextModelCallId.isNotBlank())
+        require(saveSummary || (nextModelCallId == null && failureReason == null && notice != null))
         storage.withTransaction {
             requireNotCancelling()
-            if (failureReason == null) {
+            if (failureReason == null && saveSummary) {
                 ContextCompaction.persist(
                     storage,
                     sessionId,

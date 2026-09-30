@@ -138,6 +138,118 @@ class AntigravityProtocolTest {
         }
     }
 
+    @Test fun presentationStrippingDoesNotBreakReplayButIdentityChangesAreRejected() {
+        val root = Files.createTempDirectory("antigravity-presentation").toFile()
+        try {
+            val name = AntigravityRequest.wireName("ask_user")
+            val parts =
+                """[{"thoughtSignature":"opaque","functionCall":{"name":"$name","args":
+                    {"question":"Choose","__helix_intent":"Ask preference"}}}]"""
+            val decoded = AntigravityResponse.decode(response(parts), mapOf(name to "ask_user"))
+            val original = requireNotNull(decoded.assistant)
+            AntigravityReplayStore(root).save("model", "account", original, requireNotNull(decoded.originalParts))
+            val stripped =
+                original.copy(
+                    toolCalls =
+                        original.toolCalls.map {
+                            it.copy(argumentsJson = """{"question":"Choose"}""")
+                        },
+                )
+            val reopened = AntigravityReplayStore(root)
+            val replayed = requireNotNull(reopened.read("model", "account", stripped))
+            assertFalse(replayed.toString().contains("__helix_intent"))
+            assertEquals(
+                "opaque",
+                replayed
+                    .single()
+                    .jsonObject
+                    .getValue("thoughtSignature")
+                    .jsonPrimitive.content,
+            )
+            val changed =
+                stripped.copy(
+                    toolCalls =
+                        stripped.toolCalls.map {
+                            it.copy(
+                                name =
+                                    com.helix.core.model
+                                        .ToolName("files.list"),
+                            )
+                        },
+                )
+            assertThrows(IllegalArgumentException::class.java) { reopened.read("model", "account", changed) }
+            assertThrows(IllegalArgumentException::class.java) { reopened.read("model", "other", stripped) }
+            assertThrows(IllegalArgumentException::class.java) { reopened.read("other", "account", stripped) }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun replayUsesHarnessBoundWorkspaceArgumentsAfterReopen() {
+        val root = Files.createTempDirectory("antigravity-bound-path").toFile()
+        try {
+            val name = AntigravityRequest.wireName("files.list")
+            val parts = """[{"thoughtSignature":"opaque","functionCall":{"name":"$name","args":{"path":"."}}}]"""
+            val decoded = AntigravityResponse.decode(response(parts), mapOf(name to "files.list"))
+            val original = requireNotNull(decoded.assistant)
+            AntigravityReplayStore(root).save("model", "account", original, requireNotNull(decoded.originalParts))
+            val canonical =
+                original.copy(
+                    toolCalls =
+                        original.toolCalls.map {
+                            it.copy(argumentsJson = """{"path":"scope:workspace:notes"}""")
+                        },
+                )
+            val replay = requireNotNull(AntigravityReplayStore(root).read("model", "account", canonical))
+            val function =
+                replay
+                    .single()
+                    .jsonObject
+                    .getValue("functionCall")
+                    .jsonObject
+            assertEquals(Json.parseToJsonElement(canonical.toolCalls.single().argumentsJson), function["args"])
+            assertEquals(
+                "opaque",
+                replay
+                    .single()
+                    .jsonObject
+                    .getValue("thoughtSignature")
+                    .jsonPrimitive.content,
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun oldConversationReplaySurvivesMoreThan128NewRecordsAndReopen() {
+        val root = Files.createTempDirectory("antigravity-retention").toFile()
+        try {
+            val name = AntigravityRequest.wireName("read")
+            val parts = """[{"thoughtSignature":"opaque","functionCall":{"name":"$name","args":{"path":"."}}}]"""
+            val decoded = AntigravityResponse.decode(response(parts), mapOf(name to "read"))
+            val original = requireNotNull(decoded.assistant)
+            val store = AntigravityReplayStore(root)
+            val messages =
+                (0..128).map { index ->
+                    original.copy(
+                        toolCalls =
+                            original.toolCalls.map {
+                                it.copy(
+                                    id =
+                                        com.helix.core.model
+                                            .ToolCallId("agy_retention_$index"),
+                                )
+                            },
+                    )
+                }
+            messages.forEach { store.save("model", "account", it, requireNotNull(decoded.originalParts)) }
+            val reopened = AntigravityReplayStore(root)
+            messages.forEach { assertNotEquals(null, reopened.read("model", "account", it)) }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun toolResultsUseAnObjectEnvelopeAndPreserveExactName() {
         val call =
             com.helix.core.model.AssistantToolCall(

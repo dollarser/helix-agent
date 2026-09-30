@@ -19,6 +19,8 @@ import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -30,6 +32,9 @@ import java.io.File
 class RealToolVisionDeviceTest {
     @get:Rule val activity = ActivityScenarioRule(MainActivity::class.java)
 
+    private var tabId: String? = null
+    private val browserCase get() = InstrumentationRegistry.getArguments().getString("visionBrowser") == "true"
+
     @Test
     fun realModelReadsToolPixels() =
         runBlocking {
@@ -37,8 +42,9 @@ class RealToolVisionDeviceTest {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val container = app.appContainer
             val service = container.providerService
+            val existing = InstrumentationRegistry.getArguments().getString("visionProvider")
             val provider =
-                service.create(
+                existing ?: service.create(
                     ProviderDraft(
                         null,
                         "Synthetic vision acceptance",
@@ -54,14 +60,17 @@ class RealToolVisionDeviceTest {
                     cleartextConfirmed = true,
                 )
             try {
-                check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
-                service.runCapabilityTest(provider)
-                check(service.capabilitiesFor(provider)?.vision == true)
+                if (existing == null) {
+                    check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
+                    service.runCapabilityTest(provider)
+                    check(service.capabilitiesFor(provider)?.vision == true)
+                }
                 exerciseSession(app, provider)
             } finally {
                 container.chatService.stop()
                 container.chatService.closeSession()
-                service.delete(provider)
+                tabId?.let { id -> activity.scenario.onActivity { container.browser.closeTab(id) } }
+                if (existing == null) service.delete(provider)
             }
         }
 
@@ -74,7 +83,7 @@ class RealToolVisionDeviceTest {
             container.chatService.createSession(
                 "Synthetic vision acceptance",
                 provider,
-                "Qwen3.8-27B",
+                InstrumentationRegistry.getArguments().getString("visionModel") ?: "Qwen3.8-27B",
             )
         val binding = requireNotNull(container.storage.workspaces.binding(session))
         val relative =
@@ -91,10 +100,17 @@ class RealToolVisionDeviceTest {
         val reference = FileScopePath(binding.workspaceId, relative).toModelReference()
         container.chatService.openSession(session)
         container.chatService.setMode(AgentMode.ACT)
+        if (browserCase) prepareBrowser(app)
         container.chatService.sendTestMessage(
             session,
-            "Use view_image to inspect $reference. Identify the dominant color of each half. " +
-                "Reply only LEFT=<English color>;RIGHT=<English color>. Do not infer colors from the filename.",
+            if (browserCase) {
+                "Use browser.screenshot on tab $tabId, inspect the returned pixels, and reply only " +
+                    "LEFT=<English color>;RIGHT=<English color>. Do not use DOM or infer colors from text."
+            } else {
+                "First call files.list with path \".\" to list this session Workspace. " +
+                    "Then use view_image to inspect $reference. Identify the dominant color of each half. " +
+                    "Reply only LEFT=<English color>;RIGHT=<English color>. Do not infer colors from the filename."
+            },
         )
         val deadline = android.os.SystemClock.elapsedRealtime() + 180_000
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
@@ -105,10 +121,32 @@ class RealToolVisionDeviceTest {
                 container.storage.turns
                     .listBySession(session)
                     .lastOrNull()
-            if (turn != null && TurnState.valueOf(turn.state).isTerminal) break
+            if (turn != null) {
+                approveScreenshot(app, turn.id)
+                if (TurnState.valueOf(turn.state).isTerminal) break
+            }
             delay(100)
         }
         verifyResult(app, session)
+    }
+
+    private suspend fun approveScreenshot(
+        app: HelixApplication,
+        turnId: String,
+    ) {
+        val container = app.appContainer
+        container.storage.toolCalls.listByTurn(turnId).filter { it.state == "AWAITING_APPROVAL" }.forEach { call ->
+            val approval = container.storage.approvals.byToolCall(call.callId)
+            val args =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(call.argsJson)
+                    .jsonObject
+            if (approval != null && call.name == "browser.screenshot" &&
+                args["tabId"]?.jsonPrimitive?.content == tabId
+            ) {
+                container.chatService.approveApproval(approval.id)
+            }
+        }
     }
 
     private fun verifyResult(
@@ -139,9 +177,11 @@ class RealToolVisionDeviceTest {
                         "TOOL_OBSERVATION"
                 }
             }
+        val visualTool = if (browserCase) "browser.screenshot" else "view_image"
         val passed =
             turn.state == "COMPLETED" && imageCount > 0 &&
-                calls.any { it.name == "view_image" && it.state == "COMPLETED" } &&
+                (browserCase || calls.any { it.name == "files.list" && it.state == "COMPLETED" }) &&
+                calls.any { it.name == visualTool && it.state == "COMPLETED" } &&
                 answer.contains("LEFT=red", true) && answer.contains("RIGHT=green", true)
         val result =
             buildJsonObject {
@@ -153,6 +193,31 @@ class RealToolVisionDeviceTest {
             }
         File(app.filesDir, "real-tool-vision.json").writeText(result.toString())
         assertTrue(result.toString(), passed)
+    }
+
+    private suspend fun prepareBrowser(app: HelixApplication) {
+        val controller = app.appContainer.browser
+        activity.scenario.onActivity { owner ->
+            val id = controller.newTab()
+            tabId = id
+            val html =
+                "<html><body style='margin:0;" +
+                    "background:linear-gradient(to right,red 50%,lime 50%)'></body></html>"
+            controller.navigate(id, "data:text/html," + android.net.Uri.encode(html))
+            owner.addContentView(requireNotNull(controller.hostView(id)), android.view.ViewGroup.LayoutParams(640, 320))
+        }
+        val deadline = android.os.SystemClock.elapsedRealtime() + 15000
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            val tab =
+                controller.state.value.tabs
+                    .first { it.id == tabId }
+            if (!tab.isLoading && tab.navigationGeneration > 0) {
+                delay(500)
+                return
+            }
+            delay(100)
+        }
+        error("Synthetic browser page did not load")
     }
 
     private fun createImage(file: File) {

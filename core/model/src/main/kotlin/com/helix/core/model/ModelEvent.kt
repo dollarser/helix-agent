@@ -40,6 +40,9 @@ enum class ModelErrorCode {
 
     /** A vendor safety filter blocked the output. */
     CONTENT_FILTER,
+
+    /** A valid response exhausted its output budget before producing usable content. */
+    OUTPUT_TOKEN_LIMIT,
 }
 
 /**

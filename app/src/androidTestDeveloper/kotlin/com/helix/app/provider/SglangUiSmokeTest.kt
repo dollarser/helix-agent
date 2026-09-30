@@ -146,7 +146,9 @@ class SglangUiSmokeTest {
             .onNodeWithTag("provider-model-list")
             .performScrollToNode(hasTestTag("provider-model-choice-$smokeModel"))
         composeRule.onNodeWithTag("provider-model-choice-$smokeModel").assertIsDisplayed()
-        composeRule.onNodeWithTag("provider-model-default-$smokeModel").performClick()
+        if (smokeModel !in row.modelSelection.models) {
+            composeRule.onNodeWithTag("provider-model-choice-$smokeModel").performClick()
+        }
         assertEquals(
             row.modelSelection,
             service.rows.value
@@ -157,7 +159,8 @@ class SglangUiSmokeTest {
         composeRule.waitUntil(10_000) {
             service.rows.value
                 .single { it.id == row.id }
-                .modelSelection.defaultModel == smokeModel &&
+                .modelSelection.models
+                .contains(smokeModel) &&
                 composeRule.onAllNodesWithTag("provider-model-list").fetchSemanticsNodes().isEmpty()
         }
         composeRule.onNodeWithTag("provider-manage-models-${row.id}").performScrollTo().performClick()

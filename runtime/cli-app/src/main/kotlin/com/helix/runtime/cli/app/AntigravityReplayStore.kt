@@ -49,12 +49,8 @@ internal class AntigravityReplayStore(
         } finally {
             temporary.delete()
         }
-        directory
-            .listFiles { item -> item.name.endsWith(".json") }
-            .orEmpty()
-            .sortedByDescending { it.lastModified() }
-            .drop(MAX_RECORDS)
-            .forEach { it.delete() }
+        // These records are durable conversation dependencies, not an LRU cache.
+        // A different conversation must never evict signatures still needed by old history.
     }
 
     fun read(
@@ -79,9 +75,6 @@ internal class AntigravityReplayStore(
                 }
             require(bytes.size <= MAX_BYTES)
             val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
-            require(root["binding"]?.jsonPrimitive?.content == binding(model, revision, message)) {
-                "Signed response belongs to another model, account, or message"
-            }
             require(root.keys == setOf("binding", "parts", "partsHash"))
             val parts = root["parts"] as JsonArray
             require(root["partsHash"]?.jsonPrimitive?.content == hash(parts.toString()))
@@ -89,12 +82,58 @@ internal class AntigravityReplayStore(
             require(message.text.isEmpty() || message.text == antigravityVisibleText(parts))
             val functions = parts.mapNotNull { it.jsonObject["functionCall"] as? kotlinx.serialization.json.JsonObject }
             require(functions.size == message.toolCalls.size)
+            // Authenticate the original protocol record by account/model/call identity. Harness
+            // owns persisted business arguments: it also binds relative paths to the Workspace.
+            // Comparing those against raw model arguments would reject legitimate normalization.
+            val originalMessage =
+                message.copy(
+                    toolCalls =
+                        functions.zip(message.toolCalls).map { (function, call) ->
+                            call.copy(argumentsJson = requireNotNull(function["args"]).toString())
+                        },
+                )
+            require(root["binding"]?.jsonPrimitive?.content == binding(model, revision, originalMessage)) {
+                "Signed response belongs to another model, account, or message"
+            }
             functions.zip(message.toolCalls).forEach { (function, call) ->
                 require(function["name"]?.jsonPrimitive?.content == AntigravityRequest.wireName(call.name.value))
-                require(function["args"] == Json.parseToJsonElement(call.argumentsJson))
             }
-            parts
+            canonicalParts(parts, message)
         }
+
+    private fun canonicalParts(
+        parts: JsonArray,
+        message: ModelMessage,
+    ): JsonArray {
+        val canonicalCalls = message.toolCalls.iterator()
+        return JsonArray(
+            parts.map { value ->
+                val part = value.jsonObject
+                val function = part["functionCall"] as? kotlinx.serialization.json.JsonObject
+                if (function == null) {
+                    part
+                } else {
+                    kotlinx.serialization.json.JsonObject(
+                        part + (
+                            "functionCall" to
+                                kotlinx.serialization.json.JsonObject(
+                                    function +
+                                        (
+                                            "args" to
+                                                businessArgs(
+                                                    Json.parseToJsonElement(canonicalCalls.next().argumentsJson),
+                                                )
+                                        ),
+                                )
+                        ),
+                    )
+                }
+            },
+        )
+    }
+
+    private fun businessArgs(value: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonObject =
+        kotlinx.serialization.json.JsonObject(value.jsonObject - "__helix_intent")
 
     private fun path(message: ModelMessage): File =
         File(
@@ -139,6 +178,5 @@ internal class AntigravityReplayStore(
     private companion object {
         val LOCK = Any()
         const val MAX_BYTES = 8 * 1024 * 1024
-        const val MAX_RECORDS = 128
     }
 }

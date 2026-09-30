@@ -249,6 +249,7 @@ internal class AgentLoop(
                             coordinator,
                             idGenerator(),
                             str(R.string.context_compacted),
+                            str(R.string.context_compaction_unchanged),
                         )
                 if (finished != null) {
                     if (finished.state != TurnState.COMPLETED) return TurnLoopResult.Terminal(finished)

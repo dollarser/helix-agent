@@ -54,7 +54,6 @@ data class ProviderRowUi(
     /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
     val conversationModels: List<String> get() = modelSelection.models
     val selectedModels: List<String> get() = modelSelection.models
-    val defaultConversationModel: String? get() = modelSelection.defaultModel
     val knownModels: List<String> get() =
         (backendModels.orEmpty() + modelSelection.customModels + modelSelection.models + model).distinct()
     val offersConversationModels: Boolean get() = chatSelectable && conversationModels.isNotEmpty()

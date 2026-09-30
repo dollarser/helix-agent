@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 internal fun ProviderContextDialog(
     row: ProviderRowUi,
     service: ProviderService,
-    initialModel: String = row.defaultConversationModel ?: row.model,
+    initialModel: String = row.model,
     onDismiss: () -> Unit,
 ) = ProviderContextEditor(
     row,
@@ -53,7 +53,7 @@ internal fun ProviderContextEditor(
     discover: suspend (String) -> ProviderContextSettings,
     save: suspend (String, ProviderContextSettings) -> Unit,
     onDismiss: () -> Unit,
-    initialModel: String = row.defaultConversationModel ?: row.model,
+    initialModel: String = row.model,
 ) {
     var model by remember(row.id, initialModel) { mutableStateOf(initialModel) }
     var modelMenu by remember { mutableStateOf(false) }
@@ -124,10 +124,8 @@ internal fun ProviderContextEditor(
                     }
                 }
                 Text(
-                    stringResource(
-                        R.string.context_server_window,
-                        settings.serverWindow?.toString() ?: stringResource(R.string.chat_context_unknown),
-                    ),
+                    settings.serverWindow?.let { stringResource(R.string.context_server_window, it.toString()) }
+                        ?: stringResource(R.string.context_server_window_unreported),
                 )
                 if (automaticWindow && settings.serverWindow == null) {
                     Text(stringResource(R.string.context_window_fallback, settings.window))

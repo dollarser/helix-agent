@@ -99,7 +99,9 @@ class LongTurnCompactionDeviceTest {
             stream.apply(ModelEvent.Completed("stop"))
             assertNull(budget.finish(stream))
             runBlocking {
-                assertNull(round.finish(plan, stream, stream.terminal(false), coordinator, next(), "Compacted"))
+                assertNull(
+                    round.finish(plan, stream, stream.terminal(false), coordinator, next(), "Compacted", "Unchanged"),
+                )
             }
             assertTrue(storage.goals.resolve(goal).modelCalls >= 1)
             assertEquals("RUNNING", storage.goals.resolve(goal).state)
@@ -189,7 +191,9 @@ class LongTurnCompactionDeviceTest {
                 stream.apply(ModelEvent.Completed("stop"))
                 assertFalse(ContextCompaction.hasUsefulGain(plan, stream.text))
                 runBlocking {
-                    assertNull(round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted"))
+                    assertNull(
+                        round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted", "Unchanged"),
+                    )
                 }
             }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
@@ -211,7 +215,16 @@ class LongTurnCompactionDeviceTest {
             runBlocking {
                 assertEquals(
                     "SERVER_ERROR",
-                    round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted")?.errorCode,
+                    round
+                        .finish(
+                            plan,
+                            stream,
+                            stream.terminal(false),
+                            current,
+                            next(),
+                            "Compacted",
+                            "Unchanged",
+                        )?.errorCode,
                 )
             }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
@@ -327,7 +340,17 @@ class LongTurnCompactionDeviceTest {
                 stream.apply(ModelEvent.TextDelta("not useful ".repeat(1450)))
                 stream.apply(ModelEvent.Completed("stop"))
                 val terminal =
-                    runBlocking { round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted") }
+                    runBlocking {
+                        round.finish(
+                            plan,
+                            stream,
+                            stream.terminal(false),
+                            current,
+                            next(),
+                            "Compacted",
+                            "Unchanged",
+                        )
+                    }
                 if (attempt == 0) assertNull(terminal) else assertEquals("CONTEXT_WINDOW_LIMIT", terminal?.errorCode)
             }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
@@ -368,7 +391,11 @@ class LongTurnCompactionDeviceTest {
             val stream = current.beginModelStream(true)
             stream.apply(ModelEvent.TextDelta("ORANGE-42; preserve originals; last tool result pending verification."))
             stream.apply(ModelEvent.Completed("stop"))
-            assertNull(runBlocking { round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted") })
+            assertNull(
+                runBlocking {
+                    round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted", "Unchanged")
+                },
+            )
             val rebuilt = request(storage)
             assertTrue(round.admissionInput(rebuilt) >= rebuilt.inputTokens() * 2)
             round.observe(rebuilt, null)
@@ -409,7 +436,12 @@ class LongTurnCompactionDeviceTest {
             val stream = current.beginModelStream(true)
             stream.apply(ModelEvent.TextDelta("incomplete summary"))
             val cancelled = ModelStreamTerminal(TurnState.CANCELLED, null)
-            assertEquals(cancelled, runBlocking { round.finish(plan, stream, cancelled, current, next(), "Compacted") })
+            assertEquals(
+                cancelled,
+                runBlocking {
+                    round.finish(plan, stream, cancelled, current, next(), "Compacted", "Unchanged")
+                },
+            )
             current.settleFixtureTerminal(cancelled)
             assertNull(
                 com.helix.app.agent.ContextHistory
@@ -433,7 +465,11 @@ class LongTurnCompactionDeviceTest {
             val stream = current.beginModelStream(true)
             stream.apply(ModelEvent.TextDelta("ORANGE-42; no deletion. Last result still needs verification."))
             stream.apply(ModelEvent.Completed("stop"))
-            assertNull(runBlocking { round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted") })
+            assertNull(
+                runBlocking {
+                    round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted", "Unchanged")
+                },
+            )
             val published =
                 requireNotNull(
                     com.helix.app.agent.ContextHistory

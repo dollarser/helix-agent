@@ -20,6 +20,7 @@ class AntigravityLoginActivity : Activity() {
     private val guard = Any()
     private var active: Attempt? = null
     private var destroyed = false
+    private val handoff = ForegroundLoginHandoff<Pair<Attempt, String>>()
     private val worker = Executors.newSingleThreadExecutor()
     private lateinit var vault: CliSubscriptionCredentialVault
     private lateinit var status: TextView
@@ -47,7 +48,7 @@ class AntigravityLoginActivity : Activity() {
             }
         logout =
             Button(this).apply {
-                setText(R.string.claude_logout_action)
+                setText(R.string.antigravity_logout_action)
                 setOnClickListener {
                     stopLogin()
                     synchronized(guard) { vault.logout(CliSubscriptionProvider.ANTIGRAVITY) }
@@ -63,6 +64,26 @@ class AntigravityLoginActivity : Activity() {
                 R.string.antigravity_logged_out
             },
         )
+    }
+
+    private var pendingOAuth: CodexOAuthAttempt? = null
+
+    override fun onResume() {
+        super.onResume()
+        handoff.resume()?.let(::exchangeInForeground)
+    }
+
+    override fun onPause() {
+        handoff.pause()
+        super.onPause()
+    }
+
+    private fun exchangeInForeground(value: Pair<Attempt, String>) {
+        val oauth = pendingOAuth ?: return
+        pendingOAuth = null
+        if (active === value.first && !destroyed) {
+            worker.execute { complete(value.first, oauth, value.second) }
+        }
     }
 
     private fun startLogin() {
@@ -83,8 +104,16 @@ class AntigravityLoginActivity : Activity() {
             synchronized(guard) {
                 if (active !== attempt || destroyed) return@await
                 if (result is CodexCallbackResult.Code) {
-                    worker.execute { complete(attempt, oauth, result.value) }
+                    runOnUiThread {
+                        synchronized(guard) {
+                            if (active === attempt && !destroyed) {
+                                pendingOAuth = oauth
+                                handoff.offer(attempt to result.value)?.let(::exchangeInForeground)
+                            }
+                        }
+                    }
                 } else {
+                    android.util.Log.w("HelixAntigravity", "oauth_callback_not_completed")
                     finish(attempt, R.string.antigravity_failed)
                 }
             }
@@ -96,6 +125,8 @@ class AntigravityLoginActivity : Activity() {
         }
     }
 
+    // Login boundary reports allowlisted codes and never persists failed sessions.
+    @Suppress("TooGenericExceptionCaught")
     private fun complete(
         attempt: Attempt,
         oauth: CodexOAuthAttempt,
@@ -111,7 +142,8 @@ class AntigravityLoginActivity : Activity() {
                 R.string.antigravity_logged_in
             } catch (_: AntigravityOnboardingRequired) {
                 R.string.antigravity_onboarding
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                android.util.Log.w("HelixAntigravity", "login_exchange " + AntigravityLoginDiagnostic.code(error))
                 R.string.antigravity_failed
             }
         finish(attempt, message)
@@ -134,6 +166,8 @@ class AntigravityLoginActivity : Activity() {
     }
 
     private fun stopLogin() {
+        handoff.clear()
+        pendingOAuth = null
         val old = synchronized(guard) { active.also { active = null } }
         old?.server?.close()
         old?.auth?.close()

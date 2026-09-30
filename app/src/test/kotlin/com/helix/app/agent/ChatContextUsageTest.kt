@@ -5,6 +5,31 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ChatContextUsageTest {
+    @Test fun pendingFailedAndDiscardedSummaryRequestsPreserveLastConfirmedInput() {
+        val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
+        val previous = ChatContextProjection.InputSample(snapshot, """{"inputTokens":7474}""", true, false)
+        for (latest in listOf(
+            ChatContextProjection.InputSample(snapshot, null, false, false),
+            ChatContextProjection.InputSample(snapshot, """{"inputTokens":872}""", false, true),
+            ChatContextProjection.InputSample(snapshot, """{"inputTokens":872}""", true, true),
+        )) {
+            val result = ChatContextProjection.select(sequenceOf(latest, previous), "endpoint", "a")
+            assertEquals(7474L, result.inputTokens)
+            assertEquals(false, result.estimatedAfterCompaction)
+        }
+    }
+
+    @Test fun onlyCommittedSummaryChangesContextAndNextOrdinaryReplyReplacesEstimate() {
+        val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
+        val compacted = ChatContextProjection.InputSample(snapshot, """{"inputTokens":872}""", true, true, 2500)
+        val result = ChatContextProjection.select(sequenceOf(compacted), "endpoint", "a")
+        assertEquals(2500L, result.inputTokens)
+        assertEquals(true, result.estimatedAfterCompaction)
+        val next = ChatContextProjection.InputSample(snapshot, """{"inputTokens":3000}""", true, false)
+        assertEquals(3000L, ChatContextProjection.select(sequenceOf(next, compacted), "endpoint", "a").inputTokens)
+        assertNull(ChatContextProjection.select(sequenceOf(next, compacted), "endpoint", "other").inputTokens)
+    }
+
     @Test fun missingOrInvalidTelemetryIsNotAnEmptyContext() {
         assertNull(ChatContextUsage().fraction)
         assertNull(ChatContextUsage(100, null).percentage)
@@ -19,8 +44,9 @@ class ChatContextUsageTest {
         assertEquals(85L, ChatContextUsage(8500, 10000).percentage)
     }
 
-    @Test fun smallNonzeroUsageIsNotDisplayedAsZero() {
-        assertEquals("<1%", ChatContextUsage(500, 262144).percentageLabel)
+    @Test fun percentageLabelsRoundDownIncludingSmallNonzeroUsage() {
+        assertEquals("0%", ChatContextUsage(500, 262144).percentageLabel)
+        assertEquals("1%", ChatContextUsage(199, 10000).percentageLabel)
         assertEquals("0%", ChatContextUsage(0, 262144).percentageLabel)
         assertEquals("25%", ChatContextUsage(65536, 262144).percentageLabel)
         assertEquals("?", ChatContextUsage(null, 262144).percentageLabel)

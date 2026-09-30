@@ -7,6 +7,7 @@
 - `tool-presentation.md`: model-facing tool intent guidance.
 - `loop-warning.md`, `loop-exhausted.md`: trusted no-progress controls selected by the Harness.
 - `ask-user.md`: structured question tool guidance; answers never grant tool permissions.
+- `compaction-continuity.md`: historical fact attribution and trust boundaries when replaying a summary.
 - `compaction.md`: continuity-summary instructions; compression budgets and history selection remain in code.
 
 These are packaged application resources, not workspace instructions. Workspace files and MCP prompts cannot replace them. Selection uses the allowlist in `PromptEnvironmentSections`, assembled by `SystemPromptContext`; register a trigger there when adding a template. Templates are included in context token estimation. No third-party prompt text is copied.

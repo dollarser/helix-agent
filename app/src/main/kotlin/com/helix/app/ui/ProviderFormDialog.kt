@@ -473,7 +473,7 @@ private suspend fun applySave(
                         providerService.saveModelSelection(
                             id,
                             com.helix.app.provider
-                                .ProviderModelSelection(models, draft.model, configured = true),
+                                .ProviderModelSelection(models, configured = true),
                         )
                     } else {
                         // Connection edits never overwrite model visibility/default preferences.

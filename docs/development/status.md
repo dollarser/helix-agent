@@ -1,6 +1,16 @@
 # 当前实施状态
 
+2026-10-01 v0.0.4 开发预览整合与回放记录保留修复完成主机及 API36 定向验证（21/21）；版本范围与发布限制见[验证记录](../evidence/development/v0.0.4-release-2026-10-01.md)。
+
+2026-10-01 README 中英双语与 Antigravity Workspace 参数回填修复完成；files.list→读图、真实浏览器截图的 API36/模型定向结果见[验证记录](../evidence/development/files-vision-readme-2026-10-01.md)。
+
+2026-10-01 会话上下文圆环、手动无收益压缩与 Antigravity `ask_user` 回放校验已完成定向修复；主机、API36 及所选真实模型的候选续答/压缩范围见[验证记录](../evidence/development/session-context-ask-user-2026-10-01.md)。
+
 更新：2026-09-30。本页只维护当前基线、开放工作、下一步及限制；测试数字、命令、提交/安装过程留在链接记录。现场 HEAD、工作树、远端和设备须重新核对，不从历史“本轮未提交/未推送”推导当前状态。
+
+所有订阅的账号/模型设置已按所有者要求统一收敛；取消默认模型，新会话仅继承当前精确模型，无绑定则为空。[实现与定向验证](../evidence/development/subscription-model-settings-2026-09-30.md)。
+
+最新 Antigravity 定向修复：用户确认登录成功；API36 Developer 上精确模型 `gemini-3.8-flash-tiered` 已通过真实基础生成、会话选模和短聊天。修复 SSE 查询参数及 16-token 探测额度导致的假 PROTOCOL；[证据与边界](../evidence/development/antigravity-foreground-login-2026-09-30.md)。这不代表其他模型或工具/视觉能力已验证，下文较早“真实订阅未通过”保留为当时记录。
 
 ## Completed
 

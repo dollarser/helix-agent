@@ -50,7 +50,7 @@ class ToolTimelineLayoutDeviceTest {
     }
 
     @Test
-    fun modelIntentIsPrimaryWhileHarnessStateAndRawFactsRemainVisible() {
+    fun detailsAreHiddenWhileHarnessStateRemainsVisible() {
         val intent = "检查构建失败原因"
         render(
             ToolTimelineRow(
@@ -63,18 +63,33 @@ class ToolTimelineLayoutDeviceTest {
                 card = null,
                 modelIntent = intent,
                 durationMs = 400,
+                prootRecoveryAvailable = true,
             ),
         )
 
-        compose.onNodeWithTag("tool-row-intent-call").assertTextContains(intent)
+        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-inline-preview-call").assertDoesNotExist()
+        compose.onNodeWithTag("command-detail-call").assertDoesNotExist()
+        compose.onNodeWithTag("proot-query-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-state-call").assertIsDisplayed()
         compose.onNodeWithTag("tool-row-duration-call").assertIsDisplayed()
         compose.onNodeWithTag("tool-details-call").performClick()
+        compose.onNodeWithTag("tool-row-name-call").assertExists()
         compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)
         compose.onNodeWithTag("tool-row-status-detail-call").assertTextContains("需要审查", substring = true)
         compose.onNodeWithTag("tool-row-call-id-detail-call").assertTextContains("call", substring = true)
         compose.onNodeWithTag("tool-row-args-call").assertTextContains("./gradlew", substring = true)
         compose.onNodeWithTag("tool-row-result-call").assertTextContains("effect uncertain", substring = true)
+        compose.onNodeWithTag("command-detail-call").assertExists()
+        compose.onNodeWithTag("proot-query-call").assertExists()
+        compose.onNodeWithTag("tool-details-call").performScrollTo().performClick()
+        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-result-call").assertDoesNotExist()
+        compose.onNodeWithTag("command-detail-call").assertDoesNotExist()
+        compose.onNodeWithTag("proot-query-call").assertDoesNotExist()
     }
 
     @Test fun modelIntentFits320dpAtLargeFont() = assertIntentLayout(320)
@@ -96,7 +111,8 @@ class ToolTimelineLayoutDeviceTest {
                 modelIntent = "修改发布配置",
             ),
         )
-        compose.onNodeWithTag("tool-row-intent-call").assertTextContains("修改发布配置")
+        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
         compose
             .onNodeWithTag("tool-row-state-call")
             .assertIsDisplayed()
@@ -143,8 +159,9 @@ class ToolTimelineLayoutDeviceTest {
             fontScale = 2f,
         )
         val row = compose.onNodeWithTag("tool-row-call").getUnclippedBoundsInRoot()
-        val intentNode = compose.onNodeWithTag("tool-row-intent-call")
-        intentNode.assertIsDisplayed().assertTextContains(intent)
+        compose.onNodeWithTag("tool-row-intent-call").assertIsDisplayed().assertTextContains(intent)
+        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-state-call").assertIsDisplayed()
         val details = compose.onNodeWithTag("tool-details-call")
         details.assertIsDisplayed().assertHasClickAction()

@@ -228,7 +228,7 @@ HXA-229 的 per-call `ToolCallPresentation.modelIntent` 仅描述模型意图。
 
 Dispatcher、MCP、Skill、effect classifier、approval binding 和 argsHash 只消费业务参数。`tool_calls.argsJson` 保存 stripped canonical args，`modelIntent` 单独持久化；Provider history 不重放 presentation metadata。缺失、非法、secret-like、控制字符、超长或明显结果/权限声明的 intent 回退 `ToolPurpose`，不拒绝原本合法的业务调用。Export 仍经过正文 redaction/sanitizer。
 
-UI 可优先展示 intent，但 status、result、approval、UNKNOWN/NEEDS_REVIEW 始终来自 Harness；展开保留原参数、结果与 call identity。不增加 Activity grouping 或额外 LLM 结果总结。自然语言过滤是有界防护，不是语义真实性证明；通过过滤的文本仍不获得执行或授权权威。
+UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保留 Harness 状态与耗时；工具名称、完整 intent、请求参数、结果预览、调用标识和诊断入口收进详情。待审批卡保持可见。status、result、approval、UNKNOWN/NEEDS_REVIEW 始终来自 Harness；展开保留原参数、结果与 call identity。不增加 Activity grouping 或额外 LLM 结果总结。自然语言过滤是有界防护，不是语义真实性证明；通过过滤的文本仍不获得执行或授权权威。
 
 ### 16. 当前输入与静默会话缓存
 
@@ -254,6 +254,7 @@ UI 可优先展示 intent，但 status、result、approval、UNKNOWN/NEEDS_REVIE
 - **2026-09-29**：按所有者反馈取消草稿保存状态UI与发送前保存门槛；采用按会话静默文件缓存和当前输入覆盖语义。正式发送回执、附件/出网授权与执行事实保持不变。
 
 - **2026-09-27**：HXA-229 冻结 per-call model intent presentation contract，统一 strip/history/persistence 边界；Harness 的执行、审批与副作用事实所有权不变。
+- **2026-10-01**：按所有者要求默认完整折叠工具详情，取消收起态的 intent 和结果预览；保留状态及待审批入口，不改变执行契约。
 
 - **2026-09-22**：建立 batch-aware Turn coordination、确定性 ToolCall 顺序和 durable settlement（原 ADR-AGENT-001）。
 - **2026-09-22**：统一普通发送 Queue、显式 Steer、统一 Stop 与 Goal 输入交付（当时单独记录为 Agent 008，现并入本文件）。
@@ -314,3 +315,5 @@ AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/
 - [权限与审计](../permissions/README.md)
 - [实施状态](../../development/status.md)
 - [HXA-220 交付记录](../../completion-records/HXA-220.md)
+
+- **2026-10-01（折叠标题调整）**：所有者要求折叠标题优先显示 intent，工具名仅在详情展示；无有效 intent 继续 ToolPurpose 回退，状态、耗时和待审批入口不受意图文本替代。

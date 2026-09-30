@@ -58,6 +58,7 @@ class AntigravityTransportTest {
         })
         assertEquals(1, requests.size)
         assertEquals("/v1internal:streamGenerateContent", requests.single().url.encodedPath)
+        assertEquals("sse", requests.single().url.queryParameter("alt"))
         assertEquals("Bearer fixture-access", requests.single().header("Authorization"))
     }
 

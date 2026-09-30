@@ -35,6 +35,7 @@ internal fun ManualTerminalScreen(
     model: ManualTerminalViewModel,
     directory: String,
     onBack: () -> Unit,
+    onRuntimeSettings: () -> Unit = {},
 ) {
     val state by model.state.collectAsState()
     LaunchedEffect(state.connection) { state.connection?.let { model.observe(it) } }
@@ -52,6 +53,7 @@ internal fun ManualTerminalScreen(
                 onBack = onBack,
                 onLicenses = { licenses = true },
                 onToggleKeyboard = { keyboard = !keyboard },
+                onRuntimeSettings = onRuntimeSettings,
             )
             TerminalTabBar(
                 sessions = state.sessions,
@@ -84,7 +86,7 @@ internal fun ManualTerminalScreen(
                     onEnded = { model.refresh() },
                 )
             } else {
-                Text(stringResource(R.string.terminal_detached), Modifier.padding(8.dp))
+                TerminalEmptyState(state.hasSession)
             }
         }
     }
@@ -93,13 +95,26 @@ internal fun ManualTerminalScreen(
 
 @Composable
 @Suppress("FunctionName")
+private fun TerminalEmptyState(hasSession: Boolean) {
+    Text(
+        stringResource(if (hasSession) R.string.terminal_detached else R.string.terminal_initial_help),
+        Modifier.padding(8.dp),
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
 private fun TerminalTopBar(
     onBack: () -> Unit,
     onLicenses: () -> Unit,
     onToggleKeyboard: () -> Unit,
+    onRuntimeSettings: () -> Unit,
 ) {
     Row(Modifier.horizontalScroll(rememberScrollState())) {
         TextButton(onClick = onBack) { Text(stringResource(R.string.files_back)) }
+        TextButton(onClick = onRuntimeSettings, modifier = Modifier.testTag("terminal-runtime-settings")) {
+            Text(stringResource(R.string.setup_runtime_title))
+        }
         TextButton(onClick = onLicenses) { Text(stringResource(R.string.terminal_licenses)) }
         TextButton(
             onClick = onToggleKeyboard,

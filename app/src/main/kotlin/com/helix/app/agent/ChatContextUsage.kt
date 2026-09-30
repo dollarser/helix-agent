@@ -14,6 +14,7 @@ data class ChatContextUsage(
     val inputTokens: Long? = null,
     val windowTokens: Long? = com.helix.app.provider.ProviderContextSettings.DEFAULT_WINDOW,
     val estimatedAfterCompaction: Boolean = false,
+    val estimatedWindow: Boolean = false,
 ) {
     val fraction: Float?
         get() =
@@ -27,12 +28,11 @@ data class ChatContextUsage(
                 windowTokens?.takeIf { it > 0 }?.let { (used.toDouble() / it * PERCENT).toLong() }
             }
 
-    /** Preserve a measured nonzero context even when it occupies less than one percent. */
+    /** Display whole percentages rounded down, including zero for usage below one percent. */
     val percentageLabel: String
         get() =
             when {
                 percentage == null -> "?"
-                inputTokens != null && inputTokens > 0 && percentage == 0L -> "<1%"
                 else -> "$percentage%"
             }
 
@@ -59,16 +59,87 @@ internal object ChatContextProjection {
                     config.transportIdentity,
                     model,
                 )
-        val window = stored.withDetectedWindow(providerService.metadataFor(providerId, model)?.contextWindow).window
-        // Only the newest call is relevant. Falling back to an older successful call would
-        // falsely present stale usage after a failed request or a model switch.
-        val turn = storage.turns.listBySession(session.id).lastOrNull()
-        val call = turn?.let { storage.modelCalls.listByTurn(it.id).lastOrNull() }
-        val input = call?.let { inputFor(it.providerSnapshot, it.usage, config.transportIdentity, model) }
+        val settings = stored.withDetectedWindow(providerService.metadataFor(providerId, model)?.contextWindow)
         val checkpoint = ContextHistory.checkpoint(storage, session.id)
-        val compactedInput = checkpoint?.takeIf { it.sourceCallId == call?.id && input != null }?.estimatedInputTokens
-        return ChatContextUsage(compactedInput ?: input?.takeIf { it >= 0 }, window, compactedInput != null)
+        val samples =
+            storage.turns
+                .listBySession(session.id)
+                .asReversed()
+                .asSequence()
+                .filter { it.state in setOf("COMPLETED", "FAILED", "CANCELLED", "INTERRUPTED") }
+                .flatMap {
+                    storage.modelCalls
+                        .listByTurn(it.id)
+                        .asReversed()
+                        .asSequence()
+                }.map { call ->
+                    InputSample(
+                        call.providerSnapshot,
+                        call.usage,
+                        call.state == "COMPLETED",
+                        isSummary(storage, call.id),
+                        checkpoint?.takeIf { it.sourceCallId == call.id }?.estimatedInputTokens,
+                    )
+                }
+        return select(samples, config.transportIdentity, model).copy(
+            windowTokens = settings.window,
+            estimatedWindow = settings.windowSource == "fallback",
+        )
     }
+
+    internal data class InputSample(
+        val snapshot: String,
+        val usage: String?,
+        val completed: Boolean,
+        val summary: Boolean,
+        val committedEstimate: Long? = null,
+    )
+
+    internal fun select(
+        samples: Sequence<InputSample>,
+        endpoint: String,
+        model: String,
+    ): ChatContextUsage =
+        samples.filter { it.completed }.firstNotNullOfOrNull { sample ->
+            when {
+                // Stop at another target rather than reuse its measurement.
+                inputFor(sample.snapshot, """{"inputTokens":0}""", endpoint, model) == null -> {
+                    ChatContextUsage()
+                }
+
+                sample.committedEstimate != null -> {
+                    ChatContextUsage(
+                        sample.committedEstimate,
+                        estimatedAfterCompaction = true,
+                    )
+                }
+
+                sample.summary -> {
+                    null
+                }
+
+                else -> {
+                    inputFor(sample.snapshot, sample.usage, endpoint, model)?.let { ChatContextUsage(it) }
+                }
+            }
+        } ?: ChatContextUsage()
+
+    internal fun isSummary(
+        storage: HelixStorage,
+        callId: String,
+    ): Boolean =
+        storage.auditEvents.listByCorrelation(callId).any { event ->
+            event.type == "context.compaction" || (
+                event.type == "budget.admitted" &&
+                    runCatching {
+                        Json
+                            .parseToJsonElement(event.redactedPayload)
+                            .jsonObject["kind"]
+                            ?.jsonPrimitive
+                            ?.content == "summary"
+                    }.getOrDefault(false)
+            )
+        }
 
     internal fun inputFor(
         snapshotJson: String,

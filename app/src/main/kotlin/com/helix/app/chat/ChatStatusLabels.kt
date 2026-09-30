@@ -78,6 +78,8 @@ internal class ChatStatusLabels(
 
                 ModelErrorCode.CONTENT_FILTER -> R.string.conn_error_content_filter
 
+                ModelErrorCode.OUTPUT_TOKEN_LIMIT -> R.string.conn_error_output_token_limit
+
                 ModelErrorCode.MODEL_LOAD_FAILED,
                 ModelErrorCode.MODEL_ASSET_INVALID,
                 ModelErrorCode.LOCAL_RUNTIME_CRASHED,

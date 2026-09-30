@@ -107,6 +107,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -877,7 +878,11 @@ class ChatService(
 
     init {
         refreshSessions()
-        workScope.launch { providerService.contextRevision.collect { refreshScreen() } }
+        workScope.launch {
+            // Provider rows can arrive after the initial session projection on cold start.
+            combine(providerService.contextRevision, providerService.rows) { _, _ -> Unit }
+                .collect { refreshScreen() }
+        }
     }
 
     // --------------------------------------------------------------------------------
@@ -1005,22 +1010,15 @@ class ChatService(
 
     fun newSessionDraft() {
         if (preparingDraft) return
-        val inherited =
-            sessionDraft?.session?.providerId
-                ?: _sessions.value.firstOrNull { it.id == openSessionId }?.providerId
-        val provider =
-            providerService.rows.value.firstOrNull {
-                it.defaultConversationModel?.let(it::modelSelectable) == true && it.id == inherited
-            }
-                ?: providerService.rows.value.firstOrNull {
-                    it.defaultConversationModel?.let(it::modelSelectable) == true
-                }
+        val current = _sessions.value.firstOrNull { it.id == openSessionId }
+        val providerId = sessionDraft?.session?.providerId ?: current?.providerId
+        val modelId = sessionDraft?.session?.modelId ?: current?.model
         val entity =
             SessionEntity(
                 idGenerator(),
                 "",
-                provider?.id,
-                provider?.defaultConversationModel,
+                providerId.takeIf { modelId != null },
+                modelId.takeIf { providerId != null },
                 clock.now().toEpochMilli(),
                 null,
             )

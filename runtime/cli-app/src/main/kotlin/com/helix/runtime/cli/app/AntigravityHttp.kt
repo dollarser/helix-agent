@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 
 internal class AntigravityHttpException(
     val status: Int,
+    val stage: String = "request",
 ) : IOException("Antigravity HTTP $status")
 
 /** One cancellable network owner. Redirects/retries never replay generation or forward credentials. */
@@ -81,6 +82,13 @@ internal class AntigravityHttp(
         val call = streaming.newCall(request)
         return stop.using(Closeable { call.cancel() }) {
             call.execute().use { response ->
+                AntigravityWireDiagnostic.report(
+                    if (response.isSuccessful) {
+                        AntigravityWireDiagnostic.Event.HTTP_OK
+                    } else {
+                        AntigravityWireDiagnostic.Event.HTTP_FAILED
+                    },
+                )
                 readSubscriptionEvents(response, decoder, eventDirectory = eventDirectory, onEvents = onEvents)
             }
         }
@@ -105,7 +113,18 @@ internal class AntigravityHttp(
         val call = client.newCall(request)
         return stop.using(Closeable { call.cancel() }) {
             call.execute().use { response ->
-                if (!response.isSuccessful) throw AntigravityHttpException(response.code)
+                if (!response.isSuccessful) {
+                    throw AntigravityHttpException(
+                        response.code,
+                        if (url ==
+                            tokenUrl
+                        ) {
+                            "token"
+                        } else {
+                            "project"
+                        },
+                    )
+                }
                 val source = response.body.source()
                 require(!source.request(limit + 1)) { "Antigravity response too large" }
                 stop.checkActive()

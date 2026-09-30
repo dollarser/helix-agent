@@ -116,6 +116,7 @@ internal class ContextCompactionRound(
         coordinator: TurnCoordinator,
         nextId: String,
         notice: String,
+        unchangedNotice: String,
     ): ModelStreamTerminal? {
         val failure = validationFailure(plan, stream, decision)
         coordinator.recordDiagnostic(
@@ -125,13 +126,29 @@ internal class ContextCompactionRound(
                     put("version", kotlinx.serialization.json.JsonPrimitive(1))
                     put("code", kotlinx.serialization.json.JsonPrimitive(failure?.errorCode ?: "COMPLETED"))
                     put("attempt", kotlinx.serialization.json.JsonPrimitive(attempts))
+                    put("before", kotlinx.serialization.json.JsonPrimitive(plan.originalInputTokens))
+                    if (failure == null || failure.errorCode == "CONTEXT_NO_GAIN") {
+                        put(
+                            "after",
+                            kotlinx.serialization.json.JsonPrimitive(
+                                ContextCompaction.summarizedRequest(plan, stream.text).inputTokens(),
+                            ),
+                        )
+                    }
                 }.toString(),
         )
-        if (failure != null) return recover(plan, stream, failure, coordinator, nextId)
-        currentCoroutineContext().ensureActive()
-        coordinator.commitCompaction(plan, if (manual) null else nextId, if (manual) notice else null)
-        // Checkpoint removes the old absolute usage floor; retain the same-model calibration scale.
-        return if (manual) decision else null
+        return if (manual && failure?.errorCode == "CONTEXT_NO_GAIN") {
+            currentCoroutineContext().ensureActive()
+            coordinator.commitCompaction(plan, null, unchangedNotice, saveSummary = false)
+            ModelStreamTerminal(TurnState.COMPLETED, null)
+        } else if (failure != null) {
+            recover(plan, stream, failure, coordinator, nextId)
+        } else {
+            currentCoroutineContext().ensureActive()
+            coordinator.commitCompaction(plan, if (manual) null else nextId, if (manual) notice else null)
+            // Checkpoint removes the old absolute usage floor; retain the same-model calibration scale.
+            if (manual) decision else null
+        }
     }
 
     private fun shouldAttempt(request: ChatContextRequest): Boolean {

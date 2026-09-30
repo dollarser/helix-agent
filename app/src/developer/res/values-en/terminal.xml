@@ -19,4 +19,5 @@
     <string name="terminal_new_tab">New terminal</string>
     <string name="terminal_capacity_full">Maximum 2 terminal sessions reached</string>
     <string name="terminal_observer_mode">Current connection is in read-only observer mode</string>
+    <string name="terminal_initial_help">First open Runtime → Repair Runtime to install the environment, then verify it and start a session. Verification alone does not install the shell.</string>
 </resources>

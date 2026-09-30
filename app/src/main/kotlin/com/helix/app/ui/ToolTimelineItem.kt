@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,7 +45,7 @@ internal fun ToolTimelineItem(
     intents: ConversationIntents,
     isCurrentMatch: Boolean = false,
 ) {
-    var details by remember(row.callId) { mutableStateOf(false) }
+    var details by remember(row.turnId, row.callId) { mutableStateOf(false) }
     val displayIntent = row.modelIntent ?: ToolPurpose.text(row.toolName, row.requestSummary)
     val borderModifier =
         if (isCurrentMatch) {
@@ -65,15 +63,12 @@ internal fun ToolTimelineItem(
                 .testTag("tool-row-${row.callId}"),
     ) {
         ToolTimelineSummary(row, displayIntent, details) { details = !details }
-        if (!details && row.resultSummary != null) {
-            ToolResultInlinePreview(row.resultSummary, { details = true }, row.callId)
-        }
         if (details) {
             ToolTimelineDetails(row, displayIntent)
-        }
-        CommandDetailEntry(row, intents)
-        if (row.prootRecoveryAvailable) {
-            ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
+            CommandDetailEntry(row, intents)
+            if (row.prootRecoveryAvailable) {
+                ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
+            }
         }
         row.card?.takeIf { details || it.state == com.helix.app.approval.ApprovalCardState.PENDING }?.let { card ->
             PendingApprovalCard(card, intents)
@@ -95,6 +90,7 @@ private fun ToolTimelineDetails(
     Text(
         stringResource(R.string.chat_tool_row, row.toolName),
         style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("tool-row-name-${row.callId}"),
     )
     ExpandableSummary(
         stringResource(R.string.chat_tool_request, row.requestSummary),
@@ -135,8 +131,8 @@ private fun ToolTimelineSummary(
             Text(
                 displayIntent,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.testTag("tool-row-intent-${row.callId}"),
             )
@@ -156,19 +152,10 @@ private fun ToolTimelineSummary(
 @Suppress("FunctionName")
 private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            stringResource(R.string.chat_tool_row, row.toolName),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        val isRunning =
-            row.stateLabel.contains("...") || row.stateLabel.contains("…") ||
-                (row.resultSummary == null && row.card?.state != com.helix.app.approval.ApprovalCardState.DENIED)
         val isDenied = row.card?.state == com.helix.app.approval.ApprovalCardState.DENIED
         val badgeColor =
             when {
                 isDenied -> MaterialTheme.colorScheme.error
-                isRunning -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.outline
             }
         Surface(
@@ -269,48 +256,5 @@ internal fun ProotRecoveryActions(
             onClick = { action(row.turnId, row.callId, true) },
             modifier = Modifier.testTag("proot-stop-${row.callId}"),
         ) { Text(stringResource(R.string.proot_recovery_stop)) }
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-private fun ToolResultInlinePreview(
-    summary: String,
-    onExpand: () -> Unit,
-    callId: String,
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .clickable(onClick = onExpand)
-                .testTag("tool-inline-preview-$callId"),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = summary.lineSequence().take(3).joinToString("\n"),
-                style =
-                    MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                painter = painterResource(R.drawable.ic_expand_summary),
-                contentDescription = stringResource(R.string.tool_preview_expand),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(14.dp),
-            )
-        }
     }
 }

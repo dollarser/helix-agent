@@ -48,6 +48,7 @@ internal class AntigravityStreamDecoder(
         } catch (cancelled: java.util.concurrent.CancellationException) {
             throw cancelled
         } catch (_: Exception) {
+            AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.INVALID_FRAME)
             ended = true
             events += ModelEvent.Error(ModelErrorCode.PROTOCOL, false)
         }
@@ -76,6 +77,7 @@ internal class AntigravityStreamDecoder(
         val candidates = response["candidates"] as? JsonArray
         return when {
             response["error"] != null -> {
+                AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.SERVER_ERROR)
                 terminate(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
             }
 
@@ -143,6 +145,13 @@ internal class AntigravityStreamDecoder(
     ): List<ModelEvent> =
         when (reason) {
             "MAX_TOKENS" -> {
+                AntigravityWireDiagnostic.report(
+                    if (observedContent) {
+                        AntigravityWireDiagnostic.Event.TOKEN_LIMIT_WITH_CONTENT
+                    } else {
+                        AntigravityWireDiagnostic.Event.TOKEN_LIMIT_EMPTY
+                    },
+                )
                 terminate(AntigravityResponse.usage(response), ModelEvent.Completed("length"))
             }
 
@@ -157,6 +166,7 @@ internal class AntigravityStreamDecoder(
         }
 
     private fun complete(response: JsonObject): List<ModelEvent> {
+        AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.COMPLETED)
         val events = mutableListOf<ModelEvent>()
         if (calls.isNotEmpty()) {
             val (message, parts) = history.forReplay(calls)
@@ -181,6 +191,7 @@ internal class AntigravityStreamDecoder(
     override fun finish(): List<ModelEvent> {
         if (ended) return emptyList()
         val tail = feed("\n\n".toByteArray())
+        if (!ended) AntigravityWireDiagnostic.report(AntigravityWireDiagnostic.Event.INCOMPLETE)
         return if (ended) tail else tail + terminate(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
     }
 

@@ -21,6 +21,20 @@ import org.junit.Test
 class MessageCopyDeviceTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun messageActionsToggleAndUserMessagesNeverOfferFork() {
+        compose.setContent {
+            MaterialTheme {
+                MessageRow(MessageUi("question", "user", "Question"), onFork = {})
+            }
+        }
+        compose.onNodeWithTag("chat-copy-question").assertDoesNotExist()
+        compose.onNodeWithTag("chat-message-toggle-question").performClick()
+        compose.onNodeWithTag("chat-copy-question").assertIsDisplayed()
+        compose.onNodeWithTag("chat-fork-question").assertDoesNotExist()
+        compose.onNodeWithTag("chat-message-toggle-question").performClick()
+        compose.onNodeWithTag("chat-copy-question").assertDoesNotExist()
+    }
+
     @Test fun copyControlsFollowTextWithoutAnExtraSpacerForBothRoles() {
         compose.setContent {
             MaterialTheme {
@@ -31,9 +45,14 @@ class MessageCopyDeviceTest {
             }
         }
         listOf("user-spacing", "assistant-spacing").forEach { id ->
-            val body = compose.onNodeWithTag("chat-message-body-$id").getUnclippedBoundsInRoot()
+            compose.onNodeWithTag("chat-copy-$id").assertDoesNotExist()
+            compose.onNodeWithTag("chat-message-toggle-$id").performClick()
+            val bubble = compose.onNodeWithTag("chat-message-toggle-$id").getUnclippedBoundsInRoot()
             val copy = compose.onNodeWithTag("chat-copy-$id").getUnclippedBoundsInRoot()
-            assertEquals(body.bottom, copy.top)
+            // Clickable Surface centers short content inside its 48dp minimum touch target.
+            // Semantics reports visible bounds, so allow only that mandatory inset, not a spacer.
+            val inset = ((48f - (bubble.bottom - bubble.top).value) / 2f).coerceAtLeast(0f)
+            assertEquals(inset, (copy.top - bubble.bottom).value, 0.5f)
             assertTrue("Keep copy target usable", (copy.bottom - copy.top).value >= 48f)
         }
     }
@@ -45,6 +64,7 @@ class MessageCopyDeviceTest {
             clipboard = LocalClipboardManager.current
             MaterialTheme { MessageRow(MessageUi("copy", "assistant", text)) }
         }
+        compose.onNodeWithTag("chat-message-toggle-copy").performClick()
         compose.onNodeWithTag("chat-copy-copy").performClick()
         compose.runOnIdle { assertEquals(text, clipboard.getText()?.text) }
         compose.onNodeWithTag("chat-message-assistant").performTouchInput { longClick() }
@@ -57,10 +77,11 @@ class MessageCopyDeviceTest {
             clipboard = LocalClipboardManager.current
             MaterialTheme { MessageRow(MessageUi("markdown", "assistant", source)) }
         }
-        compose.onNodeWithText("Heading").assertIsDisplayed()
-        compose.onNodeWithText("bold").assertIsDisplayed()
-        compose.onNodeWithText("val x = 1").assertIsDisplayed()
-        compose.onNodeWithText("# Heading").assertDoesNotExist()
+        compose.onNodeWithText("Heading", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("bold", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("val x = 1", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("# Heading", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("chat-message-toggle-markdown").performClick()
         compose.onNodeWithTag("chat-copy-markdown").performClick()
         compose.runOnIdle { assertEquals(source, clipboard.getText()?.text) }
     }

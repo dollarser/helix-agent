@@ -101,8 +101,8 @@ private fun scanEntryMatches(
 ): Int {
     var currentIndex = startIndex
 
-    // 1. User messages
-    val userMessages = entry.messages.filter { it.role == "user" }
+    // 1. Initial user input, matching the visible timeline partition.
+    val userMessages = entry.initialMessages
     for (msg in userMessages) {
         val itemIndex = currentIndex++
         if (msg.content.contains(query, ignoreCase = true)) {
@@ -123,8 +123,8 @@ private fun scanEntryMatches(
         results.add(SearchMatch(targetId = matchingTool.callId, listIndex = operationsIndex, snippet = snippet))
     }
 
-    // 3. Assistant messages
-    val assistantMessages = entry.messages.filter { it.role != "user" }
+    // 3. Remaining messages in persisted order, including later user answers.
+    val assistantMessages = entry.followingMessages
     for (msg in assistantMessages) {
         val itemIndex = currentIndex++
         if (msg.content.contains(query, ignoreCase = true)) {

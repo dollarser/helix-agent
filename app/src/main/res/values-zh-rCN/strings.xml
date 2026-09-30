@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Helix</string>
+    <string name="context_compaction_unchanged">当前没有足够的压缩收益，已保留原上下文。</string>
+    <string name="context_window_estimated_note">服务未报告上下文上限，当前比例按估算窗口计算。输入用量包含系统提示、工具说明和历史，不只是本次问题。发送过程中保留上次已确认数值。</string>
+    <string name="provider_account_connected">账号连接正常</string>
+    <string name="provider_account_connection_test">检查账号连接</string>
+    <string name="context_server_window_unreported">服务未提供此模型的上下文上限；可手动设置，估算值不代表官方上限。</string>
     <string name="chat_artifacts_count">本会话产物 (%1$d)</string>
     <string name="chat_artifacts_title">本会话产物</string>
     <string name="chat_artifacts_back">返回产物列表</string>
@@ -275,6 +280,7 @@
     <string name="common_unknown">未知</string>
     <string name="conn_error_auth">认证或访问权限被服务端拒绝。API Provider 请检查 key；订阅 Provider 请检查登录与账号权限。若 HTTP 403，也可能是网络出口被拒绝。</string>
     <string name="conn_error_content_filter">被服务端内容过滤拒绝</string>
+    <string name="conn_error_output_token_limit">输出额度已耗尽，未生成内容</string>
     <string name="conn_error_http">HTTP 错误（端点或协议不匹配）</string>
     <string name="conn_error_protocol">协议响应不符合预期</string>
     <string name="conn_error_rate_limited">服务限流（稍后重试）</string>
@@ -840,7 +846,7 @@
     <string name="chat_context_title">上下文窗口</string>
     <string name="chat_context_unknown">未知</string>
     <string name="chat_context_usage">上次请求输入：%1$s tokens\n模型上下文上限：%2$s tokens</string>
-    <string name="chat_context_explanation">圆环显示最近请求的输入用量；手动压缩后用 ≈ 标记缩减后的输入估算，不含未发送文字。窗口和自动压缩比例可在 Provider 中设置，未知服务端上限时默认 200,000 tokens。压缩保留原始历史，并计入模型调用与 token 预算。</string>
+    <string name="chat_context_explanation">圆环显示当前会话上次已确认的输入用量，包含系统提示、工具说明和历史；发送中保持，回复完成后更新。失败或未生效的压缩不替换该用量。百分比向下取整，不足 1% 时显示 0%。已生效压缩后的用量和未知窗口上限可能采用估算值，不含未发送文字。未知服务端上限时使用 200,000 tokens，可按模型设置。压缩保留原始历史，并计入调用与 token 预算。</string>
     <string name="chat_context_close">关闭</string>
     <string name="chat_restore">恢复</string>
     <string name="files_shared_permission_required">需要共享存储权限；也可添加 SAF 文件夹。</string>
@@ -1563,8 +1569,6 @@
     <string name="provider_models_manage_title">%1$s · 模型</string>
     <string name="provider_models_selection_help">勾选的模型才进入会话候选。目录更新不会自动添加模型；移除候选不打断当前任务，也不删除文件或退出账号。</string>
     <string name="provider_models_selected_count">已选 %1$d 个会话模型</string>
-    <string name="provider_models_default_value">新会话默认：%1$s</string>
-    <string name="provider_models_no_default">未设置</string>
     <string name="provider_models_search">搜索模型或来源</string>
     <string name="provider_models_only_selected">仅显示已选</string>
     <string name="provider_models_clear">清空候选</string>
@@ -1578,7 +1582,6 @@
     <string name="provider_models_manual_id">手动添加模型 ID</string>
     <string name="provider_models_add">添加到候选</string>
     <string name="provider_models_save">保存选择</string>
-    <string name="provider_models_set_default">设为新会话默认</string>
     <string name="provider_models_not_listed">未在最近目录中列出</string>
     <string name="provider_models_details">模型配置与验证</string>
     <string name="provider_models_capabilities">工具调用 %1$s · 图片输入 %2$s（— 表示未确认支持）</string>
@@ -1587,7 +1590,7 @@
     <string name="provider_models_current_hidden">当前使用 %1$s，已从候选移除；现有会话不会自动换模型。</string>
     <string name="provider_models_picker_empty">没有匹配的会话模型。请在模型设置中勾选模型，或调整搜索。</string>
     <string name="provider_models_connection_required">来源尚未通过连接验证</string>
-    <string name="provider_models_source_settings_hint">此处只编辑接入信息。会话候选、默认模型和逐模型参数请在“管理会话模型”中设置。</string>
+    <string name="provider_models_source_settings_hint">此处只编辑接入信息。会话候选和逐模型参数请在“管理会话模型”中设置。</string>
     <string name="model_selection_applied">已切换当前会话模型。</string>
     <string name="model_selection_session_changed">当前会话已变化，请返回目标会话后重试。</string>
     <string name="model_selection_busy">当前任务或待确认发送仍在进行，模型未切换。请结束后重试。</string>

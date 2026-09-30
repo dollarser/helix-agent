@@ -77,7 +77,7 @@ class ApprovalLayoutDeviceTest {
         compose.onNodeWithTag("approval-card-args").assertDoesNotExist()
         if (inTimeline) {
             compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
-            compose.onNodeWithTag("tool-row-intent-call").assertTextContains("修改发布配置")
+            compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
             compose
                 .onNodeWithTag("tool-row-state-call")
                 .assertIsDisplayed()

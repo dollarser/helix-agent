@@ -236,7 +236,6 @@ internal fun HelixApp(container: AppContainer) {
     val currentRoute = currentEntry?.destination?.route ?: repository.initialDestination.route
     val currentDestination = repository.destinations.firstOrNull { it.route == currentRoute }
     val currentSecondaryTitle = secondaryRouteTitle(currentRoute)
-    val drawerSessions by container.chatService.sessions.collectAsStateWithLifecycle()
     val drawerIdentity =
         remember(container.chatService) {
             container.chatService.screen
@@ -248,7 +247,6 @@ internal fun HelixApp(container: AppContainer) {
         ConversationDrawerState(
             currentSessionId = drawerScreen.first,
             currentTitle = drawerScreen.second,
-            recent = drawerSessions.filterNot { it.isArchived }.take(6),
         )
 
     fun navigateToConversationRoot() {
@@ -285,6 +283,10 @@ internal fun HelixApp(container: AppContainer) {
                     val context = androidx.compose.ui.platform.LocalContext.current
                     GroupedNavigation(
                         destinations = repository.destinations,
+                        footer = {
+                            com.helix.app.ui
+                                .DrawerProfileSwitch(container.profileStore)
+                        },
                         currentRoute = currentRoute,
                         conversation = conversationDrawerState,
                         onCurrentConversation = {
@@ -299,11 +301,6 @@ internal fun HelixApp(container: AppContainer) {
                         onAllConversations = {
                             container.chatService.clearSessionSearch()
                             navController.navigate(CONVERSATION_HISTORY_ROUTE) { launchSingleTop = true }
-                            scope.launch { drawerState.close() }
-                        },
-                        onOpenConversation = { sessionId ->
-                            container.chatService.openSession(sessionId)
-                            navigateToConversationRoot()
                             scope.launch { drawerState.close() }
                         },
                     ) { destination ->
@@ -589,7 +586,7 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Models -> {
-            ModelsConnectionsScreen(container.providerService, container.chatService)
+            ModelsConnectionsScreen(container.providerService)
         }
 
         ShellDestination.Extensions -> {

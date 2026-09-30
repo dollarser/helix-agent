@@ -128,6 +128,7 @@ class ModelEventTest {
                 "SERVER_ERROR",
                 "PROTOCOL",
                 "CONTENT_FILTER",
+                "OUTPUT_TOKEN_LIMIT",
             ),
             ModelErrorCode.values().map { it.name },
         )

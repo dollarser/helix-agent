@@ -163,24 +163,111 @@ class ChatSessionLifecycleDeviceTest {
         }
     }
 
+    @Test
+    fun providerRefreshUpdatesOpenConversationWithoutReopeningSession() {
+        val providerId = createBadgeProvider()
+        val sessionId = "lifecycle-provider-refresh-$run"
+        try {
+            container.storage.sessions.create(sessionId, "refresh", providerId, "fixture", System.currentTimeMillis())
+            container.chatService.openSession(sessionId)
+            awaitOpenSession(sessionId)
+            runBlocking {
+                container.providerService.update(
+                    providerId,
+                    badgeDraft().copy(displayName = "renamed-$run"),
+                    null,
+                    false,
+                )
+            }
+            val deadline = System.currentTimeMillis() + 10_000
+            while (container.chatService.screen.value.badge
+                    ?.displayName != "renamed-$run" &&
+                System.currentTimeMillis() < deadline
+            ) {
+                Thread.sleep(50)
+            }
+            assertEquals(
+                "renamed-$run",
+                container.chatService.screen.value.badge
+                    ?.displayName,
+            )
+            assertEquals(
+                "fixture",
+                container.chatService.screen.value.badge
+                    ?.model,
+            )
+        } finally {
+            container.chatService.closeSession()
+            runBlocking { container.providerService.delete(providerId) }
+        }
+    }
+
+    @Test
+    fun newConversationInheritsExactCurrentModelAndUnboundStaysEmpty() {
+        val providerId = createBadgeProvider()
+        val sessionId = "lifecycle-inherit-$run"
+        try {
+            container.storage.sessions.create(
+                sessionId,
+                "inherit",
+                providerId,
+                "different-model",
+                System.currentTimeMillis(),
+            )
+            container.chatService.refreshSessions()
+            val deadline = System.currentTimeMillis() + 10_000
+            while (container.chatService.sessions.value
+                    .none { it.id == sessionId } &&
+                System.currentTimeMillis() < deadline
+            ) {
+                Thread.sleep(50)
+            }
+            container.chatService.openSession(sessionId)
+            awaitOpenSession(sessionId)
+            container.chatService.newSessionDraft()
+            assertTrue(runBlocking { container.chatService.saveDraftForGoal("inherited fixture") })
+            val inherited =
+                container.storage.sessions.resolve(
+                    requireNotNull(container.chatService.screen.value.openSessionId),
+                )
+            assertEquals(providerId, inherited.providerId)
+            assertEquals("different-model", inherited.modelId)
+            container.chatService.closeSession()
+            container.chatService.newSessionDraft()
+            assertTrue(runBlocking { container.chatService.saveDraftForGoal("empty fixture") })
+            val empty =
+                container.storage.sessions.resolve(
+                    requireNotNull(container.chatService.screen.value.openSessionId),
+                )
+            assertNull(empty.providerId)
+            assertNull(empty.modelId)
+        } finally {
+            container.chatService.closeSession()
+            runBlocking { container.providerService.delete(providerId) }
+        }
+    }
+
     private fun createBadgeProvider(): String =
         runBlocking {
             container.providerService.create(
-                ProviderDraft(
-                    templateId = null,
-                    displayName = "badge-$run",
-                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                    endpoint = NormalizedEndpoint.parse("https://badge.invalid/v1"),
-                    model = "fixture",
-                    headersJson = "{}",
-                    credentialRequired = false,
-                    cleartext = null,
-                    templateNotes = emptyList(),
-                ),
+                badgeDraft(),
                 apiKey = null,
                 cleartextConfirmed = false,
             )
         }
+
+    private fun badgeDraft() =
+        ProviderDraft(
+            templateId = null,
+            displayName = "badge-$run",
+            protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+            endpoint = NormalizedEndpoint.parse("https://badge.invalid/v1"),
+            model = "fixture",
+            headersJson = "{}",
+            credentialRequired = false,
+            cleartext = null,
+            templateNotes = emptyList(),
+        )
 
     /** Bounded poll until [expected] is the open session (the refresh is asynchronous). */
     private fun awaitOpenSession(expected: String) {

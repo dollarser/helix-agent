@@ -406,7 +406,11 @@ class ChatSubmissionReceiptDeviceTest {
                         chat.screen.value.messages
                             .last { it.role == "assistant" }
                             .id
-                    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-regenerate-$answer"))
+                    compose
+                        .onNodeWithTag(
+                            "chat-timeline",
+                        ).performScrollToNode(hasTestTag("chat-message-toggle-$answer"))
+                    compose.onNodeWithTag("chat-message-toggle-$answer").performClick()
                     compose.onNodeWithTag("chat-regenerate-$answer").performClick()
                     awaitRegenerateAnswer(session, answer)
                     val turns = storage.turns.listBySession(session)

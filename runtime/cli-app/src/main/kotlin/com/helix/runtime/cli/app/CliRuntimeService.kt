@@ -18,6 +18,7 @@ class CliRuntimeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        AntigravityWireDiagnostic.sink = { android.util.Log.w("HelixAntigravity", "wire_${it.name}") }
         SubscriptionRuntimeEnvironment.initialize(this)
         clearModelEventSpool(java.io.File(cacheDir, "model-events"))
         initializeNetworkForeground()

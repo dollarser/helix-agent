@@ -24,7 +24,7 @@ class ContextWindowDeviceTest {
         compose.setContent { MaterialTheme { ContextWindowIndicator(usage.value) } }
         compose.onNodeWithText("?").assertIsDisplayed()
         compose.runOnIdle { usage.value = ChatContextUsage(500, 262144) }
-        compose.onNodeWithText("<1%").assertIsDisplayed()
+        compose.onNodeWithText("0%").assertIsDisplayed()
         compose.runOnIdle { usage.value = ChatContextUsage(8500, 10000) }
         compose.onNodeWithText("85%").assertIsDisplayed()
         compose.onNodeWithTag("chat-context-window").performClick()
@@ -49,7 +49,7 @@ class ContextWindowDeviceTest {
             usage.value = ChatContextUsage(10000, 10000, estimatedAfterCompaction = true)
         }
         val ring = compose.onNodeWithTag("chat-context-ring", useUnmergedTree = true).getUnclippedBoundsInRoot()
-        val label = compose.onNodeWithText("≈100%", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val label = compose.onNodeWithText("100%", useUnmergedTree = true).getUnclippedBoundsInRoot()
         assertTrue("Full percentage fits ring", label.left >= ring.left && label.right <= ring.right)
         compose.onNodeWithTag("chat-context-window").performClick()
         compose.onNodeWithText("10000", substring = true).assertIsDisplayed()

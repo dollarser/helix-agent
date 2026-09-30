@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="context_compaction_unchanged">No useful reduction was found. Your original context is unchanged.</string>
+    <string name="context_window_estimated_note">The service has not reported its context limit. This percentage uses an estimated window. Input usage includes system instructions, tool descriptions and history, not only your message. The last confirmed value stays visible while sending.</string>
+    <string name="provider_account_connected">Account connected</string>
+    <string name="provider_account_connection_test">Check account connection</string>
+    <string name="context_server_window_unreported">The service has not reported this model’s context limit. You can set it manually; estimates are not official limits.</string>
     <string name="chat_artifacts_count">Session outputs (%1$d)</string>
     <string name="chat_artifacts_title">Session outputs</string>
     <string name="chat_artifacts_back">Back to outputs</string>
@@ -277,6 +282,7 @@
     <string name="common_unknown">Unknown</string>
     <string name="conn_error_auth">Authentication or access was rejected. Check the API key, or subscription login and account access. HTTP 403 can also indicate blocked network routing.</string>
     <string name="conn_error_content_filter">Blocked by the service-side content filter</string>
+    <string name="conn_error_output_token_limit">Output budget exhausted before content was generated</string>
     <string name="conn_error_http">HTTP error (endpoint or protocol mismatch)</string>
     <string name="conn_error_protocol">Protocol response was unexpected</string>
     <string name="conn_error_rate_limited">Rate limited by the service (retry later)</string>
@@ -841,7 +847,7 @@
     <string name="chat_context_title">Context window</string>
     <string name="chat_context_unknown">Unknown</string>
     <string name="chat_context_usage">Last request input: %1$s tokens\nModel context limit: %2$s tokens</string>
-    <string name="chat_context_explanation">The ring uses the latest request input usage; after manual compaction, ≈ marks an estimate of the reduced input. Unsent text is excluded. Configure the model window and automatic compaction threshold in Provider settings. The fallback window is 200,000 tokens. Compaction preserves original history and consumes model-call/token budgets.</string>
+    <string name="chat_context_explanation">The ring uses this conversation’s last confirmed input usage, including instructions, tool descriptions and history. Sending keeps that value until the reply completes. Failed or ineffective compaction does not replace it. Percentages round down; usage below 1% displays as 0%. Committed compaction usage and unknown window limits may be estimated. Unsent text is excluded. The fallback window is 200,000 tokens; you can configure it per model. Compaction preserves original history and consumes model-call/token budgets.</string>
     <string name="chat_context_close">Close</string>
     <string name="chat_restore">Restore</string>
     <string name="files_shared_permission_required">Shared storage permission is required. You can also add a SAF folder.</string>
@@ -1566,8 +1572,6 @@
     <string name="provider_models_manage_title">%1$s · Models</string>
     <string name="provider_models_selection_help">Only selected models appear in the conversation picker. Refreshing the catalog never enables new models. Hiding a model does not interrupt tasks, delete files, or sign out.</string>
     <string name="provider_models_selected_count">%1$d conversation models selected</string>
-    <string name="provider_models_default_value">New conversation default: %1$s</string>
-    <string name="provider_models_no_default">Not set</string>
     <string name="provider_models_search">Search models or providers</string>
     <string name="provider_models_only_selected">Selected only</string>
     <string name="provider_models_clear">Clear selection</string>
@@ -1581,7 +1585,6 @@
     <string name="provider_models_manual_id">Manual model ID</string>
     <string name="provider_models_add">Add to selection</string>
     <string name="provider_models_save">Save selection</string>
-    <string name="provider_models_set_default">Set new conversation default</string>
     <string name="provider_models_not_listed">Not listed in the latest catalog</string>
     <string name="provider_models_details">Model settings and verification</string>
     <string name="provider_models_capabilities">Tool calls %1$s · Image input %2$s (— means support is unconfirmed)</string>
@@ -1590,7 +1593,7 @@
     <string name="provider_models_current_hidden">Currently using %1$s, hidden from the picker. Existing conversations will not switch automatically.</string>
     <string name="provider_models_picker_empty">No matching conversation models. Select models in settings or change the search.</string>
     <string name="provider_models_connection_required">Provider connection not verified</string>
-    <string name="provider_models_source_settings_hint">Edit connection details here. Use Manage conversation models for visibility, defaults, and per-model settings.</string>
+    <string name="provider_models_source_settings_hint">Edit connection details here. Use Manage conversation models for visibility and per-model settings.</string>
     <string name="model_selection_applied">The conversation model has been changed.</string>
     <string name="model_selection_session_changed">The conversation changed. Return to the intended conversation and retry.</string>
     <string name="model_selection_busy">A task or pending send is active. The model was not changed; retry after it finishes.</string>

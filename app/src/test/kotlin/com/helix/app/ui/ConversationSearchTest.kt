@@ -10,6 +10,22 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ConversationSearchTest {
+    @Test fun searchFollowsInterleavedConversationOrder() {
+        val screen =
+            createScreen(
+                messages =
+                    listOf(
+                        MessageUi("q1", "user", "match", "turn-1"),
+                        MessageUi("a1", "assistant", "match", "turn-1"),
+                        MessageUi("q2", "user", "match", "turn-1"),
+                        MessageUi("a2", "assistant", "match", "turn-1"),
+                    ),
+            )
+        val matches = findMatches("match", screen)
+        assertEquals(listOf("q1", "a1", "q2", "a2"), matches.map { it.targetId })
+        assertEquals(listOf(0, 2, 3, 4), matches.map { it.listIndex })
+    }
+
     private fun createScreen(
         messages: List<MessageUi> = emptyList(),
         tools: List<ToolTimelineRow> = emptyList(),

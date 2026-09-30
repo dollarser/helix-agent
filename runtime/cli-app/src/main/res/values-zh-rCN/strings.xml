@@ -142,4 +142,5 @@
     <string name="antigravity_onboarding">未取得 Antigravity 项目。请先使用官方客户端完成开通或资格验证，再回来登录。</string>
     <string name="antigravity_cancelled">已取消本次登录。</string>
     <string name="antigravity_not_configured">此安装包未配置 Antigravity 登录。请使用已配置授权 OAuth 客户端的版本，或选择其他模型服务。</string>
+    <string name="antigravity_logout_action">删除 Antigravity 登录凭据</string>
 </resources>

@@ -48,7 +48,7 @@ class ProviderModelsIntegrationDeviceTest {
             Fixture().use { f ->
                 f.storage.sessions.create("s", "Session", "p", "a", 1)
                 f.status.recordPassed("p", 1, CAPS, listOf("a", "b"))
-                val selected = ProviderModelSelection(listOf("b"), "b", true)
+                val selected = ProviderModelSelection(listOf("b"), configured = true)
                 f.service.saveModelSelection("p", selected)
                 assertTrue(f.service.chatSelectable("p"))
                 assertEquals(

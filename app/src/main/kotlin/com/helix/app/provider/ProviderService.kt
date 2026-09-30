@@ -158,7 +158,7 @@ class ProviderService(
     suspend fun saveSelectedModels(
         id: String,
         models: List<String>,
-    ) = saveModelSelection(id, ProviderModelSelection(models.distinct(), models.firstOrNull(), configured = true))
+    ) = saveModelSelection(id, ProviderModelSelection(models.distinct(), configured = true))
 
     suspend fun saveModelSelection(
         id: String,

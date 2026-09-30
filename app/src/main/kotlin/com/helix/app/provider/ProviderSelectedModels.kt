@@ -3,7 +3,6 @@ package com.helix.app.provider
 import com.helix.app.internal.LineStore
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -13,7 +12,6 @@ import kotlinx.serialization.json.put
 /** An explicit empty selection is different from a source which has never been configured. */
 data class ProviderModelSelection(
     val models: List<String> = emptyList(),
-    val defaultModel: String? = null,
     val configured: Boolean = false,
     val customModels: List<String> = emptyList(),
 ) {
@@ -22,11 +20,8 @@ data class ProviderModelSelection(
         enabled: Boolean,
     ): ProviderModelSelection {
         val next = if (enabled) (models + model).distinct() else models - model
-        return copy(models = next, defaultModel = defaultModel?.takeIf { it in next }, configured = true)
+        return copy(models = next, configured = true)
     }
-
-    fun chooseDefault(model: String): ProviderModelSelection =
-        copy(models = (models + model).distinct(), defaultModel = model, configured = true)
 
     fun addCustom(model: String): ProviderModelSelection =
         toggle(model, true).copy(customModels = (customModels + model).distinct())
@@ -41,8 +36,7 @@ data class ProviderModelSelection(
         ProviderSelectedModels.validate(customModels)
         require(models.distinct() == models)
         require(customModels.distinct() == customModels)
-        require(defaultModel == null || defaultModel in models)
-        require(configured || (models.isEmpty() && customModels.isEmpty() && defaultModel == null))
+        require(configured || (models.isEmpty() && customModels.isEmpty()))
     }
 }
 
@@ -62,41 +56,33 @@ class ProviderSelectedModels(
                 return@synchronized if (explicit.isEmpty()) {
                     ProviderModelSelection()
                 } else {
-                    ProviderModelSelection(explicit.distinct(), explicit.first(), configured = true)
+                    ProviderModelSelection(explicit.distinct(), configured = true)
                 }
             }
             require(lines.size == 1 && lines.single().length <= 1024 * 1024)
             val parsed = Json.parseToJsonElement(lines.single())
             val document = requireNotNull(parsed as? kotlinx.serialization.json.JsonObject)
-            require(document.keys == setOf("models", "default", "custom"))
+            // Preserve explicit selections from older records, but discard their retired default.
+            require(document.keys == setOf("models", "custom") || document.keys == setOf("models", "default", "custom"))
             val models =
                 requireNotNull(document["models"] as? JsonArray).map {
                     require(it.jsonPrimitive.isString)
                     it.jsonPrimitive.content
                 }
-            val default =
-                document
-                    .getValue("default")
-                    .takeUnless { it == JsonNull }
-                    ?.jsonPrimitive
-                    ?.also {
-                        require(it.isString)
-                    }?.content
             val custom =
                 requireNotNull(document["custom"] as? JsonArray).map {
                     require(it.jsonPrimitive.isString)
                     it.jsonPrimitive.content
                 }
-            ProviderModelSelection(models, default, configured = true, customModels = custom)
+            ProviderModelSelection(models, configured = true, customModels = custom)
         }
 
     fun write(
         id: String,
         models: List<String>,
-        defaultModel: String? = models.firstOrNull(),
     ) {
         validate(models)
-        save(id, ProviderModelSelection(models.distinct(), defaultModel, configured = true))
+        save(id, ProviderModelSelection(models.distinct(), configured = true))
     }
 
     /** One preference document, with optional stale-dialog protection. Never changes capability evidence. */
@@ -114,7 +100,6 @@ class ProviderSelectedModels(
                     buildJsonObject {
                         put("models", JsonArray(value.models.map(::JsonPrimitive)))
                         put("custom", JsonArray(value.customModels.map(::JsonPrimitive)))
-                        put("default", value.defaultModel?.let(::JsonPrimitive) ?: JsonNull)
                     }.toString(),
                 ),
             )

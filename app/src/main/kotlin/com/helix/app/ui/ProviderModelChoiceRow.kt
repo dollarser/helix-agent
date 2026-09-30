@@ -3,9 +3,9 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -13,8 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import com.helix.app.R
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ProviderModelSelection
@@ -60,10 +59,11 @@ private fun ModelVerificationSummary(
     }
     val window = row.modelMetadata[model]?.contextWindow ?: caps?.maxContextTokens
     Text(
-        stringResource(
-            R.string.context_server_window,
-            window?.toString() ?: stringResource(R.string.chat_context_unknown),
-        ),
+        if (window == null) {
+            stringResource(R.string.context_server_window_unreported)
+        } else {
+            stringResource(R.string.context_server_window, window.toString())
+        },
     )
 }
 
@@ -76,22 +76,31 @@ internal fun ProviderModelChoiceRow(
     busy: Boolean,
     expanded: Boolean,
     onToggle: (Boolean) -> Unit,
-    onDefault: () -> Unit,
     onExpand: () -> Unit,
     onContext: () -> Unit,
     onTest: () -> Unit,
     onProbe: () -> Unit,
     onMove: () -> Unit,
-    onUse: (() -> Unit)?,
 ) {
     val label = row.modelLabel(model)
     Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag("provider-model-choice-$model")
+                    .toggleable(
+                        model in selection.models,
+                        enabled = !busy,
+                        role = Role.Checkbox,
+                        onValueChange = onToggle,
+                    ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Checkbox(
                 model in selection.models,
-                onToggle,
+                null,
                 enabled = !busy,
-                modifier = Modifier.testTag("provider-model-choice-$model").semantics { contentDescription = label },
             )
             Column(Modifier.weight(1f)) {
                 Text(label)
@@ -103,25 +112,13 @@ internal fun ProviderModelChoiceRow(
                     )
                 }
             }
-            val defaultLabel = stringResource(R.string.provider_models_set_default)
-            RadioButton(
-                selection.defaultModel == model,
-                onDefault,
-                enabled = !busy,
-                modifier =
-                    Modifier.testTag("provider-model-default-$model").semantics {
-                        contentDescription =
-                            "$defaultLabel: $label"
-                    },
-            )
         }
         TextButton(onClick = onExpand, modifier = Modifier.testTag("provider-model-details-$model")) {
             Text(stringResource(R.string.provider_models_details))
         }
         if (expanded) {
             ModelVerificationSummary(row, model)
-            TextButton(onClick = onContext, enabled = !busy) { Text(stringResource(R.string.chat_context_title)) }
-            Row {
+            Column {
                 TextButton(
                     onClick = onTest,
                     enabled = !busy,
@@ -130,17 +127,11 @@ internal fun ProviderModelChoiceRow(
                     Text(stringResource(R.string.provider_capabilities_test))
                 }
             }
+            TextButton(onClick = onContext, enabled = !busy) { Text(stringResource(R.string.chat_context_title)) }
             if (model in selection.models) {
                 TextButton(onClick = onMove, enabled = !busy) {
                     Text(stringResource(R.string.provider_models_move_first))
                 }
-            }
-            onUse?.let {
-                TextButton(
-                    onClick = it,
-                    enabled = !busy,
-                    modifier = Modifier.testTag("provider-model-use-$model"),
-                ) { Text(stringResource(R.string.provider_models_save_use)) }
             }
         }
     }

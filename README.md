@@ -1,5 +1,7 @@
 # Helix
 
+**简体中文** | [English](README.en.md)
+
 **少一点复制粘贴，少一点来回切换。把手机上的琐事，交给 Helix。**
 
 查到的资料还要自己整理，记下的开销还要自己合计，AI 写好的内容还要复制、建文件、保存……真正花时间的，往往是这些零碎的最后几步。
@@ -8,7 +10,7 @@ Helix 是一款能在 Android 手机上动手做事的 AI 助手。告诉它你�
 
 **你说目标，它来动手；做到了哪一步，随时看得见。**
 
-[下载 v0.0.3](https://github.com/dollarser/helix-agent/releases/tag/v0.0.3) · [反馈问题](https://github.com/dollarser/helix-agent/issues) · [项目文档](docs/README.md)
+[下载 v0.0.4](https://github.com/dollarser/helix-agent/releases/tag/v0.0.4) · [反馈问题](https://github.com/dollarser/helix-agent/issues) · [项目文档](docs/README.md)
 
 > 当前为开发预览版，适合体验与测试。APK 使用 debug 签名，正式签名和数据升级兼容性尚未完成；重要文件请保留备份。开发期覆盖升级若数据库结构不兼容，会自动清空会话、配置及数据库记录，保留文件。
 
@@ -65,10 +67,10 @@ Helix 可以在明确授权后操作支持的应用界面。当前已有系统�
 
 | 安装包 | 适合谁 |
 | --- | --- |
-| [developer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.3/helix-v0.0.3-developer-debug.apk) | **一般体验请选择这个包**。默认使用 Standard 模式，内置进阶终端等能力，可按需进入 Advanced。 |
-| [consumer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.3/helix-v0.0.3-consumer-debug.apk) | 用于体验不含订阅 Runtime 和 PRoot 终端的构建版本。 |
+| [developer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.4/helix-v0.0.4-developer-debug.apk) | **一般体验请选择这个包**。默认使用 Standard 模式，内置进阶终端等能力，可按需进入 Advanced。 |
+| [consumer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.4/helix-v0.0.4-consumer-debug.apk) | 用于体验不含订阅 Runtime 和 PRoot 终端的构建版本。 |
 
-下载后按 Android 提示允许安装该来源的应用。[发布页](https://github.com/dollarser/helix-agent/releases/tag/v0.0.3)提供版本说明、源码和 SHA-256 校验文件。
+下载后按 Android 提示允许安装该来源的应用。[发布页](https://github.com/dollarser/helix-agent/releases/tag/v0.0.4)提供版本说明、源码和 SHA-256 校验文件。
 
 > **升级前请先导出重要会话和内容，并备份重要文件。** 当前为开发阶段，覆盖升级时如果数据库结构不兼容，会自动清空会话、配置及数据库记录，仅保留数据库外的文件。
 
@@ -78,7 +80,7 @@ Helix 可以在明确授权后操作支持的应用界面。当前已有系统�
 
 当前源码的 Standard/consumer 版仅支持 **API / 自建服务**与**设备内本地模型**；Advanced/developer 包额外提供第三方账号订阅接入。这里说的是安装包渠道，不是聊天权限模式。账号订阅顺序为 Codex、Claude、Google Antigravity、GitHub Copilot、Grok (X Premium)。适配器可用性与账号权益仍需逐服务验证，不代表官方授权或全部功能已实测。
 
-使用 endpoint + API Key 的套餐（如 Kimi Code、MiniMax Token Plan）仍放在 API 接入中，两渠道均保留。使用匹配套餐和地区的密钥，不要混用按量 Key；Helix 不自动切换计费账号。Antigravity 为实验性适配，Developer 构建提供实验性登录入口，构建者可覆盖或禁用公开客户端参数；这不代表 Google 官方授权，并先在官方客户端完成资格验证/开通，真实账号和手机验收范围见[接入记录](docs/evidence/development/subscription-antigravity-2026-09-30.md)。上述源码增量不表示已发布的 v0.0.3 APK 包含全部新改动。
+使用 endpoint + API Key 的套餐（如 Kimi Code、MiniMax Token Plan）仍放在 API 接入中，两渠道均保留。使用匹配套餐和地区的密钥，不要混用按量 Key；Helix 不自动切换计费账号。Antigravity 为实验性适配，Developer 构建提供实验性登录入口，构建者可覆盖或禁用公开客户端参数；这不代表 Google 官方授权，并先在官方客户端完成资格验证/开通，真实账号和手机验收范围见[接入记录](docs/evidence/development/subscription-antigravity-2026-09-30.md)。上述源码增量不表示已发布的 v0.0.4 APK 包含全部新改动。
 
 ## 开始第一个任务
 

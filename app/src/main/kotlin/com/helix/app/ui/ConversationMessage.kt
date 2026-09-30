@@ -113,12 +113,17 @@ internal fun MessageRow(
     isCurrentMatch: Boolean = false,
 ) {
     val isUser = message.role == "user"
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
+    var actionsVisible by remember(message.id) { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().testTag(if (isUser) "chat-message-user" else "chat-message-assistant"),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth(if (isUser) 0.88f else 1f),
             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
         ) {
             Surface(
+                onClick = { actionsVisible = !actionsVisible },
                 shape = RoundedCornerShape(20.dp),
                 color =
                     if (isUser) {
@@ -135,7 +140,7 @@ internal fun MessageRow(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .testTag(if (isUser) "chat-message-user" else "chat-message-assistant"),
+                        .testTag("chat-message-toggle-${message.id}"),
             ) {
                 Column {
                     val bodyModifier =
@@ -183,13 +188,15 @@ internal fun MessageRow(
                     }
                 }
             }
-            MessageActionRow(
-                message = message,
-                isUser = isUser,
-                onFork = onFork,
-                onEdit = onEdit,
-                onRegenerate = onRegenerate,
-            )
+            if (actionsVisible) {
+                MessageActionRow(
+                    message = message,
+                    isUser = isUser,
+                    onFork = onFork?.takeUnless { isUser },
+                    onEdit = onEdit,
+                    onRegenerate = onRegenerate,
+                )
+            }
         }
     }
 }
@@ -251,11 +258,13 @@ internal fun TurnOperations(
     if (entry.tools.isEmpty() && entry.recoveries.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("turn-operations-${entry.key}")) {
         entry.tools.forEach {
-            ToolTimelineItem(
-                row = it,
-                intents = intents,
-                isCurrentMatch = it.callId == activeCallId,
-            )
+            androidx.compose.runtime.key(it.turnId, it.callId) {
+                ToolTimelineItem(
+                    row = it,
+                    intents = intents,
+                    isCurrentMatch = it.callId == activeCallId,
+                )
+            }
         }
         if (entry.recoveries.isNotEmpty()) {
             entry.recoveries.forEach {
