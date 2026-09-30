@@ -20,6 +20,8 @@ class Fixture(http.server.BaseHTTPRequestHandler):
     after_recovery = "none"
     call_id = None
     model_requests = 0
+    recovering = False
+    execution_requests = 0
     lock = threading.Lock()
 
     def log_message(self, *_args):
@@ -58,6 +60,10 @@ class Fixture(http.server.BaseHTTPRequestHandler):
         tool = match.group(1) if match else 'echo'
         args = json.dumps({'code': 'while (true) {}'}) if match else '{"text":"probe"}'
         has_tools = bool(request.get('tools'))
+        if match and not self.recovering:
+            type(self).execution_requests += 1
+        if self.recovering:
+            has_tools = False
         delta = {'tool_calls': [{'id': self.call_id or 'fixture-'+uuid.uuid4().hex, 'index': 0, 'type': 'function',
                   'function': {'name': tool, 'arguments': args}}]} if has_tools else {'content': 'ok'}
         chunks = [{'id': 'fixture', 'object': 'chat.completion.chunk', 'choices': [
@@ -169,13 +175,19 @@ def main():
     try:
         records = [phase(base, server.server_port, 'prepare', args.output)]
         before = Fixture.model_requests
+        Fixture.recovering = True
         recovery_phases = ['recover', 'resolve-denial', 'verify-denial'] if args.after_recovery == 'deny' else ['recover', 'recover-final']
         for name in recovery_phases:
             records.append(phase(base, server.server_port, name, args.output))
-            assert before == Fixture.model_requests, 'Startup replayed a request'
+            if Fixture.boundary == 'approval':
+                assert before == Fixture.model_requests, 'Unapproved call triggered a model request'
+            else:
+                assert Fixture.execution_requests == 1, 'Original script was requested more than once'
+                assert Fixture.model_requests - before <= 1, 'Recovery inspection was duplicated'
             assert not workers(base), 'Startup recreated an isolated worker'
         result = dict(serial=args.serial, boundary=args.boundary, afterRecovery=args.after_recovery, records=records, installedApks=hashes,
-                      modelRequests=Fixture.model_requests, startupReplay=False,
+                      modelRequests=Fixture.model_requests, recoveryModelRequests=Fixture.model_requests-before,
+                      executionRequests=Fixture.execution_requests, startupReplay=False,
                       scope='Scripted model; production Goal/Chat/Dispatcher/approval/isolated QuickJS/Room startup recovery')
         (args.output / 'result.json').write_text(json.dumps(result, indent=2)+'\n')
         print(json.dumps(result), flush=True)

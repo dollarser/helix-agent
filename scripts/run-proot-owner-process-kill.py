@@ -25,8 +25,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     hashes = {}
     for pkg, path in [('com.helix.agent.developer', 'app/build/outputs/apk/developer/debug/app-developer-debug.apk'),
-        ('com.helix.agent.developer.test', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'),
-        ('com.helix.runtime.proot', 'runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk')]:
+        ('com.helix.agent.developer.test', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk')]:
         remote = subprocess.check_output(base + ['shell', 'pm', 'path', pkg], text=True).strip().removeprefix('package:')
         actual = subprocess.check_output(base + ['shell', 'sha256sum', remote], text=True).split()[0]
         assert actual == hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest(), pkg
@@ -41,7 +40,8 @@ def main():
         with log.open('w') as output:
             proc = subprocess.Popen(cmd, stdout=output, stderr=subprocess.STDOUT)
             if phase == 'prepare':
-                deadline = time.monotonic() + 15
+                # The owned fresh app installs its embedded RootFS before submitting the Job.
+                deadline = time.monotonic() + 60
                 match = None
                 while time.monotonic() < deadline:
                     match = re.search(r'PROOT_OWNER_KILL_READY pid=(\d+) job=(job_[0-9a-f]{12})', log.read_text())
@@ -55,12 +55,12 @@ def main():
                 started = None
                 until = time.monotonic() + 5
                 while time.monotonic() < until:
-                    started = subprocess.run(base + ['shell', 'run-as', 'com.helix.runtime.proot', 'cat', started_path], capture_output=True, text=True)
+                    started = subprocess.run(base + ['shell', 'run-as', 'com.helix.agent.developer', 'cat', started_path], capture_output=True, text=True)
                     if started.returncode == 0 and started.stdout.strip() == 'PROOT_OWNER_STARTED':
                         break
                     time.sleep(.05)
                 assert started and started.returncode == 0 and started.stdout.strip() == 'PROOT_OWNER_STARTED', 'Guest shell did not write its start marker'
-                runtime = subprocess.check_output(base + ['shell', 'pidof', 'com.helix.runtime.proot'], text=True).split()
+                runtime = subprocess.check_output(base + ['shell', 'pidof', 'com.helix.agent.developer:proot'], text=True).split()
                 kill_emulator_app(base, 'com.helix.agent.developer', pid)
                 proc.wait(timeout=10)
                 assert 'shortMsg=Process crashed.' in log.read_text()
@@ -74,7 +74,7 @@ def main():
                 assert found and found.group(2) == job
                 records.append(dict(phase=phase, job=job, state=found.group(1), tests=1))
     result = dict(serial=args.serial, installedApks=hashes, records=records,
-                  scope='Production cross-UID PRoot client and guest shell; no model service or ChatService/Goal binding')
+                  scope='Production private-process PRoot client and guest shell, shared UID; no model service or ChatService/Goal binding')
     (args.output / 'result.json').write_text(json.dumps(result, indent=2)+'\n')
     print(json.dumps(result), flush=True)
 

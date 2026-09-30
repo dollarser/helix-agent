@@ -26,8 +26,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     hashes = {}
     for pkg, path in [('com.helix.agent.developer', 'app/build/outputs/apk/developer/debug/app-developer-debug.apk'),
-        ('com.helix.agent.developer.test', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'),
-        ('com.helix.runtime.cli', 'runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk')]:
+        ('com.helix.agent.developer.test', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk')]:
         remote = subprocess.check_output(base + ['shell', 'pm', 'path', pkg], text=True).strip().removeprefix('package:')
         actual = subprocess.check_output(base + ['shell', 'sha256sum', remote], text=True).split()[0]
         assert actual == hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest(), pkg
@@ -53,7 +52,7 @@ def main():
                 if not match:
                     raise RuntimeError(f'No ready Job boundary: {log}; inspect owned fixture before continuing')
                 pid, job = match.groups()
-                runtime = subprocess.check_output(base + ['shell', 'pidof', 'com.helix.runtime.cli'], text=True).split()
+                runtime = subprocess.check_output(base + ['shell', 'pidof', 'com.helix.agent.developer:subscriptions'], text=True).split()
                 kill_emulator_app(base, 'com.helix.agent.developer', pid)
                 proc.wait(timeout=10)
                 assert 'shortMsg=Process crashed.' in log.read_text()
@@ -67,7 +66,7 @@ def main():
                 assert found and found.group(2) == job
                 records.append(dict(phase=phase, job=job, state=found.group(1), tests=1))
     result = dict(serial=args.serial, provider=args.provider, installedApks=hashes, records=records,
-                  scope='Production cross-UID Runtime client; helix-fixture-wait; no accounts, model service or ChatService/Goal binding')
+                  scope='Production private-process Runtime client, shared UID; helix-fixture-wait; no accounts, model service or ChatService/Goal binding')
     (args.output / 'result.json').write_text(json.dumps(result, indent=2)+'\n')
     print(json.dumps(result), flush=True)
 

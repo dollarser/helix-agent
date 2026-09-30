@@ -11,6 +11,21 @@ import time
 
 from android_process_control import kill_emulator_app, verify_emulator_signal_control
 
+PACKAGE = 'com.helix.agent.developer'
+SERVICE = 'com.helix.runtime.cli.app.CliRuntimeService'
+COMPONENT = PACKAGE + '/' + SERVICE
+
+
+def component_state(dump):
+    """Only accept a known explicit state for the owned service in user zero."""
+    user = re.search(r'^\s*User 0:.*?(?=^\s*User \d+:|\Z)', dump, re.M | re.S)
+    if not user:
+        raise RuntimeError('Missing user-zero package state')
+    for label, state in [('enabledComponents', 'enabled'), ('disabledComponents', 'disabled')]:
+        section = re.search(r'^([ \t]*)' + label + r':[ \t]*\n((?:\1[ \t]+[^\n]+(?:\n|$))*)', user.group(), re.M)
+        if section and SERVICE in section.group(2).split():
+            return state
+    return 'default'
 
 def owned_path(job):
     assert re.fullmatch(r'job_[0-9a-f]{12}', job)
@@ -19,7 +34,7 @@ def owned_path(job):
 
 def age_owned_result(base, job, output):
     path = owned_path(job) + '/record.json'
-    access = base + ['shell', 'run-as', 'com.helix.runtime.cli']
+    access = base + ['shell', 'run-as', PACKAGE]
     record = json.loads(subprocess.check_output(access + ['cat', path], text=True))
     assert record['jobId'] == job and record['state'] == 'SUCCEEDED'
     assert 'reconciledAtEpochMillis' not in record
@@ -35,7 +50,7 @@ def age_owned_result(base, job, output):
 
 def verify_expired_cleanup(base, job, output):
     path = owned_path(job)
-    access = base + ['shell', 'run-as', 'com.helix.runtime.cli']
+    access = base + ['shell', 'run-as', PACKAGE]
     record = json.loads(subprocess.check_output(access + ['cat', path + '/record.json'], text=True))
     assert record['jobId'] == job and record['state'] == 'EVIDENCE_EXPIRED'
     assert 'reconciledAtEpochMillis' not in record and 'outputSha256' not in record
@@ -65,8 +80,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     hashes = {}
     for pkg, path in [('com.helix.agent.developer', 'app/build/outputs/apk/developer/debug/app-developer-debug.apk'),
-        ('com.helix.agent.developer.test', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'),
-        ('com.helix.runtime.cli', 'runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk')]:
+        ('com.helix.agent.developer.test', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk')]:
         remote = subprocess.check_output(base + ['shell', 'pm', 'path', pkg], text=True).strip().removeprefix('package:')
         actual = subprocess.check_output(base + ['shell', 'sha256sum', remote], text=True).split()[0]
         assert actual == hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest(), pkg
@@ -75,17 +89,16 @@ def main():
     job = None
     enabled_state = None
     if args.local_only:
-        package = subprocess.check_output(base + ['shell', 'dumpsys', 'package', 'com.helix.runtime.cli'], text=True)
-        state = re.search(r'User 0:.*enabled=(\d+)', package)
-        assert state and state.group(1) in ('0', '1'), 'Runtime must start enabled'
-        enabled_state = state.group(1)
+        package = subprocess.check_output(base + ['shell', 'dumpsys', 'package', PACKAGE], text=True)
+        enabled_state = component_state(package)
+        assert enabled_state != 'disabled', 'Runtime service must start enabled'
     try:
         for phase in ['prepare', 'recover', 'recover-final']:
             if args.local_only and phase == 'recover':
-                subprocess.run(base + ['shell', 'pm', 'disable-user', '--user', '0', 'com.helix.runtime.cli'], check=True, capture_output=True)
-                disabled = subprocess.check_output(base + ['shell', 'dumpsys', 'package', 'com.helix.runtime.cli'], text=True)
+                subprocess.run(base + ['shell', 'su', '0', 'pm', 'disable', '--user', '0', COMPONENT], check=True, timeout=10)
+                disabled = subprocess.check_output(base + ['shell', 'dumpsys', 'package', PACKAGE], text=True)
                 (args.output / 'runtime-disabled.txt').write_text(disabled)
-                assert re.search(r'User 0:.*enabled=3', disabled)
+                assert component_state(disabled) == 'disabled'
             if args.expired and phase == 'recover':
                 age_owned_result(base, job, args.output)
             log = args.output / f'cli-owner-{phase}.log'
@@ -107,7 +120,7 @@ def main():
                     if not match:
                         raise RuntimeError(f'No ready Job boundary: {log}; inspect owned fixture before continuing')
                     pid, job = match.groups()
-                    runtime = subprocess.check_output(base + ['shell', 'pidof', 'com.helix.runtime.cli'], text=True).split()
+                    runtime = subprocess.check_output(base + ['shell', 'pidof', PACKAGE + ':subscriptions'], text=True).split()
                     kill_emulator_app(base, 'com.helix.agent.developer', pid)
                     proc.wait(timeout=10)
                     assert 'shortMsg=Process crashed.' in log.read_text()
@@ -122,11 +135,11 @@ def main():
                     records.append(dict(phase=phase, job=job, tests=1))
     finally:
         if enabled_state is not None:
-            action = 'default-state' if enabled_state == '0' else 'enable'
-            subprocess.run(base + ['shell', 'pm', action, '--user', '0', 'com.helix.runtime.cli'], check=True, capture_output=True)
-            restored = subprocess.check_output(base + ['shell', 'dumpsys', 'package', 'com.helix.runtime.cli'], text=True)
+            action = 'default-state' if enabled_state == 'default' else 'enable'
+            subprocess.run(base + ['shell', 'su', '0', 'pm', action, '--user', '0', COMPONENT], check=True, timeout=10)
+            restored = subprocess.check_output(base + ['shell', 'dumpsys', 'package', PACKAGE], text=True)
             (args.output / 'runtime-restored.txt').write_text(restored)
-            assert re.search(r'User 0:.*enabled=' + enabled_state, restored)
+            assert component_state(restored) == enabled_state
     if args.expired:
         verify_expired_cleanup(base, job, args.output)
     result = dict(expired=args.expired, serial=args.serial, boundary=args.boundary, localOnly=args.local_only, restoredEnabledState=enabled_state, installedApks=hashes, records=records,

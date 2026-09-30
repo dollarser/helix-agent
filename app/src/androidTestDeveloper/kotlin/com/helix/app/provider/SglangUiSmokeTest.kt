@@ -5,12 +5,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,7 +21,6 @@ import com.helix.app.MainActivity
 import com.helix.app.ui.container
 import com.helix.app.ui.deleteEditableProviders
 import com.helix.app.ui.editableProviderTag
-import com.helix.app.ui.editableProviderText
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.provider.api.CapabilitySource
@@ -47,13 +48,9 @@ import java.net.UnknownHostException
  * an unavailable endpoint, invalid catalog or failed probe FAILS rather than skipping.
  *
  * The flow: create the provider with the real model id → connection test PASSES →
- * explicit capability detection persists a PROBED snapshot → the row surfaces 「后端可用模型 (N)」 with the real id as a
- * chip → selecting the chip opens the edit form, which is SAVED (never auto-saved) →
- * the persisted row model is the selected id. Cleanup deletes the provider.
- *
- * The cross-value prefill proof (selected id ≠ stored id) is the fixture's job
- * (ProviderModelDiscoveryUiTest — the merged form-field semantics carry only the label,
- * so the persisted value is the only authoritative read of the prefill).
+ * explicit capability detection persists a PROBED snapshot → unified model management
+ * displays the real catalog → selection/default changes persist only on save and
+ * remain selected when reopened. Cleanup deletes the provider.
  */
 @RunWith(AndroidJUnit4::class)
 class SglangUiSmokeTest {
@@ -137,21 +134,38 @@ class SglangUiSmokeTest {
         assertEquals(CapabilitySource.CONNECTION_ONLY, currentCapabilities().source)
         composeRule.onNode(editableProviderTag("provider-capabilities")).performScrollTo().performClick()
         awaitDetectedCapabilities()
+        verifyModelSelection(models)
+    }
 
-        // --- the row surfaces the REAL backend list ---
-        composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
-        composeRule.onNode(editableProviderText("后端可用模型 ($smokeCount)")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(smokeModel).assertExists()
-        Log.d(TAG, "sglang UI smoke: 后端可用模型 ($smokeCount) surfaces $smokeModel")
-
-        // --- chip → edit form → SAVE (never auto-saved) → the persisted row model ---
-        composeRule.onNode(editableProviderTag("provider-model-chip-0")).performScrollTo().performClick()
+    private fun verifyModelSelection(models: List<String>) {
+        val service = composeRule.container().providerService
+        val row = service.rows.value.single { it.displayName == NAME }
+        assertEquals(models.toSet(), requireNotNull(row.backendModels).toSet())
+        composeRule.onNodeWithTag("provider-manage-models-${row.id}").performScrollTo().performClick()
+        composeRule
+            .onNodeWithTag("provider-model-list")
+            .performScrollToNode(hasTestTag("provider-model-choice-$smokeModel"))
+        composeRule.onNodeWithTag("provider-model-choice-$smokeModel").assertIsDisplayed()
+        composeRule.onNodeWithTag("provider-model-default-$smokeModel").performClick()
+        assertEquals(
+            row.modelSelection,
+            service.rows.value
+                .single { it.id == row.id }
+                .modelSelection,
+        )
+        composeRule.onNodeWithTag("provider-models-save").performClick()
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
+            service.rows.value
+                .single { it.id == row.id }
+                .modelSelection.defaultModel == smokeModel &&
+                composeRule.onAllNodesWithTag("provider-model-list").fetchSemanticsNodes().isEmpty()
         }
-        confirmCleartextAndSave()
-        composeRule.onNodeWithText("模型：$smokeModel", substring = true).performScrollTo().assertIsDisplayed()
-        Log.d(TAG, "sglang UI smoke: chip prefill saved — row persists 模型：$smokeModel")
+        composeRule.onNodeWithTag("provider-manage-models-${row.id}").performScrollTo().performClick()
+        composeRule
+            .onNodeWithTag("provider-model-list")
+            .performScrollToNode(hasTestTag("provider-model-choice-$smokeModel"))
+        composeRule.onNodeWithTag("provider-model-choice-$smokeModel").assertIsOn()
+        Log.d(TAG, "sglang UI smoke: $smokeCount catalog models; saved default=$smokeModel")
     }
 
     // --- helpers (mirror SelfHostedSmokeTest's guard/fetch pattern) -------------------------

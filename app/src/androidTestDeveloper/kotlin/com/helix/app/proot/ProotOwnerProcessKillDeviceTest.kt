@@ -23,7 +23,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
 
-/** Production cross-UID PRoot client and guest shell; no ChatService/Goal binding claim. */
+/** Production private-process PRoot client and guest shell; no ChatService/Goal binding claim. */
 class ProotOwnerProcessKillDeviceTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val directory get() = File(context.filesDir, "proot-owner-kill")
@@ -41,6 +41,7 @@ class ProotOwnerProcessKillDeviceTest {
     }
 
     private fun prepare() {
+        ensureInstalledRuntime(context)
         check(!directory.exists()) { "Inspect the existing owned PRoot fixture first" }
         check(directory.mkdir())
         val id =

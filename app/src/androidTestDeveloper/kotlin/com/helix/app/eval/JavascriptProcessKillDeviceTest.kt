@@ -167,6 +167,10 @@ class JavascriptProcessKillDeviceTest {
     }
 
     private fun recover(facts: Properties) {
+        if (!awaitingApproval) {
+            recoverExecution(facts)
+            return
+        }
         val storage = container.storage
         val id = facts.getProperty("goal")
         await { storage.goals.resolve(id).state == "PAUSED" }
@@ -209,6 +213,46 @@ class JavascriptProcessKillDeviceTest {
         Thread.sleep(2000)
         assertEquals(goal, storage.goals.resolve(id))
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
+    }
+
+    private fun recoverExecution(facts: Properties) {
+        val storage = container.storage
+        val session = facts.getProperty("session")
+        val goalId = facts.getProperty("goal")
+        container.chatService.openSession(session)
+        await {
+            storage.goals.resolve(goalId).state == "FAILED" &&
+                storage.auditEvents.listByCorrelation(session).any {
+                    it.id == "recovery-ended:${facts.getProperty("turn")}"
+                }
+        }
+        val parent = storage.turns.resolve(facts.getProperty("turn"))
+        assertEquals("INTERRUPTED", parent.state)
+        val call = storage.toolCalls.listByTurn(parent.id).single()
+        assertEquals(facts.getProperty("call"), call.callId)
+        assertTrue(call.state in setOf("INTERRUPTED", "NEEDS_REVIEW"))
+        val turns = storage.turns.listBySession(session)
+        val inspection = turns.single { it.recoveryFromTurnId == parent.id }
+        assertEquals("auto-recovery:${parent.id}", inspection.clientRequestId)
+        assertEquals("COMPLETED", inspection.state)
+        assertTrue(storage.toolCalls.listByTurn(inspection.id).isEmpty())
+        assertEquals(2, turns.size)
+        val approval = requireNotNull(storage.approvals.byToolCall(call.callId))
+        assertEquals("APPROVED", approval.decision)
+        assertTrue(approval.consumedAt != null)
+        assertEquals(2, storage.goals.resolve(goalId).modelCalls)
+        val audit = storage.auditEvents.listByCorrelation(session)
+        assertTrue(audit.any { it.type == "recovery.turn_interrupted" && it.redactedPayload.contains(call.callId) })
+        assertEquals(1, audit.count { it.id == "recovery-ended:${parent.id}" })
+        Thread.sleep(1000)
+        assertEquals(turns, storage.turns.listBySession(session))
+        val durableCall = storage.toolCalls.listByTurn(parent.id).single()
+        assertTrue(durableCall.state in setOf("INTERRUPTED", "NEEDS_REVIEW"))
+        assertEquals(call.copy(state = durableCall.state), durableCall)
+        storage.toolResults.byToolCall(call.id)?.let {
+            assertEquals("UNKNOWN", it.status)
+            assertTrue(!it.verified)
+        }
     }
 
     private fun verifyDeniedRecovery(

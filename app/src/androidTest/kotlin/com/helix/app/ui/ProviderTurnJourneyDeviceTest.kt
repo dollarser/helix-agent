@@ -100,7 +100,13 @@ class ProviderTurnJourneyDeviceTest {
                                 """{"query":"read","limit":1}""",
                             )
                         } else {
-                            textAnswerStream("Retained constraint: MODEL-B-ONLY. The discovery result is preserved.")
+                            val detail =
+                                if (requests.size == 2) {
+                                    "Verified catalog observation; no user files were changed. ".repeat(300)
+                                } else {
+                                    ""
+                                }
+                            textAnswerStream("Retained constraint: MODEL-B-ONLY. $detail")
                         }
                     }
                     chat.sendTestMessage("Discover a read tool without executing it.")
@@ -121,13 +127,26 @@ class ProviderTurnJourneyDeviceTest {
                             it.name == "tools.search" && it.state == "COMPLETED"
                         },
                     )
-                    chat.compactContext()
+                    // Preserve the newest turn while making the older history eligible for compaction.
+                    chat.sendTestMessage("Keep MODEL-B-ONLY for the next step.")
                     awaitTurns(id, 2)
-                    chat.sendTestMessage("Continue from the retained constraint.")
+                    chat.compactContext()
                     awaitTurns(id, 3)
-                    assertTrue(requests.size >= 4)
+                    assertTrue(
+                        storage.turns.listBySession(id).joinToString { "${it.state}:${it.errorCode}" },
+                        storage.messages.listBySession(id).any {
+                            it.kind == com.helix.app.agent.ContextCompaction.KIND
+                        },
+                    )
+                    chat.sendTestMessage("Continue from the retained constraint.")
+                    awaitTurns(id, 4)
+                    assertTrue(requests.size >= 5)
                     assertTrue(requests.all { it.getValue("model").jsonPrimitive.content == MODEL })
-                    assertTrue(storage.turns.listBySession(id).all { it.state == "COMPLETED" })
+                    val completedTurns = storage.turns.listBySession(id)
+                    assertTrue(
+                        completedTurns.joinToString { "${it.id}:${it.state}:${it.errorCode}" },
+                        completedTurns.all { it.state == "COMPLETED" },
+                    )
                     assertEquals("fixture-model-a", storage.providerConfigs.resolve(provider).model)
                     assertEquals(MODEL, storage.sessions.resolve(id).modelId)
                 } finally {
@@ -150,7 +169,10 @@ class ProviderTurnJourneyDeviceTest {
                     .container()
                     .storage.turns
                     .listBySession(session)
-            turns.size == count && turns.all { it.state in setOf("COMPLETED", "FAILED", "CANCELLED") }
+            turns.size == count && turns.all { it.state in setOf("COMPLETED", "FAILED", "CANCELLED") } &&
+                !compose
+                    .container()
+                    .chatService.screen.value.isSending
         }
     }
 
