@@ -24,8 +24,16 @@ Consumer r2 已 24/24；Developer r1 为 18 PASS / 1 fixture failure，OAuth 登
 
 ## 历史清理
 
-清理前保存本地受限目录中的 Git bundle 和工作区差异；只重写未推送的 main 后代，远端已有提交与其他分支/工作树保持原样。计划在独立临时仓库中替换旧提交的两个字面量，核对最终 tree 完全一致后再原子更新 main。旧证据内的提交号保留历史含义，不改写为新提交已通过相同验证。
+清理前保存本地受限目录中的 Git bundle 和工作区差异；只重写未推送的 main 后代，远端已有提交与其他分支/工作树保持原样。已在独立临时仓库替换旧提交的两个字面量，核对最终 tree 完全一致后原子更新 main。旧证据内的提交号保留历史含义，不改写为新提交已通过相同验证。
 
 ## 保留边界
 
 真实订阅登录/刷新、真实模型恢复完成率、完整 Runtime/OEM/低内存矩阵及正式签名升级仍需外部条件或另行授权；本轮不将其标记为完成。原始 P5 15/15 只对应原始源码/制品。
+
+## 提交与推送回执
+
+- 代码提交原始 `dc491fc6`，清理后为 `8e826c35`；最终 tree 均为 `8597337fd348d5dda93ee306b37d805a0164b68a`。因此历史清理没有改变设备验证所用代码内容。
+- 基点为远端已发布的 `b51687e0`，逐个扫描其后的 15 个待推送提交，无当前秘密扫描规则命中。原始 bundle 与提交映射保存在本地忽略路径 `build/oauth-history-backup/`，权限受限，未加入 Git；不向远端推送备份 refs。
+- `git push origin main` 已正常成功，远端从 `b51687e0` 快进到 `8e826c35`，随后 `ls-remote` 核对一致；没有 force push、GitHub 例外或防护关闭。后续仅文档提交不构成新一轮代码/设备验证。
+- 最终源码门禁见 `build/composer-oauth-final-source.log`（660 Markdown、215 HXA、35 ADR、858 source files、1906 keys），Developer 最终 lint/Spotless 见 `build/composer-oauth-final-lint.log`。原先 untracked debug 脚本保留，不混入提交。
+- 历史 P5 的 `92e93bf5` 仍指原始运行快照，原源码/制品哈希及本地 evidence 不变；不把清理后的历史提交标成新跑的正式 P5。

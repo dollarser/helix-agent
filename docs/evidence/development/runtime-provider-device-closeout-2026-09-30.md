@@ -74,3 +74,6 @@ runtime-r9 的六组通过结果：
 正式基线记录形成 `63570f2a` 后，授权的 `git push origin main` 被 GitHub `GH013 / PUSH PROTECTION` 拒绝，定位到先前 `36807507` 的 `AntigravityOAuth.kt` 中 Google OAuth 客户端 ID 与桌面客户端参数。此前接入记录将其归为公开 installed-app identity，而非用户凭据；这不代表 GitHub 已允许发布。未申请例外、未编码隐藏参数、未重写先前提交。拒绝后的远端 main 仍为 `b51687e0`，本地验证与提交不等于推送成功。已向所有者请求明确选择配置迁移/历史清理或公开参数例外，后续结果须另行记录。
 
 本地 `check-all.sh --source` 的秘密扫描通过仅表示命中其现有模式规则；本次 GitHub 告警说明它不覆盖所有远端保护规则，不能把该主机通过扩大为完整秘密审查。
+
+
+后续所有者授权移除内置 OAuth 参数并清理未推送历史。该拦截已由[输入/OAuth 收口](composer-oauth-closeout-2026-09-30.md)处理，`8e826c35` 正常推送成功；这里的首次拒绝及原始 P5 身份保留历史含义，不表示当前仍被阻塞。
