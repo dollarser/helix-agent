@@ -86,18 +86,21 @@ class CliRuntimeSupervisor(
 
     private fun bindConnection(): CliRuntimeConnection {
         val latch = CountDownLatch(1)
-        var binder: IBinder? = null
+        val binder =
+            java.util.concurrent.atomic
+                .AtomicReference<IBinder?>(null)
         val connection =
             object : ServiceConnection {
                 override fun onServiceConnected(
                     name: ComponentName,
                     service: IBinder,
                 ) {
-                    binder = service
+                    binder.set(service)
                     latch.countDown()
                 }
 
                 override fun onServiceDisconnected(name: ComponentName) {
+                    binder.set(null)
                     latch.countDown()
                 }
 
@@ -106,6 +109,7 @@ class CliRuntimeSupervisor(
                 }
 
                 override fun onBindingDied(name: ComponentName) {
+                    binder.set(null)
                     latch.countDown()
                 }
             }
@@ -113,7 +117,10 @@ class CliRuntimeSupervisor(
             Intent().setComponent(
                 ComponentName(context.packageName, CliRuntimeProtocol.SERVICE_CLASS),
             )
-        bindCause(intent, connection)?.let { return CliRuntimeConnection.Refused(it) }
+        bindCause(intent, connection)?.let {
+            runCatching { context.unbindService(connection) }
+            return CliRuntimeConnection.Refused(it)
+        }
         val connected =
             try {
                 // Only bound the initial Android service connection, never model execution or streaming.
@@ -122,7 +129,7 @@ class CliRuntimeSupervisor(
                 Thread.currentThread().interrupt()
                 false
             }
-        val liveBinder = binder
+        val liveBinder = binder.get()?.takeIf { it.isBinderAlive }
         return if (!connected || liveBinder == null) {
             runCatching { context.unbindService(connection) }
             CliRuntimeConnection.Refused(

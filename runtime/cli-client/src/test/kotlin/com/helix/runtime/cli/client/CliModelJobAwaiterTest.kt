@@ -10,6 +10,41 @@ class CliModelJobAwaiterTest {
     private val terminal = running.copy(state = CliModelJobState.CANCELLED, terminalAtEpochMillis = 2L)
     private val accepted = CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_ACCEPTED, running)
 
+    @Test fun foreignReceiptCannotCompleteOriginalOrTriggerAnyResubmit() {
+        val foreign = listOf(terminal.copy(jobId = "job_134000000002"), terminal.copy(requestSha256 = "b".repeat(64)))
+        foreign.forEach { wrong ->
+            var calls = 0
+            val awaiter =
+                CliModelJobAwaiter {
+                    calls++
+                    CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_STATE, wrong)
+                }
+            assertTrue(awaiter.await(accepted, 100, 1) is AwaitOutcome.Unavailable)
+            assertEquals(1, calls)
+        }
+    }
+
+    @Test fun cancellingOrLiveFetchIsNotATerminalReceipt() {
+        val stopping = running.copy(state = CliModelJobState.CANCEL_REQUESTED)
+        var queries = 0
+        val awaiter =
+            CliModelJobAwaiter(pause = {}) { code ->
+                if (code == CliRuntimeProtocol.TRANSACTION_JOB_QUERY) {
+                    CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_STATE, if (++queries == 1) stopping else terminal)
+                } else {
+                    CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_STATE, running)
+                }
+            }
+        assertTrue(awaiter.await(accepted, 1000, 1) is AwaitOutcome.Unavailable)
+        assertEquals(2, queries)
+    }
+
+    @Test fun invalidPollingParametersCannotCreateABusyLoop() {
+        val awaiter = CliModelJobAwaiter { error("No calls expected") }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { awaiter.await(accepted, -1, 1) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { awaiter.await(accepted, 100, 0) }
+    }
+
     @Test fun rejectedSubmissionDoesNotPollOrRetry() {
         val awaiter = CliModelJobAwaiter { error("must not transact") }
         assertEquals(

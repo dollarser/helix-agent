@@ -3,7 +3,10 @@ package com.helix.runtime.cli.client
 import com.helix.runtime.cli.client.CliModelJobClient.AwaitOutcome
 
 internal class CliModelJobAwaiter(
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = {
+        java.util.concurrent.TimeUnit.NANOSECONDS
+            .toMillis(System.nanoTime())
+    },
     private val pause: (Long) -> Unit = Thread::sleep,
     private val readProgress: () -> Unit = {},
     private val transact: (Int) -> CliModelWireResult,
@@ -12,19 +15,25 @@ internal class CliModelJobAwaiter(
         submitted: CliModelWireResult,
         timeoutMs: Long,
         pollIntervalMs: Long,
-    ): AwaitOutcome =
-        when {
+    ): AwaitOutcome {
+        require(timeoutMs >= 0 && pollIntervalMs > 0)
+        val record = submitted.record
+        return when {
             submitted.status != CliRuntimeProtocol.REPLY_JOB_ACCEPTED &&
                 submitted.status != CliRuntimeProtocol.REPLY_JOB_DUPLICATE -> unavailable(submitted)
 
-            submitted.record?.state?.terminal == true -> reconcile()
+            record == null -> unavailable(submitted)
 
-            else -> poll(timeoutMs, pollIntervalMs)
+            record.state.terminal -> reconcile(record)
+
+            else -> poll(timeoutMs, pollIntervalMs, record)
         }
+    }
 
     private fun poll(
         timeoutMs: Long,
         pollIntervalMs: Long,
+        original: CliModelJobRecord,
     ): AwaitOutcome {
         val start = clock()
         var outcome: AwaitOutcome? = null
@@ -32,12 +41,14 @@ internal class CliModelJobAwaiter(
             val queried = transact(CliRuntimeProtocol.TRANSACTION_JOB_QUERY)
             outcome =
                 when {
-                    queried.record?.state?.terminal == true -> {
-                        reconcile()
+                    queried.status != CliRuntimeProtocol.REPLY_JOB_STATE ||
+                        queried.record?.let { CliJobIdentity.matches(it, original.jobId, original.requestSha256) } !=
+                        true -> {
+                        unavailable(queried)
                     }
 
-                    queried.status != CliRuntimeProtocol.REPLY_JOB_STATE -> {
-                        unavailable(queried)
+                    queried.record.state.terminal -> {
+                        reconcile(original)
                     }
 
                     else -> {
@@ -63,9 +74,11 @@ internal class CliModelJobAwaiter(
             }
         }
 
-    private fun reconcile(): AwaitOutcome {
+    private fun reconcile(original: CliModelJobRecord): AwaitOutcome {
         val result = transact(CliRuntimeProtocol.TRANSACTION_JOB_FETCH_RESULT)
-        return if (result.status == CliRuntimeProtocol.REPLY_JOB_STATE && result.record != null) {
+        return if (result.status == CliRuntimeProtocol.REPLY_JOB_STATE && result.record?.state?.terminal == true &&
+            CliJobIdentity.matches(result.record, original.jobId, original.requestSha256)
+        ) {
             AwaitOutcome.Terminal(result.record, result.events)
         } else {
             unavailable(result)

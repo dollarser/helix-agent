@@ -6,6 +6,7 @@ import android.content.pm.Signature
 import android.os.Build
 import java.security.MessageDigest
 
+/** Non-exported, same-UID boundary; certificate checks detect inconsistent metadata, not same-UID isolation. */
 object CliCallerVerifier {
     @Suppress("ReturnCount") // Each identity/certificate rejection remains explicit and fail-closed.
     fun verify(

@@ -10,6 +10,7 @@ import kotlinx.serialization.json.put
 enum class CliModelJobState {
     PENDING,
     RUNNING,
+    CANCEL_REQUESTED,
     SUCCEEDED,
     FAILED,
     CANCELLED,
@@ -17,7 +18,7 @@ enum class CliModelJobState {
     EVIDENCE_EXPIRED,
     ;
 
-    val terminal: Boolean get() = this !in setOf(PENDING, RUNNING)
+    val terminal: Boolean get() = this !in setOf(PENDING, RUNNING, CANCEL_REQUESTED)
 }
 
 data class CliModelJobRecord(

@@ -49,6 +49,7 @@ internal class SubscriptionJobRecovery(
     private fun status(record: CliModelJobRecord): SubscriptionRecoveryStatus =
         when (record.state) {
             CliModelJobState.PENDING, CliModelJobState.RUNNING -> SubscriptionRecoveryStatus.RUNNING
+            CliModelJobState.CANCEL_REQUESTED -> SubscriptionRecoveryStatus.STOP_REQUESTED
             CliModelJobState.SUCCEEDED -> SubscriptionRecoveryStatus.SUCCEEDED_UNVERIFIED
             CliModelJobState.EVIDENCE_EXPIRED -> SubscriptionRecoveryStatus.EVIDENCE_EXPIRED
             CliModelJobState.CANCELLED -> SubscriptionRecoveryStatus.STOPPED

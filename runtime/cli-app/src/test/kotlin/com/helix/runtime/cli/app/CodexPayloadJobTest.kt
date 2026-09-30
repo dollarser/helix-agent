@@ -47,7 +47,8 @@ class CodexPayloadJobTest {
             assertEquals(emptyList<ModelEvent>(), runner.readProgress(id, 1))
             assertEquals(emptyList<ModelEvent>(), runner.readProgress("job_134000000006", 0))
             assertThrows(IllegalArgumentException::class.java) { runner.readProgress(id, 2) }
-            assertEquals(CliModelJobState.CANCELLED, runner.cancel(id)?.state)
+            assertEquals(CliModelJobState.CANCEL_REQUESTED, runner.cancel(id)?.state)
+            assertEquals(CliModelJobState.CANCELLED, await(runner, id).state)
             assertEquals(null, runner.prepareReconcile(id)?.payload)
         }
     }
@@ -129,13 +130,16 @@ class CodexPayloadJobTest {
             runner.submit(id, hash, request)
             assertTrue(entered.await(2, TimeUnit.SECONDS))
             try {
-                val cancelled = requireNotNull(runner.cancel(id))
-                runner.finishReconcile(cancelled)
+                val requested = requireNotNull(runner.cancel(id))
+                assertEquals(CliModelJobState.CANCEL_REQUESTED, requested.state)
+                assertThrows(IllegalArgumentException::class.java) { runner.finishReconcile(requested) }
             } finally {
                 release.countDown()
             }
             assertTrue(closed.await(2, TimeUnit.SECONDS))
-            assertEquals(CliModelJobState.CANCELLED, runner.query(id)?.state)
+            val cancelled = await(runner, id)
+            assertEquals(CliModelJobState.CANCELLED, cancelled.state)
+            runner.finishReconcile(cancelled)
             assertFalse(root.walkTopDown().any { it.name == "events.json" || it.name == "events.json.tmp" })
         }
     }
@@ -165,9 +169,8 @@ class CodexPayloadJobTest {
         ).use { runner ->
             runner.submit("job_134000000003", hash, request)
             assertTrue(entered.await(2, TimeUnit.SECONDS))
-            assertEquals(CliModelJobState.CANCELLED, runner.cancel("job_134000000003")?.state)
-            Thread.sleep(50)
-            assertEquals(CliModelJobState.CANCELLED, runner.query("job_134000000003")?.state)
+            assertEquals(CliModelJobState.CANCEL_REQUESTED, runner.cancel("job_134000000003")?.state)
+            assertEquals(CliModelJobState.CANCELLED, await(runner, "job_134000000003").state)
             assertEquals(null, runner.prepareReconcile("job_134000000003")?.payload)
         }
     }

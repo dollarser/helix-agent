@@ -99,6 +99,10 @@ internal class CodexPayloadJobStore(
     ): CliModelJobRecord {
         records.expireEvidence(now)
         val current = requireNotNull(load(record.jobId))
+        require(current.state.terminal && current.requestSha256 == record.requestSha256) {
+            "Cannot acknowledge a live or foreign execution"
+        }
+        require(current.state == CliModelJobState.EVIDENCE_EXPIRED || current.outputSha256 == record.outputSha256)
         if (current.state == CliModelJobState.EVIDENCE_EXPIRED) return current
         payloads.validateCleanup(record.jobId)
         val acknowledged = current.copy(reconciledAtEpochMillis = current.reconciledAtEpochMillis ?: now)
@@ -212,15 +216,26 @@ internal class CodexPayloadJobRunner(
     ): List<ModelEvent> =
         synchronized(lock) {
             require(offset >= 0)
-            if (activeJobId != jobId) emptyList() else progress.read(offset)
+            if (activeJobId != jobId || store.load(jobId)?.state != CliModelJobState.RUNNING) {
+                emptyList()
+            } else {
+                progress.read(offset)
+            }
         }
 
     fun cancel(jobId: String): CliModelJobRecord? =
         synchronized(lock) {
             val record = store.load(jobId) ?: return@synchronized null
             if (record.state.terminal) return@synchronized record
-            if (activeJobId == jobId) cancelExecution()
-            record.copy(state = CliModelJobState.CANCELLED, terminalAtEpochMillis = clock()).also(store::put)
+            // A queued job can be stopped before execution; a running one needs real worker exit.
+            if (record.state == CliModelJobState.PENDING) {
+                record.copy(state = CliModelJobState.CANCELLED, terminalAtEpochMillis = clock()).also(store::put)
+            } else {
+                val requested = record.copy(state = CliModelJobState.CANCEL_REQUESTED)
+                store.put(requested)
+                if (activeJobId == jobId) cancelExecution()
+                requested
+            }
         }
 
     fun prepareReconcile(jobId: String): CodexReconcile? =
@@ -278,7 +293,9 @@ internal class CodexPayloadJobRunner(
                 val bytes = store.loadRequest(pending.jobId)
                 executeStreaming?.invoke(bytes) { chunk ->
                     synchronized(lock) {
-                        if (activeJobId == pending.jobId && store.load(pending.jobId)?.state?.terminal == false) {
+                        if (activeJobId == pending.jobId &&
+                            store.load(pending.jobId)?.state == CliModelJobState.RUNNING
+                        ) {
                             progress.append(chunk)
                         }
                     }
@@ -294,9 +311,16 @@ internal class CodexPayloadJobRunner(
                     (execution.events as? java.io.Closeable)?.close()
                 }
             }
+        finishJob(pending, result)
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Failed durable publication must remain failed.
+    private fun finishJob(pending: CliModelJobRecord, result: Result<Pair<String, String>>) {
         synchronized(lock) {
             val live = store.load(pending.jobId)
-            if (live != null && !live.state.terminal && result.isSuccess) {
+            if (live?.state == CliModelJobState.CANCEL_REQUESTED) {
+                store.put(live.copy(state = CliModelJobState.CANCELLED, terminalAtEpochMillis = clock()))
+            } else if (live != null && !live.state.terminal && result.isSuccess) {
                 val (model, outputHash) = result.getOrThrow()
                 try {
                     store.put(
@@ -328,7 +352,7 @@ internal class CodexPayloadJobRunner(
         publish: () -> Unit,
     ) {
         synchronized(lock) {
-            if (store.load(jobId)?.state?.terminal == false) publish()
+            if (store.load(jobId)?.state == CliModelJobState.RUNNING) publish()
         }
     }
 

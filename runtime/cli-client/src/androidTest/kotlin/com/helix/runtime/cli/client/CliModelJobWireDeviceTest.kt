@@ -35,6 +35,31 @@ class CliModelJobWireDeviceTest {
         assertEquals(CliRuntimeProtocol.REPLY_JOB_INVALID, query(binder).status)
     }
 
+    @Test fun foreignValidReceiptIsStillRejectedWithoutReplay() {
+        var calls = 0
+        val binder =
+            object : Binder() {
+                override fun onTransact(
+                    code: Int,
+                    data: Parcel,
+                    reply: Parcel?,
+                    flags: Int,
+                ): Boolean {
+                    calls++
+                    requireNotNull(reply).writeInt(CliRuntimeProtocol.REPLY_JOB_STATE)
+                    reply.writeString(
+                        CliModelJobRecordCodec.encode(
+                            CliModelJobRecord("job_123456abcdef", "a".repeat(64), CliModelJobState.RUNNING, 1),
+                        ),
+                    )
+                    reply.writeInt(0)
+                    return true
+                }
+            }
+        assertEquals(CliRuntimeVerification.Cause.HANDSHAKE_FAILED, query(binder).cause)
+        assertEquals(1, calls)
+    }
+
     private fun verifyFailure(failure: RemoteException) {
         var calls = 0
         val binder =

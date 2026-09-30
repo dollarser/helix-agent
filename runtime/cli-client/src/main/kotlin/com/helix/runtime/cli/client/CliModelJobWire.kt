@@ -51,7 +51,9 @@ internal object CliModelJobWire {
                 data.recycle()
                 upload?.close()
             }
-        return if (upload?.hasFailed == true) {
+        val foreign = result.record?.let { !CliJobIdentity.matches(it, jobId, requestSha256) } == true
+        return if (upload?.hasFailed == true || foreign) {
+            (result.events as? java.io.Closeable)?.close()
             CliModelWireResult(cause = CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
         } else {
             result
