@@ -148,8 +148,18 @@ fun ChatScreen(
     exportSessionId?.let { id ->
         if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
     }
-    chatService.recoveryModelsNavigation = onModels
-    chatService.recoveryPermissionsNavigation = onPermissions
+    androidx.compose.runtime.DisposableEffect(chatService, onModels, onPermissions) {
+        chatService.recoveryModelsNavigation = onModels
+        chatService.recoveryPermissionsNavigation = onPermissions
+        onDispose {
+            if (chatService.recoveryModelsNavigation === onModels) chatService.recoveryModelsNavigation = null
+            if (chatService.recoveryPermissionsNavigation ===
+                onPermissions
+            ) {
+                chatService.recoveryPermissionsNavigation = null
+            }
+        }
+    }
     if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
     LaunchedEffect(sessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 

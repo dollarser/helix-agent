@@ -52,7 +52,9 @@ object WebPageTools {
                     return;
                 }
                 var script = document.createElement('script');
-                script.src = "//cdn.jsdelivr.net/npm/eruda";
+                script.src = "https://cdn.jsdelivr.net/npm/eruda@3.4.3/eruda.js";
+                script.integrity = "sha384-weDBY9jeIj4NqaiZF9f6PMAMMY4lIu+0CAI+TjBIE73RctCQOxDoEHltYnstRszI";
+                script.crossOrigin = "anonymous";
                 script.onload = function () {
                     if (window.eruda) window.eruda.init();
                 };

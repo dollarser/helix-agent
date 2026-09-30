@@ -133,7 +133,11 @@ internal class FilesScreenState(
         }
     }
 
-    val visibleEntries: List<FileEntry> get() = entries.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    private val visible =
+        androidx.compose.runtime.derivedStateOf {
+            entries.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        }
+    val visibleEntries: List<FileEntry> get() = visible.value
     val currentSource: FileSource get() = sources.first { it.scopeId == selectedScopeId }
     val canMutate: Boolean get() = currentSource.available && currentSource.supportsMutation
 }

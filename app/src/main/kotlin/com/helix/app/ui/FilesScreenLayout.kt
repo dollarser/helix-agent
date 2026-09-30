@@ -165,11 +165,12 @@ internal fun FilesScreenLayout(
                             modifier = Modifier.testTag("files-empty"),
                         )
                     } else if (viewMode == ViewMode.LIST) {
-                        Column(
-                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            visible.forEach { entry ->
+                            items(visible.size, key = { visible[it].relativePath }) { index ->
+                                val entry = visible[index]
                                 FileRow(
                                     entry,
                                     selected.contains(entry.relativePath),
@@ -186,7 +187,7 @@ internal fun FilesScreenLayout(
                             contentPadding = PaddingValues(4.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            items(visible) { entry ->
+                            items(visible, key = { it.relativePath }) { entry ->
                                 GridFileItem(
                                     entry,
                                     selected.contains(entry.relativePath),

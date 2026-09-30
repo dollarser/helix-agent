@@ -35,6 +35,8 @@ import com.helix.tools.framework.ToolDescriptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -136,12 +138,12 @@ private fun rememberPermissionController(
     chatService: ChatService?,
 ): SessionPermissionController {
     val scope = rememberCoroutineScope()
-    val sessionId =
-        chatService
-            ?.screen
-            ?.collectAsStateWithLifecycle()
-            ?.value
-            ?.openSessionId
+    val sessionFlow =
+        remember(chatService) {
+            chatService?.screen?.map { it.openSessionId }?.distinctUntilChanged()
+                ?: kotlinx.coroutines.flow.flowOf<String?>(null)
+        }
+    val sessionId = sessionFlow.collectAsStateWithLifecycle(initialValue = null).value
     val defaultMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
     val sessionMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
     val sessionHasStored = remember { mutableStateOf(false) }

@@ -144,7 +144,10 @@ internal fun MessageRow(
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     SelectionContainer {
                         if (!isUser) {
-                            val parsed = ThinkingParser.parse(message.content)
+                            val parsed =
+                                androidx.compose.runtime.remember(
+                                    message.content,
+                                ) { ThinkingParser.parse(message.content) }
                             if (parsed.thinking != null) {
                                 ThinkingAccordion(
                                     thinking = parsed.thinking,

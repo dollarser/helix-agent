@@ -1561,4 +1561,5 @@
     <string name="session_input_recovery_ended">A queued request could not be revalidated automatically and has ended without being executed again. Its original content is retained; completed actions are unchanged.</string>
     <string name="git_diff_read_error">Could not read the diff. Refresh the repository and try again.</string>
     <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Refresh the available tools before making a new call.</string>
+    <string name="quickjs_native_save_failed">Could not read or save native access settings. Please try again.</string>
 </resources>

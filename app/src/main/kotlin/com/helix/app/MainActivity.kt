@@ -33,7 +33,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +44,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -94,6 +94,8 @@ import com.helix.app.ui.secondaryRouteTitle
 import com.helix.app.ui.tasksTurnRoute
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -199,6 +201,9 @@ class MainActivity : ComponentActivity() {
  * destinations keep their honest empty states. ADR-0006: the UI shows only the
  * product name “Helix” — never a distribution/edition label.
  */
+private fun drawerDirection(direction: androidx.compose.ui.unit.LayoutDirection): Int =
+    if (direction == androidx.compose.ui.unit.LayoutDirection.Rtl) -1 else 1
+
 @OptIn(ExperimentalMaterial3Api::class)
 // The Compose UI DSL keeps this screen intentionally in one composable; detekt's LongMethod
 // threshold does not model UI composition well, so it is suppressed here only.
@@ -221,14 +226,7 @@ internal fun HelixApp(container: AppContainer) {
     val repository = container.shellRepository
     val navController = rememberNavController()
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    val direction =
-        if (androidx.compose.ui.platform.LocalLayoutDirection.current ==
-            androidx.compose.ui.unit.LayoutDirection.Rtl
-        ) {
-            -1
-        } else {
-            1
-        }
+    val direction = drawerDirection(androidx.compose.ui.platform.LocalLayoutDirection.current)
     com.helix.app.goal
         .GoalReminderNavigation(container.chatService, navController)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -237,12 +235,18 @@ internal fun HelixApp(container: AppContainer) {
     val currentRoute = currentEntry?.destination?.route ?: repository.initialDestination.route
     val currentDestination = repository.destinations.firstOrNull { it.route == currentRoute }
     val currentSecondaryTitle = secondaryRouteTitle(currentRoute)
-    val drawerSessions by container.chatService.sessions.collectAsState()
-    val drawerScreen by container.chatService.screen.collectAsState()
+    val drawerSessions by container.chatService.sessions.collectAsStateWithLifecycle()
+    val drawerIdentity =
+        remember(container.chatService) {
+            container.chatService.screen
+                .map { it.openSessionId to it.sessionTitle }
+                .distinctUntilChanged()
+        }
+    val drawerScreen by drawerIdentity.collectAsStateWithLifecycle(initialValue = null to "")
     val conversationDrawerState =
         ConversationDrawerState(
-            currentSessionId = drawerScreen.openSessionId,
-            currentTitle = drawerScreen.sessionTitle,
+            currentSessionId = drawerScreen.first,
+            currentTitle = drawerScreen.second,
             recent = drawerSessions.filterNot { it.isArchived }.take(6),
         )
 
@@ -652,41 +656,8 @@ private fun PermissionsScreenDestination(container: AppContainer) {
 @Composable
 @Suppress("FunctionName")
 private fun AuditScreenDestination(container: AppContainer) {
-    val sessions by container.chatService.sessions.collectAsState()
+    val sessions by container.chatService.sessions.collectAsStateWithLifecycle()
     AuditScreen(container.auditLogService, sessions, container.diagnosticReport)
-}
-
-@Composable
-@Suppress("FunctionName", "UnusedPrivateMember")
-private fun EmptyDestination(
-    destination: ShellDestination,
-    contentPadding: PaddingValues,
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .testTag("screen-${destination.route}"),
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = stringResource(R.string.empty_not_enabled, stringResource(destination.titleRes)),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(destination.emptyStateRes),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
 }
 
 /** Sessions own their header; all other routes share the same compact visual style. */

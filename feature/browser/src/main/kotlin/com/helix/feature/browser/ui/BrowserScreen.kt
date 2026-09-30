@@ -28,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.feature.browser.BrowserController
 import com.helix.feature.browser.BrowserTab
 import com.helix.feature.browser.BrowserTabController
@@ -70,15 +70,15 @@ import com.helix.feature.browser.engine.SearchEngines
 fun BrowserScreen(controller: BrowserController) {
     val context = LocalContext.current
     val urlCopiedMessage = stringResource(R.string.browser_url_copied)
-    val state by controller.state.collectAsState()
-    val downloads by controller.downloads.collectAsState()
-    val preferences by controller.preferences.collectAsState()
-    val bookmarks by controller.bookmarks.collectAsState()
-    val history by controller.history.collectAsState()
-    val speedDials by controller.speedDials.collectAsState()
-    val scripts by controller.scripts.collectAsState()
-    val findState by controller.findState.collectAsState()
-    val blockedAdsCount by controller.adBlockedCount.collectAsState()
+    val state by controller.state.collectAsStateWithLifecycle()
+    val downloads by controller.downloads.collectAsStateWithLifecycle()
+    val preferences by controller.preferences.collectAsStateWithLifecycle()
+    val bookmarks by controller.bookmarks.collectAsStateWithLifecycle()
+    val history by controller.history.collectAsStateWithLifecycle()
+    val speedDials by controller.speedDials.collectAsStateWithLifecycle()
+    val scripts by controller.scripts.collectAsStateWithLifecycle()
+    val findState by controller.findState.collectAsStateWithLifecycle()
+    val blockedAdsCount by controller.adBlockedCount.collectAsStateWithLifecycle()
 
     val selected = state.selectedTab
 
@@ -95,8 +95,8 @@ fun BrowserScreen(controller: BrowserController) {
     var showUserScripts by remember { mutableStateOf(false) }
     var sourceDialogContent by remember { mutableStateOf<String?>(null) }
     var readerDialogContent by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val contextMenu by controller.contextMenu.collectAsState()
-    val storageFailure by controller.storageFailure.collectAsState()
+    val contextMenu by controller.contextMenu.collectAsStateWithLifecycle()
+    val storageFailure by controller.storageFailure.collectAsStateWithLifecycle()
     LaunchedEffect(storageFailure) {
         if (storageFailure) {
             Toast.makeText(context, R.string.browser_storage_failed, Toast.LENGTH_LONG).show()

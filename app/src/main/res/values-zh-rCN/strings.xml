@@ -1558,4 +1558,5 @@
     <string name="automatic_recovery_unavailable">原任务发生中断，当前模型、授权或剩余额度不足以完成自动核查；本次尝试已结束。已有操作与未知结果保持原样，不会自动重放。</string>
     <string name="git_diff_read_error">无法读取差异，请刷新仓库后重试。</string>
     <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请重新获取当前可用工具后发起新调用。</string>
+    <string name="quickjs_native_save_failed">无法读取或保存原生访问设置，请重试。</string>
 </resources>

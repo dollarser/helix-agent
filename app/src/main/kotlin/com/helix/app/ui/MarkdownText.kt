@@ -103,7 +103,7 @@ internal fun MarkdownText(
                                 MaterialTheme.typography.bodyLarge
                             }
                         }
-                    val inline = markdownInline(block.text)
+                    val inline = remember(block.text) { markdownInline(block.text) }
                     val annotated =
                         if (!searchQuery.isNullOrBlank()) {
                             highlightAnnotatedString(inline, searchQuery, highlightStyle)
@@ -133,11 +133,18 @@ private fun MarkdownTable(
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             fontWeight = FontWeight.Bold,
         )
+    val rows =
+        remember(text) {
+            text.lines().map {
+                it.trim().trim('|').split('|').map { cell ->
+                    markdownInline(cell.trim())
+                }
+            }
+        }
     Column(Modifier.horizontalScroll(rememberScrollState())) {
-        text.lines().forEachIndexed { index, line ->
+        rows.forEachIndexed { index, cells ->
             Row {
-                line.trim().trim('|').split('|').forEach { cell ->
-                    val inline = markdownInline(cell.trim())
+                cells.forEach { inline ->
                     val annotated =
                         if (!searchQuery.isNullOrBlank()) {
                             highlightAnnotatedString(inline, searchQuery, highlightStyle)

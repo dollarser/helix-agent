@@ -341,13 +341,11 @@ private fun ArtifactReadyPreview(
             modifier = Modifier.testTag("artifact-file-changed"),
         )
     }
-    val bitmap =
-        ready.imageBytes.takeIf { it.isNotEmpty() }?.let {
-            BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
-        }
-    if (bitmap != null) {
+    val bitmap by rememberArtifactBitmap(ready.imageBytes)
+    val previewBitmap = bitmap
+    if (previewBitmap != null) {
         Image(
-            bitmap = bitmap,
+            bitmap = previewBitmap,
             contentDescription = row.fileName,
             modifier =
                 Modifier

@@ -69,13 +69,16 @@ class UserScriptEngine(
             name: String,
             code: String,
         ): String {
-            val safeName = name.replace("'", "\\'")
+            val safeName =
+                kotlinx.serialization.json
+                    .JsonPrimitive("[Helix UserScript: $name]")
+                    .toString()
             return """
                 (function() {
                     try {
                         $code
                     } catch(e) {
-                        console.error('[Helix UserScript: $safeName]', e);
+                        console.error($safeName, e);
                     }
                 })();
                 """.trimIndent()

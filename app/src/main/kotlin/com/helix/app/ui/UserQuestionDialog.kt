@@ -32,11 +32,25 @@ internal fun UserQuestionDialog(container: AppContainer) {
     val service = container.userQuestions ?: return
     val screen by container.chatService.screen.collectAsStateWithLifecycle()
     var questions by remember { mutableStateOf(emptyList<UserQuestionService.Question>()) }
-    LaunchedEffect(screen.openSessionId, screen.toolTimeline, screen.isSending) {
-        questions = screen.openSessionId?.let { service.pending(it) }.orEmpty()
+    val questionCalls = screen.toolTimeline.filter { it.toolName == "ask_user" }
+    LaunchedEffect(screen.openSessionId, questionCalls, screen.isSending) {
+        // Keep the current card while refreshing; session filtering below prevents stale display.
+        val session = screen.openSessionId ?: return@LaunchedEffect
+        service.answerChanges(session).collect { questions = service.pending(session) }
     }
     val question =
         questions.firstOrNull { it.sessionId == screen.openSessionId && screen.pendingDisclosure == null } ?: return
+    QuestionDialogContent(container, service, question) { questions = it }
+}
+
+@Composable
+@Suppress("FunctionName", "LongMethod") // One answer card; discovery and observation belong to the parent.
+private fun QuestionDialogContent(
+    container: AppContainer,
+    service: UserQuestionService,
+    question: UserQuestionService.Question,
+    updateQuestions: (List<UserQuestionService.Question>) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     var selected by rememberSaveable(
         question.id,
@@ -53,8 +67,14 @@ internal fun UserQuestionDialog(container: AppContainer) {
     fun dismiss() {
         if (!sending) {
             scope.launch {
-                service.dismiss(question)
-                questions = service.pending(question.sessionId)
+                try {
+                    service.dismiss(question)
+                    updateQuestions(service.pending(question.sessionId))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    failed = true
+                }
             }
         }
     }
@@ -89,7 +109,7 @@ internal fun UserQuestionDialog(container: AppContainer) {
                 scope.launch {
                     try {
                         failed = !service.answer(question, selected, custom, container.chatService)
-                        questions = service.pending(question.sessionId)
+                        updateQuestions(service.pending(question.sessionId))
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: IllegalArgumentException) {

@@ -115,9 +115,15 @@ internal class BrowserDownloadQueue(
             val out =
                 appContext.contentResolver.openOutputStream(documentUri)
                     ?: return DownloadStatus.FAILED to appContext.getString(R.string.browser_download_cannot_open)
-            out.use { output -> copyWithCap(connection.inputStream, output) ?: DownloadStatus.SAVED to null }
+            out.use { output ->
+                connection.inputStream.use { input -> copyWithCap(input, output) ?: DownloadStatus.SAVED to null }
+            }
         } catch (e: IOException) {
-            DownloadStatus.FAILED to (e.message ?: appContext.getString(R.string.browser_download_failed_generic))
+            android.util.Log.w("BrowserDownload", "Download IO failure: ${e.javaClass.simpleName}")
+            DownloadStatus.FAILED to appContext.getString(R.string.browser_download_failed_generic)
+        } catch (e: SecurityException) {
+            android.util.Log.w("BrowserDownload", "Download access failure: ${e.javaClass.simpleName}")
+            DownloadStatus.FAILED to appContext.getString(R.string.browser_download_cannot_open)
         } finally {
             connection?.disconnect()
         }

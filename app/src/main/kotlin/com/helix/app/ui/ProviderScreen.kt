@@ -32,6 +32,8 @@ import com.helix.app.provider.ProviderService
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ProbeOutcome
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -57,7 +59,8 @@ fun ProviderManager(
     chatService: ChatService,
 ) {
     val rows by providerService.rows.collectAsStateWithLifecycle()
-    val chatScreen by chatService.screen.collectAsStateWithLifecycle()
+    val sessionFlow = remember(chatService) { chatService.screen.map { it.openSessionId }.distinctUntilChanged() }
+    val currentSession by sessionFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     var group by rememberSaveable { mutableStateOf<ProviderProvisioningKind?>(null) }
     BackHandler(group != null) { group = null }
@@ -79,7 +82,7 @@ fun ProviderManager(
         providerService.localModels?.let {
             LocalModelDialog(
                 providerService = providerService,
-                currentSessionAvailable = chatScreen.openSessionId != null,
+                currentSessionAvailable = currentSession != null,
                 onUseCurrentSession = chatService::selectSessionModel,
             ) { localModelOpen = false }
         }
