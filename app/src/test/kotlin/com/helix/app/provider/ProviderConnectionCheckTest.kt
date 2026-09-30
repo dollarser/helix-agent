@@ -134,6 +134,47 @@ class ProviderConnectionCheckTest {
             assertEquals(1, provider.generations)
         }
 
+    @Test fun generationFailureAndAuthenticationFailureHaveDifferentScope() =
+        runBlocking {
+            val generation =
+                ProviderConnectionCheck.inspect(
+                    config,
+                    Fixture(null, listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))),
+                    null,
+                )
+            assertEquals(true, generation.generationAttempted)
+            assertEquals(false, generation.sourceFailure)
+            val auth =
+                ProviderConnectionCheck.inspect(
+                    config,
+                    Fixture(null, listOf(ModelEvent.Error(ModelErrorCode.AUTH, false))),
+                    null,
+                )
+            assertEquals(true, auth.sourceFailure)
+        }
+
+    @Test fun sourceCatalogSuccessDoesNotProveBasicGeneration() =
+        runBlocking {
+            val provider = Fixture(ModelCatalogResult.Listed(listOf("b")))
+            val observed = ProviderConnectionCheck.inspect(config, provider, null)
+            assertEquals(false, observed.generationAttempted)
+            assertEquals(false, observed.sourceFailure)
+            assertEquals(0, provider.generations)
+        }
+
+    @Test fun explicitModelTestDoesGenerateAfterAuthenticatedCatalog() =
+        runBlocking {
+            val provider =
+                Fixture(
+                    ModelCatalogResult.Listed(listOf("b")),
+                    listOf(ModelEvent.TextDelta("ok"), ModelEvent.Completed("stop")),
+                )
+            val observed = ProviderConnectionCheck.inspect(config, provider, null, verifyGeneration = true)
+            assertEquals(true, observed.generationAttempted)
+            assertEquals(1, provider.generations)
+            org.junit.Assert.assertTrue(observed.outcome is ProbeOutcome.Ok)
+        }
+
     private inner class Fixture(
         private val account: ModelCatalogResult?,
         private val events: List<ModelEvent> = listOf(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)),

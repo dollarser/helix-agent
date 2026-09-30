@@ -68,6 +68,57 @@ class CliSubscriptionCredentialVaultTest {
         assertTrue(store.aliases().isEmpty())
     }
 
+    @Test fun refreshKeepsLoginRevisionAndReopenPreservesIt() {
+        val provider = CliSubscriptionProvider.CODEX
+        vault.save(provider, session("fixture-a", "fixture-r", 100))
+        val before = vault.snapshot(provider)
+        vault.renew(provider, before, session("fixture-new-a", "fixture-new-r", 200))
+        val after = CliSubscriptionCredentialVault(store).snapshot(provider)
+        assertEquals(before.revision, after.revision)
+        assertEquals("fixture-new-a", after.session.accessToken)
+        val public =
+            com.helix.runtime.cli.client.CliAccountState
+                .encode(vault.publicAccounts())
+                .toString()
+        assertFalse(public.contains("fixture-new-a"))
+        assertFalse(public.contains("fixture-new-r"))
+        assertTrue(public.contains(before.revision))
+    }
+
+    @Test fun delayedRefreshCannotResurrectLogoutOrOverwriteNewLogin() {
+        val provider = CliSubscriptionProvider.CODEX
+        vault.save(provider, session("first", "first-refresh", 100))
+        val old = vault.snapshot(provider)
+        vault.logout(provider)
+        assertThrows(IllegalStateException::class.java) { vault.renew(provider, old, old.session) }
+        assertFalse(vault.contains(provider))
+        vault.save(provider, session("second", "second-refresh", 200))
+        val fresh = vault.snapshot(provider)
+        assertFalse(old.revision == fresh.revision)
+        assertThrows(IllegalStateException::class.java) { vault.renew(provider, old, old.session) }
+        vault.logoutIfCurrent(provider, old)
+        assertEquals(fresh, vault.snapshot(provider))
+    }
+
+    @Test fun lateRefreshCannotReplaceOrDeleteTheWinningRotation() {
+        val provider = CliSubscriptionProvider.CODEX
+        vault.save(provider, session("initial", "initial-refresh", 100))
+        val original = vault.snapshot(provider)
+        val winner = session("winner", "winner-refresh", 200)
+        vault.renew(provider, original, winner)
+        vault.renew(provider, original, session("late", "late-refresh", 200))
+        vault.logoutIfCurrent(provider, original)
+        assertEquals(winner, vault.load(provider))
+    }
+
+    @Test fun revisionlessV3CredentialIsCorruptNotANewLogin() {
+        store.put(
+            "subscription-codex",
+            """{"version":3,"accessToken":"a","refreshToken":"r","expiresAtEpochMillis":1}""",
+        )
+        assertEquals("CREDENTIAL_ERROR", vault.publicAccounts().getValue("codex").state)
+    }
+
     private fun session(
         access: String,
         refresh: String,

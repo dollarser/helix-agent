@@ -14,7 +14,7 @@ internal fun ProviderRowUi.reasoningOptionsFor(selectedModel: String): List<Reas
     return when {
         explicit != null && explicit.isNotEmpty() -> listOf(ReasoningEffort.OFF) + explicit
         explicit != null -> emptyList()
-        selectedModel == model && capabilities?.reasoning == true -> ReasoningEffort.FALLBACK
+        capabilitiesForModel(selectedModel)?.reasoning == true -> ReasoningEffort.FALLBACK
         else -> emptyList()
     }
 }

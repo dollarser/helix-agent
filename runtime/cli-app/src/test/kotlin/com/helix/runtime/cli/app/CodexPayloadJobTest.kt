@@ -29,14 +29,15 @@ class CodexPayloadJobTest {
         val events = listOf<ModelEvent>(ModelEvent.TextDelta("first"), ModelEvent.Completed("stop"))
         CodexPayloadJobRunner(
             CodexPayloadJobStore(root),
-            { error("streaming executor required") },
-            { release.countDown() },
-            executeStreaming = { _, progress ->
-                progress(events)
-                entered.countDown()
-                release.await()
-                progress(listOf(ModelEvent.TextDelta("late")))
-                CodexModelExecution("model", events)
+            { _, _ -> error("streaming executor required") },
+            executeStreaming = { _, stop, progress ->
+                stop.using(java.io.Closeable { release.countDown() }) {
+                    progress(events)
+                    entered.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    progress(listOf(ModelEvent.TextDelta("late")))
+                    CodexModelExecution("model", events)
+                }
             },
         ).use { runner ->
             val id = "job_134000000005"
@@ -58,9 +59,9 @@ class CodexPayloadJobTest {
         val model = ModelRequest("shared", listOf(ModelMessage(ModelRole.USER, "hello")))
         val claude = CliModelRequestCodec.encode(model, com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
         val copilot = CliModelRequestCodec.encode(model, com.helix.runtime.cli.client.CliModelProvider.COPILOT)
-        CodexPayloadJobRunner(CodexPayloadJobStore(root), {
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), { _, _ ->
             CodexModelExecution("shared", listOf(ModelEvent.Completed("stop")))
-        }, {}).use {
+        }).use {
             assertTrue(it.submit("job_144000000001", sha256(claude), claude) is CodexPayloadSubmit.Accepted)
             assertEquals(CodexPayloadSubmit.RequestMismatch, it.submit("job_144000000001", sha256(copilot), copilot))
         }
@@ -77,7 +78,7 @@ class CodexPayloadJobTest {
         val root = Files.createTempDirectory("codex-payload").toFile()
         val store = CodexPayloadJobStore(root)
         val events = listOf<ModelEvent>(ModelEvent.TextDelta("hello"), ModelEvent.Completed("stop"))
-        CodexPayloadJobRunner(store, { CodexModelExecution("model", events) }, {}).use { runner ->
+        CodexPayloadJobRunner(store, { _, _ -> CodexModelExecution("model", events) }).use { runner ->
             assertTrue(runner.submit("job_134000000001", hash, request) is CodexPayloadSubmit.Accepted)
             val terminal = await(runner, "job_134000000001")
             assertEquals(CliModelJobState.SUCCEEDED, terminal.state)
@@ -93,7 +94,8 @@ class CodexPayloadJobTest {
     @Test fun openedResultRemainsReadableAfterAcknowledgementUnlinksPayload() {
         val root = Files.createTempDirectory("codex-open-result").toFile()
         val events = listOf<ModelEvent>(ModelEvent.TextDelta("preserved"), ModelEvent.Completed("stop"))
-        CodexPayloadJobRunner(CodexPayloadJobStore(root), { CodexModelExecution("model", events) }, {}).use { runner ->
+        val execute = { _: ByteArray, _: SubscriptionCancellation -> CodexModelExecution("model", events) }
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), execute).use { runner ->
             val id = "job_134000000011"
             runner.submit(id, hash, request)
             await(runner, id)
@@ -125,7 +127,8 @@ class CodexPayloadJobTest {
                     closed.countDown()
                 }
             }
-        CodexPayloadJobRunner(CodexPayloadJobStore(root), { CodexModelExecution("model", events) }, {}).use { runner ->
+        val execute = { _: ByteArray, _: SubscriptionCancellation -> CodexModelExecution("model", events) }
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), execute).use { runner ->
             val id = "job_134000000012"
             runner.submit(id, hash, request)
             assertTrue(entered.await(2, TimeUnit.SECONDS))
@@ -146,7 +149,7 @@ class CodexPayloadJobTest {
 
     @Test fun hashMismatchDoesNotCreateARecord() {
         val root = Files.createTempDirectory("codex-payload").toFile()
-        CodexPayloadJobRunner(CodexPayloadJobStore(root), { error("must not run") }, {}).use { runner ->
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), { _, _ -> error("must not run") }).use { runner ->
             assertThrows(IllegalArgumentException::class.java) {
                 runner.submit("job_134000000002", "b".repeat(64), request)
             }
@@ -160,12 +163,13 @@ class CodexPayloadJobTest {
         val release = CountDownLatch(1)
         CodexPayloadJobRunner(
             CodexPayloadJobStore(root),
-            {
-                entered.countDown()
-                release.await()
-                CodexModelExecution("model", listOf(ModelEvent.Completed("stop")))
+            { _, stop ->
+                stop.using(java.io.Closeable { release.countDown() }) {
+                    entered.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    CodexModelExecution("model", listOf(ModelEvent.Completed("stop")))
+                }
             },
-            { release.countDown() },
         ).use { runner ->
             runner.submit("job_134000000003", hash, request)
             assertTrue(entered.await(2, TimeUnit.SECONDS))
@@ -230,6 +234,7 @@ class CodexPayloadJobTest {
         val jobs = root.resolve("provider-v1/codex-model-jobs")
         val orphan = jobs.resolve("job_134000000007").apply { mkdirs() }
         orphan.resolve("request.json").writeBytes(request)
+        orphan.resolve("record-123.pending").writeText("interrupted first atomic publication")
         val unknown = jobs.resolve("job_134000000008").apply { mkdirs() }
         unknown.resolve("unknown-evidence").writeText("retain")
         CodexPayloadJobStore(root).recoverInterrupted(10L)
@@ -243,11 +248,13 @@ class CodexPayloadJobTest {
         val store = CodexPayloadJobStore(root)
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
-        CodexPayloadJobRunner(store, {
-            entered.countDown()
-            release.await(5, TimeUnit.SECONDS)
-            CodexModelExecution("model", listOf(ModelEvent.Completed("stop")))
-        }, { release.countDown() }).use { runner ->
+        CodexPayloadJobRunner(store, { _, stop ->
+            stop.using(java.io.Closeable { release.countDown() }) {
+                entered.countDown()
+                check(release.await(5, TimeUnit.SECONDS))
+                CodexModelExecution("model", listOf(ModelEvent.Completed("stop")))
+            }
+        }).use { runner ->
             runner.submit(id, hash, request)
             assertTrue(entered.await(2, TimeUnit.SECONDS))
             root

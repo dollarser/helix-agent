@@ -54,6 +54,9 @@ internal fun ProviderRow(
             )
             StatusChip(row.status)
         }
+        row.accountState?.let { account ->
+            Text(stringResource(managedAccountLabel(account)), Modifier.testTag("provider-account-state"))
+        }
         row.assetSizeBytes?.let { size ->
             Text(stringResource(R.string.local_model_resources, UiLabels.formatBytes(size)))
         }
@@ -67,7 +70,7 @@ internal fun ProviderRow(
                 append(
                     stringResource(
                         R.string.provider_row_model,
-                        row.model,
+                        row.modelLabel(row.model),
                         UiLabels.protocolLabel(row.protocol),
                     ),
                 )
@@ -101,6 +104,17 @@ internal fun ProviderRow(
                 )
             }
         }
+        Text(stringResource(R.string.provider_models_selected_count, row.conversationModels.size))
+        val defaultLabel =
+            row.defaultConversationModel?.let(row::modelLabel)
+                ?: stringResource(R.string.provider_models_no_default)
+        Text(stringResource(R.string.provider_models_default_value, defaultLabel))
+        OutlinedButton(
+            onClick = actions.onManageModels,
+            modifier = Modifier.fillMaxWidth().testTag("provider-manage-models-${row.id}"),
+        ) {
+            Text(stringResource(R.string.provider_models_manage))
+        }
         if (row.managedExternally) {
             OutlinedButton(
                 onClick = actions.onManageAccount,
@@ -116,7 +130,7 @@ internal fun ProviderRow(
             Text(stringResource(R.string.chat_context_title))
         }
         // HXA-059: the backend model list + the capability probe result (see the section helper).
-        ProviderModelsAndCapability(row = row, actions = actions, capabilityOutcome = capabilityOutcome)
+        ProviderCapabilityResult(capabilityOutcome)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = actions.onTest,
@@ -289,32 +303,7 @@ private fun statusDetail(row: ProviderRowUi): String? =
  */
 @Composable
 @Suppress("FunctionName")
-private fun ProviderModelsAndCapability(
-    row: ProviderRowUi,
-    actions: ProviderRowActions,
-    capabilityOutcome: com.helix.provider.api.ProbeOutcome?,
-) {
-    // HXA-059: the backend model list is carried out of the LAST PASSED connection test only. A
-    // failed/untested row shows no section; a passed row without a list gets the manual-entry hint.
-    // Selecting a chip PREFILLS the edit form (never auto-saves).
-    if (row.status is ConnectionTestStatus.Passed &&
-        row.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED
-    ) {
-        val models = row.backendModels
-        if (models.isNullOrEmpty()) {
-            Text(
-                stringResource(R.string.provider_models_unsupported_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("provider-models-unsupported"),
-            )
-        } else {
-            BackendModelsSection(
-                models = models,
-                onModelSelected = { id -> actions.onEdit(id) },
-            )
-        }
-    }
+private fun ProviderCapabilityResult(capabilityOutcome: com.helix.provider.api.ProbeOutcome?) {
     capabilityOutcome?.let { outcome ->
         Text(
             when (outcome) {

@@ -72,6 +72,7 @@ fun ProviderManager(
     var templatePickerOpen by remember { mutableStateOf(false) }
     var form by remember { mutableStateOf<ProviderForm?>(null) }
     var contextRow by remember { mutableStateOf<com.helix.app.provider.ProviderRowUi?>(null) }
+    var modelsRow by remember { mutableStateOf<ProviderRowUi?>(null) }
     var testingId by remember { mutableStateOf<String?>(null) }
     var detectingId by remember { mutableStateOf<String?>(null) }
     var capabilityResults by remember { mutableStateOf<Map<String, ProbeOutcome>>(emptyMap()) }
@@ -79,13 +80,28 @@ fun ProviderManager(
     var accountFailureId by remember { mutableStateOf<String?>(null) }
 
     if (localModelOpen) {
+        val targetSession = remember { currentSession }
         providerService.localModels?.let {
             LocalModelDialog(
                 providerService = providerService,
                 currentSessionAvailable = currentSession != null,
-                onUseCurrentSession = chatService::selectSessionModel,
+                onUseCurrentSession = { provider, model ->
+                    chatService.requestSessionModelSelection(targetSession, provider, model).await()
+                },
             ) { localModelOpen = false }
         }
+    }
+    modelsRow?.let { row ->
+        val targetSession = remember(row.id) { currentSession }
+        ProviderModelsDialog(
+            row,
+            providerService,
+            targetSession != null,
+            onUseCurrentSession = { provider, model ->
+                chatService.requestSessionModelSelection(targetSession, provider, model).await()
+            },
+            onDismiss = { modelsRow = null },
+        )
     }
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -144,6 +160,7 @@ fun ProviderManager(
                 testing = testingId == row.id,
                 actions =
                     ProviderRowActions(
+                        onManageModels = { modelsRow = row },
                         onContext = { contextRow = row },
                         onDeclareVision = { enabled ->
                             // The user-visible manual declaration (ADR-0014): vision may come from a
@@ -155,7 +172,10 @@ fun ProviderManager(
                                 testingId = row.id
                                 scope.launch {
                                     try {
-                                        providerService.runConnectionTest(row.id)
+                                        providerService.runConnectionTest(
+                                            row.id,
+                                            row.defaultConversationModel ?: row.model,
+                                        )
                                     } catch (e: Exception) {
                                         // A row that cannot even be resolved (corruption) fails
                                         // closed: the status stays 未测试, the row stays
@@ -175,7 +195,11 @@ fun ProviderManager(
                                 capabilityResults = capabilityResults - row.id
                                 scope.launch {
                                     try {
-                                        val result = providerService.runCapabilityTest(row.id)
+                                        val result =
+                                            providerService.runCapabilityTest(
+                                                row.id,
+                                                row.defaultConversationModel ?: row.model,
+                                            )
                                         capabilityResults = capabilityResults + (row.id to result)
                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                         throw e

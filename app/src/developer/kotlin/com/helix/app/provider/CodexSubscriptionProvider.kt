@@ -239,7 +239,9 @@ internal class RuntimeSubscriptionJobExecutor(
                 .persist(ownership, outcome.record, requireNotNull(outcome.events))
         }
         // Probe results are intentionally ephemeral; owned successful results are durable above.
-        client.acknowledgeResult(outcome.record)
+        if (outcome.record.state != CliModelJobState.EVIDENCE_EXPIRED) {
+            SubscriptionAcknowledgements.acknowledge(context, outcome.record)
+        }
     }
 
     private fun nextJobId(): String =

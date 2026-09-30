@@ -110,6 +110,7 @@ class ProotJobRunner private constructor(
 
     /** jobId -> the live process handle of a RUNNING job of THIS process. */
     private val liveJobs = ConcurrentHashMap<String, LiveJob>()
+    private val processOwners = ConcurrentHashMap<String, ProotProcessOwner>()
     private val cancellationFlags = ConcurrentHashMap<String, AtomicBoolean>()
     private val owners = ProotJobOwners()
     private val executionWindows = ConcurrentHashMap<String, JobExecutionWindow>()
@@ -117,9 +118,11 @@ class ProotJobRunner private constructor(
     private var detachedReservation: String? = null
     private val manualTerminalReservations = ConcurrentHashMap.newKeySet<String>()
 
+    private fun hasActiveExecution(): Boolean =
+        processOwners.isNotEmpty() || liveJobs.isNotEmpty() || store.activeJobIds().isNotEmpty()
+
     private fun isExecutionAvailable(): Boolean =
-        liveJobs.isEmpty() && store.activeJobIds().isEmpty() &&
-            store.pruneAndBudgetAvailable(System.currentTimeMillis())
+        !hasActiveExecution() && store.pruneAndBudgetAvailable(System.currentTimeMillis())
 
     @Synchronized
     internal fun reserveDetached(jobId: String): Boolean {
@@ -266,7 +269,7 @@ class ProotJobRunner private constructor(
         val reservationMatches =
             (if (detached) detachedReservation == spec.jobId else detachedReservation == null) &&
                 manualTerminalReservations.isEmpty()
-        if (!reservationMatches || liveJobs.isNotEmpty() || store.activeJobIds().isNotEmpty()) {
+        if (!reservationMatches || hasActiveExecution()) {
             return ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
         }
         if (!store.pruneAndBudgetAvailable(now)) {
@@ -325,6 +328,8 @@ class ProotJobRunner private constructor(
         val cancelRequested = cancellationFlags.getValue(spec.jobId)
         val log = logs?.open(spec.jobId)
         var live: LiveJob? = null
+        val processOwner = ProotProcessOwner(::killProcessGroup)
+        processOwners[spec.jobId] = processOwner
         try {
             // 1) Extract + re-verify the input archive (untrusted bytes: central
             //    directory scan, path validation, per-entry manifest re-hash).
@@ -452,7 +457,7 @@ class ProotJobRunner private constructor(
             val stderrBudget = StreamOutputBudget(outputBudget, spec.maxStderrBytes)
             val process =
                 try {
-                    builder.start()
+                    processOwner.start { builder.start() }
                 } catch (e: Exception) {
                     terminalFailed(pending, outputPfd, null, "launch failed: ${e.message?.take(120)}")
                     return
@@ -460,7 +465,7 @@ class ProotJobRunner private constructor(
             // Resolve the host pid before starting the stream pumps: an output cap
             // must be able to kill the process group immediately, including for a
             // long-lived stdio server that would otherwise block forever on a full pipe.
-            val childPid = childPid(process)
+            val childPid = childPid(process).also { processOwner.pid = it }
             if (childPid == null) {
                 process.destroyForcibly()
                 terminalFailed(pending, outputPfd, null, "cannot identify the child pid")
@@ -564,31 +569,22 @@ class ProotJobRunner private constructor(
             log?.finish(true)
             // An unexpected lifecycle failure is a terminal FAILED with the process
             // exit when there was one — never a crash of the companion.
-            val exit =
-                live?.let { job ->
-                    if (job.process.isAlive) {
-                        null
-                    } else {
-                        job.process.exitValue()
-                    }
-                }
+            val exit = processOwner.exitCode()
             terminalFailed(pending, outputPfd, exit, "lifecycle failure: ${e.message?.take(120)}")
         } finally {
             // A terminal UNKNOWN/ORPHANED record is not permission to overlap a still-live process.
-            live?.let { job ->
-                ProotExecutionExit.awaitExit(
-                    { job.process.isAlive },
-                    { killProcessGroup(job.pid) },
-                    { job.process.waitFor(1000, TimeUnit.MILLISECONDS) },
-                )
+            processOwner.awaitExit()
+            try {
+                log?.finish()
+            } finally {
+                live?.watchdog?.cancel(false)
+                processOwners.remove(spec.jobId, processOwner)
+                liveJobs.remove(spec.jobId)
+                cancellationFlags.remove(spec.jobId, cancelRequested)
+                expiredLeases.remove(spec.jobId)
+                executionWindows.remove(spec.jobId)
+                owners.release(spec.jobId)
             }
-            log?.finish()
-            live?.watchdog?.cancel(false)
-            liveJobs.remove(spec.jobId)
-            cancellationFlags.remove(spec.jobId, cancelRequested)
-            expiredLeases.remove(spec.jobId)
-            executionWindows.remove(spec.jobId)
-            owners.release(spec.jobId)
         }
     }
 
@@ -766,7 +762,7 @@ class ProotJobRunner private constructor(
         if (store.load(record.jobId)?.state?.isTerminal == true) return
         val now = SystemClock.elapsedRealtime()
         val elapsed = executionWindows[record.jobId]?.elapsedMs(now)
-        val physical = ProotExecutionExit.terminalState(record.state, liveJobs[record.jobId]?.process?.isAlive == true)
+        val physical = ProotExecutionExit.terminalState(record.state, processOwners[record.jobId]?.isAlive() == true)
         store.put(
             record
                 .copy(state = physical)

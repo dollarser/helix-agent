@@ -248,39 +248,52 @@ internal fun ProviderFormDialog(
                         singleLine = true,
                     )
                 }
-                OutlinedTextField(
-                    value = form.fields.model,
-                    onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
-                    label = { Text(stringResource(R.string.provider_form_model_label)) },
-                    singleLine = true,
-                    modifier = Modifier.testTag("provider-form-model"),
-                )
-                TextButton(
-                    onClick = onDiscover,
-                    enabled = !discovering && !saving && (cleartext == null || form.cleartextConfirmed),
-                    modifier = Modifier.testTag("provider-discover-models"),
-                ) {
-                    val label =
-                        if (discovering) {
-                            R.string.provider_discovering_models
-                        } else {
-                            R.string.provider_discover_models
-                        }
-                    Text(stringResource(label))
-                }
-                discoveryMessage?.let { Text(stringResource(it)) }
-                discovery.forEach { model ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = model in form.selectedModels,
-                            onCheckedChange = { checked ->
-                                val selected = if (checked) form.selectedModels + model else form.selectedModels - model
-                                onField(form.copy(selectedModels = selected))
-                            },
-                            modifier = Modifier.testTag("provider-model-choice-$model"),
-                        )
-                        Text(model, Modifier.weight(1f))
+                if (form.providerId == null) {
+                    OutlinedTextField(
+                        value = form.fields.model,
+                        onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
+                        label = { Text(stringResource(R.string.provider_form_model_label)) },
+                        singleLine = true,
+                        modifier = Modifier.testTag("provider-form-model"),
+                    )
+                    TextButton(
+                        onClick = onDiscover,
+                        enabled = !discovering && !saving && (cleartext == null || form.cleartextConfirmed),
+                        modifier = Modifier.testTag("provider-discover-models"),
+                    ) {
+                        val label =
+                            if (discovering) {
+                                R.string.provider_discovering_models
+                            } else {
+                                R.string.provider_discover_models
+                            }
+                        Text(stringResource(label))
                     }
+                    discoveryMessage?.let { Text(stringResource(it)) }
+                    discovery.forEach { model ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = model in form.selectedModels,
+                                onCheckedChange = { checked ->
+                                    val selected =
+                                        if (checked) {
+                                            form.selectedModels + model
+                                        } else {
+                                            form.selectedModels - model
+                                        }
+                                    val target =
+                                        form.fields.model.takeIf { it in selected }
+                                            ?: selected.firstOrNull().orEmpty()
+                                    val fields = form.fields.copy(model = target)
+                                    onField(form.copy(selectedModels = selected, fields = fields))
+                                },
+                                modifier = Modifier.testTag("provider-model-choice-$model"),
+                            )
+                            Text(model, Modifier.weight(1f))
+                        }
+                    }
+                } else {
+                    Text(stringResource(R.string.provider_models_source_settings_hint))
                 }
                 if (cleartext != null) {
                     Text(
@@ -451,21 +464,21 @@ private suspend fun applySave(
 
                 else -> {
                     val models =
-                        if (form.selectedModels.isEmpty()) {
-                            emptyList()
-                        } else {
-                            (listOf(draft.model) + form.selectedModels).distinct()
-                        }
+                        if (form.selectedModels.isEmpty()) listOf(draft.model) else form.selectedModels.toList()
                     com.helix.app.provider.ProviderSelectedModels
                         .validate(models)
-                    val id =
-                        if (form.providerId == null) {
-                            providerService.create(draft, key, form.cleartextConfirmed)
-                        } else {
-                            providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
-                            form.providerId
-                        }
-                    providerService.saveSelectedModels(id, models)
+                    if (form.providerId == null) {
+                        require(draft.model in models) { "The default must be one of the selected models" }
+                        val id = providerService.create(draft, key, form.cleartextConfirmed)
+                        providerService.saveModelSelection(
+                            id,
+                            com.helix.app.provider
+                                .ProviderModelSelection(models, draft.model, configured = true),
+                        )
+                    } else {
+                        // Connection edits never overwrite model visibility/default preferences.
+                        providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
+                    }
                     SaveResult.Saved
                 }
             }

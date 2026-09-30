@@ -56,6 +56,11 @@ internal interface CliSecretStore {
     fun contains(name: String): Boolean
 }
 
+internal data class CliCredentialSnapshot(
+    val session: CliSubscriptionSession,
+    val revision: String,
+)
+
 /** Token vault owned by the subscription module; same-UID developer code is trusted (ADR-0049). */
 internal class CliSubscriptionCredentialVault(
     private val store: CliSecretStore,
@@ -65,41 +70,103 @@ internal class CliSubscriptionCredentialVault(
     fun save(
         provider: CliSubscriptionProvider,
         session: CliSubscriptionSession,
+    ) = synchronized(LOCK) { write(provider, session, UUID.randomUUID().toString()) }
+
+    private fun write(
+        provider: CliSubscriptionProvider,
+        session: CliSubscriptionSession,
+        revision: String,
     ) {
-        val encoded = encode(session)
-        require(encoded.encodeToByteArray().size <= MAX_CREDENTIAL_BYTES) {
+        val encoded = CliCredentialCodec.encode(session, revision)
+        require(encoded.encodeToByteArray().size <= CliCredentialCodec.MAX_CREDENTIAL_BYTES) {
             "credential blob exceeds limit"
         }
         store.put(alias(provider), encoded)
     }
 
-    fun load(provider: CliSubscriptionProvider): CliSubscriptionSession = decode(store.get(alias(provider)))
-
-    fun contains(provider: CliSubscriptionProvider): Boolean = store.contains(alias(provider))
-
-    fun logout(provider: CliSubscriptionProvider) = store.delete(alias(provider))
-
-    fun publicStates(): Map<String, String> =
-        CliSubscriptionProvider.entries.associate { provider ->
-            provider.wireId to publicState(provider)
+    fun snapshot(provider: CliSubscriptionProvider): CliCredentialSnapshot =
+        synchronized(LOCK) {
+            val encoded = store.get(alias(provider))
+            val session = CliCredentialCodec.decode(encoded)
+            val revision =
+                Json
+                    .parseToJsonElement(encoded)
+                    .jsonObject["revision"]
+                    ?.jsonPrimitive
+                    ?.content
+                    ?: UUID.randomUUID().toString().also { write(provider, session, it) }
+            com.helix.runtime.cli.client
+                .CliAccountState("LOGGED_IN", revision)
+            CliCredentialSnapshot(session, revision)
         }
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun publicState(provider: CliSubscriptionProvider): String {
-        if (!contains(provider)) return "LOGGED_OUT"
-        return try {
-            load(provider)
-            "LOGGED_IN"
-        } catch (_: Exception) {
-            "CREDENTIAL_ERROR"
+    fun load(provider: CliSubscriptionProvider): CliSubscriptionSession = snapshot(provider).session
+
+    /** Token refresh cannot resurrect logout or overwrite a newer login or refresh. */
+    fun renew(
+        provider: CliSubscriptionProvider,
+        expected: CliCredentialSnapshot,
+        session: CliSubscriptionSession,
+    ) {
+        synchronized(LOCK) {
+            check(contains(provider)) { "Subscription login changed" }
+            val current = snapshot(provider)
+            check(current.revision == expected.revision) { "Subscription login changed" }
+            if (current == expected) write(provider, session, current.revision)
         }
     }
 
-    private fun alias(provider: CliSubscriptionProvider) = "subscription-${provider.wireId}"
+    fun contains(provider: CliSubscriptionProvider): Boolean = synchronized(LOCK) { store.contains(alias(provider)) }
 
-    private fun encode(session: CliSubscriptionSession): String =
+    fun logout(provider: CliSubscriptionProvider) = synchronized(LOCK) { store.delete(alias(provider)) }
+
+    fun logoutIfCurrent(
+        provider: CliSubscriptionProvider,
+        expected: CliCredentialSnapshot,
+    ) = synchronized(LOCK) {
+        if (contains(provider) && snapshot(provider) == expected) store.delete(alias(provider))
+    }
+
+    fun publicAccounts(): Map<String, com.helix.runtime.cli.client.CliAccountState> =
+        synchronized(LOCK) {
+            CliSubscriptionProvider.entries.associate { provider ->
+                val account =
+                    if (!contains(provider)) {
+                        com.helix.runtime.cli.client
+                            .CliAccountState("LOGGED_OUT")
+                    } else {
+                        runCatching {
+                            com.helix.runtime.cli.client
+                                .CliAccountState("LOGGED_IN", snapshot(provider).revision)
+                        }.getOrElse {
+                            com.helix.runtime.cli.client
+                                .CliAccountState("CREDENTIAL_ERROR")
+                        }
+                    }
+                provider.wireId to account
+            }
+        }
+
+    fun publicStates(): Map<String, String> = publicAccounts().mapValues { it.value.state }
+
+    private companion object {
+        val LOCK = Any()
+    }
+}
+
+private fun alias(provider: CliSubscriptionProvider) = "subscription-${provider.wireId}"
+
+/** Persisted credential format, separate from login-lifetime synchronization. */
+private object CliCredentialCodec {
+    const val MAX_CREDENTIAL_BYTES = 16 * 1024
+
+    fun encode(
+        session: CliSubscriptionSession,
+        revision: String,
+    ): String =
         buildJsonObject {
-            put("version", 2)
+            put("version", 3)
+            put("revision", revision)
             put("accessToken", session.accessToken)
             put("refreshToken", session.refreshToken)
             session.idToken?.let { put("idToken", it) }
@@ -107,14 +174,25 @@ internal class CliSubscriptionCredentialVault(
             session.accountId?.let { put("accountId", it) }
         }.toString()
 
-    private fun decode(encoded: String): CliSubscriptionSession {
+    fun decode(encoded: String): CliSubscriptionSession {
+        require(encoded.encodeToByteArray().size <= MAX_CREDENTIAL_BYTES)
         val value = Json.parseToJsonElement(encoded).jsonObject
         val required = setOf("version", "accessToken", "refreshToken", "expiresAtEpochMillis")
-        val optional = setOf("idToken", "accountId")
+        val optional = setOf("idToken", "accountId", "revision")
         require(
             value.keys.containsAll(required) && value.keys.all { it in required || it in optional },
         ) { "subscription credential schema mismatch" }
-        require(value.getValue("version").jsonPrimitive.long in 1L..2L) { "unsupported credential version" }
+        require(value.getValue("version").jsonPrimitive.long in 1L..3L) { "unsupported credential version" }
+        if (value.getValue("version").jsonPrimitive.long == 3L) {
+            val revision =
+                value
+                    .getValue("revision")
+                    .jsonPrimitive
+                    .also { require(it.isString) }
+                    .content
+            com.helix.runtime.cli.client
+                .CliAccountState("LOGGED_IN", revision)
+        }
         return CliSubscriptionSession(
             value.getValue("accessToken").jsonPrimitive.content,
             value.getValue("refreshToken").jsonPrimitive.content,
@@ -122,10 +200,6 @@ internal class CliSubscriptionCredentialVault(
             value.getValue("expiresAtEpochMillis").jsonPrimitive.long,
             value["accountId"]?.jsonPrimitive?.content,
         )
-    }
-
-    private companion object {
-        const val MAX_CREDENTIAL_BYTES = 16 * 1024
     }
 }
 

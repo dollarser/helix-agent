@@ -45,6 +45,10 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 HXA-232 的逐轮主机/设备证据留在任务文件，不在本页复制。HXA-223 的 stale snapshot/CAS 修复已完成，不再作为开放 R4 缺陷；具体结构边界见[结构研究](../research/modules/01-architecture-and-execution-engine.md)。
 
+2026-09-30 所有者追加的 [Provider 模型管理统一](../evidence/development/provider-model-management-2026-09-30.md)将三类来源的目录、候选、默认与逐模型验证分开；主机/设备状态以该记录为准，不扩大订阅目录或真实账号验收结论。
+
+随后所有者授权的 [Provider 使用链路收口](../evidence/development/provider-chain-closeout-2026-09-30.md)补齐真实应用回执、来源/模型失败分离、账号状态同步与精确模型请求；提交和最终验证以记录为准。设备旅程已准备，不据此声称实际内测通过。
+
 ## Next task
 
 **优先内测，并按当前明确的设备/账号授权补齐开放故障矩阵。** 继续配置→聊天工具→重开等实际用户流程；指定手机流程仍需恢复设备条件，真实用户试用尚未执行。P0～P4、P7 和 R1 的已有交付不重新排为底座开发。

@@ -106,7 +106,6 @@ internal class AgentLoop(
         entry: Entry = Entry.INITIAL,
     ): TurnLoopResult {
         val turnId = coordinator.id
-        val provider = providerService.modelProviderFor(providerId)
         val runtimeRecord = storage.turnRuntimeRecords.find(turnId)
         runtimeRecord?.let { runtimeAccounting.validate(it, providerId, control) }
         var context =
@@ -115,6 +114,7 @@ internal class AgentLoop(
                 Entry.BACKFILL -> contextAssembler.buildBackfill(sessionId, turnId, control)
             }
         runtimeRecord?.let { require(context.model == it.modelId) { "Turn runtime model drift" } }
+        val provider = providerService.modelProviderFor(providerId, context.model)
         var manualCommandPending = context.messages.lastOrNull()?.text == ContextCompaction.COMMAND
         var compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
         var toolRounds = runtimeRecord?.admittedToolRounds ?: 0

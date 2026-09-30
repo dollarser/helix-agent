@@ -1,10 +1,10 @@
 package com.helix.runtime.cli.app
 
+import com.helix.runtime.cli.client.CliJobRecordFile
 import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliModelJobRecordCodec
 import com.helix.runtime.cli.client.CliModelJobState
 import java.io.File
-import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -16,31 +16,15 @@ internal class CodexModelJobStore(
     private val root: File,
 ) {
     private val jobs = File(root, "codex-model-jobs")
+    private val files = CliJobRecordFile()
 
     fun load(jobId: String): CodexModelJobRecord? {
         val file = recordFile(jobId)
-        if (!file.isFile) return null
-        return CliModelJobRecordCodec.decode(file.readText())
+        return files.read(file)?.also { require(it.jobId == jobId) { "CLI journal identity mismatch" } }
     }
 
     fun put(record: CodexModelJobRecord) {
-        val file = recordFile(record.jobId)
-        require(file.parentFile?.mkdirs() == true || file.parentFile?.isDirectory == true)
-        val tmp = File(file.parentFile, "record.json.tmp")
-        FileOutputStream(tmp).use { out ->
-            out.write(CliModelJobRecordCodec.encode(record).encodeToByteArray())
-            out.flush()
-            out.fd.sync()
-        }
-        require(
-            tmp.renameTo(file) ||
-                runCatching {
-                    tmp.copyTo(file, overwrite = true)
-                    tmp.delete()
-                }.isSuccess,
-        ) {
-            "atomic job record write failed"
-        }
+        files.write(recordFile(record.jobId), record)
     }
 
     fun canAcceptNew(): Boolean {
@@ -58,8 +42,7 @@ internal class CodexModelJobStore(
         pruneAcknowledged(now)
         jobs.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
             if (!File(dir, "record.json").exists()) {
-                val owned = setOf("request.json", "request.json.tmp", "record.json.tmp")
-                if (dir.listFiles()?.all { it.isFile && it.name in owned } == true) {
+                if (dir.listFiles()?.all(::isUnsubmittedPayload) == true) {
                     check(dir.deleteRecursively()) { "unsubmitted request cleanup failed" }
                 }
                 return@forEach
@@ -69,6 +52,14 @@ internal class CodexModelJobStore(
                 put(record.copy(state = CodexModelJobState.INTERRUPTED, terminalAtEpochMillis = now))
             }
         }
+    }
+
+    private fun isUnsubmittedPayload(file: File): Boolean {
+        val temporaryRecord = file.name.startsWith("record-") && file.name.endsWith(".pending")
+        val recognized = file.name in setOf("request.json", "request.json.tmp", "record.json.tmp") || temporaryRecord
+        return recognized &&
+            java.nio.file.Files
+                .isRegularFile(file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
     }
 
     /** Only acknowledged terminal records are disposable; unknown or unreconciled records retain their slots. */
@@ -93,7 +84,10 @@ internal class CodexModelJobStore(
         }
     }
 
-    private fun recordFile(jobId: String) = File(File(jobs, jobId), "record.json")
+    private fun recordFile(jobId: String): File {
+        CliModelJobRecord.checkJobId(jobId)
+        return File(File(jobs, jobId), "record.json")
+    }
 
     internal companion object {
         private const val TOMBSTONE_TTL_MS = 7L * 24 * 60 * 60 * 1000

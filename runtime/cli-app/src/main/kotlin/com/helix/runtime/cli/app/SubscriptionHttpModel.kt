@@ -20,6 +20,7 @@ internal class SubscriptionHttpModel(
     private val headers: Map<String, String> = emptyMap(),
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
 ) : Closeable {
+    private val calls = SubscriptionCancellation()
     private val client =
         client
             .newBuilder()
@@ -54,6 +55,7 @@ internal class SubscriptionHttpModel(
             }
 
     private fun send(request: ModelRequest): CodexModelExecution {
+        calls.checkActive()
         // Refresh before sending a model request; an ambiguous POST is never replayed.
         if (vault.load(platform).expiresAtEpochMillis <= System.currentTimeMillis() + 30_000) refresh()
         val session = vault.load(platform)
@@ -66,12 +68,15 @@ internal class SubscriptionHttpModel(
                 .header("Accept", "text/event-stream")
                 .post(encode(request).toRequestBody(CodexSubscriptionModel.JSON))
                 .build()
-        return client.newCall(httpRequest).execute().use { response ->
-            CodexModelExecution(request.model, readSubscriptionEvents(response, decoder()))
+        val call = client.newCall(httpRequest)
+        return calls.using(Closeable { call.cancel() }) {
+            call.execute().use { response ->
+                CodexModelExecution(request.model, readSubscriptionEvents(response, decoder()))
+            }
         }
     }
 
     override fun close() {
-        client.dispatcher.cancelAll()
+        calls.cancel()
     }
 }

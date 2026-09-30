@@ -35,6 +35,7 @@ internal class CodexSubscriptionModel(
     private val cancelled =
         java.util.concurrent.atomic
             .AtomicBoolean(false)
+    private val calls = SubscriptionCancellation()
     private val startedAt = System.nanoTime()
     private val client =
         client
@@ -67,35 +68,45 @@ internal class CodexSubscriptionModel(
         onEvents: (List<ModelEvent>) -> Unit,
     ): CodexModelExecution {
         val names = CodexToolNames(request)
-        var session = vault.load(CliSubscriptionProvider.CODEX)
-        var response = execute(request, session)
-        if (response.code == 401) {
-            response.close()
+        var refreshed = false
+        while (true) {
+            calls.checkActive()
+            val call = execute(request, vault.load(CliSubscriptionProvider.CODEX))
+            val result =
+                calls.using(Closeable { call.cancel() }) {
+                    subscriptionNetwork { call.execute() }.use { http ->
+                        if (http.code == 401 && !refreshed) {
+                            null
+                        } else {
+                            CodexModelExecution(
+                                request.model,
+                                names.decode(
+                                    readSubscriptionEvents(
+                                        http,
+                                        ResponsesStreamDecoder(),
+                                        onReadFailure = {
+                                            failure,
+                                            count,
+                                            ->
+                                            reportTransportFailure("body", failure, count)
+                                        },
+                                        eventDirectory = eventDirectory,
+                                    ) { onEvents(names.decode(it)) },
+                                ),
+                            )
+                        }
+                    }
+                }
+            if (result != null) return result
+            calls.checkActive()
             oauth.refresh()
-            session = vault.load(CliSubscriptionProvider.CODEX)
-            response = execute(request, session)
-        }
-        response.use { http ->
-            if (!http.isSuccessful) {
-                android.util.Log.w("HelixSubscriptionIo", "phase=headers httpStatus=${http.code}")
-            }
-            return CodexModelExecution(
-                request.model,
-                names.decode(
-                    readSubscriptionEvents(
-                        http,
-                        ResponsesStreamDecoder(),
-                        onReadFailure = { failure, eventCount -> reportTransportFailure("body", failure, eventCount) },
-                        eventDirectory = eventDirectory,
-                    ) { onEvents(names.decode(it)) },
-                ),
-            )
+            refreshed = true
         }
     }
 
     override fun close() {
         cancelled.set(true)
-        client.dispatcher.cancelAll()
+        calls.cancel()
     }
 
     private fun reportTransportFailure(
@@ -126,7 +137,7 @@ internal class CodexSubscriptionModel(
     private fun execute(
         request: ModelRequest,
         session: CliSubscriptionSession,
-    ): okhttp3.Response {
+    ): okhttp3.Call {
         val accountId = session.accountId ?: throw CodexSmokeException("credential")
         val base = Json.parseToJsonElement(encodeSubscriptionRequest(request, encoder)).jsonObject
         val body =
@@ -145,7 +156,7 @@ internal class CodexSubscriptionModel(
                 .header("Accept", "text/event-stream")
                 .post(body.toRequestBody(JSON))
                 .build()
-        return subscriptionNetwork { client.newCall(call).execute() }
+        return client.newCall(call)
     }
 
     internal companion object {

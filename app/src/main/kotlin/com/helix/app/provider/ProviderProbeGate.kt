@@ -39,6 +39,9 @@ internal class ProviderProbeGate {
             true
         }
 
+    /** Preferences serialize with config deletion but do not invalidate in-flight evidence. */
+    suspend fun <T> access(block: suspend () -> T): T = mutex.withLock { block() }
+
     suspend fun <T> mutate(
         id: String,
         block: suspend () -> T,

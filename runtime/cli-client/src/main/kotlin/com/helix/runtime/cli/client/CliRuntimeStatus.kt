@@ -11,6 +11,7 @@ data class CliRuntimeStatus(
     val abi: String,
     val lockSha256: String,
     val agentBackendState: String,
+    val accounts: Map<String, CliAccountState> = emptyMap(),
 )
 
 object CliRuntimeStatusCodec {
@@ -28,6 +29,7 @@ object CliRuntimeStatusCodec {
                 abi = value.getValue("abi").jsonPrimitive.content,
                 lockSha256 = value.getValue("lockSha256").jsonPrimitive.content,
                 agentBackendState = value.getValue("agentBackendState").jsonPrimitive.content,
+                accounts = value["accounts"]?.let(CliAccountState::decode).orEmpty(),
             )
         require(status.protocolVersion == CliRuntimeProtocol.VERSION)
         require(status.runtimeVersion.length in 1..64)

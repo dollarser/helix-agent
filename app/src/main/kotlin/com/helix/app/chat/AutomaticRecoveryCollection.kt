@@ -45,7 +45,11 @@ internal class AutomaticRecoveryCollection(
                         screenState.value.subscriptionRecoveries.singleOrNull {
                             it.turnId == row.turnId && it.modelCallId == row.modelCallId
                         } ?: return@request AutomaticRuntimeCollection.Observation.DEFERRED
-                    if (latest.output != null) return@request AutomaticRuntimeCollection.Observation.COMPLETE
+                    if (latest.output?.acknowledged ==
+                        true
+                    ) {
+                        return@request AutomaticRuntimeCollection.Observation.COMPLETE
+                    }
                     val status = subscriptionRecovery(row.turnId, row.modelCallId, false)
                     val observation = SubscriptionCollectionPolicy.beforeCollect(status)
                     val output =
@@ -57,13 +61,14 @@ internal class AutomaticRecoveryCollection(
                     updateSubscriptionRecovery(
                         latest.copy(
                             status = status,
-                            output = output,
+                            output = output ?: latest.output,
                             localResultAvailable = output != null || latest.localResultAvailable,
                             outputUnavailable =
-                                output == null && observation != AutomaticRuntimeCollection.Observation.RUNNING,
+                                output == null && latest.output == null &&
+                                    observation != AutomaticRuntimeCollection.Observation.RUNNING,
                         ),
                     )
-                    if (output != null) {
+                    if (output?.acknowledged == true) {
                         AutomaticRuntimeCollection.Observation.COMPLETE
                     } else {
                         observation ?: AutomaticRuntimeCollection.Observation.RETRY

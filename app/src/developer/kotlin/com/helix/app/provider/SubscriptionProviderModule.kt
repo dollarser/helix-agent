@@ -17,6 +17,7 @@ import com.helix.provider.api.ProviderConfig
 import com.helix.runtime.cli.client.CliModelProvider
 import com.helix.runtime.cli.client.CliRuntimeProtocol
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
+import com.helix.runtime.cli.client.CliRuntimeVerification
 
 /** Developer-only registration seam for the non-official Codex subscription adapter. */
 internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
@@ -148,16 +149,13 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     ): ProbeOutcome? {
         if (!isManaged(config.id)) return null
         return if (config.id == CODEX_ID && provider is CodexSubscriptionProvider) {
-            probeCodex(provider)
+            CodexCapabilityProbe(provider, allReasoningEfforts = false) { phase ->
+                android.util.Log.d("HelixCapabilityProbe", phase)
+            }.run()
         } else {
             probeText(config, provider)
         }
     }
-
-    private suspend fun probeCodex(provider: CodexSubscriptionProvider): ProbeOutcome =
-        CodexCapabilityProbe(provider, allReasoningEfforts = false) { phase ->
-            android.util.Log.d("HelixCapabilityProbe", phase)
-        }.run()
 
     private suspend fun probeText(
         config: ProviderConfig,
@@ -185,6 +183,32 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
                     },
                 ),
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    // Reuse the existing bounded IPC primitive; a stuck status read cannot grow threads or block resume forever.
+    private val accountQueries =
+        com.helix.app.localmodel
+            .LocalRuntimeCalls("HelixAccountStatus", capacity = 1)
+
+    override suspend fun accountStates(context: Context): Map<String, ManagedAccountSnapshot> =
+        kotlinx.coroutines
+            .withTimeoutOrNull(3000L) {
+                accountQueries.call {
+                    when (val result = CliRuntimeSupervisor(context, bindTimeoutMillis = 2500L).verify()) {
+                        is CliRuntimeVerification.Verified -> {
+                            result.status.accounts.mapKeys { "subscription-${it.key}" }.mapValues { (_, account) ->
+                                ManagedAccountSnapshot(
+                                    state = ManagedAccountSnapshot.State.valueOf(account.state),
+                                    revision = account.revision,
+                                )
+                            }
+                        }
+
+                        is CliRuntimeVerification.Unavailable -> {
+                            emptyMap()
+                        }
+                    }
+                }
+            }.orEmpty()
 
     override suspend fun openAccount(
         context: Context,

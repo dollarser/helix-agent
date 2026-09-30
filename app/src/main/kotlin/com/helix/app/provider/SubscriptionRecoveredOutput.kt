@@ -3,6 +3,7 @@ package com.helix.app.provider
 /** Bounded pages of visible model text only; this result never drives tools or Goal completion. */
 data class SubscriptionRecoveredOutput(
     val pages: List<String>,
+    val acknowledged: Boolean? = null,
 ) {
     companion object {
         private const val PAGE_CHARACTERS = 4096

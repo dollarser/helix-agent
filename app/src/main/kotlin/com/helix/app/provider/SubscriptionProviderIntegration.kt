@@ -34,6 +34,8 @@ internal interface SubscriptionProviderIntegration {
 
     fun isManaged(providerId: String): Boolean
 
+    suspend fun accountStates(context: Context): Map<String, ManagedAccountSnapshot> = emptyMap()
+
     suspend fun probe(
         config: ProviderConfig,
         provider: ModelProvider,

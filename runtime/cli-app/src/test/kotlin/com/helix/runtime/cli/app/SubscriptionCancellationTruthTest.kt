@@ -31,11 +31,11 @@ class SubscriptionCancellationTruthTest {
         val id = "job_ffffffff0001"
         val store = CodexPayloadJobStore(root)
         val runner =
-            CodexPayloadJobRunner(store, {
+            CodexPayloadJobRunner(store, { _, _ ->
                 entered.countDown()
                 check(release.await(5, TimeUnit.SECONDS))
                 CodexModelExecution("model", listOf(ModelEvent.Completed("stop")))
-            }, {})
+            })
         try {
             assertTrue(runner.submit(id, hash, payload) is CodexPayloadSubmit.Accepted)
             assertTrue(entered.await(2, TimeUnit.SECONDS))

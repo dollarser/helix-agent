@@ -26,7 +26,7 @@ class LocalModelDialogDeviceTest {
                 LocalModelDialog(
                     providerService = app.appContainer.providerService,
                     currentSessionAvailable = false,
-                    onUseCurrentSession = { _, _ -> },
+                    onUseCurrentSession = { _, _ -> com.helix.app.chat.SessionModelSelectionResult.APPLIED },
                     onDismiss = {},
                 )
             }
@@ -50,7 +50,10 @@ class LocalModelDialogDeviceTest {
                     LocalModelDialog(
                         providerService = app.appContainer.providerService,
                         currentSessionAvailable = true,
-                        onUseCurrentSession = { _, _ -> used = true },
+                        onUseCurrentSession = { _, _ ->
+                            used = true
+                            com.helix.app.chat.SessionModelSelectionResult.APPLIED
+                        },
                     ) { visible.value = false }
                 }
             }

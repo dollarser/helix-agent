@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         (application as HelixApplication).appContainer.browser.resume(browserOwner)
+        (application as HelixApplication).appContainer.providerService.refresh()
     }
 
     override fun onNewIntent(intent: Intent) {

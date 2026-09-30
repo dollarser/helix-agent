@@ -341,13 +341,14 @@ internal class GrokLoginController(
     }
 
     fun refresh() {
+        val previous = vault.snapshot(CliSubscriptionProvider.GROK)
         try {
-            vault.save(CliSubscriptionProvider.GROK, transport.refresh(vault.load(CliSubscriptionProvider.GROK)))
+            vault.renew(CliSubscriptionProvider.GROK, previous, transport.refresh(previous.session))
         } catch (error: GrokOAuthEndpointException) {
-            if (error.permanentlyInvalid) vault.logout(CliSubscriptionProvider.GROK)
+            if (error.permanentlyInvalid) vault.logoutIfCurrent(CliSubscriptionProvider.GROK, previous)
             throw error
         } catch (error: IllegalArgumentException) {
-            vault.logout(CliSubscriptionProvider.GROK)
+            vault.logoutIfCurrent(CliSubscriptionProvider.GROK, previous)
             throw error
         }
     }

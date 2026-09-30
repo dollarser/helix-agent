@@ -2,6 +2,8 @@
 
 > 研究基线：2026-09-25。后续 HXA-222 已交付端侧模型首版，当前引擎与验收范围见[Provider ADR](../../adr/provider/001-models-and-connection.md)和[完成记录](../../completion-records/HXA-222.md)。下文保留当时比较，不作为当前未立项或候选状态的依据。
 
+2026-09-30 的模型管理增量参考 VS Code/Copilot、Cherry Studio、LM Studio 与 OpenCode 官方文档，统一目录/候选/默认/逐模型验证而不合并认证或执行域。参考依据与实现验收集中在[模型管理记录](../../evidence/development/provider-model-management-2026-09-30.md)，本页不复制变动中的测试结论。
+
 ## 1. Runtime 应按执行边界分层
 
 Helix 当前合理的执行域是：

@@ -44,19 +44,58 @@ data class ProviderRowUi(
     val provisioning: ProviderProvisioningKind = ProviderProvisioningKind.USER_CONFIGURED,
     val modelMetadata: Map<String, ModelMetadata> = emptyMap(),
     val assetSizeBytes: Long? = null,
-    val selectedModels: List<String> = emptyList(),
+    val modelSelection: ProviderModelSelection = ProviderModelSelection(),
+    val modelVerifications: Map<String, ProviderModelVerification> = emptyMap(),
+    val modelGenerations: Map<String, ProviderModelVerification> = emptyMap(),
+    val accountState: ManagedAccountSnapshot? = null,
 ) {
     val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
+
+    /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
+    val conversationModels: List<String> get() = modelSelection.models
+    val selectedModels: List<String> get() = modelSelection.models
+    val defaultConversationModel: String? get() = modelSelection.defaultModel
+    val knownModels: List<String> get() =
+        (backendModels.orEmpty() + modelSelection.customModels + modelSelection.models + model).distinct()
+    val offersConversationModels: Boolean get() = chatSelectable && conversationModels.isNotEmpty()
+
+    fun modelLabel(modelId: String): String =
+        if (provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET && modelId == model) displayName else modelId
 
     /**
      * Selectable for a new session only when the connection test COMPLETED
      * (HXA-028: "未完成连接测试不贬为'已可用'").
      */
     val chatSelectable: Boolean
-        get() = status is ConnectionTestStatus.Passed
+        get() = status is ConnectionTestStatus.Passed && (accountState == null || accountState.ready)
+
+    fun modelSelectable(modelId: String): Boolean = chatSelectable && modelGenerations[modelId]?.failure == null
 
     /** Resolve only this model's declared fields; a default-model probe does not prove other models. */
-    fun capabilitiesForModel(selectedModel: String): ProviderCapabilities? {
+    fun capabilitiesForModel(selectedModel: String): ProviderCapabilities? =
+        if (modelGenerations[selectedModel]?.failure != null) {
+            null
+        } else if (selectedModel in modelVerifications) {
+            modelVerifications[selectedModel]?.capabilities?.let { exact ->
+                exactWithMetadata(selectedModel, exact)
+            }
+        } else {
+            declaredCapabilities(selectedModel)
+        }
+
+    private fun exactWithMetadata(
+        selectedModel: String,
+        exact: ProviderCapabilities,
+    ): ProviderCapabilities {
+        val declared = modelMetadata[selectedModel]
+        return exact.copy(
+            vision = if (exact.source == CapabilitySource.MANUAL) exact.vision else declared?.vision ?: exact.vision,
+            reasoning = declared?.reasoningEfforts?.isNotEmpty() ?: exact.reasoning,
+            maxContextTokens = declared?.contextWindow ?: exact.maxContextTokens,
+        )
+    }
+
+    private fun declaredCapabilities(selectedModel: String): ProviderCapabilities? {
         val base = capabilities ?: return null
         val metadata = modelMetadata[selectedModel]
         val sameModel = selectedModel == model

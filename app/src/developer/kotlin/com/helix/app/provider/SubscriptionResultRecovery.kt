@@ -10,7 +10,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 internal class SubscriptionResultRecovery(
-    context: Context,
+    private val context: Context,
     private val storage: HelixStorage,
 ) {
     private val client = CliModelJobClient(CliRuntimeSupervisor(context))
@@ -25,11 +25,14 @@ internal class SubscriptionResultRecovery(
         val call = storage.modelCalls.resolve(modelCallId)
         check(call.turnId == turnId && call.state == "INTERRUPTED")
         val ownership = LocalModelCallContext(turnId, modelCallId)
-        val events = if (localOnly) store.readLocal(ownership) ?: return null else recoverAndConfirm(ownership)
-        return visibleOutput(events)
+        return if (localOnly) {
+            visibleOutput(store.readLocal(ownership) ?: return null)
+        } else {
+            recoverAndConfirm(ownership)
+        }
     }
 
-    private fun recoverAndConfirm(ownership: LocalModelCallContext): List<ModelEvent> {
+    private fun recoverAndConfirm(ownership: LocalModelCallContext): SubscriptionRecoveredOutput {
         val job =
             SubscriptionJobBindingStore(storage)
                 .resolve(ownership.modelCallId)
@@ -37,9 +40,9 @@ internal class SubscriptionResultRecovery(
                 .jsonPrimitive.content
         val queried = client.query(job) as? CliModelJobClient.StateOutcome.Ok ?: error("Runtime unavailable")
         check(queried.record.state == CliModelJobState.SUCCEEDED)
-        val events = store.read(ownership, queried.record) ?: fetchAndPersist(ownership, job)
-        client.acknowledgeResult(queried.record)
-        return events
+        val events = store.read(ownership, queried.record) ?: fetchAndPersist(ownership, queried.record)
+        val acknowledged = SubscriptionAcknowledgements.acknowledge(context, queried.record)
+        return visibleOutput(events).copy(acknowledged = acknowledged)
     }
 
     private fun visibleOutput(events: List<ModelEvent>): SubscriptionRecoveredOutput {
@@ -56,9 +59,10 @@ internal class SubscriptionResultRecovery(
 
     private fun fetchAndPersist(
         ownership: LocalModelCallContext,
-        job: String,
+        expected: com.helix.runtime.cli.client.CliModelJobRecord,
     ): List<ModelEvent> {
-        val fetched = client.fetchResult(job) as CliModelJobClient.StateOutcome.Ok
+        val fetched = client.fetchResult(expected.jobId) as CliModelJobClient.StateOutcome.Ok
+        check(fetched.record.copy(reconciledAtEpochMillis = null) == expected.copy(reconciledAtEpochMillis = null))
         check(fetched.record.state == CliModelJobState.SUCCEEDED)
         val events = requireNotNull(fetched.events)
         store.persist(ownership, fetched.record, events)

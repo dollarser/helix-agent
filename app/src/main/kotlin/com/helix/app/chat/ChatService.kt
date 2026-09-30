@@ -1009,14 +1009,18 @@ class ChatService(
             sessionDraft?.session?.providerId
                 ?: _sessions.value.firstOrNull { it.id == openSessionId }?.providerId
         val provider =
-            providerService.rows.value.firstOrNull { it.chatSelectable && it.id == inherited }
-                ?: providerService.rows.value.firstOrNull { it.chatSelectable }
+            providerService.rows.value.firstOrNull {
+                it.defaultConversationModel?.let(it::modelSelectable) == true && it.id == inherited
+            }
+                ?: providerService.rows.value.firstOrNull {
+                    it.defaultConversationModel?.let(it::modelSelectable) == true
+                }
         val entity =
             SessionEntity(
                 idGenerator(),
                 "",
                 provider?.id,
-                provider?.model,
+                provider?.defaultConversationModel,
                 clock.now().toEpochMilli(),
                 null,
             )
@@ -1161,6 +1165,8 @@ class ChatService(
             require(providerService.chatSelectable(providerId)) {
                 "the provider must pass a connection test before a session can use it"
             }
+            // This explicit target API does not enumerate or choose a default. Picker preferences are not permission.
+            // Interactive/default model selection separately uses conversationModels and never expands the catalog.
             val id = idGenerator()
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
@@ -1383,7 +1389,10 @@ class ChatService(
     ) {
         workScope.launch {
             val sessionId = openSessionId ?: return@launch
-            if (providerService.chatSelectable(providerId).not()) {
+            if (providerService.rows.value.none {
+                    it.id == providerId && it.chatSelectable && modelId in it.conversationModels
+                }
+            ) {
                 setBlocked(str(R.string.chat_blocked_provider_untested))
                 return@launch
             }
@@ -1406,43 +1415,86 @@ class ChatService(
         }
     }
 
-    /** User-selected target for the next turn. Selection itself never sends history. */
+    /** Enqueue immediately so a subsequent Send cannot overtake the selection. */
     fun selectSessionModel(
         providerId: String,
         modelId: String,
     ) {
-        val requestedSession = openSessionId ?: return
-        sessionActions.submit {
-            submissionGate.withLock {
-                synchronized(turnGate) {
-                    if (openSessionId != requestedSession || preparingDraft) return@synchronized
-                    if (pendingSend != null || turnEngine.liveExecution.hasActive(requestedSession)) {
-                        return@synchronized
-                    }
-                    val row =
-                        providerService.rows.value.firstOrNull { it.id == providerId && it.chatSelectable }
-                            ?: return@synchronized
-                    if (modelId !in (row.backendModels.orEmpty() + row.model)) return@synchronized
-                    val draft = sessionDraft?.takeIf { it.session.id == requestedSession }
-                    if (draft != null) {
-                        drafts.model(draft.session.id, providerId, modelId)
-                    } else if (!selectPersistedSessionModel(requestedSession, providerId, modelId)) {
-                        return@synchronized
-                    }
-                    val currentControl =
-                        draft?.control ?: sessionRunControls.ensure(requestedSession, clock.now().toEpochMilli())
-                    val nextControl = currentControl.copy(reasoning = ReasoningEffort.OFF)
-                    if (draft != null) {
-                        drafts.control(requestedSession, nextControl)
-                    } else {
-                        sessionRunControls.set(requestedSession, nextControl, clock.now().toEpochMilli())
-                    }
-                    if (openSessionId == requestedSession) _runControl.value = nextControl
-                    refreshScreen()
-                }
+        val requestedSession = openSessionId
+        val receipt = requestSessionModelSelection(requestedSession, providerId, modelId)
+        workScope.launch {
+            val result = receipt.await()
+            if (result != SessionModelSelectionResult.APPLIED && openSessionId == requestedSession) {
+                setBlocked(str(result.messageRes))
             }
         }
     }
+
+    /** A model-management dialog binds its original session and awaits the actual commit. */
+    fun requestSessionModelSelection(
+        requestedSession: String?,
+        providerId: String,
+        modelId: String,
+    ): kotlinx.coroutines.Deferred<SessionModelSelectionResult> =
+        sessionActions.submit {
+            val result = submissionGate.withLock { commitModelSelection(requestedSession, providerId, modelId) }
+            if (result == SessionModelSelectionResult.APPLIED) {
+                refreshSessionsNow()
+                refreshScreen()
+            }
+            result
+        }
+
+    private fun modelSelectionBusy(
+        sessionId: String?,
+        isDraft: Boolean,
+    ): Boolean =
+        preparingDraft || pendingSend != null ||
+            (
+                sessionId != null && (
+                    turnEngine.liveExecution.hasActive(sessionId) ||
+                        (!isDraft && turnGateHolds(sessionId))
+                )
+            )
+
+    @Suppress("TooGenericExceptionCaught") // A failed local transaction is an explicit receipt, never a success.
+    private fun commitModelSelection(
+        requestedSession: String?,
+        providerId: String,
+        modelId: String,
+    ): SessionModelSelectionResult =
+        synchronized(turnGate) {
+            val row = providerService.rows.value.firstOrNull { it.id == providerId }
+            val draft = sessionDraft?.takeIf { it.session.id == requestedSession }
+            val busy = modelSelectionBusy(requestedSession, draft != null)
+            val rejection =
+                selectionRejection(
+                    requestedSession,
+                    openSessionId,
+                    busy,
+                    row?.chatSelectable == true,
+                    row?.let { modelId in it.conversationModels && it.modelSelectable(modelId) } == true,
+                )
+            if (rejection != null) return@synchronized rejection
+            val sessionId = requireNotNull(requestedSession)
+            try {
+                val current = draft?.control ?: sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
+                val next = current.copy(reasoning = ReasoningEffort.OFF)
+                if (draft != null) {
+                    drafts.model(sessionId, providerId, modelId)
+                    drafts.control(sessionId, next)
+                } else {
+                    storage.withTransaction {
+                        storage.sessions.selectModel(sessionId, providerId, modelId)
+                        sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                    }
+                }
+                if (openSessionId == sessionId) _runControl.value = next
+                SessionModelSelectionResult.APPLIED
+            } catch (_: Exception) {
+                SessionModelSelectionResult.FAILED
+            }
+        }
 
     /** Explicit UI confirmation only; model tool output cannot call this path. */
     @Suppress("CyclomaticComplexMethod") // Atomic revalidation of a user-confirmed multi-field change.
@@ -1493,13 +1545,16 @@ class ChatService(
                                 providerService.rows.value.firstOrNull {
                                     it.id == targetProvider && it.chatSelectable
                                 } ?: return@synchronized false
-                            if (targetModel !in (row.backendModels.orEmpty() + row.model)) return@synchronized false
+                            val modelChanged = targetProvider != session.providerId || targetModel != session.modelId
+                            val canSelect = targetModel in row.conversationModels && row.modelSelectable(targetModel)
+                            if (modelChanged && !canSelect) {
+                                return@synchronized false
+                            }
                             val efforts = providerService.reasoningOptions(targetProvider, targetModel)
                             if (reasoning != null && reasoning != ReasoningEffort.OFF && reasoning !in efforts) {
                                 return@synchronized false
                             }
                             val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
-                            val modelChanged = targetProvider != session.providerId || targetModel != session.modelId
                             val nextReasoning =
                                 when {
                                     reasoning != null -> reasoning
@@ -1567,22 +1622,6 @@ class ChatService(
             call.toolName == "helix.settings.apply" && turnId != null && active?.turnId == turnId &&
                 storage.sessionInputs.listPending(sessionId).isEmpty() && !call.cancel.isCancelled() &&
                 clock.now().isBefore(call.deadline) && storage.turns.resolve(turnId).state != TurnState.CANCELLING.name
-        }
-    }
-
-    private fun selectPersistedSessionModel(
-        sessionId: String,
-        providerId: String,
-        modelId: String,
-    ): Boolean {
-        if (turnGateHolds(sessionId) || storage.sessions.resolve(sessionId).archivedAt != null) return false
-        return try {
-            storage.sessions.selectModel(sessionId, providerId, modelId)
-            refreshSessionsNow()
-            true
-        } catch (_: IllegalArgumentException) {
-            setBlocked(str(R.string.chat_blocked_provider_state_changed))
-            false
         }
     }
 

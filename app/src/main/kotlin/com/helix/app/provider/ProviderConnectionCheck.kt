@@ -14,11 +14,24 @@ import com.helix.provider.api.ProviderConfig
 import kotlinx.coroutines.flow.toList
 
 internal object ProviderConnectionCheck {
+    data class Observation(
+        val outcome: ProbeOutcome,
+        val generationAttempted: Boolean,
+        val sourceFailure: Boolean = false,
+    )
+
     suspend fun run(
         config: ProviderConfig,
         provider: ModelProvider,
         previous: ProviderCapabilities?,
-    ): ProbeOutcome {
+    ): ProbeOutcome = inspect(config, provider, previous).outcome
+
+    suspend fun inspect(
+        config: ProviderConfig,
+        provider: ModelProvider,
+        previous: ProviderCapabilities?,
+        verifyGeneration: Boolean = false,
+    ): Observation {
         val accountCatalog = (provider as? SubscriptionConnectionProvider)?.connectionCatalog()
         val catalog = accountCatalog ?: provider.listModels()
         val shortCircuit: ProbeOutcome? =
@@ -27,7 +40,8 @@ internal object ProviderConnectionCheck {
                     ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable)
                 }
 
-                accountCatalog is ModelCatalogResult.Listed && accountCatalog.models.isNotEmpty() -> {
+                !verifyGeneration && accountCatalog is ModelCatalogResult.Listed &&
+                    accountCatalog.models.isNotEmpty() -> {
                     connected(previous, catalog)
                 }
 
@@ -35,7 +49,7 @@ internal object ProviderConnectionCheck {
                     null
                 }
             }
-        if (shortCircuit != null) return shortCircuit
+        if (shortCircuit != null) return Observation(shortCircuit, false, catalog is ModelCatalogResult.Failed)
         // Exactly one ordinary, short generation. No tools, images or explicit effort.
         val events =
             provider
@@ -47,15 +61,17 @@ internal object ProviderConnectionCheck {
                     ),
                 ).toList()
         val error = events.filterIsInstance<ModelEvent.Error>().firstOrNull()
-        return if (error != null) {
-            ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
-        } else if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
-            events.none { it.hasGeneratedContent() }
-        ) {
-            ProbeOutcome.Failed(3, ModelErrorCode.PROTOCOL, "connection reply incomplete", false)
-        } else {
-            connected(previous, catalog)
-        }
+        val outcome =
+            if (error != null) {
+                ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
+            } else if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
+                events.none { it.hasGeneratedContent() }
+            ) {
+                ProbeOutcome.Failed(3, ModelErrorCode.PROTOCOL, "connection reply incomplete", false)
+            } else {
+                connected(previous, catalog)
+            }
+        return Observation(outcome, true, error?.code == ModelErrorCode.AUTH)
     }
 
     // Thinking backends may spend this probe's entire token budget on reasoning. This

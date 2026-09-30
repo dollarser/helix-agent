@@ -7,6 +7,7 @@ import com.helix.provider.api.ProviderConfig
 /** Variant-supplied operations for providers whose accounts belong to a separate runtime. */
 class ManagedProviderHooks(
     val isManaged: (String) -> Boolean = { false },
+    val accounts: suspend () -> Map<String, ManagedAccountSnapshot> = { emptyMap() },
     val probe: suspend (ProviderConfig, ModelProvider) -> ProbeOutcome? = { _, _ -> null },
     val openAccount: suspend (String) -> ManagedProviderAccountResult = {
         ManagedProviderAccountResult.NOT_SUPPORTED

@@ -6,6 +6,13 @@ import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderConfig
 
+/** Consumer contains no subscription transport or receipt-delivery service. */
+@Suppress("UnusedParameter")
+internal fun startSubscriptionAcknowledgementRecovery(
+    context: Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+) = Unit
+
 /** Consumer/store builds contain no subscription provider client or registration. */
 internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     override fun ensureRegistered(storage: HelixStorage) = Unit

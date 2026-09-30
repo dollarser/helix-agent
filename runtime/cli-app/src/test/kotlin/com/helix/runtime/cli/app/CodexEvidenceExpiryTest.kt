@@ -38,10 +38,10 @@ class CodexEvidenceExpiryTest {
             assertEquals(marker, CliModelJobRecordCodec.decode(CliModelJobRecordCodec.encode(marker)))
             assertEquals(marker, CodexPayloadJobStore(root).load(record.jobId))
             var calls = 0
-            CodexPayloadJobRunner(store, {
+            CodexPayloadJobRunner(store, { _, _ ->
                 calls++
                 error("must not execute")
-            }, {}).use { runner ->
+            }).use { runner ->
                 assertEquals(marker, runner.query(record.jobId))
                 assertTrue(
                     runner.submit(record.jobId, record.requestSha256, byteArrayOf(1))

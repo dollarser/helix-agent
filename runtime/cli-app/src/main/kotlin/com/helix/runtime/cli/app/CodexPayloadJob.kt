@@ -140,14 +140,17 @@ internal data class CodexReconcile(
 @Suppress("TooManyFunctions") // Submission, publication, cancellation and result acknowledgement share one lock.
 internal class CodexPayloadJobRunner(
     private val store: CodexPayloadJobStore,
-    private val execute: (ByteArray) -> CodexModelExecution,
-    private val cancelExecution: () -> Unit,
+    private val execute: (ByteArray, SubscriptionCancellation) -> CodexModelExecution,
     private val clock: () -> Long = System::currentTimeMillis,
     private val worker: ExecutorService = Executors.newSingleThreadExecutor(),
-    private val executeStreaming: ((ByteArray, (List<ModelEvent>) -> Unit) -> CodexModelExecution)? = null,
+    private val executeStreaming: (
+        (ByteArray, SubscriptionCancellation, (List<ModelEvent>) -> Unit) -> CodexModelExecution
+    )? = null,
 ) : AutoCloseable {
     private val lock = Any()
     private var activeJobId: String? = null
+    private var cancellation: SubscriptionCancellation? = null
+    private var closed = false
     private val progress = CodexJobProgress(store.previewFile)
 
     init {
@@ -171,7 +174,7 @@ internal class CodexPayloadJobRunner(
             }
             require(sha256(payload) == requestSha256) { "request hash mismatch" }
             CliModelRequestCodec.decode(payload)
-            if (activeJobId != null) return@synchronized CodexPayloadSubmit.Busy
+            if (closed || activeJobId != null) return@synchronized CodexPayloadSubmit.Busy
             if (!store.canAcceptNew(payload.size)) return@synchronized CodexPayloadSubmit.JournalFull
             progress.clear()
             val pending = CliModelJobRecord(jobId, requestSha256, CliModelJobState.PENDING, clock())
@@ -183,16 +186,18 @@ internal class CodexPayloadJobRunner(
                 throw failure
             }
             activeJobId = jobId
+            val stop = SubscriptionCancellation().also { cancellation = it }
             try {
                 worker.submit {
                     try {
-                        runJob(pending)
+                        runJob(pending, stop)
                     } finally {
                         synchronized(lock) {
                             if (activeJobId == jobId) {
                                 activeJobId = null
                                 progress.clear()
                             }
+                            if (cancellation === stop) cancellation = null
                         }
                     }
                 }
@@ -223,20 +228,28 @@ internal class CodexPayloadJobRunner(
             }
         }
 
-    fun cancel(jobId: String): CliModelJobRecord? =
-        synchronized(lock) {
-            val record = store.load(jobId) ?: return@synchronized null
-            if (record.state.terminal) return@synchronized record
-            // A queued job can be stopped before execution; a running one needs real worker exit.
-            if (record.state == CliModelJobState.PENDING) {
-                record.copy(state = CliModelJobState.CANCELLED, terminalAtEpochMillis = clock()).also(store::put)
-            } else {
-                val requested = record.copy(state = CliModelJobState.CANCEL_REQUESTED)
+    fun cancel(jobId: String): CliModelJobRecord? {
+        var resource: java.io.Closeable? = null
+        val outcome =
+            synchronized(lock) {
+                val record = store.load(jobId) ?: return@synchronized null
+                if (record.state.terminal) return@synchronized record
+                // A queued job can be stopped before execution; a running one needs real worker exit.
+                val requested =
+                    if (record.state == CliModelJobState.PENDING) {
+                        record.copy(state = CliModelJobState.CANCELLED, terminalAtEpochMillis = clock())
+                    } else {
+                        record.copy(state = CliModelJobState.CANCEL_REQUESTED)
+                    }
                 store.put(requested)
-                if (activeJobId == jobId) cancelExecution()
+                if (activeJobId == jobId) resource = cancellation?.request()
                 requested
             }
-        }
+        // A backend close may wait for a worker that publishes progress under lock.
+        // The sticky intent and exact resource were already captured; no newer job can be cancelled here.
+        resource?.close()
+        return outcome
+    }
 
     fun prepareReconcile(jobId: String): CodexReconcile? =
         synchronized(lock) {
@@ -272,14 +285,20 @@ internal class CodexPayloadJobRunner(
         }
 
     override fun close() {
-        synchronized(lock) {
-            activeJobId?.let(::cancel)
+        val job =
+            synchronized(lock) {
+                closed = true
+                activeJobId
+            }
+        try {
+            job?.let(::cancel)
+        } finally {
             worker.shutdownNow()
         }
     }
 
     @Suppress("TooGenericExceptionCaught") // Persist failure after any result-publication error; never return success.
-    private fun runJob(pending: CliModelJobRecord) {
+    private fun runJob(pending: CliModelJobRecord, stop: SubscriptionCancellation) {
         synchronized(lock) {
             val live = store.load(pending.jobId)
             if (live == null || live.state != CliModelJobState.PENDING) {
@@ -291,7 +310,8 @@ internal class CodexPayloadJobRunner(
         val result =
             runCatching {
                 val bytes = store.loadRequest(pending.jobId)
-                executeStreaming?.invoke(bytes) { chunk ->
+                stop.checkActive()
+                executeStreaming?.invoke(bytes, stop) { chunk ->
                     synchronized(lock) {
                         if (activeJobId == pending.jobId &&
                             store.load(pending.jobId)?.state == CliModelJobState.RUNNING
@@ -299,7 +319,7 @@ internal class CodexPayloadJobRunner(
                             progress.append(chunk)
                         }
                     }
-                } ?: execute(bytes)
+                } ?: execute(bytes, stop)
             }.mapCatching { execution ->
                 // Malformed output must settle this job, not leave the runner permanently busy.
                 try {

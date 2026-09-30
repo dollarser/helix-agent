@@ -283,10 +283,11 @@ internal class ClaudeLoginController(
     }
 
     fun refresh() {
+        val previous = vault.snapshot(CliSubscriptionProvider.CLAUDE)
         try {
-            vault.save(CliSubscriptionProvider.CLAUDE, transport.refresh(vault.load(CliSubscriptionProvider.CLAUDE)))
+            vault.renew(CliSubscriptionProvider.CLAUDE, previous, transport.refresh(previous.session))
         } catch (error: ClaudeOAuthEndpointException) {
-            if (error.permanentlyInvalid) vault.logout(CliSubscriptionProvider.CLAUDE)
+            if (error.permanentlyInvalid) vault.logoutIfCurrent(CliSubscriptionProvider.CLAUDE, previous)
             throw error
         }
     }

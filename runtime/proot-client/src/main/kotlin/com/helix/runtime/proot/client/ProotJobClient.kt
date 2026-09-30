@@ -92,6 +92,11 @@ class ProotJobClient(
         /** The job id was never known to the Runtime. */
         data object Unknown : AwaitOutcome
 
+        /** Caller requested stop; the reply is delivery evidence, not automatically proof of process exit. */
+        data class StopRequested(
+            val reply: JobStateOutcome,
+        ) : AwaitOutcome
+
         /** The await window elapsed with the job still non-terminal. */
         data object TimedOut : AwaitOutcome
 
@@ -230,46 +235,9 @@ class ProotJobClient(
         pollIntervalMs: Long = 500L,
         timeoutMs: Long = 3_600_000L,
         shouldContinue: () -> Boolean = { true },
-    ): AwaitOutcome {
-        require(timeoutMs >= 0 && pollIntervalMs > 0)
-        val start = monotonicMillis()
-        while (shouldContinue()) {
-            val elapsed = monotonicMillis() - start
-            if (elapsed < 0 || elapsed > timeoutMs) return AwaitOutcome.TimedOut
-            val step = awaitOneStep(jobId)
-            if (step != null) return step
-            try {
-                Thread.sleep(pollIntervalMs)
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                return AwaitOutcome.TimedOut
-            }
-        }
-        return AwaitOutcome.TimedOut
-    }
-
-    /** One poll: the verdict when the job settled (or the query failed), null while it is still live. */
-    private fun awaitOneStep(jobId: String): AwaitOutcome? =
-        when (val outcome = query(jobId)) {
-            is JobStateOutcome.Ok -> {
-                val record = outcome.record
-                if (!record.state.isTerminal) {
-                    null
-                } else if (record.evidenceExpired) {
-                    AwaitOutcome.Interrupted(record)
-                } else {
-                    AwaitOutcome.Terminal(record)
-                }
-            }
-
-            is JobStateOutcome.Unknown -> {
-                AwaitOutcome.Unknown
-            }
-
-            is JobStateOutcome.Refused -> {
-                AwaitOutcome.Unavailable(outcome.cause)
-            }
-        }
+    ): AwaitOutcome =
+        ProotJobAwaiter(monotonicMillis, ::query, ::cancel)
+            .await(jobId, pollIntervalMs, timeoutMs, shouldContinue)
 
     // ------------------------------------------------------------------ internals
 

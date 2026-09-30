@@ -220,6 +220,7 @@ internal class DefaultAppContainer(
                 managed =
                     ManagedProviderHooks(
                         isManaged = SubscriptionProviderModule::isManaged,
+                        accounts = { SubscriptionProviderModule.accountStates(appContext) },
                         probe = SubscriptionProviderModule::probe,
                         openAccount = { providerId ->
                             SubscriptionProviderModule.openAccount(appContext, providerId)
@@ -897,6 +898,8 @@ internal class DefaultAppContainer(
                 .onFailure { android.util.Log.e("ProotRecovery", "Original execution remains unconfirmed") }
         }
         nativeRecovery.observe()
+        com.helix.app.provider
+            .startSubscriptionAcknowledgementRecovery(appContext, appScope)
     }
 
     private companion object {

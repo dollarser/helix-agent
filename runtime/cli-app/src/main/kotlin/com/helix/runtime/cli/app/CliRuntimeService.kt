@@ -7,7 +7,6 @@ import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
 import com.helix.runtime.cli.client.CliModelProvider
 import java.io.Closeable
-import java.util.concurrent.atomic.AtomicReference
 
 class CliRuntimeService : Service() {
     private lateinit var runner: CodexPayloadJobRunner
@@ -16,7 +15,6 @@ class CliRuntimeService : Service() {
     private val claudeTransport = lazy { OkHttpClaudeOAuthTransport() }
     private val grokTransport = lazy { OkHttpGrokDeviceTransport() }
     private val copilotTransport = lazy { OkHttpCopilotDeviceTransport() }
-    private val activeModel = AtomicReference<Closeable?>()
 
     override fun onCreate() {
         super.onCreate()
@@ -30,51 +28,39 @@ class CliRuntimeService : Service() {
         val copilotOauth by lazy { CopilotLoginController(vault, copilotTransport.value) }
         val executeModel: (
             ByteArray,
+            SubscriptionCancellation,
             (List<ModelEvent>) -> Unit,
-        ) -> CodexModelExecution = executeModel@{ bytes, onEvents ->
+        ) -> CodexModelExecution = executeModel@{ bytes, stop, onEvents ->
+            stop.checkActive()
             val envelope =
                 com.helix.runtime.cli.client.CliModelRequestCodec
                     .decodeEnvelope(bytes)
             val request = envelope.request
-            fixtureExecution(request)?.let { return@executeModel it }
+            fixtureExecution(request, stop)?.let { return@executeModel it }
+            stop.checkActive()
             networkForeground.begin()
             if (envelope.provider == CliModelProvider.CLAUDE) {
-                val model = ClaudeSubscriptionModel(vault, claudeOauth::refresh).also(activeModel::set)
-                return@executeModel try {
-                    model.use { it.run(request) }
-                } finally {
-                    activeModel.compareAndSet(model, null)
+                return@executeModel stop.using(ClaudeSubscriptionModel(vault, claudeOauth::refresh)) {
+                    it.run(request)
                 }
             }
             if (envelope.provider == CliModelProvider.GROK) {
-                val model = GrokSubscriptionModel(vault, grokOauth::refresh).also(activeModel::set)
-                return@executeModel try {
-                    model.use { it.run(request) }
-                } finally {
-                    activeModel.compareAndSet(model, null)
+                return@executeModel stop.using(GrokSubscriptionModel(vault, grokOauth::refresh)) {
+                    it.run(request)
                 }
             }
             if (envelope.provider == CliModelProvider.COPILOT) {
-                val model = CopilotSubscriptionModel(vault, copilotOauth::refresh).also(activeModel::set)
-                return@executeModel try {
-                    model.use { it.run(request) }
-                } finally {
-                    activeModel.compareAndSet(model, null)
+                return@executeModel stop.using(CopilotSubscriptionModel(vault, copilotOauth::refresh)) {
+                    it.run(request)
                 }
             }
-            val model = codexModel(vault, oauth, envelope.images).also(activeModel::set)
-            try {
-                model.use { it.run(request, onEvents) }
-            } finally {
-                activeModel.compareAndSet(model, null)
-            }
+            stop.using(codexModel(vault, oauth, envelope.images)) { it.run(request, onEvents) }
         }
         runner =
             CodexPayloadJobRunner(
                 store = CodexPayloadJobStore(filesDir),
-                execute = { executeModel(it) {} },
+                execute = { bytes, stop -> executeModel(bytes, stop) {} },
                 executeStreaming = executeModel,
-                cancelExecution = { activeModel.getAndSet(null)?.close() },
             )
     }
 
@@ -88,11 +74,13 @@ class CliRuntimeService : Service() {
         networkForeground =
             SubscriptionNetworkForeground(this) {
                 runner.close()
-                activeModel.getAndSet(null)?.close()
             }
     }
 
-    private fun fixtureExecution(request: ModelRequest): CodexModelExecution? =
+    private fun fixtureExecution(
+        request: ModelRequest,
+        stop: SubscriptionCancellation,
+    ): CodexModelExecution? =
         if (!BuildConfig.DEBUG) {
             null
         } else {
@@ -105,7 +93,7 @@ class CliRuntimeService : Service() {
                 }
 
                 "helix-fixture-wait" -> {
-                    waitForFixtureCancellation(request.model)
+                    waitForFixtureCancellation(request.model, stop)
                 }
 
                 else -> {
@@ -114,15 +102,13 @@ class CliRuntimeService : Service() {
             }
         }
 
-    private fun waitForFixtureCancellation(model: String): CodexModelExecution {
+    private fun waitForFixtureCancellation(
+        model: String,
+        stop: SubscriptionCancellation,
+    ): CodexModelExecution {
         val release = java.util.concurrent.CountDownLatch(1)
         val cancellation = Closeable { release.countDown() }
-        activeModel.set(cancellation)
-        try {
-            release.await(30, java.util.concurrent.TimeUnit.SECONDS)
-        } finally {
-            activeModel.compareAndSet(cancellation, null)
-        }
+        stop.using(cancellation) { release.await(30, java.util.concurrent.TimeUnit.SECONDS) }
         return CodexModelExecution(model, listOf(ModelEvent.Completed("stop")))
     }
 
@@ -162,7 +148,6 @@ class CliRuntimeService : Service() {
     override fun onDestroy() {
         networkForeground.close()
         runner.close()
-        activeModel.getAndSet(null)?.close()
         if (oauthTransport.isInitialized()) oauthTransport.value.close()
         if (claudeTransport.isInitialized()) claudeTransport.value.close()
         if (grokTransport.isInitialized()) grokTransport.value.close()

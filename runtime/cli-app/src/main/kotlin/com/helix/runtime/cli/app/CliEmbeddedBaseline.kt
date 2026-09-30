@@ -18,7 +18,8 @@ object CliEmbeddedBaseline {
 
     fun status(context: Context): String {
         val lock = lock(context)
-        val credentialStates = CliSubscriptionCredentialVault(context).publicStates()
+        val accounts = CliSubscriptionCredentialVault(context).publicAccounts()
+        val credentialStates = accounts.mapValues { it.value.state }
         return json.encodeToString(
             kotlinx.serialization.json.JsonObject
                 .serializer(),
@@ -33,6 +34,11 @@ object CliEmbeddedBaseline {
                 put("lockSha256", CliRuntimeLockCodec.sha256(lock))
                 put("bundledArtifactCount", lock.artifacts.count { it.bundled })
                 put("credentialState", "VAULT_READY_ADAPTERS_NOT_REGISTERED")
+                put(
+                    "accounts",
+                    com.helix.runtime.cli.client.CliAccountState
+                        .encode(accounts),
+                )
                 put("codexLoginState", credentialStates.getValue("codex"))
                 put("claudeLoginState", credentialStates.getValue("claude"))
                 put("grokLoginState", credentialStates.getValue("grok"))

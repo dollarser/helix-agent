@@ -12,4 +12,5 @@ internal data class ProviderRowActions(
     val onDetectCapabilities: () -> Unit = {},
     val onContext: () -> Unit = {},
     val onUnload: () -> Unit = {},
+    val onManageModels: () -> Unit = {},
 )

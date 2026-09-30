@@ -243,14 +243,6 @@ internal class LinuxJobExecution(
             is ProotJobClient.SubmitOutcome.Duplicate,
             -> {}
         }
-        if (isCancelled()) {
-            client.cancel(spec.jobId)
-            return ToolExecutorResult.CancelledWithEffectTruth(
-                "Stop requested for original PRoot job; execution exit remains unconfirmed.",
-                sideEffectFree = false,
-                requiresReview = true,
-            )
-        }
         // 5) Wait: bounded polling; a binder loss never replays the job (ADR-0007).
         // The wait window is the REMAINING time until the bound deadline plus a short
         // grace for the terminal commit (the companion's watchdog kills the process
@@ -262,6 +254,26 @@ internal class LinuxJobExecution(
                 !isCancelled()
             }
         when (outcome) {
+            is ProotJobClient.AwaitOutcome.StopRequested -> {
+                val record =
+                    verifiedProotRecoveryRecord(
+                        outcome.reply,
+                        spec.jobId,
+                        spec.executionId,
+                        spec.inputManifestSha256,
+                    )
+                record?.let { executionOwner?.stopped(call.toolCallId, spec, it) }
+                return ToolExecutorResult.CancelledWithEffectTruth(
+                    if (record == null) {
+                        "Stop delivery unconfirmed for original PRoot job; nothing was replayed."
+                    } else {
+                        "Stop observed for original PRoot job; side effects remain subject to review."
+                    },
+                    sideEffectFree = false,
+                    requiresReview = true,
+                )
+            }
+
             is ProotJobClient.AwaitOutcome.TimedOut -> {
                 return failed(
                     "the job did not settle within the wait window (interrupted; it may still be " +
@@ -303,7 +315,7 @@ internal class LinuxJobExecution(
             is ProotJobClient.AwaitOutcome.Terminal -> {}
         }
         // 6) Terminal: verify the record + import the hash-verified output archive.
-        val record = (outcome as ProotJobClient.AwaitOutcome.Terminal).record
+        val record = outcome.record
         require(record.executionId == spec.executionId && record.inputManifestSha256 == spec.inputManifestSha256)
         executionOwner?.stopped(call.toolCallId, spec, record)
         if (record.state != com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED) {

@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -69,6 +71,68 @@ class ProviderService(
     val localModels: com.helix.app.localmodel.LocalModelService? = null,
 ) {
     private val _contextRevision = MutableStateFlow(0L)
+    private val accountSync = Mutex()
+
+    /** Local readiness handshake only; it never sends a generation request. */
+    suspend fun refreshManagedAccounts() =
+        withContext(Dispatchers.IO) {
+            accountSync.withLock {
+                val sources = storage.providerConfigs.list().filter { managed.isManaged(it.id) }
+                if (sources.isEmpty()) return@withLock
+                val observed =
+                    try {
+                        managed.accounts()
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        emptyMap()
+                    }
+                sources.forEach { source ->
+                    val previous = testStatus.accounts.read(source.id)
+                    val next =
+                        observed[source.id]
+                            ?: ManagedAccountSnapshot(ManagedAccountSnapshot.State.UNAVAILABLE, previous.revision)
+                    if (next != previous) {
+                        probeGate.mutate(source.id) {
+                            if (next.invalidates(previous)) invalidateAccountEvidence(source)
+                            testStatus.accounts.save(source.id, next)
+                        }
+                    }
+                }
+                refreshNow()
+            }
+        }
+
+    /** Caller owns the provider mutation gate. Preferences and existing sessions are retained. */
+    private fun invalidateAccountEvidence(source: ProviderConfigEntity) {
+        rowUi(source).knownModels.forEach { model ->
+            val settings = contextSettingsStore.read(source.id, source.transportIdentity, model)
+            contextSettingsStore.write(source.id, source.transportIdentity, model, settings.copy(serverWindow = null))
+        }
+        testStatus.clear(source.id)
+        testStatus.modelMetadata.write(source.id, source.transportIdentity, emptyMap())
+        storage.providerConfigs.overwrite(
+            ProviderConfigSpec(
+                id = source.id,
+                displayName = source.displayName,
+                protocol = source.protocol?.let(ProviderProtocol::parse),
+                endpoint = source.endpoint,
+                model = source.model,
+                headersJson = source.headersJson,
+                secretAlias = source.secretAlias,
+                capabilitySnapshot = UNTESTED_SNAPSHOT,
+                provisioningKind = source.provisioningKind,
+                transportKind = source.transportKind,
+                authKind = source.authKind,
+            ),
+        )
+    }
+
+    private suspend fun managedAccountFor(providerId: String): ManagedAccountSnapshot? {
+        if (!managed.isManaged(providerId)) return null
+        refreshManagedAccounts()
+        return testStatus.accounts.read(providerId)
+    }
 
     suspend fun discoverModels(
         draft: ProviderDraft,
@@ -90,10 +154,58 @@ class ProviderService(
     suspend fun saveSelectedModels(
         id: String,
         models: List<String>,
+    ) = saveModelSelection(id, ProviderModelSelection(models.distinct(), models.firstOrNull(), configured = true))
+
+    suspend fun saveModelSelection(
+        id: String,
+        selection: ProviderModelSelection,
+        expected: ProviderModelSelection? = null,
     ) = withContext(Dispatchers.IO) {
-        testStatus.selectedModels.write(id, models)
-        refreshNow()
+        probeGate.access {
+            val config = storedConfig(id)
+            if (config.transport is ProviderTransport.OnDeviceLocal) {
+                require((selection.models + selection.customModels).all { it == config.model })
+            }
+            testStatus.selectedModels.save(id, selection, expected)
+            refreshNow()
+        }
     }
+
+    /** Explicit directory fetch only: no generation, no preference mutation, no synthetic connection success. */
+    suspend fun refreshModelCatalog(id: String): com.helix.provider.api.ModelCatalogResult =
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
+            val account = managedAccountFor(id)
+            if (account != null && !account.ready) {
+                return@withContext com.helix.provider.api.ModelCatalogResult.Failed(
+                    com.helix.core.model.ModelErrorCode.AUTH,
+                    "ACCOUNT_NOT_READY",
+                    false,
+                )
+            }
+            val (ticket, config) = probeGate.begin(id, "catalog") { storedConfig(id) }
+            require(isCleartextPermitted(id)) { "Cleartext origin requires authorization" }
+            val result = factory.create(config).listModels()
+            val sameAccount = managedAccountFor(id) == account
+            var accepted = false
+            probeGate.publish(id, ticket) {
+                if (sameAccount && storedConfig(id).copy(capabilitySnapshot = config.capabilitySnapshot) == config) {
+                    accepted = true
+                    if (result is com.helix.provider.api.ModelCatalogResult.Listed) {
+                        testStatus.modelEvidence.catalog(id, config.transport.cacheKey, result.models)
+                    }
+                }
+            }
+            refreshNow()
+            if (accepted) {
+                result
+            } else {
+                com.helix.provider.api.ModelCatalogResult.Failed(
+                    com.helix.core.model.ModelErrorCode.PROTOCOL,
+                    "CATALOG_SUPERSEDED",
+                    false,
+                )
+            }
+        }
 
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
 
@@ -117,6 +229,12 @@ class ProviderService(
         val local = config.transport is com.helix.core.model.ProviderTransport.OnDeviceLocal
         if (local) {
             require(settings.manualWindow == null || settings.manualWindow in 1024L..32768L)
+            testStatus.modelEvidence.verify(
+                providerId,
+                config.transport.cacheKey,
+                model,
+                ProviderModelVerification(clock.now().toEpochMilli()),
+            )
             testStatus.modelMetadata.write(config.id, config.transport.cacheKey, emptyMap())
         }
         val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
@@ -139,10 +257,16 @@ class ProviderService(
         model: String,
     ): ProviderContextSettings =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
+            val account = managedAccountFor(providerId)
+            check(account == null || account.ready) { "Account is not ready" }
+            require(isCleartextPermitted(providerId))
             val (token, config) = probeGate.begin(providerId, "context:$model") { storedConfig(providerId) }
-            val detected = factory.create(config).contextWindow(model)
+            val detected = factory.create(config.copy(model = model)).contextWindow(model)
+            val sameAccount = managedAccountFor(providerId) == account
             probeGate.publish(providerId, token) {
-                if (storedConfig(providerId).copy(capabilitySnapshot = config.capabilitySnapshot) == config) {
+                if (sameAccount &&
+                    storedConfig(providerId).copy(capabilitySnapshot = config.capabilitySnapshot) == config
+                ) {
                     val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
                     contextSettingsStore.write(
                         providerId,
@@ -194,6 +318,7 @@ class ProviderService(
                 _contextRevision.value++
             },
             { _networkOperations.value += 1 },
+            ::managedAccountFor,
         )
 
     /**
@@ -202,7 +327,10 @@ class ProviderService(
      * never on the caller's (UI) thread.
      */
     fun refresh() {
-        workScope.launch { refreshNow() }
+        workScope.launch {
+            refreshManagedAccounts()
+            refreshNow()
+        }
     }
 
     /** The actual read; only ever run on the service's IO scope. */
@@ -210,7 +338,13 @@ class ProviderService(
     private fun refreshNow() {
         _rows.value =
             try {
-                storage.providerConfigs.list().map { entity -> rowUi(entity) }
+                storage.providerConfigs.list().mapNotNull { entity ->
+                    try {
+                        rowUi(entity)
+                    } catch (_: IllegalArgumentException) {
+                        null
+                    }
+                }
             } catch (e: IllegalArgumentException) {
                 // A corrupt provider row fails closed: it is not shown (it
                 // cannot be selected for chat), and the provider screen shows
@@ -220,15 +354,18 @@ class ProviderService(
     }
 
     /** One persisted provider as its UI row (a corrupt row throws IAE, fail-closed). */
-    private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi =
-        providerRowUi(entity, statusFor(entity.id)).copy(
-            selectedModels = testStatus.selectedModels.read(entity.id),
-            backendModels =
-                testStatus.selectedModels.read(entity.id).takeIf { it.isNotEmpty() }
-                    ?: (statusFor(entity.id) as? ConnectionTestStatus.Passed)?.modelIds,
+    private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi {
+        val evidence = testStatus.modelEvidence.read(entity.id, entity.transportIdentity)
+        return providerRowUi(entity, statusFor(entity.id)).copy(
+            modelSelection = testStatus.selectedModels.selection(entity.id),
+            backendModels = evidence.catalog ?: (statusFor(entity.id) as? ConnectionTestStatus.Passed)?.modelIds,
+            modelVerifications = evidence.verifications,
+            modelGenerations = evidence.generations,
+            accountState = if (managed.isManaged(entity.id)) testStatus.accounts.read(entity.id) else null,
             modelMetadata = testStatus.modelMetadata.read(entity.id, entity.transportIdentity),
             assetSizeBytes = localModels?.assetSize(entity.model),
         )
+    }
 
     /**
      * Persists a new provider from a composed [ProviderDraft].
@@ -279,6 +416,8 @@ class ProviderService(
             )
             draft.cleartext?.let { bindings.authorize(it) }
             testStatus.clear(id)
+            // The model entered during API setup is an explicit initial choice, not the discovered directory.
+            testStatus.selectedModels.write(id, listOf(draft.model))
             refreshNow()
             id
         }
@@ -303,6 +442,7 @@ class ProviderService(
                 }
                 val existing = storage.providerConfigs.resolve(providerId)
                 require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
+                val requiresRetest = providerConnectionChanged(configFrom(existing), draft, apiKey)
                 val alias =
                     when {
                         apiKey.isNullOrBlank() -> {
@@ -327,12 +467,13 @@ class ProviderService(
                         headersJson = draft.headersJson,
                         secretAlias = alias,
                         authKind = if (alias == null) "NONE" else "SECRET",
-                        capabilitySnapshot = UNTESTED_SNAPSHOT,
+                        capabilitySnapshot = if (requiresRetest) UNTESTED_SNAPSHOT else existing.capabilitySnapshot,
                     ),
                 )
-                // Editing invalidates the previous test result (new endpoint/model):
-                // the provider must be re-tested before it is selectable again.
-                testStatus.clear(providerId)
+                if (requiresRetest) {
+                    testStatus.clear(providerId)
+                    testStatus.modelMetadata.write(providerId, existing.transportIdentity, emptyMap())
+                }
                 draft.cleartext?.let { bindings.authorize(it) }
                 pruneBindingsToPersistedEndpoints()
                 refreshNow()
@@ -351,7 +492,7 @@ class ProviderService(
                 }
                 if (entity.provisioningKind == "ON_DEVICE_ASSET") localModels?.delete(entity.model)
                 storage.providerConfigs.delete(providerId)
-                testStatus.selectedModels.write(providerId, emptyList())
+                testStatus.selectedModels.clear(providerId)
                 testStatus.clear(providerId)
                 pruneBindingsToPersistedEndpoints()
                 refreshNow()
@@ -360,15 +501,26 @@ class ProviderService(
     }
 
     /** Catalog discovery plus one short text reply; independent of optional capability detection. */
-    suspend fun runConnectionTest(providerId: String): ProbeOutcome =
+    suspend fun runConnectionTest(
+        providerId: String,
+        modelId: String? = null,
+        verifyGeneration: Boolean = false,
+    ): ProbeOutcome =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            connectionProbe.run(providerId).also { refreshNow() }
+            require(isCleartextPermitted(providerId))
+            connectionProbe
+                .run(providerId, modelId = modelId, verifyGeneration = verifyGeneration)
+                .also { refreshNow() }
         }
 
     /** Explicit capability detection; failures never invalidate a passed connection. */
-    suspend fun runCapabilityTest(providerId: String): ProbeOutcome =
+    suspend fun runCapabilityTest(
+        providerId: String,
+        modelId: String? = null,
+    ): ProbeOutcome =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            connectionProbe.run(providerId, detectCapabilities = true).also { refreshNow() }
+            require(isCleartextPermitted(providerId))
+            connectionProbe.run(providerId, detectCapabilities = true, modelId = modelId).also { refreshNow() }
         }
 
     suspend fun installCuratedLocalModel(
@@ -472,17 +624,29 @@ class ProviderService(
      * The model provider for a persisted config (chat service entry point).
      * Runs on the service's IO scope (Room read).
      */
-    suspend fun modelProviderFor(providerId: String): ModelProvider {
-        val config = storedConfig(providerId)
+    suspend fun modelProviderFor(
+        providerId: String,
+        modelId: String? = null,
+    ): ModelProvider {
+        val account = managedAccountFor(providerId)
+        val stored = storedConfig(providerId)
+        val config = stored.copy(model = modelId ?: stored.model)
         if (config.transport is ProviderTransport.Network) _networkOperations.value += 1
-        return factory.create(config)
+        return BoundModelProvider(factory.create(config), config.model) {
+            val observed = managedAccountFor(providerId)
+            val current = storedConfig(providerId)
+            observed == account && (observed == null || observed.ready) && chatSelectable(providerId) &&
+                current.connection == stored.connection && current.headers == stored.headers
+        }
     }
 
     /** The test status of one provider (UI rows are rebuilt from this). */
     fun statusFor(providerId: String): ConnectionTestStatus = testStatus.statusFor(providerId)
 
     /** True when the provider passed its connection test (chat-selectable). */
-    fun chatSelectable(providerId: String): Boolean = statusFor(providerId) is ConnectionTestStatus.Passed
+    fun chatSelectable(providerId: String): Boolean =
+        statusFor(providerId) is ConnectionTestStatus.Passed &&
+            (!managed.isManaged(providerId) || testStatus.accounts.read(providerId).ready)
 
     /**
      * The egress-disclosure target for one provider (doc 10 section 2.6): the
@@ -530,6 +694,7 @@ class ProviderService(
     @Suppress("SwallowedException") // an unparseable snapshot IS the null outcome (fail closed)
     suspend fun capabilitiesFor(providerId: String, model: String? = null): ProviderCapabilities? =
         runCatching {
+            if (!chatSelectable(providerId)) return@runCatching null
             if (model == null) {
                 ProviderCapabilities.parse(storage.providerConfigs.resolve(providerId).capabilitySnapshot)
             } else {
@@ -599,6 +764,12 @@ class ProviderService(
                     authKind = row.authKind,
                     capabilitySnapshot = ProviderCapabilities.toJsonString(declared),
                 ),
+            )
+            testStatus.modelEvidence.verify(
+                row.id,
+                row.transportIdentity,
+                row.model,
+                ProviderModelVerification(clock.now().toEpochMilli(), declared),
             )
             refresh()
         }

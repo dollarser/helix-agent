@@ -33,12 +33,14 @@ import kotlinx.coroutines.launch
 internal fun ProviderContextDialog(
     row: ProviderRowUi,
     service: ProviderService,
+    initialModel: String = row.defaultConversationModel ?: row.model,
     onDismiss: () -> Unit,
 ) = ProviderContextEditor(
     row,
     load = { service.contextSettings(row.id, it) },
     discover = { service.discoverContextWindow(row.id, it) },
     save = { model, settings -> service.saveContextSettings(row.id, model, settings) },
+    initialModel = initialModel,
     onDismiss = onDismiss,
 )
 
@@ -51,8 +53,9 @@ internal fun ProviderContextEditor(
     discover: suspend (String) -> ProviderContextSettings,
     save: suspend (String, ProviderContextSettings) -> Unit,
     onDismiss: () -> Unit,
+    initialModel: String = row.defaultConversationModel ?: row.model,
 ) {
-    var model by remember(row.id) { mutableStateOf(row.model) }
+    var model by remember(row.id, initialModel) { mutableStateOf(initialModel) }
     var modelMenu by remember { mutableStateOf(false) }
     var settings by remember(row.id, model) { mutableStateOf(ProviderContextSettings()) }
     var window by remember(row.id, model) { mutableStateOf(ProviderContextSettings.DEFAULT_WINDOW.toString()) }
@@ -106,11 +109,11 @@ internal fun ProviderContextEditor(
                         { modelMenu = true },
                         Modifier.testTag("provider-context-model"),
                         enabled = !saving,
-                    ) { Text("$model ▾") }
+                    ) { Text("${row.modelLabel(model)} ▾") }
                     DropdownMenu(modelMenu, { modelMenu = false }) {
-                        (listOf(row.model) + row.backendModels.orEmpty()).distinct().forEach { candidate ->
+                        (row.knownModels + model).distinct().forEach { candidate ->
                             DropdownMenuItem(
-                                text = { Text(candidate) },
+                                text = { Text(row.modelLabel(candidate)) },
                                 modifier = Modifier.testTag("provider-context-choice-$candidate"),
                                 onClick = {
                                     model = candidate

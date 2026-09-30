@@ -30,6 +30,8 @@ class ProviderTestStatusStore(
     private val backing = store
     val modelMetadata = ProviderModelMetadataStore(store)
     val selectedModels = ProviderSelectedModels(store)
+    val modelEvidence = ProviderModelEvidenceStore(store)
+    val accounts = ManagedAccountStore(store)
 
     fun statusFor(providerId: String): ConnectionTestStatus {
         val fields = backing.lines(KEY).firstOrNull { it.startsWith("$providerId|") }?.split("|", limit = 8)
@@ -151,6 +153,7 @@ class ProviderTestStatusStore(
 
     /** Drops the recorded status (provider deleted). */
     fun clear(providerId: String) {
+        modelEvidence.clear(providerId)
         synchronized(WRITE_LOCK) {
             backing.setLines(KEY, backing.lines(KEY).filterNot { it.startsWith("$providerId|") })
         }

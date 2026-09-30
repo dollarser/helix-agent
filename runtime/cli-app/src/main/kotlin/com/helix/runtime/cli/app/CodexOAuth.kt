@@ -309,10 +309,11 @@ internal class CodexLoginController(
     }
 
     fun refresh() {
+        val previous = vault.snapshot(CliSubscriptionProvider.CODEX)
         try {
-            vault.save(CliSubscriptionProvider.CODEX, transport.refresh(vault.load(CliSubscriptionProvider.CODEX)))
+            vault.renew(CliSubscriptionProvider.CODEX, previous, transport.refresh(previous.session))
         } catch (error: CodexOAuthEndpointException) {
-            if (error.permanentlyInvalid) vault.logout(CliSubscriptionProvider.CODEX)
+            if (error.permanentlyInvalid) vault.logoutIfCurrent(CliSubscriptionProvider.CODEX, previous)
             throw error
         }
     }
