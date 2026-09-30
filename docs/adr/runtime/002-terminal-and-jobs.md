@@ -55,4 +55,6 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision history
 
+- 2026-09-30 Runtime 矩阵修复：同步前台 Job 的底层执行也可超过客户端等待，提交前同样保存原物理 owner。取消/超时/ORPHANED 不自动释放；完整身份匹配的有效终态或可信更新 boot count 仅用于证明旧物理占用结束，不宣告任务成功。损坏日志不等同 never submitted；输入传输使用现有归档上限。PTY 连接为一次性交付，拒绝/中断释放注册、迟到 callback 不复活连接。验收见[故障矩阵](../../evidence/development/runtime-fault-matrix-2026-09-30.md)。
+
 - 2026-09-29：所有者要求终端独立于聊天；抽屉启动目录改为独立目录，显式目录入口保留原语义。

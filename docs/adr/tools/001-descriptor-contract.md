@@ -35,6 +35,12 @@ Deciders: Project owner（2026-09-30 明确要求按完整架构实施 HXA-231 R
 
 权限、effect owner、审批消费和 UNKNOWN 的原有事实语义不变。绑定失效是执行前拒绝，模型可重新发现并发起新调用；不能自动重放写操作。通用 Job、Core 分层、插件安装生命周期和上下文策略不是本次 R1 的隐含范围。
 
+### Decision history — 2026-09-30：审批持久消费与短准入锁
+
+所有者授权的审查修复保持原撤销排序：Registry 锁内只提交内存准入标记，随后在锁外消费绑定的持久审批证明；消费失败不执行工具。已经先准入的调用保留其原 executor，后到的撤销不伪造已准入动作没有发生；先撤销则不能准入、消费或执行。这样不在目录锁内等待 Room，也不开放跳过授权的执行路径。
+
+`tools.search` 和封闭的 `ask_user` 通过受信任 metadata executor 避免被原后台 Job owner 阻断；发现与反问不授予执行权限，普通写入/Runtime 启动仍受原 owner 互斥控制。
+
 ## Alternatives considered
 
 1. **强制安全字段变化必提升 `toolVersion`（roadmap 的另一选项）**：需要一套跨模块的静态检查在注册期比对"字段变化 vs version 是否递增"，而 registry 不保留旧 version 的 descriptor 历史（同 version 禁止重注册、不同 version 允许并存），无法在进程内可靠判定"相对上一次注册是否改了安全字段"。且模型请求 `(name, version)` 显式版本，version 语义已用于契约演进，用它额外编码安全字段会污染版本语义。未选择。

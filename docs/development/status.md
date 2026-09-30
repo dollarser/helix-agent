@@ -41,6 +41,8 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 | [偶发问题](../evidence/development/intermittent-closeout-2026-09-28.md) | 可复现 SAF 撤销/异步投影和 Goal 仅规划问题已修 | 历史截断、探测偶发失败与额外只读调用仍保留调查边界；未复现不等于根因关闭 |
 | [HXA-126](tasks/HXA-126.md) | 预注册 public-client OAuth 核心已整合，见[记录](../bug-fixes/2026-09-21-connector-oauth-merge.md) | 两家真实服务验证、动态注册及相应外部输入 |
 
+2026-09-30 的 [Runtime 故障矩阵修复](../evidence/development/runtime-fault-matrix-2026-09-30.md)覆盖原身份恢复、取消/退出区分、IPC/PFD 失败和有界执行通道；源码与主机结果不替代实际进程 kill、OEM 和真实账号验收。
+
 HXA-232 的逐轮主机/设备证据留在任务文件，不在本页复制。HXA-223 的 stale snapshot/CAS 修复已完成，不再作为开放 R4 缺陷；具体结构边界见[结构研究](../research/modules/01-architecture-and-execution-engine.md)。
 
 ## Next task

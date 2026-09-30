@@ -42,3 +42,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history
+
+- 2026-09-30 Runtime 矩阵修复：订阅取消先持久 CANCEL_REQUESTED，真实 worker 退出后才落 CANCELLED；请求取消不能提前确认/清理或放行新执行。查询、结果与确认回执绑定完整原任务/输入身份；轮询耗时使用单调时钟。恢复观察先查状态，运行中不读取成功专属归档，也不消耗故障重试额度。见[故障矩阵](../../evidence/development/runtime-fault-matrix-2026-09-30.md)，本地停止不推导远端副作用已回滚。

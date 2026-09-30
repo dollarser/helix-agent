@@ -1,5 +1,187 @@
 # Helix 全量代码审查报告
 
+## 2026-09-30 Runtime 故障矩阵追加修复
+
+所有者要求“修复整个 runtime 故障矩阵”。本轮已把 QuickJS 隔离/原生、PRoot 前台/后台 Job、手动 PTY、订阅 CLI、设备内模型纳入同一[故障矩阵与验证记录](../../docs/evidence/development/runtime-fault-matrix-2026-09-30.md)。基线为 `5fe01812` 加既有工作树；保留并行修改，未提交、未推送，未运行设备或真实模型账户。
+
+新增修复包括：native/前台 PRoot 在提交前持久保留物理执行 owner，宿主重启只对账/退役原执行，不重放；订阅取消区分 CANCEL_REQUESTED 与实际退出；订阅运行中不提前读取成功归档；PRoot 存活进程不伪装成已停止终态，损坏 journal 不视为从未提交；全部新增查询/取消/结果回执核验原身份；本地模型 IPC 使用独立有界 IO/控制/强退通道，未确认提交时的取消先终止原进程；QuickJS 部分 Parcel/拒绝请求关闭 PFD；PTY 绑定失败和迟到 callback 不留下或复活连接。
+
+矩阵逐项区分主机回归、AndroidTest 编译和设备未实测。最终门禁/数量以矩阵验证记录为准，下方前轮测试统计仅属于当时变更。**不将“退出通知/代码已修复/编译通过”推导为完整 OEM、内核冻结、脱管子进程或远端副作用故障都已验收。**
+
+本轮最终 `test + detekt + spotlessCheck + 双渠道 lint + AndroidTest 编译 + Debug/AndroidTest APK 构建` 联合门禁通过（退出码 0）。源码门禁通过。32 项矩阵分别标识实现/主机/设备边界，新增 20 个独立主机用例通过，5 个新增设备用例只编译。当前 App Consumer/Developer 测试分别 991/1043（各保留 4 个历史跳过），QuickJS 101、PRoot app/client/core/ipc 9/23/136/45、CLI app/client 134/47、工具框架 221，全部 0 failure/error。完整命令、增量执行说明和制品路径见上方矩阵，不能把它表述为全部设备/OEM 故障已经实测关闭。
+
+## 2026-09-30 后续优化：退出证据、容量预检与预览身份
+
+所有者在第一轮交付后要求“继续优化”。本节记录后续增量，基线为 `5fe01812` 加第一轮未提交工作树；下方第一轮测试数字不作为本增量的验证结果。既有并行修改保留，未提交、未推送，也未调用设备或真实模型账户。
+
+### 新确认的问题与处理
+
+| 范围 | 确认的问题 | 后续实现与回归 |
+| --- | --- | --- |
+| 原生 QuickJS 退出确认 | 同步 terminate 返回或抛出错误后就清理连接，不能证明原进程已经退出；将一般传输错误写成 dead 也混淆了退出证据。 | `JsProcessDeath` 只由原始死亡通知或 linkToDeath 明确的已死结果置位；发送控制、取消、超时不置位。客户端只在退出证据之后释放执行线程许可、死亡监听及连接。 |
+| 清理 IPC 饥饿 | 原生脚本进入阻塞 Java API 或 Binder 线程不足时，不能仅依赖新的同步终止请求。 | 原生服务增加独立看门狗：绑定后初始 45 秒，合法执行只缩短为原截止时间加 2 秒，终止通知为单向。看门狗不依赖执行线程、Binder 池或主 Looper 执行退出动作。 |
+| 异常与取消语义 | 取消意图原先仅在中断通知发送成功后记录，通知失败可被误报为超时；清理自身异常也不能绕过退出等待。 | 先记录取消意图；`stopAndAwait` 在 finally 等待原始死亡，原异常在确认后继续传播，不返回假成功。资源释放采用嵌套 finally；恢复线程中断标记，不用中断替代退出。 |
+| Goal 容量预检 | `contextFitsChecked` 对已经包含系统提示词的 persistedHistory 再次添加同一提示词，重复计入 token 和消息数，可能误阻止继续。 | 请求复用已组装历史，`ContextCapacity.forContinuation` 只添加一次候选用户输入。新增临界容量、重复计数反例、原历史不变及新增输入越过消息上限的回归。 |
+| 图片预览 | produceState 的任务 key 改变不等于状态容器立刻替换，新图解码时可能短暂保留旧图。 | `rememberArtifactBitmap` 用图片身份隔离整个状态容器，新图立即从空预览开始；保留后台采样解码，不改变保存文件。此项为源码与编译验证，未做设备视觉验收。 |
+
+### 验证与边界
+
+**本增量最终联合主机门禁通过（2026-09-30）。** 最后一次联合命令退出码 0，844 个任务中 43 个执行、801 个 UP-TO-DATE；不能把所有任务描述为重新执行。采用以下命令，未启用可选 Spike、设备或真实服务：
+
+```bash
+python3 scripts/with-host-slot.py -- ./gradlew \
+  test detekt spotlessCheck \
+  :app:lintConsumerDebug :app:lintDeveloperDebug \
+  :app:compileConsumerDebugAndroidTestKotlin \
+  :app:compileDeveloperDebugAndroidTestKotlin \
+  :runtime:quickjs:compileDebugAndroidTestKotlin \
+  --continue --configure-on-demand --no-configuration-cache --console=plain
+./scripts/check-all.sh --source
+git diff --check
+```
+
+三条命令分别通过。源码门禁验证 653 个 Markdown、215 个 HXA、35 个当前 ADR、1850 个多语言资源键一致及秘密扫描。精确报告目录统计如下，不递归计入 build 历史归档：
+
+| 当前报告 | 用例数（包含跳过） | 失败/错误 | 跳过 |
+| --- | --- | --- | --- |
+| QuickJS `testDebugUnitTest` | 101 | 0 / 0 | 0 |
+| App `testConsumerDebugUnitTest` | 983 | 0 / 0 | 4 |
+| App `testDeveloperDebugUnitTest` | 1031 | 0 / 0 | 4 |
+
+本增量新增 7 个原生生命周期 JVM 用例及 2 个上下文容量用例，均通过；后两项在 App 双渠道共享，不合计为独立功能场景。两渠道各 4 项既有跳过不计通过。统计脚本为 `scripts/debug/2026-09-30/summarize-optimization-followup.py`，有界统计输出在 `build/optimization-followup-2026-09-30/test-summary.json`。Device status: **not requested**；测试 APK 源码编译不等于设备运行或 Binder 故障注入通过。
+
+新增 `JsNativeLifecycleTest` 使用真实 `ExecutionOwnership` 许可覆盖中断/终止失败不提前放行写操作、原异常不丢失、已观察死亡、只缩短期限和单次看门狗。`NativeJavascriptDeviceTest` 增加成功及阻塞调用返回前原 Binder 已死亡的两个用例，额外观察者仍持有连接，避免把单纯 unbind 当作退出；本轮只编译这些设备用例，不运行。
+
+**剩余边界：** 这关闭的是当前宿主存活时的同步清理等待和无退出证据放行路径，不是全部 Runtime R2 或故障矩阵完成。内核冻结、进程整体暂停、宿主骤停后重启、恶意同 UID 代码、外部子进程/已提交远端任务及 OEM 行为仍需专门验证。没有死亡证据时许可保持，外层 Dispatcher 可超时，但不得伪造执行退出或副作用回滚。实际设备死亡通知、UI 闪图及功耗未运行验收，不报告性能百分比。长期契约已更新到[QuickJS ADR](../../docs/adr/runtime/003-quickjs.md)。
+
+## 2026-09-30：逐项复核与修复（当前结论）
+
+本节取代下方原始审查草稿中的问题状态、优先级和验证结论。范围同时覆盖原报告 P0-1～P3-29、资源/UI/安全/工程条目，以及对话中补充的 B1～B6。起始基线为 `b51687e0` 加工作树；收尾时 HEAD 为并行文档提交 `5fe01812`，该提交只涉及文档与开发说明。本修复的生产代码仍在未提交工作树，既有并行修复保留并重新验证。本任务没有执行提交、推送、设备运行或真实模型账户调用。
+
+**原报告并非全部属实。** 其中有真实的状态/并发/内存与接线缺陷，也有设计取舍被当作 bug、尚未证明的风险和已经过时的环境描述。不能沿用“核心安全全部实现正确”“8 处确定泄漏”“所有问题都是重构新增”等泛化结论；不以文件长度、没有 close 方法或 grep 没找到调用点直接判定缺陷。下面的“修复”表示实现已修改，验证强度以本节最后的实际门禁结果为准，不等于设备验收。
+
+### A. 原报告确定性问题的裁决
+
+| 原编号 | 复核结果 | 处理与代码依据 |
+| --- | --- | --- |
+| P0-1 | 属实，已有修复纳入复验 | `GoalReducer.onWakeFailed` 清除 checkpoint，保留错误事实并取消旧提醒；不能写出违反 Goal 模型约束的状态。 |
+| P0-2 | 属实，已有修复纳入复验 | `TurnLaunchGate` 向 driver 传递启动失败，而不是用 Job.cancel 假装用户取消；启动失败与真实取消分开结算。 |
+| P0-3 | 属实，修复 | `SessionRuntimeTools`/`UserQuestionTool` 使用受信任 metadata executor；仍经过 schema/权限/审批/审计，不让反问抢占外部执行 owner。 |
+| P0-4 | 属实，修复 | `ToolDispatcher.commitExecutionStart` 在 Registry 短锁中完成准入排序，Room 审批消费在锁外；先准入的调用持原 executor，先撤销的调用不能消费或执行。补真实 Dispatcher 交错测试。 |
+| P0-5 | 原结论过度，不确认为生产双写缺陷 | `ExecutionOwnership.guard/runOrdinary` 的 permit 在实际 executor 线程退出时释放；watchdog 超时不等于物理 worker 退出。保留该保护及有界容量，不以 scheduler slot 释放推导外部效果可重叠。 |
+| P1-6 | 属实，已有修复纳入复验 | `AutomaticRecoverySettlement` 通过 `GoalEvent.RecoveryEnded`/reducer 生成合法错误终态，不再直接拼接非法 FAILED Goal。 |
+| P1-7 | 部分属实：锁内 IO/竞争是优化对象，不是所有事务都可移出 | 保留 Turn 原子准入锁；本轮移除 Registry 中的持久写锁等待、工具曝光中的重复读，以及启动历史全量加载。大范围锁改造必须有具体交错反例，不能破坏状态检查与提交的一致性。 |
+| P1-8 | 属实，修复 | `submissionAttempt` 保留稳定异常类型诊断；不把输入正文、凭据或原始绝对路径写入日志。 |
+| P1-9 | 属实，已有修复纳入复验 | PRoot 输入描述符由流单一持有与关闭，避免重复 close。 |
+| P1-10 | 误报，不修改业务语义 | 界面已明示自定义回答优先于选项；强行拼接 selected+custom 会改变既定产品行为。真正的答案投递问题见 B4。 |
+| P1-11 | 属实，修复 | `AutomaticRuntimeCollection` 分离在途去重与有界已结束记录；失败/观察窗口耗尽进入冷却并记录原因，重开可重新观察；已完成结果不立即重复收集。 |
+| P1-12 | 属实，修复 | PRoot 先查原任务 typed status；RUNNING 不计为失败，只有 SUCCEEDED 才拉取/确认成功归档。原报告“约 6 秒”不准确，原退避为 1+2 秒，另加查询耗时。 |
+| P2-13 | 属实，已有修复纳入复验 | `UserScopeCodec` 在解析前验证字段数量，畸形输入返回规定的非法输入失败，不泄漏裸下标异常。 |
+| P2-14 | 属实，修复/复验 | ContentStore 既有流式哈希修复保留；A2A 导入结果改用 `AtomicFileWriter.sha256Hex(Path)`，不为校验再分配整个文件。 |
+| P2-15 | 属实，修复 | `JsBoundedOutput` 在分配前验证可信输出上限和文件长度，定长读取并检查 EOF；测试包含超大稀疏文件和长度不符。 |
+| P2-16 | 属实，已有修复纳入复验 | BrowserDownloadQueue 用 `use` 明确关闭连接输入流。 |
+| P2-17 | 属实，修复 | SAF 查询区分权限、取消、文件缺失和 provider IO 错误；元数据查询不再用 catch-all/null 隐藏所有失败。 |
+| P2-18 | 属实，修复 | FileManager 操作错误使用稳定本地化提示，不直接展示底层异常 message。 |
+| P2-19 | 属实，修复 | Provider probe ticket 按连接/能力/上下文模型分域，同类新探测仍淘汰旧结果；配置修改统一失效所有域。连接成功不覆盖较新的能力证据。 |
+| P2-20 | “权限 fail-open”不成立，保留能力新鲜度边界 | capabilitySnapshot 表示模型功能证据，不是工具授权。暂时探测失败不能无条件抹除独立的已有能力；本轮修复不同探测相互覆盖，不把历史快照说成当前探测成功。 |
+| P2-21 | 属实，修复 | `ProviderTestStatusStore` 的所有写/clear 共用进程内 RMW 锁，覆盖 create 旁路和多个实例；增加并发写入测试。 |
+| P2-22 | 属实，修复 | `applySettings` 进入 SessionActionQueue → submissionGate → turnGate，和发送/用户配置变更有序；专用数据库入口与冻结配置见 B5。 |
+| P2-23 | 属实，修复 | 反问先纯校验后存储，确定未修改的非法参数返回无副作用失败；读取损坏的问题记录隔离到单条，使用有界读取。没有添加当前 schema validator 不支持的 uniqueItems。 |
+| P2-24 | 有界容量是保护，不按原建议回退 | 阻塞 worker 可以占用容量，必须显式报告 EXECUTOR_SATURATED；不能恢复无限 cached pool，也不能把超时当物理线程退出。长期阻塞仍需要 Runtime 边界验证。 |
+| P2-25 | 误报 | BindingStore 把 host installation revision 与来源 revision 一起哈希；只看 register 默认 contractHash 漏掉了安装身份。incarnation 不进入稳定审批身份是明确设计。 |
+| P2-26 | 保留同 UID 信任边界，不声称是跨 UID 漏洞 | native runtime 非导出、同应用 UID，明确不提供凭据隔离；客户端总开关不是恶意同 UID 代码的安全沙箱。完整强隔离不属于本次修复。 |
+| P2-27 | 不吞 Fatal Error；原结论过度 | nativeReply 捕获业务 Exception，Fatal Error 由私有进程/失败边界处理。不能为“所有错误都返回成功 JSON”捕获并吞掉 OOM/VM Error。 |
+| P2-28 | N+1/历史全量加载属实，修复 | 增加 `latestForUnarchivedSessions` 一次取得每会话最新 Turn；是否启动核查仍在原准入门禁内判定，不取消去重和用户停止边界。 |
+| P3-29 | 拆项裁决 | 启动恢复异常补安全诊断，stopTask 异常显示失败而不伪造取消成功；其余细项见下文。 |
+
+P3-29 中，Goal 检查预算还受原 Goal 累计账本约束；一次恢复 claim 后再次失败明确结束，符合当前 ADR-AGENT-001，而非无限自动重试遗漏；Steer 迁移后会重新读取、校验目标和 revision，不能仅凭未使用一个 Boolean 就宣称投递给旧目标；USER_STOP 不在自动恢复原因白名单。SYSTEM 消息位置、通用 Job 和 Core 拆分是需单独契约与验证的优化，不据此擅改模型协议。`LaunchedEffect` 使用新 List 实例不等于必然重新触发（不能忽略结构相等）；真正需要修复的是监听范围和答案状态变化，见 B4。
+
+### B. 对话补充发现及跨模块修复
+
+| 编号 | 问题与修复 | 回归边界 |
+| --- | --- | --- |
+| B1 / P1 | 后台 Job 持有 owner 时普通 tools.search 被拒绝，无法发现查询/取消/收集入口。生产 discovery 改为受信任 metadata executor，不扩大普通写入权限。 | `DiscoveryOwnershipTest` 从持有 owner 开始，经真实 discovery 注册/执行发现 collect，再调用受信任原任务控制入口；同时证明无关 writer 仍被拒绝。 |
+| B2 / P1 | 与 P1-11/12 合并：运行中不是失败，观察结束不是任务成功，也不会重放原命令。 | `RuntimeCollectionRecoveryTest` 覆盖多轮运行后收集、失败冷却与重新观察；旧去重/取消测试继续保留。 |
+| B3 / P2 | Fork 改 ID、清 turnId 后历史问题被重新激活。问题及跳过记录在分支中明确复制为 inert history，不复制原审批或执行身份。 | `QuestionAnswerAttemptTest` 验证历史状态分类；实际手机分支交互本次未运行。 |
+| B4 / P2 | 已撤回或失败的 answer 记录仍关闭问题。按最新回答尝试的状态判断，合法重答使用稳定的新尝试 ID；排队、已送达、待处理记录不重复提交。 | 增加 Room answer revision Flow 驱动问题刷新，撤回无需重开会话；单测覆盖重答、并发去重身份和不可重答状态。 |
+| B5 / P1 | 正常 settings.apply 来自 RUNNING_TOOL，但旧 selectModel SQL 只允许空闲，必然冲突。新增绑定当前 RUNNING 工具调用与 frozen runtime record 的 future-defaults 更新；已取消、已归档、队列未清空等均拒绝，确定未修改时返回 false。 | 当前 Turn 的 Provider/model/reasoning 与视觉能力继续用冻结快照；新增 `FutureSessionDefaultsDeviceTest` 验证真实 Room 条件和最新 Turn 查询。本轮仅编译该设备测试，不声称实际执行。 |
+| B6 / P2 | 模型选择仍是独立 launch，选择后发送可乱序。模型选择与模式/推理修改一样进入 SessionActionQueue 和 submissionGate。 | 保留/扩展有序队列测试，覆盖连续模型选择、发送和旧快照；尚未做手机连点验收。 |
+
+### C. 已落地的性能、安全和可维护性改进
+
+- **工具曝光：** 每个 descriptor 一次可用性判断，在窗口锁外完成；Session workspace 从按 ID 查询取得，避免重复扫描全部会话。执行前的实时权限复验仍保留。
+- **恢复结果：** `RecoveryEvidence` 提供带原调用身份、实际状态、stdout/stderr 或订阅文本的有界摘录，明确为不可信数据；凭据形状命中时隐藏该片段，输出截断有标记。它不授予权限、不确认 UNKNOWN、不代表完整归档分页能力。
+- **UI：** Shell/Provider/权限页面只监听所需会话字段；浏览器用 lifecycle-aware collection；会话 entry 先分组再查表；Markdown/表格/thinking 缓存；图片移到后台有界采样；文件列表 LazyColumn 且 list/grid 稳定 key；目录过滤用 derivedStateOf。实际帧率提升未测，不编造性能百分比。
+- **设置与导航：** QuickJS 开关经应用服务在 IO 线程读写，界面显示忙碌/失败；导航回调用 DisposableEffect 注册/清理，不在组合期直接写 service 字段。
+- **浏览器脚本：** UserScript 名称用 JSON 编码，处理引号、反斜杠和换行；Eruda 固定 HTTPS 3.4.3 和 SHA-384 SRI。原草稿“updateScripts 没有生产调用、当前不可达”不成立，BrowserController 有接线。
+- **信任文档：** 修正 CLI/PRoot verifier 对 manifest signature permission 与同 UID 检查的描述，保留校验，不夸大成凭据隔离。
+- **QuickJS（第一轮状态）：** interrupt 改为 oneway，原生 terminate 当时保留同步等待，R2 清理阻塞风险未关闭。后续已改为单向终止、独立看门狗与原始 Binder 死亡确认，当前行为和未验证边界以本文顶部后续优化章节为准；控制排队始终不等于已退出。
+- **工程：** QuickJS AAR 是特定 Test 的惰性输入，不在配置期枚举已解析文件；移除已确认没有调用的 EmptyDestination。依赖版本、锁文件与现有不相关工作不随意修改。
+
+### D. 不应误修或仍需证据的问题
+
+| 原分组 | 裁决 |
+| --- | --- |
+| 资源 1～8 | “未调用 cancel/shutdown”不足以证明泄漏。BrowserController.destroy 是页面释放，不是销毁整个应用 controller；关闭会话不得取消后台任务；进程级 audit、Runtime、日志泵和有界执行池应按其真实 owner 生命周期评价。未取得泄漏增长或 OEM 唤醒证据，不将这些条目写成已复现泄漏，也不粗暴逐项 shutdown。 |
+| 诊断心跳 | 定时检测是诊断行为，不等于 Looper 永不 idle 或已证实 ANR；设备功耗与生命周期需单独测量。 |
+| UI 10 / 大类拆分 | boxed state、重复渲染和大文件是技术债，不将全量机械替换/重构作为本次 bug 修复前提。 |
+| 公开 API/重试参数 | 没有找到某个直接调用不证明整个模块死亡；ModePolicy 过滤有生产用途。maxAttempts 默认 1 不意味着应打开自动副作用重试。 |
+| SignedConnectorIndexVerifier | `allowDowngrade=true` 是 ADR-CONNECTORS-004 明确接受的签名索引策略，不能作为实现 bug 静默改 false。回退标记与受信任签名校验保留。 |
+| OAuth | v1-only 拒绝未知格式是 fail-closed；不凭空加入旧数据迁移。S256 缺元数据不走 plain 降级；exported callback 的 DoS 只是边界风险，本轮未证实可利用漏洞。 |
+| 构建告警/缓存 | build/cxx 可随 clean 清理，不因告警迁移到新的永久隐藏缓存；忽略的历史证据不删除。测试统计必须指向本次任务实际的报告目录，不能递归把 build 下归档一起加总。 |
+
+### E. 验证记录与剩余边界
+
+**最终联合主机门禁通过。** 运行 `b5539e82-9065-4520-a890-233d2b055db3` 返回 exit 0 / `BUILD SUCCESSFUL`，842 个任务中 27 执行、815 up-to-date。此前同一修复验证中已实际执行过其余未变模块的测试；最终 App 两渠道单元测试重新执行，缓存命中不被表述为本轮每条测试都强制重跑。命令如下：
+
+```bash
+python3 scripts/with-host-slot.py -- ./gradlew \
+  test detekt spotlessCheck \
+  :app:lintConsumerDebug :app:lintDeveloperDebug \
+  :app:compileConsumerDebugAndroidTestKotlin \
+  :app:compileDeveloperDebugAndroidTestKotlin \
+  :core:storage:compileDebugAndroidTestKotlin \
+  --configure-on-demand --no-configuration-cache --console=plain --continue
+```
+
+| 门禁 | 实际结果 |
+| --- | --- |
+| root `test` 的常规 JVM/App 单元测试集合 | PASS；没有启用可选 `includeSpikes`，不能称全部 Spike 验收 |
+| Consumer / Developer Android lint | 均 PASS；保留非阻断 hints，未新增 lint baseline 来掩盖错误 |
+| detekt / spotlessCheck | 均 PASS |
+| App 双渠道 AndroidTest Kotlin 编译 | 均 PASS，仅编译，没有运行设备测试 |
+| core:storage AndroidTest Kotlin 编译 | PASS，包含新增真实 Room future-defaults 与 startup-query 回归夹具 |
+| 源码/文档/ADR/i18n/秘密扫描 | 最终 `./scripts/check-all.sh --source` PASS，exit 0；运行 `cab96c2a-4cde-41c5-ad39-055bb9569d30`。验证 653 个 Markdown、215 个 HXA、35 个当前 ADR；扫描 818 个生产源码文件，base/en/zh-rCN 的 1850 个资源键一致，秘密扫描通过 |
+
+当前精确测试报告目录的关键模块摘录如下；只读取这些模块的活动 `build/test-results/<task>/TEST-*.xml`，未递归加总 build 下历史归档。表中的“总数”包含跳过，不是新增测试数或独立产品场景数，App 双渠道共享大量测试。
+
+| 模块 / 任务 | 总数 | 失败 / 错误 | 跳过 |
+| --- | ---: | ---: | ---: |
+| core:model / test | 161 | 0 / 0 | 0 |
+| core:agent / test | 198 | 0 / 0 | 0 |
+| core:policy / test | 189 | 0 / 0 | 0 |
+| core:storage / testDebugUnitTest | 219 | 0 / 0 | 0 |
+| tools:framework / test | 221 | 0 / 0 | 0 |
+| extensions:mcp / test | 52 | 0 / 0 | 0 |
+| extensions:plugin / test | 7 | 0 / 0 | 0 |
+| runtime:quickjs / testDebugUnitTest | 94 | 0 / 0 | 0 |
+| tools:automation / testDebugUnitTest | 55 | 0 / 0 | 0 |
+| feature:browser / testDebugUnitTest | 134 | 0 / 0 | 0 |
+| app / testConsumerDebugUnitTest | 981 | 0 / 0 | 4 |
+| app / testDeveloperDebugUnitTest | 1029 | 0 / 0 | 4 |
+
+**中间失败已保留归因而非抹去：** 离线缺锁定依赖后，当前宿主 Maven/Google 下载可用，在线编译通过；文件模块取消异常改为 JVM 类型；ProviderCapabilities 构造与 DAO fake 接口补齐；浏览器脚本单引号旧断言随 JSON 编码契约更新，并增加恶意形状名称回归；复杂度/行宽问题通过拆出职责明确的小函数解决；三个 Compose 直接读取 StateFlow.value 的 lint 错误改为窄 Flow 状态，随后修正初始标题的非空类型，最终联合门禁通过。未删除失败用例、增加跳过或放宽全局门禁。原草稿“当前无网络/无法复跑”的环境结论已失效。
+
+新增回归位于 App 的 QuestionAnswerAttempt/RuntimeCollectionRecovery/DiscoveryOwnership/ProviderProbeGate/ProviderStatusConcurrency/ProviderProbePublication/RecoveryEvidence/SessionActionQueue 测试，以及工具框架的消费证明锁测试和 QuickJS 的有界输出测试。既有 Goal/启动门闩/scope 解码/流式文件修复一并复验。测试失败不通过删除断言或跳过用例解决。
+
+设备、真实账号/模型、OEM/Doze/低内存、Binder 饥饿及进程骤停：**not requested**。本轮无设备通过声明；新增 Room 用例只有编译证据，不能替代实际执行。QuickJS 清理 IPC 极端阻塞风险 R2 仍开放；恢复输出目前是有界摘录，不是完整归档分页；实际 UI 帧率/功耗与一般任务完成率未测。原草稿的 938、4620 等统计只表示原先报告声称的历史结果，不作为本轮验收。没有为尚未证明的风险擅自扩大到全局引擎/插件重构。
+
+## 原始草稿（历史记录，不作为当前结论）
+
+<details>
+<summary>展开原始审查文字：包含已纠正的误报、旧环境信息和旧优先级；以本文件上方逐项复核为准。</summary>
+
+
 **审查基线**：HEAD `b51687e0`（"Complete atomic tool bindings and autonomous recovery"，300 文件 / +8144 / −1703）+ 当时工作树（5 modified + 53 untracked）
 **代码规模**：32 个 Gradle 模块 / 2121 个 `.kt`（主源码 1283 / 单测 461 / androidTest 336）/ 主源码约 18.9 万行
 **审查方式**：主机门禁实跑（detekt / spotless / unit test / `ci-run-gate.sh --source`）+ 分路只读代码走查（引擎与 Turn 生命周期、安全与信任边界、资源泄漏与错误处理、UI 性能与架构一致性、原子工具绑定与调度、自主恢复链路、QuickJS 原生桥、Provider 探测）；关键结论均回源码二次核验
@@ -435,3 +617,5 @@
 17. 收敛三份 `formatBytes`；合并重复渲染块；84 处 `mutableStateOf<Int>` → `mutableIntStateOf`。
 18. `injectEruda` 锁版本；`allowDowngrade` 默认 `false`；`maxAttempts` 死代码处理；修正 `ProotCallerVerifier`/`CliCallerVerifier` 的 KDoc。
 19. 清理 `build/` 下的历史归档；修正 C/C++ staging 目录与 quickjs 配置期解析。
+
+</details>
