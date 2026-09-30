@@ -94,7 +94,7 @@ class StagedGateTest(unittest.TestCase):
     def test_shared_pattern_matches_full_scanner_without_echoing(self):
         scripts = self.repo / "scripts"
         scripts.mkdir()
-        for name in ("check-secrets.sh", "secret-pattern.txt"):
+        for name in ("check-secrets.sh", "secret-pattern.txt", "scan-secrets.py", "public_oauth.py", "public-oauth-allowlist.json"):
             (scripts / name).write_bytes((ROOT / "scripts" / name).read_bytes())
         (self.repo / "secret.txt").write_text(TOKEN)
         result = subprocess.run(["bash", str(scripts / "check-secrets.sh")], cwd=self.repo,

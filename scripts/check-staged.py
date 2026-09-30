@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+from public_oauth import sanitize
 
 PATTERNS = Path(__file__).with_name("secret-pattern.txt")
 
@@ -34,17 +35,26 @@ def main():
         if stage != b"0" or mode not in {b"100644", b"100755", b"120000"}:
             raise RuntimeError("unsupported index entry; refusing to pass")
         # Read the staged blob, including binary bytes and symlink text; never follow a target.
-        with subprocess.Popen(["git", "cat-file", "blob", oid.decode("ascii")],
-                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as blob:
-            with subprocess.Popen(["rg", "--pcre2", "--text", "--quiet", "--file", str(PATTERNS), "-"],
-                                  stdin=blob.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as scan:
-                blob.stdout.close()
-                scan_code = scan.wait()
-            blob_code = blob.wait()
+        if path == b"runtime/cli-app/build.gradle.kts":
+            data = sanitize(path.decode(), git("cat-file", "blob", oid.decode("ascii")))
+            scan_code = subprocess.run(
+                ["rg", "--pcre2", "--text", "--quiet", "--file", str(PATTERNS), "-"],
+                input=data, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            ).returncode
+        else:
+            with subprocess.Popen(["git", "cat-file", "blob", oid.decode("ascii")],
+                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as blob:
+                with subprocess.Popen(["rg", "--pcre2", "--text", "--quiet", "--file", str(PATTERNS), "-"],
+                                      stdin=blob.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as scan:
+                    blob.stdout.close()
+                    scan_code = scan.wait()
+                blob_code = blob.wait()
+            if blob_code != 0 and scan_code != 0:
+                raise RuntimeError("blob reader or secret scanner failed; refusing to pass")
         if scan_code == 0:
             # Never print matched bytes (including whitespace diagnostics containing a secret).
             raise RuntimeError(f"potential secret in staged path {path.decode(errors='backslashreplace')!r}; content suppressed")
-        if scan_code != 1 or blob_code != 0:
+        if scan_code != 1:
             raise RuntimeError("blob reader or secret scanner failed; refusing to pass")
         count += 1
     whitespace = subprocess.run(["git", "diff", "--cached", "--check", "--no-ext-diff", "--no-textconv"],

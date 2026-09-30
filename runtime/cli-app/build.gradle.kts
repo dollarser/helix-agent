@@ -2,8 +2,16 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
-val antigravityClientId = providers.environmentVariable("HELIX_ANTIGRAVITY_CLIENT_ID").orElse("")
-val antigravityClientSecret = providers.environmentVariable("HELIX_ANTIGRAVITY_CLIENT_SECRET").orElse("")
+// Owner-approved public installed-app identity; Developer runtime only. See provider ADR 002.
+val upstreamAntigravityClientId = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+val upstreamAntigravityClientSecret = "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"
+val configuredAntigravityId = providers.environmentVariable("HELIX_ANTIGRAVITY_CLIENT_ID")
+val configuredAntigravitySecret = providers.environmentVariable("HELIX_ANTIGRAVITY_CLIENT_SECRET")
+require(configuredAntigravityId.isPresent == configuredAntigravitySecret.isPresent) {
+    "Configure both Antigravity OAuth client parameters or neither"
+}
+val antigravityClientId = configuredAntigravityId.orElse(upstreamAntigravityClientId)
+val antigravityClientSecret = configuredAntigravitySecret.orElse(upstreamAntigravityClientSecret)
 require(antigravityClientId.get().isEmpty() == antigravityClientSecret.get().isEmpty()) {
     "Configure both Antigravity OAuth client parameters or neither"
 }

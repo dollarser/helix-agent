@@ -16,7 +16,7 @@ import java.util.Base64
 
 internal class AntigravityOnboardingRequired : IllegalStateException("Antigravity project unavailable")
 
-/** OAuth client identity is supplied by the build owner, never inherited from an upstream app. */
+/** Build-configured OAuth identity; the public-client exception is recorded in provider ADR 002. */
 internal object AntigravityOAuthProtocol {
     const val CALLBACK = "/oauth-callback"
     private val scopes =

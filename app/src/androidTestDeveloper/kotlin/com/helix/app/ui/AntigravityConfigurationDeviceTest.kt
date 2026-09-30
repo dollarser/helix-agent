@@ -8,16 +8,15 @@ import com.helix.app.MainActivity
 import com.helix.runtime.cli.app.AntigravityLoginActivity
 import com.helix.runtime.cli.app.BuildConfig
 import com.helix.runtime.cli.app.R
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Observe the real private-process screen through accessibility; never move it into the test process. */
 class AntigravityConfigurationDeviceTest {
-    @Test fun defaultBuildExplainsUnavailableLoginAndDoesNotOfferAuthorization() {
-        assertTrue("Use the unconfigured acceptance APK", BuildConfig.ANTIGRAVITY_CLIENT_ID.isEmpty())
-        assertTrue("Use the unconfigured acceptance APK", BuildConfig.ANTIGRAVITY_CLIENT_SECRET.isEmpty())
+    @Test fun defaultBuildOffersLoginWithoutStartingAuthorization() {
+        assertTrue("Use the default acceptance APK", BuildConfig.ANTIGRAVITY_CLIENT_ID.isNotEmpty())
+        assertTrue("Use the default acceptance APK", BuildConfig.ANTIGRAVITY_CLIENT_SECRET.isNotEmpty())
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         context.startActivity(
@@ -30,15 +29,15 @@ class AntigravityConfigurationDeviceTest {
                 explanation =
                     find(
                         instrumentation.uiAutomation.rootInActiveWindow,
-                        context.getString(R.string.antigravity_not_configured),
+                        context.getString(R.string.antigravity_logged_out),
                     )
                 if (explanation == null) SystemClock.sleep(100)
             }
-            assertNotNull("Missing configuration must be explained", explanation)
+            assertNotNull("Opening the screen must leave the account logged out", explanation)
             val login =
                 find(instrumentation.uiAutomation.rootInActiveWindow, context.getString(R.string.antigravity_login))
             assertNotNull(login)
-            assertFalse(requireNotNull(login).isEnabled)
+            assertTrue(requireNotNull(login).isEnabled)
         } finally {
             context.startActivity(
                 Intent(
