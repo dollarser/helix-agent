@@ -47,6 +47,8 @@ class TurnRepository(
 
     fun listBySession(sessionId: String): List<TurnEntity> = dao.listBySession(sessionId)
 
+    fun latestForUnarchivedSessions(): List<TurnEntity> = dao.latestForUnarchivedSessions()
+
     /** Non-terminal turns left by a previous process — the HXA-015 recovery scan. */
     fun listActive(): List<TurnEntity> = dao.listActive()
 

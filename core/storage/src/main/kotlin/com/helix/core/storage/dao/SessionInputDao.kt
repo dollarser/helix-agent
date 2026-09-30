@@ -14,6 +14,24 @@ interface SessionInputDao {
     @Query("SELECT * FROM session_inputs WHERE inputId = :id")
     fun byId(id: String): SessionInputEntity?
 
+    /** Exact producer family, not LIKE: ids containing SQL wildcard characters stay literal. */
+    @Query(
+        "SELECT * FROM session_inputs WHERE sessionId = :sessionId " +
+            "AND (inputId = :baseId OR instr(inputId, :baseId || ':retry:') = 1) " +
+            "ORDER BY sequence DESC LIMIT 1",
+    )
+    fun latestAttempt(
+        sessionId: String,
+        baseId: String,
+    ): SessionInputEntity?
+
+    /** Answer delivery changes independently of the chat timeline. */
+    @Query(
+        "SELECT COALESCE(SUM(revision + 1), 0) FROM session_inputs " +
+            "WHERE sessionId = :sessionId AND substr(inputId, 1, 7) = 'answer:'",
+    )
+    fun observeAnswerRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long>
+
     @Insert
     fun insert(input: SessionInputEntity)
 

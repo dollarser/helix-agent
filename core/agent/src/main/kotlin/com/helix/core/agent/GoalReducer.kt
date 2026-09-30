@@ -57,6 +57,10 @@ object GoalReducer {
                 onContinued(state, GoalEvent.Continued(GoalWakeReason.FOREGROUND_CONTINUATION), recovery = true)
             }
 
+            is GoalEvent.RecoveryEnded -> {
+                onRecoveryEnded(state, event)
+            }
+
             is GoalEvent.Ready -> {
                 onReady(state, event)
             }
@@ -207,9 +211,32 @@ object GoalReducer {
             val next = state.copy(retries = state.retries + 1, currentWakeMillis = 0L)
             step(state, next, listOf(GoalEffect.RetryWake(next.retries)))
         } else {
-            val next = state.copy(state = GoalState.FAILED, error = event.error, currentWakeMillis = 0L)
-            step(state, next, listOf(GoalEffect.GoalFailed(event.error)))
+            val next =
+                state.copy(
+                    state = GoalState.FAILED,
+                    error = event.error,
+                    currentWakeMillis = 0L,
+                    nextCheckpoint = null,
+                )
+            step(state, next, listOf(GoalEffect.GoalFailed(event.error), GoalEffect.ReminderCancelled))
         }
+    }
+
+    private fun onRecoveryEnded(
+        state: Goal,
+        event: GoalEvent.RecoveryEnded,
+    ): GoalStep {
+        if (state.state !in setOf(GoalState.RUNNING, GoalState.PAUSED, GoalState.BLOCKED, GoalState.INPUT_REQUIRED)) {
+            return GoalStep.unchanged(state)
+        }
+        val next =
+            state.copy(
+                state = GoalState.FAILED,
+                error = event.error,
+                currentWakeMillis = 0L,
+                nextCheckpoint = null,
+            )
+        return step(state, next, listOf(GoalEffect.GoalFailed(event.error), GoalEffect.ReminderCancelled))
     }
 
     private fun onBlocked(state: Goal): GoalStep =

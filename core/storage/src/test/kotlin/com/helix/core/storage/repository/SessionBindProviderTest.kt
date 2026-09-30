@@ -100,6 +100,15 @@ class SessionBindProviderTest {
      * providerId IS NULL` row-count semantics (0 on missing or already-bound).
      */
     private class FakeSessionDao : SessionDao {
+        // Binding-only fixture has no active tools, so future-default admission must fail closed.
+        override fun selectFutureModel(
+            id: String,
+            providerId: String,
+            modelId: String,
+            turnId: String,
+            toolCallId: String,
+        ): Int = 0
+
         override fun selectModel(
             id: String,
             providerId: String,

@@ -100,6 +100,16 @@ class ExecutionOwnership(
             store.compareAndSet(owner, null)
         }
 
+    /** Original launcher only, after its Runtime has proved exit; this does not erase side-effect facts. */
+    fun releaseStoppedForCall(
+        callId: String,
+        owner: Owner,
+    ): Boolean =
+        synchronized(lock) {
+            check(active[callId] == true && active.size == 1) { "Original exclusive launcher is not active" }
+            store.compareAndSet(owner, null)
+        }
+
     /** Acquire inside the executor thread, so a deadline cannot release a still-running effect. */
     fun guard(
         executor: ToolExecutor,

@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.helix.core.storage.entity.TurnEntity
 
 @Dao
+@Suppress("TooManyFunctions") // One Turn query/CAS authority, including batched startup inspection.
 interface TurnDao {
     @Query(
         "SELECT * FROM turns WHERE resultCollectedAt IS NULL " +
@@ -48,6 +49,15 @@ interface TurnDao {
 
     @Query("SELECT * FROM turns WHERE sessionId = :sessionId ORDER BY startedAt ASC, rowid ASC")
     fun listBySession(sessionId: String): List<TurnEntity>
+
+    /** Latest row per live conversation; avoids loading every historical Turn at startup. */
+    @Query(
+        "SELECT t.* FROM turns t JOIN sessions s ON s.id = t.sessionId " +
+            "WHERE s.archivedAt IS NULL AND t.rowid = " +
+            "(SELECT rowid FROM turns WHERE sessionId = t.sessionId ORDER BY startedAt DESC, rowid DESC LIMIT 1) " +
+            "ORDER BY t.startedAt ASC, t.rowid ASC",
+    )
+    fun latestForUnarchivedSessions(): List<TurnEntity>
 
     /** Non-terminal turns left by a previous process — the HXA-015 recovery scan. */
     @Query(

@@ -131,6 +131,38 @@ class ToolDispatcherTest {
         assertEquals(1, broker.consumeCalls.size)
     }
 
+    @Test fun durableProofConsumptionDoesNotHoldTheRegistryLock() {
+        val d = descriptor()
+        var ran = 0
+        registry.register(
+            d,
+            CaptureExecutor {
+                ran++
+                ToolExecutorResult.Completed(emptyObject())
+            },
+        )
+        val old = registry.resolveBinding(d.name, d.version)
+        broker.script(ApprovalAcquisition.Approved(ApprovalProof("approved", "a".repeat(64))))
+        broker.consumeHook = {
+            val pool =
+                java.util.concurrent.Executors
+                    .newSingleThreadExecutor()
+            try {
+                pool
+                    .submit {
+                        registry.replaceOwner(old.ref.owner, emptyList())
+                        registry.snapshot()
+                    }.get(2, java.util.concurrent.TimeUnit.SECONDS)
+            } finally {
+                pool.shutdownNow()
+            }
+        }
+        assertTrue(dispatcher.dispatch(request(d.name, d.version, emptyArgs())) is ToolDispatchOutcome.Succeeded)
+        assertEquals(1, ran)
+        assertEquals(1, broker.consumeCalls.size)
+        assertNull(registry.resolveBinding(old.ref))
+    }
+
     // ------------------------------------------------------------------ validate stage
 
     @Test
@@ -1476,6 +1508,7 @@ class ToolDispatcherTest {
 
         /** Runs right before a scripted acquisition is returned — a deterministic race seam. */
         var acquireHook: (ApprovalRequest) -> Unit = {}
+        var consumeHook: () -> Unit = {}
 
         /** Forces the un-mintable path (the record's window elapsed in the meantime). */
         var reMintReturnsNull = false
@@ -1494,6 +1527,7 @@ class ToolDispatcherTest {
         }
 
         override fun consume(proof: ApprovalProof) {
+            consumeHook()
             consumeCalls += proof
         }
 

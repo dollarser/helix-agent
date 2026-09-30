@@ -93,6 +93,18 @@ class SessionRepository(
         require(dao.selectModel(id, providerId, modelId) == 1) { "session model selection unavailable" }
     }
 
+    /** Caller owns the transaction with the future RunControl update; the active snapshot is immutable. */
+    fun selectFutureModel(
+        id: String,
+        providerId: String,
+        modelId: String,
+        turnId: String,
+        toolCallId: String,
+    ): Boolean {
+        require(providerId.isNotBlank() && modelId.isNotBlank())
+        return dao.selectFutureModel(id, providerId, modelId, turnId, toolCallId) == 1
+    }
+
     // No delete: sessions are archived, never deleted (doc 9.1 / entity contract). A hard
     // delete would cascade the session's approvals/executions audit rows, which must be
     // durable (AGENTS.md: every tool call goes through audit). A retention wipe, if ever

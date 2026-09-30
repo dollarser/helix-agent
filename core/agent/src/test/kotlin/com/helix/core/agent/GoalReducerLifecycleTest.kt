@@ -214,6 +214,18 @@ class GoalReducerLifecycleTest {
         }
     }
 
+    @Test
+    fun failedWakeClearsCheckpointAndCancelsReminder() {
+        val scheduled = reduceGoal(runningGoal(), GoalEvent.CheckpointScheduled(Checkpoint(99_000L))).state
+        val failure = GoalFixtures.error()
+        val result = reduceGoal(scheduled, GoalEvent.WakeFailed(failure))
+        assertEquals(GoalState.FAILED, result.state.state)
+        assertNull(result.state.nextCheckpoint)
+        assertEquals(failure, result.state.error)
+        assertTrue(GoalEffect.ReminderCancelled in result.effects)
+        assertTrue(GoalReducer.reduce(result.state, GoalEvent.RunFinished).ignored)
+    }
+
     /** A RUNNING goal ready to report semantic completion. */
     private fun fullySatisfiedRunningGoal(): Goal {
         val goal = runningGoal()

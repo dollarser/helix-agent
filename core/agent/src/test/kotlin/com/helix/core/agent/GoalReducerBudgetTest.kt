@@ -187,8 +187,9 @@ class GoalReducerBudgetTest {
         val second = reduceGoal(first, GoalEvent.WakeFailed(retryable))
         assertEquals(GoalState.FAILED, second.state.state)
         assertEquals(retryable, second.state.error)
-        val effect = second.effects.single() as GoalEffect.GoalFailed
+        val effect = second.effects.filterIsInstance<GoalEffect.GoalFailed>().single()
         assertEquals(retryable, effect.error)
+        assertEquals(listOf(effect, GoalEffect.ReminderCancelled), second.effects)
     }
 
     @Test

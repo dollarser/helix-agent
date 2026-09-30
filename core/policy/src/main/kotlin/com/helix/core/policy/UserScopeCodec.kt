@@ -95,6 +95,8 @@ object UserScopeCodec {
             }
         } catch (e: IllegalArgumentException) {
             null
+        } catch (e: java.time.DateTimeException) {
+            null
         }
 
     private fun decodeBrowserTab(fields: List<String>): UserScope? {
@@ -120,11 +122,12 @@ object UserScopeCodec {
 
     @Suppress("ReturnCount") // one fail-closed null per undecodable field
     private fun decodeAutomation(fields: List<String>): UserScope? {
-        val max = fields[2].toIntOrNull() ?: return null
-        val expires = fields[3].toLongOrNull() ?: return null
+        val f = exactly(fields, 4) ?: return null
+        val max = f[2].toIntOrNull() ?: return null
+        val expires = f[3].toLongOrNull() ?: return null
         return AutomationSessionScope(
-            csv(fields[0]),
-            csv(fields[1]),
+            csv(f[0]),
+            csv(f[1]),
             max,
             Instant.ofEpochSecond(expires),
         )
@@ -132,9 +135,10 @@ object UserScopeCodec {
 
     @Suppress("ReturnCount") // one fail-closed null per undecodable field
     private fun decodeRoot(fields: List<String>): UserScope? {
-        val start = fields[0].toLongOrNull() ?: return null
-        val end = fields[1].toLongOrNull() ?: return null
-        val high = fields[2].toBooleanStrictOrNull() ?: return null
+        val f = exactly(fields, 3) ?: return null
+        val start = f[0].toLongOrNull() ?: return null
+        val end = f[1].toLongOrNull() ?: return null
+        val high = f[2].toBooleanStrictOrNull() ?: return null
         return RootSessionScope(Instant.ofEpochSecond(start), Instant.ofEpochSecond(end), high)
     }
 

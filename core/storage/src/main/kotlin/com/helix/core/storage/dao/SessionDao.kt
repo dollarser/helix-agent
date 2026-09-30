@@ -51,6 +51,24 @@ interface SessionDao {
         modelId: String,
     ): Int
 
+    /** Only the currently executing, authorized settings call may change future defaults. */
+    @Query(
+        "UPDATE sessions SET providerId = :providerId, modelId = :modelId WHERE id = :id AND archivedAt IS NULL " +
+            "AND EXISTS (SELECT 1 FROM turns t JOIN turn_runtime_records r ON r.turnId = t.id " +
+            "JOIN tool_calls c ON c.turnId = t.id WHERE t.id = :turnId AND t.sessionId = :id " +
+            "AND t.state = 'RUNNING_TOOL' AND c.id = :toolCallId AND c.state = 'RUNNING' " +
+            "AND c.name = 'helix.settings.apply') " +
+            "AND NOT EXISTS (SELECT 1 FROM session_inputs WHERE sessionId = :id " +
+            "AND state IN ('PENDING','NEEDS_ATTENTION'))",
+    )
+    fun selectFutureModel(
+        id: String,
+        providerId: String,
+        modelId: String,
+        turnId: String,
+        toolCallId: String,
+    ): Int
+
     @Query("UPDATE sessions SET title = :title, directoryRef = :directoryRef WHERE id = :id")
     fun updateDetails(
         id: String,

@@ -801,27 +801,38 @@ class ToolDispatcher(
                 } else if (!mayStart(request, descriptor, proof, ctx)) {
                     null
                 } else {
-                    val ref = requireNotNull(request.bindingRef)
-                    registry.admit(ref) {
-                        proof?.let { approvals.consume(it) }
-                        clock.now().also {
-                            ctx.executionStartedAt = it.toEpochMilli()
-                            ctx.sessionPermissionAtStart = ctx.sessionPermissionEvaluated
-                        }
-                    } ?: stopped(
-                        ctx,
-                        ToolDispatchOutcome.Denied(
-                            DispatchOutcomeCode.UNKNOWN_TOOL,
-                            "tool binding was replaced or revoked before admission; rediscover before a new call",
-                        ),
-                        DecisionSource.FRAMEWORK,
-                    )
+                    admitAndConsume(request, proof, ctx)
                 }
             if (started != null || ctx.stopped != null) return started
             // A new ASK arrived after the first evaluation. Acquire, then recheck again.
             proof = policyStage(request, descriptor, ctx, proof)
         }
         return null
+    }
+
+    private fun admitAndConsume(
+        request: ToolDispatchRequest,
+        proof: ApprovalProof?,
+        ctx: DispatchContext,
+    ): Instant? {
+        // Admission orders revocation under a short memory-only lock. The admitted
+        // ctx.executor remains pinned; durable proof consumption never holds that lock.
+        val admitted = registry.admit(requireNotNull(request.bindingRef)) { true }
+        if (admitted != true) {
+            return stopped(
+                ctx,
+                ToolDispatchOutcome.Denied(
+                    DispatchOutcomeCode.UNKNOWN_TOOL,
+                    "tool binding was replaced or revoked before admission; rediscover before a new call",
+                ),
+                DecisionSource.FRAMEWORK,
+            )
+        }
+        proof?.let { approvals.consume(it) }
+        val started = clock.now()
+        ctx.executionStartedAt = started.toEpochMilli()
+        ctx.sessionPermissionAtStart = ctx.sessionPermissionEvaluated
+        return started
     }
 
     @Suppress("ReturnCount") // one fail-closed early return per check: the contract drift,

@@ -270,6 +270,15 @@ class SessionSearchRepositoryTest {
 
     /** Mirrors the DAO's list ordering: newest session first. */
     private class FakeSessionDao : SessionDao {
+        // Search-only fixture has no authorized active tool calls.
+        override fun selectFutureModel(
+            id: String,
+            providerId: String,
+            modelId: String,
+            turnId: String,
+            toolCallId: String,
+        ): Int = 0
+
         private val rows = HashMap<String, SessionEntity>()
 
         override fun insert(session: SessionEntity) {

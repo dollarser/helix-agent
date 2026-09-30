@@ -18,6 +18,14 @@ class SessionInputRepository internal constructor(
 
     fun get(inputId: String): SessionInputRecord? = transaction { dao.byId(inputId)?.record() }
 
+    fun latestAttempt(
+        sessionId: String,
+        baseId: String,
+    ): SessionInputRecord? = transaction { dao.latestAttempt(sessionId, baseId)?.record() }
+
+    fun observeAnswerRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long> =
+        dao.observeAnswerRevision(sessionId)
+
     fun readText(record: SessionInputRecord): String =
         contentStore.readBounded(ContentRef.parse(record.textRef), MAX_PENDING_BYTES.toInt())
 

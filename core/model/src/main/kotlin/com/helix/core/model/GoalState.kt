@@ -50,11 +50,18 @@ enum class GoalState(
         get() =
             when (this) {
                 DRAFT -> setOf(READY, CANCELLED)
+
                 READY -> setOf(RUNNING, CANCELLED)
+
                 RUNNING -> setOf(INPUT_REQUIRED, PAUSED, BLOCKED, COMPLETED, FAILED, CANCELLED)
-                INPUT_REQUIRED -> setOf(RUNNING, CANCELLED)
-                PAUSED -> setOf(RUNNING, BLOCKED, CANCELLED)
-                BLOCKED -> setOf(RUNNING, PAUSED, CANCELLED)
+
+                // FAILED is reserved for host-confirmed recovery closure, not a new wake or user cancellation.
+                INPUT_REQUIRED -> setOf(RUNNING, FAILED, CANCELLED)
+
+                PAUSED -> setOf(RUNNING, BLOCKED, FAILED, CANCELLED)
+
+                BLOCKED -> setOf(RUNNING, PAUSED, FAILED, CANCELLED)
+
                 COMPLETED, FAILED, CANCELLED -> emptySet()
             }
 

@@ -59,7 +59,7 @@ class FileContentStore(
             val tmp = File(dir, "$hash.tmp-${UUID.randomUUID()}")
             tmp.writeBytes(bytes)
             try {
-                require(sha256Hex(tmp.readBytes()) == hash) { "content hash mismatch after write" }
+                require(sha256Hex(tmp) == hash) { "content hash mismatch after write" }
                 require(tmp.renameTo(file) || readHashOrNull(file) == hash) {
                     "cannot finalize content file at ${file.absolutePath}"
                 }
@@ -119,7 +119,7 @@ class FileContentStore(
     private fun readHashOrNull(file: File): String? =
         if (file.isFile) {
             runCatching {
-                sha256Hex(file.readBytes())
+                sha256Hex(file)
             }.getOrNull()
         } else {
             null

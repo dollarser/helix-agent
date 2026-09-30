@@ -399,6 +399,13 @@ class ToolCallReviewRepositoryTest {
         override fun listBySession(sessionId: String): List<TurnEntity> =
             turns.values.filter { it.sessionId == sessionId }
 
+        override fun latestForUnarchivedSessions(): List<TurnEntity> =
+            turns.values
+                .sortedBy { it.startedAt }
+                .groupBy { it.sessionId }
+                .values
+                .map { it.last() }
+
         override fun listActive(): List<TurnEntity> = emptyList()
 
         override fun updateState(
