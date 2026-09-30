@@ -18,7 +18,7 @@
 | 设备内模型 | [HXA-222](../completion-records/HXA-222.md)、[收口](../evidence/development/hxa222-closeout-2026-09-28.md)、[安装](../evidence/development/p3-local-model-install-2026-09-28.md)/[首次使用](../evidence/development/p4-first-success-journey-2026-09-28.md) | 本地 Provider 可驱动完整 Loop，不等于所有设备与任务质量已验证 |
 | Eval/整合 | [HXA-227](../completion-records/HXA-227.md)、[设备基线](../evidence/development/hxa227-device-baseline-2026-09-27.md)、[历史真机验收](../evidence/development/physical-oneplus-acceptance-2026-09-24.md) | 每份证据仅覆盖原基线；公共 benchmark 与生产 Harness 分开报告 |
 
-2026-09-30 所有者追加的[输入布局与模型/推理入口收敛](../bug-fixes/2026-09-30-composer-layout.md)记录当前改动及主机/设备验证边界；[后续收口](../evidence/development/composer-oauth-closeout-2026-09-30.md)已完成 Consumer 24/24、Developer 19/19 定向验收，并移除内置 Antigravity OAuth 参数、清理未推送历史后正常推送。真实订阅与本轮未完成的 SGLang 复验不算通过。
+2026-09-30 所有者追加的[输入布局与模型/推理入口收敛](../bug-fixes/2026-09-30-composer-layout.md)记录当前改动及主机/设备验证边界；[后续收口](../evidence/development/composer-oauth-closeout-2026-09-30.md)已完成 Consumer 24/24、Developer 19/19 定向验收，并移除内置 Antigravity OAuth 参数、清理未推送历史后正常推送。随后所有者接受恢复 Developer 实验性公开客户端默认值及针对性扫描例外，并重新授权真实 SGLang 与 API36；恢复提交已通过固定参数的 GitHub 针对性放行；真实 SGLang 连续压缩定向用例通过，过程中一次 UNKNOWN 回答仍保留偶发可靠性边界，结果见[复验记录](../evidence/development/public-client-sglang-revalidation-2026-09-30.md)。真实订阅不算通过。
 
 最近的界面与输入修复分别见[压缩/Goal 隔离](../bug-fixes/2026-09-29-manual-compaction-goal-isolation.md)、[系统选择器与分享](../bug-fixes/2026-09-29-external-ui-recovery.md)、[输入恢复/Runtime](../bug-fixes/2026-09-29-interaction-recovery-audit.md)、[命令/语音入口](../bug-fixes/2026-09-29-slash-runtime-voice.md)、[交互/配置](../bug-fixes/2026-09-29-interaction-settings.md)。较早配置“建议后另确认”和自动化周期确认须结合 HXA-232 的后续变更理解，不能恢复为当前规则。
 

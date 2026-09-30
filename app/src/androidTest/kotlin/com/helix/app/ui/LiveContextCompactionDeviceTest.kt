@@ -122,6 +122,7 @@ class LiveContextCompactionDeviceTest {
                         requireNotNull(
                             ContextCompaction.checkpoint(storage, storage.messages.listBySession(id)),
                         )
+                    println("LIVE_SYNTHETIC_CHECKPOINT cycle=$cycle ${nextCheckpoint.summary}")
                     assertTrue(nextCheckpoint.summary.contains("ORANGE-42"))
                     chat.sendTestMessage(
                         "Report project verification code, whether deleting original files is allowed, " +

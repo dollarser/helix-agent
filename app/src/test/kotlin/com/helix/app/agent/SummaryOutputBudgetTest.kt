@@ -22,6 +22,12 @@ class SummaryOutputBudgetTest {
         assertTrue(tracker.finishCall("summary", admitted, stream))
     }
 
+    @Test fun reasoningModelsHaveHeadroomWithoutExpandingSummaryProse() {
+        assertEquals(SummaryOutputBudget(2048, 16384), SummaryOutputBudget.forRequest(4000, 32768, 262144))
+        assertEquals(SummaryOutputBudget(2048, 8192), SummaryOutputBudget.forRequest(4000, 8192, 262144))
+        assertEquals(SummaryOutputBudget(4096, 16384), SummaryOutputBudget.forRequest(100000, 32768, 262144))
+    }
+
     @Test fun explicitUserBudgetAndSmallWindowRemainHardBounds() {
         assertEquals(SummaryOutputBudget(512, 512), SummaryOutputBudget.forRequest(20000, 512, 128000))
         assertEquals(SummaryOutputBudget(256, 256), SummaryOutputBudget.forRequest(20000, 4096, 1024))

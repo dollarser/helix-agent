@@ -11,7 +11,7 @@ internal data class SummaryOutputBudget(
             configuredOutput: Long,
             window: Long,
         ): SummaryOutputBudget {
-            val allowance = minOf(4096L, configuredOutput, window / 4)
+            val allowance = minOf(16_384L, configuredOutput, window / 4)
             val target = minOf((input / 8).coerceIn(2048L, 4096L), allowance)
             return SummaryOutputBudget(target, allowance)
         }
