@@ -1,8 +1,8 @@
 # ADR-PERMISSIONS-001: 会话授权预设、自定义权限与工具禁用
 
 Status: accepted
-Date: 2026-09-16; revised 2026-09-26
-HXA: HXA-020, HXA-028, HXA-033, HXA-066, HXA-093, HXA-094, HXA-209, HXA-228
+Date: 2026-09-16; revised 2026-10-02
+HXA: HXA-020, HXA-028, HXA-033, HXA-066, HXA-093, HXA-094, HXA-209, HXA-228, HXA-239
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -161,6 +161,10 @@ HXA-228 v2 至少按以下验收矩阵提供：
 - [主题入口](README.md)
 
 HXA-230 的 `memory.*` 仍走普通工具管线：读取按外部文件读取，持久写入/编辑/删除按外部文件修改，不能成为 Plan metadata 特例。用户开启 Memory 或 auto-memory 不扩大权限，见 [ADR-AGENT-013](../agent/013-markdown-memory.md)。
+
+## Decision history — 2026-10-02 输入框权限快捷入口
+
+[HXA-239](../../development/tasks/HXA-239.md) 将当前会话权限常驻显示于输入框内底部左侧，模型选择位于右侧；点击直接选择现有四个预设，自定义规则继续使用原会话设置。该入口复用 SessionPermissionEditService、原持久配置与独立审计，不增加另一套权限状态或修改新会话默认。只有真正选择预设时才实体化新会话；仅查看菜单不落配置，不发送消息、不自动批准已展示的卡，也不停止原执行。运行期间可收紧后续权限，原任务仍有独立停止入口。显示实际读取的配置，保存异常提示结果未确认，不承诺异常等于回滚。权限与 CHAT/PLAN/ACT/GOAL 为不同概念，斜杠模式命令不修改权限。
 
 ## Decision history — 2026-09-28 operation classification
 

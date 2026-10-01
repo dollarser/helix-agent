@@ -18,6 +18,7 @@ object ChatSubmissionErrorMapper {
             "REQUEST_ID_ALREADY_USED" to R.string.chat_submission_rejected_request_id_reused,
             "CONFIRMATION_CHANGED" to R.string.chat_submission_rejected_confirmation_changed,
             "NO_PROVIDER" to R.string.chat_blocked_no_provider_bound,
+            "NO_MODEL_SELECTED" to R.string.chat_model_required_before_send,
             "ATTACHMENT_VERIFICATION_FAILED" to R.string.chat_blocked_snapshot_verify_failed,
             "TURN_NOT_ACCEPTED" to R.string.chat_submission_rejected_turn_not_accepted,
             "INPUT_NOT_FOUND" to R.string.session_input_rejected_not_found,

@@ -45,6 +45,33 @@ class SessionSettingsDeviceTest {
         compose.onNodeWithTag("chat-permission-menu").assertIsDisplayed()
     }
 
+    @Test fun composerPresetChangesOnlyThisSessionAndNotTheNextSessionDefault() {
+        compose.resetDeterministicUiState()
+        val container = compose.container()
+        val chat = container.chatService
+        val edit = container.sessionPermissionEdit
+        val default = edit.appDefault()
+        val id = requireNotNull(chat.screen.value.openSessionId)
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("chat-permission-menu").fetchSemanticsNodes().any {
+                !it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)
+            }
+        }
+        assertNull(container.storage.sessions.find(id))
+        compose.onNodeWithTag("chat-permission-menu").performClick()
+        assertNull(container.storage.sessions.find(id))
+        compose.onNodeWithTag("chat-permission-FULL_ACCESS").performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            edit.activeConfigFor(id)?.mode == com.helix.core.model.SessionPermissionMode.FULL_ACCESS
+        }
+        assertEquals(default, edit.appDefault())
+        chat.newSessionDraft()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId != id }
+        val next = requireNotNull(chat.screen.value.openSessionId)
+        assertEquals(default.mode, (edit.activeConfigFor(next) ?: edit.appDefault()).mode)
+        assertEquals(com.helix.core.model.SessionPermissionMode.FULL_ACCESS, edit.activeConfigFor(id)?.mode)
+    }
+
     @Test
     fun configuringExpertMaterializesDraftAndPersistsSessionProfile() {
         compose.resetDeterministicUiState()

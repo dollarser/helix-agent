@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_model_required_before_send">请先选择模型再发送，输入内容已保留。</string>
+    <string name="composer_permission_title">当前会话权限</string>
+    <string name="composer_permission_loading">权限加载中</string>
+    <string name="composer_permission_saving">正在保存权限…</string>
+    <string name="composer_permission_failed">无法确认权限保存结果，请重试或前往会话设置检查。</string>
+    <string name="composer_permission_scope">仅影响当前会话的后续操作；不会停止已运行任务或自动批准待审批操作。</string>
+    <string name="composer_permission_custom">自定义权限与详细设置…</string>
+</resources>

@@ -23,6 +23,7 @@ data class ConversationIntents(
         true
     },
     val onSetChatTools: (Boolean) -> Unit,
+    val onSelectPermission: suspend (com.helix.core.model.SessionPermissionMode) -> Boolean = { false },
     val onSelectModel: (String, String) -> Unit = { _, _ -> },
     val onSetReasoning: (com.helix.core.model.ReasoningEffort) -> Unit = {},
     val onNew: () -> Unit = {},

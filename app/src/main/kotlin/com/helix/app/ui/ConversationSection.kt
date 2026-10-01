@@ -435,7 +435,10 @@ internal fun ConversationSection(
             )
         }
         composerFeedback()
+        var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
         ConversationComposer(
+            editorKey = screen.openSessionId,
+            onChooseModel = { modelPickerRequest++ },
             headerStatus = composerStatus,
             optionsContent = composerOptions,
             input = input,
@@ -455,6 +458,7 @@ internal fun ConversationSection(
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSelectModel,
                     onManageModels = intents.onManageModels,
+                    openRequest = modelPickerRequest,
                     reasoningContent = {
                         ComposerReasoningMenu(
                             runControl.reasoning,
@@ -467,11 +471,13 @@ internal fun ConversationSection(
             },
             permissionMode = permissionMode,
             onPermission = intents.onSettings,
+            onPermissionMode = intents.onSelectPermission,
             contextUsage = screen.contextUsage,
             onCompact = intents.onCompact,
             canCompact =
                 !screen.isDraft && !screen.isSending &&
-                    screen.pendingDisclosure == null && screen.pendingAttachments.isEmpty(),
+                    screen.pendingDisclosure == null && screen.pendingAttachments.isEmpty() &&
+                    composerAvailability.modelSelected,
             turnState = screen.activeTurn?.state,
             availability = composerAvailability,
             actions =

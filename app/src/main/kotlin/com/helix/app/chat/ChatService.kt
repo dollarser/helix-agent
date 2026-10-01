@@ -2267,6 +2267,13 @@ class ChatService(
                 ChatSubmissionOutcome.Rejected("CONFIRMATION_PENDING")
             }
         }
+        val selection =
+            sessionDraft?.session?.takeIf { it.id == request.sessionId }
+                ?: storage.sessions.find(request.sessionId)
+                ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        if (!hasSelectedConversationModel(selection.providerId, selection.modelId)) {
+            return ChatSubmissionOutcome.Rejected("NO_MODEL_SELECTED")
+        }
         if (!validHumanInput(request)) return ChatSubmissionOutcome.Rejected("INVALID_INPUT")
         if (preparingDraft) return ChatSubmissionOutcome.Rejected("PREPARING_DRAFT")
         if (request.attachmentIds != stagedAttachments.map { it.artifactId }) {

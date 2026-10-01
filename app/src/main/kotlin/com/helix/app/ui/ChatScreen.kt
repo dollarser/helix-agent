@@ -98,6 +98,7 @@ fun ChatScreen(
     var permissionRevision by remember(sessionId) { mutableStateOf(0) }
     var permissionMode by remember(sessionId) { mutableStateOf<SessionPermissionMode?>(null) }
     val referenceUnavailableReason = stringResource(R.string.chat_blocked_reference_unavailable)
+    val modelRequiredReason = stringResource(R.string.chat_model_required_before_send)
     if (connectorsOpen && sessionId != null && connectors != null) {
         com.helix.app.connector
             .ConnectorSessionPanel(connectors, sessionId, onExtensions) { connectorsOpen = false }
@@ -303,10 +304,17 @@ fun ChatScreen(
         }
     }
     val onSendAction: () -> Unit = {
-        val available = buffer.editable && buffer.canSubmit && screen.pendingDisclosure == null
-        if (sessionId != null && available) {
+        val live = chatService.screen.value
+        val selected =
+            com.helix.app.chat
+                .hasSelectedConversationModel(live.badge?.providerId, live.badge?.model)
+        val available = buffer.editable && buffer.canSubmit && live.pendingDisclosure == null
+        val currentSession = sessionId?.takeIf { it == live.openSessionId }
+        if (currentSession != null && available && !selected) {
+            chatService.showBlockedReason(modelRequiredReason)
+        } else if (currentSession != null && available) {
             // Capture the editor's identity before the first suspension, including attachment selection.
-            buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+            buffer.attachments(chatService.currentStagedAttachmentIds(currentSession))
             val intent = buffer.captureSubmission()
             buffer.sending = true
             scope.launch {
@@ -354,6 +362,11 @@ fun ChatScreen(
                         input = buffer.editable && editMessageId == null,
                         attachments = !buffer.sending && screen.pendingDisclosure == null,
                         delivery = buffer.editable && buffer.canSubmit,
+                        modelSelected =
+                            com.helix.app.chat.hasSelectedConversationModel(
+                                screen.badge?.providerId,
+                                screen.badge?.model,
+                            ),
                         localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                     ),
                 composerStatus = {
@@ -471,6 +484,34 @@ fun ChatScreen(
                             }
                         },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
+                        onSelectPermission = { selected ->
+                            val id = sessionId
+                            val edit = sessionPermissionEdit
+                            val matches = id != null && chatService.screen.value.openSessionId == id
+                            val materialized =
+                                matches &&
+                                    chatService.materializeDraftSession(requireNotNull(id)) == id
+                            val stillCurrent = materialized && chatService.screen.value.openSessionId == id
+                            if (id == null || edit == null || !stillCurrent) {
+                                false
+                            } else {
+                                val actual =
+                                    withContext(Dispatchers.IO) {
+                                        edit.saveSessionConfig(
+                                            id,
+                                            com.helix.core.policy.SessionPermissionConfig
+                                                .of(selected),
+                                            System.currentTimeMillis(),
+                                        )
+                                        checkNotNull(edit.activeConfigFor(id)).mode
+                                    }
+                                if (chatService.screen.value.openSessionId == id) {
+                                    permissionMode = actual
+                                    permissionRevision++
+                                }
+                                actual == selected
+                            }
+                        },
                         onSelectModel = chatService::selectSessionModel,
                         onSetMode = chatService::setMode,
                         onCommandMode = { mode ->

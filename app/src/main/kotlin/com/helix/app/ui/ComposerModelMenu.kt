@@ -70,7 +70,8 @@ private fun ConversationModelItem(
 }
 
 @Composable
-@Suppress("FunctionName", "LongParameterList", "LongMethod") // Searchable model picker; no new execution entry.
+// The search/selection render tree stays in one picker, also opened by the no-model reminder.
+@Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun ComposerModelMenu(
     providers: List<ProviderRowUi>,
     providerId: String?,
@@ -78,6 +79,7 @@ internal fun ComposerModelMenu(
     enabled: Boolean,
     onSelect: (String, String) -> Unit,
     onManageModels: (() -> Unit)? = null,
+    openRequest: Int = 0,
     reasoningContent: (@Composable () -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -91,6 +93,13 @@ internal fun ComposerModelMenu(
             .filter { (row, candidate) -> matchesModelQuery(row, candidate, query) }
     val pendingProviders = providers.filter { it.needsModelSetup(query) }
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
+    LaunchedEffect(openRequest) {
+        if (openRequest > 0 && enabled) {
+            requestedModel = null
+            query = ""
+            expanded = true
+        }
+    }
     Box {
         TextButton({
             requestedModel = null

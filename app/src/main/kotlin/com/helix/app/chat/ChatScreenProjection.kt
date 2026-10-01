@@ -219,6 +219,7 @@ internal class ChatScreenProjection(
         providerId: String?,
         modelId: String? = null,
     ): ProviderBadgeUi? {
+        if (!hasSelectedConversationModel(providerId, modelId)) return null
         val row = providerId?.let { pid -> providerService.rows.value.firstOrNull { it.id == pid } }
         return row?.let {
             ProviderBadgeUi(

@@ -14,26 +14,35 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
+import com.helix.app.ui.composer.completeComposerText
+import com.helix.app.ui.composer.synchronizeComposerText
 import com.helix.core.model.AgentMode
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.launch
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
+// Permission persistence failures remain visible; cancellation and uncertain commits are not reported as success.
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
 internal fun ConversationComposer(
     input: String,
     onInput: (String) -> Unit,
@@ -48,6 +57,9 @@ internal fun ConversationComposer(
     modelSelector: (@Composable () -> Unit)? = null,
     permissionMode: SessionPermissionMode? = null,
     onPermission: () -> Unit = {},
+    onPermissionMode: suspend (SessionPermissionMode) -> Boolean = { false },
+    onChooseModel: () -> Unit = {},
+    editorKey: String? = null,
     contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
@@ -58,20 +70,32 @@ internal fun ConversationComposer(
 ) {
     val commandScope = androidx.compose.runtime.rememberCoroutineScope()
     var commandPending by remember { mutableStateOf(false) }
+    var permissionPending by remember(editorKey) { mutableStateOf(false) }
+    var permissionNotice by remember(editorKey) { mutableStateOf<Int?>(null) }
+    var editorValue by rememberSaveable(editorKey, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(input, TextRange(input.length)))
+    }
+    val fieldValue = synchronizeComposerText(editorValue, input)
+    SideEffect { if (editorValue != fieldValue) editorValue = fieldValue }
+    val inputFocus = remember { FocusRequester() }
     var addOpen by remember { mutableStateOf(false) }
     var commandNotice by remember(input) { mutableStateOf<Int?>(null) }
     val command =
         com.helix.app.ui.composer.ComposerCommandParser
             .leadingCommand(input)
     val localOnly = command != null && input.trim() == "/${command.command}"
-    val canDeliver = if (localOnly) availability.localCommands else availability.delivery
+    val canDeliver = availability.canDeliver(localOnly)
     val commandColor = MaterialTheme.colorScheme.primary
     val commandBackground = MaterialTheme.colorScheme.primaryContainer
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         val activeQuery =
-            androidx.compose.runtime.remember(input) {
-                com.helix.app.ui.composer.ComposerCommandParser
-                    .parseQuery(input)
+            remember(fieldValue.text, fieldValue.selection) {
+                if (fieldValue.selection.collapsed) {
+                    com.helix.app.ui.composer.ComposerCommandParser
+                        .parseQuery(fieldValue.text, fieldValue.selection.end)
+                } else {
+                    null
+                }
             }
         if (activeQuery != null) {
             val suggestions =
@@ -82,14 +106,13 @@ internal fun ConversationComposer(
             com.helix.app.ui.composer.ComposerAutocompletePopup(
                 suggestions = suggestions,
                 onSelect = { item ->
-                    val (newText, _) =
-                        com.helix.app.ui.composer.ComposerCommandParser
-                            .applySuggestion(input, activeQuery, item)
-                    onInput(newText)
+                    editorValue = completeComposerText(fieldValue, activeQuery, item)
+                    onInput(editorValue.text)
+                    inputFocus.requestFocus()
                 },
             )
         }
-        ComposerToolbar(mode, permissionMode, onPermission, headerStatus, optionsContent) {
+        ComposerToolbar(mode, headerStatus, optionsContent) {
             ContextWindowIndicator(contextUsage, onCompact, canCompact)
         }
         Column(
@@ -109,9 +132,12 @@ internal fun ConversationComposer(
                     Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
                 }
                 OutlinedTextField(
-                    value = input,
-                    onValueChange = onInput,
-                    modifier = Modifier.weight(1f).testTag("chat-input"),
+                    value = fieldValue,
+                    onValueChange = { value ->
+                        editorValue = value
+                        if (value.text != input) onInput(value.text)
+                    },
+                    modifier = Modifier.weight(1f).focusRequester(inputFocus).testTag("chat-input"),
                     placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
                     enabled = availability.input && !commandPending,
                     colors =
@@ -164,6 +190,7 @@ internal fun ConversationComposer(
                         ((!goalMode || isSending) && (hasAttachments || referenceLabel != null))
                 IconButton(
                     onClick = {
+                        if (!canDeliver || commandPending || permissionPending) return@IconButton
                         when {
                             command == null -> {
                                 actions.onSend()
@@ -226,7 +253,7 @@ internal fun ConversationComposer(
                             }
                         }
                     },
-                    enabled = sendEnabled && canDeliver && !commandPending,
+                    enabled = sendEnabled && canDeliver && !commandPending && !permissionPending,
                     modifier = Modifier.testTag("chat-send"),
                 ) {
                     Icon(
@@ -234,6 +261,20 @@ internal fun ConversationComposer(
                         stringResource(R.string.common_send),
                     )
                 }
+            }
+            val hasUnsentContent = input.isNotBlank() || hasAttachments || referenceLabel != null
+            if (!availability.modelSelected && !localOnly && hasUnsentContent) {
+                TextButton(onClick = onChooseModel, modifier = Modifier.testTag("chat-select-model-reminder")) {
+                    Text(stringResource(R.string.chat_model_required_before_send))
+                }
+            }
+            permissionNotice?.let {
+                Text(
+                    stringResource(it),
+                    Modifier.padding(horizontal = 16.dp).testTag("chat-permission-notice"),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             commandNotice?.let {
                 Text(
@@ -259,8 +300,35 @@ internal fun ConversationComposer(
                     }
                 }
             }
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                modelSelector?.invoke()
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("chat-composer-footer"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    ComposerPermissionMenu(permissionMode, permissionPending, onSelect = { selected ->
+                        if (!permissionPending) {
+                            permissionPending = true
+                            permissionNotice = null
+                            commandScope.launch {
+                                try {
+                                    if (!onPermissionMode(selected)) {
+                                        permissionNotice =
+                                            R.string.composer_permission_failed
+                                    }
+                                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    permissionNotice = R.string.composer_permission_failed
+                                } finally {
+                                    permissionPending = false
+                                }
+                            }
+                        }
+                    }, onSettings = onPermission)
+                }
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    modelSelector?.invoke()
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -187,7 +188,7 @@ class ChatSubmissionReceiptDeviceTest {
         }
 
     @Test
-    fun rejectedSubmissionPreservesComposerInputAndMapsSafeReason() =
+    fun unselectedModelBlocksBeforeSubmissionAndPreservesComposerInput() =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -201,21 +202,23 @@ class ChatSubmissionReceiptDeviceTest {
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == sessionId }
 
                 compose.onNodeWithTag("chat-input").performTextInput("Draft text to preserve")
-                compose.onNodeWithTag("chat-send").performClick()
-
-                // Submission is rejected because NO_PROVIDER
-                compose.waitUntil(10_000) {
-                    chat.screen.value.blockedReason != null
-                }
-
-                // Verify input was preserved on screen
+                compose.onNodeWithTag("chat-send").assertIsNotEnabled()
+                compose.onNodeWithTag("chat-select-model-reminder").assertIsDisplayed()
                 compose.onNodeWithTag("chat-input").assertTextEquals("Draft text to preserve")
-                // Verify blocked reason is human-readable localized message, not raw internal code
-                val blocked = chat.screen.value.blockedReason
-                assertNotNull(blocked)
-                assertFalse(blocked!!.contains("NO_PROVIDER"))
-                assertFalse(blocked.contains("ADMISSION_FAILED"))
-                assertEquals(compose.activity.getString(R.string.chat_blocked_no_provider_bound), blocked)
+                assertNull(chat.screen.value.blockedReason)
+                assertTrue(storage.turns.listBySession(sessionId).isEmpty())
+                assertNull(storage.messages.latestUser(sessionId))
+                // A stale or non-UI caller still receives a precise reason, without materializing a Turn.
+                val request = ChatSubmission(sessionId, 1, UUID.randomUUID().toString(), "Draft text to preserve")
+                val outcome = chat.sendSubmission(request).await().outcome
+                assertEquals(ChatSubmissionOutcome.Rejected("NO_MODEL_SELECTED"), outcome)
+                assertEquals(
+                    R.string.chat_model_required_before_send,
+                    ChatSubmissionErrorMapper.stringResFor("NO_MODEL_SELECTED"),
+                )
+                assertTrue(storage.turns.listBySession(sessionId).isEmpty())
+                compose.onNodeWithTag("chat-select-model-reminder").performClick()
+                compose.onNodeWithTag("chat-model-search").assertIsDisplayed()
             } finally {
                 chat.closeSession()
                 storage.sessions.archive(sessionId, System.currentTimeMillis())

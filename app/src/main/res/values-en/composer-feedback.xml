@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_model_required_before_send">Choose a model before sending. Your draft has been kept.</string>
+    <string name="composer_permission_title">Current conversation permissions</string>
+    <string name="composer_permission_loading">Loading permissions</string>
+    <string name="composer_permission_saving">Saving permissions…</string>
+    <string name="composer_permission_failed">Could not confirm the permission change. Retry or check conversation settings.</string>
+    <string name="composer_permission_scope">Applies only to subsequent operations in this conversation. Running tasks are not stopped and pending approvals are not automatically granted.</string>
+    <string name="composer_permission_custom">Custom permissions and details…</string>
+</resources>

@@ -28,7 +28,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.core.model.SessionPermissionMode
 
 @Composable
 @Suppress("FunctionName")
@@ -46,8 +45,6 @@ internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
 @Suppress("FunctionName", "LongParameterList")
 internal fun ComposerToolbar(
     mode: com.helix.core.model.AgentMode,
-    permissionMode: SessionPermissionMode?,
-    onPermission: () -> Unit,
     headerStatus: @Composable () -> Unit,
     optionsContent: @Composable () -> Unit,
     contextIndicator: @Composable () -> Unit,
@@ -77,11 +74,6 @@ internal fun ComposerToolbar(
             { options = false },
         ) {
             optionsContent()
-            permissionMode?.let { permission ->
-                TextButton(onClick = onPermission, modifier = Modifier.testTag("chat-permission-menu")) {
-                    Text("🛡 ${stringResource(permission.labelRes())}")
-                }
-            }
         }
     }
 }
