@@ -2,9 +2,14 @@ package com.helix.app.terminal
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 @Suppress("FunctionName")
 internal fun ManualTerminalScreen(
@@ -39,8 +45,19 @@ internal fun ManualTerminalScreen(
 ) {
     val state by model.state.collectAsState()
     LaunchedEffect(state.connection) { state.connection?.let { model.observe(it) } }
-    var keyboard by remember { mutableStateOf(false) }
+    var keyboard by remember(state.connection) { mutableStateOf(false) }
     var licenses by remember { mutableStateOf(false) }
+    var help by remember { mutableStateOf(false) }
+    val imeVisible = WindowInsets.isImeVisible
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeVisible) {
+            imeWasVisible = true
+        } else if (imeWasVisible) {
+            keyboard = false
+            imeWasVisible = false
+        }
+    }
     Surface {
         Column(
             Modifier
@@ -51,46 +68,62 @@ internal fun ManualTerminalScreen(
         ) {
             TerminalTopBar(
                 onBack = onBack,
-                onLicenses = { licenses = true },
-                onToggleKeyboard = { keyboard = !keyboard },
+                onHelp = {
+                    keyboard = false
+                    help = true
+                },
+                keyboardVisible = imeVisible || keyboard,
+                keyboardEnabled = state.connection != null && state.isWriter,
+                onToggleKeyboard = { keyboard = !(imeVisible || keyboard) },
                 onRuntimeSettings = onRuntimeSettings,
             )
-            TerminalTabBar(
-                sessions = state.sessions,
-                activeSessionId = state.activeSessionId,
-                busy = state.busy,
-                directory = directory,
-                onSwitch = { model.switchSession(it) },
-                onNewTab = { model.open(directoryToStart = it) },
-            )
-            TerminalStatusBanners(
-                errorMessage = state.errorMessage,
-                isObserver = !state.isWriter && state.connection != null,
-            )
-            TerminalSessionDetails(
-                session = state.session,
-                directory = directory,
-                failed = state.failed,
-            )
-            TerminalActionControls(
-                state = state,
-                directory = directory,
-                model = model,
-            )
-            val connection = state.connection
-            if (connection != null) {
-                ManualTerminalViewport(
-                    connection,
-                    keyboard && state.isWriter,
-                    Modifier.weight(1f),
-                    onEnded = { model.refresh() },
-                )
-            } else {
-                TerminalEmptyState(state.hasSession)
-            }
+            TerminalBody(state, directory, model, keyboard) { keyboard = true }
         }
     }
+    if (help) {
+        TerminalHelp(
+            onDismiss = { help = false },
+            onLicenses = {
+                help = false
+                licenses = true
+            },
+        )
+    }
     if (licenses) TerminalLicenses { licenses = false }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ColumnScope.TerminalBody(
+    state: TerminalPageState,
+    directory: String,
+    model: ManualTerminalViewModel,
+    keyboard: Boolean,
+    onTerminalTap: () -> Unit,
+) {
+    TerminalTabBar(
+        sessions = state.sessions,
+        activeSessionId = state.activeSessionId,
+        busy = state.busy,
+        directory = directory,
+        onSwitch = { model.switchSession(it) },
+        onNewTab = { model.open(directoryToStart = it) },
+    )
+    TerminalStatusBanners(state.errorMessage, !state.isWriter && state.connection != null)
+    TerminalSessionDetails(state.session, directory, state.failed)
+    TerminalActionControls(state, directory, model)
+    val connection = state.connection
+    if (connection != null) {
+        ManualTerminalViewport(
+            connection,
+            keyboard && state.isWriter,
+            Modifier.weight(1f),
+            onEnded = { model.refresh() },
+            onTerminalTap = onTerminalTap,
+        )
+    } else {
+        TerminalEmptyState(state.hasSession)
+    }
 }
 
 @Composable
@@ -106,20 +139,30 @@ private fun TerminalEmptyState(hasSession: Boolean) {
 @Suppress("FunctionName")
 private fun TerminalTopBar(
     onBack: () -> Unit,
-    onLicenses: () -> Unit,
+    onHelp: () -> Unit,
+    keyboardVisible: Boolean,
+    keyboardEnabled: Boolean,
     onToggleKeyboard: () -> Unit,
     onRuntimeSettings: () -> Unit,
 ) {
-    Row(Modifier.horizontalScroll(rememberScrollState())) {
+    Row(Modifier.fillMaxWidth()) {
         TextButton(onClick = onBack) { Text(stringResource(R.string.files_back)) }
-        TextButton(onClick = onRuntimeSettings, modifier = Modifier.testTag("terminal-runtime-settings")) {
-            Text(stringResource(R.string.setup_runtime_title))
+        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+            TextButton(onClick = onHelp, modifier = Modifier.testTag("terminal-help")) {
+                Text(stringResource(R.string.terminal_help))
+            }
+            TextButton(onClick = onRuntimeSettings, modifier = Modifier.testTag("terminal-runtime-settings")) {
+                Text(stringResource(R.string.setup_runtime_title))
+            }
         }
-        TextButton(onClick = onLicenses) { Text(stringResource(R.string.terminal_licenses)) }
         TextButton(
             onClick = onToggleKeyboard,
+            enabled = keyboardEnabled,
             modifier = Modifier.testTag("terminal-keyboard"),
-        ) { Text(stringResource(R.string.terminal_keyboard)) }
+        ) {
+            val label = if (keyboardVisible) R.string.terminal_hide_keyboard else R.string.terminal_show_keyboard
+            Text(stringResource(label))
+        }
     }
 }
 
@@ -196,7 +239,6 @@ private fun TerminalSessionDetails(
     directory: String,
     failed: Boolean,
 ) {
-    Text(stringResource(R.string.terminal_title), style = MaterialTheme.typography.titleMedium)
     val initialDirectory =
         session
             ?.workspace
@@ -206,10 +248,9 @@ private fun TerminalSessionDetails(
     Text(
         stringResource(R.string.terminal_directory, initialDirectory),
         Modifier.testTag("terminal-workspace"),
-        maxLines = 2,
+        maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
-    Text(stringResource(R.string.terminal_shared_workspace), style = MaterialTheme.typography.bodySmall)
     session?.let {
         Text(
             "${it.phase} · ${it.stopReason.orEmpty()} · ${it.exitStatus ?: "—"}",
@@ -274,7 +315,13 @@ private fun TerminalLicenses(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val text =
         remember {
-            listOf("NOTICE.txt", "Apache-2.0.txt", "libvterm-MIT.txt").joinToString("\n\n") { name ->
+            listOf(
+                "NOTICE.txt",
+                "Apache-2.0.txt",
+                "libvterm-MIT.txt",
+                "Inconsolata-NOTICE.txt",
+                "Inconsolata-OFL.txt",
+            ).joinToString("\n\n") { name ->
                 context.assets
                     .open("terminal-licenses/$name")
                     .bufferedReader()

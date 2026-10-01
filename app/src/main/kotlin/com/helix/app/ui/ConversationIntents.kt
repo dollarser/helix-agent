@@ -29,6 +29,7 @@ data class ConversationIntents(
     val onTasks: () -> Unit = {},
     val onNavigation: () -> Unit = {},
     val onSettings: () -> Unit = {},
+    val onManageModels: () -> Unit = {},
     val onReference: () -> Unit = {},
     val onClearReference: () -> Unit = {},
     val onExpert: () -> Unit = {},

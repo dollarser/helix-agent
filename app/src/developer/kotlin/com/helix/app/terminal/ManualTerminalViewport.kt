@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
@@ -51,10 +53,13 @@ internal fun ManualTerminalViewport(
     keyboard: Boolean,
     modifier: Modifier,
     onEnded: () -> Unit,
+    onTerminalTap: () -> Unit = {},
 ) {
     val input = remember(connection) { TerminalInput() }
     val inputFailed by input.failed.collectAsState()
     val feed = remember(connection) { TerminalFeed() }
+    val resources = LocalResources.current
+    val terminalTypeface = remember(resources) { resources.getFont(R.font.inconsolata_regular) }
     LaunchedEffect(connection) {
         transport(onFailure = {
             input.failed.value = true
@@ -95,17 +100,6 @@ internal fun ManualTerminalViewport(
         }
         if (feed.failed) Text(stringResource(R.string.terminal_output_failed))
         if (feed.gap) Text(stringResource(R.string.terminal_output_gap), Modifier.testTag("terminal-output-gap"))
-        Row(Modifier.horizontalScroll(rememberScrollState())) {
-            listOf("Ctrl-C" to 3, "Tab" to 9, "Esc" to 27, "Ctrl-D" to 4).forEach { (label, value) ->
-                TextButton(
-                    onClick = { input.offer(byteArrayOf(value.toByte())) },
-                    enabled = connection.isWriter,
-                    modifier = Modifier.testTag("terminal-key-$value"),
-                ) {
-                    Text(label)
-                }
-            }
-        }
         key(connection, feed.epoch) {
             val emulator =
                 remember {
@@ -129,14 +123,26 @@ internal fun ManualTerminalViewport(
                     feed.read(connection, emulator, onEnded)
                 }
             }
-            Terminal(
-                terminalEmulator = emulator,
-                modifier = Modifier.fillMaxSize().testTag("terminal-viewport"),
-                minFontSize = 10.sp,
-                initialFontSize = 12.sp,
-                keyboardEnabled = true,
-                showSoftKeyboard = keyboard,
-            )
+            Column(Modifier.fillMaxSize()) {
+                Terminal(
+                    terminalEmulator = emulator,
+                    modifier = Modifier.weight(1f).fillMaxWidth().testTag("terminal-viewport"),
+                    typeface = terminalTypeface,
+                    minFontSize = 10.sp,
+                    initialFontSize = 13.sp,
+                    keyboardEnabled = connection.isWriter,
+                    showSoftKeyboard = keyboard && connection.isWriter,
+                    onTerminalTap = { if (connection.isWriter) onTerminalTap() },
+                    onHyperlinkClick = { if (connection.isWriter) onTerminalTap() },
+                )
+                TerminalExtraKeys(connection.isWriter) { shortcut ->
+                    shortcut.send(
+                        connection.isWriter,
+                        sendKey = { emulator.dispatchKey(0, it) },
+                        sendText = { input.offer(it.toByteArray(Charsets.UTF_8)) },
+                    )
+                }
+            }
         }
     }
 }

@@ -45,6 +45,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision history
 
+- 2026-10-01：HXA-237 保留账号/连接/具体模型各自验证事实，增加高亮测试及会话选模修复入口，不把登录或填写版本视为连接通过。Codex 目录兼容版本默认 0.159.3，用户可在 Runtime 自有账号页面填写有界版本或恢复默认；只作用于下一次目录/连接请求的 client_version，不改 endpoint/凭据、不安装 CLI、不静默自动更新。版本更新不声称全部模型能力或服务商授权。
+
 - 2026-10-01：所有者授权依次完成剩余工作；[HXA-233](../../development/tasks/HXA-233.md) 接受上述引用感知生命周期与清理边界。它是设计接受，不是实现或设备已通过。
 
 - 2026-09-30：所有者授权参考 `V1ki/dsh-plugin-subscriptions` 增加 Antigravity、固定账号顺序并排除 consumer；后续明确 Key 型套餐仍归 API。实现与实际验证见[接入记录](../../evidence/development/subscription-antigravity-2026-09-30.md)。本决定不把真实账号、设备或发行授权记成通过。

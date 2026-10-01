@@ -454,6 +454,7 @@ internal fun ConversationSection(
                     screen.badge?.model,
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSelectModel,
+                    onManageModels = intents.onManageModels,
                     reasoningContent = {
                         ComposerReasoningMenu(
                             runControl.reasoning,

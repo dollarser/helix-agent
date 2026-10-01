@@ -387,7 +387,7 @@ fun ChatScreen(
                         }
                     }
                 },
-                bindableProviders = providerRows.filter { it.chatSelectable },
+                bindableProviders = providerRows,
                 artifacts = {
                     ConversationArtifacts(chatService, fileManager, screen)
                 },
@@ -395,6 +395,7 @@ fun ChatScreen(
                     ConversationIntents(
                         onNavigation = { navigateAfterSave(onNavigation) },
                         onSettings = { navigateAfterSave(onSessionSettings) },
+                        onManageModels = { navigateAfterSave(onModels) },
                         onReference = {
                             if (sessionId != null && buffer.editable && !buffer.sending) referenceOpen = true
                         },

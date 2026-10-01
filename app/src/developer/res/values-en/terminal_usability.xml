@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_help">Help</string>
+    <string name="terminal_show_keyboard">Show keyboard</string>
+    <string name="terminal_hide_keyboard">Hide keyboard</string>
+    <string name="terminal_more_keys">More keys</string>
+    <string name="terminal_fewer_keys">Fewer keys</string>
+    <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_key_down">Down arrow</string>
+    <string name="terminal_key_left">Left arrow</string>
+    <string name="terminal_key_right">Right arrow</string>
+    <string name="terminal_help_input">Tap the terminal to show the keyboard; hide it from the toolbar for more reading space. Scrolling and text selection do not request the keyboard. Expand More keys for editing shortcuts and symbols. Read-only connections cannot send input.</string>
+    <string name="terminal_help_font">Uses the compact Inconsolata monospace font with pinch-to-zoom. The system supplies missing glyphs, including Chinese; terminal cells remain aligned. Font attribution is under Component licenses.</string>
+</resources>

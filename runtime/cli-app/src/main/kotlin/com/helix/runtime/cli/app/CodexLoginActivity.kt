@@ -198,7 +198,12 @@ class CodexLoginActivity : Activity() {
         }
         content.setBusy(true, vault.contains(CliSubscriptionProvider.CODEX))
         content.status.setText(R.string.codex_smoke_running)
-        val smoke = CodexSubscriptionSmoke(vault, controller).also { activeSmoke = it }
+        val smoke =
+            CodexSubscriptionSmoke(
+                vault,
+                controller,
+                clientVersion = codexClientSettings(this).current(),
+            ).also { activeSmoke = it }
         worker.execute {
             val result = runCatching { smoke.checkConnection() }
             smoke.close()

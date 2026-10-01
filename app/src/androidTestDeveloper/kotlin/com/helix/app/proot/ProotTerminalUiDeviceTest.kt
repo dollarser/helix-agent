@@ -9,12 +9,14 @@ import android.view.inputmethod.EditorInfo
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ActivityScenario
@@ -67,6 +69,11 @@ class ProotTerminalUiDeviceTest {
                 awaitNode("terminal-viewport")
                 awaitPhase("RUNNING")
                 compose.onNodeWithTag("terminal-workspace").assertTextContains(relative, substring = true)
+                compose.onNodeWithTag("terminal-help-content").assertDoesNotExist()
+                compose.onNodeWithTag("terminal-help").performClick()
+                compose.onNodeWithTag("terminal-help-content").assertExists()
+                compose.onNodeWithTag("terminal-help-close").performClick()
+                compose.onNodeWithTag("terminal-help-content").assertDoesNotExist()
                 send(
                     scenario,
                     "export KEEP=preserved; printf '中文' > chinese.txt; printf '\\033[32mHELIX_中文_READY\\033[0m\\n'\n",
@@ -78,7 +85,7 @@ class ProotTerminalUiDeviceTest {
                     .uiAutomation
                     .executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")
                     .close()
-                compose.onNodeWithTag("terminal-keyboard").performClick()
+                compose.onNodeWithTag("terminal-viewport").performTouchInput { click() }
                 compose.waitUntil(10_000) {
                     var visible = false
                     scenario.onActivity {
@@ -90,6 +97,15 @@ class ProotTerminalUiDeviceTest {
                 }
                 visibleGlyphs("terminal-keyboard.png")
                 compose.onNodeWithTag("terminal-keyboard").performClick()
+                compose.waitUntil(10_000) {
+                    var hidden = false
+                    scenario.onActivity {
+                        hidden = ViewCompat
+                            .getRootWindowInsets(it.window.decorView)
+                            ?.isVisible(WindowInsetsCompat.Type.ime()) == false
+                    }
+                    hidden
+                }
                 send(scenario, "python3 -q\n")
                 send(scenario, "value = 40\n")
                 send(scenario, "open('repl.txt', 'w').write(str(value + 2))\n")

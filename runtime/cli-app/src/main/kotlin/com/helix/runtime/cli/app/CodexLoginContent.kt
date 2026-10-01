@@ -31,6 +31,7 @@ internal class CodexLoginContent(
             it.setPadding(0, padding, 0, padding)
             root.addView(it)
         }
+    private val clientVersion = CodexClientVersionSection(activity).also { root.addView(it.view) }
     private val login = button(R.string.codex_login_action, onLogin)
     private val deviceLogin = button(R.string.codex_device_login_action, onDeviceLogin)
     private val openDeviceBrowser = button(R.string.codex_device_open_browser, ::openDeviceVerification)
@@ -89,6 +90,7 @@ internal class CodexLoginContent(
         deviceActive: Boolean,
     ) {
         login.isEnabled = !loggedIn && !busy
+        clientVersion.setEnabled(!busy)
         deviceLogin.isEnabled = !loggedIn && !busy
         openDeviceBrowser.isEnabled = deviceActive && deviceVerificationUrl != null
         copyDeviceCode.isEnabled = deviceActive && deviceUserCode != null
@@ -103,6 +105,7 @@ internal class CodexLoginContent(
         loggedIn: Boolean,
     ) {
         login.isEnabled = !busy
+        clientVersion.setEnabled(!busy)
         deviceLogin.isEnabled = !busy
         openDeviceBrowser.isEnabled = false
         copyDeviceCode.isEnabled = false

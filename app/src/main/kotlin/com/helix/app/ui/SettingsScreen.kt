@@ -76,6 +76,7 @@ fun SettingsScreen(
             "settings-open-audit",
             onAudit,
         )
+        AboutHelixSection()
     }
 }
 

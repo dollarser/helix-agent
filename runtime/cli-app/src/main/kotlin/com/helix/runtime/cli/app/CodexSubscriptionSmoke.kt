@@ -36,6 +36,7 @@ internal class CodexSubscriptionSmoke(
     private val vault: CliSubscriptionCredentialVault,
     private val oauth: CodexLoginController,
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    private val clientVersion: String = CodexClientVersionSettings.DEFAULT,
 ) : Closeable {
     private val client =
         client
@@ -117,7 +118,7 @@ internal class CodexSubscriptionSmoke(
         val request =
             Request
                 .Builder()
-                .url("$MODELS_URL?client_version=$CLIENT_VERSION")
+                .url(CodexClientVersionSettings.catalogUrl(clientVersion))
                 .header("Authorization", "Bearer $accessToken")
                 .header("chatgpt-account-id", accountId)
                 .header("originator", "codex_cli_rs")
@@ -140,7 +141,6 @@ internal class CodexSubscriptionSmoke(
     internal companion object {
         const val MODELS_URL = "https://chatgpt.com/backend-api/codex/models"
         const val RESPONSES_URL = "https://chatgpt.com/backend-api/codex/responses"
-        const val CLIENT_VERSION = "0.156.1"
         const val EXPECTED_TEXT = "HELIX_OK"
         const val MAX_TEXT_CHARS = 64
         const val MAX_CATALOG_BYTES = 1024L * 1024L

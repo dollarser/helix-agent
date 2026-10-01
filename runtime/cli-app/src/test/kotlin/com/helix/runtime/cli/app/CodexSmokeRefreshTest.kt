@@ -86,8 +86,23 @@ class CodexSmokeRefreshTest {
         }
     }
 
+    @Test fun configuredVersionIsUsedForBothOriginalAndRefreshedCatalogRequests() {
+        Fixture(clientVersion = "0.160.0").use {
+            it.smoke.checkConnection()
+            assertEquals(2, it.requests.size)
+            assertEquals(
+                listOf("0.160.0", "0.160.0"),
+                it.requests.map { request ->
+                    request.url.queryParameter("client_version")
+                },
+            )
+            assertEquals(listOf("GET", "GET"), it.requests.map { request -> request.method })
+        }
+    }
+
     private class Fixture(
         alwaysUnauthorized: Boolean = false,
+        clientVersion: String = CodexClientVersionSettings.DEFAULT,
         refreshAction: (CliSubscriptionSession) -> CliSubscriptionSession = { it.copy(accessToken = "rotated") },
     ) : AutoCloseable {
         val vault =
@@ -134,7 +149,7 @@ class CodexSmokeRefreshTest {
                         .body(body.toResponseBody())
                         .build()
                 }.build()
-        val smoke = CodexSubscriptionSmoke(vault, CodexLoginController(vault, transport), client)
+        val smoke = CodexSubscriptionSmoke(vault, CodexLoginController(vault, transport), client, clientVersion)
 
         override fun close() = smoke.close()
     }

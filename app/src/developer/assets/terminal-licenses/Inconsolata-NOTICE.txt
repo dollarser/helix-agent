@@ -1,0 +1,14 @@
+Inconsolata Regular (unmodified upstream font)
+Copyright 2006 The Inconsolata Project Authors
+https://github.com/cyrealtype/Inconsolata
+
+Source: https://github.com/googlefonts/Inconsolata
+Commit: fc1fc21081558b39a2db43bfd9b65bf9acb50701
+File: fonts/ttf/Inconsolata-Regular.ttf
+SHA-256: ab56ea18c5c24d2b909261f0c63a14f9576dfabaf2e9ebd353062aa4149cefc7
+Retrieved: 2026-10-01
+
+Licensed under the SIL Open Font License 1.1; see Inconsolata-OFL.txt.
+Helix includes the font only in the developer terminal. The font has not been modified.
+The bundled license has trailing line whitespace normalized; its wording is unchanged.
+Upstream OFL.txt SHA-256: 5d362a6f8690517fd9a5573128a081d8bbbb2f92714cf00556e08fbbe9600426

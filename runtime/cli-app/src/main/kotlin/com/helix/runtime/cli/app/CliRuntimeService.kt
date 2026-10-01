@@ -138,7 +138,11 @@ class CliRuntimeService : Service() {
                 val vault = CliSubscriptionCredentialVault(this)
                 when (provider) {
                     CliModelProvider.CODEX -> {
-                        CodexModelCatalog(vault, CodexLoginController(vault, oauthTransport.value)).fetch()
+                        CodexModelCatalog(
+                            vault,
+                            CodexLoginController(vault, oauthTransport.value),
+                            codexClientSettings(this).current(),
+                        ).fetch()
                     }
 
                     CliModelProvider.ANTIGRAVITY -> {

@@ -113,6 +113,8 @@ internal fun ProviderRow(
             ) {
                 Text(stringResource(R.string.provider_subscription_manage_account))
             }
+            SubscriptionSetupHint(row)
+            ProviderConnectionTestAction(row, testing, detectingCapabilities, actions.onTest)
         }
         Text(stringResource(R.string.provider_models_selected_count, row.conversationModels.size))
         OutlinedButton(
@@ -132,24 +134,8 @@ internal fun ProviderRow(
             ProviderCapabilityResult(capabilityOutcome)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = actions.onTest,
-                enabled = !testing,
-                modifier = Modifier.fillMaxWidth().testTag("provider-test"),
-            ) {
-                Text(
-                    stringResource(
-                        if (testing && !detectingCapabilities) {
-                            R.string.provider_testing
-                        } else if (row.managedExternally) {
-                            R.string.provider_account_connection_test
-                        } else {
-                            R.string.provider_connection_test
-                        },
-                    ),
-                )
-            }
             if (!row.managedExternally) {
+                ProviderConnectionTestAction(row, testing, detectingCapabilities, actions.onTest)
                 OutlinedButton(
                     onClick = actions.onDetectCapabilities,
                     enabled = !testing && row.chatSelectable,

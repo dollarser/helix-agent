@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 internal class CodexModelCatalog(
     private val vault: CliSubscriptionCredentialVault,
     private val oauth: CodexLoginController,
+    private val clientVersion: String = CodexClientVersionSettings.DEFAULT,
 ) {
     fun fetch(): CliModelCatalog {
         val client =
@@ -58,7 +59,7 @@ internal class CodexModelCatalog(
         val request =
             Request
                 .Builder()
-                .url("${CodexSubscriptionSmoke.MODELS_URL}?client_version=${CodexSubscriptionSmoke.CLIENT_VERSION}")
+                .url(CodexClientVersionSettings.catalogUrl(clientVersion))
                 .header("Authorization", "Bearer ${session.accessToken}")
                 .header("chatgpt-account-id", requireNotNull(session.accountId))
                 .header("originator", "codex_cli_rs")

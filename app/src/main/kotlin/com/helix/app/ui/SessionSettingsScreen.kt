@@ -77,11 +77,12 @@ internal fun SessionSettingsScreen(
             Text(stringResource(R.string.chat_command_mode_hint))
             Text(stringResource(R.string.session_settings_model))
             ComposerModelMenu(
-                providers = providers.filter { it.chatSelectable },
+                providers = providers,
                 providerId = screen.badge?.providerId,
                 model = screen.badge?.model,
                 enabled = !screen.isSending && screen.pendingDisclosure == null,
                 onSelect = chatService::selectSessionModel,
+                onManageModels = onModels,
             )
             OutlinedButton(
                 onClick = onModels,

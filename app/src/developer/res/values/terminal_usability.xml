@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_help">帮助</string>
+    <string name="terminal_show_keyboard">显示键盘</string>
+    <string name="terminal_hide_keyboard">收起键盘</string>
+    <string name="terminal_more_keys">更多键</string>
+    <string name="terminal_fewer_keys">收起键</string>
+    <string name="terminal_key_up">向上方向键</string>
+    <string name="terminal_key_down">向下方向键</string>
+    <string name="terminal_key_left">向左方向键</string>
+    <string name="terminal_key_right">向右方向键</string>
+    <string name="terminal_help_input">点击终端正文即可弹出键盘；用顶部按钮收起键盘以扩大阅读区域。滚动和选择文本不会主动弹出键盘。底部提供常用键，展开“更多键”可输入编辑快捷键和符号。只读连接不能输入。</string>
+    <string name="terminal_help_font">使用 Inconsolata 紧凑等宽字体，可双指缩放。中文等缺失字形由系统回退显示；终端仍按字符网格对齐。字体许可证见“组件许可证”。</string>
+</resources>

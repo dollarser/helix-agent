@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="codex_client_version_current">Codex client compatibility version: %1$s</string>
+    <string name="codex_client_version_edit">Set client version</string>
+    <string name="codex_client_version_title">Codex client compatibility version</string>
+    <string name="codex_client_version_help">Sets client_version for Codex model discovery and connection checks, for example 0.159.3. Applies to the next request. This is not the Helix or model version and does not install Codex. Changing it does not verify connectivity or capabilities.</string>
+    <string name="codex_client_version_save">Save</string>
+    <string name="codex_client_version_default">Restore default</string>
+    <string name="codex_client_version_invalid">Enter a version such as 0.159.3 or 0.161.0-alpha.8, without spaces, URLs or query parameters.</string>
+    <string name="codex_client_version_save_failed">Could not confirm that the setting was saved. Please retry.</string>
+</resources>

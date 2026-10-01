@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subscription_setup_account">Sign in, test the connection, then choose conversation models in model management.</string>
+    <string name="subscription_setup_connection">One step remains: test this connection to make selected models available in conversations.</string>
+    <string name="subscription_setup_models">Connection passed. Select the models you want to use in model management.</string>
+    <string name="subscription_setup_ready">Selected models are available in conversations. A connection check does not verify every model capability.</string>
+    <string name="subscription_setup_test_action">Test connection (required before selection)</string>
+    <string name="model_picker_setup_action">Open model management</string>
+    <string name="model_picker_needs_setup">%1$s · Setup required</string>
+    <string name="about_helix_title">About Helix</string>
+    <string name="about_helix_version">Version: %1$s</string>
+    <string name="about_helix_project">Project, source code and issue reports</string>
+    <string name="about_helix_developer">Developer: dollarser</string>
+    <string name="about_link_failed">Unable to open a browser. Visit the GitHub address shown above.</string>
+</resources>

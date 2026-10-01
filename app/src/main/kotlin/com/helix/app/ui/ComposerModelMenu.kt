@@ -26,12 +26,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.provider.ProviderSetupStep
 
 private fun matchesModelQuery(
     row: ProviderRowUi,
     model: String,
     query: String,
 ): Boolean = listOf(model, row.modelLabel(model), row.displayName).any { it.contains(query, ignoreCase = true) }
+
+private fun ProviderRowUi.needsModelSetup(query: String): Boolean =
+    ProviderSetupStep.forRow(this) != ProviderSetupStep.READY &&
+        (displayName.contains(query, ignoreCase = true) || knownModels.any { it.contains(query, ignoreCase = true) })
 
 @Composable
 @Suppress("FunctionName")
@@ -72,6 +77,7 @@ internal fun ComposerModelMenu(
     model: String?,
     enabled: Boolean,
     onSelect: (String, String) -> Unit,
+    onManageModels: (() -> Unit)? = null,
     reasoningContent: (@Composable () -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -83,6 +89,7 @@ internal fun ComposerModelMenu(
         providers
             .flatMap { row -> row.conversationModels.map { row to it } }
             .filter { (row, candidate) -> matchesModelQuery(row, candidate, query) }
+    val pendingProviders = providers.filter { it.needsModelSetup(query) }
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
     Box {
         TextButton({
@@ -133,6 +140,17 @@ internal fun ComposerModelMenu(
                                     if (reasoningContent == null) expanded = false
                                     if (!current) onSelect(row.id, candidate)
                                 }
+                            }
+                            items(pendingProviders, key = { "setup:${it.id}" }) { row ->
+                                ModelSetupRow(
+                                    row,
+                                    onManageModels?.let { navigate ->
+                                        {
+                                            expanded = false
+                                            navigate()
+                                        }
+                                    },
+                                )
                             }
                         }
                     }
