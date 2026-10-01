@@ -20,4 +20,6 @@
     <string name="terminal_capacity_full">已达到最大并发终端数（最多 2 个）</string>
     <string name="terminal_observer_mode">当前连接为只读观察模式</string>
     <string name="terminal_initial_help">首次使用请先打开顶部 Runtime → 修复 Runtime，安装运行环境，再验证并启动会话。仅验证连接不会安装终端环境。</string>
+    <string name="terminal_execution_busy_help">手动终端与 Agent 的 JS、Bash 等执行共享占用。关闭页面不会释放；不用时请停止会话，确认停止后再点“结算并关闭”。有两个终端时需分别处理。未知执行不能直接解锁。</string>
+    <string name="terminal_settlement_required">终端已停止。请点“结算并关闭”释放占用。</string>
 </resources>

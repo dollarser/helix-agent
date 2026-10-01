@@ -152,6 +152,17 @@ class AgentLoop(
             context.workspaceBinding?.let {
                 provenance.recordWorkspace(coordinator.snapshot().modelCallId, it)
             }
+            if (compaction == null && context.jobObservationRefs.isNotEmpty()) {
+                coordinator.recordDiagnostic(
+                    "context.job_observations",
+                    kotlinx.serialization.json
+                        .JsonArray(
+                            context.jobObservationRefs.map {
+                                kotlinx.serialization.json.JsonPrimitive(it)
+                            },
+                        ).toString(),
+                )
+            }
             val acc =
                 collectModelStream(
                     coordinator,

@@ -68,7 +68,25 @@ internal object JobObservationOutput {
                     put("settlementPending", observed?.settlementPending)
                 }
             }
-        return ToolExecutorResult.Completed(output)
+        val evidence =
+            buildJsonObject {
+                put("reason", reason.name)
+                put("completeSet", bindings.all { it in known })
+                put(
+                    "observations",
+                    JsonArray(
+                        bindings.mapNotNull { binding ->
+                            known[binding]?.let { seen ->
+                                val old =
+                                    reason == JobObservationReason.SOURCE_UNAVAILABLE ||
+                                        nowNanos - seen.receivedNanos >= TimeUnit.MILLISECONDS.toNanos(freshnessMillis)
+                                JsonObject(JobObservationEvidence.encode(seen.value) + ("stale" to JsonPrimitive(old)))
+                            }
+                        },
+                    ),
+                )
+            }
+        return ToolExecutorResult.Completed(output, auditDetail = evidence)
     }
 
     private fun item(

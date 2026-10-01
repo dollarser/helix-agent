@@ -68,6 +68,8 @@ data class DispatchAuditEvent(
     val attemptId: Int = 1,
     /** Optional bounded redacted executor metadata (HXA-053); see the class KDoc. */
     val executionDetail: JsonObject? = null,
+    /** Assigned only by the dispatcher from the concrete executor, never remote metadata. */
+    val jobObservation: Boolean = false,
     /** HXA-209 (ADR-PERMISSIONS-001 section 5); see the class KDoc. */
     val sessionPermissionEvaluated: SessionPermissionDecisionAudit? = null,
     val sessionPermissionAtStart: SessionPermissionDecisionAudit? = null,

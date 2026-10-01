@@ -29,6 +29,16 @@ interface AuditEventDao {
     @Query("SELECT * FROM audit_events ORDER BY timestamp DESC, rowid DESC LIMIT :limit")
     fun recent(limit: Int): List<AuditEventEntity>
 
+    @Query(
+        "SELECT * FROM audit_events WHERE correlationId = :correlationId AND type = :type " +
+            "ORDER BY rowid DESC LIMIT :limit",
+    )
+    fun recentByCorrelation(
+        correlationId: String,
+        type: String,
+        limit: Int,
+    ): List<AuditEventEntity>
+
     @Query("DELETE FROM audit_events WHERE correlationId IN (:correlationIds)")
     fun deleteByCorrelations(correlationIds: List<String>): Int
 

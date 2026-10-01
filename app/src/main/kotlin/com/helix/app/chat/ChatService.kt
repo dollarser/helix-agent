@@ -232,6 +232,7 @@ class ChatService(
             projectInstructionsReader,
             memory,
             toolVisionConsent,
+            profile = { profile.value },
         )
     private val attachmentRetry = ChatAttachmentRetry(storage, attachmentStaging)
     private val labels = ChatStatusLabels(strings)

@@ -44,7 +44,9 @@ Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令�
 
 ## J1 观察与等待的阶段边界
 
-当前 status/await 通过唯一 Dispatcher 的 completion 路径及有界查询通道运行；等待释放业务 worker，但未实际退出的 Binder 查询仍占物理容量。用户停止等待与请求取消原 Job 分开，查询回执不会覆盖更新的控制回执。结果按原批次顺序作为普通 ToolResult 持久回填，不是独立观察候选自动进入 ContextCompiler，也不授权自动启动下一轮模型。实现、反例和准确限制见 [J1 阶段证据](../evidence/development/hxa236-job-observation-2026-10-01.md)，未执行的设备流程不记通过。
+当前 status/await 通过唯一 Dispatcher 的 completion 路径及有界查询通道运行；等待释放业务 worker，但未实际退出的 Binder 查询仍占物理容量。用户停止等待与请求取消原 Job 分开，查询回执不会覆盖更新的控制回执。结果仍按原批次顺序作为普通 ToolResult 回填；HXA-236 后续另将原审计日志中的状态变化按当前会话/权限筛选，经同一 ContextCompiler 有界纳入已获准请求，不触发新推理或查询。可信 executor 的持久审计取代名称白名单来判定健康等待与无进展；[后续证据](../evidence/development/hxa236-context-progress-2026-10-01.md)明确当前验证与设备边界，早期基础阶段记录保持历史范围。
+
+JS/Bash 的 EXECUTION_BUSY 是共享执行准入拒绝，不是语言独立的忙状态。v0.0.4 的终端提交前异常保留泄漏按[缺陷记录](../bug-fixes/2026-10-01-execution-busy-pre-submit.md)修复；运行或待结算的终端仍合法占用。手动 Stop 确认后还需结算，关闭页面不释放；未知副作用不能直接解锁。
 
 ## 手动终端与多会话
 

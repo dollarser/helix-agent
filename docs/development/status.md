@@ -50,11 +50,11 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 所有者追加的 [HXA-237](tasks/HXA-237.md) 已完成订阅测试引导、Codex 客户端兼容版本输入、终端帮助/字体/键盘及开发者入口的本地主机交付，见[验证记录](../evidence/development/hxa237-subscription-terminal-2026-10-01.md)；设备/真实服务未执行，保留收尾验收。上一阶段已保存为 `aca92e11`，未推送；阶段证据中的未提交状态是当时快照，不再作为当前事实。
 
-本轮本地主机与文档阶段收尾见[阶段记录](../evidence/development/phase-closeout-2026-10-01.md)。[HXA-126](tasks/HXA-126.md)、[233](tasks/HXA-233.md)、[234](tasks/HXA-234.md)、[235](tasks/HXA-235.md) 为本地交付后的收尾验收，不重复实施主体。[HXA-236](tasks/HXA-236.md) 的基础 join 已验证，但统一 JobObservation 上下文、可信类型进展判定及联合/设备验证尚未完成，继续保留进行中。当前没有启动 J2/Project Memory。
+本轮本地主机与文档阶段收尾见[阶段记录](../evidence/development/phase-closeout-2026-10-01.md)。[HXA-126](tasks/HXA-126.md)、[233](tasks/HXA-233.md)、[234](tasks/HXA-234.md)、[235](tasks/HXA-235.md) 为本地交付后的收尾验收，不重复实施主体。[HXA-236](tasks/HXA-236.md) 已补统一 JobObservation 上下文、可信类型进展判定及联合回归接线，当前为收尾验收；[后续记录](../evidence/development/hxa236-context-progress-2026-10-01.md)维护最新主机结果与设备/真实模型边界。同步修复用户反馈 v0.0.4 的一项[终端提交前占用泄漏](../bug-fixes/2026-10-01-execution-busy-pre-submit.md)，不把所有 BUSY 当作缺陷或强制释放未知执行。J2/Project Memory 尚未启动。
 
 | 开放工作 | 已有基础 | 仍需处理的范围 |
 | --- | --- | --- |
-| [HXA-236 J1](tasks/HXA-236.md) | 原身份观察、受控 completion、Linux jobs.await 和独立停止等待已接生产；[主机证据](../evidence/development/hxa236-job-observation-2026-10-01.md) | 统一观察候选进入 ContextCompiler、可信类型无进展判定、联合反例及指定设备；不是只差设备 |
+| [HXA-236 J1](tasks/HXA-236.md) | 原身份观察/等待、同一 ContextCompiler 状态投影、可信 Dispatcher 进展证据已接生产；[后续验证](../evidence/development/hxa236-context-progress-2026-10-01.md) | 指定设备真实 Room/任务/取消恢复组合及真实模型效果；代码编译和主机通过不关闭这些范围 |
 | [HXA-233 回放生命周期](tasks/HXA-233.md) | 引用感知清理、归属/分支/在途保护、存储反馈及 24 项新增主机回归已通过；[当前证据](../evidence/development/hxa233-replay-lifecycle-2026-10-01.md) | 8 项设备场景已编译但未执行；保守保留未知归属，不用主机证明进程/真机验收 |
 | [HXA-232 自主恢复](tasks/HXA-232.md) | 自动化授权内恢复、Goal 局部额度衔接、无进展收尾、Runtime 查询/收取、UNKNOWN 只读核查、原 Goal 账本、队列重验证、统一授权；QuickJS 原生总开关、结构化反问与提示词资源化已有实现及有界验证 | 真实模型恢复完成率、完整进程/订阅/PRoot 故障矩阵及 OEM；不把诊断完成或有限场景通过当作原任务成功 |
 | [历史正确性收口](../bug-fixes/2026-09-30-historical-correctness-audit.md) | Provider 探测发布/取消、压缩参数、Git、内容发布/删除并发和执行线程容量已有修复，纳入整合基线 | 仅按记录中遗留问题和新证据继续，不重新执行整个历史缺陷清单 |
@@ -75,11 +75,11 @@ HXA-232 的逐轮主机/设备证据留在任务文件，不在本页复制。HX
 
 ## Next task
 
-HXA-237 本地交付已完成，保留指定设备/真实服务补验；下一开发项在 HXA-236 内补齐统一观察上下文和可信类型进展判定，再按下表推进 J2 与 Project Memory，不重新开始基础 join 或 R2-A/R3。上一阶段检查点已保存为 `aca92e11`，本轮追加修改与验证另记，不自动继承旧绿色。固定 P5 仍需要选定 clean 提交、指定设备和模型条件，真实内测另需试用者。
+HXA-237 本地交付已完成；HXA-236 本轮上下文/进展接线与 BUSY 修复已通过完整适用主机、源码与制品整合，下一独立开发为 J2-1 AUTO → J2-2 用户后台按钮 → Project Memory。不重新开始基础 join 或 R2-A/R3。上一检查点 `aca92e11` 与体验提交 `4d449fb9` 不自动证明本轮新改动；固定 P5 仍需选定 clean 提交、指定设备和模型，真实内测另需试用者。
 
 | 顺序/分支 | 剩余工作 | 依赖与退出条件 |
 | --- | --- | --- |
-| 1．HXA-236 剩余本地衔接 | 有界 JobObservation 自动纳入、可信类型的进展判定、联合反例 | 复用现有 Core/Dispatcher；当前等待结果正常回填不等于自动观察已实现；按原任务逐项验证 |
+| 1．HXA-236 收尾验收 | 本地接线及主机结果见后续证据；实际设备/真实模型仍待补 | 不重做上下文/进展主体；确认旧占用原因与原执行事实，禁止因 BUSY 放宽权限或直接解锁 |
 | 2．J2-1 → J2-2 | 同次执行 AUTO，再接“继续在后台”按钮 | 原执行身份、日志、预算与租期不变；证明无重新启动/重复副作用，取消/终态竞争与 UI 回执明确 |
 | 3．Project Memory | 显式项目身份、会话关联、请求冻结、隔离及管理接线 | Global 已有；不能用 Workspace 路径代替 Project，验证切换/fork/撤销/跨项目污染 |
 | 条件性补验 | HXA-232 故障矩阵/真实恢复；233/234/235/236 设备；125/126/190 服务；同候选 P5/独立内测 | 指定设备、账号及当次授权；缺条件只阻塞对应项，不把 fixture、编译或旧绿色当通过 |

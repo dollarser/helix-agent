@@ -69,6 +69,16 @@ class JobObservationService(
         return matching.map { it.wait.requestStop() }.any { it }
     }
 
+    internal fun acceptsEvidence(
+        sessionId: String,
+        evidence: kotlinx.serialization.json.JsonObject,
+    ): Boolean {
+        val value = JobObservationEvidence.decode(evidence)
+        val binding = value.binding
+        return binding.sessionId == sessionId && port.resolve(sessionId, binding.handle) == binding &&
+            port.isCurrent(binding)
+    }
+
     internal fun start(
         call: ExecutableToolCall,
         waiting: Boolean,

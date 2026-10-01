@@ -17,6 +17,11 @@ internal class JobObservationExecutor(
             sideEffectFree = true,
         )
 
+    fun acceptsEvidence(
+        sessionId: String,
+        evidence: kotlinx.serialization.json.JsonObject,
+    ): Boolean = service.acceptsEvidence(sessionId, evidence)
+
     fun start(
         call: ExecutableToolCall,
         mayRead: () -> Boolean,

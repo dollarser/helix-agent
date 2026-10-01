@@ -54,6 +54,7 @@ internal class ChatRequestAssembler(
                 com.helix.core.model
                     .SystemClock(),
             ),
+    private val profile: () -> com.helix.core.model.SafetyProfile = { com.helix.core.model.SafetyProfile.STANDARD },
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
 
@@ -213,7 +214,7 @@ internal class ChatRequestAssembler(
             prompt = system,
             directory = directory,
             workspaceBinding = binding?.snapshot(),
-        )
+        ).let { JobObservationContext(storage, toolPipeline).include(it, sessionId, turnId, control, profile()) }
     }
 
     /**
@@ -282,7 +283,7 @@ internal class ChatRequestAssembler(
             prompt = system,
             directory = directory,
             workspaceBinding = binding?.snapshot(),
-        )
+        ).let { JobObservationContext(storage, toolPipeline).include(it, sessionId, turnId, control, profile()) }
     }
 
     override suspend fun rebuild(

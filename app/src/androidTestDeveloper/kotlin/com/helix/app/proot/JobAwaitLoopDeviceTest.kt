@@ -55,6 +55,7 @@ class JobAwaitLoopDeviceTest {
                     assertEquals(sha256("await-result".toByteArray()), sha256(fixture.output.readBytes()))
                     val job = DetachedJobDashboard.read(fixture.storage).single { it.sessionId == fixture.session }
                     assertFalse(job.settlementPending)
+                    assertObservationContext(fixture, calls.first().callId)
                 } finally {
                     try {
                         cleanupJob(fixture)
@@ -64,6 +65,28 @@ class JobAwaitLoopDeviceTest {
                 }
             }
         }
+
+    private fun assertObservationContext(
+        fixture: DetachedGoalFixture,
+        originalCallId: String,
+    ) {
+        val observations =
+            fixture.storage.auditEvents.recentByCorrelation(
+                fixture.session,
+                com.helix.app.chat.JobObservationJournal.TYPE,
+                64,
+            )
+        assertTrue(observations.isNotEmpty())
+        val diagnostics =
+            fixture.storage.modelCalls
+                .listByTurn(fixture.turn)
+                .flatMap { fixture.storage.auditEvents.listByCorrelation(it.id) }
+        assertTrue(diagnostics.any { it.type == "context.job_observations" })
+        val binding = ProotJobBindingStore(fixture.storage).resolveDetached(fixture.session, originalCallId)
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+            ProotJobBindingStore(fixture.storage).resolveDetached("fork", binding.toolCallId)
+        }
+    }
 
     private suspend fun cleanupJob(fixture: DetachedGoalFixture) {
         // Never replay a failed fixture command or delete unresolved original execution evidence.

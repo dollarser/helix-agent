@@ -60,6 +60,32 @@ class ExecutionOwnership(
             ReconciliationPermit(owner)
         }
 
+    /** Diagnostic snapshot only; no owner IDs, paths or authority to clear an execution. */
+    fun busyFailure(): ToolExecutorResult.Failed =
+        synchronized(lock) {
+            val reason =
+                when {
+                    reconciling -> {
+                        "RECONCILING: original execution is being reconciled; retry after it settles."
+                    }
+
+                    store.read() != null -> {
+                        "RETAINED_EXECUTION: collect the original background job, or stop and settle " +
+                            "the manual terminal. Leaving its page does not release it. " +
+                            "Unknown executions need exit proof."
+                    }
+
+                    active.isNotEmpty() -> {
+                        "ACTIVE_EXECUTION: another admitted call has not physically returned yet."
+                    }
+
+                    else -> {
+                        "ADMISSION_CHANGED: the competing operation changed; retry with current state."
+                    }
+                }
+            ToolExecutorResult.Failed("EXECUTION_BUSY: $reason", sideEffectFree = true)
+        }
+
     /** Read-only projection. It never starts a Runtime, renews a lease, or clears a holder. */
     fun retainedOwner(): Owner? = synchronized(lock) { store.read() }
 
@@ -185,8 +211,7 @@ class ExecutionOwnership(
             permit: ReconciliationPermit?,
         ): ToolExecutorResult = if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else action(call, permit)
 
-        private fun busy() =
-            ToolExecutorResult.Failed("EXECUTION_BUSY: original Runtime owner is unavailable.", sideEffectFree = true)
+        private fun busy() = busyFailure()
     }
 
     /**
@@ -259,10 +284,7 @@ private fun ExecutionOwnership.runOrdinary(
 ): ToolExecutorResult {
     val permit =
         acquire(call.toolCallId, exclusive)
-            ?: return ToolExecutorResult.Failed(
-                "EXECUTION_BUSY: reconcile or stop the existing Runtime execution before retrying.",
-                sideEffectFree = true,
-            )
+            ?: return busyFailure()
     return permit.use {
         if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)
     }

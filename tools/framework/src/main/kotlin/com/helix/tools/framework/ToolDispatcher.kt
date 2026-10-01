@@ -909,9 +909,18 @@ class ToolDispatcher(
         return started
     }
 
-    @Suppress("ReturnCount") // one fail-closed early return per check: the contract drift,
-    // the live session-permission stop, its missing-proof refusal, the hard-fact denial and
-    // the legacy missing-proof refusal must each stay explicit
+    /** Request assembly reads already-persisted facts only; this never asks approval or starts a query. */
+    fun mayReadJobObservation(
+        request: ToolDispatchRequest,
+        evidence: JsonObject,
+    ): Boolean {
+        val binding = request.bindingRef?.let(registry::resolveBinding) ?: return false
+        val executor = binding.executor as? JobObservationExecutor
+        return executor != null && mayStart(request, binding.descriptor, null, DispatchContext()) &&
+            executor.acceptsEvidence(request.sessionId, evidence)
+    }
+
+    @Suppress("ReturnCount") // Keep binding, permission and policy refusals explicit.
     private fun mayStart(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
@@ -1152,6 +1161,9 @@ class ToolDispatcher(
                 outputTruncated = ctx.outputTruncated,
                 attemptId = ctx.attemptId,
                 executionDetail = ctx.executionDetail,
+                jobObservation =
+                    ctx.executor is JobObservationExecutor && code == DispatchOutcomeCode.SUCCESS &&
+                        !ctx.outputTruncated && ctx.executionDetail != null,
                 sessionPermissionEvaluated = ctx.sessionPermissionEvaluated,
                 sessionPermissionAtStart = ctx.sessionPermissionAtStart,
             ),

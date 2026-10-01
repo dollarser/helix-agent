@@ -16,6 +16,51 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class JobObservationDispatchTest {
+    @Test fun realExecutorMarksAuditButSameNamedOrdinaryExecutorCannot() {
+        JobObservationDispatchFixture().use { fixture ->
+            fixture.observations.values["a"] = fixture.observations.value("a", true)
+            fixture.register()
+            fixture.dispatcher.dispatchCompletion(fixture.call()).get(5, TimeUnit.SECONDS)
+            assertTrue(fixture.events.single().jobObservation)
+        }
+        JobObservationDispatchFixture().use { fixture ->
+            fixture.register(
+                object : ToolExecutor {
+                    override fun execute(call: ExecutableToolCall) =
+                        ToolExecutorResult.Completed(
+                            buildJsonObject {},
+                            auditDetail = buildJsonObject { },
+                        )
+                },
+            )
+            fixture.dispatcher.dispatchCompletion(fixture.call()).get(5, TimeUnit.SECONDS)
+            assertFalse(fixture.events.single().jobObservation)
+        }
+    }
+
+    @Test fun contextPermissionCheckNeverQueriesAndRejectsForkAndRevocation() {
+        JobObservationDispatchFixture().use { fixture ->
+            fixture.register()
+            val request =
+                fixture.call().copy(
+                    bindingRef =
+                        fixture.registry
+                            .snapshot()
+                            .single()
+                            .ref,
+                )
+            val evidence = JobObservationEvidence.encode(fixture.observations.value("a", true))
+            assertTrue(fixture.dispatcher.mayReadJobObservation(request, evidence))
+            assertFalse(fixture.dispatcher.mayReadJobObservation(request.copy(sessionId = "fork"), evidence))
+            fixture.observations.current = false
+            assertFalse(fixture.dispatcher.mayReadJobObservation(request, evidence))
+            fixture.registry.replaceOwner(bindingOwner(ToolOrigin.BuiltInOrigin), emptyList())
+            assertFalse(fixture.dispatcher.mayReadJobObservation(request, evidence))
+            assertEquals(0, fixture.observations.calls.get())
+            assertTrue(fixture.events.isEmpty())
+        }
+    }
+
     @Test fun observerReleasesSchedulerSlotAndPreservesBatchOrder() {
         JobObservationDispatchFixture().use { fixture ->
             val entered = CountDownLatch(1)

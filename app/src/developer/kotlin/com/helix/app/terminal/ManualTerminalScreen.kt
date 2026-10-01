@@ -257,6 +257,9 @@ private fun TerminalSessionDetails(
             Modifier.testTag("terminal-state"),
         )
     }
+    if (session?.canSettle == true) {
+        Text(stringResource(R.string.terminal_settlement_required), Modifier.testTag("terminal-settlement-required"))
+    }
     if (failed) Text(stringResource(R.string.terminal_failed), Modifier.testTag("terminal-error"))
 }
 

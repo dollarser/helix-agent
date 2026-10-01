@@ -31,6 +31,15 @@ class AuditEventRepository(
 
     fun listByCorrelation(correlationId: String): List<AuditEventEntity> = dao.listByCorrelation(correlationId)
 
+    fun recentByCorrelation(
+        correlationId: String,
+        type: String,
+        limit: Int,
+    ): List<AuditEventEntity> {
+        require(limit in 1..64)
+        return dao.recentByCorrelation(correlationId, type, limit)
+    }
+
     fun deleteByCorrelations(correlationIds: List<String>): Int =
         if (correlationIds.isEmpty()) 0 else dao.deleteByCorrelations(correlationIds.distinct())
 

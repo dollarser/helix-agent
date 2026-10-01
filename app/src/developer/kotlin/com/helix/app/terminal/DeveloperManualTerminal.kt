@@ -81,27 +81,15 @@ internal class DeveloperManualTerminal(
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
                 val key = ptyKey(owner)
 
-                if (isPrimary) {
-                    checkNotNull(ownership.acquire("manual-${key.sessionId}")) { "Execution is busy" }.use { permit ->
-                        check(targetBinding.compareAndSet(null, owner))
-                        check(permit.retain(owner))
-                        val reply = launchSession(context, key, workspace, leaseMs)
-                        if (reply.outcome == "START_REFUSED" || reply.outcome == "CAPACITY_EXHAUSTED") {
-                            check(ownership.releaseUnsubmittedForCall("manual-${key.sessionId}", owner))
-                            check(targetBinding.compareAndSet(owner, null))
-                            error("Manual terminal was not started (${reply.outcome}); check Runtime readiness")
-                        }
-                        terminalState(reply)
-                    }
-                } else {
-                    check(targetBinding.compareAndSet(null, owner))
-                    val reply = launchSession(context, key, workspace, leaseMs)
-                    if (reply.outcome == "START_REFUSED" || reply.outcome == "CAPACITY_EXHAUSTED") {
-                        check(targetBinding.compareAndSet(owner, null))
-                        error("Manual terminal was not started (${reply.outcome}); check Runtime readiness")
-                    }
-                    terminalState(reply)
-                }
+                val reply =
+                    TerminalStartTransaction(ownership, targetBinding).launch(
+                        "manual-${key.sessionId}",
+                        owner,
+                        isPrimary,
+                        submit = { submitting -> launchSession(context, key, workspace, leaseMs, submitting) },
+                        refused = { it.outcome == "START_REFUSED" || it.outcome == "CAPACITY_EXHAUSTED" },
+                    )
+                terminalState(reply)
             }
         }
 
@@ -258,8 +246,10 @@ private fun launchSession(
     key: PtySessionKey,
     workspace: File,
     leaseMs: Long,
+    submitting: () -> Unit,
 ) = PtySessionClient(context).use { client ->
     client.connect()
+    submitting()
     client.request(key, Wire.START) { data ->
         data.writeString(workspace.path)
         data.writeLong(leaseMs)

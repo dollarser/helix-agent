@@ -31,6 +31,8 @@ data class TurnContextRequest(
     /** Immutable default directory captured when this request is assembled. */
     val directory: com.helix.core.workspace.FileScopePath? = null,
     val workspaceBinding: WorkspaceBindingSnapshot? = null,
+    val jobObservationRefs: List<String> = emptyList(),
+    val jobObservationMessage: ModelMessage? = null,
 ) {
     fun modelRequest(): ModelRequest =
         ModelRequest(

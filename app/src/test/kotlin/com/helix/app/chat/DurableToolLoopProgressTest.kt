@@ -65,7 +65,8 @@ class DurableToolLoopProgressTest {
                 decision(descriptor = read.copy(operationClass = operation)),
             )
         }
-        assertEquals(ToolLoopProgress.Decision.CONTINUE, decision(calls(name = "get_goal")))
+        // A remote or renamed ordinary tool cannot acquire trusted semantics from its name.
+        assertEquals(ToolLoopProgress.Decision.STOP, decision(calls(name = "get_goal")))
         assertEquals(
             ToolLoopProgress.Decision.CONTINUE,
             decision(

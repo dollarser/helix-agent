@@ -82,6 +82,7 @@ class StorageAuditSink(
                 // It is one allowlisted top-level key (the nested sub-keys are built by the
                 // executor, not passed through); null (JsonNull) when the tool reports none.
                 "executionDetail",
+                "jobObservation",
                 // HXA-209 (ADR-PERMISSIONS-001 section 5): the session-permission decision of
                 // the attempt and its at-start recheck — mode version, effects, outcome,
                 // reasons. Null (JsonNull) when the stage did not run.
@@ -118,6 +119,7 @@ class StorageAuditSink(
                 // HXA-053: the nested redacted object is emitted as-is when present; a null
                 // fact stays a present-but-null key so the allowlist shape is stable.
                 put("executionDetail", event.executionDetail ?: JsonNull)
+                put("jobObservation", event.jobObservation)
                 put(
                     "sessionPermissionEvaluated",
                     event.sessionPermissionEvaluated?.let(SessionPermissionAuditPayload::encode) ?: JsonNull,

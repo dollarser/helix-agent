@@ -17,10 +17,13 @@ internal class DetachedJobObservationStore(
     fun observe(
         binding: DetachedJobBinding,
         record: ProotJobRecord,
-    ) {
+    ) = storage.withTransaction {
         check(binding.jobId == record.jobId && binding.executionId == record.executionId)
         check(binding.inputManifestSha256 == record.inputManifestSha256)
-        if (!record.state.isTerminal) return
+        if (event(binding, "disposed") != null) return@withTransaction
+        // Do not publish a late RUNNING reply after a terminal receipt was committed.
+        if (record.state.isTerminal || event(binding, "terminal") == null) recordObservation(binding, record, false)
+        if (!record.state.isTerminal) return@withTransaction
         val payload =
             buildJsonObject {
                 put("version", 1)
@@ -36,10 +39,42 @@ internal class DetachedJobObservationStore(
     fun settled(
         binding: DetachedJobBinding,
         record: ProotJobRecord,
-    ) {
+    ) = storage.withTransaction {
         observe(binding, record)
+        check(event(binding, "disposed") == null) { "Original Job was disposed as unknown" }
         appendOnce(binding, "settled", requireNotNull(record.terminalCommit))
+        recordObservation(binding, record, true)
     }
+
+    private fun recordObservation(
+        binding: DetachedJobBinding,
+        record: ProotJobRecord,
+        settled: Boolean,
+    ) {
+        com.helix.app.chat.JobObservationJournal(storage).record(
+            com.helix.tools.framework.JobObservation(
+                observationBinding(binding),
+                record.state.wire,
+                record.state.isTerminal,
+                record.state == com.helix.runtime.proot.ipc.ProotJobState.ORPHANED,
+                !(settled || event(binding, "settled") != null),
+                record.terminalCommit ?: record.state.wire,
+                System.currentTimeMillis(),
+                record.exitCode,
+            ),
+        )
+    }
+
+    private fun observationBinding(binding: DetachedJobBinding) =
+        com.helix.tools.framework.JobObservationBinding(
+            binding.sessionId,
+            binding.turnId,
+            binding.toolCallId,
+            "android-proot",
+            binding.executionId,
+            binding.jobId,
+            binding.inputManifestSha256,
+        )
 
     fun read(binding: DetachedJobBinding): DetachedCommandFacts? {
         event(binding, "disposed")?.let {
@@ -82,6 +117,18 @@ internal class DetachedJobObservationStore(
                     }.toString(),
                 )
             }
+            // The existing qualified reboot/missing-record disposition is not a Runtime success or terminal record.
+            com.helix.app.chat.JobObservationJournal(storage).record(
+                com.helix.tools.framework.JobObservation(
+                    observationBinding(binding),
+                    "UNKNOWN",
+                    terminal = false,
+                    requiresReview = true,
+                    settlementPending = false,
+                    revision = "disposed",
+                    observedAtMillis = System.currentTimeMillis(),
+                ),
+            )
         }
     }
 

@@ -169,8 +169,22 @@ internal class TurnCoordinator private constructor(
         type: String,
         payload: String,
     ) {
-        require(type in setOf("budget.request", "budget.admitted", "budget.result", "context.compaction"))
-        require(payload.length <= 512)
+        if (type == "context.job_observations") {
+            require(payload.length <= 1024)
+            val refs =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(payload)
+            require(refs is kotlinx.serialization.json.JsonArray && refs.size <= 8)
+            require(
+                refs.all { ref ->
+                    ref is kotlinx.serialization.json.JsonPrimitive && ref.isString &&
+                        Regex("audit:job-observed-[a-f0-9]{64}").matches(ref.content)
+                },
+            )
+        } else {
+            require(type in setOf("budget.request", "budget.admitted", "budget.result", "context.compaction"))
+            require(payload.length <= 512)
+        }
         storage.auditEvents.append(
             idGenerator(),
             runtime.snapshot().modelCallId,
