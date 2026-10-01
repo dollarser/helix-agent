@@ -1,29 +1,26 @@
 package com.helix.app.agent
 
+import com.helix.core.agent.ContextCapacityException
+import com.helix.core.agent.ContextCheckpoint
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.entity.MessageEntity
 
-/** A capacity failure is recoverable and never means the archived conversation was deleted. */
-internal class ContextCapacityException(
-    val code: String,
-) : IllegalArgumentException(code)
-
 /** Page metadata, then check retained body sizes before reading any body. */
 internal object ContextHistory {
-    const val MAX_BODY_BYTES = 8 * 1024 * 1024
-    private const val MAX_RETAINED_ROWS = 8192
+    const val MAX_BODY_BYTES = com.helix.core.agent.ContextSourceSnapshot.MAX_BODY_BYTES
+    private const val MAX_RETAINED_ROWS = com.helix.core.agent.ContextSourceSnapshot.MAX_ROWS
     private const val PAGE_SIZE = 256
 
     data class Snapshot(
         val rows: List<MessageEntity>,
-        val checkpoint: ContextCompaction.Checkpoint?,
+        val checkpoint: ContextCheckpoint?,
     )
 
     fun checkpoint(
         storage: HelixStorage,
         sessionId: String,
-    ): ContextCompaction.Checkpoint? =
+    ): ContextCheckpoint? =
         ContextCompaction.checkpoint(
             storage,
             listOfNotNull(storage.messages.latestOfKind(sessionId, ContextCompaction.KIND)),

@@ -1,5 +1,6 @@
 package com.helix.app.connector
 
+import com.helix.app.plugin.PluginInstallationService
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import org.junit.Assert.assertEquals
@@ -45,12 +46,12 @@ class ConnectorInstallationServiceTest {
             Files.list(root.resolve("temporary")).use { assertEquals(0L, it.count()) }
         }
 
-    private fun fixture(test: (Path, ConnectorInstallationService) -> Unit) {
+    private fun fixture(test: (Path, PluginInstallationService) -> Unit) {
         val root = Files.createTempDirectory("connector-install-test-")
         try {
             val store = WorkspaceArtifactStore(ScopeRootResolver { root.resolve("workspace") })
             store.ensureLayout("app")
-            test(root, ConnectorInstallationService(store, root.resolve("temporary")) { error("No install expected") })
+            test(root, PluginInstallationService(store, root.resolve("temporary")) { error("No install expected") })
         } finally {
             Files.walk(root).use { paths ->
                 paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }

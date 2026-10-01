@@ -38,15 +38,15 @@ import kotlinx.coroutines.delay
 internal object AutomationModule {
     private var appContext: Context? = null
     private var center: AutomationPermissionCenter? = null
+    private var runtime: MobileUsePlugin? = null
 
     @Synchronized
     fun register(
         context: Context,
         plugins: PluginRegistry,
     ) {
-        if (center != null) return
-        val mobileUse = MobileUsePlugin(context.applicationContext)
-        plugins.register(mobileUse)
+        val mobileUse = runtime ?: MobileUsePlugin(context.applicationContext).also { runtime = it }
+        if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(mobileUse)
         appContext = context.applicationContext
         center = mobileUse.permissionCenter
     }

@@ -24,11 +24,9 @@ data object NoCancellation : CancelSignal {
 }
 
 /**
- * One registered tool IMPLEMENTATION, bound to the exact (name, version) contract. The
- * descriptor is the contract (registry); the executor is the code (this registry). The two
- * are registered separately on purpose: a contract without an implementation is legal
- * (e.g. a tool whose backend is not yet available) and the dispatcher fails it closed with
- * a stable error rather than executing anything.
+ * One registered tool implementation, atomically bound with its exact descriptor in ToolRegistry.
+ * Availability is distinct from installation; a missing or revoked binding fails before execution.
+ * Trusted Job observers enter through dispatchCompletion; this synchronous method never waits for them.
  */
 interface ToolExecutor {
     /**

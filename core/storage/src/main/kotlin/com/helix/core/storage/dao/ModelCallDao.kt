@@ -18,6 +18,14 @@ interface ModelCallDao {
     fun listByTurn(turnId: String): List<ModelCallEntity>
 
     @Query(
+        "SELECT EXISTS(SELECT 1 FROM model_calls WHERE turnId = :turnId AND id != :modelCallId AND state = 'RUNNING')",
+    )
+    fun hasOtherRunning(
+        turnId: String,
+        modelCallId: String,
+    ): Boolean
+
+    @Query(
         "UPDATE model_calls SET state = 'INTERRUPTED' WHERE state = 'RUNNING' " +
             "AND turnId IN (SELECT id FROM turns WHERE state = 'INTERRUPTED')",
     )

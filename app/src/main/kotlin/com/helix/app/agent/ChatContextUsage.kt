@@ -12,7 +12,7 @@ import kotlinx.serialization.json.longOrNull
 /** A single request snapshot, never cumulative turn billing or an inferred model limit. */
 data class ChatContextUsage(
     val inputTokens: Long? = null,
-    val windowTokens: Long? = com.helix.app.provider.ProviderContextSettings.DEFAULT_WINDOW,
+    val windowTokens: Long? = com.helix.provider.api.ProviderContextSettings.DEFAULT_WINDOW,
     val estimatedAfterCompaction: Boolean = false,
     val estimatedWindow: Boolean = false,
 ) {

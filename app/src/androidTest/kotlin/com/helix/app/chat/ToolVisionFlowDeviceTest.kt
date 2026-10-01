@@ -7,14 +7,15 @@ import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.ToolArtifactRegistrationSink
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.SettledCall
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ArtifactVisionImageSource
 import com.helix.app.vision.BoundImageAccess
 import com.helix.app.vision.ToolImagePreparer
 import com.helix.app.vision.ToolVisionConsent
+import com.helix.core.agent.SettledCall
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ImageBinding
@@ -26,6 +27,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SecretAlias
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolCallId
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.workspace.ScopeRootResolver
@@ -36,10 +38,8 @@ import com.helix.provider.openai.responses.ImagePayload
 import com.helix.provider.openai.responses.ImageResolver
 import com.helix.provider.openai.responses.ResponsesRequestEncoder
 import com.helix.tools.files.ViewImageTool
-import com.helix.tools.framework.BoundToolResult
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async

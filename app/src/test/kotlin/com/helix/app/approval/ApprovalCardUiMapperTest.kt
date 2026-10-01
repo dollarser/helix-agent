@@ -1,6 +1,7 @@
 package com.helix.app.approval
 
 import com.helix.app.R
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
@@ -17,7 +18,6 @@ import com.helix.core.policy.WorkspaceScope
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
-import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin

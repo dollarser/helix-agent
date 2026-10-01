@@ -39,7 +39,7 @@ class GoalDialogDeviceTest {
         var settingsOpened = false
         var goalId: String? =
             kotlinx.coroutines.runBlocking {
-                service.createGoal(objective, emptyList(), com.helix.app.runcontrol.GoalBudgetDefaults.VALUE)
+                service.createGoal(objective, emptyList(), com.helix.core.agent.GoalBudgetDefaults.VALUE)
             }
         try {
             compose.waitUntil(10_000) { service.screen.value.openSessionId == sessionId }

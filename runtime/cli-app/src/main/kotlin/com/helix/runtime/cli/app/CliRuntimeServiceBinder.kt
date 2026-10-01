@@ -16,6 +16,7 @@ internal class CliRuntimeServiceBinder(
         (com.helix.runtime.cli.client.CliModelProvider) ->
         com.helix.runtime.cli.client.CliModelCatalog
     )? = null,
+    private val replayMaintenance: CliReplayMaintenanceBinder? = null,
 ) : Binder() {
     @Suppress("ReturnCount") // Unknown transaction, rejected caller, and success are distinct outcomes.
     override fun onTransact(
@@ -40,6 +41,10 @@ internal class CliRuntimeServiceBinder(
             when (code) {
                 CliRuntimeProtocol.TRANSACTION_STATUS -> {
                     writeStatus(reply)
+                }
+
+                CliRuntimeProtocol.TRANSACTION_REPLAY_PAGE, CliRuntimeProtocol.TRANSACTION_REPLAY_PRUNE -> {
+                    requireNotNull(replayMaintenance).transact(code, data, reply)
                 }
 
                 CliRuntimeProtocol.TRANSACTION_MODEL_CATALOG -> {
@@ -272,6 +277,8 @@ internal class CliRuntimeServiceBinder(
                 CliRuntimeProtocol.TRANSACTION_JOB_RECONCILE,
                 CliRuntimeProtocol.TRANSACTION_JOB_FETCH_RESULT,
                 CliRuntimeProtocol.TRANSACTION_JOB_ACK_RESULT,
+                CliRuntimeProtocol.TRANSACTION_REPLAY_PAGE,
+                CliRuntimeProtocol.TRANSACTION_REPLAY_PRUNE,
             )
     }
 }

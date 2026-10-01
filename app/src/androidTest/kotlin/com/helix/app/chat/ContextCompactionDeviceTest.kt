@@ -2,19 +2,19 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.provider.ProviderContextSettings
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.provider.api.ProviderContextSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -35,7 +35,7 @@ class ContextCompactionDeviceTest {
         RunControlConfig(
             com.helix.core.model.AgentMode.CHAT,
             false,
-            com.helix.app.runcontrol.TurnBudgetBounds.DEFAULT,
+            com.helix.core.agent.TurnBudgetBounds.DEFAULT,
         )
     private var sequence = 0
 
@@ -58,7 +58,7 @@ class ContextCompactionDeviceTest {
                     ),
                 ).copy(originalInputTokens = 32)
             val round =
-                com.helix.app.agent.ContextCompactionRound(
+                com.helix.app.agent.contextCompactionRound(
                     storage,
                     "s",
                     coordinator.id,
@@ -72,7 +72,16 @@ class ContextCompactionDeviceTest {
             stream.apply(ModelEvent.Completed("stop"))
             val result =
                 kotlinx.coroutines.runBlocking {
-                    round.finish(plan, stream, stream.terminal(false), coordinator, next(), "Compacted", "Unchanged")
+                    round.finish(
+                        plan,
+                        stream,
+                        stream.terminal(false),
+                        com.helix.app.agent
+                            .RoomTurnJournal(coordinator),
+                        next(),
+                        "Compacted",
+                        "Unchanged",
+                    )
                 }
             assertEquals(TurnState.COMPLETED, result?.state)
             coordinator.settleFixtureTerminal(requireNotNull(result))
@@ -345,14 +354,14 @@ class ContextCompactionDeviceTest {
                 ) as com.helix.core.storage.repository.SessionInputAcceptResult.Accepted
             coordinator.commitCompaction(plan, null, "Compacted")
             assertEquals(
-                com.helix.app.agent.ResponseInputBoundary.RECHECK,
+                com.helix.core.agent.ResponseInputBoundary.RECHECK,
                 coordinator.completeResponseOrContinueFixture(null, "after-manual"),
             )
             val draft =
                 com.helix.app.agent
                     .TurnSteeringDraft(accepted.record, "Use the compacted context", emptyList())
             assertEquals(
-                com.helix.app.agent.ResponseInputBoundary.CONTINUED,
+                com.helix.core.agent.ResponseInputBoundary.CONTINUED,
                 coordinator.completeResponseOrContinueFixture(draft, "after-manual"),
             )
             assertEquals(TurnState.WAITING_MODEL, coordinator.snapshot().phase)
@@ -416,7 +425,7 @@ class ContextCompactionDeviceTest {
     }
 
     private fun request(storage: HelixStorage) =
-        ChatContextRequest(
+        TurnContextRequest(
             "fixture",
             ChatHistoryBuilder.toModelMessagesStrict(
                 storage.messages.listBySession("s").map {

@@ -2,7 +2,9 @@
 
 任务范围与验收只在未完成任务文件维护；已完成任务只链接交付证据。编号不是强制执行顺序，不补造空号。当前优先级见[实施状态](status.md)，通用规则见[实施指南](implementation-guide.md)及[验收规则](verification-matrix.md)。
 
-当前 `tasks/` 保留正式开放的 8 项 HXA：120、121、122、123、125、126、190、232。所有者追加授权 [HXA-232](tasks/HXA-232.md) 自主恢复，[HXA-231](../completion-records/HXA-231.md) 完整 R1 已完成主机交付；已交付能力通过完成记录追溯，不因历史摘要重开。当前优先级以[实施状态](status.md)为准；内测与发行的依赖/退出条件见[发行就绪条件](release-readiness.md)。
+当前 `tasks/` 保留正式开放的 12 项 HXA：120、121、122、123、125、126、190、232、233、234、235、236。所有者追加授权 [HXA-232](tasks/HXA-232.md) 自主恢复，[HXA-231](../completion-records/HXA-231.md) 完整 R1 已完成主机交付；已交付能力通过完成记录追溯，不因历史摘要重开。当前优先级以[实施状态](status.md)为准；内测与发行的依赖/退出条件见[发行就绪条件](release-readiness.md)。
+
+2026-10-01 [阶段收尾](../evidence/development/phase-closeout-2026-10-01.md)只关闭已验证的本地主机工作范围：126/233/234/235 保留收尾验收，236 的基础观察/等待已有交付，但仍有统一观察上下文、可信类型进展判断及联合/设备验收，继续进行中。开放数量不等于仍缺实现的功能数量；未创建整体完成记录或新文档 HXA。
 
 候选需求和目标设计不混入开放 HXA 数量；见[候选需求与待裁决索引](candidate-decisions.md)。
 
@@ -176,7 +178,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-123 | 发行队列 | 选定渠道提交准备与审核证据 | [任务规格](tasks/HXA-123.md) |
 | HXA-124 | 已交付 | Connector 调研、插件导入与管理 | [交付证据](../completion-records/HXA-124.md) |
 | HXA-125 | 收尾验收 | Connector 受保护服务与来源验收 | [任务规格](tasks/HXA-125.md) |
-| HXA-126 | 进行中 | Connector OAuth 登录层 | [任务规格](tasks/HXA-126.md) |
+| HXA-126 | 收尾验收 | Connector OAuth 登录层 | [任务规格](tasks/HXA-126.md) |
 | HXA-127 | 已交付 | 大 catalog 渐进工具发现 | [交付证据](../completion-records/HXA-127.md) |
 | HXA-128 | 已交付 | CLI/stdio Connector 可移植性 Spike | [交付证据](../completion-records/HXA-128.md) |
 | HXA-129 | 已交付 | Connector 安全替换、安装归属与会话启停 | [交付证据](../completion-records/HXA-129.md) |
@@ -265,3 +267,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-230 | 已交付（主机范围） | Markdown-native Hierarchical Agent Memory | [完成记录](../completion-records/HXA-230.md) |
 | HXA-231 | 已交付（验证范围见记录） | 问题收口与原子工具绑定 | [完成记录](../completion-records/HXA-231.md) |
 | HXA-232 | 进行中 | 自主恢复与最小人工介入 | [任务规格](tasks/HXA-232.md) |
+| HXA-233 | 收尾验收 | 订阅回放依赖生命周期与有界清理 | [任务规格](tasks/HXA-233.md) |
+| HXA-234 | 收尾验收 | R2-A 中立 Core 与上下文等价迁移 | [任务规格](tasks/HXA-234.md) |
+| HXA-235 | 收尾验收 | R3 插件安装、组件归属与会话生命周期 | [任务规格](tasks/HXA-235.md) |
+| HXA-236 | 进行中 | J1 原执行身份观察与有界等待 | [任务规格](tasks/HXA-236.md) |

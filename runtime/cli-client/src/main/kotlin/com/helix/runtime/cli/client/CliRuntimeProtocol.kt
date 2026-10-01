@@ -19,6 +19,8 @@ object CliRuntimeProtocol {
     const val TRANSACTION_JOB_ACK_RESULT = 7
     const val TRANSACTION_MODEL_CATALOG = 8
     const val TRANSACTION_JOB_PROGRESS = 9
+    const val TRANSACTION_REPLAY_PAGE = 10
+    const val TRANSACTION_REPLAY_PRUNE = 11
     const val TRANSACTION_DEBUG_SELF_KILL = 1_000
     const val REPLY_OK = 0
     const val REPLY_CALLER_MISMATCH = 1

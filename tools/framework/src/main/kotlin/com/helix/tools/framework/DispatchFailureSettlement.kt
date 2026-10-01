@@ -1,5 +1,8 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.DispatchOutcomeCode
+import com.helix.core.model.ToolDispatchOutcome
+
 /** Classifies only trusted framework/broker state; a generic dependency error remains a failure. */
 internal fun thrownDispatchOutcome(
     cancel: CancelSignal,

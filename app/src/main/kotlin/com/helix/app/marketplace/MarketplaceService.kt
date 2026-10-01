@@ -1,16 +1,16 @@
 package com.helix.app.marketplace
 
-import com.helix.app.connector.ConnectorService
-import com.helix.app.connector.InstalledConnector
+import com.helix.app.plugin.InstalledPlugin
+import com.helix.app.plugin.PluginService
+import com.helix.extensions.plugin.PluginPackage
+import com.helix.extensions.plugin.PluginPackageReader
+import com.helix.extensions.plugin.PluginSkill
 import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillRepository
-import com.helix.extensions.skills.connector.ConnectorPackage
-import com.helix.extensions.skills.connector.ConnectorPackageReader
-import com.helix.extensions.skills.connector.ConnectorSkill
 import java.security.MessageDigest
 
 class MarketplaceService(
-    val connectorService: ConnectorService,
+    val pluginService: PluginService,
     val skillRepository: SkillRepository,
 ) {
     fun items(): List<MarketplaceItem> = MarketplaceCatalog.items()
@@ -27,7 +27,7 @@ class MarketplaceService(
                     }
                 when {
                     connector == null -> MarketplaceItemStatus.NOT_INSTALLED
-                    matched == null -> MarketplaceItemStatus.NOT_INSTALLED
+                    !connector.enabled || matched == null -> MarketplaceItemStatus.INSTALLED_INACTIVE
                     matched.enabled -> MarketplaceItemStatus.ACTIVE
                     else -> MarketplaceItemStatus.INSTALLED_INACTIVE
                 }
@@ -38,19 +38,27 @@ class MarketplaceService(
                     findInstalled(item)
                 when {
                     matched == null -> MarketplaceItemStatus.NOT_INSTALLED
-                    matched.endpoints.any { connectorService.enabled(it) } -> MarketplaceItemStatus.ACTIVE
+
+                    matched.enabled &&
+                        matched.endpoints.any {
+                            pluginService.enabled(
+                                it,
+                            )
+                        }
+                    -> MarketplaceItemStatus.ACTIVE
+
                     else -> MarketplaceItemStatus.INSTALLED_INACTIVE
                 }
             }
         }
 
-    fun install(item: MarketplaceItem): InstalledConnector {
+    fun install(item: MarketplaceItem): InstalledPlugin {
         val existing = findInstalled(item)
         return when (item.type) {
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
-                val reader = ConnectorPackageReader()
+                val reader = PluginPackageReader()
                 val bundle = reader.readJson(item.payload.toByteArray(Charsets.UTF_8))
-                connectorService.install(
+                pluginService.install(
                     bundle.copy(name = item.targetConnectorName ?: item.id, source = "MARKETPLACE"),
                     identity = "marketplace:${item.id}",
                     expectedRevision = existing?.revision,
@@ -61,14 +69,14 @@ class MarketplaceService(
                 val name = item.targetSkillName ?: item.id
                 val skillBytes = item.payload.toByteArray(Charsets.UTF_8)
                 val bundle =
-                    ConnectorPackage(
+                    PluginPackage(
                         name = item.targetConnectorName ?: "${item.id}-skill",
                         source = "MARKETPLACE",
                         contentHash = sha256(skillBytes),
                         endpoints = emptyList(),
                         skills =
                             listOf(
-                                ConnectorSkill(
+                                PluginSkill(
                                     directory = name,
                                     files = mapOf("SKILL.md" to skillBytes),
                                 ),
@@ -76,7 +84,7 @@ class MarketplaceService(
                         diagnostics = emptyList(),
                     )
                 val installed =
-                    connectorService.install(
+                    pluginService.install(
                         bundle,
                         "marketplace:${item.id}",
                         existing?.revision,
@@ -84,20 +92,20 @@ class MarketplaceService(
                     )
                 val skillKey = installed.skills.firstOrNull()
                 if (skillKey != null) {
-                    connectorService.setSkillEnabled(skillKey, true)
+                    pluginService.setSkillEnabled(skillKey, true)
                 }
                 installed
             }
         }
     }
 
-    fun findInstalled(item: MarketplaceItem): InstalledConnector? =
-        connectorService.list().firstOrNull {
+    fun findInstalled(item: MarketplaceItem): InstalledPlugin? =
+        pluginService.list().firstOrNull {
             it.identity == "marketplace:${item.id}"
         }
 
     fun uninstall(item: MarketplaceItem) {
-        findInstalled(item)?.let { connectorService.remove(it) }
+        findInstalled(item)?.let { pluginService.remove(it) }
     }
 
     fun disable(item: MarketplaceItem) {
@@ -105,13 +113,13 @@ class MarketplaceService(
         when (item.type) {
             MarketplaceItemType.SKILL -> {
                 installed.skills.forEach { key ->
-                    connectorService.setSkillEnabled(key, false)
+                    pluginService.setSkillEnabled(key, false)
                 }
             }
 
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
                 installed.endpoints.forEach { endpoint ->
-                    connectorService.disable(endpoint)
+                    pluginService.disable(endpoint)
                 }
             }
         }
@@ -119,8 +127,9 @@ class MarketplaceService(
 
     fun enableSkill(item: MarketplaceItem) {
         val installed = findInstalled(item) ?: return
+        pluginService.setEnabled(installed.id, true)
         installed.skills.forEach { key ->
-            connectorService.setSkillEnabled(key, true)
+            pluginService.setSkillEnabled(key, true)
         }
     }
 

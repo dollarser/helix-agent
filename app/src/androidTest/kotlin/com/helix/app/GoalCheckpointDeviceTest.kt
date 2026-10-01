@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
@@ -14,6 +13,7 @@ import com.helix.app.goal.GoalReminderReconciler
 import com.helix.app.goal.GoalReminderScheduler
 import com.helix.core.agent.Checkpoint
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnBudgets

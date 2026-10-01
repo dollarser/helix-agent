@@ -35,8 +35,7 @@ class DetachedJobControlDeviceTest {
             val client = DetachedJobClient(context)
             try {
                 assertTrue(fixture.job.submit(client).accepted)
-                val query = fixture.ownership.guard(fixture.control.executor(stop = false))
-                val first = query.execute(fixture.call) as ToolExecutorResult.Completed
+                val first = fixture.query() as ToolExecutorResult.Completed
                 assertEquals(
                     fixture.job.binding.jobId,
                     first.output.jsonObject
@@ -44,12 +43,12 @@ class DetachedJobControlDeviceTest {
                         .jsonPrimitive.content,
                 )
                 assertNull(fixture.ownership.acquire("foreign-writer"))
-                val cancel = fixture.ownership.guard(fixture.control.executor(stop = true))
+                val cancel = fixture.ownership.guard(fixture.control.executor())
                 assertTrue(cancel.execute(fixture.call) is ToolExecutorResult.Completed)
                 val until = android.os.SystemClock.elapsedRealtime() + 15_000
                 var state = ""
                 while (android.os.SystemClock.elapsedRealtime() < until && state != "CANCELLED") {
-                    val report = query.execute(fixture.call) as ToolExecutorResult.Completed
+                    val report = fixture.query() as ToolExecutorResult.Completed
                     state =
                         report.output.jsonObject
                             .getValue("state")
@@ -67,13 +66,15 @@ class DetachedJobControlDeviceTest {
 
     @Test fun foreignSessionAndUnknownOriginalCallFailBeforeRuntimeAccess() {
         Fixture(context).use { fixture ->
-            val query = fixture.ownership.guard(fixture.control.executor(stop = false))
-            assertThrows(IllegalStateException::class.java) {
-                query.execute(fixture.call.copy(sessionId = "foreign-session"))
-            }
-            assertThrows(IllegalArgumentException::class.java) {
-                query.execute(fixture.call.copy(args = buildJsonObject { put("originalCallId", "missing") }))
-            }
+            val cancel = fixture.ownership.guard(fixture.control.executor())
+            val foreign = fixture.call.copy(sessionId = "foreign-session")
+            val missing = fixture.call.copy(args = buildJsonObject { put("originalCallId", "missing") })
+            assertThrows(IllegalStateException::class.java) { cancel.execute(foreign) }
+            assertThrows(IllegalArgumentException::class.java) { cancel.execute(missing) }
+            assertThrows(IllegalStateException::class.java) { fixture.query(foreign) }
+            val observation = fixture.query(missing) as ToolExecutorResult.Failed
+            assertTrue(observation.sideEffectFree)
+            assertTrue(observation.detail.startsWith("JOB_HANDLE_INVALID:"))
             assertEquals(fixture.owner, fixture.ownership.retainedOwner())
             requireNotNull(fixture.ownership.acquireReconciliation(fixture.owner)).close()
         }
@@ -104,6 +105,19 @@ class DetachedJobControlDeviceTest {
                 },
             )
         val control = DetachedJobControl.create(context, storage, ownership)
+        private val observations =
+            com.helix.tools.framework.JobObservationService(
+                LinuxJobObservationPort.create(context, storage),
+                object : com.helix.core.model.Clock {
+                    override fun now(): Instant = Instant.now()
+                },
+            )
+
+        fun query(request: ExecutableToolCall = call): ToolExecutorResult =
+            observations
+                .statusForUser(request.copy(toolCallId = UUID.randomUUID().toString()))
+                .get(5, java.util.concurrent.TimeUnit.SECONDS)
+
         val call =
             ExecutableToolCall(
                 "control-call",
@@ -148,6 +162,7 @@ class DetachedJobControlDeviceTest {
         }
 
         override fun close() {
+            observations.close()
             storage.close()
             context.deleteDatabase(name)
             root.deleteRecursively()

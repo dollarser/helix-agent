@@ -2,20 +2,20 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.ContextCompactionRound
-import com.helix.app.agent.ContextSegments
+import com.helix.app.agent.ContextHistoryMapping
 import com.helix.app.agent.GoalModelCallBudget
-import com.helix.app.agent.ModelLoopAdmission
-import com.helix.app.agent.ModelStreamTerminal
-import com.helix.app.agent.TurnBudgetTracker
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.provider.ProviderContextSettings
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.app.agent.contextCompactionRound
+import com.helix.core.agent.ContextSegments
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.ModelLoopAdmission
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnBudgetTracker
+import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -26,6 +26,7 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -72,7 +73,7 @@ class LongTurnCompactionDeviceTest {
             val coordinator = first.coordinator
             repeat(4) { batch(storage, coordinator.id, it) }
             val originals = storage.messages.listBySession("s").associate { it.id to storage.messages.readContent(it) }
-            val round = ContextCompactionRound(storage, "s", coordinator.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", coordinator.id, control, settings, false)
             val prepared = round.prepare(request(storage))
             val plan = requireNotNull(prepared.plan)
             val kept = plan.retainedRequest.messages.mapNotNull { it.toolCallId?.value }
@@ -100,7 +101,16 @@ class LongTurnCompactionDeviceTest {
             assertNull(budget.finish(stream))
             runBlocking {
                 assertNull(
-                    round.finish(plan, stream, stream.terminal(false), coordinator, next(), "Compacted", "Unchanged"),
+                    round.finish(
+                        plan,
+                        stream,
+                        stream.terminal(false),
+                        com.helix.app.agent
+                            .RoomTurnJournal(coordinator),
+                        next(),
+                        "Compacted",
+                        "Unchanged",
+                    ),
                 )
             }
             assertTrue(storage.goals.resolve(goal).modelCalls >= 1)
@@ -132,7 +142,7 @@ class LongTurnCompactionDeviceTest {
                 )
             // The very first request of the new Turn must not require another completed tool step.
             assertNotNull(
-                ContextCompactionRound(
+                contextCompactionRound(
                     storage,
                     "s",
                     second.coordinator.id,
@@ -143,7 +153,7 @@ class LongTurnCompactionDeviceTest {
             )
             repeat(4) { batch(storage, second.coordinator.id, it + 4) }
             assertNotNull(
-                ContextCompactionRound(
+                contextCompactionRound(
                     storage,
                     "s",
                     second.coordinator.id,
@@ -183,7 +193,7 @@ class LongTurnCompactionDeviceTest {
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
             val original = request(storage)
-            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             repeat(2) {
                 val plan = requireNotNull(round.prepare(original).plan)
                 val stream = current.beginModelStream(true)
@@ -192,7 +202,16 @@ class LongTurnCompactionDeviceTest {
                 assertFalse(ContextCompaction.hasUsefulGain(plan, stream.text))
                 runBlocking {
                     assertNull(
-                        round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted", "Unchanged"),
+                        round.finish(
+                            plan,
+                            stream,
+                            stream.terminal(false),
+                            com.helix.app.agent
+                                .RoomTurnJournal(current),
+                            next(),
+                            "Compacted",
+                            "Unchanged",
+                        ),
                     )
                 }
             }
@@ -208,7 +227,7 @@ class LongTurnCompactionDeviceTest {
         withStorage { storage ->
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
-            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             val plan = requireNotNull(round.prepare(request(storage)).plan)
             val stream = current.beginModelStream(true)
             stream.apply(ModelEvent.Error(ModelErrorCode.SERVER_ERROR, false))
@@ -220,7 +239,8 @@ class LongTurnCompactionDeviceTest {
                             plan,
                             stream,
                             stream.terminal(false),
-                            current,
+                            com.helix.app.agent
+                                .RoomTurnJournal(current),
                             next(),
                             "Compacted",
                             "Unchanged",
@@ -237,7 +257,7 @@ class LongTurnCompactionDeviceTest {
             repeat(3) { batch(storage, current.id, it) }
             val original = request(storage)
             val round =
-                ContextCompactionRound(
+                contextCompactionRound(
                     storage,
                     "s",
                     current.id,
@@ -258,7 +278,7 @@ class LongTurnCompactionDeviceTest {
                 )
             assertEquals(
                 "CONTEXT_WINDOW_LIMIT",
-                ContextCompactionRound(storage, "s", current.id, control, settings, false)
+                contextCompactionRound(storage, "s", current.id, control, settings, false)
                     .prepare(huge)
                     .failure
                     ?.errorCode,
@@ -326,7 +346,7 @@ class LongTurnCompactionDeviceTest {
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
             val round =
-                ContextCompactionRound(
+                contextCompactionRound(
                     storage,
                     "s",
                     current.id,
@@ -345,7 +365,8 @@ class LongTurnCompactionDeviceTest {
                             plan,
                             stream,
                             stream.terminal(false),
-                            current,
+                            com.helix.app.agent
+                                .RoomTurnJournal(current),
                             next(),
                             "Compacted",
                             "Unchanged",
@@ -363,7 +384,7 @@ class LongTurnCompactionDeviceTest {
             val original = request(storage)
             val uncalibrated =
                 requireNotNull(
-                    ContextCompactionRound(
+                    contextCompactionRound(
                         storage,
                         "s",
                         current.id,
@@ -372,14 +393,14 @@ class LongTurnCompactionDeviceTest {
                         false,
                     ).prepare(original).plan,
                 )
-            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             round.observe(original, original.inputTokens() * 2)
             val prepared = round.prepare(original)
             assertNull(prepared.failure)
             val plan = requireNotNull(prepared.plan)
             assertTrue(plan.coveredThrough < uncalibrated.coveredThrough)
             assertTrue(
-                com.helix.app.agent.ModelInputEstimate
+                com.helix.core.agent.ModelInputEstimate
                     .of(requireNotNull(prepared.request))
                     .total * 2 +
                     requireNotNull(prepared.request).maxOutputTokens!! <= settings.window,
@@ -393,7 +414,16 @@ class LongTurnCompactionDeviceTest {
             stream.apply(ModelEvent.Completed("stop"))
             assertNull(
                 runBlocking {
-                    round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted", "Unchanged")
+                    round.finish(
+                        plan,
+                        stream,
+                        stream.terminal(false),
+                        com.helix.app.agent
+                            .RoomTurnJournal(current),
+                        next(),
+                        "Compacted",
+                        "Unchanged",
+                    )
                 },
             )
             val rebuilt = request(storage)
@@ -408,7 +438,7 @@ class LongTurnCompactionDeviceTest {
             repeat(3) { batch(storage, current.id, it) }
             val original = request(storage)
             val round =
-                ContextCompactionRound(
+                contextCompactionRound(
                     storage,
                     "s",
                     current.id,
@@ -431,7 +461,7 @@ class LongTurnCompactionDeviceTest {
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
             val original = request(storage)
-            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             val plan = requireNotNull(round.prepare(original).plan)
             val stream = current.beginModelStream(true)
             stream.apply(ModelEvent.TextDelta("incomplete summary"))
@@ -439,7 +469,16 @@ class LongTurnCompactionDeviceTest {
             assertEquals(
                 cancelled,
                 runBlocking {
-                    round.finish(plan, stream, cancelled, current, next(), "Compacted", "Unchanged")
+                    round.finish(
+                        plan,
+                        stream,
+                        cancelled,
+                        com.helix.app.agent
+                            .RoomTurnJournal(current),
+                        next(),
+                        "Compacted",
+                        "Unchanged",
+                    )
                 },
             )
             current.settleFixtureTerminal(cancelled)
@@ -450,7 +489,7 @@ class LongTurnCompactionDeviceTest {
             assertEquals(original.messages, request(storage).messages)
             val resumed = start(storage)
             assertNotNull(
-                ContextCompactionRound(storage, "s", resumed.id, control, settings, false)
+                contextCompactionRound(storage, "s", resumed.id, control, settings, false)
                     .prepare(request(storage))
                     .plan,
             )
@@ -460,14 +499,23 @@ class LongTurnCompactionDeviceTest {
         withStorage { storage ->
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
-            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             val plan = requireNotNull(round.prepare(request(storage)).plan)
             val stream = current.beginModelStream(true)
             stream.apply(ModelEvent.TextDelta("ORANGE-42; no deletion. Last result still needs verification."))
             stream.apply(ModelEvent.Completed("stop"))
             assertNull(
                 runBlocking {
-                    round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted", "Unchanged")
+                    round.finish(
+                        plan,
+                        stream,
+                        stream.terminal(false),
+                        com.helix.app.agent
+                            .RoomTurnJournal(current),
+                        next(),
+                        "Compacted",
+                        "Unchanged",
+                    )
                 },
             )
             val published =
@@ -520,11 +568,16 @@ class LongTurnCompactionDeviceTest {
         storage.messages.append(next(), "s", turn, "TOOL", ChatHistoryBuilder.KIND_TOOL_RESULT, content)
     }
 
-    private fun request(storage: HelixStorage): ChatContextRequest {
+    private fun request(storage: HelixStorage): TurnContextRequest {
         val rows = storage.messages.listBySession("s")
         val checkpoint = ContextCompaction.checkpoint(storage, rows)
-        val messages = ContextCompaction.retained(rows, checkpoint).flatMap { ContextSegments.mapped(storage, it) }
-        return ChatContextRequest(
+        val messages =
+            ContextCompaction
+                .retained(
+                    rows,
+                    checkpoint,
+                ).flatMap { ContextHistoryMapping.mapped(storage, it) }
+        return TurnContextRequest(
             "fixture",
             checkpoint?.let { listOf(ContextCompaction.summaryMessage(it)) }.orEmpty() + messages,
             emptyList(),
@@ -533,18 +586,19 @@ class LongTurnCompactionDeviceTest {
         )
     }
 
-    private fun withStorage(block: (HelixStorage) -> Unit) {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val name = "long-context-${next()}.db"
-        val directory = File(context.filesDir, name)
-        val storage = HelixStorage.open(context, name, directory)
-        try {
-            storage.sessions.create("s", "Long turn fixture", null, null, 1000)
-            block(storage)
-        } finally {
-            storage.close()
-            context.deleteDatabase(name)
-            directory.deleteRecursively()
+    private fun withStorage(block: suspend (HelixStorage) -> Unit) =
+        runBlocking {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val name = "long-context-${next()}.db"
+            val directory = File(context.filesDir, name)
+            val storage = HelixStorage.open(context, name, directory)
+            try {
+                storage.sessions.create("s", "Long turn fixture", null, null, 1000)
+                block(storage)
+            } finally {
+                storage.close()
+                context.deleteDatabase(name)
+                directory.deleteRecursively()
+            }
         }
-    }
 }

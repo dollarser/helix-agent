@@ -1,9 +1,9 @@
 package com.helix.app.chat
 
 import com.helix.app.R
-import com.helix.app.agent.ModelStreamState
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.runcontrol.RunControlStore
+import com.helix.core.agent.ModelStreamState
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.TurnState
 

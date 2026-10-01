@@ -14,23 +14,22 @@ import kotlinx.serialization.json.put
 /** Bound control only: no command replay, output import, lease renewal, or automatic owner release. */
 internal class DetachedJobControl(
     private val resolve: (String, String) -> DetachedJobBinding,
-    private val query: (DetachedJobBinding) -> DetachedJobClient.Reply,
     private val cancel: (DetachedJobBinding) -> DetachedJobClient.Reply,
     private val ownership: ExecutionOwnership,
     private val observe: (DetachedJobBinding, ProotJobRecord) -> Unit = { _, _ -> },
 ) {
-    fun executor(stop: Boolean): ToolExecutor =
+    fun executor(): ToolExecutor =
         ownership.controlExecutor(
             resolve = { call -> binding(call).owner() },
             execute = { call, _ ->
                 val binding = binding(call)
-                val reply = if (stop) cancel(binding) else query(binding)
+                val reply = cancel(binding)
                 val record = reply.record
                 if (record == null) {
                     ToolExecutorResult.Failed(
                         "JOB_CONTROL_UNAVAILABLE: query the original call again; nothing was replayed.",
-                        sideEffectFree = !stop,
-                        requiresReview = stop,
+                        sideEffectFree = false,
+                        requiresReview = true,
                     )
                 } else {
                     check(binding.matches(record)) { "Runtime returned another job" }
@@ -62,7 +61,6 @@ internal class DetachedJobControl(
             val client = DetachedJobClient(context)
             return DetachedJobControl(
                 bindings::resolveDetached,
-                client::query,
                 client::cancel,
                 ownership,
                 DetachedJobObservationStore(storage)::observe,

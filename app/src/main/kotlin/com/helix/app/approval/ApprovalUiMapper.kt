@@ -1,6 +1,7 @@
 package com.helix.app.approval
 
 import com.helix.app.R
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
@@ -12,7 +13,6 @@ import com.helix.core.policy.HighSensitivityRule
 import com.helix.runtime.quickjs.JsExecutionLimits
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
-import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.JsonArray

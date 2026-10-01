@@ -1,8 +1,8 @@
 package com.helix.app.vision
 
-import com.helix.app.agent.ContextSegments
-import com.helix.app.agent.ModelInputEstimate
 import com.helix.app.localmodel.LocalRuntimeCodec
+import com.helix.core.agent.ContextSegments
+import com.helix.core.agent.ModelInputEstimate
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole

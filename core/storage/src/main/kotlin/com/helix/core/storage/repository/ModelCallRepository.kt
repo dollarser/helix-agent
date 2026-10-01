@@ -20,6 +20,13 @@ class ModelCallRepository(
         return entity
     }
 
+    fun find(id: String): ModelCallEntity? = dao.byId(id)
+
+    fun hasOtherRunning(
+        turnId: String,
+        modelCallId: String,
+    ): Boolean = dao.hasOtherRunning(turnId, modelCallId)
+
     fun resolve(id: String): ModelCallEntity {
         val entity = dao.byId(id)
 

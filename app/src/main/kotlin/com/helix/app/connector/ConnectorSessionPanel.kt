@@ -20,20 +20,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.app.plugin.PluginService
+import com.helix.app.plugin.PluginSessionRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private fun statusLabel(row: PluginSessionRow): Int =
+    when {
+        !row.available -> R.string.connector_session_unavailable
+        !row.enabled -> R.string.connector_inactive
+        !row.ready -> R.string.connector_session_setup
+        else -> R.string.connector_session_ready
+    }
+
+/** Display facts only: partial readiness never changes session selection or authorization. */
+@Composable
+@Suppress("FunctionName")
+private fun PluginSessionState(row: PluginSessionRow) {
+    Text(row.name)
+    if (row.hasSkippedComponents) {
+        Text(stringResource(R.string.plugin_skipped_components))
+    } else if (row.readyComponents > 0 && !row.ready) {
+        Text(stringResource(R.string.plugin_partial_ready, row.readyComponents, row.totalComponents))
+    }
+    Text(stringResource(statusLabel(row)))
+}
 
 /** UI sees only application-service projections; component repair remains in Extensions. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught") // failures are visible; cancellation propagates
 fun ConnectorSessionPanel(
-    service: ConnectorService,
+    service: PluginService,
     sessionId: String,
     onConfigure: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var rows by remember(sessionId) { mutableStateOf<List<ConnectorSessionRow>>(emptyList()) }
+    var rows by remember(sessionId) { mutableStateOf<List<PluginSessionRow>>(emptyList()) }
     var revision by remember { mutableIntStateOf(0) }
     var failed by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -48,7 +71,7 @@ fun ConnectorSessionPanel(
             failed = true
         }
     }
-    val update: (ConnectorSessionRow, Boolean, Boolean) -> Unit = { row, enabled, default ->
+    val update: (PluginSessionRow, Boolean, Boolean) -> Unit = { row, enabled, default ->
         busy = true
         scope.launch {
             try {
@@ -85,20 +108,7 @@ fun ConnectorSessionPanel(
                             enabled = !busy && (row.available || row.selected),
                             modifier = Modifier.testTag("connector-session-${row.id}"),
                         )
-                        Column {
-                            Text(row.name)
-                            Text(
-                                stringResource(
-                                    if (!row.available) {
-                                        R.string.connector_session_unavailable
-                                    } else if (!row.ready) {
-                                        R.string.connector_session_setup
-                                    } else {
-                                        R.string.connector_session_ready
-                                    },
-                                ),
-                            )
-                        }
+                        Column { PluginSessionState(row) }
                     }
                     if (row.available) {
                         Row {

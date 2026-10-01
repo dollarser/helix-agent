@@ -1,7 +1,6 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,11 +22,11 @@ internal fun BackgroundJobControls(
 ) {
     Column {
         if (job.settlementPending) {
-            Row {
+            SettingsActions {
                 BackgroundJobAction.values().forEach { action ->
                     TextButton(
                         onClick = { onAction(job, action) },
-                        enabled = state?.busy != true,
+                        enabled = state?.allows(action) != false,
                         modifier = Modifier.testTag("tasks-job-${action.name.lowercase()}-${job.callId}"),
                     ) { Text(stringResource(action.label())) }
                 }
@@ -43,6 +42,7 @@ internal fun BackgroundJobControls(
 private fun BackgroundJobAction.label() =
     when (this) {
         BackgroundJobAction.QUERY -> R.string.tasks_job_query
+        BackgroundJobAction.STOP_WAITING -> R.string.tasks_job_stop_waiting
         BackgroundJobAction.CANCEL -> R.string.tasks_job_cancel
         BackgroundJobAction.COLLECT -> R.string.tasks_job_collect
     }
@@ -51,6 +51,8 @@ private fun BackgroundJobActionOutcome.label() =
     when (this) {
         BackgroundJobActionOutcome.ACTIVE -> R.string.tasks_job_active
         BackgroundJobActionOutcome.STOP_REQUESTED -> R.string.tasks_job_stop_requested
+        BackgroundJobActionOutcome.WAIT_STOPPED -> R.string.tasks_job_wait_stopped
+        BackgroundJobActionOutcome.NOT_WAITING -> R.string.tasks_job_not_waiting
         BackgroundJobActionOutcome.TERMINAL_PENDING -> R.string.tasks_job_terminal_pending
         BackgroundJobActionOutcome.SETTLED -> R.string.tasks_job_settled
         BackgroundJobActionOutcome.MISSING_RESULT_SETTLED -> R.string.tasks_job_missing_result_settled

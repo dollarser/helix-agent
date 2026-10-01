@@ -2,7 +2,7 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.core.model.AgentMode
-import com.helix.tools.framework.ToolDispatchOutcome
+import com.helix.core.model.ToolDispatchOutcome
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -66,7 +66,7 @@ class ConnectorInstallationDeviceTest {
             val oldHash = preview.contentHash
             assertTrue(dispatch(oldHash, AgentMode.PLAN).second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Denied)
             assertFalse(
-                container.connectorService.list().any {
+                container.pluginService.list().any {
                     it.endpoints.any { endpoint ->
                         name in
                             endpoint.endpoint.url
@@ -80,7 +80,7 @@ class ConnectorInstallationDeviceTest {
             chat.approveApproval(approval)
             assertFalse(pending.second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Succeeded)
             assertFalse(
-                container.connectorService.list().any {
+                container.pluginService.list().any {
                     it.endpoints.any { endpoint ->
                         name in
                             endpoint.endpoint.url
@@ -90,8 +90,8 @@ class ConnectorInstallationDeviceTest {
             val accepted = dispatch(author.preview(path).contentHash)
             chat.approveApproval(awaitApproval(container, accepted.first))
             assertTrue(accepted.second.get(20, TimeUnit.SECONDS) is ToolDispatchOutcome.Succeeded)
-            val record = container.connectorService.list().single { it.hash == author.preview(path).contentHash }
-            assertFalse(container.connectorService.enabled(record.endpoints.single()))
+            val record = container.pluginService.list().single { it.hash == author.preview(path).contentHash }
+            assertFalse(container.pluginService.enabled(record.endpoints.single()))
             org.junit.Assert.assertEquals(record, author.install(path, record.hash))
             org.junit.Assert.assertThrows(
                 IllegalStateException::class.java,
@@ -113,11 +113,11 @@ class ConnectorInstallationDeviceTest {
                 }
             chat.closeSession()
             chat.setMode(previous.mode)
-            container.connectorService
+            container.pluginService
                 .list()
                 .filter {
                     it.endpoints.any { endpoint -> name in endpoint.endpoint.url }
-                }.forEach { container.connectorService.remove(it) }
+                }.forEach { container.pluginService.remove(it) }
             Files.deleteIfExists(file)
         }
     }

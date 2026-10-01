@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
+import com.helix.core.agent.ContextCheckpoint
 import com.helix.core.model.ModelRole
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.ContentRef
@@ -11,7 +12,7 @@ import com.helix.core.storage.entity.MessageEntity
 /** A fork contains a protocol-complete prefix, not an execution snapshot. */
 internal data class SessionForkPlan(
     val rows: List<MessageEntity>,
-    val checkpoint: ContextCompaction.Checkpoint?,
+    val checkpoint: ContextCheckpoint?,
     val checkpointId: String?,
     val boundaryId: String,
 ) {

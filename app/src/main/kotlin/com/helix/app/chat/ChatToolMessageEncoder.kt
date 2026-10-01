@@ -2,12 +2,12 @@ package com.helix.app.chat
 
 import com.helix.app.R
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.LocalToolCallBatch
-import com.helix.app.agent.SettledCall
-import com.helix.app.agent.TurnMessageDraft
+import com.helix.core.agent.LocalToolCallBatch
+import com.helix.core.agent.SettledCall
 import com.helix.core.agent.TestRunResult
+import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.ModelRole
-import com.helix.tools.framework.ToolDispatchOutcome
+import com.helix.core.model.ToolDispatchOutcome
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put

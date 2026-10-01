@@ -12,6 +12,17 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(message: MessageEntity)
 
+    /** Retained evidence includes superseded and compacted rows, not just effective history. */
+    @Query(
+        "SELECT * FROM messages WHERE kind = :kind " +
+            "AND (:afterId IS NULL OR id > :afterId) ORDER BY id ASC LIMIT :limit",
+    )
+    fun retainedByKindAfter(
+        kind: String,
+        afterId: String?,
+        limit: Int,
+    ): List<MessageEntity>
+
     @Query("SELECT * FROM messages WHERE id = :id")
     fun byId(id: String): MessageEntity?
 

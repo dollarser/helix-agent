@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.GoalRunSettlement
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalDurableUsageLedger
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.GoalState

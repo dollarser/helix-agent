@@ -2,13 +2,14 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
-import com.helix.app.agent.TurnMessageDraft
 import com.helix.app.agent.TurnStartSpec
+import com.helix.core.agent.ContextCompactionPlan
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.TurnContextRequest
+import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
@@ -91,14 +92,14 @@ class TurnCancellationRaceDeviceTest {
             stream.apply(ModelEvent.TextDelta("summary"))
             stream.apply(ModelEvent.Completed("stop"))
             val request =
-                ChatContextRequest(
+                TurnContextRequest(
                     "fixture",
                     listOf(ModelMessage(ModelRole.USER, "question")),
                     emptyList(),
                     512,
                     ReasoningEffort.OFF,
                 )
-            val plan = ContextCompaction.Plan(0, request.modelRequest(), request)
+            val plan = ContextCompactionPlan(0, request.modelRequest(), request)
             stopIntent(storage)
             assertThrows(CancellationException::class.java) { turn.commitCompaction(plan, "next-call") }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("session")))

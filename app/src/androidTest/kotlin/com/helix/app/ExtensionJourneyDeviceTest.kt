@@ -6,16 +6,16 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.provider.InAppMcpServer
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.policy.SsrfDenialCode
 import com.helix.extensions.mcp.McpEndpointDeniedException
-import com.helix.extensions.skills.connector.ConnectorPackageReader
-import com.helix.tools.framework.DispatchOutcomeCode
-import com.helix.tools.framework.ToolDispatchOutcome
+import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -361,9 +361,9 @@ class ExtensionJourneyDeviceTest {
 
     @Test
     fun duplicateImportIsIdempotent() {
-        val service = container.connectorService
+        val service = container.pluginService
         val name = "ext-dup-$run"
-        val bundle = ConnectorPackageReader().parse(connectorFixture(name))
+        val bundle = PluginPackageReader().parse(connectorFixture(name))
         val before = service.list().size
         try {
             val first = service.install(bundle)
@@ -385,13 +385,13 @@ class ExtensionJourneyDeviceTest {
 
     @Test
     fun invalidConfigRejectsInstall() {
-        val service = container.connectorService
+        val service = container.pluginService
         val name = "ext-invalid-$run"
         val before = service.list().size
         // The endpoint is configured but NOT portable (plain http, not https): the reader keeps it
         // only as a diagnostic, so the bundle carries no installable component.
         val bundle =
-            ConnectorPackageReader().parse(
+            PluginPackageReader().parse(
                 mapOf(
                     ".codex-plugin/plugin.json" to """{"name":"$name"}""".toByteArray(),
                     ".mcp.json" to """{"docs":{"url":"http://127.0.0.1:9999/mcp"}}""".toByteArray(),
@@ -788,10 +788,10 @@ class ExtensionJourneyDeviceTest {
     @Test
     fun seedExtensionJourneyScope() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("extensionJourneyPhase") == "seed")
-        val connectorService = container.connectorService
+        val pluginService = container.pluginService
         val name = "ext-restart-${UUID.randomUUID()}"
         val bundle =
-            ConnectorPackageReader().parse(
+            PluginPackageReader().parse(
                 mapOf(
                     ".codex-plugin/plugin.json" to """{"name":"$name"}""".toByteArray(),
                     "skills/$name/SKILL.md" to
@@ -799,16 +799,16 @@ class ExtensionJourneyDeviceTest {
                     ".mcp.json" to """{"docs":{"url":"https://connector.invalid/mcp"}}""".toByteArray(),
                 ),
             )
-        val installed = connectorService.install(bundle)
+        val installed = pluginService.install(bundle)
         // The user explicitly enables the persisted skill (GLOBAL scope, a durable row).
-        connectorService.setSkillEnabled(installed.skills.single(), true)
+        pluginService.setSkillEnabled(installed.skills.single(), true)
         // A non-default session permission mode is also a durable row keyed by the session.
         val sessionId = newSession("restart")
         saveConfig(sessionId, SessionPermissionMode.APPROVAL_REQUIRED)
         Files.write(markerPath(), "${installed.id}\n${Process.myPid()}\n$sessionId\n".toByteArray())
         assertTrue(
             "the seed phase must have enabled the persisted skill",
-            connectorService.skillEnabled(installed.skills.single()),
+            pluginService.skillEnabled(installed.skills.single()),
         )
     }
 
@@ -819,18 +819,18 @@ class ExtensionJourneyDeviceTest {
         assumeTrue("the seed phase must have written the marker", Files.exists(marker))
         val lines = Files.readAllLines(marker)
         assertNotEquals("recover must run in a NEW process (a different pid)", lines[1].toInt(), Process.myPid())
-        val connectorService = container.connectorService
-        val record = connectorService.list().single { it.id == lines[0] }
+        val pluginService = container.pluginService
+        val record = pluginService.list().single { it.id == lines[0] }
         try {
             // Skill enablement is GLOBAL and persisted -> it survives the restart.
             assertTrue(
                 "skill enablement must persist across the restart",
-                connectorService.skillEnabled(record.skills.single()),
+                pluginService.skillEnabled(record.skills.single()),
             )
             // The MCP connection is IN-MEMORY -> it is NOT auto-re-enabled after a restart.
             assertFalse(
                 "the in-memory MCP connection must not auto-re-enable",
-                connectorService.enabled(record.endpoints.single()),
+                pluginService.enabled(record.endpoints.single()),
             )
             // No live bridge means no registered MCP tool for the recorded endpoint.
             assertTrue(
@@ -845,7 +845,7 @@ class ExtensionJourneyDeviceTest {
                 container.sessionPermissionEdit.activeConfigFor(lines[2])?.mode,
             )
         } finally {
-            connectorService.remove(record)
+            pluginService.remove(record)
             container.skillRepository.list().filter { it.key.name == record.skills.singleOrNull()?.name }.forEach {
                 runCatching { container.skillRepository.removePermanentlyForPrivacy(it.key) }
             }

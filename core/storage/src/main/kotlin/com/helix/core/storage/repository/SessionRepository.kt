@@ -3,6 +3,7 @@ package com.helix.core.storage.repository
 import com.helix.core.storage.dao.SessionDao
 import com.helix.core.storage.entity.SessionEntity
 
+@Suppress("TooManyFunctions") // One session aggregate, including bounded privacy inventory; no second state owner.
 class SessionRepository(
     private val dao: SessionDao,
     private val transaction: (() -> Unit) -> Unit = { it() },
@@ -35,6 +36,14 @@ class SessionRepository(
         val entity = dao.byId(id)
 
         return entity ?: throw IllegalArgumentException("session not found: $id")
+    }
+
+    fun pageIds(
+        afterId: String?,
+        limit: Int,
+    ): List<String> {
+        require(limit in 1..256)
+        return dao.pageIds(afterId, limit)
     }
 
     fun list(): List<SessionEntity> = dao.list()

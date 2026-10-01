@@ -393,7 +393,7 @@ internal fun HelixApp(container: AppContainer) {
                             providerService = container.providerService,
                             permissionEdit = container.sessionPermissionEdit,
                             skills = container.skillRepository,
-                            connectors = container.connectorService,
+                            connectors = container.pluginService,
                             files = container.fileManager,
                             onModels = { navController.navigate(ShellDestination.Models.route) },
                             onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
@@ -518,7 +518,7 @@ private fun DestinationScreen(
                 skills = container.skillRepository,
                 sessionExport = container.sessionExport,
                 memory = container.memory,
-                connectors = container.connectorService,
+                connectors = container.pluginService,
                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
                 onNavigation = onOpenDrawer,
                 onModels = { navController.navigate(ShellDestination.Models.route) },
@@ -582,6 +582,16 @@ private fun DestinationScreen(
                 onPermissions = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
                 onAudit = { navController.navigate(SETTINGS_AUDIT_ROUTE) },
                 storageUsage = container.storageUsage,
+                cleanProviderEvidence =
+                    if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+                        { after ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                container.privacyDeletionService.cleanReplayEvidence(after)
+                            }
+                        }
+                    } else {
+                        null
+                    },
             )
         }
 
@@ -593,7 +603,7 @@ private fun DestinationScreen(
             ExtensionsScreen(
                 container.skillAuthoringService,
                 container.skillInstallationService,
-                container.connectorService,
+                container.pluginService,
                 container.marketplaceService,
             )
         }

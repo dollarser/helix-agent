@@ -3,8 +3,8 @@ package com.helix.app.chat
 import android.util.Log
 import com.helix.app.engine.TurnEngine
 import com.helix.app.provider.ProviderService
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.runcontrol.SessionRunControlStore
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.VisionLimits

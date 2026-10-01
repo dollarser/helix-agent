@@ -13,5 +13,7 @@ internal object RecoveryContextPolicy {
         turnId: String?,
         role: String,
         predecessorTurnId: String?,
-    ): Boolean = predecessorTurnId == null || turnId != predecessorTurnId || role == ModelRole.USER.name
+    ): Boolean =
+        com.helix.core.agent.RecoveryContextFilter
+            .keep(turnId, role, predecessorTurnId)
 }

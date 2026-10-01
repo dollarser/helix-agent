@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -23,12 +23,12 @@ class ConnectorSessionPanelDeviceTest {
     @Test
     fun sessionAndNewSessionDefaultCanBeChangedIndependently() {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
-        val service = c.connectorService
+        val service = c.pluginService
         val session = "connector-ui-${UUID.randomUUID()}"
         val next = "$session-next"
         val record =
             service.install(
-                ConnectorPackageReader().readJson(
+                PluginPackageReader().readJson(
                     """{"mcp_servers":{"fixture":{"url":"https://example.com/ui"}}}""".toByteArray(),
                 ),
                 identity = session,

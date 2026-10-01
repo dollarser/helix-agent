@@ -22,8 +22,15 @@ import com.helix.app.storage.StorageUsageEntry
 import kotlinx.coroutines.CancellationException
 
 @Composable
+@Suppress("FunctionName")
+internal fun StorageUsageSection(load: suspend () -> List<StorageUsageEntry>) = StorageUsageSection(load, null)
+
+@Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "SwallowedException")
-internal fun StorageUsageSection(load: suspend () -> List<StorageUsageEntry>) {
+internal fun StorageUsageSection(
+    load: suspend () -> List<StorageUsageEntry>,
+    cleanProviderEvidence: (suspend (String?) -> com.helix.app.privacy.ProviderEvidenceCleanup)?,
+) {
     var open by remember { mutableStateOf(false) }
     var attempt by remember { mutableStateOf(0) }
     var entries by remember { mutableStateOf<List<StorageUsageEntry>?>(null) }
@@ -65,6 +72,7 @@ internal fun StorageUsageSection(load: suspend () -> List<StorageUsageEntry>) {
                 if (failed) Text(stringResource(R.string.storage_usage_failed), Modifier.testTag("storage-usage-error"))
                 if (!failed && entries == null) Text(stringResource(R.string.storage_usage_loading))
                 Text(stringResource(R.string.storage_usage_deletion))
+                cleanProviderEvidence?.let { ProviderEvidenceCleanupSection(it) }
             }
         },
         confirmButton = {

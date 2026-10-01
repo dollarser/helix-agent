@@ -1,7 +1,7 @@
 package com.helix.app.connector
 
+import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.extensions.skills.SkillImportService
-import com.helix.extensions.skills.connector.ConnectorPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -15,7 +15,7 @@ class ConnectorSuppliedArchiveTest {
     fun inspectProductionReaderAndSkillImporter() {
         val source = System.getenv("HELIX_CONNECTOR_SAMPLE_ZIP")
         assumeTrue("requires a local sample", !source.isNullOrBlank())
-        val bundle = ConnectorPackageReader().readZip(Path.of(requireNotNull(source)))
+        val bundle = PluginPackageReader().readZip(Path.of(requireNotNull(source)))
         assertEquals(
             setOf("dingtalk-doc", "dingtalk-shared", "mcp-installer", "wecom-unified"),
             bundle.skills
@@ -36,7 +36,7 @@ class ConnectorSuppliedArchiveTest {
             bundle.skills.forEach { skill ->
                 val directory = root.resolve("source").resolve(skill.directory)
                 skill.files.forEach { (name, bytes) ->
-                    val target = directory.resolve(ConnectorPackageReader.safePath(name))
+                    val target = directory.resolve(PluginPackageReader.safePath(name))
                     Files.createDirectories(target.parent)
                     Files.write(target, bytes)
                 }
@@ -74,7 +74,7 @@ class ConnectorSuppliedArchiveTest {
                         it.name.endsWith(".json")
                 }
             val rawConfig = zip.getInputStream(entry).use { it.readBytes() }
-            val bundle = ConnectorPackageReader().readJson(rawConfig)
+            val bundle = PluginPackageReader().readJson(rawConfig)
             assertEquals(2, bundle.endpoints.size)
             org.junit.Assert.assertTrue(bundle.endpoints.all { it.needsCredential })
         }

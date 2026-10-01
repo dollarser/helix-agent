@@ -2,12 +2,12 @@ package com.helix.app.chat
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolCallState

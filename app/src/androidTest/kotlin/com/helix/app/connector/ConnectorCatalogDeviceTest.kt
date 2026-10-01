@@ -3,6 +3,8 @@ package com.helix.app.connector
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.chat.SessionFork
+import com.helix.app.plugin.InstalledPlugin
+import com.helix.app.plugin.PluginCatalog
 import com.helix.core.storage.HelixStorage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,10 +17,10 @@ class ConnectorCatalogDeviceTest {
     @Test
     fun forkCopiesSelectionInsteadOfDefaultsAndDeletionCascadesAfterReopen() {
         withStorage { context, name, root, storage ->
-            val catalog = ConnectorCatalog(storage)
+            val catalog = PluginCatalog(storage)
 
             fun record(id: String) =
-                InstalledConnector(
+                InstalledPlugin(
                     id = id,
                     name = id,
                     source = "LOCAL",
@@ -44,7 +46,7 @@ class ConnectorCatalogDeviceTest {
             assertEquals("Keep history", storage.messages.readContent(storage.messages.listBySession("fork").first()))
             storage.close()
             HelixStorage.open(context, name, root).useStorage { reopened ->
-                val recovered = ConnectorCatalog(reopened)
+                val recovered = PluginCatalog(reopened)
                 assertEquals(setOf("selected"), recovered.selected("fork"))
                 reopened.deleteSessionPermanently("fork")
                 assertFalse(recovered.selected("fork").isNotEmpty())

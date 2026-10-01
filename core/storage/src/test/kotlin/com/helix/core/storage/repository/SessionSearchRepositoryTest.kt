@@ -287,6 +287,15 @@ class SessionSearchRepositoryTest {
 
         override fun byId(id: String): SessionEntity? = rows[id]
 
+        override fun pageIds(
+            afterId: String?,
+            limit: Int,
+        ): List<String> =
+            rows.keys
+                .sorted()
+                .filter { afterId == null || it > afterId }
+                .take(limit)
+
         override fun list(): List<SessionEntity> = rows.values.sortedByDescending { it.createdAt }
 
         override fun archive(
@@ -374,6 +383,17 @@ class SessionSearchRepositoryTest {
 
         override fun supersededTurns(sessionId: String): List<String> =
             rows.filter { it.sessionId == sessionId && it.supersededBy != null }.mapNotNull { it.turnId }.distinct()
+
+        override fun retainedByKindAfter(
+            kind: String,
+            afterId: String?,
+            limit: Int,
+        ): List<MessageEntity> =
+            rows
+                .filter {
+                    it.kind == kind && (afterId == null || it.id > afterId)
+                }.sortedBy { it.id }
+                .take(limit)
 
         override fun byId(id: String): MessageEntity? = rows.firstOrNull { it.id == id }
 

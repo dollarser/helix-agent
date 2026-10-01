@@ -2,34 +2,33 @@ package com.helix.app.chat
 
 import android.util.Log
 import com.helix.app.R
-import com.helix.app.agent.BufferedModelToolCall
-import com.helix.app.agent.LocalToolCallBatch
-import com.helix.app.agent.SettledBatch
-import com.helix.app.agent.SettledCall
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnExecutionHandles
-import com.helix.app.agent.TurnMessageDraft
-import com.helix.app.agent.TurnToolExecutor
 import com.helix.app.agent.UnresolvedEffectPolicy
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentToolGateway
+import com.helix.core.agent.BufferedModelToolCall
+import com.helix.core.agent.LocalToolCallBatch
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.SettledBatch
+import com.helix.core.agent.SettledCall
+import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.Clock
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.policy.DataOrigin
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
 import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.CanonicalArgs
-import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ToolDescriptor
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +40,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * Owns tool dispatch facts, approval decisions and ordered durable tool settlement. Also the
- * agent loop's [TurnToolExecutor] port (HX2-02): the loop's tool rounds execute through here.
+ * agent loop's [AgentToolGateway] port (HX2-02): the loop's tool rounds execute through here.
  */
 @Suppress("LongParameterList", "TooManyFunctions", "LargeClass")
 internal class ChatToolCalls(
@@ -56,7 +55,7 @@ internal class ChatToolCalls(
     private val strings: (Int, Array<out Any>) -> String,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
     private val workspaceScopeId: String,
-) : TurnToolExecutor {
+) : AgentToolGateway {
     private val requests = ChatDispatchRequests(toolPipeline, liveHandles, lanScopes)
     private val timeline = ChatToolTimeline(screen, strings)
     private val outcomeStore =
@@ -191,8 +190,6 @@ internal class ChatToolCalls(
         }
     }
 
-    private val messageEncoder = ChatToolMessageEncoder(strings)
-
     override fun prepareModelCalls(
         calls: List<BufferedModelToolCall>,
         directory: com.helix.core.workspace.FileScopePath?,
@@ -218,16 +215,6 @@ internal class ChatToolCalls(
                 bindingRequired = true,
             )
         }
-    }
-
-    override fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)
-
-    override fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
-        val reader = toolPipeline.registry.all().firstOrNull { it.name.value == ToolResultReadTool.NAME }
-        val session = settled.resultReference?.substringBefore('/')?.let { storage.turns.resolve(it).sessionId }
-        val enabled =
-            reader != null && session != null && (toolPipeline.disabledToolFilter?.invoke(session, reader) ?: true)
-        return messageEncoder.toolResultDraft(settled, enabled)
     }
 
     // --------------------------------------------------------------------------------
@@ -273,13 +260,14 @@ internal class ChatToolCalls(
         DurableToolLoopProgress(storage, toolPipeline.registry).reset(turnId, idGenerator(), clock.now().toEpochMilli())
 
     @Suppress("TooGenericExceptionCaught") // settle every slot before propagating a batch failure
-    override fun runToolBatch(
-        turn: com.helix.core.storage.entity.TurnEntity,
-        turnId: String,
-        calls: List<BufferedModelToolCall>,
-        coordinator: TurnCoordinator,
-        control: RunControlConfig,
+    override suspend fun executeBatch(
+        request: com.helix.core.agent.ToolBatchRequest,
+        observer: com.helix.core.agent.ToolBatchObserver,
     ): SettledBatch {
+        val turn = storage.turns.resolve(request.turnId)
+        require(turn.sessionId == request.sessionId) { "TOOL_BATCH_SESSION_MISMATCH" }
+        val calls = request.calls
+        val control = request.control
         val prepareds = prepareBatchCalls(turn, calls, control)
         val requests = prepareds.mapNotNull { it.request }
         val batch =
@@ -316,7 +304,7 @@ internal class ChatToolCalls(
                             durationMs,
                         )
                     }
-                    coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
+                    observer.settled(p.callId, sideEffectUnknown = unknown)
                     if (unknown) reviewCallIds += p.callId
                 } catch (failure: Exception) {
                     val first = settlementFailure

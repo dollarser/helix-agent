@@ -2,9 +2,9 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.ContextCapacityException
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
+import com.helix.core.agent.ContextCapacityException
 import com.helix.core.storage.HelixStorage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows

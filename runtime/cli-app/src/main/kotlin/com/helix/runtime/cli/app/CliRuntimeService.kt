@@ -44,7 +44,7 @@ class CliRuntimeService : Service() {
                 return@executeModel stop.using(
                     AntigravitySubscriptionModel(
                         vault,
-                        AntigravityReplayStore(java.io.File(filesDir, "antigravity-replay")),
+                        AntigravityReplayStore(java.io.File(filesDir, "antigravity-replay"), envelope.replayOwner),
                         envelope.images,
                         eventDirectory = java.io.File(cacheDir, "model-events"),
                     ),
@@ -128,6 +128,11 @@ class CliRuntimeService : Service() {
             statusProvider = { CliEmbeddedBaseline.status(this) },
             callerVerifier = { uid -> CliCallerVerifier.verify(this, uid) },
             jobRunner = runner,
+            replayMaintenance =
+                CliReplayMaintenanceBinder(
+                    AntigravityReplayMaintenance(java.io.File(filesDir, "antigravity-replay")),
+                    runner,
+                ),
             catalogProvider = { provider ->
                 networkForeground.begin()
                 val vault = CliSubscriptionCredentialVault(this)

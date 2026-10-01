@@ -45,6 +45,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision history
 
+- 2026-10-01：HXA-236/J1 按已接受 Harness 观察契约实施：观察与原执行 owner 分开，完整原句柄绑定后经唯一 Dispatcher 的 completion 面等待；只读查询不得取得 reconciliation permit，未退出 Binder 继续占用其物理查询槽。内部等待到期、外层超时、停止等待、停止原执行和结果收取分别结算；不重启原命令、不重置原额度。具体上限及实施/验证状态由 HXA-236 记账，accepted 不表示等待工具已上线。
+
 - 2026-09-30 提交后复审修复：订阅 Job 在 backend 创建前建立停止意图，迟到 backend/HTTP Call 注册必须继承取消；状态提交与资源 close 分离，不能在状态锁内等待外部执行器关闭。已验证本地输出与 Runtime ACK 分开记账，待 ACK 身份在首次发送前落盘，重开/失败只重试同身份确认，不重新生成；回包须包含匹配完整终态身份和确认戳。CLI journal 必须有界读取与原子替换，失败不得降级覆盖旧记录。详见[追加修复](../../../reviews/2026-09-30/2026-09-30-post-commit-audit.md)，不扩大共享 UID 隔离或远端回滚保证。
 
 - 2026-09-30 Runtime 矩阵修复：订阅取消先持久 CANCEL_REQUESTED，真实 worker 退出后才落 CANCELLED；请求取消不能提前确认/清理或放行新执行。查询、结果与确认回执绑定完整原任务/输入身份；轮询耗时使用单调时钟。恢复观察先查状态，运行中不读取成功专属归档，也不消耗故障重试额度。见[故障矩阵](../../evidence/development/runtime-fault-matrix-2026-09-30.md)，本地停止不推导远端副作用已回滚。

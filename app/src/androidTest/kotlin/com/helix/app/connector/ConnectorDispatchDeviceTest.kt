@@ -2,18 +2,18 @@ package com.helix.app.connector
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.extensions.skills.connector.ConnectorPackageReader
-import com.helix.tools.framework.DispatchOutcomeCode
+import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -39,8 +39,8 @@ class ConnectorDispatchDeviceTest {
         val turn = "turn-${UUID.randomUUID()}"
         val call = "call-${UUID.randomUUID()}"
         val record =
-            c.connectorService.install(
-                ConnectorPackageReader().readJson(
+            c.pluginService.install(
+                PluginPackageReader().readJson(
                     """{"mcp_servers":{"fixture":{"url":"https://example.com/dispatch"}}}""".toByteArray(),
                 ),
                 identity = session,
@@ -53,7 +53,7 @@ class ConnectorDispatchDeviceTest {
         c.storage.messages.append("$session-message", session, null, "USER", "TEXT", "Keep this history")
         c.storage.turns.start(turn, session, 0)
         c.chatService.openSession(session)
-        c.connectorService.catalog.select(session, record.id, true)
+        c.pluginService.catalog.select(session, record.id, true)
         c.sessionPermissionEdit.saveSessionConfig(
             session,
             SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
@@ -92,7 +92,7 @@ class ConnectorDispatchDeviceTest {
                 if (pending == null) Thread.sleep(25)
             }
             check(pending != null) { "No pending approval: ${if (result.isDone) result.get() else "timeout"}" }
-            c.connectorService.catalog.select(session, record.id, false)
+            c.pluginService.catalog.select(session, record.id, false)
             assertTrue(pipeline.mcpDiscovery.visible(session, listOf(descriptor)).isEmpty())
             c.chatService.approveApproval(pending)
             val outcome = result.get(30, TimeUnit.SECONDS)
@@ -105,7 +105,7 @@ class ConnectorDispatchDeviceTest {
                     .listBySession(session)
                     .count { it.role == "USER" },
             )
-            c.connectorService.catalog.select(session, record.id, true)
+            c.pluginService.catalog.select(session, record.id, true)
             c.sessionPermissionEdit.setToolAvailability(
                 descriptor.origin.canonicalOf(),
                 descriptor.name.value,
@@ -122,7 +122,7 @@ class ConnectorDispatchDeviceTest {
             pipeline.registry.replaceMcpServer(id, emptyList())
             pipeline.endTurn(turn)
             c.chatService.closeSession()
-            c.connectorService.remove(record)
+            c.pluginService.remove(record)
             c.storage.deleteSessionPermanently(session)
         }
     }

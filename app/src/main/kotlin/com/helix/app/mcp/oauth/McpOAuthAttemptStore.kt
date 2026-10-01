@@ -22,6 +22,7 @@ data class McpOAuthAttempt(
     val expiresAtMs: Long,
     val resource: String = issuer,
     val revocationEndpoint: String? = null,
+    val issuerParameterRequired: Boolean = false,
 ) {
     fun isExpired(nowMs: Long = System.currentTimeMillis()): Boolean = nowMs >= expiresAtMs || nowMs < createdAtMs
 

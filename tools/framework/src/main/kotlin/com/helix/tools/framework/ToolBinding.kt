@@ -13,6 +13,10 @@ data class ToolBinding(
     init {
         require(implementationRevision.isNotBlank())
         require(implementationRevision.length <= 512)
+        require(
+            executor !is JobObservationExecutor ||
+                descriptor.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY,
+        ) { "Job observation bindings must be read-only" }
     }
 
     val owner: String get() = bindingOwner(descriptor.origin)

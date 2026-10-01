@@ -1,6 +1,6 @@
 package com.helix.app.chat
 
-import com.helix.app.agent.ToolLoopProgress
+import com.helix.core.agent.ToolLoopProgress
 import com.helix.core.model.Capability
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.storage.HelixStorage

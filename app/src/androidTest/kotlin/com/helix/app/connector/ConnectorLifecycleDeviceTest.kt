@@ -3,8 +3,9 @@ package com.helix.app.connector
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.plugin.PluginService
 import com.helix.core.model.SecretAlias
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -19,7 +20,7 @@ import java.util.UUID
 class ConnectorLifecycleDeviceTest {
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val c get() = app.appContainer
-    private val service get() = c.connectorService
+    private val service get() = c.pluginService
 
     @Test
     fun authenticationBindingChangeAtSameUrlDoesNotCarryCredentials() {
@@ -243,7 +244,7 @@ class ConnectorLifecycleDeviceTest {
     }
 
     private fun faultService(boundary: (String) -> Unit) =
-        ConnectorService(
+        PluginService(
             app,
             c.storage,
             c.mcpService,
@@ -263,7 +264,7 @@ class ConnectorLifecycleDeviceTest {
         identity: String,
         body: String,
         path: String = "/mcp",
-    ) = ConnectorPackageReader().parse(
+    ) = PluginPackageReader().parse(
         mapOf(
             ".codex-plugin/plugin.json" to """{"name":"fixture"}""".toByteArray(),
             ".mcp.json" to """{"mcp_servers":{"docs":{"url":"https://example.com$path"}}}""".toByteArray(),

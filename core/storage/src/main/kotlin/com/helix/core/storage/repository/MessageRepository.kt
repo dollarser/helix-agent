@@ -49,6 +49,15 @@ class MessageRepository(
             entity
         }
 
+    fun retainedByKindAfter(
+        kind: String,
+        afterId: String?,
+        limit: Int,
+    ): List<MessageEntity> {
+        require(limit in 1..256)
+        return dao.retainedByKindAfter(kind, afterId, limit)
+    }
+
     fun resolve(id: String): MessageEntity {
         val entity = dao.byId(id)
 

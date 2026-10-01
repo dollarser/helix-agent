@@ -2,9 +2,9 @@ package com.helix.app.chat
 
 import com.helix.app.engine.TurnObservation
 import com.helix.app.engine.TurnRuntimeView
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.agent.CancelResult
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.agent.TurnSnapshot
 import com.helix.core.model.TurnId
@@ -30,7 +30,7 @@ internal class AppAgentRuntime(
                 command.chatToolsEnabled,
                 command.budgets,
                 command.reasoning,
-                command.goalBudgets ?: com.helix.app.runcontrol.GoalBudgetDefaults.VALUE,
+                command.goalBudgets ?: com.helix.core.agent.GoalBudgetDefaults.VALUE,
             )
         val turnId = startTurn(command, control) ?: throw TurnStartBlocked()
         return TurnId(turnId)

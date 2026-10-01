@@ -16,6 +16,22 @@ class MarketplaceDeviceTest {
     private val service get() = requireNotNull(container.marketplaceService) { "MarketplaceService should be wired" }
 
     @Test
+    fun disabledSkillPackageRemainsInstalledAndCanBeEnabledWithoutReinstall() {
+        val item = service.items().first { it.id == "code-review" }
+        val installed = service.install(item)
+        try {
+            container.pluginService.setEnabled(installed.id, false)
+            assertEquals(MarketplaceItemStatus.INSTALLED_INACTIVE, service.status(item))
+            assertEquals(installed.id, service.findInstalled(item)?.id)
+            service.enableSkill(item)
+            assertEquals(MarketplaceItemStatus.ACTIVE, service.status(item))
+            assertEquals(installed.id, service.findInstalled(item)?.id)
+        } finally {
+            service.uninstall(item)
+        }
+    }
+
+    @Test
     fun marketplaceItemsAreInstallableAndDetectStatus() {
         val items = service.items()
         assertTrue("Marketplace should provide items", items.isNotEmpty())
@@ -24,7 +40,7 @@ class MarketplaceDeviceTest {
         assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(cloudflare))
 
         val installed = service.install(cloudflare)
-        assertNotNull("Installation should return an InstalledConnector", installed)
+        assertNotNull("Installation should return an InstalledPlugin", installed)
 
         try {
             assertEquals(MarketplaceItemStatus.INSTALLED_INACTIVE, service.status(cloudflare))
@@ -41,11 +57,11 @@ class MarketplaceDeviceTest {
             try {
                 assertEquals(MarketplaceItemStatus.ACTIVE, service.status(codeReview))
             } finally {
-                skillInstalled?.let { container.connectorService.remove(it) }
+                skillInstalled?.let { container.pluginService.remove(it) }
             }
             assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(codeReview))
         } finally {
-            installed?.let { container.connectorService.remove(it) }
+            installed?.let { container.pluginService.remove(it) }
         }
 
         assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(cloudflare))
@@ -65,12 +81,12 @@ class MarketplaceDeviceTest {
             } finally {
                 service.uninstall(item)
                 // Clean up even when the market lookup is the failing behavior.
-                container.connectorService.list().firstOrNull { it.id == installed.id }?.let {
-                    container.connectorService.remove(it)
+                container.pluginService.list().firstOrNull { it.id == installed.id }?.let {
+                    container.pluginService.remove(it)
                 }
             }
             assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(item))
-            assertTrue(container.connectorService.list().none { it.id == installed.id })
+            assertTrue(container.pluginService.list().none { it.id == installed.id })
         }
     }
 
@@ -102,7 +118,7 @@ class MarketplaceDeviceTest {
 
             // The older version has cleanly replaced the previous one without leaving duplicate dangling records
             val targetName = codeReview.targetConnectorName ?: "${codeReview.id}-skill"
-            val matchedConnectors = container.connectorService.list().filter { it.name == targetName }
+            val matchedConnectors = container.pluginService.list().filter { it.name == targetName }
             assertEquals(1, matchedConnectors.size)
             assertEquals(downgradedInstalled.id, matchedConnectors.single().id)
         } finally {

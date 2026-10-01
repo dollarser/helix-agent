@@ -4,9 +4,11 @@
 
 ## 1. 当前范围
 
-近期保持一个 Android 本机产品、一条执行管线。重构范围归 [HXA-231](../completion-records/HXA-231.md)，本页不扩展其授权；重构以外优先内测、真实设备和发行准备。正式开放的任务清单由 [roadmap](roadmap.md) 维护，目前为 120、121、122、123、125、126、190、232。
+近期保持一个 Android 本机产品、一条执行管线。R1 已由 [HXA-231](../completion-records/HXA-231.md) 交付，后续所有者授权的实施范围由 [status](status.md) 和对应 HXA 维护；本页不扩展其授权。重构以外继续推进内测、真实设备和发行准备。正式开放清单只由 [roadmap](roadmap.md) 维护，不在此复制编号。
 
 模型下载配置、Memory/Workspace 增量设备验收、首次成功旅程、恢复 UI、脱敏诊断、分类空间与发布残留管理已有交付证据，不再列为从零开发任务。这里的“已有交付”不代表所有 OEM、真实账号或发行版本通过。
+
+2026-10-01 已完成当前回放/OAuth/R2-A/R3/基础 J1 候选的本地主机阶段复验和状态整理，见[收尾快照](../evidence/development/phase-closeout-2026-10-01.md)。源码/APK 指纹只定位未提交候选，不替代 clean commit、完整 J1、设备/真实服务、用户内测或签名发行。可执行的剩余本地工作只看 status 和原 HXA，不在本页再维护一份任务顺序。
 
 ## 2. 就绪检查面
 
@@ -37,7 +39,7 @@
 - 设备内模型继续聚焦 **Qwen3 4B Instruct 2507 Q4_K_M**，复用现有 ModelScope/Hugging Face 精选入口及高级导入。0.6B/1.7B 只留历史对照，不重新投入主动验收。
 - 本地模型优化先测 load、prefill、decode、首响应、PSS/RSS 与 cancel-to-exit；模拟器固定任务不定义手机最低配置。KV/prefix、线程/batch、逐 token 输出及 GPU/NPU 仅在存在瓶颈证据后另行决定，不是本轮缺失功能。
 - Harness 回归使用既定 SGLang 固定任务；规范、身份和统计口径见[系统基线](harness-system-baseline.md)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
-- Memory 的持久化/权限/设备恢复已经验收；仍需验证真实任务效果、过时信息和跨会话污染，不能仅凭 prompt 中出现文本就声称效果提升。
+- Global Memory 的既有持久化/权限/设备恢复按原证据验收；完整 Project Memory 生产接线尚未完成。真实任务效果、过时信息和跨会话污染仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
 - Connector/订阅按实际选定供应商验收，不承诺任意服务兼容；未选或暂缓供应商不形成无限开发义务。
 
 ## 5. 需要外部输入的正式任务
@@ -45,7 +47,7 @@
 | 任务 | 剩余内容 | 最少输入 / 决策 |
 | --- | --- | --- |
 | [HXA-125](tasks/HXA-125.md) | 受保护服务认证、拒绝、厂商撤销、重连 | 指定服务、专用账号和独立来源样本；凭据不写入仓库或反馈表 |
-| [HXA-126](tasks/HXA-126.md) | 两家独立 OAuth 服务验证；动态客户端注册与 App Link/client metadata 未交付 | 服务、App 注册、精确 redirect 和支持的 public-client 流程；只为选定服务决定后续实现 |
+| [HXA-126](tasks/HXA-126.md) | 动态客户端注册及 client metadata 本地实现已交付；剩两家独立 OAuth 服务、新 UI 设备与自有 HTTPS/App Link 条件验证 | 服务、App 注册、精确 redirect 和支持的 public-client 流程；只为选定服务决定后续实现 |
 | [HXA-190](tasks/HXA-190.md) | 所选订阅供应商目录、生成、刷新和失效恢复 | 供应商/账号/额度授权；暂缓 Claude/Grok 的决定不变 |
 | [HXA-120](tasks/HXA-120.md) | 最终渠道权限/能力/SDK/Runtime/披露矩阵 | 首发渠道；执行时核验当日官方政策，不在本计划预判合规 |
 | [HXA-122](tasks/HXA-122.md) | applicationId、签名、同 ID 升级及数据恢复承诺 | 发行身份、签名归属、何时停止开发期 Room v1 重建；现在仍仅承诺当前开发约定 |

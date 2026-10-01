@@ -1,6 +1,8 @@
 package com.helix.app.runcontrol
 
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnBudgets
 import org.junit.Assert.assertEquals

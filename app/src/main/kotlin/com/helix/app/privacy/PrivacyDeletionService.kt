@@ -18,9 +18,14 @@ import com.helix.feature.browser.BrowserController
 data class DeletionResult(
     val subject: String,
     val deletedItems: Int,
+    val providerEvidence: ProviderEvidenceCleanup = ProviderEvidenceCleanup(),
 )
 
-/** User-action-only irreversible deletion facade; it is never registered as a model Tool. */
+/**
+ * User-action-only deletion facade; never registered as a model Tool. One explicit action per
+ * domain delegates to its real owner rather than introducing another lifecycle framework.
+ */
+@Suppress("LongParameterList", "TooManyFunctions")
 class PrivacyDeletionService(
     private val storage: HelixStorage,
     private val workspace: WorkspaceArtifactStore,
@@ -31,6 +36,7 @@ class PrivacyDeletionService(
     private val skills: SkillRepository,
     private val chat: ChatService,
     private val cancelGoalReminder: (String) -> Unit,
+    private val cleanProviderEvidence: (String?) -> ProviderEvidenceCleanup = { ProviderEvidenceCleanup() },
 ) {
     fun deleteSession(sessionId: String): DeletionResult {
         chat.preparePermanentDeletion(sessionId)
@@ -39,8 +45,11 @@ class PrivacyDeletionService(
         // Session deletion removes its records, never an external resource or a shared workspace.
         // User files remain until an explicit workspace cleanup can account for all references/jobs.
 
-        return DeletionResult("session:$sessionId", 1 + manifest.deletedContentBodies)
+        return DeletionResult("session:$sessionId", 1 + manifest.deletedContentBodies, cleanReplayEvidence())
     }
+
+    /** Explicit local cleanup/retry, never a model tool or a passive Runtime startup. */
+    fun cleanReplayEvidence(after: String? = null): ProviderEvidenceCleanup = cleanProviderEvidence(after)
 
     suspend fun deleteProvider(providerId: String): DeletionResult {
         providers.delete(providerId)

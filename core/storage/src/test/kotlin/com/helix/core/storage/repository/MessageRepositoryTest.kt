@@ -100,6 +100,17 @@ class MessageRepositoryTest {
             rows += message
         }
 
+        override fun retainedByKindAfter(
+            kind: String,
+            afterId: String?,
+            limit: Int,
+        ): List<MessageEntity> =
+            rows
+                .filter {
+                    it.kind == kind && (afterId == null || it.id > afterId)
+                }.sortedBy { it.id }
+                .take(limit)
+
         override fun byId(id: String): MessageEntity? = rows.firstOrNull { it.id == id }
 
         override fun listBySession(sessionId: String): List<MessageEntity> =

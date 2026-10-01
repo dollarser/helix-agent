@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="connector_oauth_client_setup">Discover client configuration</string>
+    <string name="connector_oauth_client_issuer">Authorization server: %1$s\nExact redirect: %2$s</string>
+    <string name="connector_oauth_client_document">Your HTTPS client metadata URL</string>
+    <string name="connector_oauth_client_use_document">Verify and use metadata document</string>
+    <string name="connector_oauth_client_register">Register public client</string>
+    <string name="connector_oauth_client_register_warning">Register Helix with the service below, sending only the app name, redirect and public-client protocol settings. No account credentials are submitted and tools are not enabled.</string>
+    <string name="connector_oauth_client_forget">Forget local client configuration</string>
+    <string name="connector_oauth_client_forget_warning">Forget only local registration records. This does not revoke the remote client or account token. Retrying an unconfirmed registration may create another client.</string>
+    <string name="connector_oauth_client_setup_error">Client setup did not complete. Check the service, metadata URL and redirect. Review any existing or unconfirmed registration; explicitly forget its local record before retrying when appropriate.</string>
+    <string name="connector_oauth_client_manual">The service offers no automatic setup. Enter a public Client ID registered with this authorization server.</string>
+    <string name="connector_oauth_client_confirm">Confirm</string>
+    <string name="replay_cleanup_scope">Remove only subscription replay records no longer referenced by conversations. Conversations and user files stay intact. Each action checks one page; active work, unacknowledged results and unverifiable records are retained.</string>
+    <string name="replay_cleanup_run">Clean unreferenced replay</string>
+    <string name="replay_cleanup_next">Check next page</string>
+    <string name="replay_cleanup_complete">Reached the end of the inventory. Retained records were not deleted.</string>
+    <string name="replay_cleanup_more">This page is complete. More records remain to be checked.</string>
+    <string name="replay_cleanup_busy">Active work or unacknowledged results prevent cleanup of these candidates.</string>
+    <string name="replay_cleanup_unavailable">The local subscription service is unavailable. No cleanup result was received.</string>
+    <string name="replay_cleanup_unknown">The cleanup receipt is unconfirmed. The deleted count is unknown. Retry takes a fresh inventory instead of replaying old candidates.</string>
+    <string name="replay_cleanup_history">History references could not be fully verified. These candidates were not deleted.</string>
+    <string name="replay_cleanup_partial">Some records could not be removed. They were retained and can be retried.</string>
+    <string name="replay_cleanup_not_applicable">This build does not include subscription replay.</string>
+    <string name="replay_cleanup_counts">This page: %1$d records (%2$s) checked; %3$d (%4$s) deleted; %5$d retained; %6$d failed.</string>
     <string name="context_compaction_unchanged">No useful reduction was found. Your original context is unchanged.</string>
     <string name="context_window_estimated_note">The service has not reported its context limit. This percentage uses an estimated window. Input usage includes system instructions, tool descriptions and history, not only your message. The last confirmed value stays visible while sending.</string>
     <string name="provider_account_connected">Account connected</string>
@@ -625,14 +648,14 @@
     <string name="provider_subscription_experimental_notice">Unofficial developer experiment. Account access may break or be restricted when the provider protocol changes.</string>
     <string name="provider_subscription_manage_account">Manage subscription login</string>
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions is unavailable, disabled, or signed by a different key.</string>
-    <string name="connector_title">Connectors</string>
-    <string name="connector_intro">Import a plugin ZIP or MCP JSON to combine external tools and skills. Enable components after installation; existing tool authorization applies.</string>
+    <string name="connector_title">Plugins</string>
+    <string name="connector_intro">Import supported plugin packages and configure their Skills and MCP components. Installation does not grant tool permissions.</string>
     <string name="connector_import">Import connector</string>
     <string name="connector_install">Install portable components</string>
     <string name="connector_failed">Import or save failed. Check JSON, skill format, package size, and storage space.</string>
     <string name="connector_skill_review">Skills retain original instructions and files. Scripts do not run on installation. Review the source before enabling; host-specific tool names may need adaptation.</string>
     <string name="connector_remove_note">Removal disables connections and deletes local connection credentials. Skill snapshots remain; skills shared by other connectors keep their state. Revoke provider consent at the provider.</string>
-    <string name="connector_remove">Remove connector</string>
+    <string name="connector_remove">Remove plugin</string>
     <string name="connector_active">Tools enabled</string>
     <string name="connector_inactive">Tools inactive. Test the connection and select tools.</string>
     <string name="connector_bearer">Bearer token (leave blank to reuse)</string>
@@ -847,7 +870,7 @@
     <string name="chat_context_title">Context window</string>
     <string name="chat_context_unknown">Unknown</string>
     <string name="chat_context_usage">Last request input: %1$s tokens\nModel context limit: %2$s tokens</string>
-    <string name="chat_context_explanation">The ring uses this conversation’s last confirmed input usage, including instructions, tool descriptions and history. Sending keeps that value until the reply completes. Failed or ineffective compaction does not replace it. Percentages round down; usage below 1% displays as 0%. Committed compaction usage and unknown window limits may be estimated. Unsent text is excluded. The fallback window is 200,000 tokens; you can configure it per model. Compaction preserves original history and consumes model-call/token budgets.</string>
+    <string name="chat_context_explanation" formatted="false">The ring uses this conversation’s last confirmed input usage, including instructions, tool descriptions and history. Sending keeps that value until the reply completes. Failed or ineffective compaction does not replace it. Percentages round down; usage below 1% displays as 0%. Committed compaction usage and unknown window limits may be estimated. Unsent text is excluded. The fallback window is 200,000 tokens; you can configure it per model. Compaction preserves original history and consumes model-call/token budgets.</string>
     <string name="chat_context_close">Close</string>
     <string name="chat_restore">Restore</string>
     <string name="files_shared_permission_required">Shared storage permission is required. You can also add a SAF folder.</string>
@@ -1372,7 +1395,7 @@
     <string name="conversation_reference_hint">Choose another conversation. At send time Helix freezes an existing summary, or bounded recent messages when no summary exists; no live conversation pointer is retained.</string>
     <string name="conversation_reference_empty">No other conversations are available to reference.</string>
     <string name="composer_add_session_group">Configure this conversation</string>
-    <string name="connector_session_title">Session connectors</string>
+    <string name="connector_session_title">Session plugins</string>
     <string name="connector_session_hint">Applies to future use in this session; history is retained. Shared skills remain available through other active sources.</string>
     <string name="connector_session_empty">No connectors installed. Add one in Extensions.</string>
     <string name="connector_session_unavailable">Not installed or removed</string>
@@ -1409,7 +1432,7 @@
     <string name="session_capability_remaining_source_hint">Skill is still provided by remaining sources</string>
     <string name="session_capability_repair_button">Configure</string>
     <string name="session_capability_toggle_desc">Enable or disable connector for this session</string>
-    <string name="connector_update_title">Update Connector</string>
+    <string name="connector_update_title">Update plugin</string>
     <string name="connector_update_changelog">Changelog</string>
     <string name="connector_update_components_changed">Component changes</string>
     <string name="connector_update_endpoints_reconfigure">Endpoints or auth changed; reconfiguration required</string>
@@ -1611,4 +1634,12 @@
     <string name="provider_model_generation_test">Test basic generation</string>
     <string name="provider_model_probe_cost">Generation and capability tests send synthetic requests and may consume provider quota. Local tests use device resources.</string>
     <string name="provider_note_plan_api">This is API Key access, not managed account sign-in. Use the key issued for the selected plan, region and endpoint. Plan keys and pay-as-you-go keys may not be interchangeable. Helix never automatically falls back to pay-as-you-go or another account.</string>
+    <string name="plugin_global_enabled">Plugin enabled</string>
+    <string name="plugin_native_notice">Built into this app. Code updates arrive with app updates; device actions still need permission.</string>
+    <string name="plugin_native_repair">Repair registration</string>
+    <string name="plugin_partial_ready">Partly ready (%1$d/%2$d)</string>
+    <string name="plugin_skipped_components">Some components are invalid or unsupported. Other valid components remain usable; see plugin details.</string>
+    <string name="tasks_job_stop_waiting">Stop waiting</string>
+    <string name="tasks_job_wait_stopped">Stopped waiting; the original job was not cancelled.</string>
+    <string name="tasks_job_not_waiting">No active observer is waiting for this job.</string>
 </resources>

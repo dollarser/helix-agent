@@ -7,6 +7,7 @@ import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataOrigin
@@ -14,7 +15,6 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.runtime.proot.client.DetachedJobClient
 import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject

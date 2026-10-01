@@ -26,6 +26,14 @@ internal interface SubscriptionProviderIntegration {
         stop: Boolean,
     ): SubscriptionRecoveryStatus = SubscriptionRecoveryStatus.UNKNOWN
 
+    fun cleanReplayEvidence(
+        context: Context,
+        storage: HelixStorage,
+        after: String?,
+    ): com.helix.app.privacy.ProviderEvidenceCleanup =
+        com.helix.app.privacy
+            .ProviderEvidenceCleanup()
+
     fun ensureRegistered(storage: HelixStorage)
 
     fun create(

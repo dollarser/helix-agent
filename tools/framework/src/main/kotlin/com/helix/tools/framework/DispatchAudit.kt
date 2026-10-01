@@ -1,53 +1,8 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ToolOperationClass
 import kotlinx.serialization.json.JsonObject
-
-/**
- * Stable per-dispatch audit codes (roadmap HXA-035 "audit"; doc 11 采纳矩阵:
- * "记录 queue/approval/execution/verification 时间、decision source，不记录敏感正文").
- * Every terminal dispatch outcome maps to exactly one code; codes are stable identifiers
- * for the audit page (HXA-036) and for tests — never free text.
- */
-enum class DispatchOutcomeCode {
-    // before anything ran
-    UNKNOWN_TOOL,
-    NO_IMPLEMENTATION,
-    INVALID_ARGUMENTS,
-    BUDGET_EXHAUSTED,
-    POLICY_DENIED,
-
-    /**
-     * A user DENY preference blocked the tool (HXA-200, ADR-0052). The legacy three-state
-     * preference chain is removed (HXA-209 B4): this code is KEPT so that historical audit
-     * rows keep their stable identifier — no new dispatch can produce it.
-     */
-    PREFERENCE_DENIED,
-
-    /** The user's two-state tool availability disabled the tool (HXA-209, ADR-PERMISSIONS-001 section 1.1). */
-    TOOL_DISABLED,
-
-    /** The session permission resolver denied a DETERMINED classified operation (a DENY rule hit). */
-    OPERATION_DENIED,
-
-    /** The session permission resolver denied fail-closed: an UNDETERMINED effect touched a DENY rule. */
-    OPERATION_DENIED_DOMAIN,
-
-    SAME_TURN_DENIED,
-    APPROVAL_PENDING,
-    APPROVAL_DENIED,
-    APPROVAL_EXPIRED,
-    APPROVAL_CONSUMED,
-    APPROVAL_NOT_FOUND,
-    CANCELLED_BEFORE_START,
-
-    // execution started
-    SUCCESS,
-    TIMEOUT,
-    CANCELLED_AFTER_START,
-    TOOL_FAILED,
-    INVALID_OUTPUT,
-}
 
 /** Who made the terminal decision for this dispatch (doc 11: Policy/User/Recovery sources). */
 enum class DecisionSource {

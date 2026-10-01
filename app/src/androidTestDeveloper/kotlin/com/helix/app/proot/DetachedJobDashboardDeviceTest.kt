@@ -10,13 +10,13 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.BackgroundTaskQuery
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState

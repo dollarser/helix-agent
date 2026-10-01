@@ -1,3 +1,5 @@
+> 2026-10-01 R2-A 源码迁移：本页已移除源文件的链接固定到重构前 `05e91003`，保留原分析语义；不是当前实现或新增验收结论。
+
 # Helix 执行引擎详解与 Codex、DSH、Claude Code 对比
 
 > **历史 Helix 基线提示（2026-09-25）**：本文的 Helix 侧调用链与“差距”基于 2026-09-18～22；普通 Queue/Steer、修订重发、request context manifest、UNKNOWN/review、TurnEngine durable ownership 等已被后续 HXA 实现或重构。当前执行契约看 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)，当前实现证据看 [HXA-220 交付记录](../../completion-records/HXA-220.md) 与 [status](../../development/status.md)。竞品机制分析仍可参考，但正文不得作为当前 backlog。
@@ -89,10 +91,10 @@ flowchart TD
 | 组件 | 负责什么 |
 | --- | --- |
 | `AgentTurnHost`（历史路径，HXA-220 E1-B5 已删除）、[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | 当时的 start/cancel/observe 接缝；当前 live execution/observation 已收敛到 TurnEngine，ChatService 保留应用投影 |
-| [AgentLoop](../../../app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) | 模型请求—工具批—上下文回填循环，以及 Goal 时间约束 |
+| [AgentLoop](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) | 模型请求—工具批—上下文回填循环，以及 Goal 时间约束 |
 | [TurnCoordinator](../../../app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) | 当前 ModelCall/stream 身份、批次聚合 phase、持久事务和终局 |
-| [ModelLoopAdmission](../../../app/src/main/kotlin/com/helix/app/agent/ModelLoopAdmission.kt)、[TurnBudgetTracker](../../../app/src/main/kotlin/com/helix/app/agent/TurnBudgetTracker.kt) | 每次请求的预算准入、输出上限与用量结算 |
-| [ContextCompactionRound](../../../app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) | 压缩规划、收益与失败判断、有限重试、checkpoint 发布 |
+| [ModelLoopAdmission](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ModelLoopAdmission.kt)、[TurnBudgetTracker](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/TurnBudgetTracker.kt) | 每次请求的预算准入、输出上限与用量结算 |
+| [ContextCompactionRound](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) | 压缩规划、收益与失败判断、有限重试、checkpoint 发布 |
 | [SessionPermissionResolver](../../../core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionResolver.kt) | 汇总操作效果，得出免确认、精确审批或拒绝 |
 | [TurnRecovery（原 RecoveryCoordinatorApp）](../../../app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt) | 启动时处理持久中断事实，停泊 Turn/Goal、结算模型调用 |
 | [DataSyncForegroundController](../../../app/src/main/kotlin/com/helix/app/foreground/DataSyncForegroundController.kt) | 活动传输阶段的前台服务决策，等待用户或不再推进时停止 |

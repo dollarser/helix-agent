@@ -1,11 +1,11 @@
 package com.helix.app.root
 
 import com.helix.app.AppContainer
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.tools.framework.DispatchOutcomeCode
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

@@ -22,15 +22,15 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 | [OAuth / Connector](tasks/HXA-125.md)、[动态注册](tasks/HXA-126.md)、[订阅](tasks/HXA-190.md) | 正式开放任务，不是未接受提案 | 已有实现基础；真实服务验证与剩余实现分别由任务记账 | 按各任务区分可实现部分和账号/服务输入；缺账号不等于全部实现完成 |
 | [渠道审计](tasks/HXA-120.md)、[发行验收](tasks/HXA-121.md)、[身份与升级](tasks/HXA-122.md)、[提交](tasks/HXA-123.md) | 正式开放任务 | debug 预发布不替代签名、升级、真实渠道验收或商店提交 | 所需产品输入、签名/账号及对应发行验收；发布须另有明确授权 |
 
-## 尚未转为当前实施任务的目标设计
+## 分阶段推进的目标设计
 
-以下条目引用同一份[重构方案](../architecture/harness-refactor-plan.md)，不把其详细程度当成已授权范围。
+以下条目引用同一份[重构方案](../architecture/harness-refactor-plan.md)。2026-10-01 所有者已要求依次完成本地可执行的 R2-A、R3、J1/J2 与 Project Memory；各阶段以当前 status 和 HXA 为准，设备/账号/发行输入仍独立，不由方案详细程度自动扩展其他候选。
 
 | 项目 | 已有基础 | 缺口与进入开发条件 |
 | --- | --- | --- |
-| R2 Core 解耦 / ContextCompiler | AgentLoop、上下文装配和请求清单 | 定义并迁移中立端口，验证现有行为等价后再调上下文策略；独立任务与相关 ADR 边界 |
-| R3＋最小 R5 插件统一生命周期 | Plugin / Mobile Use MVP、Connector/MCP/Skill 各自生命周期 | 包身份、组件归属、会话选择、局部失败、更新卸载和修复闭环；明确哪些旧 owner 删除 |
-| J1 通用 Job 观察与等待 | Linux 后台 Job、status/cancel/collect | 通用 Handle/Observation、`jobs.await`、通知及有界等待；明确取消、预算、失效与恢复后再接受任务 |
+| R2 Core 解耦 / ContextCompiler | [HXA-234](tasks/HXA-234.md)：实际 Core Loop、中立执行/提交端口与纯上下文编译已有生产接线 | 当前主机/真实存储及设备边界见任务；R2-B 的策略优化不混入等价迁移 |
+| R3＋最小 R5 插件统一生命周期 | [HXA-235](tasks/HXA-235.md)：统一包身份/目录、会话选择、局部失败、更新/停用/修复已接生产并完成本地主机验证 | 保留真实 Room/设备旅程，不重做已交付主体；安装仍不是审批 |
+| J1 通用 Job 观察与等待 | [HXA-236](tasks/HXA-236.md)：Linux 原身份观察、受控 completion、jobs.await、停止等待已完成基础主机交付 | 普通 ToolResult 回填已实现；统一观察上下文、可信类型进展判断、联合/设备验收仍开放，不称完整 J1 完成 |
 | J2 同次执行前后台切换 | 已有后台启动与 durable Job | 稳定执行身份、等待方式与存活策略分离、手动继续后台；证明不重启/不重复执行，明确 J1 等实际依赖 |
 
 ## 产品已登记、未排期的十项候选

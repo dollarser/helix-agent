@@ -2,27 +2,17 @@ package com.helix.app.chat
 
 import android.util.Log
 import com.helix.app.R
-import com.helix.app.agent.AgentLoop
-import com.helix.app.agent.BufferedModelToolCall
+import com.helix.app.agent.AgentLoopHost
 import com.helix.app.agent.ChatContextProjection
-import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.GoalTimeBudget
-import com.helix.app.agent.LocalToolCallBatch
-import com.helix.app.agent.MAX_MODEL_TEXT_CHARS
-import com.helix.app.agent.ModelStreamState
-import com.helix.app.agent.ModelStreamTerminal
-import com.helix.app.agent.SettledCall
 import com.helix.app.agent.TurnCancelSignal
-import com.helix.app.agent.TurnContextAssembler
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnInputDelivery
-import com.helix.app.agent.TurnMessageDraft
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
-import com.helix.app.agent.TurnToolExecutor
 import com.helix.app.agent.UnresolvedEffectPolicy
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
 import com.helix.app.engine.EngineCancelDecision
@@ -40,17 +30,27 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.provider.SubscriptionRecoveredOutput
 import com.helix.app.provider.SubscriptionRecoveryStatus
 import com.helix.app.runcontrol.PersistedRunControlStore
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.runcontrol.SessionRunControlStore
-import com.helix.app.runcontrol.TurnBudgetBounds
 import com.helix.app.todo.TaskLedgerProjection
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.agent.AttachmentBindingIntent
+import com.helix.core.agent.BufferedModelToolCall
 import com.helix.core.agent.ConversationReferenceIntent
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.LocalToolCallBatch
+import com.helix.core.agent.MAX_MODEL_TEXT_CHARS
+import com.helix.core.agent.ModelStreamState
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.SettledCall
 import com.helix.core.agent.SubmitTurnCommand
+import com.helix.core.agent.TurnBudgetBounds
+import com.helix.core.agent.TurnContextAssembler
+import com.helix.core.agent.TurnContextRequest
+import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
@@ -64,6 +64,7 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionId
 import com.helix.core.model.SystemClock
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
@@ -93,7 +94,6 @@ import com.helix.feature.files.SafCancelToken
 import com.helix.feature.files.StagedAttachment
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.tools.framework.ApprovalRequest
-import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -255,17 +255,18 @@ class ChatService(
         )
     }
     private val agentLoop by lazy {
-        AgentLoop(
+        AgentLoopHost(
             storage,
             providerService,
             requestAssembler,
             toolCalls,
+            ChatToolMessages(storage, toolPipeline, strings),
             clock,
             idGenerator,
             turnEngine.liveHandles,
             strings,
             ::refreshScreen,
-            ::applyEvent,
+            ::publishModelText,
             turnEngine::persistTerminalInTransaction,
             inputDelivery =
                 object : TurnInputDelivery {
@@ -1965,7 +1966,7 @@ class ChatService(
     fun compactContext() {
         if (_screen.value.isDraft || _screen.value.isSending || stagedAttachments.isNotEmpty()) return
         val sessionId = openSessionId ?: return
-        sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), ContextCompaction.COMMAND))
+        sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), com.helix.core.agent.ContextCommands.COMPACT))
     }
 
     /** Optional per-session file cache. Its success is never required for submission. */
@@ -3884,7 +3885,7 @@ class ChatService(
                             .read(storage, it)
                     }
             }
-        val manualCompaction = sourceText == ContextCompaction.COMMAND
+        val manualCompaction = sourceText == com.helix.core.agent.ContextCommands.COMPACT
         // The Room read runs OUTSIDE the gate: a suspend point must never be reached while holding the monitor.
         val snapshot =
             try {
@@ -4173,15 +4174,12 @@ class ChatService(
             resolveSession = { id -> runCatching { storage.sessions.resolve(id) }.getOrNull() },
         )
 
-    private fun applyEvent(
-        event: ModelEvent,
-        acc: ModelStreamState,
+    /** Presentation consumes the immutable text already reduced by Core. */
+    private fun publishModelText(
         turnId: String,
+        text: String,
     ) {
-        turnEngine.liveHandles.goalTime(turnId)?.checkActive()
-        val update = acc.apply(event)
-        if (!update.textChanged) return
-        publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, acc.text, null, false))
+        publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, text, null, false))
     }
 
     private fun executionHooks(sessionId: String): TurnExecutionHooks =

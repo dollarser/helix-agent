@@ -27,6 +27,30 @@ internal class CodexModelJobStore(
         files.write(recordFile(record.jobId), record)
     }
 
+    /** Corrupt/unknown journals are retained and block maintenance rather than becoming empty state. */
+    fun hasRetainedEvidence(): Boolean {
+        if (!java.nio.file.Files
+                .exists(jobs.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+        ) {
+            return false
+        }
+        require(
+            java.nio.file.Files
+                .isDirectory(jobs.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS),
+        )
+        return java.nio.file.Files.newDirectoryStream(jobs.toPath()).use { stream ->
+            stream.any { directory ->
+                require(
+                    java.nio.file.Files
+                        .isDirectory(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS),
+                )
+                val record = requireNotNull(load(directory.fileName.toString()))
+                !record.state.terminal ||
+                    (record.reconciledAtEpochMillis == null && record.state != CodexModelJobState.EVIDENCE_EXPIRED)
+            }
+        }
+    }
+
     fun canAcceptNew(): Boolean {
         expireEvidence(System.currentTimeMillis())
         pruneAcknowledged(System.currentTimeMillis())

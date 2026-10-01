@@ -4,8 +4,9 @@ import androidx.core.content.FileProvider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.plugin.PluginService
 import com.helix.core.model.SecretAlias
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.tools.framework.ToolRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,7 +23,7 @@ import java.util.zip.ZipOutputStream
 class ConnectorDeviceTest {
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
-    private val service get() = container.connectorService
+    private val service get() = container.pluginService
 
     @Test
     fun contentUriZipImportsWithoutNetworkThenReloadsAndUsesExistingSkillRepository() {
@@ -62,7 +63,7 @@ class ConnectorDeviceTest {
                         .contains("Read"),
                 )
                 val reloaded =
-                    ConnectorService(
+                    PluginService(
                         app,
                         container.storage,
                         container.mcpService,
@@ -83,7 +84,7 @@ class ConnectorDeviceTest {
     @Test
     fun removingOneBundlePreservesSharedSkillAndDeletesOnlyItsCredential() {
         val name = "shared-${UUID.randomUUID()}"
-        val reader = ConnectorPackageReader()
+        val reader = PluginPackageReader()
         val first = service.install(reader.parse(fixture(name)))
         val second =
             service.install(
@@ -111,7 +112,7 @@ class ConnectorDeviceTest {
         val before = service.list().size
         val data = fixture(name) + mapOf("skills/broken/SKILL.md" to "no frontmatter".toByteArray())
         assertThrows(IllegalArgumentException::class.java) {
-            service.install(ConnectorPackageReader().parse(data))
+            service.install(PluginPackageReader().parse(data))
         }
         assertEquals(before, service.list().size)
         assertFalse(container.skillRepository.list().any { it.key.name == name })

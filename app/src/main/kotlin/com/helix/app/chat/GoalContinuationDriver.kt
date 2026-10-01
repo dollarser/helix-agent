@@ -2,8 +2,8 @@ package com.helix.app.chat
 
 import com.helix.app.agent.AutomaticGoalContinuation
 import com.helix.app.goal.toRuntimeGoal
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.GoalContinuationRequest
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalId

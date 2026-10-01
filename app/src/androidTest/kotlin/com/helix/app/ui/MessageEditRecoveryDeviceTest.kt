@@ -2,12 +2,12 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.TurnInputFingerprint
 import com.helix.app.chat.toInputSnapshot
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.runBlocking

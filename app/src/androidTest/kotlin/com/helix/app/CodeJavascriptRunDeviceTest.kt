@@ -2,10 +2,10 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
-import com.helix.tools.framework.DispatchOutcomeCode
-import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject

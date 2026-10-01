@@ -1,15 +1,16 @@
 package com.helix.app.engine
 
 import android.util.Log
-import com.helix.app.agent.AgentLoop
+import com.helix.app.agent.AgentLoopHost
 import com.helix.app.agent.AutomaticGoalContinuation
-import com.helix.app.agent.ContextCapacityException
 import com.helix.app.agent.GoalTimeLimitException
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
-import com.helix.app.agent.TurnLoopResult
 import com.helix.app.approval.ApprovalCancelledException
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.AgentLoop
+import com.helix.core.agent.ContextCapacityException
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnLoopResult
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.TurnState
@@ -70,12 +71,12 @@ internal class TurnExecutionDriver(
     private val liveExecution: TurnLiveRegistry,
     private val observations: TurnObservationHub,
     private val parkForReview: (TurnCoordinator, String, List<String>) -> Unit,
-    private val settleTerminal: (TurnCoordinator, ModelStreamTerminal) -> ModelStreamTerminal,
+    private val settleTerminal: suspend (TurnCoordinator, ModelStreamTerminal) -> ModelStreamTerminal,
     private val consumeSystemStop: (String) -> String?,
 ) {
     fun launch(
         scope: CoroutineScope,
-        loop: AgentLoop,
+        loop: AgentLoopHost,
         request: TurnExecutionRequest,
         hooks: TurnExecutionHooks,
     ): String {
@@ -95,7 +96,7 @@ internal class TurnExecutionDriver(
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun run(
-        loop: AgentLoop,
+        loop: AgentLoopHost,
         request: TurnExecutionRequest,
         hooks: TurnExecutionHooks,
         startGate: TurnLaunchGate,
@@ -137,6 +138,9 @@ internal class TurnExecutionDriver(
             if (!preserveKnownReviewUncertainty(request, hooks, e)) {
                 terminalize(request, hooks, ModelStreamTerminal(TurnState.CANCELLED, null))
             }
+        } catch (e: com.helix.core.agent.TurnCommitRejectedException) {
+            // A mismatched owner cannot retry by rewriting the same checkpoint as FAILED.
+            failClosedUnknown(request, hooks, e)
         } catch (e: Exception) {
             if (!preserveKnownReviewUncertainty(request, hooks, e)) {
                 Log.e(TAG, "turn $turnId failed at the model boundary", e)
@@ -192,7 +196,7 @@ internal class TurnExecutionDriver(
             .onFailure { Log.e(TAG, "post-review notification error for turn $turnId", it) }
     }
 
-    private fun terminalize(
+    private suspend fun terminalize(
         request: TurnExecutionRequest,
         hooks: TurnExecutionHooks,
         outcome: ModelStreamTerminal,

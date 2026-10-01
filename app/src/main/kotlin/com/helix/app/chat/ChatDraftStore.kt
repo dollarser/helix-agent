@@ -1,6 +1,6 @@
 package com.helix.app.chat
 
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.feature.files.AttachmentClassifier
 

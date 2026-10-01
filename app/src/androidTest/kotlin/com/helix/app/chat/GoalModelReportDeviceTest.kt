@@ -2,7 +2,6 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.goal.GoalLifecycleService
 import com.helix.app.goal.GoalLifecycleTools
@@ -10,6 +9,7 @@ import com.helix.app.goal.GoalReportTool
 import com.helix.app.goal.goalModelReport
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets

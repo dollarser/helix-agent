@@ -20,6 +20,7 @@ import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.ProviderConfig
+import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

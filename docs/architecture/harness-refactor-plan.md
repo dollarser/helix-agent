@@ -1,8 +1,10 @@
+> 2026-10-01 R2-A 源码迁移：本页已移除源文件的链接固定到重构前 `05e91003`，保留原分析语义；不是当前实现或新增验收结论。
+
 # Helix 本机 Harness 详细重构方案：Agent Core、工具治理与 Execution Host
 
 初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30。本页维护目标结构、未实施阶段的技术卡片及验收。R1 已交付；后续 Core/上下文、插件、等待和策略变更不因本页存在而视作实现。历史证据与竞品来源见 §12，按原核验范围理解。
 
-**授权与现状：**R1 完成范围和有限验证见 [HXA-231](../completion-records/HXA-231.md)，自主恢复的剩余范围见 [HXA-232](../development/tasks/HXA-232.md)；当前优先级只看 [status](../development/status.md)。R2/R3/J1/J2 及新策略需对应接受范围；文档优化不扩大权限、不启动代码或设备验证，也不要求既有范围重复立项。
+**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-01 所有者授权阶段收尾：R2-A、R3 与基础 J1 已有本地主机候选，准确范围见[阶段快照](../evidence/development/phase-closeout-2026-10-01.md)；J1 的观察上下文/可信类型进展判断及设备未完成，J2/Project Memory 尚未交付。实时优先级只看 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
 **阅读路径：**§1–3 是目标与规则分类；§4–7 仅作工作流导航，不重复定义底层契约；§8 是异步执行的规范正文；§9–12 是依赖、授权和证据；§13–17 分别定义接口/模块、绑定、上下文、插件；§18 只规定迁移步骤；§19–22 是验证、收益与完成检查。代码类型名是建议契约，不表示类已存在。
 
@@ -136,7 +138,7 @@ R5 将 Marketplace 和能力设置改为面向包的管理，保留组件详情�
 
 ## 8. J1 / J2：异步观察、等待与安全后台化
 
-本节为异步契约的唯一正文；§18 只描述迁移步骤，§19 定义测试 oracle。沿用[异步 Job 调研](../research/topics/async-jobs-and-background-execution-2026-09-28.md)的 launch/join 思路，**本轮明确选择 completion-based 观察接线，不把长等待塞进原同步 executor**。这是待接受的 J1 设计，不声称当前已有此接口。
+本节为异步目标契约的唯一正文；§18 描述迁移步骤，§19 定义测试 oracle。沿用[异步 Job 调研](../research/topics/async-jobs-and-background-execution-2026-09-28.md)的 launch/join 思路，选择 completion-based 观察而非占用同步 executor。HXA-236 已实现 Dispatcher/Scheduler completion 与有界 Linux 查询/等待的基础主机交付；尚无 Runtime 变化推送，不宣称本节全部接口和 §8.6 统一观察上下文已交付，具体余项见[原任务](../development/tasks/HXA-236.md)。
 
 ### 8.1 执行身份与结果事实
 
@@ -337,8 +339,8 @@ R2/J1/R3 按内测瓶颈和当前任务选择；R2 存储端口不能反向成�
 | 编号 | 来源与读取范围 | 支持的事实 |
 | --- | --- | --- |
 | C01 | [README](../../README.md)，3–5、21–27；[产品策略](../product/market-users-and-commercialization.md) | 完整 Android 本机产品；Standard/Advanced 与渠道不同；不以远程 Worker 为基础 |
-| C02 | [AgentLoop.kt](../../app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)，3–37 | Loop 仍依赖 App ProviderService、HelixStorage、资源字符串与 refreshScreen |
-| C03 | [AgentLoopPorts.kt](../../app/src/main/kotlin/com/helix/app/agent/AgentLoopPorts.kt)，18–73 | 上下文入口已存在；执行 port 混合消息物化、TurnEntity、TurnCoordinator |
+| C02 | [AgentLoop.kt](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)，3–37 | Loop 仍依赖 App ProviderService、HelixStorage、资源字符串与 refreshScreen |
+| C03 | [AgentLoopPorts.kt](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoopPorts.kt)，18–73 | 上下文入口已存在；执行 port 混合消息物化、TurnEntity、TurnCoordinator |
 | C04 | [ChatRequestAssembler.kt](../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)，23–70 | 已有唯一生产上下文入口；不是从零补 Context 系统 |
 | C05 | [ToolDispatcher.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDispatcher.kt)，563–578 | descriptor 与 executor 当前分别解析 |
 | C06 | [ToolScheduler.kt](../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolScheduler.kt)，139–153 | Scheduler 依据独立解析的 descriptor 构建 footprint |
@@ -382,7 +384,7 @@ DetachedJobClient.kt    b2e696e55505aa26bf1c4c48f84eb3ed4cfbf83a95b893a4fd616ae4
 | E06 | [PalmClaw](https://github.com/ModalityDance/PalmClaw) | 原生 Android 路线，当前 README 目录列出 ui/runtime/channels/config/tools/skills | 支持职责分层；目录划分不等于独立进程或可独立部署服务 |
 | E07 | [Operit Android 架构](https://github.com/AAswordman/Operit/blob/main/Repo_Arch_Basic.md)、[Operit2 Host 边界](https://github.com/AAswordman/Operit2/blob/main/hosts/README.md) | 前者说明 UI/业务/工具主要在 App；后者明确 Host 实现 operit-host-api、Core 业务状态和 UI 状态不归 Host | 采用可替换平台 Host 边界；当前 CLI README 不能重新证明历史 Preview 状态与完整 handoff 行为，不据此推断成熟度 |
 | E08 | [AndCode](https://github.com/yuga-hashimoto/and-code) | 本次 README 列出 OpenCode、Claude Code、Antigravity 的本机 PRoot 路线及远程 OpenCode | 支持 UI 与 Harness 分离；本次来源未列出历史对话所述 Codex App Server 接入，不沿用该说法 |
-| E09 | [Agent Plugins 规范](https://agent-plugins.org/specification) | 本轮页面明确同时标注 `Spec Version: 1.0.0` 和 `Status: Working Draft`；定义 Skill/MCP、扩展和局部失败规则 | 是版本化草案输入，不称已定型行业标准；通过 importer 支持矩阵适配，不绑定 Core 数据模型 |
+| E09 | [Agent Plugins 规范](https://agent-plugins.org/specification) | 初次调研记录为 Working Draft；2026-10-01 HXA-235 复核页面为 `Spec Version: 1.0.0` / `Status: Published`，定义 Skill/MCP、扩展和局部失败规则 | 按明确版本与本地支持矩阵适配；发布状态不证明 Helix 全量兼容，不绑定 Core 数据模型 |
 | E10 | [Anthropic context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) | 关注有价值的上下文、按需获取与长任务信息管理 | 支持 ContextCompiler 方向；不证明确定的 token 减少量或收益百分比 |
 | E11 | [OpenAI Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) | 缓存受匹配前缀与工具等请求内容影响 | 采用稳定顺序与有依据的失效；不能为缓存保留被撤销的上下文 |
 | E12 | [Android 进程与线程](https://developer.android.com/guide/components/processes-and-threads)、[前台服务时限](https://developer.android.com/develop/background-work/services/fgs/timeout) | 组件/线程/进程和系统运行窗口有实际约束 | 分清接口、进程、UID、后台存活；不声称拆进程即可常驻 |
@@ -801,7 +803,7 @@ MCP/Skill/native 的生命周期不同，不并入万能 registry。A2A 继续�
 
 具体格式的局部错误规则以 E09 或相应 importer 支持矩阵为准。不能为“容错”接受有害归档；也不能为“全原子”让无关 OAuth 失败禁用全部 Skill。完整支持声明必须有对应 fixture，不把未知客户端扩展猜成 native 可执行能力。
 
-E09 当前是标注 1.0.0 的 Working Draft。按显式支持的 schema/format 版本本地验证，不在加载时取远程 schema 改规则；Core 仅接收规范化贡献，不依赖外部 manifest 对象。区分导入归档的安全准入与格式规定的局部加载失败，不能把一条有错的 MCP entry 等同恶意归档。新增/退化组件在更新预览中显示，部分可用不能冒充全功能已就绪。native 贡献只引用 APK 已知实现，不下载 DEX/JAR 执行。
+E09 于 2026-10-01 HXA-235 复核为 1.0.0 / Published，早期 Working Draft 为历史读取状态。按显式支持的 schema/format 版本本地验证，不在加载时取远程 schema 改规则；Core 仅接收规范化贡献，不依赖外部 manifest 对象。区分导入归档的安全准入与格式规定的局部加载失败，不能把一条有错的 MCP entry 等同恶意归档。新增/退化组件在更新预览中显示，部分可用不能冒充全功能已就绪。native 贡献只引用 APK 已知实现，不下载 DEX/JAR 执行。
 
 ### 17.3 运行中更新与卸载
 

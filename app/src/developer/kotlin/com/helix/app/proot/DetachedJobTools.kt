@@ -20,6 +20,7 @@ internal object DetachedJobTools {
     const val STATUS = "code.linux.job.status"
     const val CANCEL = "code.linux.job.cancel"
     const val COLLECT = "code.linux.job.collect"
+    const val AWAIT = "jobs.await"
     private val resultSchema = buildJsonObject { put("type", "object") }
 
     fun start(): ToolDescriptor {
@@ -45,7 +46,7 @@ internal object DetachedJobTools {
             version = ToolVersion(1),
             description =
                 "Start one trusted Linux Job in the developer Runtime, sharing Helix UID and network access. " +
-                    "Returns acceptance, not completion. Query/cancel by originalCallId; " +
+                    "Returns acceptance, not completion. Query/cancel by originalCallId or use jobs.await; " +
                     "never replay an uncertain submission.",
             inputSchema = JsonObject(base.inputSchema + ("properties" to JsonObject(properties))),
             outputSchema = resultSchema,
@@ -87,6 +88,26 @@ internal object DetachedJobTools {
             timeout = 30.seconds,
             maxOutputBytes = 4_096,
             idempotency = Idempotency.IDEMPOTENT,
+        )
+
+    fun await(): ToolDescriptor =
+        control(false).copy(
+            name = ToolName(AWAIT),
+            description =
+                "Wait up to 15 seconds for ANY or ALL original job handles in this session. " +
+                    "Waiting does not restart, cancel, renew or collect jobs. Check reason and settlementPending.",
+            inputSchema =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(
+                        """{
+              "type":"object","properties":{
+                "handles":{"type":"array","minItems":1,"maxItems":8,
+                  "items":{"type":"string","minLength":1,"maxLength":128}},
+                "condition":{"type":"string","enum":["ANY","ALL"]}},
+              "required":["handles"],"additionalProperties":false
+            }""",
+                    ).jsonObject,
+            maxOutputBytes = 16_384,
         )
 
     fun collect(): ToolDescriptor =

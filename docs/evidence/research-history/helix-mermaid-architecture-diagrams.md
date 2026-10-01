@@ -1,3 +1,5 @@
+> 2026-10-01 R2-A 源码迁移：本页已移除源文件的链接固定到重构前 `05e91003`，保留原分析语义；不是当前实现或新增验收结论。
+
 # Helix 架构研究图集
 
 > 核对日期：2026-09-16；源码基线：`main` 的 `782a70424fa3430f62067e0abb1024f246d8aebf`，核对开始时工作树干净。
@@ -36,7 +38,7 @@ flowchart TB
     SERVICES --> OS["【外】Android 系统授权"]
 ```
 
-源码：[入口契约](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[应用接线](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt)、[共享循环](../../../app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)。任务界面是持久事实的投影，不再维护一套独立任务生命周期。
+源码：[入口契约](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[应用接线](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt)、[共享循环](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)。任务界面是持久事实的投影，不再维护一套独立任务生命周期。
 
 ## 3. 已实现：请求、Prompt 与上下文
 
@@ -58,7 +60,7 @@ flowchart TB
     RESULT --> HIST
 ```
 
-源码：[PromptRegistry](../../../core/agent/src/main/kotlin/com/helix/core/agent/PromptRegistry.kt)、[Assembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[压缩轮次](../../../app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt)。后续优化须保留工具调用配对、图片归属、取消与错误结果；旧 `ContextBuilder` 不应被重新引入替换生产路径。
+源码：[PromptRegistry](../../../core/agent/src/main/kotlin/com/helix/core/agent/PromptRegistry.kt)、[Assembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[压缩轮次](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt)。后续优化须保留工具调用配对、图片归属、取消与错误结果；旧 `ContextBuilder` 不应被重新引入替换生产路径。
 
 ## 4. 已实现：每次工具调用的结算职责
 

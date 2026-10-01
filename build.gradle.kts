@@ -180,7 +180,7 @@ val jvmLibraries =
 
 val projectDependencies =
     mapOf(
-        ":core:agent" to listOf(":core:model"),
+        ":core:agent" to listOf(":core:model", ":provider:api", ":core:workspace"),
         ":core:policy" to listOf(":core:model"),
         ":core:storage" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":core:workspace" to listOf(":core:model"),
@@ -191,7 +191,7 @@ val projectDependencies =
         ":provider:catalog" to listOf(":provider:api", ":core:model"),
         ":extensions:mcp" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":extensions:a2a" to listOf(":core:model", ":core:policy", ":tools:framework"),
-        ":extensions:plugin" to listOf(":core:model", ":tools:framework"),
+        ":extensions:plugin" to listOf(":core:model", ":tools:framework", ":extensions:skills"),
         ":extensions:mobile-use" to
             listOf(":core:model", ":core:policy", ":extensions:plugin", ":tools:automation", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
@@ -541,7 +541,8 @@ subprojects {
                 path == ":provider:openai-responses" ||
                 path == ":provider:openai-chat" ||
                 path == ":provider:anthropic" ||
-                path == ":provider:api"
+                path == ":provider:api" ||
+                path == ":core:agent"
             ) {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
@@ -607,6 +608,9 @@ subprojects {
                 // Ktor 3.5.2 requests OkHttp 5.3.2; Helix already pins/verifies 5.5.0.
                 // Resolve the MCP lane to that single project-wide wire version.
                 dependencies.add("implementation", okhttpDependency.get())
+            }
+            if (path == ":extensions:plugin") {
+                dependencies.add("implementation", commonsCompressDependency.get())
             }
             if (path == ":extensions:skills") {
                 dependencies.add("implementation", snakeYamlEngineDependency.get())

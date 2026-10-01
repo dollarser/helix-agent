@@ -2,12 +2,14 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -15,11 +17,9 @@ import com.helix.core.policy.OperationFootprint
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.policy.SessionPermissionResolution
 import com.helix.core.policy.SessionPermissionResolver
-import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin

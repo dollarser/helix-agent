@@ -35,6 +35,10 @@ data class McpOAuthServerMetadata(
     val scopesSupported: List<String> = emptyList(),
     @SerialName("code_challenge_methods_supported")
     val codeChallengeMethodsSupported: List<String> = emptyList(),
+    @SerialName("client_id_metadata_document_supported")
+    val clientIdMetadataDocumentSupported: Boolean = false,
+    @SerialName("authorization_response_iss_parameter_supported")
+    val authorizationResponseIssParameterSupported: Boolean = false,
 ) {
     init {
         require(issuer.isNotBlank()) { "issuer must not be blank" }
@@ -43,6 +47,12 @@ data class McpOAuthServerMetadata(
     }
 
     fun supportsS256(): Boolean = codeChallengeMethodsSupported.isEmpty() || "S256" in codeChallengeMethodsSupported
+}
+
+private fun JsonObject.oauthBoolean(name: String): Boolean {
+    val value = get(name)?.jsonPrimitive ?: return false
+    require(!value.isString) { "OAuth metadata boolean must not be a string" }
+    return requireNotNull(value.content.toBooleanStrictOrNull()) { "Invalid OAuth metadata boolean" }
 }
 
 class McpOAuthDiscovery(
@@ -78,7 +88,8 @@ class McpOAuthDiscovery(
                     break
                 }
             }
-            val expectedIssuer = NormalizedEndpoint.parse(issuer ?: baseEndpoint.origin)
+            val expectedIssuerValue = issuer ?: baseEndpoint.origin
+            val expectedIssuer = NormalizedEndpoint.parse(expectedIssuerValue)
             val candidates =
                 listOf(
                     expectedIssuer.origin + "/.well-known/oauth-authorization-server" + expectedIssuer.path,
@@ -89,7 +100,7 @@ class McpOAuthDiscovery(
                 val body = fetch(url)
                 if (body != null) {
                     metadata = parseMetadata(body)
-                    require(NormalizedEndpoint.parse(metadata.issuer).full == expectedIssuer.full) {
+                    require(metadata.issuer == expectedIssuerValue) {
                         "OAuth issuer mismatch"
                     }
                     require(metadata.supportsS256()) { "PKCE S256 unsupported" }
@@ -171,6 +182,11 @@ class McpOAuthDiscovery(
             deviceAuthorizationEndpoint = root["device_authorization_endpoint"]?.jsonPrimitive?.content,
             scopesSupported = scopes,
             codeChallengeMethodsSupported = methods,
+            clientIdMetadataDocumentSupported = root.oauthBoolean("client_id_metadata_document_supported"),
+            authorizationResponseIssParameterSupported =
+                root.oauthBoolean(
+                    "authorization_response_iss_parameter_supported",
+                ),
         )
     }
 

@@ -326,7 +326,7 @@ Mobile Use 来源
 | C7 | [McpAppService.kt](../../../app/src/main/kotlin/com/helix/app/mcp/McpAppService.kt)，94–151行 | 用户选工具、bridge检查与双表停用 |
 | C8 | [GoalLifecycleTools.kt](../../../app/src/main/kotlin/com/helix/app/goal/GoalLifecycleTools.kt)，19–21行 | 四个默认Goal名称 |
 | C9 | [MarketplaceService.kt](../../../app/src/main/kotlin/com/helix/app/marketplace/MarketplaceService.kt)，12–86行 | SKILL/CONNECTOR/MCP状态及包安装 |
-| C10 | [ConnectorService.kt](../../../app/src/main/kotlin/com/helix/app/connector/ConnectorService.kt)，19–97行 | 安装/连接入口与会话选择 |
+| C10 | [ConnectorService.kt](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/connector/ConnectorService.kt)，19–97行 | 安装/连接入口与会话选择 |
 
 ```text
 C1  00f1d1fda1b662012be321fe55d01cf5ad217aa928e92bdb680c7ff50e272ebf

@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="connector_oauth_client_setup">发现客户端配置</string>
+    <string name="connector_oauth_client_issuer">授权服务器：%1$s\n精确回调：%2$s</string>
+    <string name="connector_oauth_client_document">自有客户端元数据 HTTPS 地址</string>
+    <string name="connector_oauth_client_use_document">验证并使用元数据文档</string>
+    <string name="connector_oauth_client_register">注册公共客户端</string>
+    <string name="connector_oauth_client_register_warning">将向下方服务注册 Helix 公共客户端，仅发送应用名称、回调地址及公共客户端协议配置。不提交账号凭据，不自动启用工具。</string>
+    <string name="connector_oauth_client_forget">忘记本地客户端配置</string>
+    <string name="connector_oauth_client_forget_warning">仅忘记本地注册记录，不撤销远端客户端或账号 token。上次结果不明时，再次注册可能创建另一个客户端。</string>
+    <string name="connector_oauth_client_setup_error">客户端配置未完成。请检查服务、元数据地址和回调；已有或结果不明的注册可先查看配置，必要时明确忘记本地记录后再试。</string>
+    <string name="connector_oauth_client_manual">服务未提供自动配置方式，请填写在此授权服务器注册的公共 Client ID。</string>
+    <string name="connector_oauth_client_confirm">确认</string>
+    <string name="replay_cleanup_scope">只清理不再被会话引用的订阅回放记录，不删除会话或用户文件。每次检查一页；活动执行、未确认结果和无法核实的记录会保留。</string>
+    <string name="replay_cleanup_run">清理无引用回放</string>
+    <string name="replay_cleanup_next">继续检查下一页</string>
+    <string name="replay_cleanup_complete">已检查至目录末尾；保留记录没有被删除。</string>
+    <string name="replay_cleanup_more">本页检查完成，还有更多记录待检查。</string>
+    <string name="replay_cleanup_busy">存在活动执行或未确认结果，暂未清理本页候选。</string>
+    <string name="replay_cleanup_unavailable">本地订阅服务暂不可用，未取得清理结果。</string>
+    <string name="replay_cleanup_unknown">清理回执未确认，不能判断已删除数量。再次操作会重新检查，不重放旧候选。</string>
+    <string name="replay_cleanup_history">历史引用未能完整核实，本页候选未删除。</string>
+    <string name="replay_cleanup_partial">部分记录清理失败，已保留并可重试。</string>
+    <string name="replay_cleanup_not_applicable">当前安装包不包含订阅回放。</string>
+    <string name="replay_cleanup_counts">本页检查 %1$d 项（%2$s）；删除 %3$d 项（%4$s）；保留 %5$d 项；失败 %6$d 项。</string>
     <string name="context_compaction_unchanged">当前没有足够的压缩收益，已保留原上下文。</string>
     <string name="context_window_estimated_note">服务未报告上下文上限，当前比例按估算窗口计算。输入用量包含系统提示、工具说明和历史，不只是本次问题。发送过程中保留上次已确认数值。</string>
     <string name="provider_account_connected">账号连接正常</string>
@@ -627,14 +650,14 @@
     <string name="provider_subscription_experimental_notice">Unofficial developer experiment. Account access may break or be restricted when the provider protocol changes.</string>
     <string name="provider_subscription_manage_account">Manage subscription login</string>
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions is unavailable, disabled, or signed by a different key.</string>
-    <string name="connector_title">连接器</string>
-    <string name="connector_intro">导入插件 ZIP 或 MCP JSON，组合外部工具与 Skills。安装后按组件启用；每次工具调用遵循现有授权。</string>
+    <string name="connector_title">插件</string>
+    <string name="connector_intro">Import supported plugin packages and configure their Skills and MCP components. Installation does not grant tool permissions.</string>
     <string name="connector_import">导入连接器</string>
     <string name="connector_install">安装可迁移部分</string>
     <string name="connector_failed">导入或保存失败。请检查 JSON、Skill 格式、包大小及存储空间。</string>
     <string name="connector_skill_review">Skill 含原始指令和配套文件，脚本不会在安装时执行。启用前请审阅源文件；平台专有工具名可能需要适配。</string>
     <string name="connector_remove_note">移除会停用连接并删除本机连接凭据。Skill 快照保留；其他连接器共用的 Skill 保持原状态。厂商授权需在厂商侧撤销。</string>
-    <string name="connector_remove">移除连接器</string>
+    <string name="connector_remove">移除插件</string>
     <string name="connector_active">工具已启用</string>
     <string name="connector_inactive">工具未激活，请测试连接并选择工具</string>
     <string name="connector_bearer">Bearer token（已有凭据可留空）</string>
@@ -849,7 +872,7 @@
     <string name="chat_context_title">上下文窗口</string>
     <string name="chat_context_unknown">未知</string>
     <string name="chat_context_usage">上次请求输入：%1$s tokens\n模型上下文上限：%2$s tokens</string>
-    <string name="chat_context_explanation">圆环显示当前会话上次已确认的输入用量，包含系统提示、工具说明和历史；发送中保持，回复完成后更新。失败或未生效的压缩不替换该用量。百分比向下取整，不足 1% 时显示 0%。已生效压缩后的用量和未知窗口上限可能采用估算值，不含未发送文字。未知服务端上限时使用 200,000 tokens，可按模型设置。压缩保留原始历史，并计入调用与 token 预算。</string>
+    <string name="chat_context_explanation" formatted="false">圆环显示当前会话上次已确认的输入用量，包含系统提示、工具说明和历史；发送中保持，回复完成后更新。失败或未生效的压缩不替换该用量。百分比向下取整，不足 1% 时显示 0%。已生效压缩后的用量和未知窗口上限可能采用估算值，不含未发送文字。未知服务端上限时使用 200,000 tokens，可按模型设置。压缩保留原始历史，并计入调用与 token 预算。</string>
     <string name="chat_context_close">关闭</string>
     <string name="chat_restore">恢复</string>
     <string name="files_shared_permission_required">需要共享存储权限；也可添加 SAF 文件夹。</string>
@@ -1373,7 +1396,7 @@
     <string name="conversation_reference_hint">选择一个会话。发送时会冻结已有摘要；没有摘要时冻结最近的有界消息，不会保留实时会话指针。</string>
     <string name="conversation_reference_empty">没有其他可引用的会话。</string>
     <string name="composer_add_session_group">配置此会话</string>
-    <string name="connector_session_title">会话 Connector</string>
+    <string name="connector_session_title">会话插件</string>
     <string name="connector_session_hint">只影响本会话后续使用；历史保留。共享 Skill 若有其他有效来源仍可使用。</string>
     <string name="connector_session_empty">尚未安装 Connector，请前往扩展添加。</string>
     <string name="connector_session_unavailable">未安装或已移除</string>
@@ -1410,7 +1433,7 @@
     <string name="session_capability_remaining_source_hint">已从其他来源（独立安装或其他包）提供部分同名技能</string>
     <string name="session_capability_repair_button">前往配置</string>
     <string name="session_capability_toggle_desc">为本会话启停该连接器</string>
-    <string name="connector_update_title">更新连接器</string>
+    <string name="connector_update_title">更新插件</string>
     <string name="connector_update_changelog">更新说明</string>
     <string name="connector_update_components_changed">组件变更</string>
     <string name="connector_update_endpoints_reconfigure">网络目标或认证发生变更，需要重新配置凭据</string>
@@ -1611,4 +1634,12 @@
     <string name="provider_model_generation_test">测试基础生成</string>
     <string name="provider_model_probe_cost">生成与能力测试会发送合成请求，网络来源可能消耗额度。本地模型测试会使用设备计算资源。</string>
     <string name="provider_note_plan_api">这是 API Key 接入，不是账号订阅登录。请使用对应套餐、地区和地址签发的密钥；套餐密钥与按量计费密钥可能不互通。Helix 不会自动回退到按量计费或其他账号。</string>
+    <string name="plugin_global_enabled">Plugin enabled</string>
+    <string name="plugin_native_notice">Built into this app. Code updates arrive with app updates; device actions still need permission.</string>
+    <string name="plugin_native_repair">Repair registration</string>
+    <string name="plugin_partial_ready">Partly ready (%1$d/%2$d)</string>
+    <string name="plugin_skipped_components">部分组件无效或不受支持；其他有效组件仍可使用，请查看插件详情。</string>
+    <string name="tasks_job_stop_waiting">停止等待</string>
+    <string name="tasks_job_wait_stopped">已停止等待；原任务仍按原状态运行。</string>
+    <string name="tasks_job_not_waiting">当前没有等待此任务的观察者。</string>
 </resources>

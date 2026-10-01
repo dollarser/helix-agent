@@ -1,8 +1,8 @@
 package com.helix.app.engine
 
-import com.helix.app.runcontrol.GoalBudgetDefaults
-import com.helix.app.runcontrol.RunControlConfig
-import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.agent.GoalBudgetDefaults
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.ReasoningEffort

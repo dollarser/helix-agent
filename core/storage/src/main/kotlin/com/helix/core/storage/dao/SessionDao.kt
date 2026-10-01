@@ -7,12 +7,19 @@ import androidx.room.Query
 import com.helix.core.storage.entity.SessionEntity
 
 @Dao
+@Suppress("TooManyFunctions") // Keep queries for the same Room table together; pagination must include archived rows.
 interface SessionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(session: SessionEntity)
 
     @Query("SELECT * FROM sessions WHERE id = :id")
     fun byId(id: String): SessionEntity?
+
+    @Query("SELECT id FROM sessions WHERE :afterId IS NULL OR id > :afterId ORDER BY id ASC LIMIT :limit")
+    fun pageIds(
+        afterId: String?,
+        limit: Int,
+    ): List<String>
 
     @Query("SELECT * FROM sessions ORDER BY createdAt DESC")
     fun list(): List<SessionEntity>

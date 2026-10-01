@@ -75,8 +75,11 @@ class McpOAuthException(
 @Suppress("TooManyFunctions")
 class McpOAuthClient(
     val endpointGate: McpEndpointGate,
-    private val okHttpClient: OkHttpClient = defaultHttpClient(),
+    okHttpClient: OkHttpClient = defaultHttpClient(),
 ) {
+    // OAuth exchanges/registration are not idempotent: a lost response must not trigger hidden POST replay.
+    private val okHttpClient = okHttpClient.newBuilder().retryOnConnectionFailure(false).build()
+    val registration: McpOAuthClientRegistration by lazy { McpOAuthClientRegistration(endpointGate, this.okHttpClient) }
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
@@ -160,6 +163,7 @@ class McpOAuthClient(
         tokenEndpoint: String,
         clientId: String,
         refreshToken: String,
+        resource: String? = null,
     ): McpOAuthTokens =
         withContext(Dispatchers.IO) {
             run {
@@ -169,6 +173,7 @@ class McpOAuthClient(
                         .add("grant_type", "refresh_token")
                         .add("client_id", clientId)
                         .add("refresh_token", refreshToken)
+                        .apply { if (resource != null) add("resource", resource) }
                         .build()
 
                 executeTokenRequest(tokenEndpoint, formBody)
@@ -257,6 +262,7 @@ class McpOAuthClient(
         deviceEndpoint: String,
         clientId: String,
         scope: String = "",
+        resource: String? = null,
     ): McpDeviceCodeResponse =
         withContext(Dispatchers.IO) {
             val normalized = NormalizedEndpoint.parse(deviceEndpoint)
@@ -283,6 +289,7 @@ class McpOAuthClient(
             if (scope.isNotBlank()) {
                 formBuilder.add("scope", scope)
             }
+            if (resource != null) formBuilder.add("resource", resource)
 
             val request =
                 Request
@@ -334,6 +341,7 @@ class McpOAuthClient(
         tokenEndpoint: String,
         clientId: String,
         deviceCode: String,
+        resource: String? = null,
     ): McpDevicePollResult =
         withContext(Dispatchers.IO) {
             val normalized = NormalizedEndpoint.parse(tokenEndpoint)
@@ -359,6 +367,7 @@ class McpOAuthClient(
                     .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
                     .add("client_id", clientId)
                     .add("device_code", deviceCode)
+                    .apply { if (resource != null) add("resource", resource) }
                     .build()
 
             val request =

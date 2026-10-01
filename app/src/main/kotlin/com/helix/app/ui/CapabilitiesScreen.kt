@@ -37,7 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.AppContainer
 import com.helix.app.R
-import com.helix.app.connector.ConnectorService
+import com.helix.app.plugin.PluginService
 import com.helix.app.proot.ProotToolModule
 import com.helix.core.model.Capability
 import com.helix.core.policy.CapabilityCenter
@@ -75,7 +75,7 @@ internal fun CapabilitiesScreenDestination(
         // runs off the main thread, matching how ProotRuntimeSection refreshes.
         rows =
             withContext(Dispatchers.IO) {
-                buildCapabilityRows(container.capabilityCenter, container.connectorService)
+                buildCapabilityRows(container.capabilityCenter, container.pluginService)
             }
     }
 
@@ -255,7 +255,7 @@ private fun CapabilityActions(
  */
 private fun buildCapabilityRows(
     center: CapabilityCenter,
-    connector: ConnectorService,
+    connector: PluginService,
 ): List<CapRow> {
     val files = center.check(Capability.SAF_DOCUMENT_TREE).state
     val browser = center.check(Capability.WEB_BROWSING).state

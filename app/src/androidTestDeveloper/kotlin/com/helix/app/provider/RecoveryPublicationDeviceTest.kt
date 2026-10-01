@@ -2,6 +2,7 @@ package com.helix.app.provider
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole

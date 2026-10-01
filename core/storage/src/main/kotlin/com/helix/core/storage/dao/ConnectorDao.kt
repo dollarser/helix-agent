@@ -69,6 +69,9 @@ interface ConnectorDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun select(row: SessionConnectorEntity)
 
+    @Query("INSERT OR IGNORE INTO session_connectors(sessionId, connectorId) SELECT id, :connectorId FROM sessions")
+    fun selectExistingBundledCapability(connectorId: String)
+
     @Query("DELETE FROM session_connectors WHERE sessionId = :sessionId AND connectorId = :connectorId")
     fun deselect(
         sessionId: String,

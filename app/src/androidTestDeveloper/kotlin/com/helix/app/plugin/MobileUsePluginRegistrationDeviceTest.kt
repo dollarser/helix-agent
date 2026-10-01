@@ -14,6 +14,40 @@ class MobileUsePluginRegistrationDeviceTest {
     private val container get() = app.appContainer
 
     @Test
+    fun nativeDisableRepairAndReenableUseTheProductionCatalog() {
+        val service = container.pluginService
+        val record = service.list().single { it.native?.pluginId == "mobile-use" }
+        val tools = container.toolPipeline.registry
+        val session =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+        container.storage.sessions.create(session, "Native fixture", null, null, 0)
+        try {
+            service.setEnabled(record.id, true)
+            val old = tools.snapshot().first { it.descriptor.origin is ToolOrigin.PluginOrigin }.ref
+            service.catalog.select(session, record.id, false)
+            val source = requireNotNull(tools.resolveBinding(old)).descriptor.origin.canonicalOf()
+            assertEquals(false, service.catalog.sourceAvailable(source, session))
+            service.catalog.select(session, record.id, true)
+            assertEquals(true, service.catalog.sourceAvailable(source, session))
+            service.setEnabled(record.id, false)
+            service.repairNative(record.id)
+            assertEquals(false, service.list().single { it.id == record.id }.enabled)
+            assertEquals(null, tools.resolveBinding(old))
+            service.setEnabled(record.id, true)
+            assertEquals(true, container.pluginRegistry.ready("mobile-use"))
+            assertEquals(null, tools.resolveBinding(old))
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                service.remove(service.list().single { it.id == record.id })
+            }
+        } finally {
+            service.setEnabled(record.id, record.enabled)
+            container.storage.deleteSessionPermanently(session)
+        }
+    }
+
+    @Test
     fun mobileUseRegistersOnceWithPluginProvenance() {
         val manifest = container.pluginRegistry.find("mobile-use")
         assertNotNull(manifest)

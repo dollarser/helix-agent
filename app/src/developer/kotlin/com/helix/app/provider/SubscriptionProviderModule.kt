@@ -19,7 +19,8 @@ import com.helix.runtime.cli.client.CliRuntimeProtocol
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
 import com.helix.runtime.cli.client.CliRuntimeVerification
 
-/** Developer-only registration seam for the non-official Codex subscription adapter. */
+/** Developer-only integration seam; implementations remain in their lifecycle owners. */
+@Suppress("TooManyFunctions") // Implements the complete flavor boundary without loading subscriptions in Consumer.
 internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     const val CODEX_ID = "subscription-codex"
     const val CLAUDE_ID = "subscription-claude"
@@ -61,6 +62,12 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
             com.helix.runtime.cli.client
                 .CliModelJobClient(CliRuntimeSupervisor(context)),
         ).inspect(turnId, modelCallId, stop)
+
+    override fun cleanReplayEvidence(
+        context: Context,
+        storage: HelixStorage,
+        after: String?,
+    ): com.helix.app.privacy.ProviderEvidenceCleanup = SubscriptionReplayCleanup(context, storage).clean(after)
 
     override fun ensureRegistered(storage: HelixStorage) {
         ManagedSubscriptionCatalog.entries.forEach { entry ->

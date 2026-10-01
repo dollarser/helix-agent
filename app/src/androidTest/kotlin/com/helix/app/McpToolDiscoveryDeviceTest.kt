@@ -2,9 +2,9 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolOrigin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

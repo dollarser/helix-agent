@@ -1,5 +1,6 @@
 package com.helix.app.agent
 
+import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
@@ -11,7 +12,7 @@ import org.junit.Test
 class ContextRequestTest {
     @Test fun largeHistoryCanReachCompactionBeforeWireMessageValidation() {
         val context =
-            ChatContextRequest(
+            TurnContextRequest(
                 "fixture",
                 List(600) { ModelMessage(ModelRole.USER, "message $it") },
                 emptyList(),

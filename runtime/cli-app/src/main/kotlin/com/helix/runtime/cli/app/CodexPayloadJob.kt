@@ -24,6 +24,8 @@ internal class CodexPayloadJobStore(
 
     fun canAcceptNew(incomingBytes: Int) = incomingBytes > 0 && records.canAcceptNew()
 
+    fun hasRetainedEvidence(): Boolean = records.hasRetainedEvidence()
+
     fun recoverInterrupted(now: Long) {
         records.recoverInterrupted(now)
         File(File(root, "provider-v1"), "codex-model-jobs").listFiles()?.forEach { directory ->
@@ -213,6 +215,20 @@ internal class CodexPayloadJobRunner(
         synchronized(lock) {
             store.expireEvidence(clock())
             store.load(jobId)
+        }
+
+    /** Stops submit/ACK races, but never stops an execution merely to reclaim its evidence. */
+    fun pruneReplay(
+        candidates: List<com.helix.runtime.cli.client.CliReplayEntry>,
+        maintenance: AntigravityReplayMaintenance,
+    ): com.helix.runtime.cli.client.CliReplayPruneResult =
+        synchronized(lock) {
+            if (closed || activeJobId != null || store.hasRetainedEvidence()) {
+                com.helix.runtime.cli.client
+                    .CliReplayPruneResult(0, candidates.size, 0, 0, busy = true)
+            } else {
+                maintenance.prune(candidates)
+            }
         }
 
     fun readProgress(

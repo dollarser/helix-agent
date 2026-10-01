@@ -15,11 +15,11 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 - 登录仅由用户在 Connector 原生页面主动发起，打开外部系统浏览器，不使用内置 WebView 登录、不读取第三方 Cookie、CLI 或其他 App token。
 - 发现 resource metadata 和 authorization-server metadata，分别校验 endpoint/resource/issuer 绑定。元数据与重定向的网络请求复用现有 SSRF、响应大小、超时和重定向限制；发现不能扩大允许的网络域或工具权限。
-- 本轮支持用户配置的预注册 public client；动态注册保留为 HXA-126 后续范围，尚未实现，不以 metadata 中存在 registration_endpoint 作为已支持的证明；client secret 不编进 App。HTTPS client metadata document 只有发行方拥有并正式配置域名后才启用，本次不虚构域名或自动发布文件。
+- 客户端身份优先使用已配置预注册 public client；否则服务器声明支持时使用用户/构建者已托管的 HTTPS client metadata document（CIMD），精确核对 client_id、redirect_uris 与 public-client 模式。DCR 仅为兼容的显式后备：展示 issuer/注册目标/redirect，用户确认才发送，声明 native application_type，禁用透明 POST 重试，结果按 issuer+redirect 持久绑定；未知交换不悄悄重注册。client secret 不编进 App；不虚构域名或自动发布元数据/App Link。
 - 服务明确支持时可使用 Device Authorization；设备码存 SecretStore，轮询受服务有效期、间隔和取消约束，token 仍绑定本地 server/resource/client。进程死亡不自动重放登录或恢复后台轮询。
 - 使用 PKCE S256 和每次新的高熵 state。回调 URI 与实际 applicationId/登录 attempt 精确绑定；优先使用发行方已验证 App Link，尚无域名时只在服务接受的场景使用包名派生的私有 scheme，本轮为 `${applicationId}://oauth/mcp/callback`（同包也可配置 `/callback`）；consumer/developer 不争抢同一个通用 scheme。拒绝缺 state、重复回调、错误 issuer/resource、回调 URI 不一致和过期 attempt。
-- attempt 保存 serverId、issuer、resource、clientId、精确 redirect、scope 和截止时间；code verifier 与 token 进入 SecretStore，普通 journal 只存别名及非敏感状态。10 分钟 attempt TTL，收到回调后一次性消费。取消或失效后清理临时 Secret。
-- refresh 为相同 issuer/resource/client 绑定上的 single-flight 操作，结果先安全落盘再切换引用。token 交换/刷新中崩溃且远端结果不明确时显示重新登录，不假设重放一定安全。回调重放不得二次兑换 code。
+- attempt 保存 serverId、issuer、resource、clientId、精确 redirect、scope、截止时间及 authorization_response_iss_parameter_supported。声明为 true 时回调必须带 iss；任何存在的 iss（包括错误响应）都与已验证 issuer 作解码后精确字符串比较，不折叠大小写/端口/斜杠。新尝试使用包含该字段的新版本，旧短期尝试缺契约时重新登录，不按 false 降级。code verifier/token 进入 SecretStore，普通 journal 只存别名及非敏感状态。10 分钟 TTL，一次性消费，取消/失效清理临时 Secret。
+- 授权、换 token、刷新和 Device token 使用原 resource。refresh 为相同 issuer/resource/client 绑定上的 single-flight 操作，结果先安全落盘再切换引用。token 交换/刷新中崩溃且远端结果不明确时显示重新登录，不假设重放一定安全；禁用 HTTP 客户端透明 POST 重试。回调重放不得二次兑换 code。
 - access token 只发送给绑定的 MCP resource，refresh token 只发送给绑定的 token endpoint；不进入模型参数、日志、安装包、Skill 或 Connector 导出。撤销分别显示本地清除与厂商 revoke 是否成功，不能把删本地 token 冒充厂商撤销。
 - OAuth 成功仍不自动启用工具；回到原有 testConnection、用户工具选择、MCP bridge、Dispatcher/Approval。运行中遇到需要新 scope 的响应只呈现登录动作，不让远端响应替用户增加 scope 或重放有副作用调用。
 
@@ -46,7 +46,15 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 真实服务要求 confidential client、自有 HTTPS 域名不可用、Android 回调无法可靠恢复，或需要服务器代持/跨 UID 凭据流时，先重新评审，不能默默降级到导入第三方登录态。
 
+## Decision history
+
+- 2026-09-21：所有者接受预注册 public-client OAuth 合并与缺陷修复，真实服务验收保持独立。
+- 2026-10-01：所有者授权依次完成剩余任务；接受 HXA-126 的 CIMD 优先/显式 DCR 后备与严格 issuer/resource 增量。设计接受不表示新增实现、设备或账号已通过。
+
 ## References
+
+- [MCP 2026-07-28 客户端注册](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration)：预注册/CIMD/DCR 优先级与 issuer 绑定；DCR 已降为兼容后备。
+- [MCP 授权响应要求](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)：iss 精确匹配和 resource；2026-10-01 已读取官方正文。
 
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)

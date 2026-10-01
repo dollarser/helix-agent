@@ -1,6 +1,6 @@
 package com.helix.app.marketplace
 
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -15,7 +15,7 @@ class MarketplaceCatalogTest {
         val ids = items.map { it.id }
         org.junit.Assert.assertEquals("IDs must be unique", ids.distinct().size, ids.size)
 
-        val reader = ConnectorPackageReader()
+        val reader = PluginPackageReader()
 
         for (item in items) {
             assertTrue("ID must be valid", item.id.isNotBlank())

@@ -18,6 +18,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - Google Antigravity 作为 developer-only 适配器，以 `dsh-plugin-subscriptions` 的固定 MIT 源码版本作为协议依据：独立 Google OAuth code + PKCE、仅本机 loopback 回调、令牌刷新、`loadCodeAssist` 项目发现、认证模型目录以及 Gemini-shaped SSE。经所有者明确接受，Developer 实验性个人接入默认使用已核对的上游公开 installed-app 参数，允许构建者成对覆盖或同时置空禁用；该例外不代表 Google 授权 Helix 使用其客户端身份；界面必须披露非官方、资格、条款和额度风险。不得导入其他程序的用户令牌、轮换未授权 client 或绕过资格校验。
 - 登录没有项目时要求用户先在官方客户端完成开通，不自动选择付费 tier、调用 onboarding 或购买套餐。普通 token 刷新保留登录 revision；过期刷新不能覆盖较新登录或复活退出。
 - Antigravity 请求的原始签名 parts 留在订阅 Runtime 私有存储，绑定模型、登录 revision、消息和调用身份；工具回填保留原始函数 ID。签名不可放入业务参数，缺失/错绑/损坏不能用跳过校验的魔法值替代。工具仅在明确 STOP 且必要重放证据保存后交付；截断、断流及错误终态不释放待定调用。
+- 回放不是 LRU 缓存。可信宿主在请求封装中绑定会话归属（探测明确为短期），以保留历史的实际引用保护分支和旧修订。清理使用有界元数据页及精确内容指纹，不将完整 parts 交给主进程；活跃 Runtime 或未确认结果阻止删除。清理候选后新发布/改变的记录保留；未知归属且仍有会话时保守保留。会话删除与私有证据清理不是跨进程原子事务，分别返回实际结果并支持再次清理，不用数据库删除成功冒充文件已清除。
 - Google 生成使用现有增量事件与磁盘 spool，不设新的累计回复大小或总生成时长限制。OAuth/目录短请求、单 SSE 帧、工具扇出和未来请求/重放证据仍有资源边界；证据不可重放时报告失败，不伪造成功。当前新生成不进行不确定 POST 重放或跨 origin 自动回退。
 - Copilot 的 developer/Advanced 个人侧载 Device Flow 使用已明确接受的固定 client ID `Iv1.b507a08c87ecfe98` 与 endpoint，标明第三方、非官方及服务中断风险，不宣称注册者授权 Helix。不得搜索或轮换未知身份；Device Flow/entitlement 失败时不保留无效登录凭据。商店/官方发行仍需自有身份及可核验服务商授权。协议适配不等于采用官方 Copilot SDK。
 - 每个模型 Job 显式携带平台/账号/目标路由，不从 prompt 或模型名前缀猜平台。认证、endpoint 与模型绑定变更时重新校验，不把凭据发给新 origin。
@@ -43,6 +44,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
 
 ## Decision history
+
+- 2026-10-01：所有者授权依次完成剩余工作；[HXA-233](../../development/tasks/HXA-233.md) 接受上述引用感知生命周期与清理边界。它是设计接受，不是实现或设备已通过。
 
 - 2026-09-30：所有者授权参考 `V1ki/dsh-plugin-subscriptions` 增加 Antigravity、固定账号顺序并排除 consumer；后续明确 Key 型套餐仍归 API。实现与实际验证见[接入记录](../../evidence/development/subscription-antigravity-2026-09-30.md)。本决定不把真实账号、设备或发行授权记成通过。
 

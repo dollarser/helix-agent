@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -29,7 +29,7 @@ class ConnectorProcessRecoveryDeviceTest {
         )
         val name = "recovery-${UUID.randomUUID()}"
         val bundle =
-            ConnectorPackageReader().parse(
+            PluginPackageReader().parse(
                 mapOf(
                     ".codex-plugin/plugin.json" to """{"name":"$name"}""".toByteArray(),
                     "skills/$name/SKILL.md" to
@@ -37,7 +37,7 @@ class ConnectorProcessRecoveryDeviceTest {
                     ".mcp.json" to """{"docs":{"url":"https://connector.invalid/mcp"}}""".toByteArray(),
                 ),
             )
-        val service = app.appContainer.connectorService
+        val service = app.appContainer.pluginService
         val installed = service.install(bundle)
         service.setSkillEnabled(installed.skills.single(), true)
         Files.write(marker, "${installed.id}\n${Process.myPid()}".toByteArray())
@@ -49,7 +49,7 @@ class ConnectorProcessRecoveryDeviceTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("connectorRecoveryPhase") == "recoverInNewProcess")
         val lines = Files.readAllLines(marker)
         assertNotEquals(lines[1].toInt(), Process.myPid())
-        val service = app.appContainer.connectorService
+        val service = app.appContainer.pluginService
         val record = service.list().single { it.id == lines[0] }
         try {
             assertTrue(service.skillEnabled(record.skills.single()))

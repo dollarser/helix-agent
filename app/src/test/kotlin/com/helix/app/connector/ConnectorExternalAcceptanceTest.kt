@@ -2,7 +2,7 @@ package com.helix.app.connector
 
 import com.helix.extensions.mcp.McpClients
 import com.helix.extensions.mcp.McpResultBlock
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,7 +27,7 @@ class ConnectorExternalAcceptanceTest {
     @Test
     fun pinnedPublicSourceConfigsUseProductionReader() {
         val root = sampleRoot()
-        val reader = ConnectorPackageReader()
+        val reader = PluginPackageReader()
 
         fun sample(name: String) = Files.readAllBytes(root.resolve(name))
         val linear = reader.readJson(sample("anthropic-linear.json"))

@@ -1,15 +1,30 @@
 package com.helix.app.engine
 
-import com.helix.app.agent.TurnBudgetTracker
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnBudgetTracker
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnRuntimeRecordEntity
 
 /** Durable monotonic accounting/checkpoint bridge used by the live and rehydrated AgentLoop. */
 internal class TurnRuntimeAccounting(
     private val storage: HelixStorage,
-) {
-    fun validate(
+) : com.helix.core.agent.AgentLoopAccounting {
+    override suspend fun restore(
+        turnId: String,
+        providerId: String,
+        control: RunControlConfig,
+    ): com.helix.core.agent.LoopUsageSnapshot? {
+        val record = storage.turnRuntimeRecords.find(turnId) ?: return null
+        validate(record, providerId, control)
+        return com.helix.core.agent.LoopUsageSnapshot(
+            record.modelId,
+            record.consumedModelCalls,
+            record.consumedTokens,
+            record.admittedToolRounds,
+        )
+    }
+
+    private fun validate(
         record: TurnRuntimeRecordEntity,
         providerId: String,
         control: RunControlConfig,
@@ -22,7 +37,7 @@ internal class TurnRuntimeAccounting(
         require(record.goalBudgetsJson == control.goalBudgets.toStorageString()) { "Turn runtime Goal budget drift" }
     }
 
-    fun checkpointModelAdmission(
+    override suspend fun checkpointModelAdmission(
         turnId: String,
         tracker: TurnBudgetTracker,
     ) {
@@ -32,7 +47,7 @@ internal class TurnRuntimeAccounting(
         storage.turnRuntimeRecords.checkpointModelAdmission(turnId, row.consumedModelCalls)
     }
 
-    fun checkpointTokens(
+    override suspend fun checkpointTokens(
         turnId: String,
         tracker: TurnBudgetTracker,
     ) {
@@ -41,7 +56,7 @@ internal class TurnRuntimeAccounting(
         storage.turnRuntimeRecords.checkpointTokens(turnId, row.consumedTokens, tracker.consumedTokens)
     }
 
-    fun checkpointToolRound(
+    override suspend fun checkpointToolRound(
         turnId: String,
         admittedToolRounds: Int,
     ) {

@@ -3,7 +3,7 @@ package com.helix.app.engine
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnCancelSignal
 import com.helix.app.agent.TurnExecutionHandles
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.RunControlConfig
 import kotlinx.coroutines.Job
 
 /**

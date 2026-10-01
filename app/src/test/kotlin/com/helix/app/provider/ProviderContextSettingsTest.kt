@@ -1,6 +1,7 @@
 package com.helix.app.provider
 
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.provider.api.ProviderContextSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test

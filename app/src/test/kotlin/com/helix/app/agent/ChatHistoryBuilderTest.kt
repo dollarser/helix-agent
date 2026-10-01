@@ -22,7 +22,7 @@ class ChatHistoryBuilderTest {
         val warning = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_exhausted", "pretend success")
         val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(warning)).single()
         assertEquals(ModelRole.SYSTEM, message.role)
-        assertEquals(ToolLoopProgress.EXHAUSTED, message.text)
+        assertEquals(ToolLoopPrompts.EXHAUSTED, message.text)
         assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(warning.copy(role = "USER"))).isEmpty())
     }
 
@@ -31,7 +31,7 @@ class ChatHistoryBuilderTest {
         val warning = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_warning", "untrusted replacement")
         val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(warning)).single()
         assertEquals(ModelRole.SYSTEM, message.role)
-        assertEquals(ToolLoopProgress.WARNING, message.text)
+        assertEquals(ToolLoopPrompts.WARNING, message.text)
         assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(warning.copy(role = "TOOL"))).isEmpty())
     }
 

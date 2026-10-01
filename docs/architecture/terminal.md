@@ -1,6 +1,6 @@
 # 终端、日志与后台命令
 
-本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。通用 `jobs.await`/AUTO 仍属[Harness §8](harness-refactor-plan.md)的后续设计，不由既有后台启动推导为已交付。
+本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs.await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO/手动后台化仍属 [Harness §8](harness-refactor-plan.md) 的 J2，不由后台启动或 await 推导为已交付。
 
 ## 三种对象
 
@@ -24,6 +24,7 @@ developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会
 | --- | --- |
 | `code.linux.job.start` | 复用 Linux 命令、输入及原 output；`leaseSeconds` 默认 300、最大 1800。返回 accepted 和 originalCallId，不代表执行成功。 |
 | `code.linux.job.status` | 仅 originalCallId；只查询可信当前会话的原 Job，不续租、不导入。 |
+| `jobs.await` | 同会话原调用 handles，ANY/ALL，有界等待；返回等待原因与原状态/待结算事实，不取消原任务、不续租、不导入。 |
 | `code.linux.job.cancel` | 仅 originalCallId；幂等取消原 Job，终态仍需收取结算。 |
 | `code.linux.job.collect` | 仅 originalCallId；取得原终态与归档，按原 output 及当前授权导入、结算预算与占用。失败重试此入口，不重新启动命令。 |
 
@@ -40,6 +41,10 @@ Runtime 中断留下 ORPHANED 时，先在 Tasks 收取原结果。若旧进程�
 Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令详情；原 Turn 被收取或被 Goal 行合并后，Job 仍可见。待结算项独立于最近 Turn 窗口读取，已结算历史最多保留最近 100 个后台启动调用中的候选项。列表复用平台绑定/终态/结算凭据，准备状态及读取异常保持未知；不解析归档，也不参与 Turn 的 dataSync 前台服务状态。直接查询、取消和收取的用户操作入口已接入应用服务，复用原身份、授权和执行占用，写用户审计，不伪造模型 ToolCall。
 
 启动回执正文文件缺失或无法校验时，列表和详情保持可打开；没有独立终态事实则显示未知，有已验证终态凭据则继续展示其执行及待结算状态。畸形本地 Job 身份在详情中显示读取失败，不因浏览触发重放。
+
+## J1 观察与等待的阶段边界
+
+当前 status/await 通过唯一 Dispatcher 的 completion 路径及有界查询通道运行；等待释放业务 worker，但未实际退出的 Binder 查询仍占物理容量。用户停止等待与请求取消原 Job 分开，查询回执不会覆盖更新的控制回执。结果按原批次顺序作为普通 ToolResult 持久回填，不是独立观察候选自动进入 ContextCompiler，也不授权自动启动下一轮模型。实现、反例和准确限制见 [J1 阶段证据](../evidence/development/hxa236-job-observation-2026-10-01.md)，未执行的设备流程不记通过。
 
 ## 手动终端与多会话
 

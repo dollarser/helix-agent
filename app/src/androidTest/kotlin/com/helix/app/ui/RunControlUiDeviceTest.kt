@@ -11,8 +11,8 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
-import com.helix.app.runcontrol.RunControlConfig
-import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnBudgets
 import org.junit.Rule

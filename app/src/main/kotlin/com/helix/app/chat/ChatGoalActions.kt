@@ -1,6 +1,6 @@
 package com.helix.app.chat
 
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.Dispatchers

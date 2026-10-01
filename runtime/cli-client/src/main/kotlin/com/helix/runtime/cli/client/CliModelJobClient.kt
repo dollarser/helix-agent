@@ -48,6 +48,8 @@ class CliModelJobClient(
             pollIntervalMs,
         )
 
+    // Wire identity remains explicit and must match the caller's write-ahead payload exactly.
+    @Suppress("LongParameterList")
     fun submitAndAwait(
         jobId: String,
         request: ModelRequest,
@@ -56,8 +58,9 @@ class CliModelJobClient(
         provider: CliModelProvider = CliModelProvider.CODEX,
         images: List<CliImageSnapshot> = emptyList(),
         onProgress: ((List<ModelEvent>) -> Unit)? = null,
+        replayOwner: String? = null,
     ): AwaitOutcome {
-        val payload = CliModelRequestCodec.encode(request, provider, images)
+        val payload = CliModelRequestCodec.encode(request, provider, images, replayOwner)
         val requestSha256 = cliPayloadSha256(payload)
         val connection = supervisor.openConnection()
         if (connection is CliRuntimeConnection.Refused) return AwaitOutcome.Unavailable(connection.cause)

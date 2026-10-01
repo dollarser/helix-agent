@@ -34,9 +34,9 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.MessageUi
 import com.helix.app.provider.ProviderRowUi
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.voice.SpeechRecognitionLauncher
 import com.helix.app.voice.VoiceInputMapper
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState

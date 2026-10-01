@@ -271,29 +271,32 @@ internal class DefaultAppContainer(
             ).lastUpdateTime}",
         )
 
-    override val pluginRegistry =
-        com.helix.extensions.plugin
-            .PluginRegistry(toolRegistry)
-
     private val skillsRoot: Path = java.io.File(context.filesDir, "skills").toPath()
 
     override val skillImportService: SkillImportService =
         SkillImportService(skillsRoot.resolve("staging"))
 
-    private val connectorCatalog =
-        com.helix.app.connector
-            .ConnectorCatalog(storage)
+    private val pluginCatalog =
+        com.helix.app.plugin
+            .PluginCatalog(storage)
+
+    override val pluginRegistry =
+        com.helix.extensions.plugin.PluginRegistry(
+            toolRegistry,
+            com.helix.app.plugin
+                .RoomNativePluginCatalog(pluginCatalog),
+        )
 
     override val skillRepository: SkillRepository =
         SkillRepository(
             snapshotsRoot = skillsRoot.resolve("snapshots"),
             stateFile = skillsRoot.resolve("enablement.txt"),
             trashRoot = skillsRoot.resolve("trash"),
-            sourceAvailable = connectorCatalog::skillAvailable,
-            onIndependentInstall = { connectorCatalog.claim(it, independent = true) },
+            sourceAvailable = pluginCatalog::skillAvailable,
+            onIndependentInstall = { pluginCatalog.claim(it, independent = true) },
             beforeRemove = { key ->
-                require(connectorCatalog.list().none { key in it.skills }) { "SKILL_REFERENCED_BY_CONNECTOR" }
-                connectorCatalog.releaseIndependent(key)
+                require(pluginCatalog.list().none { key in it.skills }) { "SKILL_REFERENCED_BY_CONNECTOR" }
+                pluginCatalog.releaseIndependent(key)
             },
         )
 
@@ -399,10 +402,10 @@ internal class DefaultAppContainer(
         )
 
     override val connectorInstallationService =
-        com.helix.app.connector.ConnectorInstallationService(
+        com.helix.app.plugin.PluginInstallationService(
             workspaceStore,
             java.io.File(context.cacheDir, "connector-installation").toPath(),
-            { connectorService },
+            { pluginService },
         )
 
     /**
@@ -531,7 +534,7 @@ internal class DefaultAppContainer(
             toolRegistry,
             skillInstallationService,
         )
-        com.helix.app.connector.ConnectorInstallationTools.register(
+        com.helix.app.plugin.PluginInstallationTools.register(
             toolRegistry,
             connectorInstallationService,
         )
@@ -617,7 +620,7 @@ internal class DefaultAppContainer(
                     storage.sessionPermissionConfigs,
                     storage.toolAvailability,
                     sessionWorkspace,
-                    connectorCatalog::sourceAvailable,
+                    pluginCatalog::sourceAvailable,
                 )
             val effectClassifier =
                 SessionToolEffectClassifier(sessionWorkspace) { sessionId, callId ->
@@ -729,7 +732,7 @@ internal class DefaultAppContainer(
         McpAppService(
             storage = McpStorageBridge(storage),
             prepareCredential = { config -> mcpOAuthCoordinator.prepareCredential(config) },
-            sourceAvailable = connectorCatalog::endpointAvailable,
+            sourceAvailable = pluginCatalog::endpointAvailable,
             profile = { profileStore.profile },
             lanScopes = lanScopeStore::current,
             registry = toolRegistry,
@@ -755,22 +758,22 @@ internal class DefaultAppContainer(
             .McpOAuthCoordinator(storage.secrets, attemptStore, oauthClient, context.packageName)
     }
 
-    override val connectorService by lazy {
-        com.helix.app.connector
-            .ConnectorService(
-                context,
-                storage,
-                mcpService,
-                skillImportService,
-                skillRepository,
-                mcpOAuthCoordinator,
-                connectorCatalog,
-            )
+    override val pluginService by lazy {
+        com.helix.app.plugin.PluginService(
+            context,
+            storage,
+            mcpService,
+            skillImportService,
+            skillRepository,
+            mcpOAuthCoordinator,
+            pluginCatalog,
+            nativeRegistry = pluginRegistry,
+        )
     }
 
     override val marketplaceService by lazy {
         com.helix.app.marketplace.MarketplaceService(
-            connectorService,
+            pluginService,
             skillRepository,
         )
     }
@@ -885,6 +888,10 @@ internal class DefaultAppContainer(
             a2a = a2aService,
             skills = skillRepository,
             chat = chatService,
+            cleanProviderEvidence = { after ->
+                com.helix.app.provider.SubscriptionProviderModule
+                    .cleanReplayEvidence(context, storage, after)
+            },
             cancelGoalReminder = { goalId ->
                 com.helix.app.goal.GoalReminderScheduler
                     .create(context)
@@ -894,7 +901,7 @@ internal class DefaultAppContainer(
     }
 
     init {
-        appScope.launch(Dispatchers.IO) { connectorService.cleanupRetired() }
+        appScope.launch(Dispatchers.IO) { pluginService.cleanupRetired() }
         appScope.launch(Dispatchers.IO) {
             runCatching { ProotToolModule.observeForegroundExecution(storage) }
                 .onFailure { android.util.Log.e("ProotRecovery", "Original execution remains unconfirmed") }

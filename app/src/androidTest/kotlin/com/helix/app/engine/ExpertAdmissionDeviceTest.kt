@@ -2,11 +2,11 @@ package com.helix.app.engine
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.runcontrol.GoalBudgetDefaults
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.GoalBudgetDefaults
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ReasoningEffort

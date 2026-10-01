@@ -1,3 +1,5 @@
+> 2026-10-01 R2-A 源码迁移：本页已移除源文件的链接固定到重构前 `05e91003`，保留原分析语义；不是当前实现或新增验收结论。
+
 # 对话历史、模型上下文与运行中用户干预
 
 > **历史基线提示（2026-09-25）**：本文记录 2026-09-22 实施前/并行期快照。发送回执、编辑重发、Queue/Steer 与 request context manifest 已由 HXA-214～217 交付，后续 TurnEngine/review/recovery 又由 HXA-220 继续收敛。当前契约以 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[ADR-AGENT-005](../../adr/agent/005-session-jsonl-export.md) 和 [status](../../development/status.md) 为准。下文“目前没有/已规划”仅代表当时快照。
@@ -25,7 +27,7 @@ Helix 已将用户界面与模型请求分开投影，但没有各保存一份�
 | 请求证据 | ModelCall 有 providerSnapshot、usage、requestId、promptFingerprint、promptSections | 没有逐次完整 wire request 快照；prompt 指纹不是整个请求的指纹 |
 | JSONL 导出 | 既有 HXA-211 导出会话执行记录和引用 | 不保证可以逐字节重放当年的 Provider 请求 |
 
-源码入口：[UI 投影](../../../app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt)、[历史协议映射](../../../app/src/main/kotlin/com/helix/app/agent/ChatHistoryBuilder.kt)、[请求组装](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[请求对象](../../../app/src/main/kotlin/com/helix/app/agent/ChatContextRequest.kt)、[ModelCall 字段](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/ConversationEntities.kt)。
+源码入口：[UI 投影](../../../app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt)、[历史协议映射](../../../app/src/main/kotlin/com/helix/app/agent/ChatHistoryBuilder.kt)、[请求组装](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[请求对象](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ChatContextRequest.kt)、[ModelCall 字段](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/ConversationEntities.kt)。
 
 具体例子：原来界面中出现的 `{"id":...,"tool":...,"status":...,"summary":...}` 是持久工具结果封套。模型映射将其恢复为 TOOL 消息，携带调用 ID、工具名和 `[状态] 结果正文`，并非一定原样发送整个封套。UI 可以仅显示折叠卡，模型仍能读取有界结果。完整大输出是否可见，取决于工具结果投影、引用及后续读取工具，不能把“工具运行成功”解释为“全部原始日志进入上下文”。
 

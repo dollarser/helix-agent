@@ -1,16 +1,17 @@
 package com.helix.app.chat
 
-import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.RecoveryContextPolicy
-import com.helix.app.agent.TurnContextAssembler
 import com.helix.app.provider.ProviderService
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.ContextCheckpoint
 import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.PromptSnapshot
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.ToolModeProfile
+import com.helix.core.agent.TurnContextAssembler
+import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -65,6 +66,10 @@ internal class ChatRequestAssembler(
 
     // The local file tools whose visibility decides the `env.files` section (mainline rule: the
     // working-directory guidance ships only when the file tools are actually exposed).
+    private fun com.helix.core.storage.entity.SessionWorkspaceEntity.snapshot() =
+        com.helix.core.agent
+            .WorkspaceBindingSnapshot(sessionId, workspaceId, relativePath, revision)
+
     private fun fileToolsAvailable(tools: List<ModelToolSchema>): Boolean =
         tools.any { it.name.value in FILE_TOOL_NAMES }
 
@@ -74,13 +79,13 @@ internal class ChatRequestAssembler(
         turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
-    ): ChatContextRequest = buildRequest(sessionId, turnId, retryTurnId, control)
+    ): TurnContextRequest = buildRequest(sessionId, turnId, retryTurnId, control)
 
     override suspend fun buildBackfill(
         sessionId: String,
         turnId: String,
         control: RunControlConfig,
-    ): ChatContextRequest = buildBackfillRequest(sessionId, turnId, control)
+    ): TurnContextRequest = buildBackfillRequest(sessionId, turnId, control)
 
     /** Read-only repair preflight; the ordinary send path still performs its full admission. */
     suspend fun contextFits(
@@ -90,7 +95,7 @@ internal class ChatRequestAssembler(
     ): Boolean =
         try {
             contextFitsChecked(sessionId, control, prompt)
-        } catch (_: com.helix.app.agent.ContextCapacityException) {
+        } catch (_: com.helix.core.agent.ContextCapacityException) {
             false
         }
 
@@ -122,7 +127,7 @@ internal class ChatRequestAssembler(
                 directory,
             )
         val request =
-            ChatContextRequest(
+            TurnContextRequest(
                 model,
                 persistedHistory(sessionId, null, null, system).messages,
                 tools,
@@ -130,10 +135,10 @@ internal class ChatRequestAssembler(
                 com.helix.core.model.ReasoningEffort.OFF,
                 system,
                 directory = directory,
-                workspaceBinding = binding,
+                workspaceBinding = binding?.snapshot(),
             )
         val window = providerService.contextSettings(config.id, model).window
-        return com.helix.app.agent.ContextCapacity.forContinuation(
+        return com.helix.core.agent.ContextCapacity.forContinuation(
             request,
             prompt,
             control.budgets.maxInputTokens,
@@ -152,7 +157,7 @@ internal class ChatRequestAssembler(
         turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
-    ): ChatContextRequest {
+    ): TurnContextRequest {
         val binding = storage.workspaces.binding(sessionId)
         val directory =
             binding?.let {
@@ -191,7 +196,7 @@ internal class ChatRequestAssembler(
         val target = modelTarget(sessionId, turnId)
         val config = providerService.storedConfig(target.first)
         visionSessionBinder(sessionId)
-        return ChatContextRequest(
+        return TurnContextRequest(
             model = target.second ?: config.model,
             messages = history.messages,
             sourceMessageIds = history.messageIds,
@@ -207,7 +212,7 @@ internal class ChatRequestAssembler(
                 ),
             prompt = system,
             directory = directory,
-            workspaceBinding = binding,
+            workspaceBinding = binding?.snapshot(),
         )
     }
 
@@ -221,7 +226,7 @@ internal class ChatRequestAssembler(
         sessionId: String,
         turnId: String,
         control: RunControlConfig,
-    ): ChatContextRequest {
+    ): TurnContextRequest {
         val binding = storage.workspaces.binding(sessionId)
         val directory =
             binding?.let {
@@ -260,7 +265,7 @@ internal class ChatRequestAssembler(
         val target = modelTarget(sessionId, turnId)
         val config = providerService.storedConfig(target.first)
         visionSessionBinder(sessionId)
-        return ChatContextRequest(
+        return TurnContextRequest(
             model = target.second ?: config.model,
             messages = history.messages,
             sourceMessageIds = history.messageIds,
@@ -276,7 +281,7 @@ internal class ChatRequestAssembler(
                 ),
             prompt = system,
             directory = directory,
-            workspaceBinding = binding,
+            workspaceBinding = binding?.snapshot(),
         )
     }
 
@@ -285,8 +290,8 @@ internal class ChatRequestAssembler(
         turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
-        previous: ChatContextRequest,
-    ): ChatContextRequest =
+        previous: TurnContextRequest,
+    ): TurnContextRequest =
         if (previous.messages.lastOrNull()?.role == ModelRole.TOOL) {
             buildBackfillRequest(sessionId, turnId, control)
         } else {
@@ -466,7 +471,7 @@ internal class ChatRequestAssembler(
         system: PromptSnapshot,
         sessionId: String,
         predecessorId: String?,
-        checkpoint: ContextCompaction.Checkpoint?,
+        checkpoint: ContextCheckpoint?,
         restored: List<ModelMessage>,
     ): List<ModelMessage> {
         val recovery = predecessorId?.let { ModelMessage(ModelRole.SYSTEM, RecoverySummaryBuilder.build(storage, it)) }

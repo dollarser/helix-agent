@@ -28,7 +28,7 @@ class GoalEditorDeviceTest {
         var saved: GoalBudgets? = null
         compose.setContent {
             MaterialTheme {
-                GoalEditor(com.helix.app.runcontrol.GoalBudgetDefaults.VALUE, {}, { budgets ->
+                GoalEditor(com.helix.core.agent.GoalBudgetDefaults.VALUE, {}, { budgets ->
                     saved = budgets
                 })
             }
@@ -36,7 +36,7 @@ class GoalEditorDeviceTest {
         compose.onNodeWithTag("goal-save").assertIsEnabled()
         compose.runOnIdle { assertNull(saved) }
         compose.onNodeWithTag("goal-save").performClick()
-        compose.runOnIdle { assertEquals(com.helix.app.runcontrol.GoalBudgetDefaults.VALUE, saved) }
+        compose.runOnIdle { assertEquals(com.helix.core.agent.GoalBudgetDefaults.VALUE, saved) }
     }
 
     @Test
@@ -70,7 +70,7 @@ class GoalEditorDeviceTest {
     private fun renderEditor(save: suspend () -> Unit) {
         compose.setContent {
             MaterialTheme {
-                GoalEditor(com.helix.app.runcontrol.GoalBudgetDefaults.VALUE, {}, { save() })
+                GoalEditor(com.helix.core.agent.GoalBudgetDefaults.VALUE, {}, { save() })
             }
         }
     }

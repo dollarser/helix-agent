@@ -46,6 +46,7 @@ class McpOAuthCoordinator(
     private val redirectScheme: String = "helix",
 ) {
     private val credentials = McpOAuthCredentials(secretStore, oauthClient)
+    val clients = OAuthClientRegistrations(secretStore, oauthClient.registration)
     private val mutableEvents = MutableSharedFlow<McpOAuthResult>(extraBufferCapacity = 16)
     val events: SharedFlow<McpOAuthResult> = mutableEvents.asSharedFlow()
 
@@ -58,6 +59,8 @@ class McpOAuthCoordinator(
     suspend fun discoverMetadata(endpointUrl: String): McpOAuthServerMetadata =
         McpOAuthDiscovery(oauthClient.endpointGate).discover(NormalizedEndpoint.parse(endpointUrl))
 
+    // Keep issuer/resource/redirect and preparation identities distinct.
+    @Suppress("LongParameterList")
     fun prepareAuthorization(
         serverId: String,
         clientId: String,
@@ -66,16 +69,22 @@ class McpOAuthCoordinator(
         redirectUri: String = defaultRedirectUri,
         extraParams: Map<String, String> = emptyMap(),
         resource: String = metadata.issuer,
+        preparationId: String? = null,
     ): McpOAuthPreparedAuth {
-        val redirect = URI(redirectUri)
-        require(redirect.rawQuery == null && redirect.rawFragment == null && redirect.rawUserInfo == null)
-        require(
-            redirect.scheme == redirectScheme && redirect.host == "oauth" && redirect.port == -1 &&
-                redirect.path in setOf("/mcp/callback", "/callback"),
-        ) { "Unsupported OAuth redirect" }
+        requireRedirect(redirectUri)
         require(metadata.supportsS256())
         val pkce = McpOAuthPkce.generate()
-        val attempt = newAttempt(serverId, clientId, metadata, scope, redirectUri, resource, pkce.verifier)
+        val attempt =
+            newAttempt(
+                serverId,
+                clientId,
+                metadata,
+                scope,
+                redirectUri,
+                resource,
+                pkce.verifier,
+                preparationId = preparationId,
+            )
         val authUri =
             oauthClient.buildAuthorizationUri(
                 McpOAuthAuthRequest(
@@ -90,6 +99,22 @@ class McpOAuthCoordinator(
                 ),
             )
         return McpOAuthPreparedAuth(authUri, attempt.state, attempt.attemptId)
+    }
+
+    /** Reserve before metadata I/O; Stop and newer login preparation invalidate late responses. */
+    fun beginPreparation(serverId: String): String =
+        synchronized(ADMISSION_LOCK) {
+            attemptStore.cancelServer(serverId)
+            UUID.randomUUID().toString().also { credentials.begin(serverId, it) }
+        }
+
+    fun requireRedirect(redirectUri: String) {
+        val redirect = URI(redirectUri)
+        require(redirect.rawQuery == null && redirect.rawFragment == null && redirect.rawUserInfo == null)
+        require(
+            redirect.scheme == redirectScheme && redirect.host == "oauth" && redirect.port == -1 &&
+                redirect.path in setOf("/mcp/callback", "/callback"),
+        ) { "Unsupported OAuth redirect" }
     }
 
     suspend fun handleCallback(uri: Uri): McpOAuthResult = handleCallback(uri.toString())
@@ -140,13 +165,18 @@ class McpOAuthCoordinator(
         resource: String,
         clientId: String,
         scope: String,
+        preparationId: String? = null,
     ): com.helix.extensions.mcp.oauth.McpDeviceCodeResponse {
+        val prepared = preparationId ?: beginPreparation(serverId)
+        check(credentials.isGeneration(serverId, prepared)) { "OAUTH_PREPARATION_CANCELLED_OR_REPLACED" }
         val response =
             oauthClient.requestDeviceCode(
                 requireNotNull(metadata.deviceAuthorizationEndpoint),
                 clientId,
                 scope,
+                resource,
             )
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
         val attempt =
             newAttempt(
                 serverId,
@@ -157,6 +187,7 @@ class McpOAuthCoordinator(
                 resource,
                 response.deviceCode,
                 response.expiresInSeconds * 1000,
+                prepared,
             )
         return response.copy(attemptState = attempt.state)
     }
@@ -174,6 +205,7 @@ class McpOAuthCoordinator(
                 attempt.tokenEndpoint,
                 attempt.clientId,
                 attemptStore.verifier(state),
+                attempt.resource,
             )
         if (result is com.helix.extensions.mcp.oauth.McpDevicePollResult.Success) {
             currentCoroutineContext().ensureActive()
@@ -185,14 +217,14 @@ class McpOAuthCoordinator(
     }
 
     fun cancel(serverId: String) {
-        attemptStore.cancelServer(serverId)
-        credentials.begin(serverId, UUID.randomUUID().toString())
+        beginPreparation(serverId)
     }
 
-    fun clearLocal(serverId: String) {
-        attemptStore.cancelServer(serverId)
-        credentials.clear(serverId)
-    }
+    fun clearLocal(serverId: String) =
+        synchronized(ADMISSION_LOCK) {
+            attemptStore.cancelServer(serverId)
+            credentials.clear(serverId)
+        }
 
     suspend fun revokeAndClear(serverId: String): McpOAuthRevocationResult {
         attemptStore.cancelServer(serverId)
@@ -209,30 +241,36 @@ class McpOAuthCoordinator(
         resource: String,
         verifier: String,
         ttl: Long = McpOAuthAttempt.DEFAULT_TTL_MS,
-    ): McpOAuthAttempt {
-        val now = System.currentTimeMillis()
-        val attempt =
-            McpOAuthAttempt(
-                UUID.randomUUID().toString(),
-                serverId,
-                metadata.issuer,
-                metadata.tokenEndpoint,
-                clientId,
-                redirect,
-                scope,
-                McpOAuthPkce.generateState(),
-                verifier,
-                now,
-                now + ttl,
-                NormalizedEndpoint.parse(resource).full,
-                metadata.revocationEndpoint,
-            )
-        attemptStore.cleanupExpired()
-        attemptStore.cancelServer(serverId)
-        credentials.begin(serverId, attempt.attemptId)
-        attemptStore.saveAttempt(attempt)
-        return attempt
-    }
+        preparationId: String? = null,
+    ): McpOAuthAttempt =
+        synchronized(ADMISSION_LOCK) {
+            if (preparationId != null) {
+                check(credentials.isGeneration(serverId, preparationId)) { "OAUTH_PREPARATION_CANCELLED_OR_REPLACED" }
+            }
+            val now = System.currentTimeMillis()
+            val attempt =
+                McpOAuthAttempt(
+                    UUID.randomUUID().toString(),
+                    serverId,
+                    metadata.issuer,
+                    metadata.tokenEndpoint,
+                    clientId,
+                    redirect,
+                    scope,
+                    McpOAuthPkce.generateState(),
+                    verifier,
+                    now,
+                    now + ttl,
+                    NormalizedEndpoint.parse(resource).full,
+                    metadata.revocationEndpoint,
+                    metadata.authorizationResponseIssParameterSupported,
+                )
+            attemptStore.cleanupExpired()
+            attemptStore.cancelServer(serverId)
+            credentials.begin(serverId, attempt.attemptId)
+            attemptStore.saveAttempt(attempt)
+            attempt
+        }
 
     private fun McpOAuthAttempt.binding() =
         OAuthBinding(
@@ -246,6 +284,7 @@ class McpOAuthCoordinator(
         )
 
     companion object {
+        private val ADMISSION_LOCK = Any()
         const val DEFAULT_REDIRECT_URI = "helix://oauth/mcp/callback"
 
         fun tokenAlias(serverId: String): String = "mcp.$serverId.oauth.token"

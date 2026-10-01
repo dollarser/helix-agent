@@ -11,6 +11,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+### Agent Plugins v1 精确边界（HXA-235）
+
+标准根 manifest 名称长度 1–64，小写字母/数字/连字符/点，首尾字母数字，无连续连字符或点；version/description 非必填，已知元数据按 JSON 类型校验，不因非 semver 拒绝。未知顶层字段报告并忽略。skills/ 仅扫描直属 SKILL.md；mcp.json 按标准 schema 独立校验，损坏顶层仅禁用 MCP，无效/不支持项仅跳过对应服务器或 Skill。其他宿主格式自定义路径不改变标准固定目录。归档穿越、重复来源和包身份冲突仍整体拒绝。
+
 Connector 是 MCP endpoint 与 Skill snapshot 的产品组合，通过可迁移 ZIP/JSON 清单复用现有执行层，不新增执行引擎。持久化源格式、内容 hash、端点和 Skill 引用，不导出 Secret。
 
 导入后新 endpoint 默认禁用，用户单独配置 SecretStore bearer、测试连接并选择工具后启用。修改认证别名同时禁用，不能自动向新目标发送旧凭据。安装失败如实显示部分结果/未启用快照，不假装跨文件与数据库的原子事务。
@@ -32,6 +36,10 @@ OAuth、版本所有权/会话 scope、签名索引各有独立 proposed 决策�
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
+
+## Decision history
+
+- 2026-10-01：HXA-235 核对 Agent Plugins v1 正文。标准组件只从 skills/ 与 mcp.json 加载，顶层 mcpServers/skills 不属标准并忽略；Claude/Qwen 各自适配。组件局部失败不阻断有效组件，归档安全错误仍整体拒绝。
 
 ## References
 

@@ -4,12 +4,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.mcp.McpAppService
 import com.helix.app.mcp.McpStorageBridge
+import com.helix.app.plugin.PluginService
 import com.helix.app.provider.InAppMcpServer
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SecretAlias
 import com.helix.core.policy.NetworkOriginScope
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
@@ -102,20 +103,20 @@ class ConnectorSendBoundaryDeviceTest {
                 { SafetyProfile.ADVANCED },
                 registry,
                 lanScopes = { setOf(NetworkOriginScope("127.0.0.1", port)) },
-                sourceAvailable = c.connectorService.catalog::endpointAvailable,
+                sourceAvailable = c.pluginService.catalog::endpointAvailable,
             )
         val service =
-            ConnectorService(
+            PluginService(
                 app,
                 c.storage,
                 mcp,
                 c.skillImportService,
                 c.skillRepository,
-                catalog = c.connectorService.catalog,
+                catalog = c.pluginService.catalog,
             )
         val record =
             service.install(
-                ConnectorPackageReader()
+                PluginPackageReader()
                     .readJson(
                         """{"mcp_servers":{"send":{"url":"https://example.com/mcp"}}}""".toByteArray(),
                     ).let { bundle ->

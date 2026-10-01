@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.sendTestMessage
+import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState

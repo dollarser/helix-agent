@@ -1,12 +1,15 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.AgentMode
+import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolAvailabilityState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -37,6 +40,7 @@ import kotlinx.serialization.json.JsonObject
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 
 /**
@@ -103,61 +107,6 @@ data class ToolDispatchRequest(
 
 /** Hard attempt cap for one ToolCall (doc 11 section 3.3: 重试必须有稳定理由和硬上限). */
 const val MAX_ATTEMPTS_HARD_CAP = 2
-
-/**
- * The model-visible, bounded result of a successful dispatch: canonical output text
- * truncated to the descriptor's [ToolDescriptor.maxOutputBytes] with the SHA-256 of the
- * FULL (pre-truncation) output preserved — a truncated result still proves which output it
- * was (security doc section 7.3: 超限截断并保留 hash/Artifact 引用).
- */
-data class BoundToolResult(
-    val payload: String,
-    val outputHash: Sha256,
-    val truncated: Boolean,
-    val executionMillis: Long,
-    val visualArtifact: com.helix.core.model.VisualArtifact? = null,
-) {
-    init {
-        require(executionMillis >= 0) { "executionMillis must not be negative" }
-    }
-}
-
-/** The terminal outcome of one dispatch; exactly one of the four. */
-sealed interface ToolDispatchOutcome {
-    /** The call executed to a model-visible, bounded, output-schema-valid result. */
-    data class Succeeded(
-        val result: BoundToolResult,
-    ) : ToolDispatchOutcome
-
-    /** Nothing executed: rejected before execution (validation, policy or approval). */
-    data class Denied(
-        val code: DispatchOutcomeCode,
-        val detail: String,
-    ) : ToolDispatchOutcome
-
-    /** Cancelled before start: zero side effects, no proof consumed, nothing executed. */
-    data object Cancelled : ToolDispatchOutcome
-
-    /**
-     * Execution started and ended non-successfully with a stable error code.
-     * [sideEffectFree] is the executor's CONFIRMED report that this attempt produced no
-     * side effect (doc 11 section 3.3) — the only case a bounded technical retry is
-     * allowed. The framework trusts this flag only because it is set by the platform
-     * executor (never by the model or MCP); when in doubt it must stay false.
-     */
-    data class ExecutionFailed(
-        val code: DispatchOutcomeCode,
-        val detail: String,
-        val sideEffectFree: Boolean = false,
-        val requiresReview: Boolean = false,
-    ) : ToolDispatchOutcome {
-        init {
-            require(!sideEffectFree || !requiresReview) {
-                "a confirmed side-effect-free failure cannot require side-effect review"
-            }
-        }
-    }
-}
 
 /**
  * The tool dispatcher (roadmap HXA-035; architecture doc section 5.3/7.1): the SINGLE
@@ -336,6 +285,96 @@ class ToolDispatcher(
         }
     }
 
+    /** Ordinary executors keep their existing retry/deadline path; trusted observers release their worker. */
+    fun dispatchCompletion(unboundRequest: ToolDispatchRequest): CompletableFuture<ToolDispatchOutcome> {
+        val request = pinBinding(unboundRequest)
+        if (!isObservation(request)) return CompletableFuture.completedFuture(dispatch(request))
+        return observeAttempt(request)
+    }
+
+    internal fun isObservation(request: ToolDispatchRequest): Boolean =
+        request.bindingRef?.let(registry::resolveBinding)?.executor is JobObservationExecutor
+
+    @Suppress("TooGenericExceptionCaught") // Preparation faults and final audit failures stay visible.
+    private fun observeAttempt(request: ToolDispatchRequest): CompletableFuture<ToolDispatchOutcome> {
+        val startedAt = clock.now()
+        val ctx = DispatchContext()
+        return try {
+            val proof = prepareAttempt(request, ctx, null)
+            if (ctx.stopped != null) {
+                CompletableFuture.completedFuture(finishStop(request, startedAt, ctx))
+            } else {
+                startObservation(request, proof, startedAt, ctx)
+            }
+        } catch (failure: Throwable) {
+            ctx.stopped =
+                DispatchContext.StopResult(
+                    thrownDispatchOutcome(request.cancel, ctx.executionStartedAt, failure),
+                    DecisionSource.FRAMEWORK,
+                )
+            auditFailurePreservingCause(failure) { finishStop(request, startedAt, ctx) }
+            throw failure
+        }
+    }
+
+    private fun startObservation(
+        request: ToolDispatchRequest,
+        proof: ApprovalProof?,
+        startedAt: Instant,
+        ctx: DispatchContext,
+    ): CompletableFuture<ToolDispatchOutcome> {
+        val descriptor = requireNotNull(ctx.descriptor)
+        val executor = ctx.executor as JobObservationExecutor
+        val prepared =
+            prepareExecution(request, proof, ctx)
+                ?: return CompletableFuture.completedFuture(finishStop(request, startedAt, ctx))
+        val permitted = { mayStart(request, descriptor, ctx.attemptProof, DispatchContext()) }
+        val submission = executor.start(prepared.call, permitted)
+        return JobObservationPublication.settle(submission) { result, failure ->
+            if (failure != null) {
+                finishExecutionFailure(
+                    request,
+                    startedAt,
+                    ctx,
+                    ToolExecutorResult.Failed("JOB_OBSERVATION_FAILED: original execution is unchanged.", true, false),
+                )
+            } else {
+                finishObservation(request, startedAt, ctx, prepared, requireNotNull(result), permitted)
+            }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Finalization faults preserve the dispatch audit/exception contract.
+    private fun finishObservation(
+        request: ToolDispatchRequest,
+        startedAt: Instant,
+        ctx: DispatchContext,
+        prepared: PreparedExecution,
+        result: ToolExecutorResult,
+        permitted: () -> Boolean,
+    ): ToolDispatchOutcome =
+        try {
+            val checked =
+                if (result is ToolExecutorResult.Completed && !permitted()) {
+                    ToolExecutorResult.CancelledWithEffectTruth(
+                        "JOB_OBSERVATION_REVOKED: no new job result was disclosed.",
+                        true,
+                        false,
+                    )
+                } else {
+                    result
+                }
+            settleExecutionResult(request, startedAt, ctx, prepared.started, checked)
+        } catch (failure: Throwable) {
+            ctx.stopped =
+                DispatchContext.StopResult(
+                    thrownDispatchOutcome(request.cancel, ctx.executionStartedAt, failure),
+                    DecisionSource.FRAMEWORK,
+                )
+            auditFailurePreservingCause(failure) { finishStop(request, startedAt, ctx) }
+            throw failure
+        }
+
     /**
      * One attempt: stages 1-7. Returns the settled outcome (its single audit event already
      * emitted inside the stage's finish). An unexpected throw from any stage/dependency
@@ -347,18 +386,26 @@ class ToolDispatcher(
         ctx: DispatchContext,
         carriedProof: ApprovalProof?,
     ): ToolDispatchOutcome {
+        val proof = prepareAttempt(request, ctx, carriedProof)
+        return if (ctx.stopped != null) {
+            finishStop(request, startedAt, ctx)
+        } else {
+            executeStage(request, proof, ctx, startedAt)
+        }
+    }
+
+    /** Shared schema, capability, policy and approval admission for synchronous and observation execution. */
+    private fun prepareAttempt(
+        request: ToolDispatchRequest,
+        ctx: DispatchContext,
+        carriedProof: ApprovalProof?,
+    ): ApprovalProof? {
         val descriptor = validateStage(request, ctx)
         if (descriptor != null && request.cancel.isCancelled()) {
-            // A queued call already stopped by its owner must never create an approval wait.
             stopped<Unit>(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
-            return finishStop(request, startedAt, ctx)
+            return null
         }
-        val proof =
-            if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
-        return when {
-            descriptor == null || ctx.stopped != null -> finishStop(request, startedAt, ctx)
-            else -> executeStage(request, proof, ctx, startedAt)
-        }
+        return if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
     }
 
     /**
@@ -726,9 +773,9 @@ class ToolDispatcher(
     ): ToolDispatchOutcome {
         val descriptor = ctx.descriptor ?: error("executeStage reached before validate")
         val executor = ctx.executor ?: error("executeStage reached before validate")
-        val execStart = commitExecutionStart(request, proof, ctx) ?: return finishStop(request, startedAt, ctx)
-        request.onExecutionStarting()
-        val call = buildCall(request, descriptor, execStart)
+        val prepared = prepareExecution(request, proof, ctx) ?: return finishStop(request, startedAt, ctx)
+        val execStart = prepared.started
+        val call = prepared.call
         val guardedExecutor =
             executionOwnership?.guard(
                 executor,
@@ -744,6 +791,33 @@ class ToolDispatcher(
                         ).exclusive,
             ) ?: executor
         val result = executionRunner(executor).executeWithinDeadline(guardedExecutor, call)
+        return settleExecutionResult(request, startedAt, ctx, execStart, result)
+    }
+
+    private data class PreparedExecution(
+        val started: Instant,
+        val call: ExecutableToolCall,
+    )
+
+    private fun prepareExecution(
+        request: ToolDispatchRequest,
+        proof: ApprovalProof?,
+        ctx: DispatchContext,
+    ): PreparedExecution? {
+        val start = commitExecutionStart(request, proof, ctx) ?: return null
+        request.onExecutionStarting()
+        return PreparedExecution(start, buildCall(request, requireNotNull(ctx.descriptor), start))
+    }
+
+    /** Both execution paths publish through this single output verification and audit boundary. */
+    private fun settleExecutionResult(
+        request: ToolDispatchRequest,
+        startedAt: Instant,
+        ctx: DispatchContext,
+        execStart: Instant,
+        result: ToolExecutorResult?,
+    ): ToolDispatchOutcome {
+        val descriptor = requireNotNull(ctx.descriptor)
         // Preserve only executor-supplied redacted metadata; generic watchdog outcomes have none.
         ctx.executionDetail = executorAuditDetail(result)
         return when (result) {
@@ -985,7 +1059,8 @@ class ToolDispatcher(
                 ToolDispatchOutcome.ExecutionFailed(
                     DispatchOutcomeCode.INVALID_OUTPUT,
                     "tool output violates the registered output schema: ${validation.reasons.joinToString("; ")}",
-                    requiresReview = true,
+                    sideEffectFree = ctx.executor is JobObservationExecutor,
+                    requiresReview = ctx.executor !is JobObservationExecutor,
                 ),
                 DecisionSource.FRAMEWORK,
             )

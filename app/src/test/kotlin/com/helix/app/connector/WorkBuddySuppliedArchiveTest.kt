@@ -1,7 +1,7 @@
 package com.helix.app.connector
 
+import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.extensions.skills.SkillImportService
-import com.helix.extensions.skills.connector.ConnectorPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -24,7 +24,7 @@ class WorkBuddySuppliedArchiveTest {
         val root = Files.createTempDirectory("workbuddy-sample-")
         try {
             expected.forEach { (name, names) ->
-                val bundle = ConnectorPackageReader().readZip(Path.of(requireNotNull(source), "$name.zip"))
+                val bundle = PluginPackageReader().readZip(Path.of(requireNotNull(source), "$name.zip"))
                 assertEquals(listOf(name), bundle.endpoints.map { it.name })
                 assertEquals(names.size, bundle.skills.size)
                 val importer = SkillImportService(root.resolve("staging"))
@@ -33,7 +33,7 @@ class WorkBuddySuppliedArchiveTest {
                         .map { skill ->
                             val directory = root.resolve(name).resolve(skill.directory)
                             skill.files.forEach { (relative, bytes) ->
-                                val target = directory.resolve(ConnectorPackageReader.safePath(relative))
+                                val target = directory.resolve(PluginPackageReader.safePath(relative))
                                 Files.createDirectories(target.parent)
                                 Files.write(target, bytes)
                             }

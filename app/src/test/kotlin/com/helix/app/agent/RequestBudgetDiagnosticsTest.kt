@@ -1,6 +1,12 @@
 package com.helix.app.agent
 
-import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.agent.ModelCallUsage
+import com.helix.core.agent.ModelInputEstimate
+import com.helix.core.agent.ModelStreamState
+import com.helix.core.agent.RequestBudgetDiagnostics
+import com.helix.core.agent.TurnBudgetBounds
+import com.helix.core.agent.TurnBudgetTracker
+import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
@@ -16,7 +22,7 @@ import org.junit.Test
 
 class RequestBudgetDiagnosticsTest {
     private val context =
-        ChatContextRequest(
+        TurnContextRequest(
             "model",
             listOf(
                 ModelMessage(ModelRole.SYSTEM, "private instructions"),

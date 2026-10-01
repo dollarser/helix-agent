@@ -1,5 +1,6 @@
 package com.helix.app.provider
 
+import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelRequest
 import com.helix.core.storage.HelixStorage
 import com.helix.runtime.cli.client.CliModelProvider
@@ -21,9 +22,10 @@ internal class SubscriptionJobBindingStore(
         request: ModelRequest,
         platform: CliModelProvider,
         images: List<com.helix.runtime.cli.client.CliImageSnapshot> = emptyList(),
+        replayOwner: String? = null,
     ) {
         val turn = storage.turns.resolve(ownership.turnId)
-        val payload = CliModelRequestCodec.encode(request, platform, images)
+        val payload = CliModelRequestCodec.encode(request, platform, images, replayOwner)
         val hash = MessageDigest.getInstance("SHA-256").digest(payload).joinToString("") { "%02x".format(it) }
         storage.auditEvents.append(
             id = eventId(ownership.modelCallId),

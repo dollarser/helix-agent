@@ -103,7 +103,7 @@ interface AppContainer {
     val toolEffectReviewService: com.helix.app.review.ToolEffectReviewService?
         get() = null
 
-    val connectorService: com.helix.app.connector.ConnectorService
+    val pluginService: com.helix.app.plugin.PluginService
         get() = error("Connector service is unavailable in this container")
 
     val mcpService: McpAppService
@@ -112,7 +112,7 @@ interface AppContainer {
 
     val a2aService: A2aAppService
 
-    val connectorInstallationService: com.helix.app.connector.ConnectorInstallationService?
+    val connectorInstallationService: com.helix.app.plugin.PluginInstallationService?
         get() = null
 
     val skillInstallationService: com.helix.app.skills.SkillInstallationService?

@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.ResponseInputBoundary
 import com.helix.app.agent.TurnCoordinator
-import com.helix.app.agent.TurnMessageDraft
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
+import com.helix.core.agent.ResponseInputBoundary
+import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole

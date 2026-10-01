@@ -97,7 +97,7 @@ object ChatHistoryBuilder {
 
                 "loop_exhausted" -> {
                     if (currentControlNotice(row, rows)) {
-                        ModelMessage(ModelRole.SYSTEM, ToolLoopProgress.EXHAUSTED)
+                        ModelMessage(ModelRole.SYSTEM, ToolLoopPrompts.EXHAUSTED)
                     } else {
                         null
                     }
@@ -105,7 +105,7 @@ object ChatHistoryBuilder {
 
                 "loop_warning" -> {
                     if (currentControlNotice(row, rows)) {
-                        ModelMessage(ModelRole.SYSTEM, ToolLoopProgress.WARNING)
+                        ModelMessage(ModelRole.SYSTEM, ToolLoopPrompts.WARNING)
                     } else {
                         null
                     }

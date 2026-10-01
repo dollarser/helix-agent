@@ -2,7 +2,8 @@ package com.helix.app.connector
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
-import com.helix.extensions.skills.connector.ConnectorPackageReader
+import com.helix.app.plugin.PluginService
+import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,20 +20,20 @@ class ConnectorSnapshotReferenceDeviceTest {
     @Test
     fun independentRemovalCannotDeletePreparedSnapshotBeforePublication() {
         val bundle = bundle()
-        val original = c.connectorService.install(bundle)
+        val original = c.pluginService.install(bundle)
         val key = original.skills.single()
-        c.connectorService.catalog.claim(key, true)
-        c.connectorService.remove(original)
+        c.pluginService.catalog.claim(key, true)
+        c.pluginService.remove(original)
         val removal = CompletableFuture<Throwable?>()
         val attempted = CountDownLatch(1)
         val service =
-            ConnectorService(
+            PluginService(
                 app,
                 c.storage,
                 c.mcpService,
                 c.skillImportService,
                 c.skillRepository,
-                catalog = c.connectorService.catalog,
+                catalog = c.pluginService.catalog,
                 installBoundary = { point ->
                     if (point == "before-commit") {
                         Thread {
@@ -59,16 +60,16 @@ class ConnectorSnapshotReferenceDeviceTest {
 
     @Test
     fun cleanupRechecksAnIndependentReferenceAcquiredAfterItsInitialScan() {
-        val record = c.connectorService.install(bundle())
+        val record = c.pluginService.install(bundle())
         val key = record.skills.single()
-        c.connectorService.catalog.remove(record) // commit removal while intentionally deferring cleanup
+        c.pluginService.catalog.remove(record) // commit removal while intentionally deferring cleanup
         val cleaned = CompletableFuture<Unit>()
         val attempted = CountDownLatch(1)
         try {
             c.skillRepository.withSnapshotReferences {
                 Thread {
                     attempted.countDown()
-                    runCatching { c.connectorService.cleanupRetired() }
+                    runCatching { c.pluginService.cleanupRetired() }
                         .onSuccess { cleaned.complete(Unit) }
                         .onFailure { cleaned.completeExceptionally(it) }
                 }.apply {
@@ -77,7 +78,7 @@ class ConnectorSnapshotReferenceDeviceTest {
                 }
                 assertTrue(attempted.await(5, TimeUnit.SECONDS))
                 assertThrows(TimeoutException::class.java) { cleaned.get(150, TimeUnit.MILLISECONDS) }
-                c.connectorService.catalog.claim(key, true)
+                c.pluginService.catalog.claim(key, true)
             }
             cleaned.get(5, TimeUnit.SECONDS)
             assertTrue(c.skillRepository.hasSnapshot(key))
@@ -87,7 +88,7 @@ class ConnectorSnapshotReferenceDeviceTest {
     }
 
     private fun bundle() =
-        ConnectorPackageReader().parse(
+        PluginPackageReader().parse(
             mapOf(
                 "skills/reference/SKILL.md" to
                     "---\nname: reference\ndescription: ${UUID.randomUUID()}\n---\nRead a reference.".toByteArray(),

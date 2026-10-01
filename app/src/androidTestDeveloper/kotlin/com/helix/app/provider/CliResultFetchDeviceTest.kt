@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
+import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole

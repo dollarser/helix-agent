@@ -23,7 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
-import com.helix.app.connector.ConnectorService
+import com.helix.app.plugin.PluginService
 import com.helix.app.provider.ProviderService
 import com.helix.extensions.skills.SkillRepository
 import kotlinx.coroutines.launch
@@ -36,7 +36,7 @@ internal fun SessionSettingsScreen(
     providerService: ProviderService,
     permissionEdit: SessionPermissionEditService,
     skills: SkillRepository,
-    connectors: ConnectorService,
+    connectors: PluginService,
     files: com.helix.app.files.FileManagerService,
     onModels: () -> Unit,
     onExtensions: () -> Unit,

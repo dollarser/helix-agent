@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.runcontrol.RunControlStore
-import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.TurnBudgets
 
 /** Bounded, profile-independent Turn budget editor (HXA-099). */

@@ -6,7 +6,6 @@ import com.helix.app.chat.SessionModelSelectionResult
 import com.helix.app.chat.textAnswerStream
 import com.helix.app.chat.toolCallStream
 import com.helix.app.provider.LoopbackModelServer
-import com.helix.app.provider.ProviderContextSettings
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
@@ -14,6 +13,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.provider.api.CleartextAuthorization
 import com.helix.provider.api.ProbeOutcome
+import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

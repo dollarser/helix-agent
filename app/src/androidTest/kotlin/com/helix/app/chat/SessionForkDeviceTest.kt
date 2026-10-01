@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
-import com.helix.app.agent.ContextSegments
+import com.helix.core.agent.ContextSegments
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.HelixStorage
@@ -344,7 +344,16 @@ class SessionForkDeviceTest {
             repeat(4) { text(storage, "m-$it", if (it % 2 == 0) "USER" else "ASSISTANT", "message $it") }
             fork(storage, "m-3")
             val rows = ContextHistory.load(storage, "fork").rows
-            assertEquals(3, ContextSegments.candidates(storage, rows, "new-turn").flatten().size)
+            assertEquals(
+                3,
+                ContextSegments
+                    .candidates(
+                        com.helix.app.agent.ContextHistoryMapping
+                            .rows(storage, rows),
+                        "new-turn",
+                    ).flatten()
+                    .size,
+            )
             SessionFork(storage).create("fork", rows[1].id, "nested", "Nested", 3)
             assertEquals(storage.sessions.resolve("s").directoryRef, storage.sessions.resolve("nested").directoryRef)
             assertEquals(1, storage.workspaces.list().size)
@@ -364,9 +373,20 @@ class SessionForkDeviceTest {
             text(storage, "tail", "ASSISTANT", "latest result explanation")
             fork(storage, "tail")
             val history = ContextHistory.load(storage, "fork").rows
-            val eligible = ContextSegments.candidates(storage, history, "new-turn").flatten()
-            assertEquals(history.take(3), eligible)
-            assertEquals(history.drop(3), history.filter { it !in eligible })
+            val eligible =
+                ContextSegments
+                    .candidates(
+                        com.helix.app.agent.ContextHistoryMapping
+                            .rows(storage, history),
+                        "new-turn",
+                    ).flatten()
+            assertEquals(
+                com.helix.app.agent.ContextHistoryMapping
+                    .rows(storage, history.take(3)),
+                eligible,
+            )
+            val eligibleIds = eligible.map { it.id }.toSet()
+            assertEquals(history.drop(3), history.filter { it.id !in eligibleIds })
         }
 
     @Test fun missingToolBodyCannotBeSilentlyImportedAsCompleteHistory() =

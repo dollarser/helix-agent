@@ -41,7 +41,20 @@ data class CliModelEnvelope(
     val provider: CliModelProvider,
     val request: ModelRequest,
     val images: List<CliImageSnapshot> = emptyList(),
+    val replayOwner: String? = null,
 )
+
+private fun requestVersion(
+    provider: CliModelProvider,
+    withImages: Boolean,
+    withOwner: Boolean,
+): Int =
+    when {
+        withOwner -> 5
+        withImages -> if (provider == CliModelProvider.CODEX) 3 else 4
+        provider == CliModelProvider.CODEX -> 1
+        else -> 2
+    }
 
 object CliModelRequestCodec {
     const val MAX_BYTES = 16 * 1024 * 1024
@@ -51,7 +64,12 @@ object CliModelRequestCodec {
         request: ModelRequest,
         provider: CliModelProvider = CliModelProvider.CODEX,
         images: List<CliImageSnapshot> = emptyList(),
+        replayOwner: String? = null,
     ): ByteArray {
+        replayOwner?.let {
+            require(provider == CliModelProvider.ANTIGRAVITY)
+            CliReplayMaintenance.requireOwner(it)
+        }
         val references = request.messages.flatMap { it.images }.toSet()
         require(images.map { it.reference }.toSet() == references && images.size == references.size) {
             "image snapshots must exactly match message references"
@@ -59,17 +77,11 @@ object CliModelRequestCodec {
         require(images.isEmpty() || provider in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY))
         val wireImages = transportImages(images)
         require(wireImages.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
-        val version =
-            if (images.isNotEmpty()) {
-                if (provider == CliModelProvider.CODEX) 3 else 4
-            } else if (provider == CliModelProvider.CODEX) {
-                1
-            } else {
-                2
-            }
+        val version = requestVersion(provider, images.isNotEmpty(), replayOwner != null)
         val bytes =
             buildJsonObject {
                 put("version", version)
+                replayOwner?.let { put("replayOwner", it) }
                 if (version >= 3) put("images", encodeImages(wireImages))
                 if (provider != CliModelProvider.CODEX) put("providerId", provider.wireId)
                 put("model", request.model)
@@ -90,7 +102,7 @@ object CliModelRequestCodec {
         require(bytes.isNotEmpty())
         val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
         val version = root.getValue("version").jsonPrimitive.long
-        require(version in 1L..4L)
+        require(version in 1L..5L)
         root.strictObject(
             when (version) {
                 1L -> {
@@ -103,6 +115,10 @@ object CliModelRequestCodec {
 
                 3L -> {
                     REQUEST_KEYS + "images"
+                }
+
+                5L -> {
+                    REQUEST_KEYS + setOf("images", "providerId", "replayOwner")
                 }
 
                 else -> {
@@ -134,7 +150,16 @@ object CliModelRequestCodec {
         require(images.map { it.reference }.toSet() == references && images.size == references.size)
         require(images.isEmpty() || provider in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY))
         require(images.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
-        return CliModelEnvelope(provider, request, images)
+        val replayOwner =
+            if (version == 5L) {
+                require(provider == CliModelProvider.ANTIGRAVITY)
+                root.getValue("replayOwner").jsonPrimitive.also { require(it.isString) }.content.also {
+                    CliReplayMaintenance.requireOwner(it)
+                }
+            } else {
+                null
+            }
+        return CliModelEnvelope(provider, request, images, replayOwner)
     }
 
     private fun encodeMessage(

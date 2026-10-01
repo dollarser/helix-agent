@@ -1,6 +1,7 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.Clock
+import com.helix.core.model.ToolDispatchOutcome
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.Executors
@@ -300,9 +301,17 @@ class ToolScheduler(
                 // BEFORE completing the future: completion wakes the scheduler waiter,
                 // which must observe the freed slot when it immediately re-evaluates.
                 try {
-                    val outcome = dispatcher.dispatch(call)
-                    releaseSlot(callId)
-                    future.complete(outcome)
+                    val observation = dispatcher.isObservation(call)
+                    val completion = dispatcher.dispatchCompletion(call)
+                    if (observation) releaseSlot(callId)
+                    completion.whenComplete { outcome, failure ->
+                        releaseSlot(callId)
+                        if (failure == null) {
+                            future.complete(outcome)
+                        } else {
+                            future.completeExceptionally(failure.cause ?: failure)
+                        }
+                    }
                 } catch (t: Throwable) {
                     releaseSlot(callId)
                     future.completeExceptionally(t)
@@ -320,7 +329,7 @@ class ToolScheduler(
 
     private fun releaseSlot(callId: String) {
         synchronized(inFlightLock) {
-            inFlight.removeAll { it.first == callId }
+            if (!inFlight.removeAll { it.first == callId }) return
             // Fire the cross-batch wake-up under the lock, paired with the state
             // change: every admission waiter (any batch) attached to the current
             // signal instance wakes and re-checks [admitNext] against the freed slot.

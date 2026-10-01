@@ -19,8 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.GoalSummaryUi
-import com.helix.app.runcontrol.GoalBudgetDefaults
 import com.helix.app.runcontrol.RunControlStore
+import com.helix.core.agent.GoalBudgetDefaults
 
 /** Default policy and explicit parked-Goal extensions live in settings, never the composer. */
 @Composable

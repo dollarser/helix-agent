@@ -28,11 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.helix.app.R
 import com.helix.app.mcp.oauth.McpOAuthResult
+import com.helix.app.plugin.InstalledEndpoint
+import com.helix.app.plugin.InstalledPlugin
+import com.helix.app.plugin.PluginService
 import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.mcp.oauth.McpOAuthVendor
 import com.helix.extensions.mcp.oauth.mcpOAuthVendor
-import com.helix.extensions.skills.connector.ConnectorPackage
+import com.helix.extensions.plugin.PluginPackage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,13 +44,13 @@ import kotlinx.coroutines.withContext
 @Composable
 // Shared import action state preserves cancellation.
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
-fun ConnectorSection(service: ConnectorService) {
+fun ConnectorSection(service: PluginService) {
     val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
     var showPaste by remember { mutableStateOf(false) }
-    var replaceTarget by remember { mutableStateOf<InstalledConnector?>(null) }
-    var preview by remember { mutableStateOf<ConnectorPackage?>(null) }
-    var records by remember { mutableStateOf<List<InstalledConnector>>(emptyList()) }
+    var replaceTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var preview by remember { mutableStateOf<PluginPackage?>(null) }
+    var records by remember { mutableStateOf<List<InstalledPlugin>>(emptyList()) }
     var loadFailed by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
     LaunchedEffect(revision) {
@@ -200,14 +203,20 @@ fun ConnectorSection(service: ConnectorService) {
             HorizontalDivider()
             Text(record.name, style = MaterialTheme.typography.titleSmall)
             Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(enabled = !action.busy, onClick = {
-                replaceTarget = record
-                picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
-            }, modifier = Modifier.testTag("connector-update-${record.id}")) {
-                Text(stringResource(R.string.connector_update_target, record.name))
+            com.helix.app.plugin
+                .PluginAvailabilityControls(record, service) { revision++ }
+            if (record.native == null) {
+                OutlinedButton(enabled = !action.busy, onClick = {
+                    replaceTarget = record
+                    picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
+                }, modifier = Modifier.testTag("connector-update-${record.id}")) {
+                    Text(stringResource(R.string.connector_update_target, record.name))
+                }
             }
             record.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
-            record.endpoints.forEach { endpoint -> EndpointRow(service, endpoint) }
+            record.endpoints.forEach { endpoint ->
+                androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
+            }
             record.skills.forEach { key ->
                 var enabled by remember(key, revision) { mutableStateOf(false) }
                 LaunchedEffect(key, revision) {
@@ -223,13 +232,15 @@ fun ConnectorSection(service: ConnectorService) {
                     Text("Skill: ${key.name}")
                 }
             }
-            Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(enabled = !action.busy, onClick = {
-                action.launch {
-                    withContext(Dispatchers.IO) { service.remove(record) }
-                    revision++
-                }
-            }) { Text(stringResource(R.string.connector_remove)) }
+            if (record.native == null) {
+                Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(enabled = !action.busy, onClick = {
+                    action.launch {
+                        withContext(Dispatchers.IO) { service.remove(record) }
+                        revision++
+                    }
+                }) { Text(stringResource(R.string.connector_remove)) }
+            }
         }
     }
 }
@@ -240,7 +251,7 @@ private enum class EndpointAuthMode { BEARER, OAUTH }
 // Independent UI event callbacks preserve cancellation.
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
 private fun EndpointRow(
-    service: ConnectorService,
+    service: PluginService,
     endpoint: InstalledEndpoint,
 ) {
     val scope = rememberCoroutineScope()
@@ -440,7 +451,7 @@ private fun EndpointRow(
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod", "ThrowsCount")
 private fun OAuthAuthSection(
-    service: ConnectorService,
+    service: PluginService,
     endpoint: InstalledEndpoint,
     hasOAuth: Boolean,
     busy: Boolean,
@@ -462,15 +473,17 @@ private fun OAuthAuthSection(
             else -> ""
         }
     val defaultRedirect = service.oauthRedirectUri
-    var clientId by remember(endpoint.id) { mutableStateOf(defaultClientId) }
+    var clientId by remember(endpoint.id, endpoint.endpoint.url) { mutableStateOf(defaultClientId) }
     var scopeText by remember(endpoint.id) { mutableStateOf(defaultScope) }
     var redirectUri by remember(endpoint.id) { mutableStateOf(defaultRedirect) }
     var connecting by remember(endpoint.id) { mutableStateOf(false) }
+    var clientSetupBusy by remember(endpoint.id, endpoint.endpoint.url) { mutableStateOf(false) }
     var deviceCodeResp by remember(endpoint.id) {
         mutableStateOf<com.helix.extensions.mcp.oauth.McpDeviceCodeResponse?>(null)
     }
     var devicePolling by remember(endpoint.id) { mutableStateOf(false) }
     var pollingJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var preparationJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val revokedMessage = stringResource(R.string.connector_oauth_revoked)
     val localClearMessage = stringResource(R.string.connector_oauth_local_cleared)
@@ -526,12 +539,14 @@ private fun OAuthAuthSection(
         OutlinedTextField(
             value = clientId,
             onValueChange = { clientId = it },
+            enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
             singleLine = true,
             label = { Text(stringResource(R.string.connector_oauth_client_id)) },
         )
         OutlinedTextField(
             value = scopeText,
             onValueChange = { scopeText = it },
+            enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
             singleLine = true,
             label = { Text(stringResource(R.string.connector_oauth_scope)) },
         )
@@ -539,75 +554,91 @@ private fun OAuthAuthSection(
             OutlinedTextField(
                 value = redirectUri,
                 onValueChange = { redirectUri = it },
+                enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
                 singleLine = true,
                 label = { Text(stringResource(R.string.connector_oauth_redirect)) },
+            )
+        }
+        androidx.compose.runtime.key(endpoint.id, endpoint.endpoint.url, redirectUri) {
+            OAuthClientSetupSection(
+                service.clientSetup,
+                endpoint,
+                redirectUri,
+                busy || connecting || devicePolling,
+                onClientId = { clientId = it },
+                onBusy = { clientSetupBusy = it },
+                onError = onError,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (isGitHub) {
                 OutlinedButton(
-                    enabled = !busy && !devicePolling && clientId.isNotBlank(),
+                    enabled = !busy && !connecting && !devicePolling && !clientSetupBusy && clientId.isNotBlank(),
                     onClick = {
-                        scope.launch {
-                            onError(null)
-                            devicePolling = true
-                            try {
-                                val resp =
-                                    withContext(Dispatchers.IO) {
-                                        service.requestDeviceCode(endpoint, clientId, scopeText)
-                                    }
-                                deviceCodeResp = resp
-                                pollingJob =
-                                    scope.launch {
-                                        pollDeviceTokenUntilFinished(
-                                            service = service,
-                                            endpoint = endpoint,
-                                            resp = resp,
-                                            onSuccess = {
-                                                deviceCodeResp = null
-                                                devicePolling = false
-                                            },
-                                            onError = {
-                                                onError(it)
-                                                devicePolling = false
-                                            },
-                                        )
-                                    }
-                            } catch (cancel: CancellationException) {
-                                throw cancel
-                            } catch (e: Exception) {
-                                devicePolling = false
-                                onError(e.message)
+                        devicePolling = true
+                        preparationJob =
+                            scope.launch {
+                                onError(null)
+                                try {
+                                    val resp =
+                                        withContext(Dispatchers.IO) {
+                                            service.requestDeviceCode(endpoint, clientId, scopeText)
+                                        }
+                                    deviceCodeResp = resp
+                                    pollingJob =
+                                        scope.launch {
+                                            pollDeviceTokenUntilFinished(
+                                                service = service,
+                                                endpoint = endpoint,
+                                                resp = resp,
+                                                onSuccess = {
+                                                    deviceCodeResp = null
+                                                    devicePolling = false
+                                                },
+                                                onError = {
+                                                    onError(it)
+                                                    devicePolling = false
+                                                },
+                                            )
+                                        }
+                                } catch (cancel: CancellationException) {
+                                    throw cancel
+                                } catch (e: Exception) {
+                                    devicePolling = false
+                                    onError(e.message)
+                                }
                             }
-                        }
                     },
                 ) {
                     Text(stringResource(R.string.connector_device_flow))
                 }
             }
             OutlinedButton(
-                enabled = !busy && clientId.isNotBlank() && (isGitHub || redirectUri.isNotBlank()),
+                enabled =
+                    !busy && !connecting && !devicePolling && !clientSetupBusy && clientId.isNotBlank() &&
+                        (isGitHub || redirectUri.isNotBlank()),
                 onClick = {
-                    scope.launch {
-                        connecting = true
-                        onError(null)
-                        try {
-                            val prepared =
-                                withContext(Dispatchers.IO) {
-                                    service.prepareOAuth(endpoint, clientId, scopeText, redirectUri)
-                                }
-                            val intent =
-                                Intent(Intent.ACTION_VIEW, prepared.authUri.toUri()).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                            context.startActivity(intent)
-                        } catch (cancel: CancellationException) {
-                            throw cancel
-                        } catch (e: Exception) {
-                            connecting = false
-                            onError(e.message)
+                    connecting = true
+                    preparationJob =
+                        scope.launch {
+                            onError(null)
+                            try {
+                                val prepared =
+                                    withContext(Dispatchers.IO) {
+                                        service.prepareOAuth(endpoint, clientId, scopeText, redirectUri)
+                                    }
+                                val intent =
+                                    Intent(Intent.ACTION_VIEW, prepared.authUri.toUri()).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                context.startActivity(intent)
+                            } catch (cancel: CancellationException) {
+                                throw cancel
+                            } catch (e: Exception) {
+                                connecting = false
+                                onError(e.message)
+                            }
                         }
-                    }
                 },
             ) {
                 Text(
@@ -621,9 +652,12 @@ private fun OAuthAuthSection(
                 )
             }
         }
-        if (connecting) {
+        if (connecting || devicePolling) {
             OutlinedButton(onClick = {
                 service.cancelOAuth(endpoint)
+                preparationJob?.cancel()
+                preparationJob = null
+                devicePolling = false
                 connecting = false
             }) { Text(stringResource(R.string.common_cancel)) }
             Text(
@@ -696,7 +730,7 @@ private fun GitHubDeviceCodeCard(
 
 @Suppress("TooGenericExceptionCaught")
 private suspend fun pollDeviceTokenUntilFinished(
-    service: ConnectorService,
+    service: PluginService,
     endpoint: InstalledEndpoint,
     resp: com.helix.extensions.mcp.oauth.McpDeviceCodeResponse,
     onSuccess: suspend () -> Unit,

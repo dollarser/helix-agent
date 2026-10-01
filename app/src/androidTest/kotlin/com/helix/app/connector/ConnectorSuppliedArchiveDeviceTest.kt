@@ -21,7 +21,7 @@ class ConnectorSuppliedArchiveDeviceTest {
     fun actualArchiveImportsAllComponentsWithoutExecutingDependencies() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("connectorSample") == "true")
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
-        val service = app.appContainer.connectorService
+        val service = app.appContainer.pluginService
         val incoming = app.getExternalFilesDir(null)!!.toPath().resolve("hxa125-sample.zip")
         val bytes = Files.readAllBytes(incoming)
         assertEquals(
@@ -78,7 +78,7 @@ class ConnectorSuppliedArchiveDeviceTest {
 
     private fun assertOriginalPreserved(
         app: HelixApplication,
-        bundle: com.helix.extensions.skills.connector.ConnectorPackage,
+        bundle: com.helix.extensions.plugin.PluginPackage,
         key: com.helix.extensions.skills.SkillKey,
     ) {
         if (key.name.startsWith("dingtalk-")) {

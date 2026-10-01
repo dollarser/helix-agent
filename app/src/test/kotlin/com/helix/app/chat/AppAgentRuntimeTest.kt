@@ -2,9 +2,9 @@ package com.helix.app.chat
 
 import com.helix.app.engine.TurnObservation
 import com.helix.app.engine.TurnRuntimeView
-import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.AttachmentBindingIntent
 import com.helix.core.agent.CancelResult
+import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalId

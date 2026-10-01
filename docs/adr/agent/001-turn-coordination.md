@@ -36,6 +36,14 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 生产 fresh Turn 必须从 TurnAdmission 进入。GoalRunCoordinator 和 TurnCoordinator 可以作为 Engine 内部 collaborator，但其他入口不得直接调用它们创建 Turn。
 
+### 1.1 Core 与宿主边界（2026-10-01）
+
+唯一模型/工具循环位于 `core:agent/AgentLoop`。`AgentLoopHost` 只装配 Provider、持久日志、输入交付、计时和显示端口；不运行另一条决策循环。Core 不依赖 App 资源、Room Entity 或 UI。工具执行网关接收中立的调用与归属，消息编码独立；原 Dispatcher、审批、UNKNOWN 与调用顺序不变。
+
+终态通过 `AgentTurnStore` 的领域命令进入原 Room 事务。写入 assistant、Turn、ModelCall 与 GoalRun 前校验 session/Turn/ModelCall 归属、预期 phase/step 和唯一活跃 ModelCall；返回 Applied、AlreadyApplied、Conflict 或 Unavailable。重复提交返回原持久结果，冲突不追加正文；数据库错误传播，不能被包装为成功。用户持久取消优先于迟到成功。
+
+首个 ModelCall 与 step=1、后续 ModelCall 与递增 step 同事务发布，不能等下一次流开始才更新步骤。Steer 与最终回答仍在原父事务线性化。Core 仅持有进程内投影，持久状态、外部副作用和物理执行所有权不迁入另一份内存事实。
+
 ### 2. 每个 Turn 保存 immutable execution snapshot
 
 从 schema v30 起，新 Turn 与 `turn_runtime_records` 在同一 Room transaction 创建。记录至少保存：
@@ -242,6 +250,7 @@ UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保�
 
 ## Decision history
 
+- 2026-10-01：所有者授权 HXA-234 的 R2-A 等价迁移。实际 Loop、执行/消息端口与领域值进入纯 Core；终态增加 session/call/phase/step 的前置校验，修复新 ModelCall 与持久步骤发布错位。继续同一 Engine/Room 事务，主机与设备验收分别记账。
 - 2026-09-30：真实服务回归发现未建立 Turn 的输入重验证失败；修复异步模式/预算修改与发送之间的顺序缺口。增加统一动作顺序和即时发送反例，保持原 Turn admission owner、持久化及授权边界。
 - 2026-09-30：HXA-232 补齐持久去重的只读核查、原 Goal 预算绑定、队列有界重验证/FAILED 终态和可见恢复通知。自动结束不改写未知 effect，不要求人工核查后才能结束；原事实 review 接口仅作可选操作。主机证据与设备验收分开记录。
 

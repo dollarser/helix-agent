@@ -49,7 +49,7 @@ class SkillLoader {
     }
 
     /** Bounded data parsing for connector import adapters; does not grant capability or weaken load validation. */
-    internal fun importFrontmatter(bytes: ByteArray): Pair<Map<String, Any?>, String> {
+    fun importFrontmatter(bytes: ByteArray): Pair<Map<String, Any?>, String> {
         if (bytes.size > MAX_SKILL_BYTES) invalid("SKILL.md exceeds the byte limit")
         val sections = splitFrontmatter(decodeUtf8(bytes))
         return parseFrontmatter(sections.frontmatter) to sections.body
@@ -59,6 +59,15 @@ class SkillLoader {
         content: String,
         name: String,
     ): SkillDocument = parse(content.toByteArray(Charsets.UTF_8), name, SkillSource.BUILT_IN, true)
+
+    /** Validate an already bounded package member with exactly the ordinary Skill contract. */
+    fun validatePackageMember(
+        bytes: ByteArray,
+        directoryName: String,
+    ): SkillDocument {
+        if (bytes.size > MAX_SKILL_BYTES) invalid("SKILL.md exceeds the byte limit")
+        return parse(bytes, directoryName, SkillSource.USER_IMPORTED, true)
+    }
 
     private fun parse(
         bytes: ByteArray,

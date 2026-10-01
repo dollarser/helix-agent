@@ -1,6 +1,7 @@
 package com.helix.app.provider
 
 import com.helix.app.APP_SCOPE_ID
+import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelEvent
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore

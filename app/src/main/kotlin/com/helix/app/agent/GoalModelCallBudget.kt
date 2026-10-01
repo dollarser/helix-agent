@@ -1,6 +1,9 @@
 package com.helix.app.agent
 
 import com.helix.app.recovery.GoalUsageReservations
+import com.helix.core.agent.ModelCallUsage
+import com.helix.core.agent.ModelInputEstimate
+import com.helix.core.agent.ModelStreamState
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalState
 import com.helix.core.model.ModelRequest
@@ -10,8 +13,8 @@ import com.helix.core.storage.HelixStorage
 internal class GoalModelCallBudget(
     private val storage: HelixStorage,
     private val clock: Clock,
-) {
-    fun prepare(
+) : com.helix.core.agent.GoalModelBudget {
+    override suspend fun prepare(
         turnId: String,
         callId: String,
         request: ModelRequest,
@@ -50,7 +53,7 @@ internal class GoalModelCallBudget(
     }
 
     /** Only a normally drained stream has locally known usage. Exceptions leave the reservation pending. */
-    fun finish(
+    override suspend fun finish(
         turnId: String,
         callId: String,
         request: ModelRequest,
@@ -68,7 +71,7 @@ internal class GoalModelCallBudget(
         }
     }
 
-    fun canContinue(turnId: String): Boolean {
+    override suspend fun canContinue(turnId: String): Boolean {
         val binding = storage.goalTurnBindings.byTurn(turnId) ?: return true
         val run = storage.goalRuns.resolve(binding.runId)
         val goal = storage.goals.resolve(run.goalId)

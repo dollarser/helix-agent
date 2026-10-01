@@ -23,6 +23,7 @@ internal class DetachedJobUserActions(
     private val storage: HelixStorage,
     private val ownership: ExecutionOwnership,
     private val executors: Map<BackgroundJobAction, ToolExecutor>,
+    private val observations: com.helix.tools.framework.JobObservationService,
 ) {
     fun perform(
         job: BackgroundJobUi,
@@ -36,14 +37,42 @@ internal class DetachedJobUserActions(
         audit(id, job, action, "REQUESTED")
         val result =
             try {
-                val call = call(id, job, action, cancelled)
-                outcome(action, ownership.guard(executors.getValue(action)).execute(call))
+                execute(id, job, action, cancelled)
             } catch (_: Exception) {
                 BackgroundJobActionOutcome.FAILED
             }
         audit("$id-result", job, action, result.name)
         return result
     }
+
+    private fun execute(
+        id: String,
+        job: BackgroundJobUi,
+        action: BackgroundJobAction,
+        cancelled: () -> Boolean,
+    ): BackgroundJobActionOutcome =
+        when (action) {
+            BackgroundJobAction.STOP_WAITING -> {
+                if (observations.stopWaitingForJob(job.sessionId, job.callId)) {
+                    BackgroundJobActionOutcome.WAIT_STOPPED
+                } else {
+                    BackgroundJobActionOutcome.NOT_WAITING
+                }
+            }
+
+            BackgroundJobAction.QUERY -> {
+                val call = call(id, job, action, cancelled)
+                try {
+                    outcome(action, observations.statusForUser(call).get(16, java.util.concurrent.TimeUnit.SECONDS))
+                } finally {
+                    observations.stopWaiting(job.sessionId, call.toolCallId)
+                }
+            }
+
+            else -> {
+                outcome(action, ownership.guard(executors.getValue(action)).execute(call(id, job, action, cancelled)))
+            }
+        }
 
     private fun call(
         id: String,
@@ -55,6 +84,7 @@ internal class DetachedJobUserActions(
         val name =
             when (action) {
                 BackgroundJobAction.QUERY -> DetachedJobTools.STATUS
+                BackgroundJobAction.STOP_WAITING -> error("Stop-wait is a local observer command")
                 BackgroundJobAction.CANCEL -> DetachedJobTools.CANCEL
                 BackgroundJobAction.COLLECT -> DetachedJobTools.COLLECT
             }
@@ -88,6 +118,18 @@ internal class DetachedJobUserActions(
                 else -> BackgroundJobActionOutcome.FAILED
             }
         }
+        return when ((output["reason"] as? JsonPrimitive)?.content) {
+            "OBSERVATION_BUSY" -> BackgroundJobActionOutcome.BUSY
+            "SOURCE_UNAVAILABLE", "WAIT_EXPIRED" -> BackgroundJobActionOutcome.FAILED
+            "REVIEW_REQUIRED" -> BackgroundJobActionOutcome.REVIEW_REQUIRED
+            else -> executionOutcome(action, output)
+        }
+    }
+
+    private fun executionOutcome(
+        action: BackgroundJobAction,
+        output: JsonObject,
+    ): BackgroundJobActionOutcome {
         val state = (output["state"] as? JsonPrimitive)?.content
         return when {
             action == BackgroundJobAction.COLLECT &&

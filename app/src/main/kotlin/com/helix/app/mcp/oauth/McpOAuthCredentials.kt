@@ -44,9 +44,13 @@ internal class McpOAuthCredentials(
     }
 
     @Synchronized
-    fun isCurrent(binding: OAuthBinding): Boolean =
-        secrets.contains(epochAlias(binding.serverId)) &&
-            secrets.get(epochAlias(binding.serverId)) == binding.generation
+    fun isCurrent(binding: OAuthBinding): Boolean = isGeneration(binding.serverId, binding.generation)
+
+    @Synchronized
+    fun isGeneration(
+        serverId: String,
+        generation: String,
+    ): Boolean = secrets.contains(epochAlias(serverId)) && secrets.get(epochAlias(serverId)) == generation
 
     @Synchronized
     fun save(
@@ -76,7 +80,13 @@ internal class McpOAuthCredentials(
                 val refresh = requireNotNull(record.tokens.refreshToken) { "OAUTH_EXPIRED_RELOGIN_REQUIRED" }
                 // Persist ambiguity before the network request. A crash/error never blindly replays rotation.
                 write(record.copy(refreshing = true))
-                val next = client.refreshToken(record.binding.tokenEndpoint, record.binding.clientId, refresh)
+                val next =
+                    client.refreshToken(
+                        record.binding.tokenEndpoint,
+                        record.binding.clientId,
+                        refresh,
+                        record.binding.resource,
+                    )
                 save(record.binding, next.copy(refreshToken = next.refreshToken ?: refresh))
             } else {
                 save(record.binding, record.tokens)

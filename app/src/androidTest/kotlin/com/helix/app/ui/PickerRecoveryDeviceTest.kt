@@ -17,8 +17,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.core.app.ActivityOptionsCompat
 import com.helix.app.chat.ChatScreenState
-import com.helix.app.runcontrol.RunControlConfig
-import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
 import org.junit.Assert.assertEquals
 import org.junit.Rule

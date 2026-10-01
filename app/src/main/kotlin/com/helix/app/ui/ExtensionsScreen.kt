@@ -23,9 +23,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.connector.ConnectorSection
-import com.helix.app.connector.ConnectorService
 import com.helix.app.marketplace.MarketplaceSection
 import com.helix.app.marketplace.MarketplaceService
+import com.helix.app.plugin.PluginService
 import com.helix.app.skills.SkillAuthoringSection
 import com.helix.app.skills.SkillAuthoringService
 import com.helix.app.skills.SkillInstallationSection
@@ -37,7 +37,7 @@ import com.helix.app.skills.SkillInstallationService
 fun ExtensionsScreen(
     authoring: SkillAuthoringService?,
     installation: SkillInstallationService?,
-    connectors: ConnectorService,
+    connectors: PluginService,
     marketplace: MarketplaceService? = null,
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }

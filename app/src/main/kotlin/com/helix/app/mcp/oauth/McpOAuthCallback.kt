@@ -9,9 +9,11 @@ internal class McpOAuthCallback private constructor(
 ) {
     fun matches(attempt: McpOAuthAttempt): Boolean {
         val redirect = URI(attempt.redirectUri)
+        val issuer = parameters["iss"]
+        val issuerMatches = if (issuer == null) !attempt.issuerParameterRequired else issuer == attempt.issuer
         return uri.scheme == redirect.scheme && uri.rawAuthority == redirect.rawAuthority &&
             uri.rawPath == redirect.rawPath && uri.rawFragment == null &&
-            (parameters["iss"] == null || parameters["iss"] == attempt.issuer)
+            issuerMatches
     }
 
     companion object {

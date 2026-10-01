@@ -129,6 +129,15 @@ class SessionBindProviderTest {
 
         override fun byId(id: String): SessionEntity? = rows[id]
 
+        override fun pageIds(
+            afterId: String?,
+            limit: Int,
+        ): List<String> =
+            rows.keys
+                .sorted()
+                .filter { afterId == null || it > afterId }
+                .take(limit)
+
         override fun list(): List<SessionEntity> = rows.values.sortedByDescending { it.createdAt }
 
         override fun deletePermanently(id: String): Int = if (rows.remove(id) != null) 1 else 0

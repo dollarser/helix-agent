@@ -1,5 +1,7 @@
 package com.helix.app.agent
 
+import com.helix.core.agent.BufferedModelToolCall
+import com.helix.core.agent.LocalToolCallBatch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows

@@ -6,13 +6,12 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.helix.app.MainActivity
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.LoopbackModelServer
-import com.helix.app.provider.ProviderContextSettings
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
@@ -22,6 +21,7 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.provider.api.CleartextAuthorization
 import com.helix.provider.api.ProbeOutcome
+import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

@@ -15,13 +15,13 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SecretAlias
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.CredentialLookup
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.ProviderConfig
-import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json

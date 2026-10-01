@@ -47,6 +47,7 @@ fun SettingsScreen(
     onPermissions: () -> Unit,
     onAudit: () -> Unit,
     storageUsage: com.helix.app.storage.StorageUsageService? = null,
+    cleanProviderEvidence: (suspend (String?) -> com.helix.app.privacy.ProviderEvidenceCleanup)? = null,
 ) {
     Column(
         Modifier
@@ -56,7 +57,7 @@ fun SettingsScreen(
             .testTag("screen-settings"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        storageUsage?.let { StorageUsageSection(it::snapshot) }
+        storageUsage?.let { StorageUsageSection(it::snapshot, cleanProviderEvidence) }
         SettingsLandingEntry(
             R.string.settings_defaults_title,
             R.string.settings_landing_defaults_desc,

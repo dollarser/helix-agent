@@ -34,7 +34,7 @@ class WorkBuddySuppliedArchiveDeviceTest {
         name: String,
         hash: String,
     ) {
-        val service = app.appContainer.connectorService
+        val service = app.appContainer.pluginService
         val incoming = app.getExternalFilesDir(null)!!.toPath().resolve("$name.zip")
         val bytes = Files.readAllBytes(incoming)
         assertEquals(
@@ -81,7 +81,7 @@ class WorkBuddySuppliedArchiveDeviceTest {
         key: com.helix.extensions.skills.SkillKey,
         files: Map<String, ByteArray>,
     ) {
-        val service = app.appContainer.connectorService
+        val service = app.appContainer.pluginService
         val repository = app.appContainer.skillRepository
         assertFalse(service.skillEnabled(key))
         service.setSkillEnabled(key, true)

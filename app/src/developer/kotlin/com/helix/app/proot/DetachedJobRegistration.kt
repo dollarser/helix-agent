@@ -57,11 +57,19 @@ internal object DetachedJobRegistration {
                 )
             }
         val control = DetachedJobControl.create(context, storage, ownership)
+        val observations =
+            com.helix.tools.framework.JobObservationService(
+                LinuxJobObservationPort.create(context, storage),
+                object : com.helix.core.model.Clock {
+                    override fun now(): java.time.Instant = java.time.Instant.now()
+                },
+            )
         val executors =
             listOf(
                 DetachedJobTools.start() to start(launcher),
-                DetachedJobTools.control(false) to control.executor(false),
-                DetachedJobTools.control(true) to control.executor(true),
+                DetachedJobTools.control(false) to observations.statusExecutor(),
+                DetachedJobTools.await() to observations.awaitExecutor(),
+                DetachedJobTools.control(true) to control.executor(),
                 DetachedJobTools.collect() to collection.executor(),
             )
         for ((descriptor, executor) in executors) {
@@ -71,10 +79,10 @@ internal object DetachedJobRegistration {
             storage,
             ownership,
             mapOf(
-                BackgroundJobAction.QUERY to control.executor(false),
-                BackgroundJobAction.CANCEL to control.executor(true),
+                BackgroundJobAction.CANCEL to control.executor(),
                 BackgroundJobAction.COLLECT to collection.executor(),
             ),
+            observations,
         )
     }
 

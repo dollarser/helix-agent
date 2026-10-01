@@ -36,7 +36,7 @@ class ConnectorInstallationUiTest {
     @Suppress("LongMethod", "NestedBlockDepth") // Real Compose actions enclosed by fixture cleanup.
     private fun exercise(language: String) {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
-        val service = app.appContainer.connectorService
+        val service = app.appContainer.pluginService
         val context =
             app.createConfigurationContext(
                 Configuration(app.resources.configuration).apply {

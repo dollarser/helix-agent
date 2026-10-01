@@ -2,7 +2,7 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.core.model.AgentMode
-import com.helix.tools.framework.ToolDispatchOutcome
+import com.helix.core.model.ToolDispatchOutcome
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

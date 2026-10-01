@@ -1,10 +1,10 @@
 package com.helix.app.chat
 
 import com.helix.app.agent.ChatContextProjection
-import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderModelsIntegrationDeviceTest
+import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.TurnState

@@ -1,3 +1,5 @@
+> 2026-10-01 R2-A 源码迁移：本页已移除源文件的链接固定到重构前 `05e91003`，保留原分析语义；不是当前实现或新增验收结论。
+
 # Helix 重构研究与后续产品问题
 
 > 性质：研究与方案评审材料，不是实施清单或架构授权。
@@ -19,8 +21,8 @@
 | 主题 | 本次源码/证据锚点 | 剩余问题与任务归属 |
 | --- | --- | --- |
 | 执行入口 | [AgentRuntime](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[AppAgentRuntime](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt) 已有 submit/cancel/observe | 审计新增入口是否遵守同一准入，不再创建另一套 AgentRuntime |
-| 单循环 | [AgentLoop](../../../app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) 已承载模式共用执行 | 不再讨论“四套Loop统一”或仅为改名重构；收益要落在可测依赖和行为上 |
-| 请求与压缩 | [ChatRequestAssembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[ContextCompactionRound](../../../app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) 是生产主干 | 保留历史配对、摘要、附件和恢复；旧 ContextBuilder 不再是待合并的第二套生产系统 |
+| 单循环 | [AgentLoop](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) 已承载模式共用执行 | 不再讨论“四套Loop统一”或仅为改名重构；收益要落在可测依赖和行为上 |
+| 请求与压缩 | [ChatRequestAssembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[ContextCompactionRound](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) 是生产主干 | 保留历史配对、摘要、附件和恢复；旧 ContextBuilder 不再是待合并的第二套生产系统 |
 | Prompt | [PromptRegistry](../../../core/agent/src/main/kotlin/com/helix/core/agent/PromptRegistry.kt) 与内置 sections 已存在 | 可研究预算、冲突诊断和来源呈现，不把 Registry 再列为待新建模块 |
 | Plan 与步骤 | [PlanReviewService](../../../app/src/main/kotlin/com/helix/app/plan/PlanReviewService.kt)、[PlanReviewDialog](../../../app/src/main/kotlin/com/helix/app/ui/PlanReviewDialog.kt)、[TaskLedgerProjection](../../../app/src/main/kotlin/com/helix/app/todo/TaskLedgerProjection.kt) 已存在 | [HXA-192](../../completion-records/HXA-192.md) 已交付用户审阅→执行→当前授权的设备证据；元数据不是工具批准 |
 | 任务与产物 | [TasksScreen](../../../app/src/main/kotlin/com/helix/app/ui/TasksScreen.kt)、[ArtifactsScreen](../../../app/src/main/kotlin/com/helix/app/ui/ArtifactsScreen.kt) 已有 | 202/203/204补直接导航、实际可用性、恢复交互，不重建任务库 |

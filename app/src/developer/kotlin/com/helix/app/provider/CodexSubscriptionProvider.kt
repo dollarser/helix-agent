@@ -2,6 +2,7 @@ package com.helix.app.provider
 
 import android.content.Context
 import com.helix.app.HelixApplication
+import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
@@ -211,11 +212,26 @@ internal class RuntimeSubscriptionJobExecutor(
         return runInterruptible(Dispatchers.IO) {
             val images = subscriptionImageSnapshots(request, config, imageSource)
             val jobId = nextJobId()
+            val replayOwner =
+                if (platform == CliModelProvider.ANTIGRAVITY) {
+                    if (ownership == null) {
+                        com.helix.runtime.cli.client.CliReplayMaintenance.EPHEMERAL
+                    } else {
+                        val app = context.applicationContext as HelixApplication
+                        com.helix.runtime.cli.client.CliReplayMaintenance.hash(
+                            app.appContainer.storage.turns
+                                .resolve(ownership.turnId)
+                                .sessionId,
+                        )
+                    }
+                } else {
+                    null
+                }
             if (ownership != null) {
                 val app = context.applicationContext as HelixApplication
                 SubscriptionJobBindingStore(
                     app.appContainer.storage,
-                ).record(ownership, jobId, request, platform, images)
+                ).record(ownership, jobId, request, platform, images, replayOwner)
             }
             val completed =
                 client.submitAndAwait(
@@ -224,6 +240,7 @@ internal class RuntimeSubscriptionJobExecutor(
                     provider = platform,
                     images = images,
                     onProgress = onProgress,
+                    replayOwner = replayOwner,
                 )
             completed.also { outcome ->
                 if (outcome is CliModelJobClient.AwaitOutcome.Terminal) {

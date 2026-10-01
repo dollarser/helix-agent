@@ -111,6 +111,59 @@ internal class DetachedGoalFixture(
                 ).value
     }
 
+    /** Ordinary Act loop: no fixture-side polling may hide a missing jobs.await integration. */
+    suspend fun submitAwaitJourney() {
+        fun originalCall(): String {
+            val admittedTurn =
+                storage.turns
+                    .listBySession(session)
+                    .single()
+                    .id
+            return storage.toolCalls
+                .listByTurn(admittedTurn)
+                .single { it.name == DetachedJobTools.START }
+                .callId
+        }
+        server.arm(
+            listOf(
+                ScriptedTaskModelServer.Step(DetachedJobTools.START) {
+                    buildJsonObject {
+                        put("script", "sleep 1; printf await-result > result.txt")
+                        put("output", "scope:app:output/${output.name}")
+                        put("leaseSeconds", 20)
+                    }.toString()
+                },
+                ScriptedTaskModelServer.Step("time.now") { "{}" },
+                ScriptedTaskModelServer.Step(DetachedJobTools.AWAIT) {
+                    buildJsonObject {
+                        put(
+                            "handles",
+                            kotlinx.serialization.json.JsonArray(
+                                listOf(kotlinx.serialization.json.JsonPrimitive(originalCall())),
+                            ),
+                        )
+                        put("condition", "ALL")
+                    }.toString()
+                },
+                ScriptedTaskModelServer.Step(DetachedJobTools.COLLECT) {
+                    buildJsonObject { put("originalCallId", originalCall()) }.toString()
+                },
+            ),
+        )
+        turn =
+            container.agentRuntime
+                .submit(
+                    SubmitTurnCommand(
+                        session = SessionId(session),
+                        providerId = ProviderId(requireNotNull(provider)),
+                        mode = AgentMode.ACT,
+                        text = "Start the task, read the time, await the original job and collect its result.",
+                        budgets = TurnBudgets(10, 8, 65536, 4096, 100000),
+                        clientRequestId = UUID.randomUUID().toString(),
+                    ),
+                ).value
+    }
+
     private val report = """{"status":"complete","summary":"Original result verified"}"""
 
     fun originalResult(): String {

@@ -67,7 +67,7 @@ fun ChatScreen(
     onSessionSettings: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
-    connectors: com.helix.app.connector.ConnectorService? = null,
+    connectors: com.helix.app.plugin.PluginService? = null,
     onExtensions: () -> Unit = {},
     memory: com.helix.app.memory.MemoryService? = null,
 ) {

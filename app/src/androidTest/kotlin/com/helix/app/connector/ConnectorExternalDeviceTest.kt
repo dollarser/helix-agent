@@ -6,11 +6,12 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.app.plugin.InstalledPlugin
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
-import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.coroutines.runBlocking
@@ -39,7 +40,7 @@ import java.util.concurrent.TimeUnit
 class ConnectorExternalDeviceTest {
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
-    private val service get() = container.connectorService
+    private val service get() = container.pluginService
     private val marker get() = app.filesDir.toPath().resolve("connector-external-recovery.txt")
     private val arguments = """{"query":"Cloudflare Workers documentation"}"""
 
@@ -128,7 +129,7 @@ class ConnectorExternalDeviceTest {
         )
     }
 
-    private fun connect(record: InstalledConnector) {
+    private fun connect(record: InstalledPlugin) {
         val endpoint = record.endpoints.single()
         val snapshot = runBlocking { withTimeout(90_000) { service.test(endpoint, "") } }
         assertTrue(snapshot.metadata.tools.any { it.name == "search_cloudflare_documentation" })
@@ -139,16 +140,16 @@ class ConnectorExternalDeviceTest {
 
     private fun belongsTo(
         origin: ToolOrigin,
-        record: InstalledConnector,
+        record: InstalledPlugin,
     ): Boolean = (origin as? ToolOrigin.McpOrigin)?.serverId == record.endpoints.single().id
 
-    private fun descriptor(record: InstalledConnector) =
+    private fun descriptor(record: InstalledPlugin) =
         container.toolPipeline.registry
             .all()
             .single { belongsTo(it.origin, record) }
 
     private fun dispatch(
-        record: InstalledConnector,
+        record: InstalledPlugin,
         approve: Boolean,
     ): ToolDispatchOutcome {
         val id = UUID.randomUUID().toString()

@@ -2,9 +2,9 @@ package com.helix.app.audit
 
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.approval.DispatchAuditRecord
+import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.DecisionSource
-import com.helix.tools.framework.DispatchOutcomeCode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

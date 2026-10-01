@@ -1,12 +1,14 @@
 package com.helix.app.engine
 
-import com.helix.app.agent.AgentLoop
-import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.AgentLoopHost
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.review.TurnReviewResolutionResult
-import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.requireOutcome
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -28,6 +30,7 @@ class TurnEngine internal constructor(
     private val reviewResolution = TurnReviewResolution(storage, clock, idGenerator)
     private val reviewParking = TurnReviewParking(storage, clock, idGenerator)
     private val settlement = TurnSettlement(storage, clock, idGenerator)
+    private val terminalStore: com.helix.core.agent.AgentTurnStore = settlement
     private val observations = TurnObservationHub()
     internal val runtimeView: TurnRuntimeView = StorageTurnRuntimeView(storage, observations)
     private val systemStops = java.util.concurrent.ConcurrentHashMap<String, String>()
@@ -51,7 +54,7 @@ class TurnEngine internal constructor(
 
     internal fun launchExecution(
         scope: CoroutineScope,
-        loop: AgentLoop,
+        loop: AgentLoopHost,
         request: TurnExecutionRequest,
         hooks: TurnExecutionHooks,
     ): String = executionDriver.launch(scope, loop, request, hooks)
@@ -142,18 +145,23 @@ class TurnEngine internal constructor(
     }
 
     /** The only production entry that commits a live Turn terminal. */
-    internal fun settleTerminal(
+    internal suspend fun settleTerminal(
         coordinator: TurnCoordinator,
         outcome: ModelStreamTerminal,
     ): ModelStreamTerminal {
-        val settled = settlement.settle(coordinator.terminalCheckpoint(), outcome)
+        val result =
+            terminalStore.commitTerminal(
+                com.helix.core.agent
+                    .TerminalCommitCommand(coordinator.terminalCheckpoint(), outcome),
+            )
+        val settled = result.requireOutcome()
         coordinator.markTerminalCommitted(settled.state)
         return settled
     }
 
     /** Transaction-owned terminal write seam used by the Steer-vs-final-answer linearization. */
     internal fun persistTerminalInTransaction(
-        checkpoint: com.helix.app.agent.TurnTerminalCheckpoint,
+        checkpoint: com.helix.core.agent.TurnTerminalCheckpoint,
         outcome: ModelStreamTerminal,
     ): ModelStreamTerminal = settlement.settleInTransaction(checkpoint, outcome)
 

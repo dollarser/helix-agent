@@ -17,7 +17,12 @@ import java.security.MessageDigest
 /** Retain signed provider parts privately; signatures are data, never tool arguments or authorization. */
 internal class AntigravityReplayStore(
     private val directory: File,
+    private val owner: String? = null,
 ) {
+    init {
+        owner?.let(com.helix.runtime.cli.client.CliReplayMaintenance::requireOwner)
+    }
+
     fun save(
         model: String,
         revision: String,
@@ -26,14 +31,24 @@ internal class AntigravityReplayStore(
     ) = synchronized(LOCK) {
         if (message.toolCalls.isEmpty()) return@synchronized
         check(directory.isDirectory || directory.mkdirs())
+        check(!Files.isSymbolicLink(directory.toPath())) { "Replay directory is a symbolic link" }
         val file = path(message)
         val text =
             buildJsonObject {
                 put("binding", binding(model, revision, message))
                 put("partsHash", hash(parts.toString()))
                 put("parts", parts)
+                owner?.let { put("owner", it) }
             }.toString().toByteArray(Charsets.UTF_8)
         require(text.size <= MAX_BYTES)
+        if (Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            val existing = AntigravityReplayFiles.read(file)
+            require(existing.getValue("binding").jsonPrimitive.content == binding(model, revision, message)) {
+                "Replay identity already belongs to another request"
+            }
+            require(existing.getValue("parts") == parts) { "Replay identity cannot replace signed parts" }
+            return@synchronized
+        }
         val temporary = File.createTempFile("replay-", ".tmp", directory)
         try {
             FileOutputStream(temporary).use {
@@ -75,7 +90,7 @@ internal class AntigravityReplayStore(
                 }
             require(bytes.size <= MAX_BYTES)
             val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
-            require(root.keys == setOf("binding", "parts", "partsHash"))
+            AntigravityReplayFiles.validate(root)
             val parts = root["parts"] as JsonArray
             require(root["partsHash"]?.jsonPrimitive?.content == hash(parts.toString()))
             // The persisted tool-call row is textless; visible TEXT is a separate row in ChatHistoryBuilder.
@@ -175,7 +190,7 @@ internal class AntigravityReplayStore(
             .digest(value.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
 
-    private companion object {
+    internal companion object {
         val LOCK = Any()
         const val MAX_BYTES = 8 * 1024 * 1024
     }
