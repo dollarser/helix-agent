@@ -42,7 +42,7 @@ class DetachedJobControlDeviceTest {
                         .getValue("jobId")
                         .jsonPrimitive.content,
                 )
-                assertNull(fixture.ownership.acquire("foreign-writer"))
+                requireNotNull(fixture.ownership.acquire("foreign-writer")).close()
                 val cancel = fixture.ownership.guard(fixture.control.executor())
                 assertTrue(cancel.execute(fixture.call) is ToolExecutorResult.Completed)
                 val until = android.os.SystemClock.elapsedRealtime() + 15_000
@@ -56,8 +56,8 @@ class DetachedJobControlDeviceTest {
                     Thread.sleep(100)
                 }
                 assertEquals("CANCELLED", state)
-                assertEquals(fixture.owner, fixture.ownership.retainedOwner())
-                assertNull(fixture.ownership.acquire("writer-before-import"))
+                assertEquals(fixture.owner, fixture.ownership.retainedOwners().singleOrNull())
+                requireNotNull(fixture.ownership.acquire("writer-before-import")).close()
             } finally {
                 client.cancel(fixture.job.binding)
             }
@@ -75,7 +75,7 @@ class DetachedJobControlDeviceTest {
             val observation = fixture.query(missing) as ToolExecutorResult.Failed
             assertTrue(observation.sideEffectFree)
             assertTrue(observation.detail.startsWith("JOB_HANDLE_INVALID:"))
-            assertEquals(fixture.owner, fixture.ownership.retainedOwner())
+            assertEquals(fixture.owner, fixture.ownership.retainedOwners().singleOrNull())
             requireNotNull(fixture.ownership.acquireReconciliation(fixture.owner)).close()
         }
     }
@@ -88,15 +88,15 @@ class DetachedJobControlDeviceTest {
         private val root = File(context.cacheDir, name)
         private val storage = HelixStorage.open(context, name, File(root, "content"))
         val owner = ExecutionOwnership.Owner(job.binding.executionId, job.binding.jobId)
-        private var retained: ExecutionOwnership.Owner? = null
+        private var retained: Set<ExecutionOwnership.Owner> = emptySet()
         val ownership =
             ExecutionOwnership(
                 object : ExecutionOwnership.Store {
-                    override fun read() = retained
+                    override fun owners() = retained
 
-                    override fun compareAndSet(
-                        expected: ExecutionOwnership.Owner?,
-                        replacement: ExecutionOwnership.Owner?,
+                    override fun update(
+                        expected: Set<ExecutionOwnership.Owner>,
+                        replacement: Set<ExecutionOwnership.Owner>,
                     ): Boolean {
                         if (retained != expected) return false
                         retained = replacement

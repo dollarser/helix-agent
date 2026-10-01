@@ -19,14 +19,22 @@ class JobAwaitLoopDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
 
-    @Test fun loopAwaitsOriginalExecutionThenCollectsVerifiedOutput() =
+    @Test fun loopAwaitsOriginalExecutionThenCollectsVerifiedOutput() = journey(false)
+
+    @Test fun openManualTerminalDoesNotBlockBackgroundTimeWaitAndCollect() = journey(true)
+
+    private fun journey(withTerminal: Boolean) =
         runBlocking {
             compose.resetDeterministicUiState()
             ScriptedTaskModelServer().use { server ->
                 server.start()
                 val fixture = DetachedGoalFixture(app, server)
+                var terminalId: String? = null
                 try {
                     fixture.prepare()
+                    if (withTerminal) {
+                        terminalId = requireNotNull(fixture.container.manualTerminal).start(".", 60_000).sessionId
+                    }
                     fixture.submitAwaitJourney()
                     compose.waitUntil(60_000) {
                         fixture.storage.turns
@@ -56,15 +64,35 @@ class JobAwaitLoopDeviceTest {
                     val job = DetachedJobDashboard.read(fixture.storage).single { it.sessionId == fixture.session }
                     assertFalse(job.settlementPending)
                     assertObservationContext(fixture, calls.first().callId)
+                    terminalId?.let { id ->
+                        assertFalse(requireNotNull(fixture.container.manualTerminal).query(id).canSettle)
+                    }
                 } finally {
                     try {
                         cleanupJob(fixture)
                     } finally {
-                        fixture.close()
+                        try {
+                            closeTerminal(fixture, terminalId)
+                        } finally {
+                            fixture.close()
+                        }
                     }
                 }
             }
         }
+
+    private suspend fun closeTerminal(
+        fixture: DetachedGoalFixture,
+        id: String?,
+    ) {
+        if (id == null) return
+        val terminal = requireNotNull(fixture.container.manualTerminal)
+        terminal.stop(id)
+        kotlinx.coroutines.withTimeout(30_000) {
+            while (!terminal.query(id).canSettle) kotlinx.coroutines.delay(100)
+        }
+        terminal.settle(id)
+    }
 
     private fun assertObservationContext(
         fixture: DetachedGoalFixture,

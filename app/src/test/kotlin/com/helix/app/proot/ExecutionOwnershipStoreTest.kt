@@ -13,6 +13,38 @@ import org.junit.rules.TemporaryFolder
 class ExecutionOwnershipStoreTest {
     @get:Rule val temporary = TemporaryFolder()
 
+    @Test fun legacyIdentityIsPreservedButDoesNotBlockUnrelatedCalls() {
+        val file = temporary.newFile("legacy")
+        val owner = ExecutionOwnership.Owner("terminal", "generation")
+        java.io.DataOutputStream(file.outputStream()).use {
+            it.writeInt(1)
+            it.writeBoolean(true)
+            it.writeUTF(owner.executionId)
+            it.writeUTF(owner.generation)
+        }
+        val host = ExecutionOwnership(ExecutionOwnershipStore(file))
+        assertEquals(setOf(owner), host.retainedOwners())
+        requireNotNull(host.acquire("js")).close()
+        val next = ExecutionOwnership.Owner("job", "job-generation")
+        requireNotNull(host.acquire("bash")).use { assertTrue(it.retain(next)) }
+        assertEquals(setOf(owner, next), ExecutionOwnershipStore(file).owners())
+        assertTrue(host.settle(next))
+        assertEquals(setOf(owner), ExecutionOwnershipStore(file).owners())
+    }
+
+    @Test fun competingStoreUpdatesCannotLoseAnotherExecution() {
+        val file = temporary.root.resolve("many")
+        val first = ExecutionOwnershipStore(file)
+        val second = ExecutionOwnershipStore(file)
+        val a = ExecutionOwnership.Owner("a", "ga")
+        val b = ExecutionOwnership.Owner("b", "gb")
+        assertTrue(first.update(emptySet(), setOf(a)))
+        assertFalse(second.update(emptySet(), setOf(b)))
+        assertTrue(second.update(setOf(a), setOf(a, b)))
+        assertFalse(first.update(setOf(a), emptySet()))
+        assertEquals(setOf(a, b), ExecutionOwnershipStore(file).owners())
+    }
+
     @Test fun durableIdentityAndClearedRecordSurviveReopening() {
         val file = temporary.root.resolve("admission/owner")
         val owner = ExecutionOwnership.Owner("execution", "generation")

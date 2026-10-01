@@ -20,7 +20,7 @@ internal class NativeJavascriptRecovery(
                 .onFailure { android.util.Log.e("NativeRecovery", "Admission journal unreadable; execution blocked") }
                 .getOrNull() ?: return
         observer.request("${owner.executionId}:${owner.generation}") {
-            if (ownership.retainedOwner() != owner || native.recover(owner, client::retireNativeHost)) {
+            if (!ownership.isRetained(owner) || native.recover(owner, client::retireNativeHost)) {
                 AutomaticRuntimeCollection.Observation.COMPLETE
             } else {
                 AutomaticRuntimeCollection.Observation.RETRY

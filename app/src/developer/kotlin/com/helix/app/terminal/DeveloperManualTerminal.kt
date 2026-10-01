@@ -30,15 +30,10 @@ internal class DeveloperManualTerminal(
     private val mutex = Mutex()
 
     private fun reconcileBindings() {
-        val retained = ownership.retainedOwner()
         val b1 = binding1.read()
         val b2 = binding2.read()
         if (b1 != null && b2 != null && b1 == b2) {
             binding2.compareAndSet(b2, null)
-        } else if (retained != null && b2 == retained && b1 != retained) {
-            if (binding1.compareAndSet(b1, retained)) {
-                binding2.compareAndSet(retained, null)
-            }
         }
     }
 
@@ -75,7 +70,7 @@ internal class DeveloperManualTerminal(
                 check(profile.profile == SafetyProfile.ADVANCED) { "Manual terminal requires Advanced" }
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
                 reconcileBindings()
-                val (targetBinding, isPrimary) = selectTargetBinding(binding1, binding2)
+                val targetBinding = selectTargetBinding(binding1, binding2)
                 val workspace = directoryResolver(relativeDirectory)
                 require(workspace.isDirectory)
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
@@ -85,7 +80,6 @@ internal class DeveloperManualTerminal(
                     TerminalStartTransaction(ownership, targetBinding).launch(
                         "manual-${key.sessionId}",
                         owner,
-                        isPrimary,
                         submit = { submitting -> launchSession(context, key, workspace, leaseMs, submitting) },
                         refused = { it.outcome == "START_REFUSED" || it.outcome == "CAPACITY_EXHAUSTED" },
                     )
@@ -109,35 +103,11 @@ internal class DeveloperManualTerminal(
                     val ack = client.request(ptyKey(owner), Wire.ACK)
                     check(ack.record?.reconciled == true)
 
-                    if (targetBinding == binding2) {
-                        check(binding2.compareAndSet(owner, null))
-                    } else {
-                        // binding1 is being settled.
-                        val remainingOwner = binding2.read()
-                        if (remainingOwner != null) {
-                            // Atomic promotion protocol:
-                            check(ownership.transferRetained(owner, remainingOwner)) {
-                                "Failed to transfer retained ownership"
-                            }
-                            check(binding1.compareAndSet(owner, remainingOwner)) {
-                                "Failed to promote remaining session to binding1"
-                            }
-                            check(binding2.compareAndSet(remainingOwner, null)) {
-                                "Failed to clear binding2"
-                            }
-                        } else {
-                            // No other session, settle the entire host admission
-                            val retained = ownership.retainedOwner()
-                            if (retained == owner) {
-                                val reconciliation =
-                                    checkNotNull(ownership.acquireReconciliation(owner)) { "Reconciliation busy" }
-                                reconciliation.use { permit ->
-                                    check(permit.settle()) { "Failed to settle retained ownership" }
-                                }
-                            }
-                            check(binding1.compareAndSet(owner, null)) { "Failed to clear binding1" }
-                        }
+                    if (ownership.isRetained(owner)) {
+                        checkNotNull(ownership.acquireReconciliation(owner)) { "This terminal is being settled" }
+                            .use { check(it.settle()) { "Terminal identity changed" } }
                     }
+                    check(targetBinding.compareAndSet(owner, null)) { "Terminal binding changed" }
                 }
             }
         }
@@ -234,10 +204,10 @@ internal fun terminalState(reply: com.helix.runtime.proot.ipc.PtySessionReply): 
 private fun selectTargetBinding(
     binding1: ExecutionOwnershipStore,
     binding2: ExecutionOwnershipStore,
-): Pair<ExecutionOwnershipStore, Boolean> =
+): ExecutionOwnershipStore =
     when {
-        binding1.read() == null -> binding1 to true
-        binding2.read() == null -> binding2 to false
+        binding1.read() == null -> binding1
+        binding2.read() == null -> binding2
         else -> error("Manual terminal capacity exhausted (max 2 sessions)")
     }
 

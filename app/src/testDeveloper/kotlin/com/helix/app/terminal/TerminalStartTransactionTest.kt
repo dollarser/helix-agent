@@ -11,14 +11,14 @@ import org.junit.Test
 
 class TerminalStartTransactionTest {
     private class Store : ExecutionOwnership.Store {
-        var owner: ExecutionOwnership.Owner? = null
+        var owner: Set<ExecutionOwnership.Owner> = emptySet()
         var failAfterWrite = false
 
-        override fun read() = owner
+        override fun owners() = owner
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean {
             if (owner != expected) return false
             owner = replacement
@@ -36,7 +36,7 @@ class TerminalStartTransactionTest {
     private val owner = ExecutionOwnership.Owner("terminal", "generation")
     private val transaction = TerminalStartTransaction(ownership, binding)
 
-    @Test fun version004ReservationBeforeConnectReproducesTheStrandedBusyOwner() {
+    @Test fun oldStrandedIdentityRemainsRecoverableButDoesNotBlockJsOrBash() {
         assertThrows(IllegalStateException::class.java) {
             requireNotNull(ownership.acquire("legacy-launch")).use { permit ->
                 check(binding.compareAndSet(null, owner))
@@ -44,33 +44,33 @@ class TerminalStartTransactionTest {
                 error("connect failed before START, as in v0.0.4")
             }
         }
-        assertEquals(owner, ownership.retainedOwner())
-        assertNull(ownership.acquire("js"))
-        assertNull(ownership.acquire("bash"))
+        assertEquals(owner, ownership.retainedOwners().singleOrNull())
+        requireNotNull(ownership.acquire("js")).close()
+        requireNotNull(ownership.acquire("bash")).close()
     }
 
     @Test fun uncertainStorageCommitBeforeAnySubmissionIsSafelyRecovered() {
         retained.failAfterWrite = true
         assertThrows(IllegalStateException::class.java) {
-            transaction.launch<String>("launch", owner, true, { error("must not submit") }, { false })
+            transaction.launch<String>("launch", owner, { error("must not submit") }, { false })
         }
         assertNull(retained.read())
         assertNull(binding.read())
         assertNotNull(ownership.acquire("js")?.also { it.close() })
     }
 
-    @Test fun busyDiagnosticsDistinguishActiveAndRetainedWithoutClearingEither() {
+    @Test fun diagnosticsExplainCapacityWithoutDemandingUnrelatedSettlement() {
         requireNotNull(ownership.acquire("live")).use { permit ->
-            assertTrue(ownership.busyFailure().toString().contains("ACTIVE_EXECUTION"))
+            assertTrue(ownership.busyFailure().toString().contains("capacity"))
             permit.retain(owner)
         }
-        assertTrue(ownership.busyFailure().toString().contains("RETAINED_EXECUTION"))
-        assertEquals(owner, ownership.retainedOwner())
+        assertTrue(ownership.busyFailure().toString().contains("unrelated work may continue"))
+        assertEquals(owner, ownership.retainedOwners().singleOrNull())
     }
 
     @Test fun connectionFailureBeforeStartReleasesReservationAndAllowsJsAndBash() {
         assertThrows(IllegalStateException::class.java) {
-            transaction.launch<String>("launch", owner, true, { error("connect failed before START") }, { false })
+            transaction.launch<String>("launch", owner, { error("connect failed before START") }, { false })
         }
         assertNull(binding.read())
         assertNull(retained.read())
@@ -80,25 +80,25 @@ class TerminalStartTransactionTest {
 
     @Test fun uncertainStartKeepsBothBindingsAcrossRestart() {
         assertThrows(IllegalStateException::class.java) {
-            transaction.launch<String>("launch", owner, true, { mark ->
+            transaction.launch<String>("launch", owner, { mark ->
                 mark()
                 error("reply lost")
             }, { false })
         }
         assertEquals(owner, retained.read())
         assertEquals(owner, binding.read())
-        assertNull(ExecutionOwnership(retained).acquire("js"))
+        requireNotNull(ExecutionOwnership(retained).acquire("js")).close()
     }
 
-    @Test fun successfulStartRemainsExclusiveUntilExactSettlement() {
+    @Test fun successfulStartKeepsIdentityButAllowsBashBeforeExactSettlement() {
         assertEquals(
             "accepted",
-            transaction.launch("launch", owner, true, { mark ->
+            transaction.launch("launch", owner, { mark ->
                 mark()
                 "accepted"
             }, { false }),
         )
-        assertNull(ownership.acquire("bash"))
+        requireNotNull(ownership.acquire("bash")).close()
         assertFalse(ownership.settle(owner.copy(generation = "other")))
         assertTrue(ownership.settle(owner))
         assertNotNull(ownership.acquire("bash")?.also { it.close() })
@@ -106,7 +106,7 @@ class TerminalStartTransactionTest {
 
     @Test fun definitiveRefusalReleasesReservation() {
         assertThrows(IllegalStateException::class.java) {
-            transaction.launch("launch", owner, true, { mark ->
+            transaction.launch("launch", owner, { mark ->
                 mark()
                 "START_REFUSED"
             }, { true })
@@ -116,18 +116,18 @@ class TerminalStartTransactionTest {
     }
 
     @Test fun failedSecondaryStartDoesNotReleaseThePrimary() {
-        retained.owner = owner.copy(executionId = "primary")
+        retained.owner = setOf(owner.copy(executionId = "primary"))
         assertThrows(IllegalStateException::class.java) {
-            transaction.launch<String>("secondary", owner, false, { error("connect") }, { false })
+            transaction.launch<String>("secondary", owner, { error("connect") }, { false })
         }
         assertNull(binding.read())
         assertEquals("primary", retained.read()?.executionId)
     }
 
     @Test fun conflictingOwnerCannotBeOverwrittenOrCleared() {
-        retained.owner = owner.copy(generation = "other")
+        retained.owner = setOf(owner.copy(generation = "other"))
         assertThrows(IllegalStateException::class.java) {
-            transaction.launch("launch", owner, true, { error("must not submit") }, { false })
+            transaction.launch("launch", owner, { error("must not submit") }, { false })
         }
         assertNull(binding.read())
         assertEquals("other", retained.read()?.generation)

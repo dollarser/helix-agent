@@ -39,8 +39,8 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 | 类别 | 内容 | 后续改变需要什么 |
 | --- | --- | --- |
 | 长期正确性与权威要求 | 模型/插件不能授权；实际绑定与批准一致；副作用事实不伪造、不盲重放；每类事实有唯一 writer | 任何实现替换都必须继续满足，不因分层/缓存/后台化降级 |
-| 当前已接受的产品/运行策略 | 单手机完整产品、当前 Standard/Advanced 边界、仅证明不冲突的只读并发、整 batch 结算后下一 ModelCall、旧 Turn 不复活；新模型工作须有明确激活/恢复准入来源 | 同领域 ADR、用户授权和新证据；包含现行 Goal/HXA-232 的有限自动恢复，不把默认值或历史人工确认当行业定律 |
-| 当前 Runtime 限制 | PRoot 共享 UID、retained owner 下保守排他、平台服务运行窗口 | 真正隔离/资源模型和设备证据；接口重命名不能改变这些事实 |
+| 当前已接受的产品/运行策略 | 单手机完整产品、当前 Standard/Advanced 边界、按实际引擎/容量有界并发而不锁业务结果、整 batch 结算后下一 ModelCall、旧 Turn 不复活；新模型工作须有明确激活/恢复准入来源 | 同领域 ADR、用户授权和新证据；包含现行 Goal/HXA-232 的有限自动恢复，不把默认值或历史人工确认当行业定律 |
+| 当前 Runtime 限制 | PRoot 共享 UID、原生 QuickJS 不可重入、物理容量与平台服务运行窗口；HXA-238 已取消 retained owner 全局排他 | 系统完整性/资源模型和设备证据；身份记录不等于全局锁，共享业务结果由用户/LLM 验收 |
 | 本次目标设计提案 | Core 端口抽取、completion-based 观察接线、AUTO 与按钮分步、插件局部失败矩阵 | 对应阶段任务/ADR 接受后实施，不能冒充已有能力 |
 | 首版范围与可调参数 | J1 先只接 Linux；wait/handle/队列上限；当前默认同进程 | 首版测量后固定有界参数；扩 provider/部署需要真实消费者，不做空实现 |
 
@@ -196,12 +196,12 @@ Scheduler 接收 completion callback，不在业务 worker 内等待 observer；
 | 活跃 observer 配额 | Dispatcher 的进程内有界登记；等待期间占配额，不占普通业务槽、控制 worker 或 reconciliation permit |
 | timer/状态通知 | 只调度短回调，不执行 Binder、磁盘或 Room 事务 |
 | 只读查询 IPC 容量 | 独立有界的短 query 执行额度；同一执行最多一个未返回查询，多个 observer 共享已授权缓存/变化通知，返回各自范围内结果 |
-| stop/cancel 与收尾控制容量 | 不被 observer/只读查询占满的独立有界额度；统一授权后进入原 Runtime 控制，不能允许新的业务写绕过排他 owner |
+| stop/cancel 与收尾控制容量 | 不被 observer/只读查询占满的独立有界额度；统一授权后进入原身份的 Runtime 控制；与无关业务调用独立，不由控制接口授予新写权限 |
 | durable 结算队列 | 同一 Dispatcher 的有界发布通道；worker 不驻留等待，终态不随 UI 丢失 |
 
 逻辑资源池不要求一项一常驻线程。平台配置必须给出 `maxObservers`、每会话上限、IPC 并发/队列和查询/等待期限；数值在 J1 任务基线中固定并压力验证，模型不可任意放大，超载明确拒绝，禁止用 cached thread pool 或无限队列“保证响应”。
 
-只有可信装配注册的只读 Job observer 可使用该观察通道，不能由工具名、MCP readOnly 注解或模型参数启用。它不修改命令/租期/工作区/产物，后续 cancel/collect 必须重新准入。并发允许的是生命周期观察与控制，不是扩大 PRoot 业务并行权限。
+只有可信装配注册的只读 Job observer 可使用该观察通道，不能由工具名、MCP readOnly 注解或模型参数启用。它不修改命令/租期/工作区/产物，后续 cancel/collect 必须重新准入。J1 观察不授予业务写权限；HXA-238 的独立执行并发属于后来所有者明确裁决，仍须各自通过权限与物理容量准入。
 
 ### 8.4 查询、锁和 Binder 不确定性
 
@@ -252,7 +252,7 @@ Tasks/命令卡明确区分“停止等待”“请求停止执行”“确认�
 
 ### 8.8 验收与停止条件
 
-J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、ANY/ALL、控制响应、迟到回包、Workspace/fork、插件撤销、重复 collect、后台 effect 冲突和进程死亡。普通同步工具与 observer 共用治理的断言必须同时存在，不能靠两套 Policy 分别通过。
+J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、ANY/ALL、控制响应、迟到回包、Workspace/fork、插件撤销、重复 collect、后台任务共存、实际引擎/容量竞争和进程死亡。普通同步工具与 observer 共用治理的断言必须同时存在，不能靠两套 Policy 分别通过。
 
 若无法在不阻断取消、没有无界线程/队列、且保留原权限与结算的前提下完成接线，则 J1 不算完成；不能只暴露一个看似可用的等待 schema。主机用虚拟时钟和可控 completion；Binder/实际 detach/系统回收/UI 必须在当次获得授权后单独验证，不拿 mock 代替。
 
@@ -585,7 +585,7 @@ Plan/Goal/Todo/用户问答使用窄领域命令接口，不接收整个 AgentLo
 | [AutomationActions](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationActions.kt)：send/publish 等点击拒绝 | 过粗业务限制的候选改进 | 在真实目标/内容/授权可绑定时评估精确 ASK/ALLOW；身份无法保证的情况仍拒绝或请求用户，不用模型自报安全替代 |
 | [AutomationTools](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationTools.kt)：`action` 将非成功统一标记 `sideEffectFree=true` | 执行反馈正确性风险 | 先按发出前/后构造反例并修正结果事实；尚未证明真实设备重复提交，不以扩大重试掩盖 |
 | 同文件 `wait/findJson` 与 [AutomationWaiter](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationWaiter.kt) | 生产/测试接线与结果表达问题 | 验证真实生产路径，补原因、快照来源及截断，不重新造 UI 等待系统 |
-| [EffectFootprintBuilder](../../tools/framework/src/main/kotlin/com/helix/tools/framework/EffectFootprint.kt)：Accessibility 即使只读也排他 | 当前保守并发策略 | 先保留同界面/可变 token 冲突约束；有资源模型与证据后收窄范围，不直接删除排他标记 |
+| [EffectFootprintBuilder](../../tools/framework/src/main/kotlin/com/helix/tools/framework/EffectFootprint.kt)：原 Accessibility/写/代码类别全局排他 | HXA-238 已按所有者裁决移除 | 不因类别/用户路径锁结果；保留真实权限、token/绑定校验、内部状态短同步及实际引擎容量，不重开旧全局屏障 |
 | [HXA-232](../development/tasks/HXA-232.md) 与 [Goal ADR](../adr/goal/001-lifecycle-and-completion.md) 的有界恢复核查 | 已接受实现与待评估策略分开 | 原执行器对账/去重/账本继续保留；核查限额和核查结束后的失败是当前策略，不作为所有未来恢复的永久终点 |
 | Goal 的自然语言完成判断、可选确定性验收 | 已正确区分模型判断和平台事实 | 不重开通用强制 verifier；恢复核查完成不冒充原任务完成 |
 | Mobile Use 锁屏/截图/渠道条件 | 平台能力、当前许可策略与候选功能分别记录 | 复用专题的状态事实；不默认建立“所有受阻任务都等待人工”的新工作流，不从亮屏/ADB 推导解锁资格或商店准入 |
@@ -673,9 +673,9 @@ headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fa
 
 ### 15.4 保留并发边界，不滥用后台化
 
-启动 ToolCall 结算后，Scheduler 的短调用槽可按原规则释放；后台 Job 的 retained execution owner 不能释放。读取日志、请求取消是控制观察，不代表新的业务写许可。
+启动 ToolCall 结算后，Scheduler 的短调用槽可释放；后台 Job 的原执行身份继续保留，但不阻挡无关任务。该 Job 的物理容量和后台服务等实际进程/输出泵退出后释放，不等待用户收取才放通其他任务。读取日志、请求取消不代表新的业务写许可。
 
-未知任意代码的 footprint 继续保守排他。当前 PRoot 共享 UID/文件系统的事实不支持“不同路径就一定可以并行”。要放宽隔离/Workspace 并发，应另有真实资源模型及竞争测试，不混入 J1。
+2026-10-02 HXA-238 已明确取消任意代码的默认全局排他。PRoot 共享 UID/文件系统不保证业务结果无竞争，但这不再是 Harness 阻止执行的理由；同路径/不同路径均不能代替实际权限或引擎状态。必要同步限于系统内部提交、原身份控制、不可重入引擎和有界物理资源，用户与 LLM 决定业务结果是否可接受。该变更是独立的所有者裁决，不倒推为最初 J1 已有契约。
 
 ### 15.5 生命周期与引用释放
 

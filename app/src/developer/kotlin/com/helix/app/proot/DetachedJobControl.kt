@@ -44,7 +44,7 @@ internal class DetachedJobControl(
                             put("elapsedDurationMs", record.elapsedDurationMs)
                             put("terminalCommit", record.terminalCommit)
                             // A terminal process does not prove that host effects/imports have settled.
-                            put("settlementPending", ownership.retainedOwner() == binding.owner())
+                            put("settlementPending", ownership.isRetained(binding.owner()))
                         },
                     )
                 }

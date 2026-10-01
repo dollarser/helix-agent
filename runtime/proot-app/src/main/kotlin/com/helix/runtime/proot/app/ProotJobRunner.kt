@@ -31,9 +31,9 @@ import java.util.concurrent.atomic.AtomicReference
  * The companion's job execution engine (HXA-084; architecture doc sections 6.5/6.7).
  *
  * Execution model:
- * - ONE job executor thread runs each job's full lifecycle (extract -> launch ->
- *   wait -> output archive -> terminal record); jobs never interleave, so the
- *   journal needs no in-process locking.
+ * - Up to four job workers run independent lifecycles (extract -> launch -> wait ->
+ *   output archive -> terminal record). Physical capacity survives cancellation until exit;
+ *   journal transactions and per-job identity remain synchronized, not user result paths.
  * - ONE watchdog thread enforces the hard deadline: past the monotonic admission
  *   window the job's process GROUP is killed (the job launches under the
  *   host `/system/bin/setsid`, so its pgid equals its pid — verified on device)
@@ -63,24 +63,24 @@ class ProotJobRunner private constructor(
     com.helix.runtime.proot.ipc.ProotLogHandler {
     companion object {
         const val MAX_MANUAL_TERMINALS = 2
+        const val MAX_JOB_EXECUTIONS = 4
         const val MANUAL_TERMINAL_PREFIX = "pty-"
         private val holder = AtomicReference<ProotJobRunner>()
 
         /** Process-wide singleton: the service may rebind, but one process = one runner. */
-        @Suppress("ReturnCount")
+        @Synchronized // Concurrent cold bindings must not construct competing runners and execution pools.
         fun get(context: Context): ProotJobRunner {
             val ctx = context.applicationContext
             holder.get()?.let { return it }
             val created = ProotJobRunner(ctx)
-            if (holder.compareAndSet(null, created)) {
-                created.start()
-                return created
-            }
-            return holder.get()!!
+            holder.set(created)
+            created.start()
+            return created
         }
     }
 
     private val store = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
+    internal val jobStore: ProotJobStore get() = store
     private val logs by lazy {
         runCatching {
             com.helix.runtime.proot.core
@@ -100,9 +100,31 @@ class ProotJobRunner private constructor(
     }
 
     private val jobExecutor =
-        Executors.newSingleThreadExecutor { r ->
-            Thread(r, "proot-job").apply { isDaemon = true }
+        java.util.concurrent.ThreadPoolExecutor(
+            MAX_JOB_EXECUTIONS,
+            MAX_JOB_EXECUTIONS,
+            30L,
+            TimeUnit.SECONDS,
+            java.util.concurrent.SynchronousQueue(),
+            { r -> Thread(r, "proot-job").apply { isDaemon = true } },
+            java.util.concurrent.ThreadPoolExecutor
+                .AbortPolicy(),
+        )
+    private val capacity =
+        com.helix.runtime.proot.core
+            .RuntimeExecutionCapacity()
+
+    @Volatile private var recoveryReady = false
+    private val recoveryFinished = java.util.concurrent.CountDownLatch(1)
+
+    private fun ready(): Boolean =
+        try {
+            recoveryReady || (recoveryFinished.await(2, TimeUnit.SECONDS) && recoveryReady)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
         }
+
     private val watchdogExecutor: ScheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor { r ->
             Thread(r, "proot-watchdog").apply { isDaemon = true }
@@ -115,28 +137,13 @@ class ProotJobRunner private constructor(
     private val owners = ProotJobOwners()
     private val executionWindows = ConcurrentHashMap<String, JobExecutionWindow>()
     private val expiredLeases = ConcurrentHashMap.newKeySet<String>()
-    private var detachedReservation: String? = null
-    private val manualTerminalReservations = ConcurrentHashMap.newKeySet<String>()
-
-    private fun hasActiveExecution(): Boolean =
-        processOwners.isNotEmpty() || liveJobs.isNotEmpty() || store.activeJobIds().isNotEmpty()
-
-    private fun isExecutionAvailable(): Boolean =
-        !hasActiveExecution() && store.pruneAndBudgetAvailable(System.currentTimeMillis())
 
     @Synchronized
     internal fun reserveDetached(jobId: String): Boolean {
         if (jobId.startsWith(MANUAL_TERMINAL_PREFIX)) {
             return reserveManualTerminal(jobId.removePrefix(MANUAL_TERMINAL_PREFIX))
         }
-        val canReserve =
-            detachedReservation == null &&
-                manualTerminalReservations.isEmpty() &&
-                isExecutionAvailable()
-        if (canReserve) {
-            detachedReservation = jobId
-        }
-        return canReserve
+        return ready() && store.pruneAndBudgetAvailable(System.currentTimeMillis()) && capacity.reserveJob(jobId)
     }
 
     @Synchronized
@@ -145,22 +152,22 @@ class ProotJobRunner private constructor(
             releaseManualTerminal(jobId.removePrefix(MANUAL_TERMINAL_PREFIX))
             return
         }
-        if (detachedReservation == jobId) detachedReservation = null
+        capacity.releaseReservation(jobId)
     }
 
     @Synchronized
-    internal fun reserveManualTerminal(sessionId: String): Boolean {
-        val canReserve =
-            detachedReservation == null &&
-                manualTerminalReservations.size < MAX_MANUAL_TERMINALS &&
-                isExecutionAvailable()
-        return canReserve && manualTerminalReservations.add(sessionId)
-    }
+    internal fun reserveManualTerminal(sessionId: String): Boolean = ready() && capacity.reserveTerminal(sessionId)
 
     @Synchronized
     internal fun releaseManualTerminal(sessionId: String) {
-        manualTerminalReservations.remove(sessionId)
+        capacity.releaseTerminal(sessionId)
     }
+
+    internal fun isJobRunning(id: String): Boolean = capacity.isJobRunning(id)
+
+    internal fun reserveMaintenance(id: String): Boolean = ready() && capacity.reserveMaintenance(id)
+
+    internal fun releaseMaintenance(id: String) = capacity.releaseMaintenance(id)
 
     @Synchronized
     internal fun expireDetached(jobId: String) {
@@ -185,9 +192,19 @@ class ProotJobRunner private constructor(
         val watchdog: ScheduledFuture<*>,
     )
 
+    @Suppress("TooGenericExceptionCaught") // Recovery failure stays visible and never opens execution admission.
     private fun start() {
         // Orphan sweep first: previous-incarnation jobs can never be continued.
-        jobExecutor.submit { sweepOrphans() }
+        watchdogExecutor.execute {
+            try {
+                sweepOrphans()
+                recoveryReady = true
+            } catch (failure: Exception) {
+                android.util.Log.e("ProotJobRunner", "Runtime identity recovery failed", failure)
+            } finally {
+                recoveryFinished.countDown()
+            }
+        }
         watchdogExecutor.scheduleWithFixedDelay(
             {
                 enforceDeadlinesQuiet()
@@ -235,7 +252,7 @@ class ProotJobRunner private constructor(
         }
     }
 
-    @Suppress("ReturnCount") // One refusal per admission boundary.
+    @Suppress("ReturnCount", "TooGenericExceptionCaught") // Release unsubmitted capacity, then rethrow the cause.
     private fun submitChecked(
         spec: ProotJobSpec,
         inputPfd: ParcelFileDescriptor,
@@ -266,14 +283,11 @@ class ProotJobRunner private constructor(
                 ProotJobSubmitResult.Rejected(ProotJobRefusal.INVALID_SPEC)
             }
         }
-        val reservationMatches =
-            (if (detached) detachedReservation == spec.jobId else detachedReservation == null) &&
-                manualTerminalReservations.isEmpty()
-        if (!reservationMatches || hasActiveExecution()) {
-            return ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
-        }
         if (!store.pruneAndBudgetAvailable(now)) {
             return ProotJobSubmitResult.Rejected(ProotJobRefusal.JOURNAL_FULL)
+        }
+        if (!ready() || !capacity.beginJob(spec.jobId, detached)) {
+            return ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
         }
         val pending =
             ProotJobRecord(
@@ -283,19 +297,26 @@ class ProotJobRunner private constructor(
                 state = ProotJobState.PENDING,
                 createdAtEpochMs = now,
             )
-        store.put(pending)
-        executionWindows[spec.jobId] = window
-        cancellationFlags.putIfAbsent(spec.jobId, AtomicBoolean(false))
         return try {
+            store.put(pending)
+            executionWindows[spec.jobId] = window
+            cancellationFlags.putIfAbsent(spec.jobId, AtomicBoolean(false))
             if (owner != null) owners.watch(spec.jobId, owner) { cancel(spec.jobId) }
-            jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd, window) }
+            jobExecutor.execute { runJob(spec, pending, inputPfd, outputPfd, window) }
             ProotJobSubmitResult.Accepted(pending)
         } catch (_: java.util.concurrent.RejectedExecutionException) {
             owners.release(spec.jobId)
             executionWindows.remove(spec.jobId)
             cancellationFlags.remove(spec.jobId)
+            capacity.finishJob(spec.jobId)
             store.put(pending.copy(state = ProotJobState.FAILED, terminalAtEpochMs = System.currentTimeMillis()))
             ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
+        } catch (failure: Exception) {
+            owners.release(spec.jobId)
+            executionWindows.remove(spec.jobId)
+            cancellationFlags.remove(spec.jobId)
+            capacity.finishJob(spec.jobId)
+            throw failure
         }
     }
 
@@ -326,11 +347,12 @@ class ProotJobRunner private constructor(
         executionWindow: JobExecutionWindow,
     ) {
         val cancelRequested = cancellationFlags.getValue(spec.jobId)
-        val log = logs?.open(spec.jobId)
+        var log: com.helix.runtime.proot.core.JobLogSpool.Sink? = null
         var live: LiveJob? = null
         val processOwner = ProotProcessOwner(::killProcessGroup)
         processOwners[spec.jobId] = processOwner
         try {
+            log = logs?.open(spec.jobId)
             // 1) Extract + re-verify the input archive (untrusted bytes: central
             //    directory scan, path validation, per-entry manifest re-hash).
             val jobDir = store.jobDir(spec.jobId)
@@ -583,7 +605,16 @@ class ProotJobRunner private constructor(
                 cancellationFlags.remove(spec.jobId, cancelRequested)
                 expiredLeases.remove(spec.jobId)
                 executionWindows.remove(spec.jobId)
-                owners.release(spec.jobId)
+                try {
+                    inputPfd.close()
+                } finally {
+                    try {
+                        outputPfd.close()
+                    } finally {
+                        owners.release(spec.jobId)
+                        capacity.finishJob(spec.jobId)
+                    }
+                }
             }
         }
     }

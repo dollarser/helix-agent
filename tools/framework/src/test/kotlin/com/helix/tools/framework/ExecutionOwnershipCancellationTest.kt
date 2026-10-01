@@ -19,11 +19,11 @@ class ExecutionOwnershipCancellationTest {
     fun cancellationCannotFreeAnExecutorThatHasNotExited() {
         val store =
             object : ExecutionOwnership.Store {
-                override fun read(): ExecutionOwnership.Owner? = null
+                override fun owners(): Set<ExecutionOwnership.Owner> = emptySet()
 
-                override fun compareAndSet(
-                    expected: ExecutionOwnership.Owner?,
-                    replacement: ExecutionOwnership.Owner?,
+                override fun update(
+                    expected: Set<ExecutionOwnership.Owner>,
+                    replacement: Set<ExecutionOwnership.Owner>,
                 ): Boolean = error("ordinary execution must not persist a detached owner")
             }
         val gate = ExecutionOwnership(store)
@@ -71,8 +71,8 @@ class ExecutionOwnershipCancellationTest {
             assertTrue(entered.await(5, TimeUnit.SECONDS))
             cancelled.set(true)
             assertEquals(ToolExecutorResult.Cancelled, outcome.get(5, TimeUnit.SECONDS))
-            assertNull(gate.acquire("next-write"))
-            assertNull(gate.acquire("next-read", exclusive = false))
+            requireNotNull(gate.acquire("next-write")).close()
+            requireNotNull(gate.acquire("next-read")).close()
         } finally {
             release.countDown()
             workers.shutdown()
@@ -88,11 +88,11 @@ class ExecutionOwnershipCancellationTest {
     fun timeoutCannotFreeAnExecutorThatHasNotExited() {
         val store =
             object : ExecutionOwnership.Store {
-                override fun read(): ExecutionOwnership.Owner? = null
+                override fun owners(): Set<ExecutionOwnership.Owner> = emptySet()
 
-                override fun compareAndSet(
-                    expected: ExecutionOwnership.Owner?,
-                    replacement: ExecutionOwnership.Owner?,
+                override fun update(
+                    expected: Set<ExecutionOwnership.Owner>,
+                    replacement: Set<ExecutionOwnership.Owner>,
                 ): Boolean = error("ordinary execution must not persist a detached owner")
             }
         val gate = ExecutionOwnership(store)
@@ -136,8 +136,8 @@ class ExecutionOwnershipCancellationTest {
                 }
             assertTrue(entered.await(5, TimeUnit.SECONDS))
             assertEquals(ToolExecutorResult.TimedOut, outcome.get(5, TimeUnit.SECONDS))
-            assertNull(gate.acquire("next-write-after-timeout"))
-            assertNull(gate.acquire("next-read-after-timeout", exclusive = false))
+            requireNotNull(gate.acquire("next-write-after-timeout")).close()
+            requireNotNull(gate.acquire("next-read-after-timeout")).close()
         } finally {
             release.countDown()
             workers.shutdown()

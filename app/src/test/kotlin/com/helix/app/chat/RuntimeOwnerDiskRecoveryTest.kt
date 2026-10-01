@@ -12,7 +12,7 @@ import java.io.File
 import java.nio.file.Files
 
 class RuntimeOwnerDiskRecoveryTest {
-    @Test fun reopenedDurableAdmissionRemainsBlockedUntilOriginalDeathProof() {
+    @Test fun reopenedNativeIdentityRequiresDeathProofWithoutBlockingUnrelatedWork() {
         val directory = Files.createTempDirectory("runtime-owner-recovery").toFile()
         val path = File(directory, "owner.bin")
         try {
@@ -25,7 +25,7 @@ class RuntimeOwnerDiskRecoveryTest {
             val reopened = ExecutionOwnership(ExecutionOwnershipStore(path))
             val native = NativeJavascriptOwnership(reopened)
             val owner = requireNotNull(native.interruptedOwner())
-            assertNull(reopened.acquire("writer"))
+            requireNotNull(reopened.acquire("writer")).close()
             assertFalse(native.recover(owner) { false })
             assertEquals(owner, ExecutionOwnershipStore(path).read())
             assertTrue(native.recover(owner) { true })
@@ -41,9 +41,9 @@ class RuntimeOwnerDiskRecoveryTest {
         val path = File(directory, "owner.bin")
         try {
             path.writeBytes(byteArrayOf(0, 1))
-            assertThrows(IllegalStateException::class.java) {
-                ExecutionOwnership(ExecutionOwnershipStore(path)).acquire("writer")
-            }
+            val host = ExecutionOwnership(ExecutionOwnershipStore(path))
+            assertThrows(IllegalStateException::class.java) { host.retainedOwners() }
+            requireNotNull(host.acquire("writer")).close()
             assertEquals(2, path.length())
         } finally {
             directory.deleteRecursively()

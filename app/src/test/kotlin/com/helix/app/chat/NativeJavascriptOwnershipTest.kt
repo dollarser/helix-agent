@@ -11,13 +11,13 @@ import org.junit.Test
 
 class NativeJavascriptOwnershipTest {
     private class Store : ExecutionOwnership.Store {
-        var value: ExecutionOwnership.Owner? = null
+        var value: Set<ExecutionOwnership.Owner> = emptySet()
 
-        override fun read() = value
+        override fun owners() = value
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean {
             if (value != expected) return false
             value = replacement
@@ -36,11 +36,11 @@ class NativeJavascriptOwnershipTest {
         val restarted = ExecutionOwnership(store)
         val recovery = NativeJavascriptOwnership(restarted)
         val original = requireNotNull(recovery.interruptedOwner())
-        assertNull(restarted.acquire("writer"))
+        requireNotNull(restarted.acquire("writer")).close()
         assertFalse(recovery.recover(original) { false })
-        assertNull(restarted.acquire("writer-after-refusal"))
+        requireNotNull(restarted.acquire("writer-after-refusal")).close()
         assertThrows(IllegalStateException::class.java) { recovery.recover(original) { error("binder unavailable") } }
-        assertEquals(original, restarted.retainedOwner())
+        assertEquals(original, restarted.retainedOwners().singleOrNull())
         assertTrue(
             recovery.recover(original) { id ->
                 assertEquals("execution", id)
@@ -61,12 +61,12 @@ class NativeJavascriptOwnershipTest {
                 native.execute("launch", "execution") {
                     val owner = requireNotNull(native.interruptedOwner())
                     assertFalse(native.recover(owner) { error("still launching") })
-                    assertNull(host.acquire("writer"))
+                    requireNotNull(host.acquire("writer")).close()
                     42
                 },
             )
-            assertNull(host.retainedOwner())
-            assertNull(host.acquire("writer-before-caller-return"))
+            assertNull(host.retainedOwners().singleOrNull())
+            requireNotNull(host.acquire("writer-before-caller-return")).close()
         }
         assertNotNull(host.acquire("writer")?.also { it.close() })
     }

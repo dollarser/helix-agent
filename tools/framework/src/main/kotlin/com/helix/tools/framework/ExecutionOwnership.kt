@@ -1,10 +1,10 @@
 package com.helix.tools.framework
 
 /**
- * Application-owned admission shared by tools and manual Runtime entry points.
- * A retained owner survives its launching call; only reconciliation releases it.
- * This is not authorization, a job state machine, or a timer that assumes effects ended.
- * One application-process instance must cover every entry point using the same store.
+ * Original execution identities and per-execution control, not a global file/result lock.
+ * Retained jobs and terminals do not exclude unrelated work. Only the singleton native
+ * JavaScript service keeps a physical lane until exit is proven. Capacity belongs to
+ * bounded execution pools and the Runtime; authorization remains in the Dispatcher.
  */
 @Suppress("TooManyFunctions") // Keep ownership admission and trusted control identity in one authority.
 class ExecutionOwnership(
@@ -21,31 +21,43 @@ class ExecutionOwnership(
 
     /** Persist only execution identity. Runtime remains the owner of execution state. */
     interface Store {
-        fun read(): Owner?
+        fun owners(): Set<Owner>
 
-        /** Durable compare-and-set; false means another owner won, failure must throw. */
+        /** Atomic identity-set update. A thrown write may have committed: callers inspect before cleanup. */
+        fun update(
+            expected: Set<Owner>,
+            replacement: Set<Owner>,
+        ): Boolean
+
+        /** Single-slot projection used by the two manual terminal bindings, never the global registry. */
+        fun read(): Owner? = owners().also { check(it.size <= 1) { "Not a single execution binding" } }.singleOrNull()
+
         fun compareAndSet(
             expected: Owner?,
             replacement: Owner?,
-        ): Boolean
+        ): Boolean = update(setOfNotNull(expected), setOfNotNull(replacement))
     }
 
     private val lock = Any()
-    private val active = mutableMapOf<String, Boolean>()
-    private var reconciling = false
+    private val active = mutableSetOf<String>()
+    private val launching = mutableMapOf<String, Owner>()
+    private val nativeActive = mutableSetOf<String>()
+    private val reconciling = mutableSetOf<Owner>()
 
     /** Existing scheduler still decides parallelism between ordinary calls. */
-    fun acquire(
-        callId: String,
-        exclusive: Boolean = true,
-    ): Permit? =
+    fun acquire(callId: String): Permit? =
         synchronized(lock) {
             require(callId.isNotBlank())
             check(callId !in active) { "execution admission identity already active" }
-            if (reconciling || store.read() != null) return@synchronized null
-            if (active.isNotEmpty() && (exclusive || active.values.any { it })) return@synchronized null
-            active[callId] = exclusive
+            if (active.size >= MAX_ACTIVE_CALLS) return@synchronized null
+            active += callId
             Permit(callId)
+        }
+
+    private fun acquireNative(callId: String): Permit? =
+        synchronized(lock) {
+            if (nativeActive.isNotEmpty() || store.owners().any(::isNative)) return@synchronized null
+            acquire(callId)?.also { nativeActive += callId }
         }
 
     /**
@@ -55,39 +67,31 @@ class ExecutionOwnership(
      */
     fun acquireReconciliation(owner: Owner): ReconciliationPermit? =
         synchronized(lock) {
-            if (active.isNotEmpty() || reconciling || store.read() != owner) return@synchronized null
-            reconciling = true
-            ReconciliationPermit(owner)
+            if (owner !in store.owners()) return@synchronized null
+            acquireControl(owner)
+        }
+
+    private fun acquireControl(owner: Owner): ReconciliationPermit? =
+        synchronized(lock) {
+            if (owner in reconciling || owner in launching.values) return@synchronized null
+            val current = store.owners()
+            if (current.any { it.executionId == owner.executionId && it != owner }) return@synchronized null
+            reconciling += owner
+            ReconciliationPermit(owner, owner in current)
         }
 
     /** Diagnostic snapshot only; no owner IDs, paths or authority to clear an execution. */
     fun busyFailure(): ToolExecutorResult.Failed =
-        synchronized(lock) {
-            val reason =
-                when {
-                    reconciling -> {
-                        "RECONCILING: original execution is being reconciled; retry after it settles."
-                    }
-
-                    store.read() != null -> {
-                        "RETAINED_EXECUTION: collect the original background job, or stop and settle " +
-                            "the manual terminal. Leaving its page does not release it. " +
-                            "Unknown executions need exit proof."
-                    }
-
-                    active.isNotEmpty() -> {
-                        "ACTIVE_EXECUTION: another admitted call has not physically returned yet."
-                    }
-
-                    else -> {
-                        "ADMISSION_CHANGED: the competing operation changed; retry with current state."
-                    }
-                }
-            ToolExecutorResult.Failed("EXECUTION_BUSY: $reason", sideEffectFree = true)
-        }
+        ToolExecutorResult.Failed(
+            "EXECUTION_BUSY: runtime capacity or this execution's control lane is occupied; " +
+                "unrelated work may continue.",
+            sideEffectFree = true,
+        )
 
     /** Read-only projection. It never starts a Runtime, renews a lease, or clears a holder. */
-    fun retainedOwner(): Owner? = synchronized(lock) { store.read() }
+    fun retainedOwners(): Set<Owner> = synchronized(lock) { store.owners().toSet() }
+
+    fun isRetained(owner: Owner): Boolean = synchronized(lock) { owner in store.owners() }
 
     /**
      * Atomically transfers retained ownership from [expected] to [replacement].
@@ -98,32 +102,43 @@ class ExecutionOwnership(
         replacement: Owner,
     ): Boolean =
         synchronized(lock) {
-            if (active.isNotEmpty() || reconciling) return@synchronized false
-            if (store.read() != expected) return@synchronized false
-            store.compareAndSet(expected, replacement)
+            if (expected in launching.values || expected in reconciling) return@synchronized false
+            val current = store.owners()
+            if (expected !in current || replacement in current) return@synchronized false
+            store.update(current, current - expected + replacement)
         }
 
-    /** Trusted launching executor transfers its currently held exclusive admission before IPC. */
+    /** Trusted launching executor records its own identity before IPC, without excluding other launches. */
     fun retainForCall(
         callId: String,
         owner: Owner,
     ): Boolean =
         synchronized(lock) {
             check(callId in active) { "execution admission is not active" }
-            if (active.size != 1 || active[callId] != true) return@synchronized false
-            val current = store.read()
-            if (current != null) return@synchronized current == owner
-            store.compareAndSet(null, owner)
+            val previous = launching[callId]
+            if (previous != null && previous != owner) return@synchronized false
+            val current = store.owners()
+            if (owner in current) return@synchronized previous == owner
+            if (current.any { it.executionId == owner.executionId } || owner in reconciling) return@synchronized false
+            if (isNative(owner) &&
+                (current.any(::isNative) || nativeActive.any { it != callId })
+            ) {
+                return@synchronized false
+            }
+            // Write may commit then throw; keep the original launching identity for exact rollback.
+            launching[callId] = owner
+            if (isNative(owner)) nativeActive += callId
+            store.update(current, current + owner)
         }
 
-    /** Trusted launcher only, after a definitive no-submit/no-start result; its live permit still excludes writers. */
+    /** Trusted launcher only, after a definitive no-submit/no-start result; affects only its own identity. */
     fun releaseUnsubmittedForCall(
         callId: String,
         owner: Owner,
     ): Boolean =
         synchronized(lock) {
-            check(active[callId] == true && active.size == 1) { "original exclusive launcher is not active" }
-            store.compareAndSet(owner, null)
+            check(callId in active && launching[callId] != null) { "Original launcher is not active" }
+            launching[callId] == owner && removeOwner(owner)
         }
 
     /** Original launcher only, after its Runtime has proved exit; this does not erase side-effect facts. */
@@ -132,27 +147,49 @@ class ExecutionOwnership(
         owner: Owner,
     ): Boolean =
         synchronized(lock) {
-            check(active[callId] == true && active.size == 1) { "Original exclusive launcher is not active" }
-            store.compareAndSet(owner, null)
+            check(callId in active && launching[callId] != null) { "Original launcher is not active" }
+            launching[callId] == owner && removeOwner(owner)
         }
 
     /** Acquire inside the executor thread, so a deadline cannot release a still-running effect. */
-    fun guard(
-        executor: ToolExecutor,
-        exclusive: Boolean = true,
-    ): ToolExecutor =
+    fun guard(executor: ToolExecutor): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult =
                 when {
                     call.cancel.isCancelled() -> ToolExecutorResult.Cancelled
                     executor is ControlExecutor -> executor.runGuarded(call, this@ExecutionOwnership)
                     executor is MetadataExecutor -> executor.runGuarded(call, this@ExecutionOwnership)
-                    else -> runOrdinary(executor, call, exclusive)
+                    executor is NativeExecutor -> executor.runGuarded(call, this@ExecutionOwnership)
+                    else -> runOrdinary(executor, call)
                 }
         }
 
     /** Only the concrete trusted control binding may use reserved reconciliation capacity. */
     internal fun isControlExecutor(executor: ToolExecutor): Boolean = executor is ControlExecutor
+
+    /** Only platform wiring can wrap the singleton native engine; ordinary isolated JS stays independent. */
+    fun nativeExecutor(executor: ToolExecutor): ToolExecutor = NativeExecutor(executor)
+
+    private inner class NativeExecutor(
+        private val delegate: ToolExecutor,
+    ) : ToolExecutor {
+        override fun execute(call: ExecutableToolCall): ToolExecutorResult =
+            ToolExecutorResult.Failed("Native execution requires its host guard.", sideEffectFree = true)
+
+        fun runGuarded(
+            call: ExecutableToolCall,
+            host: ExecutionOwnership,
+        ): ToolExecutorResult {
+            check(host === this@ExecutionOwnership)
+            val native = (call.args["access"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "native"
+            val permit =
+                (if (native) acquireNative(call.toolCallId) else acquire(call.toolCallId))
+                    ?: return busyFailure()
+            return permit.use {
+                if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else delegate.execute(call)
+            }
+        }
+    }
 
     /** Trusted composition only: closed session metadata, never a descriptor-based exemption. */
     fun metadataExecutor(executor: ToolExecutor): ToolExecutor = MetadataExecutor(executor)
@@ -198,11 +235,9 @@ class ExecutionOwnership(
         ): ToolExecutorResult {
             check(host === this@ExecutionOwnership) { "control belongs to another admission host" }
             val original = resolve(call)
-            val retained = retainedOwner()
-            return if (retained == null) {
-                acquire(call.toolCallId)?.use { invoke(call, null) } ?: busy()
-            } else {
-                acquireReconciliation(original)?.use { invoke(call, it) } ?: busy()
+            val permit = acquireControl(original) ?: return busy()
+            return permit.use {
+                invoke(call, it.takeIf { it.wasRetained })
             }
         }
 
@@ -222,12 +257,18 @@ class ExecutionOwnership(
         synchronized(lock) {
             // A query can race the write-ahead holder BEFORE submission. "Not found" then
             // does not authorize releasing a launcher that can still submit afterwards.
-            if (active.isNotEmpty() || reconciling) return@synchronized false
-            store.compareAndSet(owner, null)
+            if (owner in launching.values || owner in reconciling) return@synchronized false
+            removeOwner(owner)
         }
+
+    private fun removeOwner(owner: Owner): Boolean {
+        val current = store.owners()
+        return owner in current && store.update(current, current - owner)
+    }
 
     inner class ReconciliationPermit internal constructor(
         private val owner: Owner,
+        internal val wasRetained: Boolean,
     ) : AutoCloseable {
         private var closed = false
 
@@ -235,14 +276,14 @@ class ExecutionOwnership(
         fun settle(): Boolean =
             synchronized(lock) {
                 check(!closed) { "reconciliation admission already closed" }
-                store.compareAndSet(owner, null)
+                removeOwner(owner)
             }
 
         /** Failure/uncertainty keeps the durable owner; release only this host operation. */
         override fun close() {
             synchronized(lock) {
                 if (!closed) {
-                    reconciling = false
+                    reconciling.remove(owner)
                     closed = true
                 }
             }
@@ -255,8 +296,7 @@ class ExecutionOwnership(
         private var closed = false
 
         /**
-         * Write-ahead transfer before detached/PTY submission. Requires sole admission;
-         * callers must also hold the scheduler's exclusive footprint for this transfer.
+         * Write-ahead identity before detached/PTY submission, independent of unrelated calls.
          * A failed/uncertain submit keeps the durable owner until explicit reconciliation.
          */
         fun retain(owner: Owner): Boolean =
@@ -270,20 +310,27 @@ class ExecutionOwnership(
             synchronized(lock) {
                 if (!closed) {
                     active.remove(callId)
+                    nativeActive.remove(callId)
+                    launching.remove(callId)
                     closed = true
                 }
             }
         }
+    }
+
+    private companion object {
+        const val MAX_ACTIVE_CALLS = 32
+
+        fun isNative(owner: Owner): Boolean = owner.executionId.startsWith("quickjs-native:")
     }
 }
 
 private fun ExecutionOwnership.runOrdinary(
     executor: ToolExecutor,
     call: ExecutableToolCall,
-    exclusive: Boolean,
 ): ToolExecutorResult {
     val permit =
-        acquire(call.toolCallId, exclusive)
+        acquire(call.toolCallId)
             ?: return busyFailure()
     return permit.use {
         if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)

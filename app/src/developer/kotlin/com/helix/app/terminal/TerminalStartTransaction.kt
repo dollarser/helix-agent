@@ -10,15 +10,14 @@ internal class TerminalStartTransaction(
     fun <T> launch(
         callId: String,
         owner: ExecutionOwnership.Owner,
-        primary: Boolean,
         submit: (() -> Unit) -> T,
         refused: (T) -> Boolean,
     ): T {
-        val permit = if (primary) checkNotNull(ownership.acquire(callId)) { "Execution is busy" } else null
+        val permit = checkNotNull(ownership.acquire(callId)) { "Execution capacity exhausted" }
         try {
-            return reserved(callId, owner, primary, submit, refused)
+            return reserved(callId, owner, submit, refused)
         } finally {
-            permit?.close()
+            permit.close()
         }
     }
 
@@ -26,12 +25,11 @@ internal class TerminalStartTransaction(
     private fun rollbackUnsubmitted(
         callId: String,
         owner: ExecutionOwnership.Owner,
-        primary: Boolean,
         failure: Throwable,
     ) {
         try {
             // CAS may persist then throw: inspect exact identity before safe pre-submit cleanup.
-            if (primary && ownership.retainedOwner() == owner) {
+            if (ownership.isRetained(owner)) {
                 check(ownership.releaseUnsubmittedForCall(callId, owner))
             }
             if (binding.read() == owner) check(binding.compareAndSet(owner, null))
@@ -45,16 +43,13 @@ internal class TerminalStartTransaction(
     private fun <T> reserved(
         callId: String,
         owner: ExecutionOwnership.Owner,
-        primary: Boolean,
         submit: (() -> Unit) -> T,
         refused: (T) -> Boolean,
     ): T {
         var submitted = false
         try {
             check(binding.compareAndSet(null, owner)) { "Terminal binding changed" }
-            if (primary) {
-                check(ownership.retainForCall(callId, owner)) { "Terminal ownership transfer refused" }
-            }
+            check(ownership.retainForCall(callId, owner)) { "Terminal identity registration refused" }
             val result = submit { submitted = true }
             check(submitted) { "Terminal submission boundary was not recorded" }
             if (refused(result)) {
@@ -63,7 +58,7 @@ internal class TerminalStartTransaction(
             }
             return result
         } catch (failure: Throwable) {
-            if (!submitted) rollbackUnsubmitted(callId, owner, primary, failure)
+            if (!submitted) rollbackUnsubmitted(callId, owner, failure)
             throw failure
         }
     }

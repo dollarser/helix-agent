@@ -17,6 +17,28 @@ class JobLogSpoolTest {
     @get:Rule val temporary = TemporaryFolder()
     private val workers = mutableListOf<Runnable>()
 
+    @Test fun aLongLivedSpoolDoesNotStarveTheOtherThreeJobs() {
+        val logs = JobLogSpool(temporary.newFolder()) { Long.MAX_VALUE }
+        val sinks = (1..4).map { requireNotNull(logs.open("parallel_$it")) }
+        try {
+            sinks.forEachIndexed { index, sink -> sink.offer(1, byteArrayOf((index + 65).toByte()), 1) }
+            val deadline = System.nanoTime() + 5_000_000_000L
+            while ((1..4).any { logs.read("parallel_$it", null)!!.bytes.isEmpty() }) {
+                assertTrue("all four live spools must drain", System.nanoTime() < deadline)
+                Thread.yield()
+            }
+            assertTrue(sinks.none { it.ended })
+            (1..4).forEach { assertFalse(logs.read("parallel_$it", null)!!.truncated) }
+        } finally {
+            sinks.forEach { it.finish() }
+            val deadline = System.nanoTime() + 5_000_000_000L
+            while (sinks.any { !it.ended }) {
+                assertTrue(System.nanoTime() < deadline)
+                Thread.yield()
+            }
+        }
+    }
+
     private fun spool(space: Long = Long.MAX_VALUE) =
         JobLogSpool(
             temporary.newFolder(),

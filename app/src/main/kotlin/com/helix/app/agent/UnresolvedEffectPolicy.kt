@@ -3,7 +3,7 @@ package com.helix.app.agent
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.storage.HelixStorage
 
-/** Session-wide effect uncertainty gate. Review facts, not old Turn liveness, clear the gate. */
+/** Historical uncertainty remains inspectable, not a session-wide execution lock. */
 internal object UnresolvedEffectPolicy {
     fun unresolvedTurnIds(
         storage: HelixStorage,
@@ -18,8 +18,9 @@ internal object UnresolvedEffectPolicy {
         sessionId: String,
     ): Boolean = unresolvedTurnIds(storage, sessionId).isNotEmpty()
 
-    fun permits(
-        hasUnresolvedEffects: Boolean,
+    /** Automatic inspection was authorized only to inspect; a new user task uses ordinary policy instead. */
+    fun permitsInspection(
+        inspection: Boolean,
         operationClass: ToolOperationClass,
-    ): Boolean = !hasUnresolvedEffects || operationClass == ToolOperationClass.READ_ONLY
+    ): Boolean = !inspection || operationClass == ToolOperationClass.READ_ONLY
 }

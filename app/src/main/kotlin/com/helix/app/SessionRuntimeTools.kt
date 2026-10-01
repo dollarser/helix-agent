@@ -20,22 +20,24 @@ internal fun registerSessionRuntimeTools(
     val nativeOwner = NativeJavascriptOwnership(ownership)
     registry.register(
         CodeJavascriptRunTool.descriptor(),
-        object : ToolExecutor {
-            override fun execute(call: ExecutableToolCall) =
-                CodeJavascriptRunTool
-                    .executor { params, cancel ->
-                        val invokeRuntime = { javascript.execute(params, cancel) }
-                        if (params.nativeAccess) {
-                            try {
-                                nativeOwner.execute(call.toolCallId, params.executionId, invokeRuntime)
-                            } finally {
-                                afterNative()
+        ownership.nativeExecutor(
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall) =
+                    CodeJavascriptRunTool
+                        .executor { params, cancel ->
+                            val invokeRuntime = { javascript.execute(params, cancel) }
+                            if (params.nativeAccess) {
+                                try {
+                                    nativeOwner.execute(call.toolCallId, params.executionId, invokeRuntime)
+                                } finally {
+                                    afterNative()
+                                }
+                            } else {
+                                javascript.execute(params, cancel)
                             }
-                        } else {
-                            javascript.execute(params, cancel)
-                        }
-                    }.execute(call)
-        },
+                        }.execute(call)
+            },
+        ),
     )
     UserQuestionTool.register(registry, questions, ownership::metadataExecutor)
 }

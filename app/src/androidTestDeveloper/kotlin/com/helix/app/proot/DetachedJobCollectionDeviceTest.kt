@@ -61,8 +61,8 @@ class DetachedJobCollectionDeviceTest {
                 }, { _, _ -> settled++ })
             val executor = f.ownership.guard(collector.executor())
             assertThrows(IOException::class.java) { executor.execute(f.call) }
-            assertEquals(f.owner, f.ownership.retainedOwner())
-            assertNull(f.ownership.acquire("unrelated-writer"))
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
+            requireNotNull(f.ownership.acquire("unrelated-writer")).close()
             assertEquals(0, settled)
             val pending =
                 requireNotNull(
@@ -71,7 +71,7 @@ class DetachedJobCollectionDeviceTest {
             assertEquals(CommandDetailState.SUCCEEDED, pending.state)
             assertTrue(pending.settlementPending)
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
-            assertNull(f.ownership.retainedOwner())
+            assertNull(f.ownership.retainedOwners().singleOrNull())
             assertEquals(2, attempts)
             assertEquals(1, settled)
             val collected =
@@ -103,13 +103,13 @@ class DetachedJobCollectionDeviceTest {
             assertThrows(IllegalStateException::class.java) { first.execute(f.call.copy(sessionId = "foreign")) }
             assertEquals(0, imports)
             assertThrows(IOException::class.java) { first.execute(f.call) }
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
             assertFalse(requireNotNull(DetachedJobObservationStore(f.storage).read(f.job.binding)).settled)
             val reloaded = f.ownership.guard(collector().executor())
             assertTrue(reloaded.execute(f.call) is ToolExecutorResult.Completed)
             assertEquals(1, imports)
             assertEquals(2, settlements)
-            assertNull(f.ownership.retainedOwner())
+            assertNull(f.ownership.retainedOwners().singleOrNull())
             assertTrue(requireNotNull(DetachedJobObservationStore(f.storage).read(f.job.binding)).settled)
         }
     }
@@ -128,7 +128,7 @@ class DetachedJobCollectionDeviceTest {
                 }, { _, _ -> })
             assertTrue(f.ownership.guard(collector.executor()).execute(f.call) is ToolExecutorResult.Completed)
             assertEquals(1, effects)
-            assertNull(f.ownership.retainedOwner())
+            assertNull(f.ownership.retainedOwners().singleOrNull())
         }
     }
 
@@ -144,7 +144,7 @@ class DetachedJobCollectionDeviceTest {
             val executor = f.outputCollector()
             assertThrows(IllegalStateException::class.java) { executor.execute(f.call) }
             assertTrue(!f.outputFile.exists())
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
             f.storage.sessionPermissionConfigs.setForSession(
                 f.job.binding.sessionId,
                 SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
@@ -152,7 +152,7 @@ class DetachedJobCollectionDeviceTest {
             )
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
             assertEquals("collection-proof", f.outputFile.readText())
-            assertNull(f.ownership.retainedOwner())
+            assertNull(f.ownership.retainedOwners().singleOrNull())
             f.outputFile.writeText("later user edit")
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
             assertEquals("later user edit", f.outputFile.readText())
@@ -173,7 +173,7 @@ class DetachedJobCollectionDeviceTest {
             )
             assertThrows(IllegalStateException::class.java) { f.outputCollector().execute(f.call) }
             assertTrue(!f.outputFile.exists())
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
         }
     }
 
@@ -217,18 +217,18 @@ class DetachedJobCollectionDeviceTest {
                 null,
             )
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Failed)
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
             boot = 2
             status = ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Failed)
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
             status = ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND
             assertThrows(IOException::class.java) { executor.execute(f.call) }
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
             assertNull(DetachedJobObservationStore(f.storage).read(f.job.binding))
             failBudget = false
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
-            assertNull(f.ownership.retainedOwner())
+            assertNull(f.ownership.retainedOwners().singleOrNull())
             assertEquals(
                 DetachedCommandFacts("UNKNOWN", null, true),
                 DetachedJobObservationStore(f.storage).read(f.job.binding),
@@ -257,7 +257,7 @@ class DetachedJobCollectionDeviceTest {
                     ),
                 )
             assertEquals(ToolExecutorResult.Cancelled, executor.execute(f.call))
-            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
         }
     }
 
@@ -271,15 +271,15 @@ class DetachedJobCollectionDeviceTest {
         private val root = File(context.cacheDir, name)
         val storage = HelixStorage.open(context, name, File(root, "content"))
         val owner = ExecutionOwnership.Owner(job.binding.executionId, job.binding.jobId)
-        private var retained: ExecutionOwnership.Owner? = null
+        private var retained: Set<ExecutionOwnership.Owner> = emptySet()
         val ownership =
             ExecutionOwnership(
                 object : ExecutionOwnership.Store {
-                    override fun read() = retained
+                    override fun owners() = retained
 
-                    override fun compareAndSet(
-                        expected: ExecutionOwnership.Owner?,
-                        replacement: ExecutionOwnership.Owner?,
+                    override fun update(
+                        expected: Set<ExecutionOwnership.Owner>,
+                        replacement: Set<ExecutionOwnership.Owner>,
                     ): Boolean {
                         if (retained != expected) return false
                         retained = replacement

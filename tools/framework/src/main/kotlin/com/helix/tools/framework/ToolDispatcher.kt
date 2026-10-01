@@ -771,25 +771,12 @@ class ToolDispatcher(
         ctx: DispatchContext,
         startedAt: Instant,
     ): ToolDispatchOutcome {
-        val descriptor = ctx.descriptor ?: error("executeStage reached before validate")
+        checkNotNull(ctx.descriptor) { "executeStage reached before validate" }
         val executor = ctx.executor ?: error("executeStage reached before validate")
         val prepared = prepareExecution(request, proof, ctx) ?: return finishStop(request, startedAt, ctx)
         val execStart = prepared.started
         val call = prepared.call
-        val guardedExecutor =
-            executionOwnership?.guard(
-                executor,
-                exclusive =
-                    EffectFootprintBuilder
-                        .build(
-                            descriptor,
-                            request.args,
-                            request.executionTarget,
-                            request.scope,
-                            request.egress,
-                            NoResourceKeys,
-                        ).exclusive,
-            ) ?: executor
+        val guardedExecutor = executionOwnership?.guard(executor) ?: executor
         val result = executionRunner(executor).executeWithinDeadline(guardedExecutor, call)
         return settleExecutionResult(request, startedAt, ctx, execStart, result)
     }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="provider_form_scroll_more">向下滚动查看更多设置</string>
+    <string name="provider_name_required">请填写服务名称。</string>
+    <string name="provider_endpoint_required">请填写服务地址，例如 https://api.example.com/v1。</string>
+    <string name="provider_model_required">请填写模型 ID，或获取模型列表后至少选择一个模型。</string>
+    <string name="provider_header_name_required">已填写请求头值，请补充请求头名称；不需要时可同时清空两项。</string>
+    <string name="provider_header_value_required">请填写请求头值；不需要时可同时清空两项。</string>
+    <string name="provider_model_selection_mismatch">填写的模型 ID 不在勾选列表中，请勾选该模型，或清空手动输入后使用已选模型。</string>
+    <string name="provider_model_selection_invalid">模型列表无效：最多选择 1024 个模型，每个 ID 最多 256 字符，且不能包含空格或控制字符。请修正模型 ID 或重新选择。</string>
+</resources>

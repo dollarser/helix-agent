@@ -57,8 +57,14 @@ class DetachedJobLaunchDeviceTest {
                     .jsonPrimitive.content,
             )
             val binding = requireNotNull(fixture.binding)
-            assertEquals(binding.executionId, fixture.ownership.retainedOwner()?.executionId)
-            assertNull(fixture.ownership.acquire("other-session"))
+            assertEquals(
+                binding.executionId,
+                fixture.ownership
+                    .retainedOwners()
+                    .singleOrNull()
+                    ?.executionId,
+            )
+            requireNotNull(fixture.ownership.acquire("other-session")).close()
             val deadline = android.os.SystemClock.elapsedRealtime() + 20_000
             var record = fixture.client.query(binding).record
             while (record?.state?.isTerminal != true && android.os.SystemClock.elapsedRealtime() < deadline) {
@@ -67,7 +73,7 @@ class DetachedJobLaunchDeviceTest {
             }
             assertEquals(ProotJobState.SUCCEEDED, requireNotNull(record).state)
             fixture.verifyOutput(record)
-            assertTrue(fixture.ownership.retainedOwner() != null)
+            assertTrue(fixture.ownership.retainedOwners().singleOrNull() != null)
         }
     }
 
@@ -76,7 +82,7 @@ class DetachedJobLaunchDeviceTest {
             fixture.deny = true
             assertTrue(fixture.run() is ToolExecutorResult.Failed)
             assertNull(fixture.binding)
-            assertNull(fixture.ownership.retainedOwner())
+            assertNull(fixture.ownership.retainedOwners().singleOrNull())
             assertEquals(0, fixture.rejected)
         }
     }
@@ -86,7 +92,7 @@ class DetachedJobLaunchDeviceTest {
             fixture.allocated = 999
             assertTrue(fixture.run() is ToolExecutorResult.Failed)
             assertEquals(1, fixture.rejected)
-            assertNull(fixture.ownership.retainedOwner())
+            assertNull(fixture.ownership.retainedOwners().singleOrNull())
             assertNull(fixture.client.query(requireNotNull(fixture.binding)).record)
         }
     }
@@ -97,7 +103,7 @@ class DetachedJobLaunchDeviceTest {
             try {
                 assertTrue(fixture.run() is ToolExecutorResult.Failed)
                 assertEquals(1, fixture.rejected)
-                assertNull(fixture.ownership.retainedOwner())
+                assertNull(fixture.ownership.retainedOwners().singleOrNull())
                 assertNull(fixture.client.query(requireNotNull(fixture.binding)).record)
             } finally {
                 shell("appops set ${context.packageName} START_FOREGROUND allow")
@@ -116,15 +122,15 @@ class DetachedJobLaunchDeviceTest {
         var deny = false
         var allocated = 60_000L
         var rejected = 0
-        private var retained: ExecutionOwnership.Owner? = null
+        private var retained: Set<ExecutionOwnership.Owner> = emptySet()
         val ownership =
             ExecutionOwnership(
                 object : ExecutionOwnership.Store {
-                    override fun read() = retained
+                    override fun owners() = retained
 
-                    override fun compareAndSet(
-                        expected: ExecutionOwnership.Owner?,
-                        replacement: ExecutionOwnership.Owner?,
+                    override fun update(
+                        expected: Set<ExecutionOwnership.Owner>,
+                        replacement: Set<ExecutionOwnership.Owner>,
                     ): Boolean {
                         if (retained != expected) return false
                         retained = replacement

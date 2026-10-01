@@ -21,13 +21,13 @@ import java.time.Instant
 
 class DiscoveryOwnershipTest {
     private class Store : ExecutionOwnership.Store {
-        var value: ExecutionOwnership.Owner? = null
+        var value: Set<ExecutionOwnership.Owner> = emptySet()
 
-        override fun read() = value
+        override fun owners() = value
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean {
             if (value != expected) return false
             value = replacement
@@ -55,7 +55,7 @@ class DiscoveryOwnershipTest {
         )
         discovery.visible("s", registry.all())
         requireNotNull(ownership.acquire("start")).use { assertTrue(it.retain(owner)) }
-        assertNull(ownership.acquire("unrelated-write"))
+        requireNotNull(ownership.acquire("unrelated-write")).close()
         val call =
             ExecutableToolCall(
                 "search",
@@ -68,16 +68,16 @@ class DiscoveryOwnershipTest {
                 "s",
                 "t",
             )
-        val result = ownership.guard(registry.executor(ToolName("tools.search"), ToolVersion(1)), false).execute(call)
+        val result = ownership.guard(registry.executor(ToolName("tools.search"), ToolVersion(1))).execute(call)
         assertTrue(result is ToolExecutorResult.Completed)
         assertTrue(collect in discovery.visible("s", registry.all()))
-        assertNull(ownership.acquire("still-blocked"))
+        requireNotNull(ownership.acquire("still-blocked")).close()
         val collected =
             ownership.guard(registry.executor(collect.name, collect.version)).execute(
                 call.copy(toolCallId = "collect", toolName = collect.name.value, args = buildJsonObject {}),
             )
         assertTrue(collected is ToolExecutorResult.Completed)
-        assertNull(ownership.retainedOwner())
+        assertNull(ownership.retainedOwners().singleOrNull())
     }
 
     @Test fun exposureReadsAvailabilityOncePerDescriptor() {

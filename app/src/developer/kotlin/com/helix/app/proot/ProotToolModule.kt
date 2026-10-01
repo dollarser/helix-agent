@@ -232,16 +232,10 @@ internal object ProotToolModule {
     /** Observe the retained original execution; never submit or renew a budget. */
     fun observeForegroundExecution(storage: HelixStorage) {
         val host = executionOwnership ?: return
-        val owner =
-            host.retainedOwner()?.takeIf {
-                it.executionId.startsWith(ForegroundProotOwnership.PREFIX)
-            } ?: return
-        foregroundObserver?.request("${owner.executionId}:${owner.generation}") {
-            if (host.retainedOwner() != owner) {
-                com.helix.app.chat.AutomaticRuntimeCollection.Observation.COMPLETE
-            } else {
-                recoverForegroundExecution(storage)
-                if (host.retainedOwner() != owner) {
+        host.retainedOwners().filter { it.executionId.startsWith(ForegroundProotOwnership.PREFIX) }.forEach { owner ->
+            foregroundObserver?.request("${owner.executionId}:${owner.generation}") {
+                if (host.isRetained(owner)) recoverForegroundOwner(storage, host, owner)
+                if (!host.isRetained(owner)) {
                     com.helix.app.chat.AutomaticRuntimeCollection.Observation.COMPLETE
                 } else {
                     com.helix.app.chat.AutomaticRuntimeCollection.Observation.RUNNING
@@ -253,10 +247,16 @@ internal object ProotToolModule {
     /** Only a persisted unfinished foreground execution permits this recovery query at startup. */
     fun recoverForegroundExecution(storage: HelixStorage) {
         val host = executionOwnership ?: return
-        val owner =
-            host.retainedOwner()?.takeIf {
-                it.executionId.startsWith(ForegroundProotOwnership.PREFIX)
-            } ?: return
+        host.retainedOwners().filter { it.executionId.startsWith(ForegroundProotOwnership.PREFIX) }.forEach { owner ->
+            recoverForegroundOwner(storage, host, owner)
+        }
+    }
+
+    private fun recoverForegroundOwner(
+        storage: HelixStorage,
+        host: com.helix.tools.framework.ExecutionOwnership,
+        owner: com.helix.tools.framework.ExecutionOwnership.Owner,
+    ) {
         val binding = ProotJobBindingStore(storage).resolve(owner.generation)
         ForegroundProotOwnership(host).recover(binding, DetachedJobBootProof.current(appContext), jobClient::query)
     }

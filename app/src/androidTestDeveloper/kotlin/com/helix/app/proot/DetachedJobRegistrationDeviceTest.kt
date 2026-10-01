@@ -115,8 +115,8 @@ class DetachedJobRegistrationDeviceTest {
                 .getValue("accepted")
                 .jsonPrimitive.content,
         )
-        assertTrue(owner.retainedOwner() != null)
-        assertNull(owner.acquire("unrelated"))
+        assertTrue(owner.retainedOwners().singleOrNull() != null)
+        requireNotNull(owner.acquire("unrelated")).close()
         val control =
             start.copy(
                 toolCallId = "control-${start.toolCallId}",
@@ -138,7 +138,7 @@ class DetachedJobRegistrationDeviceTest {
                 is ToolExecutorResult.Completed,
         )
         assertEquals("registered-result", File(root, "output/result.txt").readText())
-        assertNull(owner.retainedOwner())
+        assertNull(owner.retainedOwners().singleOrNull())
     }
 
     private fun execute(
@@ -171,12 +171,12 @@ class DetachedJobRegistrationDeviceTest {
             if (result == BackgroundJobActionOutcome.ACTIVE) Thread.sleep(100)
         }
         assertEquals(BackgroundJobActionOutcome.TERMINAL_PENDING, result)
-        assertTrue(owner.retainedOwner() != null)
+        assertTrue(owner.retainedOwners().singleOrNull() != null)
         assertEquals(
             BackgroundJobActionOutcome.SETTLED,
             actions.perform(job, BackgroundJobAction.COLLECT) { false },
         )
         assertEquals("registered-result", File(root, "output/result.txt").readText())
-        assertNull(owner.retainedOwner())
+        assertNull(owner.retainedOwners().singleOrNull())
     }
 }

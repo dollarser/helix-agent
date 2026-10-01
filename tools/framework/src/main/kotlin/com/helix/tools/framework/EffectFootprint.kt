@@ -1,6 +1,5 @@
 package com.helix.tools.framework
 
-import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.EgressRequest
@@ -17,9 +16,8 @@ import kotlinx.serialization.json.JsonObject
  * extraction ([ResourceKeyExtractor] — platform code, reviewed, per-tool). An MCP
  * `isConcurrencySafe`-style self-claim has no path into this type.
  *
- * [exclusive] is true when the call must not run concurrently with ANY other call
- * (doc 11 section 3.1: 未知效应、写入/删除、代码执行、Root、Accessibility、同 tab /
- * 同 Runtime lane 默认排他; 多个写操作首版保守串行).
+ * [runtimeKeys] name actual non-reentrant engines. User-file/origin/effect metadata
+ * is informational, not a promise of business-result correctness or a global lock.
  */
 data class EffectFootprint(
     val operationClass: ToolOperationClass,
@@ -27,19 +25,13 @@ data class EffectFootprint(
     val scopeIds: Set<String>,
     val resourceKeys: Set<String>,
     val originKeys: Set<String>,
-    val exclusive: Boolean,
+    val runtimeKeys: Set<String> = emptySet(),
 ) {
     /**
-     * Two calls may run concurrently ONLY when BOTH are proven read-only, neither is
-     * exclusive, they are on different exclusive lanes and they share no resource or
-     * origin key (doc 11 section 3.1: 仅当两个调用都被证明为只读、footprint 不冲突、
-     * 执行域允许并发且共享输出预算仍有余量时才能并行).
+     * Only shared engine state conflicts here. Result ordering and permission checks
+     * remain independent of whether tasks read or write the same user resource.
      */
-    fun conflictsWith(other: EffectFootprint): Boolean =
-        exclusive ||
-            other.exclusive ||
-            resourceKeys.intersect(other.resourceKeys).isNotEmpty() ||
-            originKeys.intersect(other.originKeys).isNotEmpty()
+    fun conflictsWith(other: EffectFootprint): Boolean = runtimeKeys.intersect(other.runtimeKeys).isNotEmpty()
 }
 
 /**
@@ -47,11 +39,8 @@ data class EffectFootprint(
  * (doc 11 section 3.1: Workspace canonical path, SAF document ID, browser tab/generation,
  * Accessibility package/window, calendar/account, Runtime job lane...).
  *
- * Implementations are platform code (one per tool family, registered by the app); they
- * may read the arguments but never declare safety — a missing key only makes the call
- * MORE conservative through the caller's conflict rule. The default extracts nothing:
- * with no shared key, read-only calls on different lanes never conflict, and any
- * non-read-only call is exclusive anyway.
+ * Implementations are platform code. These keys describe resources; their intersection
+ * is not an execution prohibition. Do not parse shell text to infer safe business outcomes.
  */
 fun interface ResourceKeyExtractor {
     fun resourceKeys(
@@ -69,29 +58,11 @@ object NoResourceKeys : ResourceKeyExtractor {
 }
 
 /**
- * Builds the footprint from trusted facts (doc 11 section 3.1). Rules:
- * - non-[ToolOperationClass.READ_ONLY] (write/delete/code/privileged — the unknown-effect
- *   case is conservative by construction) → [EffectFootprint.exclusive];
- * - Root / Accessibility ACTIONS (descriptor requires `ROOT_SHELL` /
- *   `ACCESSIBILITY_AUTOMATION`) → [EffectFootprint.exclusive], even when read-only;
- * - QuickJS / PRoot / CLI targets are single-concurrent LANES: the lane key enters
- *   [EffectFootprint.resourceKeys], so two calls on the same lane conflict (serialize)
- *   while different lanes may run concurrently;
- * - an egress origin enters [EffectFootprint.originKeys] so parallel calls to the same
- *   network origin serialize;
- * - [ResourceKeyExtractor] adds the tool's platform resource keys.
+ * No blanket writes/code/Root/Accessibility exclusion. The native QuickJS singleton
+ * alone shares an engine/death protocol. Isolated JS and PRoot jobs have independent
+ * execution identities; backend resource limits apply without blocking unrelated work.
  */
 object EffectFootprintBuilder {
-    private val LANE_KEYS =
-        mapOf(
-            ExecutionTargetType.LOCAL_QUICKJS to "lane:quickjs",
-            ExecutionTargetType.LOCAL_PROOT to "lane:proot",
-            ExecutionTargetType.LOCAL_CLI_RUNTIME to "lane:cli",
-            ExecutionTargetType.LOCAL_ROOT to "lane:root",
-        )
-    private val EXCLUSIVE_CAPABILITIES =
-        setOf(Capability.ROOT_SHELL, Capability.ACCESSIBILITY_AUTOMATION)
-
     fun build(
         descriptor: ToolDescriptor?,
         args: JsonObject,
@@ -102,19 +73,23 @@ object EffectFootprintBuilder {
     ): EffectFootprint {
         val operationClass = descriptor?.operationClass ?: ToolOperationClass.LOCAL_MUTATION
         val resourceKeys = mutableSetOf<String>()
-        LANE_KEYS[executionTarget]?.let { resourceKeys += it }
         descriptor?.let { resourceKeys += extractor.resourceKeys(it.name.value, args) }
         val originKeys = egress?.endpoint?.origin?.let { setOf(it) } ?: emptySet()
-        val exclusive =
-            operationClass != ToolOperationClass.READ_ONLY ||
-                (descriptor?.requiredCapabilities?.intersect(EXCLUSIVE_CAPABILITIES)?.isNotEmpty() == true)
+        val runtimeKeys =
+            if (executionTarget == ExecutionTargetType.LOCAL_QUICKJS &&
+                (args["access"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "native"
+            ) {
+                setOf("engine:quickjs-native")
+            } else {
+                emptySet()
+            }
         return EffectFootprint(
             operationClass = operationClass,
             executionTargetId = executionTarget,
             scopeIds = scope?.toScopeRef()?.let { setOf(it) } ?: emptySet(),
             resourceKeys = resourceKeys.toSortedSet(),
             originKeys = originKeys.toSortedSet(),
-            exclusive = exclusive,
+            runtimeKeys = runtimeKeys,
         )
     }
 }

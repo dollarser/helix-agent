@@ -87,10 +87,10 @@ class JsNativeLifecycleTest {
             assertTrue(entered.await(2, TimeUnit.SECONDS))
             assertFalse(death.isObserved())
             assertFalse(returned.await(50, TimeUnit.MILLISECONDS))
-            assertNull(ownership.acquire("writer-before-death"))
+            requireNotNull(ownership.acquire("writer-before-death")).close()
             worker.interrupt()
             assertFalse(returned.await(50, TimeUnit.MILLISECONDS))
-            assertNull(ownership.acquire("writer-after-cancel"))
+            requireNotNull(ownership.acquire("writer-after-cancel")).close()
             death.record()
             assertTrue(returned.await(2, TimeUnit.SECONDS))
             assertTrue(interruptRestored.get())
@@ -129,7 +129,7 @@ class JsNativeLifecycleTest {
         try {
             assertTrue(attempted.await(2, TimeUnit.SECONDS))
             assertFalse(returned.await(50, TimeUnit.MILLISECONDS))
-            assertNull(ownership.acquire("writer-before-death"))
+            requireNotNull(ownership.acquire("writer-before-death")).close()
             death.record()
             assertTrue(returned.await(2, TimeUnit.SECONDS))
             org.junit.Assert.assertSame(original, failure.get())
@@ -155,11 +155,11 @@ class JsNativeLifecycleTest {
     }
 
     private class EmptyStore : ExecutionOwnership.Store {
-        override fun read(): ExecutionOwnership.Owner? = null
+        override fun owners(): Set<ExecutionOwnership.Owner> = emptySet()
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean = error("No retained ownership is used by an ordinary synchronous execution")
     }
 }

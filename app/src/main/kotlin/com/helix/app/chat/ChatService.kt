@@ -3767,8 +3767,7 @@ class ChatService(
             selected.mode == AgentMode.GOAL &&
                 (
                     active != null ||
-                        goalContinuation.hasActivation(request.sessionId) ||
-                        UnresolvedEffectPolicy.hasUnresolvedEffects(storage, request.sessionId)
+                        goalContinuation.hasActivation(request.sessionId)
                 ) -> selected.copy(mode = AgentMode.ACT)
 
             else -> selected

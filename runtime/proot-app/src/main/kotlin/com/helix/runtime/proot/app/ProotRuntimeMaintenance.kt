@@ -15,11 +15,11 @@ internal object ProotRuntimeMaintenance {
         check(sessions.records().none { it.stopProof == null }) { "Stop and reconcile the manual terminal first" }
         val runner = ProotJobRunner.get(context)
         val ticket = "maintenance-${UUID.randomUUID()}"
-        check(runner.reserveDetached(ticket)) { "Runtime execution is busy" }
+        check(runner.reserveMaintenance(ticket)) { "Runtime environment is in use; stop its processes before repair" }
         return try {
             action()
         } finally {
-            runner.releaseDetached(ticket)
+            runner.releaseMaintenance(ticket)
         }
     }
 }

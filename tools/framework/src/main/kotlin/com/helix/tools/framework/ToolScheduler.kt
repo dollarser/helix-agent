@@ -17,10 +17,9 @@ import java.util.concurrent.atomic.AtomicReference
  *   [HARD_MAX_CONCURRENCY] (4, pre-real-device-evidence cap);
  * - [resourceGate] may only LOWER the current allowance (low memory / background /
  *   thermal) — it can never raise it and never influences approvals or result order;
- * - two calls start in parallel ONLY when both footprints are non-exclusive (proven
- *   read-only, no Root/Accessibility action) and share no resource/origin key and no
- *   exclusive lane; any exclusive call is a full barrier (first version: writes are
- *   conservatively serialized, doc 11 section 3.1);
+ * - reads and writes may run in parallel within capacity. Only concrete non-reentrant
+ *   engine keys serialize; shared user files and origins do not impose result locks;
+ *   dependent operations belong in successive model batches, not implicit write barriers;
  * - completion may be OUT OF ORDER, but [scheduleBatch] returns the results in the
  *   ORIGINAL call sequence — model backfill order never depends on completion speed
  *   (doc 11 section 3.2, release blocker section 7);
@@ -249,8 +248,8 @@ class ToolScheduler(
     ): Boolean {
         var started = false
         for (idx in calls.indices) {
-            // A queued conflicting predecessor is a barrier too, not just a running
-            // one. In particular, reads after a waiting write must observe that write.
+            // Preserve queue fairness for the same non-reentrant engine only.
+            // User result dependencies are not inferred from read/write labels.
             if ((0 until idx).any { !submitted[it] && footprints[it].conflictsWith(footprints[idx]) }) continue
             if (!submitted[idx] && tryClaimSlot(calls[idx].toolCallId, footprints[idx])) {
                 submitted[idx] = true

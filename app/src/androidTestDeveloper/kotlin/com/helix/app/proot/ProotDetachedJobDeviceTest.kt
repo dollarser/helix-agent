@@ -117,13 +117,29 @@ class ProotDetachedJobDeviceTest {
         assertEquals(record.terminalCommit, client.cancel(job.binding).record!!.terminalCommit)
     }
 
-    @Test fun exhaustedBudgetAndSecondLiveJobAreRefused() {
+    @Test fun independentJobsAreAdmittedUntilPhysicalCapacityAndBudgetLimits() {
         val exhausted = fixture("printf MUST_NOT_RUN")
         assertFalse(exhausted.submit(client, 999).accepted)
+        val live = (1..4).map { fixture("sleep 60") }
+        live.forEach { assertTrue(it.submit(client).accepted) }
+        val overflow = fixture("printf MUST_NOT_RUN")
+        assertEquals("EXECUTION_BUSY", overflow.submit(client).refusal)
+        live.forEach {
+            client.cancel(it.binding)
+            assertEquals(ProotJobState.CANCELLED, client.awaitTerminal(it.binding).state)
+        }
+    }
+
+    @Test fun completedUncollectedJobDoesNotBlockAnotherWhileFirstKeepsRunning() {
         val first = fixture("sleep 60")
         assertTrue(first.submit(client).accepted)
-        val second = fixture("printf MUST_NOT_RUN")
-        assertEquals("EXECUTION_BUSY", second.submit(client).refusal)
+        val second = fixture("printf second")
+        assertTrue(second.submit(client).accepted)
+        assertEquals(ProotJobState.SUCCEEDED, client.awaitTerminal(second.binding).state)
+        assertFalse(requireNotNull(client.query(first.binding).record).state.isTerminal)
+        val third = fixture("printf third")
+        assertTrue(third.submit(client).accepted)
+        assertEquals(ProotJobState.SUCCEEDED, client.awaitTerminal(third.binding).state)
         client.cancel(first.binding)
         assertEquals(ProotJobState.CANCELLED, client.awaitTerminal(first.binding).state)
     }

@@ -109,6 +109,17 @@ class BrowserDownloaderTest {
         assertEquals(sha256Hex(bytes), out.sha256)
     }
 
+    @Test
+    fun idleLoopbackConnectionDoesNotHangTheDownloadFixture() {
+        serve(mapOf("/ready" to MiniHttpServer.Route(200, "text/plain", "ready".toByteArray(), null)))
+        Socket("127.0.0.1", server!!.port).use {
+            assertTrue(server!!.firstAccepted.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            val out = downloader().download(url("/ready"), "ready")
+            assertEquals(DownloadToolStatus.SAVED, out.status)
+            assertEquals(sha256Hex("ready".toByteArray()), out.sha256)
+        }
+    }
+
     // ── redirect fail-closed ─────────────────────────────────────────────────────────────
 
     @Test
@@ -221,8 +232,11 @@ class BrowserDownloaderTest {
             val extraHeaders: Map<String, String> = emptyMap(),
         )
 
-        private val serverSocket = ServerSocket(0)
+        private val serverSocket = ServerSocket(0, 16, java.net.InetAddress.getByName("127.0.0.1"))
+
+        @Volatile private var activeSocket: Socket? = null
         val port: Int get() = serverSocket.localPort
+        val firstAccepted = java.util.concurrent.CountDownLatch(1)
         private val thread =
             Thread(::serve, "hxa063-mini-http").apply {
                 isDaemon = true
@@ -237,12 +251,16 @@ class BrowserDownloaderTest {
                     } catch (e: Exception) {
                         return
                     }
+                activeSocket = sock
+                firstAccepted.countDown()
                 handle(sock)
+                activeSocket = null
             }
         }
 
         private fun handle(sock: Socket) {
             try {
+                sock.soTimeout = 1_000 // An idle/abandoned test client must not stall the next redirect.
                 val input = sock.getInputStream()
                 val output = sock.getOutputStream()
                 val path = requestPath(input) ?: return
@@ -280,15 +298,18 @@ class BrowserDownloaderTest {
         }
 
         private fun requestPath(input: InputStream): String? {
-            val line = StringBuilder()
+            val reader = input.bufferedReader(Charsets.US_ASCII)
+            val line = reader.readLine() ?: return null
+            var bytes = line.length
+            var headers = 0
+            // Drain all request headers before closing, rather than resetting unread client data.
             while (true) {
-                val b = input.read()
-                if (b == -1) return null
-                if (b == '\n'.code) break
-                if (b != '\r'.code) line.append(b.toChar())
+                val header = reader.readLine() ?: error("Incomplete HTTP request")
+                bytes += header.length
+                check(bytes <= 16_384 && ++headers <= 128) { "Test request headers too large" }
+                if (header.isEmpty()) break
             }
             return line
-                .toString()
                 .substringAfter(" ", missingDelimiterValue = "")
                 .substringBefore(" ")
                 .ifEmpty { null }
@@ -297,10 +318,12 @@ class BrowserDownloaderTest {
         override fun close() {
             try {
                 serverSocket.close()
+                activeSocket?.close()
             } catch (e: Exception) {
                 // already closed
             }
-            thread.join(2_000)
+            thread.join(5_000)
+            check(!thread.isAlive) { "Loopback test server did not stop" }
         }
 
         private fun statusText(code: Int): String =

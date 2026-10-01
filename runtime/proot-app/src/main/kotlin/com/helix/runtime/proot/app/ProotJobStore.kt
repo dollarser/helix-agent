@@ -23,9 +23,8 @@ import java.io.FileOutputStream
  * Reconciliation (main app verified the proof) deletes the payload directory
  * IMMEDIATELY and stamps `reconciledAtEpochMs`.
  *
- * All methods run on the runner's single job thread (the binder hands every job
- * transaction to one [java.util.concurrent.ExecutorService]); there is no
- * in-process contention to lock against.
+ * The process-wide runner and detached service share this instance. Journal changes
+ * are synchronized; independent process lifetimes and user-file results are not locked.
  *
  * The store is the journal's single writer surface: load/save/quota/eviction
  * all live with the file they mutate.
@@ -139,6 +138,7 @@ class ProotJobStore(
     }
 
     /** Deletes a payload (input-invalid / superseded); the record stays as the terminal proof. */
+    @Synchronized
     fun deletePayload(jobId: String) {
         jobDir(jobId)
             .listFiles()
@@ -152,6 +152,7 @@ class ProotJobStore(
      * An evidence-expired marker is small (a few hundred bytes), so it always
      * fits within the 128/1MiB caps that the caller also checks.
      */
+    @Synchronized
     fun pruneAndBudgetAvailable(nowMs: Long): Boolean {
         prune(nowMs)
         val entries = entries()
@@ -162,6 +163,7 @@ class ProotJobStore(
     }
 
     /** Applies the two TTL rules; never touches non-terminal records. */
+    @Synchronized
     fun prune(nowMs: Long) {
         entries().forEach { (jobId, record) ->
             if (!record.state.isTerminal || record.evidenceExpired) return@forEach

@@ -17,13 +17,13 @@ class ForegroundProotOwnershipTest {
         ProotJobRecord("job_111111111111", "exec_111111111111", "a".repeat(64), ProotJobState.RUNNING, 1)
 
     private class Store : ExecutionOwnership.Store {
-        var value: ExecutionOwnership.Owner? = null
+        var value: Set<ExecutionOwnership.Owner> = emptySet()
 
-        override fun read() = value
+        override fun owners() = value
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean {
             if (expected != value) return false
             value = replacement
@@ -47,13 +47,13 @@ class ForegroundProotOwnershipTest {
                 put("bootCount", 10)
             }
         assertFalse(lifecycle.recover(binding, 10) { ProotJobClient.JobStateOutcome.Ok(record) })
-        assertNull(reopened.acquire("writer"))
+        requireNotNull(reopened.acquire("writer")).close()
         val orphan = record.copy(state = ProotJobState.ORPHANED, terminalAtEpochMs = 2)
         assertFalse(lifecycle.recover(binding, 10) { ProotJobClient.JobStateOutcome.Ok(orphan) })
         assertFalse(lifecycle.recover(binding, null) { ProotJobClient.JobStateOutcome.Unknown })
-        assertEquals(owner, reopened.retainedOwner())
+        assertEquals(owner, reopened.retainedOwners().singleOrNull())
         assertTrue(lifecycle.recover(binding, 11) { error("Real newer boot requires no IPC or replay") })
-        assertNull(reopened.retainedOwner())
+        assertNull(reopened.retainedOwners().singleOrNull())
     }
 
     @Test fun terminalEvidenceMustBeCurrentAndBoundToTheOriginalExecution() {
@@ -61,7 +61,7 @@ class ForegroundProotOwnershipTest {
         assertTrue(ForegroundProotOwnership.settledRecord(terminal))
         assertFalse(ForegroundProotOwnership.settledRecord(terminal.copy(evidenceExpired = true)))
         assertFalse(ForegroundProotOwnership.settledRecord(record))
-        val store = Store().apply { value = ForegroundProotOwnership.owner("call", record.executionId) }
+        val store = Store().apply { value = setOf(ForegroundProotOwnership.owner("call", record.executionId)) }
         val lifecycle = ForegroundProotOwnership(ExecutionOwnership(store))
         val binding =
             buildJsonObject {

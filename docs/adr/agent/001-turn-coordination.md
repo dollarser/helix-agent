@@ -58,9 +58,13 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 **进程死亡后不使用这些 checkpoint 复活旧 Turn。** 旧 Turn 的 runtime record 保留为审计、诊断和用量事实；successor Turn 重新经过 admission，创建新的 runtime snapshot 和新的 Turn budget。Goal 的累计预算/用量继续跨 Run 计算，不因 crash 或新 Turn 退款。
 
 历史 v29 及更早 Turn 没有 runtime record 时仍可显示、核查和作为 RecoverySummary 来源；successor Turn 使用自己新建的 snapshot，不从当前 Settings 猜造旧 Turn 的执行配置。迁移期间已有 review-resume receipt/checkpoint 字段可保留到调用图证明无用后再删，不能作为继续 same-Turn 的理由。
+### Decision history — 2026-10-02：执行稳定性与业务结果验收分离
+
+所有者明确取消以业务结果冲突为依据的全局执行互斥。终端/后台任务保留原身份与未知副作用记录，但不据此阻挡无关调用；同文件、同网络 origin、写/代码类别均不自动构成调度屏障。权限、原调用身份、短事务一致性、引擎和物理容量仍归 Harness；业务产物最终是否正确由用户和 LLM 验收。生产接线与测试归 [HXA-238](../../development/tasks/HXA-238.md)，不将这次裁决当成设备验证。
+
 ### 3. ToolCall batch 与模型历史按原调用顺序结算
 
-一次模型响应中的 ToolCalls 是一个 batch。每个 call 独立持久化状态与结果；只有平台证明不冲突的只读调用可以有界并发，模型历史按原模型 call sequence 回填，不按执行完成顺序回填。
+一次模型响应中的 ToolCalls 是一个 batch。每个 call 独立持久化状态与结果；读写与代码调用均可在物理容量内并发，不因潜在用户文件/业务结果冲突全局串行。仅非重入引擎、原执行控制、数据库/内容存储提交和实际资源容量维持必要同步。模型历史按原模型 call sequence 回填，不按完成时间回填；需要前项结果的调用由模型在后续 batch 发出。
 
 模型产生 TOOL_CALLS 后，整个 batch 必须先 durable settle。只有所有 call 的 outcome 都可确定时，才能追加该批 TOOL_RESULT 并创建下一 ModelCall。
 
@@ -70,7 +74,7 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 发生 NEEDS_REVIEW/非用户停止的 INTERRUPTED 后，Harness 自动查询原订阅/PRoot 执行器，并以 `auto-recovery:<parent>` 持久请求身份最多创建一个只读核查 Turn。核查不能升级模式、修改配置、提交写操作、复用旧执行或递归创建核查后继。准入要求原前驱仍是会话最后一个 Turn，Provider/模型快照未漂移；用户 Stop/pause、撤权、模型不可用和额度不足均不被绕过。崩溃发生在持久 claim 与 admission 之间时明确结束，不无限重试。
 
-核查结束关闭旧 attempt，保留原 ToolCall/result/review 与外部执行所有权。无法证明的副作用继续 UNKNOWN；不自动写 ACKNOWLEDGED_UNKNOWN，不把只读核查回复算作原任务成功。模型或授权不可用时持久化可见的结束通知，不能伪造模型已作判断。下面保留的人工 review 服务是可选的显式事实操作，不再是自动核查或结束 attempt 的前提；未知效果门控仍有效。
+核查结束关闭旧 attempt，保留原 ToolCall/result/review 与外部执行所有权。无法证明的副作用继续 UNKNOWN；不自动写 ACKNOWLEDGED_UNKNOWN，不把只读核查回复算作原任务成功。模型或授权不可用时持久化可见的结束通知，不能伪造模型已作判断。下面保留的人工 review 服务是可选的显式事实操作，不再是自动核查或结束 attempt 的前提；旧未知效果事实继续可见；普通新用户任务仍经正常权限，不因历史 UNKNOWN 全会话拒绝写入。自动核查自身仍限只读，不借此扩大自动执行授权。
 
 队列 NEEDS_ATTENTION 的可恢复原因自动重新校验原内容、附件、配置和授权身份；有效时恢复投递，不能验证或再次失败时进入 FAILED，保留原输入并显示结束通知。每个输入有持久恢复 claim，不能无限重试。未消费 Steer 仅在原目标已结束后可尝试迁入 Queue，配置验证不能跳过。用户 Stop/pause 停泊的输入不自动发送；新的用户输入仍走原显式准入。
 

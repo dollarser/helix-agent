@@ -16,10 +16,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - Runtime 拥有进程组、PTY、租期、日志和退出事实；应用服务拥有任务来源、授权与 Workspace 关联。Session 身份/generation 不等同 PID，连接状态与执行状态分离。
 - 异步 Job 有持久身份、显式 Runtime owner、租期和累计预算，初始默认 5 分钟/最大 30 分钟并受其他剩余预算限制，不自动续期。主进程死亡后继续必须已有有效后台路径，否则取消/对账。
 - 手动终端为 developer/Advanced 用户主动开启的可信 USER 入口，人工按键不逐字符审批；模型/MCP/Skill/网页不能借会话 ID 获得写入 PTY 权限。当前设计不提供模型交互输入接口。
-- 首个切片单 live PTY，后续最多两个手动会话；支持 detach/attach，单个会话仅一个写入连接。它们共享 UID/文件系统。手动执行与 Agent 本地代码/文件修改互斥，不据人工多会话推导 Agent 未知写效果可并发。
+- 最多两个手动会话各自支持 detach/attach、单写入连接；与最多四个 PRoot Job 可共存。终端、独立 JS 与普通工具不全局互斥；共享 UID/文件系统会造成业务结果竞争，由用户与 LLM 验收，不以同目录或写操作类别禁止执行。
 - 重启后不重建原 shell 内存、不重放命令。手动终端不套 Goal 预算，其租期/空闲回收、PTY/native/rendering 版本和许可证必须有接线前设备证据。前台 PTY 可以独立验收，不等待后台 Job 成功。
 - 197 首片手动终端采用应用 Workspace 内实际目录直接映射 `/workspace`，不提前启用独立会话目录绑定。手动租期默认两小时、最大八小时，不自动续期；断开连接后三十分钟空闲回收。停止记录独立于可删除的 Runtime 安装目录，环境维护与执行互斥。页面、模型和 Agent Goal 不持有 Runtime 进程资源；具体交付与设备边界以 197 任务记录为准。
-- 196/197 的宿主执行准入共用一个应用进程实例。普通执行许可随真实 executor 退出释放，不随超时/取消回执提前释放；异步/手动 owner 在提交前以原子写保存执行身份，调用返回不清除，只由原身份的终态对账释放。持久准入文件只保存身份，不复制 Runtime 的阶段、日志或结果，也不是新的授权来源；读取损坏/写入失败不能按空闲处理。生产控制入口仍须按原 session/turn/call/job 绑定校验，不能凭 owner 身份获得执行权限。
+- 宿主维护多条原执行身份，而不是单个全局排他 owner。每条 identity 只约束自己的提交/控制/结算；保留身份或未收取结果不占用其他任务准入。普通线程、Runtime 物理槽直到真实退出才释放；唯一原生 QuickJS 服务的存活身份只阻止该单实例引擎的新调用。identity 文件损坏不得伪造为空闲，普通无关工具仍可执行；控制入口校验原 session/turn/call/job，不凭身份授予权限。
 
 ### HXA-197 渲染组件与构建兼容
 
@@ -29,7 +29,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 组件要求 compileSdk 37；本次明确升级 compileSdk 至 37、Compose BOM 至 2026.09.00，保持 targetSdk 36 和 minSdk 29。CI 同时保留用于既有兼容探针的 API36 SDK。原生 ABI 为 arm64-v8a/x86_64；16 KiB ELF/ZIP 静态检查和真实 16 KiB 设备运行分别记账。OSC 自动剪贴板、图片及链接自动打开不启用，模型不获得终端输入能力。生产页面验收以 197 任务和证据为准，构建接线不代表验收完成。
 
-当前抽屉开启的手动终端使用应用私有 `workspaces/app/terminal` 目录，不依赖选中会话；文件管理器显式传入 scope 路径时仍使用该目录。终端 detach/attach 与租期不变，关闭或切换聊天不停止终端，Advanced 及执行互斥约束仍适用。
+当前抽屉开启的手动终端使用应用私有 `workspaces/app/terminal` 目录，不依赖选中会话；文件管理器显式传入 scope 路径时仍使用该目录。终端 detach/attach 与租期不变，关闭或切换聊天不停止终端，Advanced、物理容量和运行环境维护约束仍适用，不再全局排斥 Agent 任务。
 
 ## Alternatives considered
 
@@ -54,6 +54,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-02 复核：终态记录可能先于物理进程/输出泵清理，前台服务必须等该 Job 的物理槽结束才撤销；不能把 `state.isTerminal` 单独当作退出证明。并发 cold bind 的 Runner 构造保持单例。两项只维护运行稳定性，不恢复用户结果锁。
+
+- 2026-10-02：按所有者新裁决取消终端/Job 全局排他与业务结果锁；应用身份集合、per-execution 控制、PRoot 四槽与多 admission 前台服务共同接线。日志四路独立排空；环境修复仍排除使用该 Runtime 的进程，单 PTY 写者和原生 QuickJS 单实例协调保留。旧 v1 身份读取后原样保留而非清锁；设备与实际容量测量按 HXA-238 单独验收。后文 2026-10-01 的全局互斥说明是历史决定，不再是当前行为。
 
 - 2026-10-01：HXA-236 后续实施以实际可信观察 executor 的 Dispatcher 证据驱动进展判断，不用名称白名单；观测时间变化不是进展，健康等待仍告警并受原 lease/预算控制。未知、来源失败与终态重复查询不获得无限等待豁免。观察/终态/结算及 qualified disposition 事实沿原存储事务保存，旧回包不将 UNKNOWN 处置改成成功。
 - 2026-10-01：所有者反馈 v0.0.4 JS/Bash EXECUTION_BUSY，确认手动终端 START 前连接异常遗留持久准入。仅在原活跃启动许可内且能证明尚未提交时，按精确 owner/generation 回滚保留及 binding；START 回执未知保持占用。活跃/待结算手动终端与代码执行继续互斥，升级不凭旧 UI 缺记录强制清除未知 owner；[缺陷证据](../../bug-fixes/2026-10-01-execution-busy-pre-submit.md)。

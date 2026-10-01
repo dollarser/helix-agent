@@ -28,13 +28,13 @@ developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会
 | `code.linux.job.cancel` | 仅 originalCallId；幂等取消原 Job，终态仍需收取结算。 |
 | `code.linux.job.collect` | 仅 originalCallId；取得原终态与归档，按原 output 及当前授权导入、结算预算与占用。失败重试此入口，不重新启动命令。 |
 
-`collect` 与只读查询分开。其文件效果由宿主查询原绑定和持久 ToolCall 参数决定，不信任收取请求提供替代路径；新 DENY、原工具禁用及撤销的 scope 会阻止延后写入。成功导入回执持久化后，重复收取不覆盖后续用户修改。未知/orphan 仍需恢复审查，不能凭一次查询释放占用。旧同步 `bash`/`code.linux.run` 继续返回同步结果。
+`collect` 与只读查询分开。其文件效果由宿主查询原绑定和持久 ToolCall 参数决定，不信任收取请求提供替代路径；新 DENY、原工具禁用及撤销的 scope 会阻止延后写入。成功导入回执持久化后，重复收取不覆盖后续用户修改。未知/orphan 保留原身份与恢复审查，不能凭一次查询假定原进程退出；这不禁止其他任务执行。旧同步 `bash`/`code.linux.run` 继续返回同步结果。
 
 Runtime 中断留下 ORPHANED 时，先在 Tasks 收取原结果。若旧进程是否停止无法确认，页面会提示重启设备后再次收取。宿主在提交前记录 Android 启动次数；旧记录首次收取时保存启动观察，必须在此之后实际重启。只有系统启动次数严格增加才能证明旧进程不再执行：此时结算原预算并释放占用，不导入未知输出、不重跑命令，执行状态仍为 ORPHANED。系统证据不可读或倒退时不自动释放。原 Turn 已结束时未知租期只结算一次，不以停止证明缺失为由永久保留预算。
 
 原执行记录丢失时，只有 Runtime 校验原绑定后明确返回 NOT_FOUND、原 Turn 已终态或停驻于 INTERRUPTED，且上述重启证据成立，人工收取才可结算原预算并解除占用。宿主保存独立的记录丢失处置审计，页面显示 UNKNOWN 与结果无法恢复，不生成 Runtime 终态、输出回执或 ACK。Runtime 不可用、绑定失效、同次开机及结算失败仍保留占用；不能把通信失败当作记录不存在。此出口不重放命令。
 
-后台占用期间，宿主显式包装的 Goal、Plan、Todo 内置 executor 可继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal.report` 与 `update_goal` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
+后台任务运行期间，普通获准调用可继续执行；宿主显式包装的 Goal、Plan、Todo 内置 executor 继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal.report` 与 `update_goal` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
 
 后台 start 已进入现有聊天工具行与 Tasks 命令列表的详情入口。详情只读本地事实：启动回执显示“已提交，当前执行状态待查询”，不把旧 RUNNING 快照当成此刻仍在运行。显式 status/cancel/collect 核验原绑定后记录不可变终态；结果导入、预算结算与占用释放完成后另记结算凭据。成功、失败或取消的执行终态仍可能待结算，页面分别展示；仅有准备绑定不证明任务已启动。打开页面不冷绑定 Runtime、不查询、不 ACK、不重放。
 
@@ -46,11 +46,13 @@ Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令�
 
 当前 status/await 通过唯一 Dispatcher 的 completion 路径及有界查询通道运行；等待释放业务 worker，但未实际退出的 Binder 查询仍占物理容量。用户停止等待与请求取消原 Job 分开，查询回执不会覆盖更新的控制回执。结果仍按原批次顺序作为普通 ToolResult 回填；HXA-236 后续另将原审计日志中的状态变化按当前会话/权限筛选，经同一 ContextCompiler 有界纳入已获准请求，不触发新推理或查询。可信 executor 的持久审计取代名称白名单来判定健康等待与无进展；[后续证据](../evidence/development/hxa236-context-progress-2026-10-01.md)明确当前验证与设备边界，早期基础阶段记录保持历史范围。
 
-JS/Bash 的 EXECUTION_BUSY 是共享执行准入拒绝，不是语言独立的忙状态。v0.0.4 的终端提交前异常保留泄漏按[缺陷记录](../bug-fixes/2026-10-01-execution-busy-pre-submit.md)修复；运行或待结算的终端仍合法占用。手动 Stop 确认后还需结算，关闭页面不释放；未知副作用不能直接解锁。
+HXA-238 已取消终端/后台 owner 造成的全局 EXECUTION_BUSY：运行、未知或待结算的终端/Job 只保留自己的身份，不阻挡普通 JS、Bash、文件或其他获准调用。v0.0.4 的提交前泄漏修复仍保留，但旧 owner 不再是应用级锁。当前 BUSY 只用于物理容量、同一执行控制或原生 QuickJS 单例；运行环境维护排除在用进程。原进程及输出泵未退出时仍占自己的槽和后台服务，其他空闲槽可执行；结果未收取不占物理槽。准确验证边界见 [HXA-238 证据](../evidence/development/hxa238-execution-provider-2026-10-02.md)。
+
+宿主维护执行身份集合，Runtime 按 Job 管理物理槽、日志、租期和前台服务。并发 cold bind 只构造一个 Runner；日志按 Job 独立排空；提交、取消、终态和清理均按原身份操作。权限失败不等于容量不足，业务失败也不授权重放或放宽权限。
 
 ## 手动终端与多会话
 
-developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。最多两个 live 手动会话；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。
+developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。最多两个 live 手动会话；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统可能导致业务结果竞争，但不因此全局互斥。四个 Job 与两个手动终端可并存；路径相同不自动串行，最终业务结果由用户和 LLM 验收。
 
 PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务、Binder 和 developer 渲染页面已接线；页面遇到缺口会换用新的解析器并提示。
 
@@ -62,7 +64,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 
 `PtySessionRecord`/`PtySessionStore` 已提供 Runtime 单写的持久身份和有界原子 CAS。启动意图先于 fork，未保存 PID 的中断也保持未知；停止证明与对账分开，未知/损坏记录不按空闲处理。生产会话 owner 已接线；记录本身不释放应用执行占用，宿主仍须按原身份对账。关闭方向复用锁定 PRoot 的 `--kill-on-exit` 与 SIGQUIT 清理 tracee，发送成功仍不等于停止；具体实现及设备边界见[生命周期切片](../evidence/development/hxa-197-session-lifecycle-2026-09-20.md)。
 
-产品路径为 `AppContainer.manualTerminal` → developer 应用服务 → 私有 `ProotTerminalService` → `ProotPtySession`。开启前转移共享执行占用，consumer 不装配入口；原身份 ACK 后才释放占用。只直接映射应用 Workspace 中的实际目录，手动租期默认两小时、最大八小时，断开后三十分钟空闲回收。终端元数据独立于 Runtime 安装目录保存；修复/回滚/删除与执行互斥。早期服务接线见[产品会话证据](../evidence/development/hxa-197-product-session-2026-09-20.md)，最终页面/恢复交付见下方当前章节。
+产品路径为 `AppContainer.manualTerminal` → developer 应用服务 → 私有 `ProotTerminalService` → `ProotPtySession`。开启前保存该终端自己的身份，consumer 不装配入口；原身份 ACK 后结算自己的绑定，不影响其他任务。只直接映射应用 Workspace 中的实际目录，手动租期默认两小时、最大八小时，断开后三十分钟空闲回收。终端元数据独立于 Runtime 安装目录保存；修复/回滚/删除与执行互斥。早期服务接线见[产品会话证据](../evidence/development/hxa-197-product-session-2026-09-20.md)，最终页面/恢复交付见下方当前章节。
 
 手动终端独立规定租期与空闲回收，不套 Goal 预算。接线前验证 PTY/native/rendering 版本和许可证；前台 PTY 可独立验收，不等待后台 Job。
 

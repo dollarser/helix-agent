@@ -48,7 +48,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * HXA-037 acceptance (verification-matrix row `:tools:framework:test`): the deterministic
  * Tool Scheduler — bounded platform-decided parallelism from EffectFootprints, the
- * exclusive barrier (first version: non-read-only calls serialize), queue-order fairness,
+ * engine-scoped coordination, overlapping reads/writes, queue-order fairness,
  * the call-sequence back-fill barrier (results in original order, completion out of
  * order), the resource gate (lower-only), cancellation (an unstarted call ends in the
  * durable CANCELLED_BEFORE_START; one failing item never cancels the others) and the
@@ -202,7 +202,7 @@ class ToolSchedulerTest {
     }
 
     @Test
-    fun sharedResourceKeysSerializeReadOnlyCalls() {
+    fun sharedUserResourceKeysDoNotSerializeReadOnlyCalls() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
         register("r.f1", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
@@ -211,11 +211,11 @@ class ToolSchedulerTest {
         val scheduler = ToolScheduler(clock, dispatcher, registry, resourceKeyExtractor = extractor)
         val batch = scheduler.scheduleBatch(listOf(call("call-1", "r.f1"), call("call-2", "r.f2")))
         assertNull(batch.error)
-        assertEquals("same resource key must serialize", 1, maxSeen.get())
+        assertEquals("user-file conflict is not a harness result lock", 2, maxSeen.get())
     }
 
     @Test
-    fun exclusiveCallsAreAFullBarrierEvenBelowTheCap() {
+    fun writesOverlapWithinCapacityWithoutChangingAuthorization() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
         // One read + two writes: the writes are exclusive (first version: full barrier).
@@ -240,7 +240,7 @@ class ToolSchedulerTest {
                 listOf(call("call-r", "r.x"), call("call-w1", "w.y"), call("call-w2", "w.z")),
             )
         assertNull(batch.error)
-        assertEquals("exclusive calls never overlap", 1, maxSeen.get())
+        assertEquals("writes may overlap within physical capacity", 2, maxSeen.get())
     }
 
     @Test
@@ -270,8 +270,7 @@ class ToolSchedulerTest {
         )
         // Two cards, with DIFFERENT binding hashes despite identical tool + args.
         assertEquals(2, broker.acquireCalls.size)
-        assertEquals("call-b1", broker.acquireCalls[0].binding.toolCallId)
-        assertEquals("call-b2", broker.acquireCalls[1].binding.toolCallId)
+        assertEquals(setOf("call-b1", "call-b2"), broker.acquireCalls.map { it.binding.toolCallId }.toSet())
         assertNotEquals(
             "identical tool + args in one batch are still distinct bindings",
             broker.acquireCalls[0].binding.hash,
@@ -342,7 +341,7 @@ class ToolSchedulerTest {
     }
 
     @Test
-    fun quickJsLaneSerializesAcrossTools() {
+    fun isolatedQuickJsCallsOverlapWithinCapacity() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
         register("js.a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
@@ -356,7 +355,7 @@ class ToolSchedulerTest {
                 ),
             )
         assertNull(batch.error)
-        assertEquals("same Runtime lane must serialize", 1, maxSeen.get())
+        assertEquals("isolated instances must not share a global lane", 2, maxSeen.get())
     }
 
     // ------------------------------------------------------------------ budget / gate / fairness
@@ -759,7 +758,7 @@ class ToolSchedulerTest {
                 emptySet(),
                 emptySet(),
                 emptySet(),
-                false,
+                emptySet(),
             )
         assertEquals(true, claim.invoke(scheduler, "held", footprint))
         armed = true
@@ -777,7 +776,7 @@ class ToolSchedulerTest {
     }
 
     @Test
-    fun queuedWriteSeparatesReadsAndTheLaterReadObservesItsValue() {
+    fun dependentReadInALaterBatchObservesCompletedWrite() {
         val firstStarted = CountDownLatch(1)
         val releaseFirst = CountDownLatch(1)
         val value = AtomicInteger()
@@ -810,7 +809,6 @@ class ToolSchedulerTest {
                         listOf(
                             call("before", "r.before"),
                             call("write", "w.change"),
-                            call("after", "r.after"),
                         ),
                     ),
                 )
@@ -821,6 +819,8 @@ class ToolSchedulerTest {
             val batch = result.get(5, TimeUnit.SECONDS)
             assertNull(batch.firstError)
             assertTrue(batch.outcomes.all { it is ToolDispatchOutcome.Succeeded })
+            val next = scheduler.scheduleBatch(listOf(call("after", "r.after")))
+            assertTrue(next.outcomes.single() is ToolDispatchOutcome.Succeeded)
             assertEquals(42, observed.get())
         } finally {
             releaseFirst.countDown()
@@ -871,7 +871,7 @@ class ToolSchedulerTest {
     }
 
     @Test
-    fun aBatchBlockedOnAnExclusiveWriteIsWokenByAnotherBatchsRelease() {
+    fun independentBatchContinuesWhileAnotherWriteIsStillRunning() {
         val a1Started = CountDownLatch(1)
         val bGo = CountDownLatch(1)
         val hold = CountDownLatch(1)
@@ -894,9 +894,9 @@ class ToolSchedulerTest {
                 bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "w.z"))))
             }
         bGo.countDown()
-        Thread.sleep(150) // let B reach the admission wait
+        assertTrue(bResult.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
         synchronized(starts) {
-            assertEquals("only a-1 may run while it holds the exclusive lane", listOf("a-1"), starts.toList())
+            assertEquals("unrelated writes complete while a-1 is held", setOf("a-1", "a-2", "b-1"), starts.toSet())
         }
         hold.countDown()
         a.join(10_000)
@@ -1008,14 +1008,15 @@ class ToolSchedulerTest {
 
     private class ScriptedBroker : ApprovalBroker {
         val scripted = ArrayDeque<ApprovalAcquisition>()
-        val acquireCalls = mutableListOf<ApprovalRequest>()
-        val consumeCalls = mutableListOf<ApprovalProof>()
-        val reMintCalls = mutableListOf<ApprovalProof>()
+        val acquireCalls = CopyOnWriteArrayList<ApprovalRequest>()
+        val consumeCalls = CopyOnWriteArrayList<ApprovalProof>()
+        val reMintCalls = CopyOnWriteArrayList<ApprovalProof>()
 
         fun script(vararg acquisitions: ApprovalAcquisition) {
             scripted.addAll(acquisitions)
         }
 
+        @Synchronized
         override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
             acquireCalls += request
             check(scripted.isNotEmpty()) { "scheduler test broker scripted empty" }
@@ -1114,7 +1115,8 @@ class ToolSchedulerTest {
             },
         )
         broker.script(ApprovalAcquisition.Approved(ApprovalProof("first", "a".repeat(64))))
-        val scheduler = ToolScheduler(clock, dispatcher, registry)
+        // Force an actual queue by physical capacity, not by the superseded write barrier.
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1)
         val result =
             CompletableFuture.supplyAsync {
                 scheduler.scheduleBatch(listOf(call("first", "blocking"), call("second", "queued")))

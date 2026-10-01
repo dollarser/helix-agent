@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="provider_form_scroll_more">Scroll down for more settings</string>
+    <string name="provider_name_required">Enter a service name.</string>
+    <string name="provider_endpoint_required">Enter a service address, such as https://api.example.com/v1.</string>
+    <string name="provider_model_required">Enter a model ID, or fetch the model list and select at least one model.</string>
+    <string name="provider_header_name_required">A header value is present. Enter its name, or clear both fields.</string>
+    <string name="provider_header_value_required">Enter a header value, or clear both fields.</string>
+    <string name="provider_model_selection_mismatch">The entered model ID is not selected. Select it, or clear the entry to use your selected models.</string>
+    <string name="provider_model_selection_invalid">Invalid model selection: choose at most 1024 models, with each ID at most 256 characters and no spaces or control characters. Correct the ID or select models again.</string>
+</resources>

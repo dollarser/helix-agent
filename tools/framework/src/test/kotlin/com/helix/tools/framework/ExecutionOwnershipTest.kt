@@ -14,14 +14,14 @@ import java.time.Instant
 
 class ExecutionOwnershipTest {
     private class MemoryStore : ExecutionOwnership.Store {
-        var owner: ExecutionOwnership.Owner? = null
+        var owner: Set<ExecutionOwnership.Owner> = emptySet()
         var failWrite = false
 
-        override fun read() = owner
+        override fun owners() = owner
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean {
             if (failWrite) throw IOException("storage unavailable")
             if (owner != expected) return false
@@ -36,10 +36,10 @@ class ExecutionOwnershipTest {
         val store = MemoryStore()
         val firstHost = ExecutionOwnership(store)
         requireNotNull(firstHost.acquire("start")).use { assertTrue(it.retain(owner)) }
-        assertNull(firstHost.acquire("other-session-write"))
+        requireNotNull(firstHost.acquire("other-session-write")).close()
         val nextHost = ExecutionOwnership(store)
-        assertEquals(owner, nextHost.retainedOwner())
-        assertNull(nextHost.acquire("after-host-death"))
+        assertEquals(owner, nextHost.retainedOwners().singleOrNull())
+        requireNotNull(nextHost.acquire("after-host-death")).close()
         assertTrue(nextHost.settle(owner))
         requireNotNull(nextHost.acquire("after-terminal-proof")).close()
     }
@@ -49,31 +49,31 @@ class ExecutionOwnershipTest {
         val gate = ExecutionOwnership(store)
         requireNotNull(gate.acquire("start")).use { assertTrue(it.retain(owner)) }
         assertFalse(gate.settle(owner.copy(generation = "older")))
-        assertEquals(owner, gate.retainedOwner())
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
         assertTrue(gate.settle(owner))
         val replacement = owner.copy(generation = "new")
         requireNotNull(gate.acquire("next")).use { assertTrue(it.retain(replacement)) }
         assertFalse(gate.settle(owner))
-        assertEquals(replacement, gate.retainedOwner())
+        assertEquals(replacement, gate.retainedOwners().singleOrNull())
     }
 
-    @Test fun transferRequiresExclusiveAdmissionAndCannotReplaceAnOwner() {
+    @Test fun independentLaunchesRetainTheirOwnIdentitiesWithoutExcludingWriters() {
         val gate = ExecutionOwnership(MemoryStore())
-        requireNotNull(gate.acquire("reader", exclusive = false)).use { reader ->
-            requireNotNull(gate.acquire("other-reader", exclusive = false)).use {
-                assertFalse(reader.retain(owner))
-            }
-            assertFalse(reader.retain(owner))
-            assertNull(gate.acquire("writer"))
-        }
+        val other = owner.copy(executionId = "other")
         requireNotNull(gate.acquire("first")).use { first ->
-            assertNull(gate.acquire("second"))
-            assertTrue(first.retain(owner))
-            assertTrue(first.retain(owner))
-            assertFalse(gate.settle(owner))
-            assertFalse(first.retain(owner.copy(executionId = "another")))
+            requireNotNull(gate.acquire("second")).use { second ->
+                assertTrue(first.retain(owner))
+                assertTrue(first.retain(owner))
+                assertTrue(second.retain(other))
+                assertFalse(first.retain(other))
+                assertFalse(gate.settle(owner))
+                requireNotNull(gate.acquire("writer")).close()
+            }
         }
-        assertNull(gate.acquire("third"))
+        assertEquals(setOf(owner, other), gate.retainedOwners())
+        assertTrue(gate.settle(owner))
+        assertEquals(setOf(other), gate.retainedOwners())
+        requireNotNull(gate.acquire("third")).close()
     }
 
     @Test fun storageFailureDoesNotAuthorizeTransferAndFailedReleaseKeepsOwner() {
@@ -87,7 +87,7 @@ class ExecutionOwnershipTest {
         }
         store.failWrite = true
         assertThrows(IOException::class.java) { gate.settle(owner) }
-        assertNull(gate.acquire("blocked"))
+        requireNotNull(gate.acquire("blocked")).close()
     }
 
     @Test fun ordinaryCloseIsIdempotentAndClosedPermitCannotTransfer() {
@@ -122,14 +122,14 @@ class ExecutionOwnershipTest {
                 }
             }
         assertTrue(gate.guard(implementation).execute(call()) is ToolExecutorResult.Completed)
-        assertEquals(owner, gate.retainedOwner())
-        assertNull(gate.acquire("next-call"))
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
+        requireNotNull(gate.acquire("next-call")).close()
         assertTrue(gate.settle(owner))
     }
 
-    @Test fun blockedAndCancelledCallsNeverEnterExecutor() {
+    @Test fun capacityExhaustedAndCancelledCallsNeverEnterExecutor() {
         val gate = ExecutionOwnership(MemoryStore())
-        requireNotNull(gate.acquire("start")).use { assertTrue(it.retain(owner)) }
+        val occupied = List(32) { requireNotNull(gate.acquire("occupied-$it")) }
         var executed = false
         val implementation =
             object : ToolExecutor {
@@ -147,6 +147,7 @@ class ExecutionOwnershipTest {
             }
         assertEquals(ToolExecutorResult.Cancelled, executor.execute(call().copy(cancel = cancellation)))
         assertFalse(executed)
+        occupied.forEach { it.close() }
     }
 
     @Test fun reconciliationCannotRaceLauncherOrUseAnotherGeneration() {
@@ -159,18 +160,20 @@ class ExecutionOwnershipTest {
         requireNotNull(gate.acquireReconciliation(owner)).use {
             assertNull(gate.acquireReconciliation(owner))
             assertFalse(gate.settle(owner))
-            assertNull(gate.acquire("writer"))
+            requireNotNull(gate.acquire("writer")).close()
         }
-        assertEquals(owner, gate.retainedOwner())
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
     }
 
-    @Test fun settlementKeepsAdmissionUntilResultImporterExits() {
+    @Test fun settlementProtectsOnlyOriginalControlUntilImporterExits() {
         val gate = ExecutionOwnership(MemoryStore())
         requireNotNull(gate.acquire("start")).use { assertTrue(it.retain(owner)) }
         val reconciliation = requireNotNull(gate.acquireReconciliation(owner))
         assertTrue(reconciliation.settle())
-        assertNull(gate.retainedOwner())
-        assertNull(gate.acquire("racing-writer"))
+        assertNull(gate.retainedOwners().singleOrNull())
+        val sameControl = gate.controlExecutor({ owner }) { _, _ -> error("duplicate importer") }
+        assertTrue(gate.guard(sameControl).execute(call()) is ToolExecutorResult.Failed)
+        requireNotNull(gate.acquire("racing-writer")).close()
         reconciliation.close()
         reconciliation.close()
         assertThrows(IllegalStateException::class.java) { reconciliation.settle() }
@@ -185,7 +188,7 @@ class ExecutionOwnershipTest {
             store.failWrite = true
             assertThrows(IOException::class.java) { it.settle() }
         }
-        assertNull(gate.acquire("writer"))
+        requireNotNull(gate.acquire("writer")).close()
         store.failWrite = false
         requireNotNull(gate.acquireReconciliation(owner)).use { assertTrue(it.settle()) }
         requireNotNull(gate.acquire("writer")).close()
@@ -196,13 +199,13 @@ class ExecutionOwnershipTest {
         requireNotNull(gate.acquire("start")).use { it.retain(owner) }
         val control =
             gate.controlExecutor({ owner }) { _, permit ->
-                assertNull(gate.acquire("writer"))
+                requireNotNull(gate.acquire("writer")).close()
                 assertTrue(requireNotNull(permit).settle())
-                assertNull(gate.acquire("writer-after-settlement"))
+                requireNotNull(gate.acquire("writer-after-settlement")).close()
                 ToolExecutorResult.Completed(buildJsonObject {})
             }
         assertTrue(control.execute(call()) is ToolExecutorResult.Failed)
-        assertEquals(owner, gate.retainedOwner())
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
         assertTrue(gate.guard(control).execute(call()) is ToolExecutorResult.Completed)
         requireNotNull(gate.acquire("writer")).close()
     }
@@ -217,16 +220,16 @@ class ExecutionOwnershipTest {
         assertTrue(gate.guard(foreign).execute(call()) is ToolExecutorResult.Failed)
         val failed = gate.controlExecutor({ owner }) { _, _ -> throw IOException("IPC unavailable") }
         assertThrows(IOException::class.java) { gate.guard(failed).execute(call()) }
-        assertEquals(owner, gate.retainedOwner())
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
         requireNotNull(gate.acquireReconciliation(owner)).close()
     }
 
-    @Test fun alreadySettledControlStillUsesOrdinaryAdmission() {
+    @Test fun alreadySettledControlDoesNotBlockUnrelatedExecution() {
         val gate = ExecutionOwnership(MemoryStore())
         val control =
             gate.controlExecutor({ owner }) { _, permit ->
                 assertNull(permit)
-                assertNull(gate.acquire("writer"))
+                requireNotNull(gate.acquire("writer")).close()
                 ToolExecutorResult.Completed(buildJsonObject {})
             }
         assertTrue(gate.guard(control).execute(call()) is ToolExecutorResult.Completed)
@@ -255,7 +258,7 @@ class ExecutionOwnershipTest {
             assertFalse(gate.releaseUnsubmittedForCall("start", owner.copy(generation = "foreign")))
             assertThrows(IllegalStateException::class.java) { gate.releaseUnsubmittedForCall("other", owner) }
             assertTrue(gate.releaseUnsubmittedForCall("start", owner))
-            assertNull(gate.acquire("writer"))
+            requireNotNull(gate.acquire("writer")).close()
         }
         requireNotNull(gate.acquire("writer")).close()
         assertThrows(IllegalStateException::class.java) { gate.releaseUnsubmittedForCall("start", owner) }
@@ -280,10 +283,10 @@ class ExecutionOwnershipTest {
             assertTrue(gate.guard(metadata).execute(bound) is ToolExecutorResult.Completed)
         }
         assertEquals(2, calls)
-        assertEquals(owner, gate.retainedOwner())
-        assertNull(gate.acquire("ordinary-write"))
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
+        requireNotNull(gate.acquire("ordinary-write")).close()
         assertTrue(
-            gate.guard(implementation).execute(bound.copy(toolName = "goal.report")) is ToolExecutorResult.Failed,
+            gate.guard(implementation).execute(bound.copy(toolName = "goal.report")) is ToolExecutorResult.Completed,
         )
     }
 
@@ -322,14 +325,14 @@ class ExecutionOwnershipTest {
         requireNotNull(gate.acquire("launch")).use {
             assertTrue(it.retain(owner))
         }
-        assertEquals(owner, gate.retainedOwner())
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
 
         val replacement = ExecutionOwnership.Owner("second-exec", "second-gen")
         val wrongOwner = ExecutionOwnership.Owner("wrong-exec", "wrong-gen")
 
         // Mismatch fails
         assertFalse(gate.transferRetained(wrongOwner, replacement))
-        assertEquals(owner, gate.retainedOwner())
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
 
         // Reconciling admission prevents transfer
         requireNotNull(gate.acquireReconciliation(owner)).use {
@@ -338,8 +341,8 @@ class ExecutionOwnershipTest {
 
         // Matching owner with no active admission succeeds
         assertTrue(gate.transferRetained(owner, replacement))
-        assertEquals(replacement, gate.retainedOwner())
-        assertNull(gate.acquire("writer"))
+        assertEquals(replacement, gate.retainedOwners().singleOrNull())
+        requireNotNull(gate.acquire("writer")).close()
 
         // Storage failure propagates
         store.failWrite = true

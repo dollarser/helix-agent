@@ -8,33 +8,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WorkspaceCleanupAdmissionTest {
-    @Test fun liveCallAndRetainedJobBothPreventCleanupUntilSettlement() {
+    @Test fun explicitWorkspaceCleanupDoesNotLockUnrelatedExecutions() {
         val store = MemoryStore()
         val gate = ExecutionOwnership(store)
         val cleanup = WorkspaceCleanupAdmission(gate)
         var deletions = 0
         val job = ExecutionOwnership.Owner("job", "generation")
         requireNotNull(gate.acquire("launch")).use { permit ->
-            assertThrows(IllegalStateException::class.java) { cleanup.run { deletions++ } }
+            cleanup.run { deletions++ }
             assertTrue(permit.retain(job))
         }
-        assertThrows(IllegalStateException::class.java) { cleanup.run { deletions++ } }
+        cleanup.run { deletions++ }
         val reopened = ExecutionOwnership(store)
-        assertThrows(IllegalStateException::class.java) {
-            WorkspaceCleanupAdmission(reopened).run { deletions++ }
-        }
-        assertEquals(0, deletions)
-        assertEquals(job, reopened.retainedOwner())
+        WorkspaceCleanupAdmission(reopened).run { deletions++ }
+        assertEquals(3, deletions)
+        assertEquals(job, reopened.retainedOwners().singleOrNull())
         assertTrue(reopened.settle(job))
         WorkspaceCleanupAdmission(reopened).run { deletions++ }
-        assertEquals(1, deletions)
+        assertEquals(4, deletions)
     }
 
-    @Test fun cleanupExcludesNewLaunchAndReleasesAdmissionAfterFailure() {
+    @Test fun cleanupAllowsNewLaunchAndReleasesItsOwnAdmissionAfterFailure() {
         val gate = ExecutionOwnership(MemoryStore())
         assertThrows(IllegalArgumentException::class.java) {
             WorkspaceCleanupAdmission(gate).run {
-                assertNull(gate.acquire("new-launch"))
+                requireNotNull(gate.acquire("new-launch")).close()
                 throw IllegalArgumentException("identity changed")
             }
         }
@@ -42,13 +40,13 @@ class WorkspaceCleanupAdmissionTest {
     }
 
     private class MemoryStore : ExecutionOwnership.Store {
-        private var owner: ExecutionOwnership.Owner? = null
+        private var owner: Set<ExecutionOwnership.Owner> = emptySet()
 
-        override fun read() = owner
+        override fun owners() = owner
 
-        override fun compareAndSet(
-            expected: ExecutionOwnership.Owner?,
-            replacement: ExecutionOwnership.Owner?,
+        override fun update(
+            expected: Set<ExecutionOwnership.Owner>,
+            replacement: Set<ExecutionOwnership.Owner>,
         ): Boolean {
             if (owner != expected) return false
             owner = replacement

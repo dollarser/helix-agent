@@ -551,11 +551,14 @@ internal class ChatToolCalls(
         descriptor: ToolDescriptor?,
         modelIntent: String?,
     ): PreparedToolCall? {
-        val unresolved =
-            UnresolvedEffectPolicy.hasUnresolvedEffects(storage, turn.sessionId) ||
-                com.helix.app.engine.AutomaticRecoveryPolicy
-                    .isInspection(turn)
-        if (descriptor == null || UnresolvedEffectPolicy.permits(unresolved, descriptor.operationClass)) return null
+        val inspection =
+            com.helix.app.engine.AutomaticRecoveryPolicy
+                .isInspection(turn)
+        if (descriptor == null ||
+            UnresolvedEffectPolicy.permitsInspection(inspection, descriptor.operationClass)
+        ) {
+            return null
+        }
         val denied =
             outcomeStore.persistPreDispatchDenied(
                 turn = turn,

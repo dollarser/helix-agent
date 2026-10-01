@@ -26,13 +26,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /** Explicit detached execution only; binding/querying alone never starts a foreground owner. */
+@Suppress("TooManyFunctions") // Service lifecycle and original-job admission remain one ownership boundary.
 class ProotDetachedJobService : Service() {
     private val generation = UUID.randomUUID().toString()
     private val monitor = Executors.newSingleThreadScheduledExecutor()
     private lateinit var runner: ProotJobRunner
     private lateinit var store: DetachedJobStore
 
-    @Volatile private var admission: Admission? = null
+    private val admissions = java.util.concurrent.ConcurrentHashMap<String, Admission>()
 
     private class Admission(
         val record: DetachedJobStore.Record,
@@ -56,7 +57,7 @@ class ProotDetachedJobService : Service() {
     override fun onCreate() {
         super.onCreate()
         runner = ProotJobRunner.get(this)
-        store = DetachedJobStore(ProotJobStore(ProotRuntimeInstaller.runtimeRoot(this)))
+        store = DetachedJobStore(runner.jobStore)
         monitor.scheduleWithFixedDelay({ tick() }, 100, 100, TimeUnit.MILLISECONDS)
     }
 
@@ -68,24 +69,24 @@ class ProotDetachedJobService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
-        val current = admission
+        val current = intent?.getStringExtra("jobId")?.let(admissions::get)
         if (current == null || intent?.getStringExtra("ticket") != current.token) {
-            if (current == null) stopSelf(startId)
+            if (admissions.isEmpty()) stopSelf(startId)
             return START_NOT_STICKY
         }
         try {
             val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
             startForeground(NOTIFICATION_ID, notification(current.record.binding.jobId), type)
-            if (admission === current) {
+            if (admissions[current.record.binding.jobId] === current) {
                 current.promoted = true
-            } else {
+            } else if (admissions.isEmpty()) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf(startId)
             }
         } catch (_: SecurityException) {
-            stopSelf(startId)
+            if (admissions.isEmpty()) stopSelf(startId)
         } catch (_: IllegalStateException) {
-            stopSelf(startId)
+            if (admissions.isEmpty()) stopSelf(startId)
         } finally {
             current.ready.countDown()
         }
@@ -93,12 +94,12 @@ class ProotDetachedJobService : Service() {
     }
 
     override fun onDestroy() {
-        admission?.let {
+        admissions.values.forEach {
             it.gate.cancel { runner.cancel(it.record.binding.jobId) ?: store.cancelUnsubmitted(it.record) }
             runner.releaseDetached(it.record.binding.jobId)
             it.ready.countDown()
         }
-        admission = null
+        admissions.clear()
         monitor.shutdownNow()
         super.onDestroy()
     }
@@ -153,7 +154,7 @@ class ProotDetachedJobService : Service() {
                 return
             }
             require(runner.query(binding.jobId) == null) { "Job identity already belongs to another execution" }
-            if (admission != null || !runner.reserveDetached(binding.jobId)) {
+            if (!runner.reserveDetached(binding.jobId)) {
                 reject(reply, ProotJobRefusal.EXECUTION_BUSY)
                 return
             }
@@ -166,12 +167,14 @@ class ProotDetachedJobService : Service() {
                     budget,
                 )
             val current = Admission(DetachedJobStore.Record(binding, lease, hash))
-            admission = current
+            admissions[binding.jobId] = current
             store.write(current.record)
             val identity = Binder.clearCallingIdentity()
             try {
                 startForegroundService(
-                    Intent(this, ProotDetachedJobService::class.java).putExtra("ticket", current.token),
+                    Intent(this, ProotDetachedJobService::class.java)
+                        .putExtra("ticket", current.token)
+                        .putExtra("jobId", binding.jobId),
                 )
             } finally {
                 Binder.restoreCallingIdentity(identity)
@@ -228,7 +231,7 @@ class ProotDetachedJobService : Service() {
         binding: DetachedJobBinding,
         handedOff: Boolean,
     ) {
-        val current = admission?.takeIf { it.record.binding == binding }
+        val current = admissions[binding.jobId]?.takeIf { it.record.binding == binding }
         if (handedOff && runner.query(binding.jobId) != null) {
             current?.submitted = true
             runner.cancel(binding.jobId)
@@ -250,7 +253,7 @@ class ProotDetachedJobService : Service() {
             if (code ==
                 DetachedJobProtocol.CANCEL
             ) {
-                val current = admission?.takeIf { it.record.binding == binding }
+                val current = admissions[binding.jobId]?.takeIf { it.record.binding == binding }
                 if (current == null) {
                     runner.cancel(binding.jobId)
                 } else {
@@ -272,11 +275,15 @@ class ProotDetachedJobService : Service() {
 
     @Suppress("TooGenericExceptionCaught")
     private fun tick() {
-        val current = admission ?: return
+        admissions.values.toList().forEach { current -> observe(current) }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun observe(current: Admission) {
         if (!current.submitted) return
         try {
             val record = runner.query(current.record.binding.jobId)
-            if (record?.state?.isTerminal == true) {
+            if (record?.state?.isTerminal == true && !runner.isJobRunning(current.record.binding.jobId)) {
                 release(current)
             } else if (current.record.lease.remainingMs(generation, SystemClock.elapsedRealtime()) == 0L) {
                 runner.expireDetached(current.record.binding.jobId)
@@ -289,12 +296,17 @@ class ProotDetachedJobService : Service() {
 
     @Synchronized
     private fun release(current: Admission) {
-        if (admission !== current) return
+        if (!admissions.remove(current.record.binding.jobId, current)) return
         runner.releaseDetached(current.record.binding.jobId)
         store.discardUnsubmitted(current.record.binding.jobId)
-        admission = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        val remaining = admissions.values.firstOrNull()
+        if (remaining == null) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } else if (remaining.promoted) {
+            getSystemService(NotificationManager::class.java)
+                .notify(NOTIFICATION_ID, notification(remaining.record.binding.jobId))
+        }
     }
 
     private fun reject(

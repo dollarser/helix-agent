@@ -19,7 +19,7 @@ data class JobLogPage(
 )
 
 /**
- * One worker drains a bounded queue independently of UI reads. Backpressure, quota and IO
+ * Each live spool has a worker draining its bounded queue independently of UI reads. Backpressure, quota and IO
  * failures stop the preview at a visible prefix; they never stop the process output pumps.
  * The process-local generation deliberately expires across Runtime death. Durable results
  * remain in the existing result store. Up to four 4 MiB spools = 16 MiB on disk.
@@ -27,7 +27,7 @@ data class JobLogPage(
 class JobLogSpool(
     private val root: File,
     private val executor: Executor =
-        Executors.newSingleThreadExecutor {
+        Executors.newFixedThreadPool(MAX_JOBS) {
             Thread(it, "proot-log").apply { isDaemon = true }
         },
     private val usableSpace: () -> Long = { root.usableSpace },

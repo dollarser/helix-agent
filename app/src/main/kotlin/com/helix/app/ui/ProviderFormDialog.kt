@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -17,14 +19,21 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
@@ -145,7 +154,32 @@ internal fun ProviderFormDialog(
         remember(form.fields.endpoint) {
             tryParseEndpoint(form.fields.endpoint)?.let { CleartextAuthorization.requiredFor(it) }
         }
-    val saveEnabled = !saving && !discovering && (cleartext == null || form.cleartextConfirmed)
+    val saveEnabled = !saving && !discovering
+    var saveAttempt by remember { mutableStateOf(0) }
+    val scroll = rememberScrollState()
+    val locations = remember { ProviderFormField.entries.associateWith { BringIntoViewRequester() } }
+    val focuses = remember { ProviderFormField.entries.associateWith { FocusRequester() } }
+    val invalidField = providerErrorField(form.error)
+
+    fun fieldModifier(
+        field: ProviderFormField,
+        tag: String,
+    ): Modifier =
+        Modifier
+            .bringIntoViewRequester(locations.getValue(field))
+            .focusRequester(focuses.getValue(field))
+            .testTag(tag)
+    LaunchedEffect(form.error, advanced, saveAttempt) {
+        val target = invalidField ?: return@LaunchedEffect
+        if (target == ProviderFormField.MODEL && form.providerId != null) return@LaunchedEffect
+        if (target in setOf(ProviderFormField.HEADER_NAME, ProviderFormField.HEADER_VALUE) && !advanced) {
+            advanced = true
+        } else {
+            withFrameNanos { }
+            locations.getValue(target).bringIntoView()
+            focuses.getValue(target).requestFocus()
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -156,179 +190,226 @@ internal fun ProviderFormDialog(
             )
         },
         text = {
-            Column(
-                modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (form.providerId == null) {
-                    localizedProviderNotes(form.template).forEach { note ->
-                        Text(
-                            stringResource(R.string.provider_template_note, note),
-                            modifier = Modifier.testTag("provider-template-guidance"),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = form.fields.name,
-                    onValueChange = { onField(form.copy(fields = form.fields.copy(name = it))) },
-                    label = { Text(stringResource(R.string.provider_form_name)) },
-                    singleLine = true,
-                    modifier = Modifier.testTag("provider-form-name"),
-                )
-                androidx.compose.foundation.layout.Box {
-                    TextButton(
-                        onClick = { protocolsOpen = true },
-                        enabled = !saving && !discovering,
-                        modifier = Modifier.testTag("provider-form-protocol"),
-                    ) {
-                        Text(stringResource(R.string.provider_form_protocol, UiLabels.protocolLabel(form.protocol)))
-                    }
-                    androidx.compose.material3.DropdownMenu(protocolsOpen, { protocolsOpen = false }) {
-                        listOf(
-                            com.helix.core.model.ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                            com.helix.core.model.ProviderProtocol.OPENAI_RESPONSES,
-                            com.helix.core.model.ProviderProtocol.ANTHROPIC_MESSAGES,
-                        ).forEach { protocol ->
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(UiLabels.protocolLabel(protocol)) },
-                                onClick = {
-                                    protocolsOpen = false
-                                    onField(form.copy(protocol = protocol, selectedModels = emptySet()))
-                                },
-                                modifier = Modifier.testTag("provider-protocol-${protocol.name}"),
+            Column(Modifier.heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f, fill = false)
+                            .fillMaxWidth()
+                            .formScrollIndicator(scroll, MaterialTheme.colorScheme.primary)
+                            .verticalScroll(scroll)
+                            .testTag("provider-form-scroll")
+                            .padding(end = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (form.providerId == null) {
+                        localizedProviderNotes(form.template).forEach { note ->
+                            Text(
+                                stringResource(R.string.provider_template_note, note),
+                                modifier = Modifier.testTag("provider-template-guidance"),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-                }
-                OutlinedTextField(
-                    value = form.fields.endpoint,
-                    onValueChange = { onField(form.copy(fields = form.fields.copy(endpoint = it))) },
-                    label = { Text(stringResource(R.string.provider_form_endpoint_label)) },
-                    singleLine = true,
-                    modifier = Modifier.testTag("provider-form-endpoint"),
-                )
-                OutlinedTextField(
-                    value = form.fields.apiKey,
-                    onValueChange = {
-                        onField(form.copy(fields = form.fields.copy(apiKey = it)))
-                    },
-                    label = {
-                        Text(
-                            if (form.hasStoredKey) {
-                                stringResource(R.string.provider_form_api_key_keep)
-                            } else {
-                                stringResource(R.string.provider_key_optional_label)
-                            },
-                        )
-                    },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.testTag("provider-form-key"),
-                )
-                TextButton(onClick = { advanced = !advanced }, modifier = Modifier.testTag("provider-form-advanced")) {
-                    Text(stringResource(R.string.provider_advanced_options))
-                }
-                if (advanced) {
                     OutlinedTextField(
-                        value = form.fields.headerName,
-                        onValueChange = {
-                            onField(form.copy(fields = form.fields.copy(headerName = it)))
-                        },
-                        label = { Text(stringResource(R.string.provider_form_header_name_label)) },
+                        value = form.fields.name,
+                        onValueChange = { onField(form.copy(fields = form.fields.copy(name = it))) },
+                        label = { Text(stringResource(R.string.provider_form_name)) },
                         singleLine = true,
+                        isError = invalidField == ProviderFormField.NAME,
+                        modifier = fieldModifier(ProviderFormField.NAME, "provider-form-name"),
                     )
-                    OutlinedTextField(
-                        value = form.fields.headerValue,
-                        onValueChange = {
-                            onField(form.copy(fields = form.fields.copy(headerValue = it)))
-                        },
-                        label = { Text(stringResource(R.string.provider_form_header_value_label)) },
-                        singleLine = true,
-                    )
-                }
-                if (form.providerId == null) {
-                    OutlinedTextField(
-                        value = form.fields.model,
-                        onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
-                        label = { Text(stringResource(R.string.provider_form_model_label)) },
-                        singleLine = true,
-                        modifier = Modifier.testTag("provider-form-model"),
-                    )
-                    TextButton(
-                        onClick = onDiscover,
-                        enabled = !discovering && !saving && (cleartext == null || form.cleartextConfirmed),
-                        modifier = Modifier.testTag("provider-discover-models"),
-                    ) {
-                        val label =
-                            if (discovering) {
-                                R.string.provider_discovering_models
-                            } else {
-                                R.string.provider_discover_models
+                    androidx.compose.foundation.layout.Box {
+                        TextButton(
+                            onClick = { protocolsOpen = true },
+                            enabled = !saving && !discovering,
+                            modifier = Modifier.testTag("provider-form-protocol"),
+                        ) {
+                            Text(
+                                stringResource(
+                                    R.string.provider_form_protocol,
+                                    UiLabels.protocolLabel(form.protocol),
+                                ),
+                            )
+                        }
+                        androidx.compose.material3.DropdownMenu(protocolsOpen, { protocolsOpen = false }) {
+                            listOf(
+                                com.helix.core.model.ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                                com.helix.core.model.ProviderProtocol.OPENAI_RESPONSES,
+                                com.helix.core.model.ProviderProtocol.ANTHROPIC_MESSAGES,
+                            ).forEach { protocol ->
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text(UiLabels.protocolLabel(protocol)) },
+                                    onClick = {
+                                        protocolsOpen = false
+                                        onField(form.copy(protocol = protocol, selectedModels = emptySet()))
+                                    },
+                                    modifier = Modifier.testTag("provider-protocol-${protocol.name}"),
+                                )
                             }
-                        Text(stringResource(label))
-                    }
-                    discoveryMessage?.let { Text(stringResource(it)) }
-                    discovery.forEach { model ->
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = model in form.selectedModels,
-                                onCheckedChange = { checked ->
-                                    val selected =
-                                        if (checked) {
-                                            form.selectedModels + model
-                                        } else {
-                                            form.selectedModels - model
-                                        }
-                                    val target =
-                                        form.fields.model.takeIf { it in selected }
-                                            ?: selected.firstOrNull().orEmpty()
-                                    val fields = form.fields.copy(model = target)
-                                    onField(form.copy(selectedModels = selected, fields = fields))
-                                },
-                                modifier = Modifier.testTag("provider-model-choice-$model"),
-                            )
-                            Text(model, Modifier.weight(1f))
                         }
                     }
-                } else {
-                    Text(stringResource(R.string.provider_models_source_settings_hint))
-                }
-                if (cleartext != null) {
-                    Text(
-                        stringResource(
-                            R.string.provider_cleartext_warning,
-                            cleartext.host,
-                            cleartext.port,
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
+                    OutlinedTextField(
+                        value = form.fields.endpoint,
+                        onValueChange = { onField(form.copy(fields = form.fields.copy(endpoint = it))) },
+                        label = { Text(stringResource(R.string.provider_form_endpoint_label)) },
+                        singleLine = true,
+                        isError = invalidField == ProviderFormField.ENDPOINT,
+                        modifier = fieldModifier(ProviderFormField.ENDPOINT, "provider-form-endpoint"),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = form.cleartextConfirmed,
-                            onCheckedChange = { onField(form.copy(cleartextConfirmed = it)) },
-                            modifier = Modifier.testTag("provider-cleartext-confirm"),
+                    OutlinedTextField(
+                        value = form.fields.apiKey,
+                        onValueChange = {
+                            onField(form.copy(fields = form.fields.copy(apiKey = it)))
+                        },
+                        label = {
+                            Text(
+                                if (form.hasStoredKey) {
+                                    stringResource(R.string.provider_form_api_key_keep)
+                                } else {
+                                    stringResource(R.string.provider_key_optional_label)
+                                },
+                            )
+                        },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.testTag("provider-form-key"),
+                    )
+                    TextButton(
+                        onClick = { advanced = !advanced },
+                        modifier = Modifier.testTag("provider-form-advanced"),
+                    ) {
+                        Text(stringResource(R.string.provider_advanced_options))
+                    }
+                    if (advanced) {
+                        OutlinedTextField(
+                            value = form.fields.headerName,
+                            onValueChange = {
+                                onField(form.copy(fields = form.fields.copy(headerName = it)))
+                            },
+                            label = { Text(stringResource(R.string.provider_form_header_name_label)) },
+                            singleLine = true,
+                            isError = invalidField == ProviderFormField.HEADER_NAME,
+                            modifier =
+                                fieldModifier(
+                                    ProviderFormField.HEADER_NAME,
+                                    "provider-form-header-name",
+                                ),
                         )
-                        Text(
-                            stringResource(R.string.provider_cleartext_confirm),
-                            style = MaterialTheme.typography.bodyMedium,
+                        OutlinedTextField(
+                            value = form.fields.headerValue,
+                            onValueChange = {
+                                onField(form.copy(fields = form.fields.copy(headerValue = it)))
+                            },
+                            label = { Text(stringResource(R.string.provider_form_header_value_label)) },
+                            singleLine = true,
+                            isError = invalidField == ProviderFormField.HEADER_VALUE,
+                            modifier =
+                                fieldModifier(
+                                    ProviderFormField.HEADER_VALUE,
+                                    "provider-form-header-value",
+                                ),
                         )
                     }
+                    if (form.providerId == null) {
+                        OutlinedTextField(
+                            value = form.fields.model,
+                            onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
+                            label = { Text(stringResource(R.string.provider_form_model_label)) },
+                            singleLine = true,
+                            isError = invalidField == ProviderFormField.MODEL,
+                            modifier = fieldModifier(ProviderFormField.MODEL, "provider-form-model"),
+                        )
+                        TextButton(
+                            onClick = onDiscover,
+                            enabled = !discovering && !saving && (cleartext == null || form.cleartextConfirmed),
+                            modifier = Modifier.testTag("provider-discover-models"),
+                        ) {
+                            val label =
+                                if (discovering) {
+                                    R.string.provider_discovering_models
+                                } else {
+                                    R.string.provider_discover_models
+                                }
+                            Text(stringResource(label))
+                        }
+                        discoveryMessage?.let { Text(stringResource(it)) }
+                        discovery.forEach { model ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = model in form.selectedModels,
+                                    onCheckedChange = { checked ->
+                                        val selected =
+                                            if (checked) {
+                                                form.selectedModels + model
+                                            } else {
+                                                form.selectedModels - model
+                                            }
+                                        val target =
+                                            form.fields.model.takeIf { it in selected }
+                                                ?: selected.firstOrNull().orEmpty()
+                                        val fields = form.fields.copy(model = target)
+                                        onField(form.copy(selectedModels = selected, fields = fields))
+                                    },
+                                    modifier = Modifier.testTag("provider-model-choice-$model"),
+                                )
+                                Text(model, Modifier.weight(1f))
+                            }
+                        }
+                    } else {
+                        Text(stringResource(R.string.provider_models_source_settings_hint))
+                    }
+                    if (cleartext != null) {
+                        Text(
+                            stringResource(
+                                R.string.provider_cleartext_warning,
+                                cleartext.host,
+                                cleartext.port,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = form.cleartextConfirmed,
+                                onCheckedChange = { onField(form.copy(cleartextConfirmed = it)) },
+                                modifier = fieldModifier(ProviderFormField.CLEARTEXT, "provider-cleartext-confirm"),
+                            )
+                            Text(
+                                stringResource(R.string.provider_cleartext_confirm),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+                if (scroll.canScrollForward) {
+                    Text(
+                        stringResource(R.string.provider_form_scroll_more),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("provider-form-scroll-hint"),
+                    )
                 }
                 form.error?.let { error ->
                     Text(
                         localizedString(error.res, error.args),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
+                        modifier =
+                            Modifier
+                                .testTag("provider-form-error")
+                                .semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = onSave,
+                onClick = {
+                    saveAttempt++
+                    onSave()
+                },
                 enabled = saveEnabled,
                 modifier = Modifier.testTag("provider-form-save"),
             ) {
@@ -404,14 +485,17 @@ private fun tryParseEndpoint(raw: String): NormalizedEndpoint? =
  * and the internal (English) exception message is never shown raw (doc 02
  * section 13).
  */
-@Suppress("SwallowedException")
+@Suppress("SwallowedException", "TooGenericExceptionCaught")
 internal suspend fun attemptSave(
     form: ProviderForm,
     providerService: ProviderService,
 ): SaveResult =
     try {
-        applySave(form, providerService)
-    } catch (e: IllegalArgumentException) {
+        validateProviderForm(form) ?: applySave(form, providerService)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (failure: Exception) {
+        // Storage/Keystore failures are not missing fields; never show credentials or raw exception bodies.
         SaveResult.Rejected(R.string.provider_save_failed)
     }
 

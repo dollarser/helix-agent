@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -16,6 +17,103 @@ import org.junit.Test
 
 class ProviderSettingsFormDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun overflowIsVisibleAndSaveExplainsMissingModel() {
+        val state =
+            mutableStateOf(
+                ProviderForm(
+                    null,
+                    ProviderTemplateCatalog.sglang,
+                    ProviderForm.FormFields("Server", "https://example.test/v1", "", "", "", ""),
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        compose.setContent {
+            MaterialTheme {
+                ProviderFormDialog(
+                    state.value,
+                    false,
+                    { state.value = it.copy(error = null) },
+                    { state.value = state.value.copy(error = validateProviderForm(state.value)) },
+                    {},
+                    discoveryState = ProviderFormDiscovery((1..30).map { "model-$it" }),
+                )
+            }
+        }
+        compose.onNodeWithTag("provider-form-scroll-hint").assertIsDisplayed()
+        compose.onNodeWithTag("provider-form-save").performClick()
+        compose.onNodeWithTag("provider-form-error").assertIsDisplayed()
+        compose.onNodeWithTag("provider-form-model").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(ProviderFormField.MODEL, providerErrorField(state.value.error)) }
+    }
+
+    @Test fun httpSaveRemainsClickableAndRevealsTheConsentControl() {
+        val state =
+            mutableStateOf(
+                ProviderForm(
+                    null,
+                    ProviderTemplateCatalog.sglang,
+                    ProviderForm.FormFields("Server", "http://example.test/v1", "model", "", "", ""),
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        compose.setContent {
+            MaterialTheme {
+                ProviderFormDialog(
+                    state.value,
+                    false,
+                    { state.value = it.copy(error = null) },
+                    {
+                        state.value =
+                            state.value.copy(
+                                error =
+                                    SaveResult.Rejected(com.helix.app.R.string.provider_cleartext_confirm_required),
+                            )
+                    },
+                    {},
+                )
+            }
+        }
+        compose.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
+        compose.onNodeWithTag("provider-form-error").assertIsDisplayed()
+        compose.onNodeWithTag("provider-cleartext-confirm").assertIsDisplayed().performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(state.value.cleartextConfirmed) }
+    }
+
+    @Test fun missingHeaderValueExpandsOptionsAndRepeatedSaveRefocusesIt() {
+        val state =
+            mutableStateOf(
+                ProviderForm(
+                    null,
+                    ProviderTemplateCatalog.sglang,
+                    ProviderForm.FormFields("Server", "https://example.test/v1", "model", "X-Feature", "", ""),
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        compose.setContent {
+            MaterialTheme {
+                ProviderFormDialog(
+                    state.value,
+                    false,
+                    { state.value = it.copy(error = null) },
+                    { state.value = state.value.copy(error = validateProviderForm(state.value)) },
+                    {},
+                )
+            }
+        }
+        compose.onNodeWithTag("provider-form-save").performClick()
+        compose.onNodeWithTag("provider-form-header-value").assertIsDisplayed().assertIsFocused()
+        compose.onNodeWithTag("provider-form-name").performScrollTo().performClick()
+        compose.onNodeWithTag("provider-form-save").performClick()
+        compose.onNodeWithTag("provider-form-error").assertIsDisplayed()
+        compose.onNodeWithTag("provider-form-header-value").assertIsDisplayed().assertIsFocused()
+    }
 
     @Test fun optionalKeyAndMultipleModelChoicesRemainEditable() {
         val state =

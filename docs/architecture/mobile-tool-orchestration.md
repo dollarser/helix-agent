@@ -1,7 +1,7 @@
 # Helix 手机端 Tool 编排架构
 
-文档状态：Baseline 1.4 补充规范
-基线日期：2026-09-03
+文档状态：Baseline 1.4 补充规范；并发契约已按 HXA-238 更新
+基线日期：2026-09-03；并发裁决日期：2026-10-02
 
 ## 1. 目标
 
@@ -14,8 +14,8 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | 外部编排能力 | Helix 建议 | 手机端落法 | 任务 |
 | --- | --- | --- | --- |
 | 统一 approval → execution target → attempt → verify → audit 管道 | **首版采纳** | Dispatcher 唯一入口；target 在 approval hash 中，失败不回退到低隔离执行域 | HXA-035 |
-| 参数级并发安全分类、读并行/写屏障 | **首版采纳** | 由 Helix 根据规范化参数生成 effect footprint；模型/MCP/A2A/Skill annotation 不能自报安全 | HXA-037 |
-| 有界并发池、取消与按模型顺序回填 | **首版采纳** | 默认并发 2，构造期硬上限 4；QuickJS/PRoot/Root/UI 动作各自单并发；完成时间单独审计，模型上下文按 call sequence 提交 | HXA-037 |
+| 有界并发与实际引擎协调 | **已调整** | HXA-238 不以读写类别、用户文件或 origin 阻止执行；仅不可重入引擎与内部提交必要同步，元数据不授予权限 | HXA-037 / HXA-238 |
+| 有界并发池、取消与按模型顺序回填 | **采纳并更新** | Scheduler 默认 2、硬上限 4；PRoot 最多四个 Job 与两个终端并存；原生 QuickJS 单例协调不限制独立 JS；结果按 call sequence 提交 | HXA-037 / HXA-238 |
 | model-visible ⇔ persisted/logged、回放恢复 | **首版采纳** | 任何进入模型的 ToolResult、用户回答、委托结果和 compaction summary 都必须可由持久事件重建 | HXA-035/037/102 |
 | 分阶段 timing、decision source、correlation ID | **首版采纳** | 记录 queue/approval/execution/verification 时间和 Policy/User/Recovery 来源，不记录敏感正文 | HXA-035/037 |
 | 结构化用户提问与迟到 receipt 拒绝 | **采纳** | 问题绑定 turn/request/version；已取消、已回答或状态变化后的答复不生效；提问不代替审批 | HXA-036/037 |
@@ -41,24 +41,24 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 ```kotlin
 data class EffectFootprint(
     val operationClass: ToolOperationClass,
-    val executionTargetId: ExecutionTargetId,
-    val scopeIds: Set<ScopeId>,
+    val executionTargetId: ExecutionTargetType,
+    val scopeIds: Set<String>,
     val resourceKeys: Set<String>,
     val originKeys: Set<String>,
-    val exclusive: Boolean,
+    val runtimeKeys: Set<String> = emptySet(),
 )
 ```
 
 `resourceKeys` 使用平台实现生成的稳定键，例如 Workspace canonical path、SAF document ID、browser tab/generation、Accessibility package/window、calendar/account、A2A agent/task 或 Runtime job lane。不能让模型、MCP/A2A annotation 或 Skill 的 `isConcurrencySafe=true` 直接决定并发。
 
-仅当两个调用都被证明为只读、effect footprint 不冲突、执行域允许并发且共享输出预算仍有余量时才能并行。任何未知 footprint、写入、删除、代码执行、Root、Accessibility 动作、同一浏览器 tab 动作或同一 Runtime lane 默认排他。多个写操作即使路径不同，首版也可保守串行；以后放宽需要竞争测试证据。
+HXA-238 按所有者裁决取消读写类别、同用户路径和同网络 origin 的全局屏障。`resourceKeys`/`originKeys` 保留描述用途，冲突判断只看不可重入引擎的 `runtimeKeys`；当前原生 QuickJS 单例携带 `engine:quickjs-native`，独立 JS 和普通 PRoot Job 不携带全局 lane 锁。存储短事务、原身份控制、权限/审批和物理容量仍有效。潜在业务结果冲突由用户与 LLM 验收；同一 batch 可以并发，需要先读到前项输出的依赖应由模型放在后续 batch，不由 Harness 推断业务依赖。
 
 ### 3.2 顺序与取消
 
 - 调度可以并行开始安全调用，但进入模型上下文的 ToolResult 必须按原始 `callId/sequence` 提交，避免完成速度改变推理历史。
 - 每次调用记录 `QUEUED → WAITING_APPROVAL → RUNNING → VERIFYING → terminal`；queue、审批等待、执行和验证耗时分开。
 - 用户取消后，未启动项得到持久 `CANCELLED_BEFORE_START` 结果；已启动项收到 cancel，并等待 terminal/unknown outcome 对账。不能直接丢弃行。
-- 一个并行项失败不自动取消已产生外部副作用的其他项；未启动的依赖项按 DAG/序列标为 `SKIPPED_DEPENDENCY`。
+- 一个并行项失败不自动取消其他项；当前普通 Tool batch 不新增 DAG 或自动推断业务依赖，模型在后续请求决定如何继续。
 - Scheduler 为每个调用保留独立 typed outcome 或异常原因；首个异常只用于 Turn 级传播，不能替其他槽位分类。无法证明未产生副作用的 contract throw 进入 `NEEDS_REVIEW`，同批或并发批次重复 `toolCallId` 在准入前失败关闭。
 - 内存压力、前后台切换或热限制可以降低并发到 1，但不能提高审批权限或改变结果顺序。
 

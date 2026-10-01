@@ -28,6 +28,29 @@ import kotlin.time.Duration.Companion.seconds
  * keys; nothing here can be influenced by the model, MCP annotations or Skills.
  */
 class EffectFootprintTest {
+    @Test fun onlyTheNativeSingletonEngineHasAPhysicalLane() {
+        val native =
+            EffectFootprintBuilder.build(
+                descriptor(),
+                json("""{"access":"native"}"""),
+                ExecutionTargetType.LOCAL_QUICKJS,
+                null,
+                null,
+                NoResourceKeys,
+            )
+        val isolated =
+            EffectFootprintBuilder.build(
+                descriptor(),
+                json("{}"),
+                ExecutionTargetType.LOCAL_QUICKJS,
+                null,
+                null,
+                NoResourceKeys,
+            )
+        assertTrue(native.conflictsWith(native))
+        assertFalse(native.conflictsWith(isolated))
+    }
+
     private fun json(raw: String): JsonObject = Json.parseToJsonElement(raw).jsonObject
 
     private fun descriptor(
@@ -74,12 +97,12 @@ class EffectFootprintTest {
                 null,
                 NoResourceKeys,
             )
-        assertFalse(fp.exclusive)
+        assertTrue(fp.runtimeKeys.isEmpty())
         assertEquals(ToolOperationClass.READ_ONLY, fp.operationClass)
     }
 
     @Test
-    fun nonReadOnlyIsAlwaysExclusive() {
+    fun writesAndCodeDoNotAcquireGlobalResultLocks() {
         for (op in listOf(
             ToolOperationClass.LOCAL_MUTATION,
             ToolOperationClass.NETWORK,
@@ -96,12 +119,12 @@ class EffectFootprintTest {
                     null,
                     NoResourceKeys,
                 )
-            assertTrue("$op must be exclusive", fp.exclusive)
+            assertTrue("$op must not impose a global result lock", fp.runtimeKeys.isEmpty())
         }
     }
 
     @Test
-    fun rootAndAccessibilityActionsAreExclusiveEvenWhenReadOnly() {
+    fun privilegedCapabilitiesDoNotImposeGlobalExclusivity() {
         for (cap in listOf(Capability.ROOT_SHELL, Capability.ACCESSIBILITY_AUTOMATION)) {
             val fp =
                 EffectFootprintBuilder.build(
@@ -112,12 +135,12 @@ class EffectFootprintTest {
                     null,
                     NoResourceKeys,
                 )
-            assertTrue("$cap action must be exclusive", fp.exclusive)
+            assertTrue("$cap authorization is not a global lock", fp.runtimeKeys.isEmpty())
         }
     }
 
     @Test
-    fun unknownDescriptorIsConservative() {
+    fun unknownDescriptorIsStillValidatedByDispatcherWithoutAGlobalLock() {
         // A descriptor the registry cannot resolve (null) must be treated as an
         // unknown effect: exclusive, never parallel.
         val fp =
@@ -129,14 +152,14 @@ class EffectFootprintTest {
                 null,
                 NoResourceKeys,
             )
-        assertTrue(fp.exclusive)
+        assertTrue(fp.runtimeKeys.isEmpty())
         assertEquals(ToolOperationClass.LOCAL_MUTATION, fp.operationClass)
     }
 
     // ------------------------------------------------------------------ lanes and keys
 
     @Test
-    fun quickJsPRootCliAndRootTargetsAreExclusiveLanes() {
+    fun runtimeTargetsDoNotImposeBlanketSingleExecutionLanes() {
         val targets =
             listOf(
                 ExecutionTargetType.LOCAL_QUICKJS to "lane:quickjs",
@@ -147,13 +170,13 @@ class EffectFootprintTest {
         for ((target, lane) in targets) {
             val fp =
                 EffectFootprintBuilder.build(descriptor(), json("{}"), target, null, null, NoResourceKeys)
-            assertTrue("$target must carry its lane key", lane in fp.resourceKeys)
-            assertFalse("$target stays non-exclusive for reads", fp.exclusive)
+            assertFalse("$target does not use a blanket lane key", lane in fp.resourceKeys)
+            assertTrue("$target has independent execution capacity", fp.runtimeKeys.isEmpty())
         }
     }
 
     @Test
-    fun sameLaneConflictsDifferentLanesDoNot() {
+    fun isolatedQuickJsInstancesDoNotConflict() {
         val a =
             EffectFootprintBuilder.build(
                 descriptor(),
@@ -181,13 +204,13 @@ class EffectFootprintTest {
                 null,
                 NoResourceKeys,
             )
-        assertTrue(a.conflictsWith(b))
+        assertFalse(a.conflictsWith(b))
         assertFalse(a.conflictsWith(c))
         assertFalse(c.conflictsWith(a))
     }
 
     @Test
-    fun resourceKeysFromTheExtractorDriveConflicts() {
+    fun userResourceKeysRemainFactsRatherThanResultLocks() {
         val sameKey = ResourceKeyExtractor { _, _ -> setOf("file:a.txt") }
         val otherKey = ResourceKeyExtractor { _, _ -> setOf("file:b.txt") }
         val a =
@@ -217,12 +240,12 @@ class EffectFootprintTest {
                 null,
                 otherKey,
             )
-        assertTrue(a.conflictsWith(b))
+        assertFalse(a.conflictsWith(b))
         assertFalse(a.conflictsWith(c))
     }
 
     @Test
-    fun egressOriginKeysSerializeParallelCallsToTheSameOrigin() {
+    fun egressOriginKeysDoNotSerializeIndependentRequests() {
         val a =
             EffectFootprintBuilder.build(
                 descriptor(),
@@ -250,13 +273,13 @@ class EffectFootprintTest {
                 null,
                 NoResourceKeys,
             )
-        assertTrue(a.conflictsWith(b))
+        assertFalse(a.conflictsWith(b))
         assertFalse(a.conflictsWith(c))
         assertEquals(setOf("https://api.example.com:443"), a.originKeys)
     }
 
     @Test
-    fun exclusiveConflictsWithEverything() {
+    fun codeExecutionDoesNotBlockUnrelatedReads() {
         val exclusive =
             EffectFootprintBuilder.build(
                 descriptor(operationClass = ToolOperationClass.CODE_EXECUTION),
@@ -275,8 +298,8 @@ class EffectFootprintTest {
                 null,
                 NoResourceKeys,
             )
-        assertTrue(exclusive.conflictsWith(plain))
-        assertTrue(plain.conflictsWith(exclusive))
+        assertFalse(exclusive.conflictsWith(plain))
+        assertFalse(plain.conflictsWith(exclusive))
     }
 
     @Test

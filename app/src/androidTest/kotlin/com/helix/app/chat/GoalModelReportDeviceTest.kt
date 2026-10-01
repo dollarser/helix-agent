@@ -300,14 +300,14 @@ class GoalModelReportDeviceTest {
                 )
             assertTrue(executor.execute(progress) is ToolExecutorResult.Completed)
             assertTrue(executor.execute(progress.copy(sessionId = "foreign")) is ToolExecutorResult.Failed)
-            assertNull(owner.acquire("file-write"))
+            requireNotNull(owner.acquire("file-write")).close()
             reservations.checkpointLease("lease", 100, 2000, terminal = true)
             assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Completed)
             report(s, "t", "complete")
             start.coordinator.beginModelStream()
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("COMPLETED", s.goals.resolve(goal).state)
-            assertTrue(owner.retainedOwner() != null)
+            assertTrue(owner.retainedOwners().singleOrNull() != null)
         }
 
     @Test fun lifecycleMetadataReadsAndReportsWithoutClosingPendingJob() =
@@ -347,7 +347,7 @@ class GoalModelReportDeviceTest {
                 )
             assertTrue(update.execute(call) is ToolExecutorResult.Failed)
             assertNull(s.goalRuns.resolve(start.runId).endedAt)
-            assertTrue(owner.retainedOwner() != null)
+            assertTrue(owner.retainedOwners().singleOrNull() != null)
         }
 
     private fun metadataOwner(): ExecutionOwnership =
@@ -355,11 +355,11 @@ class GoalModelReportDeviceTest {
             object : ExecutionOwnership.Store {
                 private val owner = ExecutionOwnership.Owner("job-execution", "job-generation")
 
-                override fun read() = owner
+                override fun owners() = setOf(owner)
 
-                override fun compareAndSet(
-                    expected: ExecutionOwnership.Owner?,
-                    replacement: ExecutionOwnership.Owner?,
+                override fun update(
+                    expected: Set<ExecutionOwnership.Owner>,
+                    replacement: Set<ExecutionOwnership.Owner>,
                 ): Boolean = error("Metadata cannot mutate the execution owner")
             },
         )

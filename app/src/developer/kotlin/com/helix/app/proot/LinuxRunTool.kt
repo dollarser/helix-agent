@@ -61,9 +61,9 @@ enum class LinuxRuntimeGate {
  * - [ToolOperationClass.CODE_EXECUTION]: current session effect rules determine approval.
  *   Required approval binds the exact call and never comes from model output.
  * - [ExecutionTargetType.LOCAL_PROOT]: the Policy Engine's `ISOLATED_RUNTIME_REQUIRES_ADVANCED`
- *   denial is the STANDARD-profile gate (ADR-0012); the framework's `lane:proot` serializes
- *   executions to single concurrency and CODE_EXECUTION is exclusive — two Linux calls
- *   never run in parallel and never overlap a file tool's effect window.
+ *   denial is the STANDARD-profile gate (ADR-0012). Independent jobs use bounded physical
+ *   capacity and may overlap terminal sessions or file tools. Shared output correctness
+ *   belongs to the caller, not a global runtime lane or implicit result lock.
  * - ADR-0049: trusted developer execution shares app data and network permissions.
  */
 object LinuxRunTool {

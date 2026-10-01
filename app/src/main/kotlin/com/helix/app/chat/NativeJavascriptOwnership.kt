@@ -22,7 +22,7 @@ internal class NativeJavascriptOwnership(
     }
 
     fun interruptedOwner(): ExecutionOwnership.Owner? =
-        ownership.retainedOwner()?.takeIf {
+        ownership.retainedOwners().singleOrNull {
             it.executionId.startsWith(PREFIX)
         }
 
