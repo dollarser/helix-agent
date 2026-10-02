@@ -42,6 +42,35 @@ def verify_http_network_config(app, config, resource_table=""):
         raise RuntimeError("HTTP unavailable or default TLS trust modified")
 
 
+def verify_mobile_use(app, developer, config=None, resource_table=""):
+    """HXA-243: inspect actual service metadata, not just a dependency or UI flag."""
+    name = "com.helix.tools.automation.HelixAccessibilityService"
+    services = [item for item in app.findall("service") if item.get(A + "name") == name]
+    if not developer:
+        if services or config is not None:
+            raise RuntimeError("Standard APK leaked Mobile Use service/capabilities")
+        return
+    if len(services) != 1 or config is None or config.tag != "accessibility-service":
+        raise RuntimeError("Missing Mobile Use service/capabilities")
+    service = services[0]
+    if service.get(A + "permission") != "android.permission.BIND_ACCESSIBILITY_SERVICE":
+        raise RuntimeError("Accessibility service is not system-permission protected")
+    if service.get(A + "exported") != "true":
+        raise RuntimeError("System cannot bind Accessibility service")
+    entries = [item for item in service.findall("meta-data")
+               if item.get(A + "name") == "android.accessibilityservice"]
+    reference = entries[0].get(A + "resource") if len(entries) == 1 else None
+    if reference != "@xml/helix_accessibility_service":
+        matches = re.findall(r"^\s*resource (0x[0-9a-fA-F]+) xml/helix_accessibility_service\s*$",
+                             resource_table, re.MULTILINE)
+        expected = "@ref/" + matches[0] if len(matches) == 1 else None
+        if expected is None or reference != expected:
+            raise RuntimeError("Accessibility metadata does not reference the inspected configuration")
+    for field in ("canRetrieveWindowContent", "canPerformGestures", "canTakeScreenshot"):
+        if config.get(A + field) != "true":
+            raise RuntimeError("Missing declared Mobile Use capability: " + field)
+
+
 def verify_media_payload(archive, developer):
     import hashlib
     import json
@@ -93,6 +122,12 @@ def verify(flavor, build_type):
     verify_http_network_config(app, network_config, resources)
     package = manifest.attrib["package"]
     developer = flavor == "developer"
+    mobile_config = None
+    if developer:
+        mobile_config = ET.fromstring(subprocess.check_output([
+            str(ANALYZER), "resources", "xml", "--file", "res/xml/helix_accessibility_service.xml", str(apk),
+        ]))
+    verify_mobile_use(app, developer, mobile_config, resources)
     assert package == "com.helix.agent" + (".developer" if developer else "")
     components = {element.get(A + "name"): element for element in app}
     for name, (kind, suffix) in COMPONENTS.items():
@@ -132,6 +167,8 @@ def verify(flavor, build_type):
     assert len(launchers) == 1, f"{flavor} has extra launcher"
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
+        if ("assets/plugins/mobile-use/plugin.json" in names) != developer:
+            raise RuntimeError("Incorrect channel for Mobile Use plugin manifest")
         verify_media_payload(archive, developer)
         assert ("assets/licenses/dsh-plugin-subscriptions.txt" in names) == developer
         assert not any(name.startswith("assets/companions/") or name.endswith(".apk") for name in names)
@@ -164,6 +201,7 @@ def verify(flavor, build_type):
             assert hashlib.sha256(archive.read(payload)).hexdigest() == rootfs["sha256"], "RootFS missing or mismatched"
             for asset in ("proot", "loader", "lib/libtalloc.so.2", "lib/libandroid-shmem.so"):
                 assert "assets/runtime/proot/" + asset in names, f"missing runtime input {asset}"
+    print(f"{flavor} {build_type}: Mobile Use service, scope channel and screenshot/gesture declarations verified")
     print(f"{flavor} {build_type}: APK components, process/UID contract, payloads, launcher and HTTP/TLS configuration verified")
 
 

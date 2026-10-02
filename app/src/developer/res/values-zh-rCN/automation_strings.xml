@@ -1,13 +1,13 @@
 <resources>
     <string name="automation_title">Mobile Use（开发者插件）</string>
-    <string name="automation_warning">先在系统中为 Mobile Use 显式启用无障碍服务，再填写允许的目标包。会话限时、限动作，并可立即停止。</string>
+    <string name="automation_warning">在系统中启用无障碍服务后，选择全手机或指定应用。默认直到停止，不限动作数；可自设额度，通知栏可随时停止。</string>
     <string name="automation_state">服务：%1$s · 会话：%2$s</string>
     <string name="automation_packages">允许的包名（逗号分隔）</string>
     <string name="automation_open_settings">打开无障碍设置</string>
     <string name="automation_start">开始会话</string>
     <string name="automation_stop">立即停止</string>
     <string name="automation_system_settings">仅本次会话允许操作系统设置和快捷设置</string>
-    <string name="automation_system_settings_detail">可能更改设备设置，仍须填写目标包名。会话结束即失效；逐次审批和敏感操作检查仍然生效。包含已安装系统组件：%1$s。</string>
+    <string name="automation_system_settings_detail">可能更改设备设置。指定应用模式会加入下列系统组件；全手机模式已包含系统界面。会话结束即失效，仍遵守当前工具授权：%1$s。</string>
     <string name="automation_paused">已暂停：%1$s</string>
     <string name="automation_resume_target">要返回的已授权目标包名</string>
     <string name="automation_resume">确认恢复</string>

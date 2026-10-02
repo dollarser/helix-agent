@@ -45,8 +45,9 @@ internal object AutomationModule {
     fun register(
         context: Context,
         plugins: PluginRegistry,
+        images: com.helix.tools.framework.ToolImagePublication,
     ) {
-        val mobileUse = runtime ?: MobileUsePlugin(context.applicationContext).also { runtime = it }
+        val mobileUse = runtime ?: MobileUsePlugin(context.applicationContext, images).also { runtime = it }
         if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(mobileUse)
         appContext = context.applicationContext
         center = mobileUse.permissionCenter
@@ -77,6 +78,9 @@ internal object AutomationModule {
         var resumePackage by remember { mutableStateOf("") }
         var recoveryResult by remember { mutableStateOf<Boolean?>(null) }
         var allowSystemSettings by remember { mutableStateOf(false) }
+        var allApplications by remember { mutableStateOf(false) }
+        var limitMinutes by remember { mutableStateOf("0") }
+        var limitActions by remember { mutableStateOf("0") }
         var startNotice by remember { mutableStateOf<Int?>(null) }
         var remainingSeconds by remember { mutableStateOf(0L) }
         LaunchedEffect(Unit) {
@@ -105,6 +109,37 @@ internal object AutomationModule {
                     if (sessionActive) "ACTIVE" else "INACTIVE",
                 ),
             )
+            Row {
+                Checkbox(
+                    checked = activeSession?.scope?.allApplications ?: allApplications,
+                    onCheckedChange = {
+                        allApplications = it
+                        startNotice = null
+                    },
+                    enabled = !sessionActive,
+                    modifier = Modifier.testTag("automation-all-applications"),
+                )
+                Text(stringResource(R.string.automation_whole_phone_label), Modifier.weight(1f))
+            }
+            Text(stringResource(R.string.automation_grant_explanation), style = MaterialTheme.typography.bodySmall)
+            Row {
+                OutlinedTextField(
+                    value = limitMinutes,
+                    onValueChange = { limitMinutes = it },
+                    label = { Text(stringResource(R.string.automation_budget_minutes)) },
+                    enabled = !sessionActive,
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("automation-budget-minutes"),
+                )
+                OutlinedTextField(
+                    value = limitActions,
+                    onValueChange = { limitActions = it },
+                    label = { Text(stringResource(R.string.automation_budget_actions)) },
+                    enabled = !sessionActive,
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("automation-budget-actions"),
+                )
+            }
             OutlinedTextField(
                 value = packages,
                 onValueChange = {
@@ -112,15 +147,15 @@ internal object AutomationModule {
                     startNotice = null
                 },
                 label = { Text(stringResource(R.string.automation_packages)) },
-                enabled = !sessionActive,
+                enabled = !sessionActive && !allApplications,
                 modifier = Modifier.fillMaxWidth().testTag("automation-packages"),
             )
             val settingsAuthorizationLabel = stringResource(R.string.automation_system_settings)
             Row {
                 Checkbox(
-                    checked = activeSession?.allowSystemSettings ?: allowSystemSettings,
+                    checked = activeSession?.allowSystemSettings ?: (allowSystemSettings || allApplications),
                     onCheckedChange = { allowSystemSettings = it },
-                    enabled = !sessionActive,
+                    enabled = !sessionActive && !allApplications,
                     modifier =
                         Modifier.testTag("automation-system-settings").semantics {
                             contentDescription = settingsAuthorizationLabel
@@ -176,10 +211,17 @@ internal object AutomationModule {
             activeSession?.let { active ->
                 Text(
                     stringResource(
-                        R.string.automation_remaining,
-                        remainingSeconds / 60,
-                        remainingSeconds % 60,
-                        (active.scope.maxActions - active.attemptedActions).coerceAtLeast(0),
+                        R.string.automation_lease_summary,
+                        if (active.scope.expiresAt == java.time.Instant.MAX) {
+                            stringResource(R.string.automation_until_stopped)
+                        } else {
+                            "${remainingSeconds / 60}:${(remainingSeconds % 60).toString().padStart(2, '0')}"
+                        },
+                        if (active.scope.maxActions == 0) {
+                            stringResource(R.string.automation_actions_unlimited, active.attemptedActions)
+                        } else {
+                            "${active.attemptedActions}/${active.scope.maxActions}"
+                        },
                     ),
                     Modifier.testTag("automation-remaining"),
                 )
@@ -201,19 +243,33 @@ internal object AutomationModule {
                         val raw = packages + if (allowSystemSettings) "," + settingsPackages.joinToString(",") else ""
                         val selected =
                             try {
-                                com.helix.tools.automation.AutomationTargetInput
-                                    .parse(raw)
+                                if (allApplications) {
+                                    emptySet()
+                                } else {
+                                    com.helix.tools.automation.AutomationTargetInput
+                                        .parse(
+                                            raw,
+                                        )
+                                }
                             } catch (_: IllegalArgumentException) {
                                 startNotice = R.string.automation_target_invalid
                                 null
                             }
                         if (selected != null) {
                             try {
-                                permissionCenter.replaceAllowlist(selected)
+                                val options =
+                                    com.helix.tools.automation.AutomationSessionOptions.parse(
+                                        limitMinutes,
+                                        limitActions,
+                                    )
+                                if (!allApplications) permissionCenter.replaceAllowlist(selected)
                                 val result =
                                     permissionCenter.startSession(
                                         selected,
+                                        ttl = options.ttl,
+                                        maxActions = options.maxActions,
                                         allowSystemSettings = allowSystemSettings,
+                                        allApplications = allApplications,
                                     )
                                 startNotice =
                                     when (result.status) {
@@ -236,6 +292,8 @@ internal object AutomationModule {
                                         }
                                     }
                                 if (result.session != null) allowSystemSettings = false
+                            } catch (_: IllegalArgumentException) {
+                                startNotice = R.string.automation_budget_invalid
                             } catch (_: Exception) {
                                 startNotice = R.string.automation_start_failed
                             }
@@ -250,6 +308,7 @@ internal object AutomationModule {
                         permissionCenter.stopSession()
                         activeSession = null
                         allowSystemSettings = false
+                        allApplications = false
                     },
                     enabled = sessionActive,
                     modifier = Modifier.testTag("automation-stop"),

@@ -35,6 +35,12 @@ internal class ToolVisionServices(
             resolveFileScopePath(path, roots).toFile()
         }
 
+    val imagePublisher: com.helix.tools.framework.ToolImagePublication by lazy {
+        WorkspaceToolImagePublisher(workspace, artifactSink, scopeId, preparation) { session, turn ->
+            storage.turns.resolve(turn).sessionId == session
+        }
+    }
+
     fun registerTools(
         registry: com.helix.tools.framework.ToolRegistry,
         browser: com.helix.feature.browser.BrowserController,

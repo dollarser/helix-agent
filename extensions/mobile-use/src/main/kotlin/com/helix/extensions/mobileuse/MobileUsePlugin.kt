@@ -18,6 +18,7 @@ import com.helix.tools.framework.ToolOrigin
  */
 class MobileUsePlugin(
     context: Context,
+    images: com.helix.tools.framework.ToolImagePublication,
 ) : HelixPlugin {
     override val manifest: PluginManifest =
         context.assets.open(MANIFEST_ASSET).use { PluginManifestReader.parse(it.readBytes()) }
@@ -31,6 +32,14 @@ class MobileUsePlugin(
             runtimeId = requireNotNull(manifest.helixRuntimeId) { "Mobile Use manifest has no Helix runtime binding" },
         )
     private val automation = AutomationTools(PermissionCenterAutomationToolPort(permissionCenter), origin)
+    private val device =
+        com.helix.tools.automation.AutomationDeviceTools(
+            com.helix.tools.automation
+                .PermissionCenterDevicePort(permissionCenter),
+            PermissionCenterAutomationToolPort(permissionCenter),
+            images,
+            origin,
+        )
 
     init {
         require(manifest.name == PLUGIN_ID) { "unexpected Mobile Use plugin id: ${manifest.name}" }
@@ -40,7 +49,10 @@ class MobileUsePlugin(
     override fun tools(): List<ToolBinding> =
         automation.descriptors().map { descriptor ->
             ToolBinding(descriptor, automation.executor(descriptor.name.value))
-        }
+        } +
+            device.descriptors().map { descriptor ->
+                ToolBinding(descriptor, device.executor(descriptor.name.value))
+            }
 
     fun scopeFor(toolName: String?): UserScope? =
         if (toolName?.startsWith("ui.") == true) permissionCenter.activeSession()?.scope else null

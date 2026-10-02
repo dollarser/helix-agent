@@ -35,9 +35,27 @@ enum class AutomationNodeAction {
     SCROLL_BACKWARD,
 }
 
-enum class AutomationGlobalAction {
-    BACK,
-    HOME,
+enum class AutomationGlobalAction(
+    val platformId: Int,
+) {
+    BACK(1),
+    HOME(2),
+    RECENTS(3),
+    NOTIFICATIONS(4),
+    QUICK_SETTINGS(5),
+    POWER_DIALOG(6),
+    TOGGLE_SPLIT_SCREEN(7),
+    LOCK_SCREEN(8),
+    DISMISS_NOTIFICATION_SHADE(15),
+    DPAD_UP(16),
+    DPAD_DOWN(17),
+    DPAD_LEFT(18),
+    DPAD_RIGHT(19),
+    DPAD_CENTER(20),
+    ALL_APPS(14),
+    HEADSET_HOOK(10),
+    MENU(21),
+    MEDIA_PLAY_PAUSE(22),
 }
 
 data class AutomationNodeActionRequest(
@@ -52,10 +70,8 @@ enum class AutomationActionStatus {
     SERVICE_NOT_CONNECTED,
     NO_ACTIVE_SESSION,
     SESSION_PAUSED,
-    CHECKPOINT_REQUIRED,
     ACTION_BUDGET_EXHAUSTED,
     TOKEN_UNKNOWN,
-    TOKEN_EXPIRED,
     STALE_TOKEN,
     TARGET_CHANGED,
     TARGET_NOT_ALLOWLISTED,
@@ -65,6 +81,7 @@ enum class AutomationActionStatus {
     INVALID_ARGUMENT,
     ACTION_FAILED,
     ACTION_OUTCOME_UNKNOWN,
+    ACTION_NOT_DISPATCHED,
 }
 
 data class AutomationActionResult(
@@ -81,6 +98,7 @@ enum class AutomationResumeStatus {
     TARGET_MISMATCH,
 }
 
+/** Protected platform data is not a keyword-based business policy. */
 internal fun interface SensitiveAutomationSemanticPolicy {
     fun isDenied(
         node: ObservedSnapshotNode,
@@ -88,108 +106,22 @@ internal fun interface SensitiveAutomationSemanticPolicy {
     ): Boolean
 
     companion object : SensitiveAutomationSemanticPolicy {
-        private val clickTerms =
-            setOf(
-                "pay",
-                "payment",
-                "transfer",
-                "purchase",
-                "buy now",
-                "send",
-                "publish",
-                "delete account",
-                "authorize",
-                "authorization",
-                "grant permission",
-                "allow install",
-                "enable root",
-                "支付",
-                "转账",
-                "购买",
-                "发送",
-                "发布",
-                "删除账号",
-                "删除账户",
-                "授权",
-                "允许安装",
-                "开启root",
-            )
-        private val textInputTerms =
-            setOf(
-                "password",
-                "passwd",
-                "passcode",
-                "pin",
-                "otp",
-                "cvv",
-                "verification code",
-                "authentication code",
-                "account number",
-                "card number",
-                "payment",
-                "transfer",
-                "密码",
-                "口令",
-                "验证码",
-                "认证码",
-                "银行卡",
-                "卡号",
-                "支付",
-                "转账",
-            )
-
         override fun isDenied(
             node: ObservedSnapshotNode,
             action: AutomationNodeAction?,
-        ): Boolean {
-            val semantics =
-                listOf(node.text, node.contentDescription, node.viewId, node.className)
-                    .filterNotNull()
-                    .joinToString(" ")
-                    .lowercase()
-            return when (action) {
-                AutomationNodeAction.CLICK,
-                AutomationNodeAction.LONG_CLICK,
-                -> {
-                    semantics.matchesSensitiveTerms(clickTerms)
-                }
-
-                AutomationNodeAction.SET_PROGRESS -> {
-                    semantics.matchesSensitiveTerms(clickTerms) || semantics.matchesSensitiveTerms(textInputTerms)
-                }
-
-                AutomationNodeAction.SET_TEXT -> {
-                    semantics.matchesSensitiveTerms(textInputTerms)
-                }
-
-                AutomationNodeAction.SCROLL_FORWARD,
-                AutomationNodeAction.SCROLL_BACKWARD,
-                -> {
-                    false
-                }
-
-                null -> {
-                    node.password || node.accessibilityDataSensitive
-                }
-            }
-        }
-
-        private fun String.matchesSensitiveTerms(terms: Set<String>): Boolean {
-            val asciiTokens = Regex("[a-z0-9]+").findAll(this).map { it.value }.toSet()
-            val normalizedPhrase = replace(Regex("[^a-z0-9\\p{IsHan}]+"), " ").trim()
-            return terms.any { term ->
-                when {
-                    term.any { it.code > 127 } -> contains(term)
-                    ' ' in term -> normalizedPhrase.contains(term)
-                    else -> term in asciiTokens
-                }
-            }
-        }
+        ): Boolean = node.password || node.accessibilityDataSensitive
     }
 }
 
+enum class AutomationWaitCondition { PRESENT, ABSENT, CHANGED, STABLE }
+
 enum class AutomationWaitStatus {
     FOUND,
+    ABSENT,
+    CHANGED,
+    STABLE,
+    CANCELLED,
+    INCOMPLETE_SNAPSHOT,
     TIMED_OUT,
     INVALID_ARGUMENT,
     SNAPSHOT_REFUSED,
@@ -198,4 +130,5 @@ enum class AutomationWaitStatus {
 data class AutomationWaitResult(
     val status: AutomationWaitStatus,
     val matches: List<AutomationSnapshotNode> = emptyList(),
+    val observation: AutomationSnapshotResult? = null,
 )

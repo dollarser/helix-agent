@@ -1,10 +1,7 @@
 package com.helix.tools.automation
 
-import com.helix.core.model.Clock
-import com.helix.core.model.SystemClock
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.time.Duration
 import java.time.Instant
 
 enum class AutomationSnapshotStatus {
@@ -50,6 +47,7 @@ data class AutomationSnapshotNode(
     val enabled: Boolean,
     val range: AutomationNodeRange? = null,
     val canSetProgress: Boolean = false,
+    val redacted: Boolean = false,
 )
 
 data class AutomationSnapshot(
@@ -79,7 +77,6 @@ internal data class NodeTokenBinding(
 internal enum class NodeTokenResolutionStatus {
     VALID,
     UNKNOWN,
-    EXPIRED,
     PACKAGE_MISMATCH,
     WINDOW_MISMATCH,
     GENERATION_MISMATCH,
@@ -94,7 +91,6 @@ internal data class NodeTokenResolution(
 internal enum class NodeTokenLookupStatus {
     VALID,
     UNKNOWN,
-    EXPIRED,
 }
 
 internal data class NodeTokenLookup(
@@ -107,17 +103,9 @@ internal data class NodeTokenLookup(
  * actions must reacquire the root and re-walk [NodeTokenBinding.path] before trusting a token.
  */
 internal class NodeTokenRegistry(
-    private val clock: Clock = SystemClock(),
-    private val tokenBytes: () -> ByteArray = {
-        ByteArray(TOKEN_BYTES).also(SecureRandom()::nextBytes)
-    },
+    private val tokenBytes: () -> ByteArray = { ByteArray(TOKEN_BYTES).also(SecureRandom()::nextBytes) },
 ) {
-    private data class Entry(
-        val binding: NodeTokenBinding,
-        val expiresAt: Instant,
-    )
-
-    private val entries = LinkedHashMap<String, Entry>()
+    private val entries = LinkedHashMap<String, NodeTokenBinding>()
 
     @Synchronized
     fun beginSnapshot() {
@@ -127,25 +115,18 @@ internal class NodeTokenRegistry(
     @Synchronized
     fun issue(binding: NodeTokenBinding): String {
         check(entries.size < MAX_TOKENS) { "snapshot token budget exceeded" }
-        val token = tokenBytes().toHex()
+        val token = tokenBytes().joinToString(separator = "") { "%02x".format(it) }
         check(token.length == TOKEN_BYTES * 2 && token !in entries) { "invalid or duplicate token" }
-        entries[token] = Entry(binding, clock.now().plus(TOKEN_TTL))
+        entries[token] = binding
         return token
     }
 
     @Synchronized
-    fun lookup(token: String): NodeTokenLookup {
-        val entry = entries[token] ?: return NodeTokenLookup(NodeTokenLookupStatus.UNKNOWN)
-        return if (!clock.now().isBefore(entry.expiresAt)) {
-            entries.remove(token)
-            NodeTokenLookup(NodeTokenLookupStatus.EXPIRED)
-        } else {
-            NodeTokenLookup(NodeTokenLookupStatus.VALID, entry.binding)
-        }
-    }
+    fun lookup(token: String): NodeTokenLookup =
+        entries[token]?.let { NodeTokenLookup(NodeTokenLookupStatus.VALID, it) }
+            ?: NodeTokenLookup(NodeTokenLookupStatus.UNKNOWN)
 
     @Synchronized
-    @Suppress("ReturnCount")
     fun resolve(
         token: String,
         packageName: String,
@@ -153,13 +134,7 @@ internal class NodeTokenRegistry(
         generation: Long,
         fingerprint: String,
     ): NodeTokenResolution {
-        val entry = entries[token] ?: return NodeTokenResolution(NodeTokenResolutionStatus.UNKNOWN)
-        val now = clock.now()
-        if (!now.isBefore(entry.expiresAt)) {
-            entries.remove(token)
-            return NodeTokenResolution(NodeTokenResolutionStatus.EXPIRED)
-        }
-        val binding = entry.binding
+        val binding = entries[token] ?: return NodeTokenResolution(NodeTokenResolutionStatus.UNKNOWN)
         val status =
             when {
                 binding.packageName != packageName -> NodeTokenResolutionStatus.PACKAGE_MISMATCH
@@ -176,12 +151,9 @@ internal class NodeTokenRegistry(
         entries.clear()
     }
 
-    private fun ByteArray.toHex(): String = joinToString(separator = "") { "%02x".format(it) }
-
     companion object {
         private const val TOKEN_BYTES = 16
         const val MAX_TOKENS = 200
-        val TOKEN_TTL: Duration = Duration.ofSeconds(30)
     }
 }
 

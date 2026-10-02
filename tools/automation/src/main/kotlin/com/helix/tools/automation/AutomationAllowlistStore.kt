@@ -3,8 +3,8 @@ package com.helix.tools.automation
 import android.content.Context
 
 /**
- * User-owned package allowlist for Accessibility automation (HXA-090). An empty set means that no
- * automation session can start. The model and Tool Registry have no reference to this store.
+ * User-owned application selection. Empty selections cannot start scoped automation;
+ * whole-phone access is a separate explicit user grant. The model never mutates this store.
  */
 interface AutomationAllowlistStore {
     fun packages(): Set<String>

@@ -162,50 +162,48 @@ Material Files 和 Amaze File Manager 只作为路径、冲突、长任务和 Ro
 
 ## 5. Accessibility 自动化
 
-### 5.1 定位
+### 5.1 定位与授权
 
-Accessibility Service 用于用户主动开启的跨 App UI 自动化。参考 Auto.js/AutoJs6 的节点查找、动作和等待模型，但 Helix 不内置可绕过 Policy 的通用 JavaScript 自动化环境，也不复制其源码。
+Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatcher、工具授权、视觉输入和会话产物，不拥有另一套规划或任务引擎。Standard/consumer 不打包其无障碍服务、手势或截图实现。
 
-启用流程：
+用户在系统中开启服务，再明确选择本次操作“全手机（包括系统界面）”或指定应用。全手机不是自动授予；工具参数不能打开、续签或扩大授权。指定应用可以单独纳入 Settings/SystemUI。默认许可直到用户停止、熄屏/锁屏、服务断开或进程结束，不再强制 5 分钟/30 次；用户可设置非负时间/动作上限，0 表示不限。有限动作预算记录的是尝试次数而非任务成功数。
 
-1. 用户阅读屏幕内容可见性、自动点击和潜在误操作说明。
-2. 跳转系统辅助功能设置，由用户手动开启 Helix 服务。
-3. Helix 验证 service connection，并让用户选择允许自动化的 App 包名。
-4. 每次运行创建有时限的 `AutomationSessionScope`，状态栏/前台通知提供立即停止入口。
+每次开始生成独立 grantId，完整到期精度参与 Scope 身份；旧审批不能覆盖新授权。到期定时器向上取整并复核当前 grant，长时间许可分段重查，不让旧回调停止新授权，也不通过 Handler 时间溢出提前结束。
 
 ### 5.2 工具与操作类型
 
-| Tool | 操作类型 | 说明 |
+| Tool | 操作类型 | 实际能力 |
 | --- | --- | --- |
-| `ui.snapshot` | READ_ONLY | 获取当前窗口的裁剪节点树和包名 |
-| `ui.find` | READ_ONLY | 当前实现先抓取新 snapshot 再匹配文本/属性；新观察替换先前 token |
-| `ui.click` | EXTERNAL_ACTION | node token + 预期包名/窗口 ID |
-| `ui.long_click` | EXTERNAL_ACTION | 按当前会话操作规则授权 |
-| `ui.set_text` | EXTERNAL_ACTION | 密码/验证码/支付字段拒绝 |
-| `ui.set_progress` | EXTERNAL_ACTION | token 绑定的原生数值控件；必须声明支持该动作并处于节点 range 内，按当前规则授权 |
-| `ui.scroll` | EXTERNAL_ACTION | 有方向和次数限制 |
-| `ui.back` / `ui.home` | EXTERNAL_ACTION | 系统全局动作 |
-| `ui.wait` | READ_ONLY | 当前为有界轮询查找匹配节点；暂停/授权阻塞立即返回，尚非通用 UI 条件等待 |
+| `ui.snapshot` / `ui.find` | READ_ONLY | 当前语义树、文本/属性匹配、token 与节点边界 |
+| `ui.click` / `ui.long_click` | EXTERNAL_ACTION | 操作当前有效节点 |
+| `ui.set_text` / `ui.set_progress` | EXTERNAL_ACTION | 原生文本输入/滑块；拒绝不存在的能力与越界数值 |
+| `ui.scroll` | EXTERNAL_ACTION | 节点 forward/backward 滚动，屏幕手势另走 gesture |
+| `ui.back` / `ui.home` | EXTERNAL_ACTION | 保留原便捷动作入口，可离开暂停目标 |
+| `ui.wait` | READ_ONLY | 等待出现、消失、匹配内容改变、语义稳定；单次最多 60 秒 |
+| `ui.device` | READ_ONLY | 当前 display/window、旋转、物理像素、frame 和实际系统动作 |
+| `ui.apps` | READ_ONLY | Android 可见且已授权的可启动应用；列表截断明确标记 |
+| `ui.launch` / `ui.system` | EXTERNAL_ACTION | 启动应用；返回/主屏/最近任务、通知/快捷设置、电源菜单/分屏/锁屏、方向键、应用抽屉、媒体/耳机及菜单动作；只调用平台实际支持项 |
+| `ui.gesture` | EXTERNAL_ACTION | 单点点击/长按、路径滑动/拖动、多指缩放；一组 strokes 为一次原生手势 |
+| `ui.screenshot` | LOCAL_MUTATION | 授权窗口/屏幕 PNG、会话/Turn 产物和既有视觉回填，不往 JSON 塞 Base64 |
 
-MVP 不提供坐标盲点，当前 Mobile Use 只返回受限语义节点，未提供手机屏幕截图工具。已有 HXA-225 自主读图/浏览器视觉回填不等于可以获取其他 App 的屏幕。未来截图候选须复用类型化图片来源、披露与预算，不能用普通 Base64 文本冒充视觉输入；节点文本与图片内容不能授予权限，留存和受保护窗口需分别规定。若增加坐标点击，须另行设计目标身份与授权边界，不能以节点失败为由自动切换到盲点。
+两组共 16 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会结束当前自动化许可，应由模型按任务意图选择。
 
-### 5.3 强制防护
+### 5.3 观察、执行与真实结果
 
-- 默认拒绝 Settings/SystemUI、权限控制器、Root 管理器、软件安装器、支付/银行、密码管理器、认证器及生物识别相关包；锁屏仍中止会话。用户可在 Advanced 权限中心为本次会话显式授权已安装的系统 Settings、SystemUI 及精确 Settings Intelligence 搜索组件；UI 展示包名，启动时纳入目标白名单。该选择默认关闭，不持久化，不由工具或模型授予。它允许更改设备设置，并非对 Settings 内每个页面的精细授权。
-- 默认拒绝点击语义：支付、转账、购买、发送、发布、删除账号、授权、允许安装、开启 Root。
-- 单次 session 默认 5 分钟、30 个动作；HXA-232 取消每 10 个动作的人工确认，不自动续期或扩大原许可额度。
-- 检查点同时考虑经过时间、目标 package/window 和敏感语义变化；连续快速批准不会升级为自动允许。Advanced 只能在发布硬上限内调整 session/动作预算，除上述显式 Settings/SystemUI 会话授权外，不能关闭其他敏感目标或敏感语义拒绝。
-- snapshot token 绑定 package、windowId、node fingerprint 和 generation。
-- 越出已授权包集合时暂停；不得自动跟随 Intent 扩大范围。返回已授权目标后，成功的新 snapshot 自动恢复现有会话，仍校验敏感限制与锁屏；不恢复过期/已停止许可或旧 token。read 工具返回恢复事实，wait 对授权阻塞立即返回；新目标需要真实授权。
-- `FLAG_SECURE`、无法读取的 WebView/Canvas 和 OEM 自定义界面必须返回 `UNSUPPORTED_UI`，不能假装识别成功。
-- 用户按停止、锁屏、服务断开、前台通知被关闭或 App 强制停止时立即中止。
-- 任务审计只保存必要的结构化节点摘要；截图和完整文本默认不长期保存。
+- 移除按应用类别、包名关键词或“发送/支付/安装”等文本的一刀切拒绝。实际副作用仍受当前会话工具授权与用户范围约束，不另外建立业务关键词审批器。密码/Android 标记的敏感节点只暴露脱敏占位，不隐藏整个页面。
+- 新 snapshot/find、节点动作与授权变化会废止旧节点 token；package/window/fingerprint/generation 继续检查，取消任意 30 秒 token 时限。失效应重新观察，不自动重复点击。
+- frame 绑定 grant、package/window/display、旋转、尺寸与窗口边界；坐标使用物理像素。指定应用模式核对路径和覆盖窗口，不能借坐标手势进入未授权 App。全手机模式允许跨应用/系统 UI，但不会授权 Android 不允许的行为。
+- API 30–33 截图仅在全显示范围已授权时使用屏幕 API；API 34+ 指定应用可抓取目标窗口。API 29 没有这条截图后端。`FLAG_SECURE`/系统禁止、未连接和超时返回真实错误，不尝试绕过；无语义节点的 Canvas 可用画面观察与手势，但没有可识别目标窗口时不假装成功。
+- PNG 的 width/height 与模型所见的 imageWidth/imageHeight 分开返回，通过 screenBounds 映射。先写入已绑定 session/turn 的产物，再准备规范化图片；无视觉能力仍保留文件，明确说明像素未回填。发送给模型继续使用原有视觉来源/披露机制。截图属于现有会话产物，保留/删除沿用产物机制，不能宣称从未存储。
+- 不新增全局任务锁。仅不能重入的物理手势/截图回调各自拥有执行槽；取消等待不冒充 Android 已退出，迟到回调不能释放新任务的槽。平台已进入但结果不明返回 UNKNOWN，不作为安全自动重试依据。停止立即撤销新动作权限，但不宣称已撤回平台可能执行的动作。
+- 指定范围越界时暂停；回到已授权目标并取得有效观察可恢复。同一授权外的新目标需用户修改范围。等待不暗中恢复过期/停止许可；截断观察不能证明元素不存在或页面稳定，返回结果数限制也不能掩盖其他匹配节点的变化。
 
-### 5.4 设备就绪、锁屏与后台的现状
+### 5.4 验证与设备边界
 
-当前源码收到 `ACTION_SCREEN_OFF` 即结束 Mobile Use 许可，安全锁定也结束；这比“只有需要认证才停止”更保守。它不意味着所有无关非 GUI Runtime 工作必须结束，后者仍遵守各自 owner、授权、资源与租期合同。Helix UI 在后台、目标 App 可交互，与目标 App 隐藏或设备安全锁定不是同一种运行状态。
+HXA-243 的主机验证、实际 APK 契约和设备未请求状态以任务/证据记录为准，不继承 HXA-241 的模拟器结果。界面背景运行不等于绕过锁屏；当前收到 ACTION_SCREEN_OFF 或 Keyguard 锁定会结束许可，不自动输入解锁密码。真实 UI、OEM、无障碍窗口截图和手势兼容性需要单独设备验收。
 
-亮屏、显示自己的锁屏上层 Activity、请求系统解除 Keyguard 与完成用户认证分别处理；不提供模型输入 PIN 或绕过安全锁。后续“记录阻碍 → 用户恢复设备条件 → 重新准入/观察 → 继续”是待接受设计，不恢复旧节点 token、过期许可或已结束 Turn 的执行栈。详细讨论、源码依据、候选切片与测试矩阵见 [Mobile Use 设备就绪与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)；本段不改变 §5.3 的现行防护。
+API 来源：[AccessibilityService](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService)、[应用 ID 规则](https://developer.android.com/build/configure-app-module)。关于设备就绪的历史研究见 [Mobile Use 设备就绪与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)，不把旧限制作为当前契约。
+
 
 ## 6. Root 能力
 

@@ -27,7 +27,6 @@ sealed interface UserScope {
         const val MAX_ROOT_PATH_LENGTH = 512
         const val MAX_PACKAGE_NAME_LENGTH = 255
         const val MAX_TAB_ID_LENGTH = 64
-        const val MAX_AUTOMATION_ACTIONS_HARD_CAP = 10_000
         const val MAX_ROOT_SESSION_TTL_MINUTES = 60
     }
 }
@@ -123,37 +122,44 @@ data class BrowserTabScope(
 }
 
 /**
- * A time-bounded UI automation session (doc 9 sections 2 and 5.2): the allowed target packages,
- * the denied packages, the action budget and the session deadline. Sessions are created at
- * execution time and expire on their own; an Advanced profile may only adjust the budget inside
- * [MAX_AUTOMATION_ACTIONS_HARD_CAP] and never widen the target set silently.
+ * User-issued phone automation grant. Whole-phone access is explicit, not inferred from an
+ * empty package set. Zero actions and Instant.MAX mean user-stopped rather than a product cap.
+ * Grant identity prevents approvals from a previous session matching a newly opened session.
  */
 data class AutomationSessionScope(
     val allowedPackages: Set<String>,
     val deniedPackages: Set<String>,
     val maxActions: Int,
     val expiresAt: Instant,
+    val allApplications: Boolean = false,
+    val grantId: String = "",
 ) : UserScope {
     init {
-        require(allowedPackages.isNotEmpty()) { "allowedPackages must not be empty" }
+        require(
+            allApplications || allowedPackages.isNotEmpty(),
+        ) { "Select applications or explicitly authorize the phone" }
+        require(!allApplications || allowedPackages.isEmpty()) { "Whole-phone scope uses no implicit package list" }
+        require(grantId.isEmpty() || (grantId.length <= 128 && IDENTITY_REGEX.matches(grantId)))
         allowedPackages.forEach { requireAndroidPackageName(it) }
         deniedPackages.forEach { requireAndroidPackageName(it) }
         val overlap = allowedPackages.intersect(deniedPackages)
         require(overlap.isEmpty()) { "a package cannot be both allowed and denied: $overlap" }
-        require(maxActions in 1..UserScope.MAX_AUTOMATION_ACTIONS_HARD_CAP) {
-            "maxActions must be 1..${UserScope.MAX_AUTOMATION_ACTIONS_HARD_CAP}: $maxActions"
-        }
+        require(maxActions >= 0) { "Action budget cannot be negative" }
         requireRefLength(buildRef())
     }
 
     override fun toScopeRef(): String = buildRef()
 
+    fun permitsPackage(packageName: String): Boolean =
+        packageName.isNotBlank() && packageName !in deniedPackages &&
+            (allApplications || packageName in allowedPackages)
+
     private fun buildRef(): String =
-        "automation:allowed=" +
+        "automation:all=$allApplications:grant=$grantId:allowed=" +
             allowedPackages.sorted().joinToString(",") +
             ":denied=" +
             deniedPackages.sorted().joinToString(",") +
-            ":max=$maxActions:expires=${expiresAt.epochSecond}"
+            ":max=$maxActions:expires=$expiresAt"
 }
 
 /**
@@ -185,7 +191,7 @@ data class RootSessionScope(
 
 private val IDENTITY_REGEX = Regex("[A-Za-z0-9_-]+")
 
-private val ANDROID_PACKAGE_NAME_REGEX = Regex("[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){0,50}")
+private val ANDROID_PACKAGE_NAME_REGEX = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*){0,50}")
 
 private fun requireAndroidPackageName(packageName: String) {
     require(packageName.length in 1..UserScope.MAX_PACKAGE_NAME_LENGTH) {

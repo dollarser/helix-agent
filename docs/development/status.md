@@ -48,7 +48,9 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 ## In progress
 
-所有者追加 [HXA-242](tasks/HXA-242.md)：统一管理界面滚动提示、Composer 状态反馈和 Mobile Use 启动错误展示。UI、HTTP 仅提示和平台动作不确定性修补已完成主机验收。HTTP 旧确认/发送门槛移除，两渠道共享网络配置；根单测、全模块 Debug 静态检查、四 APK 构建及源码/实际制品门禁通过，见[交付证据](../evidence/development/hxa242-http-ui-host-2026-10-02.md)。保留 TLS 校验与工具授权，设备未请求，修改未提交/推送。
+所有者追加 [HXA-243](tasks/HXA-243.md)：Mobile Use 全手机/指定应用许可、可选时间/动作额度、系统动作、应用切换、手势与截图、条件等待及代码收敛。Mobile Use 0.2.0已完成主机/Debug制品验收，116个重点不同方法和5项Python渠道回归通过，两渠道App及三份AndroidTest APK已构建，见[交付记录](../evidence/development/hxa243-mobile-use-host-2026-10-03.md)。按所有者授权本地提交，不推送；设备未请求。前置HXA-242已提交为 `ed5e1ef3`，本轮Git状态以实际提交为准。
+
+所有者追加 [HXA-242](tasks/HXA-242.md)：统一管理界面滚动提示、Composer 状态反馈和 Mobile Use 启动错误展示。UI、HTTP 仅提示和平台动作不确定性修补已完成主机验收。HTTP 旧确认/发送门槛移除，两渠道共享网络配置；根单测、全模块 Debug 静态检查、四 APK 构建及源码/实际制品门禁通过，见[交付证据](../evidence/development/hxa242-http-ui-host-2026-10-02.md)。保留 TLS 校验与工具授权，设备未请求；已本地提交 `ed5e1ef3`，未推送。
 
 所有者追加 [HXA-241](tasks/HXA-241.md)：历史模拟器问题复核的主机与 API36 / ARM64 模拟器专项验收已通过，所有者已授权本地提交；Git 提交状态以当前日志为准，不推送。两渠道普通矩阵各 18 类 / 86 方法，以及适用的恢复断点、共享存储、队列/草稿/编辑重发和真实本地模型首次产物场景均有最终源码/APK 对应证据；覆盖原报告 30 个失败类，不等于全量 782 用例、真机、16 KiB 或 FFmpeg 执行验收。已修复失败标签、补齐工具并行依赖提示，并收敛测试/宿主驱动与结果真实性；逐类判断、22 项新增主机回归及设备证据见[复核记录](../evidence/development/hxa241-emulator-sweep-reconciliation-2026-10-02.md)，不改其他代理的任务排序。
 

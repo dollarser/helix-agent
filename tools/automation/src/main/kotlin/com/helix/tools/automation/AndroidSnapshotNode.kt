@@ -54,6 +54,12 @@ internal class AndroidSnapshotNode(
         arguments: Bundle?,
     ): Boolean = node.performAction(action, arguments)
 
+    override fun setText(value: String): Boolean =
+        node.performAction(
+            AccessibilityNodeInfo.ACTION_SET_TEXT,
+            Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value) },
+        )
+
     override fun setProgress(value: Float): Boolean =
         node.performAction(
             android.R.id.accessibilityActionSetProgress,

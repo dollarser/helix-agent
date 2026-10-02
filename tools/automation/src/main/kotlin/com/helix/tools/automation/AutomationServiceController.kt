@@ -69,14 +69,24 @@ object AutomationServiceController {
         ttl: Duration = AutomationSessionManager.DEFAULT_TTL,
         maxActions: Int = AutomationSessionManager.DEFAULT_MAX_ACTIONS,
         allowSystemSettings: Boolean = false,
+        allApplications: Boolean = false,
     ): AutomationSessionStartResult {
         val connectedService = service
         return if (connectedService == null) {
             AutomationSessionStartResult(AutomationSessionStartStatus.SERVICE_NOT_CONNECTED)
         } else {
             val allowlist = SharedPreferencesAutomationAllowlistStore(context).packages()
-            val result = sessionManager.start(requestedPackages, allowlist, ttl, maxActions, allowSystemSettings)
+            val result =
+                sessionManager.start(
+                    requestedPackages,
+                    allowlist,
+                    ttl,
+                    maxActions,
+                    allowSystemSettings,
+                    allApplications,
+                )
             result.session?.let { session ->
+                connectedService.invalidateSnapshotTokens()
                 enterForegroundOrRollback(connectedService, session)
             }
             result
@@ -138,9 +148,10 @@ object AutomationServiceController {
         val session =
             sessionManager.current()
                 ?: return noActiveActionResult()
-        pausedActionResult()?.let { return it }
-        if (sessionManager.admitAction() != AutomationActionAdmission.ADMITTED) {
-            return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        val navigation = action in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
+        if (!navigation) pausedActionResult()?.let { return it }
+        if (sessionManager.admitAction(allowPaused = navigation) != AutomationActionAdmission.ADMITTED) {
+            return noActiveActionResult()
         }
         val result = connectedService.performGlobalAction(session, action)
         return completeAction(connectedService, result)
@@ -152,7 +163,7 @@ object AutomationServiceController {
         if (stopIfDeviceLocked(connectedService)) return AutomationResumeStatus.NO_ACTIVE_SESSION
         val session = sessionManager.current() ?: return AutomationResumeStatus.NO_ACTIVE_SESSION
         if (!sessionManager.isPaused()) return AutomationResumeStatus.NOT_PAUSED
-        if (expectedPackage !in session.scope.allowedPackages) {
+        if (!session.scope.permitsPackage(expectedPackage)) {
             return AutomationResumeStatus.TARGET_NOT_ALLOWLISTED
         }
         val snapshot =
@@ -168,7 +179,11 @@ object AutomationServiceController {
         val connectedService = service ?: return false
         if (stopIfDeviceLocked(connectedService)) return false
         val session = sessionManager.current() ?: return false
-        if (SensitiveAutomationTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)) return false
+        if (!session.scope.allApplications &&
+            SensitiveAutomationTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)
+        ) {
+            return false
+        }
         if (!sessionManager.requestResumeOnTarget(packageName)) return false
         resumeAfterUserConfirmation(packageName)
         return true
@@ -181,7 +196,7 @@ object AutomationServiceController {
         if (packageName == sessionManager.resumeTarget) {
             resumeAfterUserConfirmation(packageName)
         }
-        if (packageName !in session.scope.allowedPackages) {
+        if (!session.scope.permitsPackage(packageName)) {
             pauseForTargetChange(connectedService)
         }
     }
@@ -193,6 +208,59 @@ object AutomationServiceController {
         stop(AutomationStopReason.USER_STOP)
         connectedService.disableSelf()
         return true
+    }
+
+    @Synchronized
+    internal fun targetVerified(
+        grantId: String,
+        packageName: String,
+    ) {
+        val session = sessionManager.current() ?: return
+        if (session.id == grantId) sessionManager.resumeOnVerifiedTarget(packageName)
+    }
+
+    /** Captures a live permission lease. Never hold this monitor while waiting for Android callbacks. */
+    @Synchronized
+    internal fun deviceLease(): Pair<HelixAccessibilityService, ActiveAutomationSession>? {
+        val current = service ?: return null
+        if (stopIfDeviceLocked(current)) return null
+        return sessionManager.current()?.let { current to it }
+    }
+
+    @Synchronized
+    internal fun <T> withDeviceLease(
+        grantId: String,
+        mutation: Boolean,
+        block: (HelixAccessibilityService, ActiveAutomationSession) -> T,
+    ): T? {
+        val lease = deviceLease() ?: return null
+        if (lease.second.id != grantId) return null
+        if (mutation &&
+            sessionManager.admitAction(allowPaused = true) != AutomationActionAdmission.ADMITTED
+        ) {
+            return null
+        }
+        return try {
+            block(lease.first, lease.second)
+        } finally {
+            if (mutation) completeAction(lease.first, AutomationActionResult(AutomationActionStatus.SUCCEEDED))
+        }
+    }
+
+    /** A queued callback from an earlier grant must never stop its replacement. */
+    @Synchronized
+    internal fun recheckExpiry(
+        instance: HelixAccessibilityService,
+        grantId: String,
+    ) {
+        if (service !== instance) return
+        val active = sessionManager.current()
+        if (active == null) {
+            instance.leaveSessionForeground()
+            instance.invalidateSnapshotTokens()
+        } else if (active.id == grantId) {
+            instance.scheduleExpiry(active)
+        }
     }
 
     private fun enterForegroundOrRollback(
@@ -226,10 +294,6 @@ object AutomationServiceController {
 
     private fun pausedActionResult(): AutomationActionResult? =
         when (sessionManager.pauseReason) {
-            AutomationPauseReason.CHECKPOINT -> {
-                AutomationActionResult(AutomationActionStatus.CHECKPOINT_REQUIRED)
-            }
-
             AutomationPauseReason.TARGET_CHANGED -> {
                 AutomationActionResult(AutomationActionStatus.SESSION_PAUSED)
             }
@@ -258,7 +322,6 @@ object AutomationServiceController {
                 connectedService.invalidateSnapshotTokens()
             }
 
-            AutomationActionCompletion.CHECKPOINT_REQUIRED,
             AutomationActionCompletion.CONTINUE,
             AutomationActionCompletion.NO_ACTIVE_SESSION,
             -> {

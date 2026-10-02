@@ -1,6 +1,7 @@
 package com.helix.core.policy
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -101,7 +102,7 @@ class UserScopeTest {
                 expiresAt = instant,
             )
         assertEquals(
-            "automation:allowed=com.example.chat:denied=com.example.payments:max=30:expires=${instant.epochSecond}",
+            "automation:all=false:grant=:allowed=com.example.chat:denied=com.example.payments:max=30:expires=$instant",
             scope.toScopeRef(),
         )
     }
@@ -109,7 +110,9 @@ class UserScopeTest {
     @Test
     fun automationSessionScopeRejectsEmptyTargetsBadPackagesAndConflicts() {
         assertIllegal { AutomationSessionScope(emptySet(), emptySet(), 30, instant) }
-        assertIllegal { AutomationSessionScope(setOf("com.example.Caps"), emptySet(), 30, instant) }
+        val mixedCase = AutomationSessionScope(setOf("com.example.Caps"), emptySet(), 30, instant)
+        assertTrue(mixedCase.permitsPackage("com.example.Caps"))
+        assertFalse(mixedCase.permitsPackage("com.example.caps"))
         assertIllegal { AutomationSessionScope(setOf("1com.example"), emptySet(), 30, instant) }
         assertIllegal { AutomationSessionScope(setOf("com..example"), emptySet(), 30, instant) }
         assertIllegal {
@@ -120,8 +123,25 @@ class UserScopeTest {
                 instant,
             )
         }
-        assertIllegal { AutomationSessionScope(setOf("com.example.a"), emptySet(), 0, instant) }
-        assertIllegal { AutomationSessionScope(setOf("com.example.a"), emptySet(), 10_001, instant) }
+        assertIllegal { AutomationSessionScope(setOf("com.example.a"), emptySet(), -1, instant) }
+        assertEquals(10_001, AutomationSessionScope(setOf("com.example.a"), emptySet(), 10_001, instant).maxActions)
+    }
+
+    @Test fun wholePhoneScopeIsExplicitAndGrantIdentitySurvivesRoundTrip() {
+        val phone = AutomationSessionScope(emptySet(), setOf("com.private.app"), 0, Instant.MAX, true, "grant-1")
+        assertTrue(phone.permitsPackage("com.any.app"))
+        assertFalse(phone.permitsPackage("com.private.app"))
+        assertFalse(phone.permitsPackage(""))
+        assertEquals(phone, UserScopeCodec.decode(UserScopeCodec.encode(phone)))
+        assertNotEquals(phone.toScopeRef(), phone.copy(grantId = "grant-2").toScopeRef())
+        assertIllegal { phone.copy(allApplications = false) }
+        assertIllegal { phone.copy(allowedPackages = setOf("com.any.app")) }
+    }
+
+    @Test fun automationDeadlinePrecisionIsPartOfTheGrant() {
+        val scope = AutomationSessionScope(setOf("com.example.app"), emptySet(), 0, instant.plusNanos(123))
+        assertEquals(scope, UserScopeCodec.decode(UserScopeCodec.encode(scope)))
+        assertNotEquals(scope.toScopeRef(), scope.copy(expiresAt = instant.plusNanos(124)).toScopeRef())
     }
 
     // -- RootSessionScope -------------------------------------------------------

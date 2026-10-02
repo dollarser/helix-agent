@@ -23,13 +23,7 @@ internal class AutomationNodeActionExecutor(
         val lookup = tokenRegistry.lookup(request.token)
         if (lookup.status != NodeTokenLookupStatus.VALID) {
             root?.recycleSafely()
-            return result(
-                if (lookup.status == NodeTokenLookupStatus.EXPIRED) {
-                    AutomationActionStatus.TOKEN_EXPIRED
-                } else {
-                    AutomationActionStatus.TOKEN_UNKNOWN
-                },
-            )
+            return result(AutomationActionStatus.TOKEN_UNKNOWN)
         }
         val binding = checkNotNull(lookup.binding)
         if (root == null) return result(AutomationActionStatus.UNSUPPORTED_UI)
@@ -59,11 +53,14 @@ internal class AutomationNodeActionExecutor(
                 AutomationActionStatus.TARGET_CHANGED
             }
 
-            binding.packageName !in session.scope.allowedPackages -> {
+            !session.scope.permitsPackage(binding.packageName) -> {
                 AutomationActionStatus.TARGET_NOT_ALLOWLISTED
             }
 
-            sensitiveTargetPolicy.isDeniedPackage(binding.packageName, session.allowSystemSettings) ||
+            (
+                !session.scope.allApplications &&
+                    sensitiveTargetPolicy.isDeniedPackage(binding.packageName, session.allowSystemSettings)
+            ) ||
                 observed.password ||
                 observed.accessibilityDataSensitive -> {
                 AutomationActionStatus.SENSITIVE_UI
@@ -109,6 +106,8 @@ internal class AutomationNodeActionExecutor(
             performPlatformAutomationAction {
                 if (request.action == AutomationNodeAction.SET_PROGRESS) {
                     node.setProgress(requireNotNull(request.progress).toFloat())
+                } else if (request.action == AutomationNodeAction.SET_TEXT) {
+                    node.setText(requireNotNull(request.text))
                 } else {
                     node.performAction(actionAndArguments.first, actionAndArguments.second)
                 }
@@ -138,13 +137,7 @@ internal class AutomationNodeActionExecutor(
             AutomationNodeAction.SET_TEXT -> {
                 val text = request.text
                 if (observed.enabled && observed.editable && text != null && text.length <= MAX_SET_TEXT) {
-                    AccessibilityNodeInfo.ACTION_SET_TEXT to
-                        Bundle().apply {
-                            putCharSequence(
-                                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                                text,
-                            )
-                        }
+                    AccessibilityNodeInfo.ACTION_SET_TEXT to null
                 } else {
                     null
                 }
@@ -202,6 +195,8 @@ internal class AutomationNodeActionExecutor(
 
     companion object {
         private const val TOKEN_HEX_LENGTH = 32
-        private const val MAX_SET_TEXT = 2_000
+
+        // UTF-16 text plus Bundle overhead remains well below Android Binder transaction limits.
+        const val MAX_SET_TEXT = 65_536
     }
 }

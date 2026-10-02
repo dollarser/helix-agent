@@ -1652,5 +1652,12 @@
     <string name="automation_target_invalid">Enter valid app package names, separated by commas or new lines. Invalid input has not replaced the saved selection.</string>
     <string name="automation_start_failed">Automation did not start. Check the service and selected targets, then retry.</string>
     <string name="automation_service_unavailable">The accessibility service is not connected. Check system settings.</string>
-    <string name="automation_remaining">This session: %1$d min %2$d sec and %3$d actions remaining.</string>
+    <string name="automation_whole_phone_label">Authorize the whole phone for this session, including system UI</string>
+    <string name="automation_grant_explanation">Choose the whole phone or selected apps. Screenshots and actions still use tool authorization. Stop from the notification; screen lock or service loss ends this grant.</string>
+    <string name="automation_budget_minutes">Minutes (0: no limit)</string>
+    <string name="automation_budget_actions">Actions (0: no limit)</string>
+    <string name="automation_budget_invalid">Enter valid nonnegative minutes and actions; 0 means no limit.</string>
+    <string name="automation_until_stopped">Until stopped or locked</string>
+    <string name="automation_actions_unlimited">%1$d attempted; no action limit</string>
+    <string name="automation_lease_summary">Time remaining: %1$s; actions: %2$s</string>
 </resources>

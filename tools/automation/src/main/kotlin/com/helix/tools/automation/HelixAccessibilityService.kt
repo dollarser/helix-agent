@@ -15,14 +15,14 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
-import java.time.Duration
 import java.time.Instant
 
 /** User-enabled service for bounded snapshots and token-bound actions. */
 @Suppress("TooManyFunctions")
 class HelixAccessibilityService : AccessibilityService() {
+    internal val deviceAccess by lazy { AutomationDeviceAccess(this) }
     private val handler = Handler(Looper.getMainLooper())
-    private val expiryStop = Runnable { AutomationServiceController.stop(AutomationStopReason.EXPIRED) }
+    private var expiryStop: Runnable? = null
     private val generationTracker = AccessibilityGenerationTracker()
     private val tokenRegistry = NodeTokenRegistry()
     private val snapshotEngine = AutomationSnapshotEngine(tokenRegistry)
@@ -103,13 +103,21 @@ class HelixAccessibilityService : AccessibilityService() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        handler.removeCallbacks(expiryStop)
-        val delay = Duration.between(Instant.now(), session.scope.expiresAt).toMillis().coerceAtLeast(0L)
-        handler.postDelayed(expiryStop, delay)
+        scheduleExpiry(session)
+    }
+
+    internal fun scheduleExpiry(session: ActiveAutomationSession) {
+        expiryStop?.let(handler::removeCallbacks)
+        expiryStop = null
+        val delay = automationExpiryDelayMillis(Instant.now(), session.scope.expiresAt) ?: return
+        val callback = Runnable { AutomationServiceController.recheckExpiry(this, session.id) }
+        expiryStop = callback
+        handler.postDelayed(callback, delay)
     }
 
     internal fun leaveSessionForeground() {
-        handler.removeCallbacks(expiryStop)
+        expiryStop?.let(handler::removeCallbacks)
+        expiryStop = null
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -135,25 +143,31 @@ class HelixAccessibilityService : AccessibilityService() {
             request = request,
         )
 
+    @Suppress("ReturnCount") // Distinct authorization/API refusals never reach the platform action.
     internal fun performGlobalAction(
         session: ActiveAutomationSession,
         action: AutomationGlobalAction,
     ): AutomationActionResult {
-        val admission = captureSnapshot(session)
-        if (admission.status != AutomationSnapshotStatus.SUCCESS) {
-            return AutomationActionResult(admission.status.toActionStatus())
+        val navigation = action in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
+        if (!navigation && !session.allowSystemSettings) {
+            return AutomationActionResult(AutomationActionStatus.TARGET_NOT_ALLOWLISTED)
         }
-        val platformAction =
-            when (action) {
-                AutomationGlobalAction.BACK -> GLOBAL_ACTION_BACK
-                AutomationGlobalAction.HOME -> GLOBAL_ACTION_HOME
-            }
+        if (Build.VERSION.SDK_INT >= 30 && systemActions.none { it.id == action.platformId }) {
+            return AutomationActionResult(AutomationActionStatus.ACTION_NOT_SUPPORTED)
+        }
+        if (Build.VERSION.SDK_INT < 30 && action.platformId > 8) {
+            return AutomationActionResult(AutomationActionStatus.ACTION_NOT_SUPPORTED)
+        }
+        val platformAction = action.platformId
         return try {
             performPlatformAutomationAction { performGlobalAction(platformAction) }
         } finally {
             invalidateSnapshotTokens()
         }
     }
+
+    internal fun availableSystemActions(): Set<Int> =
+        if (Build.VERSION.SDK_INT >= 30) systemActions.map { it.id }.toSet() else (1..8).toSet()
 
     private fun currentRoot(): SnapshotNode? =
         try {
@@ -181,17 +195,6 @@ class HelixAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun AutomationSnapshotStatus.toActionStatus(): AutomationActionStatus =
-        when (this) {
-            AutomationSnapshotStatus.SUCCESS -> AutomationActionStatus.SUCCEEDED
-            AutomationSnapshotStatus.SERVICE_NOT_CONNECTED -> AutomationActionStatus.SERVICE_NOT_CONNECTED
-            AutomationSnapshotStatus.NO_ACTIVE_SESSION -> AutomationActionStatus.NO_ACTIVE_SESSION
-            AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED -> AutomationActionStatus.TARGET_NOT_ALLOWLISTED
-            AutomationSnapshotStatus.TARGET_CHANGED -> AutomationActionStatus.TARGET_CHANGED
-            AutomationSnapshotStatus.SENSITIVE_UI -> AutomationActionStatus.SENSITIVE_UI
-            AutomationSnapshotStatus.UNSUPPORTED_UI -> AutomationActionStatus.UNSUPPORTED_UI
-        }
-
     private fun buildNotification(session: ActiveAutomationSession): Notification {
         val stopIntent = Intent(this, AutomationStopReceiver::class.java).setAction(ACTION_STOP)
         val stopPendingIntent =
@@ -208,9 +211,13 @@ class HelixAccessibilityService : AccessibilityService() {
             .setContentText(
                 getString(
                     R.string.automation_notification_text,
-                    session.scope.allowedPackages
-                        .sorted()
-                        .joinToString(", "),
+                    if (session.scope.allApplications) {
+                        getString(R.string.automation_all_applications)
+                    } else {
+                        session.scope.allowedPackages
+                            .sorted()
+                            .joinToString(", ")
+                    },
                 ),
             ).setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)

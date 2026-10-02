@@ -13,7 +13,7 @@ class AutomationSnapshotEngineTest {
     private val clock = SnapshotMutableClock(Instant.parse("2026-09-05T01:00:00Z"))
     private var tokenSeed = 0
     private val registry =
-        NodeTokenRegistry(clock) {
+        NodeTokenRegistry {
             tokenSeed += 1
             ByteArray(16) { tokenSeed.toByte() }
         }
@@ -37,11 +37,11 @@ class AutomationSnapshotEngineTest {
                 engine.capture(FakeSnapshotNode(target, 1, text = "Display"), authorized, 1).status,
             )
             assertEquals(
-                AutomationSnapshotStatus.SENSITIVE_UI,
+                AutomationSnapshotStatus.SUCCESS,
                 engine.capture(FakeSnapshotNode(target, 1, password = true), authorized, 1).status,
             )
             assertEquals(
-                AutomationSnapshotStatus.SENSITIVE_UI,
+                AutomationSnapshotStatus.SUCCESS,
                 engine.capture(FakeSnapshotNode(target, 1, accessibilityDataSensitive = true), authorized, 1).status,
             )
             assertEquals(
@@ -61,7 +61,7 @@ class AutomationSnapshotEngineTest {
             "com.example.bank",
         )) {
             assertEquals(
-                AutomationSnapshotStatus.SENSITIVE_UI,
+                AutomationSnapshotStatus.SUCCESS,
                 engine
                     .capture(
                         FakeSnapshotNode(target, 1, text = "Display"),
@@ -187,7 +187,7 @@ class AutomationSnapshotEngineTest {
     }
 
     @Test
-    fun refusesSensitivePasswordTreeAndRecyclesEveryAcquiredNode() {
+    fun protectedFieldIsRedactedWithoutBlockingTheAuthorizedPage() {
         val password =
             FakeSnapshotNode(
                 packageName = PACKAGE,
@@ -200,14 +200,17 @@ class AutomationSnapshotEngineTest {
 
         val result = engine.capture(root, session, generation = 2)
 
-        assertEquals(AutomationSnapshotStatus.SENSITIVE_UI, result.status)
-        assertNull(result.snapshot)
+        assertEquals(AutomationSnapshotStatus.SUCCESS, result.status)
+        val protected = result.snapshot!!.nodes.single { it.redacted }
+        assertEquals("", protected.token)
+        assertNull(protected.text)
+        assertFalse(result.toString().contains("secret"))
         assertEquals(1, root.recycleCount)
         assertEquals(1, password.recycleCount)
     }
 
     @Test
-    fun refusesFixedAndCategoricallySensitivePackagesBeforeReadingChildren() {
+    fun appCategoryNamesDoNotOverrideAnExplicitGrant() {
         for (
         packageName in
         listOf(
@@ -232,9 +235,14 @@ class AutomationSnapshotEngineTest {
                     generation = 3,
                 )
 
-            assertEquals(packageName, AutomationSnapshotStatus.SENSITIVE_UI, result.status)
+            val systemNeedsGrant = packageName == "com.android.settings"
+            assertEquals(
+                packageName,
+                if (systemNeedsGrant) AutomationSnapshotStatus.SENSITIVE_UI else AutomationSnapshotStatus.SUCCESS,
+                result.status,
+            )
             assertEquals(packageName, 1, root.recycleCount)
-            assertEquals(packageName, 0, child.recycleCount)
+            assertEquals(packageName, if (systemNeedsGrant) 0 else 1, child.recycleCount)
         }
     }
 
@@ -303,17 +311,16 @@ class AutomationSnapshotEngineTest {
 }
 
 class NodeTokenRegistryTest {
-    private val clock = SnapshotMutableClock(Instant.parse("2026-09-05T02:00:00Z"))
     private var seed = 0
     private val registry =
-        NodeTokenRegistry(clock) {
+        NodeTokenRegistry {
             seed += 1
             ByteArray(16) { seed.toByte() }
         }
     private val binding = NodeTokenBinding("com.example.fixture", 12, 4, "fingerprint", listOf(0, 2))
 
     @Test
-    fun independentlyRejectsEveryBindingMismatchAndExpiry() {
+    fun independentlyRejectsEveryBindingMismatchAndExplicitInvalidation() {
         val token = registry.issue(binding)
 
         assertEquals(NodeTokenResolutionStatus.PACKAGE_MISMATCH, resolve(token, packageName = "other").status)
@@ -322,8 +329,8 @@ class NodeTokenRegistryTest {
         assertEquals(NodeTokenResolutionStatus.FINGERPRINT_MISMATCH, resolve(token, fingerprint = "other").status)
         assertEquals(NodeTokenResolutionStatus.VALID, resolve(token).status)
 
-        clock.instant = clock.now().plus(NodeTokenRegistry.TOKEN_TTL)
-        assertEquals(NodeTokenResolutionStatus.EXPIRED, resolve(token).status)
+        assertEquals(NodeTokenResolutionStatus.VALID, resolve(token).status)
+        registry.invalidate()
         assertEquals(NodeTokenResolutionStatus.UNKNOWN, resolve(token).status)
     }
 

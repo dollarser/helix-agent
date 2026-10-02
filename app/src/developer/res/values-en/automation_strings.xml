@@ -1,13 +1,13 @@
 <resources>
     <string name="automation_title">Mobile Use (developer plugin)</string>
-    <string name="automation_warning">Explicitly enable Accessibility for Mobile Use, then enter allowed target packages. Sessions are time/action bounded and stop immediately.</string>
+    <string name="automation_warning">Enable Accessibility, then choose the whole phone or selected apps. By default, the grant lasts until stopped with no action quota. Optional limits and the stop notification remain available.</string>
     <string name="automation_state">Service: %1$s · session: %2$s</string>
     <string name="automation_packages">Allowed package names (comma-separated)</string>
     <string name="automation_open_settings">Open Accessibility settings</string>
     <string name="automation_start">Start session</string>
     <string name="automation_stop">Stop now</string>
     <string name="automation_system_settings">Allow Settings and Quick Settings for this session</string>
-    <string name="automation_system_settings_detail">May change device settings. Target packages must also be allowed. Ends when the session stops; approvals and sensitive action checks still apply. Includes installed system components: %1$s.</string>
+    <string name="automation_system_settings_detail">May change device settings. Selected-app mode adds these system components; whole-phone mode already includes system UI. Ends with the session and follows current tool authorization: %1$s.</string>
     <string name="automation_paused">Paused: %1$s</string>
     <string name="automation_resume_target">Authorized target package to return to</string>
     <string name="automation_resume">Confirm recovery</string>

@@ -5,8 +5,9 @@ object AutomationFinder {
         snapshot: AutomationSnapshot,
         query: AutomationFindQuery,
     ): AutomationFindResult {
-        if (!query.isValid()) return AutomationFindResult(AutomationFindStatus.INVALID_QUERY)
-        val matches = snapshot.nodes.filter { it.matches(query) }.take(query.maxResults)
+        val matches =
+            findAll(snapshot, query)?.take(query.maxResults)
+                ?: return AutomationFindResult(AutomationFindStatus.INVALID_QUERY)
         return AutomationFindResult(
             status =
                 if (matches.isEmpty()) {
@@ -17,6 +18,12 @@ object AutomationFinder {
             nodes = matches,
         )
     }
+
+    /** Internal bounded snapshot matching; output limits must not hide changes from condition waits. */
+    internal fun findAll(
+        snapshot: AutomationSnapshot,
+        query: AutomationFindQuery,
+    ): List<AutomationSnapshotNode>? = if (query.isValid()) snapshot.nodes.filter { it.matches(query) } else null
 
     private fun AutomationFindQuery.isValid(): Boolean =
         maxResults in 1..MAX_FIND_RESULTS &&

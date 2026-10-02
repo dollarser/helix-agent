@@ -38,7 +38,6 @@ class AndroidWorldPilotDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
     private val center get() = AutomationPermissionCenter(app)
-    private val checkpointConfirmations = mutableListOf<String>()
 
     @Test
     // Persist any fixture failure, restore state, then fail the test.
@@ -150,7 +149,7 @@ class AndroidWorldPilotDeviceTest {
                             "systemSettingsAuthorization",
                             "explicit per-session user grant via AutomationPermissionCenter",
                         )
-                        put("checkpointConfirmations", JsonArray(checkpointConfirmations.map(::JsonPrimitive)))
+                        put("checkpointConfirmations", JsonArray(emptyList()))
                         put("elapsedMs", SystemClock.elapsedRealtime() - started)
                         put(
                             "calls",
@@ -206,15 +205,6 @@ class AndroidWorldPilotDeviceTest {
                 container.storage.turns
                     .listBySession(session)
                     .lastOrNull()
-            if (center.pauseReason() == com.helix.tools.automation.AutomationPauseReason.CHECKPOINT) {
-                val target = center.snapshot().snapshot?.packageName
-                if (target != null &&
-                    center.resumeAfterUserConfirmation(target) ==
-                    com.helix.tools.automation.AutomationResumeStatus.RESUMED
-                ) {
-                    checkpointConfirmations.add(target)
-                }
-            }
             if (turn != null) {
                 resolveApprovals(turn.id, resolved)
                 if (TurnState.valueOf(turn.state).isTerminal) return

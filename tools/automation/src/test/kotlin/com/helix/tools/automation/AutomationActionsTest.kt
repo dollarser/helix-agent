@@ -67,10 +67,9 @@ class AutomationFinderTest {
 }
 
 class AutomationNodeActionExecutorTest {
-    private val clock = ActionMutableClock(Instant.parse("2026-09-05T03:00:00Z"))
     private var tokenSeed = 0
     private val registry =
-        NodeTokenRegistry(clock) {
+        NodeTokenRegistry {
             tokenSeed += 1
             ByteArray(16) { tokenSeed.toByte() }
         }
@@ -98,16 +97,15 @@ class AutomationNodeActionExecutorTest {
     }
 
     @Test
-    fun expiredUnknownAndMalformedTokensNeverTouchANode() {
+    fun unchangedTokenRemainsUsableButMalformedTokensNeverTouchANode() {
         val child = ActionFakeNode(text = "Continue", clickable = true)
         val token = issue(child, path = emptyList(), generation = 1)
-        clock.instant = clock.now().plus(NodeTokenRegistry.TOKEN_TTL)
 
         assertEquals(
-            AutomationActionStatus.TOKEN_EXPIRED,
+            AutomationActionStatus.SUCCEEDED,
             executor
                 .execute(
-                    ActionFakeNode(),
+                    child,
                     session,
                     1,
                     AutomationNodeActionRequest(AutomationNodeAction.CLICK, token),
@@ -195,7 +193,7 @@ class AutomationNodeActionExecutorTest {
                     AutomationNodeActionRequest(
                         AutomationNodeAction.SET_TEXT,
                         token,
-                        "x".repeat(2_001),
+                        "x".repeat(AutomationNodeActionExecutor.MAX_SET_TEXT + 1),
                     ),
                 ).status,
         )
@@ -239,11 +237,11 @@ class AutomationNodeActionExecutorTest {
     }
 
     @Test
-    fun paymentClicksAndAuthenticationTextFieldsAreDeniedByTargetSemantics() {
+    fun ordinaryBusinessWordsDoNotOverrideTheExistingToolGrant() {
         var original = ActionFakeNode(text = "Pay now", clickable = true)
         var token = issue(original, emptyList(), generation = 6)
         assertEquals(
-            AutomationActionStatus.SENSITIVE_UI,
+            AutomationActionStatus.SUCCEEDED,
             executor
                 .execute(
                     ActionFakeNode(text = "Pay now", clickable = true),
@@ -256,7 +254,7 @@ class AutomationNodeActionExecutorTest {
         original = ActionFakeNode(contentDescription = "OTP verification code", editable = true)
         token = issue(original, emptyList(), generation = 6)
         assertEquals(
-            AutomationActionStatus.SENSITIVE_UI,
+            AutomationActionStatus.SUCCEEDED,
             executor
                 .execute(
                     ActionFakeNode(contentDescription = "OTP verification code", editable = true),
@@ -273,7 +271,7 @@ class AutomationNodeActionExecutorTest {
             for ((granted, label, expected) in listOf(
                 Triple(false, "Display", AutomationActionStatus.SENSITIVE_UI),
                 Triple(true, "Display", AutomationActionStatus.SUCCEEDED),
-                Triple(true, "Grant permission", AutomationActionStatus.SENSITIVE_UI),
+                Triple(true, "Grant permission", AutomationActionStatus.SUCCEEDED),
             )) {
                 val node = ActionFakeNode(packageName = target, text = label, clickable = true)
                 val authorized =
@@ -342,8 +340,6 @@ class AutomationNodeActionExecutorTest {
                     canSetProgress = true,
                     password = true,
                 ) to AutomationActionStatus.SENSITIVE_UI,
-                ActionFakeNode(range = range, canSetProgress = true, text = "Pay amount") to
-                    AutomationActionStatus.SENSITIVE_UI,
             )
         for ((node, expected) in cases) {
             val token = issue(node, emptyList(), 7)
@@ -372,6 +368,26 @@ class AutomationNodeActionExecutorTest {
                 ).status,
         )
         assertEquals(null, changed.performedAction)
+    }
+
+    @Test fun longTextAndOrdinarySendLabelsUseTheSameNodeActionContract() {
+        for (label in listOf("Send", "Publish", "发送", "支付", "Delete")) {
+            val node = ActionFakeNode(text = label, clickable = true)
+            val token = issue(node, emptyList(), 7)
+            assertEquals(AutomationActionStatus.SUCCEEDED, execute(node, token, 7).status)
+        }
+        val node = ActionFakeNode(editable = true)
+        val token = issue(node, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED,
+            executor
+                .execute(
+                    node,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.SET_TEXT, token, "x".repeat(10_000)),
+                ).status,
+        )
     }
 
     @Test
@@ -483,7 +499,7 @@ class AutomationWaiterTest {
         assertEquals(
             AutomationWaitStatus.INVALID_ARGUMENT,
             waiter
-                .waitFor(AutomationFindQuery(text = "x"), Duration.ofSeconds(11)) {
+                .waitFor(AutomationFindQuery(text = "x"), Duration.ofSeconds(61)) {
                     error("provider must not run")
                 }.status,
         )
@@ -585,6 +601,12 @@ private class ActionFakeNode(
     ): Boolean {
         performedAction = action
         check(!throwAfterAction) { "lost acknowledgement after platform entry" }
+        return performResult
+    }
+
+    override fun setText(value: String): Boolean {
+        performedAction = AccessibilityNodeInfo.ACTION_SET_TEXT
+        if (throwAfterAction) error("Platform acknowledgement lost after dispatch")
         return performResult
     }
 

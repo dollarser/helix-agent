@@ -31,6 +31,8 @@ internal interface SnapshotNode {
         arguments: Bundle? = null,
     ): Boolean
 
+    fun setText(value: String): Boolean = false
+
     fun setProgress(value: Float): Boolean = false
 
     fun recycle()
@@ -132,7 +134,7 @@ internal class AutomationSnapshotEngine(
             tokenRegistry.invalidate()
             return result(AutomationSnapshotStatus.UNSUPPORTED_UI)
         }
-        if (packageName !in session.scope.allowedPackages) {
+        if (!session.scope.permitsPackage(packageName)) {
             root.recycleSafely()
             tokenRegistry.invalidate()
             return AutomationSnapshotResult(
@@ -140,7 +142,9 @@ internal class AutomationSnapshotEngine(
                 targetPackage = packageName,
             )
         }
-        if (sensitiveTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)) {
+        if (!session.scope.allApplications &&
+            sensitiveTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)
+        ) {
             root.recycleSafely()
             tokenRegistry.invalidate()
             return result(AutomationSnapshotStatus.SENSITIVE_UI)
@@ -197,14 +201,32 @@ internal class AutomationSnapshotEngine(
                 return
             }
 
+            if (observed.password || observed.accessibilityDataSensitive) {
+                // A protected field must not hide unrelated controls on an otherwise authorized page.
+                state.nodes +=
+                    AutomationSnapshotNode(
+                        "",
+                        parentToken,
+                        depth,
+                        observed.className,
+                        null,
+                        "Protected field",
+                        null,
+                        observed.bounds,
+                        false,
+                        false,
+                        false,
+                        false,
+                        observed.enabled,
+                        redacted = true,
+                    )
+                state.hasUsefulSemantics = true
+                return
+            }
             val className = state.bound(observed.className)
             val text = state.bound(observed.text)
             val description = state.bound(observed.contentDescription)
             val viewId = state.bound(observed.viewId)
-            if (observed.password || observed.accessibilityDataSensitive) {
-                state.abortStatus = AutomationSnapshotStatus.SENSITIVE_UI
-                return
-            }
             val fingerprint = observed.fingerprint(state.packageName, state.windowId, path)
             val token =
                 tokenRegistry.issue(
@@ -324,35 +346,8 @@ internal fun interface SensitiveAutomationTargetPolicy {
             !(allowSystemSettings && packageName in SystemSettingsTargets.packages) &&
                 isDeniedPackage(packageName)
 
-        private val deniedPackages =
-            setOf(
-                "com.android.settings",
-                "com.android.permissioncontroller",
-                "com.google.android.permissioncontroller",
-                "com.android.packageinstaller",
-                "com.google.android.packageinstaller",
-                "com.android.systemui",
-                "com.topjohnwu.magisk",
-                "me.bmax.apatch",
-                "me.weishu.kernelsu",
-                "com.kernelsu",
-            )
-
-        private val deniedPackageMarkers =
-            setOf(
-                "bank",
-                "wallet",
-                "payment",
-                "password",
-                "authenticator",
-                "biometric",
-            )
-
-        override fun isDeniedPackage(packageName: String): Boolean =
-            packageName in deniedPackages || packageName in SystemSettingsTargets.packages ||
-                packageName
-                    .lowercase()
-                    .split('.', '_', '-')
-                    .any { segment -> deniedPackageMarkers.any(segment::contains) }
+        // Only explicitly selected system UI needs the matching user scope. App names and
+        // categories are not evidence that a user-authorized operation must be rejected.
+        override fun isDeniedPackage(packageName: String): Boolean = packageName in SystemSettingsTargets.packages
     }
 }

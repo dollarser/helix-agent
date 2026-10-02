@@ -22,7 +22,7 @@ class AutomationSessionManagerTest {
         manager.pause(AutomationPauseReason.TARGET_CHANGED)
         manager.stop(AutomationStopReason.USER_STOP)
         assertFalse(manager.resumeOnVerifiedTarget(allowed.first()))
-        manager.start(allowed, allowed)
+        manager.start(allowed, allowed, ttl = Duration.ofMinutes(5))
         manager.pause(AutomationPauseReason.TARGET_CHANGED)
         clock.instant = clock.now().plus(Duration.ofMinutes(6))
         assertFalse(manager.resumeOnVerifiedTarget(allowed.first()))
@@ -44,7 +44,7 @@ class AutomationSessionManagerTest {
         assertTrue(manager.isPaused())
         manager.resumeAfterUserConfirmation()
         assertNull(manager.resumeTarget)
-        manager.pause(AutomationPauseReason.CHECKPOINT)
+        manager.pause(AutomationPauseReason.TARGET_CHANGED)
         assertNull(manager.resumeTarget)
         manager.requestResumeOnTarget(allowed.first())
         manager.stop(AutomationStopReason.USER_STOP)
@@ -61,7 +61,7 @@ class AutomationSessionManagerTest {
         manager.stop(AutomationStopReason.USER_STOP)
         assertFalse(manager.start(allowed, allowed).session!!.allowSystemSettings)
         manager.stop(AutomationStopReason.USER_STOP)
-        manager.start(allowed, allowed, allowSystemSettings = true)
+        manager.start(allowed, allowed, ttl = Duration.ofMinutes(5), allowSystemSettings = true)
         clock.instant = clock.now().plus(Duration.ofMinutes(6))
         assertNull(manager.current())
         assertFalse(manager.start(allowed, allowed).session!!.allowSystemSettings)
@@ -77,7 +77,7 @@ class AutomationSessionManagerTest {
     }
 
     @Test
-    fun startsOneFiveMinuteSessionBoundToTheRequestedAllowlistedPackages() {
+    fun defaultSessionIsUserStoppedAndBoundToRequestedPackages() {
         val result = manager.start(setOf("com.example.fixture"), allowed)
 
         assertEquals(AutomationSessionStartStatus.STARTED, result.status)
@@ -86,8 +86,9 @@ class AutomationSessionManagerTest {
         assertEquals(clock.now(), session.startedAt)
         assertEquals(setOf("com.example.fixture"), session.scope.allowedPackages)
         assertTrue(session.scope.deniedPackages.isEmpty())
-        assertEquals(30, session.scope.maxActions)
-        assertEquals(clock.now().plus(Duration.ofMinutes(5)), session.scope.expiresAt)
+        assertEquals(0, session.scope.maxActions)
+        assertEquals(Instant.MAX, session.scope.expiresAt)
+        assertEquals(session.id, session.scope.grantId)
         assertSame(session, manager.current())
         assertNull(manager.lastStopReason)
     }
@@ -100,7 +101,7 @@ class AutomationSessionManagerTest {
         )
         assertEquals(
             AutomationSessionStartStatus.INVALID_PACKAGE,
-            manager.start(setOf("Bad.Package"), allowed).status,
+            manager.start(setOf("Bad/Package"), allowed).status,
         )
         assertEquals(
             AutomationSessionStartStatus.TARGET_NOT_ALLOWLISTED,
@@ -110,8 +111,8 @@ class AutomationSessionManagerTest {
     }
 
     @Test
-    fun ttlCannotBeZeroNegativeOrLongerThanTheFiveMinuteHardMaximum() {
-        for (ttl in listOf(Duration.ZERO, Duration.ofSeconds(-1), Duration.ofMinutes(5).plusMillis(1))) {
+    fun negativeDurationIsRejectedWithoutOpeningASession() {
+        for (ttl in listOf(Duration.ofSeconds(-1), Duration.ofMinutes(-5))) {
             assertEquals(
                 AutomationSessionStartStatus.INVALID_TTL,
                 manager.start(setOf("com.example.fixture"), allowed, ttl).status,
@@ -121,8 +122,8 @@ class AutomationSessionManagerTest {
     }
 
     @Test
-    fun actionBudgetCannotBeZeroOrExceedTheThirtyActionHardMaximum() {
-        for (maxActions in listOf(0, AutomationSessionManager.MAX_ACTIONS + 1)) {
+    fun negativeActionBudgetCannotOpenASession() {
+        for (maxActions in listOf(-1, Int.MIN_VALUE)) {
             assertEquals(
                 AutomationSessionStartStatus.INVALID_ACTION_BUDGET,
                 manager
@@ -148,7 +149,7 @@ class AutomationSessionManagerTest {
 
     @Test
     fun exactDeadlineExpiresAndClearsTheSession() {
-        val session = manager.start(setOf("com.example.fixture"), allowed).session!!
+        val session = manager.start(setOf("com.example.fixture"), allowed, ttl = Duration.ofMinutes(15)).session!!
         clock.instant = session.scope.expiresAt
 
         assertNull(manager.current())
@@ -206,8 +207,8 @@ class AutomationSessionManagerTest {
     }
 
     @Test
-    fun authorizedActionsContinueAcrossPeriodicBoundariesWithoutHumanConfirmation() {
-        manager.start(setOf("com.example.fixture"), allowed)
+    fun configuredBudgetDoesNotAddPeriodicConfirmation() {
+        manager.start(setOf("com.example.fixture"), allowed, maxActions = 30)
 
         repeat(29) {
             assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
@@ -218,6 +219,30 @@ class AutomationSessionManagerTest {
         assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
         assertEquals(AutomationActionCompletion.BUDGET_EXHAUSTED, manager.completeAction())
         assertNull(manager.current())
+    }
+
+    @Test fun wholePhoneNeedsAnExplicitFlagAndSurvivesLongTasks() {
+        assertEquals(AutomationSessionStartStatus.EMPTY_TARGETS, manager.start(emptySet(), emptySet()).status)
+        val grant = manager.start(emptySet(), emptySet(), allApplications = true).session!!
+        assertTrue(grant.scope.allApplications)
+        assertTrue(grant.allowSystemSettings)
+        assertTrue(grant.scope.permitsPackage("com.android.systemui"))
+        clock.instant = clock.now().plus(Duration.ofHours(8))
+        repeat(100) {
+            assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+            assertEquals(AutomationActionCompletion.CONTINUE, manager.completeAction())
+        }
+        assertFalse(manager.reconcileAllowlist(emptySet()))
+        assertEquals(100, manager.current()!!.attemptedActions)
+        manager.stop(AutomationStopReason.USER_STOP)
+        val next = manager.start(emptySet(), emptySet(), allApplications = true).session!!
+        assertFalse(grant.scope.toScopeRef() == next.scope.toScopeRef())
+    }
+
+    @Test fun longUserDurationAndLargeBudgetAreNotProductHardLimits() {
+        val result = manager.start(allowed, allowed, Duration.ofHours(12), 100_000)
+        assertEquals(AutomationSessionStartStatus.STARTED, result.status)
+        assertEquals(100_000, result.session!!.scope.maxActions)
     }
 
     @Test

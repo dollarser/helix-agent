@@ -17,8 +17,8 @@ import java.time.Instant
  * [LIST_SEP] (U+0002, STX) separates the elements of a list-valued field. The All-files roots are
  * a `List` in [SharedStorageScope] and the Policy Engine compares scopes by `==` (order-sensitive),
  * so their order is preserved verbatim; the automation package `Set`s are sorted for a stable
- * encoding (set equality is order-independent). Timestamps are stored as whole `epochSecond`
- * values; the fixed scope TTLs never carry sub-second precision that a match depends on. [decode]
+ * encoding (set equality is order-independent). Automation timestamps retain their full ISO
+ * precision and explicit grant identity; Root timestamps keep their existing seconds contract. [decode]
  * is fail-closed: any malformed, unknown, or control-corrupted input returns null (the rule then
  * never matches — never a false match).
  */
@@ -52,7 +52,9 @@ object UserScopeCodec {
                     scope.allowedPackages.sorted().joinToString(LIST_SEP),
                     scope.deniedPackages.sorted().joinToString(LIST_SEP),
                     scope.maxActions.toString(),
-                    scope.expiresAt.epochSecond.toString(),
+                    scope.expiresAt.toString(),
+                    scope.allApplications.toString(),
+                    scope.grantId,
                 )
             }
 
@@ -122,14 +124,16 @@ object UserScopeCodec {
 
     @Suppress("ReturnCount") // one fail-closed null per undecodable field
     private fun decodeAutomation(fields: List<String>): UserScope? {
-        val f = exactly(fields, 4) ?: return null
+        val f = exactly(fields, 6) ?: return null
         val max = f[2].toIntOrNull() ?: return null
-        val expires = f[3].toLongOrNull() ?: return null
+        val expires = runCatching { Instant.parse(f[3]) }.getOrNull() ?: return null
         return AutomationSessionScope(
             csv(f[0]),
             csv(f[1]),
             max,
-            Instant.ofEpochSecond(expires),
+            expires,
+            f[4].toBooleanStrictOrNull() ?: return null,
+            f[5],
         )
     }
 

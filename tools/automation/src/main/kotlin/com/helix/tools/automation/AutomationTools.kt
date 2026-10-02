@@ -127,29 +127,44 @@ class AutomationTools(
             }
         }
 
-    @Suppress("ReturnCount") // cancellation and found are terminal bounded exits
+    @Suppress("ReturnCount") // Read-only timeout and cancellation remain distinct from condition results.
     private fun wait(call: ExecutableToolCall): ToolExecutorResult {
-        val timeoutMillis = optionalInt(call.args, "timeoutMillis", 2_000)
-        val pollMillis = optionalInt(call.args, "pollMillis", 100)
-        val end = minOf(call.deadline, Instant.now().plusMillis(timeoutMillis.toLong()))
-        var latest = AutomationSnapshotResult(AutomationSnapshotStatus.UNSUPPORTED_UI)
-        while (Instant.now().isBefore(end)) {
-            if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
-            latest = port.snapshot()
-            if (latest.pauseReason != null ||
-                latest.status !in setOf(AutomationSnapshotStatus.SUCCESS, AutomationSnapshotStatus.UNSUPPORTED_UI)
-            ) {
-                return ToolExecutorResult.Completed(findJson(latest, query(call.args)))
-            }
-            val found = find(latest, query(call.args))
-            if (found.status ==
-                AutomationFindStatus.FOUND
-            ) {
-                return ToolExecutorResult.Completed(findJson(latest, query(call.args)))
-            }
-            Thread.sleep(pollMillis.toLong())
-        }
-        return ToolExecutorResult.Completed(findJson(latest, query(call.args)))
+        val requested = java.time.Duration.ofMillis(optionalInt(call.args, "timeoutMillis", 2_000).toLong())
+        val available = java.time.Duration.between(Instant.now(), call.deadline)
+        if (available.isNegative || available.isZero) return ToolExecutorResult.TimedOut
+        val condition =
+            AutomationWaitCondition.valueOf(
+                (call.args["condition"]?.jsonPrimitive?.contentOrNull ?: "present").uppercase(java.util.Locale.ROOT),
+            )
+        val result =
+            AutomationWaiter().waitFor(
+                query(call.args),
+                minOf(requested, available),
+                java.time.Duration.ofMillis(optionalInt(call.args, "pollMillis", 100).toLong()),
+                condition,
+                java.time.Duration.ofMillis(optionalInt(call.args, "stableMillis", 500).toLong()),
+                cancelled = { call.cancel.isCancelled() },
+                snapshotProvider = port::snapshot,
+            )
+        if (result.status == AutomationWaitStatus.CANCELLED) return ToolExecutorResult.Cancelled
+        return ToolExecutorResult.Completed(
+            buildJsonObject {
+                val observation = result.observation
+                put(
+                    "status",
+                    JsonPrimitive(
+                        if (result.status == AutomationWaitStatus.SNAPSHOT_REFUSED) {
+                            observation?.status?.name ?: result.status.name
+                        } else {
+                            result.status.name
+                        },
+                    ),
+                )
+                put("waitStatus", JsonPrimitive(result.status.name))
+                put("nodes", JsonArray(result.matches.map(::nodeJson)))
+                observation?.let { recoveryJson(it).forEach { (key, value) -> put(key, value) } }
+            },
+        )
     }
 
     private fun find(
@@ -221,6 +236,16 @@ class AutomationTools(
             put("editable", JsonPrimitive(node.editable))
             put("scrollable", JsonPrimitive(node.scrollable))
             put("enabled", JsonPrimitive(node.enabled))
+            put("redacted", JsonPrimitive(node.redacted))
+            put(
+                "bounds",
+                buildJsonObject {
+                    put("left", JsonPrimitive(node.bounds.left))
+                    put("top", JsonPrimitive(node.bounds.top))
+                    put("right", JsonPrimitive(node.bounds.right))
+                    put("bottom", JsonPrimitive(node.bounds.bottom))
+                },
+            )
             put("canSetProgress", JsonPrimitive(node.canSetProgress))
             node.range?.let { range ->
                 put(
@@ -234,22 +259,7 @@ class AutomationTools(
             }
         }
 
-    private fun action(result: AutomationActionResult): ToolExecutorResult =
-        if (result.status == AutomationActionStatus.SUCCEEDED) {
-            ToolExecutorResult.Completed(buildJsonObject { put("status", JsonPrimitive(result.status.name)) })
-        } else {
-            val uncertain =
-                result.status in
-                    setOf(
-                        AutomationActionStatus.ACTION_FAILED,
-                        AutomationActionStatus.ACTION_OUTCOME_UNKNOWN,
-                    )
-            ToolExecutorResult.Failed(
-                result.status.name,
-                sideEffectFree = !uncertain,
-                requiresReview = uncertain,
-            )
-        }
+    private fun action(result: AutomationActionResult): ToolExecutorResult = result.toToolOutcome()
 
     private fun nodeRequest(
         action: AutomationNodeAction,
@@ -295,23 +305,26 @@ class AutomationTools(
         ToolName(name),
         ToolVersion(
             if (name in setOf(SNAPSHOT, FIND, WAIT)) {
-                3
+                4
             } else if (name == SCROLL) {
                 2
             } else {
                 1
             },
         ),
-        "Bounded token-only Accessibility operation: $name. " +
+        "User-authorized semantic Accessibility operation: $name. " +
             "Each snapshot/find replaces all earlier tokens; use tokens from the latest observation. " +
             "On SESSION_PAUSED, inspect the current target before acting. " +
             "Only an already authorized target can resume automatically. " +
             "scroll operates a scrollable node, not a screen swipe or app drawer gesture. " +
-            "Use ui.set_progress with range.min/max for a slider that reports canSetProgress.",
+            "Use ui.set_progress for native sliders. For canvas UIs use ui.device, ui.screenshot and " +
+            "ui.gesture. Protected/unauthorized targets are not a reason to bypass the user grant. " +
+            "On stale tokens re-observe; on unknown action outcomes observe " +
+            "before deciding whether to issue another action.",
         input,
         output,
         operation,
-        15.seconds,
+        if (name == WAIT) 65.seconds else 15.seconds,
         MAX_OUTPUT_BYTES,
         setOf(Capability.ACCESSIBILITY_AUTOMATION),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
@@ -323,7 +336,11 @@ class AutomationTools(
 
     private fun tokenInput() = obj(mapOf("token" to str(32)), listOf("token"))
 
-    private fun textInput() = obj(mapOf("token" to str(32), "text" to str(2_000)), listOf("token", "text"))
+    private fun textInput() =
+        obj(
+            mapOf("token" to str(32), "text" to str(AutomationNodeActionExecutor.MAX_SET_TEXT)),
+            listOf("token", "text"),
+        )
 
     private fun number() = buildJsonObject { put("type", JsonPrimitive("number")) }
 
@@ -359,7 +376,13 @@ class AutomationTools(
                 "maxResults" to integer(1, 50),
             )
         if (includeWait) {
-            fields["timeoutMillis"] = integer(1, 10_000)
+            fields["timeoutMillis"] = integer(1, 60_000)
+            fields["stableMillis"] = integer(50, 60_000)
+            fields["condition"] =
+                buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("enum", JsonArray(listOf("present", "absent", "changed", "stable").map(::JsonPrimitive)))
+                }
             fields["pollMillis"] = integer(50, 1_000)
         }
         return obj(fields, emptyList())
@@ -376,6 +399,7 @@ class AutomationTools(
                 "requiresAuthorization" to bool(),
                 "recoveryHint" to str(512),
                 "nodes" to array(nodeSchema(), 50),
+                "waitStatus" to str(64),
             ),
             listOf("status", "nodes"),
         )
@@ -412,6 +436,12 @@ class AutomationTools(
                 "editable" to bool(),
                 "scrollable" to bool(),
                 "enabled" to bool(),
+                "redacted" to bool(),
+                "bounds" to
+                    obj(
+                        mapOf("left" to number(), "top" to number(), "right" to number(), "bottom" to number()),
+                        emptyList(),
+                    ),
                 "canSetProgress" to bool(),
                 "range" to
                     obj(

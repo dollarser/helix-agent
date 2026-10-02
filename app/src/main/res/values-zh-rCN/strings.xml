@@ -1649,5 +1649,12 @@
     <string name="automation_target_invalid">请输入有效的目标应用包名，可用逗号或换行分隔。原有配置未被无效输入替换。</string>
     <string name="automation_start_failed">自动化未能启动，请检查服务状态和本次目标后重试。</string>
     <string name="automation_service_unavailable">无障碍服务尚未连接，请在系统设置中检查。</string>
-    <string name="automation_remaining">本次许可剩余 %1$d 分 %2$d 秒，%3$d 次操作。</string>
+    <string name="automation_whole_phone_label">授权本次操作全手机（包括系统界面）</string>
+    <string name="automation_grant_explanation">由你选择全手机或指定应用。截图与操作仍经过工具授权；通知栏可随时停止，锁屏或服务断开后结束本次授权。</string>
+    <string name="automation_budget_minutes">分钟（0 为不限）</string>
+    <string name="automation_budget_actions">动作数（0 为不限）</string>
+    <string name="automation_budget_invalid">请输入有效的非负分钟数与动作数；0 表示不限。</string>
+    <string name="automation_until_stopped">直到停止或锁屏</string>
+    <string name="automation_actions_unlimited">已尝试 %1$d 次，不限次数</string>
+    <string name="automation_lease_summary">剩余时间：%1$s；动作：%2$s</string>
 </resources>

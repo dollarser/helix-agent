@@ -54,6 +54,7 @@ class AutomationPermissionCenter(
         ttl: Duration = AutomationSessionManager.DEFAULT_TTL,
         maxActions: Int = AutomationSessionManager.DEFAULT_MAX_ACTIONS,
         allowSystemSettings: Boolean = false,
+        allApplications: Boolean = false,
     ): AutomationSessionStartResult =
         if (hasLiveSystemGrant()) {
             AutomationServiceController.startUserSession(
@@ -62,10 +63,14 @@ class AutomationPermissionCenter(
                 ttl,
                 maxActions,
                 allowSystemSettings,
+                allApplications,
             )
         } else {
             AutomationSessionStartResult(AutomationSessionStartStatus.SERVICE_NOT_CONNECTED)
         }
+
+    internal fun deviceLease(): Pair<HelixAccessibilityService, ActiveAutomationSession>? =
+        if (hasLiveSystemGrant()) AutomationServiceController.deviceLease() else null
 
     fun stopSession(): Boolean = AutomationServiceController.stop()
 

@@ -521,7 +521,7 @@ internal class DefaultAppContainer(
         RootModule.register(context, appClock, toolRegistry)
         // HXA-097: developer exposes the accepted snapshot/token/action contracts; consumer
         // remains a flavor-local no-op with no Accessibility tool descriptors.
-        AutomationModule.register(context, pluginRegistry)
+        AutomationModule.register(context, pluginRegistry, toolVision.imagePublisher)
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
         // and allowed-tools hints cannot register tools or grant authority.

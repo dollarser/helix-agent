@@ -12,6 +12,7 @@ internal object AutomationModule {
     fun register(
         context: Context,
         plugins: PluginRegistry,
+        images: com.helix.tools.framework.ToolImagePublication,
     ) = Unit
 
     fun scopeFor(toolName: String?): UserScope? = null
