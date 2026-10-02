@@ -327,7 +327,9 @@ def main():
                     if verified.get("status") != "passed":
                         raise RuntimeError(f"{label}: Room verification did not pass")
                     if recovery_scope in PROCESS_RECOVERY_SCENARIOS:
-                        expected_chats = 0 if recovery["scenario"] == "appended" else 1
+                        expected_chats = {"pending": 3, "appended": 1, "http_in_flight": 2, "cancelling": 1}[recovery["scenario"]]
+                        old_chats = 0 if recovery["scenario"] == "appended" else 1
+                        expected_inspections = 0 if recovery["scenario"] == "cancelling" else 1
                         server_evidence = normal.get("server", {})
                         room_evidence = normal.get("room", {})
                         if normal.get("scenario") != recovery["scenario"] or normal.get("sigkill") != 9:
@@ -338,12 +340,18 @@ def main():
                             raise RuntimeError(f"{label}: Room turn was not recovered as INTERRUPTED")
                         if room_evidence.get("secondRecoveryInterrupted") != 0:
                             raise RuntimeError(f"{label}: recovery was not idempotent")
-                        if expected_chats == 1:
+                        if room_evidence.get('inspectionCount') != expected_inspections:
+                            raise RuntimeError(f'{label}: wrong durable recovery inspection count')
+                        if expected_inspections and (not room_evidence.get('inspectionTurnId') or room_evidence.get('inspectionMode') != 'PLAN'):
+                            raise RuntimeError(f'{label}: recovery inspection was not a distinct read-only attempt')
+                        if room_evidence.get('queuedSuccessors') != (1 if recovery['scenario'] == 'pending' else 0):
+                            raise RuntimeError(f'{label}: wrong queued successor count')
+                        if old_chats == 1:
                             requests = server_evidence.get("requests", [])
                             if (
                                 server_evidence.get("heldCount") != 1
                                 or server_evidence.get("disconnectedCount") != 1
-                                or len(requests) != 1
+                                or len(requests) != expected_chats
                                 or requests[0].get("hasActiveInput") is not True
                                 or requests[0].get("hasQueuedInput") is not False
                             ):

@@ -48,6 +48,8 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 ## In progress
 
+所有者追加 [HXA-241](tasks/HXA-241.md)：历史模拟器问题复核的主机与 API36 / ARM64 模拟器专项验收已通过，所有者已授权本地提交；Git 提交状态以当前日志为准，不推送。两渠道普通矩阵各 18 类 / 86 方法，以及适用的恢复断点、共享存储、队列/草稿/编辑重发和真实本地模型首次产物场景均有最终源码/APK 对应证据；覆盖原报告 30 个失败类，不等于全量 782 用例、真机、16 KiB 或 FFmpeg 执行验收。已修复失败标签、补齐工具并行依赖提示，并收敛测试/宿主驱动与结果真实性；逐类判断、22 项新增主机回归及设备证据见[复核记录](../evidence/development/hxa241-emulator-sweep-reconciliation-2026-10-02.md)，不改其他代理的任务排序。
+
 所有者追加 [HXA-240](tasks/HXA-240.md)：FFmpeg 改为复用 Advanced 已有 Bash/Linux Job/PTY，以显式 Bionic CLI 桥暴露裁剪能力；撤回未验收的独立媒体运行时与五预设接口。标准版不增加 PRoot/FFmpeg；原 Job 身份、权限、日志、取消和结果收取保持。当前实现、联合主机/制品验证已通过，27 项新增主机检查与包体结果见[交付记录](../evidence/development/hxa240-ffmpeg-proot-2026-10-02.md)；3 项设备回归仅编译，设备未请求，不改变其他代理的 HXA 顺序。
 
 2026-10-02 当前优先 [HXA-239](tasks/HXA-239.md)：未选模型前阻止发送并保留草稿、指令补全同时定位光标、输入框底部当前会话权限直接切换。三项本地实现及完整适用主机整合已通过，8 项新增 JVM 回归通过，转收尾验收；[交付记录](../evidence/development/hxa239-composer-2026-10-02.md)保留设备未执行边界。不扩 J2/Project Memory。前置 [HXA-238](tasks/HXA-238.md) 已提交为 `9d0ab5c0`，未推送；原[证据记录](../evidence/development/hxa238-execution-provider-2026-10-02.md)中的未提交状态是当时快照，不再代表当前工作树。

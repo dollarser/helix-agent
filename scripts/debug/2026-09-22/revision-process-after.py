@@ -55,14 +55,24 @@ def wait_text(text, label):
         time.sleep(.5)
     raise RuntimeError('UI text not found: ' + repr(choices))
 
-def open_session(title):
+def open_history(label):
+    tap(wait_text(('应用导航', 'App navigation'), label + '-navigation'))
+    tap(wait_text(('全部会话', 'All conversations'), label + '-history'))
+
+def open_session(title, restored_text=None):
     failure = None
     for attempt in range(2):
         adb('shell', 'am', 'start', '-W', '-n', package + '/com.helix.app.MainActivity')
         time.sleep(1)
         try:
+            # Conversation-first startup may restore this editor immediately. Its modal
+            # intentionally hides navigation; verify its exact text and durable owner later.
+            if restored_text is not None and any(n.get('class') == 'android.widget.EditText' and
+                    n.get('text') == restored_text for n in nodes(f'restored-editor-{attempt}')):
+                return
             # ActivityManager can briefly retain the killed task on API36 and report
             # that the launch was delivered even though Launcher is still visible.
+            open_history(f'open-session-{attempt}')
             session = wait_text(title, f'session-list-{attempt}')
         except RuntimeError as error:
             failure = error
@@ -88,12 +98,15 @@ else:
     raise RuntimeError('Could not clear the focused editor before replacement')
 adb('shell', 'input', 'text', 'NORMAL-PROCESS-EDIT-215')
 wait_text('NORMAL-PROCESS-EDIT-215', 'normal-editor-written')
-time.sleep(1)
-view = nodes('normal-editor-saved')
-assert any(n.get('text') in ('草稿已保存', 'Draft saved') for n in view)
+# The current editor debounces persistence (250ms) and has no saved-status label.
+# Reopened UI plus verifyRevisionRecovery below prove the exact saved text, revision,
+# original message and unchanged Turn count; elapsed time alone is not a pass.
+time.sleep(2)
+view = nodes('normal-editor-before-kill')
+assert any(n.get('text') == 'NORMAL-PROCESS-EDIT-215' for n in view)
 pid = int(adb('shell', 'pidof', package).strip())
 kill_emulator_app(base, package, pid)
-open_session('REVISION-RECOVERY')
+open_session('REVISION-RECOVERY', restored_text='NORMAL-PROCESS-EDIT-215')
 wait_text('NORMAL-PROCESS-EDIT-215', 'normal-editor-restored')
 new_pid = int(adb('shell', 'pidof', package).strip())
 assert new_pid != pid
@@ -103,12 +116,12 @@ for _ in range(2):
     adb('shell', 'input', 'keyevent', '4')
     time.sleep(1)
     back = next((n for n in nodes('after-back')
-                 if n.get('content-desc') in ('会话列表', 'Session list')), None)
+                 if n.get('content-desc') in ('应用导航', 'App navigation')), None)
     if back is not None:
         break
 else:
     raise RuntimeError('Revision editor did not remain closed after dismissing the IME and dialog')
-tap(back)
+open_history('accepted')
 tap(wait_text('REVISION-ACCEPTED', 'accepted-session-list'))
 wait_text('NEW-ACCEPTED', 'accepted-no-replay')
 assert not any(n.get('text') == 'OLD-ACCEPTED' for n in nodes('accepted-effective-history'))

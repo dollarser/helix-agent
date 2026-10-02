@@ -18,6 +18,9 @@ from typing import Dict, List, Any
 
 # Known Phase Runner classes that require host phases / process kill / port injection
 KNOWN_PHASE_RUNNER_CLASSES = {
+    "com.helix.app.chat.MemoryProcessRecoveryDeviceTest": "Requires recoveryPhase setup and actual process death before reading the saved PID and memory",
+    "com.helix.app.localmodel.ModelPublicationRecoveryDeviceTest": "Requires recoveryPhase setup and process death during model publication",
+    "com.helix.app.localmodel.FirstSuccessJourneyDeviceTest": "Requires P4 host driver, explicitly supplied local model and two-phase process death",
     "com.helix.app.MainAppCombinedSoakDeviceTest": "Requires EV-04 host runner to judge soak-done.json, cycles and duration; JUnit completion is not task success",
     "com.helix.app.chat.WorkspaceProcessRecoveryDeviceTest": "Requires fixture setup and actual process death before verification",
     "com.helix.app.files.WorkspaceBackupRecoveryDeviceTest": "Requires backup-boundary setup and actual process death before verification",
@@ -149,10 +152,17 @@ def summarize(out_dir: str, manifest_path: str = None) -> Dict[str, Any]:
 
     # Read manifest if provided
     expected_classes = None
-    if manifest_path and os.path.isfile(manifest_path):
+    if manifest_path is not None:
+        # An explicitly requested but missing/malformed manifest is not an optional baseline.
         with open(manifest_path, "r", encoding="utf-8") as fp:
             man = json.load(fp)
-            expected_classes = man.get("classes", [])
+        if not isinstance(man, dict) or not isinstance(man.get("classes"), list):
+            raise ValueError("Manifest must contain a class list")
+        expected_classes = man["classes"]
+        if any(not isinstance(cls, str) or not cls.strip() for cls in expected_classes):
+            raise ValueError("Manifest contains an invalid class identity")
+        if len(expected_classes) != len(set(expected_classes)):
+            raise ValueError("Manifest contains duplicate classes")
 
     result_files = sorted(os.listdir(results_dir))
     executed_results = []
@@ -166,13 +176,14 @@ def summarize(out_dir: str, manifest_path: str = None) -> Dict[str, Any]:
         with open(fpath, "r", encoding="utf-8") as fp:
             try:
                 data = json.load(fp)
-            except Exception as e:
-                print(f"Error reading {fpath}: {e}", file=sys.stderr)
-                continue
+            except json.JSONDecodeError as error:
+                raise ValueError(f"Invalid class result: {f}") from error
 
+        if not isinstance(data, dict):
+            raise ValueError(f"Class result must be an object: {f}")
         cls = data.get("class")
-        if not cls:
-            continue
+        if not isinstance(cls, str) or not cls.strip():
+            raise ValueError(f"Class result is missing its identity: {f}")
         if cls in seen_classes:
             duplicates.append(cls)
         seen_classes.add(cls)
@@ -227,7 +238,7 @@ def summarize(out_dir: str, manifest_path: str = None) -> Dict[str, Any]:
     summary_data = {
         "run_meta": run_meta,
         "total_classes": len(executed_results),
-        "expected_count": len(expected_classes) if expected_classes else len(executed_results),
+        "expected_count": len(expected_classes) if expected_classes is not None else len(executed_results),
         "missing_count": len(missing_classes),
         "missing_classes": missing_classes,
         "counts": counts,

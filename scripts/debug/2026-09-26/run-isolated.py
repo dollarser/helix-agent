@@ -37,6 +37,18 @@ KNOWN_EXISTING_FAILURES = _summarizer.KNOWN_EXISTING_FAILURES
 KNOWN_ENVIRONMENT_LIMITATIONS = _summarizer.KNOWN_ENVIRONMENT_LIMITATIONS
 summarize = _summarizer.summarize
 
+
+def _load_status_parser():
+    # Share the existing per-test parser; summary text alone is not execution evidence.
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'instrumentation_junit.py')
+    spec = importlib.util.spec_from_file_location('baseline_instrumentation_junit', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.parse
+
+
+parse_status_records = _load_status_parser()
+
 HEALTH_PROBE_CLASS = "com.helix.app.engine.TurnReviewResolutionDeviceTest#deterministicReviewClosesOldTurnAndGoalRunWithoutOpeningAnotherModelCall"
 
 
@@ -138,7 +150,7 @@ def run_health_probe(serial: str, runner: str, adb_path: str = "adb") -> bool:
         runner,
     ]
     rc, out, _ = run_cmd(cmd, timeout=30)
-    return "OK (1 test)" in out
+    return parse_instrumentation_log(HEALTH_PROBE_CLASS, out, rc)[0] == "PASS"
 
 
 def perform_recovery_probe(serial: str, target_pkg: str, test_pkg: str, runner: str, adb_path: str = "adb") -> bool:
@@ -176,51 +188,42 @@ def perform_recovery_probe(serial: str, target_pkg: str, test_pkg: str, runner: 
 
 def parse_instrumentation_log(cls_name: str, log_content: str, return_code: int) -> Tuple[str, str]:
     """Analyzes the raw instrumentation log to produce a verdict and details."""
-    has_ok = bool(re.search(r"^OK \(\d+ tests?\)", log_content, re.M))
     has_failure = bool(re.search(r"^FAILURES!!!", log_content, re.M))
     has_crash = bool(re.search(r"^INSTRUMENTATION_RESULT:\s*shortMsg=Process crashed", log_content, re.M))
     has_aborted = bool(re.search(r"^(INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED)", log_content, re.M))
 
     # A process crash/timeout is infrastructure evidence, never a phase-runner shortcut.
-    if has_crash or has_aborted or return_code == -999:
+    if has_crash or has_aborted or return_code != 0:
         if return_code == -999:
             return "NO_VERDICT / PROCESS_CRASH", "Execution timed out"
         crash_m = re.search(r"^INSTRUMENTATION_RESULT:\s*shortMsg=(.*)$", log_content, re.M)
-        msg = crash_m.group(1).strip() if crash_m else "Process crashed or aborted"
+        msg = crash_m.group(1).strip() if crash_m else f"Runner failed or aborted (exit {return_code})"
         return "NO_VERDICT / PROCESS_CRASH", msg
 
-    # Check for explicit phase-runner requirement patterns in output.
-    phase_runner_patterns = [
-        "Use the two-phase owned runner",
-        "Use the mandatory host storage phases",
-        "Run the host-controlled granted and revoked phases",
-        "Host must grant storage before instrumentation",
-        "recoveryPhase",
-    ]
-    for pattern in phase_runner_patterns:
-        if pattern in log_content:
-            return "PHASE_RUNNER_REQUIRED", f"Detected phase runner contract: {pattern}"
-
-    if has_ok:
-        # Check if all tests were skipped
-        status_codes = re.findall(r"^INSTRUMENTATION_STATUS_CODE:\s*(-?\d+)", log_content, re.M)
-        # Codes != 1 (1 is test start)
-        test_codes = [c for c in status_codes if c != "1"]
-        if test_codes and all(c in ("-4", "-3") for c in test_codes):
-            return "SKIP / ASSUMPTION", "All tests skipped via assumption or ignore"
-        ok_m = re.search(r"^OK \((\d+ tests?)\)", log_content, re.M)
-        details = ok_m.group(0) if ok_m else "OK"
-        return "PASS", details
-
+    # PHASE_RUNNER_REQUIRED is a pre-execution decision for registered classes in main().
+    # Never infer it from failure messages or test names, which can hide actual regressions.
     if has_failure:
         fail_m = re.search(r"^Tests run:\s*(\d+),\s*Failures:\s*(\d+)", log_content, re.M)
-        details = fail_m.group(0) if fail_m else "FAILURES"
-        # Check for touch injection limitation
-        if "Failed to inject touch input" in log_content:
-            return "ENVIRONMENT_LIMITATION", "Failed to inject touch input in windowless emulator"
-        return "FAIL", details
+        return "FAIL", fail_m.group(0) if fail_m else "FAILURES"
 
-    return "UNRESOLVED", "No recognizable verdict line in log"
+    termination = re.findall(r"^INSTRUMENTATION_CODE:\s*(-?\d+)\s*$", log_content, re.M)
+    if termination != ['-1']:
+        return "UNRESOLVED", "Missing or conflicting runner termination"
+    try:
+        records = parse_status_records(log_content)
+    except ValueError as failure:
+        return "UNRESOLVED", str(failure)
+    expected_class, _, expected_method = cls_name.partition('#')
+    if any(cls != expected_class or (expected_method and method != expected_method) for cls, method in records):
+        return "UNRESOLVED", "Instrumentation test identity differs from requested selector"
+    codes = [code for code, _ in records.values()]
+    failed = sum(code in (-1, -2) for code in codes)
+    if failed:
+        return "FAIL", f"Verified terminal failures: {failed}"
+    passed = codes.count(0)
+    skipped = sum(code in (-3, -4) for code in codes)
+    details = f"Verified {passed} passed, {skipped} skipped"
+    return ("PASS" if passed else "SKIP / ASSUMPTION"), details
 
 
 def main():

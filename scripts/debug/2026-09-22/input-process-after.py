@@ -30,13 +30,13 @@ BREAKPOINTS = {
         "source": ROOT / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt",
         # TurnCoordinator.start is nested inside launchTurn's transaction. Stop only after
         # the OUTERMOST transaction returned, before the worker can start a model request.
-        "marker": "val effectiveGoalId = preparedGoalId",
+        "marker": "val coordinator = started.coordinator",
         "class": "com.helix.app.chat.ChatService",
     },
     "cancelling": {
         "source": ROOT / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt",
         "marker": "publishTurn(TurnUi(turnId, TurnState.CANCELLING",
-        "class": "com.helix.app.chat.ChatService$cancelTurn$2",
+        "class": "com.helix.app.chat.ChatService$cancelRuntimeTurn$2",
     },
 }
 
@@ -123,6 +123,10 @@ def tap(node):
 
 def open_session(title):
     adb("shell", "am", "start", "-W", "-n", package + "/com.helix.app.MainActivity")
+    navigation = wait_node(lambda node: node.get("content-desc") in ("应用导航", "App navigation"), "navigation")
+    tap(navigation)
+    history = wait_node(lambda node: node.get("text") in ("全部会话", "All conversations"), "history")
+    tap(history)
     title_node = wait_node(lambda node: node.get("text") == title, "session-list")
     tap(title_node)
     wait_node(lambda node: node.get("class") == "android.widget.EditText", "session-open")
@@ -369,6 +373,9 @@ finally:
 if scenario in ("pending", "http_in_flight", "cancelling"):
     wait_server(lambda state: state["disconnectedCount"] >= 1, "killed-socket-disconnected", timeout=15)
 
+# Let the separately authorized read-only recovery inspection complete; the old socket
+# already disconnected. Completing new requests does not replay or complete the old attempt.
+control("mode", {"mode": "complete"})
 open_session(fixture["title"])
 after_pid = int(adb("shell", "pidof", package).strip())
 if after_pid == before_pid:
@@ -378,7 +385,7 @@ toggle = wait_node(
     "recovered-panel",
 )
 tap(toggle)
-if scenario in ("pending", "cancelling"):
+if scenario == "cancelling":
     wait_node(
         lambda node: node.get("text")
         in ("需要处理，请检查后再继续。", "Needs attention. Review before resuming."),
@@ -397,12 +404,16 @@ else:
         "recovered-requested",
     )
 
-expected_chats = 0 if scenario == "appended" else 1
+expected_chats = {"pending": 3, "appended": 1, "http_in_flight": 2, "cancelling": 1}[scenario]
 stable = wait_server(lambda state: state["chatCount"] == expected_chats, "after-restart")
 time.sleep(2)
 stable_again = control("state")
 if stable_again["chatCount"] != expected_chats or stable_again != stable:
     raise RuntimeError(f"Model request state changed after recovery: {stable} -> {stable_again}")
+if stable_again['heldCount'] != (0 if scenario == 'appended' else 1):
+    raise RuntimeError('Original held execution was duplicated')
+if sum(request['hasQueuedInput'] for request in stable_again['requests']) != (1 if scenario == 'pending' else 0):
+    raise RuntimeError('Queued input was omitted, duplicated, or transmitted after user Stop')
 
 adb("logcat", "-b", "all", "-c")
 verify_selector = test_class + "#" + VERIFY_METHODS[scenario]

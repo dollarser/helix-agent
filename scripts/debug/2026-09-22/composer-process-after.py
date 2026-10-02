@@ -62,9 +62,15 @@ def wait_text(text, label):
     raise RuntimeError("UI text not found: " + repr(choices))
 
 
+def open_history(label):
+    tap(wait_text(("应用导航", "App navigation"), label + "-navigation"))
+    tap(wait_text(("全部会话", "All conversations"), label + "-history"))
+
+
 def open_session(title):
     adb("shell", "am", "start", "-n", package + "/com.helix.app.MainActivity")
     time.sleep(1)
+    open_history("open-session")
     tap(wait_text(title, "session-list"))
 
 
@@ -108,7 +114,7 @@ wait_text("NORMAL-PROCESS-DRAFT-214", "composer-restored")
 new_pid = int(adb("shell", "pidof", package).strip())
 assert new_pid != pid
 
-tap(wait_text(("会话列表", "Session list"), "after-back"))
+open_history("after-back")
 tap(wait_text("COMPOSER-ACCEPTED", "accepted-session-list"))
 for _ in range(20):
     accepted_nodes = nodes("accepted-visible")
@@ -128,7 +134,7 @@ fields = [node for node in accepted_nodes if node.get("class") == "android.widge
 assert any(node.get("text") == "ACCEPTED-COMPOSER-214" for node in accepted_nodes)
 assert len(fields) == 1 and fields[0].get("text") == ""
 
-tap(wait_text(("会话列表", "Session list"), "accepted-back"))
+open_history("accepted-back")
 tap(wait_text("COMPOSER-CANCELLING", "cancellation-session-list"))
 wait_text("Seeded cancellation boundary", "cancellation-visible")
 time.sleep(2)
