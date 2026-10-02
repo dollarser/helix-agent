@@ -274,3 +274,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-237 | 收尾验收 | 订阅引导、Codex 客户端版本与移动终端体验 | [任务规格](tasks/HXA-237.md) |
 | HXA-238 | 收尾验收 | 执行锁收窄与 Provider 表单反馈 | [任务规格](tasks/HXA-238.md) |
 | HXA-239 | 收尾验收 | 输入框选模、指令光标与权限快捷切换 | [任务规格](tasks/HXA-239.md) |
+| HXA-240 | 收尾验收 | Advanced Bash / Linux Job 复用 FFmpeg | [任务规格](tasks/HXA-240.md) |

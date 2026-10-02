@@ -41,6 +41,28 @@ internal class ProotResultStore(
             val extracted = ZipJobExtractor.extract(candidate, File(staging, "verified"))
             check(extracted.manifestSha256 == record.outputManifestSha256)
             publish(turnId, callId, record.jobId, candidate)
+            val session = storage.turns.resolve(turnId).sessionId
+            ProotProducedFiles.publish(
+                workspace,
+                File(staging, "verified"),
+                record.jobId,
+                extracted.manifest.entries,
+                beforePublish = { ProotProducedAuthorization(storage).checkBeforePublish(turnId, callId) },
+            ) { output ->
+                val identity = (callId + "\u0000" + output.relative).toByteArray(Charsets.UTF_8)
+                storage.withTransaction {
+                    storage.artifacts.registerOrRefresh(
+                        "proot-file-${LinuxRunTool.sha256Hex(identity)}",
+                        session,
+                        modelRef(output.relative),
+                        output.mime,
+                        output.size,
+                        output.sha256,
+                        turnId,
+                        output.file,
+                    )
+                }
+            }
             return requireNotNull(readLocal(turnId, callId))
         } finally {
             staging.deleteRecursively()
@@ -95,6 +117,27 @@ internal class ProotResultStore(
                 check(existing.sha256 == hash && existing.size == candidate.length())
             }
         }
+    }
+
+    fun produced(
+        turnId: String,
+        callId: String,
+    ): JsonObject {
+        val job = binding(turnId, callId).getValue("jobId").jsonPrimitive.content
+        val session = storage.turns.resolve(turnId).sessionId
+        val prefix = modelRef(ProotProducedFiles.relativeDirectory(job)) + "/"
+        val entries =
+            storage.artifacts
+                .listBySession(session)
+                .filter { it.turnId == turnId && it.relativePath.startsWith(prefix) }
+                .map {
+                    com.helix.runtime.proot.core.JobManifestEntry(
+                        "output/" + it.relativePath.removePrefix(prefix),
+                        it.sha256,
+                        it.size,
+                    )
+                }
+        return ProotArtifactReferences.summary(job, entries)
     }
 
     private fun binding(

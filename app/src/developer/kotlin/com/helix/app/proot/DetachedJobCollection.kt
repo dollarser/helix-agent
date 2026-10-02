@@ -99,6 +99,7 @@ internal class DetachedJobCollection(
                 put("settlementPending", false)
                 put("acknowledged", receipt != null)
                 put("resultAvailable", record.state == ProotJobState.SUCCEEDED)
+                appendProduced(this, store.produced(binding.turnId, binding.toolCallId))
             },
         )
     }
@@ -175,4 +176,11 @@ internal class DetachedJobCollection(
     private fun receiptId(binding: DetachedJobBinding) = "proot-collected-${binding.toolCallId}"
 
     private fun failure(reason: String) = ToolExecutorResult.Failed(reason, sideEffectFree = true)
+}
+
+private fun appendProduced(
+    builder: kotlinx.serialization.json.JsonObjectBuilder,
+    artifacts: kotlinx.serialization.json.JsonObject,
+) {
+    artifacts.forEach { (key, value) -> builder.put(key, value) }
 }

@@ -59,24 +59,21 @@ internal class DetachedJobLaunch(
     ): ToolExecutorResult {
         if (gate() != LinuxRuntimeGate.READY) return failure("RUNTIME_UNAVAILABLE")
         val input = File(scratch, "input.zip")
-        val hash = snapshots.build(call.inputReferences, input) ?: return failure("INPUT_BUILD_FAILED")
+        val hash =
+            try {
+                snapshots.build(call.inputReferences, input, isCancelled) ?: return failure("INPUT_BUILD_FAILED")
+            } catch (_: java.io.InterruptedIOException) {
+                return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
+            } catch (_: Exception) {
+                return failure("INPUT_BUILD_FAILED")
+            }
         val screened = ProotEnvScreen.screen(call.environment, knownSecretValues(), extraAllowedNames = emptySet())
         if (screened !is ProotEnvScreen.Verdict.Approved) return failure("ENV_REFUSED")
         if (isCancelled()) return ToolExecutorResult.Cancelled
         recheck(call)?.let { return it }
         val remaining = budget.remainingMillis(SystemClock.elapsedRealtime()).coerceAtMost(DetachedLease.MAX_MS)
         if (remaining < DetachedLease.MIN_MS) return failure("BUDGET_EXHAUSTED_BEFORE_SUBMIT")
-        val spec =
-            ProotJobSpec(
-                executionId = "exec_$identity",
-                jobId = "job_${identity.take(12)}",
-                command = call.command,
-                relativeWorkingDirectory = call.cwd,
-                environment = screened.environment,
-                deadlineMs = remaining,
-                maxOutputBytes = 8L * 1024 * 1024,
-                inputManifestSha256 = hash,
-            )
+        val spec = specification(call, identity, screened.environment, remaining, hash)
         val binding =
             DetachedJobBinding(
                 requireNotNull(call.sessionId),
@@ -114,6 +111,23 @@ internal class DetachedJobLaunch(
             }
         return finish(call, spec, owner, reply)
     }
+
+    private fun specification(
+        call: LinuxRunTool.ParsedLinuxCall,
+        identity: String,
+        environment: Map<String, String>,
+        remaining: Long,
+        hash: String,
+    ) = ProotJobSpec(
+        executionId = "exec_$identity",
+        jobId = "job_${identity.take(12)}",
+        command = call.command,
+        relativeWorkingDirectory = call.cwd,
+        environment = environment,
+        deadlineMs = remaining,
+        maxOutputBytes = 8L * 1024 * 1024,
+        inputManifestSha256 = hash,
+    )
 
     private fun finish(
         call: LinuxRunTool.ParsedLinuxCall,

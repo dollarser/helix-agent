@@ -76,7 +76,7 @@ object LinuxRunTool {
      */
     internal const val MIN_JOB_DEADLINE_MS: Long = 1_000L
 
-    const val VERSION: Int = 2
+    const val VERSION: Int = 3
 
     /** Fixed execution budget; the model may lower (per call) but never raise it. */
     const val DEFAULT_DEADLINE_SECONDS: Long = 60
@@ -112,7 +112,9 @@ object LinuxRunTool {
                     "needed). Output: verified stdout/stderr, the exit code, and the " +
                     "imported result file when `output` is set. Requires the ADVANCED " +
                     "profile and a previously verified PRoot Runtime; authorization follows " +
-                    "the current session's execution rules.",
+                    "the current session's rules. FFmpeg/FFprobe exposes packaged codecs/filters; " +
+                    "read /opt/helix-media/bin/README.md for usage. Write deliverables under /workspace/output/: " +
+                    "successful jobs return verified session artifacts. Longer tasks use code.linux.job.start.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
@@ -204,7 +206,8 @@ object LinuxRunTool {
                                 JsonPrimitive(
                                     "Workspace references (scope:<scopeId>:<path>) copied " +
                                         "into the job as a bounded input snapshot; the " +
-                                        "real Workspace is never mounted.",
+                                        "real Workspace is never mounted. Transfer: 64 MiB/file, 128 MiB total. " +
+                                        "First input retains its basename; later inputs append -2, -3, etc.",
                                 ),
                             )
                         },
@@ -277,6 +280,16 @@ object LinuxRunTool {
                         buildJsonObject {
                             put("type", JsonPrimitive("string"))
                             put("description", JsonPrimitive("Captured stderr (bounded)."))
+                        },
+                    )
+                    put("artifactDirectory", buildJsonObject { put("type", "string") })
+                    put("artifactCount", buildJsonObject { put("type", "integer") })
+                    put("artifactsTruncated", buildJsonObject { put("type", "boolean") })
+                    put(
+                        "artifacts",
+                        buildJsonObject {
+                            put("type", "array")
+                            put("items", buildJsonObject { put("type", "object") })
                         },
                     )
                     put(

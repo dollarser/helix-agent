@@ -25,6 +25,40 @@ for activity in ("ProotRepairActivity", "ProotLegalActivity"):
     COMPONENTS["com.helix.runtime.proot.app." + activity] = ("activity", ":proot")
 
 
+def verify_media_payload(archive, developer):
+    import hashlib
+    import json
+    names = archive.namelist()
+    native_names = {'libavcodec.so', 'libavformat.so', 'libavfilter.so', 'libavutil.so',
+                    'libswscale.so', 'libswresample.so', 'libhelix_ffmpeg.so', 'libhelix_ffprobe.so'}
+    present = {name for name in names if name.rsplit('/', 1)[-1] in native_names}
+    assets = {name for name in names if name.startswith('assets/runtime/media/')}
+    if not developer:
+        if present or assets:
+            raise RuntimeError('Standard APK contains Advanced FFmpeg payload')
+        return
+    if present != {'lib/arm64-v8a/' + name for name in native_names}:
+        raise RuntimeError('Missing, additional or duplicate-ABI FFmpeg payload')
+    for name in ('candidate.json', 'NOTICE.txt', 'USAGE.md', 'sources.json', 'LICENSES/dav1d/COPYING'):
+        if 'assets/runtime/media/' + name not in assets:
+            raise RuntimeError('Missing FFmpeg evidence or legal material: ' + name)
+    manifest = json.loads(archive.read('assets/runtime/media/candidate.json'))
+    if manifest['profile'] != 'ready-av1' or manifest['target'] != 'arm64-v8a':
+        raise RuntimeError('Wrong FFmpeg configuration')
+    if manifest['artifact_identity'] != '424662b10eb22413c752a62bf3aabe9daa5e9544dc5ba76a021ca14e0c7236c7':
+        raise RuntimeError('FFmpeg identity changed without an explicit verifier update')
+    total = 0
+    for row in manifest['files']:
+        original = row['name']
+        name = original if original.endswith('.so') else 'libhelix_' + original + '.so'
+        content = archive.read('lib/arm64-v8a/' + name)
+        if len(content) != row['bytes'] or hashlib.sha256(content).hexdigest() != row['sha256']:
+            raise RuntimeError('APK altered pinned FFmpeg bytes: ' + name)
+        total += len(content)
+    if total != manifest['runtime_bytes'] or total >= 25_000_000:
+        raise RuntimeError('FFmpeg runtime closure exceeds the agreed size boundary')
+
+
 def verify(flavor, build_type):
     apks = list((ROOT / f"app/build/outputs/apk/{flavor}/{build_type}").glob(f"app-{flavor}-{build_type}*.apk"))
     assert len(apks) == 1, f"expected one {flavor} {build_type} APK: {apks}"
@@ -72,11 +106,14 @@ def verify(flavor, build_type):
     assert len(launchers) == 1, f"{flavor} has extra launcher"
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
+        verify_media_payload(archive, developer)
         assert ("assets/licenses/dsh-plugin-subscriptions.txt" in names) == developer
         assert not any(name.startswith("assets/companions/") or name.endswith(".apk") for name in names)
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
+        if b'Lcom/helix/runtime/media/' in dex:
+            raise RuntimeError('Retired independent media Runtime is still packaged')
         assert (b"Lcom/helix/app/proot/DetachedOwnerProbeActivity;" in dex) == (developer and build_type == "debug")
         assert (b"Lcom/helix/runtime/proot/app/PtyNativeProbeService;" in dex) == (developer and build_type == "debug")
         for namespace in (b"Lcom/helix/runtime/cli/", b"Lcom/helix/runtime/proot/"):

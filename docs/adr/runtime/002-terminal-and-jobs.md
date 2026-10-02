@@ -31,6 +31,14 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 当前抽屉开启的手动终端使用应用私有 `workspaces/app/terminal` 目录，不依赖选中会话；文件管理器显式传入 scope 路径时仍使用该目录。终端 detach/attach 与租期不变，关闭或切换聊天不停止终端，Advanced、物理容量和运行环境维护约束仍适用，不再全局排斥 Agent 任务。
 
+### HXA-240：FFmpeg 复用 Advanced Bash / Job
+
+所有者选择复用既有执行通道，而非独立 `runtime/media` 或五种固定操作。固定 Ready-AV1 仅随 developer 的 PRoot 模块打包；guest `ffmpeg` / `ffprobe` 用原样 argv 调用 APK 内 Android/Bionic CLI。公开 Android 系统路径与 APK 原生目录的显式 PRoot 映射是 ABI 桥接，不把 Bionic 程序当成 Alpine/musl 包；不新增 Service、JNI 执行器、后台任务引擎或全局锁。
+
+PRoot 已有共享 UID、原 Job 进程组/取消/预算/日志/恢复语义保持。多输入和滤镜/字幕/编码策略交给模型与 FFmpeg；额外资源仍受原执行权限。输入快照流式使用 Job 64 MiB/128 MiB 传输上限，stdout 和旧 result.txt 预览限额不因此扩大。成功原归档的 `output/` 文件按原 session/turn 幂等登记为产物；不覆盖被用户改动的已发布文件，不重跑命令补收取。
+
+Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变。编译组件、设备能力、输出文件完整性和媒体任务正确性分别反馈；未经过当前设备验证的 MediaCodec/Bionic-in-PRoot 路径不写成已验收。正式制品继续核对全部依赖、来源许可和 25 MB 增量门槛。
+
 ## Alternatives considered
 
 通用持久 shell 替代全部 Job 会破坏身份与结算；仅最终输出不足以支持交互；每个按键做 Tool Approval 无法形成可用终端。
@@ -54,6 +62,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-02：按所有者“复用高级版已有的 Bash／Linux Job”裁决，HXA-240 撤回未验收的独立媒体运行时接线，采用既有 PRoot 内 Bionic CLI 桥；生产状态以 HXA-240 当前证据为准，历史 Ready/Plus 设备记录不是本桥接的验收。
 
 - 2026-10-02 复核：终态记录可能先于物理进程/输出泵清理，前台服务必须等该 Job 的物理槽结束才撤销；不能把 `state.isTerminal` 单独当作退出证明。并发 cold bind 的 Runner 构造保持单例。两项只维护运行稳定性，不恢复用户结果锁。
 

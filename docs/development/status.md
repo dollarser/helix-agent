@@ -48,6 +48,8 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 ## In progress
 
+所有者追加 [HXA-240](tasks/HXA-240.md)：FFmpeg 改为复用 Advanced 已有 Bash/Linux Job/PTY，以显式 Bionic CLI 桥暴露裁剪能力；撤回未验收的独立媒体运行时与五预设接口。标准版不增加 PRoot/FFmpeg；原 Job 身份、权限、日志、取消和结果收取保持。当前实现、联合主机/制品验证已通过，27 项新增主机检查与包体结果见[交付记录](../evidence/development/hxa240-ffmpeg-proot-2026-10-02.md)；3 项设备回归仅编译，设备未请求，不改变其他代理的 HXA 顺序。
+
 2026-10-02 当前优先 [HXA-239](tasks/HXA-239.md)：未选模型前阻止发送并保留草稿、指令补全同时定位光标、输入框底部当前会话权限直接切换。三项本地实现及完整适用主机整合已通过，8 项新增 JVM 回归通过，转收尾验收；[交付记录](../evidence/development/hxa239-composer-2026-10-02.md)保留设备未执行边界。不扩 J2/Project Memory。前置 [HXA-238](tasks/HXA-238.md) 已提交为 `9d0ab5c0`，未推送；原[证据记录](../evidence/development/hxa238-execution-provider-2026-10-02.md)中的未提交状态是当时快照，不再代表当前工作树。
 
 所有者追加的 [HXA-237](tasks/HXA-237.md) 已完成订阅测试引导、Codex 客户端兼容版本输入、终端帮助/字体/键盘及开发者入口的本地主机交付，见[验证记录](../evidence/development/hxa237-subscription-terminal-2026-10-01.md)；设备/真实服务未执行，保留收尾验收。上一阶段已保存为 `aca92e11`，未推送；阶段证据中的未提交状态是当时快照，不再作为当前事实。

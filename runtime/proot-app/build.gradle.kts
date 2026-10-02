@@ -1,5 +1,33 @@
+import com.android.build.api.dsl.LibraryExtension
+
 plugins {
     alias(libs.plugins.android.library)
+}
+
+// A pinned APK input, not a device download or a second Runtime.
+val ffmpegArchive = layout.projectDirectory.file("vendor/ffmpeg-9.0.2-ready-av1-arm64-v8a.zip")
+val ffmpegDirectory = layout.buildDirectory.dir("generated/ffmpeg")
+val prepareFfmpeg =
+    tasks.register<Exec>("prepareFfmpeg") {
+        inputs.file(ffmpegArchive)
+        inputs.file(rootProject.file("scripts/prepare-ffmpeg-proot.py"))
+        outputs.dir(ffmpegDirectory)
+        commandLine(
+            "python3",
+            rootProject.file("scripts/prepare-ffmpeg-proot.py").absolutePath,
+            ffmpegArchive.asFile.absolutePath,
+            ffmpegDirectory.get().asFile.absolutePath,
+        )
+    }
+tasks.named("preBuild") { dependsOn(prepareFfmpeg) }
+
+extensions.configure<LibraryExtension> {
+    sourceSets.getByName("main") {
+        jniLibs.srcDir(ffmpegDirectory.get().dir("jniLibs").asFile)
+        assets.srcDir(ffmpegDirectory.get().dir("assets").asFile)
+    }
+    packaging.jniLibs.keepDebugSymbols +=
+        setOf("**/libav*.so", "**/libsw*.so", "**/libhelix_ffmpeg.so", "**/libhelix_ffprobe.so")
 }
 
 android {

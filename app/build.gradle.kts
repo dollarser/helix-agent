@@ -209,6 +209,10 @@ androidComponents {
     onVariants(selector().withFlavor("distribution" to "developer")) { variant ->
         variant.packaging.jniLibs.useLegacyPackaging
             .set(true)
+        // Preserve the already-stripped, hash-bound CLI payload only in Advanced.
+        variant.packaging.jniLibs.keepDebugSymbols.addAll(
+            setOf("**/libav*.so", "**/libsw*.so", "**/libhelix_ffmpeg.so", "**/libhelix_ffprobe.so"),
+        )
     }
 }
 

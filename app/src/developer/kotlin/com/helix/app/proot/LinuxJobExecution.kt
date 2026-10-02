@@ -139,9 +139,14 @@ internal class LinuxJobExecution(
         var inputSha: String?
         try {
             inputSha =
-                inputSnapshot.build(call.inputReferences, inputZip)
-        } catch (e: Exception) {
-            return failed("the input snapshot could not be built: ${e.message?.take(120)}", "INPUT_BUILD_FAILED")
+                inputSnapshot.build(call.inputReferences, inputZip, isCancelled)
+        } catch (_: java.io.InterruptedIOException) {
+            return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
+        } catch (_: Exception) {
+            return failed(
+                "The input snapshot could not be built; check access and transfer limits",
+                "INPUT_BUILD_FAILED",
+            )
         }
         if (inputSha ==
             null
@@ -405,6 +410,9 @@ internal class LinuxJobExecution(
                     put("stderr", JsonPrimitive(readBounded(File(File(scratch, "extracted"), "stderr.txt"))))
                     put("outputImported", JsonPrimitive(outputImported))
                     put("outputSha256", JsonPrimitive(outputSha))
+                    ProotArtifactReferences.summary(record.jobId, extraction.manifest.entries).forEach { (key, value) ->
+                        put(key, value)
+                    }
                 },
             auditDetail =
                 buildJsonObject {

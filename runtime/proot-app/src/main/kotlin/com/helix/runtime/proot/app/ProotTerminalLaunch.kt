@@ -29,6 +29,7 @@ internal class ProotTerminalLaunch(
         check(digest.digest(loader.readBytes()).contentEquals(digest.digest(File(install, "bin/loader").readBytes())))
         val temporary = File(install, "tmp/pty-$sessionId").apply { check(isDirectory || mkdirs()) }
         val home = File(install, "home").apply { check(isDirectory || mkdirs()) }
+        val media = ProotGuestMedia.prepare(context, temporary)
         argv =
             listOf(
                 "/system/bin/linker64",
@@ -46,6 +47,8 @@ internal class ProotTerminalLaunch(
                 "${temporary.path}:/tmp",
                 "-b",
                 "${home.path}:/root",
+            ) + media.bindings +
+            listOf(
                 "-w",
                 "/workspace",
                 "/bin/sh",
@@ -53,7 +56,8 @@ internal class ProotTerminalLaunch(
             )
         environment =
             mapOf(
-                "PATH" to "/usr/local/bin:/usr/bin:/bin",
+                "PATH" to media.path("/usr/local/bin:/usr/bin:/bin"),
+                "HELIX_FFMPEG_BRIDGE" to if (media.available) "ready-av1-bionic" else "unavailable",
                 "TERM" to "xterm-256color",
                 "HOME" to "/root",
                 "PS1" to "helix> ",

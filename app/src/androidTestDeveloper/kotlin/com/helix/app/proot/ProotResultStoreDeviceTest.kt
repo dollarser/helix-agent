@@ -19,6 +19,7 @@ import org.junit.Test
 import java.io.File
 import java.util.UUID
 
+@Suppress("TooManyFunctions") // The original-result and produced-file scenarios share one real Room/Job fixture.
 class ProotResultStoreDeviceTest {
     @Test
     fun persistsOnceRejectsCorruptionAndRegistersPrivacyCleanup() {
@@ -199,6 +200,60 @@ class ProotResultStoreDeviceTest {
         }
     }
 
+    @Test
+    fun producedFilesRemainBoundToOriginalTurnAndRetryIsIdempotent() {
+        withStore(produced = true) { storage, root, store, archive, record ->
+            repeat(2) { archive.inputStream().use { store.persist("turn", "call", record, it) } }
+            val outputs = storage.artifacts.listByTurn("turn")
+            assertEquals(1, outputs.size)
+            assertEquals("session", outputs.single().sessionId)
+            assertEquals("scope:app:output/jobs/${record.jobId}/clip.mp4", outputs.single().relativePath)
+            assertEquals("verified result", File(root, "output/jobs/${record.jobId}/clip.mp4").readText())
+            assertEquals("1", store.produced("turn", "call").getValue("artifactCount").toString())
+        }
+    }
+
+    @Test
+    fun producedFileChangedByUserIsNotOverwrittenOrAcknowledged() {
+        withStore(produced = true) { storage, root, store, archive, record ->
+            archive.inputStream().use { store.persist("turn", "call", record, it) }
+            val output = File(root, "output/jobs/${record.jobId}/clip.mp4")
+            output.writeText("user edit")
+            var acknowledgements = 0
+            val committer =
+                ProotResultCommitter(storage, store) {
+                    acknowledgements++
+                    it
+                }
+            assertThrows(IllegalStateException::class.java) { committer.commit("turn", "call", record, archive) }
+            assertEquals(0, acknowledgements)
+            assertEquals("user edit", output.readText())
+        }
+    }
+
+    @Test
+    fun currentPermissionDenialBlocksPublicationButPreservesOriginalArchive() {
+        withStore(produced = true) { storage, root, store, archive, record ->
+            val denied =
+                com.helix.core.policy.SessionPermissionConfig.of(
+                    com.helix.core.model.SessionPermissionMode.READ_ONLY,
+                )
+            storage.sessionPermissionConfigs.setForSession("session", denied, 4)
+            assertThrows(IllegalStateException::class.java) {
+                archive.inputStream().use { store.persist("turn", "call", record, it) }
+            }
+            assertTrue(store.readLocal("turn", "call") != null)
+            assertTrue(!File(root, "output/jobs/${record.jobId}/clip.mp4").exists())
+            val allowed =
+                com.helix.core.policy.SessionPermissionConfig.of(
+                    com.helix.core.model.SessionPermissionMode.FULL_ACCESS,
+                )
+            storage.sessionPermissionConfigs.setForSession("session", allowed, 5)
+            archive.inputStream().use { store.persist("turn", "call", record, it) }
+            assertEquals(1, storage.artifacts.listByTurn("turn").size)
+        }
+    }
+
     private fun interrupt(storage: HelixStorage) {
         storage.turns.updateState(
             storage.turns.resolve("turn"),
@@ -209,7 +264,10 @@ class ProotResultStoreDeviceTest {
         )
     }
 
-    private fun withStore(block: (HelixStorage, File, ProotResultStore, File, ProotJobRecord) -> Unit) {
+    private fun withStore(
+        produced: Boolean = false,
+        block: (HelixStorage, File, ProotResultStore, File, ProotJobRecord) -> Unit,
+    ) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "proot-result-${UUID.randomUUID()}"
         val root = File(context.cacheDir, name)
@@ -227,7 +285,7 @@ class ProotResultStoreDeviceTest {
                 "executionId":"execution","inputManifestSha256":"${"a".repeat(64)}"}""",
                 3,
             )
-            val (archive, manifestHash) = archive(root)
+            val (archive, manifestHash) = archive(root, produced)
             val record =
                 ProotJobRecord(
                     "job_0123456789ab",
@@ -247,15 +305,19 @@ class ProotResultStoreDeviceTest {
         }
     }
 
-    private fun archive(root: File): Pair<File, String> {
+    private fun archive(
+        root: File,
+        produced: Boolean,
+    ): Pair<File, String> {
         check(root.mkdirs() || root.isDirectory)
         val stdout = File(root, "stdout.txt").apply { writeText("verified result") }
-        val entry = JobManifestEntry("stdout.txt", FileContentStore.sha256Hex(stdout), stdout.length())
+        val path = if (produced) "output/clip.mp4" else "stdout.txt"
+        val entry = JobManifestEntry(path, FileContentStore.sha256Hex(stdout), stdout.length())
         val manifest = JobManifestCodec.encode(JobManifest(listOf(entry)))
         val archive = File(root, "fixture.zip")
         JobZipWriter(archive.outputStream()).use {
             it.writeManifest(manifest)
-            it.writeEntry("stdout.txt", stdout)
+            it.writeEntry(path, stdout)
         }
         return archive to FileContentStore.sha256Hex(manifest.toByteArray())
     }

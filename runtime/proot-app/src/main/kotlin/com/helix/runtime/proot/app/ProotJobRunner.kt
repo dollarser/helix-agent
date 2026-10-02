@@ -399,6 +399,7 @@ class ProotJobRunner private constructor(
             //    group kill below can be aimed precisely at the job).
             val installDir = File(ProotRuntimeInstaller.runtimeRoot(context), installId)
             val jobTmp = File(jobDir, "tmp").apply { mkdirs() }
+            val media = ProotGuestMedia.prepare(context, jobTmp)
             val commandArgs =
                 when (val command = spec.command) {
                     is ProotJobCommand.Argv -> command.arguments
@@ -421,13 +422,15 @@ class ProotJobRunner private constructor(
                     "${jobTmp.absolutePath}:/tmp",
                     "-b",
                     "${workspace.absolutePath}:/workspace",
-                    "-w",
-                    if (spec.relativeWorkingDirectory.isEmpty()) {
-                        "/workspace"
-                    } else {
-                        "/workspace/${spec.relativeWorkingDirectory}"
-                    },
-                ) + commandArgs
+                ) + media.bindings +
+                    listOf(
+                        "-w",
+                        if (spec.relativeWorkingDirectory.isEmpty()) {
+                            "/workspace"
+                        } else {
+                            "/workspace/${spec.relativeWorkingDirectory}"
+                        },
+                    ) + commandArgs
             // LAUNCH CHAIN (device-verified, HXA-084):
             //   setsid  -> the job gets its own session (pgid == pid, group kill)
             //   linker64 -> SELinux gives the app domain execute_no_trans for
@@ -472,6 +475,8 @@ class ProotJobRunner private constructor(
             if (builder.environment()["PATH"] == null) {
                 builder.environment()["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
             }
+            builder.environment()["PATH"] = media.path(builder.environment()["PATH"])
+            builder.environment()["HELIX_FFMPEG_BRIDGE"] = if (media.available) "ready-av1-bionic" else "unavailable"
 
             if (stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow)) return
             val deadlineHit = AtomicBoolean(false)
