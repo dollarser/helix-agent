@@ -77,7 +77,6 @@ class FixedAccessibilityEvaluationDeviceTest {
                     "accessibility_enabled",
                     0,
                 )
-            val originalAllowlist = center.allowlistedPackages()
             val component = "${app.packageName}/com.helix.tools.automation.HelixAccessibilityService"
             val services =
                 originalServices
@@ -104,8 +103,6 @@ class FixedAccessibilityEvaluationDeviceTest {
                 container.chatService.setMode(previous.mode)
                 container.chatService.setTurnBudgets(previous.budgets)
                 providers.values.forEach { container.providerService.delete(it) }
-                center.stopSession()
-                center.replaceAllowlist(originalAllowlist)
                 if (originalServices.isNullOrBlank()) {
                     shell("settings delete secure enabled_accessibility_services")
                 } else {
@@ -145,8 +142,8 @@ class FixedAccessibilityEvaluationDeviceTest {
     ) {
         val previousProfile = container.profileStore.profile
         container.profileStore.switchTo(com.helix.core.model.SafetyProfile.ADVANCED)
-        prepareFixture(cells[0])
         val session = container.chatService.createSession("fixed-${cells[0]}", provider, model)
+        prepareFixture(cells[0], session)
         val context =
             when (cells[0]) {
                 "accessibility-001" -> {
@@ -181,27 +178,28 @@ class FixedAccessibilityEvaluationDeviceTest {
             container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
             container.chatService.sendTestMessage(session, cells[4])
             awaitTurn(session, cells[0])
-            val sensitiveProbe = if (cells[0] == "accessibility-003") probeSensitiveAction() else null
+            val sensitiveProbe = if (cells[0] == "accessibility-003") probeSensitiveAction(session) else null
             saveResult(cells, session, context, sensitiveProbe)
         } finally {
             container.chatService.stop()
             container.chatService.closeSession()
-            center.stopSession()
+            center.revokeConversation(session)
             activity.scenario.onActivity { it.startActivity(android.content.Intent(it, MainActivity::class.java)) }
             container.profileStore.switchTo(previousProfile)
         }
     }
 
-    private fun prepareFixture(caseId: String) {
-        center.stopSession()
-        center.replaceAllowlist(setOf(fixturePackage))
+    private fun prepareFixture(
+        caseId: String,
+        session: String,
+    ) {
+        center.authorizeConversation(session, setOf(fixturePackage), wholePhone = false)
+        val port = evaluationAutomationPort(center, session)
         launchFixture(caseId == "accessibility-003")
-        val started = center.startSession(setOf(fixturePackage))
-        require(started.status == com.helix.tools.automation.AutomationSessionStartStatus.STARTED)
         actionToken = ""
         if (caseId != "accessibility-003") {
             waitFor {
-                center
+                port
                     .snapshot()
                     .snapshot
                     ?.nodes
@@ -212,7 +210,7 @@ class FixedAccessibilityEvaluationDeviceTest {
                     true
             }
             actionToken =
-                center
+                port
                     .snapshot()
                     .snapshot!!
                     .nodes
@@ -338,12 +336,13 @@ class FixedAccessibilityEvaluationDeviceTest {
         }
     }
 
-    private fun probeSensitiveAction(): String {
-        val snapshot = requireNotNull(center.snapshot().snapshot)
+    private fun probeSensitiveAction(session: String): String {
+        val port = evaluationAutomationPort(center, session)
+        val snapshot = requireNotNull(port.snapshot().snapshot)
         require(snapshot.packageName == fixturePackage)
         val token = snapshot.nodes.single { it.text.equals("Confirm payment", ignoreCase = true) }.token
-        return center
-            .performNodeAction(
+        return port
+            .nodeAction(
                 com.helix.tools.automation.AutomationNodeActionRequest(
                     com.helix.tools.automation.AutomationNodeAction.CLICK,
                     token,

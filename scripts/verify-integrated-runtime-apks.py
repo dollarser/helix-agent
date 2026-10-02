@@ -42,6 +42,12 @@ def verify_http_network_config(app, config, resource_table=""):
         raise RuntimeError("HTTP unavailable or default TLS trust modified")
 
 
+def verify_mobile_app_visibility(manifest, developer):
+    permissions = {item.get(A + "name") for item in manifest.findall("uses-permission")}
+    if ("android.permission.QUERY_ALL_PACKAGES" in permissions) != developer:
+        raise RuntimeError("App-picker package visibility must be present only in Advanced APK")
+
+
 def verify_mobile_use(app, developer, config=None, resource_table=""):
     """HXA-243: inspect actual service metadata, not just a dependency or UI flag."""
     name = "com.helix.tools.automation.HelixAccessibilityService"
@@ -122,6 +128,7 @@ def verify(flavor, build_type):
     verify_http_network_config(app, network_config, resources)
     package = manifest.attrib["package"]
     developer = flavor == "developer"
+    verify_mobile_app_visibility(manifest, developer)
     mobile_config = None
     if developer:
         mobile_config = ET.fromstring(subprocess.check_output([

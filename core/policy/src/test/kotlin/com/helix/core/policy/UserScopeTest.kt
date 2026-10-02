@@ -178,8 +178,15 @@ class UserScopeTest {
     @Test
     fun scopeRefIsBoundedAtMaxScopeRefLength() {
         val manyPackages = (1..40).map { "com.helix.package${it.toString().padStart(3, '0')}.module" }.toSet()
-        // a scope whose audit ref would not fit the column is structurally invalid at construction
-        assertIllegal { AutomationSessionScope(manyPackages, emptySet(), 30, instant).toScopeRef() }
+        val scope = AutomationSessionScope(manyPackages, emptySet(), 30, instant, grantId = "selection")
+        assertTrue(scope.toScopeRef().length <= UserScope.MAX_SCOPE_REF_LENGTH)
+        assertTrue(scope.toScopeRef().startsWith("automation:sha256:"))
+        assertEquals(scope, UserScopeCodec.decode(UserScopeCodec.encode(scope)))
+        assertEquals(scope.toScopeRef(), scope.copy(allowedPackages = manyPackages.reversed().toSet()).toScopeRef())
+        assertNotEquals(scope.toScopeRef(), scope.copy(allowedPackages = manyPackages + "com.extra.app").toScopeRef())
+        assertNotEquals(scope.toScopeRef(), scope.copy(grantId = "new-grant").toScopeRef())
+        assertNotEquals(scope.toScopeRef(), scope.copy(expiresAt = instant.plusNanos(1)).toScopeRef())
+        assertFalse(scope.permitsPackage("com.unselected.app"))
     }
 
     private fun assertIllegal(block: () -> Unit) {

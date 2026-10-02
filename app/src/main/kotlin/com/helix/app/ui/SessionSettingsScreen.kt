@@ -42,6 +42,7 @@ internal fun SessionSettingsScreen(
     onExtensions: () -> Unit,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
+    val profile by chatService.profile.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providers by providerService.rows.collectAsStateWithLifecycle()
     val sessionId = screen.openSessionId
@@ -90,6 +91,10 @@ internal fun SessionSettingsScreen(
             ) {
                 Text(stringResource(R.string.session_settings_manage_models))
             }
+        }
+
+        com.helix.app.automation.AutomationModule.Section(profile, sessionId) { id ->
+            chatService.materializeDraftSession(id) == id
         }
 
         SessionWorkspaceSection(files, screen.directoryRef, sessionId != null) { directoryOpen = true }

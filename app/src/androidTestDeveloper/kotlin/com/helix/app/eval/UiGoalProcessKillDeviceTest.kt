@@ -72,10 +72,11 @@ class UiGoalProcessKillDeviceTest {
             }
         save(facts)
         configure(port, facts)
-        prepareUi(facts)
         val chat = container.chatService
         val session = chat.createSession("UI kill fixture", facts.getProperty("provider"), "fixture-model-a")
         facts.setProperty("session", session)
+        save(facts)
+        prepareUi(facts)
         val goal =
             chat.createGoal(
                 "Interrupted UI action",
@@ -168,11 +169,13 @@ class UiGoalProcessKillDeviceTest {
         observeEvents()
         instrumentation.sendStatus(2, Bundle().apply { putString("stream", "UI_SERVICE_READY\n") })
         await { center.serviceState() == com.helix.tools.automation.AutomationServiceState.CONNECTED }
-        facts.setProperty("allowlist", center.allowlistedPackages().joinToString(":"))
-        save(facts)
-        center.stopSession()
+        val session = facts.getProperty("session")
         val fixturePackage = instrumentation.context.packageName
-        center.replaceAllowlist(setOf(fixturePackage))
+        center.authorizeConversation(session, setOf(fixturePackage), wholePhone = false)
+        val grant = requireNotNull(center.conversationGrant(session))
+        facts.setProperty("mobileUseScope", grant.scope.toScopeRef())
+        save(facts)
+        val port = evaluationAutomationPort(center, session)
         app.startActivity(
             android.content
                 .Intent()
@@ -186,11 +189,9 @@ class UiGoalProcessKillDeviceTest {
             automation.rootInActiveWindow?.findAccessibilityNodeInfosByText("FIXTURE_UNCHANGED")?.isNotEmpty() ==
                 true
         }
-        val started = center.startSession(setOf(fixturePackage))
-        check(started.status == com.helix.tools.automation.AutomationSessionStartStatus.STARTED)
         automation.waitForIdle(300, 5000)
         await {
-            center
+            port
                 .snapshot()
                 .snapshot
                 ?.nodes
@@ -198,7 +199,7 @@ class UiGoalProcessKillDeviceTest {
         }
         facts.setProperty(
             "token",
-            center
+            port
                 .snapshot()
                 .snapshot!!
                 .nodes
@@ -244,6 +245,8 @@ class UiGoalProcessKillDeviceTest {
     }
 
     private fun recover(facts: Properties) {
+        val conversation = facts.getProperty("session")
+        assertEquals(facts.getProperty("mobileUseScope"), center.conversationGrant(conversation)?.scope?.toScopeRef())
         val storage = container.storage
         val id = facts.getProperty("goal")
         await { storage.goals.resolve(id).state == "PAUSED" }
@@ -307,11 +310,7 @@ class UiGoalProcessKillDeviceTest {
             }
         }
         container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
-        center.stopSession()
-        facts
-            .getProperty(
-                "allowlist",
-            )?.let { center.replaceAllowlist(it.split(':').filter(String::isNotBlank).toSet()) }
+        facts.getProperty("session")?.let(center::revokeConversation)
         check(marker.delete())
     }
 

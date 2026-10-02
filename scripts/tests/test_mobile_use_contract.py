@@ -23,6 +23,15 @@ class MobileUseContractTest(unittest.TestCase):
         })
         self.config = ET.parse(ROOT / 'tools/automation/src/main/res/xml/helix_accessibility_service.xml').getroot()
 
+    def test_app_catalog_visibility_is_advanced_only(self):
+        manifest = ET.parse(ROOT / 'app/src/developer/AndroidManifest.xml').getroot()
+        GUARD.verify_mobile_app_visibility(manifest, True)
+        GUARD.verify_mobile_app_visibility(ET.parse(ROOT / 'app/src/main/AndroidManifest.xml').getroot(), False)
+        with self.assertRaises(RuntimeError):
+            GUARD.verify_mobile_app_visibility(manifest, False)
+        with self.assertRaises(RuntimeError):
+            GUARD.verify_mobile_app_visibility(ET.Element('manifest'), True)
+
     def test_source_declares_all_three_native_capabilities(self):
         GUARD.verify_mobile_use(self.app, True, self.config)
 

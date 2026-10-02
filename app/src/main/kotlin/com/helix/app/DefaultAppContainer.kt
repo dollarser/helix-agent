@@ -112,6 +112,12 @@ internal class DefaultAppContainer(
         )
 
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
+    private val mobileUseLines = PrefsLineStore(context, "helix-mobile-use", synchronous = true)
+    private val mobileUseGrants =
+        com.helix.core.policy.MobileUseGrantStore(
+            mobileUseLines::lines,
+            mobileUseLines::setLines,
+        )
 
     override val settingsRequests =
         com.helix.app.settings
@@ -521,7 +527,18 @@ internal class DefaultAppContainer(
         RootModule.register(context, appClock, toolRegistry)
         // HXA-097: developer exposes the accepted snapshot/token/action contracts; consumer
         // remains a flavor-local no-op with no Accessibility tool descriptors.
-        AutomationModule.register(context, pluginRegistry, toolVision.imagePublisher)
+        AutomationModule.register(
+            context,
+            pluginRegistry,
+            toolVision.imagePublisher,
+            grants = mobileUseGrants,
+            conversationExists = { storage.sessions.find(it) != null },
+            screenTarget = { id ->
+                val view = chatService.screen.value
+                val turn = view.activeTurn?.takeUnless { it.state.isTerminal }?.takeIf { view.openSessionId == id }
+                toolVision.screenTarget(id, turn?.id)
+            },
+        )
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
         // and allowed-tools hints cannot register tools or grant authority.
@@ -823,6 +840,14 @@ internal class DefaultAppContainer(
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,
+            mobileScreenScope = { id ->
+                if (storage.sessions.find(id) != null) {
+                    mobileUseGrants.find(id)?.takeIf { it.shareScreens }?.scope
+                } else {
+                    null
+                }
+            },
+            mobileScreenSources = mobileUseLines,
             // P1 (research doc section 8): the session workspace's project-instruction file
             // (AGENTS.md / CLAUDE.md / HELIX.md) becomes the goal prompt's PROJECT section; the
             // reader degrades to "" on any failure (no workspace / revoked scope / missing file).

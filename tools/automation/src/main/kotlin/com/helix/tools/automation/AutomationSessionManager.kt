@@ -41,6 +41,7 @@ data class ActiveAutomationSession(
     val scope: AutomationSessionScope,
     val attemptedActions: Int = 0,
     val allowSystemSettings: Boolean = false,
+    val conversationId: String? = null,
 )
 
 internal enum class AutomationActionAdmission {
@@ -165,6 +166,28 @@ class AutomationSessionManager(
         pauseReason = null
         resumeTarget = null
         return AutomationSessionStartResult(AutomationSessionStartStatus.STARTED, session)
+    }
+
+    /** Rebuild physical state from durable user configuration; never restore an old runtime identity. */
+    @Synchronized
+    fun activate(grant: com.helix.core.policy.MobileUseGrant): ActiveAutomationSession {
+        val current = current()
+        if (current?.conversationId == grant.conversationId && current.scope == grant.scope) return current
+        val restored =
+            ActiveAutomationSession(
+                idFactory(),
+                clock.now(),
+                grant.scope,
+                allowSystemSettings =
+                    grant.scope.allApplications ||
+                        grant.scope.allowedPackages.any { it in SystemSettingsTargets.packages },
+                conversationId = grant.conversationId,
+            )
+        active = restored
+        pauseReason = null
+        resumeTarget = null
+        lastStopReason = null
+        return restored
     }
 
     @Synchronized

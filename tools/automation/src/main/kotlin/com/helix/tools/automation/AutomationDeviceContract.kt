@@ -64,9 +64,12 @@ data class AutomationScreenshot(
     val width: Int = 0,
     val height: Int = 0,
     val screenBounds: AutomationNodeBounds? = null,
+    val acquisitionScopeRef: String? = null,
 )
 
 interface AutomationDevicePort {
+    fun forCall(call: ExecutableToolCall): AutomationDevicePort = this
+
     fun observe(): AutomationDeviceObservation
 
     fun apps(): AutomationAppListing

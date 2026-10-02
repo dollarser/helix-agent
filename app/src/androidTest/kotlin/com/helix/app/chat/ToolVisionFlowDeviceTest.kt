@@ -23,7 +23,11 @@ import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderAuth
+import com.helix.core.model.ProviderConnection
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderProvisioningKind
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.SecretAlias
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolCallId
@@ -85,6 +89,78 @@ class ToolVisionFlowDeviceTest {
                         .listBySession("s")
                         .count { it.role == "USER" },
                 )
+            }
+        }
+
+    @Test
+    fun localToolPixelsNeedNoNetworkConsentAndCannotBeReusedForNetwork() =
+        runBlocking {
+            Fixture(onDevice = true).use { fixture ->
+                val result = fixture.prepare() as ToolExecutorResult.Completed
+                fixture.coordinator.settleBatchCall("call", false)
+                fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                val rows = fixture.history()
+                val projected =
+                    fixture.feedback.restore(
+                        "s",
+                        "turn",
+                        fixture.config,
+                        "vision",
+                        ChatHistoryBuilder.toModelMessages(rows),
+                        rows,
+                    ) { id -> listOf(fixture.image(id)) }
+                val image = projected.last().images.single()
+                assertEquals(null, image.binding!!.consentId)
+                assertTrue(
+                    fixture.consent.pending.value
+                        .isEmpty(),
+                )
+                assertPixelContent(fixture.source.load(image, fixture.config).base64)
+                val remote =
+                    ProviderConfig(
+                        "p",
+                        "Remote",
+                        ProviderProtocol.OPENAI_RESPONSES,
+                        NormalizedEndpoint.parse("https://fixture.example/v1"),
+                        "vision",
+                        emptyMap(),
+                        SecretAlias("fixture"),
+                        "{}",
+                    )
+                assertThrows(IllegalArgumentException::class.java) { fixture.source.load(image, remote) }
+            }
+        }
+
+    @Test fun mobileGrantIsRecheckedAtTheFinalPixelReadForNetworkAndLocal() =
+        runBlocking {
+            for (local in listOf(false, true)) {
+                Fixture(onDevice = local).use { fixture ->
+                    val result = fixture.prepare() as ToolExecutorResult.Completed
+                    fixture.coordinator.settleBatchCall("call", false)
+                    fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                    // Trusted captured-image fixture: no real Accessibility capture or network call.
+                    fixture.consent.mobileScreens.register(
+                        fixture.call.copy(toolName = "ui.screenshot"),
+                        requireNotNull(result.visualArtifact),
+                        fixture.phoneScope!!.toScopeRef(),
+                    )
+                    val row =
+                        fixture.storage.messages
+                            .listBySession("s")
+                            .single { it.role == "TOOL" }
+                    val source = fixture.image(row.id)
+                    val candidate = source.copy(binding = source.binding!!.copy(turnId = "turn", modelId = "vision"))
+                    val receipt = fixture.consent.requestMobileScreen(candidate, fixture.config)
+                    assertTrue(receipt != null)
+                    val bound = candidate.copy(binding = candidate.binding!!.copy(consentId = receipt))
+                    assertPixelContent(fixture.source.load(bound, fixture.config).base64)
+                    assertTrue(
+                        fixture.consent.pending.value
+                            .isEmpty(),
+                    )
+                    fixture.phoneScope = null
+                    assertThrows(IllegalArgumentException::class.java) { fixture.source.load(bound, fixture.config) }
+                }
             }
         }
 
@@ -177,7 +253,9 @@ class ToolVisionFlowDeviceTest {
         }
     }
 
-    private class Fixture : Closeable {
+    private class Fixture(
+        onDevice: Boolean = false,
+    ) : Closeable {
         private val context = ApplicationProvider.getApplicationContext<Context>()
         private val name = "vision-${UUID.randomUUID()}.db"
         private val root = File(context.cacheDir, name).apply { mkdirs() }
@@ -187,16 +265,31 @@ class ToolVisionFlowDeviceTest {
                 override fun now(): Instant = Instant.ofEpochMilli(1000)
             }
         val config =
-            ProviderConfig(
-                "p",
-                "Fixture",
-                ProviderProtocol.OPENAI_RESPONSES,
-                NormalizedEndpoint.parse("https://fixture.example/v1"),
-                "vision",
-                emptyMap(),
-                SecretAlias("fixture"),
-                "{}",
-            )
+            if (onDevice) {
+                ProviderConfig(
+                    "p",
+                    "Fixture",
+                    ProviderConnection(
+                        ProviderProvisioningKind.ON_DEVICE_ASSET,
+                        ProviderTransport.OnDeviceLocal,
+                        ProviderAuth.None,
+                    ),
+                    "vision",
+                    emptyMap(),
+                    "{}",
+                )
+            } else {
+                ProviderConfig(
+                    "p",
+                    "Fixture",
+                    ProviderProtocol.OPENAI_RESPONSES,
+                    NormalizedEndpoint.parse("https://fixture.example/v1"),
+                    "vision",
+                    emptyMap(),
+                    SecretAlias("fixture"),
+                    "{}",
+                )
+            }
         private val roots =
             ScopeRootResolver { scope ->
                 require(scope == "ws")
@@ -205,7 +298,16 @@ class ToolVisionFlowDeviceTest {
         private val workspace = WorkspaceArtifactStore(roots).apply { ensureLayout("ws") }
         val input = File(root, "workspace/input/sample.png")
         val coordinator: TurnCoordinator
-        val consent = ToolVisionConsent(storage.interactionReceipts, clock)
+        var phoneScope: com.helix.core.policy.AutomationSessionScope? =
+            com.helix.core.policy
+                .AutomationSessionScope(emptySet(), emptySet(), 0, Instant.MAX, true, "fixture-grant")
+        val consent =
+            ToolVisionConsent(
+                storage.interactionReceipts,
+                clock,
+                com.helix.app.vision
+                    .MobileUseScreenConsent(clock) { phoneScope },
+            )
         val source =
             ArtifactVisionImageSource(storage.artifacts, workspace) { image, destination ->
                 BoundImageAccess(storage, consent) { _, _ -> true }.verify(image, destination)
@@ -248,12 +350,15 @@ class ToolVisionFlowDeviceTest {
                 ProviderConfigSpec(
                     "p",
                     "Fixture",
-                    ProviderProtocol.OPENAI_RESPONSES,
-                    "https://fixture.example/v1",
+                    if (onDevice) null else ProviderProtocol.OPENAI_RESPONSES,
+                    if (onDevice) null else "https://fixture.example/v1",
                     "vision",
                     "{}",
-                    "fixture",
+                    if (onDevice) null else "fixture",
                     "{}",
+                    provisioningKind = if (onDevice) "ON_DEVICE_ASSET" else "USER_CONFIGURED",
+                    transportKind = if (onDevice) "ON_DEVICE_LOCAL" else "NETWORK",
+                    authKind = if (onDevice) "NONE" else "SECRET",
                 ),
             )
             storage.sessions.create("s", "Vision fixture", "p", "vision", 1000)

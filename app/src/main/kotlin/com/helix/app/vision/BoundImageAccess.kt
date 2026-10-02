@@ -35,9 +35,14 @@ class BoundImageAccess(
             require(
                 visionAvailable(config.id, requireNotNull(binding.modelId)),
             ) { "Vision capability is no longer available" }
-            require(
-                consent.granted(image, config, requireNotNull(binding.consentId)),
-            ) { "Tool image disclosure not granted" }
+            val screenImage =
+                consent.mobileScreens.isScreenImage(image) ||
+                    binding.consentId?.startsWith(MobileUseScreenConsent.PREFIX) == true
+            if (screenImage || config.transport != com.helix.core.model.ProviderTransport.OnDeviceLocal) {
+                require(
+                    consent.granted(image, config, requireNotNull(binding.consentId)),
+                ) { "Tool image disclosure not granted" }
+            }
             val current = storage.providerConfigs.resolve(config.id)
             val latest =
                 ProviderConfig.fromStorage(

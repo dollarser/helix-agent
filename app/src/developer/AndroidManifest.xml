@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <!-- Advanced-only user-operated target picker includes system apps without launcher activities.
+         Enumeration stays local and does not grant automation access. Not packaged in consumer. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <application>
         <activity android:name="com.helix.app.terminal.ManualTerminalActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <meta-data android:name="com.helix.agent.DEVELOPER_VARIANT"

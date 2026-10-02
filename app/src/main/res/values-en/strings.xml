@@ -1649,7 +1649,7 @@
     <string name="composer_mode_failed">Mode change did not complete. Your text is preserved; please retry.</string>
     <string name="composer_temporarily_unavailable">This input is not ready yet. Your draft is preserved.</string>
     <string name="composer_cache_notice">Draft caching or attachment recovery encountered a problem. You can still edit; remove missing attachments before sending.</string>
-    <string name="automation_target_invalid">Enter valid app package names, separated by commas or new lines. Invalid input has not replaced the saved selection.</string>
+    <string name="automation_target_invalid">Select valid target apps. Invalid selection has not replaced the saved configuration.</string>
     <string name="automation_start_failed">Automation did not start. Check the service and selected targets, then retry.</string>
     <string name="automation_service_unavailable">The accessibility service is not connected. Check system settings.</string>
     <string name="automation_whole_phone_label">Authorize the whole phone for this session, including system UI</string>
@@ -1660,4 +1660,5 @@
     <string name="automation_until_stopped">Until stopped or locked</string>
     <string name="automation_actions_unlimited">%1$d attempted; no action limit</string>
     <string name="automation_lease_summary">Time remaining: %1$s; actions: %2$s</string>
+    <string name="disclosure_mobile_use_session">Allow further screenshots from this Mobile Use grant to reach the model above without per-image confirmation. Limited to this conversation and selected apps. Ends on stop, lock, service loss or recipient change; excludes ordinary attachments.</string>
 </resources>

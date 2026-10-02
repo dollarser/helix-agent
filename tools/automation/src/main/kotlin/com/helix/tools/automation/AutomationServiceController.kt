@@ -9,6 +9,98 @@ import java.time.Duration
 object AutomationServiceController {
     private val sessionManager = AutomationSessionManager(SystemClock())
     private var service: HelixAccessibilityService? = null
+    private var grants: com.helix.core.policy.MobileUseGrantStore? = null
+    private var conversationExists: (String) -> Boolean = { false }
+
+    @Synchronized
+    fun configureConversations(
+        store: com.helix.core.policy.MobileUseGrantStore,
+        exists: (String) -> Boolean,
+    ) {
+        grants = store
+        conversationExists = exists
+    }
+
+    @Synchronized
+    fun conversationGrant(id: String): com.helix.core.policy.MobileUseGrant? =
+        if (conversationExists(id)) grants?.find(id) else null
+
+    @Synchronized
+    fun authorizeConversation(
+        id: String,
+        packages: Set<String>,
+        wholePhone: Boolean,
+    ) {
+        check(conversationExists(id)) { "Conversation is not available" }
+        val saved = checkNotNull(grants).authorize(id, packages, wholePhone)
+        val active = sessionManager.current()
+        if (active?.conversationId == id && active.scope != saved.scope) suspendRuntime()
+    }
+
+    @Synchronized
+    fun revokeConversation(id: String) {
+        // Persist under the same admission lock; failures also invalidate the current process's grant.
+        try {
+            checkNotNull(grants).revoke(id)
+        } finally {
+            if (sessionManager.current()?.conversationId == id) suspendRuntime()
+        }
+    }
+
+    /** A retained notification can close its own grant, never whichever chat happened to run later. */
+    @Synchronized
+    fun stopFromNotification(
+        conversationId: String?,
+        scopeRef: String?,
+        runtimeId: String?,
+    ) {
+        if (conversationId != null && scopeRef != null) {
+            if (grants?.matches(conversationId, scopeRef) == true) revokeConversation(conversationId)
+        } else {
+            val active = sessionManager.current()
+            if (active?.conversationId == null && (runtimeId == null || active?.id == runtimeId)) {
+                stop(AutomationStopReason.USER_STOP)
+            }
+        }
+    }
+
+    private fun suspendRuntime() {
+        sessionManager.stop(AutomationStopReason.SERVICE_INTERRUPTED)
+        service?.invalidateSnapshotTokens()
+        service?.leaveSessionForeground()
+    }
+
+    /** Exact approved scope + original Conversation. Never use the foreground chat as tool authority. */
+    @Synchronized
+    internal fun <T> withConversation(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        block: () -> T,
+    ): T? {
+        val id = call.sessionId ?: return null
+        if (call.cancel.isCancelled() ||
+            !java.time.Instant
+                .now()
+                .isBefore(call.deadline)
+        ) {
+            return null
+        }
+        val grant = conversationGrant(id) ?: return null
+        if (grant.scope.toScopeRef() != call.authorizationScopeRef) return null
+        val connected = service ?: return null
+        if (stopIfDeviceLocked(connected)) return null
+        val previous = sessionManager.current()
+        val current = sessionManager.activate(grant)
+        if (previous?.id != current.id) {
+            connected.invalidateSnapshotTokens()
+            enterForegroundOrRollback(connected, current)
+        }
+        return block()
+    }
+
+    /** Physical availability can change without deleting the user's Conversation configuration. */
+    @Synchronized
+    fun conversationRuntime(id: String): ActiveAutomationSession? =
+        sessionManager.current()?.takeIf { it.conversationId == id }
 
     @Synchronized
     internal fun connected(instance: HelixAccessibilityService) {
@@ -95,6 +187,16 @@ object AutomationServiceController {
 
     @Synchronized
     fun stop(reason: AutomationStopReason = AutomationStopReason.USER_STOP): Boolean {
+        if (reason == AutomationStopReason.USER_STOP) {
+            sessionManager.current()?.conversationId?.let { id ->
+                try {
+                    checkNotNull(grants).revoke(id)
+                } finally {
+                    suspendRuntime()
+                }
+                return true
+            }
+        }
         val stopped = sessionManager.stop(reason)
         if (stopped) {
             service?.leaveSessionForeground()
@@ -205,7 +307,7 @@ object AutomationServiceController {
     @Synchronized
     fun disableSystemService(): Boolean {
         val connectedService = service ?: return false
-        stop(AutomationStopReason.USER_STOP)
+        stop(AutomationStopReason.SERVICE_DISCONNECTED)
         connectedService.disableSelf()
         return true
     }
@@ -224,7 +326,13 @@ object AutomationServiceController {
     internal fun deviceLease(): Pair<HelixAccessibilityService, ActiveAutomationSession>? {
         val current = service ?: return null
         if (stopIfDeviceLocked(current)) return null
-        return sessionManager.current()?.let { current to it }
+        val active = sessionManager.current() ?: return null
+        val owner = active.conversationId
+        if (owner != null && conversationGrant(owner)?.scope != active.scope) {
+            suspendRuntime()
+            return null
+        }
+        return current to active
     }
 
     @Synchronized

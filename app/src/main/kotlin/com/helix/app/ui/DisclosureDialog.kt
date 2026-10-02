@@ -23,7 +23,7 @@ import com.helix.app.ui.indicatedVerticalScroll
  * (ADR-0014 §5) — every staged attachment's 名称 / 类型 / 大小, in the same order
  * the content sources list the files.
  *
- * This dialog confirms only the disclosed send; it does not create or modify reusable rules.
+ * Ordinary images confirm one send; Mobile Use explicitly labels its live screen-sharing scope.
  * Details share one scroll container, while confirm/cancel remain separate actions.
  */
 @Composable
@@ -80,7 +80,9 @@ fun DisclosureDialog(
                     stringResource(R.string.disclosure_scope, stringResource(summary.scope)),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                if (!EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2) {
+                if (!EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2 &&
+                    summary.scope != R.string.disclosure_mobile_use_session
+                ) {
                     Text(
                         text = stringResource(R.string.disclosure_no_permanent),
                         style = MaterialTheme.typography.bodyMedium,

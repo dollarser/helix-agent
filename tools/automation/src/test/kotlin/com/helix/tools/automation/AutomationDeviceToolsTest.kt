@@ -31,7 +31,7 @@ class AutomationDeviceToolsTest {
         AutomationDeviceTools(
             port,
             actions,
-            ToolImagePublication { call, _ ->
+            ToolImagePublication { call, _, _ ->
                 publishedCall = call
                 PublishedToolImage("scope:workspace:output/phone.png", "a".repeat(64), 1, visual)
             },

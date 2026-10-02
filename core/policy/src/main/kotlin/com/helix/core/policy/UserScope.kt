@@ -154,12 +154,20 @@ data class AutomationSessionScope(
         packageName.isNotBlank() && packageName !in deniedPackages &&
             (allApplications || packageName in allowedPackages)
 
-    private fun buildRef(): String =
-        "automation:all=$allApplications:grant=$grantId:allowed=" +
-            allowedPackages.sorted().joinToString(",") +
-            ":denied=" +
-            deniedPackages.sorted().joinToString(",") +
-            ":max=$maxActions:expires=$expiresAt"
+    private fun buildRef(): String {
+        val canonical =
+            "automation:all=$allApplications:grant=$grantId:allowed=" +
+                allowedPackages.sorted().joinToString(",") + ":denied=" +
+                deniedPackages.sorted().joinToString(",") + ":max=$maxActions:expires=$expiresAt"
+        if (canonical.length <= UserScope.MAX_SCOPE_REF_LENGTH) return canonical
+        // The bounded audit key must not impose an arbitrary limit on selected apps.
+        // UserScopeCodec retains the full package sets; authorization still checks those sets.
+        val digest =
+            java.security.MessageDigest
+                .getInstance("SHA-256")
+                .digest(canonical.toByteArray(Charsets.UTF_8))
+        return "automation:sha256:" + digest.joinToString("") { "%02x".format(it) }
+    }
 }
 
 /**

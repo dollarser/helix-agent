@@ -166,9 +166,13 @@ Material Files 和 Amaze File Manager 只作为路径、冲突、长任务和 Ro
 
 Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatcher、工具授权、视觉输入和会话产物，不拥有另一套规划或任务引擎。Standard/consumer 不打包其无障碍服务、手势或截图实现。
 
-用户在系统中开启服务，再明确选择本次操作“全手机（包括系统界面）”或指定应用。全手机不是自动授予；工具参数不能打开、续签或扩大授权。指定应用可以单独纳入 Settings/SystemUI。默认许可直到用户停止、熄屏/锁屏、服务断开或进程结束，不再强制 5 分钟/30 次；用户可设置非负时间/动作上限，0 表示不限。有限动作预算记录的是尝试次数而非任务成功数。
+用户为当前 Conversation 选择“全手机（包括系统界面）”或指定应用并保存，形成该会话的持久配置；系统无障碍尚未开启时也可先保存。全手机不是默认授予，模型参数不能打开或扩大范围。授权直到用户主动关闭/修改；锁屏、进程死亡、设备重启、服务断开/系统权限丢失、模型或工具失败均不删除配置。无额外 TTL/动作数设置；Android 服务可用后，下一个获准工具调用重建运行态。
 
-每次开始生成独立 grantId，完整到期精度参与 Scope 身份；旧审批不能覆盖新授权。到期定时器向上取整并复核当前 grant，长时间许可分段重查，不让旧回调停止新授权，也不通过 Handler 时间溢出提前结束。
+持久配置使用 Conversation ID、完整范围和独立 grantId；不变的保存复用原配置，范围变更生成新身份。运行态另有 process-local id，用于窗口/frame/回调；切换正在操作的会话或重建连接会刷新运行态，不复用旧 token。Dispatcher 将原调用的会话和批准 Scope 传给 executor，执行时再次对照保存配置。旧通知只能关闭绑定的原会话/Scope，不能关闭另一会话。
+
+指定应用使用搜索多选界面（全部/用户应用/系统应用/已选），名称与包名同时可见，无需手工输入。分类基于 ApplicationInfo 标记，更新后的预装应用仍为系统应用；无桌面入口或已停用组件显示实际状态而不隐藏。列表读取在后台线程执行且仅用于本地设置；Advanced app 独立声明 QUERY_ALL_PACKAGES 以包含非 launcher 系统组件，Standard/consumer 不包含该声明。安装范围仍受 Android 当前用户/资料夹可见性约束，不宣称可查询其他 Android 用户。
+
+勾选系统设置/系统界面同时允许已有系统全局操作，界面明确提示，但不暗中补入其他系统包。确认选择只修改当前表单，点击保存才更新该 Conversation 的持久集合；取消、搜索、刷新不改变已存配置。大集合仍完整保存在 Scope/Codec 中，超过审计字段长度的引用以整个规范化 Scope 的 SHA-256 表示，不以长度上限限制可选应用数。
 
 ### 5.2 工具与操作类型
 
@@ -186,7 +190,7 @@ Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatch
 | `ui.gesture` | EXTERNAL_ACTION | 单点点击/长按、路径滑动/拖动、多指缩放；一组 strokes 为一次原生手势 |
 | `ui.screenshot` | LOCAL_MUTATION | 授权窗口/屏幕 PNG、会话/Turn 产物和既有视觉回填，不往 JSON 塞 Base64 |
 
-两组共 16 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会结束当前自动化许可，应由模型按任务意图选择。
+两组共 16 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会暂停物理操作而不删除 Conversation 授权，应由模型按任务意图选择。
 
 ### 5.3 观察、执行与真实结果
 
@@ -198,9 +202,19 @@ Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatch
 - 不新增全局任务锁。仅不能重入的物理手势/截图回调各自拥有执行槽；取消等待不冒充 Android 已退出，迟到回调不能释放新任务的槽。平台已进入但结果不明返回 UNKNOWN，不作为安全自动重试依据。停止立即撤销新动作权限，但不宣称已撤回平台可能执行的动作。
 - 指定范围越界时暂停；回到已授权目标并取得有效观察可恢复。同一授权外的新目标需用户修改范围。等待不暗中恢复过期/停止许可；截断观察不能证明元素不存在或页面稳定，返回结果数限制也不能掩盖其他匹配节点的变化。
 
+### 图片交给模型处理的确认
+
+系统无障碍许可、Mobile Use 操作范围、`ui.screenshot` 工具授权与网络图片确认是不同对象。`WorkspaceToolImagePublisher` 先登记本会话/Turn 的截图，`ToolImagePreparer` 产生可选的规范化视觉来源；工具返回的视觉来源不等于图片已经发送成功。
+
+Mobile Use 设置显示当前接收 Provider/模型与服务 origin，点击“保存并开启”同时允许本会话当前及以后用户选择的模型处理后续原生截图，无需逐图或切换接收方确认。原生截图通过可信发布接口持久登记采集 Scope、会话/Turn、哈希和类型；`MobileUseScreenConsent` 使用该 Conversation 的保存配置校验，不从文件名、工具 JSON 或模型参数推导授权。每次模型请求的 proof 仍绑定实际内容和接收方，防止在途路由变化借用旧 proof，但重新绑定不制造新的用户审批。
+
+未选模型也可以先保存配置，后续用户选择模型后直接按此授权分享；并发截图不创建图片确认卡。锁屏、服务断开和进程结束不清除共享配置，重建服务或应用无需再确认。用户关闭或更改 Scope 后，旧 proof 及旧采集 Scope 不能复用；已外发的数据不声称能撤回。普通附件、浏览器图片和其他文件读图仍使用原本的图片/内容与接收方确认。
+
+真正 `ProviderTransport.OnDeviceLocal` 无需网络外发确认，仍检查来源、活动 Turn、哈希、视觉能力及真实配置绑定；Mobile Use 还检查采集许可与 live grant。经 HTTP/HTTPS 的自建、LAN 或 loopback Provider 仍为网络传输，但本会话原生截图已由持久配置覆盖，不逐图确认；普通图片不凭主机名称跳过确认。最终 `BoundImageAccess` 在读取字节前复核共享资格，用户关闭后不继续回填尚未外发的截图。会话工具权限始终独立：FULL_ACCESS 不加额外逐动作卡，APPROVAL_REQUIRED/READ_ONLY/CUSTOM 保留用户设置。
+
 ### 5.4 验证与设备边界
 
-HXA-243 的主机验证、实际 APK 契约和设备未请求状态以任务/证据记录为准，不继承 HXA-241 的模拟器结果。界面背景运行不等于绕过锁屏；当前收到 ACTION_SCREEN_OFF 或 Keyguard 锁定会结束许可，不自动输入解锁密码。真实 UI、OEM、无障碍窗口截图和手势兼容性需要单独设备验收。
+当前授权与选择器交付以 HXA-244 的主机/实际 APK 证据为准，不继承 HXA-241 模拟器通过结论。界面后台运行不等于绕过锁屏；ACTION_SCREEN_OFF 或 Keyguard 锁定只终止物理运行态，保存授权不变，不自动输入解锁密码。真实 UI、OEM、无障碍窗口截图和手势兼容性需要单独设备验收。
 
 API 来源：[AccessibilityService](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService)、[应用 ID 规则](https://developer.android.com/build/configure-app-module)。关于设备就绪的历史研究见 [Mobile Use 设备就绪与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)，不把旧限制作为当前契约。
 

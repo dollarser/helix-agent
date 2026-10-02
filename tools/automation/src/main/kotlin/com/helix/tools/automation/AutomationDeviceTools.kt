@@ -99,25 +99,29 @@ class AutomationDeviceTools(
                 return try {
                     when (name) {
                         DEVICE -> {
-                            ToolExecutorResult.Completed(deviceJson(port.observe()))
+                            ToolExecutorResult.Completed(deviceJson(port.forCall(call).observe()))
                         }
 
                         APPS -> {
-                            apps()
+                            apps(call)
                         }
 
                         LAUNCH -> {
-                            port.launch(text(call.args, "packageName"), call).toToolOutcome()
+                            port.forCall(call).launch(text(call.args, "packageName"), call).toToolOutcome()
                         }
 
                         SYSTEM -> {
                             val requested = text(call.args, "action").uppercase(Locale.ROOT)
                             val action = AutomationGlobalAction.valueOf(requested)
-                            actions.globalAction(action).toToolOutcome()
+                            actions.forCall(call).globalAction(action).toToolOutcome()
                         }
 
                         GESTURE -> {
-                            port.gesture(text(call.args, "frame"), strokes(call.args), call).toToolOutcome()
+                            port
+                                .forCall(
+                                    call,
+                                ).gesture(text(call.args, "frame"), strokes(call.args), call)
+                                .toToolOutcome()
                         }
 
                         SCREENSHOT -> {
@@ -157,8 +161,8 @@ class AutomationDeviceTools(
             }
         }
 
-    private fun apps(): ToolExecutorResult {
-        val listing = port.apps()
+    private fun apps(call: ExecutableToolCall): ToolExecutorResult {
+        val listing = port.forCall(call).apps()
         val items =
             listing.apps.map { app ->
                 buildJsonObject {
@@ -177,7 +181,7 @@ class AutomationDeviceTools(
 
     @Suppress("ReturnCount") // Failed capture and cancelled pre-publication calls do not create artifacts.
     private fun screenshot(call: ExecutableToolCall): ToolExecutorResult {
-        val capture = port.screenshot(text(call.args, "frame"), call)
+        val capture = port.forCall(call).screenshot(text(call.args, "frame"), call)
         val bytes =
             capture.png ?: return ToolExecutorResult.Completed(
                 buildJsonObject {
@@ -185,7 +189,7 @@ class AutomationDeviceTools(
                 },
             )
         beforeDispatch(call)?.let { return it }
-        val published = images.publish(call, bytes)
+        val published = images.publish(call, bytes, capture.acquisitionScopeRef)
         val output =
             buildJsonObject {
                 put("status", JsonPrimitive("SAVED"))

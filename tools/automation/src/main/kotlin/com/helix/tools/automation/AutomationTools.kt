@@ -25,6 +25,8 @@ import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 interface AutomationToolPort {
+    fun forCall(call: ExecutableToolCall): AutomationToolPort = this
+
     fun snapshot(): AutomationSnapshotResult
 
     fun nodeAction(request: AutomationNodeActionRequest): AutomationActionResult
@@ -34,12 +36,24 @@ interface AutomationToolPort {
 
 class PermissionCenterAutomationToolPort(
     private val center: AutomationPermissionCenter,
+    private val originalCall: ExecutableToolCall? = null,
 ) : AutomationToolPort {
-    override fun snapshot() = center.snapshot()
+    override fun forCall(call: ExecutableToolCall): AutomationToolPort =
+        PermissionCenterAutomationToolPort(center, call)
 
-    override fun nodeAction(request: AutomationNodeActionRequest) = center.performNodeAction(request)
+    private fun <T> bound(block: () -> T): T? = originalCall?.let { center.withConversation(it, block) }
 
-    override fun globalAction(action: AutomationGlobalAction) = center.performGlobalAction(action)
+    override fun snapshot() =
+        bound { center.snapshot() }
+            ?: AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+
+    override fun nodeAction(request: AutomationNodeActionRequest) =
+        bound { center.performNodeAction(request) }
+            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+
+    override fun globalAction(action: AutomationGlobalAction) =
+        bound { center.performGlobalAction(action) }
+            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
 }
 
 /** Token-only Agent tools over the HXA-091..093 accepted Accessibility contracts. */
@@ -73,48 +87,49 @@ class AutomationTools(
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                val boundPort = port.forCall(call)
                 return try {
                     when (name) {
                         SNAPSHOT -> {
-                            ToolExecutorResult.Completed(snapshotJson(port.snapshot()))
+                            ToolExecutorResult.Completed(snapshotJson(boundPort.snapshot()))
                         }
 
                         FIND -> {
-                            ToolExecutorResult.Completed(findJson(port.snapshot(), query(call.args)))
+                            ToolExecutorResult.Completed(findJson(boundPort.snapshot(), query(call.args)))
                         }
 
                         CLICK -> {
-                            action(port.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
+                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
                         }
 
                         LONG_CLICK -> {
-                            action(port.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
+                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
                         }
 
                         SET_TEXT -> {
-                            action(port.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
+                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
                         }
 
                         SET_PROGRESS -> {
                             action(
-                                port.nodeAction(nodeRequest(AutomationNodeAction.SET_PROGRESS, call.args)),
+                                boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_PROGRESS, call.args)),
                             )
                         }
 
                         SCROLL -> {
-                            action(port.nodeAction(nodeRequest(scrollAction(call.args), call.args)))
+                            action(boundPort.nodeAction(nodeRequest(scrollAction(call.args), call.args)))
                         }
 
                         BACK -> {
-                            action(port.globalAction(AutomationGlobalAction.BACK))
+                            action(boundPort.globalAction(AutomationGlobalAction.BACK))
                         }
 
                         HOME -> {
-                            action(port.globalAction(AutomationGlobalAction.HOME))
+                            action(boundPort.globalAction(AutomationGlobalAction.HOME))
                         }
 
                         WAIT -> {
-                            wait(call)
+                            wait(call, boundPort)
                         }
 
                         else -> {
@@ -128,7 +143,7 @@ class AutomationTools(
         }
 
     @Suppress("ReturnCount") // Read-only timeout and cancellation remain distinct from condition results.
-    private fun wait(call: ExecutableToolCall): ToolExecutorResult {
+    private fun wait(call: ExecutableToolCall, boundPort: AutomationToolPort): ToolExecutorResult {
         val requested = java.time.Duration.ofMillis(optionalInt(call.args, "timeoutMillis", 2_000).toLong())
         val available = java.time.Duration.between(Instant.now(), call.deadline)
         if (available.isNegative || available.isZero) return ToolExecutorResult.TimedOut
@@ -144,7 +159,7 @@ class AutomationTools(
                 condition,
                 java.time.Duration.ofMillis(optionalInt(call.args, "stableMillis", 500).toLong()),
                 cancelled = { call.cancel.isCancelled() },
-                snapshotProvider = port::snapshot,
+                snapshotProvider = boundPort::snapshot,
             )
         if (result.status == AutomationWaitStatus.CANCELLED) return ToolExecutorResult.Cancelled
         return ToolExecutorResult.Completed(
@@ -313,6 +328,7 @@ class AutomationTools(
             },
         ),
         "User-authorized semantic Accessibility operation: $name. " +
+            "Saved Conversation access survives locking or reconnecting; restore availability, then re-observe. " +
             "Each snapshot/find replaces all earlier tokens; use tokens from the latest observation. " +
             "On SESSION_PAUSED, inspect the current target before acting. " +
             "Only an already authorized target can resume automatically. " +

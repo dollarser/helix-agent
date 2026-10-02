@@ -129,7 +129,7 @@ internal class AutomationScreenshotCapture(
             }
         val encoded = encode(image, bounds)
         return if (captureStillCurrent(frame, session, call, currentTarget)) {
-            encoded
+            encoded.copy(acquisitionScopeRef = session.scope.toScopeRef())
         } else {
             AutomationScreenshot("TARGET_OR_AUTHORIZATION_CHANGED")
         }

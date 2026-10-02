@@ -75,6 +75,19 @@ class ToolDispatcherTest {
         dispatcher = ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink)
     }
 
+    @Test fun executorReceivesTheOriginalConversationAndApprovedScopeIdentity() {
+        val d = descriptor(operationClass = ToolOperationClass.READ_ONLY)
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registry.register(d, executor)
+        val original = request(d.name, d.version, emptyArgs(), scope = WorkspaceScope("original"))
+        val result = dispatcher.dispatch(original)
+        assertTrue(result is ToolDispatchOutcome.Succeeded)
+        val call = executor.calls.single()
+        assertEquals(original.sessionId, call.sessionId)
+        assertEquals(original.turnId, call.turnId)
+        assertEquals(original.scope!!.toScopeRef(), call.authorizationScopeRef)
+    }
+
     @Test fun replacementWhileApprovalWaitsCannotExecuteEitherImplementation() {
         val d = descriptor()
         var ran = 0

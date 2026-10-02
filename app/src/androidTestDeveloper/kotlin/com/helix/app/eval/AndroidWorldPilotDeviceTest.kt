@@ -52,7 +52,6 @@ class AndroidWorldPilotDeviceTest {
             require(launcher.matches(Regex("[a-zA-Z0-9_.]+")))
             val previous = container.chatService.runControl.value
             val profile = container.profileStore.profile
-            val allowlist = center.allowlistedPackages()
             val services =
                 android.provider.Settings.Secure
                     .getString(app.contentResolver, "enabled_accessibility_services")
@@ -76,11 +75,6 @@ class AndroidWorldPilotDeviceTest {
                 }
                 container.profileStore.switchTo(SafetyProfile.ADVANCED)
                 val packages = setOf(app.packageName, launcher) + center.systemSettingsPackages()
-                center.replaceAllowlist(packages)
-                require(
-                    center.startSession(packages, allowSystemSettings = true).status ==
-                        AutomationSessionStartStatus.STARTED,
-                )
                 provider =
                     container.providerService.create(
                         ProviderDraft(
@@ -99,6 +93,7 @@ class AndroidWorldPilotDeviceTest {
                 val probe = container.providerService.runConnectionTest(provider)
                 check(probe is com.helix.provider.api.ProbeOutcome.Ok) { "Provider connection failed: $probe" }
                 session = container.chatService.createSession("AndroidWorld-$target", provider, "Qwen3.8-27B")
+                center.authorizeConversation(session, packages, wholePhone = false)
                 container.chatService.openSession(session)
                 container.chatService.setMode(AgentMode.ACT)
                 container.chatService.setTurnBudgets(
@@ -184,8 +179,7 @@ class AndroidWorldPilotDeviceTest {
                 container.chatService.setMode(previous.mode)
                 container.chatService.setTurnBudgets(previous.budgets)
                 provider?.let { container.providerService.delete(it) }
-                center.stopSession()
-                center.replaceAllowlist(allowlist)
+                session?.let(center::revokeConversation)
                 if (services.isNullOrBlank()) {
                     shell("settings delete secure enabled_accessibility_services")
                 } else {

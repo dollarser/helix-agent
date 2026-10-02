@@ -307,7 +307,7 @@ internal class ChatRequestAssembler(
     ): List<ModelToolSchema> {
         val preferUi =
             com.helix.app.automation.AutomationModule
-                .scopeFor("ui.snapshot") != null
+                .scopeFor("ui.snapshot", sessionId) != null
         val bindings = toolPipeline.registry.snapshot()
         val latest =
             bindings.map { it.descriptor }.groupBy { it.name }.values.map { versions ->

@@ -89,7 +89,9 @@ internal class ChatDispatchRequests(
                     descriptor?.name?.value?.startsWith("root.") == true -> DataOrigin.ROOT
                     else -> DataOrigin.WORKSPACE
                 },
-            scope = RootModule.scopeFor(descriptor?.name?.value) ?: AutomationModule.scopeFor(descriptor?.name?.value),
+            scope =
+                RootModule.scopeFor(descriptor?.name?.value)
+                    ?: AutomationModule.scopeFor(descriptor?.name?.value, turn.sessionId),
             uiToken = "chat:${turn.id}",
             egress = egressFacts?.first,
             originSeenInSession = egressFacts?.second ?: true,

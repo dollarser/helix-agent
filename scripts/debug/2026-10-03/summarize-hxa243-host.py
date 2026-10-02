@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect HXA-243 host evidence, or recheck code/APK identities after a local commit."""
+"""Collect Mobile Use host evidence, or recheck code/APK identities after a local commit."""
 import argparse
 import hashlib
 import json
@@ -27,7 +27,9 @@ def git(*args):
     return subprocess.check_output(['git', *args], cwd=ROOT, text=True)
 
 
-def collect(host_run, source_log, artifact_log):
+def collect(host_run, source_log, artifact_log, screen_sharing=False, mobile_log=None, conversation_grants=False):
+    task_label = 'HXA-244' if conversation_grants else 'HXA-243'
+    screen_sharing = screen_sharing or conversation_grants
     host_dir = ROOT / host_run
     logs = [host_dir / name for name in ('format.log', 'host.log', 'lockfiles.log')]
     logs += [ROOT / source_log, ROOT / artifact_log]
@@ -35,7 +37,7 @@ def collect(host_run, source_log, artifact_log):
     require('BUILD SUCCESSFUL' in host and 'BUILD FAILED' not in host, 'Host checks did not pass')
     require('Dependency lock verification passed' in logs[2].read_text(), 'Dependency lock check missing')
     for text in ('Documentation verification passed', 'ADR verification passed',
-                 'Internationalization verification passed', 'Secret scan passed', 'Ran 5 tests'):
+                 'Internationalization verification passed', 'Secret scan passed'):
         require(text in logs[3].read_text(), 'Source evidence missing: ' + text)
     for text in ('consumer debug:', 'developer debug:', 'Variant boundary verification passed',
                  'Mobile Use service, scope channel and screenshot/gesture declarations verified'):
@@ -44,12 +46,31 @@ def collect(host_run, source_log, artifact_log):
                  ':tools:automation:assembleDebugAndroidTest', ':app:lintConsumerDebug', ':app:lintDeveloperDebug'):
         require(task in host, 'Required host task absent: ' + task)
 
+    app_suites = {'WorkspaceToolImagePublisherTest'}
+    if screen_sharing:
+        app_suites |= {'ToolVisionConsentTest', 'MobileUseScreenConsentTest', 'ToolVisualFeedbackTest'}
+    mobile_count = 5
+    if mobile_log:
+        log_path = ROOT / mobile_log
+        text = log_path.read_text()
+        count = re.search(r'^Ran (\d+) tests? in ', text, re.M)
+        require(count and re.search(r'^OK\s*$', text, re.M), 'Mobile Use Python execution missing')
+        require('FAILED' not in text and 'ERROR' not in text, 'Mobile Use Python checks failed')
+        mobile_count = int(count.group(1))
+        require(mobile_count > 0, 'No Mobile Use Python tests ran')
+        logs.append(log_path)
+    elif screen_sharing:
+        raise RuntimeError('Screen-sharing evidence requires the dedicated Mobile Use Python log')
+
     roots = {
         'tools/automation/build/test-results/testDebugUnitTest': None,
         'core/policy/build/test-results/test': {'UserScopeTest'},
-        'app/build/test-results/testConsumerDebugUnitTest': {'WorkspaceToolImagePublisherTest'},
-        'app/build/test-results/testDeveloperDebugUnitTest': {'WorkspaceToolImagePublisherTest'},
+        'app/build/test-results/testConsumerDebugUnitTest': app_suites,
+        'app/build/test-results/testDeveloperDebugUnitTest': app_suites,
     }
+    if conversation_grants:
+        roots['core/policy/build/test-results/test'].add('MobileUseGrantStoreTest')
+        roots['tools/framework/build/test-results/test'] = {'ToolDispatcherTest'}
     reports, methods, seen, executions = [], set(), set(), 0
     for directory, selected in roots.items():
         for path in sorted((ROOT / directory).glob('TEST-*.xml')):
@@ -68,6 +89,11 @@ def collect(host_run, source_log, artifact_log):
     require({'AutomationDeviceContractTest', 'AutomationDeviceToolsTest', 'AutomationExpiryTest',
              'AutomationWaitConditionsTest', 'UserScopeTest', 'WorkspaceToolImagePublisherTest'} <= seen,
             'Missing required HXA-243 regression suite')
+    if screen_sharing:
+        require(app_suites | {'AutomationApplicationCatalogTest'} <= seen, 'Screen-sharing/picker suites missing')
+    if conversation_grants:
+        require({'MobileUseGrantStoreTest', 'AutomationConversationRuntimeTest', 'ToolDispatcherTest'} <= seen,
+                'Conversation grant persistence or original-call binding evidence missing')
     app_totals = []
     for flavor in ('Consumer', 'Developer'):
         totals = dict(tests=0, failures=0, errors=0, skipped=0)
@@ -98,12 +124,12 @@ def collect(host_run, source_log, artifact_log):
             path = ROOT / name
             inputs[name] = identity(path) if path.is_file() else {'deleted': True}
     return {
-        'status': 'passed', 'scope': 'HXA-243 host/debug artifacts, not device execution',
+        'status': 'passed', 'scope': f'{task_label} host/debug artifacts, not device execution',
         'base_commit': git('rev-parse', 'HEAD').strip(), 'branch': git('branch', '--show-current').strip(),
         'task_summary': re.findall(r'^.*actionable tasks:.*$', host, re.M)[-1],
         'logs': [identity(path) for path in logs], 'selected_reports': reports,
         'selected_unique_methods': len(methods), 'selected_method_executions': executions,
-        'app_unit_summaries': app_totals, 'mobile_use_python_regressions': 5,
+        'app_unit_summaries': app_totals, 'mobile_use_python_regressions': mobile_count,
         'apks': apks, 'code_inputs': inputs, 'device': 'not requested', 'external_accounts': 'not requested',
     }
 
@@ -113,22 +139,31 @@ def main():
     parser.add_argument('--host-run')
     parser.add_argument('--source-log')
     parser.add_argument('--artifact-log')
+    parser.add_argument('--screen-sharing', action='store_true')
+    parser.add_argument('--conversation-grants', action='store_true')
+    parser.add_argument('--mobile-use-log')
+    parser.add_argument('--output', default=str(OUTPUT.relative_to(ROOT)))
     parser.add_argument('--verify-inputs', action='store_true')
     args = parser.parse_args()
+    output = (ROOT / args.output).resolve()
+    require(output.is_relative_to(ROOT / 'build'), 'Evidence output must remain under build/')
+    if args.screen_sharing or args.conversation_grants:
+        require(output != OUTPUT, 'Preserve the original HXA-243 acceptance file')
     if args.verify_inputs:
-        data = json.loads(OUTPUT.read_text())
+        data = json.loads(output.read_text())
         for name, expected in data['code_inputs'].items():
             path = ROOT / name
             require(not path.exists() if expected.get('deleted') else identity(path) == expected, 'Changed source: ' + name)
         for expected in data['apks']:
             require(identity(ROOT / expected['path']) == expected, 'APK changed: ' + expected['path'])
-        print('HXA-243 accepted source and five APK identities match the current checkout.')
+        print(data['scope'] + ': accepted source and five APK identities match the current checkout.')
         return
     require(all((args.host_run, args.source_log, args.artifact_log)), 'All evidence paths are required')
-    result = collect(args.host_run, args.source_log, args.artifact_log)
-    tmp = OUTPUT.with_suffix('.tmp')
+    result = collect(args.host_run, args.source_log, args.artifact_log,
+                     args.screen_sharing, args.mobile_use_log, args.conversation_grants)
+    tmp = output.with_suffix('.tmp')
     tmp.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
-    tmp.replace(OUTPUT)
+    tmp.replace(output)
     print(json.dumps({key: value for key, value in result.items()
                       if key not in ('selected_reports', 'code_inputs', 'logs', 'apks')}, ensure_ascii=False, indent=2))
 

@@ -126,6 +126,7 @@ class HelixAccessibilityService : AccessibilityService() {
 
     internal fun invalidateSnapshotTokens() {
         tokenRegistry.invalidate()
+        deviceAccess.invalidateFrames()
     }
 
     internal fun currentGeneration(): Long = generationTracker.current()
@@ -196,7 +197,13 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     private fun buildNotification(session: ActiveAutomationSession): Notification {
-        val stopIntent = Intent(this, AutomationStopReceiver::class.java).setAction(ACTION_STOP)
+        val stopIntent =
+            Intent(this, AutomationStopReceiver::class.java)
+                .setAction(ACTION_STOP)
+                .setData(android.net.Uri.parse("helix-mobile-use:stop/${session.id}"))
+                .putExtra(AutomationStopReceiver.EXTRA_CONVERSATION, session.conversationId)
+                .putExtra(AutomationStopReceiver.EXTRA_SCOPE, session.scope.toScopeRef())
+                .putExtra(AutomationStopReceiver.EXTRA_RUNTIME, session.id)
         val stopPendingIntent =
             PendingIntent.getBroadcast(
                 this,

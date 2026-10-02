@@ -196,6 +196,8 @@ class ChatService(
     private val bindSessionDirectory: (String) -> String = { it },
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
     private val memory: com.helix.app.memory.MemoryService? = null,
+    mobileScreenScope: (String) -> com.helix.core.policy.AutomationSessionScope? = { null },
+    mobileScreenSources: com.helix.app.internal.LineStore = InMemoryLineStore(),
 ) {
     // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
     // none reaches launchTurn directly. The container re-exposes the SAME instance as the
@@ -221,7 +223,12 @@ class ChatService(
     private val _runControl = MutableStateFlow(sessionRunControls.defaultSnapshot())
     val toolVisionConsent =
         com.helix.app.vision
-            .ToolVisionConsent(storage.interactionReceipts, clock)
+            .ToolVisionConsent(
+                storage.interactionReceipts,
+                clock,
+                com.helix.app.vision
+                    .MobileUseScreenConsent(clock, mobileScreenSources, mobileScreenScope),
+            )
     private val requestAssembler =
         ChatRequestAssembler(
             storage,

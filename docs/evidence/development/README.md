@@ -12,6 +12,8 @@
 
 近期常用：
 
+- [2026-10-03 HXA-244 Conversation 持久 Mobile Use](hxa244-conversation-mobile-use-host-2026-10-03.md)：用户/系统应用选择、持久授权与免逐图确认；最终主机/Debug 制品和源码/APK 身份收尾，设备未请求。
+
 - [2026-10-03 HXA-243 Mobile Use主机验收](hxa243-mobile-use-host-2026-10-03.md)：全手机/指定范围、可选额度、16个工具、原生手势/截图与等待；重点回归和五APK通过，设备未请求。
 
 - [2026-10-02 HXA-242 HTTP / UI 主机验收](hxa242-http-ui-host-2026-10-02.md)：明文 HTTP 仅提示、管理滚条、Composer 和 Mobile Use 修补，根单测/静态分析/四 APK 及实际网络配置通过；设备未请求。

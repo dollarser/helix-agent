@@ -24,6 +24,31 @@ class AutomationPermissionCenter(
     private val appContext = context.applicationContext
     private val allowlist = SharedPreferencesAutomationAllowlistStore(appContext)
 
+    fun configureConversations(
+        store: com.helix.core.policy.MobileUseGrantStore,
+        exists: (String) -> Boolean,
+    ) = AutomationServiceController.configureConversations(store, exists)
+
+    fun conversationGrant(id: String) = AutomationServiceController.conversationGrant(id)
+
+    fun authorizeConversation(
+        id: String,
+        packages: Set<String>,
+        wholePhone: Boolean,
+    ) = AutomationServiceController.authorizeConversation(id, packages, wholePhone)
+
+    fun revokeConversation(id: String) = AutomationServiceController.revokeConversation(id)
+
+    fun conversationRuntime(id: String) = AutomationServiceController.conversationRuntime(id)
+
+    internal fun <T> withConversation(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        block: () -> T,
+    ): T? = if (hasLiveSystemGrant()) AutomationServiceController.withConversation(call, block) else null
+
+    internal fun deviceLease(call: com.helix.tools.framework.ExecutableToolCall) =
+        withConversation(call) { AutomationServiceController.deviceLease() }
+
     fun serviceState(): AutomationServiceState =
         try {
             when {

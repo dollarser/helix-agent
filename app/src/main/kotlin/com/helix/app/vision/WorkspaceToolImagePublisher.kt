@@ -18,6 +18,8 @@ internal class WorkspaceToolImagePublisher(
     private val sink: WorkspaceArtifactStore.ArtifactSink,
     private val scopeId: String,
     private val preparation: ToolVisualPreparation,
+    private val registerScreenImage: (ExecutableToolCall, com.helix.core.model.VisualArtifact, String) -> Unit =
+        { _, _, _ -> },
     private val ownsTurn: (String, String) -> Boolean,
 ) : ToolImagePublication {
     @Suppress("SwallowedException") // An existing directory is expected; writeArtifact still rejects files/symlinks.
@@ -32,6 +34,7 @@ internal class WorkspaceToolImagePublisher(
     override fun publish(
         call: ExecutableToolCall,
         png: ByteArray,
+        acquisitionScopeRef: String?,
     ): PublishedToolImage {
         val session = requireNotNull(call.sessionId) { "SESSION_REQUIRED" }
         val turn = requireNotNull(call.turnId) { "TURN_REQUIRED" }
@@ -59,6 +62,7 @@ internal class WorkspaceToolImagePublisher(
                 note = "Screenshot saved; pixels not delivered: ${failure.code}."
                 null
             }
+        if (visual != null && acquisitionScopeRef != null) registerScreenImage(call, visual, acquisitionScopeRef)
         return PublishedToolImage(
             destination.toModelReference(),
             written.record.sha256,

@@ -11,6 +11,32 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+/** Opt-in fixture observation uses the exact saved Conversation grant, never a global session. */
+internal fun evaluationAutomationPort(
+    center: com.helix.tools.automation.AutomationPermissionCenter,
+    conversationId: String,
+): com.helix.tools.automation.AutomationToolPort {
+    val grant = requireNotNull(center.conversationGrant(conversationId))
+    val call =
+        com.helix.tools.framework.ExecutableToolCall(
+            "fixture-observe",
+            "ui.snapshot",
+            "4",
+            JsonObject(emptyMap()),
+            com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
+            java.time.Instant
+                .now()
+                .plusSeconds(120),
+            com.helix.tools.framework.NoCancellation,
+            conversationId,
+            "fixture-setup",
+            grant.scope.toScopeRef(),
+        )
+    return com.helix.tools.automation
+        .PermissionCenterAutomationToolPort(center)
+        .forCall(call)
+}
+
 /** Records every exposed contract, including tools the model did not select. */
 internal fun exposedEvaluationTools(
     container: AppContainer,
@@ -18,7 +44,7 @@ internal fun exposedEvaluationTools(
 ): JsonObject {
     val preferUi =
         com.helix.app.automation.AutomationModule
-            .scopeFor("ui.snapshot") != null
+            .scopeFor("ui.snapshot", container.chatService.screen.value.openSessionId) != null
     val latest =
         container.toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
             versions.maxBy { it.version.value }

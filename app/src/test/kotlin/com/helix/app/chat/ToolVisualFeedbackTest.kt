@@ -10,7 +10,11 @@ import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderAuth
+import com.helix.core.model.ProviderConnection
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderProvisioningKind
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.SecretAlias
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
@@ -158,18 +162,143 @@ class ToolVisualFeedbackTest {
             )
         }
 
+    @Test fun onDeviceVisionReceivesBoundPixelsWithoutNetworkDisclosure() =
+        runBlocking {
+            val fixture = Fixture()
+            val local = fixture.localConfig()
+            fixture.destination = local
+            val message = fixture.restore(config = local).single()
+            assertEquals(1, message.images.size)
+            assertEquals(
+                null,
+                message.images
+                    .single()
+                    .binding!!
+                    .consentId,
+            )
+            assertTrue(
+                fixture.consent.pending.value
+                    .isEmpty(),
+            )
+            assertEquals(1, fixture.imageReads)
+        }
+
+    @Test fun loopbackHttpIsNotTreatedAsDirectOnDeviceInference() =
+        runBlocking {
+            val fixture = Fixture()
+            val network = fixture.config("http://127.0.0.1:11434/v1")
+            fixture.destination = network
+            val pending = async(start = CoroutineStart.UNDISPATCHED) { fixture.restore(config = network) }
+            assertFalse(pending.isCompleted)
+            fixture.consent.respond(
+                fixture.consent.pending.value
+                    .single()
+                    .id,
+                false,
+            )
+            assertTrue(
+                pending
+                    .await()
+                    .single()
+                    .images
+                    .isEmpty(),
+            )
+        }
+
+    @Test fun localDestinationDriftStillFailsBeforeImageProjection() =
+        runBlocking {
+            val fixture = Fixture()
+            val local = fixture.localConfig()
+            assertTrue(runCatching { fixture.restore(config = local) }.exceptionOrNull() is IllegalStateException)
+            assertTrue(
+                fixture.consent.pending.value
+                    .isEmpty(),
+            )
+        }
+
+    @Test fun mobileStartConsentFeedsPixelsAndStopsOnGrantLoss() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.messages = fixture.messages.map { it.copy(toolName = ToolName("ui.screenshot")) }
+            fixture.registerNativeScreen()
+            val first = fixture.restore().single()
+            assertEquals(1, first.images.size)
+            assertTrue(
+                fixture.consent.pending.value
+                    .isEmpty(),
+            )
+            assertEquals(first, fixture.restore().single())
+            fixture.phoneScope = null
+            assertTrue(
+                fixture
+                    .restore()
+                    .single()
+                    .images
+                    .isEmpty(),
+            )
+            assertFalse(
+                fixture.consent.granted(
+                    first.images.single(),
+                    fixture.config(),
+                    first.images
+                        .single()
+                        .binding!!
+                        .consentId!!,
+                ),
+            )
+        }
+
+    @Test fun localMobilePixelsKeepGrantProvenanceWithoutNetworkPrompt() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.messages = fixture.messages.map { it.copy(toolName = ToolName("ui.screenshot")) }
+            fixture.destination = fixture.localConfig()
+            fixture.registerNativeScreen()
+            val local = fixture.restore(config = fixture.destination).single()
+            assertEquals(1, local.images.size)
+            assertTrue(
+                fixture.consent.pending.value
+                    .isEmpty(),
+            )
+            assertTrue(
+                fixture.consent.granted(
+                    local.images.single(),
+                    fixture.destination,
+                    local.images
+                        .single()
+                        .binding!!
+                        .consentId!!,
+                ),
+            )
+            fixture.phoneScope = null
+            assertTrue(
+                fixture
+                    .restore(config = fixture.destination)
+                    .single()
+                    .images
+                    .isEmpty(),
+            )
+        }
+
     private class Fixture {
         private val hash = "a".repeat(64)
         var artifact = ArtifactEntity("image", "s", "scope:app:output/image.png", "image/png", 70, hash, "turn")
         var relationPresent = true
         var vision = true
         var imageReads = 0
+        var phoneScope: com.helix.core.policy.AutomationSessionScope? =
+            com.helix.core.policy
+                .AutomationSessionScope(emptySet(), emptySet(), 0, Instant.MAX, true, "grant")
+        private val clock =
+            object : Clock {
+                override fun now(): Instant = Instant.ofEpochMilli(1000)
+            }
         val consent =
             ToolVisionConsent(
                 InteractionReceiptRepository(receiptDao()),
-                object : Clock {
-                    override fun now(): Instant = Instant.ofEpochMilli(1000)
-                },
+                clock,
+                com.helix.app.vision
+                    .MobileUseScreenConsent(clock) { phoneScope },
             )
 
         fun config(endpoint: String = "https://fixture.example/v1") =
@@ -184,12 +313,26 @@ class ToolVisualFeedbackTest {
                 "{}",
             )
 
+        fun localConfig() =
+            ProviderConfig(
+                "p",
+                "On-device",
+                ProviderConnection(
+                    ProviderProvisioningKind.ON_DEVICE_ASSET,
+                    ProviderTransport.OnDeviceLocal,
+                    ProviderAuth.None,
+                ),
+                "vision",
+                emptyMap(),
+                "{}",
+            )
+
         var destination = config()
         private val json = """{"id":"call","tool":"view_image","status":"SUCCEEDED","summary":"prepared",
           "visualArtifact":{"artifactId":"image","sha256":"$hash","mediaType":"image/png",
           "sizeBytes":70,"width":1,"height":1}}"""
         private val rows = listOf(ChatHistoryBuilder.PersistedRow("turn", "TOOL", "TOOL_RESULT", json, "message"))
-        val messages =
+        var messages =
             listOf(
                 ModelMessage(
                     ModelRole.TOOL,
@@ -227,18 +370,41 @@ class ToolVisualFeedbackTest {
                 consent = consent,
             )
 
-        suspend fun restore(turn: String = "turn") =
-            projector.restore(
-                "s",
-                turn,
-                config(),
-                "vision",
-                messages,
-                rows,
-            ) { id ->
-                imageReads++
-                listOf(ImageReference(ArtifactRef("image"), "image/png", ImageBinding("s", id, hash)))
-            }
+        suspend fun restore(
+            turn: String = "turn",
+            config: ProviderConfig = config(),
+        ) = projector.restore(
+            "s",
+            turn,
+            config,
+            "vision",
+            messages,
+            rows,
+        ) { id ->
+            imageReads++
+            listOf(ImageReference(ArtifactRef("image"), "image/png", ImageBinding("s", id, hash)))
+        }
+
+        fun registerNativeScreen() {
+            val call =
+                com.helix.tools.framework.ExecutableToolCall(
+                    "call",
+                    "ui.screenshot",
+                    "1",
+                    kotlinx.serialization.json.JsonObject(emptyMap()),
+                    com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
+                    Instant.MAX,
+                    com.helix.tools.framework.NoCancellation,
+                    "s",
+                    "turn",
+                )
+            consent.mobileScreens.register(
+                call,
+                com.helix.core.model
+                    .VisualArtifact("image", hash, "image/png", 70, 1, 1),
+                phoneScope!!.toScopeRef(),
+            )
+        }
 
         private fun receiptDao(): InteractionReceiptDao {
             val rows = mutableMapOf<String, InteractionReceiptEntity>()

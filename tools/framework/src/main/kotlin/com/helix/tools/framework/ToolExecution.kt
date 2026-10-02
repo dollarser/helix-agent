@@ -55,6 +55,8 @@ data class ExecutableToolCall(
     /** Trusted local ownership context; never supplied by model arguments. */
     val sessionId: String? = null,
     val turnId: String? = null,
+    /** Exact user scope resolved by the Dispatcher, never a model argument. */
+    val authorizationScopeRef: String? = null,
 )
 
 /**

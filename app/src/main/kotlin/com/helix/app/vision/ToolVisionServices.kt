@@ -14,13 +14,13 @@ import java.io.File
 
 /** App composition for shared image preparation and final destination-bound materialization. */
 internal class ToolVisionServices(
-    storage: HelixStorage,
+    private val storage: HelixStorage,
     private val workspace: WorkspaceArtifactStore,
     roots: ScopeRootResolver,
     private val scopeId: String,
     temporaryRoot: File,
     clock: Clock,
-    providers: ProviderService,
+    private val providers: ProviderService,
     consent: () -> ToolVisionConsent,
 ) {
     val imageSource =
@@ -36,10 +36,30 @@ internal class ToolVisionServices(
         }
 
     val imagePublisher: com.helix.tools.framework.ToolImagePublication by lazy {
-        WorkspaceToolImagePublisher(workspace, artifactSink, scopeId, preparation) { session, turn ->
+        WorkspaceToolImagePublisher(
+            workspace,
+            artifactSink,
+            scopeId,
+            preparation,
+            registerScreenImage = { call, image, scope -> consent().mobileScreens.register(call, image, scope) },
+        ) { session, turn ->
             storage.turns.resolve(turn).sessionId == session
         }
     }
+
+    /** Resolve the displayed recipient off the UI thread; in-flight turns retain their admitted model. */
+    suspend fun screenTarget(
+        sessionId: String?,
+        turnId: String?,
+    ): MobileUseScreenTarget? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val session = sessionId?.let(storage.sessions::find) ?: return@withContext null
+            val turn = turnId?.let(storage.turns::find)?.takeIf { it.sessionId == session.id }
+            val runtime = turn?.let { storage.turnRuntimeRecords.find(it.id) }
+            val provider = runtime?.providerId ?: session.providerId ?: return@withContext null
+            val model = runtime?.modelId ?: session.modelId ?: return@withContext null
+            MobileUseScreenTarget(session.id, providers.storedConfig(provider), model)
+        }
 
     fun registerTools(
         registry: com.helix.tools.framework.ToolRegistry,

@@ -7,6 +7,7 @@ fun interface ToolImagePublication {
     fun publish(
         call: ExecutableToolCall,
         png: ByteArray,
+        acquisitionScopeRef: String?,
     ): PublishedToolImage
 }
 

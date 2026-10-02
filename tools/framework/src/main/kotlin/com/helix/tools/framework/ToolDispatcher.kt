@@ -1039,6 +1039,7 @@ class ToolDispatcher(
             cancel = request.cancel,
             sessionId = request.sessionId,
             turnId = request.turnId,
+            authorizationScopeRef = request.scope?.toScopeRef(),
         )
 
     /** Stage 7: output schema verification + canonical hash + byte-cap truncation. */

@@ -121,8 +121,10 @@ internal class ToolVisualFeedback(
                         modelId = target.model,
                     ),
             )
-        val receipt = disclose(target, message, requested, facts)
-        return if (receipt == null) {
+        val local = target.config.transport == ProviderTransport.OnDeviceLocal
+        val mobileScreen = message.toolName?.value == "ui.screenshot"
+        val receipt = if (local && !mobileScreen) null else disclose(target, message, requested, facts)
+        return if ((!local || mobileScreen) && receipt == null) {
             Projection(note(message, ToolImageOmission.DISCLOSURE_UNAVAILABLE))
         } else {
             verifyTarget(target, requested)
@@ -171,6 +173,9 @@ internal class ToolVisualFeedback(
                 "",
                 destination,
             )
+        if (message.toolName?.value == "ui.screenshot") {
+            return consent.requestMobileScreen(image, config)
+        }
         return if (decision is EgressDisclosure.Decision.Confirm) {
             consent.request(
                 image,

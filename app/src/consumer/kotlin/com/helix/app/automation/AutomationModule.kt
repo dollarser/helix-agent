@@ -13,11 +13,21 @@ internal object AutomationModule {
         context: Context,
         plugins: PluginRegistry,
         images: com.helix.tools.framework.ToolImagePublication,
+        grants: com.helix.core.policy.MobileUseGrantStore,
+        conversationExists: (String) -> Boolean,
+        screenTarget: suspend (String) -> com.helix.app.vision.MobileUseScreenTarget?,
     ) = Unit
 
-    fun scopeFor(toolName: String?): UserScope? = null
+    fun scopeFor(
+        toolName: String?,
+        conversationId: String?,
+    ): UserScope? = null
 
     @Composable
     @Suppress("FunctionName")
-    fun Section(profile: SafetyProfile) = Unit
+    fun Section(
+        profile: SafetyProfile,
+        conversationId: String? = null,
+        prepareConversation: suspend (String) -> Boolean = { true },
+    ) = Unit
 }

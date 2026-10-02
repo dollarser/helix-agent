@@ -7,4 +7,5 @@
     <string name="automation_notification_text">Target apps: %1$s</string>
     <string name="automation_notification_stop">Stop now</string>
     <string name="automation_all_applications">Whole phone (user authorized)</string>
+    <string name="automation_revoke_failed">Could not finish disabling Mobile Use. Check the relevant conversation settings. Already dispatched actions may still be completing.</string>
 </resources>

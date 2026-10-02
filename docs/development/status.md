@@ -48,6 +48,8 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 ## In progress
 
+当前 [HXA-244](tasks/HXA-244.md)（2026-10-03，基线 `aa596b0c`）已完成主机/Debug 制品收尾：用户/系统应用搜索多选，Mobile Use 授权持久绑定各 Conversation，直到用户主动关闭。锁屏、进程/设备重启、服务断开仅影响可重建运行态；后续原生截图和用户切换模型不重复确认，原会话/批准范围/图片来源仍逐调用检查。最终联合检查、227 个重点不同方法、6 项 Python 回归及五份 APK 身份核验见[交付证据](../evidence/development/hxa244-conversation-mobile-use-host-2026-10-03.md)。按所有者授权本地提交，不推送；Git 状态以实际记录为准，设备未请求。
+
 所有者追加 [HXA-243](tasks/HXA-243.md)：Mobile Use 全手机/指定应用许可、可选时间/动作额度、系统动作、应用切换、手势与截图、条件等待及代码收敛。Mobile Use 0.2.0已完成主机/Debug制品验收，116个重点不同方法和5项Python渠道回归通过，两渠道App及三份AndroidTest APK已构建，见[交付记录](../evidence/development/hxa243-mobile-use-host-2026-10-03.md)。按所有者授权本地提交，不推送；设备未请求。前置HXA-242已提交为 `ed5e1ef3`，本轮Git状态以实际提交为准。
 
 所有者追加 [HXA-242](tasks/HXA-242.md)：统一管理界面滚动提示、Composer 状态反馈和 Mobile Use 启动错误展示。UI、HTTP 仅提示和平台动作不确定性修补已完成主机验收。HTTP 旧确认/发送门槛移除，两渠道共享网络配置；根单测、全模块 Debug 静态检查、四 APK 构建及源码/实际制品门禁通过，见[交付证据](../evidence/development/hxa242-http-ui-host-2026-10-02.md)。保留 TLS 校验与工具授权，设备未请求；已本地提交 `ed5e1ef3`，未推送。

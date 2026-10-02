@@ -54,8 +54,15 @@ class MobileUsePlugin(
                 ToolBinding(descriptor, device.executor(descriptor.name.value))
             }
 
-    fun scopeFor(toolName: String?): UserScope? =
-        if (toolName?.startsWith("ui.") == true) permissionCenter.activeSession()?.scope else null
+    fun scopeFor(
+        toolName: String?,
+        conversationId: String?,
+    ): UserScope? =
+        if (toolName?.startsWith("ui.") == true && conversationId != null) {
+            permissionCenter.conversationGrant(conversationId)?.scope
+        } else {
+            null
+        }
 
     companion object {
         const val PLUGIN_ID = "mobile-use"

@@ -139,7 +139,17 @@ internal fun PermissionsSafetyScreen(
 
         if (profile == SafetyProfile.ADVANCED) {
             SettingsGroup { RootModule.Section(profile) }
-            SettingsGroup { AutomationModule.Section(profile) }
+            val conversationId =
+                chatService
+                    ?.screen
+                    ?.collectAsStateWithLifecycle()
+                    ?.value
+                    ?.openSessionId
+            SettingsGroup {
+                AutomationModule.Section(profile, conversationId) { id ->
+                    chatService?.materializeDraftSession(id) == id
+                }
+            }
         }
 
         if (sessionPermissionEdit != null && toolPipeline != null) {
