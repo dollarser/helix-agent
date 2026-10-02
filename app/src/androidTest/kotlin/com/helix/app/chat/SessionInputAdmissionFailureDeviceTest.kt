@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class SessionInputAdmissionFailureDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test fun exhaustedGoalParksRejectedStartAndOldSubmissionCannotReplaceLaterEdit() =
+    @Test fun exhaustedGoalEndsRejectedInputAfterOneRecoveryWithoutCallingTheModelAgain() =
         runBlocking {
             fixture(maxCalls = 1, holdFirst = false) { scenario ->
                 val chat = scenario.chat
@@ -50,25 +50,34 @@ class SessionInputAdmissionFailureDeviceTest {
                 val rejectedStart = submission(scenario.session, "Try another round of the same exhausted goal")
                 val receipt = chat.sendSubmission(rejectedStart).await()
                 assertTrue(receipt.outcome is ChatSubmissionOutcome.Enqueued)
+                // Enqueued is acceptance, not the asynchronous scheduler's admission verdict.
+                compose.waitUntil(15_000) {
+                    storage.sessionInputs.get(rejectedStart.clientRequestId)?.state == SessionInputState.FAILED
+                }
                 val parked = requireNotNull(storage.sessionInputs.get(rejectedStart.clientRequestId))
-                assertEquals(SessionInputState.NEEDS_ATTENTION, parked.state)
-                assertEquals("INPUT_ADMISSION_FAILED", parked.blockedReason)
+                assertEquals(SessionInputState.FAILED, parked.state)
+                assertEquals("INPUT_RECOVERY_INTERRUPTED", parked.blockedReason)
+                assertEquals(
+                    1,
+                    storage.auditEvents.listByCorrelation(scenario.session).count {
+                        it.id == "input-recovery:${parked.inputId}"
+                    },
+                )
+                assertEquals(
+                    1,
+                    storage.messages.listBySession(scenario.session).count {
+                        it.id == "input-ended:${parked.inputId}" && it.kind == "RECOVERY_NOTICE"
+                    },
+                )
                 assertNull(parked.consumedTurnId)
                 assertNull(parked.messageId)
                 assertNull(parked.requestModelCallId)
                 assertEquals(1, storage.turns.listBySession(scenario.session).size)
                 assertEquals(1, scenario.requests.get())
 
-                val update = chat.editSessionInput(parked.inputId, parked.revision, "Keep this corrected request")
-                assertTrue(update.await())
-                val edited = requireNotNull(storage.sessionInputs.get(parked.inputId))
-                assertEquals(SessionInputState.NEEDS_ATTENTION, edited.state)
-                assertEquals("INPUT_EDITED", edited.blockedReason)
                 assertTrue(chat.sendSubmission(rejectedStart).await().outcome is ChatSubmissionOutcome.Enqueued)
-                val oldRevision = chat.resumeSessionInput(parked.inputId, parked.revision).await()
-                assertTrue(oldRevision is ChatSubmissionOutcome.Rejected)
-                assertEquals(edited, storage.sessionInputs.get(parked.inputId))
-                assertEquals("Keep this corrected request", chat.readSessionInput(parked.inputId).await())
+                assertEquals(parked, storage.sessionInputs.get(parked.inputId))
+                assertEquals(rejectedStart.text, chat.readSessionInput(parked.inputId).await())
                 assertFalse(scenario.extraRequest.await(500, TimeUnit.MILLISECONDS))
                 assertEquals(1, storage.turns.listBySession(scenario.session).size)
             }
@@ -98,6 +107,39 @@ class SessionInputAdmissionFailureDeviceTest {
                 assertNull(storage.sessionInputs.get(parked.inputId)?.messageId)
                 assertFalse(scenario.extraRequest.await(500, TimeUnit.MILLISECONDS))
                 assertEquals(1, scenario.requests.get())
+                assertEquals(1, storage.turns.listBySession(scenario.session).size)
+            }
+        }
+
+    @Test fun oldSubmissionCannotReplaceEditedUserParkedInput() =
+        runBlocking {
+            fixture(maxCalls = 4, holdFirst = true) { scenario ->
+                val chat = scenario.chat
+                val storage = compose.container().storage
+                val first = chat.sendSubmission(submission(scenario.session, "Hold for editing")).await()
+                val turn = compose.awaitAdmittedTurn(first)
+                assertTrue(scenario.entered.await(15, TimeUnit.SECONDS))
+                val queued = submission(scenario.session, "Original queued text")
+                assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
+                chat.stopTurn(turn)
+                scenario.release.countDown()
+                compose.waitUntil(15_000) { !chat.screen.value.isSending }
+                val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
+                assertEquals("USER_STOP", parked.blockedReason)
+                val update = chat.editSessionInput(parked.inputId, parked.revision, "Keep this corrected request")
+                assertTrue(update.await())
+                val edited = requireNotNull(storage.sessionInputs.get(parked.inputId))
+                assertEquals(SessionInputState.NEEDS_ATTENTION, edited.state)
+                assertEquals("INPUT_EDITED", edited.blockedReason)
+                assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
+                val stale = chat.resumeSessionInput(parked.inputId, parked.revision).await()
+                assertTrue(stale is ChatSubmissionOutcome.Rejected)
+                assertEquals(edited, storage.sessionInputs.get(parked.inputId))
+                assertEquals("Keep this corrected request", chat.readSessionInput(parked.inputId).await())
+                assertNull(edited.consumedTurnId)
+                assertNull(edited.messageId)
+                assertNull(edited.requestModelCallId)
+                assertFalse(scenario.extraRequest.await(500, TimeUnit.MILLISECONDS))
                 assertEquals(1, storage.turns.listBySession(scenario.session).size)
             }
         }

@@ -30,9 +30,9 @@ class MainActivityTest {
         composeRule.onNodeWithTag("open-navigation").performClick()
 
         composeRule.onNodeWithTag("drawer-new-conversation").assertIsDisplayed()
-        composeRule.onNodeWithTag("drawer-search-conversations").assertIsDisplayed()
-        composeRule.onNodeWithTag("drawer-current-conversation").assertIsDisplayed()
-        composeRule.onNodeWithTag("drawer-recent").assertIsDisplayed()
+        // Search/recent live under the history destination; they are not separate drawer authorities.
+        composeRule.onNodeWithTag("drawer-search-conversations").assertDoesNotExist()
+        composeRule.onNodeWithTag("drawer-recent").assertDoesNotExist()
         composeRule.onNodeWithTag("drawer-all-conversations").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-sessions").assertDoesNotExist()
         composeRule.onNodeWithTag("navigation-group-work").assertIsDisplayed()

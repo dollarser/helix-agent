@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -42,8 +43,15 @@ class ConversationHeaderDeviceTest {
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("setting-29").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("chat-conversation-details-close").assertIsDisplayed().performClick()
+        awaitSheetClosed()
         compose.onNodeWithTag("setting-29").assertDoesNotExist()
         compose.runOnIdle { assertEquals(0, created) }
+    }
+
+    private fun awaitSheetClosed() {
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("chat-conversation-details-sheet").fetchSemanticsNodes().isEmpty()
+        }
     }
 
     @Test fun narrowHeaderRetainsNavigationAndDetailsAtLargeFont() {
@@ -91,9 +99,11 @@ class ConversationHeaderDeviceTest {
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithText("Session settings fixture").assertIsDisplayed()
         compose.onNodeWithTag("chat-conversation-details-close").performClick()
+        awaitSheetClosed()
         compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("background-tasks-open").assertIsDisplayed().performClick()
+        awaitSheetClosed()
         compose.runOnIdle { assertEquals(1, tasks) }
         compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
     }

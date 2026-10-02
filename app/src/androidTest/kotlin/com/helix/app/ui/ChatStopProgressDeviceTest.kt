@@ -144,7 +144,7 @@ class ChatStopProgressDeviceTest {
         val chat = compose.container().chatService
         compose.onNodeWithTag("chat-stop").assertIsDisplayed().performClick()
         compose.waitUntil(10_000) {
-            server.heldStreamDisconnected.get() && storage.goals.resolve(goal).state == "CANCELLED" &&
+            server.heldStreamDisconnected.get() && storage.goals.resolve(goal).state == "PAUSED" &&
                 chat.screen.value.activeTurn
                     ?.state
                     ?.name == "CANCELLED"
@@ -233,6 +233,8 @@ class ChatStopProgressDeviceTest {
                 .state,
         )
         val run = storage.goalRuns.listByGoal(goal).single()
+        assertEquals("PAUSED", storage.goals.resolve(goal).state)
+        assertEquals("USER_PAUSED", run.outcome)
         assertTrue(run.endedAt != null)
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
     }

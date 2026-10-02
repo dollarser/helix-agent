@@ -591,6 +591,8 @@ class TaskJourneyDeviceTest {
             storage.sessionRunControls.forSession(sessionId)?.mode == AgentMode.ACT &&
                 chat.screen.value.openSessionId == sessionId
         }
+        com.helix.app.test
+            .discoverFixtureTool(containerFromApp().toolPipeline, sessionId, "echo")
         chat.sendTestMessage(sessionId, probe)
         stopAwait { approvalPresent(storage, sessionId) }
         val turn = storage.turns.listBySession(sessionId).single()

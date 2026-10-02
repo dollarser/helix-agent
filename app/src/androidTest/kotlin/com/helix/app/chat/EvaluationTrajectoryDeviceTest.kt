@@ -53,6 +53,8 @@ class EvaluationTrajectoryDeviceTest {
                             .forSession(session)
                             ?.mode == AgentMode.ACT
                     }
+                    com.helix.app.test
+                        .discoverFixtureTool(container.toolPipeline, session, "time.now")
                     val submission =
                         ChatSubmission(
                             session,
@@ -61,23 +63,9 @@ class EvaluationTrajectoryDeviceTest {
                             "Read the fixture; if unavailable, report the current time instead.",
                             emptyList(),
                         )
-                    assertTrue(chat.sendSubmission(submission).await().outcome is ChatSubmissionOutcome.Accepted)
+                    compose.awaitAdmittedTurn(chat.sendSubmission(submission).await())
                     awaitRecovery(session, requests, fixtureFailure)
-                    val turn =
-                        container.storage.turns
-                            .listBySession(session)
-                            .single()
-                    val calls = container.storage.toolCalls.listByTurn(turn.id)
-                    assertEquals("COMPLETED", turn.state)
-                    assertEquals(listOf("read", "time.now"), calls.map { it.name })
-                    assertEquals(listOf("FAILED", "COMPLETED"), calls.map { it.state })
-                    assertEquals(
-                        3,
-                        container.storage.modelCalls
-                            .listByTurn(turn.id)
-                            .size,
-                    )
-                    assertEquals(3, requests.get())
+                    assertTrajectory(session, requests.get())
                 } finally {
                     container.storage.turns
                         .listBySession(session)
@@ -89,6 +77,20 @@ class EvaluationTrajectoryDeviceTest {
                 }
             }
         }
+
+    private fun assertTrajectory(
+        session: String,
+        requests: Int,
+    ) {
+        val storage = compose.container().storage
+        val turn = storage.turns.listBySession(session).single()
+        val calls = storage.toolCalls.listByTurn(turn.id)
+        assertEquals("COMPLETED", turn.state)
+        assertEquals(listOf("read", "time.now"), calls.map { it.name })
+        assertEquals(listOf("FAILED", "COMPLETED"), calls.map { it.state })
+        assertEquals(3, storage.modelCalls.listByTurn(turn.id).size)
+        assertEquals(3, requests)
+    }
 
     private fun verifiedResponse(
         index: Int,

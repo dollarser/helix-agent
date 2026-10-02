@@ -30,7 +30,11 @@ class ConnectorInstallRecoveryDeviceTest {
         c.pluginService.catalog.select(session, old.id, true)
         c.pluginService.setSkillEnabled(old.skills.single(), true)
         c.storage.secrets.put(SecretAlias(old.endpoints.single().id), "synthetic-recovery")
-        val fields = listOf(phase, Process.myPid().toString(), old.id, old.hash, old.endpoints.single().id)
+        val fields =
+            listOf(phase, Process.myPid().toString(), old.id, old.hash, old.endpoints.single().id) +
+                c.pluginService.catalog
+                    .selected(session)
+                    .sorted()
         marker.writeText(fields.joinToString("\n"))
         val service =
             PluginService(
@@ -61,7 +65,10 @@ class ConnectorInstallRecoveryDeviceTest {
         assertEquals(if (fields[0] == "after-commit") bundle("new").contentHash else fields[3], installed.hash)
         assertEquals("synthetic-recovery", c.storage.secrets.get(SecretAlias(fields[4])))
         c.pluginService.cleanupRetired()
-        assertEquals(setOf(installed.id), c.pluginService.catalog.selected(session))
+        // Preserve the exact pre-kill selection, including legitimate bundled channel plugins.
+        val selectedBefore = fields.drop(5).toSet()
+        assertTrue(installed.id in selectedBefore)
+        assertEquals(selectedBefore, c.pluginService.catalog.selected(session))
         assertTrue(
             c.skillRepository.read(installed.skills.single(), session).body.contains(
                 if (fields[0] == "after-commit") "new" else "old",

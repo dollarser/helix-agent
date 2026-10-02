@@ -17,13 +17,17 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.sendTestMessage
 import com.helix.app.test.ForegroundDeviceTestHost
+import com.helix.app.vision.BoundImageAccess
+import com.helix.app.vision.ToolVisionConsent
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
+import com.helix.core.storage.entity.transportIdentity
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
@@ -989,7 +993,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
     @Test
     fun repeatedWireIdAcrossRejectedRoundsKeepsIndependentLocalResults() {
-        verifyRepeatedWireId("\"fixture.unregistered\"", "DENIED")
+        // Unknown/unexposed tools are framework failures, not user or recovery-policy denials.
+        verifyRepeatedWireId("\"fixture.unregistered\"", "FAILED")
     }
 
     @Test
@@ -998,8 +1003,84 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     @Test
-    fun legacySessionWithoutModelUsesProviderDefaultForEveryRound() {
-        verifyRepeatedWireId("\"time.now\"", "COMPLETED", sessionModel = null)
+    fun sessionWithoutModelPreservesAttachmentUntilExplicitSelectionAndSend() {
+        val fixture = newFixture(vision = false, sessionModel = null)
+        try {
+            stageTextAttachment(fixture, "keep attachment until explicit selection")
+            val attachments =
+                fixture.service.screen.value.pendingAttachments
+                    .map { it.id }
+            val request =
+                ChatSubmission(SESSION_ID, 0, UUID.randomUUID().toString(), "Send after selection", attachments)
+            val rejected =
+                runBlocking {
+                    fixture.service
+                        .sendSubmission(request)
+                        .await()
+                        .outcome
+                }
+            assertEquals(ChatSubmissionOutcome.Rejected("NO_MODEL_SELECTED"), rejected)
+            verifyUnselectedInputPreserved(fixture, attachments)
+
+            fixture.service.selectSessionModel(PROVIDER_ID, "model-e2e")
+            await(fixture, "explicit model selection is persisted") {
+                fixture.storage.sessions
+                    .resolve(SESSION_ID)
+                    .modelId == "model-e2e"
+            }
+            assertEquals(0, fixture.wire.callCount)
+            fixture.wire.script(
+                sseResponse(toolCallStream("explicit-model-tool", "\"time.now\"", "{}")),
+                sseResponse(textAnswerStream("Explicit selection completed.")),
+            )
+            val admitted =
+                runBlocking {
+                    fixture.service
+                        .sendSubmission(request)
+                        .await()
+                        .outcome
+                }
+            assertTrue(admitted is ChatSubmissionOutcome.PendingConfirmation)
+            runBlocking { fixture.service.confirmSubmission(request).await() }
+            await(fixture, "explicit send and backfill complete") {
+                fixture.wire.callCount == 2 &&
+                    turnIsTerminal(fixture)
+            }
+            fixture.wire.requests.forEach { assertEquals("model-e2e", org.json.JSONObject(it.body).getString("model")) }
+            assertEquals(
+                TurnState.COMPLETED.name,
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+                    .state,
+            )
+            assertEquals("Explicit selection completed.", fixture.assistantMessage())
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    private fun verifyUnselectedInputPreserved(
+        fixture: Fixture,
+        attachments: List<String>,
+    ) {
+        assertEquals(
+            attachments,
+            fixture.service.screen.value.pendingAttachments
+                .map { it.id },
+        )
+        assertNull(fixture.service.screen.value.pendingDisclosure)
+        assertTrue(
+            fixture.storage.turns
+                .listBySession(SESSION_ID)
+                .isEmpty(),
+        )
+        assertTrue(
+            fixture.storage.messages
+                .listBySession(SESSION_ID)
+                .isEmpty(),
+        )
+        assertEquals(0, fixture.wire.callCount)
     }
 
     private fun verifyRepeatedWireId(
@@ -1034,10 +1115,16 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             assertEquals(2, calls.map { it.id }.toSet().size)
             calls.forEach { call ->
                 assertTrue(call.callId != "same-wire-id")
-                assertEquals(expectedState, call.state)
-                assertNotNull(fixture.storage.toolResults.byToolCall(call.callId))
+                val result = fixture.storage.toolResults.byToolCall(call.callId)
+                assertEquals("tool=${call.name}, result=$result, turn=${turn.errorCode}", expectedState, call.state)
+                assertNotNull(result)
+                if (expectedState == "FAILED") {
+                    assertEquals("FAILED", result?.status)
+                    assertTrue(requireNotNull(result).summary.isNotBlank())
+                }
                 assertTrue(!fixture.wire.lastRequestBody.contains(call.callId))
             }
+            verifyLiveToolLabels(fixture, calls.map { it.callId }.toSet(), expectedState)
             val messages =
                 kotlinx.serialization.json.Json
                     .parseToJsonElement(fixture.wire.lastRequestBody)
@@ -1052,6 +1139,32 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             results.forEach { assertEquals("\"same-wire-id\"", it["tool_call_id"].toString()) }
         } finally {
             settleAndClose(fixture)
+        }
+    }
+
+    private fun verifyLiveToolLabels(
+        fixture: Fixture,
+        callIds: Set<String>,
+        expectedState: String,
+    ) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val zh = AppLanguageStore.wrapForLocale(context, AppLanguageStore.localeListFor(AppLanguage.ZH_CN))
+        val label =
+            zh.getString(
+                if (expectedState == "COMPLETED") {
+                    com.helix.app.R.string.tool_state_completed
+                } else {
+                    com.helix.app.R.string.tool_state_failed
+                },
+            )
+        await(fixture, "tool timeline contains the exact settled local calls") {
+            fixture.service.screen.value.toolTimeline
+                .map { it.callId }
+                .toSet() == callIds
+        }
+        fixture.service.screen.value.toolTimeline.forEach { row ->
+            assertEquals("Live label must agree with durable $expectedState for ${row.callId}", label, row.stateLabel)
+            assertNull("Settled tool must not retain an approval card", row.card)
         }
     }
 
@@ -1518,7 +1631,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         android.util.Log.e("E2E-STAGE-EXC", "fixture scope exception", e)
                     },
             )
-        val service = buildService(wire, workspaceRoot, suffix, vision, storage, serviceScope)
+        val service = buildService(wire, workspaceRoot, suffix, vision, storage, serviceScope, sessionModel)
         // One provider-bound session, opened — staging requires an open session (ADR-0014 §4:
         // attachments are always session-scoped).
         storage.sessions.create(SESSION_ID, "e2e session", PROVIDER_ID, sessionModel, System.currentTimeMillis())
@@ -1534,6 +1647,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         vision: Boolean,
         storage: HelixStorage,
         serviceScope: CoroutineScope,
+        sessionModel: String? = storage.sessions.find(SESSION_ID)?.modelId,
     ): ChatService {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val app = context.applicationContext as HelixApplication
@@ -1545,8 +1659,15 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val lineStore = InMemoryLineStore()
         val statusStore = ProviderTestStatusStore(lineStore)
         val workspaceStore = WorkspaceArtifactStore(ScopeRootResolver { _ -> workspaceRoot.toPath() })
-        val imageSource = ArtifactVisionImageSource(storage.artifacts, workspaceStore)
-        val providerService =
+        lateinit var providerService: ProviderService
+        val consent = ToolVisionConsent(storage.interactionReceipts, SystemClock())
+        val imageSource =
+            ArtifactVisionImageSource(storage.artifacts, workspaceStore) { image, destination ->
+                BoundImageAccess(storage, consent) { provider, model ->
+                    runBlocking { providerService.capabilitiesFor(provider, model)?.vision == true }
+                }.verify(image, destination)
+            }
+        providerService =
             ProviderService(
                 storage = storage,
                 factory =
@@ -1560,6 +1681,22 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 idGenerator = { "prov-$suffix" },
             )
         seedProvider(storage, statusStore, vision)
+        val selected = sessionModel ?: "model-e2e"
+        // Publish the same persisted candidate through the real service so the selection UI sees it.
+        runBlocking { providerService.saveSelectedModels(PROVIDER_ID, listOf(selected)) }
+        if (selected != "model-e2e") {
+            // Synthetic exact-model evidence belongs only to this isolated fixture, not the default model.
+            val provider = storage.providerConfigs.resolve(PROVIDER_ID)
+            statusStore.modelEvidence.verify(
+                PROVIDER_ID,
+                provider.transportIdentity,
+                selected,
+                com.helix.app.provider.ProviderModelVerification(
+                    System.currentTimeMillis(),
+                    ProviderCapabilities.parse(provider.capabilitySnapshot),
+                ),
+            )
+        }
         return ChatService(
             storage = storage,
             providerService = providerService,
@@ -1621,14 +1758,18 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     com.helix.app.tool
                         .SessionToolEffectClassifier(workspace),
             )
-        return com.helix.app.tool.ToolPipeline(
-            registry,
-            dispatcher,
-            broker,
-            audit,
-            com.helix.tools.framework
-                .ToolScheduler(clock, dispatcher, registry),
-        )
+        return com.helix.app.tool
+            .ToolPipeline(
+                registry,
+                dispatcher,
+                broker,
+                audit,
+                com.helix.tools.framework
+                    .ToolScheduler(clock, dispatcher, registry),
+            ).also { pipeline ->
+                com.helix.app.test
+                    .discoverFixtureTool(pipeline, SESSION_ID, "time.now")
+            }
     }
 
     /** File execution and authorization must resolve the same fixture-owned Workspace registry. */
@@ -1813,6 +1954,11 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 "pendingAttachments=${s.pendingAttachments.size}, " +
                 "isSending=${s.isSending}, wireCalls=${fixture.wire.callCount}, " +
                 "turns=${fixture.storage.turns.listBySession(SESSION_ID)}, " +
+                "toolResults=${fixture.storage.turns.listBySession(SESSION_ID).flatMap { turn ->
+                    fixture.storage.toolCalls.listByTurn(turn.id).map { call ->
+                        "${call.name}:${call.state}:${fixture.storage.toolResults.byToolCall(call.callId)}"
+                    }
+                }}, " +
                 "messages=${fixture.storage.messages.listBySession(
                     SESSION_ID,
                 ).map { fixture.storage.messages.readContent(it) }})",

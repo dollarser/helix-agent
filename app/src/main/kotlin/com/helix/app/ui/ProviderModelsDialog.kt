@@ -130,13 +130,18 @@ internal fun ProviderModelsDialog(
                                         else -> catalogUnsupported = true
                                     }
                                 }
-                            }, enabled = !busy) { Text(stringResource(R.string.provider_models_refresh)) }
+                            }, enabled = !busy, modifier = Modifier.testTag("provider-models-refresh")) {
+                                Text(stringResource(R.string.provider_models_refresh))
+                            }
                         }
                     }
                     if (current.managedExternally ||
                         catalogUnsupported
                     ) {
-                        Text(stringResource(R.string.provider_models_catalog_scope))
+                        Text(
+                            stringResource(R.string.provider_models_catalog_scope),
+                            Modifier.testTag("provider-models-catalog-scope"),
+                        )
                     }
                     if (current.provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET) {
                         Text(stringResource(R.string.provider_models_local_help))
@@ -183,17 +188,21 @@ internal fun ProviderModelsDialog(
                                 label = { Text(stringResource(R.string.provider_models_manual_id)) },
                                 modifier = Modifier.fillMaxWidth().testTag("provider-model-manual"),
                             )
-                            TextButton(onClick = {
-                                try {
-                                    selection = selection.addCustom(manual.trim())
-                                    manual = ""
-                                    error = false
-                                } catch (
-                                    _: IllegalArgumentException,
-                                ) {
-                                    error = true
-                                }
-                            }, enabled = !busy && manual.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    try {
+                                        selection = selection.addCustom(manual.trim())
+                                        manual = ""
+                                        error = false
+                                    } catch (
+                                        _: IllegalArgumentException,
+                                    ) {
+                                        error = true
+                                    }
+                                },
+                                enabled = !busy && manual.isNotBlank(),
+                                modifier = Modifier.testTag("provider-models-add"),
+                            ) {
                                 Text(
                                     stringResource(R.string.provider_models_add),
                                 )
@@ -216,7 +225,9 @@ internal fun ProviderModelsDialog(
             ) { Text(stringResource(R.string.provider_models_save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.chat_details_close)) }
+            TextButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.testTag("provider-models-close")) {
+                Text(stringResource(R.string.chat_details_close))
+            }
         },
     )
 }

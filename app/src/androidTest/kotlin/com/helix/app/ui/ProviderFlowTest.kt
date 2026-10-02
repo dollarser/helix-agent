@@ -2,8 +2,8 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.isDisplayed
-import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -70,11 +70,12 @@ class ProviderFlowTest {
         composeRule.onNode(editableProviderTag("provider-status-untested")).performScrollTo().assertIsDisplayed()
         composeRule.onNode(editableProviderText("尚未通过连接测试")).performScrollTo().assertIsDisplayed()
 
-        // --- an untested provider must NOT appear in the new-session picker ---
-        assertAbsentFromModelPicker()
+        // Untested sources may display setup guidance, but must not be selectable.
+        assertNotSelectableFromModelPicker()
 
         // --- connection test against the unreachable endpoint: model-list failure ---
         composeRule.navigateTo("models")
+        composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
             composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
@@ -85,12 +86,18 @@ class ProviderFlowTest {
         composeRule.onNode(editableProviderText("网络/TLS 连接失败")).assertIsDisplayed()
 
         // --- a FAILED provider is still not chat-selectable (only Passed is) ---
-        assertAbsentFromModelPicker()
+        assertNotSelectableFromModelPicker()
 
         // --- cleanup: the UI delete removes the row (and its secret/binding) ---
         composeRule.navigateTo("models")
+        composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNode(editableProviderTag("provider-delete")).performScrollTo().performClick()
-        composeRule.waitForIdle()
+        composeRule.waitUntil(10_000) {
+            composeRule
+                .container()
+                .providerService.rows.value
+                .none { it.displayName == providerName }
+        }
         composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
         val rows =
             composeRule
@@ -102,15 +109,26 @@ class ProviderFlowTest {
         )
     }
 
-    private fun assertAbsentFromModelPicker() {
+    private fun assertNotSelectableFromModelPicker() {
         composeRule.navigateTo("sessions")
         composeRule.onNodeWithTag("chat-new-session").performClick()
         composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-input").isDisplayed() }
         composeRule.onNodeWithTag("chat-model-menu").performClick()
-        composeRule.waitUntil(10_000) { composeRule.onNode(isPopup()).isDisplayed() }
-        composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
+        composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-model-search").isDisplayed() }
+        composeRule.onNodeWithTag("chat-model-search").performTextInput(providerName)
         androidx.test.espresso.Espresso
-            .pressBack()
-        composeRule.waitUntil(10_000) { !composeRule.onNode(isPopup()).isDisplayed() }
+            .closeSoftKeyboard()
+        val row =
+            composeRule
+                .container()
+                .providerService.rows.value
+                .single { it.displayName == providerName }
+        // Unready sources may be visible with setup guidance, but must never be selectable.
+        row.conversationModels.forEach { model ->
+            composeRule.onNodeWithTag("chat-model-${row.id}-$model").assertIsNotEnabled()
+        }
+        assertTrue(!row.chatSelectable)
+        composeRule.onNodeWithTag("chat-model-picker-close").performClick()
+        composeRule.waitUntil(10_000) { !composeRule.onNodeWithTag("chat-model-search").isDisplayed() }
     }
 }

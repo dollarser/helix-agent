@@ -94,9 +94,21 @@ class SessionInputProcessRecoveryDeviceTest {
         val session = fixture.getValue("sessionId").jsonPrimitive.content
         val storage = compose.container().storage
         val turns = storage.turns.listBySession(session)
-        assertEquals(1, turns.size)
-        val turn = turns.single()
+        val expectedTurns =
+            when (expectedScenario) {
+                PENDING -> 3
+                CANCELLING -> 1
+                else -> 2
+            }
+        assertEquals(
+            "Original attempt, at most one inspection, and only the explicitly queued successor",
+            expectedTurns,
+            turns.size,
+        )
+        val turn = turns.first()
+        assertNull(turn.recoveryFromTurnId)
         assertEquals(TurnState.INTERRUPTED.name, turn.state)
+        val inspection = verifyRecoveryInspection(turn.id, expectedScenario, turns)
 
         val inputs =
             (storage.sessionInputs.listPending(session) + storage.sessionInputs.recentAppended(session))
@@ -118,29 +130,62 @@ class SessionInputProcessRecoveryDeviceTest {
         val queued = inputs.getOrNull(1)
         if (expectedScenario in setOf(PENDING, CANCELLING)) {
             assertEquals(QUEUED_TEXT, storage.sessionInputs.readText(requireNotNull(queued)))
-            assertEquals(SessionInputState.NEEDS_ATTENTION, queued.state)
-            assertEquals(
-                if (expectedScenario ==
-                    CANCELLING
-                ) {
-                    "USER_STOP"
-                } else {
-                    "PROCESS_INTERRUPTED"
-                },
-                queued.blockedReason,
-            )
-            assertNull(queued.consumedTurnId)
-            assertNull(queued.messageId)
-            assertNull(queued.requestModelCallId)
+            if (expectedScenario == CANCELLING) {
+                assertEquals(SessionInputState.NEEDS_ATTENTION, queued.state)
+                assertEquals("USER_STOP", queued.blockedReason)
+                assertNull(queued.consumedTurnId)
+                assertNull(queued.messageId)
+                assertNull(queued.requestModelCallId)
+                assertTrue(
+                    storage.auditEvents.listByCorrelation(session).none {
+                        it.id ==
+                            "input-recovery:${queued.inputId}"
+                    },
+                )
+            } else {
+                assertEquals(SessionInputState.APPENDED, queued.state)
+                val successor = turns.last()
+                assertEquals(TurnState.COMPLETED.name, successor.state)
+                assertEquals(successor.id, queued.consumedTurnId)
+                assertEquals(queued.inputId, successor.clientRequestId)
+                assertNotNull(queued.messageId)
+                assertNotNull(queued.requestModelCallId)
+                assertEquals(1, storage.modelCalls.listByTurn(successor.id).size)
+                assertEquals(
+                    "COMPLETED",
+                    storage.modelCalls
+                        .listByTurn(successor.id)
+                        .single()
+                        .state,
+                )
+                assertEquals(
+                    1,
+                    storage.auditEvents.listByCorrelation(session).count {
+                        it.id ==
+                            "input-recovery:${queued.inputId}"
+                    },
+                )
+            }
         } else {
             assertNull(queued)
         }
 
         val messages = storage.messages.listBySession(session)
         val userMessages = messages.filter { it.role == "USER" }
-        assertEquals(1, userMessages.size)
-        assertEquals(ACTIVE_TEXT, storage.messages.readContent(userMessages.single()))
-        assertFalse(messages.any { storage.messages.readContent(it) == QUEUED_TEXT })
+        // The linked read-only inspection is a new attempt, not a replay of the old user input.
+        assertEquals(1, userMessages.count { storage.messages.readContent(it) == ACTIVE_TEXT })
+        assertEquals(
+            if (expectedScenario ==
+                PENDING
+            ) {
+                1
+            } else {
+                0
+            },
+            userMessages.count { storage.messages.readContent(it) == QUEUED_TEXT },
+        )
+        assertEquals(active.messageId, userMessages.single { storage.messages.readContent(it) == ACTIVE_TEXT }.id)
+        assertTrue(turns.all { storage.toolCalls.listByTurn(it.id).isEmpty() })
         val calls = storage.modelCalls.listByTurn(turn.id)
         assertEquals(1, calls.size)
         assertEquals("INTERRUPTED", calls.single().state)
@@ -171,6 +216,11 @@ class SessionInputProcessRecoveryDeviceTest {
                 put("turnState", turn.state)
                 put("messageCount", messages.size)
                 put("modelCallCount", calls.size)
+                put("turnCount", turns.size)
+                put("inspectionTurnId", inspection)
+                put("inspectionMode", if (inspection == null) null else "PLAN")
+                put("inspectionCount", if (inspection == null) 0 else 1)
+                put("queuedSuccessors", if (expectedScenario == PENDING) 1 else 0)
                 put("secondRecoveryInterrupted", repeated.interruptedTurns.size)
                 put(
                     "inputs",
@@ -191,6 +241,34 @@ class SessionInputProcessRecoveryDeviceTest {
                 )
             }.toString(),
         )
+    }
+
+    private fun verifyRecoveryInspection(
+        parent: String,
+        scenario: String,
+        turns: List<com.helix.core.storage.entity.TurnEntity>,
+    ): String? {
+        val storage = compose.container().storage
+        val inspections = turns.filter { it.clientRequestId == "auto-recovery:$parent" }
+        if (scenario == CANCELLING) {
+            assertTrue(inspections.isEmpty())
+            assertNotNull(turns.first().pauseRequestedAt)
+            return null
+        }
+        val inspection = inspections.single()
+        assertEquals(parent, inspection.recoveryFromTurnId)
+        assertEquals(TurnState.COMPLETED.name, inspection.state)
+        val snapshot =
+            com.helix.app.engine.TurnRuntimeRecordCodec.decode(
+                storage.turnRuntimeRecords.resolve(inspection.id),
+            )
+        assertEquals(com.helix.core.model.AgentMode.PLAN, snapshot.control.mode)
+        assertEquals(MODEL, snapshot.modelId)
+        val calls = storage.modelCalls.listByTurn(inspection.id)
+        assertEquals(1, calls.size)
+        assertEquals("COMPLETED", calls.single().state)
+        assertTrue(turns.none { it.clientRequestId == "auto-recovery:${inspection.id}" })
+        return inspection.id
     }
 
     private fun fixtureFile(): File = File(compose.activity.filesDir, FIXTURE_FILE)

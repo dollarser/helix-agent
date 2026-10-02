@@ -77,6 +77,22 @@ class PromptEnvironmentSectionsTest {
     }
 
     @Test
+    fun packagedPromptExplainsParallelBatchesAndDependencyOrderInEveryMode() {
+        for (mode in AgentMode.values()) {
+            val registry = PromptRegistry()
+            PromptEnvironmentSections.register(registry, directory, mode, true)
+            val base = registry.resolve().single { it.name == PromptEnvironmentSections.BASE_NAME }
+            assertEquals(PromptSource.BUILTIN_TEMPLATE, base.source)
+            val prompt = registry.assemble()
+            assertTrue(prompt.contains("Tool calls in the same response may execute concurrently"))
+            assertTrue(prompt.contains("Batch only independent operations"))
+            assertTrue(prompt.contains("wait for its successful result"))
+            assertTrue(prompt.contains("dependent call in a later response"))
+            assertTrue(prompt.contains("Do not bypass a denied action"))
+        }
+    }
+
+    @Test
     fun aBlankTemplateIsDroppedForThatStep() {
         val blankPlan =
             PromptTemplateSource { name ->

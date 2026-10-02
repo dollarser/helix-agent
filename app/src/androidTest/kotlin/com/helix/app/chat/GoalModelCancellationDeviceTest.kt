@@ -150,7 +150,13 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
     ) {
         val stored = storage.goals.resolve(goal)
         val run = storage.goalRuns.listByGoal(goal).single()
-        assertEquals(if (stop) "CANCELLED" else "BLOCKED", stored.state)
+        assertEquals(if (stop) "PAUSED" else "BLOCKED", stored.state)
+        if (stop) {
+            assertEquals("USER_PAUSED", run.outcome)
+            val turn = storage.turns.listBySession(session).single()
+            assertEquals("CANCELLED", turn.state)
+            assertTrue(turn.pauseRequestedAt != null)
+        }
         assertTrue(run.endedAt != null)
         if (!stop) assertTrue(requireNotNull(run.outcome).startsWith("BUDGET_EXHAUSTED("))
         assertEquals(1, stored.modelCalls)

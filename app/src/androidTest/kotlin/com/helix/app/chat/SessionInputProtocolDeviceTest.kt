@@ -193,6 +193,8 @@ class SessionInputProtocolDeviceTest {
                         .forSession(session)
                         ?.mode == AgentMode.ACT
                 }
+                com.helix.app.test
+                    .discoverFixtureTool(container.toolPipeline, session, "time.now")
                 block(session, wire)
             } finally {
                 wire.release.countDown()

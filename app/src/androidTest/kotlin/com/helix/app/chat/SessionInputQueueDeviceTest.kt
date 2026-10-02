@@ -189,6 +189,8 @@ class SessionInputQueueDeviceTest {
                 }
                 val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
                 val providerId = requireNotNull(storage.sessions.resolve(session).providerId)
+                // The catalog is not the conversation candidate list: opt in before selecting B.
+                compose.container().providerService.saveSelectedModels(providerId, listOf("fixture-model-b"))
                 chat.selectSessionModel(providerId, "fixture-model-b")
                 compose.waitUntil(15_000) {
                     storage.sessions.resolve(session).modelId == "fixture-model-b"
@@ -270,7 +272,7 @@ class SessionInputQueueDeviceTest {
             }
         }
 
-    @Test fun normalCompletionParksQueuedInputWhenProviderEndpointChanged() =
+    @Test fun normalCompletionEndsUnrecoverableQueueWhenProviderEndpointChanged() =
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
@@ -302,12 +304,13 @@ class SessionInputQueueDeviceTest {
                 )
                 release.countDown()
                 compose.waitUntil(15_000) {
-                    storage.sessionInputs.get(queued.clientRequestId)?.state == SessionInputState.NEEDS_ATTENTION &&
+                    storage.sessionInputs.get(queued.clientRequestId)?.state == SessionInputState.FAILED &&
                         !chat.screen.value.isSending
                 }
                 val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
                 assertEquals("COMPLETED", storage.turns.resolve(firstTurn).state)
                 assertEquals("INPUT_REVALIDATION_FAILED", parked.blockedReason)
+                assertRecoveryEnded(storage, parked)
                 assertEquals(queued.text, storage.sessionInputs.readText(parked))
                 assertNull(parked.consumedTurnId)
                 assertNull(parked.messageId)
@@ -324,7 +327,7 @@ class SessionInputQueueDeviceTest {
             }
         }
 
-    @Test fun normalCompletionParksQueuedInputWhenAttachmentBytesChanged() =
+    @Test fun normalCompletionEndsUnrecoverableQueueWhenAttachmentBytesChanged() =
         runBlocking {
             fixture { chat, session, entered, release, requests ->
                 val first = chat.sendSubmission(submission(session, "first")).await()
@@ -353,12 +356,13 @@ class SessionInputQueueDeviceTest {
                 storedFile.writeText("changed after queued confirmation\n")
                 release.countDown()
                 compose.waitUntil(15_000) {
-                    storage.sessionInputs.get(queued.clientRequestId)?.state == SessionInputState.NEEDS_ATTENTION &&
+                    storage.sessionInputs.get(queued.clientRequestId)?.state == SessionInputState.FAILED &&
                         !chat.screen.value.isSending
                 }
                 val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
                 assertEquals("COMPLETED", storage.turns.resolve(firstTurn).state)
                 assertEquals("INPUT_REVALIDATION_FAILED", parked.blockedReason)
+                assertRecoveryEnded(storage, parked)
                 assertEquals(queued.text, storage.sessionInputs.readText(parked))
                 assertEquals(listOf(attachmentId), parked.attachments.map { it.artifactId })
                 assertNull(parked.consumedTurnId)
@@ -375,6 +379,25 @@ class SessionInputQueueDeviceTest {
                 )
             }
         }
+
+    private fun assertRecoveryEnded(
+        storage: com.helix.core.storage.HelixStorage,
+        input: com.helix.core.storage.repository.SessionInputRecord,
+    ) {
+        assertEquals(SessionInputState.FAILED, input.state)
+        assertEquals(
+            1,
+            storage.auditEvents.listByCorrelation(input.sessionId).count {
+                it.id == "input-recovery:${input.inputId}"
+            },
+        )
+        assertEquals(
+            1,
+            storage.messages.listBySession(input.sessionId).count {
+                it.id == "input-ended:${input.inputId}" && it.kind == "RECOVERY_NOTICE"
+            },
+        )
+    }
 
     private fun submission(
         session: String,

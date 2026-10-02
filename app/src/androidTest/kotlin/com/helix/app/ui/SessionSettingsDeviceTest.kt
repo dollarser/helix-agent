@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.helix.app.MainActivity
 import org.junit.Assert.assertEquals
@@ -29,14 +30,14 @@ class SessionSettingsDeviceTest {
         compose.onNodeWithTag("screen-session-settings").assertIsDisplayed()
         assertNull(container.storage.sessions.find(id))
 
-        compose.onNodeWithTag("session-settings-materialize-permissions").performClick()
+        compose.onNodeWithTag("session-settings-materialize-permissions").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             container.storage.sessions.find(id) != null &&
                 container.storage.sessionRunControls.forSession(id) != null &&
                 !chat.screen.value.isDraft
         }
         assertNotNull(container.storage.sessions.find(id))
-        compose.onNodeWithTag("settings-perm-mode-APPROVAL_REQUIRED").assertIsDisplayed()
+        compose.onNodeWithTag("settings-perm-mode-APPROVAL_REQUIRED").performScrollTo().assertIsDisplayed()
 
         compose.onNodeWithTag("navigate-back").performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
@@ -82,13 +83,15 @@ class SessionSettingsDeviceTest {
 
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("session-settings-open").performClick()
-        compose.onNodeWithTag("session-settings-expert").performClick()
+        compose.onNodeWithTag("session-settings-expert").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             container.storage.sessions.find(id) != null &&
                 compose.onAllNodesWithTag("session-expert-dialog").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("session-expert-name").performTextInput("Reviewer")
-        compose.onNodeWithTag("session-expert-instruction").performTextInput("Focus on correctness.")
+        compose.onNodeWithTag("session-expert-name").performScrollTo().performTextInput("Reviewer")
+        compose.onNodeWithTag("session-expert-instruction").performScrollTo().performTextInput("Focus on correctness.")
+        androidx.test.espresso.Espresso
+            .closeSoftKeyboard()
         compose.onNodeWithTag("session-expert-save").performClick()
 
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {

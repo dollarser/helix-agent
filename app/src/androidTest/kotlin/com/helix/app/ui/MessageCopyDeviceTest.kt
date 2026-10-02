@@ -65,7 +65,14 @@ class MessageCopyDeviceTest {
             MaterialTheme { MessageRow(MessageUi("copy", "assistant", text)) }
         }
         compose.onNodeWithTag("chat-message-toggle-copy").performClick()
+        compose.runOnIdle {
+            clipboard.setText(
+                androidx.compose.ui.text
+                    .AnnotatedString(""),
+            )
+        }
         compose.onNodeWithTag("chat-copy-copy").performClick()
+        awaitClipboard(clipboard, text)
         compose.runOnIdle { assertEquals(text, clipboard.getText()?.text) }
         compose.onNodeWithTag("chat-message-assistant").performTouchInput { longClick() }
     }
@@ -82,8 +89,23 @@ class MessageCopyDeviceTest {
         compose.onNodeWithText("val x = 1", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("# Heading", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("chat-message-toggle-markdown").performClick()
+        compose.runOnIdle {
+            clipboard.setText(
+                androidx.compose.ui.text
+                    .AnnotatedString(""),
+            )
+        }
         compose.onNodeWithTag("chat-copy-markdown").performClick()
+        awaitClipboard(clipboard, source)
         compose.runOnIdle { assertEquals(source, clipboard.getText()?.text) }
+    }
+
+    private fun awaitClipboard(
+        clipboard: ClipboardManager,
+        expected: String,
+    ) {
+        // Keep the real platform clipboard assertion; do not replace it with an in-memory fake.
+        compose.waitUntil(5_000) { compose.runOnIdle { clipboard.getText()?.text == expected } }
     }
 
     @Test fun markdownTableRendersCellsInScrollableColumns() {

@@ -1,10 +1,11 @@
 package com.helix.app.provider
 
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -12,8 +13,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
 import com.helix.app.ui.container
@@ -21,38 +24,17 @@ import com.helix.app.ui.deleteEditableProviders
 import com.helix.app.ui.editableProviderTag
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
+import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * HXA-059 device suite: the provider model auto-discovery full chain against an
- * in-APK loopback fixture server ([LoopbackModelServer] — real OkHttp wire, real
- * protocol adapters, deterministic offline model replies):
- *
- * 1. create provider (cleartext http, explicit host:port confirmation) → save →
- *    connection test PASSES with a model list → the row shows 「后端可用模型 (N)」
- *    with filter + chips → selecting a chip OPENS the edit form with the model
- *    field PREFILLED (never auto-saved);
- * 2. a backend WITHOUT a model-list endpoint (Anthropic protocol: phase 2 =
- *    Unsupported) → the test still passes and the row shows the explicit
- *    manual-entry hint (no section);
- * 3. phase 2 FAILED (the models endpoint rejects after phase 1 passed) → the
- *    row shows the stable phase/code error and NO model section;
- * 4. a large backend list (300 ids) → the section caps at 200 chips with the
- *    「共 N 个，显示前 200」hint, and the filter still narrows below the cap.
- *
- * Note on case 2: an OpenAI-compatible backend CANNOT produce phase-2
- * Unsupported over HTTP — its phase-1 check IS the model-list call, so a 404
- * fails at phase 1. The protocol without a list endpoint is Anthropic
- * (`modelsPath() == null`), which is what this case drives.
- *
- * The model ids are opaque fixture strings; chips are tagged by display index
- * (never by the id) and matched by text.
- */
+/** Real loopback discovery and the current selection dialog, not the retired inline chip/edit UI. */
 @RunWith(AndroidJUnit4::class)
 class ProviderModelDiscoveryUiTest {
     @get:Rule
@@ -73,104 +55,68 @@ class ProviderModelDiscoveryUiTest {
     }
 
     @Test
-    fun passedTestSurfacesBackendModelsAndChipPrefillsTheEditForm() {
+    fun discoveredModelsAreExplicitChoicesAndCancelDoesNotSave() {
         val port = startServer(LoopbackModelServer.Mode.OPENAI_LISTED)
         val name = "Model Discovery ${System.currentTimeMillis()}"
-        createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
+        val id = createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
+        testConnection("passed")
+        val before = row(id).modelSelection
+        assertEquals(listOf("fixture-model-a", "fixture-model-b", "fixture-model-c"), row(id).backendModels)
+        openModels(id)
+        filterModels("fixture-model-b")
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-b").assertIsOff().performClick()
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-b").assertIsOn()
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-a").assertDoesNotExist()
+        composeRule.onNodeWithTag("provider-form-dialog").assertDoesNotExist()
+        composeRule.onNodeWithTag("provider-models-close").performClick()
+        awaitModelsClosed()
+        assertEquals(before, row(id).modelSelection)
 
-        // --- the connection test PASSES and carries the 3-model list out ---
-        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
-        composeRule.waitUntil(30_000) {
-            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNode(editableProviderTag("provider-status-passed")).performScrollTo().assertIsDisplayed()
-
-        // --- the section shows the list with a filter ---
-        composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("后端可用模型 (3)").assertIsDisplayed()
-        composeRule.onNodeWithText("fixture-model-a").assertExists()
-        composeRule.onNodeWithText("fixture-model-b").assertExists()
-        composeRule.onNodeWithText("fixture-model-c").assertExists()
-        composeRule.onAllNodes(editableProviderTag("provider-models-unsupported")).fetchSemanticsNodes().isEmpty()
-
-        // --- the filter narrows the displayed chips (index-based tags) ---
-        composeRule.onNode(editableProviderTag("provider-models-filter")).performScrollTo().performTextInput("b")
-        composeRule.onNode(editableProviderTag("provider-model-chip-0")).assertExists()
-        assertTrue(chipTextOf("provider-model-chip-0") == "fixture-model-b")
-        assertTrue(
-            "filter must narrow to a single chip",
-            composeRule.onAllNodes(editableProviderTag("provider-model-chip-1")).fetchSemanticsNodes().isEmpty(),
-        )
-
-        // --- selecting the chip OPENS the edit form (never auto-saved) ---
-        composeRule.onNode(editableProviderTag("provider-models-filter")).performScrollTo().performTextClearance()
-        composeRule.onNode(editableProviderTag("provider-model-chip-1")).performScrollTo().performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithTag("provider-form-dialog").assertIsDisplayed()
-        // …and cancelling it changes NOTHING: the persisted row still shows the old model.
-        composeRule.onNodeWithTag("provider-form-cancel").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("provider-form-dialog").assertIsNotDisplayed()
-        composeRule.onNodeWithText("模型：fixture-model-z", substring = true).assertIsDisplayed()
-
-        // --- the prefill is verified end to end: select → SAVE → the persisted row model ---
-        // (the form's OutlinedTextField merged semantics carry only the label, never the typed
-        // value, on this Compose version — the persisted value is the authoritative read).
-        composeRule.onNode(editableProviderTag("provider-model-chip-1")).performScrollTo().performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule
-            .onNodeWithTag("provider-cleartext-confirm")
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performClick()
-        composeRule.onNodeWithTag("provider-cleartext-confirm").assertIsOn()
-        composeRule.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
-        // The edit save does more Room/Keystore work than create (overwrite + status clear +
-        // binding prune + refresh) — wait for the close explicitly instead of relying on idle.
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
-        }
-        composeRule.onNodeWithText("模型：fixture-model-b", substring = true).assertIsDisplayed()
-
-        // --- cleanup ---
+        openModels(id)
+        filterModels("fixture-model-b")
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-b").assertIsOff().performClick()
+        composeRule.onNodeWithTag("provider-models-save").performClick()
+        awaitModelsClosed()
+        assertEquals((before.models + "fixture-model-b").toSet(), row(id).conversationModels.toSet())
+        assertEquals("fixture-model-z", row(id).model)
+        assertTrue(row(id).chatSelectable)
+        // Choosing a candidate is not a capability test for that model.
+        assertFalse(row(id).modelVerifications.containsKey("fixture-model-b"))
         deleteProviderAndAwait(name)
     }
 
     @Test
-    fun aBackendWithoutAListEndpointShowsTheManualEntryHint() {
+    fun aBackendWithoutAListEndpointKeepsExplicitManualEntry() {
         val port = startServer(LoopbackModelServer.Mode.ANTHROPIC_UNSUPPORTED)
         val name = "No List ${System.currentTimeMillis()}"
-        createProvider(
-            name,
-            "http://127.0.0.1:$port/v1",
-            "fixture-model-z",
-            template = "anthropic",
-            key = "fixture-key",
-        )
-
-        // The Anthropic backend has no model list: phase 1 validates by stream,
-        // phase 2 is Unsupported (no HTTP call) and the probe still passes.
-        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
-        composeRule.waitUntil(30_000) {
-            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
+        val id = createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z", "anthropic", "fixture-key")
+        testConnection("passed")
+        val before = row(id).modelSelection
+        openModels(id)
+        composeRule.onNodeWithTag("provider-models-refresh").performScrollTo().performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-models-catalog-scope").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNode(editableProviderTag("provider-status-passed")).performScrollTo().assertIsDisplayed()
-        composeRule.onNode(editableProviderTag("provider-models-unsupported")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("后端未提供模型列表，请手动输入").assertIsDisplayed()
-        composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty()
-
+        assertEquals(before, row(id).modelSelection)
+        assertEquals(null, row(id).backendModels)
+        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-manual"))
+        composeRule.onNodeWithTag("provider-model-manual").performTextInput("manual-fixture")
+        androidx.test.espresso.Espresso
+            .closeSoftKeyboard()
+        composeRule.onNodeWithTag("provider-models-add").performScrollTo().performClick()
+        composeRule.onNodeWithTag("provider-models-save").performClick()
+        awaitModelsClosed()
+        assertTrue("manual-fixture" in row(id).conversationModels)
+        assertTrue(row(id).chatSelectable)
         deleteProviderAndAwait(name)
     }
 
     @Test
-    fun aPhaseTwoFailureShowsTheStableErrorWithoutAModelSection() {
+    fun aCatalogAuthenticationFailureRevokesSelectionWithoutDroppingPreferences() {
         val port = startServer(LoopbackModelServer.Mode.OPENAI_PHASE2_AUTH)
         val name = "Phase Two Fail ${System.currentTimeMillis()}"
-        createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
+        val id = createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
+        val before = row(id).modelSelection
 
         // Connection checks use a single catalog fetch. A subsequent explicit check
         // reaches the fixture's 401 and must revoke selectability with a stable phase.
@@ -185,54 +131,35 @@ class ProviderModelDiscoveryUiTest {
         composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("失败阶段：模型列表", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("认证或访问权限被服务端拒绝", substring = true).performScrollTo().assertIsDisplayed()
-        org.junit.Assert.assertTrue(
-            composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty(),
-        )
+        assertFalse(row(id).chatSelectable)
+        assertEquals(before, row(id).modelSelection)
+        assertTrue(row(id).conversationModels.none(row(id)::modelSelectable))
 
         deleteProviderAndAwait(name)
     }
 
     @Test
-    fun aLargeBackendListIsDisplayCappedWithAHintAndStillFilterable() {
+    fun aLargeCatalogRemainsSearchableBeyondTheRetiredChipLimit() {
         val port = startServer(LoopbackModelServer.Mode.OPENAI_LARGE)
         val name = "Large List ${System.currentTimeMillis()}"
-        createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
-
-        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
-        composeRule.waitUntil(30_000) {
-            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("后端可用模型 (300)").assertIsDisplayed()
-
-        // Display cap: 200 chips (index 0..199), then the truncation hint.
-        composeRule.onNode(editableProviderTag("provider-model-chip-199")).assertExists()
-        assertTrue(
-            "the display cap is 200 chips",
-            composeRule.onAllNodes(editableProviderTag("provider-model-chip-200")).fetchSemanticsNodes().isEmpty(),
-        )
-        // assertExists, not assertIsDisplayed: after 200 chips the hint sits below the fold
-        // of the scrollable row list (off-screen nodes still exist in the semantics tree).
-        composeRule.onNodeWithText("共 300 个，显示前 200").assertExists()
-
-        // The filter narrows below the cap and the hint goes away.
-        // ids are zero-padded (%03d), so "fixture-model-299" is the UNIQUE match — "fixture-model-29"
-        // would match eleven ids (290-299) and leave multiple chips.
+        val id = createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
+        testConnection("passed")
+        assertEquals(300, row(id).backendModels?.size)
+        val before = row(id).modelSelection
+        openModels(id)
+        // Lazy composition keeps all choices reachable without instantiating 300 row nodes.
         composeRule
-            .onNode(
-                editableProviderTag("provider-models-filter"),
-            ).performScrollTo()
-            .performTextInput("fixture-model-299")
-        assertTrue(chipTextOf("provider-model-chip-0") == "fixture-model-299")
-        assertTrue(
-            "the filter must narrow to a single chip",
-            composeRule.onAllNodes(editableProviderTag("provider-model-chip-1")).fetchSemanticsNodes().isEmpty(),
-        )
-        assertTrue(
-            "below the cap the hint must disappear",
-            composeRule.onAllNodesWithText("共 300 个，显示前 200").fetchSemanticsNodes().isEmpty(),
-        )
-
+            .onNodeWithTag("provider-model-list")
+            .performScrollToNode(hasTestTag("provider-model-choice-fixture-model-299"))
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-299").assertIsDisplayed()
+        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-search"))
+        filterModels("fixture-model-299")
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-299").assertIsOff().performClick()
+        composeRule.onNodeWithTag("provider-model-choice-fixture-model-298").assertDoesNotExist()
+        composeRule.onNodeWithTag("provider-models-save").performClick()
+        awaitModelsClosed()
+        assertEquals((before.models + "fixture-model-299").toSet(), row(id).conversationModels.toSet())
+        assertEquals(300, row(id).backendModels?.size)
         deleteProviderAndAwait(name)
     }
 
@@ -261,7 +188,7 @@ class ProviderModelDiscoveryUiTest {
         model: String,
         template: String = "ollama",
         key: String? = null,
-    ) {
+    ): String {
         composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNodeWithTag("provider-add").performClick()
@@ -293,11 +220,43 @@ class ProviderModelDiscoveryUiTest {
         }
         composeRule.onNodeWithTag("provider-form-dialog").assertIsNotDisplayed()
         composeRule.onNodeWithText(name).performScrollTo().assertIsDisplayed()
+        return composeRule
+            .container()
+            .providerService.rows.value
+            .single { it.displayName == name }
+            .id
     }
 
-    /** The display text of a chip (matched by text — the id never rides in the tag). */
-    private fun chipTextOf(tag: String): String {
-        val texts = composeRule.onNode(editableProviderTag(tag)).fetchSemanticsNode().config[SemanticsProperties.Text]
-        return (texts as? List<*>)?.firstOrNull()?.toString() ?: error("chip $tag has no text")
+    private fun row(id: String) =
+        composeRule
+            .container()
+            .providerService.rows.value
+            .single { it.id == id }
+
+    private fun testConnection(status: String) {
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
+        composeRule.waitUntil(30_000) {
+            composeRule.onAllNodes(editableProviderTag("provider-status-$status")).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun openModels(id: String) {
+        composeRule.onNodeWithTag("provider-manage-models-$id").performScrollTo().performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-model-list").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun filterModels(query: String) {
+        composeRule.onNodeWithTag("provider-model-search").performTextReplacement(query)
+        androidx.test.espresso.Espresso
+            .closeSoftKeyboard()
+        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-choice-$query"))
+    }
+
+    private fun awaitModelsClosed() {
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-model-list").fetchSemanticsNodes().isEmpty()
+        }
     }
 }

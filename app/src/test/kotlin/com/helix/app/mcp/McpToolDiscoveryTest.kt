@@ -54,6 +54,18 @@ class McpToolDiscoveryTest {
 
     private fun catalog(count: Int = 500) = replaceCatalog("catalog", (0 until count).map(::remote))
 
+    @Test fun optionalBuiltInNeedsDiscoveryAndNeverLeaksAcrossSessions() {
+        val time = search.copy(name = ToolName("time.now"), description = "Current time")
+        registerFixture(time)
+        val defaults =
+            com.helix.app.chat.ModelToolExposureOrder
+                .defaultNames(preferUi = false)
+        assertFalse(time in discovery.visible("session", registry.all(), defaults))
+        assertEquals(listOf(time), discovery.search("session", "time.now", 1))
+        assertTrue(time in discovery.visible("session", registry.all(), defaults))
+        assertFalse(time in discovery.visible("another-session", registry.all(), defaults))
+    }
+
     @Test fun searchChecksAvailabilityOnlyForMatchingCandidatesUntilWindowIsFull() {
         catalog()
         val checked = mutableListOf<String>()

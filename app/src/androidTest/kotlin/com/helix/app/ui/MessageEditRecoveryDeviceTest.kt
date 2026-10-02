@@ -2,13 +2,18 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.TurnInputFingerprint
 import com.helix.app.chat.toInputSnapshot
+import com.helix.app.engine.TurnAdmissionResult
+import com.helix.app.engine.TurnEngine
+import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.RunControlConfig
+import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
+import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -37,46 +42,54 @@ class MessageEditRecoveryDeviceTest {
                     revisedMessageId = "revision-target",
                 ).toInputSnapshot(),
             )
-            storage.sessions.create("revision-accepted", "REVISION-ACCEPTED", null, null, 2)
-            storage.messages.append("accepted-target", "revision-accepted", null, "USER", "TEXT", "OLD-ACCEPTED")
-            val accepted =
-                ChatSubmission(
-                    "revision-accepted",
-                    0,
-                    "accepted-revision",
-                    "NEW-ACCEPTED",
-                    revisedMessageId = "accepted-target",
-                )
-            storage.composerDrafts.save(accepted.toInputSnapshot())
-            val clock =
-                object : Clock {
-                    override fun now(): Instant = Instant.ofEpochMilli(10)
-                }
-            val coordinator =
-                TurnCoordinator.start(
-                    storage,
-                    clock,
-                    { UUID.randomUUID().toString() },
-                    TurnStartSpec(
-                        "revision-accepted",
-                        "revision-turn",
-                        "revision-model",
-                        "fixture",
-                        accepted.text,
-                        clientRequestId = accepted.clientRequestId,
-                        inputFingerprint =
-                            TurnInputFingerprint.of(
-                                accepted.text,
-                                emptyList(),
-                                revisedMessageId = "accepted-target",
-                            ),
-                        revisedMessageId = "accepted-target",
-                    ),
-                )
-            coordinator.beginModelStream()
-            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+            seedAcceptedRevision()
             compose.container().chatService.closeSession()
         }
+
+    private fun seedAcceptedRevision() {
+        val storage = compose.container().storage
+        storage.sessions.create("revision-accepted", "REVISION-ACCEPTED", null, null, 2)
+        storage.messages.append("accepted-target", "revision-accepted", null, "USER", "TEXT", "OLD-ACCEPTED")
+        val accepted =
+            ChatSubmission(
+                "revision-accepted",
+                0,
+                "accepted-revision",
+                "NEW-ACCEPTED",
+                revisedMessageId = "accepted-target",
+            )
+        storage.composerDrafts.save(accepted.toInputSnapshot())
+        val clock =
+            object : Clock {
+                override fun now(): Instant = Instant.ofEpochMilli(10)
+            }
+        val admitted =
+            TurnEngine(storage, clock) { UUID.randomUUID().toString() }.admit(
+                TurnStartSpec(
+                    "revision-accepted",
+                    "revision-turn",
+                    "revision-model",
+                    "fixture",
+                    accepted.text,
+                    clientRequestId = accepted.clientRequestId,
+                    inputFingerprint =
+                        TurnInputFingerprint.of(
+                            accepted.text,
+                            emptyList(),
+                            revisedMessageId = "accepted-target",
+                        ),
+                    revisedMessageId = "accepted-target",
+                ),
+                RunControlConfig(AgentMode.ACT, true, TurnBudgets(4, 4, 8_000, 2_000, 16_000)),
+                GoalWakeReason.USER_OPEN,
+                providerId = "fixture-provider",
+                modelId = "fixture-model",
+            )
+        val coordinator = (admitted as TurnAdmissionResult.Started).turn.coordinator
+        assertEquals(accepted.clientRequestId, storage.messages.resolve("accepted-target").supersededBy)
+        coordinator.beginModelStream()
+        coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+    }
 
     @Test fun verifyRevisionRecovery() =
         runBlocking {

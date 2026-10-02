@@ -202,6 +202,8 @@ class CommandExecutionDetailsDeviceTest {
         compose.onNodeWithTag("chat-session-$SESSION").performScrollTo().performClick()
         compose.waitForIdle()
         stopAwait { chat.screen.value.openSessionId == SESSION }
+        scrollToConversationNode("tool-details-$CALL_FAILED")
+        compose.onNodeWithTag("tool-details-$CALL_FAILED").performScrollTo().performClick()
         scrollToConversationNode("command-detail-$CALL_FAILED")
         compose.onNodeWithTag("command-detail-$CALL_FAILED").performScrollTo().performClick()
         compose.waitForIdle()

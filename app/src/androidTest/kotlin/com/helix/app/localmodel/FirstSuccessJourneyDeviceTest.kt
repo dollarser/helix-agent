@@ -8,7 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
+import com.helix.app.chat.awaitAdmittedTurn
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
@@ -21,6 +21,10 @@ import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -142,7 +146,7 @@ class FirstSuccessJourneyDeviceTest {
             chat
                 .sendSubmission(ChatSubmission(sessionId, 0, UUID.randomUUID().toString(), prompt, emptyList()))
                 .await()
-        assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
+        val admittedTurn = compose.awaitAdmittedTurn(receipt)
         withTimeout(timeoutMs) {
             while (storage.turns
                     .listBySession(sessionId)
@@ -154,6 +158,7 @@ class FirstSuccessJourneyDeviceTest {
         }
 
         val turn = storage.turns.listBySession(sessionId).single()
+        assertEquals(admittedTurn, turn.id)
         val calls = storage.toolCalls.listByTurn(turn.id)
         val modelCalls = storage.modelCalls.listByTurn(turn.id)
         val messages = storage.messages.listBySession(sessionId)
@@ -163,9 +168,32 @@ class FirstSuccessJourneyDeviceTest {
                 "toolCalls=${calls.map { it.name + ':' + it.state + ':' + it.argsJson.take(180) }}",
             turn.state == "COMPLETED",
         )
-        assertEquals(1, calls.count { it.name == "write" })
-        assertEquals(1, calls.count { it.name == "read" })
-        assertTrue(calls.all { it.state == "COMPLETED" })
+        val batches =
+            messages.filter { it.kind == "TOOL_CALLS" }.map { message ->
+                Json.parseToJsonElement(requireNotNull(storage.messages.readContent(message))).jsonArray.map {
+                    it.jsonObject
+                        .getValue("name")
+                        .jsonPrimitive.content
+                }
+            }
+        val toolTrace =
+            "Model-authored batches=$batches\n" +
+                calls.joinToString("\n") { call ->
+                    "${call.callId} ${call.name}:${call.state} args=${call.argsJson} " +
+                        "result=${storage.toolResults.byToolCall(call.callId)}"
+                }
+        assertEquals(
+            "Exactly one requested write; actual tool trace:\n$toolTrace",
+            1,
+            calls.count { it.name == "write" },
+        )
+        assertEquals("Exactly one requested read; actual tool trace:\n$toolTrace", 1, calls.count { it.name == "read" })
+        assertTrue("All requested tools must succeed:\n$toolTrace", calls.all { it.state == "COMPLETED" })
+        assertEquals(
+            "Dependent calls must occupy successive model responses",
+            listOf(listOf("write"), listOf("read")),
+            batches,
+        )
         assertTrue(modelCalls.size >= 2)
         assertTrue(modelCalls.all { storage.workspaces.requestBinding(it.id)?.workspaceId == binding.workspaceId })
         assertTrue(target.isFile)
@@ -196,7 +224,8 @@ class FirstSuccessJourneyDeviceTest {
         File(app.noBackupFilesDir, PID_FILE).writeText(Process.myPid().toString())
         evidence(app).writeText(
             "setup pid=${Process.myPid()} session=$sessionId turn=${turn.id} workspace=${binding.workspaceId} " +
-                "tools=${calls.map { it.name + ':' + it.state }} artifact=${artifact.id}:${artifact.sha256}\n",
+                "tools=${calls.map { it.name + ':' + it.state }} batches=$batches " +
+                "artifact=${artifact.id}:${artifact.sha256}\n",
         )
         Process.killProcess(Process.myPid())
         error("Expected P4 setup process death")

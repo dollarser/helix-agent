@@ -98,6 +98,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                 ),
             )
             status.recordPassed(id, System.currentTimeMillis(), runtime.capabilities)
+            status.selectedModels.write(id, listOf(id))
             val chat =
                 ChatService(
                     storage = storage,
@@ -124,6 +125,8 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                 withTimeout(10000) {
                     while (storage.sessionRunControls.forSession(session)?.mode != AgentMode.ACT) delay(20)
                 }
+                com.helix.app.test
+                    .discoverFixtureTool(container.toolPipeline, session, "time.now")
                 val receipt =
                     chat
                         .sendSubmission(
@@ -135,7 +138,11 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                                 emptyList(),
                             ),
                         ).await()
-                assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
+                assertTrue(
+                    "Expected admission, got ${receipt.outcome}",
+                    receipt.outcome is ChatSubmissionOutcome.Accepted ||
+                        receipt.outcome is ChatSubmissionOutcome.Enqueued,
+                )
                 withTimeout(20000) {
                     while (storage.turns
                             .listBySession(session)
@@ -146,6 +153,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                     }
                 }
                 val turn = storage.turns.listBySession(session).single()
+                assertEquals(turn.id, storage.sessionInputs.get(receipt.submission.clientRequestId)?.consumedTurnId)
                 assertEquals(listOf("COMPLETED"), storage.toolCalls.listByTurn(turn.id).map { it.state })
                 assertEquals(listOf("time.now"), storage.toolCalls.listByTurn(turn.id).map { it.name })
                 assertEquals(2, storage.modelCalls.listByTurn(turn.id).size)

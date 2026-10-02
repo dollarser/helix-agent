@@ -17,9 +17,13 @@ import com.helix.tools.framework.DispatchAuditEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
-internal enum class PreDispatchDenialKind {
-    FRAMEWORK_REJECTED,
-    RECOVERY_REVIEW_REQUIRED,
+internal enum class PreDispatchDenialKind(
+    val state: ToolCallState,
+    val decisionSource: DecisionSource,
+    val stateLabel: Int,
+) {
+    FRAMEWORK_REJECTED(ToolCallState.FAILED, DecisionSource.FRAMEWORK, R.string.tool_state_failed),
+    RECOVERY_REVIEW_REQUIRED(ToolCallState.DENIED, DecisionSource.POLICY, R.string.tool_state_denied),
 }
 
 /** Persists each scheduled outcome and projects its verified or uncertain state without replay. */
@@ -230,10 +234,9 @@ internal class ChatToolSettlement(
         kind: PreDispatchDenialKind,
         modelIntent: String? = null,
     ): ToolDispatchOutcome.Denied {
-        val recoveryBlocked = kind == PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED
-        val state = if (recoveryBlocked) ToolCallState.DENIED else ToolCallState.FAILED
-        val resultStatus = if (recoveryBlocked) "DENIED" else "FAILED"
-        val source = if (recoveryBlocked) DecisionSource.POLICY else DecisionSource.FRAMEWORK
+        val state = kind.state
+        val resultStatus = state.name
+        val source = kind.decisionSource
         val startedAt = clock.now().toEpochMilli()
         val finishedAt = clock.now().toEpochMilli()
         storage.withTransaction {
@@ -282,7 +285,7 @@ internal class ChatToolSettlement(
             toolCallId,
             toolNameRaw,
             rawArgs,
-            str(R.string.tool_state_denied),
+            str(kind.stateLabel),
             detail,
             null,
             modelIntent = modelIntent,
