@@ -11,7 +11,7 @@ import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -43,11 +43,10 @@ class SessionDraftDeviceTest {
                             "fixture-model-a",
                             "{}",
                             false,
-                            CleartextAuthorization("127.0.0.1", server.port),
+                            CleartextWarning("127.0.0.1", server.port),
                             emptyList(),
                         ),
                         null,
-                        cleartextConfirmed = true,
                     )
                 try {
                     check(service.runConnectionTest(provider) is ProbeOutcome.Ok)

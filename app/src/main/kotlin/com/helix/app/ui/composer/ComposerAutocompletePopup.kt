@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.IndicatedLazyColumn
 
 @Composable
 @Suppress("FunctionName")
@@ -51,7 +51,7 @@ fun ComposerAutocompletePopup(
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
-        LazyColumn(
+        IndicatedLazyColumn(
             modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
         ) {
             items(suggestions, key = { it.id }) { item ->

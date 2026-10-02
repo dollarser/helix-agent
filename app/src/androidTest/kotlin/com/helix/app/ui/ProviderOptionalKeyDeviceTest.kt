@@ -29,17 +29,17 @@ class ProviderOptionalKeyDeviceTest {
                         emptyMap(),
                     ) as ComposeOutcome.Ok
                 ).draft
-            val id = service.create(draft, null, false)
+            val id = service.create(draft, null)
             try {
                 assertEquals(ProviderAuth.None, service.storedConfig(id).auth)
-                service.update(id, draft, "fixture-first", false)
+                service.update(id, draft, "fixture-first")
                 val alias = (service.storedConfig(id).auth as ProviderAuth.Secret).alias
                 assertEquals("fixture-first", container.storage.secrets.get(alias))
                 service.saveSelectedModels(id, listOf("model-a", "model-b"))
-                service.update(id, draft.copy(displayName = "Renamed"), null, false)
+                service.update(id, draft.copy(displayName = "Renamed"), null)
                 assertEquals(alias, (service.storedConfig(id).auth as ProviderAuth.Secret).alias)
                 assertEquals("fixture-first", container.storage.secrets.get(alias))
-                service.update(id, draft, "fixture-second", false)
+                service.update(id, draft, "fixture-second")
                 assertEquals("fixture-second", container.storage.secrets.get(alias))
                 assertTrue(!service.chatSelectable(id))
             } finally {

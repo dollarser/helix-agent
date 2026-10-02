@@ -176,7 +176,6 @@ class ChatSessionLifecycleDeviceTest {
                     providerId,
                     badgeDraft().copy(displayName = "renamed-$run"),
                     null,
-                    false,
                 )
             }
             val deadline = System.currentTimeMillis() + 10_000
@@ -252,7 +251,6 @@ class ChatSessionLifecycleDeviceTest {
             container.providerService.create(
                 badgeDraft(),
                 apiKey = null,
-                cleartextConfirmed = false,
             )
         }
 

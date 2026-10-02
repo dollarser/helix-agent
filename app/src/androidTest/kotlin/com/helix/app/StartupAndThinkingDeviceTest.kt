@@ -8,7 +8,7 @@ import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.HelixStorage
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotSame
@@ -68,11 +68,10 @@ class StartupAndThinkingDeviceTest {
                             "fixture-model-a",
                             "{}",
                             false,
-                            CleartextAuthorization("127.0.0.1", server.port),
+                            CleartextWarning("127.0.0.1", server.port),
                             emptyList(),
                         ),
                         null,
-                        cleartextConfirmed = true,
                     )
                 try {
                     assertTrue(service.runConnectionTest(id) is ProbeOutcome.Ok)

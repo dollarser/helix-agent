@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
@@ -21,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ShellDestination
+import com.helix.app.ui.indicatedVerticalScroll
 
 /** Conversation-first drawer plus the two-level global work/configure/settings navigation. */
 @Composable
@@ -49,7 +49,7 @@ internal fun GroupedNavigation(
     var expandedGroups by remember(currentRoute) { mutableStateOf(initialExpanded) }
 
     Column(Modifier.fillMaxHeight()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).testTag("navigation-groups")) {
+        Column(Modifier.weight(1f).indicatedVerticalScroll(rememberScrollState()).testTag("navigation-groups")) {
             Text("Helix", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(24.dp))
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.drawer_new_conversation)) },

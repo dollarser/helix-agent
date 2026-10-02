@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -27,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.IndicatedLazyColumn
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ModelCatalogResult
 import kotlinx.coroutines.CancellationException
@@ -91,7 +91,7 @@ internal fun ProviderModelsDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(stringResource(R.string.provider_models_manage_title, current.displayName)) },
         text = {
-            LazyColumn(
+            IndicatedLazyColumn(
                 Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("provider-model-list"),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

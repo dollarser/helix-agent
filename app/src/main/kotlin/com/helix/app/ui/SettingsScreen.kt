@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +35,7 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.repository.HighSensitivityRuleRepository
 
@@ -52,7 +52,7 @@ fun SettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-settings"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -90,7 +90,7 @@ internal fun AppAgentDefaultsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-settings-defaults"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -124,7 +124,7 @@ internal fun PermissionsSafetyScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-settings-permissions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -172,7 +172,7 @@ internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-setup-runtime"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -218,7 +218,7 @@ internal fun ModelsConnectionsScreen(providerService: ProviderService) {
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-models"),
     ) {
@@ -237,7 +237,7 @@ internal fun SetupScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-setup"),
         verticalArrangement = Arrangement.spacedBy(12.dp),

@@ -4,7 +4,7 @@ package com.helix.app.ui
 
 import com.helix.app.R
 
-internal enum class ProviderFormField { NAME, ENDPOINT, MODEL, HEADER_NAME, HEADER_VALUE, CLEARTEXT }
+internal enum class ProviderFormField { NAME, ENDPOINT, MODEL, HEADER_NAME, HEADER_VALUE }
 
 /** Form-only omissions. Protocol/address/header validation remains in the production composer. */
 internal fun validateProviderForm(form: ProviderForm): SaveResult.Rejected? =
@@ -67,8 +67,6 @@ internal fun providerErrorField(error: SaveResult.Rejected?): ProviderFormField?
         -> ProviderFormField.HEADER_NAME
 
         R.string.provider_header_value_required -> ProviderFormField.HEADER_VALUE
-
-        R.string.provider_cleartext_confirm_required -> ProviderFormField.CLEARTEXT
 
         else -> null
     }

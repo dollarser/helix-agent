@@ -26,7 +26,6 @@ class ProviderSettingsFormDeviceTest {
                     ProviderTemplateCatalog.sglang,
                     ProviderForm.FormFields("Server", "https://example.test/v1", "", "", "", ""),
                     false,
-                    false,
                     null,
                 ),
             )
@@ -49,14 +48,15 @@ class ProviderSettingsFormDeviceTest {
         compose.runOnIdle { assertEquals(ProviderFormField.MODEL, providerErrorField(state.value.error)) }
     }
 
-    @Test fun httpSaveRemainsClickableAndRevealsTheConsentControl() {
+    @Test fun httpSaveAndDiscoveryRemainClickableWithWarningOnly() {
+        var saves = 0
+        var discoveries = 0
         val state =
             mutableStateOf(
                 ProviderForm(
                     null,
                     ProviderTemplateCatalog.sglang,
                     ProviderForm.FormFields("Server", "http://example.test/v1", "model", "", "", ""),
-                    false,
                     false,
                     null,
                 ),
@@ -68,20 +68,27 @@ class ProviderSettingsFormDeviceTest {
                     false,
                     { state.value = it.copy(error = null) },
                     {
-                        state.value =
-                            state.value.copy(
-                                error =
-                                    SaveResult.Rejected(com.helix.app.R.string.provider_cleartext_confirm_required),
-                            )
+                        saves++
+                        state.value = state.value.copy(error = validateProviderForm(state.value))
                     },
                     {},
+                    onDiscover = { discoveries++ },
                 )
             }
         }
         compose.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
-        compose.onNodeWithTag("provider-form-error").assertIsDisplayed()
-        compose.onNodeWithTag("provider-cleartext-confirm").assertIsDisplayed().performClick()
-        compose.runOnIdle { org.junit.Assert.assertTrue(state.value.cleartextConfirmed) }
+        compose.onNodeWithTag("provider-cleartext-warning").performScrollTo().assertIsDisplayed()
+        compose
+            .onNodeWithTag("provider-discover-models")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
+        compose.onNodeWithTag("provider-form-error").assertDoesNotExist()
+        compose.onNodeWithTag("provider-cleartext-confirm").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals(1, saves)
+            assertEquals(1, discoveries)
+        }
     }
 
     @Test fun missingHeaderValueExpandsOptionsAndRepeatedSaveRefocusesIt() {
@@ -91,7 +98,6 @@ class ProviderSettingsFormDeviceTest {
                     null,
                     ProviderTemplateCatalog.sglang,
                     ProviderForm.FormFields("Server", "https://example.test/v1", "model", "X-Feature", "", ""),
-                    false,
                     false,
                     null,
                 ),
@@ -122,7 +128,6 @@ class ProviderSettingsFormDeviceTest {
                     null,
                     ProviderTemplateCatalog.sglang,
                     ProviderForm.FormFields("Private server", "https://example.test/v1", "", "", "", ""),
-                    false,
                     false,
                     null,
                 ),

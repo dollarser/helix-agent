@@ -12,7 +12,7 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -50,11 +50,10 @@ class BackgroundTaskFlowDeviceTest {
                                 "fixture-model-a",
                                 "{}",
                                 false,
-                                CleartextAuthorization("127.0.0.1", server.port),
+                                CleartextWarning("127.0.0.1", server.port),
                                 emptyList(),
                             ),
                             null,
-                            cleartextConfirmed = true,
                         )
                     check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                     server.forceTextResponses = true
@@ -68,11 +67,10 @@ class BackgroundTaskFlowDeviceTest {
                                 "fixture-model-a",
                                 "{}",
                                 false,
-                                CleartextAuthorization("127.0.0.1", secondServer.port),
+                                CleartextWarning("127.0.0.1", secondServer.port),
                                 emptyList(),
                             ),
                             null,
-                            cleartextConfirmed = true,
                         )
                     check(container.providerService.runConnectionTest(secondProvider) is ProbeOutcome.Ok)
                     secondServer.forceTextResponses = true

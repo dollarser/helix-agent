@@ -386,43 +386,7 @@ internal fun ConversationSection(
             }
         }
         artifacts()
-        if (screen.pendingAttachments.isNotEmpty()) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .testTag("chat-pending-attachments"),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                screen.pendingAttachments.forEach { attachment ->
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(attachment.fileName, style = MaterialTheme.typography.bodySmall)
-                            Text(
-                                UiLabels.formatBytes(attachment.sizeBytes),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        TextButton(
-                            onClick = { intents.onRemoveAttachment(attachment.id) },
-                            modifier = Modifier.testTag("chat-pending-remove-${attachment.id}"),
-                        ) {
-                            Text(stringResource(R.string.chat_delete_attachment))
-                        }
-                    }
-                }
-            }
-        }
+        PendingAttachmentStrip(screen.pendingAttachments, intents.onRemoveAttachment)
         inputNotice?.let { notice ->
             Text(
                 notice,

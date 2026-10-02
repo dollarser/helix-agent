@@ -43,11 +43,18 @@ internal object ProotGuestMedia {
         GuestMedia.programs.forEach { program ->
             val script = File(commands, program)
             script.writeText(GuestMedia.script(program), Charsets.UTF_8)
-            check(
-                script.setReadable(true, false) && script.setExecutable(true, false),
-            ) { "Cannot prepare media command" }
+            // PRoot and the private Runtime share the app UID; other UIDs need no access.
+            setCommandPermissions(script)
         }
         return Prepared(GuestMedia.bindings(native.path, commands.path, system), true)
+    }
+
+    internal fun setCommandPermissions(file: File) {
+        Files.setPosixFilePermissions(
+            file.toPath(),
+            java.nio.file.attribute.PosixFilePermissions
+                .fromString("rwx------"),
+        )
     }
 
     private fun hash(file: File): String {

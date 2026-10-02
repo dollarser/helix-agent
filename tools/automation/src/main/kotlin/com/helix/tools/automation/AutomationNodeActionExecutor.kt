@@ -105,15 +105,18 @@ internal class AutomationNodeActionExecutor(
         val actionAndArguments =
             actionAndArguments(observed, request)
                 ?: return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
-        val performed =
-            if (request.action == AutomationNodeAction.SET_PROGRESS) {
-                node.setProgress(requireNotNull(request.progress).toFloat())
-            } else {
-                node.performAction(actionAndArguments.first, actionAndArguments.second)
+        return try {
+            performPlatformAutomationAction {
+                if (request.action == AutomationNodeAction.SET_PROGRESS) {
+                    node.setProgress(requireNotNull(request.progress).toFloat())
+                } else {
+                    node.performAction(actionAndArguments.first, actionAndArguments.second)
+                }
             }
-        if (!performed) return result(AutomationActionStatus.ACTION_FAILED)
-        tokenRegistry.invalidate()
-        return result(AutomationActionStatus.SUCCEEDED)
+        } finally {
+            // Every attempted action requires a new observation, including lost acknowledgements.
+            tokenRegistry.invalidate()
+        }
     }
 
     @Suppress("CyclomaticComplexMethod", "ComplexCondition")

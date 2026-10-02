@@ -2,6 +2,7 @@
 """Verify final APKs against ADR-0049; never infer exclusion from UI flags."""
 import os
 import argparse
+import re
 from pathlib import Path
 import subprocess
 import xml.etree.ElementTree as ET
@@ -23,6 +24,22 @@ for activity in ("CodexLoginActivity", "CopilotLoginActivity", "ClaudeLoginActiv
     COMPONENTS["com.helix.runtime.cli.app." + activity] = ("activity", ":subscriptions")
 for activity in ("ProotRepairActivity", "ProotLegalActivity"):
     COMPONENTS["com.helix.runtime.proot.app." + activity] = ("activity", ":proot")
+
+
+def verify_http_network_config(app, config, resource_table=""):
+    """HXA-242: resolve the actual compiled reference, not an arbitrary @ref value."""
+    reference = app.get(A + "networkSecurityConfig")
+    if reference != "@xml/network_security_config":
+        matches = re.findall(r"^\s*resource (0x[0-9a-fA-F]+) xml/network_security_config\s*$",
+                             resource_table, re.MULTILINE)
+        expected = "@ref/" + matches[0] if len(matches) == 1 else None
+        if expected is None or reference != expected:
+            raise RuntimeError("Missing shared HTTP network configuration in final APK")
+    if config.tag != "network-security-config" or len(config) != 1:
+        raise RuntimeError("Unexpected network configuration overrides")
+    base = config.find("base-config")
+    if base is None or base.get("cleartextTrafficPermitted") != "true" or len(base):
+        raise RuntimeError("HTTP unavailable or default TLS trust modified")
 
 
 def verify_media_payload(archive, developer):
@@ -65,6 +82,15 @@ def verify(flavor, build_type):
     apk = apks[0]
     manifest = ET.fromstring(subprocess.check_output([str(ANALYZER), "manifest", "print", str(apk)]))
     app = manifest.find("application")
+    network_config = ET.fromstring(subprocess.check_output([
+        str(ANALYZER), "resources", "xml", "--file", "res/xml/network_security_config.xml", str(apk),
+    ]))
+    tools = list(SDK.glob("build-tools/*/aapt2"))
+    if not tools:
+        raise RuntimeError("aapt2 is required to resolve the packaged network resource identity")
+    aapt = max(tools, key=lambda path: tuple(int(n) for n in re.findall(r"\d+", path.parent.name)))
+    resources = subprocess.check_output([str(aapt), "dump", "resources", str(apk)], text=True)
+    verify_http_network_config(app, network_config, resources)
     package = manifest.attrib["package"]
     developer = flavor == "developer"
     assert package == "com.helix.agent" + (".developer" if developer else "")
@@ -112,6 +138,10 @@ def verify(flavor, build_type):
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
+        for retired in (b"Lcom/helix/provider/api/CleartextAuthorization;",
+                        b"Lcom/helix/app/provider/CleartextBindingStore;"):
+            if retired in dex:
+                raise RuntimeError("Obsolete HTTP consent implementation remains in APK")
         if b'Lcom/helix/runtime/media/' in dex:
             raise RuntimeError('Retired independent media Runtime is still packaged')
         assert (b"Lcom/helix/app/proot/DetachedOwnerProbeActivity;" in dex) == (developer and build_type == "debug")
@@ -134,7 +164,7 @@ def verify(flavor, build_type):
             assert hashlib.sha256(archive.read(payload)).hexdigest() == rootfs["sha256"], "RootFS missing or mismatched"
             for asset in ("proot", "loader", "lib/libtalloc.so.2", "lib/libandroid-shmem.so"):
                 assert "assets/runtime/proot/" + asset in names, f"missing runtime input {asset}"
-    print(f"{flavor} {build_type}: APK components, process/UID contract, payloads and launcher verified")
+    print(f"{flavor} {build_type}: APK components, process/UID contract, payloads, launcher and HTTP/TLS configuration verified")
 
 
 if __name__ == "__main__":

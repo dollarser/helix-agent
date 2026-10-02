@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ChatService
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.launch
 
 /** Durable Session behavior guidance. It never edits permission or tool authority. */
@@ -52,7 +52,7 @@ internal fun SessionExpertDialog(
         title = { Text(stringResource(R.string.session_expert_title)) },
         text = {
             Column(
-                Modifier.verticalScroll(rememberScrollState()).testTag("session-expert-dialog"),
+                Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("session-expert-dialog"),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.session_expert_hint))

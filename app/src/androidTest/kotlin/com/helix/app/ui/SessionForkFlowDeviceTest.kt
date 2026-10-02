@@ -15,7 +15,7 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -43,7 +43,6 @@ class SessionForkFlowDeviceTest {
                     service.create(
                         providerDraft(server.port),
                         null,
-                        cleartextConfirmed = true,
                     )
                 check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
                 val source = chat.createSession("Fork fixture", provider, "fixture-model-a")
@@ -111,7 +110,7 @@ class SessionForkFlowDeviceTest {
             "fixture-model-a",
             "{}",
             false,
-            CleartextAuthorization("127.0.0.1", port),
+            CleartextWarning("127.0.0.1", port),
             emptyList(),
         )
 

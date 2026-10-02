@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -23,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.export.SessionExportService
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -124,7 +124,7 @@ private fun SessionExportBody(
     copied: Long,
     notice: Int?,
 ) {
-    Column(Modifier.testTag("session-export-dialog").verticalScroll(rememberScrollState())) {
+    Column(Modifier.testTag("session-export-dialog").indicatedVerticalScroll(rememberScrollState())) {
         Text(stringResource(R.string.session_export_scope))
         if (running) {
             LinearProgressIndicator()

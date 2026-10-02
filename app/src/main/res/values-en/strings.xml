@@ -251,7 +251,7 @@
     <string name="chat_back_to_sessions">Session list</string>
     <string name="chat_blocked_attachments_changed">The attachment list has changed; please send again.</string>
     <string name="chat_blocked_cannot_read_file">Could not read the file; please select it again.</string>
-    <string name="chat_blocked_cleartext_http">This Provider uses cleartext HTTP: re-confirm this host:port authorization in Provider settings.</string>
+    <string name="chat_cleartext_warning">This model uses unencrypted HTTP. Messages, attachments and API keys may be read or changed in transit. Sending remains available; HTTPS is recommended.</string>
     <string name="chat_blocked_dismiss">Got it</string>
     <string name="chat_blocked_egress_target_changed">The egress target has changed; please send again.</string>
     <string name="chat_blocked_egress_unconfirmed">The attachment egress policy could not be confirmed; sending blocked.</string>
@@ -564,9 +564,7 @@
     <string name="provider_capability_streaming">Streaming%1$s</string>
     <string name="provider_capability_tool_calls">Tool calls%1$s</string>
     <string name="provider_capability_vision">Vision%1$s</string>
-    <string name="provider_cleartext_confirm">I understand the cleartext risk of this host:port and authorize it</string>
-    <string name="provider_cleartext_confirm_required">Please confirm the cleartext risk of this host:port first</string>
-    <string name="provider_cleartext_warning">Cleartext HTTP: requests go to %1$s:%2$s unencrypted</string>
+    <string name="provider_cleartext_warning">Unencrypted HTTP to %1$s:%2$s: requests, attachments and API keys may be read or changed in transit. Connections remain available; HTTPS is recommended.</string>
     <string name="provider_compose_endpoint_invalid">Endpoint must be an http/https URL (no userinfo, query or fragment)</string>
     <string name="provider_compose_header_conflict">Custom header conflicts with a template header (same name, different value)</string>
     <string name="provider_compose_header_disallowed">Header not allowed: credential-looking names (auth/cookie/token/key, etc.) and transport-reserved names are rejected</string>
@@ -791,11 +789,11 @@
     <string name="files_controls">File options</string>
     <string name="provider_note_openai">Uses the Responses API. For a service that only supports Chat Completions, choose the generic OpenAI-compatible template.</string>
     <string name="provider_note_generic">Enter the service URL, API key and model ID. The connection test checks the capabilities the service actually supports.</string>
-    <string name="provider_note_ollama">The default address points to this device. For another device on your LAN, enter its address; HTTP requires allowing a cleartext connection to that host.</string>
+    <string name="provider_note_ollama">The default address points to this device. For another device on your LAN, enter its address; HTTP is unencrypted. Helix warns without blocking the connection.</string>
     <string name="provider_note_sglang">Enter the SGLang server address and port with /v1 as the path. Before using tools, configure the model’s tool-call parser on the server and run the connection test.</string>
     <string name="provider_note_openrouter">Capabilities such as tool calling depend on the routed upstream model. Check them with the connection test.</string>
     <string name="provider_note_vllm">Enter the vLLM server address and port, typically port 8000 with /v1 as the path. An API key is optional.</string>
-    <string name="provider_note_lmstudio">The default address is 127.0.0.1:1234/v1 on this device. For LM Studio on your LAN, enter that device’s address; HTTP requires allowing a cleartext connection to that host.</string>
+    <string name="provider_note_lmstudio">The default address is 127.0.0.1:1234/v1 on this device. For LM Studio on your LAN, enter that device’s address; HTTP is unencrypted. Helix warns without blocking the connection.</string>
     <string name="skill_creator_title">Create and validate a Skill</string>
     <string name="skill_creator_intro">Save a Workspace draft, or ask the agent to create one in chat. Validation does not install or enable it.</string>
     <string name="skill_creator_name">Name (lowercase and hyphens)</string>
@@ -1642,4 +1640,17 @@
     <string name="tasks_job_stop_waiting">Stop waiting</string>
     <string name="tasks_job_wait_stopped">Stopped waiting; the original job was not cancelled.</string>
     <string name="tasks_job_not_waiting">No active observer is waiting for this job.</string>
+    <string name="composer_restoring">Opening this conversation…</string>
+    <string name="composer_restoring_attachments">Restoring attachments; you can keep editing the text.</string>
+    <string name="composer_editing_message">A previous message is being edited. Send or close its editor.</string>
+    <string name="composer_submitting">Submitting this message…</string>
+    <string name="composer_disclosure_pending">Complete the current content-sharing confirmation. Your draft is preserved.</string>
+    <string name="composer_mode_switching">Changing conversation mode…</string>
+    <string name="composer_mode_failed">Mode change did not complete. Your text is preserved; please retry.</string>
+    <string name="composer_temporarily_unavailable">This input is not ready yet. Your draft is preserved.</string>
+    <string name="composer_cache_notice">Draft caching or attachment recovery encountered a problem. You can still edit; remove missing attachments before sending.</string>
+    <string name="automation_target_invalid">Enter valid app package names, separated by commas or new lines. Invalid input has not replaced the saved selection.</string>
+    <string name="automation_start_failed">Automation did not start. Check the service and selected targets, then retry.</string>
+    <string name="automation_service_unavailable">The accessibility service is not connected. Check system settings.</string>
+    <string name="automation_remaining">This session: %1$d min %2$d sec and %3$d actions remaining.</string>
 </resources>

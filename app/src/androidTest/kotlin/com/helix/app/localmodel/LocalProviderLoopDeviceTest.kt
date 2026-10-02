@@ -6,7 +6,6 @@ import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.internal.InMemoryLineStore
-import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
@@ -77,7 +76,6 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                             LocalModelProvider(it, asset, runtime, loading)
                         },
                     ),
-                    CleartextBindingStore(lines),
                     status,
                     idGenerator = { id },
                     scope = scope,

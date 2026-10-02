@@ -3,7 +3,6 @@ package com.helix.app.provider
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.core.model.ModelErrorCode
 import com.helix.provider.api.CapabilitySource
-import com.helix.provider.api.CleartextAuthorization
 import com.helix.provider.api.ProviderCapabilities
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -178,66 +177,14 @@ class ProviderStoresTest {
     }
 
     @Test
-    fun cleartextBindingsAuthorizeTheExactHostPortOnly() {
+    fun obsoleteTransportPreferencesDoNotAffectModelSelectionOrConnectionStatus() {
         val backing = InMemoryLineStore()
-        val store = CleartextBindingStore(backing)
-        store.authorize(CleartextAuthorization("192.168.1.20", 11434))
-        store.authorize(CleartextAuthorization("192.168.1.20", 11434)) // idempotent
-        assertEquals(1, store.all().size)
-        assertEquals(
-            CleartextAuthorization.isPermitted(
-                com.helix.core.model.NormalizedEndpoint
-                    .parse("http://192.168.1.20:11434/v1"),
-                store.all(),
-            ),
-            true,
-        )
-        assertEquals(
-            CleartextAuthorization.isPermitted(
-                com.helix.core.model.NormalizedEndpoint
-                    .parse("http://192.168.1.20:9999/v1"),
-                store.all(),
-            ),
-            false,
-        )
-    }
-
-    @Test
-    fun cleartextBindingOnTheDefaultHttpPortRoundTrips() {
-        // Regression: encode() used to omit port 80 (a bare host line), which all() then
-        // dropped — so a confirmed authorization for an http endpoint on the default port
-        // was recorded yet never read back, and the send gate always blocked it.
-        val backing = InMemoryLineStore()
-        val store = CleartextBindingStore(backing)
-        val auth = CleartextAuthorization("192.168.1.50", 80)
-        store.authorize(auth)
-        assertEquals("the port-80 binding must survive the round trip", 1, store.all().size)
-        assertTrue(auth in store.all())
-        assertEquals(
-            CleartextAuthorization.isPermitted(
-                com.helix.core.model.NormalizedEndpoint
-                    .parse("http://192.168.1.50/v1"),
-                store.all(),
-            ),
-            true,
-        )
-        // A restart sees the same binding (the persisted line is re-read).
-        assertTrue(CleartextBindingStore(backing).all().contains(auth))
-    }
-
-    @Test
-    fun pruneToRevokesUnreferencedBindings() {
-        val backing = InMemoryLineStore()
-        val store = CleartextBindingStore(backing)
-        val a = CleartextAuthorization("10.0.0.5", 8000)
-        val b = CleartextAuthorization("10.0.0.6", 8000)
-        store.authorize(a)
-        store.authorize(b)
-        store.pruneTo(setOf(a))
-        val all = store.all()
-        assertTrue(a in all)
-        assertTrue(b !in all)
-        // A restart sees only the surviving binding.
-        assertTrue(CleartextBindingStore(backing).all().contains(a))
+        backing.setLines("cleartext_bindings", listOf("broken", "example.test:999999"))
+        val store = ProviderTestStatusStore(backing)
+        store.selectedModels.write("provider", listOf("model"))
+        store.recordPassed("provider", 1L, capabilities, listOf("model"))
+        assertEquals(listOf("model"), store.selectedModels.read("provider"))
+        assertTrue(store.statusFor("provider") is ConnectionTestStatus.Passed)
+        assertEquals(listOf("broken", "example.test:999999"), backing.lines("cleartext_bindings"))
     }
 }

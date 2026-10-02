@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
@@ -26,6 +25,7 @@ import com.helix.app.chat.ArtifactRowUi
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
+import com.helix.app.ui.IndicatedLazyColumn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -71,7 +71,7 @@ internal fun ConversationArtifacts(
         ) {
             if (selected == null) {
                 if (rows.isEmpty()) Text(stringResource(R.string.tasks_artifacts_empty))
-                LazyColumn(
+                IndicatedLazyColumn(
                     Modifier.fillMaxWidth().heightIn(max = 440.dp).testTag("chat-artifacts-list"),
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp),

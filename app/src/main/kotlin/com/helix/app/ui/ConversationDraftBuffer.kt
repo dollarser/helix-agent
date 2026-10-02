@@ -48,8 +48,8 @@ internal class ConversationDraftBuffer(
                     saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty() ||
                         value.referenceSourceSessionId != null
                 )
-    val editable: Boolean get() = ready && attachmentsReady && revisionMessageId == null
-    val canSubmit: Boolean get() = !sending && missingAttachments.isEmpty()
+    val editable: Boolean get() = ready && revisionMessageId == null
+    val canSubmit: Boolean get() = !sending && attachmentsReady && missingAttachments.isEmpty()
     val acceptedReceiptCandidate: ChatSubmission?
         get() = (submitted ?: saved)?.takeIf { it.revisedMessageId == null }
 
@@ -121,6 +121,12 @@ internal class ConversationDraftBuffer(
     fun restoredAttachments(missing: List<String>) {
         missingAttachments = missing.toList()
         attachmentsReady = true
+    }
+
+    /** A failed restoration keeps unresolved attachment identities visible; plain text stays editable. */
+    fun attachmentRestoreFailed() {
+        if (!attachmentsReady) restoredAttachments(value.attachmentIds)
+        failed = true
     }
 
     fun discardMissingAttachments() {

@@ -19,7 +19,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
@@ -74,11 +74,10 @@ class ChatCompactionFlowDeviceTest {
                         "fixture-model-a",
                         "{}",
                         false,
-                        CleartextAuthorization("127.0.0.1", server.port),
+                        CleartextWarning("127.0.0.1", server.port),
                         emptyList(),
                     ),
                     null,
-                    cleartextConfirmed = true,
                 )
             check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
             val session = chat.createSession("Compaction flow fixture", provider, "fixture-model-a")

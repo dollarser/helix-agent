@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -34,6 +33,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.profile.SafetyProfileStore
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.SafetyProfile
 import com.helix.core.policy.GrantState
 import com.helix.feature.files.allfiles.AllFilesRootCatalog
@@ -190,7 +190,7 @@ internal object AllFilesModule {
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .indicatedVerticalScroll(rememberScrollState())
                     .padding(16.dp)
                     .testTag("screen-permissions-allfiles"),
             verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.proot.CommandEntry
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ToolCallState
 
 /**
@@ -50,7 +50,7 @@ internal fun TurnCommandListDialog(
             Column(
                 Modifier
                     .heightIn(max = 440.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .indicatedVerticalScroll(rememberScrollState()),
             ) {
                 if (entries == null) {
                     Text(stringResource(R.string.tasks_commands_loading))

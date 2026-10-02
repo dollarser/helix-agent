@@ -58,7 +58,6 @@ internal suspend fun discoverProviderForm(
                     it.isNotEmpty()
                 },
                 form.providerId,
-                form.cleartextConfirmed,
             )
         when (result) {
             is ModelCatalogResult.Listed -> ProviderFormDiscovery(result.models, R.string.provider_discovery_hint)

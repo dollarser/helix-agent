@@ -11,11 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +38,8 @@ import com.helix.app.git.GitChangeKind
 import com.helix.app.git.GitStatus
 import com.helix.app.git.GitWorkspaceReader
 import com.helix.app.git.GitWorkspaceResult
+import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -163,7 +163,7 @@ private fun GitChangeList(
     status: GitStatus,
     onOpen: (GitChange) -> Unit,
 ) {
-    LazyColumn(
+    IndicatedLazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -256,7 +256,7 @@ private fun GitDiffDialog(
         title = { Text(stringResource(R.string.git_diff_title)) },
         text = {
             SelectionContainer {
-                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                Column(Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState())) {
                     Text(change.path, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.height(4.dp))
                     when (val result = diff) {

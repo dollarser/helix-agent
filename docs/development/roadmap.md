@@ -276,3 +276,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-239 | 收尾验收 | 输入框选模、指令光标与权限快捷切换 | [任务规格](tasks/HXA-239.md) |
 | HXA-240 | 收尾验收 | Advanced Bash / Linux Job 复用 FFmpeg | [任务规格](tasks/HXA-240.md) |
 | HXA-241 | 收尾验收 | 历史模拟器扫描与当前主线缺陷复核 | [任务规格](tasks/HXA-241.md) |
+| HXA-242 | 收尾验收 | HTTP 仅提示、滚动/输入反馈与自动化体验 | [任务规格](tasks/HXA-242.md) |

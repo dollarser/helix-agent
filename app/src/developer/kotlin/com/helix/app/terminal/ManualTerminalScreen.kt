@@ -1,6 +1,5 @@
 package com.helix.app.terminal
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -33,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedHorizontalScroll
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -147,7 +147,7 @@ private fun TerminalTopBar(
 ) {
     Row(Modifier.fillMaxWidth()) {
         TextButton(onClick = onBack) { Text(stringResource(R.string.files_back)) }
-        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+        Row(Modifier.weight(1f).indicatedHorizontalScroll(rememberScrollState())) {
             TextButton(onClick = onHelp, modifier = Modifier.testTag("terminal-help")) {
                 Text(stringResource(R.string.terminal_help))
             }
@@ -177,7 +177,7 @@ private fun TerminalTabBar(
     onNewTab: (String) -> Unit,
 ) {
     if (sessions.isEmpty()) return
-    Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
+    Row(Modifier.indicatedHorizontalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         sessions.forEachIndexed { index, sess ->
             val active = sess.sessionId == activeSessionId
             TextButton(
@@ -270,7 +270,7 @@ private fun TerminalActionControls(
     directory: String,
     model: ManualTerminalViewModel,
 ) {
-    Row(Modifier.horizontalScroll(rememberScrollState())) {
+    Row(Modifier.indicatedHorizontalScroll(rememberScrollState())) {
         if (!state.hasSession) {
             TextButton(
                 onClick = { model.open(directoryToStart = directory) },

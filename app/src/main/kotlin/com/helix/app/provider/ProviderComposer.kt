@@ -4,7 +4,7 @@ import com.helix.app.R
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderHeaders
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.catalog.ProviderTemplate
 import com.helix.provider.catalog.ProviderTemplateCatalog
 
@@ -19,10 +19,8 @@ import com.helix.provider.catalog.ProviderTemplateCatalog
  *   FR-LLM-009);
  * - [headersJson] already passed the [ProviderHeaders] allowlist (<=16 headers,
  *   credential-looking and transport-reserved names rejected);
- * - [cleartext] is non-null exactly when the endpoint is http — the UI must
- *   show the host:port risk display and obtain the user's explicit
- *   per-host:port confirmation before the provider can be saved
- *   (doc 10 section 2.5; ADR-0005: no global cleartext switch).
+ * - [cleartext] describes an HTTP endpoint for a non-blocking UI warning;
+ *   there is no separate HTTP consent state or transport-based save gate.
  *
  * No secret material lives here: the API key stays in the Android Keystore
  * under an alias (NFR-007); [credentialRequired] tells the UI whether a key
@@ -36,7 +34,7 @@ data class ProviderDraft(
     val model: String,
     val headersJson: String,
     val credentialRequired: Boolean,
-    val cleartext: CleartextAuthorization?,
+    val cleartext: CleartextWarning?,
     val templateNotes: List<String>,
 ) {
     /** Data-residence class of the endpoint (doc 02 section 9.1 / ADR-0005). */
@@ -49,7 +47,7 @@ data class ProviderDraft(
 
     /** True when this provider talks cleartext http — the UI risk display applies. */
     val isCleartext: Boolean
-        get() = cleartext != null
+        get() = endpoint.scheme == "http"
 }
 
 /**
@@ -107,7 +105,7 @@ object ProviderComposer {
                 model = model,
                 headersJson = headersJson!!,
                 credentialRequired = template.credentialRequired,
-                cleartext = CleartextAuthorization.requiredFor(endpoint),
+                cleartext = CleartextWarning.forEndpoint(endpoint),
                 templateNotes = template.notes,
             ),
         )

@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -19,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.storage.StorageUsageCategory
 import com.helix.app.storage.StorageUsageEntry
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 
 @Composable
@@ -54,7 +54,7 @@ internal fun StorageUsageSection(
         onDismissRequest = { open = false },
         title = { Text(stringResource(R.string.storage_usage_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.storage_usage_scope))
                 entries?.forEach { entry ->
                     val label =

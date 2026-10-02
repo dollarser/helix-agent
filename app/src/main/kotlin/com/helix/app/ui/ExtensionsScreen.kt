@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +29,7 @@ import com.helix.app.skills.SkillAuthoringSection
 import com.helix.app.skills.SkillAuthoringService
 import com.helix.app.skills.SkillInstallationSection
 import com.helix.app.skills.SkillInstallationService
+import com.helix.app.ui.indicatedVerticalScroll
 
 /** Navigation to managed extensions and marketplace catalog. */
 @Composable
@@ -45,7 +45,7 @@ fun ExtensionsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-extensions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),

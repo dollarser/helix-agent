@@ -13,7 +13,7 @@ import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -67,11 +67,10 @@ class SessionInputProcessRecoveryDeviceTest {
                         model = MODEL,
                         headersJson = "{}",
                         credentialRequired = false,
-                        cleartext = CleartextAuthorization("127.0.0.1", port),
+                        cleartext = CleartextWarning("127.0.0.1", port),
                         templateNotes = emptyList(),
                     ),
                     apiKey = null,
-                    cleartextConfirmed = true,
                 )
             assertTrue(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
             val session = container.chatService.createSession(title(scenario), provider, MODEL)

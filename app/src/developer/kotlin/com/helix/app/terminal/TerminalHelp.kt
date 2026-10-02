@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -14,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedVerticalScroll
 
 /** Persistent explanatory text is available on demand; live errors remain on the terminal page. */
 @Composable
@@ -27,7 +27,11 @@ internal fun TerminalHelp(
         title = { Text(stringResource(R.string.terminal_help)) },
         text = {
             Column(
-                Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()).testTag("terminal-help-content"),
+                Modifier
+                    .heightIn(
+                        max = 420.dp,
+                    ).indicatedVerticalScroll(rememberScrollState())
+                    .testTag("terminal-help-content"),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(stringResource(R.string.terminal_initial_help))

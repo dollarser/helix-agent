@@ -20,8 +20,8 @@ enum class ProviderResidence {
 
     /**
      * Private-range endpoint (IPv4 10/8, 172.16/12, 192.168/16, 169.254/16; IPv6 ULA fc00::/7
-     * and link-local fe80::/10; local DNS names): cleartext HTTP to such an endpoint requires
-     * a separate per host:port user authorization (architecture doc section 6.2).
+     * and link-local fe80::/10; local DNS names). The user selects this endpoint.
+     * HTTP is warning-only; residence itself neither grants tool scope nor requires HTTP consent.
      */
     USER_AUTHORIZED_LAN,
 

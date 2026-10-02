@@ -15,9 +15,7 @@ internal suspend fun discoverDraftModels(
     factory: ProviderFactory,
     draft: ProviderDraft,
     key: String?,
-    cleartextConfirmed: Boolean,
 ): ModelCatalogResult {
-    require(draft.cleartext == null || cleartextConfirmed)
     val auth = if (key.isNullOrBlank()) ProviderAuth.None else ProviderAuth.Secret(SecretAlias("draft-discovery"))
     val config =
         ProviderConfig(

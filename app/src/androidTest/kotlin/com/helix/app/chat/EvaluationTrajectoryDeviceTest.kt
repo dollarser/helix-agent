@@ -9,7 +9,7 @@ import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -138,11 +138,10 @@ class EvaluationTrajectoryDeviceTest {
                 "fixture-model-a",
                 "{}",
                 false,
-                CleartextAuthorization("127.0.0.1", port),
+                CleartextWarning("127.0.0.1", port),
                 emptyList(),
             ),
             null,
-            cleartextConfirmed = true,
         )
 
     private fun response(

@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +44,8 @@ import com.helix.app.chat.BackgroundTaskUi
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
 import com.helix.app.files.FileManagerService
+import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.TurnState
 import com.helix.core.workspace.WorkspaceLayout
 import kotlinx.coroutines.Dispatchers
@@ -96,7 +96,7 @@ internal fun ArtifactsScreenDestination(
                 Text(stringResource(R.string.cap_refresh))
             }
         }
-        LazyColumn(
+        IndicatedLazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -281,7 +281,7 @@ internal fun ArtifactFilePreviewBody(
     state: ArtifactAvailability,
 ) {
     Column(
-        Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+        Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when (val s = state) {
@@ -432,7 +432,7 @@ private fun ArtifactResultText(
     onRetry: () -> Unit,
 ) {
     SelectionContainer {
-        Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState())) {
             Text(
                 stringResource(R.string.artifacts_summary_label),
                 style = MaterialTheme.typography.labelMedium,

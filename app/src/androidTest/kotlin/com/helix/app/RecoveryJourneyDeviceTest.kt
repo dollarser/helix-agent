@@ -26,7 +26,7 @@ import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -393,11 +393,10 @@ class RecoveryJourneyDeviceTest {
                     MODEL,
                     "{}",
                     false,
-                    CleartextAuthorization("127.0.0.1", port),
+                    CleartextWarning("127.0.0.1", port),
                     emptyList(),
                 ),
                 null,
-                cleartextConfirmed = true,
             )
         check(service.runConnectionTest(id) is ProbeOutcome.Ok)
         return id

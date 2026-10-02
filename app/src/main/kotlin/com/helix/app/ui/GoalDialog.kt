@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.GoalSummaryUi
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.GoalBudgets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -59,7 +59,7 @@ internal fun GoalDialog(
         title = { Text(stringResource(R.string.goal_manage)) },
         text = {
             Column(
-                Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.goal_explicit_continue))
@@ -185,7 +185,7 @@ internal fun GoalEditor(
         title = { Text(stringResource(R.string.goal_edit_budgets)) },
         text = {
             Column(
-                Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 labels.forEachIndexed { index, label ->

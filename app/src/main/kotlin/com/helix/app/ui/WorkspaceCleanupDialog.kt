@@ -1,7 +1,6 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -9,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.helix.app.R
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,7 +31,7 @@ internal fun WorkspaceCleanupDialog(
         text = {
             Text(
                 actions.str(R.string.files_workspace_cleanup_body, target.displayName),
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier.indicatedVerticalScroll(rememberScrollState()),
             )
         },
         dismissButton = {

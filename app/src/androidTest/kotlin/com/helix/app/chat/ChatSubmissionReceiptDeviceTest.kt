@@ -25,7 +25,7 @@ import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.runBlocking
@@ -650,11 +650,10 @@ class ChatSubmissionReceiptDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextAuthorization("127.0.0.1", port),
+                    CleartextWarning("127.0.0.1", port),
                     emptyList(),
                 ),
                 null,
-                cleartextConfirmed = true,
             )
         try {
             if (verify) check(service.runConnectionTest(id) is ProbeOutcome.Ok)

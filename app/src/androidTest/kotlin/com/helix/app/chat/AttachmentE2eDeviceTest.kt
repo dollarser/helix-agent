@@ -11,7 +11,6 @@ import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ArtifactVisionImageSource
-import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
@@ -1676,7 +1675,6 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         wire = wire.wireClient,
                         imageSource = { imageSource },
                     ),
-                bindings = CleartextBindingStore(lineStore),
                 testStatus = statusStore,
                 idGenerator = { "prov-$suffix" },
             )

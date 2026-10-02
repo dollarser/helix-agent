@@ -238,7 +238,17 @@ class AutomationTools(
         if (result.status == AutomationActionStatus.SUCCEEDED) {
             ToolExecutorResult.Completed(buildJsonObject { put("status", JsonPrimitive(result.status.name)) })
         } else {
-            ToolExecutorResult.Failed(result.status.name, sideEffectFree = true)
+            val uncertain =
+                result.status in
+                    setOf(
+                        AutomationActionStatus.ACTION_FAILED,
+                        AutomationActionStatus.ACTION_OUTCOME_UNKNOWN,
+                    )
+            ToolExecutorResult.Failed(
+                result.status.name,
+                sideEffectFree = !uncertain,
+                requiresReview = uncertain,
+            )
         }
 
     private fun nodeRequest(

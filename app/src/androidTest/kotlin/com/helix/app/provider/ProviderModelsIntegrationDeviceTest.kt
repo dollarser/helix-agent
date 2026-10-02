@@ -140,7 +140,7 @@ class ProviderModelsIntegrationDeviceTest {
                         cleartext = null,
                         templateNotes = emptyList(),
                     )
-                f.service.update("p", draft, null, false)
+                f.service.update("p", draft, null)
                 release.complete(Unit)
                 assertTrue(old.await() is ProbeOutcome.Failed)
                 assertTrue(
@@ -346,7 +346,6 @@ class ProviderModelsIntegrationDeviceTest {
                 ProviderService(
                     storage = storage,
                     factory = factory,
-                    bindings = CleartextBindingStore(InMemoryLineStore()),
                     testStatus = status,
                     idGenerator = { UUID.randomUUID().toString() },
                     scope = scope,

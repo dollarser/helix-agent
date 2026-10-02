@@ -11,7 +11,7 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
@@ -52,11 +52,10 @@ class ProviderTurnJourneyDeviceTest {
                             model = "fixture-model-a",
                             headersJson = "{}",
                             credentialRequired = false,
-                            cleartext = CleartextAuthorization("127.0.0.1", server.port),
+                            cleartext = CleartextWarning("127.0.0.1", server.port),
                             templateNotes = emptyList(),
                         ),
                         null,
-                        cleartextConfirmed = true,
                     )
                 var session: String? = null
                 try {

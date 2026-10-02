@@ -1,7 +1,6 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -28,12 +27,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedHorizontalScroll
 
 @Composable
 @Suppress("FunctionName")
 internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("chat-options-row"),
+        Modifier.fillMaxWidth().indicatedHorizontalScroll(rememberScrollState()).testTag("chat-options-row"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         content = content,
@@ -58,7 +58,7 @@ internal fun ComposerToolbar(
             maxLines = 1,
         )
         Row(
-            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            Modifier.weight(1f).indicatedHorizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) { headerStatus() }

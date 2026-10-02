@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.files.FileSource
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.workspace.FileScopePath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -107,7 +107,7 @@ internal fun SessionDirectoryDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.chat_directory)) },
         text = {
-            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = 360.dp).indicatedVerticalScroll(rememberScrollState())) {
                 val current = path
                 if (current == null) {
                     sources.forEach { source ->

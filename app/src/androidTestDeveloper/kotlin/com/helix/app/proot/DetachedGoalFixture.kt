@@ -15,7 +15,7 @@ import com.helix.core.model.SessionId
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnBudgets
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.runtime.proot.client.DetachedJobClient
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
@@ -54,11 +54,10 @@ internal class DetachedGoalFixture(
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextAuthorization("127.0.0.1", server.port),
+                    CleartextWarning("127.0.0.1", server.port),
                     emptyList(),
                 ),
                 null,
-                cleartextConfirmed = true,
             )
         provider = id
         check(container.providerService.runConnectionTest(id) is ProbeOutcome.Ok)

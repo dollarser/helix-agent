@@ -32,6 +32,7 @@ import com.helix.extensions.mobileuse.MobileUsePlugin
 import com.helix.extensions.plugin.PluginRegistry
 import com.helix.tools.automation.AutomationPermissionCenter
 import com.helix.tools.automation.AutomationServiceState
+import com.helix.tools.automation.AutomationSessionStartStatus
 import kotlinx.coroutines.delay
 
 /** Developer host surface for the bundled Mobile Use Plugin and its user-controlled session. */
@@ -55,7 +56,14 @@ internal object AutomationModule {
         if (toolName?.startsWith("ui.") == true) center?.activeSession()?.scope else null
 
     @Composable
-    @Suppress("FunctionName", "LongMethod", "ReturnCount")
+    @Suppress(
+        "FunctionName",
+        "LongMethod",
+        "ReturnCount",
+        "TooGenericExceptionCaught",
+        "SwallowedException",
+        "CyclomaticComplexMethod",
+    )
     fun Section(profile: SafetyProfile) {
         if (profile != SafetyProfile.ADVANCED) return
         val permissionCenter = center ?: return
@@ -69,10 +77,18 @@ internal object AutomationModule {
         var resumePackage by remember { mutableStateOf("") }
         var recoveryResult by remember { mutableStateOf<Boolean?>(null) }
         var allowSystemSettings by remember { mutableStateOf(false) }
+        var startNotice by remember { mutableStateOf<Int?>(null) }
+        var remainingSeconds by remember { mutableStateOf(0L) }
         LaunchedEffect(Unit) {
             while (true) {
                 serviceState = permissionCenter.serviceState()
                 activeSession = permissionCenter.activeSession()
+                remainingSeconds = activeSession?.let {
+                    java.time.Duration
+                        .between(java.time.Instant.now(), it.scope.expiresAt)
+                        .seconds
+                        .coerceAtLeast(0)
+                } ?: 0L
                 pauseReason = permissionCenter.pauseReason()
                 delay(250)
             }
@@ -91,7 +107,10 @@ internal object AutomationModule {
             )
             OutlinedTextField(
                 value = packages,
-                onValueChange = { packages = it },
+                onValueChange = {
+                    packages = it
+                    startNotice = null
+                },
                 label = { Text(stringResource(R.string.automation_packages)) },
                 enabled = !sessionActive,
                 modifier = Modifier.fillMaxWidth().testTag("automation-packages"),
@@ -147,22 +166,80 @@ internal object AutomationModule {
                     )
                 }
             }
+            startNotice?.let { notice ->
+                Text(
+                    stringResource(notice),
+                    Modifier.testTag("automation-start-notice"),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            activeSession?.let { active ->
+                Text(
+                    stringResource(
+                        R.string.automation_remaining,
+                        remainingSeconds / 60,
+                        remainingSeconds % 60,
+                        (active.scope.maxActions - active.attemptedActions).coerceAtLeast(0),
+                    ),
+                    Modifier.testTag("automation-remaining"),
+                )
+            }
             com.helix.app.ui.SettingsActions(modifier = Modifier.padding(top = 8.dp)) {
                 OutlinedButton(
-                    onClick = { context.startActivity(permissionCenter.accessibilitySettingsIntent()) },
+                    onClick = {
+                        try {
+                            context.startActivity(permissionCenter.accessibilitySettingsIntent())
+                        } catch (_: Exception) {
+                            startNotice = R.string.automation_service_unavailable
+                        }
+                    },
                     modifier = Modifier.testTag("automation-open-settings"),
                 ) { Text(stringResource(R.string.automation_open_settings)) }
                 Button(
                     onClick = {
+                        startNotice = null
+                        val raw = packages + if (allowSystemSettings) "," + settingsPackages.joinToString(",") else ""
                         val selected =
-                            packages
-                                .split(',')
-                                .map(String::trim)
-                                .filter(String::isNotEmpty)
-                                .toSet() + if (allowSystemSettings) settingsPackages else emptySet()
-                        permissionCenter.replaceAllowlist(selected)
-                        permissionCenter.startSession(selected, allowSystemSettings = allowSystemSettings)
-                        allowSystemSettings = false
+                            try {
+                                com.helix.tools.automation.AutomationTargetInput
+                                    .parse(raw)
+                            } catch (_: IllegalArgumentException) {
+                                startNotice = R.string.automation_target_invalid
+                                null
+                            }
+                        if (selected != null) {
+                            try {
+                                permissionCenter.replaceAllowlist(selected)
+                                val result =
+                                    permissionCenter.startSession(
+                                        selected,
+                                        allowSystemSettings = allowSystemSettings,
+                                    )
+                                startNotice =
+                                    when (result.status) {
+                                        AutomationSessionStartStatus.STARTED -> {
+                                            null
+                                        }
+
+                                        AutomationSessionStartStatus.SERVICE_NOT_CONNECTED -> {
+                                            R.string.automation_service_unavailable
+                                        }
+
+                                        AutomationSessionStartStatus.EMPTY_TARGETS,
+                                        AutomationSessionStartStatus.INVALID_PACKAGE,
+                                        -> {
+                                            R.string.automation_target_invalid
+                                        }
+
+                                        else -> {
+                                            R.string.automation_start_failed
+                                        }
+                                    }
+                                if (result.session != null) allowSystemSettings = false
+                            } catch (_: Exception) {
+                                startNotice = R.string.automation_start_failed
+                            }
+                        }
                         activeSession = permissionCenter.activeSession()
                     },
                     enabled = serviceState == AutomationServiceState.CONNECTED && !sessionActive,

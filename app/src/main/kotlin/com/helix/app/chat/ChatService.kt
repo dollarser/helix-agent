@@ -1899,10 +1899,6 @@ class ChatService(
             setBlocked(str(R.string.chat_blocked_provider_untested))
             return null
         }
-        if (!providerService.isCleartextPermitted(providerId)) {
-            setBlocked(str(R.string.chat_blocked_cleartext_http))
-            return null
-        }
         val goalId =
             try {
                 planReview.execute(binding, budgets)
@@ -1948,7 +1944,7 @@ class ChatService(
     /**
      * The send intent. Order (fail-closed, user-visible):
      * 1. session has a provider; 2. the provider passed its connection test;
-     * 3. the cleartext host:port gate (doc 10 section 2.5); 4. the attachment send
+     * 3. HTTP is warning-only; 4. the attachment send
      *    gate (staged attachments re-verified against their bound snapshots — any
      *    unsupported / tampered / missing attachment blocks before any egress);
      * 5. the egress disclosure gate (forbidden content rejected; high-sensitivity
@@ -2456,9 +2452,6 @@ class ChatService(
         if (!providerService.chatSelectable(providerId)) {
             return submissionBlocked(str(R.string.chat_blocked_provider_untested))
         }
-        if (!providerService.isCleartextPermitted(providerId)) {
-            return submissionBlocked(str(R.string.chat_blocked_cleartext_http))
-        }
         val target = providerService.egressTargetFor(providerId)
         // HXA-055, before the gate: a staged image whose on-device normalization failed at
         // staging is local-only (save/preview) — block with the actionable reason, and no
@@ -2637,9 +2630,6 @@ class ChatService(
         if (!providerService.chatSelectable(providerId)) {
             return submissionBlocked(str(R.string.chat_blocked_provider_untested))
         }
-        if (!providerService.isCleartextPermitted(providerId)) {
-            return submissionBlocked(str(R.string.chat_blocked_cleartext_http))
-        }
         // ADR-0014 §5: the approval bound a SPECIFIC egress target (provider + origin).
         // A provider edit/re-test that moved the endpoint between the dialog and this
         // tap voids the old confirmation — block and make the user re-send; the
@@ -2673,7 +2663,7 @@ class ChatService(
 
     /**
      * The confirmed, target-bound send of a pending send's staged attachments (ADR-0014 §5), run
-     * AFTER [confirmSendNow]'s provider/cleartext/target drift re-checks. The current staged set
+     * AFTER [confirmSendNow]'s provider/target drift re-checks. The current staged set
      * must EXACTLY match [approvedAttachmentIds] (the set the dialog enumerated) — any drift
      * blocks with a re-send, so a file never shown in the dialog never leaves and a removed one is
      * not silently turned into a pure-text send. A ready set is re-verified (re-hash + credential

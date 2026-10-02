@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -23,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.chat.UserQuestionService
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -82,7 +82,7 @@ private fun QuestionDialogContent(
         onDismissRequest = ::dismiss,
         title = { Text(stringResource(R.string.user_question_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
                 Text(question.text)
                 question.options.forEach { option ->
                     FilterChip(

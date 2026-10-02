@@ -374,6 +374,49 @@ class AutomationNodeActionExecutorTest {
         assertEquals(null, changed.performedAction)
     }
 
+    @Test
+    fun aLostPlatformAcknowledgementIsUnknownAndCannotReuseItsToken() {
+        val node = ActionFakeNode(text = "Continue", clickable = true, throwAfterAction = true)
+        val token = issue(node, emptyList(), 7)
+        assertEquals(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN, execute(node, token, 7).status)
+        assertEquals(AccessibilityNodeInfo.ACTION_CLICK, node.performedAction)
+        assertEquals(1, node.recycleCount)
+        assertEquals(NodeTokenLookupStatus.UNKNOWN, registry.lookup(token).status)
+        val another = ActionFakeNode(text = "Continue", clickable = true)
+        assertEquals(AutomationActionStatus.TOKEN_UNKNOWN, execute(another, token, 7).status)
+        assertEquals(null, another.performedAction)
+    }
+
+    @Test
+    fun anUnsuccessfulPlatformCallAlsoRequiresAFreshObservation() {
+        val node = ActionFakeNode(text = "Continue", clickable = true, performResult = false)
+        val token = issue(node, emptyList(), 7)
+        assertEquals(AutomationActionStatus.ACTION_FAILED, execute(node, token, 7).status)
+        assertEquals(AccessibilityNodeInfo.ACTION_CLICK, node.performedAction)
+        assertEquals(NodeTokenLookupStatus.UNKNOWN, registry.lookup(token).status)
+    }
+
+    @Test
+    fun progressAcknowledgementLossIsNotRelabeledAsUnsupportedUi() {
+        val node =
+            ActionFakeNode(
+                range = AutomationNodeRange(0f, 100f, 50f),
+                canSetProgress = true,
+                throwAfterAction = true,
+            )
+        val token = issue(node, emptyList(), 7)
+        val result =
+            executor.execute(
+                node,
+                session,
+                7,
+                AutomationNodeActionRequest(AutomationNodeAction.SET_PROGRESS, token, progress = 25.0),
+            )
+        assertEquals(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN, result.status)
+        assertEquals(android.R.id.accessibilityActionSetProgress, node.performedAction)
+        assertEquals(NodeTokenLookupStatus.UNKNOWN, registry.lookup(token).status)
+    }
+
     private fun execute(
         root: ActionFakeNode,
         token: String,
@@ -522,6 +565,7 @@ private class ActionFakeNode(
     override val accessibilityDataSensitive: Boolean = false,
     private val children: List<ActionFakeNode> = emptyList(),
     private val performResult: Boolean = true,
+    private val throwAfterAction: Boolean = false,
     override val range: AutomationNodeRange? = null,
     override val canSetProgress: Boolean = false,
 ) : SnapshotNode {
@@ -540,11 +584,13 @@ private class ActionFakeNode(
         arguments: Bundle?,
     ): Boolean {
         performedAction = action
+        check(!throwAfterAction) { "lost acknowledgement after platform entry" }
         return performResult
     }
 
     override fun setProgress(value: Float): Boolean {
         performedAction = android.R.id.accessibilityActionSetProgress
+        check(!throwAfterAction) { "lost progress acknowledgement after platform entry" }
         return performResult
     }
 

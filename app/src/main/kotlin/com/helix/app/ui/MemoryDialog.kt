@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.memory.MemoryService
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.workspace.memory.MemoryEntry
 import com.helix.core.workspace.memory.MemoryScope
 import kotlinx.coroutines.Dispatchers
@@ -104,7 +104,7 @@ internal fun MemoryDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.memory_title)) },
         text = {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(max = 520.dp).indicatedVerticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.memory_intro))
                 Row {
                     Checkbox(enabled, enabled = !busy, onCheckedChange = { value ->

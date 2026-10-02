@@ -148,13 +148,11 @@ class HelixAccessibilityService : AccessibilityService() {
                 AutomationGlobalAction.BACK -> GLOBAL_ACTION_BACK
                 AutomationGlobalAction.HOME -> GLOBAL_ACTION_HOME
             }
-        return AutomationActionResult(
-            if (performGlobalAction(platformAction)) {
-                AutomationActionStatus.SUCCEEDED
-            } else {
-                AutomationActionStatus.ACTION_FAILED
-            },
-        )
+        return try {
+            performPlatformAutomationAction { performGlobalAction(platformAction) }
+        } finally {
+            invalidateSnapshotTokens()
+        }
     }
 
     private fun currentRoot(): SnapshotNode? =

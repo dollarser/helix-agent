@@ -14,7 +14,6 @@ class ProviderFormValidationTest {
             ProviderTemplateCatalog.sglang,
             ProviderForm.FormFields("Server", "https://example.test/v1", "model", "", "", ""),
             false,
-            false,
             null,
         )
 
@@ -59,15 +58,12 @@ class ProviderFormValidationTest {
         )
     }
 
-    @Test fun protocolAndCleartextErrorsLocateTheActualControl() {
+    @Test fun protocolErrorsLocateTheControlWhileHttpNeedsNoExtraField() {
         assertEquals(
             ProviderFormField.ENDPOINT,
             providerErrorField(SaveResult.Rejected(R.string.provider_compose_endpoint_invalid)),
         )
-        assertEquals(
-            ProviderFormField.CLEARTEXT,
-            providerErrorField(SaveResult.Rejected(R.string.provider_cleartext_confirm_required)),
-        )
+        assertNull(validateProviderForm(form.copy(fields = form.fields.copy(endpoint = "http://example.test/v1"))))
         assertNull(providerErrorField(SaveResult.Rejected(R.string.provider_save_failed)))
     }
 

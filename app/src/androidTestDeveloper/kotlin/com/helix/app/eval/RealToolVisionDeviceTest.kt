@@ -14,7 +14,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnState
 import com.helix.core.workspace.FileScopePath
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -53,11 +53,10 @@ class RealToolVisionDeviceTest {
                         "Qwen3.8-27B",
                         "{}",
                         false,
-                        CleartextAuthorization("10.0.2.2", 30008),
+                        CleartextWarning("10.0.2.2", 30008),
                         emptyList(),
                     ),
                     null,
-                    cleartextConfirmed = true,
                 )
             try {
                 if (existing == null) {

@@ -3,7 +3,7 @@ package com.helix.app.provider
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderHeaders
 import com.helix.core.model.ProviderResidence
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.catalog.ProviderTemplateCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,13 +77,13 @@ class ProviderComposerTest {
     }
 
     @Test
-    fun cleartextEndpointYieldsTheExactHostPortAuthorization() {
+    fun cleartextEndpointYieldsDisplayOnlyHostPortWarning() {
         val draft =
             (
                 ProviderComposer.compose(ollama, "本地", "http://192.168.1.20:11434/v1", "qwen2.5", emptyMap())
                     as ComposeOutcome.Ok
             ).draft
-        assertEquals(CleartextAuthorization("192.168.1.20", 11434), draft.cleartext)
+        assertEquals(CleartextWarning("192.168.1.20", 11434), draft.cleartext)
         assertTrue(draft.isCleartext)
     }
 

@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +39,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedHorizontalScroll
 
 internal fun highlightAnnotatedString(
     source: AnnotatedString,
@@ -141,7 +141,7 @@ private fun MarkdownTable(
                 }
             }
         }
-    Column(Modifier.horizontalScroll(rememberScrollState())) {
+    Column(Modifier.indicatedHorizontalScroll(rememberScrollState())) {
         rows.forEachIndexed { index, cells ->
             Row {
                 cells.forEach { inline ->
@@ -351,7 +351,7 @@ private fun MarkdownCodeContent(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
-                .horizontalScroll(rememberScrollState()),
+                .indicatedHorizontalScroll(rememberScrollState()),
     ) {
         Text(
             text = lineNumberText,

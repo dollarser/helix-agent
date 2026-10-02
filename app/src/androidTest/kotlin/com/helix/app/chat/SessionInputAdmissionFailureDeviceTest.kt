@@ -13,7 +13,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.SessionInputState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -194,11 +194,10 @@ class SessionInputAdmissionFailureDeviceTest {
                         "fixture-model-a",
                         "{}",
                         false,
-                        CleartextAuthorization("127.0.0.1", server.port),
+                        CleartextWarning("127.0.0.1", server.port),
                         emptyList(),
                     ),
                     null,
-                    cleartextConfirmed = true,
                 )
             check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
             val session = chat.createSession("Input admission fixture", provider, "fixture-model-a")

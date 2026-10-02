@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
 import com.helix.app.plugin.PluginService
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.extensions.skills.SkillRepository
 import kotlinx.coroutines.launch
 
@@ -66,7 +66,7 @@ internal fun SessionSettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-session-settings"),
         verticalArrangement = Arrangement.spacedBy(16.dp),

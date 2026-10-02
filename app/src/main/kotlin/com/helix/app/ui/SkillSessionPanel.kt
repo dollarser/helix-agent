@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
@@ -20,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillListItem
 import com.helix.extensions.skills.SkillRepository
@@ -58,7 +58,7 @@ internal fun SkillSessionPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.session_skills_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()).testTag("session-skills-panel")) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("session-skills-panel")) {
                 Text(stringResource(R.string.session_skills_hint))
                 if (rows.isEmpty()) Text(stringResource(R.string.session_skills_empty))
                 rows.forEach { row ->

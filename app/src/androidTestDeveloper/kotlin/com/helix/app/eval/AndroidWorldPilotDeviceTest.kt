@@ -15,7 +15,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.tools.automation.AutomationPermissionCenter
 import com.helix.tools.automation.AutomationServiceState
 import com.helix.tools.automation.AutomationSessionStartStatus
@@ -92,11 +92,10 @@ class AndroidWorldPilotDeviceTest {
                             "Qwen3.8-27B",
                             "{}",
                             false,
-                            CleartextAuthorization("10.0.2.2", 30008),
+                            CleartextWarning("10.0.2.2", 30008),
                             emptyList(),
                         ),
                         null,
-                        cleartextConfirmed = true,
                     )
                 val probe = container.providerService.runConnectionTest(provider)
                 check(probe is com.helix.provider.api.ProbeOutcome.Ok) { "Provider connection failed: $probe" }

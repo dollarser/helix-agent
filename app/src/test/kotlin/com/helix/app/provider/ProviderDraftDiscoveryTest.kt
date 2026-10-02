@@ -10,10 +10,8 @@ import com.helix.provider.api.wire.WireResponse
 import com.helix.provider.catalog.ProviderTemplateCatalog
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 
 class ProviderDraftDiscoveryTest {
@@ -42,7 +40,7 @@ class ProviderDraftDiscoveryTest {
                                 emptyMap(),
                             ) as ComposeOutcome.Ok
                         ).draft
-                    val result = discoverDraftModels(factory, draft, key, false) as ModelCatalogResult.Listed
+                    val result = discoverDraftModels(factory, draft, key) as ModelCatalogResult.Listed
                     assertEquals(listOf("model-a", "model-b"), result.models)
                     assertEquals("GET", wire.request?.method)
                     assertEquals("https://example.test/v1/models", wire.request?.url)
@@ -58,7 +56,7 @@ class ProviderDraftDiscoveryTest {
             }
         }
 
-    @Test fun cleartextRequiresConfirmationBeforeAnyRequest() =
+    @Test fun cleartextDiscoveryUsesTheSelectedEndpointWithoutAnExtraConsentGate() =
         runBlocking {
             val wire = CatalogWire()
             val factory = ProviderFactory(CredentialLookup { error("No lookup") }, wire, { error("No image") })
@@ -72,12 +70,12 @@ class ProviderDraftDiscoveryTest {
                         emptyMap(),
                     ) as ComposeOutcome.Ok
                 ).draft
-            try {
-                discoverDraftModels(factory, draft, null, false)
-                fail("Expected confirmation requirement")
-            } catch (expected: IllegalArgumentException) {
-                assertNull(wire.request)
-            }
+            val result = discoverDraftModels(factory, draft, null) as ModelCatalogResult.Listed
+            assertEquals(listOf("model-a", "model-b"), result.models)
+            assertEquals("http://127.0.0.1:30000/v1/models", wire.request?.url)
+            assertEquals("GET", wire.request?.method)
+            assertTrue(wire.closed)
+            assertTrue(draft.isCleartext)
         }
 
     @Test fun choicesSurviveReopenAndStaySeparateFromTestResults() {

@@ -19,7 +19,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -381,11 +381,10 @@ class SessionInputApprovalDeviceTest {
                     MODEL,
                     "{}",
                     false,
-                    CleartextAuthorization("127.0.0.1", port),
+                    CleartextWarning("127.0.0.1", port),
                     emptyList(),
                 ),
                 null,
-                cleartextConfirmed = true,
             )
         check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
         check(container.providerService.runCapabilityTest(provider) is ProbeOutcome.Ok)

@@ -3,7 +3,9 @@ package com.helix.app.ui
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -18,6 +20,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -25,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -69,7 +74,12 @@ internal fun ConversationComposer(
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
     val commandScope = androidx.compose.runtime.rememberCoroutineScope()
-    var commandPending by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val windowHeight = LocalWindowInfo.current.containerSize.height
+    val compactInput =
+        WindowInsets.ime.getBottom(density) > 0 || windowHeight < with(density) { 480.dp.roundToPx() }
+    val currentEditorKey by rememberUpdatedState(editorKey)
+    var commandPending by remember(editorKey) { mutableStateOf(false) }
     var permissionPending by remember(editorKey) { mutableStateOf(false) }
     var permissionNotice by remember(editorKey) { mutableStateOf<Int?>(null) }
     var editorValue by rememberSaveable(editorKey, stateSaver = TextFieldValue.Saver) {
@@ -79,7 +89,7 @@ internal fun ConversationComposer(
     SideEffect { if (editorValue != fieldValue) editorValue = fieldValue }
     val inputFocus = remember { FocusRequester() }
     var addOpen by remember { mutableStateOf(false) }
-    var commandNotice by remember(input) { mutableStateOf<Int?>(null) }
+    var commandNotice by remember(editorKey, input) { mutableStateOf<Int?>(null) }
     val command =
         com.helix.app.ui.composer.ComposerCommandParser
             .leadingCommand(input)
@@ -166,7 +176,7 @@ internal fun ConversationComposer(
                             androidx.compose.ui.text.input.OffsetMapping.Identity,
                         )
                     },
-                    maxLines = 5,
+                    maxLines = if (compactInput) 3 else 5,
                 )
 
                 IconButton(
@@ -223,13 +233,19 @@ internal fun ConversationComposer(
                                     commandPending = true
                                     commandScope.launch {
                                         try {
-                                            if (onMode(requestedMode)) {
+                                            val switched = onMode(requestedMode)
+                                            if (currentEditorKey != editorKey) return@launch
+                                            if (switched) {
                                                 val task = input.drop(command.command.length + 1).trimStart()
                                                 onInput(task)
                                                 if (task.isNotBlank()) actions.onSend()
                                             } else {
                                                 commandNotice = R.string.chat_command_wait
                                             }
+                                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                            commandNotice = R.string.composer_mode_failed
                                         } finally {
                                             commandPending = false
                                         }
@@ -267,6 +283,14 @@ internal fun ConversationComposer(
                 TextButton(onClick = onChooseModel, modifier = Modifier.testTag("chat-select-model-reminder")) {
                     Text(stringResource(R.string.chat_model_required_before_send))
                 }
+            }
+            val unavailable = availability.unavailableReason(localOnly, commandPending, permissionPending)
+            if (hasUnsentContent && unavailable != null && unavailable != R.string.chat_model_required_before_send) {
+                Text(
+                    stringResource(unavailable),
+                    Modifier.padding(horizontal = 16.dp).testTag("chat-send-status"),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             permissionNotice?.let {
                 Text(

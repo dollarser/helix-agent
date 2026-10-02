@@ -9,7 +9,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -46,10 +46,10 @@ class SkillCreatorModelDeviceTest {
                     model,
                     "{}",
                     false,
-                    CleartextAuthorization("10.0.2.2", 30008),
+                    CleartextWarning("10.0.2.2", 30008),
                     emptyList(),
                 )
-            val provider = container.providerService.create(draft, null, cleartextConfirmed = true)
+            val provider = container.providerService.create(draft, null)
             val chat = container.chatService
             val previous = chat.runControl.value
             try {

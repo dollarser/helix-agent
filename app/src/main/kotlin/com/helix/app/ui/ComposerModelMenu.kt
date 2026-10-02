@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderSetupStep
+import com.helix.app.ui.IndicatedLazyColumn
 
 private fun matchesModelQuery(
     row: ProviderRowUi,
@@ -131,7 +131,7 @@ internal fun ComposerModelMenu(
                             )
                         }
                         ModelReasoningOptions(providerId, model, requestedModel, reasoningContent)
-                        LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        IndicatedLazyColumn(Modifier.heightIn(max = 360.dp)) {
                             if (entries.isEmpty()) {
                                 item {
                                     Text(

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -30,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.connector.SessionCapabilityUiState
 import com.helix.app.connector.SessionConnectorItemUi
+import com.helix.app.ui.IndicatedLazyColumn
 
 /**
  * HXA-129 Session capability panel (ADR-CONNECTORS-003 §2).
@@ -85,7 +85,7 @@ fun SessionCapabilitySection(
                 )
             }
         } else {
-            LazyColumn(
+            IndicatedLazyColumn(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

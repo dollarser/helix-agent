@@ -13,7 +13,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SecretAlias
 import com.helix.core.model.ToolName
 import com.helix.provider.api.CapabilitySource
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.CredentialLookup
 import com.helix.provider.api.ModelCatalogResult
 import com.helix.provider.api.ProviderCapabilities
@@ -50,10 +50,9 @@ import java.net.UnknownHostException
  * test is SKIPPED with a reason instead of failing — the smoke records absence,
  * it does not fake success.
  *
- * The LAN cleartext gate (doc 2.5) is exercised on the real path: the endpoint
- * the selected host is only contacted after [CleartextAuthorization.isPermitted]
- * passes for the exact host:port binding, and the same check without the
- * authorization is asserted to fail closed.
+ * HXA-242: user-selected HTTP has display-only transport warnings. This optional
+ * real-service test still requires its explicit execution profile; warning-only
+ * transport does not authorize devices, accounts, or paid requests.
  */
 @Suppress(
     "TooManyFunctions", // one class per smoke target (Ollama + sglang) sharing the fetch/parse helpers
@@ -93,11 +92,7 @@ class SelfHostedSmokeTest {
         serverModel = InstrumentationRegistry.getArguments().getString("helix.smoke.model") ?: requireNotNull(first)
         Log.d(TAG, "smoke model: $serverModel (model list: $modelsBody)")
 
-        // the app-layer LAN gate: exact host:port binding, fail closed otherwise
-        val authorized = setOf(CleartextAuthorization(host, PORT))
-        assertTrue(CleartextAuthorization.isPermitted(endpoint, authorized))
-        assertTrue(!CleartextAuthorization.isPermitted(endpoint, emptySet()))
-        assertEquals(CleartextAuthorization(host, PORT), CleartextAuthorization.requiredFor(endpoint))
+        assertEquals(CleartextWarning(host, PORT), CleartextWarning.forEndpoint(endpoint))
 
         provider =
             OpenAiChatProvider(

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,6 +38,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
+import com.helix.app.ui.indicatedVerticalScroll
 
 /** System grants only: never creates an Agent scope or an approval rule. */
 @Composable
@@ -85,7 +85,7 @@ fun SystemPermissionsScreen(filePermissions: (@Composable () -> Unit)? = null) {
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-permissions"),
         verticalArrangement = Arrangement.spacedBy(12.dp),

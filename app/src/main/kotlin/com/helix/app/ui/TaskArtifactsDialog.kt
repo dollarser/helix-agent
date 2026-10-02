@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,6 +22,7 @@ import com.helix.app.R
 import com.helix.app.chat.ArtifactRowUi
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
+import com.helix.app.ui.indicatedVerticalScroll
 
 /**
  * The task-artifact view of the Tasks dashboard (HXA-202 slice 2): the REAL files the task's
@@ -62,7 +62,7 @@ internal fun TaskArtifactsDialog(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(max = 440.dp)
-                    .verticalScroll(rememberScrollState())
+                    .indicatedVerticalScroll(rememberScrollState())
                     .testTag("tasks-artifacts-dialog"),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
+import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
@@ -101,7 +101,7 @@ internal fun ContextWindowIndicator(
                             }
                         ) +
                         stringResource(R.string.chat_context_explanation),
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    modifier = Modifier.indicatedVerticalScroll(rememberScrollState()),
                 )
             },
             dismissButton = {

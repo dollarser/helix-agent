@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -41,8 +40,9 @@ import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ProviderComposer
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.NormalizedEndpoint
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.catalog.ProviderTemplate
 import com.helix.provider.catalog.ProviderTemplateCatalog
@@ -53,7 +53,6 @@ internal data class ProviderForm(
     val template: ProviderTemplate,
     val fields: FormFields,
     val hasStoredKey: Boolean,
-    val cleartextConfirmed: Boolean,
     val error: SaveResult.Rejected?,
     val selectedModels: Set<String> = emptySet(),
     val preservedHeaders: Map<String, String> = emptyMap(),
@@ -97,7 +96,7 @@ internal fun TemplatePickerDialog(
                 modifier =
                     Modifier
                         .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .indicatedVerticalScroll(rememberScrollState()),
             ) {
                 ProviderTemplateCatalog.all.forEach { template ->
                     Row(
@@ -152,7 +151,7 @@ internal fun ProviderFormDialog(
     var protocolsOpen by remember { mutableStateOf(false) }
     val cleartext =
         remember(form.fields.endpoint) {
-            tryParseEndpoint(form.fields.endpoint)?.let { CleartextAuthorization.requiredFor(it) }
+            tryParseEndpoint(form.fields.endpoint)?.let { CleartextWarning.forEndpoint(it) }
         }
     val saveEnabled = !saving && !discovering
     var saveAttempt by remember { mutableStateOf(0) }
@@ -196,8 +195,7 @@ internal fun ProviderFormDialog(
                         Modifier
                             .weight(1f, fill = false)
                             .fillMaxWidth()
-                            .formScrollIndicator(scroll, MaterialTheme.colorScheme.primary)
-                            .verticalScroll(scroll)
+                            .indicatedVerticalScroll(scroll)
                             .testTag("provider-form-scroll")
                             .padding(end = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -323,7 +321,7 @@ internal fun ProviderFormDialog(
                         )
                         TextButton(
                             onClick = onDiscover,
-                            enabled = !discovering && !saving && (cleartext == null || form.cleartextConfirmed),
+                            enabled = !discovering && !saving,
                             modifier = Modifier.testTag("provider-discover-models"),
                         ) {
                             val label =
@@ -369,18 +367,8 @@ internal fun ProviderFormDialog(
                             ),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("provider-cleartext-warning"),
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = form.cleartextConfirmed,
-                                onCheckedChange = { onField(form.copy(cleartextConfirmed = it)) },
-                                modifier = fieldModifier(ProviderFormField.CLEARTEXT, "provider-cleartext-confirm"),
-                            )
-                            Text(
-                                stringResource(R.string.provider_cleartext_confirm),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
                     }
                 }
                 if (scroll.canScrollForward) {
@@ -457,7 +445,6 @@ internal fun editingProviderForm(
             apiKey = "",
         ),
     hasStoredKey = row.hasKey,
-    cleartextConfirmed = false,
     error = null,
     selectedModels = row.selectedModels.toSet(),
     preservedHeaders =
@@ -542,10 +529,6 @@ private suspend fun applySave(
                     SaveResult.Rejected(R.string.provider_requires_api_key)
                 }
 
-                draft.isCleartext && !form.cleartextConfirmed -> {
-                    SaveResult.Rejected(R.string.provider_cleartext_confirm_required)
-                }
-
                 else -> {
                     val models =
                         if (form.selectedModels.isEmpty()) listOf(draft.model) else form.selectedModels.toList()
@@ -553,7 +536,7 @@ private suspend fun applySave(
                         .validate(models)
                     if (form.providerId == null) {
                         require(draft.model in models) { "The default must be one of the selected models" }
-                        val id = providerService.create(draft, key, form.cleartextConfirmed)
+                        val id = providerService.create(draft, key)
                         providerService.saveModelSelection(
                             id,
                             com.helix.app.provider
@@ -561,7 +544,7 @@ private suspend fun applySave(
                         )
                     } else {
                         // Connection edits never overwrite model visibility/default preferences.
-                        providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
+                        providerService.update(form.providerId, draft, key)
                     }
                     SaveResult.Saved
                 }

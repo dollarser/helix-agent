@@ -91,7 +91,7 @@ private fun FollowingTimeline(
         }
     }
     Box(modifier) {
-        androidx.compose.foundation.lazy.LazyColumn(
+        com.helix.app.ui.IndicatedLazyColumn(
             state = state,
             modifier = Modifier.fillMaxSize().nestedScroll(connection).testTag("chat-timeline"),
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 48.dp),

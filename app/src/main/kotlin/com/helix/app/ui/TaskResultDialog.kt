@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
+import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName", "SwallowedException")
@@ -45,7 +45,7 @@ internal fun TaskResultDialog(
         title = { Text(stringResource(R.string.background_task_result)) },
         text = {
             SelectionContainer {
-                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                Column(Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState())) {
                     if (failed) {
                         Text(stringResource(R.string.background_task_result_missing))
                         TextButton({ retry++ }, modifier = Modifier.testTag("task-result-retry")) {

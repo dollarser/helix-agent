@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedHorizontalScroll
+import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -107,7 +107,7 @@ internal fun FilesScreenLayout(
                 Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     if (trashOpen) {
                         Column(
-                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            modifier = Modifier.fillMaxSize().indicatedVerticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Row(
@@ -165,7 +165,7 @@ internal fun FilesScreenLayout(
                             modifier = Modifier.testTag("files-empty"),
                         )
                     } else if (viewMode == ViewMode.LIST) {
-                        androidx.compose.foundation.lazy.LazyColumn(
+                        com.helix.app.ui.IndicatedLazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
@@ -203,7 +203,7 @@ internal fun FilesScreenLayout(
                 // 多选 action bar.
                 if (selected.isNotEmpty() && !trashOpen && canMutate) {
                     Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.indicatedHorizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {

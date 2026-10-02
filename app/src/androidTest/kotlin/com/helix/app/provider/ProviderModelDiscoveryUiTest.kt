@@ -181,7 +181,7 @@ class ProviderModelDiscoveryUiTest {
         return s.port
     }
 
-    /** Creates a provider from the given template against the fixture endpoint (cleartext confirmed). */
+    /** Creates a provider from the given template against the fixture endpoint (HTTP is warning-only). */
     private fun createProvider(
         name: String,
         endpoint: String,
@@ -205,14 +205,8 @@ class ProviderModelDiscoveryUiTest {
         if (key != null) {
             composeRule.onNodeWithTag("provider-form-key").performTextInput(key)
         }
-        // The cleartext http endpoint requires the explicit per-host:port risk
-        // confirmation (ProviderFlowTest precedent; tag from the form dialog).
-        composeRule
-            .onNodeWithTag("provider-cleartext-confirm")
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performClick()
-        composeRule.onNodeWithTag("provider-cleartext-confirm").assertIsOn()
+        composeRule.onNodeWithTag("provider-cleartext-warning").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("provider-cleartext-confirm").assertDoesNotExist()
         composeRule.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
         // Compose idle does not wait for the Room/Keystore work on the IO dispatcher.
         composeRule.waitUntil(10_000) {

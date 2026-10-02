@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +30,7 @@ import com.helix.app.proot.CommandDetailState
 import com.helix.app.proot.CommandLiveOutput
 import com.helix.app.proot.CommandLogObserver
 import com.helix.app.proot.CommandResultView
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.delay
 
 /**
@@ -142,7 +142,7 @@ private fun CommandDetailBody(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

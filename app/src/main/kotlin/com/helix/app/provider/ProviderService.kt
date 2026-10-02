@@ -2,7 +2,6 @@ package com.helix.app.provider
 
 import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.Clock
-import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderTransport
 import com.helix.core.model.ReasoningEffort
@@ -14,7 +13,6 @@ import com.helix.core.storage.entity.transportIdentity
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.CapabilityProbe
 import com.helix.provider.api.CapabilitySource
-import com.helix.provider.api.CleartextAuthorization
 import com.helix.provider.api.ModelMetadata
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
@@ -44,20 +42,15 @@ import kotlinx.coroutines.withContext
  * - the secret: `SecretStore` (Android Keystore, put only when the user typed
  *   a key — never into Room/logs/SavedStateHandle, NFR-007);
  * - the connection-test outcome: [ProviderTestStatusStore] (app state);
- * - the cleartext host:port bindings: [CleartextBindingStore] (app state),
- *   created only by the user's explicit risk confirmation and pruned to the
- *   host:ports still referenced by persisted providers (revocable, never
- *   global).
  *
- * One class owns the whole provider surface (rows, create/edit/delete, the
- * connection test, the send-path gates) so the invariants ("no untested
- * provider is selectable", "bindings prune with the endpoints") stay together.
+ * User-configured HTTP endpoints carry a visible transport warning, not an extra
+ * authorization requirement. Provider identity, credentials, channel eligibility
+ * and model readiness retain their independent checks.
  */
 @Suppress("TooManyFunctions", "LongParameterList")
 class ProviderService(
     private val storage: HelixStorage,
     private val factory: ProviderFactory,
-    private val bindings: CleartextBindingStore,
     private val testStatus: ProviderTestStatusStore,
     private val probe: CapabilityProbe = CapabilityProbe(),
     private val clock: Clock = SystemClock(),
@@ -143,7 +136,6 @@ class ProviderService(
         draft: ProviderDraft,
         apiKey: String?,
         existingId: String?,
-        confirmed: Boolean,
     ): com.helix.provider.api.ModelCatalogResult =
         withContext(Dispatchers.IO) {
             val existing = existingId?.let { storedConfig(it) }
@@ -153,7 +145,7 @@ class ProviderService(
                     ?.auth
                     ?.let { it as? com.helix.core.model.ProviderAuth.Secret }
                     ?.let { storage.secrets.get(it.alias) }
-            discoverDraftModels(factory, draft, key, confirmed)
+            discoverDraftModels(factory, draft, key)
         }
 
     suspend fun saveSelectedModels(
@@ -188,7 +180,6 @@ class ProviderService(
                 )
             }
             val (ticket, config) = probeGate.begin(id, "catalog") { storedConfig(id) }
-            require(isCleartextPermitted(id)) { "Cleartext origin requires authorization" }
             val result = factory.create(config).listModels()
             val sameAccount = managedAccountFor(id) == account
             var accepted = false
@@ -264,7 +255,6 @@ class ProviderService(
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
             val account = managedAccountFor(providerId)
             check(account == null || account.ready) { "Account is not ready" }
-            require(isCleartextPermitted(providerId))
             val (token, config) = probeGate.begin(providerId, "context:$model") { storedConfig(providerId) }
             val detected = factory.create(config.copy(model = model)).contextWindow(model)
             val sameAccount = managedAccountFor(providerId) == account
@@ -382,8 +372,7 @@ class ProviderService(
      *
      * Rules (fail-closed, user-visible errors):
      * - a credential-required provider without a key is refused (FR-LLM-001);
-     * - a cleartext (http) provider is saved only when [cleartextConfirmed] —
-     *   the UI's explicit per-host:port risk confirmation (doc 10 section 2.5);
+     * - HTTP is the user's explicit endpoint choice; the UI warns without blocking;
      * - the typed key is stored in the Keystore under a fresh alias; the row
      *   stores the alias only (NFR-007).
      *
@@ -393,12 +382,8 @@ class ProviderService(
     suspend fun create(
         draft: ProviderDraft,
         apiKey: String?,
-        cleartextConfirmed: Boolean,
     ): String =
         withContext(workScope.coroutineContext) {
-            require(draft.cleartext == null || cleartextConfirmed) {
-                "cleartext http to ${draft.endpoint.origin} requires the explicit per-host:port confirmation"
-            }
             require(!draft.credentialRequired || !apiKey.isNullOrBlank()) {
                 "this provider requires an API key"
             }
@@ -424,7 +409,7 @@ class ProviderService(
                     capabilitySnapshot = UNTESTED_SNAPSHOT,
                 ),
             )
-            draft.cleartext?.let { bindings.authorize(it) }
+
             testStatus.clear(id)
             // The model entered during API setup is an explicit initial choice, not the discovered directory.
             testStatus.selectedModels.write(id, listOf(draft.model))
@@ -432,24 +417,15 @@ class ProviderService(
             id
         }
 
-    /**
-     * Edits an existing provider (endpoint/model/key). The cleartext rule
-     * re-applies to the NEW endpoint (a re-point to a different host:port is a
-     * new authorization: ADR-0005 "新 origin … 使旧授权失效"); the old
-     * host:port binding is pruned when no longer referenced.
-     */
+    /** Edits the user's provider; connection changes still invalidate old model evidence. */
     suspend fun update(
         providerId: String,
         draft: ProviderDraft,
         apiKey: String?,
-        cleartextConfirmed: Boolean,
     ) {
         withContext(workScope.coroutineContext) {
             probeGate.mutate(providerId) {
                 require(!managed.isManaged(providerId)) { "managed provider cannot be edited" }
-                require(draft.cleartext == null || cleartextConfirmed) {
-                    "cleartext http to ${draft.endpoint.origin} requires the explicit per-host:port confirmation"
-                }
                 val existing = storage.providerConfigs.resolve(providerId)
                 require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
                 val requiresRetest = providerConnectionChanged(configFrom(existing), draft, apiKey)
@@ -484,8 +460,7 @@ class ProviderService(
                     testStatus.clear(providerId)
                     testStatus.modelMetadata.write(providerId, existing.transportIdentity, emptyMap())
                 }
-                draft.cleartext?.let { bindings.authorize(it) }
-                pruneBindingsToPersistedEndpoints()
+
                 refreshNow()
             }
         }
@@ -504,7 +479,6 @@ class ProviderService(
                 storage.providerConfigs.delete(providerId)
                 testStatus.selectedModels.clear(providerId)
                 testStatus.clear(providerId)
-                pruneBindingsToPersistedEndpoints()
                 refreshNow()
             }
         }
@@ -517,7 +491,6 @@ class ProviderService(
         verifyGeneration: Boolean = false,
     ): ProbeOutcome =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            require(isCleartextPermitted(providerId))
             connectionProbe
                 .run(providerId, modelId = modelId, verifyGeneration = verifyGeneration)
                 .also { refreshNow() }
@@ -529,7 +502,6 @@ class ProviderService(
         modelId: String? = null,
     ): ProbeOutcome =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            require(isCleartextPermitted(providerId))
             connectionProbe.run(providerId, detectCapabilities = true, modelId = modelId).also { refreshNow() }
         }
 
@@ -607,18 +579,6 @@ class ProviderService(
         }
 
     /**
-     * The send-path cleartext gate (doc 10 section 2.5; HXA-027 boundary):
-     * https is always permitted; http requires the user-confirmed binding for
-     * the exact host:port. The UI calls this before dispatching a send; a
-     * false result is a user-visible block, never a silent attempt.
-     */
-    suspend fun isCleartextPermitted(providerId: String): Boolean {
-        val config = storedConfig(providerId)
-        val network = config.transport as? ProviderTransport.Network ?: return true
-        return CleartextAuthorization.isPermitted(network.endpoint, bindings.all())
-    }
-
-    /**
      * The model provider for a persisted config (chat service entry point).
      * Runs on the service's IO scope (Room read).
      */
@@ -660,28 +620,6 @@ class ProviderService(
             origin = (config.transport as? ProviderTransport.Network)?.endpoint?.origin.orEmpty(),
             residence = config.residence(),
         )
-    }
-
-    /**
-     * Revokes every cleartext binding no longer referenced by a persisted
-     * provider. A row with an unparseable endpoint is skipped (its binding,
-     * if any, is revoked — fail closed).
-     */
-    @Suppress("SwallowedException") // unparseable endpoint: skipping the row IS the fail-closed handling
-    private fun pruneBindingsToPersistedEndpoints() {
-        val referenced =
-            storage.providerConfigs
-                .list()
-                .mapNotNull { entity ->
-                    val endpoint =
-                        try {
-                            NormalizedEndpoint.parse(entity.endpoint ?: return@mapNotNull null)
-                        } catch (e: IllegalArgumentException) {
-                            return@mapNotNull null
-                        }
-                    CleartextAuthorization.requiredFor(endpoint)
-                }.toSet()
-        bindings.pruneTo(referenced)
     }
 
     /**

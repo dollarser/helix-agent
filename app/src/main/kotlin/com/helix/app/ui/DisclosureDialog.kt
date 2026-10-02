@@ -3,7 +3,6 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.EgressDisclosure
+import com.helix.app.ui.indicatedVerticalScroll
 
 /**
  * The pre-send egress disclosure dialog (doc 10 section 2.6; ADR-0005): rendered
@@ -45,7 +45,7 @@ fun DisclosureDialog(
         title = { Text(stringResource(R.string.disclosure_title)) },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()).testTag("egress-disclosure-details"),
+                modifier = Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("egress-disclosure-details"),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(

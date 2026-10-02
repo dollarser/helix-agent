@@ -99,7 +99,7 @@ internal class SessionInputDeliveryCoordinator(
         try {
             val session = storage.sessions.resolve(input.sessionId)
             val provider = input.configuration.providerId
-            check(providerService.chatSelectable(provider) && providerService.isCleartextPermitted(provider))
+            check(providerService.chatSelectable(provider))
             val facts = providerSnapshot(provider, session.modelId)
             val control = controlFor(input)
             val selected = sessionRunControls.ensure(input.sessionId, clock.now().toEpochMilli())

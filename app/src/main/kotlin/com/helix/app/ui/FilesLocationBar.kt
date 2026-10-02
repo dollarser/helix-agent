@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -29,6 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.SortKey
+import com.helix.app.ui.indicatedHorizontalScroll
+import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName")
@@ -72,7 +72,7 @@ internal fun FilesLocationBar(
             )
         }
         Row(
-            Modifier.horizontalScroll(rememberScrollState()).testTag("files-breadcrumb"),
+            Modifier.indicatedHorizontalScroll(rememberScrollState()).testTag("files-breadcrumb"),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BreadcrumbCrumb(stringResource(R.string.files_root_directory), true) { state.currentPath = "" }
@@ -121,7 +121,7 @@ private fun FilesOptionsDialog(
         title = { Text(stringResource(R.string.files_controls)) },
         text = {
             Column(
-                Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                Modifier.heightIn(max = 400.dp).indicatedVerticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 listOf(

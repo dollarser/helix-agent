@@ -12,7 +12,7 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -44,11 +44,10 @@ class SessionModelDeviceTest {
                             "fixture-model-a",
                             "{}",
                             false,
-                            CleartextAuthorization("127.0.0.1", server.port),
+                            CleartextWarning("127.0.0.1", server.port),
                             emptyList(),
                         ),
                         null,
-                        cleartextConfirmed = true,
                     )
                 val alternate =
                     service.create(
@@ -60,11 +59,10 @@ class SessionModelDeviceTest {
                             "fixture-model-a",
                             "{}",
                             false,
-                            CleartextAuthorization("127.0.0.1", server.port),
+                            CleartextWarning("127.0.0.1", server.port),
                             emptyList(),
                         ),
                         null,
-                        cleartextConfirmed = true,
                     )
                 var session: String? = null
                 try {

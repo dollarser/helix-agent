@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileSourceKind
+import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -34,7 +34,7 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
                     title = { Text(file.name) },
                     text = {
                         Column(
-                            modifier = Modifier.verticalScroll(rememberScrollState()),
+                            modifier = Modifier.indicatedVerticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             when {

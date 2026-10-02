@@ -3,7 +3,6 @@ package com.helix.app.connector
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSessionRow
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -97,7 +97,7 @@ fun ConnectorSessionPanel(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.connector_session_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()).testTag("connector-session-panel")) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("connector-session-panel")) {
                 Text(stringResource(R.string.connector_session_hint))
                 if (rows.isEmpty()) Text(stringResource(R.string.connector_session_empty))
                 rows.forEach { row ->

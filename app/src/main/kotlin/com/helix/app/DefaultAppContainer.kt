@@ -31,7 +31,6 @@ import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ArtifactVisionImageSource
-import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ManagedProviderHooks
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
@@ -214,7 +213,6 @@ internal class DefaultAppContainer(
                 managedAccountsEnabled = SubscriptionProviderModule.providerIds.isNotEmpty(),
                 factory =
                     productionProviderFactory(appContext, credentials, localModels) { visionImageSource },
-                bindings = CleartextBindingStore(lineStore),
                 testStatus = ProviderTestStatusStore(lineStore),
                 contextSettingsStore = providerContextSettings,
                 idGenerator = { idGenerator.next() },

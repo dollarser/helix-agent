@@ -11,7 +11,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.coroutines.runBlocking
@@ -131,11 +131,10 @@ class A2aProcessKillDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextAuthorization("10.0.2.2", port),
+                    CleartextWarning("10.0.2.2", port),
                     emptyList(),
                 ),
                 null,
-                cleartextConfirmed = true,
             )
         facts.setProperty("provider", provider)
         save(facts)

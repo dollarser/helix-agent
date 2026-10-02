@@ -25,7 +25,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.storage.entity.GoalControlEntity
 import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -436,11 +436,10 @@ class GoalInputSchedulingDeviceTest {
                         "fixture-model-a",
                         "{}",
                         false,
-                        CleartextAuthorization("127.0.0.1", server.port),
+                        CleartextWarning("127.0.0.1", server.port),
                         emptyList(),
                     ),
                     null,
-                    cleartextConfirmed = true,
                 )
             check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
             val session = chat.createSession("Goal input fixture", provider, "fixture-model-a")

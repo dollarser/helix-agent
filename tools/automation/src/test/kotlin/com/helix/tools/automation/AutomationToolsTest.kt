@@ -136,6 +136,20 @@ class AutomationToolsTest {
         val failed = execute(AutomationTools.CLICK, args("token" to TOKEN)) as ToolExecutorResult.Failed
         assertEquals("STALE_TOKEN", failed.detail)
         assertTrue(failed.sideEffectFree)
+        assertFalse(failed.requiresReview)
+    }
+
+    @Test
+    fun uncertainPlatformOutcomesNeverAdvertiseSafeTechnicalRetry() {
+        for (status in listOf(AutomationActionStatus.ACTION_FAILED, AutomationActionStatus.ACTION_OUTCOME_UNKNOWN)) {
+            port.actionResult = AutomationActionResult(status)
+            for (name in listOf(AutomationTools.CLICK, AutomationTools.BACK, AutomationTools.HOME)) {
+                val result = execute(name, args("token" to TOKEN)) as ToolExecutorResult.Failed
+                assertEquals(status.name, result.detail)
+                assertFalse(result.sideEffectFree)
+                assertTrue(result.requiresReview)
+            }
+        }
     }
 
     @Test

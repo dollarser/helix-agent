@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HXA-242 / ADR-PROVIDER-001: both channels support user-configured HTTP model servers.
+     Dynamic user endpoints cannot be enumerated in static domain-config entries.
+     HTTP is visibly warned about, not separately authorized. This transport opt-in
+     grants no tool scope and does not change default system CA / hostname validation.
+     HTTPS is never automatically downgraded by the model-provider transport. -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>

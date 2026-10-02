@@ -8,7 +8,6 @@ import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.SafetyProfileStore
-import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
@@ -854,7 +853,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         val lineStore = InMemoryLineStore()
         val statusStore = ProviderTestStatusStore(lineStore)
         val providerWire = wireClient ?: disabledWire(observeRequest)
-        val providerService = providerService(storage, lineStore, statusStore, suffix, providerWire)
+        val providerService = providerService(storage, statusStore, suffix, providerWire)
         val providerSpec = seedProvider(storage, statusStore)
         val app = context.applicationContext as HelixApplication
         // HXA-069: ChatService is pure JVM and resolves its emitted string-resource IDs through the
@@ -907,7 +906,6 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
     /** The keyless, offline provider service: the model never runs in these tests. */
     private fun providerService(
         storage: HelixStorage,
-        lineStore: InMemoryLineStore,
         statusStore: ProviderTestStatusStore,
         suffix: String,
         wireClient: WireClient,
@@ -924,7 +922,6 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         }
                     },
                 ),
-            bindings = CleartextBindingStore(lineStore),
             testStatus = statusStore,
             idGenerator = { "prov-$suffix" },
         )

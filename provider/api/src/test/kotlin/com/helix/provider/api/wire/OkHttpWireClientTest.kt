@@ -82,6 +82,53 @@ class OkHttpWireClientTest {
         }
 
     @Test
+    fun explicitHttpTransmitsConfiguredCredentialAndBody() =
+        runBlocking {
+            var seen = ""
+            server.createContext("/credential") { exchange ->
+                val incomingBody = String(exchange.requestBody.readBytes())
+                seen = exchange.requestHeaders.getFirst("Authorization") + ":" + incomingBody
+                val bytes = "accepted".toByteArray()
+                exchange.sendResponseHeaders(200, bytes.size.toLong())
+                exchange.responseBody.use { it.write(bytes) }
+            }
+            val response =
+                OkHttpWireClient().open(
+                    WireRequest(
+                        "POST",
+                        "$base/credential",
+                        mapOf("Authorization" to "Bearer test-only"),
+                        "body".toByteArray(),
+                    ),
+                )
+            try {
+                assertEquals("accepted", String(response.body.bytes()))
+            } finally {
+                response.body.close()
+            }
+            assertEquals("Bearer test-only:body", seen)
+        }
+
+    @Test
+    fun httpsHandshakeFailureNeverBecomesAPlaintextRetry() =
+        runBlocking {
+            val requests =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            handler = { _, _ ->
+                requests.incrementAndGet()
+                200 to "not TLS"
+            }
+            val client = OkHttpWireClient(connectTimeoutMillis = 1_000L, readTimeoutMillis = 1_000L)
+            assertThrows(IOException::class.java) {
+                runBlocking {
+                    client.open(WireRequest("GET", base.replace("http:", "https:") + "/tls", emptyMap(), null))
+                }
+            }
+            assertEquals(0, requests.get())
+        }
+
+    @Test
     fun streamingChunkingDeliversAllBytes() =
         runBlocking {
             handler = { _, _ -> 200 to "a".repeat(100_000) }

@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionOutcome
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -72,7 +72,7 @@ internal fun MessageRevisionDialog(
         },
         title = { Text(stringResource(R.string.message_revision_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.message_revision_note))
                 OutlinedTextField(
                     value = text,

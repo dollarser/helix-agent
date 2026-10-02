@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +29,7 @@ import com.helix.app.localmodel.LocalModelInstallResult
 import com.helix.app.localmodel.LocalModelTransferPhase
 import com.helix.app.localmodel.LocalModelTransferProgress
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -102,7 +102,7 @@ internal fun LocalModelDialog(
         title = { Text(stringResource(R.string.local_model_title)) },
         text = {
             Column(
-                Modifier.verticalScroll(rememberScrollState()),
+                Modifier.indicatedVerticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.local_model_description))

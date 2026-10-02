@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -22,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedVerticalScroll
 
 /** A bounded, scrollable presentation surface; dismissing it never changes task state. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +57,7 @@ internal fun ConversationSheet(
             Column(
                 Modifier
                     .weight(1f, fill = false)
-                    .then(if (scrollContent) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                    .then(if (scrollContent) Modifier.indicatedVerticalScroll(rememberScrollState()) else Modifier)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 content = content,
             )

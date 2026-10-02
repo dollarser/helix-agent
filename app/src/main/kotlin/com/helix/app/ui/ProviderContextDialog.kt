@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -25,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.launch
 
@@ -103,7 +103,7 @@ internal fun ProviderContextEditor(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.chat_context_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
                 Box {
                     TextButton(
                         { modelMenu = true },

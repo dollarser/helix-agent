@@ -75,9 +75,7 @@ public object ProviderTemplateCatalog {
         )
 
     /**
-     * Ollama (doc 2.3: default `http://127.0.0.1:11434/v1`). LAN cleartext HTTP must be
-     * enabled per explicit host and shows the risk (doc 2.5) — that gate is app-side
-     * (HXA-027/028), recorded here as guidance.
+     * Ollama defaults to this device. User-selected HTTP has a non-blocking warning.
      */
     public val ollama: ProviderTemplate =
         ProviderTemplate(
@@ -90,8 +88,8 @@ public object ProviderTemplateCatalog {
             credentialRequired = false,
             notes =
                 listOf(
-                    "Default is loopback. LAN cleartext HTTP requires an explicit per-host authorization and a " +
-                        "risk display (provider doc 2.5).",
+                    "Default is loopback. For another LAN device, enter its address. Cleartext HTTP is unencrypted; " +
+                        "Helix warns without blocking the connection.",
                 ),
         )
 
@@ -252,8 +250,7 @@ public object ProviderTemplateCatalog {
         )
 
     /**
-     * LM Studio local server (default port 1234, path /v1). Like Ollama, LAN usage needs
-     * the explicit per-host cleartext authorization (doc 2.5).
+     * LM Studio local server (default port 1234, path /v1); HTTP is warning-only.
      */
     public val lmStudio: ProviderTemplate =
         ProviderTemplate(
@@ -267,7 +264,7 @@ public object ProviderTemplateCatalog {
             notes =
                 listOf(
                     "LM Studio local server (default 127.0.0.1:1234, path /v1). For another LAN machine use that " +
-                        "host's IP; cleartext HTTP needs the explicit per-host authorization (provider doc 2.5).",
+                        "host's IP. Cleartext HTTP is unencrypted; Helix warns without blocking the connection.",
                 ),
         )
 

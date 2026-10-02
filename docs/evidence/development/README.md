@@ -12,6 +12,8 @@
 
 近期常用：
 
+- [2026-10-02 HXA-242 HTTP / UI 主机验收](hxa242-http-ui-host-2026-10-02.md)：明文 HTTP 仅提示、管理滚条、Composer 和 Mobile Use 修补，根单测/静态分析/四 APK 及实际网络配置通过；设备未请求。
+
 - [2026-10-02 HXA-241 模拟器报告复核](hxa241-emulator-sweep-reconciliation-2026-10-02.md)：历史失败逐类判断、产品修复、测试契约与驱动收敛；API36 / ARM64 两渠道普通矩阵及适用恢复场景专项通过，记录最终源码/APK 身份和未覆盖边界。
 
 - [2026-10-02 HXA-240 FFmpeg 复用 Bash/Job](hxa240-ffmpeg-proot-2026-10-02.md)：Advanced 的 Bionic CLI 桥、流式输入、多文件会话产物及当前主机/制品/设备边界；替代未验收的独立媒体运行时草稿。

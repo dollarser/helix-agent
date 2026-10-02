@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +33,7 @@ import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.audit.AuditLogService
 import com.helix.app.chat.SessionRowUi
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ToolOperationClass
 
 /**
@@ -72,7 +72,7 @@ fun AuditScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .indicatedVerticalScroll(rememberScrollState())
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

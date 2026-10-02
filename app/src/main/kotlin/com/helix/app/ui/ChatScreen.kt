@@ -198,44 +198,46 @@ fun ChatScreen(
     LaunchedEffect(buffer, editorEpoch) {
         if (sessionId == null) return@LaunchedEffect
         if (!buffer.initialize(chatService::loadComposerDraft)) return@LaunchedEffect
-        buffer.restore {
-            val revision = buffer.revisionMessageId
-            if (revision != null) {
-                val draft = chatService.loadComposerDraft(sessionId)
-                if (draft != null && !chatService.acceptedRevision(draft)) {
-                    if (dismissedRevisionId != revision) editMessageId = revision
-                } else {
-                    buffer.initialize(chatService::loadComposerDraft)
-                    dismissedRevisionId = null
-                }
-            }
-            if (buffer.revisionMessageId == null) {
-                dismissedRevisionId = null
-                val receipt = buffer.acceptedReceiptCandidate?.let { chatService.acceptedComposerReceipt(it) }
-                if (receipt != null) {
-                    acceptOrdinaryReceipt(receipt)
-                }
-                if (buffer.saved != null || buffer.value.attachmentIds.isNotEmpty()) {
-                    val missing = chatService.restoreDraftAttachments(sessionId, buffer.value.attachmentIds)
-                    buffer.restoredAttachments(missing)
-                } else {
-                    val live = chatService.screen.value
-                    if (live.openSessionId == sessionId && live.isDraft && live.pendingAttachments.isNotEmpty()) {
-                        chatService.materializeDraftSession(sessionId)
+        val restored =
+            buffer.restore {
+                val revision = buffer.revisionMessageId
+                if (revision != null) {
+                    val draft = chatService.loadComposerDraft(sessionId)
+                    if (draft != null && !chatService.acceptedRevision(draft)) {
+                        if (dismissedRevisionId != revision) editMessageId = revision
+                    } else {
+                        buffer.initialize(chatService::loadComposerDraft)
+                        dismissedRevisionId = null
                     }
-                    buffer.restoredAttachments(emptyList())
-                    buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
                 }
-                val shared =
-                    chatService.screen.value
-                        .takeIf { it.openSessionId == sessionId }
-                        ?.shareDraftText
-                if (shared != null) {
-                    buffer.edit(shared)
-                    chatService.consumeShareDraftText()
+                if (buffer.revisionMessageId == null) {
+                    dismissedRevisionId = null
+                    val receipt = buffer.acceptedReceiptCandidate?.let { chatService.acceptedComposerReceipt(it) }
+                    if (receipt != null) {
+                        acceptOrdinaryReceipt(receipt)
+                    }
+                    if (buffer.saved != null || buffer.value.attachmentIds.isNotEmpty()) {
+                        val missing = chatService.restoreDraftAttachments(sessionId, buffer.value.attachmentIds)
+                        buffer.restoredAttachments(missing)
+                    } else {
+                        val live = chatService.screen.value
+                        if (live.openSessionId == sessionId && live.isDraft && live.pendingAttachments.isNotEmpty()) {
+                            chatService.materializeDraftSession(sessionId)
+                        }
+                        buffer.restoredAttachments(emptyList())
+                        buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+                    }
+                    val shared =
+                        chatService.screen.value
+                            .takeIf { it.openSessionId == sessionId }
+                            ?.shareDraftText
+                    if (shared != null) {
+                        buffer.edit(shared)
+                        chatService.consumeShareDraftText()
+                    }
                 }
             }
-        }
+        if (!restored) buffer.attachmentRestoreFailed()
     }
     LaunchedEffect(
         buffer,
@@ -361,7 +363,39 @@ fun ChatScreen(
                     ComposerAvailability(
                         input = buffer.editable && editMessageId == null,
                         attachments = !buffer.sending && screen.pendingDisclosure == null,
-                        delivery = buffer.editable && buffer.canSubmit,
+                        delivery =
+                            buffer.editable && buffer.canSubmit && editMessageId == null &&
+                                screen.pendingDisclosure == null,
+                        deliveryReason =
+                            when {
+                                !buffer.ready -> {
+                                    R.string.composer_restoring
+                                }
+
+                                !buffer.attachmentsReady -> {
+                                    R.string.composer_restoring_attachments
+                                }
+
+                                buffer.missingAttachments.isNotEmpty() -> {
+                                    R.string.chat_draft_attachment_missing
+                                }
+
+                                buffer.revisionMessageId != null || editMessageId != null -> {
+                                    R.string.composer_editing_message
+                                }
+
+                                buffer.sending -> {
+                                    R.string.composer_submitting
+                                }
+
+                                screen.pendingDisclosure != null -> {
+                                    R.string.composer_disclosure_pending
+                                }
+
+                                else -> {
+                                    null
+                                }
+                            },
                         modelSelected =
                             com.helix.app.chat.hasSelectedConversationModel(
                                 screen.badge?.providerId,
@@ -393,6 +427,16 @@ fun ChatScreen(
                     )
                 },
                 composerFeedback = {
+                    if (providerRows.firstOrNull { it.id == screen.badge?.providerId }?.isCleartext == true) {
+                        Text(
+                            stringResource(R.string.chat_cleartext_warning),
+                            Modifier.testTag("chat-cleartext-warning"),
+                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (buffer.failed) {
+                        Text(stringResource(R.string.composer_cache_notice), Modifier.testTag("chat-cache-notice"))
+                    }
                     if (buffer.missingAttachments.isNotEmpty()) {
                         Text(stringResource(R.string.chat_draft_attachment_missing))
                         TextButton(onClick = buffer::discardMissingAttachments) {

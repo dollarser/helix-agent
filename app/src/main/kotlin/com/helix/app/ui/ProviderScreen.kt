@@ -46,9 +46,8 @@ import kotlinx.coroutines.launch
  * Rules rendered here (all enforced in the pure/service layer):
  * - a provider is chat-selectable ONLY after a completed connection test
  *   (“未完成连接测试不贬为已可用”);
- * - a cleartext http endpoint shows the host:port risk display and requires
- *   the explicit per-host:port confirmation checkbox before save
- *   (doc 10 section 2.5; ADR-0005: no global cleartext switch);
+ * - a user-configured HTTP endpoint shows a non-blocking risk warning;
+ *   no separate confirmation checkbox or transport permission is required;
  * - a test failure shows the SAFE phase + code label (FR-LLM-004 / doc 02
  *   section 13) — never a raw exception message.
  */
@@ -295,7 +294,6 @@ fun ProviderManager(providerService: ProviderService) {
                             ),
                         preservedHeaders = template.defaultHeaders,
                         hasStoredKey = false,
-                        cleartextConfirmed = false,
                         error = null,
                     )
             },
@@ -324,8 +322,6 @@ fun ProviderManager(providerService: ProviderService) {
                             } else {
                                 emptySet()
                             },
-                        cleartextConfirmed =
-                            updated.cleartextConfirmed && updated.fields.endpoint == currentForm.fields.endpoint,
                     )
             },
             discoveryState = ProviderFormDiscovery(discovery, discoveryMessage, discovering),

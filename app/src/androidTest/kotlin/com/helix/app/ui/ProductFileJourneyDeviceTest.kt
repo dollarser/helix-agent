@@ -19,7 +19,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -253,11 +253,10 @@ class ProductFileJourneyDeviceTest {
                     ScriptedTaskModelServer.MODEL_ID,
                     "{}",
                     false,
-                    CleartextAuthorization("127.0.0.1", port),
+                    CleartextWarning("127.0.0.1", port),
                     emptyList(),
                 ),
                 null,
-                cleartextConfirmed = true,
             )
         assertTrue(container.providerService.runConnectionTest(id) is ProbeOutcome.Ok)
         return id

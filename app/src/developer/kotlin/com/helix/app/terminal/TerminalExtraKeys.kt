@@ -1,6 +1,5 @@
 package com.helix.app.terminal
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +18,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.indicatedHorizontalScroll
 
 @Composable
 @Suppress("FunctionName")
@@ -49,7 +49,7 @@ private fun ShortcutRow(
     onKey: (TerminalShortcut) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier.horizontalScroll(rememberScrollState())) {
+    Row(modifier.indicatedHorizontalScroll(rememberScrollState())) {
         keys.forEach { shortcut ->
             val description =
                 when (shortcut.id) {

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +34,7 @@ import com.helix.app.R
 import com.helix.app.chat.SessionRowUi
 import com.helix.app.chat.SessionSearchHitUi
 import com.helix.app.chat.SessionSearchUiState
+import com.helix.app.ui.IndicatedLazyColumn
 
 // The Compose DSL keeps each section in one composable; detekt's LongMethod and
 // CyclomaticComplexMethod do not model UI composition well (each item/branch is
@@ -65,7 +65,7 @@ internal fun SessionListSection(
         if (focusSearch) searchFocusRequester.requestFocus()
     }
     BackHandler(archivedOnly) { archivedOnly = false }
-    LazyColumn(
+    IndicatedLazyColumn(
         modifier = Modifier.fillMaxSize().padding(8.dp).testTag("chat-session-list"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

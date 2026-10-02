@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -20,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import com.helix.app.R
+import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 
 @Composable
@@ -58,7 +58,7 @@ private fun DiagnosticReportDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.diagnostics_preview_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.diagnostics_preview_scope))
                 when {
                     failed -> Text(stringResource(R.string.diagnostics_preview_failed))

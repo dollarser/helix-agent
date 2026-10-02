@@ -64,6 +64,7 @@ enum class AutomationActionStatus {
     ACTION_NOT_SUPPORTED,
     INVALID_ARGUMENT,
     ACTION_FAILED,
+    ACTION_OUTCOME_UNKNOWN,
 }
 
 data class AutomationActionResult(

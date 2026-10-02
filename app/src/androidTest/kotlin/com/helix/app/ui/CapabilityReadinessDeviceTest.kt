@@ -17,7 +17,7 @@ import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
-import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.CleartextWarning
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotEquals
 import org.junit.Assume.assumeTrue
@@ -246,11 +246,10 @@ class CapabilityReadinessDeviceTest {
                     "hxa205-fixture-model",
                     "{}",
                     false,
-                    CleartextAuthorization("127.0.0.1", 18443),
+                    CleartextWarning("127.0.0.1", 18443),
                     emptyList(),
                 ),
                 "sk-hxa205-fixture-key",
-                cleartextConfirmed = true,
             )
         }
     }

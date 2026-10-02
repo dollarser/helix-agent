@@ -43,6 +43,8 @@ public class OkHttpWireClient(
             .Builder()
             .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
+            // HTTP is an explicit endpoint choice, never an automatic HTTPS downgrade.
+            .followSslRedirects(false)
             .build(),
 ) : WireClient {
     override suspend fun open(request: WireRequest): WireResponse =
