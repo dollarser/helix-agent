@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "ffmpeg_version": "9.0.2",
+  "ndk": "28.2.13676358",
+  "api": 29,
+  "limit_bytes": 25000000,
+  "sources": {
+    "ffmpeg": {"version":"9.0.2","url":"https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz","sha256":"8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e","provenance":"Previously GPG-verified FFmpeg release; exact archive hash retained"},
+    "lame": {"version":"3.100","url":"https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz","sha256":"ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "opus": {"version":"1.6.1","url":"https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz","sha256":"6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1","provenance":"Upstream published SHA256"},
+    "webp": {"version":"1.6.0","url":"https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz","sha256":"e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "freetype": {"version":"2.14.3","url":"https://download.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz","sha256":"36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "fribidi": {"version":"1.0.16","url":"https://github.com/fribidi/fribidi/releases/download/v1.0.16/fribidi-1.0.16.tar.xz","sha256":"1b1cde5b235d40479e91be2f0e88a309e3214c8ab470ec8a2744d82a5a9ea05c","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "harfbuzz": {"version":"14.3.0","url":"https://github.com/harfbuzz/harfbuzz/releases/download/14.3.0/harfbuzz-14.3.0.tar.xz","sha256":"16070d77cfc4ba1f1e7327e83bf9b3f55898081cabdb94e56a33e04fc8874eae","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "unibreak": {"version":"6.1","url":"https://github.com/adah1972/libunibreak/releases/download/libunibreak_6_1/libunibreak-6.1.tar.gz","sha256":"cc4de0099cf7ff05005ceabff4afed4c582a736abc38033e70fdac86335ce93f","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "ass": {"version":"0.17.5","url":"https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz","sha256":"2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc","provenance":"Upstream HTTPS archive pinned in the Plus experiment; no independent signature claim"},
+    "dav1d": {"version":"1.5.4","url":"https://download.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz","sha256":"686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5","provenance":"Upstream HTTPS published .tar.xz.sha256; no independent signature claim"}
+  },
+  "components": {
+    "decoder":"h264,hevc,mpeg4,vp8,vp9,aac,mp3,flac,opus,vorbis,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,mjpeg,png,bmp,gif,webp,webp_anim,rawvideo,subrip,ass,movtext,webvtt,amrnb,amrwb,alac,pcm_alaw,pcm_mulaw,pcm_s16be,pcm_s24be,pcm_s32be,pcm_f32be,pcm_f64be",
+    "encoder":"aac,flac,pcm_s16le,pcm_s24le,pcm_f32le,mjpeg,png,bmp,gif,mpeg4,rawvideo,wrapped_avframe,subrip,ass,movtext,webvtt,libmp3lame,libopus,libwebp,libwebp_anim",
+    "demuxer":"mov,matroska,avi,mpegts,aac,mp3,wav,flac,ogg,image2,image2pipe,gif,h264,hevc,rawvideo,pcm_s16le,concat,srt,ass,webvtt,webp_anim,amr,caf,aiff,pcm_alaw,pcm_mulaw",
+    "muxer":"mp4,mov,matroska,webm,avi,mpegts,adts,mp3,wav,flac,ogg,image2,image2pipe,gif,h264,hevc,rawvideo,null,framehash,segment,stream_segment,srt,ass,webvtt,opus,webp,pcm_s16le",
+    "parser":"h264,hevc,mpeg4video,vp8,vp9,aac,mpegaudio,flac,opus,vorbis,png,mjpeg,webp,gif,amr",
+    "bsf":"aac_adtstoasc,h264_mp4toannexb,hevc_mp4toannexb,extract_extradata,null",
+    "filter":"aformat,anull,aresample,atrim,asetpts,atempo,volume,afade,amix,asplit,scale,crop,pad,transpose,hflip,vflip,fps,trim,setpts,format,null,copy,split,concat,thumbnail,palettegen,paletteuse,setsar,rotate,overlay,fade,xfade,acrossfade,silencedetect,silenceremove,loudnorm,dynaudnorm,equalizer,acompressor,alimiter,drawtext,subtitles,ass,drawbox,gblur,pixelize,select,tile,tpad,apad,hue,lutrgb,lutyuv",
+    "protocol":"file,pipe,fd"
+  },
+  "av1_additions":{"decoder":"libdav1d","parser":"av1","demuxer":"av1,obu,ivf"},
+  "native_additions":{"decoder":"h264_mediacodec,hevc_mediacodec","encoder":"h264_mediacodec,hevc_mediacodec"},
+  "device_status":"not_requested",
+  "production_integration":false
+}

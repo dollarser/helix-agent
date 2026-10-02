@@ -1,0 +1,49 @@
+Helix FFmpeg Ready -- independent build and integration-preparation candidate
+
+This is NOT an APK, registered Helix Tool, plugin, or production Runtime module.
+The Android arm64-v8a binaries target API 29. They use Bionic, not Alpine/musl;
+do not copy them into a PRoot RootFS and assume an Alpine executable ABI.
+
+Profiles:
+  ready: Plus features, animated WebP input, common visual filters and audio inputs.
+  ready-av1: the same profile plus dav1d AV1 decoding. No AV1 encoder or AVIF claim.
+
+No font files, network protocols, capture devices, x264/x265 software encoders,
+FFmpeg GPL/nonfree/version3 components, or personal media are included.
+MediaCodec wrapper presence is compile evidence, not a verified device capability.
+The current build has not been executed on Android or integrated into Helix.
+Only a separately identified macOS companion receives current host functional tests.
+Earlier Plus emulator tests are historical and DO NOT certify these new binaries.
+
+Required sources and hashes are pinned in recipe.json and metadata/input-sources.json.
+Unmodified source archives and verified extraction snapshots exist in the user's
+project build/ffmpeg-ready-2026-10-01/downloads and source directories. The prepare
+command downloads the same upstream releases when needed. No host build directories,
+system font files or model credentials are distributed in this runtime bundle.
+
+FFmpeg: LGPL 2.1 or later; LAME and FriBidi: LGPL; Opus/libwebp: BSD-family;
+FreeType: FreeType License selected; HarfBuzz: MIT; libunibreak: zlib; libass: ISC;
+dav1d in the optional profile: BSD 2-clause. Consult the included original texts.
+This software uses LAME (https://lame.sourceforge.io). Portions of this software
+use the FreeType Project (https://freetype.org). All original notices are retained.
+Static combination of dependency code into shared FFmpeg libraries does not erase
+license obligations. A public release requires the corresponding-source/relinking
+and other obligations applicable to its exact packaging and dependencies.
+
+contract.py is a pure preparation example, not an authorization or sandbox layer.
+File references require host scope binding and descriptor-based access. Filters can
+open additional local resources (fonts, subtitles, concat manifests); disabling
+network support does not provide filesystem isolation.
+
+HDR policy in this candidate classifies metadata and rejects unsupported pixel
+operations. No HDR tone mapping, universal Dolby Vision support or color correctness
+for arbitrary ICC/gain-map content is claimed. 10-bit alone is not proof of HDR.
+
+The MediaCodec async recipe from the earlier experiment remains a candidate only:
+  -ndk_codec 1 -ndk_async 1 -flags -global_header -bsf:v extract_extradata
+The future host must independently verify codec availability, output streams,
+frames, duration and final bytes. Exit code zero alone is not completion.
+
+The packed SHA256 manifest binds the exact files. Host-test metadata binds the exact
+host build, recipe and test sources. It never substitutes for Android validation,
+16KiB device execution, actual APK size measurement, or real-device performance.
