@@ -8,6 +8,7 @@
 | 某个 HXA 的范围与验收是什么？ | [任务索引](development/roadmap.md) → 具体任务或完成记录 |
 | 哪些建议还没有接受或启用？ | [候选需求与待裁决索引](development/candidate-decisions.md) |
 | 先做功能还是重构、何时停止？ | [开发原则与推进策略](development/feature-refactor-strategy.md) |
+| 所有者有哪些开发偏好、哪些经验可跨项目复用？ | [个人工程手册](development/engineering-playbook.md)；解释取舍与案例，不替代项目规则或当前任务 |
 | 如何实施和交接？ | [实施指南](development/implementation-guide.md)、[开发控制面](development/README.md) |
 | 如何减少开发阅读量？ | [CodeGraph 与按需导航](development/context-navigation.md)；已知任务直达相关章节/源码，不默认重读全仓 |
 | 现有结构与目标结构有什么不同？ | [架构入口](architecture/README.md)、[当前总体架构](architecture/overview.md)、[Harness 重构方案](architecture/harness-refactor-plan.md) |

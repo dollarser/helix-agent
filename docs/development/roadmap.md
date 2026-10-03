@@ -279,3 +279,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-242 | 收尾验收 | HTTP 仅提示、滚动/输入反馈与自动化体验 | [任务规格](tasks/HXA-242.md) |
 | HXA-243 | 收尾验收 | Mobile Use 全机许可、原生手势/截图与结果收敛 | [任务规格](tasks/HXA-243.md) |
 | HXA-244 | 收尾验收 | Conversation 持久授权、应用选择与屏幕共享 | [任务规格](tasks/HXA-244.md) |
+| HXA-245 | 收尾验收 | Mobile Use 插件半透明穿透悬浮交互 | [任务规格](tasks/HXA-245.md) |

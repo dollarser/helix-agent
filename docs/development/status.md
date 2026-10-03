@@ -48,6 +48,8 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 ## In progress
 
+所有者追加 [HXA-245](tasks/HXA-245.md)：Mobile Use 插件拥有半透明穿透状态窗、独立接管/回会话控制和截图/手势避让；宿主仅暴露通用任务接口，不改变持久授权、不新增规划循环。已完成本轮主机、API29/36 双渠道常规清单与故障矩阵修复复验，见[分项证据](../evidence/development/hxa245-emulator-validation-2026-10-03.md)。条件跳过、浏览器资源 pilot 不确定及未覆盖的真机/OEM、真实服务/媒体端到端继续单列，不宣称全产品/发布验收。按所有者授权已本地提交为 `22afd418`、`6612319f`、`510b625e`、`9e57a1e4`；未推送。
+
 当前 [HXA-244](tasks/HXA-244.md)（2026-10-03，基线 `aa596b0c`）已完成主机/Debug 制品收尾：用户/系统应用搜索多选，Mobile Use 授权持久绑定各 Conversation，直到用户主动关闭。锁屏、进程/设备重启、服务断开仅影响可重建运行态；后续原生截图和用户切换模型不重复确认，原会话/批准范围/图片来源仍逐调用检查。最终联合检查、227 个重点不同方法、6 项 Python 回归及五份 APK 身份核验见[交付证据](../evidence/development/hxa244-conversation-mobile-use-host-2026-10-03.md)。按所有者授权本地提交，不推送；Git 状态以实际记录为准，设备未请求。
 
 所有者追加 [HXA-243](tasks/HXA-243.md)：Mobile Use 全手机/指定应用许可、可选时间/动作额度、系统动作、应用切换、手势与截图、条件等待及代码收敛。Mobile Use 0.2.0已完成主机/Debug制品验收，116个重点不同方法和5项Python渠道回归通过，两渠道App及三份AndroidTest APK已构建，见[交付记录](../evidence/development/hxa243-mobile-use-host-2026-10-03.md)。按所有者授权本地提交，不推送；设备未请求。前置HXA-242已提交为 `ed5e1ef3`，本轮Git状态以实际提交为准。

@@ -1,5 +1,7 @@
 # 开发证据库
 
+- [2026-10-03 HXA-245 Mobile Use 插件悬浮首版](hxa245-plugin-overlay-host-2026-10-03.md)：插件窗口、接管与截图/手势避让的主机验证；所有者随后请求的[全量模拟器与修复记录](hxa245-emulator-validation-2026-10-03.md)列出双渠道/API 常规结果、各 37 项故障矩阵及明确跳过/不确定项。
+
 本目录保存开发过程中的验收、整合、调查、复核和历史进度快照。文件数量较多，**不要按目录列表推断当前状态**；当前任务只看 `docs/development/status.md` 和 active HXA。
 
 建议按目的检索：
@@ -11,6 +13,10 @@
 - **历史验证计划**：[verification-plans/](verification-plans/README.md)：设备、长稳及公共 Benchmark 的原范围，不是当前执行授权。
 
 近期常用：
+
+- [2026-10-02 第二轮高风险链路审查](development-review-round2-2026-10-02.md)：三个 Provider 的 SSE 分块 / UTF-8、恢复幂等与时钟回拨修复；区分 JVM 实测、Room 测试编译和未请求设备验证。
+
+- [2026-10-02 开发现状审查](development-review-2026-10-02.md)：基于 HXA-244 提交的有界审查、Provider 请求头校验修复与 JVM / 文档验证；设备和真实服务未请求。
 
 - [2026-10-03 HXA-244 Conversation 持久 Mobile Use](hxa244-conversation-mobile-use-host-2026-10-03.md)：用户/系统应用选择、持久授权与免逐图确认；最终主机/Debug 制品和源码/APK 身份收尾，设备未请求。
 
