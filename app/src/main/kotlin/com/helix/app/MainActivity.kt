@@ -226,6 +226,8 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    com.helix.app.plugin.PluginTaskNavigation
+        .Observe(navController)
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val direction = drawerDirection(androidx.compose.ui.platform.LocalLayoutDirection.current)
     com.helix.app.goal

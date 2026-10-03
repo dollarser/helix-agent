@@ -8,6 +8,27 @@ import java.time.Duration
 @Suppress("TooManyFunctions", "ReturnCount")
 object AutomationServiceController {
     private val sessionManager = AutomationSessionManager(SystemClock())
+
+    // Serialize model/device operations on dedicated locks, never on the controller monitor used by
+    // Accessibility main-thread callbacks. The controller monitor protects only short state transitions.
+    private val conversationOperationLock = Any()
+    private val deviceOperationLock = Any()
+
+    private data class OperationLease(
+        val service: HelixAccessibilityService,
+        val session: ActiveAutomationSession,
+    )
+
+    private data class ActionAdmission(
+        val lease: OperationLease? = null,
+        val refusal: AutomationActionResult? = null,
+    )
+
+    private data class ResumeAdmission(
+        val lease: OperationLease? = null,
+        val refusal: AutomationResumeStatus? = null,
+    )
+
     private var service: HelixAccessibilityService? = null
     private var grants: com.helix.core.policy.MobileUseGrantStore? = null
     private var conversationExists: (String) -> Boolean = { false }
@@ -71,31 +92,36 @@ object AutomationServiceController {
     }
 
     /** Exact approved scope + original Conversation. Never use the foreground chat as tool authority. */
-    @Synchronized
     internal fun <T> withConversation(
         call: com.helix.tools.framework.ExecutableToolCall,
         block: () -> T,
-    ): T? {
-        val id = call.sessionId ?: return null
-        if (call.cancel.isCancelled() ||
-            !java.time.Instant
-                .now()
-                .isBefore(call.deadline)
-        ) {
-            return null
+    ): T? =
+        synchronized(conversationOperationLock) {
+            val admitted =
+                synchronized(this) {
+                    val id = call.sessionId ?: return@synchronized false
+                    if (call.cancel.isCancelled() ||
+                        !java.time.Instant
+                            .now()
+                            .isBefore(call.deadline)
+                    ) {
+                        return@synchronized false
+                    }
+                    val grant = conversationGrant(id) ?: return@synchronized false
+                    if (grant.scope.toScopeRef() != call.authorizationScopeRef) return@synchronized false
+                    val connected = service ?: return@synchronized false
+                    if (stopIfDeviceLocked(connected)) return@synchronized false
+                    if (!connected.bindPresentation(call)) return@synchronized false
+                    val previous = sessionManager.current()
+                    val current = sessionManager.activate(grant)
+                    if (previous?.id != current.id) {
+                        connected.invalidateSnapshotTokens()
+                        enterForegroundOrRollback(connected, current)
+                    }
+                    true
+                }
+            if (admitted) block() else null
         }
-        val grant = conversationGrant(id) ?: return null
-        if (grant.scope.toScopeRef() != call.authorizationScopeRef) return null
-        val connected = service ?: return null
-        if (stopIfDeviceLocked(connected)) return null
-        val previous = sessionManager.current()
-        val current = sessionManager.activate(grant)
-        if (previous?.id != current.id) {
-            connected.invalidateSnapshotTokens()
-            enterForegroundOrRollback(connected, current)
-        }
-        return block()
-    }
 
     /** Physical availability can change without deleting the user's Conversation configuration. */
     @Synchronized
@@ -205,101 +231,114 @@ object AutomationServiceController {
         return stopped
     }
 
-    @Synchronized
     @Suppress("ReturnCount")
-    fun snapshot(): AutomationSnapshotResult {
-        val connectedService =
-            service
-                ?: return AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
-        if (stopIfDeviceLocked(connectedService)) {
-            return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+    fun snapshot(): AutomationSnapshotResult =
+        synchronized(deviceOperationLock) {
+            val connectedService =
+                synchronized(this) { service }
+                    ?: return@synchronized AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
+            if (connectedService.deviceLocked()) {
+                synchronized(this) {
+                    if (service === connectedService) stop(AutomationStopReason.DEVICE_LOCKED)
+                }
+                return@synchronized AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+            }
+            val session =
+                synchronized(this) {
+                    if (service === connectedService) sessionManager.current() else null
+                } ?: return@synchronized AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+            val result = connectedService.captureSnapshot(session)
+            synchronized(this) {
+                val current = sessionManager.current()
+                if (service !== connectedService || current?.id != session.id) {
+                    connectedService.invalidateSnapshotTokens()
+                    return@synchronized AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+                }
+                val captured = result.snapshot
+                if (captured != null && captured.generation != connectedService.currentGeneration()) {
+                    connectedService.invalidateSnapshotTokens()
+                    return@synchronized AutomationSnapshotResult(
+                        AutomationSnapshotStatus.TARGET_CHANGED,
+                        pauseReason = sessionManager.pauseReason,
+                        targetPackage = captured.packageName,
+                    )
+                }
+                captured?.let { snapshot ->
+                    sessionManager.resumeOnVerifiedTarget(snapshot.packageName)
+                }
+                result.copy(pauseReason = sessionManager.pauseReason)
+            }
         }
-        val session =
-            sessionManager.current()
-                ?: return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
-        val result = connectedService.captureSnapshot(session)
-        result.snapshot?.let { snapshot ->
-            sessionManager.resumeOnVerifiedTarget(snapshot.packageName)
-        }
-        return result.copy(pauseReason = sessionManager.pauseReason)
-    }
 
-    @Synchronized
-    fun performNodeAction(request: AutomationNodeActionRequest): AutomationActionResult {
-        val connectedService =
-            service
-                ?: return AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED)
-        if (stopIfDeviceLocked(connectedService)) return noActiveActionResult()
-        val session =
-            sessionManager.current()
-                ?: return noActiveActionResult()
-        pausedActionResult()?.let { return it }
-        if (sessionManager.admitAction() != AutomationActionAdmission.ADMITTED) {
-            return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+    fun performNodeAction(request: AutomationNodeActionRequest): AutomationActionResult =
+        synchronized(deviceOperationLock) {
+            val admission = admitActionLease(allowPaused = false)
+            admission.refusal?.let { return@synchronized it }
+            val lease = checkNotNull(admission.lease)
+            val result = lease.service.performNodeAction(lease.session, request)
+            completeActionIfCurrent(lease, result)
         }
-        val result = connectedService.performNodeAction(session, request)
-        return completeAction(connectedService, result)
-    }
 
-    @Synchronized
-    fun performGlobalAction(action: AutomationGlobalAction): AutomationActionResult {
-        val connectedService =
-            service
-                ?: return AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED)
-        if (stopIfDeviceLocked(connectedService)) return noActiveActionResult()
-        val session =
-            sessionManager.current()
-                ?: return noActiveActionResult()
-        val navigation = action in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
-        if (!navigation) pausedActionResult()?.let { return it }
-        if (sessionManager.admitAction(allowPaused = navigation) != AutomationActionAdmission.ADMITTED) {
-            return noActiveActionResult()
+    fun performGlobalAction(action: AutomationGlobalAction): AutomationActionResult =
+        synchronized(deviceOperationLock) {
+            val navigation = action in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
+            val admission = admitActionLease(allowPaused = navigation)
+            admission.refusal?.let { return@synchronized it }
+            val lease = checkNotNull(admission.lease)
+            val result = lease.service.performGlobalAction(lease.session, action)
+            completeActionIfCurrent(lease, result)
         }
-        val result = connectedService.performGlobalAction(session, action)
-        return completeAction(connectedService, result)
-    }
 
-    @Synchronized
     fun resumeAfterUserConfirmation(expectedPackage: String): AutomationResumeStatus {
-        val connectedService = service ?: return AutomationResumeStatus.SERVICE_NOT_CONNECTED
-        if (stopIfDeviceLocked(connectedService)) return AutomationResumeStatus.NO_ACTIVE_SESSION
-        val session = sessionManager.current() ?: return AutomationResumeStatus.NO_ACTIVE_SESSION
-        if (!sessionManager.isPaused()) return AutomationResumeStatus.NOT_PAUSED
-        if (!session.scope.permitsPackage(expectedPackage)) {
-            return AutomationResumeStatus.TARGET_NOT_ALLOWLISTED
-        }
-        val snapshot =
-            connectedService.captureSnapshot(session).snapshot
+        val admission = admitResumeLease(expectedPackage)
+        admission.refusal?.let { return it }
+        val lease = checkNotNull(admission.lease)
+        val currentPackage =
+            lease.service.currentTargetPackage()
                 ?: return AutomationResumeStatus.SNAPSHOT_REFUSED
-        if (snapshot.packageName != expectedPackage) return AutomationResumeStatus.TARGET_MISMATCH
-        check(sessionManager.resumeAfterUserConfirmation()) { "paused session disappeared during resume" }
-        return AutomationResumeStatus.RESUMED
+        if (currentPackage != expectedPackage) return AutomationResumeStatus.TARGET_MISMATCH
+        return synchronized(this) {
+            val current = sessionManager.current()
+            if (service !== lease.service || current?.id != lease.session.id) {
+                AutomationResumeStatus.NO_ACTIVE_SESSION
+            } else if (!sessionManager.isPaused()) {
+                AutomationResumeStatus.NOT_PAUSED
+            } else {
+                check(sessionManager.resumeAfterUserConfirmation()) { "paused session disappeared during resume" }
+                AutomationResumeStatus.RESUMED
+            }
+        }
     }
 
-    @Synchronized
     fun requestResumeOnTarget(packageName: String): Boolean {
-        val connectedService = service ?: return false
-        if (stopIfDeviceLocked(connectedService)) return false
-        val session = sessionManager.current() ?: return false
-        if (!session.scope.allApplications &&
-            SensitiveAutomationTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)
-        ) {
-            return false
-        }
-        if (!sessionManager.requestResumeOnTarget(packageName)) return false
+        val requested =
+            synchronized(this) {
+                val connectedService = service ?: return@synchronized false
+                if (stopIfDeviceLocked(connectedService)) return@synchronized false
+                val session = sessionManager.current() ?: return@synchronized false
+                if (!session.scope.allApplications &&
+                    SensitiveAutomationTargetPolicy.isDeniedPackage(packageName, session.allowSystemSettings)
+                ) {
+                    return@synchronized false
+                }
+                sessionManager.requestResumeOnTarget(packageName)
+            }
+        if (!requested) return false
         resumeAfterUserConfirmation(packageName)
         return true
     }
 
+    /** Accessibility callback path: state-only and bounded; never traverses the node tree. */
     @Synchronized
     internal fun targetObserved(packageName: String) {
         val connectedService = service ?: return
         val session = sessionManager.current() ?: return
-        if (packageName == sessionManager.resumeTarget) {
-            resumeAfterUserConfirmation(packageName)
-        }
         if (!session.scope.permitsPackage(packageName)) {
             pauseForTargetChange(connectedService)
+            return
+        }
+        if (packageName == sessionManager.resumeTarget) {
+            sessionManager.resumeAfterUserConfirmation()
         }
     }
 
@@ -325,6 +364,7 @@ object AutomationServiceController {
     @Synchronized
     internal fun deviceLease(): Pair<HelixAccessibilityService, ActiveAutomationSession>? {
         val current = service ?: return null
+        if (current.runtimePresentation?.executionAllowed() == false) return null
         if (stopIfDeviceLocked(current)) return null
         val active = sessionManager.current() ?: return null
         val owner = active.conversationId
@@ -335,23 +375,26 @@ object AutomationServiceController {
         return current to active
     }
 
-    @Synchronized
     internal fun <T> withDeviceLease(
         grantId: String,
         mutation: Boolean,
         block: (HelixAccessibilityService, ActiveAutomationSession) -> T,
     ): T? {
-        val lease = deviceLease() ?: return null
-        if (lease.second.id != grantId) return null
-        if (mutation &&
-            sessionManager.admitAction(allowPaused = true) != AutomationActionAdmission.ADMITTED
-        ) {
-            return null
-        }
+        val lease =
+            synchronized(this) {
+                val current = deviceLease() ?: return@synchronized null
+                if (current.second.id != grantId) return@synchronized null
+                if (mutation &&
+                    sessionManager.admitAction(allowPaused = true) != AutomationActionAdmission.ADMITTED
+                ) {
+                    return@synchronized null
+                }
+                OperationLease(current.first, current.second)
+            } ?: return null
         return try {
-            block(lease.first, lease.second)
+            block(lease.service, lease.session)
         } finally {
-            if (mutation) completeAction(lease.first, AutomationActionResult(AutomationActionStatus.SUCCEEDED))
+            if (mutation) completeActionIfCurrent(lease, AutomationActionResult(AutomationActionStatus.SUCCEEDED))
         }
     }
 
@@ -370,6 +413,68 @@ object AutomationServiceController {
             instance.scheduleExpiry(active)
         }
     }
+
+    private fun admitResumeLease(expectedPackage: String): ResumeAdmission =
+        synchronized(this) {
+            val connectedService =
+                service
+                    ?: return@synchronized ResumeAdmission(refusal = AutomationResumeStatus.SERVICE_NOT_CONNECTED)
+            if (stopIfDeviceLocked(connectedService)) {
+                return@synchronized ResumeAdmission(refusal = AutomationResumeStatus.NO_ACTIVE_SESSION)
+            }
+            val session =
+                sessionManager.current()
+                    ?: return@synchronized ResumeAdmission(refusal = AutomationResumeStatus.NO_ACTIVE_SESSION)
+            if (!sessionManager.isPaused()) {
+                return@synchronized ResumeAdmission(refusal = AutomationResumeStatus.NOT_PAUSED)
+            }
+            if (!session.scope.permitsPackage(expectedPackage) ||
+                (
+                    !session.scope.allApplications &&
+                        SensitiveAutomationTargetPolicy.isDeniedPackage(
+                            expectedPackage,
+                            session.allowSystemSettings,
+                        )
+                )
+            ) {
+                return@synchronized ResumeAdmission(refusal = AutomationResumeStatus.TARGET_NOT_ALLOWLISTED)
+            }
+            ResumeAdmission(lease = OperationLease(connectedService, session))
+        }
+
+    private fun admitActionLease(allowPaused: Boolean): ActionAdmission =
+        synchronized(this) {
+            val connectedService =
+                service
+                    ?: return@synchronized ActionAdmission(
+                        refusal = AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED),
+                    )
+            if (stopIfDeviceLocked(connectedService)) {
+                return@synchronized ActionAdmission(refusal = noActiveActionResult())
+            }
+            val session =
+                sessionManager.current() ?: return@synchronized ActionAdmission(refusal = noActiveActionResult())
+            if (!allowPaused) {
+                pausedActionResult()?.let { return@synchronized ActionAdmission(refusal = it) }
+            }
+            if (sessionManager.admitAction(allowPaused = allowPaused) != AutomationActionAdmission.ADMITTED) {
+                return@synchronized ActionAdmission(refusal = noActiveActionResult())
+            }
+            ActionAdmission(lease = OperationLease(connectedService, session))
+        }
+
+    private fun completeActionIfCurrent(
+        lease: OperationLease,
+        result: AutomationActionResult,
+    ): AutomationActionResult =
+        synchronized(this) {
+            val current = sessionManager.current()
+            if (service !== lease.service || current?.id != lease.session.id) {
+                result
+            } else {
+                completeAction(lease.service, result)
+            }
+        }
 
     private fun enterForegroundOrRollback(
         connectedService: HelixAccessibilityService,

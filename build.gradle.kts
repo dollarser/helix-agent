@@ -349,7 +349,7 @@ subprojects {
 
             // HXA-090: the Accessibility service lifecycle, system-enabled state, time-bounded
             // session and notification stop path are verified on a dedicated automation device.
-            if (path == ":tools:automation") {
+            if (path == ":tools:automation" || path == ":extensions:mobile-use") {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

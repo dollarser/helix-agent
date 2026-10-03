@@ -18,6 +18,17 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun presentationProjectionTracksPublishedToolsWithoutGrantingAuthority() {
+        val plugins = PluginRegistry(ToolRegistry(), MemoryNativePluginCatalog())
+        assertEquals(false, plugins.hasPublishedTools("mobile-use"))
+        plugins.register(plugin("mobile-use"))
+        assertEquals(true, plugins.hasPublishedTools("mobile-use"))
+        plugins.setEnabled("mobile-use", false)
+        assertEquals(false, plugins.hasPublishedTools("mobile-use"))
+        plugins.setEnabled("mobile-use", true)
+        assertEquals(true, plugins.hasPublishedTools("mobile-use"))
+    }
+
     @Test
     fun registersExactPluginProvenanceIntoExistingToolRegistries() {
         val tools = ToolRegistry()

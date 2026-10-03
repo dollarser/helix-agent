@@ -53,8 +53,12 @@ internal object AutomationModule {
         grants: MobileUseGrantStore,
         conversationExists: (String) -> Boolean,
         screenTarget: suspend (String) -> MobileUseScreenTarget?,
+        taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) {
-        val plugin = runtime ?: MobileUsePlugin(context.applicationContext, images).also { runtime = it }
+        val plugin =
+            runtime ?: MobileUsePlugin(context.applicationContext, images, taskHost) {
+                plugins.hasPublishedTools(MobileUsePlugin.PLUGIN_ID)
+            }.also { runtime = it }
         if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(plugin)
         plugin.permissionCenter.configureConversations(grants, conversationExists)
         appContext = context.applicationContext

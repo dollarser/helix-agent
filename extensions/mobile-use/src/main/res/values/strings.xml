@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mobile_overlay_take_over">接管</string>
+    <string name="mobile_overlay_return">回会话</string>
+    <string name="mobile_overlay_stopping">正在停止；已发出的动作仍在结算</string>
+    <string name="mobile_overlay_approval">Mobile Use · 等待你的确认</string>
+    <string name="mobile_overlay_thinking">Mobile Use · 等待模型</string>
+    <string name="mobile_overlay_working">Mobile Use · 正在处理</string>
+</resources>

@@ -51,7 +51,7 @@ class MobileUsePluginRegistrationDeviceTest {
     fun mobileUseRegistersOnceWithPluginProvenance() {
         val manifest = container.pluginRegistry.find("mobile-use")
         assertNotNull(manifest)
-        assertEquals("0.1.0", manifest?.version)
+        assertEquals("0.2.0", manifest?.version)
         assertEquals("mobile-use", manifest?.helixRuntimeId)
 
         val uiTools =
@@ -65,14 +65,21 @@ class MobileUsePluginRegistrationDeviceTest {
                 "ui.click",
                 "ui.long_click",
                 "ui.set_text",
+                "ui.set_progress",
                 "ui.scroll",
                 "ui.back",
                 "ui.home",
                 "ui.wait",
+                "ui.device",
+                "ui.apps",
+                "ui.launch",
+                "ui.system",
+                "ui.gesture",
+                "ui.screenshot",
             ),
             uiTools.map { it.name.value }.toSet(),
         )
-        val expected = ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use")
+        val expected = ToolOrigin.PluginOrigin("mobile-use", "0.2.0", "mobile-use")
         assertTrue(uiTools.all { it.origin == expected })
         assertTrue(uiTools.all { it.contractHash.hex.length == 64 })
     }

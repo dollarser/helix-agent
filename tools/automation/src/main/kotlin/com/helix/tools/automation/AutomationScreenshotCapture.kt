@@ -37,7 +37,17 @@ internal class AutomationScreenshotCapture(
             return AutomationScreenshot("CANCELLED")
         }
         val ticket = inFlight.acquire() ?: return AutomationScreenshot("CAPTURE_IN_PROGRESS")
-        return captureSupported(frame, session, call, currentTarget, ticket)
+        val presentation = service.runtimePresentation
+        val hidden = presentation?.hideForOperation(call)
+        if (presentation != null && hidden == null) {
+            inFlight.release(ticket)
+            return AutomationScreenshot("OVERLAY_NOT_READY")
+        }
+        return try {
+            captureSupported(frame, session, call, currentTarget, ticket)
+        } finally {
+            hidden?.close()
+        }
     }
 
     @Suppress("ReturnCount") // Buffer and callback ownership stay in one try/finally.

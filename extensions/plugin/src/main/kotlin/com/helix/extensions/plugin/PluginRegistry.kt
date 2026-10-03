@@ -20,6 +20,10 @@ class PluginRegistry(
 ) {
     private val factories = LinkedHashMap<String, HelixPlugin>()
 
+    /** Nonblocking presentation hint only; execution still resolves the authoritative binding. */
+    fun hasPublishedTools(pluginId: String): Boolean =
+        toolRegistry.snapshot().any { it.ref.owner == bindingOwner("plugin", pluginId) }
+
     fun register(plugin: HelixPlugin): PluginManifest =
         synchronized(catalog.mutationLock) {
             val manifest = plugin.manifest

@@ -447,19 +447,27 @@ internal class DefaultAppContainer(
             workspaceWritable = ::workspaceWritable,
             externalScope = { storage.workspaces.find(it)?.ownership == "EXTERNAL" },
             workspaceCleanup = { scope ->
-                com.helix.app.files.WorkspaceCleanupAdmission(executionOwnership).run {
-                    storage.workspaceCleanup.cleanup(scope) {
-                        val metadata = workspaceMetadata(scope)
-                        metadata != null &&
-                            java.nio.file.Files
-                                .exists(metadata) &&
-                            java.nio.file.Files.walk(metadata).use { paths ->
-                                paths.anyMatch { path ->
-                                    !java.nio.file.Files
-                                        .isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                val cleanup = {
+                    com.helix.app.files.WorkspaceCleanupAdmission(executionOwnership).run {
+                        storage.workspaceCleanup.cleanup(scope) {
+                            val metadata = workspaceMetadata(scope)
+                            metadata != null &&
+                                java.nio.file.Files
+                                    .exists(metadata) &&
+                                java.nio.file.Files.walk(metadata).use { paths ->
+                                    paths.anyMatch { path ->
+                                        !java.nio.file.Files
+                                            .isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                                    }
                                 }
-                            }
+                        }
                     }
+                }
+                val terminal = manualTerminal
+                if (terminal == null) {
+                    cleanup()
+                } else {
+                    terminal.withWorkspaceCleanup(storage.workspaces.managedDirectory(scope).toFile(), cleanup)
                 }
             },
             workspaceSources = {
@@ -532,6 +540,9 @@ internal class DefaultAppContainer(
             pluginRegistry,
             toolVision.imagePublisher,
             grants = mobileUseGrants,
+            taskHost =
+                com.helix.app.plugin
+                    .PluginTaskHostAdapter(context) { chatService },
             conversationExists = { storage.sessions.find(it) != null },
             screenTarget = { id ->
                 val view = chatService.screen.value

@@ -20,6 +20,20 @@ import java.time.Instant
 /** User-enabled service for bounded snapshots and token-bound actions. */
 @Suppress("TooManyFunctions")
 class HelixAccessibilityService : AccessibilityService() {
+    @Volatile internal var runtimePresentation: AutomationRuntimePresentation? = null
+        private set
+
+    @Synchronized
+    private fun ensurePresentation(): AutomationRuntimePresentation? {
+        if (runtimePresentation == null) {
+            runtimePresentation = AutomationRuntimePresentationFactory.create?.invoke(this)
+        }
+        return runtimePresentation
+    }
+
+    internal fun bindPresentation(call: com.helix.tools.framework.ExecutableToolCall): Boolean =
+        ensurePresentation()?.bind(call) ?: true
+
     internal val deviceAccess by lazy { AutomationDeviceAccess(this) }
     private val handler = Handler(Looper.getMainLooper())
     private var expiryStop: Runnable? = null
@@ -54,11 +68,12 @@ class HelixAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         ensureNotificationChannel()
+        ensurePresentation()
         AutomationServiceController.connected(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
+        if (event == null || runtimePresentation?.ownsWindow(event.windowId) == true) return
         if (deviceLocked()) {
             AutomationServiceController.stop(AutomationStopReason.DEVICE_LOCKED)
             return
@@ -82,6 +97,7 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        runtimePresentation?.close()
         AutomationServiceController.disconnected(this, AutomationStopReason.SERVICE_DISCONNECTED)
         leaveSessionForeground()
         if (screenReceiverRegistered) {
@@ -116,6 +132,7 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     internal fun leaveSessionForeground() {
+        runtimePresentation?.hide()
         expiryStop?.let(handler::removeCallbacks)
         expiryStop = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -130,6 +147,24 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     internal fun currentGeneration(): Long = generationTracker.current()
+
+    /** Lightweight target verification for resume paths; never walks the Accessibility node tree. */
+    internal fun currentTargetPackage(): String? {
+        val root =
+            try {
+                rootInActiveWindow
+            } catch (_: RuntimeException) {
+                null
+            } ?: return null
+        return try {
+            root.packageName?.toString()
+        } catch (_: RuntimeException) {
+            null
+        } finally {
+            @Suppress("DEPRECATION")
+            root.recycle()
+        }
+    }
 
     internal fun deviceLocked(): Boolean = getSystemService(KeyguardManager::class.java).isDeviceLocked
 

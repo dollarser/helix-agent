@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mobile_overlay_take_over">Take over</string>
+    <string name="mobile_overlay_return">Chat</string>
+    <string name="mobile_overlay_stopping">Stopping; issued actions are still settling</string>
+    <string name="mobile_overlay_approval">Mobile Use · Waiting for your approval</string>
+    <string name="mobile_overlay_thinking">Mobile Use · Waiting for the model</string>
+    <string name="mobile_overlay_working">Mobile Use · Working</string>
+</resources>

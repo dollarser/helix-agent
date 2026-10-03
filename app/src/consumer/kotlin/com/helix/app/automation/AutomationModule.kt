@@ -16,6 +16,7 @@ internal object AutomationModule {
         grants: com.helix.core.policy.MobileUseGrantStore,
         conversationExists: (String) -> Boolean,
         screenTarget: suspend (String) -> com.helix.app.vision.MobileUseScreenTarget?,
+        taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) = Unit
 
     fun scopeFor(

@@ -19,6 +19,8 @@ import com.helix.tools.framework.ToolOrigin
 class MobileUsePlugin(
     context: Context,
     images: com.helix.tools.framework.ToolImagePublication,
+    taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
+    enabled: () -> Boolean = { true },
 ) : HelixPlugin {
     override val manifest: PluginManifest =
         context.assets.open(MANIFEST_ASSET).use { PluginManifestReader.parse(it.readBytes()) }
@@ -44,6 +46,11 @@ class MobileUsePlugin(
     init {
         require(manifest.name == PLUGIN_ID) { "unexpected Mobile Use plugin id: ${manifest.name}" }
         require(manifest.helixRuntimeId == RUNTIME_ID) { "unexpected Mobile Use runtime binding" }
+        if (taskHost != null) {
+            com.helix.tools.automation.AutomationRuntimePresentationFactory.create = { service ->
+                MobileUseOverlay(service, taskHost, enabled)
+            }
+        }
     }
 
     override fun tools(): List<ToolBinding> =

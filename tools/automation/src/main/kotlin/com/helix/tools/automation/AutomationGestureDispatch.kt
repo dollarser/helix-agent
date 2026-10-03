@@ -35,28 +35,20 @@ internal class AutomationGestureDispatch(
         val gesture = build(frame.target.displayId, strokes)
         if (!callIsActive(call)) return notDispatched()
         val ticket = inFlight.acquire() ?: return notDispatched()
+        val presentation = service.runtimePresentation
+        val hidden = presentation?.hideForOperation(call)
+        if (presentation != null && hidden == null) {
+            inFlight.release(ticket)
+            return notDispatched()
+        }
         val pending = PendingAutomationResult<AutomationActionResult>()
-        val callback =
-            object : AccessibilityService.GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription) {
-                    inFlight.release(ticket)
-                    pending.complete(AutomationActionResult(AutomationActionStatus.SUCCEEDED))
-                }
-
-                override fun onCancelled(gestureDescription: GestureDescription) {
-                    inFlight.release(ticket)
-                    pending.complete(AutomationActionResult(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN))
-                }
-            }
+        val finishPhysicalOperation = { finishOperation(hidden, ticket) }
+        val callback = callback(pending, finishPhysicalOperation)
         var entered = false
         try {
             val accepted =
                 AutomationServiceController.withDeviceLease(session.id, mutation = true) { _, current ->
-                    val liveCall = callIsActive(call)
-                    val sameTarget =
-                        currentTarget() == frame.target &&
-                            current.scope.permitsPackage(frame.target.packageName)
-                    if (!liveCall || !sameTarget || !permittedWindows()) {
+                    if (!canDispatch(call, frame, current, currentTarget, permittedWindows)) {
                         false
                     } else {
                         entered = true
@@ -65,13 +57,15 @@ internal class AutomationGestureDispatch(
                     }
                 } == true
             if (!accepted) {
-                inFlight.release(ticket)
+                finishPhysicalOperation()
                 return notDispatched()
             }
             // Android cancellation may happen after partial motion. Never silently replay it.
             return pending.await(call) ?: AutomationActionResult(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN)
         } catch (_: RuntimeException) {
-            if (!entered) inFlight.release(ticket)
+            if (!entered) {
+                finishPhysicalOperation()
+            }
             return AutomationActionResult(
                 if (entered) {
                     AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
@@ -83,6 +77,40 @@ internal class AutomationGestureDispatch(
             pending.abandon()
         }
     }
+
+    private fun canDispatch(
+        call: ExecutableToolCall,
+        frame: AutomationFrame,
+        session: ActiveAutomationSession,
+        currentTarget: () -> AutomationDisplayTarget?,
+        permittedWindows: () -> Boolean,
+    ): Boolean =
+        callIsActive(call) && currentTarget() == frame.target &&
+            session.scope.permitsPackage(frame.target.packageName) && permittedWindows()
+
+    private fun finishOperation(
+        hidden: AutoCloseable?,
+        ticket: Any,
+    ) {
+        hidden?.close()
+        inFlight.release(ticket)
+    }
+
+    private fun callback(
+        pending: PendingAutomationResult<AutomationActionResult>,
+        finish: () -> Unit,
+    ): AccessibilityService.GestureResultCallback =
+        object : AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription) {
+                finish()
+                pending.complete(AutomationActionResult(AutomationActionStatus.SUCCEEDED))
+            }
+
+            override fun onCancelled(gestureDescription: GestureDescription) {
+                finish()
+                pending.complete(AutomationActionResult(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN))
+            }
+        }
 
     private fun build(
         displayId: Int,
