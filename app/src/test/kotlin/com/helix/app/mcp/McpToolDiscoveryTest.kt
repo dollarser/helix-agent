@@ -90,6 +90,30 @@ class McpToolDiscoveryTest {
         assertEquals(exact, discovery.search("session", "archive", 2).first())
     }
 
+    @Test fun compositeQueryFallsBackToRankedPartialMatches() {
+        val click = search.copy(name = ToolName("android.ui.click"), description = "Click Android UI controls")
+        val capture = search.copy(name = ToolName("android.screen.capture"), description = "Capture the Android screen")
+        val weak = search.copy(name = ToolName("misc.screen.helper"), description = "Screen helper")
+        registerFixture(click)
+        registerFixture(capture)
+        registerFixture(weak)
+
+        val found = discovery.search("session", "android ui click screen", 3)
+
+        assertEquals(listOf(click, capture, weak), found)
+    }
+
+    @Test fun completeTermMatchesStillRankAheadOfOrFallbacks() {
+        val complete = search.copy(name = ToolName("android.ui.click"), description = "Click a button on Android UI")
+        val partial = search.copy(name = ToolName("android.screen"), description = "Inspect Android UI")
+        registerFixture(complete)
+        registerFixture(partial)
+
+        val found = discovery.search("session", "android ui click", 2)
+
+        assertEquals(listOf(complete, partial), found)
+    }
+
     @Test fun missCannotRetainReplacedOrDisabledBindings() {
         catalog()
         var enabled = true

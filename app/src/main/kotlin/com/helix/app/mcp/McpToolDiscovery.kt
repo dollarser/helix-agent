@@ -33,6 +33,17 @@ internal class McpToolDiscovery(
     private val admittedWindows = LinkedHashMap<String, Set<ToolDescriptor>>(16, 0.75f, true)
     private val loaded = LinkedHashMap<String, List<ToolDescriptor>>(16, 0.75f, true)
 
+    private data class SearchCandidate(
+        val descriptor: ToolDescriptor,
+        val exactName: Boolean,
+        val allTerms: Boolean,
+        val phraseInName: Boolean,
+        val nameHits: Int,
+        val matchedTerms: Int,
+        val phraseInDescription: Boolean,
+        val descriptionHits: Int,
+    )
+
     @Synchronized
     fun search(
         sessionId: String,
@@ -41,21 +52,48 @@ internal class McpToolDiscovery(
     ): List<ToolDescriptor> {
         require(query.isNotBlank() && query.length <= 200)
         require(limit in 1..WINDOW)
-        val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val normalizedQuery = query.trim().lowercase()
+        val terms =
+            normalizedQuery
+                .split(Regex("[\\s,;]+"))
+                .filter { it.isNotBlank() }
+                .distinct()
         val matches =
             latest()
-                .filter { descriptor ->
-                    descriptor.name.value != "tools.search" &&
-                        (admittedWindows[sessionId]?.contains(descriptor) != false) &&
-                        words.all {
-                            it in "${descriptor.name.value} ${descriptor.description}".lowercase()
-                        }
+                .mapNotNull { descriptor ->
+                    if (descriptor.name.value == "tools.search" ||
+                        admittedWindows[sessionId]?.contains(descriptor) == false
+                    ) {
+                        return@mapNotNull null
+                    }
+                    val name = descriptor.name.value.lowercase()
+                    val description = descriptor.description.lowercase()
+                    val nameHits = terms.count { it in name }
+                    val descriptionHits = terms.count { it !in name && it in description }
+                    val matchedTerms = nameHits + descriptionHits
+                    if (matchedTerms == 0) return@mapNotNull null
+                    SearchCandidate(
+                        descriptor = descriptor,
+                        exactName = name == normalizedQuery,
+                        allTerms = matchedTerms == terms.size,
+                        phraseInName = normalizedQuery in name,
+                        nameHits = nameHits,
+                        matchedTerms = matchedTerms,
+                        phraseInDescription = normalizedQuery in description,
+                        descriptionHits = descriptionHits,
+                    )
                 }.sortedWith(
-                    compareBy<ToolDescriptor> { it.name.value.lowercase() != query.trim().lowercase() }
-                        .thenBy { descriptor -> words.count { it !in descriptor.name.value.lowercase() } }
-                        .thenBy { it.name.value },
+                    compareByDescending<SearchCandidate> { it.exactName }
+                        .thenByDescending { it.allTerms }
+                        .thenByDescending { it.phraseInName }
+                        .thenByDescending { it.nameHits }
+                        .thenByDescending { it.matchedTerms }
+                        .thenByDescending { it.phraseInDescription }
+                        .thenByDescending { it.descriptionHits }
+                        .thenBy { it.descriptor.name.value },
                 ).asSequence()
-                // Availability can read durable session policy. Only inspect matching
+                .map { it.descriptor }
+                // Availability can read durable session policy. Only inspect ranked matching
                 // candidates, stopping when the bounded result window is full.
                 .filter { availability(sessionId, it) }
                 .take(limit)
