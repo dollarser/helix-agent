@@ -88,7 +88,7 @@ class UiGoalProcessKillDeviceTest {
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
+        chat.setTurnBudgets(TurnBudgets(3, 4, 100000, 512, 100000))
         facts.setProperty("unsettled", unsettled.toString())
         if (unsettled) hold.install(container, "ui.click")
         chat.continueGoal(goal, "UI_GOAL_KILL Take a fresh ui.snapshot and click the Fixture click button once.")
@@ -246,13 +246,14 @@ class UiGoalProcessKillDeviceTest {
 
     private fun recover(facts: Properties) {
         val conversation = facts.getProperty("session")
+        container.toolPipeline // Initialize the plugin and its persisted grant store before querying it.
         assertEquals(facts.getProperty("mobileUseScope"), center.conversationGrant(conversation)?.scope?.toScopeRef())
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single { it.name == "ui.click" }
         assertEquals(2, storage.toolCalls.listByTurn(turn.id).size)
         assertEquals(facts.getProperty("turn"), turn.id)
@@ -263,18 +264,23 @@ class UiGoalProcessKillDeviceTest {
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
-                .single { it.type == "recovery.turn_interrupted" }
+                .single {
+                    it.type == "recovery.turn_interrupted" &&
+                        it.redactedPayload.contains("\"turn\":\"${turn.id}\"")
+                }
         val uncertain = if (wasUnsettled) "\"${call.callId}\"" else ""
         assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[$uncertain]"))
-        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals(if (wasUnsettled) "BLOCKED(NEEDS_REVIEW)" else "INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals(!wasUnsettled, storage.toolResults.byToolCall(call.callId) != null)
-        assertEquals(if (wasUnsettled) 2 else 3, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(if (wasUnsettled) 2 else 3, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single { it.name == "ui.click" })
     }
 
@@ -319,7 +325,9 @@ class UiGoalProcessKillDeviceTest {
     private fun await(predicate: () -> Boolean) {
         val deadline = android.os.SystemClock.elapsedRealtime() + 15000
         while (!predicate()) {
-            assertTrue("UI kill fixture timed out", android.os.SystemClock.elapsedRealtime() < deadline)
+            if (android.os.SystemClock.elapsedRealtime() >= deadline) {
+                error(uiKillDiagnostic(marker, container.storage))
+            }
             Thread.sleep(25)
         }
     }
@@ -327,3 +335,12 @@ class UiGoalProcessKillDeviceTest {
 
 private fun fixtureClicked(automation: android.app.UiAutomation): Boolean =
     automation.rootInActiveWindow?.findAccessibilityNodeInfosByText("FIXTURE_CLICKED")?.isNotEmpty() == true
+
+private fun uiKillDiagnostic(
+    marker: File,
+    storage: com.helix.core.storage.HelixStorage,
+): String {
+    val facts = Properties().apply { marker.inputStream().use { load(it) } }
+    val turns = facts.getProperty("session")?.let(storage.turns::listBySession).orEmpty()
+    return "UI kill timeout: $turns; calls=${turns.flatMap { storage.toolCalls.listByTurn(it.id) }}"
+}

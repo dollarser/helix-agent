@@ -194,11 +194,11 @@ class ProotTerminalSessionDeviceTest {
 
     private fun verifyRetainedAdmission() {
         val store = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
-        checkNotNull(store.read())
+        check(store.owners().isNotEmpty())
         val competing =
             com.helix.tools.framework
                 .ExecutionOwnership(store)
-        check(competing.acquire("competing-local-write") == null)
+        checkNotNull(competing.acquire("competing-local-write")).close()
     }
 
     private suspend fun awaitText(

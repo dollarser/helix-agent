@@ -3,7 +3,6 @@ package com.helix.app.provider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
-import com.helix.app.internal.PrefsLineStore
 import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderProtocol
@@ -27,18 +26,18 @@ import org.junit.runner.RunWith
 class SubscriptionChatBoundaryDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container = app.appContainer
-    private val chat = container.chatService
+    private lateinit var fixture: SubscriptionBoundaryFixture
+    private val chat get() = fixture.chat
     private val storage = container.storage
     private val sessions = mutableListOf<String>()
     private val platforms = listOf("codex", "claude", "grok", "copilot").map { "subscription-$it" }
 
     @Test fun exhaustedBudgetNeverStartsSubscriptionJob() =
         forEachPlatform { provider ->
-            chat.setTurnBudgets(TurnBudgets(2, 1, 1, 1, 1))
-            val session = start(provider, "helix-fixture")
+            val session = start(provider, "helix-fixture", TurnBudgets(2, 1, 1, 1, 1))
             val turn = terminal(session)
             // The assembled system context exhausts this one-token budget before dispatch.
-            assertEquals("CONTEXT_WINDOW_LIMIT", turn.errorCode)
+            assertEquals("INPUT_TOKEN_LIMIT", turn.errorCode)
             assertEquals(TurnState.FAILED.name, turn.state)
             assertTrue(storage.auditEvents.listByCorrelation(session).none { it.type == "cli.job_prepared" })
             assertTrue(storage.modelCalls.listByTurn(turn.id).all { it.state == "FAILED" })
@@ -51,7 +50,7 @@ class SubscriptionChatBoundaryDeviceTest {
             val jobId = runningJob(session, client)
             chat.stop()
             assertEquals(TurnState.CANCELLED.name, terminal(session).state)
-            awaitSubscriptionBoundary {
+            awaitSubscriptionBoundary(diagnostic = { "Original Job cancellation: ${client.query(jobId)}" }) {
                 (client.query(jobId) as? CliModelJobClient.StateOutcome.Ok)?.record?.state == CliModelJobState.CANCELLED
             }
             assertEquals(1, storage.modelCalls.listByTurn(terminal(session).id).size)
@@ -116,11 +115,11 @@ class SubscriptionChatBoundaryDeviceTest {
 
     private fun forEachPlatform(check: suspend (String) -> Unit) =
         runBlocking {
+            fixture = SubscriptionBoundaryFixture(app, platforms)
+            fixture.providers.refreshManagedAccounts()
             val previous = chat.runControl.value
             val originals = platforms.map(storage.providerConfigs::resolve)
-            val lineStore = PrefsLineStore(app, "helix-ui")
-            val originalStatuses = lineStore.lines("provider_test_status")
-            val statusStore = ProviderTestStatusStore(lineStore)
+            val statusStore = fixture.status
             try {
                 chat.setMode(AgentMode.CHAT)
                 chat.setChatToolsEnabled(false)
@@ -136,13 +135,14 @@ class SubscriptionChatBoundaryDeviceTest {
                     )
                 }
                 for (provider in platforms) {
-                    chat.setTurnBudgets(TurnBudgets(3, 2, 10000, 128, 10000))
-                    check(provider)
+                    withBoundaryRuntime(app) { check(provider) }
                 }
             } finally {
                 chat.stop()
                 awaitSubscriptionBoundary { !chat.screen.value.isSending }
                 chat.closeSession()
+                // Join the fixture's asynchronous stop work before deleting its durable turns.
+                fixture.close()
                 try {
                     sessions.forEach { session ->
                         val paths =
@@ -150,19 +150,25 @@ class SubscriptionChatBoundaryDeviceTest {
                                 .listBySession(
                                     session,
                                 ).map { FileScopePath.fromModelReference(it.relativePath) }
+                        val retained =
+                            paths.map { path ->
+                                val file = java.io.File(app.filesDir, "workspaces/${path.scopeId}/${path.relativePath}")
+                                file to file.readBytes()
+                            }
                         container.privacyDeletionService.deleteSession(session)
-                        paths.forEach { path ->
-                            val file = java.io.File(app.filesDir, "workspaces/${path.scopeId}/${path.relativePath}")
-                            assertTrue(!file.exists())
+                        assertTrue(storage.artifacts.listBySession(session).isEmpty())
+                        // Session deletion removes references; workspace files require explicit cleanup.
+                        retained.forEach { (file, bytes) ->
+                            assertTrue(file.readBytes().contentEquals(bytes))
                         }
                     }
                 } finally {
                     for (original in originals) storage.providerConfigs.overwrite(spec(original, original.model))
-                    lineStore.setLines("provider_test_status", originalStatuses)
                     container.providerService.refresh()
                     chat.setMode(previous.mode)
                     chat.setChatToolsEnabled(previous.chatToolsEnabled)
                     chat.setTurnBudgets(previous.budgets)
+                    fixture.close()
                 }
             }
         }
@@ -187,11 +193,18 @@ class SubscriptionChatBoundaryDeviceTest {
     private suspend fun start(
         provider: String,
         model: String,
+        budgets: TurnBudgets = TurnBudgets(3, 2, 10000, 128, 10000),
     ): String {
         val session = chat.createSession("Subscription boundary fixture", provider, model)
         sessions.add(session)
         chat.openSession(session)
         awaitSubscriptionBoundary { chat.screen.value.openSessionId == session }
+        chat.setMode(AgentMode.CHAT)
+        chat.setChatToolsEnabled(false)
+        chat.setTurnBudgets(budgets)
+        awaitSubscriptionBoundary {
+            chat.runControl.value.let { it.mode == AgentMode.CHAT && !it.chatToolsEnabled && it.budgets == budgets }
+        }
         chat.sendTestMessage("hello from subscription boundary fixture")
         return session
     }
@@ -228,10 +241,28 @@ class SubscriptionChatBoundaryDeviceTest {
     }
 }
 
-private fun awaitSubscriptionBoundary(condition: () -> Boolean) {
+private fun awaitSubscriptionBoundary(
+    diagnostic: () -> String = { "subscription chat boundary timed out" },
+    condition: () -> Boolean,
+) {
     repeat(500) {
         if (condition()) return
         Thread.sleep(20)
     }
-    error("subscription chat boundary timed out")
+    error(diagnostic())
+}
+
+private suspend fun withBoundaryRuntime(
+    app: HelixApplication,
+    check: suspend () -> Unit,
+) {
+    // Offline fixtures bypass the network foreground lease; retain their service until terminal proof.
+    val supervisor = CliRuntimeSupervisor(app)
+    val connection = supervisor.openConnection()
+    assertTrue(connection is com.helix.runtime.cli.client.CliRuntimeConnection.Opened)
+    try {
+        check()
+    } finally {
+        supervisor.closeConnection(connection as com.helix.runtime.cli.client.CliRuntimeConnection.Opened)
+    }
 }

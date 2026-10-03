@@ -3,12 +3,9 @@ package com.helix.app.provider
 import android.os.Bundle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
@@ -21,7 +18,6 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.repository.ProviderConfigSpec
-import com.helix.provider.api.ProbeOutcome
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobState
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
@@ -40,6 +36,7 @@ class CliGoalProcessKillDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
+    private lateinit var fixture: SubscriptionBoundaryFixture
     private val successful get() = InstrumentationRegistry.getArguments().getString("cli.owner.successful") == "true"
     private val resultHeld =
         java.util.concurrent.atomic
@@ -86,11 +83,21 @@ class CliGoalProcessKillDeviceTest {
         save(facts)
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
         setModel(provider, "helix-fixture")
-        val probe = container.providerService.runConnectionTest(provider)
-        assertTrue("Synthetic Runtime probe failed: $probe", probe is ProbeOutcome.Ok)
+        fixture = SubscriptionBoundaryFixture(app, listOf(provider))
+        fixture.providers.refreshManagedAccounts()
+        fixture.status.recordPassed(
+            provider,
+            System.currentTimeMillis(),
+            com.helix.provider.api.ProviderCapabilities.parse(
+                container.storage.providerConfigs
+                    .resolve(provider)
+                    .capabilitySnapshot,
+            ),
+            listOf("helix-fixture", "helix-fixture-wait"),
+        )
         val model = if (successful) "helix-fixture" else "helix-fixture-wait"
         val session =
-            container.chatService.createSession(
+            fixture.chat.createSession(
                 "CLI Goal kill ${java.util.UUID.randomUUID()}",
                 provider,
                 model,
@@ -103,7 +110,7 @@ class CliGoalProcessKillDeviceTest {
     private suspend fun prepare() {
         val facts = configure()
         val provider = facts.getProperty("provider")
-        val chat = container.chatService
+        val chat = fixture.chat
         val session = facts.getProperty("session")
         val goal =
             chat.createGoal(
@@ -142,15 +149,18 @@ class CliGoalProcessKillDeviceTest {
                 .listByGoal(goal)
                 .single()
         val stored = container.storage.goals.resolve(goal)
+        facts.setProperty("run", run.id)
+        facts.setProperty(
+            "turn",
+            container.storage.turns
+                .listBySession(session)
+                .single()
+                .id,
+        )
         val pending = container.storage.goalUsageReservations.pendingForRun(run.id)
         facts.setProperty("tokens", (stored.totalTokens + pending.sumOf { it.reservedTokens }).toString())
         save(facts)
-        InstrumentationRegistry.getInstrumentation().sendStatus(
-            2,
-            Bundle().apply {
-                putString("stream", "CLI_OWNER_KILL_READY pid=${android.os.Process.myPid()} job=$job\n")
-            },
-        )
+        announceCliGoalReady(job)
         Thread.sleep(15000)
         error("Host did not kill main App")
     }
@@ -163,12 +173,7 @@ class CliGoalProcessKillDeviceTest {
         compose.setContent {
             MaterialTheme { ChatScreen(chat, container.providerService, container.privacyDeletionService) }
         }
-        val title =
-            container.storage.sessions
-                .resolve(session)
-                .title
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText(title))
-        compose.onNodeWithText(title).performClick()
+        chat.openSession(session)
         await {
             chat.screen.value.subscriptionRecoveries
                 .any { it.modelCallId == facts.getProperty("call") }
@@ -184,8 +189,8 @@ class CliGoalProcessKillDeviceTest {
         val chat = container.chatService
         val callId = facts.getProperty("call")
         openRecoveryConversation(facts)
-        assertTrue(!chat.screen.value.isSending)
-        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("subscription-query-$callId"))
+        await { !chat.screen.value.isSending }
+        compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-query-$callId"))
         compose.onNodeWithTag("subscription-query-$callId").performClick()
         await {
             chat.screen.value.subscriptionRecoveries
@@ -198,14 +203,14 @@ class CliGoalProcessKillDeviceTest {
                 .status
         assertTrue(status != SubscriptionRecoveryStatus.UNKNOWN)
         if (status == SubscriptionRecoveryStatus.SUCCEEDED_UNVERIFIED) {
-            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("subscription-result-$callId"))
+            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-result-$callId"))
             compose.onNodeWithTag("subscription-result-$callId").performClick()
             await {
                 chat.screen.value.subscriptionRecoveries
                     .single { it.modelCallId == callId }
                     .output != null
             }
-            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("subscription-result-text-$callId"))
+            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-result-text-$callId"))
             compose.onNodeWithTag("subscription-result-text-$callId").assertTextEquals("HELIX_OK")
         }
         if (status == SubscriptionRecoveryStatus.RUNNING) {
@@ -222,24 +227,12 @@ class CliGoalProcessKillDeviceTest {
     private fun recover(facts: Properties) {
         val storage = container.storage
         val goalId = facts.getProperty("goal")
-        await { storage.goals.resolve(goalId).state == "PAUSED" }
-        val goal = storage.goals.resolve(goalId)
-        assertEquals(1, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
-        assertEquals(
-            "INTERRUPTED",
-            storage.goalRuns
-                .listByGoal(goalId)
-                .single()
-                .outcome,
-        )
-        assertEquals(
-            "INTERRUPTED",
-            storage.turns
-                .listBySession(facts.getProperty("session"))
-                .single()
-                .state,
-        )
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
+        val run = storage.goalRuns.listByGoal(goalId).single { it.id == facts.getProperty("run") }
+        assertEquals(1, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
+        assertEquals("INTERRUPTED", run.outcome)
         val binding = SubscriptionJobBindingStore(storage).resolve(facts.getProperty("call"))
         assertEquals(facts.getProperty("binding"), binding.toString())
         val id = binding.getValue("jobId").jsonPrimitive.content
@@ -259,7 +252,9 @@ class CliGoalProcessKillDeviceTest {
             1,
             storage.auditEvents.listByCorrelation(facts.getProperty("session")).count { it.type == "cli.job_prepared" },
         )
-        assertEquals(goal, storage.goals.resolve(goalId))
+        assertEquals(run, storage.goalRuns.listByGoal(goalId).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         InstrumentationRegistry.getInstrumentation().sendStatus(
             2,
             Bundle().apply {
@@ -316,4 +311,13 @@ class CliGoalProcessKillDeviceTest {
             Thread.sleep(25)
         }
     }
+}
+
+private fun announceCliGoalReady(job: String) {
+    InstrumentationRegistry.getInstrumentation().sendStatus(
+        2,
+        Bundle().apply {
+            putString("stream", "CLI_OWNER_KILL_READY pid=${android.os.Process.myPid()} job=$job\n")
+        },
+    )
 }

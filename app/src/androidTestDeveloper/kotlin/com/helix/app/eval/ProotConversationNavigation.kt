@@ -3,12 +3,12 @@ package com.helix.app.eval
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import com.helix.app.HelixApplication
 import com.helix.app.ui.ChatScreen
 import org.junit.Assert.assertEquals
@@ -23,17 +23,11 @@ internal fun openProotConversation(
     val container = app.appContainer
     val chat = container.chatService
     val session = facts.getProperty("session")
-    chat.closeSession()
-    compose.waitUntil(15000) { chat.screen.value.openSessionId == null }
+    chat.openSession(session)
+    compose.waitUntil(15000) { chat.screen.value.openSessionId == session }
     compose.setContent {
         MaterialTheme { ChatScreen(chat, container.providerService, container.privacyDeletionService) }
     }
-    val title =
-        container.storage.sessions
-            .resolve(session)
-            .title
-    compose.onNode(hasScrollAction()).performScrollToNode(hasText(title))
-    compose.onNodeWithText(title).performClick()
     compose.waitUntil(15000) {
         val screen = chat.screen.value
         screen.openSessionId == session && screen.toolTimeline.any { it.callId == facts.getProperty("call") }
@@ -44,7 +38,12 @@ internal fun openProotConversation(
             .single { it.callId == facts.getProperty("call") }
             .prootRecoveryAvailable,
     )
-    assertTrue(!chat.screen.value.isSending)
+    compose.waitUntil(15000) { !chat.screen.value.isSending }
+    // A real history-browsing gesture disables tail following; semantic jumps alone do not.
+    compose.onNodeWithTag("chat-timeline").performTouchInput { swipeDown() }
+    val details = "tool-details-${facts.getProperty("call")}"
+    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag(details))
+    compose.onNodeWithTag(details).performClick()
 }
 
 internal fun revealProotAction(
@@ -52,7 +51,7 @@ internal fun revealProotAction(
     tag: String,
 ) {
     if (compose.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty()) {
-        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag(tag))
+        compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag(tag))
     }
 }
 

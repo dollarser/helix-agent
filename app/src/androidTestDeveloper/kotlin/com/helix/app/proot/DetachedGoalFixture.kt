@@ -92,7 +92,7 @@ internal class DetachedGoalFixture(
                 ScriptedTaskModelServer.Step("goal.report") { report },
                 ScriptedTaskModelServer.Step(DetachedJobTools.COLLECT) { originalResult() },
                 ScriptedTaskModelServer.Step("goal.report") { report },
-            ).let { if (collectInModel) it else it.take(2) },
+            ).let { if (collectInModel) it else it.take(2) }.withDiscovery(),
         )
         turn =
             container.agentRuntime
@@ -102,7 +102,7 @@ internal class DetachedGoalFixture(
                         providerId = ProviderId(requireNotNull(provider)),
                         mode = AgentMode.GOAL,
                         text = "Run the detached command, collect its original result, then report completion.",
-                        budgets = TurnBudgets(10, 8, 65536, 4096, 100000),
+                        budgets = TurnBudgets(12, 12, 65536, 4096, 100000),
                         goalId = GoalId(goal),
                         clientRequestId = UUID.randomUUID().toString(),
                         continuousGoal = false,
@@ -147,7 +147,7 @@ internal class DetachedGoalFixture(
                 ScriptedTaskModelServer.Step(DetachedJobTools.COLLECT) {
                     buildJsonObject { put("originalCallId", originalCall()) }.toString()
                 },
-            ),
+            ).withDiscovery(),
         )
         turn =
             container.agentRuntime
@@ -157,13 +157,30 @@ internal class DetachedGoalFixture(
                         providerId = ProviderId(requireNotNull(provider)),
                         mode = AgentMode.ACT,
                         text = "Start the task, read the time, await the original job and collect its result.",
-                        budgets = TurnBudgets(10, 8, 65536, 4096, 100000),
+                        budgets = TurnBudgets(12, 12, 65536, 4096, 100000),
                         clientRequestId = UUID.randomUUID().toString(),
                     ),
                 ).value
     }
 
     private val report = """{"status":"complete","summary":"Original result verified"}"""
+
+    private fun List<ScriptedTaskModelServer.Step>.withDiscovery(): List<ScriptedTaskModelServer.Step> =
+        flatMap { step ->
+            if (step.toolName == "goal.report") {
+                listOf(step)
+            } else {
+                listOf(
+                    ScriptedTaskModelServer.Step("tools.search") {
+                        buildJsonObject {
+                            put("query", step.toolName)
+                            put("limit", 1)
+                        }.toString()
+                    },
+                    step,
+                )
+            }
+        }
 
     fun originalResult(): String {
         val currentTurn = storage.turns.listBySession(session).single()
@@ -193,6 +210,13 @@ internal class DetachedGoalFixture(
     }
 
     suspend fun close() {
+        storage.toolCalls.listByTurn(turn).forEach { call ->
+            println(
+                "Detached Goal fixture: ${call.name} ${call.state}: ${storage.toolResults.byToolCall(
+                    call.id,
+                )?.summary}",
+            )
+        }
         if (turn.isNotEmpty()) container.chatService.stopTask(turn)
         container.chatService.closeSession()
         container.profileStore.switchTo(previousProfile)

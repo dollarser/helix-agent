@@ -213,10 +213,10 @@ class FileGoalProcessKillDeviceTest {
     private fun recover(facts: Properties) {
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single()
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
@@ -226,20 +226,25 @@ class FileGoalProcessKillDeviceTest {
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
-                .single { it.type == "recovery.turn_interrupted" }
+                .single {
+                    it.type == "recovery.turn_interrupted" &&
+                        it.redactedPayload.contains("\"turn\":\"${turn.id}\"")
+                }
         val uncertain = if (wasUnsettled) "\"${call.callId}\"" else ""
         assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[$uncertain]"))
-        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals(if (wasUnsettled) "BLOCKED(NEEDS_REVIEW)" else "INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals("file goal published\n", target.readText())
         assertEquals(facts.getProperty("modified").toLong(), target.lastModified())
         assertEquals(!wasUnsettled, storage.toolResults.byToolCall(call.callId) != null)
-        assertEquals(if (wasUnsettled) 1 else 2, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(if (wasUnsettled) 1 else 2, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
     }
 

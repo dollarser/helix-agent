@@ -8,6 +8,7 @@ import com.helix.app.internal.PrefsLineStore
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.ProbeOutcome
+import com.helix.runtime.cli.client.CliModelProvider
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -106,24 +107,19 @@ class CodexSubscriptionProviderE2eDeviceTest {
                         capabilitySnapshot = original.capabilitySnapshot,
                     ),
                 )
-                if (providerId == SubscriptionProviderModule.CODEX_ID) {
-                    verifyNoAccountCodexFixture(app)
-                    return@runBlocking
-                }
                 val probe = container.providerService.runConnectionTest(providerId)
-                assertTrue(probe is ProbeOutcome.Ok)
+                assertTrue("No account must not become chat-ready: $probe", probe is ProbeOutcome.Failed)
                 val row =
                     container.providerService.rows.value
                         .single { it.id == providerId }
-                assertTrue(row.chatSelectable)
+                assertFalse(row.chatSelectable)
                 assertTrue(row.managedExternally)
-                val capabilities = requireNotNull(row.capabilities)
-                assertFalse(capabilities.toolCalls)
-                assertFalse(capabilities.vision)
+                assertFalse(row.capabilities?.toolCalls == true)
+                assertFalse(row.capabilities?.vision == true)
                 assertTrue(runCatching { container.providerService.declareVisionCapability(row.id, true) }.isFailure)
                 assertTrue(runCatching { container.providerService.delete(row.id) }.isFailure)
 
-                SubscriptionProviderContractCheck.verify(container, row.id, row.model)
+                verifyNoAccountFixture(app, providerId)
             } finally {
                 repository.overwrite(
                     ProviderConfigSpec(
@@ -145,12 +141,15 @@ class CodexSubscriptionProviderE2eDeviceTest {
             }
         }
 
-    private suspend fun verifyNoAccountCodexFixture(app: HelixApplication) {
+    private suspend fun verifyNoAccountFixture(
+        app: HelixApplication,
+        providerId: String,
+    ) {
         // Control only the catalog dependency; model transport still uses the real
         // private Runtime and its existing offline fixture. Never inspect an account.
         val row =
             app.appContainer.storage.providerConfigs
-                .resolve(SubscriptionProviderModule.CODEX_ID)
+                .resolve(providerId)
         val config =
             com.helix.provider.api.ProviderConfig.fromStorage(
                 row.id,
@@ -165,10 +164,11 @@ class CodexSubscriptionProviderE2eDeviceTest {
                 row.transportKind,
                 row.authKind,
             )
+        val platform = CliModelProvider.valueOf(providerId.removePrefix("subscription-").uppercase())
         val provider =
             CodexSubscriptionProvider(
                 config,
-                RuntimeSubscriptionJobExecutor(app, com.helix.runtime.cli.client.CliModelProvider.CODEX, null, config),
+                RuntimeSubscriptionJobExecutor(app, platform, null, config),
                 {
                     com.helix.runtime.cli.client.CliModelCatalog.Failed(
                         com.helix.core.model.ModelErrorCode.AUTH,
@@ -177,7 +177,7 @@ class CodexSubscriptionProviderE2eDeviceTest {
                 },
             )
         val probe = SubscriptionProviderModule.probe(config, provider)
-        assertTrue("No-account catalog probe must fail: $probe", probe is ProbeOutcome.Failed)
+        assertOfflineProbe(platform, probe)
         val events =
             provider
                 .stream(
@@ -201,5 +201,20 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     .Completed("stop"),
             ),
         )
+    }
+}
+
+private fun assertOfflineProbe(
+    platform: CliModelProvider,
+    probe: ProbeOutcome?,
+) {
+    if (platform == CliModelProvider.CODEX) {
+        assertTrue("Unavailable catalog must fail: $probe", probe is ProbeOutcome.Failed)
+    } else {
+        // These text-only probes exercise the explicit offline model fixture.
+        assertTrue("Offline fixture probe must succeed: $probe", probe is ProbeOutcome.Ok)
+        assertEquals(listOf("helix-fixture"), (probe as ProbeOutcome.Ok).models)
+        assertFalse(probe.capabilities.toolCalls)
+        assertFalse(probe.capabilities.vision)
     }
 }

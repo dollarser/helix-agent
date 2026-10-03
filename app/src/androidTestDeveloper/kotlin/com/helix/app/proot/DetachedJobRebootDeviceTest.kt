@@ -102,7 +102,7 @@ class DetachedJobRebootDeviceTest {
         assertEquals(run, storage.goalRuns.resolve(run.id))
         assertEquals(lease, storage.goalUsageReservations.byId(lease.id))
         assertEquals(1, storage.turns.listBySession(session).size)
-        assertEquals(2, storage.toolCalls.listByTurn(facts.getProperty("turn")).size)
+        assertEquals(3, storage.toolCalls.listByTurn(facts.getProperty("turn")).size)
         assertFalse(File(app.filesDir, "workspaces/app/output/${facts.getProperty("output")}").exists())
         assertFalse(DetachedJobDashboard.read(storage).single { it.callId == job.callId }.settlementPending)
         if (missingRecord) {

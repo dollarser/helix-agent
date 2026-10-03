@@ -92,6 +92,8 @@ class A2aProcessKillDeviceTest {
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
         chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
+        com.helix.app.test
+            .discoverFixtureTool(container.toolPipeline, session, facts.getProperty("tool"))
         chat.continueGoal(
             goal,
             "A2A_KILL_TOOL=${facts.getProperty("tool")} Invoke this tool once with task=kill and stream=false.",
@@ -176,7 +178,12 @@ class A2aProcessKillDeviceTest {
                 }
             if (call != null) {
                 assertEquals(facts.getProperty("tool"), call.name)
-                assertEquals("{\"stream\":false,\"task\":\"kill\"}", call.argsJson)
+                assertEquals(
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement("{\"stream\":false,\"task\":\"kill\"}"),
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement(call.argsJson),
+                )
                 if (call.state == "AWAITING_APPROVAL") {
                     val approval = requireNotNull(container.storage.approvals.byToolCall(call.callId))
                     if (approved.add(approval.id)) container.chatService.approveApproval(approval.id)
@@ -194,10 +201,10 @@ class A2aProcessKillDeviceTest {
     private fun recover(facts: Properties) {
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single()
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
@@ -206,21 +213,26 @@ class A2aProcessKillDeviceTest {
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
-                .single { it.type == "recovery.turn_interrupted" }
+                .single {
+                    it.type == "recovery.turn_interrupted" &&
+                        it.redactedPayload.contains("\"turn\":\"${turn.id}\"")
+                }
         assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[\"${call.callId}\"]"))
-        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals("BLOCKED(NEEDS_REVIEW)", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals(if (unknownTaskId) null else "task-kill", storage.a2aTasks.resolve(call.callId)?.taskId)
         assertTrue(storage.a2aTasks.resolve(call.callId)?.state != "COMPLETED")
         val approval = requireNotNull(storage.approvals.byToolCall(call.callId))
         assertEquals("APPROVED", approval.decision)
         assertTrue(approval.consumedAt != null)
-        assertEquals(1, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(1, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
     }
 

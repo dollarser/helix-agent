@@ -79,7 +79,8 @@ internal class DetachedJobJourneyFixture(
     fun denyOutput() {
         storage.sessionPermissionConfigs.setForSession(
             id,
-            SessionPermissionConfig.custom(mapOf(OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.DENY)),
+            // This fixture has no selected session workspace; scope:app is an external target.
+            SessionPermissionConfig.custom(mapOf(OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.DENY)),
             System.currentTimeMillis(),
         )
     }

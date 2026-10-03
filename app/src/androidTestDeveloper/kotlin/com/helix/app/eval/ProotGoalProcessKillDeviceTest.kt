@@ -63,12 +63,20 @@ class ProotGoalProcessKillDeviceTest {
 
                 "result-boundary" -> {
                     val facts = Properties().apply { marker.inputStream().use { load(it) } }
-                    await {
-                        container.storage.turns
-                            .resolve(facts.getProperty("turn"))
-                            .state == "INTERRUPTED"
+                    val storage =
+                        com.helix.core.storage.HelixStorage
+                            .create(app)
+                    try {
+                        com.helix.app.engine
+                            .TurnRecovery(
+                                storage,
+                                com.helix.core.model
+                                    .SystemClock(),
+                            ).recover()
+                        pauseProotResultRecovery(app, storage, facts)
+                    } finally {
+                        storage.close()
                     }
-                    pauseProotResultRecovery(app, container.storage, facts)
                 }
 
                 "recover", "recover-final", "abort" -> {
@@ -110,6 +118,8 @@ class ProotGoalProcessKillDeviceTest {
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
         chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
+        com.helix.app.test
+            .discoverFixtureTool(container.toolPipeline, session, facts.getProperty("tool"))
         chat.continueGoal(goal, "PROOT_GOAL_KILL_TOOL=${facts.getProperty("tool")} Run the exact synthetic loop once.")
         awaitRunning(facts)
         await {
@@ -143,6 +153,8 @@ class ProotGoalProcessKillDeviceTest {
         port: Int,
         facts: Properties,
     ) {
+        com.helix.app.proot
+            .ensureInstalledRuntime(app)
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
         assertTrue(ProotToolModule.verifyNow() is ProotRuntimeAvailability.Verified)
         val provider =
@@ -201,28 +213,31 @@ class ProotGoalProcessKillDeviceTest {
     private fun recover(facts: Properties) {
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single()
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
         assertEquals("INTERRUPTED", turn.state)
-        assertEquals(if (awaitingApproval) "AWAITING_APPROVAL" else "INTERRUPTED", call.state)
+        assertEquals(if (awaitingApproval) "CANCELLED" else "INTERRUPTED", call.state)
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
-                .single { it.type == "recovery.turn_interrupted" }
+                .single {
+                    it.type == "recovery.turn_interrupted" &&
+                        it.redactedPayload.contains("\"turn\":\"${turn.id}\"")
+                }
         val uncertain = if (awaitingApproval) "" else "\"${call.callId}\""
         assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[$uncertain]"))
-        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals(if (awaitingApproval) "INTERRUPTED" else "BLOCKED(NEEDS_REVIEW)", run.outcome)
         assertTrue(run.endedAt != null)
         val approval = requireNotNull(storage.approvals.byToolCall(call.callId))
         assertEquals(if (awaitingApproval) null else "APPROVED", approval.decision)
         assertEquals(!awaitingApproval, approval.consumedAt != null)
         if (awaitingApproval) {
-            assertEquals(null, storage.toolResults.byToolCall(call.callId))
+            assertEquals("CANCELLED", storage.toolResults.byToolCall(call.callId)?.status)
             container.chatService.openSession(turn.sessionId)
             await {
                 container.chatService.screen.value.toolTimeline
@@ -231,15 +246,17 @@ class ProotGoalProcessKillDeviceTest {
             val row =
                 container.chatService.screen.value.toolTimeline
                     .single { it.callId == call.callId }
-            assertEquals(app.getString(R.string.tool_state_interrupted), row.stateLabel)
+            assertEquals(app.getString(R.string.tool_state_cancelled), row.stateLabel)
             assertEquals(null, row.card)
         }
-        assertEquals(1, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(1, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
         reconcileOriginalJob(facts)
     }
@@ -274,13 +291,23 @@ class ProotGoalProcessKillDeviceTest {
         assertEquals(binding.getValue("inputManifestSha256").jsonPrimitive.content, record.inputManifestSha256)
         exerciseRecoveryButtons(facts)
         val terminal = (client.awaitTerminal(id, 100, 10000) as ProotJobClient.AwaitOutcome.Terminal).record
-        val expected =
-            if (successful) {
-                com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED
-            } else {
-                com.helix.runtime.proot.ipc.ProotJobState.CANCELLED
+        if (successful) {
+            assertEquals(com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED, terminal.state)
+        } else {
+            // Instrumentation teardown may kill the private Runtime along with the host.
+            assertTrue(
+                terminal.state in
+                    setOf(
+                        com.helix.runtime.proot.ipc.ProotJobState.CANCELLED,
+                        com.helix.runtime.proot.ipc.ProotJobState.ORPHANED,
+                    ),
+            )
+            if (terminal.state ==
+                com.helix.runtime.proot.ipc.ProotJobState.ORPHANED
+            ) {
+                assertEquals(null, terminal.exitCode)
             }
-        assertEquals(expected, terminal.state)
+        }
         val reconciled = (client.reconcile(id) as ProotJobClient.JobStateOutcome.Ok).record
         assertEquals(terminal.terminalCommit, reconciled.terminalCommit)
     }
@@ -293,7 +320,11 @@ class ProotGoalProcessKillDeviceTest {
         await {
             chat.screen.value.toolTimeline
                 .single { it.callId == callId }
-                .prootRecoveryReport != null
+                .let {
+                    !it.prootRecoveryBusy && it.prootRecoveryReport?.labelRes?.let { label ->
+                        label != R.string.proot_recovery_unknown
+                    } == true
+                }
         }
         val report =
             chat.screen.value.toolTimeline

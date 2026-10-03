@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.test.discoverFixtureTool
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
@@ -23,6 +24,11 @@ import java.util.Properties
 
 /** Dedicated host fixture owns the remote request while this process is killed. */
 class BrowserGoalProcessKillDeviceTest {
+    @get:org.junit.Rule
+    val activity =
+        androidx.test.ext.junit.rules
+            .ActivityScenarioRule(com.helix.app.MainActivity::class.java)
+
     private val hold = ActionResultHold()
     private val unsettled get() =
         InstrumentationRegistry.getArguments().getString("browser.goal.kill.boundary") ==
@@ -83,6 +89,7 @@ class BrowserGoalProcessKillDeviceTest {
         chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
         facts.setProperty("unsettled", unsettled.toString())
         if (unsettled) hold.install(container, "browser.click")
+        discoverFixtureTool(container.toolPipeline, session, facts.getProperty("tool"))
         chat.continueGoal(
             goal,
             "BROWSER_GOAL_KILL tab=${facts.getProperty(
@@ -104,12 +111,7 @@ class BrowserGoalProcessKillDeviceTest {
         facts.setProperty("tokens", (stored.totalTokens + pending.sumOf { it.reservedTokens }).toString())
         facts.setProperty("millis", (stored.runTimeMillis + pending.sumOf { it.reservedMillis }).toString())
         save(facts)
-        InstrumentationRegistry.getInstrumentation().sendStatus(
-            2,
-            Bundle().apply {
-                putString("stream", "BROWSER_GOAL_KILL_READY pid=${android.os.Process.myPid()}\n")
-            },
-        )
+        announceBrowserKillReady()
         Thread.sleep(30000)
         error("Host did not kill the executing browser request")
     }
@@ -217,10 +219,10 @@ class BrowserGoalProcessKillDeviceTest {
     private fun recover(facts: Properties) {
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single()
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
@@ -230,18 +232,23 @@ class BrowserGoalProcessKillDeviceTest {
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
-                .single { it.type == "recovery.turn_interrupted" }
+                .single {
+                    it.type == "recovery.turn_interrupted" &&
+                        it.redactedPayload.contains("\"turn\":\"${turn.id}\"")
+                }
         val uncertain = if (wasUnsettled) "\"${call.callId}\"" else ""
         assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[$uncertain]"))
-        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals(if (wasUnsettled) "BLOCKED(NEEDS_REVIEW)" else "INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals(!wasUnsettled, storage.toolResults.byToolCall(call.callId) != null)
-        assertEquals(if (wasUnsettled) 1 else 2, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(if (wasUnsettled) 1 else 2, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
     }
 
@@ -298,4 +305,13 @@ class BrowserGoalProcessKillDeviceTest {
             Thread.sleep(25)
         }
     }
+}
+
+private fun announceBrowserKillReady() {
+    InstrumentationRegistry.getInstrumentation().sendStatus(
+        2,
+        Bundle().apply {
+            putString("stream", "BROWSER_GOAL_KILL_READY pid=${android.os.Process.myPid()}\n")
+        },
+    )
 }

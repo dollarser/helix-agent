@@ -295,7 +295,7 @@ class ProotMultiSessionDeviceTest {
     }
 
     @Test
-    fun agentJobMutualExclusionAndAdmissionRelease() {
+    fun agentAndTerminalHaveIndependentAdmissionAndRelease() {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
@@ -308,11 +308,8 @@ class ProotMultiSessionDeviceTest {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val session = terminal.start(rel, 30_000)
 
-                    // 1. Manual terminal holds admission -> competing agent acquire must be rejected
-                    org.junit.Assert.assertNull(
-                        "Agent cannot acquire execution while terminal is active",
-                        ownership.acquire("agent-call"),
-                    )
+                    // A live terminal retains its own identity without blocking independent work.
+                    checkNotNull(ownership.acquire("agent-call")).close()
 
                     // 2. Stop and settle manual terminal -> admission is released
                     terminal.stop(session.sessionId)
@@ -320,13 +317,13 @@ class ProotMultiSessionDeviceTest {
                     terminal.settle(session.sessionId)
                     assertFalse(terminal.hasSession())
 
-                    // 3. Agent acquires exclusive permit -> terminal start must be refused
+                    // An agent permit does not consume a terminal's physical slot.
                     val agentPermit = checkNotNull(ownership.acquire("agent-call"))
                     try {
-                        assertTrue(
-                            "Terminal start must fail while agent holds admission",
-                            runCatching { terminal.start(rel, 30_000) }.isFailure,
-                        )
+                        val concurrent = terminal.start(rel, 30_000)
+                        terminal.stop(concurrent.sessionId)
+                        awaitStopped(terminal, concurrent.sessionId)
+                        terminal.settle(concurrent.sessionId)
                     } finally {
                         // 4. Release/cancel agent permit -> terminal can start again
                         agentPermit.close()
@@ -552,9 +549,9 @@ private object MultiSessionTestSupport {
         assertFalse(terminal.hasSession())
 
         val admissionStore = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
-        org.junit.Assert.assertNull(
+        assertTrue(
             "Host admission must be released after settling all sessions",
-            admissionStore.read(),
+            admissionStore.owners().isEmpty(),
         )
     }
 
@@ -601,11 +598,11 @@ private suspend fun cleanRemainingSessions(terminal: ManualTerminal) {
 
 private fun verifyRetainedAdmission(context: android.content.Context) {
     val store = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
-    checkNotNull(store.read())
+    check(store.owners().isNotEmpty())
     val competing =
         com.helix.tools.framework
             .ExecutionOwnership(store)
-    check(competing.acquire("competing-local-write") == null)
+    checkNotNull(competing.acquire("competing-local-write")).close()
 }
 
 private suspend fun awaitText(

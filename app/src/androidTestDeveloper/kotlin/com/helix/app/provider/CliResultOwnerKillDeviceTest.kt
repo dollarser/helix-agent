@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -157,7 +156,7 @@ class CliResultOwnerKillDeviceTest {
             }
         }
         if (!localOnly()) {
-            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("subscription-query-$id"))
+            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-query-$id"))
             compose.onNodeWithTag("subscription-query-$id").performClick()
             compose.waitUntil(10000) {
                 chat.screen.value.subscriptionRecoveries
@@ -172,7 +171,7 @@ class CliResultOwnerKillDeviceTest {
                     .single()
                     .status,
             )
-            compose.onNode(hasScrollAction()).performScrollToNode(hasText(expiryLabel))
+            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasText(expiryLabel))
             compose.onNodeWithText(expiryLabel).assertIsDisplayed()
             if (!chat.screen.value.subscriptionRecoveries
                     .single()
@@ -182,14 +181,14 @@ class CliResultOwnerKillDeviceTest {
                 return
             }
         }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("subscription-result-$id"))
+        compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-result-$id"))
         compose.onNodeWithTag("subscription-result-$id").performClick()
         compose.waitUntil(10000) {
             chat.screen.value.subscriptionRecoveries
                 .single()
                 .output != null
         }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("subscription-result-text-$id"))
+        compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-result-text-$id"))
         compose.onNodeWithTag("subscription-result-text-$id").assertTextEquals("HELIX_OK")
         assertEquals("INTERRUPTED", storage.turns.resolve(id).state)
         assertEquals("INTERRUPTED", storage.modelCalls.resolve(id).state)

@@ -37,6 +37,12 @@ class DetachedJobHostJourneyDeviceTest {
             server.start()
             val f = DetachedGoalFixture(app, server)
             f.prepare()
+            compose.waitUntil(10_000) { f.container.chatService.screen.value.openSessionId == f.session }
+            f.container.chatService.setMode(com.helix.core.model.AgentMode.ACT)
+            compose.waitUntil(10_000) {
+                f.container.chatService.runControl.value.mode ==
+                    com.helix.core.model.AgentMode.ACT
+            }
             val facts =
                 Properties().apply {
                     setProperty("session", f.session)
@@ -62,7 +68,7 @@ class DetachedJobHostJourneyDeviceTest {
         val session = facts.getProperty("session")
         val turn = storage.turns.listBySession(session).single()
         assertEquals("COMPLETED", turn.state)
-        assertEquals(1, storage.toolCalls.listByTurn(turn.id).size)
+        assertEquals(2, storage.toolCalls.listByTurn(turn.id).size)
         val job = DetachedJobDashboard.read(storage).single { it.sessionId == session }
         repeat(2) {
             val chat = app.appContainer.chatService
@@ -78,6 +84,6 @@ class DetachedJobHostJourneyDeviceTest {
         val output = File(app.filesDir, "workspaces/app/output/${facts.getProperty("output")}")
         assertEquals("host-job-result", output.readText())
         assertEquals(1, storage.turns.listBySession(session).size)
-        assertEquals(1, storage.toolCalls.listByTurn(turn.id).size)
+        assertEquals(2, storage.toolCalls.listByTurn(turn.id).size)
     }
 }

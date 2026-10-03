@@ -91,7 +91,7 @@ class DetachedGoalRuntimeDeathDeviceTest {
                 .size,
         )
         assertEquals(
-            2,
+            3,
             f.storage.toolCalls
                 .listByTurn(f.turn)
                 .size,

@@ -62,7 +62,7 @@ class WorkspaceJobDeviceTest {
             val result = root.resolve("output/result.txt").toFile()
             root.resolve("input.txt").toFile().writeText("changed after launch")
             f.storage.sessions.updateDetails(f.id, f.job.title, next.directoryRef)
-            assertThrows(IllegalStateException::class.java) { f.container.fileManager.cleanupWorkspace(originalId) }
+            assertThrows(IllegalArgumentException::class.java) { f.container.fileManager.cleanupWorkspace(originalId) }
             assertEquals(ProotJobState.SUCCEEDED, f.awaitTerminal().state)
             f.storage.sessions.updateDetails(f.id, f.job.title, "scope:$originalId:")
             deny(f, OperationEffect.FILE_MUTATION_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL)

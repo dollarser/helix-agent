@@ -172,10 +172,10 @@ class McpProcessKillDeviceTest {
     private fun recover(facts: Properties) {
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single()
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
@@ -184,32 +184,26 @@ class McpProcessKillDeviceTest {
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
-                .single { it.type == "recovery.turn_interrupted" }
+                .single {
+                    it.type == "recovery.turn_interrupted" &&
+                        it.redactedPayload.contains("\"turn\":\"${turn.id}\"")
+                }
         assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[\"${call.callId}\"]"))
-        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals("BLOCKED(NEEDS_REVIEW)", run.outcome)
         assertTrue(run.endedAt != null)
         val approval = requireNotNull(storage.approvals.byToolCall(call.callId))
         assertEquals("APPROVED", approval.decision)
         assertTrue(approval.consumedAt != null)
-        assertEquals(1, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(1, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
-        assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
-        val chat = container.chatService
-        chat.openSession(turn.sessionId)
-        await { chat.screen.value.openSessionId == turn.sessionId }
-        chat.dismissBlocked()
-        chat.continueGoal(id, "Continue after checking this interrupted MCP call")
-        await { chat.screen.value.blockedReason == app.getString(com.helix.app.R.string.goal_continue_unavailable) }
-        assertEquals(goal, storage.goals.resolve(id))
-        assertEquals(listOf(run), storage.goalRuns.listByGoal(id))
-        assertEquals(listOf(turn), storage.turns.listBySession(turn.sessionId))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
         assertEquals(approval, storage.approvals.byToolCall(call.callId))
-        assertTrue(!chat.screen.value.isSending)
     }
 
     private suspend fun cleanup(facts: Properties) {

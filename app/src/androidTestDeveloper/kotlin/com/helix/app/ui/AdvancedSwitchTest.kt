@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -35,7 +36,7 @@ class AdvancedSwitchTest {
 
         // --- Standard: the switch entry exists (developer build) and is risk-gated ---
         composeRule.navigateTo("settings/permissions")
-        composeRule.onNodeWithText("当前：Standard（默认）").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Standard（默认）")
         composeRule.onNodeWithTag("settings-advanced-switch").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings-risk-dialog").assertIsDisplayed()
@@ -45,7 +46,7 @@ class AdvancedSwitchTest {
         composeRule.waitForIdle()
 
         // --- switched: the UI shows Advanced and the store persisted it ---
-        composeRule.onNodeWithText("当前：Advanced").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Advanced")
         composeRule.onNodeWithTag("settings-root-section").assertExists()
         composeRule.onNodeWithTag("settings-automation-section").assertExists()
         assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
@@ -69,12 +70,12 @@ class AdvancedSwitchTest {
         composeRule.waitForIdle()
         assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
         composeRule.navigateTo("settings/permissions")
-        composeRule.onNodeWithText("当前：Advanced").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Advanced")
 
         // --- reversible: back to Standard without the risk dialog (downgrade) ---
         composeRule.onNodeWithTag("settings-advanced-exit").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("当前：Standard（默认）").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Standard（默认）")
         assertEquals(SafetyProfile.STANDARD, container.profileStore.profile)
     }
 }

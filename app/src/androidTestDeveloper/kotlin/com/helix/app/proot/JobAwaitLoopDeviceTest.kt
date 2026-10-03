@@ -23,7 +23,7 @@ class JobAwaitLoopDeviceTest {
 
     @Test fun openManualTerminalDoesNotBlockBackgroundTimeWaitAndCollect() = journey(true)
 
-    private fun journey(withTerminal: Boolean) =
+    private fun journey(withTerminal: Boolean): Unit =
         runBlocking {
             compose.resetDeterministicUiState()
             ScriptedTaskModelServer().use { server ->
@@ -48,7 +48,9 @@ class JobAwaitLoopDeviceTest {
                             .resolve(fixture.turn)
                             .state,
                     )
-                    val calls = fixture.storage.toolCalls.listByTurn(fixture.turn)
+                    val allCalls = fixture.storage.toolCalls.listByTurn(fixture.turn)
+                    assertEquals(4, allCalls.count { it.name == "tools.search" && it.state == "COMPLETED" })
+                    val calls = allCalls.filter { it.name != "tools.search" }
                     assertEquals(
                         listOf(DetachedJobTools.START, "time.now", DetachedJobTools.AWAIT, DetachedJobTools.COLLECT),
                         calls.map { it.name },

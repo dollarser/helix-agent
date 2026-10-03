@@ -82,7 +82,7 @@ class DetachedJobRegistrationDeviceTest {
                 exerciseUserActions(registry, owner, start, root, userActions)
                 assertEquals(1, storage.toolCalls.listByTurn(id).size)
             } else {
-                exercise(registry, owner, start, root)
+                exercise(registry, owner, start, root, userActions)
             }
             assertEquals(2, budgetAccesses)
         } finally {
@@ -107,6 +107,7 @@ class DetachedJobRegistrationDeviceTest {
         owner: ExecutionOwnership,
         start: ExecutableToolCall,
         root: File,
+        actions: DetachedJobUserActions,
     ) {
         val accepted = execute(registry, owner, start) as ToolExecutorResult.Completed
         assertEquals(
@@ -124,12 +125,26 @@ class DetachedJobRegistrationDeviceTest {
                 args = buildJsonObject { put("originalCallId", start.toolCallId) },
             )
         val until = android.os.SystemClock.elapsedRealtime() + 20_000
+        val ungoverned = execute(registry, owner, control)
+        assertTrue(ungoverned.toString(), ungoverned is ToolExecutorResult.Failed)
+        assertTrue((ungoverned as ToolExecutorResult.Failed).detail.startsWith("JOB_OBSERVATION_REQUIRES_COMPLETION"))
+        val job =
+            BackgroundJobUi(
+                start.toolCallId,
+                requireNotNull(start.turnId),
+                requireNotNull(start.sessionId),
+                "Registered Job",
+                CommandDetailState.SUBMITTED,
+                true,
+            )
         var terminal = false
         while (!terminal && android.os.SystemClock.elapsedRealtime() < until) {
-            val state = execute(registry, owner, control) as ToolExecutorResult.Completed
-            terminal = state.output.jsonObject
-                .getValue("terminal")
-                .jsonPrimitive.content == "true"
+            val state = actions.perform(job, BackgroundJobAction.QUERY) { false }
+            assertTrue(
+                state.toString(),
+                state in setOf(BackgroundJobActionOutcome.ACTIVE, BackgroundJobActionOutcome.TERMINAL_PENDING),
+            )
+            terminal = state == BackgroundJobActionOutcome.TERMINAL_PENDING
             if (!terminal) Thread.sleep(100)
         }
         assertTrue(terminal)

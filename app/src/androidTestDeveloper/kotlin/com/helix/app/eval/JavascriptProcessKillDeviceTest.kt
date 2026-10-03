@@ -172,15 +172,15 @@ class JavascriptProcessKillDeviceTest {
         }
         val storage = container.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single()
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
         assertEquals("INTERRUPTED", turn.state)
-        assertEquals(if (awaitingApproval) "AWAITING_APPROVAL" else "INTERRUPTED", call.state)
+        assertEquals(if (awaitingApproval) "CANCELLED" else "INTERRUPTED", call.state)
         val recoveryAudit =
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
@@ -193,7 +193,7 @@ class JavascriptProcessKillDeviceTest {
         assertEquals(if (awaitingApproval) null else "APPROVED", approval.decision)
         assertEquals(!awaitingApproval, approval.consumedAt != null)
         if (awaitingApproval) {
-            assertEquals(null, storage.toolResults.byToolCall(call.callId))
+            assertEquals("CANCELLED", storage.toolResults.byToolCall(call.callId)?.status)
             container.chatService.openSession(turn.sessionId)
             await {
                 container.chatService.screen.value.toolTimeline
@@ -202,15 +202,17 @@ class JavascriptProcessKillDeviceTest {
             val row =
                 container.chatService.screen.value.toolTimeline
                     .single { it.callId == call.callId }
-            assertEquals(app.getString(R.string.tool_state_interrupted), row.stateLabel)
+            assertEquals(app.getString(R.string.tool_state_cancelled), row.stateLabel)
             assertEquals(null, row.card)
         }
-        assertEquals(1, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(1, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         assertEquals(call, storage.toolCalls.listByTurn(turn.id).single())
     }
 
