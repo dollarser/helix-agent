@@ -109,7 +109,14 @@ class ComposerInteractionsDeviceTest {
         compose.onNodeWithTag("chat-send").assertIsNotEnabled()
         compose.runOnIdle { input.value = "/clear" }
         compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
-        compose.onNodeWithTag("chat-input").assertTextEquals("")
+        assertEquals(
+            "",
+            compose
+                .onNodeWithTag("chat-input")
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.EditableText]
+                .text,
+        )
         assertEquals(0, sends)
         assertEquals(0, changes)
     }

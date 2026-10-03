@@ -28,7 +28,11 @@ import com.helix.app.language.AppLanguageStore
  * deterministic AND the activity stable for the whole run.
  */
 class HelixAndroidJUnitRunner : AndroidJUnitRunner() {
+    private var heldProotBoundary = false
+
     override fun onCreate(arguments: Bundle?) {
+        heldProotBoundary = arguments?.getString("proot.goal.kill.phase") == "result-boundary" &&
+            arguments.getString("class") == "com.helix.app.eval.ProotGoalProcessKillDeviceTest"
         super.onCreate(arguments)
         runCatching {
             // Persist-only on purpose (see class doc): the synchronous attachBaseContext wrap renders
@@ -36,5 +40,15 @@ class HelixAndroidJUnitRunner : AndroidJUnitRunner() {
             // stable — that push fired mid-test and destroyed the activity under test (HXA-069 flake).
             AppLanguageStore.persistChoiceOnly(getTargetContext().applicationContext, AppLanguage.ZH_CN)
         }
+    }
+
+    override fun callApplicationOnCreate(app: android.app.Application) {
+        if (heldProotBoundary) {
+            check(app.packageName == "com.helix.agent.developer")
+            // Only this explicit fixture opens Room and runs the held collector itself.
+            // Normal startup must not ACK its result before the selected persistence cutpoint.
+            return
+        }
+        super.callApplicationOnCreate(app)
     }
 }

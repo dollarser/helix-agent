@@ -25,7 +25,7 @@ import java.util.UUID
 /** Exercises the real production dispatcher and Android filesystem, without starting a Runtime. */
 @RunWith(AndroidJUnit4::class)
 class ExecutionOwnershipDeviceTest {
-    @Test fun retainedOwnerBlocksProductionDispatchUntilMatchingSettlement() {
+    @Test fun retainedOwnerPreservesIdentityWithoutBlockingIndependentDispatch() {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val container = app.appContainer
         val session = "ownership-${UUID.randomUUID()}"
@@ -41,7 +41,7 @@ class ExecutionOwnershipDeviceTest {
         try {
             val request =
                 ToolDispatchRequest(
-                    toolCallId = "$session-blocked",
+                    toolCallId = "$session-independent",
                     turnId = turn,
                     sessionId = session,
                     toolName = ToolName("time.now"),
@@ -54,18 +54,18 @@ class ExecutionOwnershipDeviceTest {
                     scope = null,
                     uiToken = "chat:$turn",
                 )
-            val blocked = container.toolPipeline.dispatcher.dispatch(request)
-            assertTrue(blocked is ToolDispatchOutcome.ExecutionFailed)
-            assertTrue((blocked as ToolDispatchOutcome.ExecutionFailed).sideEffectFree)
+            // ADR-RUNTIME-002: physical execution ownership is not a global lock on unrelated tools.
+            val independent = container.toolPipeline.dispatcher.dispatch(request)
+            assertTrue(independent is ToolDispatchOutcome.Succeeded)
             val reopened = ExecutionOwnershipStore(file)
             assertFalse(reopened.compareAndSet(owner.copy(generation = "stale"), null))
             assertEquals(owner, reopened.read())
             assertTrue(reopened.compareAndSet(owner, null))
             val success = container.toolPipeline.dispatcher.dispatch(request.copy(toolCallId = "$session-released"))
             assertTrue(success is ToolDispatchOutcome.Succeeded)
-            val blockedAudit = container.storage.auditEvents.listByCorrelation("$session-blocked")
+            val independentAudit = container.storage.auditEvents.listByCorrelation("$session-independent")
             val releasedAudit = container.storage.auditEvents.listByCorrelation("$session-released")
-            assertEquals(1, blockedAudit.count { it.type == "tool_dispatch" })
+            assertEquals(1, independentAudit.count { it.type == "tool_dispatch" })
             assertEquals(1, releasedAudit.count { it.type == "tool_dispatch" })
         } finally {
             // Never remove a foreign owner's record, even on test failure.

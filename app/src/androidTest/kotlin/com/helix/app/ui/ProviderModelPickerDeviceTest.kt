@@ -86,7 +86,7 @@ class ProviderModelPickerDeviceTest {
                     .onNodeWithTag("provider-test")
                     .fetchSemanticsNode()
                     .boundsInRoot.top
-            org.junit.Assert.assertTrue(login < models && models < connection)
+            org.junit.Assert.assertTrue(login < connection && connection < models)
         }
     }
 

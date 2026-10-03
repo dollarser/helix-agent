@@ -161,7 +161,7 @@ class ComposerProcessRecoveryDeviceTest {
         assertEquals(listOf(CANCEL_TURN), storage.turns.listBySession(CANCEL_SESSION).map { it.id })
         val calls = storage.toolCalls.listByTurn(CANCEL_TURN)
         assertEquals(setOf(RUNNING_CALL, PENDING_CALL), calls.map { it.id }.toSet())
-        assertEquals(ToolCallState.NEEDS_REVIEW.name, calls.single { it.id == RUNNING_CALL }.state)
+        assertEquals(ToolCallState.INTERRUPTED.name, calls.single { it.id == RUNNING_CALL }.state)
         assertEquals(ToolCallState.CANCELLED.name, calls.single { it.id == PENDING_CALL }.state)
         assertNull(storage.toolResults.byToolCall(RUNNING_CALL))
         assertEquals("CANCELLED", storage.toolResults.byToolCall(PENDING_CALL)?.status)

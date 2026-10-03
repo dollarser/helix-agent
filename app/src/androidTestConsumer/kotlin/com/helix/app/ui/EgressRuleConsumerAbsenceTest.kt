@@ -25,7 +25,7 @@ class EgressRuleConsumerAbsenceTest {
     @Test
     fun consumerBuildRendersNoEgressRuleSection() {
         composeRule.resetDeterministicUiState()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/permissions")
         // Consumer build: Standard is fixed, no Advanced entry...
         composeRule.onNodeWithTag("settings-advanced-absent").assertIsDisplayed()
         // ...and therefore the ADVANCED-only egress-rule section is absent.

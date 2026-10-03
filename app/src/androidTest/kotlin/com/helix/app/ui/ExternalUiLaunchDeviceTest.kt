@@ -30,7 +30,12 @@ class ExternalUiLaunchDeviceTest {
         failure = null
         assertTrue(sharePlainText(context, "retained text"))
         assertEquals(Intent.ACTION_CHOOSER, launched?.action)
-        val payload = requireNotNull(launched).getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+        val payload =
+            androidx.core.content.IntentCompat.getParcelableExtra(
+                requireNotNull(launched),
+                Intent.EXTRA_INTENT,
+                Intent::class.java,
+            )
         assertEquals("retained text", payload?.getStringExtra(Intent.EXTRA_TEXT))
     }
 

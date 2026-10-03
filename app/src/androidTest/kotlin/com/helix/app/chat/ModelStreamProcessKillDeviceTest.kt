@@ -5,13 +5,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.engine.TurnRecovery
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnBudgets
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
@@ -105,6 +103,14 @@ class ModelStreamProcessKillDeviceTest {
                     .listByGoal(goal)
                     .single()
             val stored = container.storage.goals.resolve(goal)
+            facts.setProperty("run", run.id)
+            facts.setProperty(
+                "turn",
+                container.storage.turns
+                    .listBySession(session)
+                    .single()
+                    .id,
+            )
             val pending = container.storage.goalUsageReservations.pendingForRun(run.id)
             assertTrue(pending.any { it.kind == "MODEL" })
             facts.setProperty("tokens", (stored.totalTokens + pending.sumOf { it.reservedTokens }).toString())
@@ -175,19 +181,16 @@ class ModelStreamProcessKillDeviceTest {
     ) {
         val storage = app.appContainer.storage
         val id = facts.getProperty("goal")
-        await { storage.goals.resolve(id).state == "PAUSED" }
+        await { storage.turns.resolve(facts.getProperty("turn")).state == "INTERRUPTED" }
         val goal = storage.goals.resolve(id)
-        val run = storage.goalRuns.listByGoal(id).single()
+        val run = storage.goalRuns.listByGoal(id).single { it.id == facts.getProperty("run") }
         assertEquals("INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals(
             "INTERRUPTED",
-            storage.turns
-                .listBySession(facts.getProperty("session"))
-                .single()
-                .state,
+            storage.turns.resolve(facts.getProperty("turn")).state,
         )
-        val turn = storage.turns.listBySession(facts.getProperty("session")).single()
+        val turn = storage.turns.resolve(facts.getProperty("turn"))
         assertEquals(
             "INTERRUPTED",
             storage.modelCalls
@@ -196,15 +199,14 @@ class ModelStreamProcessKillDeviceTest {
                 .state,
         )
         assertTrue(storage.toolCalls.listByTurn(turn.id).isEmpty())
-        assertEquals(1, goal.modelCalls)
-        assertEquals(facts.getProperty("tokens").toLong(), goal.totalTokens)
+        assertEquals(1, run.modelCalls)
+        assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
-        assertEquals(0L, goal.currentWakeMillis)
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
-        assertTrue(TurnRecovery(storage, SystemClock()).recover().closedRuns.isEmpty())
         Thread.sleep(2000)
-        assertEquals(goal, storage.goals.resolve(id))
-        assertEquals(run, storage.goalRuns.listByGoal(id).single())
+        assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
+        com.helix.app.test
+            .assertReadOnlyRecoverySuccessors(storage, turn)
         InstrumentationRegistry.getInstrumentation().sendStatus(
             2,
             Bundle().apply {

@@ -56,8 +56,9 @@ class GoalDetachedBudgetDeviceTest {
             f.now = 800
             f.timer.finish()
             f.live = false
-            f.storage.turns.updateState(f.storage.turns.resolve("turn"), TurnState.CANCELLING, 0, null, null)
-            f.storage.turns.updateState(f.storage.turns.resolve("turn"), TurnState.CANCELLED, 0, 2_000, null)
+            val original = f.storage.turns.resolve("turn")
+            val cancelling = f.storage.turns.updateState(original, TurnState.CANCELLING, original.stepCount, null, null)
+            f.storage.turns.updateState(cancelling, TurnState.CANCELLED, cancelling.stepCount, 2_000, null)
             f.now = 1_000
             f.bridge.reject("session", "turn", "execution")
             assertEquals(900L, f.used())
@@ -179,8 +180,9 @@ class GoalDetachedBudgetDeviceTest {
             )
             f.timer.finish()
             f.live = false
-            f.storage.turns.updateState(f.storage.turns.resolve("turn"), TurnState.CANCELLING, 0, null, null)
-            f.storage.turns.updateState(f.storage.turns.resolve("turn"), TurnState.CANCELLED, 0, 2_000, null)
+            val original = f.storage.turns.resolve("turn")
+            val cancelling = f.storage.turns.updateState(original, TurnState.CANCELLING, original.stepCount, null, null)
+            f.storage.turns.updateState(cancelling, TurnState.CANCELLED, cancelling.stepCount, 2_000, null)
             f.bridge.settle("session", "turn", "execution", 800)
             assertNotNull(
                 f.storage.goalRuns

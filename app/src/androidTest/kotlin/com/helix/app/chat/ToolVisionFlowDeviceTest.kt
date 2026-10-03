@@ -93,7 +93,7 @@ class ToolVisionFlowDeviceTest {
         }
 
     @Test
-    fun localToolPixelsNeedNoNetworkConsentAndCannotBeReusedForNetwork() =
+    fun localToolPixelsNeedNoNetworkConsentAndCannotBeReusedForNetwork(): Unit =
         runBlocking {
             Fixture(onDevice = true).use { fixture ->
                 val result = fixture.prepare() as ToolExecutorResult.Completed

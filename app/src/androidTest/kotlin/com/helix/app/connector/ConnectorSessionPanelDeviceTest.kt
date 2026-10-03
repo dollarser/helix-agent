@@ -34,6 +34,7 @@ class ConnectorSessionPanelDeviceTest {
                 identity = session,
             )
         c.storage.sessions.create(session, "UI", null, null, 0)
+        val initiallySelected = service.catalog.selected(session)
         try {
             compose.setContent {
                 MaterialTheme { ConnectorSessionPanel(service, session, {}, {}) }
@@ -56,8 +57,8 @@ class ConnectorSessionPanelDeviceTest {
             compose.waitUntil(10_000) { service.catalog.defaultSelected(record.id) }
             c.storage.sessions.create(next, "New", null, null, 0)
             compose.onNodeWithTag(selected).performScrollTo().performClick()
-            compose.waitUntil(10_000) { service.catalog.selected(session).isEmpty() }
-            assertEquals(setOf(record.id), service.catalog.selected(next))
+            compose.waitUntil(10_000) { service.catalog.selected(session) == initiallySelected }
+            assertEquals(initiallySelected + record.id, service.catalog.selected(next))
             assertTrue(service.catalog.defaultSelected(record.id))
         } finally {
             service.remove(record)

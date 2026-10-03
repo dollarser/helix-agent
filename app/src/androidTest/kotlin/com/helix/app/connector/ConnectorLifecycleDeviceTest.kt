@@ -104,6 +104,7 @@ class ConnectorLifecycleDeviceTest {
         val old = service.install(bundle(identity, "old"), identity)
         val session = session()
         service.catalog.select(session, old.id, true)
+        val selectedBefore = service.catalog.selected(session)
         val alias = SecretAlias(old.endpoints.single().id)
         c.storage.secrets.put(alias, "synthetic-database-failure")
         val db =
@@ -121,7 +122,7 @@ class ConnectorLifecycleDeviceTest {
                 service.install(bundle(identity, "new"), identity, old.revision)
             }
             assertEquals(old, service.list().single { it.id == old.id })
-            assertEquals(setOf(old.id), service.catalog.selected(session))
+            assertEquals(selectedBefore, service.catalog.selected(session))
             assertEquals("synthetic-database-failure", c.storage.secrets.get(alias))
         } finally {
             db.execSQL("DROP TRIGGER IF EXISTS connector_fixture_failure")

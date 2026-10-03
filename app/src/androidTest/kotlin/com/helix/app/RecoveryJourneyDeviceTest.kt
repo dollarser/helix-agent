@@ -318,16 +318,16 @@ class RecoveryJourneyDeviceTest {
         var turn = started
         when (target) {
             TurnState.FAILED -> {
-                turn = storage.turns.updateState(turn, TurnState.FAILED, 0, endedAt, errorCode)
+                turn = storage.turns.updateState(turn, TurnState.FAILED, turn.stepCount, endedAt, errorCode)
             }
 
             TurnState.INTERRUPTED -> {
-                turn = storage.turns.updateState(turn, TurnState.INTERRUPTED, 0, null, null)
+                turn = storage.turns.updateState(turn, TurnState.INTERRUPTED, turn.stepCount, null, null)
             }
 
             TurnState.CANCELLED -> {
-                turn = storage.turns.updateState(turn, TurnState.CANCELLING, 0, null, null)
-                turn = storage.turns.updateState(turn, TurnState.CANCELLED, 0, endedAt, null)
+                turn = storage.turns.updateState(turn, TurnState.CANCELLING, turn.stepCount, null, null)
+                turn = storage.turns.updateState(turn, TurnState.CANCELLED, turn.stepCount, endedAt, null)
             }
 
             else -> {

@@ -30,13 +30,14 @@ class PluginLifecycleDeviceTest {
         container.storage.secrets.put(alias, "synthetic-plugin-credential")
         try {
             service.catalog.select(session, record.id, true)
+            val selectedBefore = service.catalog.selected(session)
             service.setSkillEnabled(key, true)
             assertTrue(service.catalog.skillAvailable(key, session))
             service.setEnabled(record.id, false)
             val disabled = service.list().single { it.id == record.id }
             assertFalse(disabled.enabled)
             assertFalse(service.catalog.skillAvailable(key, session))
-            assertEquals(setOf(record.id), service.catalog.selected(session))
+            assertEquals(selectedBefore, service.catalog.selected(session))
             assertEquals("synthetic-plugin-credential", container.storage.secrets.get(alias))
             assertEquals(history, container.storage.messages.listBySession(session))
             val row = service.sessionRows(session).single { it.id == record.id }

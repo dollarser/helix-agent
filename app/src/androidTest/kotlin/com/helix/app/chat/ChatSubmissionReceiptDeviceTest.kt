@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -97,7 +98,7 @@ class ChatSubmissionReceiptDeviceTest {
                 server.start()
                 val provider = createProvider(server.port, verify = false)
                 val session = UUID.randomUUID().toString()
-                storage.sessions.create(session, "Unverified provider draft", provider, null, 1)
+                storage.sessions.create(session, "Unverified provider draft", provider, "fixture-model-a", 1)
                 try {
                     chat.openSession(session)
                     val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "Keep this request")
@@ -125,7 +126,8 @@ class ChatSubmissionReceiptDeviceTest {
             val container = compose.container()
             val chat = container.chatService
             val session = UUID.randomUUID().toString()
-            container.storage.sessions.create(session, "Invalid input draft", null, null, 1)
+            val provider = createProvider(1, verify = false)
+            container.storage.sessions.create(session, "Invalid input draft", provider, "fixture-model-a", 1)
             try {
                 chat.openSession(session)
                 val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "   ")
@@ -143,6 +145,7 @@ class ChatSubmissionReceiptDeviceTest {
             } finally {
                 chat.closeSession()
                 container.storage.sessions.archive(session, System.currentTimeMillis())
+                container.providerService.delete(provider)
             }
         }
 
@@ -188,7 +191,7 @@ class ChatSubmissionReceiptDeviceTest {
         }
 
     @Test
-    fun unselectedModelBlocksBeforeSubmissionAndPreservesComposerInput() =
+    fun unselectedModelBlocksBeforeSubmissionAndPreservesComposerInput(): Unit =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -592,6 +595,9 @@ class ChatSubmissionReceiptDeviceTest {
                     chat.openSession(session)
                     compose.waitUntil(10_000) {
                         chat.screen.value.openSessionId == session && !chat.screen.value.isDraft
+                    }
+                    compose.waitUntil(10_000) {
+                        compose.onAllNodesWithText("Which output format?").fetchSemanticsNodes().isNotEmpty()
                     }
                     compose.onNodeWithText("Which output format?").assertIsDisplayed()
                     compose.onNodeWithText("PDF").performClick()

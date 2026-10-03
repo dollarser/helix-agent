@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.app.MainActivity
@@ -191,6 +192,8 @@ class ChatStopProgressDeviceTest {
         assertTrue(
             storage.messages.listBySession(session).any { it.turnId == turns.last().id && it.role == "ASSISTANT" },
         )
+        // Completion is published before the durable recovery-panel projection reaches Compose.
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("chat-retry").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("chat-retry").assertDoesNotExist()
         compose.onNodeWithTag("chat-send").assertIsDisplayed()
     }
