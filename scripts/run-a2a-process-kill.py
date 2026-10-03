@@ -100,7 +100,7 @@ class Fixture(http.server.BaseHTTPRequestHandler):
         match = re.search(r'A2A_KILL_TOOL=([^\s"\\]+)', json.dumps(request))
         tool = match.group(1) if match else 'echo'
         args = '{"task":"kill","stream":false}' if match else '{"text":"probe"}'
-        has_tools = bool(request.get('tools'))
+        has_tools = bool(request.get('tools')) and not getattr(self, 'recovering', False)
         delta = {'tool_calls': [{'id': self.call_id or 'fixture-'+uuid.uuid4().hex, 'index': 0, 'type': 'function',
                   'function': {'name': tool, 'arguments': args}}]} if has_tools else {'content': 'ok'}
         chunks = [{'id': 'fixture', 'object': 'chat.completion.chunk', 'choices': [
@@ -169,10 +169,12 @@ def main():
     subprocess.run(base + ['reverse', reverse, reverse], check=True)
     try:
         records = [phase(base, server.server_port, 'prepare', args.output)]
+        Fixture.recovering = True
         before = (Fixture.calls, Fixture.model_requests)
         for name in ['recover', 'recover-final']:
             records.append(phase(base, server.server_port, name, args.output))
-            assert before == (Fixture.calls, Fixture.model_requests), 'Startup replayed a request'
+            assert Fixture.calls == before[0], 'Recovery replayed the original A2A submission'
+            assert before[1] <= Fixture.model_requests <= before[1] + 1, 'More than one recovery inspection'
             if name == 'recover':
                 assert Fixture.polls == (0 if args.boundary == "send" else 1), 'Startup queried the remote task without explicit reconciliation'
         assert Fixture.polls == (0 if args.boundary == 'send' else 2), 'Unexpected remote task queries'

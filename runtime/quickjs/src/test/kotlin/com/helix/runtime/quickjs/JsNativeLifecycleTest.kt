@@ -13,6 +13,31 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class JsNativeLifecycleTest {
+    @Test fun boundedDeathWaitDoesNotInventExitEvidence() {
+        val death = JsProcessDeath()
+        assertFalse(death.awaitObserved(1))
+        assertFalse(death.isObserved())
+        death.record()
+        assertTrue(death.awaitObserved(0))
+    }
+
+    @Test fun boundedDeathWaitAcceptsTheOriginalCallback() {
+        val death = JsProcessDeath()
+        val started = CountDownLatch(1)
+        val observed = AtomicBoolean()
+        val waiter =
+            Thread {
+                started.countDown()
+                observed.set(death.awaitObserved(2_000))
+            }
+        waiter.start()
+        assertTrue(started.await(2, TimeUnit.SECONDS))
+        death.record()
+        waiter.join(2_000)
+        assertFalse(waiter.isAlive)
+        assertTrue(observed.get())
+    }
+
     @Test fun stopDoesNotNeedAnExecutionReplyOrBinderWorker() {
         val terminated = CountDownLatch(1)
         val calls = AtomicInteger()

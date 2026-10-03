@@ -15,6 +15,7 @@ import com.helix.runtime.proot.ipc.ProotJobState
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -27,8 +28,8 @@ import java.io.File
  * HXA-087 acceptance (roadmap §12: 同签名 APK 更新、rollback、完整删除、
  * 离线 notice/source URL/build manifest), companion side:
  *
- * - the legal page is the OFFLINE surface: its activity is exported behind the
- *   set's SIGNATURE permission (like the repair entry), its content carries the
+ * - the legal page is the OFFLINE surface: its activity is private to the host's
+ *   PRoot process (like the repair entry), its content carries the
  *   embedded lock's canonical fingerprint, the per-component source URLs (never
  *   fetched) and the full embedded license texts, and it is launchable from a
  *   same-signature caller (this test package);
@@ -103,7 +104,7 @@ class ProotUpdateLifecycleDeviceTest {
     }
 
     @Test
-    fun theLegalActivityIsExportedBehindTheSignaturePermission() {
+    fun theLegalActivityRemainsPrivateToTheHostRuntimeProcess() {
         val pm = context.packageManager
         val info =
             pm.getActivityInfo(
@@ -113,13 +114,10 @@ class ProotUpdateLifecycleDeviceTest {
                 ),
                 0,
             )
-        assertTrue("legal activity must be exported (explicit-intent resolution)", info.exported)
-        assertEquals(
-            ProotRuntimeProtocol.PERMISSION_BIND,
-            info.permission,
-        )
-        // The page must be reachable by THIS (same-signature) package — the repair
-        // entry already proves the permission grants; this is the same shape.
+        assertFalse("integrated legal activity must remain private", info.exported)
+        assertEquals("${context.packageName}:proot", info.processName)
+        assertNull(info.permission)
+        // Only the host package opens the integrated page.
         assertNotNull(pm)
     }
 
@@ -131,7 +129,7 @@ class ProotUpdateLifecycleDeviceTest {
         for (notice in context.resources.getStringArray(R.array.proot_legal_offline_notice)) {
             assertTrue("localized offline notice missing", notice in page)
         }
-        assertTrue("no-INTERNET statement missing", "INTERNET" in page)
+        assertTrue("offline page subtitle missing", context.getString(R.string.proot_legal_page_subtitle) in page)
         // Build manifest (HXA-087 build manifest): canonical fingerprint + ABI:
         assertTrue("canonical lock fingerprint missing", RuntimeLockCodec.sha256Hex(lock) in page)
         assertTrue("ABI missing", lock.abi.wire in page)

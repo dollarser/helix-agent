@@ -29,18 +29,10 @@ internal class DeveloperManualTerminal(
     private val binding2 = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal-2"))
     private val mutex = Mutex()
 
-    private fun reconcileBindings() {
-        val b1 = binding1.read()
-        val b2 = binding2.read()
-        if (b1 != null && b2 != null && b1 == b2) {
-            binding2.compareAndSet(b2, null)
-        }
-    }
-
     override suspend fun hasSession(): Boolean =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                reconcileBindings()
+                reconcileBindings(binding1, binding2)
                 binding1.read() != null || binding2.read() != null
             }
         }
@@ -48,7 +40,7 @@ internal class DeveloperManualTerminal(
     override suspend fun sessions(): List<ManualTerminal.State> =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                reconcileBindings()
+                reconcileBindings(binding1, binding2)
                 val owners = listOfNotNull(binding1.read(), binding2.read())
                 if (owners.isEmpty()) return@withContext emptyList()
                 PtySessionClient(context).use { client ->
@@ -69,7 +61,7 @@ internal class DeveloperManualTerminal(
             mutex.withLock {
                 check(profile.profile == SafetyProfile.ADVANCED) { "Manual terminal requires Advanced" }
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
-                reconcileBindings()
+                reconcileBindings(binding1, binding2)
                 val targetBinding = selectTargetBinding(binding1, binding2)
                 val workspace = directoryResolver(relativeDirectory)
                 require(workspace.isDirectory)
@@ -89,12 +81,39 @@ internal class DeveloperManualTerminal(
 
     override suspend fun query(sessionId: String?): ManualTerminal.State = operation(Wire.QUERY, sessionId)
 
+    override fun withWorkspaceCleanup(
+        workspace: File,
+        cleanup: () -> Unit,
+    ) = kotlinx.coroutines.runBlocking {
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val root = workspace.canonicalFile.toPath()
+                val owners = listOfNotNull(binding1.read(), binding2.read())
+                if (owners.isNotEmpty()) {
+                    PtySessionClient(context).use { client ->
+                        client.connect()
+                        owners.forEach { owner ->
+                            val record =
+                                checkNotNull(client.request(ptyKey(owner), Wire.QUERY).record) {
+                                    "Terminal workspace is unknown; workspace retained"
+                                }
+                            check(!File(record.origin.workspace).canonicalFile.toPath().startsWith(root)) {
+                                "Terminal still retains this workspace"
+                            }
+                        }
+                    }
+                }
+                cleanup()
+            }
+        }
+    }
+
     override suspend fun stop(sessionId: String?): ManualTerminal.State = operation(Wire.STOP, sessionId)
 
     override suspend fun settle(sessionId: String?) {
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                reconcileBindings()
+                reconcileBindings(binding1, binding2)
                 val (targetBinding, owner) = findOwner(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
@@ -157,7 +176,7 @@ internal class DeveloperManualTerminal(
         }
 
     private fun findOwner(sessionId: String?): Pair<ExecutionOwnershipStore, ExecutionOwnership.Owner> {
-        reconcileBindings()
+        reconcileBindings(binding1, binding2)
         val b1 = binding1.read()
         val b2 = binding2.read()
         val pair =
@@ -184,6 +203,15 @@ internal class DeveloperManualTerminal(
             }
         return pair
     }
+}
+
+private fun reconcileBindings(
+    binding1: ExecutionOwnershipStore,
+    binding2: ExecutionOwnershipStore,
+) {
+    val b1 = binding1.read()
+    val b2 = binding2.read()
+    if (b1 != null && b2 != null && b1 == b2) binding2.compareAndSet(b2, null)
 }
 
 private fun ptyKey(owner: ExecutionOwnership.Owner): PtySessionKey =

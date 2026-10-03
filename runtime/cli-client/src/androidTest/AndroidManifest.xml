@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <queries>
-        <package android:name="com.helix.runtime.cli" />
-    </queries>
+    <application>
+        <service android:name="com.helix.runtime.cli.app.CliRuntimeService"
+            android:exported="false" android:process=":subscriptions" />
+    </application>
 </manifest>

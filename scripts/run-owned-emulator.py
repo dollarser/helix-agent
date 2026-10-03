@@ -107,7 +107,7 @@ def run(args):
                 extras.extend(["-e", key, value])
             if args.recovery_setup_class:
                 setup = device("shell", "am", "instrument", "-w", "-e", "class", args.recovery_setup_class,
-                               "-e", "recoveryPhase", args.recovery_setup_phase, *extras,
+                               *extras, "-e", "recoveryPhase", args.recovery_setup_phase,
                                args.runner, timeout=args.timeout)
                 (output / "recovery-setup.txt").write_text(setup)
                 if "process crashed" not in setup.lower():

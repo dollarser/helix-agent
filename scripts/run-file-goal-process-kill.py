@@ -30,6 +30,8 @@ class Fixture(ModelFixture):
     backfills = 0
 
     def model(self, request):
+        if self.recovering:
+            return super().model(request)
         if 'FILE_GOAL_KILL' not in json.dumps(request):
             return super().model(request)
         with self.lock:
@@ -111,9 +113,10 @@ def main():
         records = [phase(base, server.server_port, 'prepare', args.output, args.unsettled)]
         if not args.unsettled:
             assert Fixture.backfill_seen.wait(5), 'No actual tool result backfill received'
+        Fixture.recovering = True
         before = Fixture.model_requests
         records += [phase(base, server.server_port, n, args.output, args.unsettled) for n in ['recover', 'recover-final']]
-        assert Fixture.model_requests == before, 'Startup replayed a model request'
+        assert before <= Fixture.model_requests <= before + 1, 'More than one recovery inspection'
         result = dict(serial=args.serial, installedApks=hashes, records=records,
                       modelRequests=before, backfillRequests=Fixture.backfills,
                       unsettled=args.unsettled,

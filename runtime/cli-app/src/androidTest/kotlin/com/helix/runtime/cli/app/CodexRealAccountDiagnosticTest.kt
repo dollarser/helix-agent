@@ -3,7 +3,6 @@ package com.helix.runtime.cli.app
 import android.content.Context
 import android.os.Bundle
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ModelEvent
@@ -23,7 +22,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
-import org.junit.Rule
 import org.junit.Test
 
 /** Explicit synthetic prompts only. Never prints credentials, headers or response bodies. */
@@ -98,9 +96,6 @@ class CodexRealAccountDiagnosticTest {
             assertTrue(events.lastOrNull() is ModelEvent.Completed)
         }
     }
-
-    @get:Rule
-    val activity = ActivityScenarioRule(CliRuntimeHomeActivity::class.java)
 
     @Test fun reasoningAndToolsContracts() {
         val cases =

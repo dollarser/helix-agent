@@ -40,13 +40,17 @@ class Model(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         Model.calls += 1
-        complete = any(message.get("role") == "tool" for message in request.get("messages", []))
+        results = [message for message in request.get("messages", []) if message.get("role") == "tool"]
+        complete = any(message.get("tool_call_id") == "host-job-call" for message in results)
         delta = {"content": "Background command accepted."} if complete else {"tool_calls": [{
             "index": 0, "id": "host-job-call", "type": "function", "function": {
                 "name": "code.linux.job.start", "arguments": json.dumps({
                     "script": "sleep 12; printf host-job-result >> result.txt",
                     "output": "scope:app:output/" + facts["output"], "leaseSeconds": 20,
                 })}}]}
+        if not results:
+            delta = {"tool_calls": [{"index": 0, "id": "host-job-discovery", "type": "function", "function": {
+                "name": "tools.search", "arguments": json.dumps({"query": "code.linux.job.start", "limit": 1})}}]}
         chunks = [{"choices": [{"index": 0, "delta": delta, "finish_reason": None}]},
                   {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop" if complete else "tool_calls"}],
                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}]
@@ -82,9 +86,6 @@ threading.Thread(target=server.serve_forever, daemon=True).start()
 try:
     device("reverse", "tcp:" + facts["port"], "tcp:" + str(server.server_port))
     device("shell", "am", "start", "-W", "-n", package + "/com.helix.app.MainActivity")
-    click(lambda a: a.get("text") == "Detached Goal fixture")
-    click(lambda a: a.get("text") == "Chat ▾")
-    click(lambda a: a.get("text") == "Act")
     click(lambda a: a.get("class") == "android.widget.EditText")
     device("shell", "input", "text", "Run%sthe%sbackground%scommand")
     click(lambda a: a.get("content-desc") in ("Send", "发送"))
@@ -99,10 +100,10 @@ try:
                 if candidate["state"] == "RUNNING":
                     record = candidate
                     break
-        if record is not None and Model.calls >= 2:
+        if record is not None and Model.calls >= 3:
             break
         time.sleep(.2)
-    if record is None or Model.calls != 2:
+    if record is None or Model.calls != 3:
         snapshot()
         raise RuntimeError("No single accepted background Job through UI")
     job = record["jobId"]
@@ -135,7 +136,7 @@ try:
         if record["state"] != "RUNNING":
             raise RuntimeError("Unexpected Job state: " + record["state"])
         time.sleep(.2)
-    if "RUNNING" not in states or states[-1] != "SUCCEEDED" or Model.calls != 2:
+    if "RUNNING" not in states or states[-1] != "SUCCEEDED" or Model.calls != 3:
         raise RuntimeError("Missing original running-to-success evidence or model replay")
     if device("shell", "cat", "/proc/sys/kernel/random/boot_id") != boot:
         raise RuntimeError("Device rebooted")

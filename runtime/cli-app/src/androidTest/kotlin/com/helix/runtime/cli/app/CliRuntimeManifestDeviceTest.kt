@@ -30,6 +30,7 @@ class CliRuntimeManifestDeviceTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test fun codexTokenEndpointIsReachableWithoutCredentials() {
+        requirePublicEndpointOptIn()
         val request =
             Request
                 .Builder()
@@ -42,6 +43,7 @@ class CliRuntimeManifestDeviceTest {
     }
 
     @Test fun copilotDeviceEndpointIssuesBoundedAnonymousAttempt() {
+        requirePublicEndpointOptIn()
         val attempt = OkHttpCopilotDeviceTransport().use { it.requestDeviceCode() }
         assertTrue(attempt.userCode.isNotBlank())
         assertEquals("https://github.com/login/device", attempt.verificationUri)
@@ -50,6 +52,7 @@ class CliRuntimeManifestDeviceTest {
     }
 
     @Test fun grokDeviceEndpointIssuesBoundedAnonymousAttempt() {
+        requirePublicEndpointOptIn()
         val attempt = OkHttpGrokDeviceTransport().use { it.requestDeviceCode() }
         assertTrue(attempt.userCode.isNotBlank())
         assertTrue(attempt.verificationUri.startsWith("https://"))
@@ -58,11 +61,26 @@ class CliRuntimeManifestDeviceTest {
     }
 
     @Test fun codexDeviceEndpointIssuesBoundedAnonymousAttempt() {
+        requirePublicEndpointOptIn()
         val attempt = OkHttpCodexDeviceTransport().use { it.requestDeviceCode() }
         assertTrue(attempt.userCode.isNotBlank())
         assertEquals("https://auth.openai.com/codex/device", attempt.verificationUrl)
         assertTrue(attempt.intervalMillis in 1_000..60_000)
         assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
+    }
+
+    private fun requirePublicEndpointOptIn() {
+        val value =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString("publicSubscriptionEndpoints")
+        require(value == null || value in setOf("true", "false")) {
+            "publicSubscriptionEndpoints must be true or false"
+        }
+        org.junit.Assume.assumeTrue(
+            "Public subscription endpoints require explicit opt-in",
+            value == "true",
+        )
     }
 
     @Test fun codexSubscriptionSmokeIsFixedToollessAndBounded() {

@@ -364,7 +364,7 @@ class JsAttackE2eTest : QuickJsDeviceTestHost() {
         val elapsedMs = (System.nanoTime() - started) / 1_000_000L
         // Stable CRASHED at the seam (~250 ms): no replay toward the 10 s deadline, no
         // fake success, no unhandled throw out of the client.
-        assertEquals(JsExecutionStatus.CRASHED, result.status)
+        assertEquals(result.detail, JsExecutionStatus.CRASHED, result.status)
         assertTrue(
             "crash must surface near the 250 ms seam, not the 10 s deadline; took $elapsedMs ms",
             elapsedMs < 5_000L,

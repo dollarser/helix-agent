@@ -137,7 +137,7 @@ def main():
         requests = ModelFixture.requests
         for phase in ["recover", "recover-final"]:
             records.append(run_phase(base, server.server_port, phase, args.output, args.protocol, args.boundary))
-            assert ModelFixture.requests == requests, "Recovery replayed a model request"
+            assert requests <= ModelFixture.requests <= requests + 1, "More than one recovery inspection"
         root = pathlib.Path(__file__).resolve().parents[1]
         apks = ["app/build/outputs/apk/consumer/debug/app-consumer-debug.apk",
                 "app/build/outputs/apk/androidTest/consumer/debug/app-consumer-debug-androidTest.apk"]

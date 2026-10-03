@@ -124,12 +124,8 @@ class McpStdioJobBridge(
             }
             val terminal =
                 client.awaitTerminal(jobId, timeoutMs = deadlineMs + 30_000L, shouldContinue = shouldContinue)
-            if (terminal is ProotJobClient.AwaitOutcome.StopRequested) {
-                val stopped = (terminal.reply as? ProotJobClient.JobStateOutcome.Ok)?.record
-                return Outcome.Cancelled(stopped?.takeIf { it.state.isTerminal })
-            }
-            if (!shouldContinue()) {
-                client.cancel(jobId)
+            if (terminal is ProotJobClient.AwaitOutcome.StopRequested || !shouldContinue()) {
+                if (terminal !is ProotJobClient.AwaitOutcome.StopRequested) client.cancel(jobId)
                 val settled = client.awaitTerminal(jobId, timeoutMs = 30_000L)
                 val record = (settled as? ProotJobClient.AwaitOutcome.Terminal)?.record
                 val reconciled =

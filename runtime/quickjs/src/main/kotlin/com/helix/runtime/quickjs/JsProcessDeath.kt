@@ -1,6 +1,7 @@
 package com.helix.runtime.quickjs
 
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /** A transport reply, cancellation or failed transaction is not process-exit evidence. */
 internal class JsProcessDeath {
@@ -9,6 +10,9 @@ internal class JsProcessDeath {
     fun record() = observed.countDown()
 
     fun isObserved(): Boolean = observed.count == 0L
+
+    /** A failed transaction may precede the death callback; timeout never creates exit evidence. */
+    fun awaitObserved(timeoutMillis: Long): Boolean = observed.await(timeoutMillis, TimeUnit.MILLISECONDS)
 
     /** Even a fatal local control failure must not release a still-running native effect. */
     fun stopAndAwait(requestStop: () -> Unit) {

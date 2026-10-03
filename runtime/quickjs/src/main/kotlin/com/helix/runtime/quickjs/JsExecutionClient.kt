@@ -367,7 +367,13 @@ class JsExecutionClient(
             val cancelGiveUpAt = cancelledAtNanos?.plus(CANCEL_GRACE_MS * NANOS_PER_MS) ?: Long.MAX_VALUE
             if (now >= deadlineGiveUpAt || now >= cancelGiveUpAt) giveUp = true
         }
-        return classifyOutcome(workerHolder.get(), bound, request.executionId, inputSha, cancelledAtNanos)
+        val outcome = workerHolder.get()
+        if (outcome is DeadObjectException && !bound.dead.isObserved()) {
+            // Transaction failure can beat binderDied. Only the callback proves process exit;
+            // a transport failure without it remains UNKNOWN after this bounded grace.
+            bound.dead.awaitObserved(GIVE_UP_GRACE_MS)
+        }
+        return classifyOutcome(outcome, bound, request.executionId, inputSha, cancelledAtNanos)
     }
 
     /** Blocks the EXECUTE transact off the calling thread so the wait loop stays responsive. */

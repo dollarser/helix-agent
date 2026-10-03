@@ -27,12 +27,11 @@ import java.security.MessageDigest
 /**
  * HXA-086 通知停止: the running-job notification (plain, non-FGS) appears
  * while a job is RUNNING, its stop action cancels the job through the REAL
- * broadcast path (the same signature-permission-protected receiver the
+ * broadcast path (the same private host receiver the
  * PendingIntent targets), and every terminal state removes the notification.
  *
- * The tests run IN the companion process, so the broadcast is sent from the
- * same uid the PendingIntent would use (the host-side `am broadcast` path is
- * exercised by the acceptance script); POST_NOTIFICATIONS (API 33+) is
+ * The tests run in the host runtime, so the broadcast is sent from the
+ * same uid the PendingIntent would use; POST_NOTIFICATIONS (API 33+) is
  * granted by the acceptance environment before this class runs — without it
  * the platform silently drops the post and the notification assertions are
  * assumed off rather than faked green.
@@ -189,12 +188,12 @@ class ProotJobNotificationDeviceTest {
     }
 
     /**
-     * Structural: the stop path is only reachable through the signature-
-     * permission-protected receiver (no unprivileged caller can cancel jobs),
+     * Structural: the stop path is only reachable through the private host
+     * receiver (no external caller can cancel jobs),
      * and the runtime permission for the notification surface is declared.
      */
     @Test
-    fun theStopReceiverIsExportedBehindTheSignaturePermission() {
+    fun theStopReceiverIsPrivateToTheHostRuntime() {
         // The APP package (the test runs under <app>.test): the registration
         // and the permission declaration live in the app manifest.
         val appPackage = context.packageName
@@ -204,10 +203,11 @@ class ProotJobNotificationDeviceTest {
                 android.content.ComponentName(appPackage, "com.helix.runtime.proot.app.ProotJobStopReceiver"),
                 0,
             )
-        assertTrue("the stop receiver must be exported (PendingIntent resolution)", info.exported)
+        org.junit.Assert.assertFalse("the stop receiver must remain private to the host", info.exported)
+        assertEquals(appPackage + ":proot", info.processName)
         assertEquals(
-            "only the same-signature set may send the stop broadcast",
-            "com.helix.permission.BIND_PROOT_RUNTIME",
+            "the private receiver needs no cross-app binding permission",
+            null,
             info.permission,
         )
         val declared =

@@ -41,6 +41,8 @@ class Fixture(ModelFixture):
         super().do_GET()
 
     def model(self, request):
+        if self.recovering:
+            return super().model(request)
         if 'BROWSER_GOAL_KILL' not in json.dumps(request):
             return super().model(request)
         with self.lock:
@@ -126,9 +128,10 @@ def main():
             assert Fixture.backfills == 0, 'Unsettled result must not reach the model'
         else:
             assert Fixture.backfill_seen.wait(5), 'No actual tool result backfill received'
+        Fixture.recovering = True
         before = Fixture.model_requests
         records += [phase(base, server.server_port, n, args.output) for n in ['recover', 'recover-final']]
-        assert Fixture.model_requests == before, 'Startup replayed a model request'
+        assert before <= Fixture.model_requests <= before + 1, 'More than one recovery inspection'
         assert Fixture.actions == 1, 'Browser action replayed'
         result = dict(serial=args.serial, unsettled=Fixture.unsettled, installedApks=hashes, records=records,
                       modelRequests=before, backfillRequests=Fixture.backfills, browserActions=Fixture.actions,

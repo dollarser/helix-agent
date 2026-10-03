@@ -592,6 +592,8 @@ class ProotJobRunner private constructor(
                     else -> ProotJobState.FAILED
                 }
             terminal(pending, outputPfd, state, process.exitValue(), stdout, stderr)
+        } catch (e: JobInputStoppedException) {
+            check(stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow))
         } catch (e: Exception) {
             log?.finish(true)
             // An unexpected lifecycle failure is a terminal FAILED with the process

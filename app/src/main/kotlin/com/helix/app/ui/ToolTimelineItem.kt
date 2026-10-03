@@ -19,7 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +45,7 @@ internal fun ToolTimelineItem(
     intents: ConversationIntents,
     isCurrentMatch: Boolean = false,
 ) {
-    var details by remember(row.turnId, row.callId) { mutableStateOf(false) }
+    var details by rememberSaveable(row.turnId, row.callId) { mutableStateOf(false) }
     val displayIntent = row.modelIntent ?: ToolPurpose.text(row.toolName, row.requestSummary)
     val borderModifier =
         if (isCurrentMatch) {

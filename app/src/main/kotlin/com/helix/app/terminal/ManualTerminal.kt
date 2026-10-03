@@ -35,6 +35,14 @@ interface ManualTerminal {
 
     suspend fun attach(sessionId: String? = null): Connection
 
+    /** Fence terminal starts while verifying retained terminal workspaces before explicit deletion. */
+    fun withWorkspaceCleanup(
+        workspace: java.io.File,
+        cleanup: () -> Unit,
+    ) {
+        error("Terminal workspace cleanup protection is unavailable")
+    }
+
     interface Connection {
         val isWriter: Boolean get() = true
 

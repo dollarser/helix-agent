@@ -41,7 +41,10 @@ internal object ProotProducedFiles {
         beforePublish: () -> Unit = {},
         register: (Output) -> Unit,
     ) {
-        val root = workspace.toPath().toAbsolutePath().normalize()
+        val requestedRoot = workspace.toPath().toAbsolutePath().normalize()
+        // Android's private directory can have an ancestor alias (/data/user/0).
+        // Keep every subsequent containment check under the same verified canonical root.
+        val root = PathResolution.resolveWithinRoot(requestedRoot, requestedRoot)
         val verifiedRoot = extracted.toPath().toAbsolutePath().normalize()
         val base = relativeDirectory(jobId)
         entries.filter { it.path.startsWith("output/") }.forEach { entry ->
@@ -82,9 +85,15 @@ internal object ProotProducedFiles {
             }
             check(matches(temporary, entry)) { "Job copy does not match the verified manifest" }
             try {
-                // Atomic create-if-absent: never replace a user-edited result, including a raced retry.
+                // Android SELinux forbids hard links in app data. Reserve the final name
+                // with CREATE_NEW so a raced user file is never replaced. Register only
+                // after the verified bytes are flushed; interrupted copies remain unregistered
+                // and fail the digest check on retry instead of overwriting uncertain data.
                 beforePublish()
-                Files.createLink(target, temporary)
+                FileChannel.open(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
+                    copy(temporary, Channels.newOutputStream(channel), entry.size)
+                    channel.force(true)
+                }
             } catch (_: FileAlreadyExistsException) {
                 check(matches(target, entry)) { "Concurrent Job output differs; nothing overwritten" }
             }

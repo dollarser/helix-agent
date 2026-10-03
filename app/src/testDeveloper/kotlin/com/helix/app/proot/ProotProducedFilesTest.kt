@@ -12,6 +12,41 @@ import java.nio.file.Files
 
 class ProotProducedFilesTest {
     @Test
+    fun ancestorAliasUsesOneCanonicalRootAcrossPublicationAndRetry() =
+        fixture { root, verified ->
+            val alias = File(root.parentFile, "android-data-alias").toPath()
+            Files.createSymbolicLink(alias, requireNotNull(root.parentFile).toPath())
+            try {
+                val entries = listOf(entry(verified, "output/a.png", "content"))
+                val outputs = mutableListOf<ProotProducedFiles.Output>()
+                repeat(2) {
+                    ProotProducedFiles.publish(
+                        alias.resolve(root.name).toFile(),
+                        verified,
+                        "job_001122334455",
+                        entries,
+                        register = outputs::add,
+                    )
+                }
+                assertEquals(2, outputs.size)
+                assertEquals("content", outputs.first().file.readText())
+                assertTrue(outputs.all { it.file.toPath().startsWith(root.toPath()) })
+            } finally {
+                Files.delete(alias)
+            }
+            Files.createSymbolicLink(alias, root.toPath())
+            try {
+                val entries = listOf(entry(verified, "output/a.png", "content"))
+                assertThrows(com.helix.core.workspace.SymlinkEscapesRoot::class.java) {
+                    ProotProducedFiles.publish(alias.toFile(), verified, "job_001122334455", entries) {}
+                }
+                assertEquals("content", File(root, "output/jobs/job_001122334455/a.png").readText())
+            } finally {
+                Files.delete(alias)
+            }
+        }
+
+    @Test
     fun publishesMultipleOutputsButNotInputs() =
         fixture { root, verified ->
             val files =
@@ -110,26 +145,26 @@ class ProotProducedFilesTest {
             assertFalse(File(directory, "a.png").exists())
             assertTrue(directory.listFiles().orEmpty().isEmpty())
         }
+}
 
-    private fun entry(
-        root: File,
-        path: String,
-        text: String,
-    ): JobManifestEntry {
-        val file = File(root, path)
-        requireNotNull(file.parentFile).mkdirs()
-        file.writeText(text)
-        return JobManifestEntry(path, LinuxRunTool.sha256Hex(file.readBytes()), file.length())
-    }
+private fun entry(
+    root: File,
+    path: String,
+    text: String,
+): JobManifestEntry {
+    val file = File(root, path)
+    requireNotNull(file.parentFile).mkdirs()
+    file.writeText(text)
+    return JobManifestEntry(path, LinuxRunTool.sha256Hex(file.readBytes()), file.length())
+}
 
-    private fun fixture(block: (File, File) -> Unit) {
-        val area = Files.createTempDirectory("produced-files-").toFile().canonicalFile
-        val root = File(area, "workspace").also { it.mkdir() }
-        val verified = File(area, "verified").also { it.mkdir() }
-        try {
-            block(root, verified)
-        } finally {
-            area.deleteRecursively()
-        }
+private fun fixture(block: (File, File) -> Unit) {
+    val area = Files.createTempDirectory("produced-files-").toFile().canonicalFile
+    val root = File(area, "workspace").also { it.mkdir() }
+    val verified = File(area, "verified").also { it.mkdir() }
+    try {
+        block(root, verified)
+    } finally {
+        area.deleteRecursively()
     }
 }

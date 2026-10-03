@@ -88,7 +88,7 @@ class Fixture(http.server.BaseHTTPRequestHandler):
         match = re.search(r'MCP_KILL_TOOL=([^\s"\\]+)', json.dumps(request))
         tool = match.group(1) if match else 'echo'
         args = '{"case":"kill"}' if match else '{"text":"probe"}'
-        has_tools = bool(request.get('tools'))
+        has_tools = bool(request.get('tools')) and not getattr(self, 'recovering', False)
         delta = {'tool_calls': [{'id': self.call_id or 'fixture-'+uuid.uuid4().hex, 'index': 0, 'type': 'function',
                   'function': {'name': tool, 'arguments': args}}]} if has_tools else {'content': 'ok'}
         chunks = [{'id': 'fixture', 'object': 'chat.completion.chunk', 'choices': [
@@ -153,14 +153,15 @@ def main():
     thread.start()
     try:
         records = [phase(base, server.server_port, 'prepare', args.output)]
+        Fixture.recovering = True
         before = (Fixture.calls, Fixture.model_requests)
         for name in ['recover', 'recover-final']:
             records.append(phase(base, server.server_port, name, args.output))
-            assert before == (Fixture.calls, Fixture.model_requests), 'Startup or explicit Continue replayed an unresolved request'
+            assert Fixture.calls == before[0], 'Recovery replayed the original MCP effect'
+            assert before[1] <= Fixture.model_requests <= before[1] + 1, 'More than one recovery inspection'
         result = dict(serial=args.serial, records=records, installedApks=hashes,
                       toolCalls=Fixture.calls, modelRequests=Fixture.model_requests, startupReplay=False,
-                      explicitContinueRejected=True,
-                      scope='Scripted model; production Goal/Chat/Dispatcher/approval/MCP SDK/HTTP/Room recovery and explicit Continue rejection')
+                      scope='Scripted model; original MCP effect is not replayed; at most one Plan recovery inspection')
         (args.output / 'result.json').write_text(json.dumps(result, indent=2)+'\n')
         print(json.dumps(result), flush=True)
     finally:

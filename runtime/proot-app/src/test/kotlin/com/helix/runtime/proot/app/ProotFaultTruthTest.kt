@@ -70,7 +70,7 @@ class ProotFaultTruthTest {
 
     @Test fun stoppedInputNeverCopiesOrStartsAJob() {
         val output = java.io.ByteArrayOutputStream()
-        assertThrows(java.io.IOException::class.java) {
+        assertThrows(JobInputStoppedException::class.java) {
             copyJobInput("fixture".byteInputStream(), output) { true }
         }
         assertEquals(0, output.size())

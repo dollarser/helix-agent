@@ -15,7 +15,7 @@ internal fun copyJobInput(
     val buffer = ByteArray(65536)
     var copied = 0L
     while (true) {
-        if (stopped()) throw IOException("Job input transfer stopped before launch")
+        if (stopped()) throw JobInputStoppedException()
         val count = input.read(buffer)
         if (count < 0) return
         if (count == 0) throw IOException("Job input made no progress")

@@ -180,7 +180,8 @@ def main():
         for name in recovery_phases:
             records.append(phase(base, server.server_port, name, args.output))
             if Fixture.boundary == 'approval':
-                assert before == Fixture.model_requests, 'Unapproved call triggered a model request'
+                assert Fixture.execution_requests == 1, 'Original script was requested again'
+                assert 0 <= Fixture.model_requests - before <= 1, 'Recovery inspection was duplicated'
             else:
                 assert Fixture.execution_requests == 1, 'Original script was requested more than once'
                 assert Fixture.model_requests - before <= 1, 'Recovery inspection was duplicated'

@@ -15,6 +15,22 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CliRuntimeBindingDeviceTest {
+    @Test fun missingServiceRefusesBeforeAttemptingBinding() {
+        val binding = BindingContext { true }
+        val absent =
+            object : ContextWrapper(binding) {
+                override fun getApplicationContext(): Context = this
+
+                override fun getPackageName(): String = super.getPackageName() + ".absent"
+            }
+        assertEquals(
+            CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.NOT_INSTALLED),
+            CliRuntimeSupervisor(absent).openConnection(),
+        )
+        assertEquals(0, binding.binds)
+        assertEquals(0, binding.unbinds)
+    }
+
     @Test
     fun missingCallbackTimesOutAndReleasesTheBinding() {
         val context = BindingContext { true }
@@ -26,7 +42,7 @@ class CliRuntimeBindingDeviceTest {
     }
 
     @Test
-    fun refusalDoesNotUnbindAnUnboundConnection() {
+    fun refusalReleasesTheAttemptedConnection() {
         verifyRefused(CliRuntimeVerification.Cause.BIND_REFUSED) { false }
     }
 
@@ -76,7 +92,8 @@ class CliRuntimeBindingDeviceTest {
 
     private fun verifyRefused(
         cause: CliRuntimeVerification.Cause,
-        unbinds: Int = 0,
+        // Android requires release after bindService false or SecurityException as well.
+        unbinds: Int = 1,
         action: (ServiceConnection) -> Boolean,
     ) {
         val context = BindingContext(action)
