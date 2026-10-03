@@ -22,8 +22,8 @@ import kotlin.coroutines.resumeWithException
  *   chunk callback is where the provider emits into the event flow, and a
  *   dispatcher switch around it breaks the flow's SafeCollector context check;
  * - the [WireResponse] owns the connection: the caller MUST [WireBody.close] the
- *   body when done (a `finally` in the provider's flow) — for non-2xx responses
- *   the body is drained and closed before the status is consumed;
+ *   body when done (a `finally` in the provider's flow) — non-2xx responses
+ *   are mapped by status without reading the body, then closed;
  * - [WireBody.bytes] and [WireBody.forEachChunk] are bounded by [maxBodyBytes]: a
  *   longer body fails with [IOException] instead of growing unbounded (provider
  *   streams are additionally bounded per line/event by the SSE readers);

@@ -71,7 +71,7 @@ git diff --check
 
 变更 storage 或 agent 时追加 `./gradlew :core:storage:testDebugUnitTest :core:storage:assembleDebugAndroidTest :core:agent:test`。模型准备新迁移测试的 APK 和人工步骤；用户用自有独占设备执行并回填。实际任务形态以实现前查询结果为准；若漂移先修矩阵，不跳过。
 
-**G3：Runtime 回归与新增设备类（以下命令仅供用户手动执行，模型与 GitHub Actions 不运行）**
+**G3：Runtime 回归与新增设备类（用户手动执行，或所有者当次明确授权后由代理执行；GitHub Actions 不运行）**
 
 ```bash
 python3 scripts/verify-integrated-runtimes.py --avd Helix_API_29 --port 5622 --output build/terminal-api29-fresh
@@ -94,7 +94,7 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 
 ## 设备、恢复与发布
 
-- 用户手动运行模拟器与真机验收；每次使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，不借已有实例，只关闭自己启动的进程。模型仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 scripts/debug 日期目录，用户运行输出放忽略的 build。
+- 默认由用户手动运行模拟器与真机验收；代理只有取得所有者对当前任务、相应设备类型与范围的明确授权后才执行。每次使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，不借已有实例，只关闭自己启动的进程。未获当次设备授权时，代理仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 scripts/debug 日期目录，运行输出放忽略的 build。
 - API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，由用户按任务适用范围手动运行并回填；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过或推送 main。
 - 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
 - 取消、拒绝、未知副作用、数据迁移、损坏、低空间与并发竞态按任务要求测试。未知结果只对账，不靠重放验证成功。

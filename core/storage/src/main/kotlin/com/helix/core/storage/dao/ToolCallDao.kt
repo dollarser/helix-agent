@@ -10,8 +10,9 @@ import com.helix.core.storage.entity.ToolCallEntity
 interface ToolCallDao {
     @Query(
         "SELECT c.* FROM tool_calls c JOIN turns t ON c.turnId = t.id " +
-            "WHERE t.state IN ('COMPLETED', 'FAILED', 'CANCELLED', 'INTERRUPTED') AND c.state != 'NEEDS_REVIEW' " +
-            "AND (c.state IN ('PENDING', 'RUNNING', 'AWAITING_APPROVAL', 'INTERRUPTED') " +
+            "WHERE t.state IN ('COMPLETED', 'FAILED', 'CANCELLED', 'INTERRUPTED') " +
+            "AND c.state NOT IN ('NEEDS_REVIEW', 'INTERRUPTED') " +
+            "AND (c.state IN ('PENDING', 'RUNNING', 'AWAITING_APPROVAL') " +
             "OR NOT EXISTS (SELECT 1 FROM tool_results r WHERE r.toolCallId = c.id) " +
             "OR (c.state = 'COMPLETED' AND EXISTS " +
             "(SELECT 1 FROM tool_results r WHERE r.toolCallId = c.id AND r.verified = 0)))",

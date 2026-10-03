@@ -103,16 +103,35 @@ class TurnCommitStoreDeviceTest {
     @Test fun failedCommitRollsBackTextAndState() =
         fixture { storage, turn, _ ->
             val before = storage.messages.listBySession("s")
-            val invalidClock =
+            val failingClock =
                 object : Clock {
-                    override fun now(): Instant = Instant.EPOCH
+                    override fun now(): Instant = error("fixture clock failure after assistant append")
                 }
-            val store: AgentTurnStore = TurnSettlement(storage, invalidClock) { UUID.randomUUID().toString() }
-            assertThrows(IllegalArgumentException::class.java) {
+            val store: AgentTurnStore = TurnSettlement(storage, failingClock) { UUID.randomUUID().toString() }
+            assertThrows(IllegalStateException::class.java) {
                 runBlocking { store.commitTerminal(command(turn)) }
             }
             assertEquals(before, storage.messages.listBySession("s"))
             assertUnchanged(storage)
+        }
+
+    @Test fun clockRewindDoesNotPreventAtomicTerminalCommit() =
+        fixture { storage, turn, _ ->
+            val rewoundClock =
+                object : Clock {
+                    override fun now(): Instant = Instant.EPOCH
+                }
+            val store: AgentTurnStore = TurnSettlement(storage, rewoundClock) { UUID.randomUUID().toString() }
+            val original = command(turn)
+            val before = storage.messages.listBySession("s")
+            assertEquals(TerminalCommitResult.Applied(original.outcome), store.commitTerminal(original))
+            val persisted = storage.turns.resolve("t")
+            assertEquals(TurnState.COMPLETED.name, persisted.state)
+            assertEquals(persisted.startedAt, persisted.endedAt)
+            assertEquals("COMPLETED", storage.modelCalls.resolve("m").state)
+            assertEquals(before.size + 1, storage.messages.listBySession("s").size)
+            assertEquals(TerminalCommitResult.AlreadyApplied(original.outcome), store.commitTerminal(original))
+            assertEquals(before.size + 1, storage.messages.listBySession("s").size)
         }
 
     @Test fun nextStepPrecedesStream() =

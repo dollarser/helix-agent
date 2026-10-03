@@ -114,5 +114,5 @@ object ProviderHeaders {
     private fun isTokenName(name: String): Boolean =
         name.isNotEmpty() && name.all { c -> c in '!'..'~' && c !in TOKEN_EXCLUDED }
 
-    private const val TOKEN_EXCLUDED = "\"(),/:;<=>?@[]{}"
+    private const val TOKEN_EXCLUDED = "\"\\(),/:;<=>?@[]{}"
 }

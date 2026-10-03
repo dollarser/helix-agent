@@ -4,6 +4,44 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ResponsesSseParserTest {
+    @Test
+    fun crlfFramingIsIndependentOfEveryChunkBoundary() {
+        val stream = "event: delta\r\ndata: a\r\ndata: b\r\n\r\nevent: delta\r\ndata: c\r\n\r\n".toByteArray()
+        for (split in 0..stream.size) {
+            val reader = ResponsesSseParser()
+            val actual =
+                reader.feed(stream.copyOfRange(0, split)) +
+                    reader.feed(stream.copyOfRange(split, stream.size)) + reader.finish()
+            assertEquals("split at $split", listOf(SseEvent("delta", "a\nb"), SseEvent("delta", "c")), actual)
+        }
+    }
+
+    @Test
+    fun utf8SurrogateIsRejected() {
+        val reader = ResponsesSseParser()
+        reader.feed(
+            "data: ".toByteArray() + byteArrayOf(0xED.toByte(), 0xA0.toByte(), 0x80.toByte()) + "\n\n".toByteArray(),
+        )
+        assertEquals(true, reader.isFailed)
+        assertEquals(true, reader.finish().isEmpty())
+    }
+
+    @Test
+    fun incompleteUtf8AtEofCannotDispatchPendingEvent() {
+        val reader = ResponsesSseParser()
+        reader.feed("data: valid\n".toByteArray() + byteArrayOf(0xE2.toByte(), 0x82.toByte()))
+        assertEquals(true, reader.finish().isEmpty())
+        assertEquals(true, reader.isFailed)
+    }
+
+    @Test
+    fun lineLimitIsNotAChunkLimit() {
+        val reader = ResponsesSseParser()
+        val actual = reader.feed((": ping\n".repeat(160_000) + "data: ok\n\n").toByteArray())
+        assertEquals(false, reader.isFailed)
+        assertEquals(1, actual.size)
+    }
+
     private fun types(events: List<SseEvent>): List<Pair<String, String>> = events.map { it.type to it.data }
 
     @Test

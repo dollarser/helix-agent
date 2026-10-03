@@ -14,6 +14,16 @@ import org.junit.Test
  * no-termination and post-terminal guards.
  */
 class AnthropicStreamDecoderTest {
+    @Test
+    fun malformedUtf8ProducesOneNonRetryableProtocolTerminal() {
+        val malformed = listOf(byteArrayOf(0xED.toByte(), 0xA0.toByte(), 0x80.toByte()), byteArrayOf(0xE2.toByte()))
+        for (bytes in malformed) {
+            val decoder = AnthropicStreamDecoder()
+            val events = decoder.feed("data: ".toByteArray() + bytes) + decoder.finish() + decoder.finish()
+            assertEquals(listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)), events)
+        }
+    }
+
     private fun jsonStr(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
     private fun sse(

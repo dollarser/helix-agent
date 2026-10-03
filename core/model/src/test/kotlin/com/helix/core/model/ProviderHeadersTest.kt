@@ -116,6 +116,23 @@ class ProviderHeadersTest {
     }
 
     @Test
+    fun headerNamesFollowHttpTokenCharacterSet() {
+        val punctuation = "!#$%&'*+-.^_`|~"
+        for (code in 0..127) {
+            val character = code.toChar()
+            val name = "x-${character}z"
+            val encoded = ProviderHeaders.toStorageString(mapOf(name to "value"))
+            if (character.isLetterOrDigit() || character in punctuation) {
+                assertEquals(mapOf(name.lowercase() to "value"), ProviderHeaders.parse(encoded))
+            } else {
+                assertThrows<IllegalArgumentException>("invalid header character accepted: $code") {
+                    ProviderHeaders.parse(encoded)
+                }
+            }
+        }
+    }
+
+    @Test
     fun parseEnforcesCountAndTotalSizeCaps() {
         fun headers(n: Int): String = (1..n).joinToString(",") { "\"x-h$it\":\"v\"" }
         assertThrows<IllegalArgumentException>("too many headers accepted") {

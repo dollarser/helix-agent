@@ -7,6 +7,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ChatCompletionsStreamDecoderTest {
+    @Test
+    fun malformedUtf8ProducesOneNonRetryableProtocolTerminal() {
+        val malformed = listOf(byteArrayOf(0xED.toByte(), 0xA0.toByte(), 0x80.toByte()), byteArrayOf(0xE2.toByte()))
+        for (bytes in malformed) {
+            val decoder = ChatCompletionsStreamDecoder()
+            val events = decoder.feed("data: ".toByteArray() + bytes) + decoder.finish() + decoder.finish()
+            assertEquals(listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)), events)
+        }
+    }
+
     // Fixture payloads are built by concatenation so the JSON escaping stays
     // auditable (raw strings cannot express the required backslash escapes).
     private fun chunk(json: String): String = "data: $json\n\n"

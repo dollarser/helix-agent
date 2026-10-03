@@ -88,12 +88,15 @@ class ProcessRecoveryTest {
         assertRecoveryAuditEvents(storage)
 
         // --- idempotent: the next start finds nothing left to recover and writes nothing.
+        val auditBefore = storage.auditEvents.recent(1000)
         val again = TurnRecovery(storage, FixedClock(2_000L)).recover()
         assertTrue(again.interruptedTurns.isEmpty())
         assertTrue(again.cancelledToolCalls.isEmpty())
         assertTrue(again.parkedToolCalls.isEmpty())
         assertTrue(again.parkedGoals.isEmpty())
         assertTrue(again.closedRuns.isEmpty())
+        assertToolCallsParkedCorrectly(storage)
+        assertEquals(auditBefore, storage.auditEvents.recent(1000))
         assertEquals(3, storage.auditEvents.listByCorrelation("session-1").size)
         assertEquals(2, storage.auditEvents.listByCorrelation("corr-goal-1").size)
     }
@@ -228,6 +231,7 @@ class ProcessRecoveryTest {
             ToolCallState.INTERRUPTED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-1")?.state,
         )
+        assertNull(storage.toolResults.byToolCall("tc-1"))
         assertEquals(
             ToolCallState.CANCELLED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-2")?.state,

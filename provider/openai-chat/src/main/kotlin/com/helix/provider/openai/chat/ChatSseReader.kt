@@ -33,6 +33,7 @@ package com.helix.provider.openai.chat
  */
 internal class ChatSseReader {
     private val utf8Tail = ArrayList<Byte>(3)
+    private var afterCr = false
     private val line = StringBuilder()
     private val data = StringBuilder()
     private var pending = ArrayList<String>()
@@ -68,6 +69,7 @@ internal class ChatSseReader {
 
     /** Stream end: dispatch a pending event with data, if any. */
     fun finish(): List<String> {
+        if (!failed && utf8Tail.isNotEmpty()) fail("incomplete utf8 sequence at eof")
         if (!failed && data.isNotEmpty()) dispatch()
         if (failed) return emptyList()
         val out = pending
@@ -83,7 +85,6 @@ internal class ChatSseReader {
             appendCodePoint(step.cp)
             i += step.consumed
         }
-        if (!failed) processLineBreaks()
     }
 
     /**
@@ -106,7 +107,7 @@ internal class ChatSseReader {
             return null
         }
         val cp = assembleCodePoint(bytes, i, length)
-        return if (cp >= minCodePoint(length) && cp <= MAX_CODE_POINT) {
+        return if (cp >= minCodePoint(length) && cp <= MAX_CODE_POINT && cp !in 0xD800..0xDFFF) {
             Utf8Step(cp, length)
         } else {
             fail("malformed utf8 sequence")
@@ -137,29 +138,23 @@ internal class ChatSseReader {
     }
 
     private fun appendCodePoint(cp: Int) {
-        if (line.length >= MAX_LINE_LENGTH) {
-            // Trip immediately: an unterminated line must not grow unbounded.
-            fail("sse line too long")
+        // CRLF is one boundary even when its bytes arrive in different chunks.
+        if (afterCr) {
+            afterCr = false
+            if (cp == '\n'.code) return
+        }
+        if (cp == '\r'.code || cp == '\n'.code) {
+            val text = line.toString()
+            line.setLength(0)
+            processLine(text)
+            afterCr = cp == '\r'.code
             return
         }
-        line.append(codePointChars(cp))
-    }
-
-    private fun processLineBreaks() {
-        while (!failed) {
-            val nl = line.indexOf('\n')
-            val cr = line.indexOf('\r')
-            val breakPos =
-                when {
-                    nl >= 0 && (cr < 0 || nl < cr) -> nl
-                    cr >= 0 -> cr
-                    else -> return
-                }
-            var end = breakPos + 1
-            if (line[breakPos] == '\r' && end < line.length && line[end] == '\n') end++
-            val text = line.substring(0, breakPos)
-            line.delete(0, end)
-            processLine(text)
+        if (line.length + Character.charCount(cp) > MAX_LINE_LENGTH) {
+            // Trip immediately: an unterminated line must not grow unbounded.
+            fail("sse line too long")
+        } else {
+            line.append(codePointChars(cp))
         }
     }
 

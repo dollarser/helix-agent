@@ -11,6 +11,48 @@ import org.junit.Test
  * UTF-8 byte boundaries, typed `event:` fields, stream tail handling.
  */
 class AnthropicSseReaderTest {
+    @Test
+    fun crlfFramingIsIndependentOfEveryChunkBoundary() {
+        val stream = "event: delta\r\ndata: a\r\ndata: b\r\n\r\nevent: delta\r\ndata: c\r\n\r\n".toByteArray()
+        for (split in 0..stream.size) {
+            val reader = AnthropicSseReader()
+            val actual =
+                reader.feed(stream.copyOfRange(0, split)) +
+                    reader.feed(stream.copyOfRange(split, stream.size)) + reader.finish()
+            assertEquals(
+                "split at $split",
+                listOf(AnthropicSseEvent("delta", "a\nb"), AnthropicSseEvent("delta", "c")),
+                actual,
+            )
+        }
+    }
+
+    @Test
+    fun utf8SurrogateIsRejected() {
+        val reader = AnthropicSseReader()
+        reader.feed(
+            "data: ".toByteArray() + byteArrayOf(0xED.toByte(), 0xA0.toByte(), 0x80.toByte()) + "\n\n".toByteArray(),
+        )
+        assertEquals(true, reader.isFailed)
+        assertEquals(true, reader.finish().isEmpty())
+    }
+
+    @Test
+    fun incompleteUtf8AtEofCannotDispatchPendingEvent() {
+        val reader = AnthropicSseReader()
+        reader.feed("data: valid\n".toByteArray() + byteArrayOf(0xE2.toByte(), 0x82.toByte()))
+        assertEquals(true, reader.finish().isEmpty())
+        assertEquals(true, reader.isFailed)
+    }
+
+    @Test
+    fun lineLimitIsNotAChunkLimit() {
+        val reader = AnthropicSseReader()
+        val actual = reader.feed((": ping\n".repeat(160_000) + "data: ok\n\n").toByteArray())
+        assertEquals(false, reader.isFailed)
+        assertEquals(1, actual.size)
+    }
+
     private fun events(vararg chunks: String): List<AnthropicSseEvent> {
         val reader = AnthropicSseReader()
         val out = reader.feed(chunks.joinToString("") { it }.toByteArray()) + reader.finish()

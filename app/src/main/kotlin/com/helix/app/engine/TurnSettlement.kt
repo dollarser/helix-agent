@@ -115,7 +115,7 @@ internal class TurnSettlement(
             turn,
             settled.state,
             checkpoint.modelStep,
-            clock.now().toEpochMilli(),
+            clock.now().toEpochMilli().coerceAtLeast(turn.startedAt),
             settled.errorCode,
         )
         if (!checkpoint.modelCallClosed) {

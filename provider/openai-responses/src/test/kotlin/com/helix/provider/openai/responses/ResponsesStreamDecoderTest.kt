@@ -8,6 +8,16 @@ import org.junit.Test
 
 class ResponsesStreamDecoderTest {
     @Test
+    fun malformedUtf8ProducesOneNonRetryableProtocolTerminal() {
+        val malformed = listOf(byteArrayOf(0xED.toByte(), 0xA0.toByte(), 0x80.toByte()), byteArrayOf(0xE2.toByte()))
+        for (bytes in malformed) {
+            val decoder = ResponsesStreamDecoder()
+            val events = decoder.feed("data: ".toByteArray() + bytes) + decoder.finish() + decoder.finish()
+            assertEquals(listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)), events)
+        }
+    }
+
+    @Test
     fun finalArgumentsSupplyMissingDeltasWithoutDuplicatingPrefixes() {
         for (prefix in listOf("", "{", "{}")) {
             val stream =
