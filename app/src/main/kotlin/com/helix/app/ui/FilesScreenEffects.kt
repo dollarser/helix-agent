@@ -74,7 +74,9 @@ internal fun FilesPreviewEffects(
                         } else {
                             null
                         }
-                    FilePreviewState.Ready(text, image, actions.fileManager.fileInfo(scopeId, file.relativePath))
+                    val info = actions.fileManager.fileInfo(scopeId, file.relativePath)
+                    check(info.sizeBytes >= 0) { actions.str(R.string.files_library_unavailable) }
+                    FilePreviewState.Ready(text, image, info)
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
@@ -85,6 +87,15 @@ internal fun FilesPreviewEffects(
         withContext(Dispatchers.Main.immediate) {
             if (state.openFile?.relativePath == file.relativePath && state.selectedScopeId == scopeId) {
                 state.preview = loaded
+                if (loaded is FilePreviewState.Ready) {
+                    actions.updateLibrary {
+                        visited(
+                            com.helix.core.workspace
+                                .FileScopePath(scopeId, file.relativePath),
+                            false,
+                        )
+                    }
+                }
             }
         }
     }
@@ -98,7 +109,7 @@ internal fun FilesScopeEffects(
 ) {
     with(actions) {
         with(state) {
-            LaunchedEffect(fileManager, reloadTick, sourcesOpen) {
+            LaunchedEffect(fileManager, reloadTick, sourcesOpen, workspacesOpen) {
                 try {
                     replaceSources(withContext(Dispatchers.IO) { fileManager.sources() })
                 } catch (cancelled: CancellationException) {

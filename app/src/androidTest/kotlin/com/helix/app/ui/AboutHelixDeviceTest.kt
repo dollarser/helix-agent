@@ -36,7 +36,7 @@ class AboutHelixDeviceTest {
     }
 
     @Test fun settingsHasAnAboutEntryWithoutOpeningLinksAutomatically() {
-        compose.setContent { MaterialTheme { SettingsScreen({}, {}, {}) } }
+        compose.setContent { MaterialTheme { SettingsScreen() } }
         compose.onNodeWithTag("settings-about").performClick()
         compose.onNodeWithTag("about-project").assertIsDisplayed()
         compose.onNodeWithTag("about-developer").assertIsDisplayed()

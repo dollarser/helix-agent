@@ -78,6 +78,12 @@ class SkillRepository(
                 }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
         }
 
+    /** Manual management preview only; execution must use read and its enablement checks. */
+    fun inspect(key: SkillKey): SkillDocument =
+        synchronized(lock) {
+            requireNotNull(records[key]) { "Unknown skill snapshot: ${key.name}" }.document
+        }
+
     fun read(
         key: SkillKey,
         sessionId: String? = null,

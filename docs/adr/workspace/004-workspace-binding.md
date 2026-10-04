@@ -39,7 +39,7 @@ Deciders: project owner (2026-09-27)
 - 主目录可以是已授权根内的子目录。权限匹配包含该子目录边界，不能只比较 scopeId，把整个 SAF tree 或公共目录都当作当前工作目录。
 - 原生文件工具、项目指令、产物、编辑器、终端与 Git 的目录来源一致；执行域不能消费该后端时明确报告不支持。
 
-workspaceId 标识实际工作资源，不等于逻辑 projectId。Project Memory 只能使用显式登记的稳定项目归属；不因路径 hash、同名目录、相同 Git remote 或内容相似自动合并。首版无需交付项目管理框架，但保留可选归属契约；跨 checkout 共享记忆在关系未确定时保持关闭。资源删除后同路径重建不自动继承旧身份；移动/重新授权需验证资源连续性或显式重绑定，原产物引用不被静默改写。
+workspaceId 标识实际工作资源，不等于逻辑 projectId。Project Memory 只能使用显式登记的稳定项目归属；不因路径 hash、同名目录、相同 Git remote 或内容相似自动合并。显式项目登记与成员关系由 [ADR-WORKSPACE-005](005-projects.md) 定义，Workspace 不再保存可选 projectId；跨 checkout 仅在用户明确关联同一项目后共享项目记忆。资源删除后同路径重建不自动继承旧身份；移动/重新授权需验证资源连续性或显式重绑定，原产物引用不被静默改写。
 
 ### 3. 默认私有目录与外部绑定
 
@@ -152,6 +152,8 @@ SAF 可能由远端文档服务提供，不能将 content URI 一律当作本地
 需要 FULL_ACCESS 之外仍绝对隔离会话、SAF 完整 POSIX 执行、附加目录、Git worktree、自动永久删除或云 Provider 离线保证时，明确新增范围与验收，不从目录绑定中隐含推导。
 
 ## Decision history
+
+- 2026-10-04：本机项目使用独立 registry 和成员表，主目录引用 Workspace；移除资源行上的可选 projectId，按所有者要求不兼容旧开发数据。
 
 - 2026-09-27：所有者要求 fork 默认复用来源 Workspace；明确默认独立目录的 fork 例外，以及共享引用、独立权限和后续切换边界。
 - 2026-09-27：模拟器证明 Android NIO creationTime 可随目录内容变化；Path 身份改用只读 fd 的 device/inode/allocation generation，能力不可用时 fail closed。移除 API29 seccomp 禁止的 statx 实验；不增加执行域、不写入外部目录标记。

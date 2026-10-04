@@ -43,13 +43,11 @@ class HierarchicalNavigationDeviceTest {
         compose.onNodeWithTag("drawer-search-conversations").assertDoesNotExist()
     }
 
-    @Test fun providerBackReturnsThroughCategoryAndPreviousDestination() {
+    @Test fun providerBackReturnsDirectlyToPreviousDestination() {
         compose.navigateTo("settings")
         compose.navigateTo("models")
         compose.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         compose.onNodeWithTag("provider-add").assertIsDisplayed()
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-        compose.onNodeWithTag("provider-group-USER_CONFIGURED").assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("screen-settings").assertIsDisplayed()
     }
@@ -88,7 +86,7 @@ class HierarchicalNavigationDeviceTest {
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("provider-template-picker").assertDoesNotExist()
         compose.onNodeWithTag("provider-add").assertIsDisplayed()
-        compose.onNodeWithTag("provider-groups-back").performClick()
+        compose.onNodeWithTag("provider-groups-back").assertDoesNotExist()
         compose.onNodeWithTag("provider-group-USER_CONFIGURED").assertIsDisplayed()
     }
 }

@@ -49,7 +49,7 @@ internal fun prepareChatLayoutLanguage(
             "zh-CN" -> "ZH_CN"
             else -> error("Unsupported layout language")
         }
-    compose.navigateTo("settings/defaults")
+    compose.navigateTo("settings")
     compose.onNodeWithTag("settings-language-$language").performScrollTo().performClick()
     compose.waitUntil(15_000) {
         compose.activity.resources.configuration.locales[0]

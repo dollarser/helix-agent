@@ -41,6 +41,20 @@ class WriteToolTest {
     val tmp = TemporaryFolder()
 
     @Test
+    fun missingParentReturnsActionableFailureWithoutPublishing() {
+        val root = root()
+        val args =
+            buildJsonObject {
+                put("path", JsonPrimitive("scope:ws:missing/fetch_dy.py"))
+                put("content", JsonPrimitive("print('hello')"))
+            }
+        val result = WriteTool.executor(store(root)).execute(call(args)) as ToolExecutorResult.Failed
+        assertTrue(result.detail.contains("parent directory"))
+        assertFalse(result.requiresReview)
+        assertFalse(Files.exists(root.resolve("missing/fetch_dy.py")))
+    }
+
+    @Test
     fun failureAfterPublicationRequiresReviewAndKeepsThePublishedBytes() {
         val root = root()
         val store = store(root)

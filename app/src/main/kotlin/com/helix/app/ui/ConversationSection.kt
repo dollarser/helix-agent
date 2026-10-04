@@ -38,6 +38,7 @@ import com.helix.app.voice.SpeechRecognitionLauncher
 import com.helix.app.voice.VoiceInputMapper
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +65,11 @@ internal fun ConversationSection(
     composerFeedback: @Composable () -> Unit = {},
     composerOptions: @Composable () -> Unit = {},
     artifacts: @Composable () -> Unit = {},
+    modelSourceGroups: List<ProviderProvisioningKind> =
+        listOf(
+            ProviderProvisioningKind.USER_CONFIGURED,
+            ProviderProvisioningKind.ON_DEVICE_ASSET,
+        ),
 ) {
     val context = LocalContext.current
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
@@ -167,6 +173,11 @@ internal fun ConversationSection(
                 }
                 TextButton(intents.onDirectory, enabled = !screen.isSending) {
                     Text(stringResource(R.string.chat_directory))
+                }
+            }
+            if (screen.directoryRef != null) {
+                TextButton(intents.onGit, modifier = Modifier.testTag("session-git-open")) {
+                    Text(stringResource(R.string.nav_git))
                 }
             }
             screen.directoryRef?.let { Text(it) }
@@ -399,11 +410,11 @@ internal fun ConversationSection(
             )
         }
         composerFeedback()
+        composerStatus()
         var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
         ConversationComposer(
             editorKey = screen.openSessionId,
             onChooseModel = { modelPickerRequest++ },
-            headerStatus = composerStatus,
             optionsContent = composerOptions,
             input = input,
             onInput = onInput,
@@ -422,6 +433,8 @@ internal fun ConversationSection(
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSelectModel,
                     onManageModels = intents.onManageModels,
+                    sourceGroups = modelSourceGroups,
+                    onConfigureSource = intents.onConfigureModelSource,
                     openRequest = modelPickerRequest,
                     reasoningContent = {
                         ComposerReasoningMenu(

@@ -4,7 +4,24 @@
          Enumeration stays local and does not grant automation access. Not packaged in consumer. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <application>
+        <activity android:name="com.helix.app.automation.shizuku.ShizukuPermissionActivity" android:exported="false" />
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <activity
+            android:name="com.helix.app.eval.ShizukuGrantActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+        <service
+            android:name="com.helix.app.eval.ShizukuTapEvalService"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
         <activity android:name="com.helix.app.terminal.ManualTerminalActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <service android:name="com.helix.app.eval.VisualInstallEvalService" android:exported="true" android:permission="android.permission.DUMP" />
         <meta-data android:name="com.helix.agent.DEVELOPER_VARIANT"
             android:value="HELIX_DEVELOPER_ONLY_APP" />
     </application>

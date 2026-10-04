@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ProviderProvisioningKind
 
 data class ConversationIntents(
     val onSend: () -> Unit,
@@ -30,7 +31,9 @@ data class ConversationIntents(
     val onTasks: () -> Unit = {},
     val onNavigation: () -> Unit = {},
     val onSettings: () -> Unit = {},
+    val onGit: () -> Unit = {},
     val onManageModels: () -> Unit = {},
+    val onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
     val onReference: () -> Unit = {},
     val onClearReference: () -> Unit = {},
     val onExpert: () -> Unit = {},

@@ -8,7 +8,7 @@ import com.helix.core.model.TurnBudgets
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** Bounded numeric metadata, never prompt, result, endpoint or credential content. */
+/** Bounded counts and protocol categories, never prompt, result, endpoint or credential content. */
 object RequestBudgetDiagnostics {
     fun admitted(
         request: ModelRequest,
@@ -65,6 +65,12 @@ object RequestBudgetDiagnostics {
             put("outputSource", if (stream?.outputTokens != null) "reported" else "estimated")
             stream?.inputTokens?.let { put("input", it) }
             stream?.outputTokens?.let { put("output", it) }
+            stream?.let {
+                it.finishReason?.let { reason -> put("finishReason", reason) }
+                put("streamCompleted", it.completed)
+                put("toolCalls", it.finishedToolCalls.size)
+                put("hasText", it.text.isNotBlank())
+            }
             put("used", tracker.consumedTokens)
             put("calls", tracker.consumedCalls)
         }.toString()

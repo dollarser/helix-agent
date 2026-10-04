@@ -20,12 +20,27 @@ class MobileUsePlugin(
     context: Context,
     images: com.helix.tools.framework.ToolImagePublication,
     taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
-    enabled: () -> Boolean = { true },
+    shizuku: com.helix.tools.automation.AutomationPrivilegedBackend? = null,
+    root: com.helix.tools.automation.AutomationPrivilegedBackend? = null,
+    private val enabled: () -> Boolean = { true },
 ) : HelixPlugin {
     override val manifest: PluginManifest =
         context.assets.open(MANIFEST_ASSET).use { PluginManifestReader.parse(it.readBytes()) }
 
-    val permissionCenter = AutomationPermissionCenter(context.applicationContext)
+    override val bundledSkills =
+        listOf(
+            com.helix.extensions.plugin.PluginBundledSkill(
+                "android-ui-task",
+                "Operate authorized Android apps with fresh observations, bounded waits and result verification.",
+                context.assets
+                    .open("plugins/mobile-use/skills/android-ui-task/SKILL.md")
+                    .bufferedReader()
+                    .use { it.readText() },
+            ),
+        )
+    val skillContext: String get() = bundledSkills.joinToString("\n\n") { it.content }
+
+    val permissionCenter = AutomationPermissionCenter(context.applicationContext, shizuku, root)
 
     private val origin =
         ToolOrigin.PluginOrigin(
@@ -61,12 +76,23 @@ class MobileUsePlugin(
                 ToolBinding(descriptor, device.executor(descriptor.name.value))
             }
 
+    private val contracts by lazy { MobileUseToolContracts(tools().map { it.descriptor }) }
+
+    fun isAvailable(): Boolean = enabled()
+
+    fun owns(descriptor: com.helix.tools.framework.ToolDescriptor?): Boolean = enabled() && contracts.owns(descriptor)
+
+    fun dispatchScopeFor(
+        descriptor: com.helix.tools.framework.ToolDescriptor?,
+        conversationId: String?,
+    ): UserScope? = if (owns(descriptor)) scopeFor(descriptor?.name?.value, conversationId) else null
+
     fun scopeFor(
         toolName: String?,
         conversationId: String?,
     ): UserScope? =
-        if (toolName?.startsWith("ui.") == true && conversationId != null) {
-            permissionCenter.conversationGrant(conversationId)?.scope
+        if (enabled() && contracts.containsName(toolName) && conversationId != null) {
+            permissionCenter.availableConversationGrant(conversationId, toolName)?.scope
         } else {
             null
         }

@@ -48,6 +48,22 @@ def verify_mobile_app_visibility(manifest, developer):
         raise RuntimeError("App-picker package visibility must be present only in Advanced APK")
 
 
+def verify_shizuku(app, developer):
+    providers = [item for item in app.findall('provider') if item.get(A + 'name') == 'rikka.shizuku.ShizukuProvider']
+    activities = [item for item in app.findall('activity') if item.get(A + 'name') == 'com.helix.app.automation.shizuku.ShizukuPermissionActivity']
+    if not developer:
+        if providers or activities:
+            raise RuntimeError('Standard APK leaked Shizuku')
+        return
+    if len(providers) != 1 or len(activities) != 1:
+        raise RuntimeError('Missing Shizuku provider or permission surface')
+    provider = providers[0]
+    if provider.get(A + 'permission') != 'android.permission.INTERACT_ACROSS_USERS_FULL' or provider.get(A + 'exported') != 'true':
+        raise RuntimeError('Unprotected Shizuku provider')
+    if activities[0].get(A + 'exported') != 'false':
+        raise RuntimeError('Shizuku authorization must be user-operated and non-exported')
+
+
 def verify_mobile_use(app, developer, config=None, resource_table=""):
     """HXA-243: inspect actual service metadata, not just a dependency or UI flag."""
     name = "com.helix.tools.automation.HelixAccessibilityService"
@@ -75,6 +91,20 @@ def verify_mobile_use(app, developer, config=None, resource_table=""):
     for field in ("canRetrieveWindowContent", "canPerformGestures", "canTakeScreenshot"):
         if config.get(A + field) != "true":
             raise RuntimeError("Missing declared Mobile Use capability: " + field)
+    raw_flags = config.get(A + "accessibilityFlags") or ""
+    required_flags = {
+        "flagReportViewIds": 0x10,
+        "flagRetrieveInteractiveWindows": 0x40,
+        "flagIncludeNotImportantViews": 0x02,
+    }
+    if raw_flags.startswith("0x"):
+        numeric_flags = int(raw_flags, 16)
+        missing_flags = {name for name, bit in required_flags.items() if numeric_flags & bit == 0}
+    else:
+        symbolic_flags = set(raw_flags.split("|"))
+        missing_flags = set(required_flags) - symbolic_flags
+    if missing_flags:
+        raise RuntimeError("Missing required Accessibility flags: " + ",".join(sorted(missing_flags)))
 
 
 def verify_media_payload(archive, developer):
@@ -135,6 +165,7 @@ def verify(flavor, build_type):
             str(ANALYZER), "resources", "xml", "--file", "res/xml/helix_accessibility_service.xml", str(apk),
         ]))
     verify_mobile_use(app, developer, mobile_config, resources)
+    verify_shizuku(app, developer)
     assert package == "com.helix.agent" + (".developer" if developer else "")
     components = {element.get(A + "name"): element for element in app}
     for name, (kind, suffix) in COMPONENTS.items():
@@ -177,11 +208,18 @@ def verify(flavor, build_type):
         if ("assets/plugins/mobile-use/plugin.json" in names) != developer:
             raise RuntimeError("Incorrect channel for Mobile Use plugin manifest")
         verify_media_payload(archive, developer)
+        for license_file in ('Shizuku-API-MIT.txt', 'Shizuku-API-NOTICE.txt'):
+            assert ('assets/licenses/' + license_file in names) == developer
         assert ("assets/licenses/dsh-plugin-subscriptions.txt" in names) == developer
         assert not any(name.startswith("assets/companions/") or name.endswith(".apk") for name in names)
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
+        for namespace in (b"Lrikka/shizuku/", b"Lcom/helix/app/automation/shizuku/"):
+            assert (namespace in dex) == developer, f"wrong {flavor} Shizuku dex {namespace}"
+        for namespace in (b"Lcom/topjohnwu/superuser/", b"Lcom/helix/app/automation/shizuku/RootAutomationService;"):
+            assert (namespace in dex) == developer, f"wrong {flavor} Root dex {namespace}"
+        assert "com.helix.app.automation.shizuku.RootAutomationService" not in components, "libsu service is not an Android component"
         for retired in (b"Lcom/helix/provider/api/CleartextAuthorization;",
                         b"Lcom/helix/app/provider/CleartextBindingStore;"):
             if retired in dex:

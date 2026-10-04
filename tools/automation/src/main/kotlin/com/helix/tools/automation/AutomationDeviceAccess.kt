@@ -177,7 +177,7 @@ internal class AutomationDeviceAccess(
     }
 
     @Suppress("DEPRECATION", "SwallowedException")
-    private fun permittedWindows(
+    internal fun permittedWindows(
         session: ActiveAutomationSession,
         target: AutomationDisplayTarget,
         strokes: List<AutomationStroke>,
@@ -239,18 +239,24 @@ class PermissionCenterDevicePort(
 
     private fun lease() = originalCall?.let { center.deviceLease(it) }
 
-    override fun observe(): AutomationDeviceObservation =
-        lease()?.let { (service, session) ->
+    override fun observe(): AutomationDeviceObservation {
+        val call = originalCall
+        val backend = center.deviceBackend()
+        if (call != null && backend != null) return center.privilegedDevice.observe(call, backend)
+        center.privilegedDevice.invalidate()
+        return lease()?.let { (service, session) ->
             val observed = service.deviceAccess.observe(session)
-            observed.takeIf { lease()?.second?.id == session.id }
+            observed
+                .copy(
+                    shizukuState = center.shizukuState(),
+                    rootState = center.rootState(),
+                    clickMatchBackend = center.preferredClickBackend(),
+                ).takeIf { lease()?.second?.id == session.id }
         } ?: AutomationDeviceObservation("NO_ACTIVE_SESSION")
+    }
 
     override fun apps(): AutomationAppListing =
-        lease()?.let { (service, session) ->
-            val apps = service.deviceAccess.apps(session)
-            AutomationAppListing("LISTED", apps.take(1_000), apps.size > 1_000)
-                .takeIf { lease()?.second?.id == session.id }
-        } ?: AutomationAppListing("NO_ACTIVE_SESSION")
+        originalCall?.let(center::apps) ?: AutomationAppListing("NO_ACTIVE_SESSION")
 
     override fun launch(
         packageName: String,
@@ -263,14 +269,24 @@ class PermissionCenterDevicePort(
         frame: String,
         strokes: List<AutomationStroke>,
         call: ExecutableToolCall,
-    ): AutomationActionResult =
-        lease()?.let { (service, session) -> service.deviceAccess.gesture(session, frame, strokes, call) }
+    ): AutomationActionResult {
+        if (center.privilegedDevice.owns(frame)) {
+            val reply = center.privilegedDevice.execute(call, frame, AutomationDeviceOperation.GESTURE, strokes)
+            return reply.action ?: AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
+        }
+        return lease()?.let { (service, session) -> service.deviceAccess.gesture(session, frame, strokes, call) }
             ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+    }
 
     override fun screenshot(
         frame: String,
         call: ExecutableToolCall,
-    ): AutomationScreenshot =
-        lease()?.let { (service, session) -> service.deviceAccess.screenshot(session, frame, call) }
+    ): AutomationScreenshot {
+        if (center.privilegedDevice.owns(frame)) {
+            val reply = center.privilegedDevice.execute(call, frame, AutomationDeviceOperation.SCREENSHOT)
+            return reply.screenshot ?: AutomationScreenshot(reply.status)
+        }
+        return lease()?.let { (service, session) -> service.deviceAccess.screenshot(session, frame, call) }
             ?: AutomationScreenshot("NO_ACTIVE_SESSION")
+    }
 }

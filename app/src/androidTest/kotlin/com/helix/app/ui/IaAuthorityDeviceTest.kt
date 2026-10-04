@@ -21,16 +21,22 @@ class IaAuthorityDeviceTest {
         listOf("capabilities", "readiness", "permissions", "audit").forEach { legacy ->
             compose.onNodeWithTag("navigation-$legacy").assertDoesNotExist()
         }
-        compose.onNodeWithTag("navigation-group-configure").performClick()
-        listOf("models", "extensions", "setup").forEach { route ->
+        compose.onNodeWithTag("navigation-group-configure").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-setup").assertDoesNotExist()
+        listOf("models", "extensions").forEach { route ->
             compose.onNodeWithTag("navigation-$route").performScrollTo().assertIsDisplayed()
         }
 
+        compose.onNodeWithTag("navigation-group-settings").performScrollTo().performClick()
+        settingsDrawerEntries.forEach { entry ->
+            compose.onNodeWithTag("navigation-${entry.route}").performScrollTo().assertIsDisplayed()
+        }
         compose.onNodeWithTag("navigation-settings").performScrollTo().performClick()
         compose.onNodeWithTag("screen-settings").assertIsDisplayed()
-        compose.onNodeWithTag("settings-open-defaults").assertIsDisplayed()
-        compose.onNodeWithTag("settings-open-permissions").assertIsDisplayed()
-        compose.onNodeWithTag("settings-open-audit").assertIsDisplayed()
+        compose.onNodeWithTag("settings-about").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("settings-open-defaults").assertDoesNotExist()
+        compose.onNodeWithTag("settings-open-permissions").assertDoesNotExist()
+        compose.onNodeWithTag("settings-open-audit").assertDoesNotExist()
         compose.onNodeWithTag("provider-add").assertDoesNotExist()
         compose.onNodeWithTag("connector-import").assertDoesNotExist()
         compose.onNodeWithTag("settings-proot-status").assertDoesNotExist()
@@ -48,7 +54,7 @@ class IaAuthorityDeviceTest {
         } else {
             compose.onNodeWithTag("provider-group-MANAGED_ACCOUNT").assertDoesNotExist()
         }
-        compose.onNodeWithTag("provider-add").assertDoesNotExist()
+        compose.onNodeWithTag("provider-add").assertIsDisplayed()
         compose.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         compose.onNodeWithTag("provider-add").performScrollTo().assertIsDisplayed()
 
@@ -56,10 +62,14 @@ class IaAuthorityDeviceTest {
         compose.onNodeWithTag("extensions-tab-manage").performScrollTo().performClick()
         compose.onNodeWithTag("connector-import").performScrollTo().assertIsDisplayed()
 
-        compose.navigateTo("setup")
-        compose.onNodeWithTag("setup-open-readiness").assertIsDisplayed()
-        compose.onNodeWithTag("setup-open-capabilities").assertIsDisplayed()
-        compose.onNodeWithTag("setup-open-runtime").assertIsDisplayed()
+        compose.navigateTo(SETTINGS_AUDIT_ROUTE)
+        compose.onNodeWithTag("diagnostics-open-readiness").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("diagnostics-open-readiness").performClick()
+        compose.onNodeWithTag("capability-readiness").assertIsDisplayed()
+        compose.onNodeWithTag("navigate-back").performClick()
+        compose.onNodeWithTag("diagnostics-open-capabilities").performScrollTo().assertIsDisplayed()
+        compose.navigateTo(SETUP_RUNTIME_ROUTE)
+        compose.onNodeWithTag("screen-setup-runtime").assertIsDisplayed()
 
         compose.navigateTo("settings/permissions")
         compose.onNodeWithTag("screen-settings-permissions").assertIsDisplayed()

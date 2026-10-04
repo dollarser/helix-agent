@@ -95,6 +95,7 @@ internal class SessionInputDeliveryCoordinator(
     @Suppress("TooGenericExceptionCaught") // Durable accepted input is parked, never silently discarded.
     suspend fun revalidate(
         input: SessionInputRecord,
+        parkFailure: Boolean = true,
     ): Pair<String, List<MessageAttachmentRepository.Binding>>? =
         try {
             val session = storage.sessions.resolve(input.sessionId)
@@ -131,13 +132,15 @@ internal class SessionInputDeliveryCoordinator(
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (error: Exception) {
-            synchronized(turnGate) {
-                storage.sessionInputs.markNeedsAttention(
-                    input.inputId,
-                    input.revision,
-                    "INPUT_REVALIDATION_FAILED",
-                    clock.now().toEpochMilli(),
-                )
+            if (parkFailure) {
+                synchronized(turnGate) {
+                    storage.sessionInputs.markNeedsAttention(
+                        input.inputId,
+                        input.revision,
+                        "INPUT_REVALIDATION_FAILED",
+                        clock.now().toEpochMilli(),
+                    )
+                }
             }
             Log.w(TAG, "Queued input revalidation failed", error)
             null

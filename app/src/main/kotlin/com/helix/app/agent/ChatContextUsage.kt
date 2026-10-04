@@ -66,7 +66,7 @@ internal object ChatContextProjection {
                 .listBySession(session.id)
                 .asReversed()
                 .asSequence()
-                .filter { it.state in setOf("COMPLETED", "FAILED", "CANCELLED", "INTERRUPTED") }
+                // A completed model request is authoritative even while its Turn is running tools.
                 .flatMap {
                     storage.modelCalls
                         .listByTurn(it.id)

@@ -65,6 +65,26 @@ class HelixStorage internal constructor(
     private val composerDirectory: File =
         File(requireNotNull((contentStore as? FileContentStore)?.root), "composer-input"),
 ) {
+    val projects by lazy {
+        com.helix.core.storage.repository.ProjectRepository(
+            database.projectDao(),
+            ::withTransaction,
+            directoryAvailable = { ref -> workspaces.find(ref.scopeId)?.availability == "READY" },
+            audit = { id, type ->
+                auditEvents.append(
+                    java.util.UUID
+                        .randomUUID()
+                        .toString(),
+                    id,
+                    type,
+                    "USER",
+                    "{}",
+                    System.currentTimeMillis(),
+                )
+            },
+        )
+    }
+
     val connectorMutationLock = Any()
 
     val connectors by lazy { database.connectorDao() }

@@ -169,6 +169,19 @@ internal class AppFileServices(
             // ids, localized against the CHOSEN app language at emit time (via the injected locale resolver).
             strings = { id, args -> strings(id, args) },
             sharedStorageGranted = sharedStorage::isGranted,
+            library =
+                com.helix.app.files.FileLibrary(
+                    read = {
+                        context
+                            .getSharedPreferences(
+                                "file-library",
+                                android.content.Context.MODE_PRIVATE,
+                            ).getString("v1", null)
+                    },
+                    write = { value ->
+                        persistFileLibrary(context, value)
+                    },
+                ),
             manual =
                 com.helix.app.files.ManualFileOperations(
                     journal =
@@ -231,4 +244,21 @@ internal class AppFileServices(
             workspaceSources = workspaceSources,
             workspaceCleanup = workspaceCleanup,
         )
+}
+
+// KTX edit returns Unit; persistence must still report a failed commit to the caller.
+@android.annotation.SuppressLint("UseKtx")
+private fun persistFileLibrary(
+    context: Context,
+    value: String,
+) {
+    check(
+        context
+            .getSharedPreferences("file-library", Context.MODE_PRIVATE)
+            .edit()
+            .putString("v1", value)
+            .commit(),
+    ) {
+        "File library could not be saved"
+    }
 }

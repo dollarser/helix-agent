@@ -15,6 +15,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import java.time.Instant
 
 /** User-enabled service for bounded snapshots and token-bound actions. */
@@ -33,6 +35,8 @@ class HelixAccessibilityService : AccessibilityService() {
 
     internal fun bindPresentation(call: com.helix.tools.framework.ExecutableToolCall): Boolean =
         ensurePresentation()?.bind(call) ?: true
+
+    internal val physicalInput = AutomationServiceController.physicalInput
 
     internal val deviceAccess by lazy { AutomationDeviceAccess(this) }
     private val handler = Handler(Looper.getMainLooper())
@@ -150,19 +154,13 @@ class HelixAccessibilityService : AccessibilityService() {
 
     /** Lightweight target verification for resume paths; never walks the Accessibility node tree. */
     internal fun currentTargetPackage(): String? {
-        val root =
-            try {
-                rootInActiveWindow
-            } catch (_: RuntimeException) {
-                null
-            } ?: return null
+        val root = currentAccessibilityRoot() ?: return null
         return try {
             root.packageName?.toString()
         } catch (_: RuntimeException) {
             null
         } finally {
-            @Suppress("DEPRECATION")
-            root.recycle()
+            root.recycleSafely()
         }
     }
 
@@ -205,20 +203,77 @@ class HelixAccessibilityService : AccessibilityService() {
     internal fun availableSystemActions(): Set<Int> =
         if (Build.VERSION.SDK_INT >= 30) systemActions.map { it.id }.toSet() else (1..8).toSet()
 
-    private fun currentRoot(): SnapshotNode? =
-        try {
-            rootInActiveWindow?.let(::AndroidSnapshotNode)
-        } catch (_: RuntimeException) {
-            null
-        }
+    private fun currentRoot(): SnapshotNode? = currentAccessibilityRoot()?.let(::AndroidSnapshotNode)
 
-    private fun observeActiveTarget(): Int? {
+    /**
+     * Prefer an explicit active/focused window root. Android documents that AccessibilityNodeInfo
+     * snapshots can become outdated while a window mutates, and API 33+ can prefetch descendants
+     * as one bounded read. Refresh once before traversal, then fall back to the active-window API.
+     */
+    @Suppress("DEPRECATION", "SwallowedException")
+    private fun currentAccessibilityRoot(): AccessibilityNodeInfo? {
+        val windows =
+            try {
+                windows
+            } catch (_: RuntimeException) {
+                emptyList()
+            }
+        try {
+            val target =
+                windows.firstOrNull(AccessibilityWindowInfo::isFocused)
+                    ?: windows.firstOrNull(AccessibilityWindowInfo::isActive)
+            freshWindowRoot(target)?.let { return it }
+        } finally {
+            windows.forEach { it.recycle() }
+        }
+        return freshActiveWindowRoot()
+    }
+
+    @Suppress("DEPRECATION", "SwallowedException")
+    private fun freshWindowRoot(window: AccessibilityWindowInfo?): AccessibilityNodeInfo? {
+        if (window == null) return null
         val root =
             try {
-                rootInActiveWindow
+                if (Build.VERSION.SDK_INT >= 33) {
+                    window.getRoot(rootPrefetchFlags)
+                } else {
+                    window.root
+                }
             } catch (_: RuntimeException) {
                 null
-            } ?: return null
+            }
+        return refreshed(root)
+    }
+
+    @Suppress("DEPRECATION", "SwallowedException")
+    private fun freshActiveWindowRoot(): AccessibilityNodeInfo? {
+        val root =
+            try {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    getRootInActiveWindow(rootPrefetchFlags)
+                } else {
+                    rootInActiveWindow
+                }
+            } catch (_: RuntimeException) {
+                null
+            }
+        return refreshed(root)
+    }
+
+    @Suppress("SwallowedException")
+    private fun refreshed(root: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (root == null) return null
+        return try {
+            root.takeIf { it.refresh() }
+        } catch (_: RuntimeException) {
+            null
+        }.also { refreshed ->
+            if (refreshed == null) root.recycleSafely()
+        }
+    }
+
+    private fun observeActiveTarget(): Int? {
+        val root = currentAccessibilityRoot() ?: return null
         return try {
             root.packageName?.toString()?.let(AutomationServiceController::targetObserved)
             root.windowId
@@ -226,8 +281,7 @@ class HelixAccessibilityService : AccessibilityService() {
             // A recycled or disappearing window is not evidence of a stable target change.
             null
         } finally {
-            @Suppress("DEPRECATION")
-            root.recycle()
+            root.recycleSafely()
         }
     }
 
@@ -284,6 +338,23 @@ class HelixAccessibilityService : AccessibilityService() {
             ),
         )
     }
+
+    @Suppress("DEPRECATION", "SwallowedException")
+    private fun AccessibilityNodeInfo.recycleSafely() {
+        try {
+            recycle()
+        } catch (_: RuntimeException) {
+            // Best-effort cleanup only; API 33+ recycle is already a no-op.
+        }
+    }
+
+    private val rootPrefetchFlags: Int =
+        if (Build.VERSION.SDK_INT >= 33) {
+            AccessibilityNodeInfo.FLAG_PREFETCH_DESCENDANTS_DEPTH_FIRST or
+                AccessibilityNodeInfo.FLAG_PREFETCH_UNINTERRUPTIBLE
+        } else {
+            0
+        }
 
     companion object {
         const val CHANNEL_ID = "accessibility_automation"

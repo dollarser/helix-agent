@@ -51,6 +51,8 @@ fun AuditScreen(
     service: AuditLogService,
     sessions: List<SessionRowUi>,
     diagnostics: com.helix.app.diagnostics.DiagnosticReportService? = null,
+    onReadiness: (() -> Unit)? = null,
+    onCapabilities: (() -> Unit)? = null,
 ) {
     var sessionId by remember { mutableStateOf<String?>(null) }
     var toolName by remember { mutableStateOf<String?>(null) }
@@ -76,8 +78,8 @@ fun AuditScreen(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        TroubleshootingSection(diagnostics, onReadiness, onCapabilities)
         AuditLogHeader()
-        diagnostics?.let { DiagnosticReportSection(it::preview) }
         AuditSessionToolOperationFilters(
             sessions,
             tools,
@@ -133,6 +135,7 @@ private fun auditCountText(size: Int): String =
 @Composable
 @Suppress("FunctionName")
 private fun AuditLogHeader() {
+    Text(stringResource(R.string.settings_operation_records), style = MaterialTheme.typography.titleMedium)
     Text(
         stringResource(R.string.audit_redaction_note),
         style = MaterialTheme.typography.bodyMedium,

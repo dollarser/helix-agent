@@ -68,6 +68,11 @@ class SystemCapabilityResolver(
                 accessibilityState()
             }
 
+            Capability.MOBILE_USE -> {
+                com.helix.app.automation.AutomationModule
+                    .capabilityState()
+            }
+
             Capability.ROOT_SHELL -> {
                 RootModule.capabilityState()
             }

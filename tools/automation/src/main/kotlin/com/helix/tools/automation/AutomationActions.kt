@@ -11,6 +11,8 @@ data class AutomationFindQuery(
     val viewId: String? = null,
     val className: String? = null,
     val clickable: Boolean? = null,
+    val checkable: Boolean? = null,
+    val checked: Boolean? = null,
     val match: AutomationTextMatch = AutomationTextMatch.EXACT,
     val maxResults: Int = 20,
 )
@@ -30,6 +32,7 @@ enum class AutomationNodeAction {
     CLICK,
     LONG_CLICK,
     SET_TEXT,
+    IME_ENTER,
     SET_PROGRESS,
     SCROLL_FORWARD,
     SCROLL_BACKWARD,
@@ -63,9 +66,15 @@ data class AutomationNodeActionRequest(
     val token: String,
     val text: String? = null,
     val progress: Double? = null,
+    val submit: Boolean = false,
 )
 
 enum class AutomationActionStatus {
+    ROOT_UNAVAILABLE,
+    SHIZUKU_UNAVAILABLE,
+    SHIZUKU_PERMISSION_REQUIRED,
+    TARGET_NOT_FOUND,
+    TARGET_AMBIGUOUS,
     SUCCEEDED,
     SERVICE_NOT_CONNECTED,
     NO_ACTIVE_SESSION,

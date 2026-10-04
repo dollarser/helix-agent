@@ -9,20 +9,33 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ShellDestination
 import com.helix.app.ui.indicatedVerticalScroll
 
-/** Conversation-first drawer plus the two-level global work/configure/settings navigation. */
+private val drawerGroupOrder =
+    listOf(
+        R.string.nav_projects,
+        R.string.nav_models,
+        R.string.nav_extensions,
+        R.string.nav_terminal,
+        R.string.nav_group_work,
+        R.string.nav_group_settings,
+    )
+
+/** Conversation-first drawer with direct resource entries and expandable Work/Settings groups. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun GroupedNavigation(
@@ -33,20 +46,25 @@ internal fun GroupedNavigation(
     onNewConversation: () -> Unit,
     onAllConversations: () -> Unit,
     footer: @Composable () -> Unit = {},
-    onNavigate: (ShellDestination) -> Unit,
+    onNavigate: (String) -> Unit,
 ) {
     val navigationDestinations =
         destinations
-            .filter { it != ShellDestination.Sessions }
-            .sortedBy { if (it == ShellDestination.Models) 0 else 1 }
-    val initialExpanded =
-        remember(navigationDestinations, currentRoute) {
-            navigationDestinations
-                .groupBy { it.navigationGroup() }
-                .filter { (_, entries) -> entries.any { it.route == currentRoute } }
-                .keys
+            .filter { it !in setOf(ShellDestination.Sessions, ShellDestination.Git, ShellDestination.Setup) }
+            .sortedBy { drawerGroupOrder.indexOf(it.navigationGroup()) }
+    val groups =
+        navigationDestinations.groupBy { it.navigationGroup() }.mapValues { (group, entries) ->
+            if (group ==
+                R.string.nav_group_settings
+            ) {
+                settingsDrawerEntries
+            } else {
+                entries.map { DrawerEntry(it.route, it.titleRes) }
+            }
         }
-    var expandedGroups by remember(currentRoute) { mutableStateOf(initialExpanded) }
+    val initialExpanded = groups.filterValues { entries -> entries.any { it.matches(currentRoute) } }.keys
+    var expandedGroups by rememberSaveable { mutableStateOf(initialExpanded.toList()) }
+    LaunchedEffect(currentRoute) { expandedGroups = (expandedGroups + initialExpanded).distinct() }
 
     Column(Modifier.fillMaxHeight()) {
         Column(Modifier.weight(1f).indicatedVerticalScroll(rememberScrollState()).testTag("navigation-groups")) {
@@ -58,19 +76,17 @@ internal fun GroupedNavigation(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-new-conversation"),
             )
             conversation.currentSessionId?.let {
-                Text(
-                    stringResource(R.string.drawer_current_conversation),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 28.dp, end = 16.dp, top = 12.dp, bottom = 2.dp),
-                )
                 NavigationDrawerItem(
                     label = {
-                        Text(
-                            conversation.currentTitle.ifBlank { stringResource(R.string.chat_new_session) },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Column {
+                            Text(stringResource(R.string.drawer_current_conversation))
+                            Text(
+                                conversation.currentTitle.ifBlank { stringResource(R.string.chat_new_session) },
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     },
                     selected = currentRoute == ShellDestination.Sessions.route,
                     onClick = onCurrentConversation,
@@ -87,13 +103,15 @@ internal fun GroupedNavigation(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-all-conversations"),
             )
             HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            navigationDestinations.groupBy { it.navigationGroup() }.forEach { (group, entries) ->
-                if (entries.size == 1) {
+            groups.forEach { (group, entries) ->
+                if (group in
+                    setOf(R.string.nav_projects, R.string.nav_models, R.string.nav_extensions, R.string.nav_terminal)
+                ) {
                     val destination = entries.first()
                     NavigationDrawerItem(
                         label = { Text(stringResource(destination.titleRes)) },
-                        selected = destination.route == currentRoute,
-                        onClick = { onNavigate(destination) },
+                        selected = destination.matches(currentRoute),
+                        onClick = { onNavigate(destination.route) },
                         modifier =
                             Modifier
                                 .padding(horizontal = 12.dp, vertical = 2.dp)
@@ -101,7 +119,9 @@ internal fun GroupedNavigation(
                     )
                 } else {
                     val isExpanded = group in expandedGroups
-                    val hasSelectedChild = entries.any { it.route == currentRoute }
+                    val hasSelectedChild = entries.any { it.matches(currentRoute) }
+                    val expandedLabel =
+                        stringResource(if (isExpanded) R.string.nav_expanded else R.string.nav_collapsed)
                     NavigationDrawerItem(
                         label = { Text(stringResource(group)) },
                         selected = !isExpanded && hasSelectedChild,
@@ -117,14 +137,15 @@ internal fun GroupedNavigation(
                         modifier =
                             Modifier
                                 .padding(horizontal = 12.dp, vertical = 2.dp)
-                                .testTag(navigationGroupTag(group)),
+                                .testTag(navigationGroupTag(group))
+                                .semantics { stateDescription = expandedLabel },
                     )
                     if (isExpanded) {
                         entries.forEach { destination ->
                             NavigationDrawerItem(
                                 label = { Text(stringResource(destination.titleRes)) },
-                                selected = destination.route == currentRoute,
-                                onClick = { onNavigate(destination) },
+                                selected = destination.matches(currentRoute),
+                                onClick = { onNavigate(destination.route) },
                                 modifier =
                                     Modifier
                                         .padding(start = 28.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
@@ -157,11 +178,15 @@ private fun ShellDestination.navigationGroup(): Int =
         ShellDestination.Files, ShellDestination.Browser,
         -> R.string.nav_group_work
 
+        ShellDestination.Projects -> R.string.nav_projects
+
         ShellDestination.Models -> R.string.nav_models
 
         ShellDestination.Terminal -> R.string.nav_terminal
 
-        ShellDestination.Extensions, ShellDestination.Setup -> R.string.nav_group_configure
+        ShellDestination.Extensions -> R.string.nav_extensions
+
+        ShellDestination.Setup -> R.string.nav_group_settings
 
         ShellDestination.Settings -> R.string.nav_group_settings
     }

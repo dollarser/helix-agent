@@ -15,6 +15,34 @@ import org.junit.Test
  * working directory is substituted from session facts, never from model-visible text.
  */
 class PromptEnvironmentSectionsTest {
+    @Test
+    fun mobileGuidanceIsConditionalAndDoesNotOverridePlanMode() {
+        for (mode in listOf(AgentMode.CHAT, AgentMode.PLAN)) {
+            val registry = PromptRegistry()
+            PromptEnvironmentSections.register(
+                registry,
+                directory,
+                mode,
+                false,
+                mobileSkillContext = "Plugin guidance: ui.wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
+            )
+            val mobile = registry.resolve().single { it.name == PromptEnvironmentSections.MOBILE_NAME }
+            assertEquals(PromptSource.EXTERNAL_CONTENT, mobile.source)
+            assertEquals(PromptScope.SKILL, mobile.scope)
+            assertTrue(mobile.content.contains("does not grant permission"))
+            assertTrue(mobile.content.contains("ui.wait"))
+            assertTrue(mobile.content.contains("ACTION_OUTCOME_UNKNOWN"))
+            assertEquals(
+                mode == AgentMode.PLAN,
+                registry.resolve().any { it.name == PromptEnvironmentSections.PLAN_NAME },
+            )
+        }
+        val registry = PromptRegistry()
+        PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, false)
+        assertTrue(registry.resolve().none { it.name == PromptEnvironmentSections.MOBILE_NAME })
+        assertTrue(!registry.assemble().contains("ui.screenshot"))
+    }
+
     private val templates =
         PromptTemplateSource { name ->
             when (name) {

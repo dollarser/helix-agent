@@ -43,7 +43,12 @@ import com.helix.app.ui.indicatedVerticalScroll
 /** System grants only: never creates an Agent scope or an approval rule. */
 @Composable
 @Suppress("FunctionName", "LongMethod")
-fun SystemPermissionsScreen(filePermissions: (@Composable () -> Unit)? = null) {
+fun SystemPermissionsScreen(
+    filePermissions: (@Composable () -> Unit)? = null,
+    onFileLocations: (() -> Unit)? = null,
+    automationPermissions: (@Composable () -> Unit)? = null,
+    advancedPermissions: (@Composable () -> Unit)? = null,
+) {
     val context = LocalContext.current
     var revision by remember { mutableIntStateOf(0) }
     var unavailable by remember { mutableStateOf(false) }
@@ -91,6 +96,12 @@ fun SystemPermissionsScreen(filePermissions: (@Composable () -> Unit)? = null) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.permissions_help))
+        automationPermissions?.invoke()
+        if (advancedPermissions != null) {
+            var advanced by rememberSaveable { mutableStateOf(false) }
+            TextButton({ advanced = !advanced }) { Text(stringResource(R.string.permissions_root_diagnostics)) }
+            if (advanced) advancedPermissions()
+        }
         PermissionEntry(R.string.permissions_notifications, notifications, "permission-notifications") {
             if (Build.VERSION.SDK_INT >= 33 &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -113,6 +124,11 @@ fun SystemPermissionsScreen(filePermissions: (@Composable () -> Unit)? = null) {
         }
         TextButton(appSettings, Modifier.testTag("permission-app-settings")) {
             Text(stringResource(R.string.permissions_app_settings))
+        }
+        onFileLocations?.let { action ->
+            OutlinedButton(action, Modifier.testTag("permission-file-locations")) {
+                Text(stringResource(R.string.permissions_file_locations))
+            }
         }
         if (filePermissions != null) {
             OutlinedButton({ files = true }, Modifier.testTag("permission-files")) {

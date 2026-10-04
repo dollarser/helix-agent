@@ -41,10 +41,37 @@ import kotlinx.coroutines.withContext
 internal fun MemoryDialog(
     service: MemoryService,
     sessionId: String?,
+    projectId: String? = null,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var selectedScope by remember { mutableStateOf<MemoryScope>(MemoryScope.Global) }
+    var projectScope by remember(sessionId) { mutableStateOf<MemoryScope?>(null) }
+    LaunchedEffect(sessionId, projectId) {
+        projectScope =
+            withContext(Dispatchers.IO) {
+                if (projectId != null) {
+                    MemoryScope.Project(
+                        com.helix.core.workspace.memory
+                            .ProjectMemoryScopeKey(projectId),
+                    )
+                } else if (service.projectAvailable(sessionId)) {
+                    service.scope("project", sessionId)
+                } else {
+                    null
+                }
+            }
+    }
+    var selectedScope by remember {
+        mutableStateOf<MemoryScope>(
+            projectId?.let {
+                MemoryScope.Project(
+                    com.helix.core.workspace.memory
+                        .ProjectMemoryScopeKey(it),
+                )
+            }
+                ?: MemoryScope.Global,
+        )
+    }
     var entries by remember { mutableStateOf(emptyList<MemoryEntry>()) }
     var name by remember { mutableStateOf("user.md") }
     var markdown by remember { mutableStateOf("") }
@@ -54,6 +81,7 @@ internal fun MemoryDialog(
     var failed by remember { mutableStateOf(false) }
     var enabled by remember { mutableStateOf(service.enabled) }
     var autoGlobal by remember { mutableStateOf(service.autoGlobal) }
+    var autoProject by remember { mutableStateOf(service.autoProject) }
     var confirmDelete by remember { mutableStateOf(false) }
     val act: (suspend () -> Unit) -> Unit = { work ->
         if (!busy) {
@@ -125,17 +153,26 @@ internal fun MemoryDialog(
                     Text(stringResource(R.string.memory_auto_global))
                 }
                 Row {
+                    Checkbox(autoProject, enabled = !busy, onCheckedChange = { value ->
+                        act {
+                            withContext(Dispatchers.IO) { service.configure("auto-project", value) }
+                            autoProject = service.autoProject
+                        }
+                    }, modifier = Modifier.testTag("memory-auto-project"))
+                    Text(stringResource(R.string.memory_auto_project))
+                }
+                Row {
                     TextButton({ selectedScope = MemoryScope.Global }, enabled = !busy) {
                         Text(stringResource(R.string.memory_global))
                     }
                     TextButton(
-                        { selectedScope = service.scope("project", sessionId) },
-                        enabled = !busy && service.projectAvailable(sessionId),
+                        { projectScope?.let { selectedScope = it } },
+                        enabled = !busy && projectScope != null,
                     ) {
                         Text(stringResource(R.string.memory_project))
                     }
                 }
-                if (!service.projectAvailable(sessionId)) Text(stringResource(R.string.memory_project_unavailable))
+                if (projectScope == null) Text(stringResource(R.string.memory_project_unavailable))
                 OutlinedTextField(
                     query,
                     { query = it.take(256) },

@@ -104,7 +104,7 @@ class WorkspaceRepository(
         now: Long,
     ): WorkspaceEntity {
         val id = "ws-${UUID.randomUUID()}"
-        val entity = WorkspaceEntity(id, "PATH", id, "managed:$id", "MANAGED", "CREATING", null, null, sessionId, now)
+        val entity = WorkspaceEntity(id, "PATH", id, "managed:$id", "MANAGED", "CREATING", null, sessionId, now)
         dao.insert(entity)
         return entity
     }
@@ -149,7 +149,6 @@ class WorkspaceRepository(
                 "EXTERNAL",
                 "READY",
                 witness,
-                null,
                 null,
                 now,
             )

@@ -104,11 +104,13 @@ internal object MemoryTools {
         val writing = call.toolName in writes
         return try {
             val scope =
-                service.scope(
+                service.scopeForTool(
                     call.args
                         .getValue("scope")
                         .jsonPrimitive.content,
                     call.sessionId,
+                    call.turnId,
+                    call.toolCallId,
                 )
             service.requireModelAccess(scope, writing)
             val result = result(service, call, scope)

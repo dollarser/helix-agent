@@ -55,6 +55,9 @@ internal interface RootAccessDriver {
 class RootAccessController internal constructor(
     private val driver: RootAccessDriver,
 ) {
+    /** Last libsu observation of the app grant; not proof of a live privileged connection. */
+    val cachedAppGrant: Boolean? get() = driver.cachedGrant()
+
     private var grant = RootGrantState.UNAVAILABLE
     private var service = RootServiceState.DISCONNECTED
     private var serviceProcessId: Int? = null

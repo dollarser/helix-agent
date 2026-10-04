@@ -28,6 +28,7 @@ import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 @Suppress("TooGenericExceptionCaught") // Failed UI actions retain their input and offer retry; cancellation propagates.
@@ -72,8 +73,8 @@ private data class SessionInputQueueRowActions(
 
 /**
  * Displays persisted inputs that have not yet been consumed by the session. Loading is tied to
- * [refreshKey], supplied by the owning screen when its observable state changes; this panel never
- * starts a polling loop. Every mutation carries the record revision so a stale panel cannot
+ * Room changes and [refreshKey]; this panel never starts a polling loop.
+ * Every mutation carries the record revision so a stale panel cannot
  * withdraw, edit or resume a newer record silently.
  */
 @Composable
@@ -82,6 +83,7 @@ internal fun SessionInputQueuePanel(
     service: ChatService,
     sessionId: String,
     refreshKey: Any? = null,
+    activeTurnId: String? = null,
 ) {
     var records by remember(sessionId) { mutableStateOf<List<SessionInputRecord>>(emptyList()) }
     var expanded by remember(sessionId) { mutableStateOf(false) }
@@ -94,6 +96,7 @@ internal fun SessionInputQueuePanel(
     var loadGeneration by remember(sessionId) { mutableStateOf(0) }
     val bodies = remember(sessionId) { mutableStateMapOf<String, String?>() }
     val busy = remember(sessionId) { mutableStateMapOf<String, Boolean>() }
+    var previews by remember(sessionId) { mutableStateOf<Map<String, String>>(emptyMap()) }
     val scope = rememberCoroutineScope()
 
     suspend fun refreshQueue() {
@@ -103,11 +106,21 @@ internal fun SessionInputQueuePanel(
         loadFailed = false
         val result =
             preservingCancellation {
-                service.sessionInputDeliveryStatus(sessionId).await()
+                val loaded = service.sessionInputDeliveryStatus(sessionId).await()
+                val preview =
+                    loaded.filter { it.state != SessionInputState.APPENDED }.associate { record ->
+                        record.inputId to
+                            service
+                                .readSessionInput(record.inputId)
+                                .await()
+                                .orEmpty()
+                                .take(240)
+                    }
+                loaded to preview
             }
         if (generation != loadGeneration) return
         result
-            .onSuccess { loaded ->
+            .onSuccess { (loaded, preview) ->
                 val previous = records.associateBy { it.inputId }
                 val current = loaded.associateBy { it.inputId }
                 bodies.keys
@@ -115,6 +128,7 @@ internal fun SessionInputQueuePanel(
                     .filter { previous[it]?.textRef != current[it]?.textRef || it !in current }
                     .forEach(bodies::remove)
                 records = loaded
+                previews = preview
             }.onFailure {
                 loadFailed = true
             }
@@ -122,6 +136,9 @@ internal fun SessionInputQueuePanel(
     }
 
     LaunchedEffect(sessionId, refreshKey) { refreshQueue() }
+    LaunchedEffect(service, sessionId) {
+        service.observeSessionInputDelivery(sessionId).distinctUntilChanged().collect { refreshQueue() }
+    }
 
     if (records.isEmpty() && !loading && !loadFailed) return
     val pendingCount =
@@ -131,9 +148,31 @@ internal fun SessionInputQueuePanel(
         }
     val appendedCount = records.count { it.state == SessionInputState.APPENDED }
     Column(
-        modifier = Modifier.testTag("session-input-queue-panel"),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("session-input-queue-panel"),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        SessionInputQueuePreview(
+            records = records.filter { it.state != SessionInputState.APPENDED },
+            previews = previews,
+            busy = busy,
+            activeTurnId = activeTurnId,
+            onSendNow = { record, turnId ->
+                busy[record.inputId] = true
+                notice = null
+                scope.launch {
+                    runInputAction(
+                        action = {
+                            val sent = service.sendQueuedInputNow(record.inputId, record.revision, turnId).await()
+                            if (!sent) notice = R.string.session_input_send_now_changed
+                            refreshQueue()
+                        },
+                        onFailure = { notice = R.string.session_input_action_failed },
+                        onComplete = { busy[record.inputId] = false },
+                    )
+                }
+            },
+        )
+        notice?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
         TextButton(
             onClick = { expanded = !expanded },
             modifier = Modifier.testTag("session-input-queue-toggle"),

@@ -13,6 +13,45 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelStreamStateTest {
+    @Test fun finishDiagnosticsDistinguishPromisesFromActualToolCallsWithoutInventingContinuation() {
+        val promise = ModelStreamState()
+        promise.apply(ModelEvent.TextDelta("Next I'll inspect the installation."))
+        promise.apply(ModelEvent.Completed("stop"))
+        assertEquals("stop", promise.finishReason)
+        assertTrue(promise.finishedToolCalls.isEmpty())
+        assertEquals(TurnState.COMPLETED, promise.terminal(false).state)
+
+        val action = ModelStreamState()
+        action.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call_1"), "ui.apps"))
+        action.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
+        action.apply(ModelEvent.ToolCallFinished(0))
+        action.apply(ModelEvent.Completed("tool_calls"))
+        assertEquals("tool_calls", action.finishReason)
+        assertEquals(1, action.finishedToolCalls.size)
+        assertEquals(TurnState.CANCELLED, action.terminal(true).state)
+        val diagnostic =
+            RequestBudgetDiagnostics.result(
+                null,
+                action,
+                TurnBudgetTracker(
+                    com.helix.core.model
+                        .TurnBudgets(2, 2, 100, 100, 200),
+                ),
+            )
+        assertTrue(diagnostic.contains("\"finishReason\":\"tool_calls\""))
+        assertTrue(diagnostic.contains("\"toolCalls\":1"))
+        assertFalse(diagnostic.contains("ui.apps"))
+    }
+
+    @Test fun finishDiagnosticsNeverPersistArbitraryProviderText() {
+        val state = ModelStreamState()
+        state.apply(ModelEvent.Completed("vendor-private-value"))
+        assertEquals("other", state.finishReason)
+        val absent = ModelStreamState()
+        absent.apply(ModelEvent.Completed())
+        assertNull(absent.finishReason)
+    }
+
     @Test fun unknownUsageIncludesPartialToolArguments() {
         val state = ModelStreamState()
         state.apply(ModelEvent.TextDelta("text"))

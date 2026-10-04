@@ -63,6 +63,7 @@ internal fun SessionRenameDialog(
 internal fun SessionDirectoryDialog(
     files: FileManagerService,
     onDismiss: () -> Unit,
+    allowIndependent: Boolean = true,
     onChoose: suspend (String?) -> Boolean,
 ) {
     var sources by remember { mutableStateOf(emptyList<FileSource>()) }
@@ -143,13 +144,7 @@ internal fun SessionDirectoryDialog(
                         Text(stringResource(R.string.chat_retry))
                     }
                 }
-                TextButton(
-                    { choose(null) },
-                    enabled = !saving,
-                    modifier = Modifier.testTag("session-directory-private"),
-                ) {
-                    Text(stringResource(R.string.chat_directory_none))
-                }
+                IndependentDirectoryOption(allowIndependent, !saving) { choose(null) }
             }
         },
         confirmButton = {
@@ -163,4 +158,18 @@ internal fun SessionDirectoryDialog(
         },
         dismissButton = { TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.common_cancel)) } },
     )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun IndependentDirectoryOption(
+    visible: Boolean,
+    enabled: Boolean,
+    onChoose: () -> Unit,
+) {
+    if (visible) {
+        TextButton(onChoose, enabled = enabled, modifier = Modifier.testTag("session-directory-private")) {
+            Text(stringResource(R.string.chat_directory_none))
+        }
+    }
 }

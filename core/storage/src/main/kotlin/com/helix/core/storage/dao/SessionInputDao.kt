@@ -32,6 +32,13 @@ interface SessionInputDao {
     )
     fun observeAnswerRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long>
 
+    /** Includes request publication, which does not change the editable input revision. */
+    @Query(
+        "SELECT COALESCE(SUM(revision + 1), 0) + COUNT(requestModelCallId) FROM session_inputs " +
+            "WHERE sessionId = :sessionId",
+    )
+    fun observeDeliveryRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long>
+
     @Insert
     fun insert(input: SessionInputEntity)
 

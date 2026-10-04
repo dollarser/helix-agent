@@ -49,7 +49,7 @@ internal fun ConversationArtifacts(
     LaunchedEffect(sessionId, screen.toolTimeline, screen.isSending, open, revision) {
         rows = service.conversationArtifacts(sessionId)
     }
-    if (rows.isNotEmpty()) {
+    run {
         TextButton(
             onClick = { open = true },
             modifier = Modifier.fillMaxWidth().testTag("chat-artifacts-open"),
@@ -99,8 +99,23 @@ private fun ConversationArtifactPreview(
     revision: Int,
 ) {
     var state by remember(row, revision) { mutableStateOf<ArtifactAvailability>(ArtifactAvailability.Loading) }
+    var deliveryOpen by remember(row.id) { mutableStateOf(false) }
     LaunchedEffect(row, revision) {
         state = withContext(Dispatchers.IO) { inspectArtifactAvailability(fileManager, row) }
     }
     ArtifactFilePreviewBody(row, state)
+    ArtifactLocateAction(row, state)
+    TextButton(
+        { deliveryOpen = true },
+        enabled = state is ArtifactAvailability.Ready,
+        modifier = Modifier.testTag("chat-artifact-delivery"),
+    ) { Text(stringResource(R.string.files_delivery_actions)) }
+    if (deliveryOpen) {
+        ArtifactFileDialog(
+            fileManager,
+            row,
+            onOpenSession = { deliveryOpen = false },
+            onDismiss = { deliveryOpen = false },
+        )
+    }
 }

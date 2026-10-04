@@ -39,6 +39,7 @@ internal class HeadlessLoopFixture(
     var reverseResults = false
     var stopProgress = false
     var failEvents = false
+    var beforeTools: () -> Unit = {}
     var modelCallCount = 0
     var tokenCount = 0L
     var restored: LoopUsageSnapshot? = null
@@ -145,6 +146,7 @@ internal class HeadlessLoopFixture(
                 observer: ToolBatchObserver,
             ): SettledBatch {
                 check(journal.snapshot().modelCallClosed) { "execution preceded assistant commit" }
+                beforeTools()
                 dispatched += request
                 val outcomes =
                     request.calls.map { call ->

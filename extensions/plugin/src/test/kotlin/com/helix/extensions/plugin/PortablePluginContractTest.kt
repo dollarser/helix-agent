@@ -13,6 +13,30 @@ import org.junit.Test
 class PortablePluginContractTest {
     private val reader = PluginPackageReader()
 
+    @Test fun standardManifestTakesPrecedenceOverForeignManifests() {
+        val result =
+            reader.parse(
+                base(
+                    ".codex-plugin/plugin.json" to "broken ignored JSON".toByteArray(),
+                    ".claude-plugin/plugin.json" to "{}".toByteArray(),
+                    "connector.json" to "{}".toByteArray(),
+                ),
+            )
+        assertEquals(listOf("research"), result.skills.map { it.directory })
+        assertTrue(result.endpoints.isEmpty())
+    }
+
+    @Test fun invalidStandardManifestNeverFallsBackToForeignManifest() {
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.parse(
+                base(
+                    "plugin.json" to "{}".toByteArray(),
+                    ".codex-plugin/plugin.json" to "{\"name\":\"fallback\"}".toByteArray(),
+                ),
+            )
+        }
+    }
+
     @Test fun metadataOnlyAndOptionalFieldsAreValid() {
         val parsed = PluginManifestReader.parse(manifest())
         assertEquals("research", parsed.name)

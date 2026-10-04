@@ -11,6 +11,11 @@ import shutil
 import socket
 import subprocess
 import time
+import sys
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from emulator_input import enable_hardware_keyboard, enable_onscreen_keyboard
 
 
 def passed(output):
@@ -41,6 +46,7 @@ def run(args):
         shutil.copyfile(source, target)
         artifacts[label] = hashlib.sha256(target.read_bytes()).hexdigest()
     (output / "artifacts.json").write_text(json.dumps(artifacts, indent=2))
+    enable_hardware_keyboard(args.avd)
     command = [str(sdk / "emulator/emulator"), "-avd", args.avd, "-port", str(args.port),
                "-read-only", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
                "-memory", str(args.memory_mb), "-cores", str(args.cores), "-gpu", "swiftshader_indirect"]
@@ -74,6 +80,7 @@ def run(args):
             # Confirm the newly launched instance, never attach to a borrowed device.
             if args.avd not in device("emu", "avd", "name").splitlines():
                 raise RuntimeError("AVD identity mismatch")
+            enable_onscreen_keyboard(device)
             if args.airplane_mode:
                 device("shell", "svc", "wifi", "disable")
                 device("shell", "svc", "data", "disable")

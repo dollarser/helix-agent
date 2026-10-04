@@ -35,6 +35,10 @@ class ModelStreamState(
     var completed: Boolean = false
         private set
 
+    /** Allowlisted protocol metadata for diagnostics; never interpret prose as a finish signal. */
+    var finishReason: String? = null
+        private set
+
     var receiving: Boolean = false
         private set
 
@@ -156,6 +160,12 @@ class ModelStreamState(
 
             is ModelEvent.Completed -> {
                 completed = true
+                finishReason =
+                    when (event.finishReason) {
+                        null -> null
+                        "stop", "tool_calls", "length", "end_turn", "tool_use", "stop_sequence" -> event.finishReason
+                        else -> "other"
+                    }
                 if (event.finishReason == "length") protocolFailure("OUTPUT_TOKEN_LIMIT")
             }
 

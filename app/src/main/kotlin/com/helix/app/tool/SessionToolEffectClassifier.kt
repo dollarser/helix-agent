@@ -277,7 +277,10 @@ class SessionToolEffectClassifier(
                 .associateWith { OperationEffect.FILE_READ_EXTERNAL } +
                 com.helix.app.memory.MemoryTools.writes
                     .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL } +
-                mapOf("helix.settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION)
+                mapOf(
+                    "helix.settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "android.open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                )
 
         const val LINUX_RUN: String = "code.linux.run"
         const val LINUX_JOB_START: String = "code.linux.job.start"

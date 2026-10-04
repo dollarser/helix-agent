@@ -31,9 +31,13 @@ import com.helix.app.ui.indicatedVerticalScroll
 internal fun FilesScreenLayout(
     state: FilesScreenState,
     actions: FilesScreenActions,
-    onPermissions: () -> Unit,
+    onPermissions: (String) -> Unit,
     openTerminal: ((String) -> Unit)? = null,
 ) {
+    if (state.workspacesOpen) {
+        FilesWorkspaces(state)
+        return
+    }
     if (state.homeOpen) {
         FilesHome(state, actions, onPermissions)
         return

@@ -44,6 +44,8 @@ interface AppContainer {
     val storageUsage: com.helix.app.storage.StorageUsageService? get() = null
     val diagnosticReport: com.helix.app.diagnostics.DiagnosticReportService? get() = null
 
+    val projects: com.helix.app.projects.ProjectService? get() = null
+
     val memory: com.helix.app.memory.MemoryService? get() = null
 
     val manualTerminal: com.helix.app.terminal.ManualTerminal?

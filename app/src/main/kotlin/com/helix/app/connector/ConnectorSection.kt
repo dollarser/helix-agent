@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,7 +45,15 @@ import kotlinx.coroutines.withContext
 @Composable
 // Shared import action state preserves cancellation.
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
-fun ConnectorSection(service: PluginService) {
+fun ConnectorSection(
+    service: PluginService,
+    includeBundled: Boolean = true,
+    showImport: Boolean = true,
+    showInstalled: Boolean = true,
+    onUse: (() -> Unit)? = null,
+    query: String = "",
+    onInstalled: () -> Unit = {},
+) {
     val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
     var showPaste by remember { mutableStateOf(false) }
@@ -53,6 +62,7 @@ fun ConnectorSection(service: PluginService) {
     var records by remember { mutableStateOf<List<InstalledPlugin>>(emptyList()) }
     var loadFailed by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
+    var installed by remember { mutableStateOf(false) }
     LaunchedEffect(revision) {
         loadFailed = false
         try {
@@ -74,25 +84,27 @@ fun ConnectorSection(service: PluginService) {
         }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.connector_title), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.connector_intro))
-        OutlinedButton(
-            onClick = {
-                replaceTarget = null
-                picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
-            },
-            enabled = !action.busy,
-            modifier = Modifier.testTag("connector-import"),
-        ) {
-            Text(stringResource(R.string.connector_import))
+        if (showImport) {
+            Text(stringResource(R.string.connector_intro))
+            OutlinedButton(
+                onClick = {
+                    replaceTarget = null
+                    picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
+                },
+                enabled = !action.busy,
+                modifier = Modifier.testTag("connector-import"),
+            ) {
+                Text(stringResource(R.string.connector_import))
+            }
+            OutlinedButton(
+                enabled = !action.busy,
+                modifier = Modifier.testTag("connector-paste"),
+                onClick = {
+                    replaceTarget = null
+                    showPaste = !showPaste
+                },
+            ) { Text(stringResource(R.string.connector_paste)) }
         }
-        OutlinedButton(
-            enabled = !action.busy,
-            modifier = Modifier.testTag("connector-paste"),
-            onClick = {
-                replaceTarget = null
-                showPaste = !showPaste
-            },
-        ) { Text(stringResource(R.string.connector_paste)) }
         if (showPaste) {
             Text(stringResource(R.string.connector_paste_hint))
             OutlinedTextField(
@@ -187,6 +199,8 @@ fun ConnectorSection(service: PluginService) {
                         jsonDraft = ""
                         showPaste = false
                         revision++
+                        installed = true
+                        onInstalled()
                     }
                 },
                 modifier = Modifier.testTag("connector-install"),
@@ -199,49 +213,81 @@ fun ConnectorSection(service: PluginService) {
                 enabled = !action.busy,
             ) { Text(stringResource(R.string.common_cancel)) }
         }
-        records.forEach { record ->
-            HorizontalDivider()
-            Text(record.name, style = MaterialTheme.typography.titleSmall)
-            Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
-            com.helix.app.plugin
-                .PluginAvailabilityControls(record, service) { revision++ }
-            if (record.native == null) {
-                OutlinedButton(enabled = !action.busy, onClick = {
-                    replaceTarget = record
-                    picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
-                }, modifier = Modifier.testTag("connector-update-${record.id}")) {
-                    Text(stringResource(R.string.connector_update_target, record.name))
-                }
-            }
-            record.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
-            record.endpoints.forEach { endpoint ->
-                androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
-            }
-            record.skills.forEach { key ->
-                var enabled by remember(key, revision) { mutableStateOf(false) }
-                LaunchedEffect(key, revision) {
-                    enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
-                }
-                Row {
-                    Checkbox(checked = enabled, enabled = !action.busy, onCheckedChange = { value ->
-                        action.launch {
-                            withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
-                            enabled = value
-                        }
-                    })
-                    Text("Skill: ${key.name}")
-                }
-            }
-            if (record.native == null) {
-                Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(enabled = !action.busy, onClick = {
-                    action.launch {
-                        withContext(Dispatchers.IO) { service.remove(record) }
-                        revision++
-                    }
-                }) { Text(stringResource(R.string.connector_remove)) }
-            }
+        if (installed && onUse != null) {
+            OutlinedButton(onClick = onUse) { Text(stringResource(R.string.extensions_use)) }
         }
+        records
+            .filter {
+                showInstalled && (includeBundled || it.native == null) &&
+                    it.name.contains(
+                        query,
+                        true,
+                    )
+            }.forEach { record ->
+                HorizontalDivider()
+                var details by remember(record.id) { mutableStateOf(false) }
+                TextButton(onClick = { details = !details }) {
+                    Text(record.name, style = MaterialTheme.typography.titleSmall)
+                }
+                onUse?.let { action ->
+                    OutlinedButton(onClick = action) { Text(stringResource(R.string.extensions_use)) }
+                }
+                OutlinedButton(
+                    onClick = {
+                        details = !details
+                    },
+                    modifier =
+                        Modifier.testTag(
+                            "extension-manage-${record.id}",
+                        ),
+                ) { Text(stringResource(R.string.extensions_manage)) }
+                if (details) {
+                    Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
+                    com.helix.app.plugin
+                        .PluginAvailabilityControls(record, service) { revision++ }
+                    if (record.native == null) {
+                        OutlinedButton(enabled = !action.busy, onClick = {
+                            replaceTarget = record
+                            picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
+                        }, modifier = Modifier.testTag("connector-update-${record.id}")) {
+                            Text(stringResource(R.string.connector_update_target, record.name))
+                        }
+                    }
+                    record.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
+                    record.endpoints.forEach { endpoint ->
+                        androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
+                    }
+                    Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
+                    record.skills.forEach { key ->
+                        var enabled by remember(key, revision) { mutableStateOf(false) }
+                        LaunchedEffect(key, revision) {
+                            enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
+                        }
+                        Row {
+                            Checkbox(checked = enabled, enabled = !action.busy, onCheckedChange = { value ->
+                                action.launch {
+                                    withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
+                                    enabled = value
+                                }
+                            })
+                            var expanded by remember(key) { mutableStateOf(false) }
+                            Column {
+                                TextButton({ expanded = !expanded }) { Text("Skill: ${key.name}") }
+                                if (expanded) PluginSkillPreview(service, key)
+                            }
+                        }
+                    }
+                    if (record.native == null) {
+                        Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(enabled = !action.busy, onClick = {
+                            action.launch {
+                                withContext(Dispatchers.IO) { service.remove(record) }
+                                revision++
+                            }
+                        }) { Text(stringResource(R.string.connector_remove)) }
+                    }
+                }
+            }
     }
 }
 
@@ -296,6 +342,7 @@ private fun EndpointRow(
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("${endpoint.endpoint.name}: ${endpoint.endpoint.url}")
+        KnownEndpointTools(service, endpoint)
         Text(stringResource(if (active) R.string.connector_active else R.string.connector_inactive))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -394,19 +441,31 @@ private fun EndpointRow(
             Text(it, color = MaterialTheme.colorScheme.error)
         }
         snapshot?.let { result ->
-            result.metadata.tools.forEach { tool ->
-                Row {
-                    Checkbox(
-                        checked = tool.name in selection,
-                        enabled = !busy,
-                        onCheckedChange = { checked ->
-                            selection =
-                                if (checked) selection + tool.name else selection - tool.name
-                        },
-                    )
-                    Column {
-                        Text(tool.name)
-                        Text(tool.schemaHash.take(12), style = MaterialTheme.typography.bodySmall)
+            var toolsExpanded by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = {
+                selection =
+                    result.metadata.tools
+                        .map { it.name }
+                        .toSet()
+            }) { Text(stringResource(R.string.extensions_select_tools)) }
+            OutlinedButton(onClick = { toolsExpanded = !toolsExpanded }) {
+                Text(stringResource(R.string.extensions_tool_details))
+            }
+            if (toolsExpanded) {
+                result.metadata.tools.forEach { tool ->
+                    Row {
+                        Checkbox(
+                            checked = tool.name in selection,
+                            enabled = !busy,
+                            onCheckedChange = { checked ->
+                                selection =
+                                    if (checked) selection + tool.name else selection - tool.name
+                            },
+                        )
+                        Column {
+                            Text(tool.name)
+                            Text(tool.schemaHash.take(12), style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
@@ -774,4 +833,50 @@ private suspend fun pollDeviceTokenUntilFinished(
         }
     }
     if (!finished) onError("OAUTH_DEVICE_EXPIRED")
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginSkillPreview(
+    service: PluginService,
+    key: com.helix.extensions.skills.SkillKey,
+) {
+    var content by remember(key) { mutableStateOf<String?>(null) }
+    var failed by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(service, key) {
+        try {
+            content = withContext(Dispatchers.IO) { service.inspectSkill(key) }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: RuntimeException) {
+            failed = true
+        }
+    }
+    if (failed) Text(stringResource(R.string.connector_failed))
+    content?.let { Text(it) }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun KnownEndpointTools(
+    service: PluginService,
+    endpoint: InstalledEndpoint,
+) {
+    var names by remember(endpoint.id) { mutableStateOf<List<String>?>(null) }
+    var failed by remember(endpoint.id) { mutableStateOf(false) }
+    LaunchedEffect(service, endpoint.id) {
+        try {
+            names = withContext(Dispatchers.IO) { service.knownToolNames(endpoint) }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: RuntimeException) {
+            failed = true
+        }
+    }
+    if (failed) Text(stringResource(R.string.connector_failed))
+    names?.let { tools ->
+        Text(stringResource(R.string.plugin_contents_tools, tools.size))
+        if (tools.isEmpty()) Text(stringResource(R.string.connector_session_setup))
+        tools.forEach { Text(it) }
+    }
 }

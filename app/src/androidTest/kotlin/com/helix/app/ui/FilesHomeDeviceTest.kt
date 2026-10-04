@@ -31,7 +31,8 @@ class FilesHomeDeviceTest {
         folder.resolve("beta.txt").writeText("other file")
         try {
             compose.navigateTo("files")
-            compose.onNodeWithTag("files-quick-work").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
+            compose.onNodeWithTag("files-entry-work").performScrollTo().performClick()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                 compose
                     .onAllNodesWithTag(
@@ -64,7 +65,7 @@ class FilesHomeDeviceTest {
             )
             assertEquals(sessionsBefore, container.storage.sessions.list())
             compose.onNodeWithTag("files-home-open").performClick()
-            compose.onNodeWithTag("files-home-source-app").assertIsDisplayed()
+            compose.onNodeWithTag("files-home-source-app").performScrollTo().assertIsDisplayed()
         } finally {
             folder.deleteRecursively()
         }
@@ -73,7 +74,8 @@ class FilesHomeDeviceTest {
     @Test fun systemBackReturnsToParentThenHome() {
         compose.resetDeterministicUiState()
         compose.navigateTo("files")
-        compose.onNodeWithTag("files-quick-work").performClick()
+        compose.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
+        compose.onNodeWithTag("files-entry-work").performScrollTo().performClick()
         compose.waitForIdle()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
@@ -81,6 +83,6 @@ class FilesHomeDeviceTest {
         }
         compose.onNodeWithTag("files-entry-work").assertIsDisplayed()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("files-home-source-app").assertIsDisplayed()
+        compose.onNodeWithTag("files-home-source-app").performScrollTo().assertIsDisplayed()
     }
 }

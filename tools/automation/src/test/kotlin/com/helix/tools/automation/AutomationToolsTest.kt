@@ -12,6 +12,7 @@ import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -21,6 +22,31 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationToolsTest {
+    @Test
+    fun timedOutWaitPreservesUncertainEffectAndValidOutput() {
+        port.snapshotResult = successfulSnapshot()
+        val result =
+            completed(
+                execute(
+                    AutomationTools.WAIT,
+                    buildJsonObject {
+                        put("text", JsonPrimitive("not on screen"))
+                        put("timeoutMillis", JsonPrimitive(1))
+                    },
+                ),
+            )
+        assertEquals("TIMED_OUT", result["waitStatus"]?.jsonPrimitive?.content)
+        assertTrue(
+            result
+                .getValue("recoveryHint")
+                .jsonPrimitive.content
+                .contains("does not prove"),
+        )
+        assertTrue(port.nodeRequests.isEmpty())
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.WAIT }
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, result))
+    }
+
     private val port = FakeAutomationPort()
     private val tools = AutomationTools(port)
 
@@ -70,8 +96,10 @@ class AutomationToolsTest {
                 "ui.snapshot",
                 "ui.find",
                 "ui.click",
+                "ui.click_match",
                 "ui.long_click",
                 "ui.set_text",
+                "ui.ime_enter",
                 "ui.set_progress",
                 "ui.scroll",
                 "ui.back",
@@ -80,7 +108,15 @@ class AutomationToolsTest {
             ),
             descriptors.map { it.name.value }.toSet(),
         )
-        assertTrue(descriptors.all { it.requiredCapabilities == setOf(Capability.ACCESSIBILITY_AUTOMATION) })
+        descriptors.forEach {
+            val expected =
+                if (it.name.value in setOf(AutomationTools.BACK, AutomationTools.HOME)) {
+                    Capability.ACCESSIBILITY_AUTOMATION
+                } else {
+                    Capability.MOBILE_USE
+                }
+            assertEquals(setOf(expected), it.requiredCapabilities)
+        }
         assertTrue(descriptors.all { it.executionTarget == ExecutionTargetType.LOCAL_ANDROID })
         assertEquals(
             ToolOperationClass.READ_ONLY,
@@ -117,20 +153,279 @@ class AutomationToolsTest {
     }
 
     @Test
+    fun unavailableSemanticsSuggestIndependentObservationButSensitiveUiDoesNot() {
+        for (status in listOf(
+            AutomationSnapshotStatus.SERVICE_NOT_CONNECTED,
+            AutomationSnapshotStatus.NO_ACTIVE_SESSION,
+            AutomationSnapshotStatus.UNSUPPORTED_UI,
+        )) {
+            port.snapshotResult = AutomationSnapshotResult(status)
+            val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
+            assertTrue(
+                snapshot
+                    .getValue("recoveryHint")
+                    .jsonPrimitive.content
+                    .contains("ui.device"),
+            )
+        }
+        for (status in listOf(AutomationSnapshotStatus.SENSITIVE_UI, AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED)) {
+            port.snapshotResult = AutomationSnapshotResult(status)
+            val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
+            assertFalse(
+                snapshot["recoveryHint"]
+                    ?.jsonPrimitive
+                    ?.content
+                    .orEmpty()
+                    .contains("ui.gesture"),
+            )
+        }
+    }
+
+    @Test
     fun snapshotAndFindExposeOnlyIssuedNodeTokens() {
         port.snapshotResult = successfulSnapshot()
         val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
         assertTrue(snapshot.toString().contains(TOKEN))
+        val snapshotNode =
+            snapshot
+                .getValue("nodes")
+                .jsonArray
+                .single()
+                .jsonObject
+        assertEquals("true", snapshotNode.getValue("canImeEnter").jsonPrimitive.content)
+        assertEquals("true", snapshotNode.getValue("checkable").jsonPrimitive.content)
+        assertEquals("true", snapshotNode.getValue("checked").jsonPrimitive.content)
         val found = completed(execute(AutomationTools.FIND, args("text" to "Continue")))
         assertEquals("FOUND", found["status"]?.jsonPrimitive?.content)
         assertTrue(found.toString().contains(TOKEN))
+        assertEquals("ui.click", found.getValue("suggestedAction").jsonPrimitive.content)
+        assertEquals(TOKEN, found.getValue("suggestedClickToken").jsonPrimitive.content)
+
+        val checked =
+            completed(
+                execute(
+                    AutomationTools.FIND,
+                    buildJsonObject {
+                        put("checkable", JsonPrimitive(true))
+                        put("checked", JsonPrimitive(true))
+                    },
+                ),
+            )
+        assertEquals("FOUND", checked["status"]?.jsonPrimitive?.content)
+        assertEquals(
+            TOKEN,
+            checked
+                .getValue("nodes")
+                .jsonArray
+                .single()
+                .jsonObject
+                .getValue("token")
+                .jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun incompleteSnapshotExplainsCaptureLimitAndPreservesUncheckedControl() {
+        val original = successfulSnapshot()
+        val tree = requireNotNull(original.snapshot)
+        port.snapshotResult =
+            original.copy(
+                snapshot =
+                    tree.copy(
+                        nodes = tree.nodes.map { it.copy(checked = false) },
+                        truncated = true,
+                        truncationReasons = setOf("DEPTH_LIMIT"),
+                    ),
+            )
+        val result = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
+        assertEquals(
+            "DEPTH_LIMIT",
+            result
+                .getValue("truncationReasons")
+                .jsonArray
+                .single()
+                .jsonPrimitive.content,
+        )
+        assertTrue(
+            result
+                .getValue("recoveryHint")
+                .jsonPrimitive.content
+                .contains("cannot recover omitted nodes"),
+        )
+        val node =
+            result
+                .getValue("nodes")
+                .jsonArray
+                .single()
+                .jsonObject
+        assertEquals("false", node.getValue("checked").jsonPrimitive.content)
+        assertFalse(node.containsKey("className"))
+        assertFalse(node.containsKey("parentToken"))
+        assertEquals(TOKEN, node.getValue("clickTargetToken").jsonPrimitive.content)
+        val missing = completed(execute(AutomationTools.FIND, args("text" to "missing.apk")))
+        assertEquals("NOT_FOUND", missing.getValue("status").jsonPrimitive.content)
+        assertEquals("true", missing.getValue("truncated").jsonPrimitive.content)
+        assertTrue(
+            missing
+                .getValue("recoveryHint")
+                .jsonPrimitive.content
+                .contains("ui.screenshot"),
+        )
+    }
+
+    @Test
+    fun snapshotOmitsEmptyContainersButPreservesLabelsAndClickAncestors() {
+        val original = clickableAncestorSnapshot()
+        val tree = requireNotNull(original.snapshot)
+        val container = tree.nodes.first().copy(token = "empty", clickable = false)
+        port.snapshotResult = original.copy(snapshot = tree.copy(nodes = listOf(container) + tree.nodes))
+        val nodes = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {})).getValue("nodes").jsonArray
+        assertEquals(2, nodes.size)
+        assertEquals(
+            PARENT_TOKEN,
+            nodes
+                .last()
+                .jsonObject
+                .getValue("clickTargetToken")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            tree.nodes,
+            port.snapshotResult.snapshot
+                ?.nodes
+                ?.drop(1),
+        )
+    }
+
+    @Test
+    fun findReturnsExplicitClickableAncestorWithoutImplicitlyClickingIt() {
+        port.snapshotResult = clickableAncestorSnapshot()
+        val found = completed(execute(AutomationTools.FIND, args("text" to "weixin.qq.com")))
+        val node =
+            found
+                .getValue("nodes")
+                .jsonArray
+                .single()
+                .jsonObject
+        assertEquals(CHILD_TOKEN, node.getValue("token").jsonPrimitive.content)
+        assertEquals(PARENT_TOKEN, node.getValue("clickTargetToken").jsonPrimitive.content)
+        assertEquals(PARENT_TOKEN, found.getValue("suggestedClickToken").jsonPrimitive.content)
+        assertFalse(
+            node
+                .getValue("clickable")
+                .jsonPrimitive.content
+                .toBoolean(),
+        )
+        assertTrue(port.nodeRequests.isEmpty())
+    }
+
+    @Test
+    fun findAndWaitDescriptorsExposeClickSuggestionContract() {
+        val descriptors = tools.descriptors().associateBy { it.name.value }
+        assertEquals(8, descriptors.getValue(AutomationTools.FIND).version.value)
+        assertEquals(8, descriptors.getValue(AutomationTools.WAIT).version.value)
+        assertTrue(
+            descriptors
+                .getValue(AutomationTools.FIND)
+                .outputSchema
+                .toString()
+                .contains("suggestedClickToken"),
+        )
+        assertTrue(descriptors.getValue(AutomationTools.WAIT).description.contains("suggestedClickToken"))
+    }
+
+    @Test
+    fun clickMatchAtomicallyUsesTheUniqueFreshClickableTarget() {
+        port.snapshotResult = successfulSnapshot()
+        completed(execute(AutomationTools.CLICK_MATCH, args("text" to "Continue")))
+        assertEquals(1, port.snapshots)
+        assertEquals(AutomationNodeAction.CLICK, port.nodeRequests.single().action)
+        assertEquals(TOKEN, port.nodeRequests.single().token)
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.CLICK_MATCH }
+        assertTrue(descriptor.description.contains("system Install button"))
+        assertTrue(descriptor.description.contains("human click"))
+        assertEquals(6, descriptor.version.value)
+        assertTrue(descriptor.inputSchema.toString().contains("timeoutMillis"))
+        assertEquals(65L, descriptor.timeout.inWholeSeconds)
+    }
+
+    @Test
+    fun explicitPrivilegedClickRequiresAllObservedSelectorFields() {
+        val result =
+            execute(
+                AutomationTools.CLICK_MATCH,
+                args("backend" to "shizuku", "packageName" to "com.example.app"),
+            ) as ToolExecutorResult.Failed
+        assertEquals("PRIVILEGED_REQUIRES_EXACT_PACKAGE_VIEW_ID_TEXT", result.detail)
+        assertTrue(result.sideEffectFree)
+        assertTrue(port.nodeRequests.isEmpty())
+        assertEquals(0, port.snapshots)
+    }
+
+    @Test
+    fun clickMatchCanWaitForAControlAndClickTheFreshMatch() {
+        port.snapshotResults += notFoundSnapshot()
+        port.snapshotResults += successfulSnapshot()
+        completed(
+            execute(
+                AutomationTools.CLICK_MATCH,
+                buildJsonObject {
+                    put("text", JsonPrimitive("Continue"))
+                    put("timeoutMillis", JsonPrimitive(500))
+                    put("pollMillis", JsonPrimitive(50))
+                },
+            ),
+        )
+        assertEquals(2, port.snapshots)
+        assertEquals(TOKEN, port.nodeRequests.single().token)
+    }
+
+    @Test
+    fun clickMatchUsesOneSharedClickableAncestorButRefusesDistinctAmbiguity() {
+        port.snapshotResult = clickableAncestorSnapshot()
+        completed(execute(AutomationTools.CLICK_MATCH, args("text" to "weixin.qq.com")))
+        assertEquals(PARENT_TOKEN, port.nodeRequests.single().token)
+
+        port.nodeRequests.clear()
+        port.snapshotResult = ambiguousClickableSnapshot()
+        val ambiguous = execute(AutomationTools.CLICK_MATCH, args("className" to "Button")) as ToolExecutorResult.Failed
+        assertEquals("TARGET_AMBIGUOUS", ambiguous.detail)
+        assertTrue(ambiguous.sideEffectFree)
+        assertTrue(port.nodeRequests.isEmpty())
+    }
+
+    @Test
+    fun clickMatchRefusesMissingAndNonClickableTargetsWithoutSideEffects() {
+        port.snapshotResult = successfulSnapshot()
+        val missing = execute(AutomationTools.CLICK_MATCH, args("text" to "Missing")) as ToolExecutorResult.Failed
+        assertEquals("TARGET_NOT_FOUND", missing.detail)
+        assertTrue(missing.sideEffectFree)
+
+        port.snapshotResult = nonClickableSnapshot()
+        val inert = execute(AutomationTools.CLICK_MATCH, args("text" to "Label")) as ToolExecutorResult.Failed
+        assertEquals("TARGET_NOT_CLICKABLE", inert.detail)
+        assertTrue(inert.sideEffectFree)
+        assertTrue(port.nodeRequests.isEmpty())
     }
 
     @Test
     fun actionsForwardTokensAndStableRefusalsNeverBecomeSuccess() {
-        completed(execute(AutomationTools.CLICK, args("token" to TOKEN)))
+        val output = completed(execute(AutomationTools.CLICK, args("token" to TOKEN)))
         assertEquals(AutomationNodeAction.CLICK, port.nodeRequests.single().action)
         assertEquals(TOKEN, port.nodeRequests.single().token)
+        assertTrue(
+            output
+                .getValue("actionHint")
+                .jsonPrimitive.content
+                .contains("observe"),
+        )
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                tools.descriptors().single { it.name.value == AutomationTools.CLICK }.outputSchema,
+                output,
+            ),
+        )
 
         port.actionResult = AutomationActionResult(AutomationActionStatus.STALE_TOKEN)
         val failed = execute(AutomationTools.CLICK, args("token" to TOKEN)) as ToolExecutorResult.Failed
@@ -156,6 +451,17 @@ class AutomationToolsTest {
     fun setTextAndScrollHaveTypedArgumentsAndNoBlindCoordinates() {
         execute(AutomationTools.SET_TEXT, args("token" to TOKEN, "text" to "hello"))
         assertEquals("hello", port.nodeRequests.last().text)
+        execute(
+            AutomationTools.SET_TEXT,
+            buildJsonObject {
+                put("token", JsonPrimitive(TOKEN))
+                put("text", JsonPrimitive("query"))
+                put("submit", JsonPrimitive(true))
+            },
+        )
+        assertTrue(port.nodeRequests.last().submit)
+        execute(AutomationTools.IME_ENTER, args("token" to TOKEN))
+        assertEquals(AutomationNodeAction.IME_ENTER, port.nodeRequests.last().action)
         execute(AutomationTools.SCROLL, args("token" to TOKEN, "direction" to "forward"))
         assertEquals(AutomationNodeAction.SCROLL_FORWARD, port.nodeRequests.last().action)
         assertTrue(
@@ -175,7 +481,7 @@ class AutomationToolsTest {
 
     @Test fun scrollSchemaOnlyAdmitsDirectionsTheExecutorImplements() {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }
-        assertEquals(2, descriptor.version.value)
+        assertEquals(3, descriptor.version.value)
         val schema = descriptor.inputSchema
         listOf("forward", "backward").forEach {
             assertEquals(
@@ -256,6 +562,139 @@ class AutomationToolsTest {
                         false,
                         false,
                         true,
+                        canImeEnter = true,
+                        checkable = true,
+                        checked = true,
+                    ),
+                ),
+                false,
+            ),
+        )
+
+    private fun notFoundSnapshot() =
+        AutomationSnapshotResult(
+            AutomationSnapshotStatus.SUCCESS,
+            AutomationSnapshot(
+                "com.example.fixture",
+                4,
+                6,
+                Instant.EPOCH,
+                emptyList(),
+                false,
+            ),
+        )
+
+    private fun clickableAncestorSnapshot() =
+        AutomationSnapshotResult(
+            AutomationSnapshotStatus.SUCCESS,
+            AutomationSnapshot(
+                "com.android.chrome",
+                7,
+                9,
+                Instant.EPOCH,
+                listOf(
+                    AutomationSnapshotNode(
+                        PARENT_TOKEN,
+                        null,
+                        0,
+                        "android.view.ViewGroup",
+                        null,
+                        null,
+                        null,
+                        AutomationNodeBounds(0, 0, 100, 40),
+                        true,
+                        false,
+                        false,
+                        false,
+                        true,
+                    ),
+                    AutomationSnapshotNode(
+                        CHILD_TOKEN,
+                        PARENT_TOKEN,
+                        1,
+                        "android.widget.TextView",
+                        "weixin.qq.com",
+                        null,
+                        null,
+                        AutomationNodeBounds(0, 0, 100, 40),
+                        false,
+                        false,
+                        false,
+                        false,
+                        true,
+                    ),
+                ),
+                false,
+            ),
+        )
+
+    private fun ambiguousClickableSnapshot() =
+        AutomationSnapshotResult(
+            AutomationSnapshotStatus.SUCCESS,
+            AutomationSnapshot(
+                "com.example.fixture",
+                4,
+                8,
+                Instant.EPOCH,
+                listOf(
+                    AutomationSnapshotNode(
+                        TOKEN,
+                        null,
+                        0,
+                        "Button",
+                        "First",
+                        null,
+                        "first",
+                        AutomationNodeBounds(0, 0, 10, 10),
+                        true,
+                        false,
+                        false,
+                        false,
+                        true,
+                    ),
+                    AutomationSnapshotNode(
+                        SECOND_TOKEN,
+                        null,
+                        0,
+                        "Button",
+                        "Second",
+                        null,
+                        "second",
+                        AutomationNodeBounds(20, 0, 30, 10),
+                        true,
+                        false,
+                        false,
+                        false,
+                        true,
+                    ),
+                ),
+                false,
+            ),
+        )
+
+    private fun nonClickableSnapshot() =
+        AutomationSnapshotResult(
+            AutomationSnapshotStatus.SUCCESS,
+            AutomationSnapshot(
+                "com.example.fixture",
+                4,
+                9,
+                Instant.EPOCH,
+                listOf(
+                    AutomationSnapshotNode(
+                        TOKEN,
+                        null,
+                        0,
+                        "TextView",
+                        "Label",
+                        null,
+                        "label",
+                        AutomationNodeBounds(0, 0, 10, 10),
+                        false,
+                        false,
+                        false,
+                        false,
+                        true,
                     ),
                 ),
                 false,
@@ -264,11 +703,15 @@ class AutomationToolsTest {
 
     companion object {
         private const val TOKEN = "0123456789abcdef0123456789abcdef"
+        private const val PARENT_TOKEN = "11111111111111111111111111111111"
+        private const val CHILD_TOKEN = "22222222222222222222222222222222"
+        private const val SECOND_TOKEN = "33333333333333333333333333333333"
     }
 }
 
 private class FakeAutomationPort : AutomationToolPort {
     var snapshotResult = AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+    val snapshotResults = ArrayDeque<AutomationSnapshotResult>()
     var actionResult = AutomationActionResult(AutomationActionStatus.SUCCEEDED)
     val nodeRequests = mutableListOf<AutomationNodeActionRequest>()
     val globalRequests = mutableListOf<AutomationGlobalAction>()
@@ -277,7 +720,7 @@ private class FakeAutomationPort : AutomationToolPort {
 
     override fun snapshot(): AutomationSnapshotResult {
         snapshots++
-        return snapshotResult
+        return if (snapshotResults.isNotEmpty()) snapshotResults.removeFirst() else snapshotResult
     }
 
     override fun nodeAction(request: AutomationNodeActionRequest): AutomationActionResult {

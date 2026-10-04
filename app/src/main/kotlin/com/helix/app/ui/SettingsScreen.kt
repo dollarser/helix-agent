@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
-import com.helix.app.automation.AutomationModule
 import com.helix.app.egress.EgressRuleSection
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
@@ -36,51 +35,28 @@ import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
 import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.repository.HighSensitivityRuleRepository
 
-/** HXA-226 settings authority landing: detailed controls live on focused secondary routes. */
+/** General application preferences; agent defaults and storage have their own drawer entries. */
 @Composable
 @Suppress("FunctionName")
-fun SettingsScreen(
-    onDefaults: () -> Unit,
-    onPermissions: () -> Unit,
-    onAudit: () -> Unit,
-    storageUsage: com.helix.app.storage.StorageUsageService? = null,
-    cleanProviderEvidence: (suspend (String?) -> com.helix.app.privacy.ProviderEvidenceCleanup)? = null,
-) {
+fun SettingsScreen() {
     Column(
         Modifier
             .fillMaxSize()
             .indicatedVerticalScroll(rememberScrollState())
             .padding(16.dp)
             .testTag("screen-settings"),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        storageUsage?.let { StorageUsageSection(it::snapshot, cleanProviderEvidence) }
-        SettingsLandingEntry(
-            R.string.settings_defaults_title,
-            R.string.settings_landing_defaults_desc,
-            "settings-open-defaults",
-            onDefaults,
-        )
-        SettingsLandingEntry(
-            R.string.settings_permissions_safety_title,
-            R.string.settings_landing_permissions_desc,
-            "settings-open-permissions",
-            onPermissions,
-        )
-        SettingsLandingEntry(
-            R.string.settings_diagnostics_title,
-            R.string.settings_landing_diagnostics_desc,
-            "settings-open-audit",
-            onAudit,
-        )
+        SettingsGroup { LanguageSection() }
         AboutHelixSection()
     }
 }
 
-/** Language and defaults that affect future Turns/Goals, never current durable execution ownership. */
+/** Defaults for future Turns/Goals, never current durable execution ownership. */
 @Composable
 @Suppress("FunctionName")
 internal fun AppAgentDefaultsScreen(
@@ -95,8 +71,6 @@ internal fun AppAgentDefaultsScreen(
             .testTag("screen-settings-defaults"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingsGroup { LanguageSection() }
-        HorizontalDivider()
         SettingsGroup { RunControlSettingsSection(runControlStore) }
         SettingsGroup { GoalSettingsSection(runControlStore, chatService) }
     }
@@ -117,6 +91,7 @@ internal fun PermissionsSafetyScreen(
     sessionPermissionEdit: SessionPermissionEditService?,
     toolPipeline: ToolPipeline?,
     onSystemPermissions: () -> Unit,
+    onOpenSessionSettings: () -> Unit,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -137,23 +112,8 @@ internal fun PermissionsSafetyScreen(
             Text(stringResource(R.string.settings_system_permissions_title))
         }
 
-        if (profile == SafetyProfile.ADVANCED) {
-            SettingsGroup { RootModule.Section(profile) }
-            val conversationId =
-                chatService
-                    ?.screen
-                    ?.collectAsStateWithLifecycle()
-                    ?.value
-                    ?.openSessionId
-            SettingsGroup {
-                AutomationModule.Section(profile, conversationId) { id ->
-                    chatService?.materializeDraftSession(id) == id
-                }
-            }
-        }
-
         if (sessionPermissionEdit != null && toolPipeline != null) {
-            SessionPermissionSection(sessionPermissionEdit, toolPipeline, chatService)
+            SessionPermissionSection(sessionPermissionEdit, toolPipeline, chatService, onOpenSessionSettings)
         }
 
         if (AdvancedProfileAvailability.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
@@ -173,7 +133,7 @@ internal fun PermissionsSafetyScreen(
     )
 }
 
-/** Runtime installation/verification belongs to Setup, not the general Settings page. */
+/** Runtime installation and verification have a dedicated Settings entry. */
 @Composable
 @Suppress("FunctionName")
 internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
@@ -224,7 +184,10 @@ internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
 /** Provider/model connection management is a top-level destination. */
 @Composable
 @Suppress("FunctionName")
-internal fun ModelsConnectionsScreen(providerService: ProviderService) {
+internal fun ModelsConnectionsScreen(
+    providerService: ProviderService,
+    initialSource: ProviderProvisioningKind? = null,
+) {
     Column(
         Modifier
             .fillMaxSize()
@@ -232,64 +195,7 @@ internal fun ModelsConnectionsScreen(providerService: ProviderService) {
             .padding(16.dp)
             .testTag("screen-models"),
     ) {
-        ProviderManager(providerService)
-    }
-}
-
-/** Setup authority landing; readiness, detailed capabilities and Runtime are focused child routes. */
-@Composable
-@Suppress("FunctionName")
-internal fun SetupScreen(
-    onReadiness: () -> Unit,
-    onCapabilities: () -> Unit,
-    onRuntime: () -> Unit,
-) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .indicatedVerticalScroll(rememberScrollState())
-            .padding(16.dp)
-            .testTag("screen-setup"),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        SettingsLandingEntry(
-            R.string.nav_readiness,
-            R.string.setup_landing_readiness_desc,
-            "setup-open-readiness",
-            onReadiness,
-        )
-        SettingsLandingEntry(
-            R.string.nav_capabilities,
-            R.string.setup_landing_capabilities_desc,
-            "setup-open-capabilities",
-            onCapabilities,
-        )
-        SettingsLandingEntry(
-            R.string.setup_runtime_title,
-            R.string.setup_landing_runtime_desc,
-            "setup-open-runtime",
-            onRuntime,
-        )
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-private fun SettingsLandingEntry(
-    titleRes: Int,
-    descriptionRes: Int,
-    tag: String,
-    onClick: () -> Unit,
-) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag)) {
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(titleRes), style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(descriptionRes),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        ProviderManager(providerService, initialSource)
     }
 }
 

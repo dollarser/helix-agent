@@ -23,7 +23,10 @@ import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
-internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
+internal fun FilesScreenState.FilesPreviewDialog(
+    actions: FilesScreenActions,
+    handoff: FileConversationHandoff? = null,
+) {
     with(actions) {
         openFile?.let { file ->
             if (!file.isDirectory) {
@@ -80,6 +83,20 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
                                         modifier = Modifier.testTag("files-preview-none"),
                                     )
                                 }
+                            }
+                            FileFavoriteAction(
+                                com.helix.core.workspace
+                                    .FileScopePath(selectedScopeId, file.relativePath),
+                                false,
+                                actions,
+                            )
+                            if (handoff != null && loaded != null) {
+                                FileConversationActions(
+                                    com.helix.core.workspace
+                                        .FileScopePath(selectedScopeId, file.relativePath),
+                                    actions.fileManager,
+                                    handoff,
+                                )
                             }
                             loaded?.info?.let { meta ->
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

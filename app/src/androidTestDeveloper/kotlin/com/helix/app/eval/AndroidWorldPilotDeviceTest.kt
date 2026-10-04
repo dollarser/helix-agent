@@ -213,7 +213,17 @@ class AndroidWorldPilotDeviceTest {
         resolved: MutableSet<String>,
     ) {
         val admitted =
-            setOf("ui.click", "ui.long_click", "ui.set_text", "ui.set_progress", "ui.scroll", "ui.back", "ui.home")
+            setOf(
+                "ui.click",
+                "ui.click_match",
+                "ui.long_click",
+                "ui.set_text",
+                "ui.ime_enter",
+                "ui.set_progress",
+                "ui.scroll",
+                "ui.back",
+                "ui.home",
+            )
         container.storage.toolCalls.listByTurn(turnId).filter { it.state == "AWAITING_APPROVAL" }.forEach {
             val approval = container.storage.approvals.byToolCall(it.callId)
             if (approval != null && resolved.add(approval.id)) {

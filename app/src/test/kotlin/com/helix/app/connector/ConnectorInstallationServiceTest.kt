@@ -2,6 +2,7 @@ package com.helix.app.connector
 
 import com.helix.app.plugin.PluginInstallationService
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.SymlinkInPath
 import com.helix.core.workspace.WorkspaceArtifactStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,6 +16,36 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class ConnectorInstallationServiceTest {
+    @Test fun directoryPreviewCapturesResourcesAndRejectsChangedInstall() =
+        fixture { root, service ->
+            val directory = Files.createDirectory(root.resolve("workspace/work/plugin"))
+            val manifest =
+                """{"${'$'}schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"sample"}"""
+            Files.write(directory.resolve("plugin.json"), manifest.toByteArray())
+            val preview = service.preview("scope:app:work/plugin")
+            ZipOutputStream(Files.newOutputStream(root.resolve("workspace/work/plugin.zip"))).use { zip ->
+                zip.putNextEntry(ZipEntry("plugin.json"))
+                zip.write(manifest.toByteArray())
+                zip.closeEntry()
+            }
+            assertEquals(preview.contentHash, service.preview("scope:app:work/plugin.zip").contentHash)
+            Files.write(directory.resolve("resource.txt"), "changed".toByteArray())
+            assertThrows(
+                IllegalArgumentException::class.java,
+            ) { service.install("scope:app:work/plugin", preview.contentHash) }
+            assertThrows(IllegalStateException::class.java) { service.preview("scope:app:work/plugin") { true } }
+            Files.list(root.resolve("temporary")).use { assertEquals(0L, it.count()) }
+        }
+
+    @Test fun directorySymlinkCannotImportOutsideWorkspace() =
+        fixture { root, service ->
+            val directory = Files.createDirectory(root.resolve("workspace/work/plugin"))
+            val outside = Files.write(root.resolve("outside.txt"), "outside".toByteArray())
+            Files.createSymbolicLink(directory.resolve("plugin.json"), outside)
+            assertThrows(SymlinkInPath::class.java) { service.preview("scope:app:work/plugin") }
+            Files.list(root.resolve("temporary")).use { assertEquals(0L, it.count()) }
+        }
+
     @Test
     fun jsonAndZipPreviewStripCredentialsAndBindIdenticalPortableBytes() =
         fixture { root, service ->

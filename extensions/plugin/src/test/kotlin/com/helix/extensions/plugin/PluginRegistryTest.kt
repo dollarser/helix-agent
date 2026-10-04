@@ -18,6 +18,31 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun disabledPluginContentsRemainInspectableWithoutPublishingTools() {
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, MemoryNativePluginCatalog())
+        val original = plugin("mobile-use")
+        val skill = PluginBundledSkill("android-ui-task", "Android workflow", "Observe before acting")
+        registry.register(
+            object : HelixPlugin {
+                override val manifest = original.manifest
+                override val bundledSkills = listOf(skill)
+
+                override fun tools() = original.tools()
+            },
+        )
+        registry.setEnabled("mobile-use", false)
+        assertEquals(listOf(skill), registry.contents("mobile-use").skills)
+        assertEquals(
+            original.tools().map {
+                it.descriptor.name.value
+            },
+            registry.contents("mobile-use").tools.map { it.first },
+        )
+        assertEquals(0, tools.all().size)
+        assertEquals(false, registry.hasPublishedTools("mobile-use"))
+    }
+
     @Test fun presentationProjectionTracksPublishedToolsWithoutGrantingAuthority() {
         val plugins = PluginRegistry(ToolRegistry(), MemoryNativePluginCatalog())
         assertEquals(false, plugins.hasPublishedTools("mobile-use"))

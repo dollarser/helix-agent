@@ -79,16 +79,6 @@ internal fun ComposerAddSheet(
         TextButton(
             onClick = {
                 onDismiss()
-                actions.onSkills()
-            },
-            enabled = sessionConfigEnabled,
-            modifier = Modifier.testTag("composer-add-skills"),
-        ) {
-            Text(stringResource(R.string.session_skills_title))
-        }
-        TextButton(
-            onClick = {
-                onDismiss()
                 actions.onConnectors()
             },
             enabled = sessionConfigEnabled,

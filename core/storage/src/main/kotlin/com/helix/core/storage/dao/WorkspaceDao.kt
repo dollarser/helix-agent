@@ -64,6 +64,7 @@ interface WorkspaceDao {
         "SELECT " +
             "(SELECT COUNT(*) FROM sessions s JOIN workspaces w ON w.ownerSessionId = s.id " +
             "WHERE w.id = :workspaceId) AS ownerSessions, " +
+            "(SELECT COUNT(*) FROM projects WHERE workspaceId = :workspaceId) AS projects, " +
             "(SELECT COUNT(*) FROM session_workspaces WHERE workspaceId = :workspaceId) AS sessionBindings, " +
             "(SELECT COUNT(*) FROM model_call_workspaces WHERE workspaceId = :workspaceId) AS modelRequests, " +
             "(SELECT COUNT(*) FROM artifacts WHERE " +

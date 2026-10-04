@@ -126,6 +126,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 storage.sessionExperts.forSession(sessionId),
                 directory,
+                mobileToolsAvailable = mobileToolsAvailable(tools),
             )
         val request =
             TurnContextRequest(
@@ -189,6 +190,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
+                mobileToolsAvailable = mobileToolsAvailable(tools),
             )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
@@ -258,6 +260,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
+                mobileToolsAvailable = mobileToolsAvailable(tools),
             )
         val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
@@ -300,6 +303,13 @@ internal class ChatRequestAssembler(
         }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
+    private fun mobileToolsAvailable(tools: List<ModelToolSchema>): Boolean =
+        tools.any { schema ->
+            val descriptor = schema.bindingRef?.let { toolPipeline.registry.resolveBinding(it)?.descriptor }
+            com.helix.app.automation.AutomationModule
+                .owns(descriptor)
+        }
+
     private fun modelTools(
         sessionId: String,
         control: RunControlConfig,
@@ -307,7 +317,7 @@ internal class ChatRequestAssembler(
     ): List<ModelToolSchema> {
         val preferUi =
             com.helix.app.automation.AutomationModule
-                .scopeFor("ui.snapshot", sessionId) != null
+                .scopeFor("ui.apps", sessionId) != null
         val bindings = toolPipeline.registry.snapshot()
         val latest =
             bindings.map { it.descriptor }.groupBy { it.name }.values.map { versions ->

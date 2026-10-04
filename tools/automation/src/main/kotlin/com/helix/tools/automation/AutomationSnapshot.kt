@@ -48,6 +48,9 @@ data class AutomationSnapshotNode(
     val range: AutomationNodeRange? = null,
     val canSetProgress: Boolean = false,
     val redacted: Boolean = false,
+    val canImeEnter: Boolean = false,
+    val checkable: Boolean = false,
+    val checked: Boolean = false,
 )
 
 data class AutomationSnapshot(
@@ -57,6 +60,7 @@ data class AutomationSnapshot(
     val createdAt: Instant,
     val nodes: List<AutomationSnapshotNode>,
     val truncated: Boolean,
+    val truncationReasons: Set<String> = emptySet(),
 )
 
 data class AutomationSnapshotResult(
@@ -64,6 +68,7 @@ data class AutomationSnapshotResult(
     val snapshot: AutomationSnapshot? = null,
     val pauseReason: AutomationPauseReason? = null,
     val targetPackage: String? = null,
+    val backend: String? = null,
 )
 
 internal data class NodeTokenBinding(

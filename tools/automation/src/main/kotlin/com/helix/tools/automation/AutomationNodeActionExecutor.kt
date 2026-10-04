@@ -86,37 +86,77 @@ internal class AutomationNodeActionExecutor(
         observed: ObservedSnapshotNode,
         request: AutomationNodeActionRequest,
     ): AutomationActionResult {
-        if (
-            request.action == AutomationNodeAction.SET_TEXT &&
-            (request.text == null || request.text.length > MAX_SET_TEXT)
-        ) {
-            return result(AutomationActionStatus.INVALID_ARGUMENT)
-        }
-        val validProgress = request.progress?.let { it.isFinite() && observed.range?.accepts(it) != false } == true
-        if (request.action == AutomationNodeAction.SET_PROGRESS && !validProgress) {
-            return result(AutomationActionStatus.INVALID_ARGUMENT)
-        }
+        argumentFailure(observed, request)?.let { return result(it) }
         if (sensitiveSemanticPolicy.isDenied(observed, request.action)) {
             return result(AutomationActionStatus.SENSITIVE_UI)
         }
+        if (request.action == AutomationNodeAction.SET_TEXT && request.submit && !observed.canImeEnter) {
+            return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
+        }
+        if (request.action == AutomationNodeAction.IME_ENTER && !supportsImeEnter(observed)) {
+            return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
+        }
         val actionAndArguments =
-            actionAndArguments(observed, request)
-                ?: return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
-        return try {
-            performPlatformAutomationAction {
-                if (request.action == AutomationNodeAction.SET_PROGRESS) {
-                    node.setProgress(requireNotNull(request.progress).toFloat())
-                } else if (request.action == AutomationNodeAction.SET_TEXT) {
-                    node.setText(requireNotNull(request.text))
-                } else {
-                    node.performAction(actionAndArguments.first, actionAndArguments.second)
-                }
+            if (request.action == AutomationNodeAction.IME_ENTER) {
+                null
+            } else {
+                actionAndArguments(observed, request)
+                    ?: return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
             }
+        return try {
+            performPlatformAutomationAction { dispatchNodeAction(node, request, actionAndArguments) }
         } finally {
             // Every attempted action requires a new observation, including lost acknowledgements.
             tokenRegistry.invalidate()
         }
     }
+
+    private fun supportsImeEnter(observed: ObservedSnapshotNode): Boolean =
+        observed.enabled && observed.editable && observed.canImeEnter
+
+    private fun argumentFailure(
+        observed: ObservedSnapshotNode,
+        request: AutomationNodeActionRequest,
+    ): AutomationActionStatus? =
+        when {
+            request.action == AutomationNodeAction.SET_TEXT &&
+                (request.text == null || request.text.length > MAX_SET_TEXT) -> {
+                AutomationActionStatus.INVALID_ARGUMENT
+            }
+
+            request.action == AutomationNodeAction.SET_PROGRESS &&
+                request.progress?.let { it.isFinite() && observed.range?.accepts(it) != false } != true -> {
+                AutomationActionStatus.INVALID_ARGUMENT
+            }
+
+            else -> {
+                null
+            }
+        }
+
+    private fun dispatchNodeAction(
+        node: SnapshotNode,
+        request: AutomationNodeActionRequest,
+        actionAndArguments: Pair<Int, Bundle?>?,
+    ): Boolean =
+        when (request.action) {
+            AutomationNodeAction.SET_PROGRESS -> {
+                node.setProgress(requireNotNull(request.progress).toFloat())
+            }
+
+            AutomationNodeAction.SET_TEXT -> {
+                node.setText(requireNotNull(request.text)) && (!request.submit || node.imeEnter())
+            }
+
+            AutomationNodeAction.IME_ENTER -> {
+                node.imeEnter()
+            }
+
+            else -> {
+                val platformAction = checkNotNull(actionAndArguments)
+                node.performAction(platformAction.first, platformAction.second)
+            }
+        }
 
     @Suppress("CyclomaticComplexMethod", "ComplexCondition")
     private fun actionAndArguments(
@@ -141,6 +181,10 @@ internal class AutomationNodeActionExecutor(
                 } else {
                     null
                 }
+            }
+
+            AutomationNodeAction.IME_ENTER -> {
+                null
             }
 
             AutomationNodeAction.SET_PROGRESS -> {

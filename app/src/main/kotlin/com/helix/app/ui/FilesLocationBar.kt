@@ -37,21 +37,19 @@ internal fun FilesLocationBar(
     actions: FilesScreenActions,
 ) {
     Column {
+        FileFavoriteAction(
+            com.helix.core.workspace
+                .FileScopePath(state.selectedScopeId, state.currentPath),
+            true,
+            actions,
+        )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            FileIconButton(R.drawable.ic_files_home, R.string.files_home, "files-home-open") { state.homeOpen = true }
+            FileIconButton(R.drawable.ic_files_home, R.string.files_home, "files-home-open") { state.goHome() }
             Box(Modifier.weight(1f)) {
                 TextButton({ state.sourcesOpen = true }, modifier = Modifier.testTag("files-location-picker")) {
                     Text(state.currentSource.displayName + " ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                DropdownMenu(state.sourcesOpen, { state.sourcesOpen = false }) {
-                    state.sources.forEach { source ->
-                        DropdownMenuItem(
-                            text = { Text(source.displayName) },
-                            onClick = { state.openLocation(source.scopeId) },
-                            modifier = Modifier.testTag("files-source-${source.scopeId}"),
-                        )
-                    }
-                }
+                FilesLocationMenu(state)
             }
             FileIconButton(R.drawable.ic_files_search, R.string.files_search, "files-search-open") {
                 state.searchOpen = !state.searchOpen
@@ -91,6 +89,25 @@ internal fun FilesLocationBar(
         )
     }
     if (state.controlsOpen) FilesOptionsDialog(state, actions)
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun FilesLocationMenu(state: FilesScreenState) {
+    DropdownMenu(state.sourcesOpen, { state.sourcesOpen = false }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.files_session_workspaces)) },
+            onClick = { state.openWorkspaces() },
+            modifier = Modifier.testTag("files-workspaces-picker"),
+        )
+        state.locations.forEach { source ->
+            DropdownMenuItem(
+                text = { Text(source.displayName) },
+                onClick = { state.openLocation(source.scopeId) },
+                modifier = Modifier.testTag("files-source-${source.scopeId}"),
+            )
+        }
+    }
 }
 
 @Composable

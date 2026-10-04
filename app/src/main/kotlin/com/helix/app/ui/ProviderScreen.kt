@@ -1,16 +1,12 @@
 package com.helix.app.ui
 
 import android.util.Log
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -53,14 +48,21 @@ import kotlinx.coroutines.launch
  */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
-fun ProviderManager(providerService: ProviderService) {
+fun ProviderManager(
+    providerService: ProviderService,
+    initialSource: ProviderProvisioningKind? = null,
+) {
     val rows by providerService.rows.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var group by rememberSaveable { mutableStateOf<ProviderProvisioningKind?>(null) }
-    androidx.compose.runtime.LaunchedEffect(providerService.sourceGroups) {
-        if (group != null && group !in providerService.sourceGroups) group = null
+    var group by rememberSaveable(initialSource) {
+        mutableStateOf(
+            initialSource?.takeIf { it in providerService.sourceGroups }
+                ?: ProviderProvisioningKind.USER_CONFIGURED,
+        )
     }
-    BackHandler(group != null) { group = null }
+    androidx.compose.runtime.LaunchedEffect(providerService.sourceGroups) {
+        if (group !in providerService.sourceGroups) group = ProviderProvisioningKind.USER_CONFIGURED
+    }
     var discovery by remember { mutableStateOf<List<String>>(emptyList()) }
     var discovering by remember { mutableStateOf(false) }
     var discoveryMessage by remember { mutableStateOf<Int?>(null) }
@@ -91,48 +93,30 @@ fun ProviderManager(providerService: ProviderService) {
         )
     }
     Column(Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(stringResource(R.string.provider_screen_title), style = MaterialTheme.typography.titleMedium)
-        }
-        if (group == null) {
-            providerService.sourceGroups.forEach { category ->
-                OutlinedButton(onClick = {
-                    group = category
-                }, modifier = Modifier.fillMaxWidth().testTag("provider-group-${category.name}")) {
-                    Text(stringResource(providerGroupLabel(category)))
-                }
-            }
-        } else {
-            TextButton(
-                onClick = {
-                    group = null
-                },
-                modifier =
-                    Modifier.testTag(
-                        "provider-groups-back",
-                    ),
-            ) { Text(stringResource(R.string.provider_groups_back)) }
-            Text(
-                stringResource(providerGroupLabel(requireNotNull(group))),
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
+        ModelSourceTabs(providerService.sourceGroups, group) { group = it }
+        Text(
+            stringResource(modelSourceDescription(group)),
+            modifier = Modifier.padding(vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (group == ProviderProvisioningKind.USER_CONFIGURED) {
             OutlinedButton(onClick = {
                 templatePickerOpen = true
-            }, modifier = Modifier.testTag("provider-add")) { Text(stringResource(R.string.provider_add)) }
+            }, modifier = Modifier.fillMaxWidth().testTag("provider-add")) {
+                Text(stringResource(R.string.provider_add))
+            }
         }
         if (group == ProviderProvisioningKind.ON_DEVICE_ASSET && providerService.localModels != null) {
-            OutlinedButton(onClick = { localModelOpen = true }) { Text(stringResource(R.string.local_model_title)) }
+            OutlinedButton(
+                onClick = { localModelOpen = true },
+                modifier = Modifier.fillMaxWidth().testTag("local-model-add"),
+            ) { Text(stringResource(R.string.model_source_download)) }
         }
         if (deleteFailure) Text(stringResource(R.string.local_model_delete_failed))
-        if (group != null && rows.none { it.provisioning == group }) {
+        if (rows.none { it.provisioning == group }) {
             Text(
-                stringResource(R.string.provider_empty),
+                stringResource(modelSourceEmpty(group)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.helix.app.MainActivity
-import com.helix.app.ShellDestination
 import org.junit.Rule
 import org.junit.Test
 
@@ -16,15 +15,15 @@ class StorageUsageNavigationDeviceTest {
 
     @Test fun settingsReadsAllProductionCategoriesWithoutDeletingData() {
         compose.resetDeterministicUiState()
-        compose.navigateTo(ShellDestination.Settings.route)
-        compose.onNodeWithTag("storage-usage-open").assertIsDisplayed().performClick()
+        compose.navigateTo(SETTINGS_STORAGE_ROUTE)
+        compose.onNodeWithTag("screen-settings-storage").assertIsDisplayed()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("storage-usage-records").fetchSemanticsNodes().isNotEmpty()
         }
         for (category in listOf("records", "workspaces", "memory")) {
             compose.onNodeWithTag("storage-usage-$category").performScrollTo().assertIsDisplayed()
         }
-        compose.onNodeWithTag("storage-usage-close").performClick()
+        compose.onNodeWithTag("navigate-back").performClick()
         compose.onNodeWithTag("storage-usage-records").assertDoesNotExist()
     }
 }

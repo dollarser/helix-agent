@@ -4,6 +4,7 @@
 
 | 专题 | 保留内容 | 设计与实施承接 |
 | --- | --- | --- |
+| [Mobile Use：PackageInstaller 可见性、视觉回退与特权后端（2026-10-04）](mobile-use-packageinstaller-visibility-vision-and-privileged-backends-2026-10-04.md) | API 36 PackageInstaller Install 节点缺失、Accessibility/direct query/UiAutomation/vision/root 实测、历史状态污染说明与下一步交接 | [平台能力 §5](../../architecture/android-platform-capabilities.md#5-accessibility-自动化)、[Mobile Use 设备可靠性](mobile-use-device-readiness-and-reliability-2026-09-29.md)；视觉 fallback 与 privileged backend 尚待收口 |
 | [Mobile Use 设备就绪与可靠性（2026-09-29）](mobile-use-device-readiness-and-reliability-2026-09-29.md) | 钉钉场景、熄屏/安全锁定/后台区别、源码风险、接续建议与验证矩阵 | [平台能力 §5](../../architecture/android-platform-capabilities.md#5-accessibility-自动化)、[Plugin 专项](../../architecture/plugin-platform-plan.md)；新生命周期与权限策略仍待裁决 |
 | [工具曝光、发现与扩展组织（2026-09-29）](tool-exposure-and-discovery-2026-09-29.md) | 数量口径、竞品机制、当前源码与历史评测、六个改进点及实验矩阵 | [工具综合研究 §2](../modules/04-tools-browser-and-extensions.md#2-tool-exposure)、[Harness §15–17](../../architecture/harness-refactor-plan.md)；策略仍需裁决 |
 | [插件生态与 Mobile Use（2026-09-28）](plugin-ecosystem-and-mobile-use-2026-09-28.md) | portable package、Skill/MCP/native 区别、移动执行接入和竞品比较 | [Plugin 专项](../../architecture/plugin-platform-plan.md)、[Harness §17](../../architecture/harness-refactor-plan.md) |

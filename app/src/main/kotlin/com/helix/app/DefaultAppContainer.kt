@@ -282,7 +282,11 @@ internal class DefaultAppContainer(
 
     private val pluginCatalog =
         com.helix.app.plugin
-            .PluginCatalog(storage)
+            .PluginCatalog(storage) { session, plugin, enabled ->
+                if (plugin == "mobile-use") {
+                    if (enabled) mobileUseGrants.enableFromGlobal(session) else mobileUseGrants.revoke(session)
+                }
+            }
 
     override val pluginRegistry =
         com.helix.extensions.plugin.PluginRegistry(
@@ -486,9 +490,28 @@ internal class DefaultAppContainer(
      */
     override val browser: BrowserController = BrowserController(context)
 
+    override val projects by lazy {
+        com.helix.app.projects
+            .ProjectService(storage, sessionWorkspaces::bind)
+    }
+
     override val memory =
         com.helix.app.memory
-            .createMemoryService(context)
+            .createMemoryService(
+                context,
+                project = { sessionId ->
+                    storage.projects.forSession(sessionId)?.id?.let {
+                        com.helix.core.workspace.memory
+                            .ProjectMemoryScopeKey(it)
+                    }
+                },
+                projectForTool = { sessionId, turnId, toolCallId ->
+                    storage.projects.forTool(sessionId, turnId, toolCallId)?.id?.let {
+                        com.helix.core.workspace.memory
+                            .ProjectMemoryScopeKey(it)
+                    }
+                },
+            )
 
     private val toolVision by lazy {
         com.helix.app.vision.ToolVisionServices(
@@ -544,11 +567,6 @@ internal class DefaultAppContainer(
                 com.helix.app.plugin
                     .PluginTaskHostAdapter(context) { chatService },
             conversationExists = { storage.sessions.find(it) != null },
-            screenTarget = { id ->
-                val view = chatService.screen.value
-                val turn = view.activeTurn?.takeUnless { it.state.isTerminal }?.takeIf { view.openSessionId == id }
-                toolVision.screenTarget(id, turn?.id)
-            },
         )
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text

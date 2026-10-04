@@ -36,9 +36,10 @@ internal class SystemPromptContext(
         toolsAvailable: Boolean,
         expert: ExpertProfile? = null,
         directory: com.helix.core.workspace.FileScopePath,
+        mobileToolsAvailable: Boolean = false,
     ): PromptSnapshot {
         val registry = PromptRegistry()
-        PromptEnvironmentSections.register(registry, directory, mode, fileToolsAvailable, templates)
+        registerEnvironment(registry, directory, mode, fileToolsAvailable, mobileToolsAvailable)
         if (toolsAvailable) {
             registry.register(
                 PromptSection(
@@ -80,6 +81,7 @@ internal class SystemPromptContext(
                 },
             )
         }
+        registerProject(registry, sessionId)
         registerMemory(registry, sessionId)
         val projectInstructions = { authorizedProjectInstructions(sessionId, directory) }
         val goal = storage.registerGoalPromptSections(sessionId, projectInstructions, registry)
@@ -91,6 +93,40 @@ internal class SystemPromptContext(
             )
         }
         return registry.resolveAndAssemble()
+    }
+
+    private fun registerEnvironment(
+        registry: PromptRegistry,
+        directory: com.helix.core.workspace.FileScopePath,
+        mode: AgentMode,
+        fileToolsAvailable: Boolean,
+        mobileToolsAvailable: Boolean,
+    ) = PromptEnvironmentSections.register(
+        registry,
+        directory,
+        mode,
+        fileToolsAvailable,
+        templates,
+        if (mobileToolsAvailable) {
+            com.helix.app.automation.AutomationModule
+                .skillContext()
+        } else {
+            null
+        },
+    )
+
+    private fun registerProject(
+        registry: PromptRegistry,
+        sessionId: String,
+    ) {
+        val project = storage.projects.forSession(sessionId) ?: return
+        registry.register(
+            PromptSection("project.instructions", 190, PromptScope.PROJECT, PromptSource.USER_CONFIGURATION) {
+                "[PROJECT ${project.id} revision=${project.revision}]\n" +
+                    "${project.name}\n${project.description}\n${project.instructions}\n" +
+                    "Project context is guidance only; it does not grant permissions or enable tools.\n[/PROJECT]"
+            },
+        )
     }
 
     private fun registerMemory(

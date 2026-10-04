@@ -35,7 +35,11 @@
     <string name="automation_screen_recipient_changed">The receiving model changed. Check the displayed recipient, then start again.</string>
     <string name="automation_conversation_required">Open a conversation to configure its Mobile Use access.</string>
     <string name="automation_conversation_scope">Applies only to the current conversation, not other conversations.</string>
-    <string name="automation_grant_enabled">Authorization enabled</string>
-    <string name="automation_grant_disabled">Not authorized</string>
-    <string name="automation_grant_saved">Conversation authorization saved until you turn it off. Restoring Accessibility does not require another authorization.</string>
+    <string name="automation_grant_enabled">Enabled</string>
+    <string name="automation_grant_disabled">Off</string>
+    <string name="automation_grant_saved">Mobile Use enabled. Features are available according to current permissions.</string>
+    <string name="automation_grant_not_ready">Enabled · app discovery only</string>
+    <string name="automation_enable_accessibility">App discovery is available. Enable Helix Accessibility using the button below to unlock screen reading, taps and screenshots. Root and Shizuku are optional.</string>
+    <string name="automation_grant_privileged">Enabled · privileged screen control</string>
+    <string name="automation_privileged_guidance">Root/Shizuku support screen observation, gestures and exact-target clicks without Helix Accessibility. Full-screen capture requires whole-phone scope; app-only capture uses Accessibility on Android 14+. Semantic node tools still need Accessibility.</string>
 </resources>

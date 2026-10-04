@@ -33,6 +33,7 @@ class AutomationDeviceTools(
     private val images: ToolImagePublication,
     private val origin: ToolOrigin,
 ) {
+    @Suppress("LongMethod") // Keep the six public device contracts and their capability descriptions together.
     fun descriptors(): List<ToolDescriptor> =
         listOf(
             descriptor(
@@ -73,8 +74,10 @@ class AutomationDeviceTools(
                 gestureInput(),
                 actionOutput(),
                 "Tap/hold/swipe/drag/pinch using strokes in physical screen pixels, not dp. " +
-                    "One point taps/holds; several points form a path. " +
+                    "One point taps/holds: use 80-120 ms for a normal tap; 500+ ms is a deliberate long press. " +
+                    "Several points form a path. " +
                     "Parallel strokes use multiple fingers. " +
+                    "Root/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
                     "Map image pixels via screenBounds. " +
                     "Refresh frame after window/rotation changes. " +
                     "Observe after uncertain outcomes; never blindly replay.",
@@ -85,10 +88,13 @@ class AutomationDeviceTools(
                 obj(mapOf("frame" to str(64)), "frame"),
                 screenshotOutput(),
                 "Capture a ui.device frame into a PNG artifact and the shared vision pipeline. " +
-                    "Whole-display needs API30+, scoped window API34+. Protected surfaces can fail. " +
+                    "Root/Shizuku capture needs whole-phone scope; scoped window capture needs Accessibility API34+. " +
+                    "Protected surfaces can fail. " +
                     "Pixels require a vision-capable model and existing disclosure. " +
                     "width/height describe the PNG; imageWidth/imageHeight describe attached pixels. " +
-                    "screenX=left+x*(right-left)/imageWidth; screenY=top+y*(bottom-top)/imageHeight.",
+                    "screenX=left+x*(right-left)/imageWidth; screenY=top+y*(bottom-top)/imageHeight. " +
+                    "When this is a fallback after semantic targeting failed and the visual target is clear, " +
+                    "use ui.gesture with the returned frame next instead of repeating semantic searches.",
             ),
         )
 
@@ -193,6 +199,7 @@ class AutomationDeviceTools(
         val output =
             buildJsonObject {
                 put("status", JsonPrimitive("SAVED"))
+                put("frame", JsonPrimitive(text(call.args, "frame")))
                 put("reference", JsonPrimitive(published.reference))
                 put("sha256", JsonPrimitive(published.sha256))
                 put("sizeBytes", JsonPrimitive(published.sizeBytes))
@@ -201,6 +208,19 @@ class AutomationDeviceTools(
                 put("imageWidth", JsonPrimitive(published.visual?.width ?: capture.width))
                 put("imageHeight", JsonPrimitive(published.visual?.height ?: capture.height))
                 put("pixelsAttached", JsonPrimitive(published.visual != null))
+                put(
+                    "actionHint",
+                    JsonPrimitive(
+                        if (published.visual != null) {
+                            "Pixels are attached. If this screenshot was taken because semantic targeting failed " +
+                                "and the intended visual target is now clear, call ui.gesture next with this same " +
+                                "frame and the mapped screen coordinates. Do not repeat equivalent semantic searches " +
+                                "or end with a future-intent statement."
+                        } else {
+                            "Pixels were not attached. Do not infer image content or guess coordinates."
+                        },
+                    ),
+                )
                 capture.screenBounds?.let { put("screenBounds", boundsJson(it)) }
                 put("note", JsonPrimitive(published.note))
             }
@@ -225,6 +245,9 @@ class AutomationDeviceTools(
     private fun deviceJson(observation: AutomationDeviceObservation) =
         buildJsonObject {
             put("status", JsonPrimitive(observation.status))
+            put("shizukuState", JsonPrimitive(observation.shizukuState.name))
+            put("rootState", JsonPrimitive(observation.rootState.name))
+            put("clickMatchBackend", JsonPrimitive(observation.clickMatchBackend.name.lowercase()))
             put("allApplications", JsonPrimitive(observation.allApplications))
             put("screenshotSupported", JsonPrimitive(observation.screenshotSupported))
             put("gestureSupported", JsonPrimitive(observation.gestureSupported))
@@ -251,14 +274,22 @@ class AutomationDeviceTools(
         help: String,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(1),
+        ToolVersion(
+            if (name == DEVICE) {
+                3
+            } else if (name == SCREENSHOT) {
+                2
+            } else {
+                1
+            },
+        ),
         help,
         input,
         output,
         operation,
         75.seconds,
         512L * 1024L,
-        setOf(Capability.ACCESSIBILITY_AUTOMATION),
+        setOf(if (name in setOf(LAUNCH, SYSTEM)) Capability.ACCESSIBILITY_AUTOMATION else Capability.MOBILE_USE),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
@@ -279,6 +310,9 @@ class AutomationDeviceTools(
         obj(
             mapOf(
                 "status" to str(128),
+                "shizukuState" to str(32),
+                "rootState" to str(32),
+                "clickMatchBackend" to str(32),
                 "frame" to str(64),
                 "allApplications" to bool(),
                 "screenshotSupported" to bool(),
@@ -304,6 +338,7 @@ class AutomationDeviceTools(
         obj(
             mapOf(
                 "status" to str(128),
+                "frame" to str(64),
                 "reference" to str(1024),
                 "sha256" to str(64),
                 "sizeBytes" to integer(),
@@ -314,11 +349,16 @@ class AutomationDeviceTools(
                 "pixelsAttached" to bool(),
                 "screenBounds" to boundsSchema(),
                 "note" to str(512),
+                "actionHint" to str(768),
             ),
             "status",
         )
 
-    private fun actionOutput() = obj(mapOf("status" to str(64)), "status")
+    private fun actionOutput() =
+        obj(
+            mapOf("status" to str(64), "actionHint" to str(384)),
+            "status",
+        )
 
     private fun boundsSchema() =
         obj(

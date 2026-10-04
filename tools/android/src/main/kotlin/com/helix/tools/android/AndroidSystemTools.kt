@@ -115,7 +115,7 @@ internal fun bounded(detail: String): String {
 // ===========================================================================
 object AndroidSystemTools {
     /**
-     * Registers the four `android.*` / `clipboard.*` contracts and registry against the shared
+     * Registers the `android.*` / `clipboard.*` contracts and registry against the shared
      * [bridge]. Called once from the app container (which owns the production
      * [AndroidSystemBridgeImpl]); tests build a [ToolRegistry] / [ToolRegistry] pair and
      * a fake bridge.
@@ -125,6 +125,7 @@ object AndroidSystemTools {
         bridge: AndroidSystemBridge,
     ) {
         AndroidOpenUriTool.register(registry, bridge)
+        AndroidOpenSettingsTool.register(registry, bridge)
         ClipboardReadTool.register(registry, bridge)
         ClipboardWriteTool.register(registry, bridge)
         AndroidShareTool.register(registry, bridge)

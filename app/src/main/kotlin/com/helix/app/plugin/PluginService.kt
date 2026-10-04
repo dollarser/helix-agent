@@ -35,6 +35,18 @@ class PluginService(
 
     fun previewJson(text: String): PluginPackage = reader.readJson(text.toByteArray(Charsets.UTF_8))
 
+    fun standaloneSkills(sessionId: String? = null) =
+        skills.list(sessionId).filter { catalog.independentlyInstalled(it.key) }
+
+    fun selectSkill(
+        key: com.helix.extensions.skills.SkillKey,
+        sessionId: String,
+        selected: Boolean,
+    ) {
+        require(catalog.independentlyInstalled(key)) { "PLUGIN_OWNED_SKILL" }
+        skills.setEnabled(key, selected, com.helix.extensions.skills.SkillEnablementScope.SESSION, sessionId)
+    }
+
     fun preview(uri: Uri): PluginPackage {
         val bytes =
             context.contentResolver.openInputStream(uri).use { input ->
@@ -81,6 +93,10 @@ class PluginService(
 
     fun list(): List<InstalledPlugin> = catalog.list()
 
+    fun bundledSkillContents(pluginId: String) = nativeRegistry?.contents(pluginId)?.skills.orEmpty()
+
+    fun bundledToolDescriptions(pluginId: String) = nativeRegistry?.contents(pluginId)?.tools.orEmpty()
+
     fun sessionRows(sessionId: String): List<PluginSessionRow> {
         val selected = catalog.selected(sessionId)
         val installed = list().filter { it.sessionScoped }.associateBy { it.id }
@@ -102,7 +118,7 @@ class PluginService(
         }
     }
 
-    private fun componentReadiness(record: InstalledPlugin): PluginComponentReadiness =
+    internal fun componentReadiness(record: InstalledPlugin): PluginComponentReadiness =
         PluginComponentReadiness(
             record.enabled,
             record.endpoints.map(::enabled) + record.skills.map(::skillEnabled) +
@@ -347,6 +363,19 @@ class PluginService(
     }
 
     fun enabled(endpoint: InstalledEndpoint): Boolean = mcp.isActive(endpoint.id)
+
+    fun inspectSkill(key: SkillKey): String {
+        require(list().any { key in it.skills }) { "CONNECTOR_UNKNOWN_SKILL" }
+        return skills.inspect(key).rawContent
+    }
+
+    fun knownToolNames(endpoint: InstalledEndpoint): List<String> {
+        requireOwned(endpoint)
+        return storage.mcpCapabilities
+            .listByServer(endpoint.id)
+            .filter { it.kind == "tool" }
+            .map { it.name }
+    }
 
     fun skillEnabled(key: SkillKey): Boolean = skills.list().any { it.key == key && it.enabled }
 

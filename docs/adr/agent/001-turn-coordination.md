@@ -167,6 +167,7 @@ Goal 可以跨多个 Turn/Run 持久存在，但 crash/review 后不恢复 same 
 - INTERRUPTED 是旧 attempt 的终局，不阻止 successor admission；
 - NEEDS_REVIEW 不阻止 successor Turn/模型检查，但 effect gate 按 §6 阻止危险 side effect；
 - 普通用户发送默认 Queue；显式 Steer 只在当前仍 live 的 Turn 合法协调点进入；
+- 未消费 Queue 在输入框上方直接展示，正常完成后按原顺序消费。用户可对单项点击“立即发送”，重验证原配置、附件和当前 live Turn 后以 revision CAS 转为 Steer；保留原输入身份和内容，不能复制重提、默默绑定新 Turn 或释放 Stop 停泊项。失败保留原队列，消费后不再可编辑/转向。界面观察 Room 投递变化，不依赖最终回复或轮询。
 - process recovery 不自动消费 Queue，也不自动启动 successor Turn。恢复必须来自用户“继续”/新消息，或未来另行接受的明确自动激活契约。
 
 Queue、Goal continuation、revise、regenerate、Share/Voice 等 successor 最终都必须重新经过 TurnEngine admission，不能只看 process-local Job map。
@@ -254,6 +255,7 @@ UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保�
 
 ## Decision history
 
+- 2026-10-04：所有者要求可见消息队列与单项立即发送。复用 Queue/Steer 及安全衔接点，不中断工具、不新增第二执行器；当前会话入口合为单击直达，投递事实由持久输入变化驱动。
 - 2026-10-01：所有者授权 HXA-234 的 R2-A 等价迁移。实际 Loop、执行/消息端口与领域值进入纯 Core；终态增加 session/call/phase/step 的前置校验，修复新 ModelCall 与持久步骤发布错位。继续同一 Engine/Room 事务，主机与设备验收分别记账。
 - 2026-09-30：真实服务回归发现未建立 Turn 的输入重验证失败；修复异步模式/预算修改与发送之间的顺序缺口。增加统一动作顺序和即时发送反例，保持原 Turn admission owner、持久化及授权边界。
 - 2026-09-30：HXA-232 补齐持久去重的只读核查、原 Goal 预算绑定、队列有界重验证/FAILED 终态和可见恢复通知。自动结束不改写未知 effect，不要求人工核查后才能结束；原事实 review 接口仅作可选操作。主机证据与设备验收分开记录。

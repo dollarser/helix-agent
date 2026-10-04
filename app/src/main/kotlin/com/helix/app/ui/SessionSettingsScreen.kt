@@ -25,7 +25,7 @@ import com.helix.app.chat.ChatService
 import com.helix.app.plugin.PluginService
 import com.helix.app.provider.ProviderService
 import com.helix.app.ui.indicatedVerticalScroll
-import com.helix.extensions.skills.SkillRepository
+import com.helix.core.model.ProviderProvisioningKind
 import kotlinx.coroutines.launch
 
 /** Single authority for configuration that belongs to the currently open Conversation. */
@@ -33,16 +33,17 @@ import kotlinx.coroutines.launch
 @Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun SessionSettingsScreen(
     chatService: ChatService,
+    projects: com.helix.app.projects.ProjectService? = null,
+    onProject: (String) -> Unit = {},
     providerService: ProviderService,
     permissionEdit: SessionPermissionEditService,
-    skills: SkillRepository,
     connectors: PluginService,
     files: com.helix.app.files.FileManagerService,
     onModels: () -> Unit,
     onExtensions: () -> Unit,
+    onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
-    val profile by chatService.profile.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providers by providerService.rows.collectAsStateWithLifecycle()
     val sessionId = screen.openSessionId
@@ -59,7 +60,6 @@ internal fun SessionSettingsScreen(
             }
         }
     }
-    var skillsOpen by remember(sessionId) { mutableStateOf(false) }
     var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
     var expertOpen by remember(sessionId) { mutableStateOf(false) }
     var directoryOpen by remember(sessionId) { mutableStateOf(false) }
@@ -84,6 +84,8 @@ internal fun SessionSettingsScreen(
                 enabled = !screen.isSending && screen.pendingDisclosure == null,
                 onSelect = chatService::selectSessionModel,
                 onManageModels = onModels,
+                sourceGroups = providerService.sourceGroups,
+                onConfigureSource = onConfigureModelSource,
             )
             OutlinedButton(
                 onClick = onModels,
@@ -93,9 +95,7 @@ internal fun SessionSettingsScreen(
             }
         }
 
-        com.helix.app.automation.AutomationModule.Section(profile, sessionId) { id ->
-            chatService.materializeDraftSession(id) == id
-        }
+        if (!screen.isDraft) projects?.let { SessionProjectSection(it, sessionId, onProject) }
 
         SessionWorkspaceSection(files, screen.directoryRef, sessionId != null) { directoryOpen = true }
 
@@ -123,13 +123,6 @@ internal fun SessionSettingsScreen(
                 Text(stringResource(R.string.session_expert_title))
             }
             OutlinedButton(
-                onClick = { withDurableSession { skillsOpen = true } },
-                enabled = sessionId != null,
-                modifier = Modifier.fillMaxWidth().testTag("session-settings-skills"),
-            ) {
-                Text(stringResource(R.string.session_skills_title))
-            }
-            OutlinedButton(
                 onClick = { withDurableSession { connectorsOpen = true } },
                 enabled = sessionId != null,
                 modifier = Modifier.fillMaxWidth().testTag("session-settings-connectors"),
@@ -143,9 +136,6 @@ internal fun SessionSettingsScreen(
         SessionDirectoryDialog(files, { directoryOpen = false }) { reference ->
             chatService.setSessionDirectory(reference, sessionId).await()
         }
-    }
-    if (skillsOpen && sessionId != null) {
-        SkillSessionPanel(skills, sessionId, onExtensions) { skillsOpen = false }
     }
     if (connectorsOpen && sessionId != null) {
         com.helix.app.connector.ConnectorSessionPanel(connectors, sessionId, onExtensions) {

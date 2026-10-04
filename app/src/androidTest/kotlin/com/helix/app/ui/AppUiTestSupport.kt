@@ -97,6 +97,13 @@ private fun editableProviderRow() =
 
 /** Navigates through the production IA. Secondary routes must be reached through their landing. */
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
+    if (route == "git") {
+        navigatePrimary("sessions")
+        onNodeWithTag("chat-conversation-details").performClick()
+        onNodeWithTag("session-git-open").performScrollTo().performClick()
+        waitForIdle()
+        return
+    }
     if (route == CONVERSATION_HISTORY_ROUTE || route == CONVERSATION_SEARCH_ROUTE) {
         navigatePrimary("sessions")
         onNodeWithTag("open-navigation").performClick()
@@ -110,32 +117,20 @@ fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
     }
     val path =
         when (route) {
-            SETUP_READINESS_ROUTE -> {
-                "setup" to listOf("setup-open-readiness")
+            SETUP_READINESS_ROUTE, "setup" -> {
+                SETTINGS_AUDIT_ROUTE to listOf("diagnostics-open-readiness")
             }
 
             SETUP_CAPABILITIES_ROUTE -> {
-                "setup" to listOf("setup-open-capabilities")
+                SETTINGS_AUDIT_ROUTE to listOf("diagnostics-open-capabilities")
             }
 
             SETUP_RUNTIME_ROUTE -> {
-                "setup" to listOf("setup-open-runtime")
-            }
-
-            SETTINGS_DEFAULTS_ROUTE -> {
-                "settings" to listOf("settings-open-defaults")
-            }
-
-            SETTINGS_PERMISSIONS_ROUTE -> {
-                "settings" to listOf("settings-open-permissions")
+                SETUP_RUNTIME_ROUTE to emptyList()
             }
 
             SETTINGS_SYSTEM_PERMISSIONS_ROUTE -> {
-                "settings" to listOf("settings-open-permissions", "settings-system-permissions")
-            }
-
-            SETTINGS_AUDIT_ROUTE -> {
-                "settings" to listOf("settings-open-audit")
+                SETTINGS_PERMISSIONS_ROUTE to listOf("settings-system-permissions")
             }
 
             else -> {
@@ -173,8 +168,8 @@ private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
     val groupTag =
         when (route) {
             "tasks", "artifacts", "git", "files", "browser", "terminal" -> "navigation-group-work"
-            "models", "extensions", "setup" -> "navigation-group-configure"
-            else -> null
+            SETUP_RUNTIME_ROUTE -> "navigation-group-settings"
+            else -> if (route == "settings" || route.startsWith("settings/")) "navigation-group-settings" else null
         }
     if (groupTag != null && onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty()) {
         onNodeWithTag(groupTag).performScrollTo().performClick()

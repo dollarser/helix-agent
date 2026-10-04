@@ -94,7 +94,10 @@ internal class DurableToolLoopProgress(
                     val stableRead =
                         descriptor?.operationClass == ToolOperationClass.READ_ONLY &&
                             descriptor.idempotency == Idempotency.IDEMPOTENT &&
-                            Capability.ACCESSIBILITY_AUTOMATION !in descriptor.requiredCapabilities &&
+                            descriptor.requiredCapabilities
+                                .intersect(
+                                    setOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE),
+                                ).isEmpty() &&
                             call.state == "COMPLETED" && result?.verified == true
                     ToolLoopProgress.Fact(
                         if (result == null || (!denied && !stableRead)) {

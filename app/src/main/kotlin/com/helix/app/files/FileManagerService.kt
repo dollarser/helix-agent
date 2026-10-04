@@ -48,6 +48,7 @@ class FileManagerService internal constructor(
     private val rootOperations: RootFileOperations? = null,
     private val workspaceSources: () -> List<FileSource> = { emptyList() },
     private val workspaceCleanup: ((String) -> Unit)? = null,
+    val library: FileLibrary = FileLibrary(),
 ) {
     /** Explicit cleanup shares this monitor with every manual file operation, including transfers. */
     @Synchronized
@@ -188,7 +189,13 @@ class FileManagerService internal constructor(
 
     /** Safe initial UI projection; resolving live sources requires an IO dispatcher. */
     val defaultSource: FileSource
-        get() = FileSource(workspaceScopeId, "Workspace", FileSourceKind.WORKSPACE, supportsMutation = true)
+        get() =
+            FileSource(
+                workspaceScopeId,
+                loc(R.string.files_local),
+                FileSourceKind.WORKSPACE,
+                supportsMutation = true,
+            )
 
     /**
      * The browsable sources (HXA-046 + HXA-057): the workspace (always, mutable) + any enabled

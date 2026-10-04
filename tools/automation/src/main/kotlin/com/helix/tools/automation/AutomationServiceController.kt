@@ -13,6 +13,14 @@ object AutomationServiceController {
     // Accessibility main-thread callbacks. The controller monitor protects only short state transitions.
     private val conversationOperationLock = Any()
     private val deviceOperationLock = Any()
+    internal val physicalInput = AutomationPhysicalSlot()
+
+    @Synchronized
+    internal fun invalidateObservations() {
+        service?.invalidateSnapshotTokens()
+    }
+
+    internal fun <T> withPhysicalOperation(block: () -> T): T = synchronized(deviceOperationLock, block)
 
     private data class OperationLease(
         val service: HelixAccessibilityService,

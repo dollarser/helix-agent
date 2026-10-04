@@ -14,7 +14,7 @@ internal object RootServiceProtocol {
 }
 
 /** Non-daemon RootService exposing only the typed, bounded HXA-095 read protocol. */
-class HelixRootService : RootService() {
+open class HelixRootService : RootService() {
     private val binder =
         object : Binder() {
             init {

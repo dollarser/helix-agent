@@ -78,11 +78,14 @@ class FilesScreenTest {
     fun listsWorkspaceSourceAndNavigatesByBreadcrumb() {
         seed("work/alpha.txt", "hello alpha")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
 
         // 来源标识: the always-present Workspace is the current (and, in consumer, only) source.
         waitTag("files-entry-work")
-        composeRule.onNodeWithTag("files-source-current").assertTextContains("Workspace", substring = true)
+        composeRule
+            .onNodeWithTag(
+                "files-source-current",
+            ).assertTextContains(composeRule.activity.getString(com.helix.app.R.string.files_local), substring = true)
 
         // Root lists the three user regions; .helix is hidden.
         composeRule.onNodeWithTag("files-entry-input").assertExists()
@@ -110,7 +113,7 @@ class FilesScreenTest {
         seed("work/a.txt", "1") // 1 byte
         seed("work/b.txt", "222") // 3 bytes
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-a.txt")
@@ -145,7 +148,7 @@ class FilesScreenTest {
     fun previewsTextFileWithHashInfo() {
         seed("work/note.txt", "hello alpha")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-note.txt")
@@ -172,7 +175,8 @@ class FilesScreenTest {
         seed("work/note.txt", "original")
         seed("work/target.txt", "target")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-quick-work").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
+        composeRule.onNodeWithTag("files-entry-work").performScrollTo().performClick()
         waitTag("files-entry-note.txt")
         val file = wsRoot.resolve("work/note.txt").toPath()
         java.nio.file.Files
@@ -196,7 +200,8 @@ class FilesScreenTest {
     fun binaryWithoutPreviewStillShowsCompletedMetadata() {
         seed("work/data.bin", "\u0000binary")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-quick-work").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
+        composeRule.onNodeWithTag("files-entry-work").performScrollTo().performClick()
         waitTag("files-entry-data.bin")
         composeRule.onNodeWithTag("files-entry-data.bin").performClick()
         waitTag("files-info-sha")
@@ -208,7 +213,7 @@ class FilesScreenTest {
     fun longTextPreviewKeepsTheMetadataReachable() {
         seed("work/long.txt", (1..100).joinToString("\n") { "preview line $it" })
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-long.txt")
@@ -226,7 +231,7 @@ class FilesScreenTest {
         seed("work/a.txt", "keep-me-a")
         seed("work/b.txt", "keep-me-b")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-a.txt")
@@ -255,7 +260,7 @@ class FilesScreenTest {
     fun trashesRestoresAndPurges() {
         seed("work/doomed.txt", "bye")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-doomed.txt")
@@ -305,7 +310,7 @@ class FilesScreenTest {
     fun createsFolderAndExposesShare() {
         seed("work/share.txt", "share me")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-share.txt")

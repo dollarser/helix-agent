@@ -359,7 +359,8 @@ subprojects {
             // separately restricted to the exact upstream group in settings.gradle.kts.
             if (path == ":tools:root") {
                 dependencies.add("implementation", libsuCoreDependency.get())
-                dependencies.add("implementation", libsuServiceDependency.get())
+                // HelixRootService is extended by the developer host's typed Mobile Use service.
+                dependencies.add("api", libsuServiceDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

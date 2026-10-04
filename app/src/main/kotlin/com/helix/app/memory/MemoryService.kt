@@ -15,6 +15,7 @@ class MemoryService(
     private val saveSetting: (String, Boolean) -> Unit,
     private val project: (String) -> ProjectMemoryScopeKey? = { null },
     private val documents: MemoryDocuments? = null,
+    private val projectForTool: (String, String, String) -> ProjectMemoryScopeKey? = { _, _, _ -> null },
 ) {
     val enabled: Boolean get() = setting("enabled")
     val autoGlobal: Boolean get() = setting("auto-global")
@@ -49,6 +50,22 @@ class MemoryService(
         }
 
     fun projectAvailable(sessionId: String?): Boolean = sessionId?.let(project) != null
+
+    fun scopeForTool(
+        name: String,
+        sessionId: String?,
+        turnId: String?,
+        toolCallId: String,
+    ): MemoryScope =
+        if (name == "project") {
+            MemoryScope.Project(
+                requireNotNull(projectForTool(requireNotNull(sessionId), requireNotNull(turnId), toolCallId)) {
+                    "PROJECT_MEMORY_CALL_UNAVAILABLE"
+                },
+            )
+        } else {
+            scope(name, sessionId)
+        }
 
     fun list(scope: MemoryScope): List<MemoryEntry> = store.index(scope)
 

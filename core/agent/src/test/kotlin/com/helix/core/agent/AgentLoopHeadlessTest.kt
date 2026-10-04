@@ -12,6 +12,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentLoopHeadlessTest {
+    @Test fun confirmedRequestIsPublishedBeforeToolsExecute() =
+        runBlocking {
+            val fixture =
+                HeadlessLoopFixture { index ->
+                    if (index == 0) calls(false) else listOf(ModelEvent.TextDelta("done"), ModelEvent.Completed("stop"))
+                }
+            var observed = false
+            fixture.beforeTools = {
+                assertEquals(1, fixture.requests.size)
+                assertTrue(fixture.journal.snapshot().modelCallClosed)
+                assertEquals(AgentLoopEvent.Refresh, fixture.events.last())
+                assertTrue("assistant-committed" in fixture.journal.log)
+                observed = true
+            }
+            fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
+            assertTrue(observed)
+        }
+
     @Test fun oneProductionLoopCompletesWithWholeAndFragmentedProviderStreams() =
         runBlocking {
             listOf(false, true).forEach { fragmented ->

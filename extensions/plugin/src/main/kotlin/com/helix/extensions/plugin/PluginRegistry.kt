@@ -9,9 +9,21 @@ import java.security.MessageDigest
 /** Host-native component of an Agent Plugin. It contributes capabilities, never another AgentLoop. */
 interface HelixPlugin {
     val manifest: PluginManifest
+    val bundledSkills: List<PluginBundledSkill> get() = emptyList()
 
     fun tools(): List<com.helix.tools.framework.ToolBinding>
 }
+
+data class PluginBundledSkill(
+    val name: String,
+    val description: String,
+    val content: String,
+)
+
+data class PluginContents(
+    val tools: List<Pair<String, String>>,
+    val skills: List<PluginBundledSkill>,
+)
 
 /** Trusted native factories only. Installation, enabled state and revision belong to the host catalog. */
 class PluginRegistry(
@@ -19,6 +31,15 @@ class PluginRegistry(
     private val catalog: NativePluginCatalog,
 ) {
     private val factories = LinkedHashMap<String, HelixPlugin>()
+
+    fun contents(pluginId: String): PluginContents =
+        synchronized(catalog.mutationLock) {
+            val plugin = factories[pluginId]
+            PluginContents(
+                plugin?.tools().orEmpty().map { it.descriptor.name.value to it.descriptor.description },
+                plugin?.bundledSkills.orEmpty(),
+            )
+        }
 
     /** Nonblocking presentation hint only; execution still resolves the authoritative binding. */
     fun hasPublishedTools(pluginId: String): Boolean =
@@ -93,7 +114,11 @@ class PluginRegistry(
                 .digest(
                     (
                         listOf(manifest.name, manifest.version, runtimeId) +
-                            bindings.map { it.descriptor.contractHash.hex }.sorted()
+                            bindings.map { it.descriptor.contractHash.hex }.sorted() +
+                            plugin.bundledSkills
+                                .sortedBy {
+                                    it.name
+                                }.map { "${it.name}:${it.description}:${it.content}" }
                     ).joinToString("\n")
                         .toByteArray(Charsets.UTF_8),
                 ).joinToString("") { "%02x".format(it) }

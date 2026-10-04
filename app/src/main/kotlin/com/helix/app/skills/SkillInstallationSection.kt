@@ -27,6 +27,8 @@ import kotlinx.coroutines.withContext
 fun SkillInstallationSection(
     authoring: SkillAuthoringService,
     service: SkillInstallationService,
+    onUse: (() -> Unit)? = null,
+    onInstalled: () -> Unit = {},
 ) {
     var path by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<SkillImportPreview?>(null) }
@@ -90,6 +92,7 @@ fun SkillInstallationSection(
                 action.launch {
                     val key = withContext(Dispatchers.IO) { service.install(path, reviewed.snapshotHash) }
                     installed = key
+                    onInstalled()
                     enabled = withContext(Dispatchers.IO) { service.isEnabled(key) }
                     preview = null
                 }
@@ -101,7 +104,9 @@ fun SkillInstallationSection(
                 modifier = Modifier.testTag("skill-installer-result"),
             )
             Text(stringResource(if (enabled) R.string.skill_installer_enabled else R.string.skill_installer_disabled))
-            if (!enabled) {
+            if (onUse != null) {
+                OutlinedButton(onClick = onUse) { Text(stringResource(R.string.extensions_use)) }
+            } else if (!enabled) {
                 OutlinedButton(
                     enabled = !action.busy,
                     onClick = {

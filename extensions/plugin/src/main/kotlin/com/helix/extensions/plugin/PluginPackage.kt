@@ -74,6 +74,22 @@ class PluginPackageReader {
         return parse(mapOf("mcp.json" to bytes))
     }
 
+    /** Reads a private captured directory. Workspace containment/copying precedes this parser. */
+    fun readDirectory(
+        root: Path,
+        cancelled: () -> Boolean = { false },
+    ): PluginPackage {
+        val files = PluginDirectorySnapshot.read(root, cancelled)
+        val result = parse(files)
+        return if (java.nio.file.Files
+                .isDirectory(root.resolve("mcp.json"))
+        ) {
+            result.copy(diagnostics = (result.diagnostics + "PLUGIN_MCP_NOT_FILE").distinct())
+        } else {
+            result
+        }
+    }
+
     @Suppress("CyclomaticComplexMethod", "LongMethod") // explicit foreign-format branches, each independently diagnosed
     fun parse(files: Map<String, ByteArray>): PluginPackage {
         require(files.size <= 1024 && files.values.sumOf { it.size.toLong() } <= MAX_BYTES) { "CONNECTOR_TOO_LARGE" }
@@ -86,9 +102,10 @@ class PluginPackageReader {
             }
         }
         val manifests = MANIFESTS.filter { it in files }
+        // The standard root is authoritative; foreign overlays cannot replace it or grant behavior.
+        if (AGENT_PLUGIN_MANIFEST in manifests) return portable(files)
         require(manifests.size <= 1) { "CONNECTOR_AMBIGUOUS_MANIFEST" }
         val manifestPath = manifests.singleOrNull()
-        if (manifestPath == AGENT_PLUGIN_MANIFEST) return portable(files)
         val manifest = manifestPath?.let { json(files.getValue(it)) } ?: JsonObject(emptyMap())
         val source =
             when (manifestPath) {

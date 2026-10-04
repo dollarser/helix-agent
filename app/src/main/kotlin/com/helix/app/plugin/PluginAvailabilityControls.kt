@@ -7,6 +7,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +29,22 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
     val scope = rememberCoroutineScope()
     var busy by remember(record.id) { mutableStateOf(false) }
     var failure by remember(record.id) { mutableStateOf(false) }
+    var defaultSelected by remember(record) { mutableStateOf(false) }
+    var readiness by remember(record) { mutableStateOf<PluginComponentReadiness?>(null) }
+    LaunchedEffect(record) {
+        try {
+            defaultSelected = withContext(Dispatchers.IO) { service.catalog.defaultSelected(record.id) }
+            readiness = withContext(Dispatchers.IO) { service.componentReadiness(record) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            failure = true
+        }
+    }
+    readiness?.let { state ->
+        Text(stringResource(R.string.extensions_component_status, state.ready, state.total))
+        if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
+    }
 
     fun perform(action: () -> Unit) {
         scope.launch {
@@ -54,6 +71,17 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
             onCheckedChange = { value -> perform { service.setEnabled(record.id, value) } },
             modifier = Modifier.testTag("plugin-enabled-${record.id}"),
         )
+    }
+    if (record.native == null) {
+        Row(Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.connector_session_default), Modifier.weight(1f))
+            Switch(defaultSelected, { value ->
+                perform {
+                    service.catalog.setDefault(record.id, value)
+                    defaultSelected = value
+                }
+            }, enabled = !busy, modifier = Modifier.testTag("connector-default-${record.id}"))
+        }
     }
     if (record.native != null) {
         Text(stringResource(R.string.plugin_native_notice), style = MaterialTheme.typography.bodySmall)

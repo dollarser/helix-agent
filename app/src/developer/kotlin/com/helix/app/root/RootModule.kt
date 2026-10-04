@@ -128,7 +128,9 @@ internal object RootModule {
                         val result = rootAccess.requestRoot()
                         if (result != RootRequestStatus.ALREADY_GRANTED) sessionStatus = sessionManager.status()
                     },
-                    enabled = accessStatus.grant != RootGrantState.REQUESTING,
+                    enabled =
+                        accessStatus.grant != RootGrantState.REQUESTING &&
+                            accessStatus.service == RootServiceState.DISCONNECTED,
                     modifier = Modifier.testTag("root-request"),
                 ) { Text(stringResource(R.string.root_request)) }
                 OutlinedButton(

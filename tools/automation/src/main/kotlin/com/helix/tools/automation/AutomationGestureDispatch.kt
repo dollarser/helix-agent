@@ -13,7 +13,7 @@ import java.time.Instant
 internal class AutomationGestureDispatch(
     private val service: HelixAccessibilityService,
 ) {
-    private val inFlight = AutomationPhysicalSlot()
+    private val inFlight get() = service.physicalInput
 
     @Suppress("ReturnCount") // Pre-dispatch refusals and uncertain post-dispatch outcomes are distinct.
     fun execute(

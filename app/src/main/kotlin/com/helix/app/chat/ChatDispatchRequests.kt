@@ -85,13 +85,13 @@ internal class ChatDispatchRequests(
             executionTarget = descriptor?.executionTarget ?: ExecutionTargetType.LOCAL_ANDROID,
             dataOrigin =
                 when {
-                    descriptor?.name?.value?.startsWith("ui.") == true -> DataOrigin.ACCESSIBILITY
+                    AutomationModule.owns(descriptor) -> DataOrigin.ACCESSIBILITY
                     descriptor?.name?.value?.startsWith("root.") == true -> DataOrigin.ROOT
                     else -> DataOrigin.WORKSPACE
                 },
             scope =
                 RootModule.scopeFor(descriptor?.name?.value)
-                    ?: AutomationModule.scopeFor(descriptor?.name?.value, turn.sessionId),
+                    ?: AutomationModule.dispatchScopeFor(descriptor, turn.sessionId),
             uiToken = "chat:${turn.id}",
             egress = egressFacts?.first,
             originSeenInSession = egressFacts?.second ?: true,

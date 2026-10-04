@@ -17,11 +17,10 @@ internal object AppAndroidTools {
         toolRegistry: ToolRegistry,
         egressPolicy: EgressPolicyProvider,
     ) {
-        // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
+        // HXA-064+: Android URI/settings + clipboard/share tools.
         // The production port (AndroidSystemBridgeImpl) is Context-backed: it builds the real
         // Intent / ClipboardManager calls and gates clipboard read/write on visible-foreground.
-        // All four are L2 EXTERNAL_ACTION, so the L2 approval card previews the FULL arguments
-        // (e.g. the share text) before the user approves — that IS "分享输入先预览" (doc 02 §5.4).
+        // External actions use the ordinary dispatcher/policy path; opening Settings never toggles it itself.
         AndroidSystemTools.registerAll(
             toolRegistry,
             AndroidSystemBridgeImpl(context),

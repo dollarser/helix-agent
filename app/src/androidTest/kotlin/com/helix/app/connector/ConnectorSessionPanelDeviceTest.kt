@@ -21,7 +21,7 @@ class ConnectorSessionPanelDeviceTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun sessionAndNewSessionDefaultCanBeChangedIndependently() {
+    fun sessionSelectionDoesNotEditGlobalNewSessionDefaults() {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val service = c.pluginService
         val session = "connector-ui-${UUID.randomUUID()}"
@@ -49,12 +49,8 @@ class ConnectorSessionPanelDeviceTest {
                 .performClick()
             compose.waitUntil(10_000) { record.id in service.catalog.selected(session) }
             compose.onNodeWithTag(selected).assertIsOn()
-            compose
-                .onNodeWithTag(default)
-                .performScrollTo()
-                .assertIsOff()
-                .performClick()
-            compose.waitUntil(10_000) { service.catalog.defaultSelected(record.id) }
+            compose.onNodeWithTag(default).assertDoesNotExist()
+            service.catalog.setDefault(record.id, true)
             c.storage.sessions.create(next, "New", null, null, 0)
             compose.onNodeWithTag(selected).performScrollTo().performClick()
             compose.waitUntil(10_000) { service.catalog.selected(session) == initiallySelected }

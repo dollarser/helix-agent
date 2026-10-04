@@ -41,7 +41,15 @@ class AutomationDeviceToolsTest {
     @Test fun newPrimitivesRetainCapabilityAndEffectClassification() {
         val descriptors = tools.descriptors()
         assertEquals(6, descriptors.size)
-        assertTrue(descriptors.all { it.requiredCapabilities == setOf(Capability.ACCESSIBILITY_AUTOMATION) })
+        descriptors.forEach {
+            val expected =
+                if (it.name.value in setOf("ui.launch", "ui.system")) {
+                    Capability.ACCESSIBILITY_AUTOMATION
+                } else {
+                    Capability.MOBILE_USE
+                }
+            assertEquals(setOf(expected), it.requiredCapabilities)
+        }
         assertEquals(ToolOperationClass.EXTERNAL_ACTION, descriptor("ui.gesture").operationClass)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, descriptor("ui.screenshot").operationClass)
         assertEquals(ToolOperationClass.READ_ONLY, descriptor("ui.apps").operationClass)
@@ -69,6 +77,20 @@ class AutomationDeviceToolsTest {
         val result = tools.executor("ui.screenshot").execute(call) as ToolExecutorResult.Completed
         assertSame(call, publishedCall)
         assertSame(visual, result.visualArtifact)
+        assertEquals(
+            "frame",
+            result.output.jsonObject
+                .getValue("frame")
+                .toString()
+                .trim('"'),
+        )
+        assertTrue(
+            result.output.jsonObject
+                .getValue("actionHint")
+                .toString()
+                .contains("ui.gesture"),
+        )
+        assertEquals(2, descriptor("ui.screenshot").version.value)
         assertEquals(
             "1",
             result.output.jsonObject
@@ -98,6 +120,7 @@ class AutomationDeviceToolsTest {
             ToolSchemaValidator.validate(descriptor("ui.screenshot").outputSchema, result.output),
         )
         assertFalse(result.output.toString().contains("base64"))
+        assertTrue(result.output.toString().contains("pixelsAttached"))
     }
 
     @Test fun unsupportedScreenshotNeverPublishesAnImageOrFakeArtifact() {
@@ -115,8 +138,18 @@ class AutomationDeviceToolsTest {
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(descriptor("ui.gesture").inputSchema, json(args)),
         )
-        execute("ui.gesture", args)
+        val completed = execute("ui.gesture", args) as ToolExecutorResult.Completed
         assertEquals(1, port.strokes.size)
+        assertTrue(
+            completed.output.jsonObject
+                .getValue("actionHint")
+                .toString()
+                .contains("observe"),
+        )
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(descriptor("ui.gesture").outputSchema, completed.output),
+        )
         assertEquals(
             2,
             port.strokes

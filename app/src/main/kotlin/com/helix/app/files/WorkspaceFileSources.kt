@@ -10,7 +10,12 @@ internal fun workspaceFileSources(
     storage.workspaces.list().filter { it.availability != "DELETED" }.map { resource ->
         FileSource(
             resource.id,
-            resource.ownerSessionId?.let { storage.sessions.find(it)?.title } ?: resource.id,
+            storage.projects
+                .forWorkspace(resource.id)
+                .firstOrNull()
+                ?.name
+                ?: resource.ownerSessionId?.let { storage.sessions.find(it)?.title }
+                ?: resource.id,
             FileSourceKind.WORKSPACE,
             supportsMutation = resource.availability == "READY" && writable(resource.id),
             workspaceBackend = resource.backend,

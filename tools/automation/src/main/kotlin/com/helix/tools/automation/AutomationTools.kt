@@ -25,6 +25,16 @@ import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 interface AutomationToolPort {
+    fun accessibilityOnly(): AutomationToolPort = this
+
+    fun preferredClickBackend(): AutomationClickBackend = AutomationClickBackend.ACCESSIBILITY
+
+    fun rootClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
+        AutomationActionResult(AutomationActionStatus.ROOT_UNAVAILABLE)
+
+    fun shizukuClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
+        AutomationActionResult(AutomationActionStatus.SHIZUKU_UNAVAILABLE)
+
     fun forCall(call: ExecutableToolCall): AutomationToolPort = this
 
     fun snapshot(): AutomationSnapshotResult
@@ -37,18 +47,32 @@ interface AutomationToolPort {
 class PermissionCenterAutomationToolPort(
     private val center: AutomationPermissionCenter,
     private val originalCall: ExecutableToolCall? = null,
+    private val forceAccessibility: Boolean = false,
 ) : AutomationToolPort {
+    override fun accessibilityOnly(): AutomationToolPort =
+        PermissionCenterAutomationToolPort(center, originalCall, true)
+
+    override fun preferredClickBackend(): AutomationClickBackend = center.preferredClickBackend()
+
+    override fun rootClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
+        originalCall?.let { center.rootClick(it, selector) }
+            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+
+    override fun shizukuClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
+        originalCall?.let { center.shizukuClick(it, selector) }
+            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+
     override fun forCall(call: ExecutableToolCall): AutomationToolPort =
-        PermissionCenterAutomationToolPort(center, call)
+        PermissionCenterAutomationToolPort(center, call, forceAccessibility)
 
     private fun <T> bound(block: () -> T): T? = originalCall?.let { center.withConversation(it, block) }
 
     override fun snapshot() =
-        bound { center.snapshot() }
+        (if (forceAccessibility) bound { center.snapshot() } else originalCall?.let(center::semanticSnapshot))
             ?: AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
 
     override fun nodeAction(request: AutomationNodeActionRequest) =
-        bound { center.performNodeAction(request) }
+        originalCall?.let { center.semanticAction(it, request) }
             ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
 
     override fun globalAction(action: AutomationGlobalAction) =
@@ -67,8 +91,10 @@ class AutomationTools(
             descriptor(SNAPSHOT, ToolOperationClass.READ_ONLY, emptyObject(), snapshotOutput()),
             descriptor(FIND, ToolOperationClass.READ_ONLY, findInput(), findOutput()),
             descriptor(CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
+            descriptor(CLICK_MATCH, ToolOperationClass.EXTERNAL_ACTION, clickMatchInput(), actionOutput()),
             descriptor(LONG_CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
             descriptor(SET_TEXT, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput()),
+            descriptor(IME_ENTER, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
             descriptor(SET_PROGRESS, ToolOperationClass.EXTERNAL_ACTION, progressInput(), actionOutput()),
             descriptor(SCROLL, ToolOperationClass.EXTERNAL_ACTION, scrollInput(), actionOutput()),
             descriptor(BACK, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
@@ -102,12 +128,20 @@ class AutomationTools(
                             action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
                         }
 
+                        CLICK_MATCH -> {
+                            clickMatch(boundPort, call)
+                        }
+
                         LONG_CLICK -> {
                             action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
                         }
 
                         SET_TEXT -> {
                             action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
+                        }
+
+                        IME_ENTER -> {
+                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.IME_ENTER, call.args)))
                         }
 
                         SET_PROGRESS -> {
@@ -140,6 +174,66 @@ class AutomationTools(
                     ToolExecutorResult.Failed(error.message ?: "AUTOMATION_ARGUMENT_INVALID", sideEffectFree = true)
                 }
             }
+        }
+
+    private fun clickMatch(
+        boundPort: AutomationToolPort,
+        call: ExecutableToolCall,
+    ): ToolExecutorResult {
+        val requested = call.args["backend"]?.jsonPrimitive?.contentOrNull ?: "auto"
+        require(requested in setOf("auto", "root", "accessibility", "shizuku")) { "INVALID_BACKEND" }
+        val exact =
+            call.args.keys.all { it in setOf("backend", "packageName", "viewId", "text") } &&
+                listOf("packageName", "viewId", "text").all { it in call.args }
+        val backend =
+            if (requested == "auto") {
+                boundPort.preferredClickBackend().name.lowercase()
+            } else {
+                requested
+            }
+        if (backend in setOf("root", "shizuku") && (exact || requested != "auto")) {
+            require(exact) {
+                "PRIVILEGED_REQUIRES_EXACT_PACKAGE_VIEW_ID_TEXT"
+            }
+            val selector =
+                AutomationPrivilegedSelector(
+                    requireNotNull(call.args["packageName"]?.jsonPrimitive?.contentOrNull),
+                    requireNotNull(call.args["viewId"]?.jsonPrimitive?.contentOrNull),
+                    requireNotNull(call.args["text"]?.jsonPrimitive?.contentOrNull),
+                )
+            return withClickBackend(
+                action(if (backend == "root") boundPort.rootClick(selector) else boundPort.shizukuClick(selector)),
+                backend,
+            )
+        }
+        return withClickBackend(
+            AutomationClickMatchExecutor(
+                if (requested ==
+                    "accessibility"
+                ) {
+                    boundPort.accessibilityOnly()
+                } else {
+                    boundPort
+                },
+            ).execute(
+                call = call,
+                query = query(call.args).copy(maxResults = 50),
+                timeoutMillis = optionalInt(call.args, "timeoutMillis", 0),
+                pollMillis = optionalInt(call.args, "pollMillis", 100),
+                packageName = call.args["packageName"]?.jsonPrimitive?.contentOrNull,
+            ),
+            backend,
+        )
+    }
+
+    private fun withClickBackend(
+        result: ToolExecutorResult,
+        backend: String,
+    ): ToolExecutorResult =
+        if (result is ToolExecutorResult.Completed) {
+            result.copy(output = JsonObject((result.output as JsonObject) + ("backend" to JsonPrimitive(backend))))
+        } else {
+            result
         }
 
     @Suppress("ReturnCount") // Read-only timeout and cancellation remain distinct from condition results.
@@ -176,7 +270,25 @@ class AutomationTools(
                     ),
                 )
                 put("waitStatus", JsonPrimitive(result.status.name))
-                put("nodes", JsonArray(result.matches.map(::nodeJson)))
+                val nodeIndex =
+                    observation
+                        ?.snapshot
+                        ?.nodes
+                        .orEmpty()
+                        .associateBy { it.token }
+                put("nodes", JsonArray(result.matches.map { AutomationNodeJson.full(it, nodeIndex) }))
+                putClickSuggestion(result.matches, nodeIndex)?.forEach { (key, value) -> put(key, value) }
+                if (result.status == AutomationWaitStatus.TIMED_OUT) {
+                    put(
+                        "recoveryHint",
+                        JsonPrimitive(
+                            "The requested condition was not observed before the deadline. " +
+                                "This does not prove the previous action failed; inspect the current state " +
+                                "before selecting another action. Do not repeat unchanged waits " +
+                                "or replay an uncertain effect.",
+                        ),
+                    )
+                }
                 observation?.let { recoveryJson(it).forEach { (key, value) -> put(key, value) } }
             },
         )
@@ -194,9 +306,15 @@ class AutomationTools(
         query: AutomationFindQuery,
     ): JsonObject {
         val found = find(result, query)
+        val nodeIndex =
+            result.snapshot
+                ?.nodes
+                .orEmpty()
+                .associateBy { it.token }
         return buildJsonObject {
             put("status", JsonPrimitive(if (result.snapshot == null) result.status.name else found.status.name))
-            put("nodes", JsonArray(found.nodes.map(::nodeJson)))
+            put("nodes", JsonArray(found.nodes.map { AutomationNodeJson.full(it, nodeIndex) }))
+            putClickSuggestion(found.nodes, nodeIndex)?.forEach { (key, value) -> put(key, value) }
             recoveryJson(result).forEach { (key, value) -> put(key, value) }
         }
     }
@@ -209,13 +327,55 @@ class AutomationTools(
                 put("packageName", JsonPrimitive(snapshot.packageName))
                 put("windowId", JsonPrimitive(snapshot.windowId))
                 put("generation", JsonPrimitive(snapshot.generation))
-                put("truncated", JsonPrimitive(snapshot.truncated))
-                put("nodes", JsonArray(snapshot.nodes.map(::nodeJson)))
+                val nodeIndex = snapshot.nodes.associateBy { it.token }
+                // Keep the complete index for click ancestors, but omit empty layout containers from model output.
+                val visibleNodes =
+                    snapshot.nodes.filter {
+                        !it.text.isNullOrBlank() || !it.contentDescription.isNullOrBlank() ||
+                            it.clickable || it.longClickable || it.editable || it.scrollable ||
+                            it.checkable || it.canSetProgress || it.redacted
+                    }
+                put("nodes", JsonArray(visibleNodes.map { AutomationNodeJson.compact(it, nodeIndex) }))
             }
         }
 
     private fun recoveryJson(result: AutomationSnapshotResult): JsonObject =
         buildJsonObject {
+            result.snapshot?.let { snapshot ->
+                put("truncated", JsonPrimitive(snapshot.truncated))
+                put("truncationReasons", JsonArray(snapshot.truncationReasons.map(::JsonPrimitive)))
+                if (snapshot.truncated) {
+                    put(
+                        "recoveryHint",
+                        JsonPrimitive(
+                            "The captured tree is incomplete; result pages cannot recover omitted nodes. " +
+                                "If the target is missing, use ui.device then ui.screenshot. " +
+                                "Perform the next permitted tool call; do not end with a plan to do it.",
+                        ),
+                    )
+                }
+            }
+            result.backend?.let { put("backend", JsonPrimitive(it)) }
+            if (result.pauseReason == null && result.status in
+                setOf(
+                    AutomationSnapshotStatus.SERVICE_NOT_CONNECTED,
+                    AutomationSnapshotStatus.NO_ACTIVE_SESSION,
+                    AutomationSnapshotStatus.UNSUPPORTED_UI,
+                )
+            ) {
+                put(
+                    "recoveryHint",
+                    JsonPrimitive(
+                        "Semantic observation is unavailable; " +
+                            "this does not establish that the screen has no controls. " +
+                            "Check ui.device for an independently authorized screenshot/gesture backend. " +
+                            "If available, " +
+                            "use ui.screenshot and act only on a visible target with ui.gesture. " +
+                            "Do not repeat equivalent semantic queries or bypass authorization; " +
+                            "otherwise report the limitation.",
+                    ),
+                )
+            }
             result.targetPackage?.let { put("targetPackage", JsonPrimitive(it)) }
             result.pauseReason?.let { put("pauseReason", JsonPrimitive(it.name)) }
             if (result.pauseReason != null || result.status == AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED) {
@@ -234,45 +394,29 @@ class AutomationTools(
             }
         }
 
-    private fun nodeJson(node: AutomationSnapshotNode) =
-        buildJsonObject {
-            put("token", JsonPrimitive(node.token))
-            put("parentToken", JsonPrimitive(node.parentToken ?: ""))
-            put("depth", JsonPrimitive(node.depth))
-            put("className", JsonPrimitive(node.className ?: ""))
-            put("text", JsonPrimitive(node.text ?: ""))
+    private fun putClickSuggestion(
+        nodes: List<AutomationSnapshotNode>,
+        nodeIndex: Map<String, AutomationSnapshotNode>,
+    ): JsonObject? {
+        val token =
+            nodes
+                .map { automationClickTargetToken(it, nodeIndex) }
+                .filter(String::isNotEmpty)
+                .distinct()
+                .singleOrNull()
+                ?: return null
+        return buildJsonObject {
+            put("suggestedAction", JsonPrimitive(CLICK))
+            put("suggestedClickToken", JsonPrimitive(token))
             put(
-                "contentDescription",
-                JsonPrimitive(node.contentDescription ?: ""),
+                "actionHint",
+                JsonPrimitive(
+                    "If this match is the next intended control, call ui.click with suggestedClickToken next. " +
+                        "Do not search screenshots or coordinates first.",
+                ),
             )
-            put("viewId", JsonPrimitive(node.viewId ?: ""))
-            put("clickable", JsonPrimitive(node.clickable))
-            put("longClickable", JsonPrimitive(node.longClickable))
-            put("editable", JsonPrimitive(node.editable))
-            put("scrollable", JsonPrimitive(node.scrollable))
-            put("enabled", JsonPrimitive(node.enabled))
-            put("redacted", JsonPrimitive(node.redacted))
-            put(
-                "bounds",
-                buildJsonObject {
-                    put("left", JsonPrimitive(node.bounds.left))
-                    put("top", JsonPrimitive(node.bounds.top))
-                    put("right", JsonPrimitive(node.bounds.right))
-                    put("bottom", JsonPrimitive(node.bounds.bottom))
-                },
-            )
-            put("canSetProgress", JsonPrimitive(node.canSetProgress))
-            node.range?.let { range ->
-                put(
-                    "range",
-                    buildJsonObject {
-                        put("min", JsonPrimitive(range.min))
-                        put("max", JsonPrimitive(range.max))
-                        put("current", JsonPrimitive(range.current))
-                    },
-                )
-            }
         }
+    }
 
     private fun action(result: AutomationActionResult): ToolExecutorResult = result.toToolOutcome()
 
@@ -280,10 +424,11 @@ class AutomationTools(
         action: AutomationNodeAction,
         args: JsonObject,
     ) = AutomationNodeActionRequest(
-        action,
-        requiredString(args, "token"),
-        args["text"]?.jsonPrimitive?.contentOrNull,
-        args["value"]?.jsonPrimitive?.doubleOrNull,
+        action = action,
+        token = requiredString(args, "token"),
+        text = args["text"]?.jsonPrimitive?.contentOrNull,
+        progress = args["value"]?.jsonPrimitive?.doubleOrNull,
+        submit = args["submit"]?.jsonPrimitive?.booleanOrNull ?: false,
     )
 
     private fun scrollAction(args: JsonObject) =
@@ -300,6 +445,8 @@ class AutomationTools(
             viewId = args["viewId"]?.jsonPrimitive?.contentOrNull,
             className = args["className"]?.jsonPrimitive?.contentOrNull,
             clickable = args["clickable"]?.jsonPrimitive?.booleanOrNull,
+            checkable = args["checkable"]?.jsonPrimitive?.booleanOrNull,
+            checked = args["checked"]?.jsonPrimitive?.booleanOrNull,
             match =
                 if (args["match"]?.jsonPrimitive?.contentOrNull ==
                     "contains"
@@ -319,30 +466,29 @@ class AutomationTools(
     ) = ToolDescriptor(
         ToolName(name),
         ToolVersion(
-            if (name in setOf(SNAPSHOT, FIND, WAIT)) {
-                4
+            if (name in setOf(FIND, WAIT)) {
+                8
+            } else if (name == CLICK_MATCH) {
+                6
+            } else if (name == SNAPSHOT) {
+                7
+            } else if (name == SET_TEXT) {
+                3
             } else if (name == SCROLL) {
+                3
+            } else if (name !in setOf(BACK, HOME)) {
                 2
             } else {
                 1
             },
         ),
-        "User-authorized semantic Accessibility operation: $name. " +
-            "Saved Conversation access survives locking or reconnecting; restore availability, then re-observe. " +
-            "Each snapshot/find replaces all earlier tokens; use tokens from the latest observation. " +
-            "On SESSION_PAUSED, inspect the current target before acting. " +
-            "Only an already authorized target can resume automatically. " +
-            "scroll operates a scrollable node, not a screen swipe or app drawer gesture. " +
-            "Use ui.set_progress for native sliders. For canvas UIs use ui.device, ui.screenshot and " +
-            "ui.gesture. Protected/unauthorized targets are not a reason to bypass the user grant. " +
-            "On stale tokens re-observe; on unknown action outcomes observe " +
-            "before deciding whether to issue another action.",
+        AutomationToolDescriptions.description(name),
         input,
         output,
         operation,
-        if (name == WAIT) 65.seconds else 15.seconds,
+        if (name in setOf(WAIT, CLICK_MATCH)) 65.seconds else 15.seconds,
         MAX_OUTPUT_BYTES,
-        setOf(Capability.ACCESSIBILITY_AUTOMATION),
+        setOf(if (name in setOf(BACK, HOME)) Capability.ACCESSIBILITY_AUTOMATION else Capability.MOBILE_USE),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
@@ -354,7 +500,11 @@ class AutomationTools(
 
     private fun textInput() =
         obj(
-            mapOf("token" to str(32), "text" to str(AutomationNodeActionExecutor.MAX_SET_TEXT)),
+            mapOf(
+                "token" to str(32),
+                "text" to str(AutomationNodeActionExecutor.MAX_SET_TEXT),
+                "submit" to bool(),
+            ),
             listOf("token", "text"),
         )
 
@@ -380,6 +530,26 @@ class AutomationTools(
 
     private fun waitInput() = querySchema(includeWait = true)
 
+    private fun clickMatchInput(): JsonObject {
+        val fields =
+            linkedMapOf(
+                "backend" to str(16),
+                "packageName" to str(255),
+                "text" to str(2_000),
+                "contentDescription" to str(2_000),
+                "viewId" to str(512),
+                "className" to str(512),
+                "clickable" to bool(),
+                "match" to str(8),
+                "checkable" to bool(),
+                "checked" to bool(),
+                "maxResults" to integer(1, 50),
+                "timeoutMillis" to integer(0, 60_000),
+                "pollMillis" to integer(50, 1_000),
+            )
+        return obj(fields, emptyList())
+    }
+
     private fun querySchema(includeWait: Boolean): JsonObject {
         val fields =
             linkedMapOf(
@@ -389,6 +559,8 @@ class AutomationTools(
                 "className" to str(512),
                 "clickable" to bool(),
                 "match" to str(8),
+                "checkable" to bool(),
+                "checked" to bool(),
                 "maxResults" to integer(1, 50),
             )
         if (includeWait) {
@@ -404,7 +576,11 @@ class AutomationTools(
         return obj(fields, emptyList())
     }
 
-    private fun actionOutput() = obj(mapOf("status" to str(64)), listOf("status"))
+    private fun actionOutput() =
+        obj(
+            mapOf("status" to str(64), "actionHint" to str(384), "backend" to str(16)),
+            listOf("status"),
+        )
 
     private fun findOutput() =
         obj(
@@ -414,8 +590,14 @@ class AutomationTools(
                 "pauseReason" to str(64),
                 "requiresAuthorization" to bool(),
                 "recoveryHint" to str(512),
+                "backend" to str(16),
                 "nodes" to array(nodeSchema(), 50),
+                "truncated" to bool(),
+                "truncationReasons" to array(str(32), 4),
                 "waitStatus" to str(64),
+                "suggestedAction" to str(32),
+                "suggestedClickToken" to str(32),
+                "actionHint" to str(256),
             ),
             listOf("status", "nodes"),
         )
@@ -428,20 +610,23 @@ class AutomationTools(
                 "pauseReason" to str(64),
                 "requiresAuthorization" to bool(),
                 "recoveryHint" to str(512),
+                "backend" to str(16),
                 "packageName" to str(255),
                 "windowId" to integer(0),
                 "generation" to integer(0),
                 "truncated" to bool(),
-                "nodes" to array(nodeSchema(), 200),
+                "truncationReasons" to array(str(32), 4),
+                "nodes" to array(nodeSchema(compact = true), 200),
             ),
             listOf("status"),
         )
 
-    private fun nodeSchema() =
+    private fun nodeSchema(compact: Boolean = false) =
         obj(
             mapOf(
                 "token" to str(32),
                 "parentToken" to str(32),
+                "clickTargetToken" to str(32),
                 "depth" to integer(0),
                 "className" to str(512),
                 "text" to str(2_000),
@@ -449,10 +634,13 @@ class AutomationTools(
                 "viewId" to str(512),
                 "clickable" to bool(),
                 "longClickable" to bool(),
+                "checkable" to bool(),
+                "checked" to bool(),
                 "editable" to bool(),
                 "scrollable" to bool(),
                 "enabled" to bool(),
                 "redacted" to bool(),
+                "canImeEnter" to bool(),
                 "bounds" to
                     obj(
                         mapOf("left" to number(), "top" to number(), "right" to number(), "bottom" to number()),
@@ -465,20 +653,28 @@ class AutomationTools(
                         listOf("min", "max", "current"),
                     ),
             ),
-            listOf(
-                "token",
-                "parentToken",
-                "depth",
-                "className",
-                "text",
-                "contentDescription",
-                "viewId",
-                "clickable",
-                "longClickable",
-                "editable",
-                "scrollable",
-                "enabled",
-            ),
+            if (compact) {
+                listOf("token", "clickable", "enabled")
+            } else {
+                listOf(
+                    "token",
+                    "parentToken",
+                    "clickTargetToken",
+                    "depth",
+                    "className",
+                    "text",
+                    "contentDescription",
+                    "viewId",
+                    "clickable",
+                    "longClickable",
+                    "checkable",
+                    "checked",
+                    "editable",
+                    "scrollable",
+                    "enabled",
+                    "canImeEnter",
+                )
+            },
         )
 
     private fun obj(
@@ -543,8 +739,10 @@ class AutomationTools(
         const val SNAPSHOT = "ui.snapshot"
         const val FIND = "ui.find"
         const val CLICK = "ui.click"
+        const val CLICK_MATCH = "ui.click_match"
         const val LONG_CLICK = "ui.long_click"
         const val SET_TEXT = "ui.set_text"
+        const val IME_ENTER = "ui.ime_enter"
         const val SET_PROGRESS = "ui.set_progress"
         const val SCROLL = "ui.scroll"
         const val BACK = "ui.back"

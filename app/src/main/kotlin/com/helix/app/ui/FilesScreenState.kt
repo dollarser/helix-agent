@@ -19,7 +19,20 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class FilesScreenState(
     fileManager: FileManagerService,
 ) {
+    val localScopeId = fileManager.defaultSource.scopeId
     var homeOpen by mutableStateOf(true)
+    var workspacesOpen by mutableStateOf(false)
+    var workspaceQuery by mutableStateOf("")
+    val locations get() =
+        sources.filter {
+            it.kind != com.helix.app.files.FileSourceKind.WORKSPACE ||
+                it.scopeId == localScopeId
+        }
+    val workspaces get() =
+        sources.filter {
+            it.kind == com.helix.app.files.FileSourceKind.WORKSPACE &&
+                it.scopeId != localScopeId
+        }
     var searchOpen by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
     var controlsOpen by mutableStateOf(false)
@@ -105,11 +118,29 @@ internal class FilesScreenState(
         searchOpen = false
         trashOpen = false
         homeOpen = false
+        workspacesOpen = false
         sourcesOpen = false
+    }
+
+    fun openWorkspaces() {
+        workspacesOpen = true
+        homeOpen = false
+        sourcesOpen = false
+        workspaceQuery = ""
+    }
+
+    fun goHome() {
+        homeOpen = true
+        workspacesOpen = false
     }
 
     fun goBack() {
         when {
+            workspacesOpen -> {
+                workspacesOpen = false
+                homeOpen = true
+            }
+
             selected.isNotEmpty() -> {
                 selected = emptySet()
             }
@@ -128,7 +159,8 @@ internal class FilesScreenState(
             }
 
             else -> {
-                homeOpen = true
+                workspacesOpen = workspaces.any { it.scopeId == selectedScopeId }
+                homeOpen = !workspacesOpen
             }
         }
     }

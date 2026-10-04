@@ -432,6 +432,8 @@ class AgentLoop(
         val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls, directory, exposedTools), idGenerator)
         coordinator.beginToolBatch(localBatch.calls.map { it.callId })
         coordinator.commitModelToolStep(toolMessages.assistantToolStepJson(localBatch))
+        // Publish confirmed request usage before potentially long-running tools begin.
+        events.emit(AgentLoopEvent.Refresh)
         val settled =
             toolExecutor.executeBatch(
                 com.helix.core.agent

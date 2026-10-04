@@ -3,8 +3,8 @@ package com.helix.app
 import androidx.annotation.StringRes
 
 /**
- * Primary drawer destinations. HXA-226 deliberately keeps secondary setup/settings pages out of
- * this enum so the drawer exposes one primary home per capability. [route] is the stable,
+ * Shell destinations. The session-scoped Git route is reached from conversation actions, not
+ * the global drawer. Secondary setup/settings pages have their own routes. [route] is the stable,
  * locale-independent nav key;
  * [titleRes] / [emptyStateRes] are the user-visible string ids resolved at the UI boundary
  * (HXA-069) so the drawer and top bar follow the active app language.
@@ -18,6 +18,11 @@ enum class ShellDestination(
         route = "sessions",
         titleRes = R.string.nav_sessions,
         emptyStateRes = R.string.empty_sessions,
+    ),
+    Projects(
+        route = "projects",
+        titleRes = R.string.nav_projects,
+        emptyStateRes = R.string.project_empty,
     ),
     Tasks(
         route = "tasks",
@@ -61,7 +66,7 @@ enum class ShellDestination(
     ),
     Settings(
         route = "settings",
-        titleRes = R.string.nav_settings,
+        titleRes = R.string.settings_general_title,
         emptyStateRes = R.string.empty_settings,
     ),
     Terminal(

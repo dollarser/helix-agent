@@ -50,7 +50,7 @@ import kotlinx.coroutines.withContext
  *
  * What it offers and, deliberately, what it does NOT:
  * - the NEW-SESSION DEFAULT (a preset only — the write service refuses a CUSTOM default);
- * - the current session's four-mode picker (FULL_ACCESS / WORKSPACE / READ_ONLY / CUSTOM);
+ * - a link to the current session's four-mode picker in Conversation settings;
  * - an app-wide (GLOBAL) tool enable/disable list.
  *
  * There is NO per-tool ASK or risk-level toggle (the two-state availability model has no ASK to
@@ -64,6 +64,7 @@ internal fun SessionPermissionSection(
     edit: SessionPermissionEditService,
     toolPipeline: ToolPipeline,
     chatService: ChatService? = null,
+    onOpenSessionSettings: () -> Unit,
 ) {
     val tools = remember(toolPipeline) { toolPipeline.registry.all() }
     val controller = rememberPermissionController(edit, tools, chatService)
@@ -75,13 +76,11 @@ internal fun SessionPermissionSection(
         PermissionDefaultPicker(controller)
         HorizontalDivider(modifier = Modifier.fillMaxWidth())
         if (controller.sessionId != null) {
-            PermissionSessionPicker(controller)
-            PermissionCustomEditor(
-                draft = controller.draft.value,
-                onCopyPreset = { controller.copyPresetIntoDraft(it) },
-                onSetRule = { effect, rule -> controller.setDraftRule(effect, rule) },
-            )
-            PermissionTighteningNotice(controller, chatService)
+            OutlinedButton(
+                onClick = onOpenSessionSettings,
+                modifier = Modifier.fillMaxWidth().testTag("settings-open-session-permissions"),
+            ) { Text(stringResource(R.string.session_settings_title)) }
+            Text(stringResource(R.string.settings_session_scope_hint), style = MaterialTheme.typography.bodySmall)
         } else {
             Text(
                 stringResource(R.string.settings_perm_session_absent),
@@ -218,21 +217,14 @@ private fun PermissionSessionPicker(controller: SessionPermissionController) {
 @Composable
 @Suppress("FunctionName")
 private fun PermissionToolList(controller: SessionPermissionController) {
-    Text(stringResource(R.string.settings_perm_tools_label))
-    Text(
-        stringResource(R.string.settings_perm_tools_note),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        controller.tools.forEach { descriptor ->
-            ToolRow(
-                toolName = descriptor.name.value,
-                disabled = controller.toolsDisabled.value[toolKey(descriptor)] == true,
-                testTag = "settings-perm-tool-${descriptor.name.value}",
-                onToggle = { controller.toggleTool(descriptor) },
-            )
-        }
+    ToolAvailabilityGroups(controller.tools, { it.name.value }) { descriptor ->
+        val name = descriptor.name.value
+        ToolRow(
+            toolName = name,
+            disabled = controller.toolsDisabled.value[toolKey(descriptor)] == true,
+            testTag = "settings-perm-tool-$name",
+            onToggle = { controller.toggleTool(descriptor) },
+        )
     }
 }
 

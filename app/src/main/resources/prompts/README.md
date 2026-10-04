@@ -2,6 +2,7 @@
 
 - `base.md`: always loaded.
 - `files.md`: only when local file tools are exposed; working directory comes from session facts.
+- Mobile Use guidance is owned by `extensions/mobile-use/src/main/assets/plugins/mobile-use/skills/android-ui-task/SKILL.md`, injected only when its tools are exposed. It is not a standalone skill and grants no capability.
 - `plan.md`: only in Plan mode.
 - `goal-identity.md`, `goal-protocol.md`, `goal-safety.md`: active durable Goal binding only.
 - `tool-presentation.md`: model-facing tool intent guidance.

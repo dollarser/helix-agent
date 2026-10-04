@@ -28,6 +28,7 @@ import com.helix.app.chat.ChatSubmissionErrorMapper
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.ChatSubmissionReceipt
 import com.helix.app.provider.ProviderService
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SessionPermissionMode
 import com.helix.extensions.skills.SkillRepository
 import kotlinx.coroutines.CoroutineStart
@@ -65,11 +66,13 @@ fun ChatScreen(
     onAgentDefaults: () -> Unit = {},
     onPermissions: () -> Unit = {},
     onSessionSettings: () -> Unit = {},
+    onGit: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
     connectors: com.helix.app.plugin.PluginService? = null,
     onExtensions: () -> Unit = {},
     memory: com.helix.app.memory.MemoryService? = null,
+    onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
@@ -144,7 +147,7 @@ fun ChatScreen(
     var inputQueueEpoch by remember(sessionId) { mutableStateOf(0) }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
-    var tasksOpen by remember { mutableStateOf(false) }
+    var tasksOpen by remember(sessionId) { mutableStateOf(false) }
     var exportSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     exportSessionId?.let { id ->
         if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
@@ -161,7 +164,7 @@ fun ChatScreen(
             }
         }
     }
-    if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
+    if (tasksOpen) BackgroundTaskDialog(chatService, sessionId = sessionId, onDismiss = { tasksOpen = false })
     LaunchedEffect(sessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
     val saveBuffer: suspend () -> Boolean = {
@@ -414,6 +417,15 @@ fun ChatScreen(
                                 screen.activeTurn?.state,
                                 screen.messages.size,
                             ),
+                            activeTurnId =
+                                screen.activeTurn
+                                    ?.takeIf {
+                                        !it.state.isTerminal && it.state !in
+                                            setOf(
+                                                com.helix.core.model.TurnState.CANCELLING,
+                                                com.helix.core.model.TurnState.NEEDS_REVIEW,
+                                            )
+                                    }?.id,
                         )
                     }
                 },
@@ -445,6 +457,7 @@ fun ChatScreen(
                     }
                 },
                 bindableProviders = providerRows,
+                modelSourceGroups = providerService.sourceGroups,
                 artifacts = {
                     ConversationArtifacts(chatService, fileManager, screen)
                 },
@@ -452,7 +465,12 @@ fun ChatScreen(
                     ConversationIntents(
                         onNavigation = { navigateAfterSave(onNavigation) },
                         onSettings = { navigateAfterSave(onSessionSettings) },
+                        onGit = { navigateAfterSave(onGit) },
                         onManageModels = { navigateAfterSave(onModels) },
+                        onConfigureModelSource =
+                            onConfigureModelSource?.let { configure ->
+                                { source -> navigateAfterSave { configure(source) } }
+                            },
                         onReference = {
                             if (sessionId != null && buffer.editable && !buffer.sending) referenceOpen = true
                         },

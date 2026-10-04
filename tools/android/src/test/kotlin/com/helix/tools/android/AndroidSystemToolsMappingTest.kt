@@ -153,6 +153,78 @@ class AndroidSystemToolsMappingTest {
         assertTrue(f.detail.contains("url"))
     }
 
+    // ── android.open_settings ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun openSettingsOpenedEchoesTargetAndPackage() {
+        bridge.settingsResult =
+            OpenSettingsOutcome(
+                OpenSettingsStatus.OPENED,
+                AndroidSettingsTarget.UNKNOWN_APP_SOURCES,
+                "com.android.chrome",
+                "",
+            )
+        val out =
+            json(
+                run(
+                    AndroidOpenSettingsTool.NAME,
+                    AndroidOpenSettingsTool.executor(bridge),
+                    buildJsonObject {
+                        put("action", JsonPrimitive("unknown_app_sources"))
+                        put("packageName", JsonPrimitive("com.android.chrome"))
+                    },
+                ),
+            )
+        assertEquals("opened", out.getValue("status").jsonPrimitive.content)
+        assertEquals("unknown_app_sources", out.getValue("action").jsonPrimitive.content)
+        assertEquals("com.android.chrome", out.getValue("packageName").jsonPrimitive.content)
+        assertEquals(
+            "return_then_retry_original_action",
+            out.getValue("continuation").jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun openSettingsRejectsInvalidPackageBeforeBridge() {
+        val result =
+            failed(
+                run(
+                    AndroidOpenSettingsTool.NAME,
+                    AndroidOpenSettingsTool.executor(bridge),
+                    buildJsonObject {
+                        put("action", JsonPrimitive("unknown_app_sources"))
+                        put("packageName", JsonPrimitive("not a package"))
+                    },
+                ),
+            )
+        assertTrue(result.detail.contains("packageName"))
+        assertEquals(0, bridge.settingsCalls)
+    }
+
+    @Test
+    fun openSettingsNoHandlerIsStableCompletedStatus() {
+        bridge.settingsResult =
+            OpenSettingsOutcome(
+                OpenSettingsStatus.NO_HANDLER,
+                AndroidSettingsTarget.APP_DETAILS,
+                "com.example.app",
+                "settings page unavailable",
+            )
+        val out =
+            json(
+                run(
+                    AndroidOpenSettingsTool.NAME,
+                    AndroidOpenSettingsTool.executor(bridge),
+                    buildJsonObject {
+                        put("action", JsonPrimitive("app_details"))
+                        put("packageName", JsonPrimitive("com.example.app"))
+                    },
+                ),
+            )
+        assertEquals("no-handler", out.getValue("status").jsonPrimitive.content)
+        assertEquals("settings page unavailable", out.getValue("reason").jsonPrimitive.content)
+    }
+
     // ── clipboard.read ─────────────────────────────────────────────────────────────────────
 
     @Test
@@ -328,6 +400,8 @@ class AndroidSystemToolsMappingTest {
     @Test
     fun everyCompletedOutputCarriesNoJsonNulls() {
         bridge.openResult = OpenUriOutcome(OpenUriStatus.OPENED, "https://x", "")
+        bridge.settingsResult =
+            OpenSettingsOutcome(OpenSettingsStatus.OPENED, AndroidSettingsTarget.APP_DETAILS, "com.example.app", "")
         bridge.clipReadResult = ClipboardReadOutcome(ClipboardReadStatus.READ, "abc", 3, false, "")
         bridge.clipWriteResult = ClipboardWriteOutcome(ClipboardWriteStatus.WRITTEN, 3, "")
         bridge.shareResult = ShareOutcome(ShareStatus.SHARED, "")
@@ -338,6 +412,16 @@ class AndroidSystemToolsMappingTest {
                 AndroidOpenUriTool.executor(bridge),
                 buildJsonObject {
                     put("url", JsonPrimitive("https://x"))
+                },
+            ),
+        )
+        assertNoNulls(
+            run(
+                AndroidOpenSettingsTool.NAME,
+                AndroidOpenSettingsTool.executor(bridge),
+                buildJsonObject {
+                    put("action", JsonPrimitive("app_details"))
+                    put("packageName", JsonPrimitive("com.example.app"))
                 },
             ),
         )
@@ -452,6 +536,7 @@ class AndroidSystemToolsMappingTest {
     @Test
     fun descriptorsCarryTheExpectedContract() {
         checkDescriptor(AndroidOpenUriTool.descriptor(), "android.open_uri")
+        checkDescriptor(AndroidOpenSettingsTool.descriptor(), "android.open_settings")
         checkDescriptor(ClipboardReadTool.descriptor(), "clipboard.read")
         checkDescriptor(ClipboardWriteTool.descriptor(), "clipboard.write")
         checkDescriptor(AndroidShareTool.descriptor(), "android.share")
@@ -462,6 +547,7 @@ class AndroidSystemToolsMappingTest {
         assertEquals(Idempotency.IDEMPOTENT, ClipboardReadTool.descriptor().idempotency)
         assertEquals(Idempotency.IDEMPOTENT, ClipboardWriteTool.descriptor().idempotency)
         assertEquals(Idempotency.NON_IDEMPOTENT, AndroidOpenUriTool.descriptor().idempotency)
+        assertEquals(Idempotency.NON_IDEMPOTENT, AndroidOpenSettingsTool.descriptor().idempotency)
         assertEquals(Idempotency.NON_IDEMPOTENT, AndroidShareTool.descriptor().idempotency)
     }
 }
@@ -469,11 +555,22 @@ class AndroidSystemToolsMappingTest {
 /** A settable fake of the [AndroidSystemBridge] port for the mapping tests. */
 private class FakeBridge : AndroidSystemBridge {
     var openResult: OpenUriOutcome = OpenUriOutcome(OpenUriStatus.ERROR, "", "unset")
+    var settingsResult: OpenSettingsOutcome =
+        OpenSettingsOutcome(OpenSettingsStatus.ERROR, AndroidSettingsTarget.APP_DETAILS, "com.example.app", "unset")
+    var settingsCalls: Int = 0
     var clipReadResult: ClipboardReadOutcome = ClipboardReadOutcome(ClipboardReadStatus.ERROR, "", 0, false, "unset")
     var clipWriteResult: ClipboardWriteOutcome = ClipboardWriteOutcome(ClipboardWriteStatus.ERROR, 0, "unset")
     var shareResult: ShareOutcome = ShareOutcome(ShareStatus.ERROR, "unset")
 
     override fun openUri(url: String): OpenUriOutcome = openResult
+
+    override fun openSettings(
+        target: AndroidSettingsTarget,
+        packageName: String,
+    ): OpenSettingsOutcome {
+        settingsCalls += 1
+        return settingsResult
+    }
 
     override fun clipboardRead(): ClipboardReadOutcome = clipReadResult
 

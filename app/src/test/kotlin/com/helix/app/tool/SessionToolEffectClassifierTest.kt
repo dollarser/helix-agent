@@ -40,6 +40,20 @@ class SessionToolEffectClassifierTest {
         assertFalse(tool.operationClass.isReviewModeAdmitted)
     }
 
+    @Test fun androidSettingsOpeningIsKnownDeviceSystemMutation() {
+        val tool =
+            com.helix.tools.android.AndroidOpenSettingsTool
+                .descriptor()
+        val classification =
+            SessionToolEffectClassifier { "scope:ws:project" }
+                .classify(
+                    request("""{"action":"unknown_app_sources","packageName":"com.android.chrome"}"""),
+                    tool,
+                )
+        assertEquals(setOf(OperationEffect.DEVICE_SYSTEM_MUTATION), classification.footprint.effects)
+        assertTrue(classification.footprint.undeterminedEffects.isEmpty())
+    }
+
     @Test fun imageReadingDoesNotBypassExternalFileClassification() {
         val classifier = SessionToolEffectClassifier { "scope:ws-1:project" }
         val imageTool =

@@ -1,6 +1,7 @@
 package com.helix.tools.android
 
 import android.content.Intent
+import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -108,6 +109,28 @@ class AndroidSystemBridgeDeviceTest {
                 launcher.lastIntent,
             )
         }
+    }
+
+    // ── android.open_settings: package-specific system Settings ───────────────────────────
+
+    @Test
+    fun openUnknownAppSourcesBuildsThePackageSpecificSettingsIntent() {
+        val out = bridge.openSettings(AndroidSettingsTarget.UNKNOWN_APP_SOURCES, "com.android.chrome")
+        assertEquals(OpenSettingsStatus.OPENED, out.status)
+        val intent = launcher.lastIntent
+        assertTrue("the launcher must receive a settings intent", intent != null)
+        assertEquals(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, intent!!.action)
+        assertEquals("package:com.android.chrome", intent.dataString)
+    }
+
+    @Test
+    fun openAppDetailsBuildsThePackageSpecificSettingsIntent() {
+        val out = bridge.openSettings(AndroidSettingsTarget.APP_DETAILS, "com.example.app")
+        assertEquals(OpenSettingsStatus.OPENED, out.status)
+        val intent = launcher.lastIntent
+        assertTrue("the launcher must receive an app-details intent", intent != null)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent!!.action)
+        assertEquals("package:com.example.app", intent.dataString)
     }
 
     // ── android.share: real ACTION_CHOOSER wrapping ACTION_SEND ────────────────────────────

@@ -16,8 +16,19 @@ import java.util.concurrent.atomic.AtomicInteger
 /** Production libsu adapter. Merely constructing it does not inspect or request Root. */
 class LibsuRootAccess(
     context: Context,
+    serviceClass: Class<out HelixRootService> = HelixRootService::class.java,
 ) : RootOperationPort {
-    private val controller = RootAccessController(LibsuRootAccessDriver(context.applicationContext))
+    private val driver = LibsuRootAccessDriver(context.applicationContext, serviceClass)
+    private val controller = RootAccessController(driver)
+
+    /** Existing, explicitly granted connection only; never launches a shell or binds on demand. */
+    fun connectedBinder(): IBinder? =
+        driver.connectedBinder().takeIf {
+            controller.status() == RootAccessStatus(RootGrantState.GRANTED, RootServiceState.CONNECTED)
+        }
+
+    /** Passive observation only: does not request Root or start a service. */
+    val cachedAppGrant: Boolean? get() = controller.cachedAppGrant
 
     override fun status(): RootAccessStatus = controller.status()
 
@@ -38,6 +49,7 @@ class LibsuRootAccess(
 @Suppress("TooManyFunctions") // one adapter owns the complete libsu/Binder lifecycle
 private class LibsuRootAccessDriver(
     private val context: Context,
+    private val serviceClass: Class<out HelixRootService>,
 ) : RootAccessDriver {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var connection: ServiceConnection? = null
@@ -48,6 +60,8 @@ private class LibsuRootAccessDriver(
     private var deathRecipient: IBinder.DeathRecipient? = null
 
     override fun cachedGrant(): Boolean? = Shell.isAppGrantedRoot()
+
+    fun connectedBinder(): IBinder? = serviceBinder?.takeIf { it.isBinderAlive }
 
     override fun requestRoot(onResult: (RootRequestOutcome) -> Unit) {
         val generation = requestGeneration.incrementAndGet()
@@ -88,7 +102,7 @@ private class LibsuRootAccessDriver(
             try {
                 // libsu removes connection entries after invoking callbacks. Always enqueue callbacks
                 // so our unbind cannot re-enter its ArrayMap iterator during service death.
-                RootService.bind(Intent(context, HelixRootService::class.java), { mainHandler.post(it) }, newConnection)
+                RootService.bind(Intent(context, serviceClass), { mainHandler.post(it) }, newConnection)
             } catch (_: RuntimeException) {
                 clearConnection()
                 onLost()

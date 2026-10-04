@@ -266,6 +266,11 @@ object WriteTool {
         val st = store.stat(parsed.path)
         val reject =
             when {
+                !store.stat(parsed.path.parent).isDirectory -> {
+                    "destination parent directory does not exist: create it with files.mkdir first, " +
+                        "or choose a file in an existing directory"
+                }
+
                 st.isDirectory -> {
                     "destination is a directory, not a file: ${parsed.path.toModelReference()}"
                 }

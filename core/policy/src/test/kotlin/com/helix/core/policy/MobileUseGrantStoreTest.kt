@@ -20,6 +20,42 @@ class MobileUseGrantStoreTest {
             { "grant-${++sequence}" },
         )
 
+    @Test fun globalConfigurationUpdatesOnlySelectedConversationsAndInvalidatesProofs() {
+        val store = store()
+        store.configureGlobal(emptySet(), true)
+        assertNull(store.find("a"))
+        store.enableFromGlobal("a")
+        store.enableFromGlobal("b")
+        val first = store.find("a")!!
+        assertNotEquals(first.scope.grantId, store.find("b")!!.scope.grantId)
+        store.configureGlobal(setOf("com.allowed"), false)
+        assertFalse(store.matches("a", first.scope.toScopeRef()))
+        assertEquals(setOf("com.allowed"), store.find("a")!!.scope.allowedPackages)
+        assertNull(store.find("c"))
+        val narrowed = store.find("a")!!
+        store.revoke("a")
+        store.enableFromGlobal("a")
+        assertFalse(store.matches("a", narrowed.scope.toScopeRef()))
+        assertEquals(store.find("a"), store.authorize("a", setOf("com.allowed"), false))
+    }
+
+    @Test fun failedGlobalEditFailsClosedForEveryConversation() {
+        var fail = false
+        val store =
+            MobileUseGrantStore({ records[it].orEmpty() }, { key, value ->
+                check(!fail)
+                records[key] = value
+            })
+        store.configureGlobal(emptySet(), true)
+        store.enableFromGlobal("a")
+        fail = true
+        assertThrows(IllegalStateException::class.java) { store.configureGlobal(setOf("com.allowed"), false) }
+        assertNull(store.find("a"))
+        fail = false
+        store.configureGlobal(setOf("com.allowed"), false)
+        assertEquals(setOf("com.allowed"), store.find("a")!!.scope.allowedPackages)
+    }
+
     @Test fun recreationRestoresTheSameExplicitConversationConfiguration() {
         val grant = store().authorize("conversation-a", setOf("com.example.App"), false)
         repeat(3) { assertEquals(grant, store().find("conversation-a")) }

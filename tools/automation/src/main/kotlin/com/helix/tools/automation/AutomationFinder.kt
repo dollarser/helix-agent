@@ -33,7 +33,9 @@ object AutomationFinder {
                     contentDescription != null ||
                     viewId != null ||
                     className != null ||
-                    clickable != null
+                    clickable != null ||
+                    checkable != null ||
+                    checked != null
             )
 
     private fun AutomationSnapshotNode.matches(query: AutomationFindQuery): Boolean =
@@ -41,7 +43,9 @@ object AutomationFinder {
             contentDescription.matches(query.contentDescription, query.match) &&
             viewId.matches(query.viewId, query.match) &&
             className.matches(query.className, query.match) &&
-            (query.clickable == null || clickable == query.clickable)
+            (query.clickable == null || clickable == query.clickable) &&
+            (query.checkable == null || checkable == query.checkable) &&
+            (query.checked == null || checked == query.checked)
 
     @Suppress("ReturnCount")
     private fun String?.matches(

@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -26,11 +27,88 @@ import org.junit.Test
 class GroupedNavigationDeviceTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun currentConversationOpensWithOneClickFromSettings() {
+        var opened = 0
+        compose.setContent {
+            MaterialTheme {
+                GroupedNavigation(
+                    destinations = listOf(ShellDestination.Settings),
+                    currentRoute = "settings",
+                    conversation = ConversationDrawerState("current", "My current task"),
+                    onCurrentConversation = { opened++ },
+                    onNewConversation = {},
+                    onAllConversations = {},
+                    onNavigate = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("drawer-current-conversation").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(1, opened) }
+    }
+
+    @Test
+    fun settingsHeaderOnlyExpandsAndNestedPageSelectsOneChild() {
+        val route = mutableStateOf("sessions")
+        val visited = mutableListOf<String>()
+        compose.setContent {
+            MaterialTheme {
+                GroupedNavigation(
+                    destinations = listOf(ShellDestination.Settings),
+                    currentRoute = route.value,
+                    conversation = ConversationDrawerState(null, ""),
+                    onCurrentConversation = {},
+                    onNewConversation = {},
+                    onAllConversations = {},
+                ) { selected ->
+                    visited += selected
+                    route.value = "$selected/system"
+                }
+            }
+        }
+        compose.onNodeWithTag("navigation-settings").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-group-settings").performClick()
+        compose.runOnIdle { assertEquals(emptyList<String>(), visited) }
+        settingsDrawerEntries.forEach { entry ->
+            compose.onNodeWithTag("navigation-${entry.route}").performScrollTo().assertIsDisplayed()
+        }
+        compose
+            .onNodeWithTag("navigation-settings/permissions")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
+        compose.onNodeWithTag("navigation-settings").assertIsNotSelected()
+        compose.onNodeWithTag("navigation-group-settings").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-settings/permissions").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf(SETTINGS_PERMISSIONS_ROUTE), visited) }
+    }
+
+    @Test
+    fun singleWorkChildStillRequiresExpandingItsSection() {
+        val visited = mutableListOf<String>()
+        compose.setContent {
+            MaterialTheme {
+                GroupedNavigation(
+                    destinations = listOf(ShellDestination.Browser),
+                    currentRoute = "sessions",
+                    conversation = ConversationDrawerState(null, ""),
+                    onCurrentConversation = {},
+                    onNewConversation = {},
+                    onAllConversations = {},
+                ) { visited += it }
+            }
+        }
+        compose.onNodeWithTag("navigation-browser").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-group-work").performClick()
+        compose.runOnIdle { assertEquals(emptyList<String>(), visited) }
+        compose.onNodeWithTag("navigation-browser").performClick()
+        compose.runOnIdle { assertEquals(listOf("browser"), visited) }
+    }
+
     @Suppress("LongMethod")
     @Test
     fun everyDestinationRemainsReachableOnAShortLargeFontWindow() {
         val selected = mutableStateOf(ShellDestination.Sessions.route)
-        val visited = mutableListOf<ShellDestination>()
+        val visited = mutableListOf<String>()
         var currentOpened = 0
         var created = 0
         var allOpened = 0
@@ -54,7 +132,7 @@ class GroupedNavigationDeviceTest {
                             onNewConversation = { created++ },
                             onAllConversations = { allOpened++ },
                         ) {
-                            selected.value = it.route
+                            selected.value = it
                             visited += it
                         }
                     }
@@ -90,7 +168,11 @@ class GroupedNavigationDeviceTest {
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        ShellDestination.entries.filter { it != ShellDestination.Sessions }.forEach { destination ->
+        val drawerDestinations =
+            ShellDestination.entries.filter {
+                it != ShellDestination.Sessions && it != ShellDestination.Git && it != ShellDestination.Setup
+            }
+        drawerDestinations.forEach { destination ->
             compose.onNodeWithTag("fixed-profile").assertIsDisplayed()
             val groupTag =
                 when (destination) {
@@ -100,8 +182,9 @@ class GroupedNavigationDeviceTest {
 
                     ShellDestination.Terminal -> null
 
-                    ShellDestination.Extensions, ShellDestination.Setup,
-                    -> "navigation-group-configure"
+                    ShellDestination.Extensions, ShellDestination.Setup -> null
+
+                    ShellDestination.Settings -> "navigation-group-settings"
 
                     else -> null
                 }
@@ -119,12 +202,15 @@ class GroupedNavigationDeviceTest {
             compose.onNodeWithTag("navigation-${destination.route}").assertIsSelected()
         }
         compose.runOnIdle {
-            assertEquals(ShellDestination.entries.filter { it != ShellDestination.Sessions }, visited)
+            assertEquals(drawerDestinations.map { it.route }, visited)
             assertEquals(1, currentOpened)
             assertEquals(1, created)
             assertEquals(1, allOpened)
         }
         compose.onNodeWithTag("navigation-sessions").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-git").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-setup").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-group-configure").assertDoesNotExist()
         listOf("capabilities", "readiness", "permissions", "audit").forEach { legacyRoute ->
             compose.onNodeWithTag("navigation-$legacyRoute").assertDoesNotExist()
         }

@@ -73,6 +73,16 @@ class SessionContextUsageDeviceTest {
             completed("a", 8000)
             assertEquals(8000L, input("a"))
             assertEquals(12345L, input("b"))
+            val working = start("a")
+            working.beginModelStream().apply {
+                apply(ModelEvent.Usage(9200, 12))
+                apply(ModelEvent.Completed("tool_calls"))
+            }
+            working.beginToolBatch(listOf("tool"))
+            working.commitModelToolStep("[]")
+            assertEquals(TurnState.RUNNING_TOOL, working.snapshot().phase)
+            assertEquals(9200L, input("a"))
+            assertEquals(12345L, input("b"))
         }
     }
 }

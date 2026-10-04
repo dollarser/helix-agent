@@ -107,6 +107,8 @@ object LinuxRunTool {
             description =
                 "Run ONE trusted Linux command in a private developer process sharing Helix app permissions. " +
                     "It can access the network and app-private data; PRoot is not a security sandbox. " +
+                    "It is not an Android ADB/root shell; paths follow runtime mounts. " +
+                    "Use Mobile Use for Android app and storage UI. " +
                     "`files` controls snapshot import, not OS access. `argv` runs a program; `script` runs an " +
                     "explicit shell script in /bin/sh (shell syntax only when genuinely " +
                     "needed). Output: verified stdout/stderr, the exit code, and the " +

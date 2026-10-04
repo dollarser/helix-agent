@@ -12,6 +12,7 @@ data class AutomationDisplayTarget(
     val height: Int,
     val rotation: Int,
     val bounds: AutomationNodeBounds,
+    val revision: String = "",
 )
 
 data class AutomationFrame(
@@ -56,6 +57,9 @@ data class AutomationDeviceObservation(
     val allApplications: Boolean = false,
     val screenshotSupported: Boolean = false,
     val gestureSupported: Boolean = false,
+    val shizukuState: AutomationBackendState = AutomationBackendState.UNAVAILABLE,
+    val rootState: AutomationBackendState = AutomationBackendState.UNAVAILABLE,
+    val clickMatchBackend: AutomationClickBackend = AutomationClickBackend.ACCESSIBILITY,
 )
 
 data class AutomationScreenshot(

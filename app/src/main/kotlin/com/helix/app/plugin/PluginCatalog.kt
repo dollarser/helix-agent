@@ -11,6 +11,7 @@ import com.helix.extensions.skills.SkillSource
 @Suppress("TooManyFunctions") // one application facade for the installation/source facts
 class PluginCatalog(
     private val storage: HelixStorage,
+    private val nativeSelection: (String, String, Boolean) -> Unit = { _, _, _ -> },
 ) {
     val mutationLock get() = storage.connectorMutationLock
     private val dao = storage.connectors
@@ -44,6 +45,13 @@ class PluginCatalog(
 
     @Synchronized
     fun list(): List<InstalledPlugin> = dao.installations().map { decode(it.manifest) }
+
+    fun independentlyInstalled(key: SkillKey): Boolean =
+        dao
+            .ownerships()
+            .firstOrNull {
+                it.source == key.source.name && it.name == key.name && it.hash == key.snapshotHash
+            }?.independent ?: true
 
     @Synchronized
     fun claim(
@@ -116,6 +124,9 @@ class PluginCatalog(
     ) {
         storage.sessions.resolve(sessionId)
         require(list().any { it.id == connectorId } || !enabled) { "CONNECTOR_UNAVAILABLE" }
+        list().singleOrNull { it.id == connectorId }?.native?.let {
+            nativeSelection(sessionId, it.pluginId, enabled)
+        }
         if (enabled) {
             dao.select(
                 SessionConnectorEntity(sessionId, connectorId),
@@ -136,7 +147,7 @@ class PluginCatalog(
     fun defaultSelected(connectorId: String): Boolean =
         dao.installations().single { it.id == connectorId }.defaultSelected
 
-    /** Initial migration preserves a bundled capability already available to existing sessions. */
+    /** Installing a native plugin never selects it in a conversation or grants its scope. */
     @Synchronized
     fun publishNative(
         record: InstalledPlugin,
@@ -146,8 +157,7 @@ class PluginCatalog(
         storage.withTransaction {
             publish(record, expectedRevision)
             if (expectedRevision == null) {
-                check(dao.setDefault(record.id, true) == 1)
-                dao.selectExistingBundledCapability(record.id)
+                check(dao.setDefault(record.id, false) == 1)
             }
         }
     }

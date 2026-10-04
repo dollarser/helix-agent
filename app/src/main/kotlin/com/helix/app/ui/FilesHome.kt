@@ -33,7 +33,7 @@ import com.helix.app.ui.indicatedVerticalScroll
 internal fun FilesHome(
     state: FilesScreenState,
     actions: FilesScreenActions,
-    onPermissions: () -> Unit,
+    onPermissions: (String) -> Unit,
 ) {
     Column(
         Modifier
@@ -48,14 +48,44 @@ internal fun FilesHome(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        FileLibraryHome(state, actions)
+        Text(stringResource(R.string.files_quick_access), style = MaterialTheme.typography.titleMedium)
+        listOf(
+            "Download" to R.string.files_downloads_folder,
+            "Documents" to R.string.files_documents_folder,
+            "DCIM" to R.string.files_camera_folder,
+            "Pictures" to R.string.files_pictures_folder,
+            "Movies" to R.string.files_movies_folder,
+            "Music" to R.string.files_music_folder,
+        ).chunked(2).forEach { folders ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                folders.forEach { (path, label) ->
+                    Card(
+                        onClick = { onPermissions(path) },
+                        modifier = Modifier.weight(1f).testTag("files-quick-$path"),
+                    ) {
+                        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(painterResource(R.drawable.ic_files_folder), null)
+                            Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            }
+        }
         Text(stringResource(R.string.files_locations), style = MaterialTheme.typography.titleMedium)
-        state.sources.forEachIndexed { index, source ->
-            if (source.scopeId == com.helix.app.files.SharedStorageAccess.SCOPE_ID) return@forEachIndexed
+        FileLocationCard(
+            stringResource(R.string.files_shared),
+            stringResource(R.string.files_shared_detail),
+            "files-shared-open",
+        ) { onPermissions("") }
+        state.locations.forEach { source ->
+            if (source.scopeId == com.helix.app.files.SharedStorageAccess.SCOPE_ID) return@forEach
             FileLocationCard(
-                if (index == 0) stringResource(R.string.files_local) else source.displayName,
+                if (source.scopeId == state.localScopeId) stringResource(R.string.files_local) else source.displayName,
                 stringResource(
                     when {
                         !source.available -> R.string.workspace_unavailable
+                        source.scopeId == state.localScopeId -> R.string.files_local_detail
                         source.supportsMutation -> R.string.files_location_editable
                         else -> R.string.files_location_readonly
                     },
@@ -63,41 +93,19 @@ internal fun FilesHome(
                 "files-home-source-${source.scopeId}",
             ) { state.openLocation(source.scopeId) }
         }
-        FileLocationCard(
-            stringResource(R.string.files_shared),
-            stringResource(R.string.files_shared_detail),
-            "files-shared-open",
-            onPermissions,
-        )
-        run {
-            Text(stringResource(R.string.files_quick_access), style = MaterialTheme.typography.titleMedium)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    "input" to R.string.files_inputs,
-                    "work" to R.string.files_work,
-                    "output" to R.string.files_outputs,
-                ).forEach { (path, label) ->
-                    Card(onClick = {
-                        state.openLocation(state.sources.first().scopeId, path)
-                    }, modifier = Modifier.weight(1f).testTag("files-quick-$path")) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(
-                                painterResource(R.drawable.ic_files_folder),
-                                null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
-            }
+        TextButton({ state.safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
+            Text(stringResource(R.string.files_add_location))
         }
+        Text(stringResource(R.string.files_helix_tools), style = MaterialTheme.typography.titleMedium)
+        FileLocationCard(
+            stringResource(R.string.files_session_workspaces),
+            stringResource(R.string.files_session_workspaces_detail),
+            "files-workspaces-open",
+        ) { state.openWorkspaces() }
+        state.status?.let { Text(it, modifier = Modifier.testTag("files-status")) }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(stringResource(R.string.files_access), style = MaterialTheme.typography.titleMedium)
-                TextButton({
-                    state.safPanelOpen = true
-                }, modifier = Modifier.testTag("files-saf-open")) { Text(stringResource(R.string.files_add_location)) }
                 TextButton({
                     state.importResult = null
                     state.importOpen = true
@@ -118,7 +126,7 @@ internal fun FilesHome(
 
 @Composable
 @Suppress("FunctionName")
-private fun FileLocationCard(
+internal fun FileLocationCard(
     title: String,
     detail: String,
     tag: String,

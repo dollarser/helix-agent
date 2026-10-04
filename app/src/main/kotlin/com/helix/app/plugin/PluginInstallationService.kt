@@ -21,7 +21,8 @@ class PluginInstallationService(
         cancelled: () -> Boolean = { false },
     ): PluginPackage =
         source.capture(path, cancelled) { captured ->
-            require(Files.isRegularFile(captured)) { "CONNECTOR_JSON_OR_ZIP_REQUIRED" }
+            if (Files.isDirectory(captured)) return@capture reader.readDirectory(captured, cancelled)
+            require(Files.isRegularFile(captured)) { "CONNECTOR_JSON_ZIP_OR_DIRECTORY_REQUIRED" }
             val magic = Files.newInputStream(captured).use { it.read() to it.read() }
             if (magic == ('P'.code to 'K'.code)) {
                 reader.readZip(captured)

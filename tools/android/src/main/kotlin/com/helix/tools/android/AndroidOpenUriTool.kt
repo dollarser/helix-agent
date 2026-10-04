@@ -27,9 +27,14 @@ object AndroidOpenUriTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Open an http/https URL in the device's system handler (the OS picks the app). This " +
-                    "tool only opens the link: it never navigates inside the handler or follows it into " +
-                    "another app. Non-http(s) URLs are refused.",
+                "Open a known or verified http/https URL in the device's system handler (the OS picks the app). " +
+                    "This tool only opens the link: it never navigates inside the handler or follows it into " +
+                    "another app. Prefer it over manually typing a known URL into a browser UI, but do not invent " +
+                    "download paths. For app installation, prefer an installed app store when available; otherwise " +
+                    "resolve the official download URL with fetch/browser inspection first. If Android later blocks " +
+                    "installation because this source is not allowed to install unknown apps, keep the verified APK " +
+                    "and use android.open_settings for the source package instead of switching stores. " +
+                    "Non-http(s) URLs are refused.",
             inputSchema =
                 objectSchema(
                     properties =

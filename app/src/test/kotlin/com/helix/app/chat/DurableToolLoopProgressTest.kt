@@ -67,15 +67,17 @@ class DurableToolLoopProgressTest {
         }
         // A remote or renamed ordinary tool cannot acquire trusted semantics from its name.
         assertEquals(ToolLoopProgress.Decision.STOP, decision(calls(name = "get_goal")))
-        assertEquals(
-            ToolLoopProgress.Decision.CONTINUE,
-            decision(
-                descriptor =
-                    read.copy(
-                        requiredCapabilities = setOf(Capability.ACCESSIBILITY_AUTOMATION),
-                    ),
-            ),
-        )
+        for (capability in listOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE)) {
+            assertEquals(
+                ToolLoopProgress.Decision.CONTINUE,
+                decision(
+                    descriptor =
+                        read.copy(
+                            requiredCapabilities = setOf(capability),
+                        ),
+                ),
+            )
+        }
         assertEquals(ToolLoopProgress.Decision.CONTINUE, decision(descriptor = null))
     }
 

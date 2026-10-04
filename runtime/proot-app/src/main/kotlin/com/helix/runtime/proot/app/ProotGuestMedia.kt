@@ -31,7 +31,8 @@ internal object ProotGuestMedia {
     ): Prepared {
         val native = File(context.applicationInfo.nativeLibraryDir)
         // The optional bridge must not make unrelated commands fail on unsupported ABIs.
-        val system = GuestMedia.systemPaths.filter { File(it).isDirectory }.toSet()
+        // App UIDs can read the generated config even when SELinux denies stat/list on its directory.
+        val system = GuestMedia.systemPaths.filter { File(it).exists() }.toSet()
         if (!File(native, "libhelix_ffmpeg.so").isFile || !system.containsAll(setOf("/system", "/apex"))) {
             return Prepared(emptyList(), false)
         }

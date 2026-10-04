@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Process
+import android.provider.Settings
 import java.net.URI
 import java.net.URISyntaxException
 
@@ -48,6 +49,31 @@ class AndroidSystemBridgeImpl(
             LaunchResult.LAUNCHED -> OpenUriOutcome(OpenUriStatus.OPENED, url, "")
             LaunchResult.NO_HANDLER -> OpenUriOutcome(OpenUriStatus.NO_HANDLER, url, "no app to open")
             LaunchResult.ERROR -> OpenUriOutcome(OpenUriStatus.ERROR, url, "launch failed")
+        }
+    }
+
+    override fun openSettings(
+        target: AndroidSettingsTarget,
+        packageName: String,
+    ): OpenSettingsOutcome {
+        val action =
+            when (target) {
+                AndroidSettingsTarget.UNKNOWN_APP_SOURCES -> Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES
+                AndroidSettingsTarget.APP_DETAILS -> Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+            }
+        val intent = Intent(action, Uri.parse("package:$packageName"))
+        return when (launcher.launch(intent)) {
+            LaunchResult.LAUNCHED -> {
+                OpenSettingsOutcome(OpenSettingsStatus.OPENED, target, packageName, "")
+            }
+
+            LaunchResult.NO_HANDLER -> {
+                OpenSettingsOutcome(OpenSettingsStatus.NO_HANDLER, target, packageName, "settings page unavailable")
+            }
+
+            LaunchResult.ERROR -> {
+                OpenSettingsOutcome(OpenSettingsStatus.ERROR, target, packageName, "settings launch failed")
+            }
         }
     }
 

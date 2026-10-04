@@ -23,10 +23,16 @@ internal class ToolVisionServices(
     private val providers: ProviderService,
     consent: () -> ToolVisionConsent,
 ) {
+    private val visionCapabilities =
+        VisionCapabilityResolver(
+            capabilities = providers::capabilitiesFor,
+            probe = providers::runCapabilityTest,
+        )
+
     val imageSource =
         ArtifactVisionImageSource(storage.artifacts, workspace) { image, config ->
             BoundImageAccess(storage, consent()) { providerId, modelId ->
-                runBlocking { providers.capabilitiesFor(providerId, modelId)?.vision == true }
+                runBlocking { visionCapabilities.available(providerId, modelId) }
             }.verify(image, config)
         }
 
@@ -86,7 +92,9 @@ internal class ToolVisionServices(
             visionAvailable = { sessionId ->
                 runBlocking {
                     val session = storage.sessions.resolve(sessionId)
-                    session.providerId?.let { providers.capabilitiesFor(it, session.modelId)?.vision } == true
+                    val provider = session.providerId
+                    val model = session.modelId
+                    provider != null && model != null && visionCapabilities.available(provider, model)
                 }
             },
             turnVisionAvailable = { sessionId, turnId ->
@@ -94,7 +102,8 @@ internal class ToolVisionServices(
                     val runtime = storage.turnRuntimeRecords.find(turnId)
                     val session = storage.sessions.resolve(sessionId)
                     val provider = runtime?.providerId ?: session.providerId
-                    provider?.let { providers.capabilitiesFor(it, runtime?.modelId ?: session.modelId)?.vision } == true
+                    val model = runtime?.modelId ?: session.modelId
+                    provider != null && model != null && visionCapabilities.available(provider, model)
                 }
             },
         )

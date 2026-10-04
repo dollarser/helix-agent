@@ -53,7 +53,8 @@ class ThemeDialogDeviceTest {
     }
 
     private fun openDirectoryControls() {
-        compose.onNodeWithTag("files-quick-work").performClick()
+        compose.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
+        compose.onNodeWithTag("files-entry-work").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag("files-controls-open").fetchSemanticsNodes().isNotEmpty()
         }

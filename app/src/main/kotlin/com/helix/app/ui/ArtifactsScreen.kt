@@ -47,7 +47,6 @@ import com.helix.app.files.FileManagerService
 import com.helix.app.ui.IndicatedLazyColumn
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.TurnState
-import com.helix.core.workspace.WorkspaceLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -55,7 +54,7 @@ import kotlinx.coroutines.withContext
  * The Artifact Center (P0-B, research doc section 28 / PX-02 "结果可交付"): one first-class page
  * with TWO honest entry kinds. The FILES section lists real artifact rows (doc 02 §8) — files the
  * agent's tools actually wrote, from the `artifacts` table, with source session and size; the
- * RESULTS section lists every terminal turn across sessions. Rows are shared [ChatService]
+ * RESULTS section lists completed turns across sessions; failures remain in Tasks. Rows are shared [ChatService]
  * StateFlows kept live as turns and files land in any session; entry and an explicit refresh
  * re-read storage onto those flows (off the main thread) so just-finished work is visible on
  * open. A file row opens a view that checks the file's availability AT OPEN — the row outlives
@@ -67,9 +66,11 @@ internal fun ArtifactsScreenDestination(
     container: AppContainer,
     onOpenSession: (String) -> Unit,
     onOpenTask: (String) -> Unit = {},
+    sessionFilter: Set<String>? = null,
+    projectRecords: com.helix.app.projects.ProjectRecords? = null,
+    onRefresh: (() -> Unit)? = null,
 ) {
     val service = container.chatService
-    val fileManager = container.fileManager
     var revision by remember { mutableStateOf(0) }
     var selected by remember { mutableStateOf<BackgroundTaskUi?>(null) }
     var selectedFile by remember { mutableStateOf<ArtifactRowUi?>(null) }
@@ -84,23 +85,27 @@ internal fun ArtifactsScreenDestination(
     }
 
     val allTasks by service.backgroundTasks.collectAsStateWithLifecycle()
-    val taskRows: List<BackgroundTaskUi> = allTasks.filter { !it.running }
-    val fileRows by service.artifactFiles.collectAsStateWithLifecycle()
+    val taskRows: List<BackgroundTaskUi> =
+        (projectRecords?.tasks ?: allTasks).filter {
+            isDeliverableResult(it) &&
+                (sessionFilter == null || it.sessionId in sessionFilter)
+        }
+    val allFiles by service.artifactFiles.collectAsStateWithLifecycle()
+    val fileRows = (projectRecords?.files ?: allFiles).filter { sessionFilter == null || it.sessionId in sessionFilter }
 
     Column(Modifier.fillMaxSize().testTag("screen-artifacts")) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("artifacts-header"),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            TextButton(onClick = { revision += 1 }, modifier = Modifier.testTag("artifacts-refresh")) {
-                Text(stringResource(R.string.cap_refresh))
-            }
+        ArtifactsRefresh {
+            revision += 1
+            onRefresh?.invoke()
         }
         IndicatedLazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (fileRows.isEmpty() && taskRows.isEmpty()) {
+                item(key = "empty") { Text(stringResource(R.string.empty_artifacts)) }
+            }
             if (fileRows.isNotEmpty()) {
                 item(key = "files-header") {
                     SectionHeader(stringResource(R.string.artifacts_files_section), "artifacts-section-files")
@@ -119,17 +124,9 @@ internal fun ArtifactsScreenDestination(
             }
         }
     }
-    selected?.let { s ->
-        ArtifactResultDialog(service, s, { onOpenSession(s.sessionId) }, { selected = null })
-    }
-    selectedFile?.let { f ->
-        ArtifactFileDialog(
-            fileManager,
-            f,
-            { onOpenSession(f.sessionId) },
-            if (f.turnId != null) onOpenTask else null,
-            { selectedFile = null },
-        )
+    ArtifactSelection(container, selected, selectedFile, onOpenSession, onOpenTask) {
+        selected = null
+        selectedFile = null
     }
 }
 
@@ -208,47 +205,48 @@ internal fun ArtifactFileDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val availabilityState = remember(row.id) { mutableStateOf<ArtifactAvailability>(ArtifactAvailability.Loading) }
-    val exportStateHolder = remember(row.id) { mutableStateOf<ArtifactExportState>(ArtifactExportState.Idle) }
-    val exportCancelFlag = remember(row.id) { mutableStateOf(false) }
-    val externalState = remember(row.id) { mutableStateOf<ArtifactExternalOpenResult?>(null) }
+    val view = remember(row.id) { ArtifactFilePresentation() }
     val scopePath = remember(row.id) { row.parsedScopePath() }
     // Only workspace files inside an exportable region get the in-app export path; SAF-scope
     // artifacts go through the "open with another app" staging instead (fail-closed, no
     // silent scope crossing).
-    val exportable =
-        scopePath?.let { p -> !row.isSafScope && WorkspaceLayout.regionOf(p.relativePath) != null } ?: false
 
     LaunchedEffect(row.id) {
-        availabilityState.value = withContext(Dispatchers.IO) { inspectArtifactAvailability(fileManager, row) }
+        view.availability.value = withContext(Dispatchers.IO) { inspectArtifactAvailability(fileManager, row) }
     }
     val exportPicker =
-        artifactExportPicker(coroutineScope, fileManager, row, exportCancelFlag, exportStateHolder)
+        artifactExportPicker(coroutineScope, fileManager, row, view.cancel, view.export)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(row.fileName) },
         text = {
-            ArtifactFileDialogContent(row, availabilityState.value, exportStateHolder.value, externalState.value)
+            ArtifactFileDialogContent(
+                row,
+                view.availability.value,
+                view.export.value,
+                view.external.value,
+                fileManager,
+            )
         },
         confirmButton = {
             ArtifactFilePrimaryActions(
                 context,
                 row,
-                availabilityState.value,
-                exportStateHolder.value,
-                exportable,
+                view.availability.value,
+                view.export.value,
+                row.canExportFile(),
                 onExportClick = {
-                    externalState.value = null
-                    launchArtifactExportPicker(context, exportPicker, row.fileName, exportStateHolder)
+                    view.external.value = null
+                    launchArtifactExportPicker(context, exportPicker, row.fileName, view.export)
                 },
-                onCancelExport = { exportCancelFlag.value = true },
+                onCancelExport = { view.cancel.value = true },
             )
         },
         dismissButton = {
             ArtifactFileSecondaryActions(
                 row,
-                canOpenExternal = scopePath != null && availabilityState.value is ArtifactAvailability.Ready,
+                canOpenExternal = scopePath != null && view.availability.value is ArtifactAvailability.Ready,
                 onOpenExternal =
                     scopePath?.let { p ->
                         artifactExternalOpener(
@@ -257,7 +255,7 @@ internal fun ArtifactFileDialog(
                             fileManager,
                             p.scopeId,
                             p.relativePath,
-                            externalState,
+                            view.external,
                         )
                     } ?: {},
                 onOpenTask,
@@ -460,7 +458,7 @@ private fun ArtifactResultText(
  */
 @Composable
 @Suppress("FunctionName", "SwallowedException")
-private fun ArtifactResultDialog(
+internal fun ArtifactResultDialog(
     service: ChatService,
     row: BackgroundTaskUi,
     onOpenSession: () -> Unit,

@@ -57,7 +57,8 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName")
 internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
     val screen by chat.screen.collectAsStateWithLifecycle()
-    val directory = screen.directoryRef
+    val directory = remember { screen.directoryRef }
+    val sessionTitle = remember { screen.sessionTitle }
     val unavailable = stringResource(R.string.workspace_local_backend_unavailable)
     var reader by remember { mutableStateOf<GitWorkspaceReader?>(null) }
     var revision by remember { mutableStateOf(0) }
@@ -75,6 +76,11 @@ internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
     }
 
     Column(Modifier.fillMaxSize().testTag("screen-git")) {
+        Text(
+            stringResource(R.string.git_session_readonly, sessionTitle),
+            modifier = Modifier.padding(16.dp).testTag("git-session-scope"),
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("git-header"),
             horizontalArrangement = Arrangement.End,

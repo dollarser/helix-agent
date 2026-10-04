@@ -21,36 +21,46 @@ internal object ModelToolExposureOrder {
             "view_image",
         ).withIndex().associate { (index, name) -> name to index }
 
-    // Token actions are unusable without snapshot/find; keep the admitted UI contracts together.
+    // Active Mobile Use should expose the semantic control surface plus the existing direct URL opener.
     private val coreUi =
         setOf(
+            "ui.apps",
+            "ui.launch",
             "ui.snapshot",
             "ui.find",
             "ui.click",
-            "ui.long_click",
+            "ui.click_match",
             "ui.set_text",
-            "ui.set_progress",
+            "ui.ime_enter",
             "ui.scroll",
             "ui.back",
-            "ui.home",
             "ui.wait",
+            "ui.device",
+            "ui.screenshot",
+            "ui.gesture",
+            "android.open_uri",
+            "http.fetch",
         )
 
-    fun defaultNames(preferUi: Boolean): Set<String> =
-        coreFiles.keys + GoalLifecycleTools.names +
-            setOf(
-                "tools.search",
-                "ask_user",
-                ToolResultReadTool.NAME,
-                "code.javascript.run",
-                "plan.submit",
-                "todo.write",
-                "skills.list",
-                "skills.enable",
-                "skills.disable",
-                "skills.read",
-                "skills.read_resource",
-            ) + if (preferUi) coreUi else emptySet()
+    fun defaultNames(preferUi: Boolean): Set<String> {
+        val shared =
+            coreFiles.keys + GoalLifecycleTools.names +
+                setOf(
+                    "tools.search",
+                    "ask_user",
+                    ToolResultReadTool.NAME,
+                    "plan.submit",
+                    "todo.write",
+                    "skills.enable",
+                    "skills.read",
+                )
+        return shared +
+            if (preferUi) {
+                coreUi - setOf("http.fetch", "ui.ime_enter")
+            } else {
+                setOf("code.javascript.run")
+            }
+    }
 
     fun prioritize(
         tools: List<ToolDescriptor>,

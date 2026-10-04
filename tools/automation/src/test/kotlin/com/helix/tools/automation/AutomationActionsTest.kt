@@ -46,6 +46,28 @@ class AutomationFinderTest {
     }
 
     @Test
+    fun checkableAndCheckedStateCanBeQueriedDirectly() {
+        val toggles =
+            snapshot.copy(
+                nodes =
+                    listOf(
+                        snapshotNode("on", "Allow", "Source permission", clickable = true)
+                            .copy(checkable = true, checked = true),
+                        snapshotNode("off", "Other", "Other toggle", clickable = true)
+                            .copy(checkable = true, checked = false),
+                    ),
+            )
+
+        val checked = AutomationFinder.find(toggles, AutomationFindQuery(checkable = true, checked = true))
+        assertEquals(AutomationFindStatus.FOUND, checked.status)
+        assertEquals(listOf("on"), checked.nodes.map { it.token })
+
+        val unchecked = AutomationFinder.find(toggles, AutomationFindQuery(checked = false))
+        assertEquals(AutomationFindStatus.FOUND, unchecked.status)
+        assertEquals(listOf("off"), unchecked.nodes.map { it.token })
+    }
+
+    @Test
     fun emptyMalformedAndOversizedQueriesFailClosed() {
         assertEquals(
             AutomationFindStatus.INVALID_QUERY,
@@ -197,6 +219,53 @@ class AutomationNodeActionExecutorTest {
                     ),
                 ).status,
         )
+    }
+
+    @Test
+    fun imeEnterAndSetTextSubmitRequireAnEditableImeAction() {
+        var node = ActionFakeNode(editable = true, canImeEnter = true)
+        var token = issue(node, emptyList(), generation = 6)
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED,
+            executor
+                .execute(
+                    node,
+                    session,
+                    6,
+                    AutomationNodeActionRequest(AutomationNodeAction.IME_ENTER, token),
+                ).status,
+        )
+        assertEquals(1, node.imeEnterCount)
+
+        node = ActionFakeNode(editable = true, canImeEnter = true)
+        token = issue(node, emptyList(), generation = 6)
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED,
+            executor
+                .execute(
+                    node,
+                    session,
+                    6,
+                    AutomationNodeActionRequest(AutomationNodeAction.SET_TEXT, token, "weixin.qq.com", submit = true),
+                ).status,
+        )
+        assertEquals(listOf(AccessibilityNodeInfo.ACTION_SET_TEXT), node.performedActions)
+        assertEquals(1, node.imeEnterCount)
+
+        node = ActionFakeNode(editable = true, canImeEnter = false)
+        token = issue(node, emptyList(), generation = 6)
+        assertEquals(
+            AutomationActionStatus.ACTION_NOT_SUPPORTED,
+            executor
+                .execute(
+                    node,
+                    session,
+                    6,
+                    AutomationNodeActionRequest(AutomationNodeAction.SET_TEXT, token, "query", submit = true),
+                ).status,
+        )
+        assertTrue(node.performedActions.isEmpty())
+        assertEquals(0, node.imeEnterCount)
     }
 
     @Test
@@ -584,10 +653,14 @@ private class ActionFakeNode(
     private val throwAfterAction: Boolean = false,
     override val range: AutomationNodeRange? = null,
     override val canSetProgress: Boolean = false,
+    override val canImeEnter: Boolean = false,
 ) : SnapshotNode {
     var recycleCount = 0
         private set
-    var performedAction: Int? = null
+    val performedActions = mutableListOf<Int>()
+    val performedAction: Int?
+        get() = performedActions.lastOrNull()
+    var imeEnterCount = 0
         private set
 
     override val childCount: Int
@@ -599,19 +672,25 @@ private class ActionFakeNode(
         action: Int,
         arguments: Bundle?,
     ): Boolean {
-        performedAction = action
+        performedActions += action
         check(!throwAfterAction) { "lost acknowledgement after platform entry" }
         return performResult
     }
 
     override fun setText(value: String): Boolean {
-        performedAction = AccessibilityNodeInfo.ACTION_SET_TEXT
+        performedActions += AccessibilityNodeInfo.ACTION_SET_TEXT
         if (throwAfterAction) error("Platform acknowledgement lost after dispatch")
         return performResult
     }
 
+    override fun imeEnter(): Boolean {
+        imeEnterCount += 1
+        check(!throwAfterAction) { "lost IME acknowledgement after platform entry" }
+        return performResult
+    }
+
     override fun setProgress(value: Float): Boolean {
-        performedAction = android.R.id.accessibilityActionSetProgress
+        performedActions += android.R.id.accessibilityActionSetProgress
         check(!throwAfterAction) { "lost progress acknowledgement after platform entry" }
         return performResult
     }

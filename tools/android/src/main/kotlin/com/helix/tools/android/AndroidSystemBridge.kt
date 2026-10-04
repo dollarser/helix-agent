@@ -20,6 +20,12 @@ interface AndroidSystemBridge {
     /** Opens [url] in the device's system handler (doc 09: `android.open_uri` 只打开; http/https only). */
     fun openUri(url: String): OpenUriOutcome
 
+    /** Opens a package-specific Android Settings page; it never changes the setting itself. */
+    fun openSettings(
+        target: AndroidSettingsTarget,
+        packageName: String,
+    ): OpenSettingsOutcome
+
     /** Reads the system clipboard (roadmap HXA-064: gated by visible-foreground). */
     fun clipboardRead(): ClipboardReadOutcome
 
@@ -52,6 +58,15 @@ enum class OpenUriStatus { OPENED, REFUSED, NO_HANDLER, ERROR }
 data class OpenUriOutcome(
     val status: OpenUriStatus,
     val url: String,
+    val reason: String,
+)
+
+enum class OpenSettingsStatus { OPENED, NO_HANDLER, ERROR }
+
+data class OpenSettingsOutcome(
+    val status: OpenSettingsStatus,
+    val action: AndroidSettingsTarget,
+    val packageName: String,
     val reason: String,
 )
 

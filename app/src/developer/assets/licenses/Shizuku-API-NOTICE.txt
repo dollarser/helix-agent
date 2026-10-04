@@ -1,0 +1,7 @@
+Shizuku API 13.1.5 (api, provider, aidl, shared)
+Source: https://github.com/RikkaApps/Shizuku-API
+License: MIT; see Shizuku-API-MIT.txt.
+Copyright (c) 2021 RikkaW
+
+Only the client API is bundled. The Shizuku manager/server is installed and
+started separately by the user; it is not bundled in Helix.

@@ -32,6 +32,37 @@ import java.util.concurrent.TimeUnit
 /** Storage acceptance only: actual process death and protocol delivery belong to the app matrix. */
 @RunWith(AndroidJUnit4::class)
 class SessionInputStorageDeviceTest {
+    @Test fun promotionDoesNotReleaseParkedInputsOrCrossSessionsAndLosesToFinalization() =
+        withStorage { storage ->
+            val target = storage.turns.start("target", SESSION, 1)
+            storage.sessions.create("other", "Other", null, null, 0)
+            storage.turns.start("other-target", "other", 1)
+            val queued = accepted(storage, spec("queued"))
+            assertFalse(storage.sessionInputs.steerPending(queued.inputId, queued.revision, "other-target", 2))
+            assertTrue(storage.sessionInputs.markNeedsAttention(queued.inputId, queued.revision, "USER_STOPPED", 2))
+            assertFalse(storage.sessionInputs.steerPending(queued.inputId, queued.revision + 1, target.id, 3))
+            val late = accepted(storage, spec("late"))
+            storage.turns.updateState(target, TurnState.COMPLETED, 0, null, null)
+            assertFalse(storage.sessionInputs.steerPending(late.inputId, late.revision, target.id, 4))
+            assertEquals(late, storage.sessionInputs.get(late.inputId))
+        }
+
+    @Test fun promotionAndWithdrawalHaveOneRevisionWinner() =
+        withStorage { storage ->
+            storage.turns.start("target", SESSION, 1)
+            val queued = accepted(storage, spec("race-promotion"))
+            val results =
+                race(
+                    listOf(
+                        { storage.sessionInputs.steerPending(queued.inputId, queued.revision, "target", 2) },
+                        { storage.sessionInputs.withdrawPending(queued.inputId, queued.revision, 2) },
+                    ),
+                )
+            assertEquals(1, results.count { it })
+            assertEquals(queued.revision + 1, storage.sessionInputs.get(queued.inputId)!!.revision)
+            assertTrue(storage.messages.listBySession(SESSION).isEmpty())
+        }
+
     @Test
     fun concurrentAcceptanceAllocatesUniqueFifoSequenceAndEnforcesCapacity() =
         withStorage { storage ->

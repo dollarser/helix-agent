@@ -65,7 +65,7 @@ class FilesImportExportUiTest {
         container.safTree.knownScopeIds().forEach { container.safTree.revoke(it) }
         composeRule.navigateTo("files")
         waitTag("files-home-source-app")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-controls-open")
         composeRule.onNodeWithTag("files-controls-open").performClick()
         composeRule.onNodeWithTag("files-saf-open").performScrollTo().performClick()
@@ -112,9 +112,12 @@ class FilesImportExportUiTest {
         composeRule.onNodeWithTag("files-saf-remove-${source.scopeId}").performClick()
         composeRule.onNodeWithTag("files-saf-close").performClick()
         waitTag("files-home-source-app")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
-        composeRule.onNodeWithTag("files-source-current").assertTextContains("Workspace", substring = true)
+        composeRule
+            .onNodeWithTag(
+                "files-source-current",
+            ).assertTextContains(composeRule.activity.getString(com.helix.app.R.string.files_local), substring = true)
     }
 
     // ── 导入 dialog: 来源 / 目标 / 冲突策略 / 取消 ────────────────────────────────────────
@@ -122,7 +125,7 @@ class FilesImportExportUiTest {
     @Test
     fun importDialogShowsSourceOptionsTargetPoliciesAndDismisses() {
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
 
         composeRule.onNodeWithTag("files-controls-open").performClick()
@@ -160,7 +163,7 @@ class FilesImportExportUiTest {
     fun exportEntryShowsTheLiveAuthorizedTreeSourcesAndPolicies() {
         seed("work/export-ui.txt", "export me")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-export-ui.txt")
@@ -217,7 +220,7 @@ class FilesImportExportUiTest {
 
         seed("work/fresh-ui.txt", "fresh ui export")
         composeRule.navigateTo("files")
-        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        composeRule.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-fresh-ui.txt")

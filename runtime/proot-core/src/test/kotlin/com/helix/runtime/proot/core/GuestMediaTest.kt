@@ -15,6 +15,7 @@ class GuestMediaTest {
             assertFalse(script.contains("eval "))
             assertFalse(script.contains("-filter_complex"))
             assertFalse(script.contains("-c:v"))
+            assertTrue(script.contains("export LD_LIBRARY_PATH=${GuestMedia.LIBRARY_PATH}\n"))
         }
     }
 
@@ -78,6 +79,13 @@ class GuestMediaTest {
             binds,
         )
         assertFalse(binds.any { it == "/data" || it == "/storage" })
+    }
+
+    @Test
+    fun `readable linker config is bound without requiring directory access`() {
+        val binds = GuestMedia.bindings("/native", "/scripts", setOf("/system", "/apex", GuestMedia.LINKER_CONFIG))
+        assertTrue(binds.contains(GuestMedia.LINKER_CONFIG))
+        assertFalse(binds.contains("/linkerconfig"))
     }
 
     @Test(expected = IllegalArgumentException::class)

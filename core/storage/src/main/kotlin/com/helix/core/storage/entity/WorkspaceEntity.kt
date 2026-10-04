@@ -18,7 +18,6 @@ data class WorkspaceEntity(
     val ownership: String,
     val availability: String,
     val witness: String?,
-    val projectId: String?,
     val ownerSessionId: String?,
     val createdAt: Long,
 )

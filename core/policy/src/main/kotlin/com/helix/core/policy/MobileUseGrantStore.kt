@@ -26,17 +26,43 @@ class MobileUseGrantStore(
 
     @Synchronized
     fun find(conversationId: String): MobileUseGrant? {
-        val fields = if (conversationId in failedWrites) emptyList() else read(key(conversationId))
+        val fields =
+            if (GLOBAL_ID in failedWrites ||
+                conversationId in failedWrites
+            ) {
+                emptyList()
+            } else {
+                read(key(conversationId))
+            }
         if (fields.isEmpty()) return null
         check(fields.size == 4 && fields[0] == VERSION && fields[1] == conversationId) {
             "Mobile Use configuration is unreadable"
         }
         val scope = UserScopeCodec.decode(fields[2]) as? AutomationSessionScope
-        return MobileUseGrant(
-            conversationId,
-            checkNotNull(scope) { "Mobile Use scope is unreadable" },
-            checkNotNull(fields[3].toBooleanStrictOrNull()) { "Mobile Use sharing setting is unreadable" },
-        )
+        val saved =
+            MobileUseGrant(
+                conversationId,
+                checkNotNull(scope) { "Mobile Use scope is unreadable" },
+                checkNotNull(fields[3].toBooleanStrictOrNull()) { "Mobile Use sharing setting is unreadable" },
+            )
+        val global = if (conversationId == GLOBAL_ID) null else globalConfiguration()
+        return if (global == null) saved else effectiveGrant(saved, global)
+    }
+
+    @Synchronized
+    fun globalConfiguration(): MobileUseGrant? = find(GLOBAL_ID)
+
+    /** Explicit plugin-wide scope edits invalidate existing observation and approval identities. */
+    @Synchronized
+    fun configureGlobal(
+        applications: Set<String>,
+        wholePhone: Boolean,
+    ): MobileUseGrant = authorize(GLOBAL_ID, applications, wholePhone)
+
+    @Synchronized
+    fun enableFromGlobal(conversationId: String) {
+        val global = checkNotNull(globalConfiguration()) { "MOBILE_USE_NOT_CONFIGURED" }
+        authorize(conversationId, global.scope.allowedPackages, global.scope.allApplications, global.shareScreens)
     }
 
     @Synchronized
@@ -60,7 +86,7 @@ class MobileUseGrantStore(
                 shareScreens,
             )
         persist(conversationId, listOf(VERSION, conversationId, UserScopeCodec.encode(grant.scope), "$shareScreens"))
-        return grant
+        return checkNotNull(find(conversationId))
     }
 
     @Synchronized
@@ -101,5 +127,18 @@ class MobileUseGrantStore(
 
     private companion object {
         const val VERSION = "mobile-use-conversation-v1"
+        const val GLOBAL_ID = "plugin:mobile-use:global"
     }
+}
+
+private fun effectiveGrant(
+    saved: MobileUseGrant,
+    global: MobileUseGrant,
+): MobileUseGrant {
+    val identity =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest("${saved.scope.grantId}:${global.scope.grantId}:${saved.conversationId}".toByteArray())
+            .joinToString("") { "%02x".format(it) }
+    return saved.copy(scope = global.scope.copy(grantId = identity), shareScreens = global.shareScreens)
 }

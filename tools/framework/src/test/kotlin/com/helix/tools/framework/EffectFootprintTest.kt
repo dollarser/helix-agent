@@ -125,7 +125,7 @@ class EffectFootprintTest {
 
     @Test
     fun privilegedCapabilitiesDoNotImposeGlobalExclusivity() {
-        for (cap in listOf(Capability.ROOT_SHELL, Capability.ACCESSIBILITY_AUTOMATION)) {
+        for (cap in listOf(Capability.ROOT_SHELL, Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE)) {
             val fp =
                 EffectFootprintBuilder.build(
                     descriptor(capabilities = setOf(cap)),

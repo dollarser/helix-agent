@@ -23,6 +23,9 @@ internal interface SnapshotNode {
     val childCount: Int
     val range: AutomationNodeRange? get() = null
     val canSetProgress: Boolean get() = false
+    val canImeEnter: Boolean get() = false
+    val checkable: Boolean get() = false
+    val checked: Boolean get() = false
 
     fun childAt(index: Int): SnapshotNode?
 
@@ -32,6 +35,8 @@ internal interface SnapshotNode {
     ): Boolean
 
     fun setText(value: String): Boolean = false
+
+    fun imeEnter(): Boolean = false
 
     fun setProgress(value: Float): Boolean = false
 
@@ -56,17 +61,27 @@ internal data class ObservedSnapshotNode(
     val childCount: Int,
     val range: AutomationNodeRange? = null,
     val canSetProgress: Boolean = false,
+    val canImeEnter: Boolean = false,
+    val checkable: Boolean = false,
+    val checked: Boolean = false,
+    val fieldTruncated: Boolean = false,
 )
 
-internal fun SnapshotNode.observe(): ObservedSnapshotNode =
-    ObservedSnapshotNode(
+internal fun SnapshotNode.observe(): ObservedSnapshotNode {
+    var fieldTruncated = false
+
+    fun bounded(value: String?): String? {
+        if (value != null && value.length > AutomationSnapshotEngine.MAX_FIELD_CHARACTERS) fieldTruncated = true
+        return value?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS)
+    }
+    return ObservedSnapshotNode(
         packageName = packageName,
         windowId = windowId,
-        className = className?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
-        text = text?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
+        className = bounded(className),
+        text = bounded(text),
         contentDescription =
-            contentDescription?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
-        viewId = viewId?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
+            bounded(contentDescription),
+        viewId = bounded(viewId),
         bounds = bounds,
         clickable = clickable,
         longClickable = longClickable,
@@ -78,7 +93,12 @@ internal fun SnapshotNode.observe(): ObservedSnapshotNode =
         childCount = childCount,
         range = range?.takeIf { it.accepts(it.current.toDouble()) },
         canSetProgress = canSetProgress,
+        canImeEnter = canImeEnter,
+        checkable = checkable,
+        checked = checked,
+        fieldTruncated = fieldTruncated,
     )
+}
 
 internal fun ObservedSnapshotNode.fingerprint(
     expectedPackage: String,
@@ -100,6 +120,8 @@ internal fun ObservedSnapshotNode.fingerprint(
             editable.toString(),
             scrollable.toString(),
             enabled.toString(),
+            checkable.toString(),
+            checked.toString(),
         ) + if (range != null || canSetProgress) listOf(range.toString(), canSetProgress.toString()) else emptyList(),
     )
 
@@ -171,6 +193,7 @@ internal class AutomationSnapshotEngine(
                     createdAt = clock.now(),
                     nodes = state.nodes.toList(),
                     truncated = state.truncated,
+                    truncationReasons = state.truncationReasons.toSet(),
                 ),
         )
     }
@@ -188,7 +211,7 @@ internal class AutomationSnapshotEngine(
         try {
             if (state.abortStatus != null) return
             if (depth > MAX_DEPTH || state.nodes.size >= MAX_NODES) {
-                state.truncated = true
+                state.truncate(if (depth > MAX_DEPTH) "DEPTH_LIMIT" else "NODE_LIMIT")
                 return
             }
 
@@ -223,9 +246,10 @@ internal class AutomationSnapshotEngine(
                 state.hasUsefulSemantics = true
                 return
             }
-            val className = state.bound(observed.className)
+            if (observed.fieldTruncated) state.truncate("FIELD_LIMIT")
             val text = state.bound(observed.text)
             val description = state.bound(observed.contentDescription)
+            val className = state.bound(observed.className)
             val viewId = state.bound(observed.viewId)
             val fingerprint = observed.fingerprint(state.packageName, state.windowId, path)
             val token =
@@ -255,6 +279,9 @@ internal class AutomationSnapshotEngine(
                     enabled = observed.enabled,
                     range = observed.range,
                     canSetProgress = observed.canSetProgress && observed.range != null,
+                    canImeEnter = observed.canImeEnter,
+                    checkable = observed.checkable,
+                    checked = observed.checked,
                 )
             state.hasUsefulSemantics =
                 state.hasUsefulSemantics ||
@@ -263,16 +290,18 @@ internal class AutomationSnapshotEngine(
                 observed.clickable ||
                 observed.longClickable ||
                 observed.editable ||
-                observed.scrollable || observed.canSetProgress
+                observed.scrollable ||
+                observed.checkable ||
+                observed.canSetProgress
 
             val childCount = observed.childCount
             if (depth == MAX_DEPTH && childCount > 0) {
-                state.truncated = true
+                state.truncate("DEPTH_LIMIT")
                 return
             }
             for (index in 0 until childCount) {
                 if (state.nodes.size >= MAX_NODES) {
-                    state.truncated = true
+                    state.truncate("NODE_LIMIT")
                     return
                 }
                 val child = node.childAt(index) ?: continue
@@ -294,18 +323,25 @@ internal class AutomationSnapshotEngine(
         val nodes = mutableListOf<AutomationSnapshotNode>()
         var remainingCharacters = MAX_TOTAL_CHARACTERS
         var hasUsefulSemantics = false
-        var truncated = false
+        val truncationReasons = linkedSetOf<String>()
+        val truncated: Boolean get() = truncationReasons.isNotEmpty()
+
+        fun truncate(reason: String) {
+            truncationReasons += reason
+        }
+
         var abortStatus: AutomationSnapshotStatus? = null
 
         @Suppress("ReturnCount")
         fun bound(value: String?): String? {
             if (value.isNullOrEmpty()) return null
             if (remainingCharacters == 0) {
-                truncated = true
+                truncate("TEXT_LIMIT")
                 return null
             }
             val allowed = minOf(value.length, MAX_FIELD_CHARACTERS, remainingCharacters)
-            if (allowed < value.length) truncated = true
+            if (value.length > MAX_FIELD_CHARACTERS) truncate("FIELD_LIMIT")
+            if (value.length > remainingCharacters) truncate("TEXT_LIMIT")
             remainingCharacters -= allowed
             return value.take(allowed)
         }
@@ -324,7 +360,7 @@ internal class AutomationSnapshotEngine(
 
     companion object {
         const val MAX_NODES = NodeTokenRegistry.MAX_TOKENS
-        const val MAX_DEPTH = 16
+        const val MAX_DEPTH = 64
         const val MAX_FIELD_CHARACTERS = 256
         const val MAX_TOTAL_CHARACTERS = 16_384
     }

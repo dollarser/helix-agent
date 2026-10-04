@@ -58,9 +58,12 @@ internal fun ArtifactFileDialogContent(
     state: ArtifactAvailability,
     exportState: ArtifactExportState,
     external: ArtifactExternalOpenResult?,
+    fileManager: FileManagerService,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ArtifactFilePreviewBody(row, state)
+        ArtifactLocateAction(row, state)
+        row.parsedScopePath()?.let { FileShareAction(fileManager, it, state is ArtifactAvailability.Ready) }
         ArtifactActionOutcomes(row, exportState, external)
     }
 }
@@ -200,7 +203,7 @@ internal fun ArtifactFilePrimaryActions(
             modifier = Modifier.testTag("artifact-file-share-${row.id}"),
             onClick = { shareFailed.value = !sharePlainText(context, shareText!!) },
         ) {
-            Text(stringResource(R.string.artifacts_share))
+            Text(stringResource(R.string.files_share_preview_text))
         }
     }
 }
@@ -270,3 +273,16 @@ internal fun launchArtifactExportPicker(
         state.value = ArtifactExportState.Failed(context.getString(R.string.chat_picker_unavailable))
     }
 }
+
+internal class ArtifactFilePresentation {
+    val availability = mutableStateOf<ArtifactAvailability>(ArtifactAvailability.Loading)
+    val export = mutableStateOf<ArtifactExportState>(ArtifactExportState.Idle)
+    val cancel = mutableStateOf(false)
+    val external = mutableStateOf<ArtifactExternalOpenResult?>(null)
+}
+
+internal fun ArtifactRowUi.canExportFile(): Boolean =
+    parsedScopePath()?.let {
+        !isSafScope && com.helix.core.workspace.WorkspaceLayout
+            .regionOf(it.relativePath) != null
+    } ?: false

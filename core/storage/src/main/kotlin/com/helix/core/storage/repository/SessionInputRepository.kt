@@ -26,6 +26,37 @@ class SessionInputRepository internal constructor(
     fun observeAnswerRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long> =
         dao.observeAnswerRevision(sessionId)
 
+    fun observeDeliveryRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long> =
+        dao.observeDeliveryRevision(sessionId)
+
+    /** Explicit user promotion, preserving original bytes/configuration and queue identity. */
+    fun steerPending(
+        inputId: String,
+        expectedRevision: Long,
+        expectedTurnId: String,
+        at: Long,
+    ): Boolean =
+        transaction {
+            require(at >= 0)
+            val old = editable(inputId, expectedRevision) ?: return@transaction false
+            if (old.state != SessionInputState.PENDING.name || old.delivery != SessionInputDelivery.QUEUE.name ||
+                !targetAvailable(old.sessionId, SessionInputDelivery.STEER.name, expectedTurnId)
+            ) {
+                return@transaction false
+            }
+            check(
+                dao.update(
+                    old.copy(
+                        delivery = SessionInputDelivery.STEER.name,
+                        expectedTurnId = expectedTurnId,
+                        revision = Math.addExact(old.revision, 1L),
+                        updatedAt = maxOf(old.updatedAt, at),
+                    ),
+                ) == 1,
+            )
+            true
+        }
+
     fun readText(record: SessionInputRecord): String =
         contentStore.readBounded(ContentRef.parse(record.textRef), MAX_PENDING_BYTES.toInt())
 

@@ -25,14 +25,14 @@ data class BackgroundTaskUi(
 internal class BackgroundTaskQuery(
     private val storage: HelixStorage,
 ) {
-    fun read(): List<BackgroundTaskUi> {
+    fun read(sessionIds: Set<String>? = null): List<BackgroundTaskUi> {
         var snapshot = emptyList<BackgroundTaskUi>()
-        storage.withTransaction { snapshot = readSnapshot() }
+        storage.withTransaction { snapshot = readSnapshot(sessionIds) }
         return snapshot
     }
 
-    private fun readSnapshot(): List<BackgroundTaskUi> =
-        (storage.turns.pendingTasks() + storage.turns.recent())
+    private fun readSnapshot(sessionIds: Set<String>?): List<BackgroundTaskUi> =
+        (sessionIds?.flatMap(storage.turns::listBySession) ?: (storage.turns.pendingTasks() + storage.turns.recent()))
             .distinctBy { it.id }
             .sortedByDescending { it.startedAt }
             .map { turn ->

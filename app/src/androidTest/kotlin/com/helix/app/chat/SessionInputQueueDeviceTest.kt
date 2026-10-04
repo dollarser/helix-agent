@@ -34,6 +34,38 @@ import java.util.concurrent.atomic.AtomicInteger
 class SessionInputQueueDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun sendQueuedNowKeepsIdentityAndJoinsOnlyTheDisplayedTurnOnce() =
+        runBlocking {
+            fixture { chat, session, entered, release, requests ->
+                val first = compose.awaitAdmittedTurn(chat.sendSubmission(submission(session, "first")).await())
+                assertTrue(entered.await(10, TimeUnit.SECONDS))
+                val queued = submission(session, "send this now")
+                assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
+                val before = chat.sessionInputQueue(session).await().single()
+                assertFalse(chat.sendQueuedInputNow(before.inputId, before.revision, "stale-turn").await())
+                assertEquals(before, chat.sessionInputQueue(session).await().single())
+                assertTrue(chat.sendQueuedInputNow(before.inputId, before.revision, first).await())
+                assertFalse(chat.sendQueuedInputNow(before.inputId, before.revision, first).await())
+                // Retrying the original submit must still find its existing receipt after promotion.
+                assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
+                val promoted = chat.sessionInputQueue(session).await().single()
+                assertEquals(before.textRef, promoted.textRef)
+                assertEquals(before.configuration, promoted.configuration)
+                assertEquals(SessionInputDelivery.STEER, promoted.delivery)
+                release.countDown()
+                compose.waitUntil(15_000) { requests.get() == 2 && !chat.screen.value.isSending }
+                val storage = compose.container().storage
+                assertEquals(1, storage.turns.listBySession(session).size)
+                assertEquals(first, storage.sessionInputs.get(before.inputId)?.consumedTurnId)
+                assertEquals(
+                    1,
+                    storage.messages.listBySession(session).count {
+                        it.role == "USER" && storage.messages.readContent(it) == "send this now"
+                    },
+                )
+            }
+        }
+
     @Test fun queueWaitsForFinalAnswerAndCreatesExactlyOneSuccessor() =
         runBlocking {
             fixture { chat, session, entered, release, requests ->

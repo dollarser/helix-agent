@@ -36,14 +36,16 @@ internal val packagedPromptTemplates: PromptTemplateSource =
  * - [FILES_NAME] only when the session's admitted tools include the local file tools — the
  *   working directory comes from session facts ([FileScopePath]), never from model-visible text;
  * - [PLAN_NAME] only in Plan mode: plan is read-only and file/tool text cannot enable Act.
+ * - [MOBILE_NAME] only when Android UI tools are exposed: shared operating guidance, not permission.
  *
- * All three are [PromptSource.BUILTIN_TEMPLATE] (SYSTEM trust): packaged application content,
+ * Harness sections are [PromptSource.BUILTIN_TEMPLATE]; plugin skills remain external content,
  * ordered before every Goal section so the harness invariants precede the goal's own text.
  */
 internal object PromptEnvironmentSections {
     const val BASE_NAME = "env.base"
     const val FILES_NAME = "env.files"
     const val PLAN_NAME = "env.plan"
+    const val MOBILE_NAME = "env.mobile-use"
 
     fun register(
         registry: PromptRegistry,
@@ -51,6 +53,7 @@ internal object PromptEnvironmentSections {
         mode: AgentMode,
         fileToolsAvailable: Boolean,
         source: PromptTemplateSource = packagedPromptTemplates,
+        mobileSkillContext: String? = null,
     ) {
         val workingDirectory = directory.toModelReference()
         registry.register(
@@ -69,6 +72,13 @@ internal object PromptEnvironmentSections {
             registry.register(
                 PromptSection(PLAN_NAME, ORDER_PLAN, PromptScope.MODE, PromptSource.BUILTIN_TEMPLATE) {
                     source.text("plan").replace(PLACEHOLDER, workingDirectory)
+                },
+            )
+        }
+        if (!mobileSkillContext.isNullOrBlank()) {
+            registry.register(
+                PromptSection(MOBILE_NAME, -1_750, PromptScope.SKILL, PromptSource.EXTERNAL_CONTENT) {
+                    mobileSkillContext
                 },
             )
         }

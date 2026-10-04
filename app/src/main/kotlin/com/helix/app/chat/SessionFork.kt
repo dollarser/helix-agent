@@ -88,6 +88,9 @@ internal class SessionFork(
         val recovery = SessionWorkspaceRecovery(storage, validateDirectory)
         val directory = recovery.sharedDirectory(sourceSessionId)
         storage.sessions.create(newSessionId, title, source.providerId, source.modelId, now, directoryRef = directory)
+        storage.projects.forSession(sourceSessionId)?.takeIf { it.archivedAt == null }?.let {
+            storage.projects.assign(newSessionId, it.id)
+        }
         if (directory == null) recovery.record(newSessionId, now)
     }
 

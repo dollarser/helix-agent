@@ -111,8 +111,9 @@ internal class MobileUseOverlay(
             }
         val hidden = CountDownLatch(1)
         handler.post {
-            windows.hide()
-            // Two frame boundaries allow the invisible surfaces to reach the compositor.
+            windows.remove()
+            // Security-sensitive system buttons reject touches while any Helix overlay window remains attached.
+            // Wait two frame boundaries so WindowManager/InputDispatcher observe the removal before capture/gesture.
             Choreographer.getInstance().postFrameCallback {
                 Choreographer.getInstance().postFrameCallback { hidden.countDown() }
             }

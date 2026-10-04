@@ -518,6 +518,11 @@ class ChatService(
             }.getOrNull()
         }
 
+    suspend fun materializeOpenSession(): String? {
+        val id = screen.value.openSessionId ?: return null
+        return materializeDraftSession(id)
+    }
+
     fun setTurnBudgets(budgets: TurnBudgets) =
         updateSessionRunControl("budgets") { it.copy(budgets = TurnBudgetBounds.validate(budgets)) }
 
@@ -1017,8 +1022,34 @@ class ChatService(
     private val sessionDraft: SessionDraft? get() = drafts.current
     private val preparingDraft: Boolean get() = drafts.preparing
 
-    fun newSessionDraft() {
-        if (preparingDraft) return
+    fun newSessionDraft(): String? = openSessionDraft(null)
+
+    /** Capture admission against the service owner, not an asynchronously refreshed UI snapshot. */
+    fun attachFileToConversation(
+        uri: String,
+        expectedSessionId: String?,
+        newConversation: Boolean,
+    ): String? {
+        if (openSessionId != expectedSessionId) return null
+        val target = if (newConversation) openSessionDraft(null) else expectedSessionId
+        target?.let { stageAttachment(uri, it) }
+        return target
+    }
+
+    /** Validate the location before replacing a draft. A changed destination never retargets the action. */
+    suspend fun newDirectoryDraft(
+        reference: String,
+        expectedSessionId: String?,
+    ): String? {
+        val changed = withContext(kotlinx.coroutines.Dispatchers.Main.immediate) { openSessionId != expectedSessionId }
+        if (changed) return null
+        val bound = withContext(kotlinx.coroutines.Dispatchers.IO) { bindSessionDirectory(reference) }
+        return withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            if (openSessionId == expectedSessionId) openSessionDraft(bound) else null
+        }
+    }
+
+    private fun openSessionDraft(directory: String?): String? {
         val current = _sessions.value.firstOrNull { it.id == openSessionId }
         val providerId = sessionDraft?.session?.providerId ?: current?.providerId
         val modelId = sessionDraft?.session?.modelId ?: current?.model
@@ -1030,9 +1061,10 @@ class ChatService(
                 modelId.takeIf { providerId != null },
                 clock.now().toEpochMilli(),
                 null,
+                directoryRef = directory,
             )
         val control = sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT)
-        if (!drafts.open(entity, control)) return
+        if (!drafts.open(entity, control)) return null
         openSessionId = entity.id
         _runControl.value = control
         conversationLaunchStore.selectNewDraft()
@@ -1040,6 +1072,7 @@ class ChatService(
         clearSessionSearch()
         shareDraftText = null
         workScope.launch { refreshScreen() }
+        return entity.id
     }
 
     suspend fun saveDraftForGoal(text: String): Boolean =
@@ -3497,6 +3530,47 @@ class ChatService(
 
     fun sessionInputQueue(sessionId: String): kotlinx.coroutines.Deferred<List<SessionInputRecord>> =
         workScope.async { storage.sessionInputs.listPending(sessionId) }
+
+    fun observeSessionInputDelivery(sessionId: String): kotlinx.coroutines.flow.Flow<Long> =
+        storage.sessionInputs.observeDeliveryRevision(sessionId)
+
+    /** Same accepted input, explicitly delivered to the displayed live Turn at its next boundary. */
+    fun sendQueuedInputNow(
+        inputId: String,
+        expectedRevision: Long,
+        expectedTurnId: String,
+    ): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            submissionGate.withLock {
+                val input = storage.sessionInputs.get(inputId) ?: return@withLock false
+                val confirmationPending = pendingSubmission != null || pendingInputResume != null
+                val originalQueue =
+                    input.state == SessionInputState.PENDING && input.delivery == SessionInputDelivery.QUEUE
+                val sameInput = input.sessionId == openSessionId && input.revision == expectedRevision
+                if (!sameInput || !originalQueue || confirmationPending) {
+                    return@withLock false
+                }
+                val live = synchronized(turnGate) { turnEngine.liveExecution.active(input.sessionId)?.turnId }
+                if (live != expectedTurnId) return@withLock false
+                val steering = input.copy(delivery = SessionInputDelivery.STEER, expectedTurnId = expectedTurnId)
+                // A mismatched active configuration must leave the original queue item untouched.
+                if (sessionInputDelivery.revalidate(steering, parkFailure = false) == null) return@withLock false
+                synchronized(turnGate) {
+                    if (input.sessionId != openSessionId ||
+                        turnEngine.liveExecution.active(input.sessionId)?.turnId != expectedTurnId
+                    ) {
+                        false
+                    } else {
+                        storage.sessionInputs.steerPending(
+                            inputId,
+                            expectedRevision,
+                            expectedTurnId,
+                            clock.now().toEpochMilli(),
+                        )
+                    }
+                }
+            }
+        }
 
     fun sessionInputDeliveryStatus(sessionId: String): kotlinx.coroutines.Deferred<List<SessionInputRecord>> =
         workScope.async {

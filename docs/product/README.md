@@ -6,6 +6,7 @@
 
 - [requirements.md](requirements.md)：Android 单机版产品需求与能力边界。
 - [workspace.md](workspace.md)：会话工作目录、后端能力与保留文件边界。
+- [projects.md](projects.md)：本机项目、共享上下文、成员生命周期与文件/任务/成果的关系。
 - [task-experience.md](task-experience.md)：用户任务、工作区、产物与恢复体验。
 - [image-reading.md](image-reading.md)：附件、自主图片读取与浏览器截图的使用和支持边界。
 - [memory.md](memory.md)：长期记忆使用与作用域；完整 Project 能力与 Global 首版分开。

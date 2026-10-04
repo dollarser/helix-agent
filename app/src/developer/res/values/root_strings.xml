@@ -1,9 +1,9 @@
 <resources>
     <string name="root_title">Root（开发者能力）</string>
-    <string name="root_warning">仅在点击请求后向 Root 管理器申请授权。RootSession 默认 10 分钟无操作失效；高层只读工具仍经过 Policy 和适用的审批解析。</string>
+    <string name="root_warning">诊断复用 Helix 的 Root 授权，但使用独立的前台连接；未获授权时管理器可能询问。此连接不会启用 Mobile Use。诊断会话默认闲置 10 分钟失效，工具仍经过权限检查。</string>
     <string name="root_state">授权：%1$s · 服务：%2$s · 会话：%3$s</string>
     <string name="root_scope_system_etc">本次会话允许读取 /system/etc（模型只看到 system-etc）</string>
-    <string name="root_request">请求 Root</string>
+    <string name="root_request">连接 Root 诊断服务</string>
     <string name="root_session_start">开始会话</string>
     <string name="root_stop">立即断开</string>
 </resources>

@@ -22,6 +22,7 @@ class EnumsContractTest {
                 "SAF_DOCUMENT_TREE",
                 "MANAGE_ALL_FILES",
                 "ACCESSIBILITY_AUTOMATION",
+                "MOBILE_USE",
                 "ROOT_SHELL",
                 "NOTIFICATION_READ",
                 "CALENDAR_WRITE",

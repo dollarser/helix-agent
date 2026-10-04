@@ -5,6 +5,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RootAccessControllerTest {
+    @Test fun observingSharedAppGrantNeverConnectsOrAuthorizesThisService() {
+        val driver = FakeRootDriver(cachedGrant = true)
+        val controller = RootAccessController(driver)
+        assertEquals(true, controller.cachedAppGrant)
+        assertEquals(unavailable(), controller.status())
+        driver.cachedGrant = false
+        assertEquals(false, controller.cachedAppGrant)
+        driver.cachedGrant = null
+        assertNull(controller.cachedAppGrant)
+        assertEquals(0, driver.requestCount)
+        assertEquals(0, driver.bindCount)
+    }
+
     @Test
     fun profileChangesAndStatusReadsNeverRequestRoot() {
         val driver = FakeRootDriver()

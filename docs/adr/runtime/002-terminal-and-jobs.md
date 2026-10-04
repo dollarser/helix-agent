@@ -63,6 +63,8 @@ Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变�
 
 ## Decision history
 
+- 2026-10-04：修复所有者报告的 guest FFmpeg linker/ICU 启动失败：直接映射可读的 `/linkerconfig/ld.config.txt`，不以其目录的可访问性为前提；只在媒体包装脚本内设置固定的 APK 与 ICU APEX 库搜索路径。仍复用原 Job/PTY、原样转发参数，不改 RootFS、不复制平台库、不新增执行域。
+
 - 2026-10-02：按所有者“复用高级版已有的 Bash／Linux Job”裁决，HXA-240 撤回未验收的独立媒体运行时接线，采用既有 PRoot 内 Bionic CLI 桥；生产状态以 HXA-240 当前证据为准，历史 Ready/Plus 设备记录不是本桥接的验收。
 
 - 2026-10-02 复核：终态记录可能先于物理进程/输出泵清理，前台服务必须等该 Job 的物理槽结束才撤销；不能把 `state.isTerminal` 单独当作退出证明。并发 cold bind 的 Runner 构造保持单例。两项只维护运行稳定性，不恢复用户结果锁。

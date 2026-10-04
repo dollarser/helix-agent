@@ -9,6 +9,18 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SkillRepositoryTest {
+    @Test fun disabledSkillCanBeInspectedButCannotBeReadForExecution() {
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("inspect-skill")
+        val repository = SkillRepository(root.resolve("snapshots"), root.resolve("state"), root.resolve("trash"))
+        val key = repository.list().first().key
+        repository.setEnabled(key, false, SkillEnablementScope.GLOBAL)
+        assertTrue(repository.inspect(key).rawContent.contains("name: ${key.name}"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { repository.read(key) }
+        assertTrue(!repository.list().single { it.key == key }.enabled)
+    }
+
     @Test
     fun `built-ins default globally enabled and session override does not change global state`() {
         val roots = roots()

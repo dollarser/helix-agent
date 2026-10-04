@@ -28,11 +28,14 @@ fun FilesScreen(
     safTree: SafTreeScopeService,
     featureFiles: FeatureFiles,
     terminalAvailable: Boolean = false,
+    initialDirectory: com.helix.core.workspace.FileScopePath? = null,
+    handoff: FileConversationHandoff? = null,
+    initialFile: com.helix.core.workspace.FileScopePath? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
-    val state = remember(fileManager) { FilesScreenState(fileManager) }
+    val state = rememberFilesScreenState(fileManager, initialDirectory, initialFile)
     val openSharedStorage = rememberSharedStorageNavigation(state, fileManager)
     val actions = FilesScreenActions(state, fileManager, safTree, featureFiles, scope, context, resources)
     BackHandler(enabled = !state.homeOpen) { state.goBack() }
@@ -62,8 +65,13 @@ fun FilesScreen(
             FilesDirectoryEffects(state, actions)
             FilesPreviewEffects(state, actions)
             FilesScopeEffects(state, actions)
-            FilesRecoverableLayout(state, actions, openSharedStorage, terminalAvailable)
-            state.FilesPreviewDialog(actions)
+            Column {
+                if (!state.homeOpen && handoff != null) {
+                    FileDirectoryTask(state, handoff)
+                }
+                FilesRecoverableLayout(state, actions, openSharedStorage, terminalAvailable)
+            }
+            state.FilesPreviewDialog(actions, handoff)
             FilesMutationDialogs(state, actions)
             WorkspaceCleanupDialog(state, actions)
             FilesImportDialog(
@@ -83,7 +91,7 @@ fun FilesScreen(
 private fun FilesRecoverableLayout(
     state: FilesScreenState,
     actions: FilesScreenActions,
-    openSharedStorage: () -> Unit,
+    openSharedStorage: (String) -> Unit,
     terminalAvailable: Boolean,
 ) {
     val context = LocalContext.current
@@ -99,4 +107,26 @@ private fun FilesRecoverableLayout(
     Box(Modifier.fillMaxSize()) {
         FilesScreenLayout(state, actions, openSharedStorage, openTerminal)
     }
+}
+
+@Composable
+private fun rememberFilesScreenState(
+    fileManager: FileManagerService,
+    initialDirectory: com.helix.core.workspace.FileScopePath?,
+    initialFile: com.helix.core.workspace.FileScopePath?,
+): FilesScreenState {
+    val state =
+        remember(fileManager, initialDirectory, initialFile) {
+            FilesScreenState(fileManager).apply {
+                initialDirectory?.let {
+                    selectedScopeId = it.scopeId
+                    currentPath = it.relativePath
+                    homeOpen = false
+                }
+                initialFile?.let {
+                    openFile = FileManagerService.FileEntry(it.name, it.relativePath, false, 0, 0)
+                }
+            }
+        }
+    return state
 }

@@ -69,6 +69,8 @@ internal fun TasksScreen(
     onOpenSession: (String) -> Unit,
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     initialTurnId: String? = null,
+    sessionFilter: Set<String>? = null,
+    projectTasks: List<com.helix.app.chat.BackgroundTaskUi>? = null,
     onBack: (() -> Unit)? = null,
 ) {
     val selectedPlanState = remember { mutableStateOf<String?>(null) }
@@ -121,7 +123,12 @@ internal fun TasksScreen(
         if (onBack != null) TasksTurnBackBar(onBack)
         Box(Modifier.fillMaxSize()) {
             TasksRowList(
-                tasksDashboardRows(tasks, goals, plans, jobs),
+                tasksDashboardRows(
+                    (projectTasks ?: tasks).filter { sessionFilter == null || it.sessionId in sessionFilter },
+                    goals.filter { sessionFilter == null || it.sessionId in sessionFilter },
+                    if (sessionFilter == null) plans else emptyList(),
+                    jobs.filter { sessionFilter == null || it.sessionId in sessionFilter },
+                ),
                 service,
                 onOpenSession,
                 { resultTurn = it },

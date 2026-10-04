@@ -51,7 +51,9 @@ class AutomationWaiter(
                 val needsQuery = condition in setOf(AutomationWaitCondition.PRESENT, AutomationWaitCondition.ABSENT)
                 val emptyQuery =
                     listOf(query.text, query.contentDescription, query.viewId, query.className).all { it == null } &&
-                        query.clickable == null
+                        query.clickable == null &&
+                        query.checkable == null &&
+                        query.checked == null
                 if (found == null && (needsQuery || !emptyQuery)) {
                     return AutomationWaitResult(AutomationWaitStatus.INVALID_ARGUMENT, observation = latest)
                 }

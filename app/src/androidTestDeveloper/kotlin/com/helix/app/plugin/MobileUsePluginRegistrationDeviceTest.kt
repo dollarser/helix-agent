@@ -23,6 +23,20 @@ class MobileUsePluginRegistrationDeviceTest {
                 .randomUUID()
                 .toString()
         container.storage.sessions.create(session, "Native fixture", null, null, 0)
+        val lines =
+            com.helix.app.internal
+                .PrefsLineStore(app, "helix-mobile-use", synchronous = true)
+        val globalKey =
+            "mobile-use-conversation-" +
+                java.security.MessageDigest
+                    .getInstance("SHA-256")
+                    .digest("plugin:mobile-use:global".toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+        val originalLines = lines.lines(globalKey)
+        val grants =
+            com.helix.core.policy
+                .MobileUseGrantStore(lines::lines, lines::setLines)
+        grants.configureGlobal(setOf(app.packageName), false)
         try {
             service.setEnabled(record.id, true)
             val old = tools.snapshot().first { it.descriptor.origin is ToolOrigin.PluginOrigin }.ref
@@ -42,6 +56,8 @@ class MobileUsePluginRegistrationDeviceTest {
                 service.remove(service.list().single { it.id == record.id })
             }
         } finally {
+            grants.revoke(session)
+            lines.setLines(globalKey, originalLines)
             service.setEnabled(record.id, record.enabled)
             container.storage.deleteSessionPermanently(session)
         }
@@ -63,8 +79,10 @@ class MobileUsePluginRegistrationDeviceTest {
                 "ui.snapshot",
                 "ui.find",
                 "ui.click",
+                "ui.click_match",
                 "ui.long_click",
                 "ui.set_text",
+                "ui.ime_enter",
                 "ui.set_progress",
                 "ui.scroll",
                 "ui.back",

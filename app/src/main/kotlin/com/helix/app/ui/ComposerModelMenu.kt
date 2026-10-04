@@ -27,6 +27,7 @@ import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderSetupStep
 import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.core.model.ProviderProvisioningKind
 
 private fun matchesModelQuery(
     row: ProviderRowUi,
@@ -80,6 +81,12 @@ internal fun ComposerModelMenu(
     onSelect: (String, String) -> Unit,
     onManageModels: (() -> Unit)? = null,
     openRequest: Int = 0,
+    sourceGroups: List<ProviderProvisioningKind> =
+        listOf(
+            ProviderProvisioningKind.USER_CONFIGURED,
+            ProviderProvisioningKind.ON_DEVICE_ASSET,
+        ),
+    onConfigureSource: ((ProviderProvisioningKind) -> Unit)? = null,
     reasoningContent: (@Composable () -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -103,6 +110,7 @@ internal fun ComposerModelMenu(
     Box {
         TextButton({
             requestedModel = null
+            query = ""
             expanded = true
         }, enabled = enabled, modifier = Modifier.testTag("chat-model-menu")) {
             Text(
@@ -132,6 +140,18 @@ internal fun ComposerModelMenu(
                         }
                         ModelReasoningOptions(providerId, model, requestedModel, reasoningContent)
                         IndicatedLazyColumn(Modifier.heightIn(max = 360.dp)) {
+                            item {
+                                if (onConfigureSource != null || onManageModels != null) {
+                                    ModelSourceActions(sourceGroups) { source ->
+                                        expanded = false
+                                        if (onConfigureSource != null) {
+                                            onConfigureSource(source)
+                                        } else {
+                                            onManageModels?.invoke()
+                                        }
+                                    }
+                                }
+                            }
                             if (entries.isEmpty()) {
                                 item {
                                     Text(
@@ -151,9 +171,13 @@ internal fun ComposerModelMenu(
                                 }
                             }
                             items(pendingProviders, key = { "setup:${it.id}" }) { row ->
+                                val navigateToSource =
+                                    onConfigureSource?.let { configure ->
+                                        { configure(row.provisioning) }
+                                    } ?: onManageModels
                                 ModelSetupRow(
                                     row,
-                                    onManageModels?.let { navigate ->
+                                    navigateToSource?.let { navigate ->
                                         {
                                             expanded = false
                                             navigate()

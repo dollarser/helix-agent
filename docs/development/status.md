@@ -8,11 +8,33 @@
 
 2026-10-01 会话上下文圆环、手动无收益压缩与 Antigravity `ask_user` 回放校验已完成定向修复；主机、API36 及所选真实模型的候选续答/压缩范围见[验证记录](../evidence/development/session-context-ask-user-2026-10-01.md)。
 
-更新：2026-10-01。本页只维护当前基线、开放工作、下一步及限制；测试数字、命令、提交/安装过程留在链接记录。现场 HEAD、工作树、远端和设备须重新核对，不从历史“本轮未提交/未推送”推导当前状态。
+更新：2026-10-05。本页只维护当前基线、开放工作、下一步及限制；测试数字、命令、提交/安装过程留在链接记录。现场 HEAD、工作树、远端和设备须重新核对，不从历史“本轮未提交/未推送”推导当前状态。
+
+2026-10-05 所有者要求优化 Mobile Use 决策链路：默认加入有界等待、拆分工具描述、按实际工具清单注入共用指导，补等待超时恢复提示与模型结束原因诊断；[实现与验证边界](../evidence/development/mobile-use-tool-guidance-2026-10-05.md)。不使用关键词强制续跑，不将主机检查等同于真实模型自主完成率；本轮设备与模型 not requested。
+
+2026-10-05 按所有者要求在 API36 模拟器持续真实模型测试，Helix 已完成抖音和酷安安装，均有系统包事实；抖音使用同会话续行，酷安新会话完成下载安装。已修复默认应用启动工具缺失、精确点击缺参提示及动态页面的节点目标校验；最终候选主机和无普通无障碍的 Shizuku 节点观察/点击通过。详见[安装过程、失败尝试与验证边界](../evidence/development/douyin-coolapk-model-install-2026-10-05.md)。
+
+2026-10-05 根据自主安装日志优化深层语义采集：提高遍历深度、公开截断原因、压缩默认快照，并为不完整观察提供明确的视觉续行提示；[修复与验证范围](../bug-fixes/2026-10-05-mobile-use-observation-truncation.md)。本次未启动设备或真实模型回归，不覆盖上一轮安装失败结论。
+
+2026-10-05 所有者追加默认高权限语义观察：snapshot/find/wait 与节点动作已按可用 Root → Shizuku → Accessibility 接线，并修复私有服务连接重建；主机和 API36 关闭普通无障碍的 Shizuku 观察通过。已卸载抖音，两轮自主安装分别超时和模型过早结束，最终仍未安装，不能视为端到端通过，见[验证与剩余边界](../evidence/development/mobile-use-privileged-semantics-2026-10-05.md)。
+
+2026-10-04 所有者追加抖音安装诊断和扩展统一交互：已修复缺失父目录写入的错误边界、部分 Mobile Use 曝光和正常前台服务停止竞态；扩展默认已添加、统一会话能力选择。主机门禁及 API36 定向界面回归通过，Shizuku 截图/手势已实际安装抖音；一次真实模型任务超时，不能算自主安装通过，见[记录](../evidence/development/douyin-and-unified-extensions-2026-10-04.md)。
+
+2026-10-04 所有者要求当前会话单击直达、占用按每次模型调用刷新、工作期间显示消息队列并支持单项立即发送。已接入现有 Queue/Steer 与持久投递通知，保留 FIFO、原输入身份及 Stop 停泊边界；[实现与验证](../bug-fixes/2026-10-04-conversation-queue-and-live-usage.md)。本轮仅主机验证，设备 not requested。
+
+2026-10-04 所有者要求 Mobile Use 屏幕观察、截图和手势独立于 Helix 无障碍服务：Root/Shizuku 已接入封闭屏幕协议，按范围选择整屏或无障碍窗口截图，并分离 MOBILE_USE 与无障碍能力入口；[独立屏幕工具记录](../bug-fixes/2026-10-04-mobile-use-privileged-screen.md)。上一轮已安装独立点击版本，本轮仅做主机验证，未更新模拟器、未运行设备功能测试。
+
+2026-10-04 所有者明确 Mobile Use 按功能开放：无需权限全开，无障碍未连接时可开启授权范围内的应用查询，屏幕操作单独检查服务条件，并提示补充权限。Root/Shizuku 保持可选；[修复与验证](../bug-fixes/2026-10-04-mobile-use-enablement.md)。设备 not requested。
+
+2026-10-04 所有者追加 [HXA-247 文件与会话交接](tasks/HXA-247.md)：完善独立文件管理器的最近/收藏、附件交接、目录任务与成果定位。沿用 [ADR-WORKSPACE-002](../adr/workspace/002-manual-files-and-recovery.md) 的权限与引用边界；本地主机与双渠道制品已通过，进入收尾验收；[证据](../evidence/development/hxa247-file-workflow-host-2026-10-04.md)保留设备 not requested 边界，不扩大为全盘索引或整轮修改恢复。
+
+2026-10-04 所有者追加 [HXA-246 本机项目](tasks/HXA-246.md)：参考竞品统一项目、会话、目录与共享记忆；明确不兼容旧接口和旧开发数据库。项目持久化、四类详情视图、成员生命周期与项目记忆接线已完成本地主机交付，设计见 [ADR-WORKSPACE-005](../adr/workspace/005-projects.md) 和 [产品说明](../product/projects.md)。当前收尾验收，[证据](../evidence/development/hxa246-projects-host-2026-10-04.md)保留设备 not requested 边界；不以此重开其他已完成任务。
 
 所有订阅的账号/模型设置已按所有者要求统一收敛；取消默认模型，新会话仅继承当前精确模型，无绑定则为空。[实现与定向验证](../evidence/development/subscription-model-settings-2026-09-30.md)。
 
 最新 Antigravity 定向修复：用户确认登录成功；API36 Developer 上精确模型 `gemini-3.8-flash-tiered` 已通过真实基础生成、会话选模和短聊天。修复 SSE 查询参数及 16-token 探测额度导致的假 PROTOCOL；[证据与边界](../evidence/development/antigravity-foreground-login-2026-09-30.md)。这不代表其他模型或工具/视觉能力已验证，下文较早“真实订阅未通过”保留为当时记录。
+
+2026-10-05 所有者追加 Mobile Use 插件全局设置、会话启停、集中授权与可展开内容清单；内置 `android-ui-task` 随实际插件工具自动注入，不再独立配置。实现与主机验证范围见[记录](../evidence/development/mobile-use-plugin-settings-2026-10-05.md)；设备与真实模型 not requested。
 
 ## Completed
 
@@ -26,7 +48,7 @@
 | 自主视觉 | [HXA-225](../completion-records/HXA-225.md)：view_image、浏览器视觉回填、三协议编码和有界校验；[产品边界](../product/image-reading.md) | 有限工具看图验证不覆盖全部协议、手机整屏截图或设备内视觉 |
 | Linux Job/终端 | [HXA-196](../completion-records/HXA-196.md)～[199](../completion-records/HXA-199.md)：后台 Job 与双 PTY；[HXA-236](tasks/HXA-236.md) 的原身份观察、jobs.await 和停止等待已接线并完成基础主机验证 | 完整 J1 的本地衔接与设备仍开放；AUTO/手动后台化尚未交付 |
 | 扩展 | [HXA-129](../completion-records/HXA-129.md)、[130](../completion-records/HXA-130.md)、[212](../completion-records/HXA-212.md)；[HXA-235](tasks/HXA-235.md) 已接统一安装目录、会话选择与停用/更新/修复，主机通过 | 不重做 R3 主体；真实 Room/设备旅程尚未验收 |
-| Workspace/Memory | [HXA-210](../completion-records/HXA-210.md)、[目录恢复](../evidence/development/recoverable-workspace-2026-09-27.md)、[HXA-230](../completion-records/HXA-230.md) | Global 已交付，完整 Project 接线仍未启用 |
+| Workspace/Memory | [HXA-210](../completion-records/HXA-210.md)、[目录恢复](../evidence/development/recoverable-workspace-2026-09-27.md)、[HXA-230](../completion-records/HXA-230.md)、[HXA-246](tasks/HXA-246.md) | Global 已交付；Project 已完成本地主机接线，设备验收未请求 |
 | 设备内模型 | [HXA-222](../completion-records/HXA-222.md)、[收口](../evidence/development/hxa222-closeout-2026-09-28.md)、[安装](../evidence/development/p3-local-model-install-2026-09-28.md)/[首次使用](../evidence/development/p4-first-success-journey-2026-09-28.md) | 本地 Provider 可驱动完整 Loop，不等于所有设备与任务质量已验证 |
 | Eval/整合 | [HXA-227](../completion-records/HXA-227.md)、[设备基线](../evidence/development/hxa227-device-baseline-2026-09-27.md)、[历史真机验收](../evidence/development/physical-oneplus-acceptance-2026-09-24.md) | 每份证据仅覆盖原基线；公共 benchmark 与生产 Harness 分开报告 |
 
@@ -48,6 +70,14 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 ## In progress
 
+2026-10-04 追加的模拟短按已接入 Root/Shizuku 精确点击：同点请求持续 60–120 ms，保留既有落点 guard 与 UNKNOWN 不重放；无障碍语义和视觉手势不变。22 项定向主机测试、developer 构建/设备测试编译及静态检查通过；随后获明确授权的 API36 Shizuku、API34 Root 两组模拟器用例通过，共 6 次短按，实测 73–125 ms。测试前应用与设置已恢复；[设备证据与剩余边界](../evidence/development/mobile-use-touch-press-device-2026-10-04.md)。环境伪造未实现，不承诺规避检测。[实现说明](../research/topics/mobile-use-packageinstaller-visibility-vision-and-privileged-backends-2026-10-04.md#31-模拟点击的短按持续时间)。
+
+2026-10-04 追加的精确点击扰动已接入 Root/Shizuku 共用路径：每轴最多目标尺寸 5% 且不超过 4 像素，小目标收缩，实际坐标仍经原 guard；视觉坐标额外扰动为零。19 项特权路径主机测试、developer 构建与静态检查通过，设备验证 not requested；[实现与验证边界](../research/topics/mobile-use-packageinstaller-visibility-vision-and-privileged-backends-2026-10-04.md#29-精确坐标点击的小幅扰动)。
+
+2026-10-04 随后的 Mobile Use 插件优化已补标准根/宿主清单共存和工作区目录导入，宿主 scope/data origin 按插件完整工具契约匹配，并澄清精确点击的后端范围。242 项定向主机测试报告、双渠道 debug 构建及静态检查通过；本轮设备验证 not requested。保持插件/自动化执行底座分层，未新增独立 Agent 或第三方原生代码沙箱；[优化证据与剩余边界](../evidence/development/mobile-use-plugin-optimization-2026-10-04.md)。
+
+2026-10-04 所有者追加 Mobile Use Root/Shizuku 接入：选择现有 Shizuku client，不自建 ADB，随后验证并接入应用 Root。精确 `ui.click_match` v5 默认按已授权且连接的 Root → Shizuku → Accessibility 选择一次；Mobile Use Root 连接有显式授权/断开入口并支持跨应用。170 项定向 JVM、API34 Root 安装/断开回退及 API36 Shizuku 自动更新/设置共 4 项设备用例、渠道 APK 检查通过。仍需无障碍连接，其他操作未迁移为完整特权后端。插件身份成立，automation 为执行底座，暂不合并模块；详见[当前验证与边界](../evidence/development/mobile-use-root-priority-2026-10-04.md)和[前阶段 Shizuku 证据](../evidence/development/mobile-use-shizuku-integration-2026-10-04.md)。未提交/推送，不代表真机/OEM 或发布验收。
+
 所有者追加 [HXA-245](tasks/HXA-245.md)：Mobile Use 插件拥有半透明穿透状态窗、独立接管/回会话控制和截图/手势避让；宿主仅暴露通用任务接口，不改变持久授权、不新增规划循环。已完成本轮主机、API29/36 双渠道常规清单与故障矩阵修复复验，见[分项证据](../evidence/development/hxa245-emulator-validation-2026-10-03.md)。条件跳过、浏览器资源 pilot 不确定及未覆盖的真机/OEM、真实服务/媒体端到端继续单列，不宣称全产品/发布验收。按所有者授权已本地提交为 `22afd418`、`6612319f`、`510b625e`、`9e57a1e4`；未推送。
 
 当前 [HXA-244](tasks/HXA-244.md)（2026-10-03，基线 `aa596b0c`）已完成主机/Debug 制品收尾：用户/系统应用搜索多选，Mobile Use 授权持久绑定各 Conversation，直到用户主动关闭。锁屏、进程/设备重启、服务断开仅影响可重建运行态；后续原生截图和用户切换模型不重复确认，原会话/批准范围/图片来源仍逐调用检查。最终联合检查、227 个重点不同方法、6 项 Python 回归及五份 APK 身份核验见[交付证据](../evidence/development/hxa244-conversation-mobile-use-host-2026-10-03.md)。按所有者授权本地提交，不推送；Git 状态以实际记录为准，设备未请求。
@@ -64,7 +94,7 @@ R1 的生产迁移、全部来源切换、交错反例和验证已由 [HXA-231 �
 
 所有者追加的 [HXA-237](tasks/HXA-237.md) 已完成订阅测试引导、Codex 客户端兼容版本输入、终端帮助/字体/键盘及开发者入口的本地主机交付，见[验证记录](../evidence/development/hxa237-subscription-terminal-2026-10-01.md)；设备/真实服务未执行，保留收尾验收。上一阶段已保存为 `aca92e11`，未推送；阶段证据中的未提交状态是当时快照，不再作为当前事实。
 
-本轮本地主机与文档阶段收尾见[阶段记录](../evidence/development/phase-closeout-2026-10-01.md)。[HXA-126](tasks/HXA-126.md)、[233](tasks/HXA-233.md)、[234](tasks/HXA-234.md)、[235](tasks/HXA-235.md) 为本地交付后的收尾验收，不重复实施主体。[HXA-236](tasks/HXA-236.md) 已补统一 JobObservation 上下文、可信类型进展判定及联合回归接线，当前为收尾验收；[后续记录](../evidence/development/hxa236-context-progress-2026-10-01.md)维护最新主机结果与设备/真实模型边界。同步修复用户反馈 v0.0.4 的一项[终端提交前占用泄漏](../bug-fixes/2026-10-01-execution-busy-pre-submit.md)，不把所有 BUSY 当作缺陷或强制释放未知执行。J2/Project Memory 尚未启动。
+本轮本地主机与文档阶段收尾见[阶段记录](../evidence/development/phase-closeout-2026-10-01.md)。[HXA-126](tasks/HXA-126.md)、[233](tasks/HXA-233.md)、[234](tasks/HXA-234.md)、[235](tasks/HXA-235.md) 为本地交付后的收尾验收，不重复实施主体。[HXA-236](tasks/HXA-236.md) 已补统一 JobObservation 上下文、可信类型进展判定及联合回归接线，当前为收尾验收；[后续记录](../evidence/development/hxa236-context-progress-2026-10-01.md)维护最新主机结果与设备/真实模型边界。同步修复用户反馈 v0.0.4 的一项[终端提交前占用泄漏](../bug-fixes/2026-10-01-execution-busy-pre-submit.md)，不把所有 BUSY 当作缺陷或强制释放未知执行。J2 原状态不变；Project Memory 的后续接线由 HXA-246 覆盖。
 
 | 开放工作 | 已有基础 | 仍需处理的范围 |
 | --- | --- | --- |
@@ -97,7 +127,7 @@ HXA-239 本地实现和主机整合完成；下一独立开发仍按 J2-1 AUTO �
 | --- | --- | --- |
 | 1．HXA-239 / 238 / 236 收尾验收 | 输入体验与执行接线已有主机交付，实际设备/模型仍待补 | 原身份与未知事实仍可查，但不阻挡普通无关任务；不把放通执行变成放宽权限，也不由编译证明手机验收 |
 | 2．J2-1 → J2-2 | 同次执行 AUTO，再接“继续在后台”按钮 | 原执行身份、日志、预算与租期不变；证明无重新启动/重复副作用，取消/终态竞争与 UI 回执明确 |
-| 3．Project Memory | 显式项目身份、会话关联、请求冻结、隔离及管理接线 | Global 已有；不能用 Workspace 路径代替 Project，验证切换/fork/撤销/跨项目污染 |
+| 3．Project Memory | HXA-246 完成本地主机接线：显式项目身份、会话关联、在途身份约束与管理 | 不能用 Workspace 路径代替 Project；设备未请求，保留实际交互/重开验收边界 |
 | 条件性补验 | HXA-232 故障矩阵/真实恢复；233/234/235/236/237/238/239 设备；125/126/190 服务；同候选 P5/独立内测 | 指定设备、账号及当次授权；缺条件只阻塞对应项，不把 fixture、编译或旧绿色当通过 |
 | 有证据再做 | R2-B、工具发现/Mobile Use、模型/Memory 效果与长稳 | 固定对照或实际瓶颈；区分完成率、时延、成本、资源与 OEM，不凭减少 token 宣称提升 |
 | 发行 | HXA-120 → 122 → 121 → 123 | 渠道审计→身份/签名/升级承诺→同签名候选验收→材料/提交；发布另需明确授权 |

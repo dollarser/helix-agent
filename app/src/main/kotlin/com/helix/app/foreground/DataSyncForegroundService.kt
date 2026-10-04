@@ -31,6 +31,7 @@ import com.helix.app.R
  */
 class DataSyncForegroundService : Service() {
     private var latestStartId = 0
+    private var stoppingNormally = false
 
     override fun onCreate() {
         super.onCreate()
@@ -43,7 +44,18 @@ class DataSyncForegroundService : Service() {
 
     override fun onDestroy() {
         if (runningInstance.compareAndSet(this, null) && transportRequested.getAndSet(false)) {
-            stopTasks("FGS_SERVICE_LOST")
+            if (stoppingNormally) {
+                // A new turn can request transport after stopSelfResult accepted an older stop.
+                // Restart its notification instead of cancelling unrelated newly admitted work.
+                tryForegroundStart({
+                    AndroidForegroundServiceLauncher(applicationContext).start()
+                }, {
+                    transportRequested.set(false)
+                    stopTasks("FGS_START_REJECTED")
+                })
+            } else {
+                stopTasks("FGS_SERVICE_LOST")
+            }
         }
         super.onDestroy()
     }
@@ -113,7 +125,10 @@ class DataSyncForegroundService : Service() {
 
     private fun stopLatestStart() {
         // Never cancel a newer start still waiting for onStartCommand / foreground promotion.
-        if (stopSelfResult(latestStartId)) stopForeground(STOP_FOREGROUND_REMOVE)
+        if (stopSelfResult(latestStartId)) {
+            stoppingNormally = true
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
     }
 
     private fun stopDataSync() {

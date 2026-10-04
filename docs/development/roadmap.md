@@ -280,3 +280,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-243 | 收尾验收 | Mobile Use 全机许可、原生手势/截图与结果收敛 | [任务规格](tasks/HXA-243.md) |
 | HXA-244 | 收尾验收 | Conversation 持久授权、应用选择与屏幕共享 | [任务规格](tasks/HXA-244.md) |
 | HXA-245 | 收尾验收 | Mobile Use 插件半透明穿透悬浮交互 | [任务规格](tasks/HXA-245.md) |
+| HXA-246 | 收尾验收 | 本机项目与跨会话工作组织 | [任务规格](tasks/HXA-246.md) |
+| HXA-247 | 收尾验收 | 文件发现、会话交接与成果定位 | [任务规格](tasks/HXA-247.md) |

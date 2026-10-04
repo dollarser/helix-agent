@@ -139,7 +139,7 @@ class ConversationArtifactsDeviceTest {
             compose.onNodeWithTag("chat-artifacts-open").assertTextContains("(4)", substring = true)
         }
 
-    @Test fun inputOnlySessionDoesNotAdvertiseOutputs() =
+    @Test fun inputOnlySessionShowsAnExplicitEmptyOutputsEntry() =
         runBlocking<Unit> {
             compose.resetDeterministicUiState()
             val session = newSession()
@@ -152,7 +152,8 @@ class ConversationArtifactsDeviceTest {
                     .conversationArtifacts(session)
                     .isEmpty(),
             )
-            compose.onNodeWithTag("chat-artifacts-open").assertDoesNotExist()
+            awaitTag("chat-artifacts-open")
+            compose.onNodeWithTag("chat-artifacts-open").assertTextContains("(0)", substring = true)
         }
 
     private fun newSession(): String {

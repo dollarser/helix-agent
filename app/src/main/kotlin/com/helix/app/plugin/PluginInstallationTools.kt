@@ -30,9 +30,9 @@ internal object PluginInstallationTools {
                     version = ToolVersion(1),
                     description =
                         if (install) {
-                            "Install a reviewed local Connector JSON/ZIP with its exact hash; no connection."
+                            "Install a reviewed workspace plugin directory/JSON/ZIP with its exact hash; no connection."
                         } else {
-                            "Preview local MCP JSON or ZIP: hash, endpoints, Skills and diagnostics."
+                            "Preview a workspace plugin directory/JSON/ZIP: hash, endpoints, Skills and diagnostics."
                         },
                     inputSchema = Json.parseToJsonElement(if (install) INPUT else PREVIEW_INPUT).jsonObject,
                     outputSchema = Json.parseToJsonElement(if (install) OUTPUT else PREVIEW_OUTPUT).jsonObject,

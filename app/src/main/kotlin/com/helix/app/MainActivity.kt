@@ -80,18 +80,20 @@ import com.helix.app.ui.RuntimeSetupScreen
 import com.helix.app.ui.SETTINGS_AUDIT_ROUTE
 import com.helix.app.ui.SETTINGS_DEFAULTS_ROUTE
 import com.helix.app.ui.SETTINGS_PERMISSIONS_ROUTE
+import com.helix.app.ui.SETTINGS_STORAGE_ROUTE
 import com.helix.app.ui.SETTINGS_SYSTEM_PERMISSIONS_ROUTE
 import com.helix.app.ui.SETUP_CAPABILITIES_ROUTE
 import com.helix.app.ui.SETUP_READINESS_ROUTE
 import com.helix.app.ui.SETUP_RUNTIME_ROUTE
 import com.helix.app.ui.SessionSettingsScreen
 import com.helix.app.ui.SettingsScreen
-import com.helix.app.ui.SetupScreen
+import com.helix.app.ui.StorageUsageScreen
 import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
 import com.helix.app.ui.commandDetailRoute
 import com.helix.app.ui.secondaryRouteTitle
 import com.helix.app.ui.tasksTurnRoute
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -235,7 +237,7 @@ internal fun HelixApp(container: AppContainer) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val currentEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = currentEntry?.destination?.route ?: repository.initialDestination.route
+    val currentRoute = (currentEntry?.destination?.route ?: repository.initialDestination.route).substringBefore("?")
     val currentDestination = repository.destinations.firstOrNull { it.route == currentRoute }
     val currentSecondaryTitle = secondaryRouteTitle(currentRoute)
     val drawerIdentity =
@@ -305,13 +307,13 @@ internal fun HelixApp(container: AppContainer) {
                             navController.navigate(CONVERSATION_HISTORY_ROUTE) { launchSingleTop = true }
                             scope.launch { drawerState.close() }
                         },
-                    ) { destination ->
-                        if (destination == ShellDestination.Terminal) {
+                    ) { route ->
+                        if (route == ShellDestination.Terminal.route) {
                             com.helix.app.terminal.ManualTerminalModule
                                 .open(context, ".")
                             scope.launch { drawerState.close() }
                         } else {
-                            navController.navigate(destination.route) {
+                            navController.navigate(route) {
                                 launchSingleTop = true
                             }
                             scope.launch { drawerState.close() }
@@ -330,165 +332,255 @@ internal fun HelixApp(container: AppContainer) {
                     )
                 },
             ) { padding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = repository.initialDestination.route,
-                    modifier = Modifier.padding(padding),
-                    enterTransition = { fadeIn(tween(180)) + slideInHorizontally(tween(180)) { direction * it / 12 } },
-                    exitTransition = {
-                        fadeOut(
-                            tween(140),
-                        ) + slideOutHorizontally(tween(180)) { -direction * it / 12 }
-                    },
-                    popEnterTransition = {
-                        fadeIn(
-                            tween(180),
-                        ) + slideInHorizontally(tween(180)) { -direction * it / 12 }
-                    },
-                    popExitTransition = {
-                        fadeOut(
-                            tween(140),
-                        ) + slideOutHorizontally(tween(180)) { direction * it / 12 }
+                androidx.compose.runtime.CompositionLocalProvider(
+                    com.helix.app.ui.LocalFileLocation provides { path ->
+                        navController.navigate(
+                            com.helix.app.ui
+                                .fileLocationRoute(path),
+                        )
                     },
                 ) {
-                    repository.destinations.forEach { destination ->
-                        composable(destination.route) {
-                            DestinationScreen(
-                                destination,
-                                container,
-                                navController,
-                                onOpenDrawer = { scope.launch { drawerState.open() } },
+                    NavHost(
+                        navController = navController,
+                        startDestination = repository.initialDestination.route,
+                        modifier = Modifier.padding(padding),
+                        enterTransition = {
+                            fadeIn(tween(180)) + slideInHorizontally(tween(180)) { direction * it / 12 }
+                        },
+                        exitTransition = {
+                            fadeOut(
+                                tween(140),
+                            ) + slideOutHorizontally(tween(180)) { -direction * it / 12 }
+                        },
+                        popEnterTransition = {
+                            fadeIn(
+                                tween(180),
+                            ) + slideInHorizontally(tween(180)) { -direction * it / 12 }
+                        },
+                        popExitTransition = {
+                            fadeOut(
+                                tween(140),
+                            ) + slideOutHorizontally(tween(180)) { direction * it / 12 }
+                        },
+                    ) {
+                        repository.destinations.forEach { destination ->
+                            composable(
+                                destination.navigationRoute(),
+                                arguments = destination.navigationArguments(),
+                            ) { entry ->
+                                DestinationScreen(
+                                    destination,
+                                    container,
+                                    navController,
+                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                    initialModelSource =
+                                        ProviderProvisioningKind.entries.firstOrNull {
+                                            it.name ==
+                                                entry.arguments?.getString("source")
+                                        },
+                                )
+                            }
+                        }
+                        composable(
+                            com.helix.app.ui.FILE_LOCATION_ROUTE,
+                            arguments = listOf(navArgument("reference") { type = NavType.StringType }),
+                        ) { entry ->
+                            val path =
+                                com.helix.core.workspace.FileScopePath.fromModelReference(
+                                    requireNotNull(entry.arguments?.getString("reference")),
+                                )
+                            FilesScreen(
+                                container.fileManager,
+                                container.safTree,
+                                container.featureFiles,
+                                initialDirectory = path.parent,
+                                initialFile = path,
+                                handoff =
+                                    com.helix.app.ui.FileConversationHandoff(container.chatService) {
+                                        navigateToConversationRoot()
+                                    },
                             )
                         }
-                    }
-                    composable(CONVERSATION_HISTORY_ROUTE) {
-                        ConversationHistoryScreen(
-                            chatService = container.chatService,
-                            focusSearch = false,
-                            onOpenConversation = { sessionId ->
-                                container.chatService.openSession(sessionId)
-                                navigateToConversationRoot()
-                            },
-                            onNewConversation = {
-                                container.chatService.newSessionDraft()
-                                navigateToConversationRoot()
-                            },
-                        )
-                    }
-                    composable(CONVERSATION_SEARCH_ROUTE) {
-                        ConversationHistoryScreen(
-                            chatService = container.chatService,
-                            focusSearch = true,
-                            onOpenConversation = { sessionId ->
-                                container.chatService.openSession(sessionId)
-                                navigateToConversationRoot()
-                            },
-                            onNewConversation = {
-                                container.chatService.newSessionDraft()
-                                navigateToConversationRoot()
-                            },
-                        )
-                    }
-                    composable(CONVERSATION_SETTINGS_ROUTE) {
-                        SessionSettingsScreen(
-                            chatService = container.chatService,
-                            providerService = container.providerService,
-                            permissionEdit = container.sessionPermissionEdit,
-                            skills = container.skillRepository,
-                            connectors = container.pluginService,
-                            files = container.fileManager,
-                            onModels = { navController.navigate(ShellDestination.Models.route) },
-                            onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
-                        )
-                    }
-                    composable(SETUP_READINESS_ROUTE) {
-                        CapabilityReadinessScreen(
-                            container,
-                            onOpenModels = { navController.navigate(ShellDestination.Models.route) },
-                            onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
-                        )
-                    }
-                    composable(SETUP_CAPABILITIES_ROUTE) {
-                        CapabilitiesScreenDestination(
-                            container,
-                            onOpenSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                            onOpenSafety = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
-                            onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
-                            onOpenExtensions = { navController.navigate(ShellDestination.Extensions.route) },
-                        )
-                    }
-                    composable(SETUP_RUNTIME_ROUTE) {
-                        RuntimeSetupScreen(container.profileStore)
-                    }
-                    composable(SETTINGS_DEFAULTS_ROUTE) {
-                        AppAgentDefaultsScreen(container.runControlStore, container.chatService)
-                    }
-                    composable(SETTINGS_PERMISSIONS_ROUTE) {
-                        PermissionsSafetyScreen(
-                            profileStore = container.profileStore,
-                            egressRules = container.storage.highSensitivityRules,
-                            lanScopeStore = container.lanScopeStore,
-                            chatService = container.chatService,
-                            sessionPermissionEdit = container.sessionPermissionEdit,
-                            toolPipeline = container.toolPipeline,
-                            onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                        )
-                    }
-                    composable(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) {
-                        PermissionsScreenDestination(container)
-                    }
-                    composable(SETTINGS_AUDIT_ROUTE) {
-                        AuditScreenDestination(container)
-                    }
-                    // HXA-194: the command details page — its OWN route, not one of the drawer's
-                    // destinations: the back button (and the system back) return to exactly
-                    // the page the detail was opened from (the task page or the chat tool row).
-                    composable(
-                        COMMAND_DETAIL_ROUTE,
-                        arguments =
-                            listOf(
-                                navArgument("turnId") { type = NavType.StringType },
-                                navArgument("callId") { type = NavType.StringType },
-                            ),
-                    ) { entry ->
-                        CommandResultDetailScreen(
-                            container.chatService,
-                            requireNotNull(entry.arguments?.getString("turnId")),
-                            requireNotNull(entry.arguments?.getString("callId")),
-                            onBack = { navController.popBackStack() },
-                            onOpenSession = { sessionId ->
-                                container.chatService.openSession(sessionId)
-                                navController.navigate(ShellDestination.Sessions.route) {
-                                    launchSingleTop = true
-                                }
-                            },
-                        )
-                    }
-                    // HXA-203: "return to the producing task" — the task dashboard's own route
-                    // (same pattern as command details): it lands on the turn's result dialog
-                    // and system back returns to the page the artifact row was opened from.
-                    composable(
-                        TASKS_TURN_ROUTE,
-                        arguments =
-                            listOf(
-                                navArgument("turnId") { type = NavType.StringType },
-                            ),
-                    ) { entry ->
-                        TasksScreen(
-                            container.chatService,
-                            container.fileManager,
-                            onOpenSession = { sessionId ->
-                                container.chatService.openSession(sessionId)
-                                navController.navigate(ShellDestination.Sessions.route) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onOpenCommandDetail = { turnId, callId ->
-                                navController.navigate(commandDetailRoute(turnId, callId))
-                            },
-                            initialTurnId = requireNotNull(entry.arguments?.getString("turnId")),
-                            onBack = { navController.popBackStack() },
-                        )
+                        composable(com.helix.app.ui.PROJECT_ROUTE) { entry ->
+                            com.helix.app.ui.ProjectDetailScreen(
+                                container,
+                                requireNotNull(entry.arguments?.getString("projectId")),
+                                onOpenSession = { id ->
+                                    container.chatService.openSession(id)
+                                    navigateToConversationRoot()
+                                },
+                                onOpenDraft = { navigateToConversationRoot() },
+                                onDeleted = { navController.popBackStack() },
+                                onOpenTask = {
+                                    navController.navigate(
+                                        com.helix.app.ui
+                                            .tasksTurnRoute(it),
+                                    )
+                                },
+                                onOpenCommand = {
+                                    turnId,
+                                    callId,
+                                    ->
+                                    navController.navigate(commandDetailRoute(turnId, callId))
+                                },
+                            )
+                        }
+                        composable(CONVERSATION_HISTORY_ROUTE) {
+                            ConversationHistoryScreen(
+                                chatService = container.chatService,
+                                focusSearch = false,
+                                onOpenConversation = { sessionId ->
+                                    container.chatService.openSession(sessionId)
+                                    navigateToConversationRoot()
+                                },
+                                onNewConversation = {
+                                    container.chatService.newSessionDraft()
+                                    navigateToConversationRoot()
+                                },
+                            )
+                        }
+                        composable(CONVERSATION_SEARCH_ROUTE) {
+                            ConversationHistoryScreen(
+                                chatService = container.chatService,
+                                focusSearch = true,
+                                onOpenConversation = { sessionId ->
+                                    container.chatService.openSession(sessionId)
+                                    navigateToConversationRoot()
+                                },
+                                onNewConversation = {
+                                    container.chatService.newSessionDraft()
+                                    navigateToConversationRoot()
+                                },
+                            )
+                        }
+                        composable(CONVERSATION_SETTINGS_ROUTE) {
+                            SessionSettingsScreen(
+                                chatService = container.chatService,
+                                providerService = container.providerService,
+                                permissionEdit = container.sessionPermissionEdit,
+                                connectors = container.pluginService,
+                                files = container.fileManager,
+                                projects = container.projects,
+                                onProject = {
+                                    navController.navigate(
+                                        com.helix.app.ui
+                                            .projectRoute(it),
+                                    )
+                                },
+                                onModels = { navController.navigate(ShellDestination.Models.route) },
+                                onConfigureModelSource = { source ->
+                                    navController.navigate("${ShellDestination.Models.route}?source=${source.name}")
+                                },
+                                onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                            )
+                        }
+                        composable(SETUP_READINESS_ROUTE) {
+                            CapabilityReadinessScreen(
+                                container,
+                                onOpenModels = { navController.navigate(ShellDestination.Models.route) },
+                                onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+                            )
+                        }
+                        composable(SETUP_CAPABILITIES_ROUTE) {
+                            CapabilitiesScreenDestination(
+                                container,
+                                onOpenSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                                onOpenSafety = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
+                                onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+                                onOpenExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                            )
+                        }
+                        composable(SETUP_RUNTIME_ROUTE) {
+                            RuntimeSetupScreen(container.profileStore)
+                        }
+                        composable(SETTINGS_DEFAULTS_ROUTE) {
+                            AppAgentDefaultsScreen(container.runControlStore, container.chatService)
+                        }
+                        composable(SETTINGS_PERMISSIONS_ROUTE) {
+                            PermissionsSafetyScreen(
+                                profileStore = container.profileStore,
+                                egressRules = container.storage.highSensitivityRules,
+                                lanScopeStore = container.lanScopeStore,
+                                chatService = container.chatService,
+                                sessionPermissionEdit = container.sessionPermissionEdit,
+                                toolPipeline = container.toolPipeline,
+                                onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                                onOpenSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
+                            )
+                        }
+                        composable(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) {
+                            PermissionsScreenDestination(
+                                container,
+                            ) { navController.navigate(ShellDestination.Files.route) }
+                        }
+                        composable(SETTINGS_STORAGE_ROUTE) {
+                            StorageUsageScreen(
+                                load = { checkNotNull(container.storageUsage).snapshot() },
+                                cleanProviderEvidence =
+                                    if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+                                        { after ->
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                container.privacyDeletionService.cleanReplayEvidence(after)
+                                            }
+                                        }
+                                    } else {
+                                        null
+                                    },
+                            )
+                        }
+                        composable(SETTINGS_AUDIT_ROUTE) {
+                            AuditScreenDestination(container, navController)
+                        }
+                        // HXA-194: the command details page — its OWN route, not one of the drawer's
+                        // destinations: the back button (and the system back) return to exactly
+                        // the page the detail was opened from (the task page or the chat tool row).
+                        composable(
+                            COMMAND_DETAIL_ROUTE,
+                            arguments =
+                                listOf(
+                                    navArgument("turnId") { type = NavType.StringType },
+                                    navArgument("callId") { type = NavType.StringType },
+                                ),
+                        ) { entry ->
+                            CommandResultDetailScreen(
+                                container.chatService,
+                                requireNotNull(entry.arguments?.getString("turnId")),
+                                requireNotNull(entry.arguments?.getString("callId")),
+                                onBack = { navController.popBackStack() },
+                                onOpenSession = { sessionId ->
+                                    container.chatService.openSession(sessionId)
+                                    navController.navigate(ShellDestination.Sessions.route) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                            )
+                        }
+                        // HXA-203: "return to the producing task" — the task dashboard's own route
+                        // (same pattern as command details): it lands on the turn's result dialog
+                        // and system back returns to the page the artifact row was opened from.
+                        composable(
+                            TASKS_TURN_ROUTE,
+                            arguments =
+                                listOf(
+                                    navArgument("turnId") { type = NavType.StringType },
+                                ),
+                        ) { entry ->
+                            TasksScreen(
+                                container.chatService,
+                                container.fileManager,
+                                onOpenSession = { sessionId ->
+                                    container.chatService.openSession(sessionId)
+                                    navController.navigate(ShellDestination.Sessions.route) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                                onOpenCommandDetail = { turnId, callId ->
+                                    navController.navigate(commandDetailRoute(turnId, callId))
+                                },
+                                initialTurnId = requireNotNull(entry.arguments?.getString("turnId")),
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
                     }
                 }
             }
@@ -508,6 +600,7 @@ private fun DestinationScreen(
     container: AppContainer,
     navController: NavController,
     onOpenDrawer: () -> Unit,
+    initialModelSource: ProviderProvisioningKind? = null,
 ) {
     when (destination) {
         ShellDestination.Sessions -> {
@@ -524,9 +617,13 @@ private fun DestinationScreen(
                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
                 onNavigation = onOpenDrawer,
                 onModels = { navController.navigate(ShellDestination.Models.route) },
+                onConfigureModelSource = { source ->
+                    navController.navigate("${ShellDestination.Models.route}?source=${source.name}")
+                },
                 onAgentDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
                 onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
                 onSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
+                onGit = { navController.navigate(ShellDestination.Git.route) },
                 onOpenCommandDetail = { turnId, callId ->
                     navController.navigate(commandDetailRoute(turnId, callId))
                 },
@@ -579,26 +676,11 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Settings -> {
-            SettingsScreen(
-                onDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
-                onPermissions = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
-                onAudit = { navController.navigate(SETTINGS_AUDIT_ROUTE) },
-                storageUsage = container.storageUsage,
-                cleanProviderEvidence =
-                    if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-                        { after ->
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                container.privacyDeletionService.cleanReplayEvidence(after)
-                            }
-                        }
-                    } else {
-                        null
-                    },
-            )
+            SettingsScreen()
         }
 
         ShellDestination.Models -> {
-            ModelsConnectionsScreen(container.providerService)
+            ModelsConnectionsScreen(container.providerService, initialModelSource)
         }
 
         ShellDestination.Extensions -> {
@@ -607,14 +689,28 @@ private fun DestinationScreen(
                 container.skillInstallationService,
                 container.pluginService,
                 container.marketplaceService,
+                onSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
+                prepareSession = container.chatService::materializeOpenSession,
+                onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
             )
         }
 
+        ShellDestination.Projects -> {
+            container.projects?.let { service ->
+                com.helix.app.ui.ProjectsScreen(service, container.fileManager) { id ->
+                    navController.navigate(
+                        com.helix.app.ui
+                            .projectRoute(id),
+                    )
+                }
+            }
+        }
+
         ShellDestination.Setup -> {
-            SetupScreen(
-                onReadiness = { navController.navigate(SETUP_READINESS_ROUTE) },
-                onCapabilities = { navController.navigate(SETUP_CAPABILITIES_ROUTE) },
-                onRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+            CapabilityReadinessScreen(
+                container,
+                onOpenModels = { navController.navigate(ShellDestination.Models.route) },
+                onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
             )
         }
 
@@ -627,6 +723,10 @@ private fun DestinationScreen(
                 container.safTree,
                 container.featureFiles,
                 container.manualTerminal != null,
+                handoff =
+                    com.helix.app.ui.FileConversationHandoff(container.chatService) {
+                        navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                    },
             )
         }
 
@@ -648,8 +748,26 @@ private fun DestinationScreen(
 
 @Composable
 @Suppress("FunctionName")
-private fun PermissionsScreenDestination(container: AppContainer) {
+private fun PermissionsScreenDestination(
+    container: AppContainer,
+    onFileLocations: () -> Unit,
+) {
     com.helix.app.ui.SystemPermissionsScreen(
+        onFileLocations = onFileLocations,
+        automationPermissions = {
+            com.helix.app.automation.AutomationModule
+                .Permissions()
+        },
+        advancedPermissions =
+            if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+                {
+                    val profile by container.profileStore.flow.collectAsStateWithLifecycle()
+                    com.helix.app.root.RootModule
+                        .Section(profile)
+                }
+            } else {
+                null
+            },
         filePermissions =
             if (AllFilesModule.AVAILABLE) {
                 { AllFilesModule.render(container.profileStore) }
@@ -665,9 +783,18 @@ private fun PermissionsScreenDestination(container: AppContainer) {
  */
 @Composable
 @Suppress("FunctionName")
-private fun AuditScreenDestination(container: AppContainer) {
+private fun AuditScreenDestination(
+    container: AppContainer,
+    navController: NavController,
+) {
     val sessions by container.chatService.sessions.collectAsStateWithLifecycle()
-    AuditScreen(container.auditLogService, sessions, container.diagnosticReport)
+    AuditScreen(
+        container.auditLogService,
+        sessions,
+        container.diagnosticReport,
+        onReadiness = { navController.navigate(SETUP_READINESS_ROUTE) },
+        onCapabilities = { navController.navigate(SETUP_CAPABILITIES_ROUTE) },
+    )
 }
 
 /** Sessions own their header; all other routes share the same compact visual style. */
@@ -694,3 +821,19 @@ private fun ShellTopBar(
         }
     }
 }
+
+private fun ShellDestination.navigationRoute(): String =
+    if (this == ShellDestination.Models) "$route?source={source}" else route
+
+private fun ShellDestination.navigationArguments(): List<androidx.navigation.NamedNavArgument> =
+    if (this == ShellDestination.Models) {
+        listOf(
+            navArgument("source") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            },
+        )
+    } else {
+        emptyList()
+    }

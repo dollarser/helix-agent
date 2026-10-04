@@ -60,4 +60,63 @@ class MemoryServiceTest {
         assertThrows(IllegalArgumentException::class.java) { service.scope("project", "project-a") }
         assertEquals(MemoryScope.Project(ProjectMemoryScopeKey("project-a")), service.scope("project", "session-a"))
     }
+
+    @Test fun projectContextFollowsExplicitMembershipWithoutLeakingAcrossProjects() {
+        val membership = mutableMapOf("one" to "project-a", "two" to "project-b")
+        val service = service { membership[it]?.let(::ProjectMemoryScopeKey) }
+        service.configure("enabled", true)
+        service.save(
+            service.scope("project", "one"),
+            "memory_summary.md",
+            service.newMarkdown("user", "user", "Only project A knows this"),
+            "new",
+        )
+        assertTrue(service.context("one").contains("Only project A knows this"))
+        assertFalse(service.context("two").contains("Only project A knows this"))
+        membership["one"] = "project-b"
+        assertFalse(service.context("one").contains("Only project A knows this"))
+        membership.remove("one")
+        assertFalse(service.projectAvailable("one"))
+        assertThrows(IllegalArgumentException::class.java) { service.scope("project", "one") }
+        membership["one"] = "project-new-id"
+        assertTrue(service.list(service.scope("project", "one")).isEmpty())
+    }
+
+    @Test fun projectAutomaticWritesNeedTheirOwnExplicitSwitch() {
+        val service = service { ProjectMemoryScopeKey("project-a") }
+        val scope = service.scope("project", "session")
+        service.configure("enabled", true)
+        service.configure("auto-global", true)
+        service.requireModelAccess(scope, false)
+        assertThrows(IllegalStateException::class.java) { service.requireModelAccess(scope, true) }
+        service.configure("auto-project", true)
+        service.requireModelAccess(scope, true)
+        service.configure("enabled", false)
+        assertThrows(IllegalStateException::class.java) { service.requireModelAccess(scope, false) }
+    }
+
+    @Test fun toolProjectRequiresExactLiveDurableCallRatherThanSessionOnly() {
+        val service =
+            MemoryService(
+                MarkdownMemoryStore(temporary.root.toPath()),
+                { true },
+                { _, _ -> },
+                project = { ProjectMemoryScopeKey("project-b") },
+                projectForTool = { session, turn, call ->
+                    ProjectMemoryScopeKey("project-a").takeIf {
+                        session == "session" && turn == "turn" && call == "live-call"
+                    }
+                },
+            )
+        assertEquals(
+            MemoryScope.Project(ProjectMemoryScopeKey("project-a")),
+            service.scopeForTool("project", "session", "turn", "live-call"),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            service.scopeForTool("project", "session", "turn", "old-call")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            service.scopeForTool("project", "other-session", "turn", "live-call")
+        }
+    }
 }

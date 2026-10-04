@@ -20,9 +20,120 @@ enum class AutomationServiceState {
 @Suppress("TooManyFunctions")
 class AutomationPermissionCenter(
     context: Context,
+    private val shizuku: AutomationPrivilegedBackend? = null,
+    private val root: AutomationPrivilegedBackend? = null,
 ) {
     private val appContext = context.applicationContext
+    internal val privilegedDevice = AutomationPrivilegedDeviceHost(this)
+    private val privilegedSemantic =
+        AutomationPrivilegedSemanticHost(::liveDeviceGrant) {
+            preferredClickBackend().name.lowercase()
+        }
+
+    internal fun semanticSnapshot(call: com.helix.tools.framework.ExecutableToolCall): AutomationSnapshotResult {
+        val backend = deviceBackend()
+        return if (backend == null) {
+            AutomationServiceController.withPhysicalOperation { privilegedSemantic.invalidate() }
+            withConversation(call) { snapshot().copy(backend = "accessibility") }
+                ?: AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+        } else {
+            AutomationServiceController.withPhysicalOperation {
+                val ticket = AutomationServiceController.physicalInput.acquire()
+                if (ticket == null) {
+                    AutomationSnapshotResult(AutomationSnapshotStatus.UNSUPPORTED_UI)
+                } else {
+                    try {
+                        AutomationServiceController.invalidateObservations()
+                        privilegedSemantic.snapshot(call, backend)
+                    } finally {
+                        AutomationServiceController.physicalInput.release(ticket)
+                    }
+                }
+            }
+        }
+    }
+
+    internal fun semanticAction(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        request: AutomationNodeActionRequest,
+    ): AutomationActionResult =
+        if (!request.token.startsWith("p")) {
+            withConversation(call) { performNodeAction(request) }
+                ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        } else {
+            AutomationServiceController.withPhysicalOperation {
+                val ticket = AutomationServiceController.physicalInput.acquire()
+                if (ticket == null) {
+                    AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
+                } else {
+                    try {
+                        privilegedSemantic.action(call, request)
+                    } finally {
+                        AutomationServiceController.physicalInput.release(ticket)
+                    }
+                }
+            }
+        }
+
     private val allowlist = SharedPreferencesAutomationAllowlistStore(appContext)
+
+    fun shizukuState(): AutomationBackendState = shizuku?.state() ?: AutomationBackendState.UNAVAILABLE
+
+    fun rootState(): AutomationBackendState = root?.state() ?: AutomationBackendState.UNAVAILABLE
+
+    fun preferredClickBackend(): AutomationClickBackend = preferredAutomationClickBackend(rootState(), shizukuState())
+
+    internal fun deviceBackend(): AutomationPrivilegedBackend? =
+        listOfNotNull(root, shizuku).firstOrNull { it.supportsDevice && it.state() == AutomationBackendState.READY }
+
+    internal fun liveDeviceGrant(
+        call: com.helix.tools.framework.ExecutableToolCall,
+    ): com.helix.core.policy.MobileUseGrant? {
+        val id = call.sessionId ?: return null
+        return conversationGrant(id)?.takeIf {
+            it.scope.toScopeRef() == call.authorizationScopeRef && !call.cancel.isCancelled() &&
+                java.time.Instant
+                    .now()
+                    .isBefore(call.deadline) &&
+                !appContext.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
+        }
+    }
+
+    internal fun windowCaptureAvailable(): Boolean =
+        android.os.Build.VERSION.SDK_INT >= 34 &&
+            serviceState() == AutomationServiceState.CONNECTED
+
+    @Suppress("ReturnCount") // Refuse unsupported capture before acquiring an Accessibility lease.
+    internal fun captureAuthorizedWindow(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        expected: AutomationDisplayTarget,
+    ): AutomationScreenshot {
+        if (!windowCaptureAvailable()) return AutomationScreenshot("WINDOW_CAPTURE_REQUIRES_ACCESSIBILITY_API_34")
+        val lease = deviceLease(call) ?: return AutomationScreenshot("WINDOW_CAPTURE_REQUIRES_ACCESSIBILITY")
+        val (service, session) = lease
+        val frame = service.deviceAccess.observe(session).frame
+        return if (frame?.target?.copy(revision = "") ==
+            expected.copy(revision = "")
+        ) {
+            service.deviceAccess.screenshot(session, frame.token, call)
+        } else {
+            AutomationScreenshot("TARGET_CHANGED")
+        }
+    }
+
+    internal fun rootClick(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        selector: AutomationPrivilegedSelector,
+    ): AutomationActionResult =
+        root?.let { AutomationPrivilegedExecution(this).execute(call, selector, it) }
+            ?: AutomationActionResult(AutomationActionStatus.ROOT_UNAVAILABLE)
+
+    internal fun shizukuClick(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        selector: AutomationPrivilegedSelector,
+    ): AutomationActionResult =
+        shizuku?.let { AutomationPrivilegedExecution(this).execute(call, selector, it) }
+            ?: AutomationActionResult(AutomationActionStatus.SHIZUKU_UNAVAILABLE)
 
     fun configureConversations(
         store: com.helix.core.policy.MobileUseGrantStore,
@@ -35,7 +146,62 @@ class AutomationPermissionCenter(
         id: String,
         packages: Set<String>,
         wholePhone: Boolean,
-    ) = AutomationServiceController.authorizeConversation(id, packages, wholePhone)
+    ): Boolean =
+        AutomationEnablement.authorize(setOf(AutomationDeviceTools.APPS)) {
+            AutomationServiceController.authorizeConversation(id, packages, wholePhone)
+        }
+
+    fun availableConversationGrant(
+        id: String,
+        toolName: String? = null,
+    ) = if (AutomationEnablement.supports(
+            toolName,
+            serviceState(),
+            rootState(),
+            shizukuState(),
+            deviceAvailable = deviceBackend() != null,
+        )
+    ) {
+        conversationGrant(id)
+    } else {
+        null
+    }
+
+    /** Read-only discovery uses the original call identity and checks authorization again after reading. */
+    @Suppress("ReturnCount") // Fail closed before reading and before publishing scoped application data.
+    internal fun apps(call: com.helix.tools.framework.ExecutableToolCall): AutomationAppListing {
+        val id = call.sessionId ?: return AutomationAppListing("NO_ACTIVE_SESSION")
+
+        fun grant() =
+            conversationGrant(id)?.takeIf {
+                it.scope.toScopeRef() == call.authorizationScopeRef &&
+                    !call.cancel.isCancelled() &&
+                    java.time.Instant
+                        .now()
+                        .isBefore(call.deadline)
+            }
+        val admitted = grant() ?: return AutomationAppListing("NO_ACTIVE_SESSION")
+        val apps =
+            AutomationApplicationCatalog(appContext)
+                .load()
+                .filter { it.enabled && it.launchable && admitted.scope.permitsPackage(it.packageName) }
+                .map { AutomationApp(it.packageName, it.label.take(256)) }
+        if (grant() != admitted) return AutomationAppListing("NO_ACTIVE_SESSION")
+        return AutomationAppListing("LISTED", apps.take(1_000), apps.size > 1_000)
+    }
+
+    internal fun privilegedCallAllowed(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        packageName: String,
+    ): Boolean {
+        val id = call.sessionId ?: return false
+        return privilegedCallAdmitted(
+            call,
+            conversationGrant(id),
+            packageName,
+            appContext.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked,
+        )
+    }
 
     fun revokeConversation(id: String) = AutomationServiceController.revokeConversation(id)
 

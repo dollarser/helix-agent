@@ -35,7 +35,11 @@
     <string name="automation_screen_recipient_changed">接收模型已变化，请核对当前显示的接收方后再次开始。</string>
     <string name="automation_conversation_required">先打开一个会话，再为该会话配置 Mobile Use。</string>
     <string name="automation_conversation_scope">仅作用于当前会话，不会授权其他会话。</string>
-    <string name="automation_grant_enabled">授权已开启</string>
-    <string name="automation_grant_disabled">未授权</string>
-    <string name="automation_grant_saved">本会话授权已保存，直到你主动关闭。系统无障碍未就绪时，恢复后无需重复授权。</string>
+    <string name="automation_grant_enabled">已开启</string>
+    <string name="automation_grant_disabled">已关闭</string>
+    <string name="automation_grant_saved">已开启 Mobile Use，按当前权限提供可用功能。</string>
+    <string name="automation_grant_not_ready">已开启 · 仅应用查询</string>
+    <string name="automation_enable_accessibility">已可查询授权范围内的应用。点击下方按钮开启 Helix 无障碍后，可读取界面、点击和截图；Root 和 Shizuku 为可选能力。</string>
+    <string name="automation_grant_privileged">已开启 · 高权限屏幕操作</string>
+    <string name="automation_privileged_guidance">Root/Shizuku 可独立观察屏幕、执行手势和精确点击。整屏截图需授权所有应用；仅截应用窗口需 Android 14 及以上的无障碍服务。语义节点工具仍需无障碍。</string>
 </resources>

@@ -139,6 +139,8 @@ dependencies {
     add("developerImplementation", project(":tools:automation"))
     add("developerImplementation", project(":extensions:mobile-use"))
     add("developerImplementation", project(":tools:root"))
+    add("developerImplementation", libs.shizuku.api)
+    add("developerImplementation", libs.shizuku.provider)
     add("developerImplementation", project(":runtime:proot-client"))
     // HXA-083: the supervisor's public API exposes the shared cross-APK protocol types
     // (availability, cause, connection results); the developer flavor declares the

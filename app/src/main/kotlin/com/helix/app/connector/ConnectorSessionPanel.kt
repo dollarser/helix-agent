@@ -59,11 +59,16 @@ fun ConnectorSessionPanel(
     var rows by remember(sessionId) { mutableStateOf<List<PluginSessionRow>>(emptyList()) }
     var revision by remember { mutableIntStateOf(0) }
     var failed by remember { mutableStateOf(false) }
+    var needsConfiguration by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var skills by remember(sessionId) {
+        mutableStateOf<List<com.helix.extensions.skills.SkillListItem>>(emptyList())
+    }
     val scope = rememberCoroutineScope()
     LaunchedEffect(sessionId, revision) {
         try {
             rows = withContext(Dispatchers.IO) { service.sessionRows(sessionId) }
+            skills = withContext(Dispatchers.IO) { service.standaloneSkills(sessionId) }
             failed = false
         } catch (cancel: kotlinx.coroutines.CancellationException) {
             throw cancel
@@ -71,23 +76,20 @@ fun ConnectorSessionPanel(
             failed = true
         }
     }
-    val update: (PluginSessionRow, Boolean, Boolean) -> Unit = { row, enabled, default ->
+    val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled ->
         busy = true
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    if (default) {
-                        service.catalog.setDefault(row.id, enabled)
-                    } else {
-                        service.catalog.select(sessionId, row.id, enabled)
-                    }
+                    service.catalog.select(sessionId, row.id, enabled)
                 }
                 failed = false
                 revision++
             } catch (cancel: kotlinx.coroutines.CancellationException) {
                 throw cancel
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 failed = true
+                needsConfiguration = error.message == "MOBILE_USE_NOT_CONFIGURED"
             } finally {
                 busy = false
             }
@@ -99,30 +101,30 @@ fun ConnectorSessionPanel(
         text = {
             Column(Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("connector-session-panel")) {
                 Text(stringResource(R.string.connector_session_hint))
-                if (rows.isEmpty()) Text(stringResource(R.string.connector_session_empty))
+                if (rows.isEmpty() && skills.isEmpty()) Text(stringResource(R.string.connector_session_empty))
                 rows.forEach { row ->
                     Row {
                         Checkbox(
                             checked = row.selected,
-                            onCheckedChange = { update(row, it, false) },
+                            onCheckedChange = { update(row, it) },
                             enabled = !busy && (row.available || row.selected),
                             modifier = Modifier.testTag("connector-session-${row.id}"),
                         )
                         Column { PluginSessionState(row) }
                     }
-                    if (row.available) {
-                        Row {
-                            Checkbox(
-                                checked = row.defaultSelected,
-                                onCheckedChange = { update(row, it, true) },
-                                enabled = !busy,
-                                modifier = Modifier.testTag("connector-default-${row.id}"),
-                            )
-                            Text(stringResource(R.string.connector_session_default))
-                        }
-                    }
                 }
-                if (failed) Text(stringResource(R.string.connector_session_failed))
+                skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }
+                if (failed) {
+                    Text(
+                        stringResource(
+                            if (needsConfiguration) {
+                                R.string.mobile_use_configuration_required
+                            } else {
+                                R.string.connector_session_failed
+                            },
+                        ),
+                    )
+                }
             }
         },
         confirmButton = {
@@ -137,4 +139,40 @@ fun ConnectorSessionPanel(
             }
         },
     )
+}
+
+@Composable
+@Suppress("FunctionName", "TooGenericExceptionCaught")
+private fun SessionSkillChoice(
+    service: PluginService,
+    sessionId: String,
+    skill: com.helix.extensions.skills.SkillListItem,
+) {
+    var selected by remember(skill) { mutableStateOf(skill.enabled) }
+    var busy by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    Row {
+        Checkbox(checked = selected, enabled = !busy, onCheckedChange = { value ->
+            busy = true
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) { service.selectSkill(skill.key, sessionId, value) }
+                    selected = value
+                    failed = false
+                } catch (cancel: kotlinx.coroutines.CancellationException) {
+                    throw cancel
+                } catch (_: Exception) {
+                    failed = true
+                } finally {
+                    busy = false
+                }
+            }
+        })
+        Column {
+            Text(skill.key.name)
+            Text(skill.description)
+            if (failed) Text(stringResource(R.string.connector_session_failed))
+        }
+    }
 }

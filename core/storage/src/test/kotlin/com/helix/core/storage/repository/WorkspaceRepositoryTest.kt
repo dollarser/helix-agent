@@ -99,7 +99,7 @@ class WorkspaceRepositoryTest {
 
     @Test fun interruptedCreationNeverAdoptsOrRemovesUnwitnessedFiles() {
         val id = "ws-00000000-0000-0000-0000-000000000001"
-        dao.insert(WorkspaceEntity(id, "PATH", id, "managed:$id", "MANAGED", "CREATING", null, null, "a", 1))
+        dao.insert(WorkspaceEntity(id, "PATH", id, "managed:$id", "MANAGED", "CREATING", null, "a", 1))
         val root =
             temporary.root
                 .toPath()
@@ -121,12 +121,12 @@ class WorkspaceRepositoryTest {
         assertEquals(first.id, alias.id)
     }
 
-    @Test fun newResourceAtSameLocatorDoesNotInheritProjectOrBinding() {
+    @Test fun newResourceAtSameLocatorDoesNotInheritBinding() {
         val repo = repository()
         val first = repo.register("PATH", "scope:external:project", "inode-1", 1)
         val second = repo.register("PATH", "scope:external:project", "inode-2", 2)
         assertNotEquals(first.id, second.id)
-        assertEquals(null, second.projectId)
+        assertEquals("READY", second.availability)
         assertEquals(0, repo.references(second.id))
     }
 
@@ -136,7 +136,7 @@ class WorkspaceRepositoryTest {
         repo.markUnavailable(first.id)
         val rebound = repo.register("SAF", "scope:tree:folder", "document-id", 2)
         assertNotEquals(first.id, rebound.id)
-        assertEquals(null, rebound.projectId)
+        assertEquals("READY", rebound.availability)
         assertEquals(0, repo.references(rebound.id))
         assertEquals("UNAVAILABLE", repo.find(first.id)!!.availability)
     }

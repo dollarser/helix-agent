@@ -83,6 +83,9 @@ class AutomationSnapshotEngineTest {
                 text = "Continue",
                 viewId = "$PACKAGE:id/continue_button",
                 clickable = true,
+                canImeEnter = true,
+                checkable = true,
+                checked = true,
             )
         val root = FakeSnapshotNode(packageName = PACKAGE, windowId = 7, children = listOf(button))
 
@@ -98,6 +101,9 @@ class AutomationSnapshotEngineTest {
         assertNull(snapshot.nodes[0].parentToken)
         assertEquals(snapshot.nodes[0].token, snapshot.nodes[1].parentToken)
         assertTrue(snapshot.nodes.all { it.token.length == 32 })
+        assertTrue(snapshot.nodes[1].canImeEnter)
+        assertTrue(snapshot.nodes[1].checkable)
+        assertTrue(snapshot.nodes[1].checked)
 
         val binding =
             NodeTokenBinding(
@@ -119,6 +125,8 @@ class AutomationSnapshotEngineTest {
                             "false",
                             "false",
                             "false",
+                            "true",
+                            "true",
                             "true",
                         ),
                     ),
@@ -155,11 +163,24 @@ class AutomationSnapshotEngineTest {
 
         assertEquals(AutomationSnapshotEngine.MAX_NODES, snapshot.nodes.size)
         assertTrue(snapshot.truncated)
+        assertEquals(setOf("FIELD_LIMIT", "TEXT_LIMIT", "NODE_LIMIT"), snapshot.truncationReasons)
         assertTrue(snapshot.nodes.filter { it.text != null }.all { it.text!!.length <= 256 })
         assertTrue(snapshot.nodes.sumOf { it.text?.length ?: 0 } <= 16_384)
         assertEquals(1, root.recycleCount)
         assertTrue(children.take(AutomationSnapshotEngine.MAX_NODES - 1).all { it.recycleCount == 1 })
         assertTrue(children.drop(AutomationSnapshotEngine.MAX_NODES - 1).all { it.recycleCount == 0 })
+    }
+
+    @Test
+    fun capturesFileLabelBelowDeepLayoutContainers() {
+        var root = FakeSnapshotNode(packageName = PACKAGE, windowId = 3, text = "official.apk")
+        repeat(24) {
+            root = FakeSnapshotNode(packageName = PACKAGE, windowId = 3, children = listOf(root))
+        }
+        val snapshot = engine.capture(root, session, generation = 1).snapshot!!
+        assertEquals("official.apk", snapshot.nodes.last().text)
+        assertFalse(snapshot.truncated)
+        assertTrue(snapshot.truncationReasons.isEmpty())
     }
 
     @Test
@@ -182,6 +203,7 @@ class AutomationSnapshotEngineTest {
 
         assertEquals(AutomationSnapshotEngine.MAX_DEPTH + 1, snapshot.nodes.size)
         assertTrue(snapshot.truncated)
+        assertEquals(setOf("DEPTH_LIMIT"), snapshot.truncationReasons)
         assertTrue(nodes.take(2).all { it.recycleCount == 0 })
         assertTrue(nodes.drop(2).all { it.recycleCount == 1 })
     }
@@ -373,6 +395,9 @@ private class FakeSnapshotNode(
     override val enabled: Boolean = true,
     override val password: Boolean = false,
     override val accessibilityDataSensitive: Boolean = false,
+    override val canImeEnter: Boolean = false,
+    override val checkable: Boolean = false,
+    override val checked: Boolean = false,
     private val children: List<FakeSnapshotNode> = emptyList(),
     private val throwOnChildRead: Boolean = false,
 ) : SnapshotNode {

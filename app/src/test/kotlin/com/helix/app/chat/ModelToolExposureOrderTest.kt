@@ -47,17 +47,26 @@ class ModelToolExposureOrderTest {
                 "ui.snapshot",
                 "ui.find",
                 "ui.click",
-                "ui.long_click",
+                "ui.click_match",
                 "ui.set_text",
-                "ui.set_progress",
+                "ui.ime_enter",
                 "ui.scroll",
                 "ui.back",
-                "ui.home",
                 "ui.wait",
+                "ui.device",
+                "ui.screenshot",
+                "ui.gesture",
+                "android.open_uri",
+                "http.fetch",
             ).map(::descriptor)
         val crowded = (0 until 80).map { descriptor("optional.$it") } + ui + descriptor("write")
         val exposed = ModelToolExposureOrder.prioritize(crowded, preferUi = true).take(ModelRequest.MAX_TOOLS)
         assertTrue(exposed.containsAll(ui))
+        assertTrue(
+            exposed.none {
+                it.name.value in setOf("ui.long_click", "ui.set_progress", "ui.home")
+            },
+        )
         assertTrue(exposed.any { it.name.value == "write" })
         assertEquals(ModelRequest.MAX_TOOLS, exposed.size)
     }
@@ -77,11 +86,36 @@ class ModelToolExposureOrderTest {
         assertTrue(names.size + 2 * com.helix.app.mcp.McpToolDiscovery.WINDOW <= ModelRequest.MAX_TOOLS)
         assertTrue(
             names.containsAll(
-                listOf("read", "write", "edit", "ui.snapshot", "skills.read", "skills.enable", "skills.disable"),
+                listOf(
+                    "read",
+                    "write",
+                    "edit",
+                    "ui.snapshot",
+                    "ui.apps",
+                    "ui.find",
+                    "ui.click_match",
+                    "ui.launch",
+                    "ui.wait",
+                    "ui.device",
+                    "ui.screenshot",
+                    "ui.gesture",
+                    "android.open_uri",
+                    "skills.read",
+                    "skills.enable",
+                ),
             ),
         )
         assertTrue("code.linux.run" !in names)
-        assertTrue("ui.snapshot" !in ModelToolExposureOrder.defaultNames(preferUi = false))
+        assertTrue("http.fetch" !in names)
+        assertTrue("code.javascript.run" !in names)
+        val nonUi = ModelToolExposureOrder.defaultNames(preferUi = false)
+        assertTrue("ui.snapshot" !in nonUi)
+        assertTrue("android.open_uri" !in nonUi)
+        assertTrue("code.javascript.run" in nonUi)
+        assertTrue("http.fetch" !in nonUi)
+        assertTrue("skills.list" !in names)
+        assertTrue("skills.disable" !in names)
+        assertTrue("skills.read_resource" !in names)
     }
 
     private fun descriptor(name: String) =

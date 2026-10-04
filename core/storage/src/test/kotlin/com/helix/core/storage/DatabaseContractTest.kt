@@ -13,6 +13,8 @@ class DatabaseContractTest {
     private val expectedTables =
         setOf(
             "sessions",
+            "projects",
+            "project_sessions",
             "workspaces",
             "session_workspaces",
             "model_call_workspaces",
@@ -98,7 +100,7 @@ class DatabaseContractTest {
         assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
-        assertEquals(50, tables.size)
+        assertEquals(52, tables.size)
     }
 
     @Test

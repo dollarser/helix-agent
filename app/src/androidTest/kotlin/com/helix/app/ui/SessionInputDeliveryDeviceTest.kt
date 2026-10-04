@@ -18,6 +18,58 @@ import org.junit.Test
 class SessionInputDeliveryDeviceTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun queuedPreviewIsVisibleAndSendNowIsExplicitAndBoundToDisplayedTurn() {
+        val record = queuedInput()
+        val active = mutableStateOf<String?>("first")
+        val busy = mutableStateOf(false)
+        val sent = mutableListOf<Pair<String, String>>()
+        compose.setContent {
+            MaterialTheme {
+                SessionInputQueuePreview(
+                    listOf(record),
+                    mapOf("queued" to "Please also check the result"),
+                    mapOf("queued" to busy.value),
+                    active.value,
+                ) { input, target -> sent += input.inputId to target }
+            }
+        }
+        compose.onNodeWithTag("session-input-preview-queued").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(emptyList<Pair<String, String>>(), sent) }
+        compose.onNodeWithTag("session-input-send-now-queued").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf("queued" to "first"), sent)
+            busy.value = true
+        }
+        compose.onNodeWithTag("session-input-send-now-queued").assertIsNotEnabled()
+        compose.runOnIdle { active.value = null }
+        compose.onNodeWithTag("session-input-send-now-queued").assertDoesNotExist()
+        compose.onNodeWithTag("session-input-preview-queued").assertIsDisplayed()
+    }
+
+    private fun queuedInput() =
+        com.helix.core.storage.repository.SessionInputRecord(
+            schemaVersion = 1,
+            inputId = "queued",
+            sessionId = "session",
+            sequence = 1,
+            delivery = SessionInputDelivery.QUEUE,
+            expectedTurnId = null,
+            revision = 0,
+            textRef = "fixture",
+            textBytes = 10,
+            attachments = emptyList(),
+            configuration =
+                com.helix.core.storage.repository
+                    .InputConfiguration("p", "m", "ACT", "fixture"),
+            state = com.helix.core.storage.repository.SessionInputState.PENDING,
+            consumedTurnId = null,
+            messageId = null,
+            requestModelCallId = null,
+            blockedReason = null,
+            createdAt = 0,
+            updatedAt = 0,
+        )
+
     @Test fun steeringRequiresExplicitSelectionAndDoesNotRebindWhenTurnChanges() {
         val delivery = mutableStateOf(SessionInputDelivery.QUEUE)
         val target = mutableStateOf<String?>(null)

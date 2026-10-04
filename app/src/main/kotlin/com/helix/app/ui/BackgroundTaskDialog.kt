@@ -9,6 +9,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,11 +28,13 @@ import com.helix.app.ui.IndicatedLazyColumn
 @Suppress("FunctionName", "LongMethod")
 internal fun BackgroundTaskDialog(
     service: ChatService,
+    sessionId: String?,
     onDismiss: () -> Unit,
 ) {
     val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
-    var tab by remember { mutableStateOf(0) }
-    var result by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(sessionId) { service.refreshBackgroundTasksNow() }
+    var tab by remember(sessionId) { mutableStateOf(0) }
+    var result by remember(sessionId) { mutableStateOf<String?>(null) }
     if (result != null) {
         TaskResultDialog(service, requireNotNull(result)) { result = null }
         return
@@ -53,7 +56,16 @@ internal fun BackgroundTaskDialog(
                         }
                     }
                 }
-                val visible = tasks.filter { if (tab == 0) it.running else !it.running && it.collected == (tab == 2) }
+                val visible =
+                    sessionTasks(tasks, sessionId).filter {
+                        if (tab ==
+                            0
+                        ) {
+                            it.running
+                        } else {
+                            !it.running && it.collected == (tab == 2)
+                        }
+                    }
                 if (visible.isEmpty()) Text(stringResource(R.string.background_tasks_empty))
                 IndicatedLazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(visible, key = { it.id }) { task ->

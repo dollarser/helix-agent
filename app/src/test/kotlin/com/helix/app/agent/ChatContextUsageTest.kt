@@ -5,6 +5,17 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ChatContextUsageTest {
+    @Test fun completedIntermediateRequestReplacesUsageWhileNextRequestIsPending() {
+        val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
+        val samples =
+            sequenceOf(
+                ChatContextProjection.InputSample(snapshot, null, false, false),
+                ChatContextProjection.InputSample(snapshot, """{"inputTokens":9200}""", true, false),
+                ChatContextProjection.InputSample(snapshot, """{"inputTokens":7474}""", true, false),
+            )
+        assertEquals(9200L, ChatContextProjection.select(samples, "endpoint", "a").inputTokens)
+    }
+
     @Test fun pendingFailedAndDiscardedSummaryRequestsPreserveLastConfirmedInput() {
         val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
         val previous = ChatContextProjection.InputSample(snapshot, """{"inputTokens":7474}""", true, false)

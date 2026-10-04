@@ -11,11 +11,14 @@ data class WorkspaceReferences(
     val modelRequests: Int,
     val artifacts: Int,
     val pendingCalls: Int = 0,
+    val projects: Int = 0,
 ) {
     init {
-        require(listOf(ownerSessions, sessionBindings, modelRequests, artifacts, pendingCalls).all { it >= 0 })
+        require(
+            listOf(ownerSessions, sessionBindings, modelRequests, artifacts, pendingCalls, projects).all { it >= 0 },
+        )
     }
 
     val retained: Boolean
-        get() = listOf(ownerSessions, sessionBindings, modelRequests, artifacts, pendingCalls).any { it > 0 }
+        get() = listOf(ownerSessions, sessionBindings, modelRequests, artifacts, pendingCalls, projects).any { it > 0 }
 }

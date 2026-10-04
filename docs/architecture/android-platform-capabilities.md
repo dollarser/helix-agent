@@ -26,6 +26,7 @@ enum class Capability {
     SAF_DOCUMENT_TREE,
     MANAGE_ALL_FILES,
     ACCESSIBILITY_AUTOMATION,
+    MOBILE_USE,
     ROOT_SHELL,
     NOTIFICATION_READ,
     CALENDAR_WRITE,
@@ -39,6 +40,8 @@ data class CapabilityGrant(
     val checkedAt: Instant,
 )
 ```
+
+`MOBILE_USE` 表示宿主 Mobile Use 插件已启用并发布工具，不等于无障碍、Root 或 Shizuku 授权。应用查询、精确点击、屏幕观察、截图和手势使用此入口能力，仍由原会话范围和具体后端的实时检查决定是否执行。语义节点、应用启动和系统动作保留 `ACCESSIBILITY_AUTOMATION` 系统能力检查；consumer 不提供 Mobile Use，解析为 unavailable。
 
 `CapabilityGrant` 只能由平台适配层根据系统真实状态产生。模型不能构造、修改或缓存它。Tool 执行时必须再次检查；不能因为数据库里曾记录 `GRANTED` 就跳过系统状态检查。
 
@@ -179,8 +182,8 @@ Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatch
 | Tool | 操作类型 | 实际能力 |
 | --- | --- | --- |
 | `ui.snapshot` / `ui.find` | READ_ONLY | 当前语义树、文本/属性匹配、token 与节点边界 |
-| `ui.click` / `ui.long_click` | EXTERNAL_ACTION | 操作当前有效节点 |
-| `ui.set_text` / `ui.set_progress` | EXTERNAL_ACTION | 原生文本输入/滑块；拒绝不存在的能力与越界数值 |
+| `ui.click` / `ui.click_match` / `ui.long_click` | EXTERNAL_ACTION | 操作当前有效节点；`click_match` 原子执行最新快照上的唯一语义匹配，歧义/不可点时零副作用拒绝 |
+| `ui.set_text` / `ui.ime_enter` / `ui.set_progress` | EXTERNAL_ACTION | 原生文本输入、IME 提交与滑块；只在节点声明对应能力时执行，拒绝不存在的能力与越界数值 |
 | `ui.scroll` | EXTERNAL_ACTION | 节点 forward/backward 滚动，屏幕手势另走 gesture |
 | `ui.back` / `ui.home` | EXTERNAL_ACTION | 保留原便捷动作入口，可离开暂停目标 |
 | `ui.wait` | READ_ONLY | 等待出现、消失、匹配内容改变、语义稳定；单次最多 60 秒 |
@@ -190,7 +193,11 @@ Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatch
 | `ui.gesture` | EXTERNAL_ACTION | 单点点击/长按、路径滑动/拖动、多指缩放；一组 strokes 为一次原生手势 |
 | `ui.screenshot` | LOCAL_MUTATION | 授权窗口/屏幕 PNG、会话/Turn 产物和既有视觉回填，不往 JSON 塞 Base64 |
 
-两组共 16 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会暂停物理操作而不删除 Conversation 授权，应由模型按任务意图选择。
+两组共 18 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。`ui.ime_enter` 仅在 API 30+ 且当前可编辑节点实际声明 IME Enter action 时可用；枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会暂停物理操作而不删除 Conversation 授权，应由模型按任务意图选择。
+
+`ui.click_match` v5 默认 `backend=auto`：对于精确 `packageName` + `viewId` + `text` 且无额外筛选参数的点击，按当前已授权且连接的 Root → Shizuku → Accessibility 选择一次。显式 `root`/`shizuku`/`accessibility` 固定路径；派发失败或 UNKNOWN 不跨后端重放。其他筛选、节点 token、截图、手势和输入仍使用已实现的 Accessibility 能力。`ui.device` v3 返回 `rootState`、`shizukuState` 和 `clickMatchBackend`，后者不代表所有操作的后端。
+
+Mobile Use 的 Root 连接由设置中的明确授权按钮创建，允许切换目标应用，并可主动断开；状态查询和模型调用不请求 Root、不冷绑定。复用 libsu 非 daemon 服务与同一有界特权点击协议，原 `root.*` 的后台失权规则不变。Root manager 撤销未来授权未必杀死已运行的 UID 0 服务；逐调用仍检查原会话范围、停止、锁屏和取消，不能将系统 Root 授权视为业务授权。验证与边界见 [Root 优先级证据](../evidence/development/mobile-use-root-priority-2026-10-04.md)。
 
 ### 5.3 观察、执行与真实结果
 
@@ -296,7 +303,7 @@ P2 高权限：ui.*, root.*
 | --- | --- | --- |
 | Tasker | 实现官方 Android automation plugin 的 action/event/state；允许 Tasker 调用 Helix 动作，或 Helix 触发用户命名 Task | 首阶段不导入完整 profile；插件输入仍经 schema/Policy/Approval，Tasker 不是授权主体 |
 | Auto.js/AutoJs6 | 独立 Runtime 应用/UID 提供特定版本的 JavaScript/Android API、Accessibility、屏幕捕获和可选 Root 适配，经 signature-protected IPC 返回有界结果 | 任意来源脚本可导入和诊断，但执行兼容按版本/API/权限/模块矩阵声明；不在主进程或 QuickJS 暴露 Java bridge，不复制许可证不兼容源码 |
-| Shizuku | 用户使用 Root 或 ADB 启动 Shizuku 服务，Helix 作为 client 绑定并跟踪 Binder 生命周期 | unavailable/denied/granted/lost 分开；服务状态不授予 ToolCall，断连不盲目重放 |
+| Root / Shizuku 点击 | Advanced Mobile Use 设置中显式授权；精确 `ui.click_match` 自动按 Root → Shizuku → Accessibility 选择，也可显式指定 | 原会话范围、无障碍租约、默认显示与执行限制仍有效；封闭点击协议，不开放 shell；断连/结果不确定不重放 |
 | 无线 ADB | Android 11+ 由用户启用无线调试并通过配对码/二维码建立连接；本机 client 需要单独评估 native 依赖、密钥和前台生命周期 | 不自动打开开发者选项、不静默配对；按 Android 版本/OEM 实测，用户可撤销，配对不等于全局 Full Access |
 
 “兼容任意 Tasker/Auto.js 脚本”只能作为长期方向。可验收合同必须拆为导入、解析、API、权限、执行和行为六层；某脚本可导入不代表它能在当前 Runtime、ROM 与目标 App 上正确执行。授权边界遵循 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)。

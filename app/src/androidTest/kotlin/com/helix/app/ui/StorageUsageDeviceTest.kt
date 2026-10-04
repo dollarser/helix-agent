@@ -20,13 +20,13 @@ import org.junit.Test
 class StorageUsageDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun explicitOpenFailureRetryPartialResultAndReopenAtLargeFont() {
+    @Test fun pageLoadFailureRetryAndRefreshAtLargeFont() {
         var loads = 0
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
                 MaterialTheme {
-                    StorageUsageSection {
+                    StorageUsageScreen {
                         loads++
                         if (loads == 1) error("synthetic private detail")
                         listOf(StorageUsageEntry(StorageUsageCategory.MEMORY, loads.toLong(), false))
@@ -34,18 +34,19 @@ class StorageUsageDeviceTest {
                 }
             }
         }
-        compose.runOnIdle { assertEquals(0, loads) }
-        compose.onNodeWithTag("storage-usage-open").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(1, loads) }
         compose.onNodeWithTag("storage-usage-error").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("storage-usage-refresh").assertIsDisplayed().performClick()
+        compose
+            .onNodeWithTag("storage-usage-refresh")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
         compose
             .onNodeWithTag("storage-usage-memory")
             .performScrollTo()
             .assertIsDisplayed()
             .assertTextContains("2 B", substring = true)
-        compose.onNodeWithTag("storage-usage-close").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("storage-usage-memory").assertDoesNotExist()
-        compose.onNodeWithTag("storage-usage-open").performClick()
+        compose.onNodeWithTag("storage-usage-refresh").performScrollTo().performClick()
         compose.onNodeWithTag("storage-usage-memory").performScrollTo().assertTextContains("3 B", substring = true)
         compose.runOnIdle { assertEquals(3, loads) }
     }
