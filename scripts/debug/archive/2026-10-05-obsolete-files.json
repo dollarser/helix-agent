@@ -1,0 +1,1199 @@
+{
+  "reason": "Owner-authorized removal of inactive snapshots and completed one-off editors; current tests and evidence retained.",
+  "files": [
+    {
+      "path": "scripts/debug/2026-09-09/helix-172-edit.py.txt",
+      "sha256": "73cb71b8483c55d71baf35d61d9dbae7a865608ec8c7d655d2bb9d8f51c3aeac",
+      "bytes": 7659,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/helix-173-edit.py.txt",
+      "sha256": "6c08ae5721b98dfdd4a4abe610f45c78e37b54fb3930b1ad98b570f73967200d",
+      "bytes": 3569,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix-context-research.py.txt",
+      "sha256": "078104020c3c3abdf90d5dc5d8c868630c64c0786aa63cde5940da46ef96d94a",
+      "bytes": 1142,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/helix-emulator-ui.py.txt",
+      "sha256": "fcbb1cbba48863d7e05e60b6edcafb52b16503585f8d3c44c93617aef9a2f538",
+      "bytes": 809,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix-hxa159-device-final.py.txt",
+      "sha256": "2a1d4297ffedc43354c8af528176ee2570a414e86befc7dd4da636b958152a3d",
+      "bytes": 1430,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix-installer-strings.py.txt",
+      "sha256": "a55396f2befefe10f18629e30f9e8895ec346008a43107cf9d86347c894dbd75",
+      "bytes": 1170,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/helix-phone-ui.py.txt",
+      "sha256": "9478fc4600e400c35cbfb1a6cd4c944dc10831e2a0ea84ba0644098dcb855438",
+      "bytes": 819,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/helix-reasoning-proxy.py.txt",
+      "sha256": "e87a4b9fab7fdfc9fdb0170c85f3fef619ba9197b3e02e4ed517c93762ef4212",
+      "bytes": 1047,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix-refactor-chat.py.txt",
+      "sha256": "4f0e6ab5b177fe38d49d21baf1459c1c534b2e3f1038e276683b6a682544c9aa",
+      "bytes": 7718,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix-refactor-files.py.txt",
+      "sha256": "3dd25b2f58b7cdd447773ee000f4e4cea74fcdcf0f73d2056b15ab823a6ffa81",
+      "bytes": 5119,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix-refactor-polish.py.txt",
+      "sha256": "fb010325862c1f573b358fa59120fa9ee4b84226c112afac4db1f67a098ddfef",
+      "bytes": 3864,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix160-edit.py.txt",
+      "sha256": "16aa3a648c2177d82e3bd1b77a55686a404be5deba4d32b2d4d071b26010937e",
+      "bytes": 7235,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/helix160-final-device.py.txt",
+      "sha256": "167a7cac6e2aec54506d687d54fa6e2741e8f8f6d8d56e6452692ef9de78756f",
+      "bytes": 1482,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/helix171-edit.py.txt",
+      "sha256": "21b5ebfd5a7e88af4a7be498da038226f1dce6636a3ee7bd110235a58beefa23",
+      "bytes": 5206,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/app29-final.py.txt",
+      "sha256": "b0f8666a6ffe3785a1c8a3384633f51830482c81d110922183cc275a19576fce",
+      "bytes": 2178,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/app36-final.py.txt",
+      "sha256": "92cb0f879df38d1600fcbaad108f17c7a8cc5fad308adb55c8f09fa9cffd0f37",
+      "bytes": 2178,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/consumer29-accepted.py.txt",
+      "sha256": "2c6ec340582c57b245e0ab72aaa20704111d7ef39718df0b280c61e8d1d20f04",
+      "bytes": 2281,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/consumer36-accepted.py.txt",
+      "sha256": "31b9dcdd2cb6dd68ff044a3792f50625368d0aaabe6b826a39f24364454946e2",
+      "bytes": 2281,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/consumers-verified.py.txt",
+      "sha256": "67599e9954283e9eb682602d69d3f30a601da607368edc696504949d1d06125a",
+      "bytes": 2326,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-06/developer-connector-phases.py.txt",
+      "sha256": "868b0f6be79d9ec56eaa4169b85ed319e7fc31f527b9e8b84e5eced63dfc8e65",
+      "bytes": 1813,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-a2a-known-id-refreshed.py.txt",
+      "sha256": "34205e5233fc10c8d42c3f84ee3d8eb15e26ab0a115ea194e517012f08fa11f6",
+      "bytes": 828,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-a2a-live-kill-matrix.py.txt",
+      "sha256": "370c94a253f5d2de13be1441c126c84ed61845736fdf436b8225e14fa3473434",
+      "bytes": 827,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-a2a-unknown-id-matrix.py.txt",
+      "sha256": "0a26bffaa67fe61b6801cec9f1c9c38c30fb5553f845dd3bf0f2c65c2e8f37d3",
+      "bytes": 848,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-api29-basic-modules.py.txt",
+      "sha256": "74bc278f881cf988d68d9abeba34b2e8c1791c1b3fb85889781257cd65799b18",
+      "bytes": 2392,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-api36-basic-modules.py.txt",
+      "sha256": "dce1a90a56a8f6134c1d342d93c9c0e95d4fed4ed576ba5dd6dc0f11149e2dd0",
+      "bytes": 2392,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/run-apps-settled.py.txt",
+      "sha256": "205dccf424ea939725a44bdc74f43ab98eb5de5e808a138c6a12e24af908961a",
+      "bytes": 2634,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-automation-cleanup-fixed.py.txt",
+      "sha256": "a3083d43e63d6aed65a467a4a135094a0b45f71ab32498b9d91bce22f43a9cb1",
+      "bytes": 1896,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-automation-live-force-stop.py.txt",
+      "sha256": "6968dcb8ba311d334f1b39ea74e610f96488594084a39d1cf61e2b69af718b55",
+      "bytes": 1898,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-cli-anonymous-api29-dns-fixed.py.txt",
+      "sha256": "3bcc08c6ed74d38b8dd2bf77bf3b59f7ed5ac58b0cdbed277ee9dc1218cd6b57",
+      "bytes": 2978,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-cli-anonymous-endpoints.py.txt",
+      "sha256": "186f6547a59192b55ad902b6db6464a228a542959201044ed2ea166990e7b404",
+      "bytes": 2993,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-cli-owner-matrix.py.txt",
+      "sha256": "9626cc3633ddf34c54d43b7659207a070d5f06260368a48c37cf3c56af4d48f3",
+      "bytes": 959,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-additional-app-matrix-fixed.py.txt",
+      "sha256": "c1bcb7ebfe3edefe2eee43b6e5f07032f1a92901cadef5b64d2695c0308b62a9",
+      "bytes": 2114,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-additional-app-matrix.py.txt",
+      "sha256": "aa35d7c1b7e3250b97f5bd0b6d62d0fbba71d17d9ccbf42afb9c06beb30a17c9",
+      "bytes": 2102,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-core-matrix-fixed.py.txt",
+      "sha256": "aabbce6797c43a87b326f198375b89b0b839caefd22cfe1ec41f7613df6a7f7a",
+      "bytes": 2087,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-core-matrix.py.txt",
+      "sha256": "b58b6fffa2ca0d9c36bcf8b406f943266a369364ef8ebde452c41611706211b8",
+      "bytes": 2081,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-flavor-ui.py.txt",
+      "sha256": "5734f5a84eb2c13a90a1cb69fd747e32dc5e97a3cf2d1034798ee3c60182c1bf",
+      "bytes": 2201,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-goal-matrix-fixed.py.txt",
+      "sha256": "edc603496657afaa1db24eabd09e062ea3aaed7245255a5c69dc063091e26a8a",
+      "bytes": 2087,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-goal-matrix.py.txt",
+      "sha256": "bc659a14623a96ed877a71b5fb748d544d9fbf2aa53f30bb693dd095cc1c731a",
+      "bytes": 2081,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-language-allfiles.py.txt",
+      "sha256": "96363e2b22d24620f348668a44333ac7d50ed156fac439e2f3726bc9e7fffce7",
+      "bytes": 2965,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-m11-mcp-main.py.txt",
+      "sha256": "c95db6116a175dd8e94279769c6d6c338d0cd97d21cba193a427a0ab4dbf106b",
+      "bytes": 3295,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-module-matrix-ready.py.txt",
+      "sha256": "ce2e26bf8a52dc8e06e02176b9fb91e618ba706bf6d68753bafaf5547806b338",
+      "bytes": 3115,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-module-matrix.py.txt",
+      "sha256": "9cf97eafdf2396c35e7d47449c41b0b97bcf525113364e0cdbefd17509339d68",
+      "bytes": 3109,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-proot-main-remaining.py.txt",
+      "sha256": "d8c44e93c2b2d6446a42e30b4d7e5d9d7eb4c70eb8cc5be59de96ba57684be47",
+      "bytes": 2550,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-proot-modules.py.txt",
+      "sha256": "9d6c55d3e5cd83aeedbbaa482851c918d62a641810b3ac868511720b01bf3975",
+      "bytes": 2268,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-provider-ui-matrix-final.py.txt",
+      "sha256": "51da302eeddec963df2954437125aa85cedaf7220283a08c0ecacefca203690f",
+      "bytes": 2101,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-provider-ui-matrix-scoped.py.txt",
+      "sha256": "dbca5feb1cf8d212f729f6c47cb47c6f92b906df201e43982ccabcbb3f98a130",
+      "bytes": 2102,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-current-provider-ui-matrix.py.txt",
+      "sha256": "c270f69a0497fd9894d3a2f9304cbc5ec024dae30e114b700df2d086a5ba2b4c",
+      "bytes": 2095,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-current-resource-api35.py.txt",
+      "sha256": "6de1323e0b0041aeaca2beb0ef32a39702519ca6981db22f5584764cbd53e323",
+      "bytes": 2414,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/run-developer-full.py.txt",
+      "sha256": "1e2967f173ba1bb7e93d39a4d5ff47073083e728ef3d329e5d611f738b4dc997",
+      "bytes": 2314,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-final-app-matrix.py.txt",
+      "sha256": "2db80d7a9d4b483975cc9ac2fed1631e8cba971fb14fae3dfd995d19c43ecbc7",
+      "bytes": 2481,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-final-entry.py.txt",
+      "sha256": "b25579ef90ba4d6ce1eefaa4b3a784c039082627c051bf1395bf81b7590daf15",
+      "bytes": 2244,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-final-m11-fixed.py.txt",
+      "sha256": "f8c57a01ce81c74249a85a677f1668558788885eb4e3b0f63988ac6f8966b4f3",
+      "bytes": 2079,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-final-m11-matrix.py.txt",
+      "sha256": "af774b3c5a9bb861f2308ee8357e444aed5658693478cbb55cd7d7804e6d2247",
+      "bytes": 2067,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-goal-component-matrix.py.txt",
+      "sha256": "87d29c4bf48833cb219f977d44a24fe5c093cfc91860b7a3946051b313d0a3a0",
+      "bytes": 1875,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-goal-deletion-fixed-matrix.py.txt",
+      "sha256": "f0c06bb8e0cfc88c791570566569a9425bd6d64a97afb5d5e65a9d452fa84bb1",
+      "bytes": 2117,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-goal-disconnect-matrix.py.txt",
+      "sha256": "61cfa46ca8d98108cbbc26b26ed60bac8f385f4f4942be9baa6943bb0185b3eb",
+      "bytes": 1716,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-goal-evidence-kill.py.txt",
+      "sha256": "428a99b938c5a7aba179f193818b555a8a55196ec025c208460abaf9bceafab2",
+      "bytes": 2520,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-goal-host-signal-matrix.py.txt",
+      "sha256": "0eae07020945e9e31d49b6fc96aad97c766bf51a84b491c9c3bbd05b6dcd8d05",
+      "bytes": 823,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-06/run-goal-kill.py.txt",
+      "sha256": "6381b32ba25482eb600ead745aa66bfa2f87333029fb3c2bee49c5a3b3339768",
+      "bytes": 2117,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-goal-real-edit.py.txt",
+      "sha256": "8b84b5faa6f3eac37ce7da293a2e218fe344431ea27891b9ae0e7a9a46c72564",
+      "bytes": 1928,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-goal-real-proot.py.txt",
+      "sha256": "c7697a8373de0a924659277fd3896717abd45bb6f50df751b773e11d2e5c1a1a",
+      "bytes": 1952,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-goal-real-ui.py.txt",
+      "sha256": "bb1fb3aad4d7fcd6de03e7e6881296419c66dbe21cf17cb10aad517d8cb21451",
+      "bytes": 3122,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-goal-rotation-matrix.py.txt",
+      "sha256": "3dbc11acfca33136652b3285826989fe9e7ad6c85cfaaa9dd91555a704b3c44b",
+      "bytes": 1705,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-approval-layout-fixed.py.txt",
+      "sha256": "fe696ad1ca17e3d81f79c9d87d9bf467c056404ac7b5d04aa98596a28d1ad0fd",
+      "bytes": 2300,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-approval-layout.py.txt",
+      "sha256": "05280ffc5cf055d273c82fed45d85819d1e4e52e9884ac1ff02ec826a43612ee",
+      "bytes": 2288,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-browser-layout-matrix.py.txt",
+      "sha256": "bd0e1e85f1fe39051047ebf81457970735e06b827812b9f2ca4eb97c8e09bb81",
+      "bytes": 2085,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-browser-layout-red.py.txt",
+      "sha256": "b18e9adbbdf4ba551607c33536590b40dcac982b39d311bc32fc2b06d19d2306",
+      "bytes": 1527,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-composer-flow.py.txt",
+      "sha256": "b592f184e13311fe8b06655cfe18fee01049037b708df704b6ec64203987c826",
+      "bytes": 2212,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-composer.py.txt",
+      "sha256": "c8a888ccb7e6ddfdb54798dac0c13a819f6f7d36f2a572512c820b7d61d6b5fa",
+      "bytes": 2350,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-empty-follow.py.txt",
+      "sha256": "b3783e204d7fcf04a3bccc4cdfb37ee85dd30f673e7b1db6eb82801c9822298d",
+      "bytes": 2283,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-empty.py.txt",
+      "sha256": "74d58322b2cd00de59156342d8b1886ef2660b29428dbba48cb97b942e22da96",
+      "bytes": 2284,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-file-actions.py.txt",
+      "sha256": "6817ee691803c98dc168addf7b47c8c1db4d200b3fc43206f7a478c90925f12e",
+      "bytes": 3499,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-files-controls-font2.py.txt",
+      "sha256": "35b34532bc3b6f5dac0534f06e8c9c1108b7944b9cb742a0dc1ad3b323846969",
+      "bytes": 1531,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-files-controls-matrix.py.txt",
+      "sha256": "c0a631deac8dacc260dcd8e6f45e3e0b0f9989aa0133d4a027ecd06dd620f3c5",
+      "bytes": 2085,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-files-host.py.txt",
+      "sha256": "dc0ba49fc66ed40b5cc6a0df36b7d6b88cd37c474e31083a88dd1dd137fe7e99",
+      "bytes": 1839,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-files-layout.py.txt",
+      "sha256": "9d27f1ebaaf409863ab0a9223ec0eb7869c0abc0e6f42c880e095ad47e68db49",
+      "bytes": 2711,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-final-host.py.txt",
+      "sha256": "210bdf7f7760c921093f8433eaad31e54025ab5a7dddea961f6f784ebbe85d70",
+      "bytes": 2275,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-font2-fixed-layout.py.txt",
+      "sha256": "2c5e65050702842a1dfb93f95fc80286e41c6fe41aff6b70f3e0edb5a1488e1f",
+      "bytes": 1514,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-font2-layout.py.txt",
+      "sha256": "06ee0f1d3a4b1280c033e09c955eb4d6c51654f35b7668cb2d4256fbfd8f4d95",
+      "bytes": 1502,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-font2-matrix.py.txt",
+      "sha256": "9e80af29006965f99f735ef179d870ea0712636ef87f2688a9c8fe8801b8e6cf",
+      "bytes": 2061,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-host.py.txt",
+      "sha256": "ecfe80c1e42e45abe0e79f490b042fbcf3f04d395de7380bd3a0048cb49f094e",
+      "bytes": 1827,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-layout.py.txt",
+      "sha256": "ee86ec0817e1c6d3601f3dd5b612716af2ebbeff0e44242a9664a1a9a66e531e",
+      "bytes": 2707,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-mode.py.txt",
+      "sha256": "0efb8bb2198236e39c136ecdf40cc27ae29fc7eaa899ee54a076e85c50a9b2b0",
+      "bytes": 2256,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-navigation-font2-fixed.py.txt",
+      "sha256": "7d0a12a8f15ae7e9b443f3c858d49700878641fca83cd3621d7b7def02249bb4",
+      "bytes": 1540,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-navigation-font2.py.txt",
+      "sha256": "9dbc9160db924c78e709561683e075fc87d7fca2c92ee00d52ad3e3a8995c8a5",
+      "bytes": 1528,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-navigation-layout.py.txt",
+      "sha256": "5bdc0ae6ac7caf22d05a2ada716a0918a150da333fb42292cf6ab17f971ec6e5",
+      "bytes": 2695,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-navigation-matrix.py.txt",
+      "sha256": "69eec160383716f62dada7e421396e0be46dd68963278b944b94f49de35f8b82",
+      "bytes": 2082,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-navigation-normal.py.txt",
+      "sha256": "8854880ead320512c12799d14b99c0d719ec415348e9142c095488c0fbb65e43",
+      "bytes": 1023,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-notice.py.txt",
+      "sha256": "c0d5f8185d6cfcee59bbea71b0e1edc581b534fef50002fcfd4bfd28079310f8",
+      "bytes": 2598,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-progress.py.txt",
+      "sha256": "39a4af00db884c253d9c50c2312e7001ac1a8347ddd0329de0811f27809c61e2",
+      "bytes": 2356,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-provider-copy-fixed-matrix.py.txt",
+      "sha256": "ed63f4587ba1c05dc4bbadfa4936f22fecb491e217bc919abb705af8370d79fc",
+      "bytes": 2095,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-provider-copy-matrix.py.txt",
+      "sha256": "d316d031c1a564879dcd1329f0d3a1c3ce8e5045998fcf6140b23cb4334e31ee",
+      "bytes": 2083,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-real-ui.py.txt",
+      "sha256": "0cbdc705d836826f1599b5895dcc46b0d6b45af9cecd8d1f782f0095d9ac293f",
+      "bytes": 3097,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-recovery-ui.py.txt",
+      "sha256": "d66da45a5147da42fa69bd7f90926f916bfa481775db833cc7d19533234d3f8a",
+      "bytes": 1102,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-retry-eligibility.py.txt",
+      "sha256": "c870afb11489823695ba088ca534c13371944e7d28d06b25d204c242099e6dbb",
+      "bytes": 2299,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-retry-ui.py.txt",
+      "sha256": "c4c25ed78657ef17d713e7bd320803a4f4804304c3174e5e23de9bb012ed3326",
+      "bytes": 2281,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-scroll.py.txt",
+      "sha256": "25e76daa12d1350131551c98c7b4f61d7ea30d79980fd6b8017810386fccc3b3",
+      "bytes": 2196,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout.py.txt",
+      "sha256": "62a7caaa78ffb21044a896debaeda34e6359f6979c155286fd60195b8ff6994b",
+      "bytes": 1502,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout2.py.txt",
+      "sha256": "194ff40657d9d3bec26eda7c3a58fb93f451946909dd1c15f2cbe99bde0a6f84",
+      "bytes": 1504,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout3.py.txt",
+      "sha256": "e50255deba54448883ca262121c3dac153d03c8ddb822155f31e954b441f3efb",
+      "bytes": 1504,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout4.py.txt",
+      "sha256": "64aecdab941ba30f8106a01e3a35b7618f00442f2d4063e756a1819971aa0a9a",
+      "bytes": 1504,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout5.py.txt",
+      "sha256": "e40889e7ac4b6018f4f2ee30a150131462da0b7639845519e797f1bcbaee7b2c",
+      "bytes": 1504,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout6.py.txt",
+      "sha256": "cc3de2e84425bc95de8e34f763e2808694814965fefb081a0dab364c570a06ed",
+      "bytes": 1504,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-layout7.py.txt",
+      "sha256": "35a9ce81ea9c2b540f031f68cf2f2d3900dadf65a4ee4b8af058cf58bfbbfbbe",
+      "bytes": 1504,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-small-matrix.py.txt",
+      "sha256": "5dbb7c4d967ab24de27b8952426f145b6ca31b7443ae96e7538c66971567248f",
+      "bytes": 1953,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-stop-ui-fixed.py.txt",
+      "sha256": "5f14fd1b6122ab4868c56d70c77883a1310dbd658ee117cd66e8dfa786adc9f3",
+      "bytes": 2289,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-stop-ui.py.txt",
+      "sha256": "77fff993e8fc44dd402dc626d819ec443cd92dd42e61d92e5958d0e96e94856e",
+      "bytes": 2277,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-subscription-chat-boundary.py.txt",
+      "sha256": "3df2d756ea4a52b8e2b6864ede3401cb86b40f796d86f3c3a15cfe2d4be0a990",
+      "bytes": 2091,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-summary-accessibility-touch.py.txt",
+      "sha256": "1d3b0a22d75739f5159594a9cf40f6921063b935e7b1ab2cc28d4b044703df92",
+      "bytes": 2396,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-summary-accessibility.py.txt",
+      "sha256": "9405355f788f3c0d28b3aba752225982d235165ec18b4c9ee71c757746b0bbec",
+      "bytes": 2384,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-summary-inline.py.txt",
+      "sha256": "723b452d8185af1a5f3be5071c728ec37bb5aec4f156bd507524a772b0a14a4b",
+      "bytes": 2294,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-summary.py.txt",
+      "sha256": "1afca408c5f44f907cae08e66c4a6a0de9f938f6bae8cbfae15c1bc41c8c1387",
+      "bytes": 2280,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-tool-completion-current.py.txt",
+      "sha256": "ac60cd9a75ff891eb77242d3a793e483d86c383f45fb0f7ae064a6f3eff5770a",
+      "bytes": 3342,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-tool-completion.py.txt",
+      "sha256": "3d564ef882a28fd0b719cabaeb18fef4bc893e70fd692178b4afcc045a89ee28",
+      "bytes": 3372,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-hxa147-tool-row.py.txt",
+      "sha256": "a374e0af9665e86abe36bea4832ff3bb0a09571fc189d44f9160da8a1f7d2c01",
+      "bytes": 2348,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-js-approval-boundaries.py.txt",
+      "sha256": "513b8a88a9bd2a50801092a1c57dd0d55c2394daa78f5272caf590d26590f838",
+      "bytes": 943,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-lifecycle-component-matrix.py.txt",
+      "sha256": "c781aa8ac6ff420d77409f2fc1efeb437c59fa8070c46c346c5d221f9e9194a9",
+      "bytes": 2161,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-local-id-core-matrix.py.txt",
+      "sha256": "cc1b2251107fc0f4255421bc1063704d30f60c625c9eb645bc0709449884d4d7",
+      "bytes": 2084,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-local-id-goal-attachment-matrix.py.txt",
+      "sha256": "88cea7dfd8edd5c92069482ed149a2dadd3609dffcf8c7a5f8973466849e7249",
+      "bytes": 2106,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-local-id-goal-matrix.py.txt",
+      "sha256": "01b0a30b6422b73b0dd619e1f64294013df4280f06a556f0a176a0ef27b47d37",
+      "bytes": 2083,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-local-id-remaining-evals.py.txt",
+      "sha256": "c70a1c9d36fb914ab953bffe3f4f6550f8fe4ecad972edb2be2f96d18976a15e",
+      "bytes": 1429,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-model-kill-host-signal-matrix.py.txt",
+      "sha256": "2f738d50e25eceba2bfa699f83afe7e387af96d93915307107ad73c4eeb2c1a2",
+      "bytes": 1756,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-archive-host.py.txt",
+      "sha256": "f806e2f252ba8f9c033345101791a1d2e86d93c984b1d18f60368e024dd2da92",
+      "bytes": 2043,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-additional.py.txt",
+      "sha256": "a33da3e0e6d00c97c259d41f51197034c084b5e218f0b6c2fe2936a1faf39b22",
+      "bytes": 2129,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-core-remaining.py.txt",
+      "sha256": "fa25b7a9693170157be86b79ad1fbfc9b72f3aaed7f512874f5058cba71c4b9a",
+      "bytes": 2224,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-core.py.txt",
+      "sha256": "b802b0dc5d060209b2c6e04aa74a1dd5b933278af01cf762ac3c265d58ced5e7",
+      "bytes": 2112,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-goal-matrix.py.txt",
+      "sha256": "07facbb537dcbeefb14a986c6dd609680e290b97cd4ed260cecf6737d646c1a5",
+      "bytes": 2112,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-host.py.txt",
+      "sha256": "c2e31f5068871976650c4ba1ce9991a32c8319409810f2789478a92a27a71f8b",
+      "bytes": 2047,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-platform-fixed.py.txt",
+      "sha256": "d68de0dacacb567765b51c30983d3b9cf6d1a2d3cc6e20502944e64ad7100df2",
+      "bytes": 2216,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-evidence-platform.py.txt",
+      "sha256": "53e10f6a503fedc494160263962f42d9b6ccc04acbbcdf28e3e744ec655a2883",
+      "bytes": 2155,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-private-delete-device.py.txt",
+      "sha256": "bece3043c3d8df08e013e4d37063d4e57517841c3c33f094df34985a214ff85d",
+      "bytes": 2572,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-post-private-delete-host.py.txt",
+      "sha256": "3f03b15aa71b85676b597978575472be2f420f86d436c228276b0bc0f9d88c0e",
+      "bytes": 2071,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-remaining-local-modules.py.txt",
+      "sha256": "8d1150fb10bbdf08e023877a1dc91a2d1166f9b105142bc8fd2383332c76d33f",
+      "bytes": 3208,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-07/run-repeated-tool-rounds.py.txt",
+      "sha256": "4c1040ab9069180ed3e777fca0adc01e157340db1b8abc6bfcbfa5640451fff6",
+      "bytes": 1830,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-subscription-chat-boundary-final.py.txt",
+      "sha256": "aebfc57a963acab5a4da2498a72e7b309d8f72a1355787d537aa59dc7b239430",
+      "bytes": 2089,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-subscription-chat-boundary-fixed.py.txt",
+      "sha256": "17ffc6683184fe67ec10ae34f7674918e856dda995f16e69844545f04286821a",
+      "bytes": 2089,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-subscription-chat-boundary.py.txt",
+      "sha256": "88d6999cce1ea80a11fa72164b35d75e1f278a36a2a63defeaf05e8bf2b3394b",
+      "bytes": 2077,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-08/run-subscription-chat-routing.py.txt",
+      "sha256": "8f6cacda478b3e1292c8f33b029e088989b7d44443a0267f522bdd8e410ab318",
+      "bytes": 2075,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-05/run_app_matrix.py.txt",
+      "sha256": "dcd2bc33091695e3ea27b43e2890761406b3c2b0d8753034756664674494c52d",
+      "bytes": 2480,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/run-ev01-device.sh.txt",
+      "sha256": "25965503c0e92ab6d8031e238d77d8b935f0e4b9a499f0224b69ac271320c5fa",
+      "bytes": 2961,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/archive-manifest.json",
+      "sha256": "1fd584f6c5e1e15b17629c6bfc3f89d17f4cd739257100e4b7902d6b9a9df873",
+      "bytes": 58199,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__WrittenArtifactContent.kt.txt",
+      "sha256": "9da420aa36c9eaba5db3a2c314b9e3d9fd2154081e7a0b1a820211ea3fb12da8",
+      "bytes": 1993,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalCriterionFailures.kt.txt",
+      "sha256": "c7af60f3e5f4bef9fd19839b7047dc25a776274748590eb06db8d4b4b5afc1aa",
+      "bytes": 1760,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalCompletionDeviceTest.kt.txt",
+      "sha256": "2c046f7dc81b6a674f7ee68429856888b080ca52e74fedd8e90f91d61f9a8b88",
+      "bytes": 8751,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalEvidenceFailure.kt.txt",
+      "sha256": "cd9acd75bc2613ac125c0954e87e0483a1348bdee012d7817d726a094ebe6bd9",
+      "bytes": 661,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalCriterionEditorDeviceTest.kt.txt",
+      "sha256": "80cfb5e4358ce337e547ef5037c1b78efe5dd8c0d6761d1b8ee86c6501b310f1",
+      "bytes": 6459,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/core__agent__src__main__kotlin__com__helix__core__agent__ArtifactCriterionCheck.kt.txt",
+      "sha256": "c0cab390757086bf923f05729beac3a6619959ffcf6110583c685a0d41d02179",
+      "bytes": 2725,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__test__kotlin__com__helix__app__goal__EditedArtifactContentTest.kt.txt",
+      "sha256": "08a25a9b8df43e3b46b72b50eddb08539cf85e1052ec9285469fd1c91983d3e1",
+      "bytes": 2710,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/core__agent__src__test__kotlin__com__helix__core__agent__ArtifactCriterionCheckTest.kt.txt",
+      "sha256": "3a45757d3945676718c6b8bac187a7ee6b8d1610bea34777ef65440608f74da0",
+      "bytes": 3218,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__ui__GoalRealCompletionUiTest.kt.txt",
+      "sha256": "af39172da557738c1b7a47eb5888c66965e208825ef888b065ac7bcb743c751b",
+      "bytes": 13023,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalToolArtifactStore.kt.txt",
+      "sha256": "3f14cb11909e3c9ecfcc0f5fbec6e7de58dd96e7b7a6fd701a5ffa356f40cbb8",
+      "bytes": 6789,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalEvidenceCheck.kt.txt",
+      "sha256": "87aeaef28883e3299d84e691205a76d2dd694021fc844822a031c9a92561b97f",
+      "bytes": 1019,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTestDeveloper__kotlin__com__helix__app__ui__ProotGoalReviewUiTest.kt.txt",
+      "sha256": "d05b39f1929d29f7fc9367b92d657ded67b6752ad30b0d4d9f66cb213b86e391",
+      "bytes": 8986,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalCriterionEditor.kt.txt",
+      "sha256": "fdfb9c21ea648dabfe6fa8c23e198946e8be035d40378a23675fd131accad2c3",
+      "bytes": 3199,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__ui__GoalEvidenceDialog.kt.txt",
+      "sha256": "60a8a99e65707c9b77c96e8f66d0f28d948fe549bc05f2e87a1179b0bdabbaef",
+      "bytes": 8845,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__consumer__kotlin__com__helix__app__proot__ProotGoalArtifacts.kt.txt",
+      "sha256": "8dd4dd590a82059f2616ae276db25ebfaf06cb9b3bb4530c894123bf2f798183",
+      "bytes": 619,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTestDeveloper__kotlin__com__helix__app__goal__GoalArchiveArtifactDeviceTest.kt.txt",
+      "sha256": "91da46024bbeb691ad21b18b5acdb7bce363dfe17e82a2c1c37412c4e515eafe",
+      "bytes": 6836,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__EditedArtifactContent.kt.txt",
+      "sha256": "9846aeddacd7dd99183963d6fe8ea6b59a18013a2bad0d6ecf1507c164af5863",
+      "bytes": 2733,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__ui__GoalEvidenceContinueUiTest.kt.txt",
+      "sha256": "a683f412785bfb47d3d77762219224f19a975af9d7e63c3b601ebdbd1e5bd759",
+      "bytes": 10883,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalToolEvidenceReaderDeviceTest.kt.txt",
+      "sha256": "08fae654c04b21074abd6a920458510fced79f16533a1ae2223a5f9fe608d420",
+      "bytes": 5645,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/core__agent__src__test__kotlin__com__helix__core__agent__GoalPendingReviewTest.kt.txt",
+      "sha256": "ac0c647938c0c32f43d6886ad041ddb7e09d917412ab92aa3403bacba7f11d73",
+      "bytes": 1438,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/core__agent__src__test__kotlin__com__helix__core__agent__GoalReducerCriteriaTest.kt.txt",
+      "sha256": "febe1e9b90c3b1d39c7dacd1bdfedad56055c80f54d4ed9acdeae93252128ff9",
+      "bytes": 7097,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalCompletionVerifier.kt.txt",
+      "sha256": "259493cfeb4aa22552753574987715dd0607bac10b8488afe93efa3c8b09c996",
+      "bytes": 8140,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/README.md",
+      "sha256": "9edcca2107745a35dce1715b15ccb41649449d187f0faf5005e13aeea988ecd1",
+      "bytes": 362,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__ui__GoalCriteriaDialog.kt.txt",
+      "sha256": "982fe82ab97197b3291d9ecdbe04e4a173c36c08559efb502ba9e64b4f65b3a2",
+      "bytes": 10492,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalEvidenceProcessKillDeviceTest.kt.txt",
+      "sha256": "a882c527012e8d7bc52f27605ceed15b6d54a48c197e6c24c92aa57d0ec7a41c",
+      "bytes": 9928,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/core__agent__src__test__kotlin__com__helix__core__agent__GoalCriterionBindingTest.kt.txt",
+      "sha256": "9148dafb519f25f9c0ea375a5f5bb9922da4357a2497b194dc330fe0c682ab4e",
+      "bytes": 3317,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalEvidenceIo.kt.txt",
+      "sha256": "dc7fab85e0584d1c4b6098051d9a0b09ef83f9c721e0627fd7a202e340e49148",
+      "bytes": 598,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__ui__GoalEvidenceFailureLabel.kt.txt",
+      "sha256": "6604de72e04440abbd652c64528ebf695f0f00540c9d12036e5cd05680863154",
+      "bytes": 934,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalEvidenceContinueDeviceTest.kt.txt",
+      "sha256": "23f2053bc1b9fc8dded4242e2338d464e7695391945efeee7f98e71636a2c596",
+      "bytes": 6663,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__ui__GoalCriterionPersistenceUiTest.kt.txt",
+      "sha256": "aa87e27dc0a5efbc230dcdb5510eeb0cb74349ea0ee93c385273fc65e74e5029",
+      "bytes": 3871,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalCriterionAccess.kt.txt",
+      "sha256": "b43351eacc32314e378e2efa4fabee42cf7178bd19647943be1a0226105b4479",
+      "bytes": 7502,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalToolEvidenceReader.kt.txt",
+      "sha256": "8e767f93de9017e7093ad5980d9625f2df4665ddba26e23ccb341162b16cff59",
+      "bytes": 5848,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalEvidenceContinue.kt.txt",
+      "sha256": "807c66f14c2ab8f31569f5bd684d90f8764d9962be5be9d085ffb0581f4115b5",
+      "bytes": 3697,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__test__kotlin__com__helix__app__goal__ScopedEditedArtifactReaderTest.kt.txt",
+      "sha256": "259f1d70b3a09646950517a6d37f2fed86d7f875389bfd993c71b2a0d29ad459",
+      "bytes": 2875,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__test__kotlin__com__helix__app__goal__GoalCriterionMappingTest.kt.txt",
+      "sha256": "f8dd7fc62fc98f90f9ae17331277335ecb8ab95b9e4c3d1d30d92984d99bdf4f",
+      "bytes": 2562,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__developer__kotlin__com__helix__app__proot__ProotGoalArtifacts.kt.txt",
+      "sha256": "0af156b0abb564167dc2af201982f2011d2ce87d38d7cc45958f189a1412d2ac",
+      "bytes": 1642,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalWrittenArtifactDeviceTest.kt.txt",
+      "sha256": "d7203de5f6f02936b26bfa99045e2d653889a9e170b247321aeecd4889065a48",
+      "bytes": 6556,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalCriterionVerifierDeviceTest.kt.txt",
+      "sha256": "82b04c6710186b7cd0beb332f54827a73e4d4298e139fdf53c3bb0cf1115e098",
+      "bytes": 5672,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__test__kotlin__com__helix__app__goal__WrittenArtifactContentTest.kt.txt",
+      "sha256": "073bfc07e373691f4da3efe11dde72db19c5ac567f4902603dfccc7728eb721e",
+      "bytes": 2127,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalCriterionVerifier.kt.txt",
+      "sha256": "2be5d96746c0877bb774198dcc06d3e2e39717f81aaa899369eb9ff535c958cd",
+      "bytes": 4048,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__test__kotlin__com__helix__app__goal__GoalCriterionFailuresTest.kt.txt",
+      "sha256": "a94a785d1beebe552ba4b872e4ce518922813d0d10f4a4bafac94c19e1c1ada7",
+      "bytes": 1622,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__goal__GoalEvidenceFailureDeviceTest.kt.txt",
+      "sha256": "84da169cfc0714305564072169b640380673e09d34315d1da2765f6ac906f326",
+      "bytes": 1736,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__ui__GoalCriterionBindingUiTest.kt.txt",
+      "sha256": "ebb7b7dcd0ffc18f85d15245620d4f74ca578d673909a315e2375ae2facbed26",
+      "bytes": 2611,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__ScopedEditedArtifactReader.kt.txt",
+      "sha256": "e13a16baf7e06ce4fdc1a382371a86cae78067f5f8422b68041fec6b1f6374f6",
+      "bytes": 1424,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__testDeveloper__kotlin__com__helix__app__proot__ProotEvidenceCancellationTest.kt.txt",
+      "sha256": "1501d00d21b39ff38616a67d5813f83bf8da5359021084cd387a311f7e64704b",
+      "bytes": 3250,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__androidTest__kotlin__com__helix__app__ui__GoalEvidenceFailureUiTest.kt.txt",
+      "sha256": "df7cdca67973b2872998a2430078a0b3363576e2ccb097d393b778938a95e87c",
+      "bytes": 5356,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/retired-goal-verifier/app__src__main__kotlin__com__helix__app__goal__GoalArchiveArtifactStore.kt.txt",
+      "sha256": "7a60a0e12db8f058294d3ca1c0ec72f0b5d47b8b4e6dd585f438f9e5cd36def8",
+      "bytes": 4678,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/remove-retired-goal-verifier.py",
+      "sha256": "c707433fe4e12c59c35b2778c80cc50103d3899bdbc9457d90dcf386f4952966",
+      "bytes": 3585,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/replace-goal-domain.py",
+      "sha256": "523d43ca1cf056fb442ce04c33b7a859c1c91162e82601316a6a15b8c63b2598",
+      "bytes": 4941,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/diagnose-goal-report-flow.py",
+      "sha256": "1a418af0ae0dc063042d8075c7ad9ee9d70b474d6320ca1ea92261f23cacc371",
+      "bytes": 745,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/archive-temporary-scripts.py",
+      "sha256": "8f35e5b85de47a685b8c1573f831771085b17664d38a0fa0a40d6c4c3cbcf992",
+      "bytes": 2389,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/verify-debug-archive.py",
+      "sha256": "241822a42fecca2ce2a36939a58ad4e1c3ea59aee9c72a6c3333042c73ad734f",
+      "bytes": 852,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/close-model-goal-checkpoint.py",
+      "sha256": "eedd824e5ce4641552023bc139dd75bd795bd85c2c85f8e664d943aaea3c2a16",
+      "bytes": 8907,
+      "source_commit": "7a9355bbeb97c5167cc5a8b32c6f5502e56e2453"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/audit-file-descriptions.py",
+      "sha256": "1de0382efb8108d9990e47c423e847d8215cfc5143556ed382619bac657a9e43",
+      "bytes": 1902,
+      "source_commit": null
+    },
+    {
+      "path": "scripts/debug/2026-10-05/consolidate-status-audit.py",
+      "sha256": "439fe342c78fd85f877378abd09258a4331b7f515ef908f5818c9ddb484c88c7",
+      "bytes": 6371,
+      "source_commit": null
+    },
+    {
+      "path": "scripts/debug/2026-10-05/format-current-audit.py",
+      "sha256": "dac8ba092f7f54bbcf2eb574bdac97664ef9460e47c3d16132e5d8fa70b80caf",
+      "bytes": 787,
+      "source_commit": null
+    },
+    {
+      "path": "scripts/debug/2026-10-05/refine-capability-runner-audit.py",
+      "sha256": "1d92d765d3599e6183d32daf77406bbd6e104e4763261a765c393d0f42f0e40a",
+      "bytes": 3704,
+      "source_commit": null
+    },
+    {
+      "path": "scripts/debug/2026-10-05/fix-audit-doc-contract.py",
+      "sha256": "054b19644709fabfea91e25ce8335b04e3569f2dffe8c1024935c2f7f5c98cad",
+      "bytes": 1683,
+      "source_commit": null
+    }
+  ]
+}

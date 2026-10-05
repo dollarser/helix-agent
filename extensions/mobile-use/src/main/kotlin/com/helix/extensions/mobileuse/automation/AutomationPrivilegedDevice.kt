@@ -81,3 +81,25 @@ fun privilegedSemanticNodeMatches(
     request.operation == AutomationDeviceOperation.NODE_ACTION &&
         request.target?.sameWindow(current) == true && request.nodeAction?.token == node.token &&
         request.nodeFingerprint == node.privilegedFingerprint()
+
+/** Semantic scroll needs a visible part of its container, not necessarily its keyboard-covered centre. */
+fun privilegedSemanticAnchorPermitted(
+    action: AutomationNodeAction,
+    bounds: AutomationNodeBounds,
+    target: AutomationDisplayTarget,
+    permits: (Int, Int) -> Boolean,
+): Boolean {
+    if (action != AutomationNodeAction.SCROLL_FORWARD && action != AutomationNodeAction.SCROLL_BACKWARD) {
+        return permits((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2)
+    }
+    val left = maxOf(0, bounds.left, target.bounds.left)
+    val top = maxOf(0, bounds.top, target.bounds.top)
+    val right = minOf(target.width, bounds.right, target.bounds.right)
+    val bottom = minOf(target.height, bounds.bottom, target.bounds.bottom)
+    return right > left && bottom > top &&
+        listOf(1, 2, 3).any { column ->
+            listOf(1, 2, 3).any { row ->
+                permits(left + (right - left - 1) * column / 4, top + (bottom - top - 1) * row / 4)
+            }
+        }
+}

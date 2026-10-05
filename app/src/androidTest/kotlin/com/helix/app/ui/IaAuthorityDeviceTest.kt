@@ -74,5 +74,8 @@ class IaAuthorityDeviceTest {
         compose.navigateTo("settings/permissions")
         compose.onNodeWithTag("screen-settings-permissions").assertIsDisplayed()
         compose.onNodeWithTag("settings-system-permissions").assertIsDisplayed()
+        compose.onNodeWithTag("settings-perm-default-APPROVAL_REQUIRED").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("settings-open-session-permissions").assertDoesNotExist()
+        compose.onNodeWithTag("settings-perm-tools").performScrollTo().assertIsDisplayed()
     }
 }

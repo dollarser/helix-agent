@@ -45,8 +45,8 @@ class ShizukuSettingsDeviceTest {
             }
         }
         compose.onNodeWithTag("permission-accessibility-status").assertExists()
-        compose.onNodeWithTag("permission-root-status").assertExists()
-        compose.onNodeWithTag("permission-shizuku-status").assertExists()
+        compose.onNodeWithTag("permission-root-authorize-status").assertExists()
+        compose.onNodeWithTag("permission-shizuku-manage-status").assertExists()
         compose.onNodeWithTag("mobile-use-backend-summary").assertDoesNotExist()
         compose.onNodeWithTag("automation-root-disconnect").assertDoesNotExist()
         compose.onNodeWithTag("automation-all-applications").assertDoesNotExist()

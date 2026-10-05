@@ -43,8 +43,12 @@ class CodexRealAccountDiagnosticTest {
         val client =
             OkHttpClient
                 .Builder()
-                .dns(BoundedDnsCache())
-                .addInterceptor { chain ->
+                .dns(
+                    okhttp3.Dns {
+                        com.helix.core.policy.network.NativeNetwork
+                            .resolve(it)
+                    },
+                ).addInterceptor { chain ->
                     var request = chain.request()
                     if (legacy) {
                         val buffer = okio.Buffer()
@@ -182,7 +186,19 @@ class CodexRealAccountDiagnosticTest {
         requireOptIn()
         val vault = CliSubscriptionCredentialVault(ApplicationProvider.getApplicationContext<Context>())
         OkHttpCodexOAuthTransport().use { transport ->
-            val client = if (inspectWire) diagnosticClient() else OkHttpClient.Builder().dns(BoundedDnsCache()).build()
+            val client =
+                if (inspectWire) {
+                    diagnosticClient()
+                } else {
+                    OkHttpClient
+                        .Builder()
+                        .dns(
+                            okhttp3.Dns {
+                                com.helix.core.policy.network.NativeNetwork
+                                    .resolve(it)
+                            },
+                        ).build()
+                }
             CodexSubscriptionModel(vault, CodexLoginController(vault, transport), client).use(block)
         }
     }

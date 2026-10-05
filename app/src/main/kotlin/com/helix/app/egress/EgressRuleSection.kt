@@ -139,12 +139,8 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            stringResource(R.string.egress_title),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.testTag("egress-section-title"),
-        )
-        Text(
             stringResource(R.string.egress_rule_help),
+            modifier = Modifier.testTag("egress-rule-help"),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

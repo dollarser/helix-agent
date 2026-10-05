@@ -78,7 +78,7 @@ internal class ShizukuHierarchy : AutoCloseable {
                 if (android.os.Build.VERSION.SDK_INT >= 30 && target.displayId != 0) return false
                 windows.none { window ->
                     window.id != target.id && window.layer >= target.layer &&
-                        Rect().also(window::getBoundsInScreen).contains(x, y)
+                        coversInputPoint(window, x, y)
                 }
             } finally {
                 windows.forEach { it.recycle() }
@@ -86,6 +86,24 @@ internal class ShizukuHierarchy : AutoCloseable {
         } finally {
             root.recycle()
         }
+    }
+
+    private fun coversInputPoint(
+        window: android.view.accessibility.AccessibilityWindowInfo,
+        x: Int,
+        y: Int,
+    ): Boolean {
+        // IME bounds can enclose transparent holes; use its actual touchable region where available.
+        // Other overlays retain the conservative visual-bounds guard, and API29 retains its old fallback.
+        if (android.os.Build.VERSION.SDK_INT >= 30 &&
+            window.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD
+        ) {
+            return android.graphics
+                .Region()
+                .also(window::getRegionInScreen)
+                .contains(x, y)
+        }
+        return Rect().also(window::getBoundsInScreen).contains(x, y)
     }
 
     private fun rotation(): Int = display().rotation

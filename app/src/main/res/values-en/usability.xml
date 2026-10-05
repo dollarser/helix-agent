@@ -9,7 +9,10 @@
     <string name="model_picker_needs_setup">%1$s · Setup required</string>
     <string name="about_helix_title">About Helix</string>
     <string name="about_helix_version">Version: %1$s</string>
-    <string name="about_helix_project">Project, source code and issue reports</string>
-    <string name="about_helix_developer">Developer: dollarser</string>
+    <string name="about_helix_project">Project homepage and source code</string>
     <string name="about_link_failed">Unable to open a browser. Visit the GitHub address shown above.</string>
+    <string name="about_helix_summary">An open-source Android AI assistant that works with your apps, files and tools within your permissions.</string>
+    <string name="about_helix_feedback">Report an issue</string>
+    <string name="about_helix_author">Author: dollarser</string>
+    <string name="about_helix_updates">Download updates</string>
 </resources>

@@ -54,6 +54,8 @@ class McpEndpointDeniedException(
 private val SYSTEM_MCP_HOST_RESOLVER =
     McpHostResolver { host ->
         withContext(Dispatchers.IO) {
-            InetAddress.getAllByName(host).map { address -> address.address.copyOf() }
+            com.helix.core.policy.network.NativeNetwork
+                .resolve(host)
+                .map { address -> address.address.copyOf() }
         }
     }

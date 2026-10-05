@@ -35,7 +35,15 @@ internal class CodexSmokeException(
 internal class CodexSubscriptionSmoke(
     private val vault: CliSubscriptionCredentialVault,
     private val oauth: CodexLoginController,
-    client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .dns(
+                okhttp3.Dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                },
+            ).build(),
     private val clientVersion: String = CodexClientVersionSettings.DEFAULT,
 ) : Closeable {
     private val client =

@@ -25,11 +25,16 @@ class SystemPermissionsNavigationDeviceTest {
             "permission-notifications",
             "permission-calendar",
             "permission-listener",
+            "permission-app-list",
             "permission-app-settings",
         ).forEach {
             compose.onNodeWithTag(it).performScrollTo().assertIsDisplayed()
         }
         assertEquals(before, compose.activity.checkSelfPermission(permission))
+        compose.onNodeWithTag("permissions-root-details").assertDoesNotExist()
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            compose.onNodeWithTag("permission-all-files").performScrollTo().assertIsDisplayed()
+        }
         if (AllFilesModule.AVAILABLE) {
             compose.onNodeWithTag("permission-files").performScrollTo().assertIsDisplayed()
         } else {

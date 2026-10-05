@@ -1,0 +1,10 @@
+<resources>
+    <string name="plugin_origin_bundled">Built-in</string>
+    <string name="plugin_origin_installed">Installed</string>
+    <string name="plugin_status_enabled">Enabled</string>
+    <string name="plugin_status_disabled">Disabled</string>
+    <string name="plugins_empty">No plugins added</string>
+    <string name="plugins_no_matches">No matching plugins</string>
+    <string name="plugin_components_summary">%1$d skills · %2$d connections</string>
+    <string name="plugin_connection_details">Connections and diagnostics</string>
+</resources>

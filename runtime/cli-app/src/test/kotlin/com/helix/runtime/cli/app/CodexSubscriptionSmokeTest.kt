@@ -50,6 +50,6 @@ class CodexSubscriptionSmokeTest {
     @Test fun endpointAndClientVersionArePinned() {
         assertEquals("https://chatgpt.com/backend-api/codex/models", CodexSubscriptionSmoke.MODELS_URL)
         assertEquals("https://chatgpt.com/backend-api/codex/responses", CodexSubscriptionSmoke.RESPONSES_URL)
-        assertEquals("0.159.3", CodexClientVersionSettings.DEFAULT)
+        assertEquals("0.160.0", CodexClientVersionSettings.DEFAULT)
     }
 }

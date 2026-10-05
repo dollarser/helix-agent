@@ -57,7 +57,9 @@ object ReadTool {
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
-            description = "Read a bounded window of a workspace file by model reference, with offset/maxBytes paging.",
+            description =
+                "Read a bounded window of a workspace file by model reference, with offset/maxBytes paging. " +
+                    "Read a known file path directly; use files.list to locate alternatives if it is missing.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,

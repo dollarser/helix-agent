@@ -37,6 +37,7 @@ internal object AutomationNodeJson {
         )
         put("viewId", JsonPrimitive(node.viewId ?: ""))
         put("clickable", JsonPrimitive(node.clickable))
+        put("offscreen", JsonPrimitive(automationNodeOffscreen(node)))
         put("checkable", JsonPrimitive(node.checkable))
         put("checked", JsonPrimitive(node.checked))
         put("longClickable", JsonPrimitive(node.longClickable))

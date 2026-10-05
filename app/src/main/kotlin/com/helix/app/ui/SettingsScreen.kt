@@ -53,6 +53,10 @@ fun SettingsScreen() {
     ) {
         SettingsGroup { LanguageSection() }
         SettingsGroup { SystemVoiceSettingsEntry() }
+        SettingsGroup {
+            com.helix.app.network
+                .NetworkSettingsEntry()
+        }
         AboutHelixSection()
     }
 }
@@ -88,11 +92,9 @@ internal fun PermissionsSafetyScreen(
     profileStore: SafetyProfileStore,
     egressRules: HighSensitivityRuleRepository,
     lanScopeStore: com.helix.app.network.LanScopeStore?,
-    chatService: com.helix.app.chat.ChatService?,
     sessionPermissionEdit: SessionPermissionEditService?,
     toolPipeline: ToolPipeline?,
     onSystemPermissions: () -> Unit,
-    onOpenSessionSettings: () -> Unit,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -121,7 +123,7 @@ internal fun PermissionsSafetyScreen(
         }
 
         if (sessionPermissionEdit != null && toolPipeline != null) {
-            SessionPermissionSection(sessionPermissionEdit, toolPipeline, chatService, onOpenSessionSettings)
+            SessionPermissionSection(sessionPermissionEdit, toolPipeline)
         }
 
         SettingsDisclosure(

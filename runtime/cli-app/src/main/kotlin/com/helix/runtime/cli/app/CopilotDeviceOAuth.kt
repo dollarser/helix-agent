@@ -131,7 +131,15 @@ internal interface CopilotDeviceTransport {
 }
 
 internal class OkHttpCopilotDeviceTransport(
-    client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .dns(
+                okhttp3.Dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                },
+            ).build(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) : CopilotDeviceTransport,
     Closeable {

@@ -47,12 +47,12 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
 fun ConnectorSection(
     service: PluginService,
-    includeBundled: Boolean = true,
     showImport: Boolean = true,
     showInstalled: Boolean = true,
     onUse: (() -> Unit)? = null,
     query: String = "",
     onInstalled: () -> Unit = {},
+    onPluginSettings: () -> Unit = {},
 ) {
     val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
@@ -61,12 +61,26 @@ fun ConnectorSection(
     var preview by remember { mutableStateOf<PluginPackage?>(null) }
     var records by remember { mutableStateOf<List<InstalledPlugin>>(emptyList()) }
     var loadFailed by remember { mutableStateOf(false) }
+    var loaded by remember { mutableStateOf(false) }
+    var searchContents by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     var revision by remember { mutableStateOf(0) }
     var installed by remember { mutableStateOf(false) }
-    LaunchedEffect(revision) {
+    LaunchedEffect(service, revision) {
         loadFailed = false
         try {
             records = withContext(Dispatchers.IO) { service.list() }
+            searchContents =
+                withContext(Dispatchers.IO) {
+                    records.associate { record ->
+                        record.id to
+                            record.native
+                                ?.let {
+                                    service.bundledSkillContents(it.pluginId).map { skill -> skill.name } +
+                                        service.bundledToolDescriptions(it.pluginId).map { tool -> tool.first }
+                                }.orEmpty()
+                    }
+                }
+            loaded = true
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
@@ -216,47 +230,20 @@ fun ConnectorSection(
         if (installed && onUse != null) {
             OutlinedButton(onClick = onUse) { Text(stringResource(R.string.extensions_use)) }
         }
-        records
-            .filter {
-                showInstalled && (includeBundled || it.native == null) &&
-                    it.name.contains(
-                        query,
-                        true,
-                    )
-            }.forEach { record ->
-                HorizontalDivider()
-                var details by remember(record.id) { mutableStateOf(false) }
-                TextButton(onClick = { details = !details }) {
-                    Text(record.name, style = MaterialTheme.typography.titleSmall)
-                }
-                onUse?.let { action ->
-                    OutlinedButton(onClick = action) { Text(stringResource(R.string.extensions_use)) }
-                }
-                OutlinedButton(
-                    onClick = {
-                        details = !details
-                    },
-                    modifier =
-                        Modifier.testTag(
-                            "extension-manage-${record.id}",
-                        ),
-                ) { Text(stringResource(R.string.extensions_manage)) }
-                if (details) {
-                    Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
+        val visible =
+            records.filter {
+                showInstalled &&
                     com.helix.app.plugin
-                        .PluginAvailabilityControls(record, service) { revision++ }
-                    if (record.native == null) {
-                        OutlinedButton(enabled = !action.busy, onClick = {
-                            replaceTarget = record
-                            picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
-                        }, modifier = Modifier.testTag("connector-update-${record.id}")) {
-                            Text(stringResource(R.string.connector_update_target, record.name))
-                        }
-                    }
-                    record.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
-                    record.endpoints.forEach { endpoint ->
-                        androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
-                    }
+                        .matchesPluginQuery(it, query, searchContents[it.id].orEmpty())
+            }
+        if (showInstalled && loaded) {
+            if (visible.isEmpty() && !loadFailed) {
+                Text(stringResource(if (query.isBlank()) R.string.plugins_empty else R.string.plugins_no_matches))
+            }
+        }
+        visible.forEach { record ->
+            androidx.compose.runtime.key(record.id) {
+                com.helix.app.plugin.PluginManagementCard(record, service, onUse, onPluginSettings, { revision++ }) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->
                         var enabled by remember(key, revision) { mutableStateOf(false) }
@@ -277,6 +264,29 @@ fun ConnectorSection(
                             }
                         }
                     }
+                    record.endpoints.forEach { endpoint -> KnownEndpointTools(service, endpoint) }
+                    var technical by remember(record.id) { mutableStateOf(false) }
+                    TextButton({ technical = !technical }) { Text(stringResource(R.string.plugin_connection_details)) }
+                    if (technical) {
+                        Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
+                        record.diagnostics.forEach {
+                            Text(
+                                diagnosticText(it),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        record.endpoints.forEach { endpoint ->
+                            androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
+                        }
+                    }
+                    if (record.native == null) {
+                        OutlinedButton(enabled = !action.busy, onClick = {
+                            replaceTarget = record
+                            picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
+                        }, modifier = Modifier.testTag("connector-update-${record.id}")) {
+                            Text(stringResource(R.string.connector_update_target, record.name))
+                        }
+                    }
                     if (record.native == null) {
                         Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(enabled = !action.busy, onClick = {
@@ -288,6 +298,7 @@ fun ConnectorSection(
                     }
                 }
             }
+        }
     }
 }
 
@@ -342,7 +353,6 @@ private fun EndpointRow(
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("${endpoint.endpoint.name}: ${endpoint.endpoint.url}")
-        KnownEndpointTools(service, endpoint)
         Text(stringResource(if (active) R.string.connector_active else R.string.connector_inactive))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

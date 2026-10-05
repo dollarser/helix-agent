@@ -29,7 +29,7 @@ Reusable entry points live directly in `scripts/`; logs and generated evidence b
 
 Use `--help` for runner arguments. Dated entry points remain compatibility shims for historical commands and imports. Do not borrow an existing emulator. Successful helper tests do not constitute device acceptance.
 
-`scripts/debug/` contains three different kinds of material: compatibility entries/current diagnostics, one-time implementation provenance, and inert `.py.txt`/`.sh.txt` archives. Consult its README before execution. Do not blanket-ignore or remove dated directories. Promote supported utilities here; remove obsolete one-off scripts only after checking references and recording their source commit. Keep newly generated outputs in `build/`, not beside scripts.
+`scripts/debug/` contains compatibility entries/current diagnostics, retained one-time implementation provenance, and task-specific reference fixtures. Consult its README before execution. Do not blanket-ignore or remove dated directories. Promote supported utilities here; remove obsolete one-off scripts only after checking references and recording their source commit (or a local recovery snapshot for uncommitted editors). Keep newly generated outputs in `build/`, not beside scripts.
 
 ## Experimental Gradle projects
 

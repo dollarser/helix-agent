@@ -3,7 +3,6 @@ package com.helix.app.deviceaccess
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,18 +32,23 @@ internal fun ShizukuAuthorization(context: Context) {
         }
     }
     Column(Modifier.testTag("permission-shizuku")) {
-        Text(stringResource(R.string.device_access_shizuku_title))
-        Text(
-            stringResource(
-                when {
-                    !ready -> R.string.device_access_shizuku_unavailable
-                    granted -> R.string.permissions_granted
-                    else -> R.string.permissions_not_granted
-                },
-            ),
-            Modifier.testTag("permission-shizuku-status"),
-        )
-        OutlinedButton({
+        com.helix.app.ui.SystemPermissionCard(
+            title = stringResource(R.string.device_access_shizuku_title),
+            description = stringResource(R.string.device_access_shizuku_help),
+            status =
+                stringResource(
+                    when {
+                        !ready -> R.string.device_access_shizuku_unavailable
+                        granted -> R.string.permissions_granted
+                        else -> R.string.permissions_not_granted
+                    },
+                ),
+            tag = "permission-shizuku-manage",
+            actionLabel =
+                stringResource(
+                    if (ready && !granted) R.string.permissions_request else R.string.device_access_shizuku_open,
+                ),
+        ) {
             try {
                 val intent =
                     if (ready && !granted) {
@@ -57,8 +61,6 @@ internal fun ShizukuAuthorization(context: Context) {
             } catch (_: RuntimeException) {
                 failed = true
             }
-        }, modifier = Modifier.testTag("permission-shizuku-manage")) {
-            Text(stringResource(R.string.permissions_manage))
         }
         if (failed) Text(stringResource(R.string.permissions_settings_unavailable))
     }

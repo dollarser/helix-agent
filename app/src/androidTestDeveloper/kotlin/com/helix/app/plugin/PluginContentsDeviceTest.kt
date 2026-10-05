@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import org.junit.Assert.assertEquals
@@ -26,7 +27,8 @@ class PluginContentsDeviceTest {
         compose.setContent {
             MaterialTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    BundledPluginsSection(service) {}
+                    com.helix.app.ui
+                        .ExtensionsScreen(null, null, service)
                 }
             }
         }
@@ -38,6 +40,9 @@ class PluginContentsDeviceTest {
                 ).fetchSemanticsNodes()
                 .isNotEmpty()
         }
+        compose.onNodeWithTag("extensions-search").performTextReplacement("no-such-plugin-fixture")
+        compose.onNodeWithTag("bundled-plugin-mobile-use").assertDoesNotExist()
+        compose.onNodeWithTag("extensions-search").performTextReplacement("Mobile Use")
         compose.onNodeWithTag("plugin-contents-mobile-use").assertDoesNotExist()
         compose.onNodeWithTag("bundled-plugin-mobile-use").performClick()
         compose.waitUntil(5_000) {

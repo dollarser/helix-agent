@@ -63,6 +63,7 @@ android {
 dependencies {
     implementation(project(":runtime:cli-client"))
     implementation(project(":core:model"))
+    implementation(project(":core:policy"))
     implementation(project(":provider:api"))
     implementation(project(":provider:openai-responses"))
     implementation(project(":provider:anthropic"))

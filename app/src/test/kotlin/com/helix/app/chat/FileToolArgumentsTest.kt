@@ -9,6 +9,52 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun modelFacingReadAndWriteRetainExecutionPreconditions() {
+        for (descriptor in listOf(
+            com.helix.tools.files.WriteTool
+                .descriptor(),
+            com.helix.tools.files.ReadTool
+                .descriptor(),
+        )) {
+            val exposed = FileToolArguments.modelSchema(descriptor)
+            assertEquals(descriptor.description, exposed.description)
+        }
+    }
+
+    @Test fun allFileProjectionsPreserveDescriptionsAtTheLegalLimit() {
+        val names =
+            listOf(
+                "read",
+                "write",
+                "edit",
+                "view_image",
+                "files.list",
+                "files.stat",
+                "files.search",
+                "files.mkdir",
+                "files.copy",
+                "files.move",
+                "files.delete",
+                "files.archive",
+                "files.extract",
+            )
+        for (name in names) {
+            val original =
+                com.helix.tools.files.WriteTool.descriptor().copy(
+                    name =
+                        com.helix.core.model
+                            .ToolName(name),
+                    description = "x".repeat(1024),
+                )
+            val exposed = FileToolArguments.modelSchema(original)
+            assertEquals(original.description, exposed.description)
+            assertEquals(
+                original.inputSchema["required"],
+                Json.parseToJsonElement(exposed.inputSchemaJson).jsonObject["required"],
+            )
+        }
+    }
+
     @Test fun imageToolUsesTheSameFrozenDirectoryAndModelPathHelp() {
         val descriptor =
             com.helix.tools.files.ViewImageTool

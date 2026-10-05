@@ -1,0 +1,16 @@
+<resources>
+    <string name="network_dns_title">网络设置 · 域名解析</string>
+    <string name="network_dns_help">适用于 API、订阅、MCP、A2A 和原生 HTTP 工具；不覆盖浏览器、终端及独立下载器。保留 HTTPS 校验与网络权限规则。</string>
+    <string name="network_hosts_help">每行填写“IP 地址 域名”，可跟随多个域名，支持 IPv4、IPv6、空行和 # 注释。保存会替换全部映射并持续生效；清空后保存即可恢复系统 DNS。只影响新建连接，不修改系统 hosts。</string>
+    <string name="network_hosts_label">hosts 内容</string>
+    <string name="network_hosts_error">第 %1$d 行：%2$s</string>
+    <string name="network_hosts_count">格式检查通过，共 %1$d 个域名</string>
+    <string name="network_hosts_save">保存</string>
+    <string name="network_hosts_save_failed">保存失败，原配置未更改。</string>
+    <string name="network_hosts_saved">当前内容已保存</string>
+    <string name="network_hosts_invalid_ip">IP 地址无效</string>
+    <string name="network_hosts_missing_host">IP 后至少需要一个域名</string>
+    <string name="network_hosts_invalid_host">域名无效，请勿填写网址、端口或通配符</string>
+    <string name="network_hosts_too_large">内容不能超过 128 KiB</string>
+    <string name="network_hosts_too_many">每个域名最多支持 16 个不同 IP 地址</string>
+</resources>

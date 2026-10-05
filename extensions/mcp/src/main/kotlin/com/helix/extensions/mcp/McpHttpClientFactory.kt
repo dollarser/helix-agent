@@ -20,6 +20,10 @@ internal fun newOkHttpClient(
             // transport does not expose that decision point, so reject rather than risk
             // forwarding a bearer credential to a different origin.
             config {
+                dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                }
                 addNetworkInterceptor(McpInitializeResponseGuard)
                 addNetworkInterceptor(McpOkHttpResponseLimit)
                 followRedirects(false)

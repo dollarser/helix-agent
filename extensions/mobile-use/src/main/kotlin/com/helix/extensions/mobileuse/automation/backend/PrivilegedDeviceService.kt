@@ -98,16 +98,20 @@ internal class PrivilegedDeviceService(
                 ?.singleOrNull { it.token == action.token }
                 ?: return "STALE_TOKEN" to null
         if (!privilegedSemanticNodeMatches(request, after, node)) return "TARGET_CHANGED" to null
-        val bounds = node.bounds
-        if (!screen.permitsPoint(
-                ShizukuUiSelector(target.packageName, "android:id/unused", "guard"),
-                (bounds.left + bounds.right) / 2,
-                (bounds.top + bounds.bottom) / 2,
-                target.rotation,
-            )
-        ) {
-            return "TARGET_CHANGED" to null
-        }
+        val permitted =
+            com.helix.extensions.mobileuse.automation.privilegedSemanticAnchorPermitted(
+                action.action,
+                node.bounds,
+                target,
+            ) { x, y ->
+                screen.permitsPoint(
+                    ShizukuUiSelector(target.packageName, "android:id/unused", "guard"),
+                    x,
+                    y,
+                    target.rotation,
+                )
+            }
+        if (!permitted) return "TARGET_CHANGED" to null
         return engine.action(screen.freshRoot(), action, ::allowed).status.name to null
     }
 

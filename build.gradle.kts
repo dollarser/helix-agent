@@ -186,7 +186,7 @@ val projectDependencies =
         ":core:policy" to listOf(":core:model"),
         ":core:storage" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":core:workspace" to listOf(":core:model"),
-        ":provider:api" to listOf(":core:model"),
+        ":provider:api" to listOf(":core:model", ":core:policy"),
         ":provider:openai-responses" to listOf(":provider:api", ":core:model"),
         ":provider:openai-chat" to listOf(":provider:api", ":core:model"),
         ":provider:anthropic" to listOf(":provider:api", ":core:model"),

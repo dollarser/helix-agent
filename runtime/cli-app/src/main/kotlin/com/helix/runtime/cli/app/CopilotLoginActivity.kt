@@ -20,7 +20,8 @@ class CopilotLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        SubscriptionRuntimeEnvironment.initialize(this)
+        com.helix.core.policy.network.NativeNetwork
+            .initialize(filesDir)
         vault = CliSubscriptionCredentialVault(this)
         transport = OkHttpCopilotDeviceTransport()
         controller = CopilotLoginController(vault, transport)

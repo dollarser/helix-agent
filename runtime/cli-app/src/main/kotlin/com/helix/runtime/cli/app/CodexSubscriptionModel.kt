@@ -28,7 +28,15 @@ internal data class CodexModelExecution(
 internal class CodexSubscriptionModel(
     private val vault: CliSubscriptionCredentialVault,
     private val oauth: CodexLoginController,
-    client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .dns(
+                okhttp3.Dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                },
+            ).build(),
     images: List<CliImageSnapshot> = emptyList(),
     private val eventDirectory: java.io.File? = null,
 ) : Closeable {

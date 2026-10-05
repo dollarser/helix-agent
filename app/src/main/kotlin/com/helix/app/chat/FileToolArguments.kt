@@ -89,10 +89,9 @@ internal object FileToolArguments {
         }
         val schema = descriptor.inputSchema
         val updated = withPathDescriptions(schema)
-        val purpose = purposeFor(descriptor.name.value, descriptor.description)
         return ModelToolSchema(
             descriptor.name,
-            purpose,
+            descriptor.description,
             JsonObject(schema + ("properties" to updated)).toString(),
         )
     }
@@ -114,64 +113,4 @@ internal object FileToolArguments {
             },
         )
     }
-
-    private fun purposeFor(
-        name: String,
-        fallback: String,
-    ): String =
-        when (name) {
-            "write" -> {
-                "Create a UTF-8 file with path and content. Existing files require explicit overwrite; " +
-                    "omit expectedSha256 for new files."
-            }
-
-            "read" -> {
-                "Read text before editing; use returned content and hash rather than guessing. " +
-                    "Use view_image to see image pixels."
-            }
-
-            "edit" -> {
-                "Edit an existing file; read first and supply the required matching content/hash."
-            }
-
-            "files.list" -> {
-                "List immediate directory children; path '.' lists the current working directory."
-            }
-
-            "files.stat" -> {
-                "Inspect file or directory metadata without reading its full content."
-            }
-
-            "files.search" -> {
-                "Search within a directory using the declared query and result limits."
-            }
-
-            "files.mkdir" -> {
-                "Create a directory at the desired relative path; follow existing-directory rules."
-            }
-
-            "files.copy" -> {
-                "Copy source to destination; existing destinations require explicit overwrite."
-            }
-
-            "files.move" -> {
-                "Move source to destination; existing destinations require explicit overwrite."
-            }
-
-            "files.delete" -> {
-                "Move the selected user file or directory to trash; never delete the whole workspace."
-            }
-
-            "files.archive" -> {
-                "Archive source into destination; the archive destination must be within work/."
-            }
-
-            "files.extract" -> {
-                "Extract source into destination within work/; existing files require explicit overwrite."
-            }
-
-            else -> {
-                fallback
-            }
-        }
 }

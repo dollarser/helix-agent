@@ -27,7 +27,6 @@ import com.helix.app.R
 import com.helix.app.connector.ConnectorSection
 import com.helix.app.marketplace.MarketplaceSection
 import com.helix.app.marketplace.MarketplaceService
-import com.helix.app.plugin.BundledPluginsSection
 import com.helix.app.plugin.PluginService
 import com.helix.app.skills.SkillAuthoringSection
 import com.helix.app.skills.SkillAuthoringService
@@ -95,7 +94,6 @@ fun ExtensionsScreen(
         if (adding) {
             ConnectorSection(
                 connectors,
-                includeBundled = false,
                 showInstalled = false,
                 onUse = onUse,
                 onInstalled = { catalogRevision++ },
@@ -111,12 +109,22 @@ fun ExtensionsScreen(
                 onConfigureRequested = { selectedTab = 0 },
             )
         } else {
-            OutlinedTextField(query, {
-                query = it
-            }, label = { Text(stringResource(R.string.extensions_search)) }, modifier = Modifier.fillMaxWidth())
-            BundledPluginsSection(connectors) { mobileSettings = true }
+            OutlinedTextField(
+                query,
+                {
+                    query = it
+                },
+                label = { Text(stringResource(R.string.extensions_search)) },
+                modifier = Modifier.fillMaxWidth().testTag("extensions-search"),
+            )
             androidx.compose.runtime.key(catalogRevision) {
-                ConnectorSection(connectors, includeBundled = false, showImport = false, onUse = onUse, query = query)
+                ConnectorSection(
+                    connectors,
+                    showImport = false,
+                    onUse = onUse,
+                    query = query,
+                    onPluginSettings = { mobileSettings = true },
+                )
                 StandaloneSkillsSection(connectors, onUse, query)
             }
         }

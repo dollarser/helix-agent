@@ -4,15 +4,12 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -35,20 +32,19 @@ internal fun AccessibilityAuthorization(context: Context) {
                 .map { ComponentName(context.packageName, it.name) }
         }
     val granted = remember(components, revision) { components.count { DeviceAccess.accessibilityEnabled(context, it) } }
-    Text(stringResource(R.string.device_access_accessibility_title))
-    Text(
-        stringResource(R.string.device_access_accessibility_status, granted, components.size),
-        Modifier.testTag("permission-accessibility-status"),
-    )
-    OutlinedButton({
+    com.helix.app.ui.SystemPermissionCard(
+        title = stringResource(R.string.device_access_accessibility_title),
+        description = stringResource(R.string.device_access_accessibility_help),
+        status = stringResource(R.string.device_access_accessibility_status, granted, components.size),
+        tag = "permission-accessibility",
+        actionLabel = stringResource(R.string.permissions_system_settings),
+    ) {
         try {
             context.startActivity(DeviceAccess.accessibilitySettingsIntent())
             failed = false
         } catch (_: RuntimeException) {
             failed = true
         }
-    }, modifier = Modifier.testTag("permission-accessibility")) {
-        Text(stringResource(R.string.permissions_manage))
     }
     if (failed) Text(stringResource(R.string.permissions_settings_unavailable))
 }

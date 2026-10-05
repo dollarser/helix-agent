@@ -11,6 +11,26 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class McpNetworkPolicyTest {
+    @Test fun globalMappingStillRequiresAddressAuthorization() {
+        val previous = com.helix.core.policy.network.NativeNetwork.settings
+        var saved: String? = null
+        val settings =
+            com.helix.core.policy.network
+                .NativeDnsSettings({ saved }, { saved = it })
+        try {
+            com.helix.core.policy.network.NativeNetwork.settings = settings
+            settings.save("127.0.0.1 mapped.invalid")
+            val gate = McpSsrfEndpointGate({ SafetyProfile.STANDARD }, { emptySet() })
+            val error =
+                assertThrows(McpEndpointDeniedException::class.java) {
+                    runBlocking { gate.authorize(NormalizedEndpoint.parse("http://mapped.invalid/mcp")) }
+                }
+            assertEquals(SsrfDenialCode.NON_PUBLIC_ADDRESS, error.code)
+        } finally {
+            com.helix.core.policy.network.NativeNetwork.settings = previous
+        }
+    }
+
     @Test
     fun publicOriginRejectsTheWholeSetWhenOneCandidateIsPrivate() {
         val gate =

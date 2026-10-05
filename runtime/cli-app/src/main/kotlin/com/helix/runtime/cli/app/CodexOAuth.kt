@@ -1,5 +1,6 @@
 package com.helix.runtime.cli.app
 
+import com.helix.core.policy.network.NativeNetwork
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -170,7 +171,15 @@ internal class CodexOAuthEndpointException(
 }
 
 internal class OkHttpCodexOAuthTransport(
-    client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .dns(
+                okhttp3.Dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                },
+            ).build(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) : CodexOAuthTransport,
     Closeable {
@@ -258,36 +267,6 @@ internal class OkHttpCodexOAuthTransport(
             }
             CodexOAuthProtocol.decodeSession(bytes, clock(), fallback)
         }
-}
-
-internal class BoundedDnsCache(
-    private val upstream: Dns = Dns.SYSTEM,
-    private val clock: () -> Long = System::currentTimeMillis,
-) : Dns {
-    private data class Entry(
-        val addresses: List<InetAddress>,
-        val expiresAtMillis: Long,
-    )
-
-    private val entries = LinkedHashMap<String, Entry>()
-
-    override fun lookup(hostname: String): List<InetAddress> {
-        // Overrides are checked before the system cache, never stored in it, and expire per lookup.
-        SubscriptionDnsOverrides.settings?.lookup(hostname)?.let { return it }
-        return synchronized(entries) {
-            entries[hostname]?.takeIf { it.expiresAtMillis > clock() }?.addresses
-        } ?: upstream.lookup(hostname).also { addresses ->
-            synchronized(entries) {
-                if (entries.size >= MAX_ENTRIES) entries.remove(entries.keys.first())
-                entries[hostname] = Entry(addresses.toList(), clock() + MAX_AGE_MILLIS)
-            }
-        }
-    }
-
-    private companion object {
-        const val MAX_ENTRIES = 8
-        const val MAX_AGE_MILLIS = 5 * 60 * 1000L
-    }
 }
 
 internal fun BufferedSource.readBoundedByteArray(maxBytes: Long): ByteArray {

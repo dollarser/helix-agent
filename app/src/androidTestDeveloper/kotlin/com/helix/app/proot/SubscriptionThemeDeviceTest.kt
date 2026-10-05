@@ -11,7 +11,6 @@ import com.helix.runtime.cli.app.CliRuntimeHomeActivity
 import com.helix.runtime.cli.app.CodexLoginActivity
 import com.helix.runtime.cli.app.CopilotLoginActivity
 import com.helix.runtime.cli.app.GrokLoginActivity
-import com.helix.runtime.cli.app.SubscriptionNetworkSettingsActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,7 +38,6 @@ class SubscriptionThemeDeviceTest {
                 ClaudeLoginActivity::class.java to SubscriptionR.string.claude_login_title,
                 CopilotLoginActivity::class.java to SubscriptionR.string.copilot_login_title,
                 GrokLoginActivity::class.java to SubscriptionR.string.grok_login_title,
-                SubscriptionNetworkSettingsActivity::class.java to SubscriptionR.string.subscription_dns_title,
             )
         for ((activity, title) in pages) {
             context.startActivity(Intent(context, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

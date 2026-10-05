@@ -19,6 +19,7 @@ class BundledPluginsNavigationDeviceTest {
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("bundled-plugin-mobile-use").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("bundled-plugin-mobile-use").performScrollTo().performClick()
         compose
             .onNodeWithTag("mobile-use-plugin-settings")
             .performScrollTo()

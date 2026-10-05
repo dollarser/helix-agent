@@ -1,0 +1,16 @@
+<resources>
+    <string name="network_dns_title">Network settings · DNS</string>
+    <string name="network_dns_help">Applies to API providers, subscriptions, MCP, A2A and native HTTP tools. Browsers, terminals and separate downloaders are excluded. TLS and network permissions remain enforced.</string>
+    <string name="network_hosts_help">Use IP address followed by one or more hostnames per line. IPv4, IPv6, blank lines and # comments are supported. Saving replaces all mappings until edited again. Save empty content to restore system DNS. Applies to new connections; system hosts is unchanged.</string>
+    <string name="network_hosts_label">hosts content</string>
+    <string name="network_hosts_error">Line %1$d: %2$s</string>
+    <string name="network_hosts_count">Valid format · %1$d hostnames</string>
+    <string name="network_hosts_save">Save</string>
+    <string name="network_hosts_save_failed">Could not save. Previous settings are unchanged.</string>
+    <string name="network_hosts_saved">Current content is saved</string>
+    <string name="network_hosts_invalid_ip">Invalid IP address</string>
+    <string name="network_hosts_missing_host">At least one hostname must follow the IP address</string>
+    <string name="network_hosts_invalid_host">Invalid hostname; do not include a URL, port or wildcard</string>
+    <string name="network_hosts_too_large">Content must not exceed 128 KiB</string>
+    <string name="network_hosts_too_many">Each hostname supports at most 16 distinct IP addresses</string>
+</resources>

@@ -11,7 +11,8 @@ import android.widget.TextView
 class CliRuntimeHomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        SubscriptionRuntimeEnvironment.initialize(this)
+        com.helix.core.policy.network.NativeNetwork
+            .initialize(filesDir)
         title = getString(R.string.subscription_app_name)
         val column =
             LinearLayout(this).apply {
@@ -32,14 +33,6 @@ class CliRuntimeHomeActivity : Activity() {
                 },
             )
         }
-        column.addView(
-            Button(this).apply {
-                setText(R.string.subscription_dns_title)
-                setOnClickListener {
-                    startActivity(Intent(this@CliRuntimeHomeActivity, SubscriptionNetworkSettingsActivity::class.java))
-                }
-            },
-        )
         SubscriptionScreen.show(this, column, home = true)
     }
 }

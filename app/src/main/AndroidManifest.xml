@@ -49,6 +49,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Helix"
         android:networkSecurityConfig="@xml/network_security_config">
+        <activity android:name=".network.NetworkSettingsActivity" android:exported="false" />
         <service android:name=".localmodel.LocalModelRuntimeService"
             android:process=":model_runtime" android:exported="false" />
         <activity

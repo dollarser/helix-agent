@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -56,7 +55,6 @@ import kotlinx.coroutines.withContext
  *
  * What it offers and, deliberately, what it does NOT:
  * - the NEW-SESSION DEFAULT (a preset only — the write service refuses a CUSTOM default);
- * - a link to the current session's four-mode picker in Conversation settings;
  * - an app-wide (GLOBAL) tool enable/disable list.
  *
  * There is NO per-tool ASK or risk-level toggle (the two-state availability model has no ASK to
@@ -69,11 +67,9 @@ import kotlinx.coroutines.withContext
 internal fun SessionPermissionSection(
     edit: SessionPermissionEditService,
     toolPipeline: ToolPipeline,
-    chatService: ChatService? = null,
-    onOpenSessionSettings: () -> Unit,
 ) {
     val tools = remember(toolPipeline) { toolPipeline.registry.all() }
-    val controller = rememberPermissionController(edit, tools, chatService)
+    val controller = rememberPermissionController(edit, tools, null)
     SettingsGroup {
         Text(stringResource(R.string.settings_perm_default_label), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.settings_default_permissions_hint), style = MaterialTheme.typography.bodySmall)
@@ -81,20 +77,6 @@ internal fun SessionPermissionSection(
             Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
         }
         PermissionDefaultPicker(controller)
-        HorizontalDivider(modifier = Modifier.fillMaxWidth())
-        if (controller.sessionId != null) {
-            OutlinedButton(
-                onClick = onOpenSessionSettings,
-                modifier = Modifier.fillMaxWidth().testTag("settings-open-session-permissions"),
-            ) { Text(stringResource(R.string.session_settings_title)) }
-            Text(stringResource(R.string.settings_session_scope_hint), style = MaterialTheme.typography.bodySmall)
-        } else {
-            Text(
-                stringResource(R.string.settings_perm_session_absent),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
     PermissionToolList(controller)
 }

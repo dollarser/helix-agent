@@ -41,5 +41,7 @@ Related HXA: HXA-231
 
 ## Related records
 
+2026-10-05 后续审查发现 `read/write` 新追加的使用提示仍可能使合法 1024 字符描述越界，其他文件工具也仍有独立用途改写。现统一原样保留所有文件工具的注册描述，参数帮助继续留在 schema；不提高限制或截断说明。新增完整文件工具集合的上限回归，见[后续审查与验证](2026-10-05-current-integration-audit.md)。以上早期验证范围不自动覆盖这次增量。
+
 - [工具描述契约](../adr/tools/001-descriptor-contract.md)
 - [当前状态](../development/status.md)

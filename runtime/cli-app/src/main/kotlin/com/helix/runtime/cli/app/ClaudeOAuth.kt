@@ -169,7 +169,15 @@ internal class ClaudeEligibilityException(
 ) : IllegalStateException("Claude Code subscription eligibility was not verified")
 
 internal class OkHttpClaudeOAuthTransport(
-    client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .dns(
+                okhttp3.Dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                },
+            ).build(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ClaudeOAuthTransport,
     Closeable {

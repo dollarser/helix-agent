@@ -152,6 +152,11 @@ class PluginCatalog(
         connectorId: String,
         enabled: Boolean,
     ) {
+        if (enabled) {
+            list().singleOrNull { it.id == connectorId }?.native?.let {
+                validateNativeSelection(it.pluginId)
+            }
+        }
         check(dao.setDefault(connectorId, enabled) == 1) { "CONNECTOR_UNAVAILABLE" }
     }
 

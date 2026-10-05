@@ -22,7 +22,9 @@ class CodexOAuthTest {
                 if (calls > 1) throw UnknownHostException(it)
                 expected
             }
-        val cache = BoundedDnsCache(upstream)
+        val cache =
+            com.helix.core.policy.network
+                .NativeDnsResolver({ upstream.lookup(it) })
 
         assertEquals(expected, cache.lookup("auth.openai.com"))
         assertEquals(expected, cache.lookup("auth.openai.com"))

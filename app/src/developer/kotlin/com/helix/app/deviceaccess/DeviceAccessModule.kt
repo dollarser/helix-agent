@@ -5,12 +5,14 @@ import androidx.compose.ui.platform.LocalContext
 
 /** Host system permissions only; independent of plugin registration and configuration. */
 internal object DeviceAccessModule {
+    const val AVAILABLE: Boolean = true
+
     @Composable
     @Suppress("FunctionName")
     fun Permissions() {
         val context = LocalContext.current
         AccessibilityAuthorization(context)
-        RootAuthorization(context)
         ShizukuAuthorization(context)
+        RootAuthorization(context)
     }
 }

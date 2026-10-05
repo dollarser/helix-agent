@@ -1,7 +1,6 @@
 package com.helix.app.deviceaccess
 
 import android.content.Context
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -9,8 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.tools.deviceaccess.DeviceAccess
@@ -37,18 +34,20 @@ internal fun RootAuthorization(context: Context) {
             delay(750)
         }
     }
-    Text(stringResource(R.string.device_access_root_title))
-    Text(stringResource(presentation.label), Modifier.testTag("permission-root-status"))
-    Text(stringResource(R.string.device_access_root_help))
-    OutlinedButton({
+    com.helix.app.ui.SystemPermissionCard(
+        title = stringResource(R.string.device_access_root_title),
+        description = stringResource(R.string.device_access_root_help),
+        status = stringResource(presentation.label),
+        tag = "permission-root-authorize",
+        actionLabel = stringResource(R.string.device_access_root_authorize),
+        enabled = presentation.canRequest,
+    ) {
         try {
             DeviceAccess.requestRootFromUser(consumer)
             failed = false
         } catch (_: RuntimeException) {
             failed = true
         }
-    }, enabled = presentation.canRequest, modifier = Modifier.testTag("permission-root-authorize")) {
-        Text(stringResource(R.string.device_access_root_authorize))
     }
     if (failed) Text(stringResource(R.string.permissions_settings_unavailable))
 }

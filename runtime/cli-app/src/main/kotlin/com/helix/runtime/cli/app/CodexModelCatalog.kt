@@ -27,8 +27,12 @@ internal class CodexModelCatalog(
         val client =
             OkHttpClient
                 .Builder()
-                .dns(BoundedDnsCache())
-                .callTimeout(15, TimeUnit.SECONDS)
+                .dns(
+                    okhttp3.Dns {
+                        com.helix.core.policy.network.NativeNetwork
+                            .resolve(it)
+                    },
+                ).callTimeout(15, TimeUnit.SECONDS)
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(10, TimeUnit.SECONDS)
                 .followRedirects(false)

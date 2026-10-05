@@ -72,7 +72,7 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
             modifier = Modifier.testTag("plugin-enabled-${record.id}"),
         )
     }
-    if (record.native == null) {
+    if (record.sessionScoped) {
         Row(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.connector_session_default), Modifier.weight(1f))
             Switch(defaultSelected, { value ->

@@ -22,8 +22,8 @@ internal class CodexClientVersionSettings(
     }
 
     companion object {
-        // Official latest stable CLI tag observed 2026-10-01; never follow alpha automatically.
-        const val DEFAULT = "0.159.3"
+        // Official stable CLI 2026-10-01 release, checked 2026-10-05; never follow alpha automatically.
+        const val DEFAULT = "0.160.0"
         private val version =
             Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?")
 

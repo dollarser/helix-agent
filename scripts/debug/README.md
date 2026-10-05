@@ -9,15 +9,11 @@ and shut down that process in `finally`. Never borrow an emulator started by ano
 person or agent. A physical device must be selected explicitly; fixture tests must
 not run against user data.
 
-Recovered historical scripts use `.py.txt` or `.sh.txt`: these are inert source archives, not
-supported runners. Their original assumptions (including hard-coded devices and
-line-number edits) are obsolete. `archive-manifest.json` records source hashes and
-mtime-based dates; paths and device identifiers are redacted. These dates do not
-prove original creation dates. Do not execute historical snapshots.
-
-The initial recovery contains 140 inactive scripts from temporary directories and
-old verification output folders (mtime dates September 5–9, 2026). Active EV-02
-automation and third-party JavaScript bundled in generated reports are excluded.
+Completed, unreferenced one-off editors and inactive source snapshots may be removed
+after checking references and preserving a recoverable source identity. The obsolete
+September 5–9 script snapshots and retired Goal verifier were removed on 2026-10-05;
+see the [cleanup record](../../docs/evidence/development/obsolete-material-cleanup-2026-10-05.md).
+Their original code remains in Git history; do not restore them as current runners.
 
 Example, from the repository root with `ANDROID_HOME` set:
 
@@ -56,5 +52,5 @@ Failed runs additionally retain synthetic-device logcat and a UI hierarchy dump.
 
 Reusable runners now live under `scripts/`; see [supported tools](../README.md).
 The former dated runner paths are compatibility shims, not duplicate implementations.
-New references should use the stable paths. Existing inert archives remain tracked;
+New references should use the stable paths. Retained historical runners remain available;
 ignored output directories are not a substitute for preserving reproduction tools.

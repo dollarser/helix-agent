@@ -8,6 +8,7 @@ import com.helix.app.plugin.PluginCatalog
 import com.helix.core.storage.HelixStorage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -51,6 +52,41 @@ class ConnectorCatalogDeviceTest {
                 reopened.deleteSessionPermanently("fork")
                 assertFalse(recovered.selected("fork").isNotEmpty())
             }
+        }
+    }
+
+    @Test fun nativeDefaultsRequireSetupAndOnlyAffectNewSessions() {
+        withStorage { _, _, _, storage ->
+            var ready = false
+            val catalog = PluginCatalog(storage, validateNativeSelection = { check(ready) })
+            val record =
+                InstalledPlugin(
+                    "native-fixture",
+                    "Fixture",
+                    "BUNDLED_PLUGIN",
+                    "hash",
+                    emptyList(),
+                    emptyList(),
+                    emptyList(),
+                    "native-fixture",
+                    1,
+                    true,
+                    native =
+                        com.helix.app.plugin
+                            .NativePluginComponent("fixture", "runtime"),
+                )
+            catalog.publishNative(record, null)
+            assertThrows(IllegalStateException::class.java) { catalog.setDefault(record.id, true) }
+            assertFalse(catalog.defaultSelected(record.id))
+            storage.sessions.create("before", "Before", null, null, 0)
+            ready = true
+            catalog.setDefault(record.id, true)
+            storage.sessions.create("after", "After", null, null, 0)
+            assertTrue(catalog.selected("before").isEmpty())
+            assertEquals(setOf(record.id), catalog.selected("after"))
+            ready = false
+            catalog.setDefault(record.id, false)
+            assertFalse(catalog.defaultSelected(record.id))
         }
     }
 

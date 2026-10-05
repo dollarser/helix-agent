@@ -9,7 +9,10 @@
     <string name="model_picker_needs_setup">%1$s · 尚未就绪</string>
     <string name="about_helix_title">关于 Helix</string>
     <string name="about_helix_version">版本：%1$s</string>
-    <string name="about_helix_project">项目主页、源码与问题反馈</string>
-    <string name="about_helix_developer">开发者：dollarser</string>
+    <string name="about_helix_project">项目主页和源码</string>
     <string name="about_link_failed">无法打开浏览器，请手动访问上方 GitHub 地址。</string>
+    <string name="about_helix_summary">开源 Android AI 助手，在你授权的范围内操作应用、处理文件和使用工具。</string>
+    <string name="about_helix_feedback">反馈问题</string>
+    <string name="about_helix_author">作者：dollarser</string>
+    <string name="about_helix_updates">下载更新</string>
 </resources>

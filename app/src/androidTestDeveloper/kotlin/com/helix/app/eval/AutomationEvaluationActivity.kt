@@ -71,6 +71,9 @@ class AutomationEvaluationActivity : Activity() {
     }
 
     private fun modelJourney() {
+        val outcome = getSharedPreferences("capability-fixture", MODE_PRIVATE)
+        check(outcome.edit().clear().commit())
+        val completions = intArrayOf(0)
         val layout =
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -95,7 +98,19 @@ class AutomationEvaluationActivity : Activity() {
         layout.addView(
             Button(this).apply {
                 text = "完成测试"
-                setOnClickListener { result.text = "TEST_DONE:${input.text}" }
+                setOnClickListener {
+                    completions[0]++
+                    result.text = "TEST_DONE:${input.text}"
+                    check(
+                        outcome
+                            .edit()
+                            .putString(
+                                "result",
+                                "TEST_DONE:${input.text}",
+                            ).putInt("clicks", completions[0])
+                            .commit(),
+                    )
+                }
             },
         )
         layout.addView(result)

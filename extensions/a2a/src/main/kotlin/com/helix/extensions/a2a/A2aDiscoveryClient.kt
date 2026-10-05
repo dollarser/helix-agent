@@ -159,7 +159,10 @@ object A2aClients {
             OkHttpA2aAgentCardClient(
                 OkHttpClient
                     .Builder()
-                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .dns {
+                        com.helix.core.policy.network.NativeNetwork
+                            .resolve(it)
+                    }.connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(30, TimeUnit.SECONDS)
                     .callTimeout(45, TimeUnit.SECONDS)
                     .followRedirects(false)
@@ -173,7 +176,10 @@ object A2aClients {
         OkHttpA2aTaskClient(
             OkHttpClient
                 .Builder()
-                .connectTimeout(15, TimeUnit.SECONDS)
+                .dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                }.connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .callTimeout(90, TimeUnit.SECONDS)
                 .followRedirects(false)

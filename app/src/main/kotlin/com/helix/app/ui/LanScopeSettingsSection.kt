@@ -49,7 +49,6 @@ internal fun LanScopeSettingsSection(store: LanScopeStore) {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("settings-lan-scopes")) {
-        Text(stringResource(R.string.settings_lan_title), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.settings_lan_note), style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(
             value = input,

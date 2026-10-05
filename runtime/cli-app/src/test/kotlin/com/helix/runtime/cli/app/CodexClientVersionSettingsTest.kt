@@ -10,7 +10,7 @@ import org.junit.Test
 class CodexClientVersionSettingsTest {
     @Test fun absentOrMalformedStoredVersionUsesTheShippedDefault() {
         for (value in listOf(null, "", "https://evil.invalid", "0.1.0&other=x")) {
-            assertEquals("0.159.3", CodexClientVersionSettings({ value }, { error("no write") }).current())
+            assertEquals("0.160.0", CodexClientVersionSettings({ value }, { error("no write") }).current())
         }
     }
 
@@ -18,11 +18,11 @@ class CodexClientVersionSettingsTest {
         var stored: String? = null
 
         fun settings() = CodexClientVersionSettings({ stored }, { stored = it })
-        assertEquals("0.160.0", settings().save(" 0.160.0 "))
-        assertEquals("0.160.0", settings().current())
-        assertEquals("0.159.3", settings().reset())
-        assertNull(stored)
+        assertEquals("0.159.3", settings().save(" 0.159.3 "))
         assertEquals("0.159.3", settings().current())
+        assertEquals("0.160.0", settings().reset())
+        assertNull(stored)
+        assertEquals("0.160.0", settings().current())
     }
 
     @Test fun invalidInputNeverReachesPersistence() {
@@ -44,7 +44,7 @@ class CodexClientVersionSettingsTest {
 
     @Test fun explicitPrereleaseIsAllowedButNotSelectedByDefault() {
         assertTrue(CodexClientVersionSettings.valid("0.161.0-alpha.8"))
-        assertEquals("0.159.3", CodexClientVersionSettings.DEFAULT)
+        assertEquals("0.160.0", CodexClientVersionSettings.DEFAULT)
     }
 
     @Test fun failedDurableSaveOrResetIsNotReportedAsSuccess() {

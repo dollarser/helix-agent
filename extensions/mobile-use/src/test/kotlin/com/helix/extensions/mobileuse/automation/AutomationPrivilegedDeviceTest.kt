@@ -27,6 +27,34 @@ class AutomationPrivilegedDeviceTest {
         )
     private val stroke = AutomationStroke(listOf(AutomationPoint(10f, 10f), AutomationPoint(80f, 80f)), 0, 200)
 
+    @Test fun semanticScrollAcceptsVisibleContainerAboveKeyboardButClickDoesNot() {
+        val visible: (Int, Int) -> Boolean = { _, y -> y < 40 }
+        assertTrue(
+            privilegedSemanticAnchorPermitted(AutomationNodeAction.SCROLL_FORWARD, target.bounds, target, visible),
+        )
+        assertTrue(
+            privilegedSemanticAnchorPermitted(AutomationNodeAction.SCROLL_BACKWARD, target.bounds, target, visible),
+        )
+        assertFalse(privilegedSemanticAnchorPermitted(AutomationNodeAction.CLICK, target.bounds, target, visible))
+        assertFalse(
+            privilegedSemanticAnchorPermitted(
+                AutomationNodeAction.SCROLL_FORWARD,
+                target.bounds,
+                target,
+            ) { _, _ -> false },
+        )
+    }
+
+    @Test fun semanticScrollRejectsEmptyClippedBoundsWithoutCheckingPoints() {
+        assertFalse(
+            privilegedSemanticAnchorPermitted(
+                AutomationNodeAction.SCROLL_FORWARD,
+                AutomationNodeBounds(0, 120, 100, 100),
+                target,
+            ) { _, _ -> error("No visible geometry") },
+        )
+    }
+
     @Test fun replacementObservationAndDifferentConversationCannotReuseFrame() {
         val authority = Authority()
         val backend = Backend(target)

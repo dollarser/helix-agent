@@ -1,0 +1,10 @@
+<resources>
+    <string name="plugin_origin_bundled">内置</string>
+    <string name="plugin_origin_installed">已安装</string>
+    <string name="plugin_status_enabled">已启用</string>
+    <string name="plugin_status_disabled">已停用</string>
+    <string name="plugins_empty">尚未添加插件</string>
+    <string name="plugins_no_matches">没有匹配的插件</string>
+    <string name="plugin_components_summary">%1$d 个技能 · %2$d 个连接</string>
+    <string name="plugin_connection_details">连接与诊断</string>
+</resources>

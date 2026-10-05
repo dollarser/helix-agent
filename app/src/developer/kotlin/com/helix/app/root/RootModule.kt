@@ -3,9 +3,7 @@ package com.helix.app.root
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -111,8 +109,6 @@ internal object RootModule {
         }
 
         Column(modifier = Modifier.fillMaxWidth().testTag("settings-root-section")) {
-            Text(stringResource(R.string.root_title), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
             Text(stringResource(R.string.root_warning), style = MaterialTheme.typography.bodySmall)
             Text(
                 stringResource(

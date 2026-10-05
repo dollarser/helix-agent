@@ -24,3 +24,13 @@ Scope: 所有者要求会话成果进入上下文占用右侧的更多菜单，�
 主机 Developer 单元测试、双渠道 APK 构建、AndroidTest Kotlin 编译、Detekt、格式与多语言检查。日志位于忽略目录 `build/conversation-menu-check.log` 和 `build/conversation-menu-final.log`。
 
 更新成果、任务清单、Goal、分支界面用例的导航入口；设备测试本轮仅编译，未运行。设备与真实模型均为 not requested，未安装模拟器。主机通过不代表新布局已完成设备交互验收。
+
+## 后续：内置与外部插件统一管理
+
+所有者要求优化扩展页中“内置插件”和“插件”两套呈现。现统一使用安装目录与 PluginManagementCard，删除 BundledPluginsSection；来源改为“内置/已安装”标签。名称、摘要、启用状态与展开操作一致，展开后管理全局启用、默认选择、插件设置及技能/工具。Mobile Use 保留专用设置内容，但使用相同列表和展开交互；独立技能保持独立安装归属。
+
+搜索统一匹配显示名、原生标识、技能和连接名称，并加载内置技能/工具名称供匹配；不搜索私有连接地址。无匹配时明确提示。外部插件连接参数、来源摘要和诊断收进次级详情，独立更新/移除保持；原生插件不提供这些不适用的操作。列表查看与搜索不调用远端服务、不启用插件。
+
+默认选择对所有 sessionScoped 插件显示；原生插件保存开启默认值时复用配置校验，失败不写入。默认值仅影响后续新会话，已有会话、系统授权和工具准入保持原语义。
+
+11 项插件 JVM 测试、双渠道构建、设备测试编译与静态检查通过。验证记录：`build/plugin-unify-final-pass.log`（插件包 JVM 测试、双渠道 APK、Developer 测试 APK 编译、detekt/spotless），`build/plugin-unify-i18n-final.log`、`build/plugin-unify-docs.log`。初次静态检查发现格式、参数数量及条件复杂度问题，已通过删去过时的 includeBundled 开关及整理代码修复。设备用例更新覆盖搜索隐藏/恢复内置插件、内容查看不改变启用状态、默认选择校验和新会话快照，仅编译，设备状态 not requested；未调用真实模型或账号，未安装、提交或推送。

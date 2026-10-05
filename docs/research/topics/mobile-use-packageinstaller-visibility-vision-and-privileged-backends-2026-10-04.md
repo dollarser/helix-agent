@@ -1,12 +1,14 @@
 # Mobile Use：PackageInstaller Install 不可见、视觉回退与特权后端调研交接
 
 > 日期：2026-10-04  
-> 状态：普通无障碍复验失败后已接入 Shizuku，随后完成应用 Root 验证与精确点击 Root → Shizuku → Accessibility 自动优先级。API34 Root 首次安装、断开回退及 API36 Shizuku 更新路径通过；当前范围见第 24 节，插件边界见第 23 节。  
+> 性质：历史调查与逐阶段证据，不是当前功能状态页。后续实现、权限归属和未闭合工作以[当前状态](../../development/status.md)及有效 ADR 为准。下文“当前”“本轮”均指该段记录阶段。
 > 设计原则：继续遵循 Helix 的浅 Harness 方向——模型决定流程，Harness 提供真实能力、权限、观测和动作原语；不要为 APK 安装写专用状态机。
 
 后续抖音实测：API36 已通过 Dispatcher 的 Shizuku 截图与手势点击实际完成抖音 40.7.0 安装；坐标由人工观察当前截图给出，不是模型自主定位验收。一次真实模型任务下载成功后超时，保留失败边界；见[安装与统一扩展验证](../../evidence/development/douyin-and-unified-extensions-2026-10-04.md)。
 
-2026-10-05 续验：默认语义观察和节点动作也接入 Root → Shizuku → Accessibility，关闭普通无障碍的 Shizuku 观察通过。按所有者要求卸载抖音后，两轮模型自主安装仍分别超时和过早结束，最终未安装；见[当前验证与限制](../../evidence/development/mobile-use-privileged-semantics-2026-10-05.md)。上述历史安装事实不代表当前仍已安装或自主任务通过。
+2026-10-05 早期续验：默认语义观察和节点动作也接入 Root → Shizuku → Accessibility，关闭普通无障碍的 Shizuku 观察通过。当时卸载抖音后的两轮模型尝试分别超时和过早结束，该阶段未安装；见[该阶段验证与限制](../../evidence/development/mobile-use-privileged-semantics-2026-10-05.md)。
+
+随后[抖音/酷安安装实测](../../evidence/development/douyin-coolapk-model-install-2026-10-05.md)记录了成功安装、追加提示和只读核查，不能继续把上段失败当成最终结论，也不将多轮提示包装为一次请求完成。最新[合成任务评测](../../evidence/development/current-model-capability-eval-2026-10-05.md)补充屏幕外节点、输入法透明区域及工具说明修复；它未重新执行真实 App 安装，也不证明设备当前安装状态。
 
 ---
 

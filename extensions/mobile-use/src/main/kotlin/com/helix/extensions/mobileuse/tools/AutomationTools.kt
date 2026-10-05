@@ -346,23 +346,36 @@ class AutomationTools(
         nodes: List<AutomationSnapshotNode>,
         nodeIndex: Map<String, AutomationSnapshotNode>,
     ): JsonObject? {
+        if (nodes.isNotEmpty() && nodes.all(::automationNodeOffscreen)) {
+            return buildJsonObject {
+                put(
+                    "actionHint",
+                    JsonPrimitive(
+                        "Matches are offscreen. Scroll a fresh scrollable container token with ui.scroll, " +
+                            "then observe again. " +
+                            "Do not click these tokens or guess coordinates.",
+                    ),
+                )
+            }
+        }
         val token =
             nodes
                 .map { automationClickTargetToken(it, nodeIndex) }
                 .filter(String::isNotEmpty)
                 .distinct()
                 .singleOrNull()
-                ?: return null
-        return buildJsonObject {
-            put("suggestedAction", JsonPrimitive(CLICK))
-            put("suggestedClickToken", JsonPrimitive(token))
-            put(
-                "actionHint",
-                JsonPrimitive(
-                    "If this match is the next intended control, call ui.click with suggestedClickToken next. " +
-                        "Do not search screenshots or coordinates first.",
-                ),
-            )
+        return token?.let {
+            buildJsonObject {
+                put("suggestedAction", JsonPrimitive(CLICK))
+                put("suggestedClickToken", JsonPrimitive(token))
+                put(
+                    "actionHint",
+                    JsonPrimitive(
+                        "If this match is the next intended control, call ui.click with suggestedClickToken next. " +
+                            "Do not search screenshots or coordinates first.",
+                    ),
+                )
+            }
         }
     }
 
@@ -586,6 +599,7 @@ class AutomationTools(
                 "contentDescription" to str(2_000),
                 "viewId" to str(512),
                 "clickable" to bool(),
+                "offscreen" to bool(),
                 "longClickable" to bool(),
                 "checkable" to bool(),
                 "checked" to bool(),

@@ -19,7 +19,8 @@ class CliRuntimeService : Service() {
     override fun onCreate() {
         super.onCreate()
         AntigravityWireDiagnostic.sink = { android.util.Log.w("HelixAntigravity", "wire_${it.name}") }
-        SubscriptionRuntimeEnvironment.initialize(this)
+        com.helix.core.policy.network.NativeNetwork
+            .initialize(filesDir)
         clearModelEventSpool(java.io.File(cacheDir, "model-events"))
         initializeNetworkForeground()
         val vault = CliSubscriptionCredentialVault(this)

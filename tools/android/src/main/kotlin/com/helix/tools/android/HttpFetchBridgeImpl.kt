@@ -56,7 +56,9 @@ class RealAddressResolver : AddressResolver {
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // a resolution failure is a fail-closed empty set
     override fun resolve(host: String): List<ByteArray> =
         try {
-            InetAddress.getAllByName(host).map { it.address }
+            com.helix.core.policy.network.NativeNetwork
+                .resolve(host)
+                .map { it.address }
         } catch (e: Exception) {
             emptyList()
         }

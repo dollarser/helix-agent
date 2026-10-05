@@ -122,9 +122,22 @@ internal class AutomationClickMatchExecutor(
         val matches = AutomationFinder.findAll(snapshot, query)
         val failure =
             when {
-                matches == null -> "INVALID_QUERY"
-                matches.isEmpty() -> "TARGET_NOT_FOUND"
-                else -> null
+                matches == null -> {
+                    "INVALID_QUERY"
+                }
+
+                matches.isEmpty() -> {
+                    "TARGET_NOT_FOUND"
+                }
+
+                matches.all(::automationNodeOffscreen) -> {
+                    "TARGET_OFFSCREEN: scroll a fresh scrollable container with ui.scroll, " +
+                        "then observe again before clicking; do not guess coordinates."
+                }
+
+                else -> {
+                    null
+                }
             }
         if (failure != null) return ToolExecutorResult.Failed(failure, sideEffectFree = true)
 

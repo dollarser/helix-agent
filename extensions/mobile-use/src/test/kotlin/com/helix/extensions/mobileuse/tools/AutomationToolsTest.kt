@@ -194,6 +194,35 @@ class AutomationToolsTest {
     }
 
     @Test
+    fun offscreenFindSuggestsScrollWithoutClickToken() {
+        val result = successfulSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        val node = snapshot.nodes.single().copy(bounds = AutomationNodeBounds(0, 120, 100, 100))
+        val parent = node.copy(token = "parent", bounds = AutomationNodeBounds(0, 0, 100, 100))
+        val child = node.copy(parentToken = parent.token)
+        assertEquals("", automationClickTargetToken(child, mapOf(parent.token to parent, child.token to child)))
+        port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = listOf(node)))
+        val found = completed(execute(AutomationTools.FIND, args("text" to "Continue")))
+        assertFalse(found.containsKey("suggestedClickToken"))
+        assertTrue(
+            found
+                .getValue("actionHint")
+                .jsonPrimitive.content
+                .contains("ui.scroll"),
+        )
+        assertEquals(
+            "true",
+            found
+                .getValue("nodes")
+                .jsonArray
+                .single()
+                .jsonObject
+                .getValue("offscreen")
+                .jsonPrimitive.content,
+        )
+    }
+
+    @Test
     fun snapshotAndFindExposeOnlyIssuedNodeTokens() {
         port.snapshotResult = successfulSnapshot()
         val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
@@ -417,6 +446,20 @@ class AutomationToolsTest {
         val inert = execute(AutomationTools.CLICK_MATCH, args("text" to "Label")) as ToolExecutorResult.Failed
         assertEquals("TARGET_NOT_CLICKABLE", inert.detail)
         assertTrue(inert.sideEffectFree)
+        assertTrue(port.nodeRequests.isEmpty())
+    }
+
+    @Test
+    fun clickMatchExplainsOffscreenRecoveryWithoutDispatchingAnAction() {
+        val result = successfulSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        val node = snapshot.nodes.single().copy(bounds = AutomationNodeBounds(0, 120, 100, 100))
+        port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = listOf(node)))
+        val refused = execute(AutomationTools.CLICK_MATCH, args("text" to "Continue")) as ToolExecutorResult.Failed
+        assertTrue(refused.detail.startsWith("TARGET_OFFSCREEN:"))
+        assertTrue(refused.detail.contains("ui.scroll"))
+        assertTrue(refused.sideEffectFree)
+        assertFalse(refused.requiresReview)
         assertTrue(port.nodeRequests.isEmpty())
     }
 

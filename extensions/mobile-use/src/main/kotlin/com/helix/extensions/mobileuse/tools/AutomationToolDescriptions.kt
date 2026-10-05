@@ -5,15 +5,15 @@ internal object AutomationToolDescriptions {
     fun description(name: String): String =
         when (name) {
             AutomationTools.SNAPSHOT -> {
-                "Observe the current authorized Android screen without acting. Returns fresh node tokens, " +
-                    "labels, bounds and state; omitted flags mean false. Check truncated/recoveryHint before " +
-                    "concluding a control is absent. Observation chooses ready Root, then Shizuku, then Accessibility."
+                SNAPSHOT_DESCRIPTION
             }
 
             AutomationTools.FIND -> {
                 "Find controls in a fresh screen observation using observed labels or attributes. " +
                     "Default text matching is exact; use match=contains for a substring. " +
-                    "A unique intended match supplies suggestedClickToken for ui.click. Does not click or wait."
+                    "An actionable unique match supplies suggestedClickToken for ui.click. " +
+                    "Offscreen matches are not clickable: scroll their container and observe again. " +
+                    "Does not click or wait."
             }
 
             AutomationTools.WAIT -> {
@@ -41,7 +41,9 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.SET_TEXT -> {
-                "Replace text in a fresh editable node token. Set submit=true only when canImeEnter=true " +
+                "Replace text directly in a fresh editable node token; " +
+                    "no preliminary click or keyboard opening is needed. " +
+                    "Set submit=true only when canImeEnter=true " +
                     "to also submit through the keyboard action. Observe the result before the next action."
             }
 
@@ -73,3 +75,10 @@ internal object AutomationToolDescriptions {
             }
         }
 }
+
+private const val SNAPSHOT_DESCRIPTION =
+    "Observe the current authorized Android screen without acting. Returns fresh node tokens, " +
+        "labels, bounds and state; omitted flags mean false. " +
+        "Offscreen nodes require scrolling before clicking. " +
+        "Check truncated/recoveryHint before " +
+        "concluding a control is absent. Observation chooses ready Root, then Shizuku, then Accessibility."

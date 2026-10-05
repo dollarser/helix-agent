@@ -30,7 +30,8 @@ class AntigravityLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        SubscriptionRuntimeEnvironment.initialize(this)
+        com.helix.core.policy.network.NativeNetwork
+            .initialize(filesDir)
         vault = CliSubscriptionCredentialVault(this)
         title = getString(R.string.antigravity_title)
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }

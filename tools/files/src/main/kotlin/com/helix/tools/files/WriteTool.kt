@@ -72,7 +72,9 @@ object WriteTool {
             version = ToolVersion(VERSION),
             description =
                 "Atomically write UTF-8 content to a workspace file by model reference; " +
-                    "existing files require overwrite=true.",
+                    "existing files require overwrite=true. The parent directory must already exist: " +
+                    "use files.mkdir first when creating a new output directory " +
+                    "(discover it with tools.search if needed).",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,

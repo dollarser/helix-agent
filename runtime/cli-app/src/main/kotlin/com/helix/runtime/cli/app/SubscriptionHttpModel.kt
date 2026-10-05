@@ -18,7 +18,15 @@ internal class SubscriptionHttpModel(
     private val encode: (ModelRequest) -> String,
     private val decoder: () -> com.helix.provider.api.StreamDecoder,
     private val headers: Map<String, String> = emptyMap(),
-    client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
+    client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .dns(
+                okhttp3.Dns {
+                    com.helix.core.policy.network.NativeNetwork
+                        .resolve(it)
+                },
+            ).build(),
 ) : Closeable {
     private val calls = SubscriptionCancellation()
     private val client =

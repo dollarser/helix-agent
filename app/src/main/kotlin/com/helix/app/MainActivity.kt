@@ -501,11 +501,9 @@ internal fun HelixApp(container: AppContainer) {
                                 profileStore = container.profileStore,
                                 egressRules = container.storage.highSensitivityRules,
                                 lanScopeStore = container.lanScopeStore,
-                                chatService = container.chatService,
                                 sessionPermissionEdit = container.sessionPermissionEdit,
                                 toolPipeline = container.toolPipeline,
                                 onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                                onOpenSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
                             )
                         }
                         composable(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) {
@@ -752,16 +750,23 @@ private fun PermissionsScreenDestination(
     container: AppContainer,
     onFileLocations: () -> Unit,
 ) {
+    val profile by container.profileStore.flow.collectAsStateWithLifecycle()
     com.helix.app.ui.SystemPermissionsScreen(
         onFileLocations = onFileLocations,
-        devicePermissions = {
-            com.helix.app.deviceaccess.DeviceAccessModule
-                .Permissions()
-        },
-        advancedPermissions =
-            if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+        devicePermissions =
+            if (com.helix.app.deviceaccess.DeviceAccessModule.AVAILABLE) {
                 {
-                    val profile by container.profileStore.flow.collectAsStateWithLifecycle()
+                    com.helix.app.deviceaccess.DeviceAccessModule
+                        .Permissions()
+                }
+            } else {
+                null
+            },
+        advancedPermissions =
+            if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE &&
+                profile == com.helix.core.model.SafetyProfile.ADVANCED
+            ) {
+                {
                     com.helix.app.root.RootModule
                         .Section(profile)
                 }

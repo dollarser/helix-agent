@@ -53,6 +53,10 @@ class HelixApplication : Application() {
     @Suppress("TooGenericExceptionCaught")
     override fun onCreate() {
         super.onCreate()
+        if (!Process.isIsolated()) {
+            com.helix.core.policy.network.NativeNetwork
+                .initialize(filesDir)
+        }
         // Android also creates this Application in isolated QuickJS and private Runtime
         // processes. Only the main process owns host diagnostics, Room and recovery.
         if (Process.isIsolated() || getProcessName() != packageName) return

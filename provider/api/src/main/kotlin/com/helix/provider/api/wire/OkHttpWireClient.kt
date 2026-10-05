@@ -41,7 +41,10 @@ public class OkHttpWireClient(
     private val client: OkHttpClient =
         OkHttpClient
             .Builder()
-            .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
+            .dns {
+                com.helix.core.policy.network.NativeNetwork
+                    .resolve(it)
+            }.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
             // HTTP is an explicit endpoint choice, never an automatic HTTPS downgrade.
             .followSslRedirects(false)

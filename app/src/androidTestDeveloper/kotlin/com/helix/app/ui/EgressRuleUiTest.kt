@@ -1,9 +1,11 @@
 package com.helix.app.ui
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -65,8 +67,11 @@ class EgressRuleUiTest {
 
         // --- Advanced: the section is present and initially empty ---
         composeRule.onNodeWithTag("settings-egress-options").performScrollTo().performClick()
-        composeRule.onNodeWithTag("egress-section-title").performScrollTo()
-        composeRule.onNodeWithTag("egress-section-title").assertIsDisplayed()
+        composeRule.onNodeWithTag("egress-rule-help").performScrollTo()
+        composeRule.onNodeWithTag("egress-rule-help").assertIsDisplayed()
+        composeRule
+            .onAllNodesWithText(composeRule.activity.getString(com.helix.app.R.string.egress_title))
+            .assertCountEquals(1)
         composeRule.onNodeWithTag("egress-empty").performScrollTo()
         composeRule.onNodeWithTag("egress-empty").assertIsDisplayed()
 
@@ -119,10 +124,10 @@ class EgressRuleUiTest {
         composeRule.runOnUiThread { composeRule.activity.recreate() }
         composeRule.waitForIdle()
         composeRule.navigateTo("settings/permissions")
-        if (composeRule.onAllNodesWithTag("egress-section-title").fetchSemanticsNodes().isEmpty()) {
+        if (composeRule.onAllNodesWithTag("egress-section").fetchSemanticsNodes().isEmpty()) {
             composeRule.onNodeWithTag("settings-egress-options").performScrollTo().performClick()
         }
-        composeRule.onNodeWithTag("egress-section-title").performScrollTo()
+        composeRule.onNodeWithTag("egress-rule-help").performScrollTo()
         composeRule.onNodeWithTag("egress-rule-target").performScrollTo()
         composeRule.onNodeWithTag("egress-rule-target").assertIsDisplayed()
         composeRule.onAllNodesWithTag("egress-rule-target").onFirst().assertTextEquals("mcp:mcp-e2e")

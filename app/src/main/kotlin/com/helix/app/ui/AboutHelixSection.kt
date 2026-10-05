@@ -6,10 +6,7 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,60 +25,55 @@ import com.helix.app.R
 @Composable
 @Suppress("FunctionName")
 internal fun AboutHelixSection() {
-    var open by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    HorizontalDivider()
-    OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag("settings-about")) {
-        Text(stringResource(R.string.about_helix_title))
-    }
-    if (open) {
-        val version =
-            remember(context) {
-                val info = context.packageManager.getPackageInfo(context.packageName, 0)
-                "${info.versionName.orEmpty()} (${info.longVersionCode})"
-            }
-        AboutHelixDialog(
-            version = version,
-            onDismiss = { open = false },
-            onProject = { openProjectLink(context, "https://github.com/dollarser/helix-agent") },
-            onDeveloper = { openProjectLink(context, "https://github.com/dollarser") },
-        )
-    }
+    val version =
+        remember(context) {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            "${info.versionName.orEmpty()} (${info.longVersionCode})"
+        }
+    AboutHelixContent(
+        version,
+        onOpen = { openProjectLink(context, it.url) },
+    )
 }
 
 @Composable
 @Suppress("FunctionName")
-internal fun AboutHelixDialog(
+internal fun AboutHelixContent(
     version: String,
-    onDismiss: () -> Unit,
-    onProject: () -> Boolean,
-    onDeveloper: () -> Boolean,
+    onOpen: (AboutHelixLink) -> Boolean,
 ) {
     var failed by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.about_helix_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.about_helix_version, version))
-                Text("github.com/dollarser/helix-agent", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { failed = !onProject() }, modifier = Modifier.testTag("about-project")) {
-                    Text(stringResource(R.string.about_helix_project))
-                }
-                TextButton(onClick = { failed = !onDeveloper() }, modifier = Modifier.testTag("about-developer")) {
-                    Text(stringResource(R.string.about_helix_developer))
-                }
-                if (failed) {
-                    Text(
-                        stringResource(R.string.about_link_failed),
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.testTag("about-link-error"),
-                    )
+    SettingsGroup {
+        Column(Modifier.fillMaxWidth().testTag("settings-about"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.about_helix_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.about_helix_summary), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.about_helix_version, version), style = MaterialTheme.typography.bodySmall)
+            AboutHelixLink.entries.forEach { link ->
+                TextButton({ failed = !onOpen(link) }, Modifier.testTag(link.tag)) {
+                    Text(stringResource(link.label))
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.chat_details_close)) } },
-    )
+            if (failed) {
+                Text(
+                    stringResource(R.string.about_link_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("about-link-error"),
+                )
+            }
+        }
+    }
+}
+
+internal enum class AboutHelixLink(
+    val label: Int,
+    val url: String,
+    val tag: String,
+) {
+    AUTHOR(R.string.about_helix_author, "https://github.com/dollarser", "about-author"),
+    PROJECT(R.string.about_helix_project, "https://github.com/dollarser/helix-agent", "about-project"),
+    UPDATES(R.string.about_helix_updates, "https://github.com/dollarser/helix-agent/releases", "about-updates"),
+    FEEDBACK(R.string.about_helix_feedback, "https://github.com/dollarser/helix-agent/issues", "about-feedback"),
 }
 
 private fun openProjectLink(

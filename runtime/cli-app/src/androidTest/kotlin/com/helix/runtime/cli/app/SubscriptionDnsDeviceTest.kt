@@ -18,15 +18,21 @@ class SubscriptionDnsDeviceTest {
             InstrumentationRegistry.getArguments().getString("helixDnsProbe") == "true",
         )
         val target = InstrumentationRegistry.getInstrumentation().targetContext
-        val settings = SubscriptionRuntimeEnvironment.initialize(target)
+        val settings =
+            com.helix.core.policy.network.NativeNetwork
+                .initialize(target.filesDir)
         assertTrue(android.os.Process.myUid() != 0)
         assertNotNull(settings.lookup("chatgpt.com"))
         assertFalse(File("/system/etc/hosts").readText().contains("chatgpt.com"))
         val client =
             OkHttpClient
                 .Builder()
-                .dns(BoundedDnsCache())
-                .connectTimeout(10, TimeUnit.SECONDS)
+                .dns(
+                    okhttp3.Dns {
+                        com.helix.core.policy.network.NativeNetwork
+                            .resolve(it)
+                    },
+                ).connectTimeout(10, TimeUnit.SECONDS)
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build()
         try {
