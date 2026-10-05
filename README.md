@@ -54,7 +54,9 @@ Helix 在 Android 本机执行任务：操作支持的应用界面、浏览网�
 
 安装包渠道与会话权限模式是不同概念。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
 
-发布页目前提供 **v0.0.4 预览版**；本文介绍当前源码，下载包的具体功能以该版本说明为准。遇到签名冲突，请先保留数据，不要直接卸载或清除应用数据。
+当前版本为 **[v0.0.5 开发预览版](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**（versionCode 5）。推荐进阶体验下载 `helix-v0.0.5-developer-debug.apk`；只需基础渠道可下载 `helix-v0.0.5-consumer-debug.apk`。发布页附 SHA-256 校验值和构建信息。遇到签名冲突，请先保留数据，不要直接卸载或清除应用数据。
+
+本版改进 Mobile Use 与宿主授权分工、模型添加与订阅设置、会话输入和扩展管理，并统一原生网络客户端的 hosts 域名解析。已修复 Release 依赖锁、Android 10 权限 API 检查和 APK 边界校验问题。完整主机 CI 已通过；本次发布未新增设备或真实模型验收，详情见[发布记录](docs/evidence/development/v0.0.5-release-2026-10-06.md)。
 
 ## 隐私与控制
 
