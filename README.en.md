@@ -2,119 +2,91 @@
 
 [简体中文](README.md) | **English**
 
-**Less copying. Less switching between apps. Let Helix handle the small tasks on your phone.**
+**An open-source Android AI agent that turns requests into actions on your phone.**
 
-Research still needs organizing. Expenses still need adding up. An AI-written note still needs copying into a file. Those little steps take time.
+Helix executes tasks on Android: interacting with supported apps, browsing the web, handling files, and running tools. Choose your model and access scope, follow execution, and keep results in conversations and files you can use again.
 
-Helix is an AI assistant that can take action on Android. Tell it what you want to accomplish. With your permission, it can read files, organize information, browse the web, interact with supported app screens, and save results you can use later.
+[Download preview](https://github.com/dollarser/helix-agent/releases) · [Get started](#your-first-task) · [Documentation](docs/README.md) · [Issues](https://github.com/dollarser/helix-agent/issues) · [Contribute](CONTRIBUTING.md)
 
-**You set the goal. Helix takes the steps—and shows you what actually happened.**
+> **Development preview. Android 10+ required.** Published APKs currently use debug signing. During development, an incompatible database upgrade clears conversations, configuration, and database records while retaining files outside the database. Export important content and back up files before upgrading. Features on `main` may not be in published APKs.
 
-[Download v0.0.4](https://github.com/dollarser/helix-agent/releases/tag/v0.0.4) · [Report an issue](https://github.com/dollarser/helix-agent/issues) · [Documentation](docs/README.md)
+## What you can do
 
-> This is a development preview for testing. APKs use debug signing; production signing and data-upgrade compatibility are not finished. An incompatible database upgrade clears conversations, settings, and database records while retaining files outside the database.
-
-## Turn everyday chores into a request
-
-For file tasks, place your text or CSV files in the conversation's working directory and grant the access the task needs.
-
-### Turn scattered meeting notes into next steps
-
-> “Organize the meeting notes in this directory into an action list with owners and deadlines. Mark missing details as unconfirmed. Save a new file and keep the originals.”
-
-Keep the result on your phone, ready to review or update later.
-
-### Make sense of expenses
-
-> “Group this CSV of travel expenses by category, calculate the total, and list the five largest entries. Save a separate summary. Flag missing amounts instead of guessing.”
-
-Let the assistant handle reading, calculation, and saving, then check the result against your records.
-
-### Keep a useful record of your research
-
-> “Read these event pages and summarize dates, locations, and registration details. Include source links and save a checklist. Mark anything you cannot find.”
-
-Start with sources you choose and reduce the back-and-forth between your browser and notes.
-
-### Hand off repetitive phone actions
-
-> “Set screen brightness to the minimum and check that it changed.”
-
-Helix can operate supported app screens after explicit authorization. A targeted system-brightness task has been verified; other apps need individual compatibility testing.
-
-These are starting points, not guarantees for every file format, website, or app. Try copies or non-sensitive data first.
-
-## Useful results, visible progress
-
-- **Keep what you create.** Open generated files and continue using the same working directory in later tasks.
-- **Work through larger tasks.** Ask for a plan first, review progress, and stop or adjust the task along the way.
-- **Control access.** File access and phone actions require appropriate permissions. Approval, refusal, and uncertain execution states remain visible.
-- **Choose your model.** Connect a model service or download a supported local model in the app.
-
-Results depend on the model, available tools, device, and permissions. A model saying “done” is not proof that an operation succeeded; Helix displays execution status separately.
-
-## Download and install
-
-Requires **Android 10 or later**.
-
-| Package | Which should I choose? |
+| Capability | How it helps |
 | --- | --- |
-| [Developer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.4/helix-v0.0.4-developer-debug.apk) | **Recommended for trying Helix.** Starts in Standard mode and includes optional advanced capabilities such as the terminal. |
-| [Consumer APK](https://github.com/dollarser/helix-agent/releases/download/v0.0.4/helix-v0.0.4-consumer-debug.apk) | A build without subscription runtimes or the PRoot terminal. |
+| **Phone interaction · Mobile Use** | Observe screens, find elements, tap, scroll, and type using available Accessibility, Shizuku, or Root capabilities |
+| **Files and results** | Use an independent file manager; read, organize, create, and edit authorized files, then preview, locate, or share results |
+| **Web and tools** | Browse pages, collect information, and call tools; Developer builds also include an advanced terminal and execution environment |
+| **Conversations and projects** | Organize conversations, files, instructions, and memory around projects; queue messages, adjust tasks, or stop execution |
+| **Model choice** | Connect APIs, compatible self-hosted services, or on-device models; Developer adds experimental third-party subscription integrations |
+| **Extensions** | Organize capabilities through plugins, skills, and connectors, including MCP; select extensions per conversation |
 
-Allow installation from your chosen source when Android asks. The [release page](https://github.com/dollarser/helix-agent/releases/tag/v0.0.4) includes release notes, source code, and SHA-256 checksums.
-
-> **Before upgrading, export important conversations and content, and back up important files.** During development, an incompatible database upgrade clears conversations, configuration, and database records. Only files outside the database are retained.
-
-If Android reports a signing conflict, preserve your data before taking action. Do not immediately uninstall or clear app data; development builds from different sources may not support installation over one another.
-
-## Models and editions
-
-The current Consumer source build supports **API/self-hosted services** and **on-device models**. Developer also includes third-party subscription-account integrations: Codex, Claude, Google Antigravity, GitHub Copilot, and Grok (X Premium). Build editions are separate from conversation permission modes. Availability and account eligibility need verification for each service; integration does not imply official authorization or complete compatibility.
-
-Endpoint-and-API-key plans, such as Kimi Code and MiniMax Token Plan, belong under API connections in both editions. Use the key for your plan and region; Helix does not automatically switch billing accounts. Antigravity is experimental. Developer offers experimental sign-in with overridable or disableable public client parameters, not official Google authorization. Complete eligibility setup in the official client first. See the [integration evidence](docs/evidence/development/subscription-antigravity-2026-09-30.md) for tested boundaries.
-
-Current source changes are not necessarily included in the published v0.0.4 APKs.
+Task quality depends on the model, device, permissions, and target app. Helix is not an OEM system image and does not promise compatibility with every app, website, or file format. See [current status](docs/development/status.md) for implementation and verification boundaries.
 
 ## Your first task
 
-1. **Connect a model.** Add your service under model settings and test the connection, or install a model from the local-model catalog. Online services may require your own API key and charge for usage.
-2. **Choose a conversation model.** Start a conversation and select your configured model. Check local-model readiness before using it.
-3. **Start small.** Try turning a few notes into a saved checklist.
-4. **Check the result.** Review any approval request, inspect execution status, and open the generated file.
+1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the release notes and checksum files for that version.
+2. Under **Models**, add a provider with its API address, protocol, and API key. Choose **Add model**, then enter the server's model name or fetch and select an available model. A custom display name is optional. You can also install a supported on-device model.
+3. Start a conversation, select a model, and try a small file task:
 
 ```text
-Organize tomorrow's tasks: meeting at 10 a.m., mail a package in the afternoon,
-and buy milk in the evening. Group them by morning, afternoon, and evening.
+Organize tomorrow's tasks: a meeting at 10 a.m., mailing a package in the afternoon,
+and buying milk in the evening. Group them by morning, afternoon, and evening.
 Save them as tomorrow.md. Do not invent times I did not give you.
 Read the saved file back and check that it matches.
 ```
 
-After a simple file task works, try a longer workflow. App-screen automation also requires the relevant Android permissions and authorization for the target app.
+4. Inspect execution status and open the file to check the result. Then try organizing a CSV, summarizing web pages, or operating a test app.
 
-Share your use cases, successes, and problems in [Issues](https://github.com/dollarser/helix-agent/issues).
+Remote services may charge for model usage. On-device models require downloaded weights, storage, and RAM. Configure a model before starting model-driven tasks.
 
-## Models and privacy
+### Operating Android apps
 
-**Running actions on your phone does not mean all content stays on your phone.** When you use a cloud or self-hosted model, conversation content and relevant file excerpts or tool results are sent to that service. Choose services and access scopes appropriate for your data.
+Enable **Mobile Use** in Extensions, configure it, and select it in the conversation. Helix manages system authorization and connections for Accessibility, Shizuku, and Root; the plugin uses capabilities granted to the host. All permissions are not required at once: partial readiness is supported, while each action still needs its specific capabilities.
 
-Local models run inference on the device, but downloads, browsing, and network tools may still use the internet. They also need storage and RAM. Speed and task quality vary by device; APKs do not include model weights.
+Supported operations prefer available **Root → Shizuku → Accessibility** backends. Backend coverage differs, and elevated permissions do not guarantee access to every secure window. Verify uncertain outcomes before repeating an action that may already have taken effect.
 
-File permissions, Android permissions, and conversation authorization serve different purposes. Grant only what a task needs. Follow the app's execution status for approval, refusal, and uncertain outcomes. Stopping a task does not undo external actions already completed.
+## Choose a build
 
-## Troubleshooting
+| Edition | Capabilities |
+| --- | --- |
+| **Standard / consumer** | The complete base product: conversations, API/on-device models, and channel-supported tools; excludes third-party subscription runtimes and the PRoot terminal |
+| **Advanced / developer** | Adds advanced capabilities allowed by the platform/channel, including subscription adapters and the PRoot terminal; intended for development and advanced use |
 
-When filing an [issue](https://github.com/dollarser/helix-agent/issues), include the app version, package edition, device model, Android version, model name, reproduction steps, and error message.
+Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-Do not attach API keys, account credentials, or private files. Review and redact diagnostic information before sharing it.
+The release page currently offers the **v0.0.4 preview**. This README describes current source; consult the release notes for the downloaded APK. If Android reports a signing conflict, preserve data before uninstalling or clearing app data.
 
-## Contributing
+## Privacy and control
 
-Feedback and improvements are welcome. Before developing, read [AGENTS.md](AGENTS.md) and the [development setup](docs/development/environment.md).
+- **Local execution is not necessarily offline.** Remote models may receive conversations and task-relevant file excerpts, tool results, or images.
+- On-device models run inference locally, but downloads, browsing, and network tools may still access the internet. APKs do not include model weights.
+- System permissions and tool authorization are managed separately. Grant the required scope and inspect execution status; a model saying “done” is not independent proof of success.
+- Stopping a task does not undo external actions already completed. Start with test data or copies.
 
-- [Current status and known limitations](docs/development/status.md)
-- [Roadmap](docs/development/roadmap.md)
-- [Architecture and design decisions](docs/architecture/overview.md)
-- [Documentation index](docs/README.md)
+## Build from source
 
-Code is licensed under [Apache-2.0](LICENSE). Third-party components retain their own licenses.
+Prepare **JDK 17, the Android SDK, and Python 3**. Follow the [development setup](docs/development/environment.md) for SDK/NDK and dependency configuration; repository locks define the versions.
+
+```sh
+git clone https://github.com/dollarser/helix-agent.git
+cd helix-agent
+./gradlew :app:assembleConsumerDebug
+# For the advanced build:
+./gradlew :app:assembleDeveloperDebug
+```
+
+APKs are written to `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` for host source checks. A successful build is not device, live-model, or release acceptance. See the [contribution guide](CONTRIBUTING.md) for workflow and testing requirements.
+
+## Documentation and community
+
+- [Current status and limitations](docs/development/status.md) · [Roadmap index](docs/development/roadmap.md)
+- [Architecture](docs/architecture/overview.md) · [Design decisions](docs/adr/README.md) · [Documentation index](docs/README.md)
+- [Report a bug or suggest an improvement](https://github.com/dollarser/helix-agent/issues): include version, build edition, Android/device details, model, and reproduction steps. Remove keys, credentials, and private content.
+- Created by [dollarser](https://github.com/dollarser), with community contributions welcome.
+
+## License
+
+Helix's own source code is licensed under **[Apache License 2.0](LICENSE)**. Third-party libraries, runtime assets, command-line tools, and model weights retain their respective licenses; using them in Helix does not relicense them under Apache-2.0.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party attribution and release review requirements. It is currently a partial inventory and review policy, not a complete release SBOM or confirmation that all redistribution obligations are satisfied.
