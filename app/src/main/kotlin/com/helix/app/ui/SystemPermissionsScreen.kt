@@ -40,6 +40,9 @@ import com.helix.app.R
 import com.helix.app.ui.indicatedVerticalScroll
 
 /** System grants only: never creates an Agent scope or an approval rule. */
+private fun allFilesAccessGranted(supported: Boolean): Boolean? =
+    if (Build.VERSION.SDK_INT >= 30 && supported) Environment.isExternalStorageManager() else null
+
 @Composable
 @Suppress("FunctionName", "LongMethod")
 fun SystemPermissionsScreen(
@@ -49,13 +52,14 @@ fun SystemPermissionsScreen(
     advancedPermissions: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val hasAllFilesPermission =
+    val allFilesSupported =
         remember(context) {
-            context.packageManager
-                .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-                .requestedPermissions
-                .orEmpty()
-                .contains(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            Build.VERSION.SDK_INT >= 30 &&
+                context.packageManager
+                    .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+                    .requestedPermissions
+                    .orEmpty()
+                    .contains(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
         }
     var revision by remember { mutableIntStateOf(0) }
     var unavailable by remember { mutableStateOf(false) }
@@ -70,8 +74,7 @@ fun SystemPermissionsScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) ==
                 PackageManager.PERMISSION_GRANTED
         }
-    val allFilesSupported = Build.VERSION.SDK_INT >= 30 && hasAllFilesPermission
-    val allFiles = remember(revision) { if (allFilesSupported) Environment.isExternalStorageManager() else null }
+    val allFiles = remember(revision) { allFilesAccessGranted(allFilesSupported) }
     val listener =
         remember(revision) {
             context.packageName in
@@ -147,12 +150,16 @@ fun SystemPermissionsScreen(
         FilePermissionEntries(
             allFiles = allFiles,
             onAllFiles = {
-                open(
-                    Intent(
-                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                        "package:${context.packageName}".toUri(),
-                    ),
-                )
+                if (Build.VERSION.SDK_INT >= 30) {
+                    open(
+                        Intent(
+                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            "package:${context.packageName}".toUri(),
+                        ),
+                    )
+                } else {
+                    appSettings()
+                }
             },
             onFileLocations = onFileLocations,
             onConfigure = filePermissions?.let { { files = true } },

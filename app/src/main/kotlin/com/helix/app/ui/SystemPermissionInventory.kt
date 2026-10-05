@@ -19,13 +19,15 @@ import com.helix.app.R
 
 /** Permissions with dedicated, capability-specific controls on the same page. */
 private val dedicatedPermissions =
-    setOf(
-        Manifest.permission.POST_NOTIFICATIONS,
-        Manifest.permission.WRITE_CALENDAR,
-        Manifest.permission.MANAGE_EXTERNAL_STORAGE,
-        Manifest.permission.QUERY_ALL_PACKAGES,
-        "moe.shizuku.manager.permission.API_V23",
-    )
+    buildSet {
+        add(Manifest.permission.WRITE_CALENDAR)
+        add("moe.shizuku.manager.permission.API_V23")
+        if (Build.VERSION.SDK_INT >= 30) {
+            add(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            add(Manifest.permission.QUERY_ALL_PACKAGES)
+        }
+        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+    }
 
 @Composable
 @Suppress("FunctionName")
@@ -36,7 +38,8 @@ internal fun ApplicationVisibilityPermission(
     val context = LocalContext.current
     val broadVisibility =
         remember(revision) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.QUERY_ALL_PACKAGES) ==
+            Build.VERSION.SDK_INT >= 30 &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.QUERY_ALL_PACKAGES) ==
                 PackageManager.PERMISSION_GRANTED
         }
     SystemPermissionCard(
