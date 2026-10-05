@@ -32,9 +32,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ui.IndicatedLazyColumn
-import com.helix.tools.automation.AutomationApplication
-import com.helix.tools.automation.AutomationApplicationChoices
-import com.helix.tools.automation.AutomationApplicationFilter
+import com.helix.extensions.mobileuse.automation.AutomationApplication
+import com.helix.extensions.mobileuse.automation.AutomationApplicationChoices
+import com.helix.extensions.mobileuse.automation.AutomationApplicationFilter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

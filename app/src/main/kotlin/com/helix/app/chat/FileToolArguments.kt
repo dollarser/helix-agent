@@ -92,7 +92,7 @@ internal object FileToolArguments {
         val purpose = purposeFor(descriptor.name.value, descriptor.description)
         return ModelToolSchema(
             descriptor.name,
-            "$purpose $PATH_HELP .helix internals are not writable.",
+            purpose,
             JsonObject(schema + ("properties" to updated)).toString(),
         )
     }
@@ -101,8 +101,13 @@ internal object FileToolArguments {
         val properties = schema["properties"] as? JsonObject ?: JsonObject(emptyMap())
         return JsonObject(
             properties.mapValues { (key, value) ->
-                if (key in pathKeys && value is JsonObject) {
-                    JsonObject(value + ("description" to JsonPrimitive(PATH_HELP)))
+                if (key in pathKeys + setOf("sources", "files") && value is JsonObject) {
+                    val original = (value["description"] as? JsonPrimitive)?.content.orEmpty()
+                    val help =
+                        listOf(original, PATH_HELP, ".helix internals are not writable.")
+                            .filter { it.isNotBlank() }
+                            .joinToString(" ")
+                    JsonObject(value + ("description" to JsonPrimitive(help)))
                 } else {
                     value
                 }

@@ -72,7 +72,7 @@ internal fun AdaptiveConversationHeader(
             Icon(painterResource(R.drawable.ic_chat_new), stringResource(R.string.chat_new_session))
         }
         IconButton({ details = true }, modifier = Modifier.size(48.dp).testTag("chat-conversation-details")) {
-            Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_conversation_details))
+            Icon(painterResource(R.drawable.ic_more_vertical), stringResource(R.string.chat_conversation_details))
         }
     }
     if (details) {

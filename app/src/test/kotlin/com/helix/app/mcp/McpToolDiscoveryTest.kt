@@ -54,12 +54,37 @@ class McpToolDiscoveryTest {
 
     private fun catalog(count: Int = 500) = replaceCatalog("catalog", (0 until count).map(::remote))
 
+    @Test fun discoveredMaximumLengthDescriptionRemainsValidAcrossRequests() {
+        val tool = search.copy(name = ToolName("code.linux.run"), description = "x".repeat(1024))
+        registerFixture(tool)
+        val defaults =
+            com.helix.app.chat.ModelToolExposureOrder
+                .defaultNames(emptySet())
+        assertFalse(tool in discovery.visible("session", registry.all(), defaults))
+        assertEquals(listOf(tool), discovery.search("session", "code.linux.run", 1))
+        repeat(3) {
+            val loaded = discovery.visible("session", registry.all(), defaults)
+            assertTrue(tool in loaded)
+            loaded.forEach { descriptor ->
+                com.helix.app.chat.FileToolArguments
+                    .modelSchema(descriptor)
+            }
+            assertEquals(
+                tool.description,
+                com.helix.app.chat.FileToolArguments
+                    .modelSchema(tool)
+                    .description,
+            )
+        }
+        assertFalse(tool in discovery.visible("other-session", registry.all(), defaults))
+    }
+
     @Test fun optionalBuiltInNeedsDiscoveryAndNeverLeaksAcrossSessions() {
         val time = search.copy(name = ToolName("time.now"), description = "Current time")
         registerFixture(time)
         val defaults =
             com.helix.app.chat.ModelToolExposureOrder
-                .defaultNames(preferUi = false)
+                .defaultNames(emptySet())
         assertFalse(time in discovery.visible("session", registry.all(), defaults))
         assertEquals(listOf(time), discovery.search("session", "time.now", 1))
         assertTrue(time in discovery.visible("session", registry.all(), defaults))

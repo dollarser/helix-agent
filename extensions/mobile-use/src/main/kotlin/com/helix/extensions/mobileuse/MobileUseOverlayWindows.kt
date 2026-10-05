@@ -9,7 +9,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.helix.tools.automation.HelixAccessibilityService
+import com.helix.extensions.mobileuse.automation.HelixAccessibilityService
 
 /** Two small trusted windows: the entire status surface passes touches through. Main-thread only. */
 internal class MobileUseOverlayWindows(

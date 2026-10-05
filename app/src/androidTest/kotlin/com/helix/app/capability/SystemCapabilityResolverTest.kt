@@ -151,8 +151,7 @@ class SystemCapabilityResolverTest {
         // No libsu integration until the HXA-094 gate.
         assertEquals(GrantState.UNAVAILABLE, resolver.resolve(Capability.ROOT_SHELL).state)
 
-        // HXA-090: consumer has no :tools:automation component, while developer merges it. A
-        // declared but user-disabled service is DENIED; only the live enabled component is GRANTED.
+        // A declared but user-disabled service is DENIED; only a live enabled component is GRANTED.
         val services =
             context.packageManager
                 .getPackageInfo(

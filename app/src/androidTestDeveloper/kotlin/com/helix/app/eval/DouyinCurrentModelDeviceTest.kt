@@ -10,8 +10,8 @@ import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -47,7 +47,10 @@ class DouyinCurrentModelDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     System.currentTimeMillis(),
                 )
-                check(center.authorizeConversation(session, emptySet(), true))
+                check(
+                    com.helix.app.eval
+                        .selectMobileUseForTest(session, emptySet(), true),
+                )
                 c.chatService.openSession(session)
                 c.chatService.setMode(AgentMode.ACT)
                 waitUntil(10_000) { c.chatService.screen.value.openSessionId == session }
@@ -92,7 +95,8 @@ class DouyinCurrentModelDeviceTest {
                 )
             } finally {
                 c.chatService.stop()
-                center.revokeConversation(session)
+                com.helix.app.eval
+                    .deselectMobileUseForTest(session)
                 c.profileStore.switchTo(oldProfile)
                 c.chatService.openSession(original.id)
             }

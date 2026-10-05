@@ -186,7 +186,7 @@ data class ModelToolSchema(
     init {
         require(description.isNotBlank()) { "tool description must not be blank" }
         require(description.length <= MAX_DESCRIPTION_LENGTH) {
-            "tool description exceeds $MAX_DESCRIPTION_LENGTH chars"
+            "tool ${name.value} description exceeds $MAX_DESCRIPTION_LENGTH chars (actual ${description.length})"
         }
         require(description.none { it.code in 0x00..0x1F || it.code in 0x7F..0x9F }) {
             "tool description contains a control character"

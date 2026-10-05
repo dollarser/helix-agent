@@ -71,7 +71,7 @@ Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据
 
 包导入、安装、版本、组件归属和会话选择归入 Plugin，继续使用原 Room 表及提交点；Connector/MCP 只承担连接组件职责。Host Native 的源码注册表是已提交安装的投影，不是第二个安装事实。原生组件只能由 APK 内可信 composition root 登记，远程 manifest 数据不能加载宿主代码。内置包允许停用和修复，代码更新随 APK，不冒充能够单独卸载 APK 内代码。
 
-Mobile Use 的宿主调用 context 按该可信插件实际声明的完整 descriptor 匹配，不凭 `ui.*` 前缀分配会话范围。这个匹配只提供路由事实；已发布 binding 身份、会话选择、实时权限、取消与审计仍由原 Dispatcher 路径执行。插件不建立第二个 AgentLoop，`extensions/mobile-use` 与 `tools/automation` 保持插件组合/呈现和 Android 执行底座的单向分工。
+Mobile Use 的宿主调用 context 按该可信插件实际声明的完整 descriptor 匹配，不凭 `ui.*` 前缀分配会话范围。这个匹配只提供路由事实；已发布 binding 身份、会话选择、实时权限、取消与审计仍由原 Dispatcher 路径执行。插件不建立第二个 AgentLoop，`extensions/mobile-use` 拥有自动化引擎、工具、内置 skill 与运行交互；`tools/device-access` 只提供 Helix 持有的系统授权查询/申请及按使用方隔离的 Root 连接，不依赖插件。
 
 ### 7. 用户入口与安装后使用（2026-10-04）
 
@@ -122,6 +122,26 @@ Mobile Use 的宿主调用 context 按该可信插件实际声明的完整 descr
 
 ## Decision history — 2026-10-05：插件内置 skill 与内容查看
 
-所有者要求 Mobile Use 的操作指南随插件提供，不依赖独立安装/开关的 `android-ui-task`。该 skill 归属 Mobile Use 资产目录，插件公开工具与内置 skill 元数据；每次请求只有实际包含 Mobile Use 工具时才加入该指南，作为 SKILL / EXTERNAL_CONTENT，不能产生权限。独立技能列表不再重复发布它。插件实现继续调用 `tools/automation` 的 Android 执行机制，不将平台后端并入 skill 或另建执行循环。
+所有者要求 Mobile Use 的操作指南随插件提供，不依赖独立安装/开关的 `android-ui-task`。该 skill 归属 Mobile Use 资产目录，插件公开工具与内置 skill 元数据；每次请求只有实际包含 Mobile Use 工具时才加入该指南，作为 SKILL / EXTERNAL_CONTENT，不能产生权限。独立技能列表不再重复发布它。自动化机制随插件交付；系统授权通过宿主接口复用，不将平台后端并入 skill 或另建执行循环。
 
 插件管理点击展开工具和 skill 清单，再点击条目查看说明或正文。停用的插件也可人工查看内容；该只读管理路径不注册工具、不修改会话选择、不连接远端。可移植插件显示已发现的 MCP 工具名称；未连接时说明需配置，不将未知清单当成不存在工具。普通插件的新会话默认选择移到全局插件管理；会话面板仅管理本会话开关。已发送请求与历史消息不因关闭而被擦除。
+
+
+## Decision history — 2026-10-05：授权归宿主，自动化归插件
+
+所有者在五项优化执行期间进一步明确：无障碍、Root、Shizuku 的系统权限由 Helix 管理，可供其他插件使用；自动化能力、工具、skill 属于 Mobile Use。以此修正此前“保持 tools/automation 独立执行底座”的物理模块决定。
+
+- `tools/device-access` 提供被动权限查询、显式用户授权入口及按 consumer 隔离的 Root 服务连接。它不依赖 Mobile Use，也没有模型工具。
+- `extensions/mobile-use` 合并原 tools/automation 的观察、节点、手势、校验及测试，以及原 app 中的自动化专属 Root/Shizuku 适配器；类归属 `com.helix.extensions.mobileuse`。独立服务进程、Binder caller 校验与原执行容量限制保持。
+- 宿主装配已授权的服务与插件；插件使用原 Dispatcher、ToolImagePublication、PluginTaskHost，不获得 DAO 或第二个 AgentLoop。操作范围仍是独立的全局插件配置与会话选择。
+- 停用插件撤销工具发布并在动作前拒绝旧会话执行，不撤销系统权限。新鲜观察按操作能力选择 Root → Shizuku → 无障碍；已有 token/frame 固定原后端，不因失败或 UNKNOWN 跨后端重放。
+- `ui.click_match` 移除模型手选 backend 的参数；动作成功显式返回 observationRequired 与下一步观察提示。工具描述、内置 skill 与实际输出共同约束观察有效期。
+
+本决定按所有者要求不提供旧模块/API 兼容桥；验证事实记录于 [五项优化证据](../../evidence/development/mobile-use-refactor-2026-10-05.md)。
+
+
+## Decision history — 2026-10-05：通用原生插件贡献接口
+
+原生插件通过 HelixPlugin 提供内置指导、优先工具、输入数据来源、派发范围、图片范围和配置可用性校验。宿主统一按持久会话选择和实际发布的完整工具契约解析；聊天请求及派发层不再硬编码 Mobile Use 的这些贡献。未选中、已停用或契约不匹配的插件不得贡献执行上下文或指导。管理页仍可只读查看已停用插件内容。
+
+会话开启只有一次 Room 选择写入，插件配置校验不修改第二个授权存储。选择标识随关闭删除，重新选择生成新值；默认选择快照同样生成非空身份。此身份用于隔离历史执行凭据，不是第二个开关。生产不保留旧会话 grant 接口或数据兼容层；评测夹具也走真实插件选择与全局配置路径。

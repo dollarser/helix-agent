@@ -36,7 +36,7 @@ internal val packagedPromptTemplates: PromptTemplateSource =
  * - [FILES_NAME] only when the session's admitted tools include the local file tools — the
  *   working directory comes from session facts ([FileScopePath]), never from model-visible text;
  * - [PLAN_NAME] only in Plan mode: plan is read-only and file/tool text cannot enable Act.
- * - [MOBILE_NAME] only when Android UI tools are exposed: shared operating guidance, not permission.
+ * - [PLUGIN_NAME] only when selected plugin tools are exposed: shared operating guidance, not permission.
  *
  * Harness sections are [PromptSource.BUILTIN_TEMPLATE]; plugin skills remain external content,
  * ordered before every Goal section so the harness invariants precede the goal's own text.
@@ -45,7 +45,7 @@ internal object PromptEnvironmentSections {
     const val BASE_NAME = "env.base"
     const val FILES_NAME = "env.files"
     const val PLAN_NAME = "env.plan"
-    const val MOBILE_NAME = "env.mobile-use"
+    const val PLUGIN_NAME = "env.plugins"
 
     fun register(
         registry: PromptRegistry,
@@ -53,7 +53,7 @@ internal object PromptEnvironmentSections {
         mode: AgentMode,
         fileToolsAvailable: Boolean,
         source: PromptTemplateSource = packagedPromptTemplates,
-        mobileSkillContext: String? = null,
+        pluginInstructions: String? = null,
     ) {
         val workingDirectory = directory.toModelReference()
         registry.register(
@@ -75,10 +75,10 @@ internal object PromptEnvironmentSections {
                 },
             )
         }
-        if (!mobileSkillContext.isNullOrBlank()) {
+        if (!pluginInstructions.isNullOrBlank()) {
             registry.register(
-                PromptSection(MOBILE_NAME, -1_750, PromptScope.SKILL, PromptSource.EXTERNAL_CONTENT) {
-                    mobileSkillContext
+                PromptSection(PLUGIN_NAME, -1_750, PromptScope.SKILL, PromptSource.EXTERNAL_CONTENT) {
+                    pluginInstructions
                 },
             )
         }

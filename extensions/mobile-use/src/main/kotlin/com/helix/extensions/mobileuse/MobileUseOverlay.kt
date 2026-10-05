@@ -5,10 +5,10 @@ import android.os.Looper
 import android.util.Log
 import android.view.Choreographer
 import com.helix.core.model.TurnState
+import com.helix.extensions.mobileuse.automation.AutomationRuntimePresentation
+import com.helix.extensions.mobileuse.automation.HelixAccessibilityService
 import com.helix.extensions.plugin.PluginTaskHost
 import com.helix.extensions.plugin.PluginTaskIdentity
-import com.helix.tools.automation.AutomationRuntimePresentation
-import com.helix.tools.automation.HelixAccessibilityService
 import com.helix.tools.framework.ExecutableToolCall
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
@@ -36,6 +36,12 @@ internal class MobileUseOverlay(
         val accepted = state.bind(PluginTaskIdentity(conversation, turn))
         if (accepted) handler.post { render() }
         return accepted
+    }
+
+    override fun stopBoundTask() {
+        val owner = state.owner ?: return
+        if (state.takeOver(owner)) host.requestStop(owner)
+        handler.post { render() }
     }
 
     override fun executionAllowed(): Boolean = state.allowed()

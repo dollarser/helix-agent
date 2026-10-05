@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,12 +19,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
+/** Suggested tasks add to the user's draft; they never silently replace unfinished input. */
+internal fun appendTaskPrompt(
+    draft: String,
+    prompt: String,
+): String = if (draft.isBlank()) prompt else "$draft\n\n$prompt"
+
 @Composable
 @Suppress("FunctionName")
 internal fun EmptyConversationHint(
     goalMode: Boolean,
     hasProvider: Boolean,
     onSelectPrompt: ((String) -> Unit)? = null,
+    onChooseModel: () -> Unit = {},
+    preparation: @Composable () -> Unit = {},
 ) {
     val label =
         when {
@@ -35,13 +44,20 @@ internal fun EmptyConversationHint(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
     ) {
+        Text(stringResource(R.string.chat_task_welcome), style = MaterialTheme.typography.headlineSmall)
         Text(
             stringResource(label),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("chat-empty-hint"),
         )
-        if (hasProvider && onSelectPrompt != null) {
+        if (!hasProvider) {
+            TextButton(onChooseModel, modifier = Modifier.testTag("starter-choose-model")) {
+                Text(stringResource(R.string.chat_task_choose_model))
+            }
+        }
+        preparation()
+        if (onSelectPrompt != null) {
             val suggestions = emptyConversationSuggestions(goalMode)
             EmptyConversationPromptList(suggestions, onSelectPrompt)
         }
@@ -51,14 +67,14 @@ internal fun EmptyConversationHint(
 internal fun emptyConversationSuggestions(goalMode: Boolean): List<Int> =
     if (goalMode) {
         listOf(
-            R.string.chat_prompt_suggestion_goal_fix,
-            R.string.chat_prompt_suggestion_goal_refactor,
+            R.string.chat_task_goal_research,
+            R.string.chat_task_goal_files,
         )
     } else {
         listOf(
-            R.string.chat_prompt_suggestion_code_analysis,
-            R.string.chat_prompt_suggestion_plan_feature,
-            R.string.chat_prompt_suggestion_run_tests,
+            R.string.chat_task_web,
+            R.string.chat_task_document,
+            R.string.chat_task_plan,
         )
     }
 

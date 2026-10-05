@@ -17,6 +17,20 @@ import org.junit.runner.RunWith
 /** Tests intent availability and synthetic results, not microphone or real transcription quality. */
 @RunWith(AndroidJUnit4::class)
 class SpeechRecognitionDeviceTest {
+    @Test fun platformErrorConstantsKeepTheirMeaningInTheMapper() {
+        val errors =
+            mapOf(
+                RecognizerIntent.RESULT_NO_MATCH to VoiceInputMapper.Failure.NO_MATCH,
+                RecognizerIntent.RESULT_CLIENT_ERROR to VoiceInputMapper.Failure.SERVICE,
+                RecognizerIntent.RESULT_SERVER_ERROR to VoiceInputMapper.Failure.SERVICE,
+                RecognizerIntent.RESULT_NETWORK_ERROR to VoiceInputMapper.Failure.NETWORK,
+                RecognizerIntent.RESULT_AUDIO_ERROR to VoiceInputMapper.Failure.AUDIO,
+            )
+        errors.forEach { (code, failure) ->
+            assertEquals(VoiceInputMapper.Outcome.Failed(failure), speech.mapResult(code, null))
+        }
+    }
+
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val speech = SpeechRecognitionLauncher()
 

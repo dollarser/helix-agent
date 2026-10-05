@@ -32,6 +32,7 @@ class ToolPipeline(
     val broker: StorageApprovalBroker,
     val auditSink: AuditSink,
     val scheduler: ToolScheduler,
+    val plugins: com.helix.extensions.plugin.PluginRegistry? = null,
     /**
      * HXA-209 (ADR-PERMISSIONS-001 section 1.1): the shared disabled-tool predicate — the
      * ONE instance the model schema, tools.search, the loaded window and the execution entry

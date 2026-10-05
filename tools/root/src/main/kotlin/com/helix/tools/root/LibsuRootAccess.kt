@@ -10,7 +10,6 @@ import android.os.Looper
 import android.os.Parcel
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ipc.RootService
-import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Production libsu adapter. Merely constructing it does not inspect or request Root. */
@@ -41,6 +40,10 @@ class LibsuRootAccess(
     /** Must only be called from the explicit user-facing "Request Root" action. */
     fun requestRoot(): RootRequestStatus = controller.requestRoot()
 
+    fun requestAuthorization(): RootRequestStatus = controller.requestRoot(connect = false)
+
+    fun connectAuthorized(): RootRequestStatus = controller.connectAuthorized()
+
     fun disconnect() = controller.disconnect()
 
     internal fun rootServiceProcessIdForTest(): Int? = controller.rootServiceProcessIdForTest()
@@ -63,6 +66,8 @@ private class LibsuRootAccessDriver(
 
     fun connectedBinder(): IBinder? = serviceBinder?.takeIf { it.isBinderAlive }
 
+    override fun authorizedShellAvailable(): Boolean = Shell.getCachedShell()?.isRoot == true
+
     override fun requestRoot(onResult: (RootRequestOutcome) -> Unit) {
         val generation = requestGeneration.incrementAndGet()
         Shell.EXECUTOR.execute {
@@ -76,14 +81,10 @@ private class LibsuRootAccessDriver(
                 } catch (_: RuntimeException) {
                     RootRequestOutcome.UNAVAILABLE
                 }
-            if (requestGeneration.get() != generation) {
-                closeCachedShell()
-            } else {
+            if (requestGeneration.get() == generation) {
                 mainHandler.post {
                     if (requestGeneration.get() == generation) {
                         onResult(outcome)
-                    } else {
-                        closeCachedShellAsync()
                     }
                 }
             }
@@ -124,7 +125,6 @@ private class LibsuRootAccessDriver(
         requestGeneration.incrementAndGet()
         mainHandler.post {
             clearConnection()
-            closeCachedShellAsync()
         }
     }
 
@@ -140,18 +140,6 @@ private class LibsuRootAccessDriver(
         }
     }
 
-    private fun closeCachedShellAsync() {
-        Shell.EXECUTOR.execute(::closeCachedShell)
-    }
-
-    private fun closeCachedShell() {
-        try {
-            Shell.getCachedShell()?.close()
-        } catch (_: IOException) {
-            Unit
-        }
-    }
-
     private fun rootServiceConnection(
         onConnected: (processId: Int) -> Unit,
         onLost: () -> Unit,
@@ -163,7 +151,6 @@ private class LibsuRootAccessDriver(
             ) {
                 if (connection !== this) {
                     RootService.unbind(this)
-                    closeCachedShellAsync()
                     return
                 }
                 serviceBinder = binder

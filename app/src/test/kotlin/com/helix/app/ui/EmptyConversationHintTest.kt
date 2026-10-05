@@ -7,19 +7,19 @@ import org.junit.Test
 
 class EmptyConversationHintTest {
     @Test
-    fun suggestionsForChatModeOfferExplorationAndPlanning() {
+    fun ordinaryTasksOfferResearchDocumentsAndPlanning() {
         val suggestions = emptyConversationSuggestions(goalMode = false)
         assertEquals(3, suggestions.size)
-        assertTrue(suggestions.contains(R.string.chat_prompt_suggestion_code_analysis))
-        assertTrue(suggestions.contains(R.string.chat_prompt_suggestion_plan_feature))
-        assertTrue(suggestions.contains(R.string.chat_prompt_suggestion_run_tests))
+        assertTrue(suggestions.contains(R.string.chat_task_web))
+        assertTrue(suggestions.contains(R.string.chat_task_document))
+        assertTrue(suggestions.contains(R.string.chat_task_plan))
     }
 
     @Test
-    fun suggestionsForGoalModeOfferFixAndRefactor() {
+    fun goalTasksDescribeVerifiableDeliverables() {
         val suggestions = emptyConversationSuggestions(goalMode = true)
         assertEquals(2, suggestions.size)
-        assertTrue(suggestions.contains(R.string.chat_prompt_suggestion_goal_fix))
-        assertTrue(suggestions.contains(R.string.chat_prompt_suggestion_goal_refactor))
+        assertTrue(suggestions.contains(R.string.chat_task_goal_research))
+        assertTrue(suggestions.contains(R.string.chat_task_goal_files))
     }
 }

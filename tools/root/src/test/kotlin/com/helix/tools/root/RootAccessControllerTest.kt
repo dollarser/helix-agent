@@ -165,6 +165,43 @@ class RootAccessControllerTest {
         assertEquals(0, driver.bindCount)
     }
 
+    @Test fun authorizationOnlyNeverBindsAndDuplicateCannotChangeRequestIntent() {
+        val driver = FakeRootDriver(cachedGrant = true)
+        val controller = RootAccessController(driver)
+        controller.requestRoot(connect = false)
+        assertEquals(RootRequestStatus.ALREADY_REQUESTING, controller.requestRoot(connect = true))
+        driver.completeRequest(RootRequestOutcome.GRANTED)
+        assertEquals(RootAccessStatus(RootGrantState.GRANTED, RootServiceState.DISCONNECTED), controller.status())
+        assertEquals(0, driver.bindCount)
+        assertEquals(RootRequestStatus.STARTED, controller.connectAuthorized())
+        driver.connectService(1234)
+        assertEquals(RootRequestStatus.ALREADY_GRANTED, controller.connectAuthorized())
+        assertEquals(1, driver.requestCount)
+        assertEquals(1, driver.bindCount)
+    }
+
+    @Test fun connectionReusesHostAuthorizationWithoutRequestingRoot() {
+        val driver = FakeRootDriver(cachedGrant = true)
+        val controller = RootAccessController(driver)
+        assertEquals(RootRequestStatus.STARTED, controller.connectAuthorized())
+        assertEquals(0, driver.requestCount)
+        assertEquals(1, driver.bindCount)
+        driver.connectService(1234)
+        driver.cachedGrant = false
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) { controller.connectAuthorized() }
+        assertEquals(1, driver.bindCount)
+        assertEquals(lost(), controller.status())
+    }
+
+    @Test fun missingAuthorizedShellCannotLaunchPermissionPromptFromConnection() {
+        val driver = FakeRootDriver(cachedGrant = true)
+        driver.shellAvailable = false
+        val controller = RootAccessController(driver)
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) { controller.connectAuthorized() }
+        assertEquals(0, driver.requestCount)
+        assertEquals(0, driver.bindCount)
+    }
+
     private fun unavailable() = RootAccessStatus(RootGrantState.UNAVAILABLE, RootServiceState.DISCONNECTED)
 
     private fun requesting() = RootAccessStatus(RootGrantState.REQUESTING, RootServiceState.DISCONNECTED)
@@ -175,6 +212,10 @@ class RootAccessControllerTest {
 private class FakeRootDriver(
     var cachedGrant: Boolean? = null,
 ) : RootAccessDriver {
+    var shellAvailable = true
+
+    override fun authorizedShellAvailable() = shellAvailable && cachedGrant == true
+
     var requestCount = 0
     var bindCount = 0
     var disconnectCount = 0

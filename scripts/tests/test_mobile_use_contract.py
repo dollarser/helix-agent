@@ -12,16 +12,29 @@ A = GUARD.A
 
 
 class MobileUseContractTest(unittest.TestCase):
+    def test_system_permission_ui_is_independent_of_mobile_use(self):
+        host = ROOT / 'app/src/developer/kotlin/com/helix/app/deviceaccess'
+        for path in host.glob('*.kt'):
+            source = path.read_text()
+            self.assertNotIn('com.helix.extensions.mobileuse', source, path.name)
+            self.assertNotIn('com.helix.app.automation', source, path.name)
+            self.assertNotIn('.root("mobile-use")', source, path.name)
+            self.assertNotIn('R.string.mobile_', source, path.name)
+            self.assertNotIn('R.string.automation_', source, path.name)
+        screen = (ROOT / 'app/src/main/kotlin/com/helix/app/ui/SystemPermissionsScreen.kt').read_text()
+        self.assertNotIn('automationPermissions', screen)
+        self.assertFalse((ROOT / 'app/src/developer/kotlin/com/helix/app/automation/ShizukuSettings.kt').exists())
+
     def setUp(self):
         self.app = ET.Element('application')
         self.service = ET.SubElement(self.app, 'service', {
-            A + 'name': 'com.helix.tools.automation.HelixAccessibilityService',
+            A + 'name': 'com.helix.extensions.mobileuse.automation.HelixAccessibilityService',
             A + 'exported': 'true', A + 'permission': 'android.permission.BIND_ACCESSIBILITY_SERVICE',
         })
         self.metadata = ET.SubElement(self.service, 'meta-data', {
             A + 'name': 'android.accessibilityservice', A + 'resource': '@xml/helix_accessibility_service',
         })
-        self.config = ET.parse(ROOT / 'tools/automation/src/main/res/xml/helix_accessibility_service.xml').getroot()
+        self.config = ET.parse(ROOT / 'extensions/mobile-use/src/main/res/xml/helix_accessibility_service.xml').getroot()
 
     def test_app_catalog_visibility_is_advanced_only(self):
         manifest = ET.parse(ROOT / 'app/src/developer/AndroidManifest.xml').getroot()
@@ -33,13 +46,13 @@ class MobileUseContractTest(unittest.TestCase):
             GUARD.verify_mobile_app_visibility(ET.Element('manifest'), True)
 
     def test_shizuku_provider_and_authorization_are_channel_and_caller_protected(self):
-        app = ET.parse(ROOT / 'app/src/developer/AndroidManifest.xml').getroot().find('application')
+        app = ET.parse(ROOT / 'tools/device-access/src/main/AndroidManifest.xml').getroot().find('application')
         GUARD.verify_shizuku(app, True)
         GUARD.verify_shizuku(ET.Element('application'), False)
         with self.assertRaises(RuntimeError):
             GUARD.verify_shizuku(app, False)
         for tag, name in [('provider', 'rikka.shizuku.ShizukuProvider'),
-                          ('activity', 'com.helix.app.automation.shizuku.ShizukuPermissionActivity')]:
+                          ('activity', 'com.helix.tools.deviceaccess.ShizukuPermissionActivity')]:
             copy = ET.fromstring(ET.tostring(app))
             component = next(item for item in copy.findall(tag) if item.get(A + 'name') == name)
             if tag == 'provider':

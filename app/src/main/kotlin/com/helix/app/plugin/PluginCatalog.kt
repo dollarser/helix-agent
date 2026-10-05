@@ -11,7 +11,7 @@ import com.helix.extensions.skills.SkillSource
 @Suppress("TooManyFunctions") // one application facade for the installation/source facts
 class PluginCatalog(
     private val storage: HelixStorage,
-    private val nativeSelection: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    private val validateNativeSelection: (String) -> Unit = {},
 ) {
     val mutationLock get() = storage.connectorMutationLock
     private val dao = storage.connectors
@@ -116,23 +116,34 @@ class PluginCatalog(
     @Synchronized
     fun selected(sessionId: String): Set<String> = dao.selected(sessionId).toSet()
 
+    /** One durable selection identity; disable/re-enable never resurrects an old execution scope. */
     @Synchronized
+    fun selectionId(
+        sessionId: String,
+        pluginId: String,
+    ): String? {
+        val owner = list().singleOrNull { it.native?.pluginId == pluginId && it.enabled } ?: return null
+        return dao.selectionId(sessionId, owner.id)
+    }
+
     fun select(
         sessionId: String,
         connectorId: String,
         enabled: Boolean,
-    ) {
-        storage.sessions.resolve(sessionId)
-        require(list().any { it.id == connectorId } || !enabled) { "CONNECTOR_UNAVAILABLE" }
-        list().singleOrNull { it.id == connectorId }?.native?.let {
-            nativeSelection(sessionId, it.pluginId, enabled)
-        }
-        if (enabled) {
-            dao.select(
-                SessionConnectorEntity(sessionId, connectorId),
-            )
-        } else {
-            dao.deselect(sessionId, connectorId)
+    ) = synchronized(mutationLock) {
+        synchronized(this) {
+            storage.sessions.resolve(sessionId)
+            require(list().any { it.id == connectorId } || !enabled) { "CONNECTOR_UNAVAILABLE" }
+            list().singleOrNull { it.id == connectorId }?.native?.let {
+                if (enabled) validateNativeSelection(it.pluginId)
+            }
+            if (enabled) {
+                dao.select(
+                    SessionConnectorEntity(sessionId, connectorId),
+                )
+            } else {
+                dao.deselect(sessionId, connectorId)
+            }
         }
     }
 

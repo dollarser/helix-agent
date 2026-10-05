@@ -7,11 +7,11 @@ if [[ $# -ne 1 ]]; then
 fi
 
 serial="$1"
-package_name="com.helix.tools.automation.test"
+package_name="com.helix.extensions.mobileuse.automation.test"
 runner="$package_name/androidx.test.runner.AndroidJUnitRunner"
 apk="tools/automation/build/outputs/apk/androidTest/debug/automation-debug-androidTest.apk"
-setup_class="com.helix.tools.automation.AutomationForceStopSetupDeviceTest"
-recovery_class="com.helix.tools.automation.AutomationForceStopRecoveryDeviceTest"
+setup_class="com.helix.extensions.mobileuse.automation.AutomationForceStopSetupDeviceTest"
+recovery_class="com.helix.extensions.mobileuse.automation.AutomationForceStopRecoveryDeviceTest"
 original_services="$(adb -s "$serial" shell settings get secure enabled_accessibility_services | tr -d '\r')"
 original_accessibility_enabled="$(
   adb -s "$serial" shell settings get secure accessibility_enabled | tr -d '\r'
@@ -35,7 +35,7 @@ run_test() {
   fi
 }
 
-./gradlew --no-daemon --max-workers=2 :tools:automation:assembleDebugAndroidTest
+./gradlew --no-daemon --max-workers=2 :extensions:mobile-use:assembleDebugAndroidTest
 adb -s "$serial" install -r -t "$apk" >/dev/null
 setup_output="$(mktemp)"
 

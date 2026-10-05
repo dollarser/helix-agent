@@ -14,6 +14,7 @@ data class SessionRunControlRecord(
     val reasoning: ReasoningEffort,
     val goalBudgets: GoalBudgets,
     val configVersion: Int = CURRENT_CONFIG_VERSION,
+    val immediateMessages: Boolean = false,
 ) {
     companion object {
         const val CURRENT_CONFIG_VERSION = 1
@@ -46,6 +47,7 @@ class SessionRunControlRepository(
                 revision = revision,
                 createdAtEpoch = existing?.createdAtEpoch ?: nowEpochMillis,
                 updatedAtEpoch = nowEpochMillis,
+                immediateMessages = record.immediateMessages,
             ),
         )
         return revision
@@ -69,6 +71,7 @@ class SessionRunControlRepository(
             reasoning = ReasoningEffort.valueOf(reasoning),
             goalBudgets = GoalBudgets.parse(goalBudgetsJson),
             configVersion = configVersion,
+            immediateMessages = immediateMessages,
         )
     }
 }

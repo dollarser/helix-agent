@@ -526,6 +526,29 @@ class ChatService(
     fun setTurnBudgets(budgets: TurnBudgets) =
         updateSessionRunControl("budgets") { it.copy(budgets = TurnBudgetBounds.validate(budgets)) }
 
+    /** Future composer inputs only; safe to change while a Turn is executing. */
+    suspend fun setImmediateMessages(
+        sessionId: String,
+        immediate: Boolean,
+    ): Boolean {
+        if (materializeDraftSession(sessionId) != sessionId) return false
+        return sessionActions
+            .submit {
+                submissionGate.withLock {
+                    synchronized(turnGate) {
+                        if (openSessionId != sessionId || storage.sessions.find(sessionId)?.archivedAt != null) {
+                            return@synchronized false
+                        }
+                        val current = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
+                        val next = current.copy(immediateMessages = immediate)
+                        sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
+                        _runControl.value = next
+                        true
+                    }
+                }
+            }.await()
+    }
+
     private fun updateSessionRunControl(
         label: String,
         transform: (RunControlConfig) -> RunControlConfig,

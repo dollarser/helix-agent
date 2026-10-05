@@ -14,6 +14,24 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class ModelToolExposureOrderTest {
+    private val uiNames =
+        setOf(
+            "ui.apps",
+            "ui.launch",
+            "ui.snapshot",
+            "ui.find",
+            "ui.click",
+            "ui.click_match",
+            "ui.set_text",
+            "ui.scroll",
+            "ui.back",
+            "ui.wait",
+            "ui.device",
+            "ui.screenshot",
+            "ui.gesture",
+            "android.open_uri",
+        )
+
     @Test fun essentialBuiltInsSurviveTheModelToolLimit() {
         val optional = (0 until 80).map { descriptor("optional.$it") }
         val essential =
@@ -60,7 +78,16 @@ class ModelToolExposureOrderTest {
                 "http.fetch",
             ).map(::descriptor)
         val crowded = (0 until 80).map { descriptor("optional.$it") } + ui + descriptor("write")
-        val exposed = ModelToolExposureOrder.prioritize(crowded, preferUi = true).take(ModelRequest.MAX_TOOLS)
+        val exposed =
+            ModelToolExposureOrder
+                .prioritize(
+                    crowded,
+                    preferred =
+                        ui
+                            .map {
+                                it.name.value
+                            }.toSet(),
+                ).take(ModelRequest.MAX_TOOLS)
         assertTrue(exposed.containsAll(ui))
         assertTrue(
             exposed.none {
@@ -73,7 +100,7 @@ class ModelToolExposureOrderTest {
 
     @Test fun priorityNeverReintroducesAnUnavailableContract() {
         val admitted = listOf(descriptor("ui.back"), descriptor("read"))
-        assertEquals(admitted.toSet(), ModelToolExposureOrder.prioritize(admitted, preferUi = true).toSet())
+        assertEquals(admitted.toSet(), ModelToolExposureOrder.prioritize(admitted, preferred = uiNames).toSet())
     }
 
     @Test fun withoutAnActiveAutomationSessionUiDoesNotDisplaceOtherTools() {
@@ -82,7 +109,7 @@ class ModelToolExposureOrderTest {
     }
 
     @Test fun defaultSurfaceLeavesRoomForBothSmallCatalogAndLoadedWindow() {
-        val names = ModelToolExposureOrder.defaultNames(preferUi = true)
+        val names = ModelToolExposureOrder.defaultNames(preferred = uiNames)
         assertTrue(names.size + 2 * com.helix.app.mcp.McpToolDiscovery.WINDOW <= ModelRequest.MAX_TOOLS)
         assertTrue(
             names.containsAll(
@@ -108,7 +135,7 @@ class ModelToolExposureOrderTest {
         assertTrue("code.linux.run" !in names)
         assertTrue("http.fetch" !in names)
         assertTrue("code.javascript.run" !in names)
-        val nonUi = ModelToolExposureOrder.defaultNames(preferUi = false)
+        val nonUi = ModelToolExposureOrder.defaultNames(emptySet())
         assertTrue("ui.snapshot" !in nonUi)
         assertTrue("android.open_uri" !in nonUi)
         assertTrue("code.javascript.run" in nonUi)

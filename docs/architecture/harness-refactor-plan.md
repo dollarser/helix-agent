@@ -56,7 +56,7 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 本次核对基于本地主目录源码，而非把研究中的问题列表直接当成待开发清单。
 
-**2026-09-30 职责修订的时效校准：**本次读取 `main/7480141b` 加并行工作树。HXA-232 已在源码中取消 Mobile Use 每十次动作确认，并让已授权目标经新快照验证后自动恢复；仍保留 5 分钟/30 动作上限。相应执行分支见 [AutomationSessionManager](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationSessionManager.kt) 的 `resumeOnVerifiedTarget/completeAction`，不能仅因旧 CHECKPOINT 常量还在就断言周期确认仍生效。[自主恢复审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与 [Mobile Use 专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)保留历史发现；当前交付和验证以 HXA-232 的记录为准。本次只核对与职责有关的入口，不把先前 C02–C17 的全部行号、hash 或缺口重新声明为今日事实。
+**2026-09-30 职责修订的时效校准：**本次读取 `main/7480141b` 加并行工作树。HXA-232 已在源码中取消 Mobile Use 每十次动作确认，并让已授权目标经新快照验证后自动恢复；仍保留 5 分钟/30 动作上限。相应执行分支见 [AutomationSessionManager](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt) 的 `resumeOnVerifiedTarget/completeAction`，不能仅因旧 CHECKPOINT 常量还在就断言周期确认仍生效。[自主恢复审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与 [Mobile Use 专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)保留历史发现；当前交付和验证以 HXA-232 的记录为准。本次只核对与职责有关的入口，不把先前 C02–C17 的全部行号、hash 或缺口重新声明为今日事实。
 
 | 已有能力 | 本轮方向 |
 | --- | --- |
@@ -580,11 +580,11 @@ Plan/Goal/Todo/用户问答使用窄领域命令接口，不接收整个 AgentLo
 
 | 对象/证据 | 分类 | 后续处理 |
 | --- | --- | --- |
-| [AutomationSessionManager](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationSessionManager.kt)：`completeAction/resumeOnVerifiedTarget` | 周期确认已移除、已授权目标可恢复 | 保留 HXA-232 改进；旧常量/枚举是否仍有消费者另查，不恢复每十步人工流程 |
+| [AutomationSessionManager](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt)：`completeAction/resumeOnVerifiedTarget` | 周期确认已移除、已授权目标可恢复 | 保留 HXA-232 改进；旧常量/枚举是否仍有消费者另查，不恢复每十步人工流程 |
 | 同文件的 5 分钟/30 动作上限 | 已存在运行策略，不是 Android 强制值 | 评估任务级有界许可及可调默认；模型不可自行扩额，不将此调整混入纯 R1 迁移 |
-| [AutomationActions](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationActions.kt)：send/publish 等点击拒绝 | 过粗业务限制的候选改进 | 在真实目标/内容/授权可绑定时评估精确 ASK/ALLOW；身份无法保证的情况仍拒绝或请求用户，不用模型自报安全替代 |
-| [AutomationTools](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationTools.kt)：`action` 将非成功统一标记 `sideEffectFree=true` | 执行反馈正确性风险 | 先按发出前/后构造反例并修正结果事实；尚未证明真实设备重复提交，不以扩大重试掩盖 |
-| 同文件 `wait/findJson` 与 [AutomationWaiter](../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationWaiter.kt) | 生产/测试接线与结果表达问题 | 验证真实生产路径，补原因、快照来源及截断，不重新造 UI 等待系统 |
+| [AutomationActions](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationActions.kt)：send/publish 等点击拒绝 | 过粗业务限制的候选改进 | 在真实目标/内容/授权可绑定时评估精确 ASK/ALLOW；身份无法保证的情况仍拒绝或请求用户，不用模型自报安全替代 |
+| [AutomationTools](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/tools/AutomationTools.kt)：`action` 将非成功统一标记 `sideEffectFree=true` | 执行反馈正确性风险 | 先按发出前/后构造反例并修正结果事实；尚未证明真实设备重复提交，不以扩大重试掩盖 |
+| 同文件 `wait/findJson` 与 [AutomationWaiter](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationWaiter.kt) | 生产/测试接线与结果表达问题 | 验证真实生产路径，补原因、快照来源及截断，不重新造 UI 等待系统 |
 | [EffectFootprintBuilder](../../tools/framework/src/main/kotlin/com/helix/tools/framework/EffectFootprint.kt)：原 Accessibility/写/代码类别全局排他 | HXA-238 已按所有者裁决移除 | 不因类别/用户路径锁结果；保留真实权限、token/绑定校验、内部状态短同步及实际引擎容量，不重开旧全局屏障 |
 | [HXA-232](../development/tasks/HXA-232.md) 与 [Goal ADR](../adr/goal/001-lifecycle-and-completion.md) 的有界恢复核查 | 已接受实现与待评估策略分开 | 原执行器对账/去重/账本继续保留；核查限额和核查结束后的失败是当前策略，不作为所有未来恢复的永久终点 |
 | Goal 的自然语言完成判断、可选确定性验收 | 已正确区分模型判断和平台事实 | 不重开通用强制 verifier；恢复核查完成不冒充原任务完成 |

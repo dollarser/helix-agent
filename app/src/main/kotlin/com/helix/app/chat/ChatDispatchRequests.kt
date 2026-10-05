@@ -2,7 +2,6 @@ package com.helix.app.chat
 
 import com.helix.app.agent.TurnCancelSignal
 import com.helix.app.agent.TurnExecutionHandles
-import com.helix.app.automation.AutomationModule
 import com.helix.app.root.RootModule
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.AgentMode
@@ -12,6 +11,7 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataOrigin
 import com.helix.core.storage.entity.TurnEntity
+import com.helix.extensions.plugin.executionContext
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.JsonObject
@@ -72,6 +72,7 @@ internal class ChatDispatchRequests(
                         it.sourceBindingChanged || (it.checkpointRequired && it.originSeenInSession),
                     )
                 }
+        val pluginContext = toolPipeline.plugins?.executionContext(descriptor, turn.sessionId)
         return ToolDispatchRequest(
             toolCallId = toolCallId,
             turnId = turn.id,
@@ -85,13 +86,13 @@ internal class ChatDispatchRequests(
             executionTarget = descriptor?.executionTarget ?: ExecutionTargetType.LOCAL_ANDROID,
             dataOrigin =
                 when {
-                    AutomationModule.owns(descriptor) -> DataOrigin.ACCESSIBILITY
+                    pluginContext != null -> pluginContext.dataOrigin
                     descriptor?.name?.value?.startsWith("root.") == true -> DataOrigin.ROOT
                     else -> DataOrigin.WORKSPACE
                 },
             scope =
                 RootModule.scopeFor(descriptor?.name?.value)
-                    ?: AutomationModule.dispatchScopeFor(descriptor, turn.sessionId),
+                    ?: pluginContext?.scope,
             uiToken = "chat:${turn.id}",
             egress = egressFacts?.first,
             originSeenInSession = egressFacts?.second ?: true,

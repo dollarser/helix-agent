@@ -17,10 +17,10 @@ import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.entity.ToolCallEntity
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -94,7 +94,8 @@ class CurrentInstallVisualGestureDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     System.currentTimeMillis(),
                 )
-                center.authorizeConversation(session, emptySet(), wholePhone = true)
+                com.helix.app.eval
+                    .selectMobileUseForTest(session, emptySet(), wholePhone = true)
                 container.chatService.openSession(session)
                 container.chatService.setMode(AgentMode.ACT)
                 awaitMobileUseProjection(session)
@@ -148,7 +149,7 @@ class CurrentInstallVisualGestureDeviceTest {
             } finally {
                 container.chatService.stop()
                 container.chatService.closeSession()
-                session?.let(center::revokeConversation)
+                session?.let(::deselectMobileUseForTest)
                 provider?.let { container.providerService.delete(it) }
                 restoreAccessibility(previousServices, previousEnabled)
                 container.profileStore.switchTo(previousProfile)
@@ -207,7 +208,7 @@ class CurrentInstallVisualGestureDeviceTest {
     }
 
     private fun ensureAccessibility(previousServices: String?) {
-        val component = "${app.packageName}/com.helix.tools.automation.HelixAccessibilityService"
+        val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
         val previous = previousServices.orEmpty().split(':').filter(String::isNotBlank)
         val all = (previous.filterNot { it == component } + component).distinct()
         shell("settings put secure enabled_accessibility_services ${all.joinToString(":")}")

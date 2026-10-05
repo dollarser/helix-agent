@@ -12,6 +12,7 @@ data class RunControlConfig(
     val budgets: TurnBudgets,
     val reasoning: ReasoningEffort = ReasoningEffort.OFF,
     val goalBudgets: GoalBudgets = GoalBudgetDefaults.VALUE,
+    val immediateMessages: Boolean = false,
 )
 
 /**

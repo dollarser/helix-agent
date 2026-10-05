@@ -46,7 +46,11 @@ internal object SessionInputBinding {
         providerFacts: String,
         control: RunControlConfig,
         selectedMode: String,
-    ): String = hash("$providerFacts\n$control\n$selectedMode")
+    ): String {
+        // A default for future messages cannot invalidate already accepted queue entries.
+        val executionControl = control.copy(immediateMessages = false)
+        return hash("$providerFacts\n$executionControl\n$selectedMode")
+    }
 
     private fun intentHash(request: ChatSubmission): String =
         hash(

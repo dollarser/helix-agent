@@ -31,4 +31,5 @@ data class SessionRunControlEntity(
     val revision: Long,
     val createdAtEpoch: Long,
     val updatedAtEpoch: Long,
+    val immediateMessages: Boolean = false,
 )

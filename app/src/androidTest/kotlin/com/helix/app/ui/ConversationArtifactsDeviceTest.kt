@@ -241,7 +241,14 @@ class ConversationArtifactsDeviceTest {
                 session
         }
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
-        if (outputs) awaitTag("chat-artifacts-open")
+        if (compose.onAllNodesWithTag("chat-composer-options-sheet").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("chat-composer-options-close").performClick()
+        }
+        compose.onNodeWithTag("chat-artifacts-open").assertDoesNotExist()
+        if (outputs) {
+            compose.onNodeWithTag("chat-composer-options").performClick()
+            awaitTag("chat-artifacts-open")
+        }
     }
 
     private fun openPreview(id: String) {
@@ -250,6 +257,11 @@ class ConversationArtifactsDeviceTest {
     }
 
     private fun awaitTag(tag: String) {
+        if (tag == "chat-artifacts-open" &&
+            compose.onAllNodesWithTag("chat-composer-options-sheet").fetchSemanticsNodes().isEmpty()
+        ) {
+            compose.onNodeWithTag("chat-composer-options").performClick()
+        }
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag(tag, true).fetchSemanticsNodes().isNotEmpty()
         }

@@ -35,6 +35,8 @@ internal interface RootAccessDriver {
     /** A read-only libsu observation. This must never construct a shell or show a grant prompt. */
     fun cachedGrant(): Boolean?
 
+    fun authorizedShellAvailable(): Boolean = cachedGrant() == true
+
     fun requestRoot(onResult: (RootRequestOutcome) -> Unit)
 
     fun bindRootService(
@@ -52,6 +54,7 @@ internal interface RootAccessDriver {
  * The only path that may construct a root shell is [requestRoot], which is called by an explicit
  * user action. Profile changes and status reads are observational and never request capability.
  */
+@Suppress("TooManyFunctions") // one controller owns the authorization and service lifecycle
 class RootAccessController internal constructor(
     private val driver: RootAccessDriver,
 ) {
@@ -61,6 +64,7 @@ class RootAccessController internal constructor(
     private var grant = RootGrantState.UNAVAILABLE
     private var service = RootServiceState.DISCONNECTED
     private var serviceProcessId: Int? = null
+    private var connectAfterAuthorization = true
 
     @Synchronized
     fun status(): RootAccessStatus {
@@ -96,7 +100,7 @@ class RootAccessController internal constructor(
     }
 
     @Synchronized
-    fun requestRoot(): RootRequestStatus =
+    fun requestRoot(connect: Boolean = true): RootRequestStatus =
         when (grant) {
             RootGrantState.REQUESTING -> {
                 RootRequestStatus.ALREADY_REQUESTING
@@ -110,6 +114,7 @@ class RootAccessController internal constructor(
             RootGrantState.DENIED,
             RootGrantState.LOST,
             -> {
+                connectAfterAuthorization = connect
                 grant = RootGrantState.REQUESTING
                 service = RootServiceState.DISCONNECTED
                 serviceProcessId = null
@@ -117,6 +122,30 @@ class RootAccessController internal constructor(
                 RootRequestStatus.STARTED
             }
         }
+
+    @Synchronized
+    fun connectAuthorized(): RootRequestStatus {
+        status()
+        return when {
+            service == RootServiceState.CONNECTED -> {
+                RootRequestStatus.ALREADY_GRANTED
+            }
+
+            service == RootServiceState.CONNECTING || grant == RootGrantState.REQUESTING -> {
+                RootRequestStatus.ALREADY_REQUESTING
+            }
+
+            else -> {
+                check(
+                    driver.cachedGrant() != false && driver.authorizedShellAvailable(),
+                ) { "ROOT_AUTHORIZATION_REQUIRED" }
+                grant = RootGrantState.GRANTED
+                service = RootServiceState.CONNECTING
+                driver.bindRootService(::rootServiceConnected, ::markLost)
+                RootRequestStatus.STARTED
+            }
+        }
+    }
 
     @Synchronized
     fun disconnect() {
@@ -143,8 +172,10 @@ class RootAccessController internal constructor(
 
             RootRequestOutcome.GRANTED -> {
                 grant = RootGrantState.GRANTED
-                service = RootServiceState.CONNECTING
-                driver.bindRootService(::rootServiceConnected, ::markLost)
+                if (connectAfterAuthorization) {
+                    service = RootServiceState.CONNECTING
+                    driver.bindRootService(::rootServiceConnected, ::markLost)
+                }
             }
         }
     }

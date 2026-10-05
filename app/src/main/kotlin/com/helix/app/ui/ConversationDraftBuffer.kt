@@ -54,6 +54,22 @@ internal class ConversationDraftBuffer(
         get() = (submitted ?: saved)?.takeIf { it.revisedMessageId == null }
 
     /** Freeze exactly what was clicked; submitting does not depend on cache I/O. */
+    fun captureSubmission(
+        immediate: Boolean,
+        activeTurnId: String?,
+    ): ChatSubmission {
+        val target = activeTurnId.takeIf { immediate }
+        delivery(
+            if (target == null) {
+                com.helix.core.storage.repository.SessionInputDelivery.QUEUE
+            } else {
+                com.helix.core.storage.repository.SessionInputDelivery.STEER
+            },
+            target,
+        )
+        return captureSubmission()
+    }
+
     fun captureSubmission(): ChatSubmission =
         value.copy(attachmentIds = value.attachmentIds.toList()).also { submitted = it }
 

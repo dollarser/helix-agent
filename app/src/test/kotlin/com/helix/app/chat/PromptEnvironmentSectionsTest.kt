@@ -24,9 +24,9 @@ class PromptEnvironmentSectionsTest {
                 directory,
                 mode,
                 false,
-                mobileSkillContext = "Plugin guidance: ui.wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
+                pluginInstructions = "Plugin guidance: ui.wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
             )
-            val mobile = registry.resolve().single { it.name == PromptEnvironmentSections.MOBILE_NAME }
+            val mobile = registry.resolve().single { it.name == PromptEnvironmentSections.PLUGIN_NAME }
             assertEquals(PromptSource.EXTERNAL_CONTENT, mobile.source)
             assertEquals(PromptScope.SKILL, mobile.scope)
             assertTrue(mobile.content.contains("does not grant permission"))
@@ -39,7 +39,7 @@ class PromptEnvironmentSectionsTest {
         }
         val registry = PromptRegistry()
         PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, false)
-        assertTrue(registry.resolve().none { it.name == PromptEnvironmentSections.MOBILE_NAME })
+        assertTrue(registry.resolve().none { it.name == PromptEnvironmentSections.PLUGIN_NAME })
         assertTrue(!registry.assemble().contains("ui.screenshot"))
     }
 

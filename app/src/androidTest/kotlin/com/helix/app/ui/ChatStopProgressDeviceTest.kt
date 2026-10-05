@@ -211,6 +211,7 @@ class ChatStopProgressDeviceTest {
         }
         compose.onNodeWithTag("chat-turn-error").assertIsDisplayed()
         compose.onNodeWithTag("chat-retry").assertDoesNotExist()
+        compose.onNodeWithTag("chat-composer-options").performClick()
         compose.onNodeWithTag("goal-manage").assertIsDisplayed()
         captureChatLayout(compose.activity, "failed-goal")
         assertEquals(

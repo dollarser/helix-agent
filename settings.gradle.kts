@@ -57,7 +57,7 @@ include(
     ":runtime:cli-app",
     ":tools:framework",
     ":tools:android",
-    ":tools:automation",
+    ":tools:device-access",
     ":tools:browser",
     ":tools:files",
     ":tools:root",

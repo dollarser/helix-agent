@@ -66,6 +66,7 @@ class GoalRealModelUiDeviceTest {
                 compose.onNodeWithTag("chat-send").performClick()
                 createGoalThroughUi()
                 continueAndVerify(1, "GOAL_UI_FIRST", start = false)
+                compose.onNodeWithTag("chat-composer-options").performClick()
                 compose.onNodeWithTag("goal-manage").performClick()
                 compose.onNodeWithTag("goal-continue-$goalId").performScrollTo().assertIsNotEnabled()
                 compose.onNodeWithTag("goal-settings").performClick()
@@ -80,6 +81,7 @@ class GoalRealModelUiDeviceTest {
                 assertRunCount(1)
                 compose.navigateTo("sessions")
                 compose.onNodeWithTag("chat-input").performTextInput("Reply only GOAL_UI_SECOND. Do not call tools.")
+                compose.onNodeWithTag("chat-composer-options").performClick()
                 compose.onNodeWithTag("goal-manage").performClick()
                 continueAndVerify(2, "GOAL_UI_SECOND")
                 saveEvidence(model)
@@ -220,6 +222,7 @@ class GoalRealModelUiDeviceTest {
             }
         val directory = File(compose.activity.filesDir, "hxa102-goal-ui").apply { mkdirs() }
         captureUi("conversation.png")
+        compose.onNodeWithTag("chat-composer-options").performClick()
         compose.onNodeWithTag("goal-manage").performClick()
         compose.onNodeWithTag("goal-continue-$goalId").performScrollTo().assertIsNotEnabled()
         captureUi("budget-paused.png")

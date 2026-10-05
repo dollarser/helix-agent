@@ -17,13 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.core.policy.MobileUseGrantStore
-import com.helix.tools.automation.AutomationApplicationCatalog
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationApplicationCatalog
+import com.helix.extensions.mobileuse.config.MobileUseGrantStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -119,45 +116,5 @@ internal fun MobileUseSettings(
         OutlinedButton(onPermissions, modifier = Modifier.testTag("mobile-use-open-permissions")) {
             Text(stringResource(R.string.settings_system_permissions_title))
         }
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-internal fun MobileUsePermissions(
-    context: Context,
-    center: AutomationPermissionCenter,
-) {
-    var state by remember { mutableStateOf(AutomationServiceState.DISABLED) }
-    var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(center) {
-        while (true) {
-            state = withContext(Dispatchers.IO) { center.serviceState() }
-            delay(750)
-        }
-    }
-    Column(Modifier.testTag("permissions-mobile-use")) {
-        MobileUseBackendStatus(center)
-        Text(stringResource(R.string.mobile_use_accessibility))
-        val status =
-            when (state) {
-                AutomationServiceState.DISABLED -> R.string.permissions_not_granted
-                AutomationServiceState.CONNECTED -> R.string.permissions_granted
-                AutomationServiceState.ENABLED_DISCONNECTED -> R.string.mobile_use_accessibility_disconnected
-                AutomationServiceState.CHECK_FAILED -> R.string.permissions_settings_unavailable
-            }
-        Text(stringResource(status), Modifier.testTag("permission-accessibility-status"))
-        OutlinedButton({
-            try {
-                context.startActivity(center.accessibilitySettingsIntent())
-                failed = false
-            } catch (_: RuntimeException) {
-                failed = true
-            }
-        }, modifier = Modifier.testTag("permission-accessibility")) {
-            Text(stringResource(R.string.permissions_manage))
-        }
-        if (failed) Text(stringResource(R.string.permissions_settings_unavailable))
-        ShizukuSettings(context)
     }
 }

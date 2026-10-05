@@ -100,8 +100,8 @@ class SystemCapabilityResolver(
 
     /**
      * A service component must be declared in this build before it can be enabled; otherwise the
-     * capability is honestly unavailable (not "denied by the user"). Once the automation service
-     * lands (tools:automation), the same probe reports granted/denied from the enabled list.
+     * capability is honestly unavailable (not "denied by the user"). Declared services, including
+     * Mobile Use, are resolved against the system enabled list.
      */
     private fun accessibilityState(): GrantState {
         val serviceComponents = accessibilityServiceComponents()

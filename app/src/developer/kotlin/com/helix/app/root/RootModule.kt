@@ -51,7 +51,16 @@ internal object RootModule {
         registry: ToolRegistry,
     ) {
         if (access != null) return
-        val rootAccess = LibsuRootAccess(context.applicationContext)
+        com.helix.tools.deviceaccess.DeviceAccess.configure(
+            context,
+            "root-diagnostics",
+            com.helix.tools.root.HelixRootService::class.java,
+        )
+        val rootAccess =
+            checkNotNull(
+                com.helix.tools.deviceaccess.DeviceAccess
+                    .root("root-diagnostics"),
+            )
         val manager = RootSessionManager(clock, rootAccess::status, rootAccess::disconnect)
         RootTools(rootAccess, manager).register(registry)
         access = rootAccess
@@ -66,7 +75,8 @@ internal object RootModule {
         }
 
     fun onAppBackgrounded() {
-        access?.onAppBackgrounded()
+        com.helix.tools.deviceaccess.DeviceAccess
+            .onAppBackgrounded("root-diagnostics")
     }
 
     fun scopeFor(toolName: String?): UserScope? =
@@ -125,11 +135,13 @@ internal object RootModule {
             com.helix.app.ui.SettingsActions(modifier = Modifier.padding(top = 8.dp)) {
                 Button(
                     onClick = {
-                        val result = rootAccess.requestRoot()
+                        val result =
+                            com.helix.tools.deviceaccess.DeviceAccess
+                                .connectRoot("root-diagnostics")
                         if (result != RootRequestStatus.ALREADY_GRANTED) sessionStatus = sessionManager.status()
                     },
                     enabled =
-                        accessStatus.grant != RootGrantState.REQUESTING &&
+                        rootAccess.cachedAppGrant == true && accessStatus.grant != RootGrantState.REQUESTING &&
                             accessStatus.service == RootServiceState.DISCONNECTED,
                     modifier = Modifier.testTag("root-request"),
                 ) { Text(stringResource(R.string.root_request)) }

@@ -39,6 +39,10 @@ data class ConnectorSkillOwnershipEntity(
 data class SessionConnectorEntity(
     val sessionId: String,
     val connectorId: String,
+    val selectionId: String =
+        java.util.UUID
+            .randomUUID()
+            .toString(),
 )
 
 /** Retained endpoint identity enables cleanup and rejects stale bridges after replacement. */

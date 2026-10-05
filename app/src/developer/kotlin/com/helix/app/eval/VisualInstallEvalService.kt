@@ -19,7 +19,6 @@ import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
-import com.helix.tools.automation.AutomationPermissionCenter
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -50,7 +49,7 @@ class VisualInstallEvalService : Service() {
             runBlocking {
                 val app = application as HelixApplication
                 val container = app.appContainer
-                val center = AutomationPermissionCenter(app)
+                val selection = MobileUseEvaluationSelection(app)
                 val previousProfile = container.profileStore.profile
                 var provider: String? = null
                 var session: String? = null
@@ -70,7 +69,7 @@ class VisualInstallEvalService : Service() {
                         SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                         System.currentTimeMillis(),
                     )
-                    center.authorizeConversation(session, emptySet(), wholePhone = true)
+                    selection.select(session, emptySet(), wholePhone = true)
                     container.chatService.openSession(session)
                     container.chatService.setMode(AgentMode.ACT)
                     waitUntil(10_000) {
@@ -82,7 +81,7 @@ class VisualInstallEvalService : Service() {
                 } finally {
                     container.chatService.stop()
                     container.chatService.closeSession()
-                    session?.let(center::revokeConversation)
+                    selection.close()
                     provider?.let { container.providerService.delete(it) }
                     container.profileStore.switchTo(previousProfile)
                 }

@@ -4,6 +4,13 @@ package com.helix.extensions.plugin
 internal class MemoryNativePluginCatalog : NativePluginCatalog {
     override val mutationLock = Any()
     val states = linkedMapOf<String, NativePluginState>()
+    val selections = mutableMapOf<Pair<String, String>, String>()
+
+    override fun selectionId(
+        sessionId: String,
+        pluginId: String,
+    ) = selections[sessionId to pluginId]
+
     var failPublication = false
 
     override fun find(pluginId: String) = states[pluginId]

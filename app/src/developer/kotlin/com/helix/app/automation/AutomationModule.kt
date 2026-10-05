@@ -2,10 +2,10 @@ package com.helix.app.automation
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import com.helix.app.automation.shizuku.ShizukuAutomationBackend
-import com.helix.core.policy.MobileUseGrantStore
 import com.helix.core.policy.UserScope
 import com.helix.extensions.mobileuse.MobileUsePlugin
+import com.helix.extensions.mobileuse.automation.backend.ShizukuAutomationBackend
+import com.helix.extensions.mobileuse.config.MobileUseGrantStore
 import com.helix.extensions.plugin.PluginRegistry
 
 /** Flavor-local adapter for plugin configuration and device grants; conversation selection lives in the catalog. */
@@ -15,31 +15,45 @@ internal object AutomationModule {
     private var settingsStore: MobileUseGrantStore? = null
 
     @Synchronized
+    @Suppress("LongParameterList") // composition root injects storage, selection, images and task services
     fun register(
         context: Context,
         plugins: PluginRegistry,
         images: com.helix.tools.framework.ToolImagePublication,
-        grants: MobileUseGrantStore,
+        readConfiguration: (String) -> List<String>,
+        writeConfiguration: (String, List<String>) -> Unit,
+        selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) {
-        com.helix.app.automation.shizuku.MobileUseRootConnection
-            .configure(context)
+        com.helix.tools.deviceaccess.DeviceAccess
+            .configure(
+                context,
+                "mobile-use",
+                com.helix.extensions.mobileuse.automation.backend.RootAutomationService::class.java,
+            )
+        val grants = MobileUseGrantStore(readConfiguration, writeConfiguration, selectionId)
         val plugin =
             runtime
                 ?: MobileUsePlugin(
                     context.applicationContext,
                     images,
-                    taskHost,
-                    ShizukuAutomationBackend(context.applicationContext),
-                    com.helix.app.automation.shizuku.RootAutomationBackend(
-                        com.helix.app.automation.shizuku.MobileUseRootConnection::access,
+                    com.helix.extensions.mobileuse.automation.AutomationPermissionCenter(
+                        context.applicationContext,
+                        ShizukuAutomationBackend(context.applicationContext),
+                        com.helix.extensions.mobileuse.automation.backend.RootAutomationBackend(
+                            {
+                                com.helix.tools.deviceaccess.DeviceAccess
+                                    .root("mobile-use")
+                            },
+                        ),
                     ),
+                    taskHost,
                 ) {
                     plugins.hasPublishedTools(MobileUsePlugin.PLUGIN_ID)
                 }.also { runtime = it }
         if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(plugin)
-        plugin.permissionCenter.configureConversations(grants, conversationExists)
+        plugin.permissionCenter.configureConversations(grants, conversationExists, plugin::isAvailable)
         appContext = context.applicationContext
         settingsStore = grants
     }
@@ -56,29 +70,13 @@ internal object AutomationModule {
         conversationId: String?,
     ): UserScope? = runtime?.scopeFor(toolName, conversationId)
 
-    fun owns(descriptor: com.helix.tools.framework.ToolDescriptor?): Boolean = runtime?.owns(descriptor) == true
-
-    fun dispatchScopeFor(
-        descriptor: com.helix.tools.framework.ToolDescriptor?,
-        conversationId: String?,
-    ): UserScope? = runtime?.dispatchScopeFor(descriptor, conversationId)
-
-    fun skillContext(): String? = runtime?.takeIf { it.isAvailable() }?.skillContext
-
     @Composable
     @Suppress("FunctionName")
     fun Settings(onPermissions: () -> Unit) {
         val context = appContext ?: return
         val store = settingsStore ?: return
         runtime?.permissionCenter?.let { MobileUseBackendStatus(it) }
+        MobileUseRootConnection()
         MobileUseSettings(context, store, onPermissions)
-    }
-
-    @Composable
-    @Suppress("FunctionName")
-    fun Permissions() {
-        val context = appContext ?: return
-        val center = runtime?.permissionCenter ?: return
-        MobileUsePermissions(context, center)
     }
 }

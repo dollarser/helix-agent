@@ -52,3 +52,15 @@ Root 的 Mobile Use 精确点击可在 Helix 无障碍服务关闭时运行。�
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+
+## Decision history — 2026-10-05：共享应用授权与使用方连接隔离
+
+Root 授权属于 Helix UID。宿主按 consumer 管理连接，自动化专属服务由 Mobile Use 实现。断开一个连接只 unbind 自身 ServiceConnection，不能关闭 libsu 进程共享的 cached Shell；迟到回调同样不能关闭其他使用方共享的授权通道。该变化不引入任意 root shell 工具、不合并 Root 诊断与自动化服务生命周期，也不允许插件元数据申请权限。
+
+
+## Decision history — 2026-10-05：申请授权与连接服务分开
+
+宿主显式 Root 授权操作仅取得应用授权，不绑定诊断或自动化服务。使用方的连接操作通过 DeviceAccess 复用已有且仍存在的授权 shell，缺少该条件时返回 ROOT_AUTHORIZATION_REQUIRED，不从连接入口调用 su 请求授权。重复授权请求不能改变正在进行请求的连接意图。
+
+Root 诊断和 Mobile Use 均使用宿主管理的 consumer 连接；保留不同服务及既有生命周期，不增加全局执行锁或任意 Root 命令。被动缓存仍不能证明管理器实时授权；实际连接、Binder 状态及调用结果必须继续检查，不能将连接请求视为已就绪。设备/OEM 撤权行为仍需要单独设备验证。

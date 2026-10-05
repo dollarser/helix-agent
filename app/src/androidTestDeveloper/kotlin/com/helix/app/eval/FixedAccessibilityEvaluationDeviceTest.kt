@@ -44,7 +44,7 @@ class FixedAccessibilityEvaluationDeviceTest {
             android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES,
         )
     private val center get() =
-        com.helix.tools.automation
+        com.helix.extensions.mobileuse.automation
             .AutomationPermissionCenter(app)
     private var actionToken = ""
     private val resolvedApprovals = mutableSetOf<String>()
@@ -77,7 +77,7 @@ class FixedAccessibilityEvaluationDeviceTest {
                     "accessibility_enabled",
                     0,
                 )
-            val component = "${app.packageName}/com.helix.tools.automation.HelixAccessibilityService"
+            val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
             val services =
                 originalServices
                     .orEmpty()
@@ -87,7 +87,10 @@ class FixedAccessibilityEvaluationDeviceTest {
             try {
                 shell("settings put secure enabled_accessibility_services ${services.joinToString(":")}")
                 shell("settings put secure accessibility_enabled 1")
-                waitFor { center.serviceState() == com.helix.tools.automation.AutomationServiceState.CONNECTED }
+                waitFor {
+                    center.serviceState() ==
+                        com.helix.extensions.mobileuse.automation.AutomationServiceState.CONNECTED
+                }
                 rows.forEach { line ->
                     val cells = line.split('\t')
                     val protocol = ProviderProtocol.valueOf(cells[3])
@@ -183,7 +186,8 @@ class FixedAccessibilityEvaluationDeviceTest {
         } finally {
             container.chatService.stop()
             container.chatService.closeSession()
-            center.revokeConversation(session)
+            com.helix.app.eval
+                .deselectMobileUseForTest(session)
             activity.scenario.onActivity { it.startActivity(android.content.Intent(it, MainActivity::class.java)) }
             container.profileStore.switchTo(previousProfile)
         }
@@ -193,7 +197,8 @@ class FixedAccessibilityEvaluationDeviceTest {
         caseId: String,
         session: String,
     ) {
-        center.authorizeConversation(session, setOf(fixturePackage), wholePhone = false)
+        com.helix.app.eval
+            .selectMobileUseForTest(session, setOf(fixturePackage), wholePhone = false)
         val port = evaluationAutomationPort(center, session)
         launchFixture(caseId == "accessibility-003")
         actionToken = ""
@@ -343,8 +348,8 @@ class FixedAccessibilityEvaluationDeviceTest {
         val token = snapshot.nodes.single { it.text.equals("Confirm payment", ignoreCase = true) }.token
         return port
             .nodeAction(
-                com.helix.tools.automation.AutomationNodeActionRequest(
-                    com.helix.tools.automation.AutomationNodeAction.CLICK,
+                com.helix.extensions.mobileuse.automation.AutomationNodeActionRequest(
+                    com.helix.extensions.mobileuse.automation.AutomationNodeAction.CLICK,
                     token,
                 ),
             ).status.name

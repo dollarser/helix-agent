@@ -7,6 +7,11 @@ import com.helix.extensions.plugin.NativePluginState
 class RoomNativePluginCatalog(
     private val catalog: PluginCatalog,
 ) : NativePluginCatalog {
+    override fun selectionId(
+        sessionId: String,
+        pluginId: String,
+    ) = catalog.selectionId(sessionId, pluginId)
+
     override val mutationLock get() = catalog.mutationLock
 
     override fun find(pluginId: String): NativePluginState? =

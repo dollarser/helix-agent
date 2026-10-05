@@ -4,8 +4,8 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.IBinder
-import com.helix.app.automation.shizuku.ShizukuUiBridge
-import com.helix.app.automation.shizuku.ShizukuUiSelector
+import com.helix.extensions.mobileuse.automation.backend.ShizukuUiBridge
+import com.helix.extensions.mobileuse.automation.backend.ShizukuUiSelector
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File

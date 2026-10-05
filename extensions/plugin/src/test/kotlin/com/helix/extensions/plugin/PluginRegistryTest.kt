@@ -18,6 +18,75 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun contextComesOnlyFromSelectedPublishedPlugins() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        val scope =
+            com.helix.core.policy.AutomationSessionScope(
+                setOf("example.app"),
+                emptySet(),
+                0,
+                java.time.Instant.MAX,
+                false,
+                "config",
+            )
+        val contribution =
+            object : HelixPlugin by base {
+                override val preferredTools = setOf("fixture.fixture")
+                override val bundledSkills = listOf(PluginBundledSkill("guide", "guide", "Observe before acting"))
+                override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
+
+                override fun imageScope(sessionId: String) = scope
+
+                override fun scopeFor(
+                    descriptor: ToolDescriptor,
+                    sessionId: String,
+                ) = scope
+            }
+        registry.register(contribution)
+        val descriptor = base.tools().single().descriptor
+        assertEquals(null, registry.executionContext(descriptor, "session"))
+        assertEquals(emptySet<String>(), registry.preferredTools("session"))
+        assertEquals(emptyList<com.helix.core.policy.UserScope>(), registry.imageScopes("session"))
+        catalog.selections["session" to "fixture"] = "selection"
+        assertEquals(scope, registry.executionContext(descriptor, "session")?.scope)
+        assertEquals(setOf("fixture.fixture"), registry.preferredTools("session"))
+        assertEquals(listOf(scope), registry.imageScopes("session"))
+        assertEquals("Observe before acting", registry.instructions(listOf(descriptor, descriptor), "session"))
+        assertEquals(null, registry.instructions(listOf(descriptor.copy(description = "stale")), "session"))
+        registry.setEnabled("fixture", false)
+        assertEquals(null, registry.executionContext(descriptor, "session"))
+        assertEquals(null, registry.instructions(listOf(descriptor), "session"))
+        assertEquals(emptySet<String>(), registry.preferredTools("session"))
+        registry.setEnabled("fixture", true)
+        catalog.selections.clear()
+        assertEquals(null, registry.instructions(listOf(descriptor), "session"))
+        assertEquals(null, registry.executionContext(descriptor, "session"))
+    }
+
+    @Test fun selectionValidationDoesNotMutateRuntimeOrCatalog() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        registry.register(
+            object : HelixPlugin by base {
+                override fun configurationError() = "NOT_CONFIGURED"
+            },
+        )
+        val before = catalog.states.toMap()
+        assertEquals("NOT_CONFIGURED", registry.selectionError("fixture"))
+        assertEquals("PLUGIN_HOST_COMPONENT_UNAVAILABLE", registry.selectionError("missing"))
+        assertEquals(
+            "NOT_CONFIGURED",
+            assertThrows(IllegalStateException::class.java) {
+                registry.validateSelection("fixture")
+            }.message,
+        )
+        assertEquals(before, catalog.states)
+        assertEquals(emptyMap<Pair<String, String>, String>(), catalog.selections)
+    }
+
     @Test fun disabledPluginContentsRemainInspectableWithoutPublishingTools() {
         val tools = ToolRegistry()
         val registry = PluginRegistry(tools, MemoryNativePluginCatalog())

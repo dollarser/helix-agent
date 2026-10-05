@@ -320,7 +320,17 @@ fun ChatScreen(
         } else if (currentSession != null && available) {
             // Capture the editor's identity before the first suspension, including attachment selection.
             buffer.attachments(chatService.currentStagedAttachmentIds(currentSession))
-            val intent = buffer.captureSubmission()
+            val steerTarget =
+                live.activeTurn
+                    ?.takeIf {
+                        !it.state.isTerminal && it.state != com.helix.core.model.TurnState.CANCELLING &&
+                            it.state != com.helix.core.model.TurnState.NEEDS_REVIEW
+                    }?.id
+            val intent =
+                buffer.captureSubmission(
+                    chatService.runControl.value.immediateMessages,
+                    steerTarget,
+                )
             buffer.sending = true
             scope.launch {
                 try {
@@ -431,11 +441,11 @@ fun ChatScreen(
                 },
                 composerOptions = {
                     SessionInputDeliverySelector(
-                        delivery = buffer.value.delivery,
-                        expectedTurnId = buffer.value.expectedTurnId,
-                        activeTurnId = screen.activeTurn?.takeIf { !it.state.isTerminal }?.id,
+                        immediate = runControl.immediateMessages,
                         enabled = buffer.editable && !buffer.sending && screen.pendingDisclosure == null,
-                        onSelect = buffer::delivery,
+                        onSelect = { immediate ->
+                            sessionId?.let { chatService.setImmediateMessages(it, immediate) } == true
+                        },
                     )
                 },
                 composerFeedback = {
@@ -460,6 +470,27 @@ fun ChatScreen(
                 modelSourceGroups = providerService.sourceGroups,
                 artifacts = {
                     ConversationArtifacts(chatService, fileManager, screen)
+                },
+                taskPreparation = {
+                    if (connectors != null && sessionId != null) {
+                        PhoneTaskPreparation(
+                            connectors,
+                            sessionId,
+                            onSelectTools = {
+                                scope.launch {
+                                    saveBuffer()
+                                    if (chatService.materializeDraftSession(sessionId) ==
+                                        sessionId
+                                    ) {
+                                        connectorsOpen = true
+                                    }
+                                }
+                            },
+                            onExtensions = { navigateAfterSave(onExtensions) },
+                            onPermissions = { navigateAfterSave(onPermissions) },
+                            onPrompt = { buffer.edit(appendTaskPrompt(buffer.value.text, it)) },
+                        )
+                    }
                 },
                 intents =
                     ConversationIntents(

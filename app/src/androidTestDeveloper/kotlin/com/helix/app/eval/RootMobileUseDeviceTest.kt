@@ -6,7 +6,6 @@ import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.automation.shizuku.MobileUseRootConnection
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SafetyProfile
@@ -15,8 +14,9 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
+import com.helix.tools.deviceaccess.DeviceAccess
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -50,19 +50,21 @@ class RootMobileUseDeviceTest {
         val now = System.currentTimeMillis()
         container.storage.sessions.create(session, "Root Mobile Use fixture", null, null, now)
         container.storage.turns.start(turn, session, now)
+        val globals = MobileUseGlobalScopeFixture(app)
         val plugin = container.pluginService.list().single { it.native?.pluginId == "mobile-use" }
         require(plugin.enabled)
         container.pluginService.catalog.select(session, plugin.id, true)
         try {
             container.profileStore.switchTo(SafetyProfile.ADVANCED)
-            center.authorizeConversation(session, emptySet(), wholePhone = true)
+            com.helix.app.eval
+                .selectMobileUseForTest(session, emptySet(), wholePhone = true)
             app.startActivity(
                 Intent(app, com.helix.app.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             await { snapshot()?.packageName == app.packageName }
             if (rootMode) {
-                MobileUseRootConnection.requestFromUser()
-                await { MobileUseRootConnection.access()?.connectedBinder() != null }
+                DeviceAccess.requestRootFromUser("mobile-use")
+                await { DeviceAccess.root("mobile-use")?.connectedBinder() != null }
             }
             app.startActivity(
                 Intent()
@@ -72,11 +74,11 @@ class RootMobileUseDeviceTest {
                     .putExtra("recordTouches", touchBackend != null),
             )
             await { snapshot()?.packageName == target }
-            if (rootMode) assertTrue(MobileUseRootConnection.access()?.connectedBinder() != null)
+            if (rootMode) assertTrue(DeviceAccess.root("mobile-use")?.connectedBinder() != null)
             permission(SessionPermissionMode.READ_ONLY)
             assertTrue(dispatch("readonly") is ToolDispatchOutcome.Denied)
             permission(SessionPermissionMode.FULL_ACCESS)
-            rejectStaleAndOutsideScopes()
+            rejectStaleAndOutsideScopes(globals)
             awaitStableFixture()
             val missing = dispatch("missing", text = "HELIX_ABSENT") as ToolDispatchOutcome.ExecutionFailed
             assertEquals("TARGET_NOT_FOUND", missing.detail)
@@ -99,8 +101,10 @@ class RootMobileUseDeviceTest {
             verifyLossAndFreshFallback()
             println("ROOT_MOBILE_USE_PASSED=root->accessibility;clicks=2;root=$root")
         } finally {
-            MobileUseRootConnection.disconnect()
-            center.revokeConversation(session)
+            globals.close()
+            DeviceAccess.disconnectRoot("mobile-use")
+            com.helix.app.eval
+                .deselectMobileUseForTest(session)
             container.storage.deleteSessionPermanently(session)
             container.profileStore.switchTo(oldProfile)
         }
@@ -108,7 +112,7 @@ class RootMobileUseDeviceTest {
 
     private fun verifyShortPresses(backend: String) {
         val cancelled =
-            request("cancelled", backend).copy(
+            request("cancelled").copy(
                 cancel =
                     object : com.helix.tools.framework.CancelSignal {
                         override fun isCancelled() = true
@@ -122,7 +126,7 @@ class RootMobileUseDeviceTest {
                 targetText = snapshot()?.nodes?.singleOrNull { it.viewId == "android:id/button1" }?.text
                 targetText != null
             }
-            val outcome = dispatch("press-$count", backend, requireNotNull(targetText))
+            val outcome = dispatch("press-$count", requireNotNull(targetText))
             assertTrue("$outcome", outcome is ToolDispatchOutcome.Succeeded)
             assertTrue("$outcome", outcome.toString().contains("\"backend\":\"$backend\""))
             awaitClicks(count)
@@ -170,13 +174,26 @@ class RootMobileUseDeviceTest {
         }
 
     private fun verifyLossAndFreshFallback() {
-        val oldBinder = requireNotNull(MobileUseRootConnection.access()?.connectedBinder())
-        MobileUseRootConnection.disconnect()
-        await { MobileUseRootConnection.access()?.connectedBinder() == null }
+        val oldBinder = requireNotNull(DeviceAccess.root("mobile-use")?.connectedBinder())
+        DeviceAccess.disconnectRoot("mobile-use")
+        await { DeviceAccess.root("mobile-use")?.connectedBinder() == null }
         await { !oldBinder.pingBinder() }
-        val refused = dispatch("lost", backend = "root") as ToolDispatchOutcome.ExecutionFailed
-        assertEquals("ROOT_UNAVAILABLE", refused.detail)
-        assertTrue(refused.sideEffectFree)
+        val refused =
+            com.helix.extensions.mobileuse.automation.backend
+                .RootAutomationBackend {
+                    DeviceAccess.root("mobile-use")
+                }.click(
+                    com.helix.extensions.mobileuse.automation.AutomationPrivilegedSelector(
+                        target,
+                        "android:id/button1",
+                        "FIXTURE CLICK",
+                    ),
+                    { _, _, _ -> true },
+                    {
+                        true
+                    },
+                )
+        assertEquals(com.helix.extensions.mobileuse.automation.AutomationActionStatus.ROOT_UNAVAILABLE, refused.status)
         await {
             val before = snapshot()
             SystemClock.sleep(300)
@@ -189,13 +206,17 @@ class RootMobileUseDeviceTest {
         awaitClicks(2)
     }
 
-    private fun rejectStaleAndOutsideScopes() {
+    private fun rejectStaleAndOutsideScopes(globals: MobileUseGlobalScopeFixture) {
         val old = request("stale")
-        center.authorizeConversation(session, setOf(app.packageName), wholePhone = false)
+        globals.configure(setOf(app.packageName), false)
+        com.helix.app.eval
+            .selectMobileUseForTest(session, setOf(app.packageName), wholePhone = false)
         assertTrue(container.toolPipeline.dispatcher.dispatch(old) !is ToolDispatchOutcome.Succeeded)
         val outside = dispatch("outside") as ToolDispatchOutcome.ExecutionFailed
         assertEquals("TARGET_NOT_ALLOWLISTED", outside.detail)
-        center.authorizeConversation(session, emptySet(), wholePhone = true)
+        globals.configure(emptySet(), true)
+        com.helix.app.eval
+            .selectMobileUseForTest(session, emptySet(), wholePhone = true)
     }
 
     private fun permission(mode: SessionPermissionMode) {
@@ -208,13 +229,11 @@ class RootMobileUseDeviceTest {
 
     private fun dispatch(
         id: String,
-        backend: String = "auto",
         text: String = "FIXTURE CLICK",
-    ) = container.toolPipeline.dispatcher.dispatch(request(id, backend, text))
+    ) = container.toolPipeline.dispatcher.dispatch(request(id, text))
 
     private fun request(
         id: String,
-        backend: String = "auto",
         text: String = "FIXTURE CLICK",
     ) = ToolDispatchRequest(
         toolCallId = "$session-$id",
@@ -224,7 +243,6 @@ class RootMobileUseDeviceTest {
         toolVersion = requireNotNull(container.toolPipeline.resolveLatest("ui.click_match")).version,
         args =
             buildJsonObject {
-                put("backend", backend)
                 put("packageName", target)
                 put("viewId", "android:id/button1")
                 put("text", text)
@@ -258,7 +276,7 @@ class RootMobileUseDeviceTest {
         }
 
     private fun snapshot() =
-        com.helix.tools.automation
+        com.helix.extensions.mobileuse.automation
             .PermissionCenterAutomationToolPort(center)
             .forCall(callForObservation())
             .snapshot()

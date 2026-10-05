@@ -46,7 +46,7 @@ import com.helix.app.ui.indicatedVerticalScroll
 fun SystemPermissionsScreen(
     filePermissions: (@Composable () -> Unit)? = null,
     onFileLocations: (() -> Unit)? = null,
-    automationPermissions: (@Composable () -> Unit)? = null,
+    devicePermissions: (@Composable () -> Unit)? = null,
     advancedPermissions: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -96,7 +96,7 @@ fun SystemPermissionsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.permissions_help))
-        automationPermissions?.invoke()
+        devicePermissions?.invoke()
         if (advancedPermissions != null) {
             var advanced by rememberSaveable { mutableStateOf(false) }
             TextButton({ advanced = !advanced }) { Text(stringResource(R.string.permissions_root_diagnostics)) }

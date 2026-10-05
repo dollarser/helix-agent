@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "6e44f782ee05c9919fbc756c6354cf68",
+    "identityHash": "c34065205d0987bb3b495a2f4a663c43",
     "entities": [
       {
         "tableName": "projects",
@@ -551,7 +551,7 @@
       },
       {
         "tableName": "session_connectors",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `connectorId` TEXT NOT NULL, PRIMARY KEY(`sessionId`, `connectorId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `connectorId` TEXT NOT NULL, `selectionId` TEXT NOT NULL, PRIMARY KEY(`sessionId`, `connectorId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "sessionId",
@@ -562,6 +562,12 @@
           {
             "fieldPath": "connectorId",
             "columnName": "connectorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectionId",
+            "columnName": "selectionId",
             "affinity": "TEXT",
             "notNull": true
           }
@@ -3351,7 +3357,7 @@
       },
       {
         "tableName": "session_run_controls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `turnBudgetsJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalBudgetsJson` TEXT NOT NULL, `configVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `createdAtEpoch` INTEGER NOT NULL, `updatedAtEpoch` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `turnBudgetsJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalBudgetsJson` TEXT NOT NULL, `configVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `createdAtEpoch` INTEGER NOT NULL, `updatedAtEpoch` INTEGER NOT NULL, `immediateMessages` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "sessionId",
@@ -3410,6 +3416,12 @@
           {
             "fieldPath": "updatedAtEpoch",
             "columnName": "updatedAtEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "immediateMessages",
+            "columnName": "immediateMessages",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -4002,7 +4014,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6e44f782ee05c9919fbc756c6354cf68')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c34065205d0987bb3b495a2f4a663c43')"
     ]
   }
 }

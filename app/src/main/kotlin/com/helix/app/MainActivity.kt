@@ -754,8 +754,8 @@ private fun PermissionsScreenDestination(
 ) {
     com.helix.app.ui.SystemPermissionsScreen(
         onFileLocations = onFileLocations,
-        automationPermissions = {
-            com.helix.app.automation.AutomationModule
+        devicePermissions = {
+            com.helix.app.deviceaccess.DeviceAccessModule
                 .Permissions()
         },
         advancedPermissions =

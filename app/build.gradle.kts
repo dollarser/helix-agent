@@ -136,7 +136,7 @@ dependencies {
     implementation(project(":provider:catalog"))
 
     add("developerImplementation", project(":feature:files-allfiles"))
-    add("developerImplementation", project(":tools:automation"))
+    add("developerImplementation", project(":tools:device-access"))
     add("developerImplementation", project(":extensions:mobile-use"))
     add("developerImplementation", project(":tools:root"))
     add("developerImplementation", libs.shizuku.api)

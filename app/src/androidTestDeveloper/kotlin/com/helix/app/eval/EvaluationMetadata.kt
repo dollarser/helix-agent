@@ -7,15 +7,16 @@ import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelRequest
+import com.helix.extensions.plugin.preferredTools
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /** Opt-in fixture observation uses the exact saved Conversation grant, never a global session. */
 internal fun evaluationAutomationPort(
-    center: com.helix.tools.automation.AutomationPermissionCenter,
+    center: com.helix.extensions.mobileuse.automation.AutomationPermissionCenter,
     conversationId: String,
-): com.helix.tools.automation.AutomationToolPort {
+): com.helix.extensions.mobileuse.automation.AutomationToolPort {
     val grant = requireNotNull(center.conversationGrant(conversationId))
     val call =
         com.helix.tools.framework.ExecutableToolCall(
@@ -32,7 +33,7 @@ internal fun evaluationAutomationPort(
             "fixture-setup",
             grant.scope.toScopeRef(),
         )
-    return com.helix.tools.automation
+    return com.helix.extensions.mobileuse.automation
         .PermissionCenterAutomationToolPort(center)
         .forCall(call)
 }
@@ -42,15 +43,13 @@ internal fun exposedEvaluationTools(
     container: AppContainer,
     mode: AgentMode,
 ): JsonObject {
-    val preferUi =
-        com.helix.app.automation.AutomationModule
-            .scopeFor("ui.snapshot", container.chatService.screen.value.openSessionId) != null
     val latest =
         container.toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
             versions.maxBy { it.version.value }
         }
     val control = container.chatService.runControl.value
     val session = requireNotNull(container.chatService.screen.value.openSessionId)
+    val preferred = container.pluginRegistry.preferredTools(session)
     val admitted =
         ModePolicy
             .filterTools(mode, latest, control.chatToolsEnabled) {
@@ -62,14 +61,14 @@ internal fun exposedEvaluationTools(
             .visible(
                 session,
                 admitted,
-                ModelToolExposureOrder.defaultNames(preferUi),
+                ModelToolExposureOrder.defaultNames(preferred),
             ).filter { container.toolPipeline.disabledToolFilter?.invoke(session, it) ?: true }
             .filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
             .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
             .let {
                 ModelToolExposureOrder.prioritize(
                     it,
-                    preferUi = preferUi,
+                    preferred = preferred,
                 )
             }.take(ModelRequest.MAX_TOOLS)
     return buildJsonObject { exposed.forEach { put(it.name.value, it.version.value) } }

@@ -64,10 +64,10 @@ A/B/C/D 是维护建议，不是缺陷严重度；没有仅凭体积判定的紧
 | [FilesMutateTools.kt](../../../tools/files/src/main/kotlin/com/helix/tools/files/FilesMutateTools.kt) · 494 | 多个文件 Tool object：文件变更工具合约、执行和注册 | 按 Tool object 整理；继续调用共同存储实现，无需新的通用操作 DSL。 |
 | [AndroidSystemTools.kt](../../../tools/android/src/main/kotlin/com/helix/tools/android/AndroidSystemTools.kt) · 489 | 多个 Android Tool object：设备信息、剪贴板、分享等 | 按现有工具类型分文件即可，保持风险和权限归属。 |
 | [ConfigRepositories.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/ConfigRepositories.kt) · 488 | 配置类型＋多个 Repository：Provider、Runtime、MCP、Skill 配置仓储 | 按现有 Repository 文件化；属于聚合组织问题。 |
-| [AutomationActions.kt](../../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationActions.kt) · 470 | 查询/结果类型＋多个执行组件：查找、节点动作、等待 | Finder、Executor、Waiter 已独立；可分文件，保持节点验证/代际绑定。 |
+| [AutomationActions.kt](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationActions.kt) · 470 | 查询/结果类型＋多个执行组件：查找、节点动作、等待 | Finder、Executor、Waiter 已独立；可分文件，保持节点验证/代际绑定。 |
 | [HelixDatabase.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) · 459 | Room 数据库＋迁移声明：DAO 入口、数据库构建和迁移 SQL | 可把 migrations 按版本整理为文件；保留版本顺序/注册单点，不改变 schema。 |
 | [SdkMcpClientFacade.kt](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/SdkMcpClientFacade.kt) · 411 | 多个 SDK 适配类＋转换函数：连接、协议协商 transport、session、content 映射 | 按已有 facade/transport/session/conversion 分文件；无需重新设计 MCP。 |
-| [AutomationSnapshotEngine.kt](../../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationSnapshotEngine.kt) · 407 | 平台节点适配＋快照组件：节点封装、代际跟踪、指纹、遍历/回收 | 可按已存在的节点适配与捕获引擎分文件；节点 recycle 和 generation 验证不能丢失。 |
+| [AutomationSnapshotEngine.kt](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSnapshotEngine.kt) · 407 | 平台节点适配＋快照组件：节点封装、代际跟踪、指纹、遍历/回收 | 可按已存在的节点适配与捕获引擎分文件；节点 recycle 和 generation 验证不能丢失。 |
 | [ConversationDaos.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/dao/SessionDao.kt) · 402 | 多个 DAO interface：会话、消息、Turn、审批等 SQL 接口 | 按现有 DAO 类型拆文件，保持 SQL 与事务合同；不是大类。 |
 | [SettingsScreen.kt](../../../app/src/main/kotlin/com/helix/app/ui/SettingsScreen.kt) · 400 | 多个 Compose 函数：设置页、PRoot 状态与修复、语言选择 | 可拆 RuntimeSection/LanguageSection；仍由服务执行业务，低风险组织清理。 |
 

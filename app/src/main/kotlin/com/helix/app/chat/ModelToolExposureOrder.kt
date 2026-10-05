@@ -21,28 +21,7 @@ internal object ModelToolExposureOrder {
             "view_image",
         ).withIndex().associate { (index, name) -> name to index }
 
-    // Active Mobile Use should expose the semantic control surface plus the existing direct URL opener.
-    private val coreUi =
-        setOf(
-            "ui.apps",
-            "ui.launch",
-            "ui.snapshot",
-            "ui.find",
-            "ui.click",
-            "ui.click_match",
-            "ui.set_text",
-            "ui.ime_enter",
-            "ui.scroll",
-            "ui.back",
-            "ui.wait",
-            "ui.device",
-            "ui.screenshot",
-            "ui.gesture",
-            "android.open_uri",
-            "http.fetch",
-        )
-
-    fun defaultNames(preferUi: Boolean): Set<String> {
+    fun defaultNames(preferred: Set<String>): Set<String> {
         val shared =
             coreFiles.keys + GoalLifecycleTools.names +
                 setOf(
@@ -54,34 +33,29 @@ internal object ModelToolExposureOrder {
                     "skills.enable",
                     "skills.read",
                 )
-        return shared +
-            if (preferUi) {
-                coreUi - setOf("http.fetch", "ui.ime_enter")
-            } else {
-                setOf("code.javascript.run")
-            }
+        return shared + preferred + if (preferred.isEmpty()) setOf("code.javascript.run") else emptySet()
     }
 
     fun prioritize(
         tools: List<ToolDescriptor>,
-        preferUi: Boolean = false,
+        preferred: Set<String> = emptySet(),
     ): List<ToolDescriptor> =
         tools
             .withIndex()
             .sortedWith(
-                compareBy<IndexedValue<ToolDescriptor>> { rank(it.value, preferUi) }.thenBy { it.index },
+                compareBy<IndexedValue<ToolDescriptor>> { rank(it.value, preferred) }.thenBy { it.index },
             ).map { it.value }
 
     private fun rank(
         tool: ToolDescriptor,
-        preferUi: Boolean,
+        preferred: Set<String>,
     ): Int {
         val name = tool.name.value
         return when {
             name in GoalLifecycleTools.names || name == ToolResultReadTool.NAME -> 0
             name == "tools.search" || name == "ask_user" -> 10
             name in coreFiles -> 20 + requireNotNull(coreFiles[name])
-            preferUi && name in coreUi -> 30
+            name in preferred -> 30
             else -> 100
         }
     }

@@ -285,7 +285,7 @@ class ConversationComposerDeviceTest {
                             false,
                             false,
                             ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
-                            headerStatus = { SessionInputDeliveryCountText(2, 4) },
+                            headerStatus = { androidx.compose.material3.Text("Queued message") },
                         )
                     }
                 }

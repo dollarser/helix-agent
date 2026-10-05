@@ -166,7 +166,7 @@ Goal 可以跨多个 Turn/Run 持久存在，但 crash/review 后不恢复 same 
 - 真正 live 的 nonterminal Turn 继续阻止第二 live Turn；
 - INTERRUPTED 是旧 attempt 的终局，不阻止 successor admission；
 - NEEDS_REVIEW 不阻止 successor Turn/模型检查，但 effect gate 按 §6 阻止危险 side effect；
-- 普通用户发送默认 Queue；显式 Steer 只在当前仍 live 的 Turn 合法协调点进入；
+- 新会话普通发送默认 Queue；用户可将本会话发送方式持久设置为立即发送。该设置仅作用于后续新输入：发送时有可接收的 live Turn 则冻结其身份为 Steer，否则正常 Queue 准入。Steer 仍只在目标 Turn 的合法协调点进入；
 - 未消费 Queue 在输入框上方直接展示，正常完成后按原顺序消费。用户可对单项点击“立即发送”，重验证原配置、附件和当前 live Turn 后以 revision CAS 转为 Steer；保留原输入身份和内容，不能复制重提、默默绑定新 Turn 或释放 Stop 停泊项。失败保留原队列，消费后不再可编辑/转向。界面观察 Room 投递变化，不依赖最终回复或轮询。
 - process recovery 不自动消费 Queue，也不自动启动 successor Turn。恢复必须来自用户“继续”/新消息，或未来另行接受的明确自动激活契约。
 
@@ -254,6 +254,8 @@ UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保�
 - 所有者于 2026-09-29 追加要求清理废弃表：当前开发期 Room v1 baseline 移除 `composer_drafts`、对应 DAO/Room Entity 与注册入口，不再保留结构兼容。文件输入使用独立 `ComposerInputSnapshot` / `ComposerInputCache`，不是 Room aggregate；不引入旧库/文件双写。所有者随后明确授权开发期覆盖升级遇到 schema identity 不兼容时直接删库重建，文件保留；不把更新源码说成设备数据已经清空。正式消息、队列、回执和仍在使用的 CUSTOM 权限编辑表保留。
 
 ## Decision history
+
+- 2026-10-05：所有者要求发送方式作为会话级持久默认值，独立于单条草稿与待发送消息，空闲时也可选择。设置变化不重写已有队列；单项立即发送、修改、删除仍在队列消息上操作。每次新发送重新冻结当时目标，已接收输入不自动改绑。
 
 - 2026-10-04：所有者要求可见消息队列与单项立即发送。复用 Queue/Steer 及安全衔接点，不中断工具、不新增第二执行器；当前会话入口合为单击直达，投递事实由持久输入变化驱动。
 - 2026-10-01：所有者授权 HXA-234 的 R2-A 等价迁移。实际 Loop、执行/消息端口与领域值进入纯 Core；终态增加 session/call/phase/step 的前置校验，修复新 ModelCall 与持久步骤发布错位。继续同一 Engine/Room 事务，主机与设备验收分别记账。

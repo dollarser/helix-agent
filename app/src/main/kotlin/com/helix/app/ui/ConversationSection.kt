@@ -65,6 +65,7 @@ internal fun ConversationSection(
     composerFeedback: @Composable () -> Unit = {},
     composerOptions: @Composable () -> Unit = {},
     artifacts: @Composable () -> Unit = {},
+    taskPreparation: @Composable () -> Unit = {},
     modelSourceGroups: List<ProviderProvisioningKind> =
         listOf(
             ProviderProvisioningKind.USER_CONFIGURED,
@@ -122,13 +123,14 @@ internal fun ConversationSection(
     // result is a benign no-draft (the system UI already surfaced it); a device with no recognizer
     // is gated pre-launch and shows a transient, path-free notice.
     val speech = remember { SpeechRecognitionLauncher() }
+    var voiceHelp by remember(screen.openSessionId) { mutableStateOf(false) }
+    var voiceFailure by remember(screen.openSessionId) { mutableStateOf<VoiceInputMapper.Failure?>(null) }
     var voiceTarget by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf<String?>(null) }
     val currentVoiceSession by androidx.compose.runtime.rememberUpdatedState(screen.openSessionId)
     val currentVoiceInput by androidx.compose.runtime.rememberUpdatedState(input)
     val currentVoiceEdit by androidx.compose.runtime.rememberUpdatedState(onInput)
     var inputNotice by remember { mutableStateOf<String?>(null) }
-    val voiceUnavailable = stringResource(R.string.chat_voice_unavailable)
     val captureUnavailable = stringResource(R.string.chat_capture_unavailable)
     val pickerUnavailable = stringResource(R.string.chat_picker_unavailable)
     val voiceLauncher =
@@ -139,12 +141,19 @@ internal fun ConversationSection(
             if (outcome is VoiceInputMapper.Outcome.Draft && target != null && target == currentVoiceSession) {
                 currentVoiceEdit(VoiceInputMapper.appendDraft(currentVoiceInput, outcome.text))
             }
+            if (outcome is VoiceInputMapper.Outcome.Failed && target != null && target == currentVoiceSession) {
+                voiceFailure = outcome.reason
+                voiceHelp = true
+            }
         }
+
+    if (voiceHelp) SystemVoiceDialog(voiceFailure) { voiceHelp = false }
 
     val timelineListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val searchController = remember { ConversationSearchController() }
     var searchActive by remember { mutableStateOf(false) }
+    var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
 
     LaunchedEffect(screen, searchActive) {
         if (searchActive) {
@@ -209,11 +218,6 @@ internal fun ConversationSection(
                 },
             )
         }
-        if (runControl.mode == AgentMode.GOAL && !screen.isDraft) {
-            TextButton(intents.onManageGoal, modifier = Modifier.testTag("goal-manage")) {
-                Text(stringResource(R.string.goal_manage))
-            }
-        }
         screen.blockedReason?.let { reason ->
             Row(
                 modifier =
@@ -232,19 +236,11 @@ internal fun ConversationSection(
                 TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
-        TaskLedgerCard(screen.taskLedger, screen.openSessionId)
         if (screen.workspaceRecovered) {
             Column(Modifier.padding(horizontal = 12.dp).testTag("workspace-recovery-notice")) {
                 Text(stringResource(R.string.workspace_recovered_notice), style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = intents.onDirectory) { Text(stringResource(R.string.chat_directory_choose)) }
             }
-        }
-        if (screen.isFork) {
-            Text(
-                stringResource(R.string.session_fork_notice),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 12.dp).testTag("session-fork-notice"),
-            )
         }
         val emptyConversation =
             screen.activeTurn == null &&
@@ -267,8 +263,10 @@ internal fun ConversationSection(
                 item(key = "empty-conversation") {
                     EmptyConversationHint(
                         goalMode = runControl.mode == AgentMode.GOAL,
-                        hasProvider = screen.badge != null,
-                        onSelectPrompt = onInput,
+                        hasProvider = composerAvailability.modelSelected,
+                        onSelectPrompt = { onInput(appendTaskPrompt(input, it)) },
+                        onChooseModel = { modelPickerRequest++ },
+                        preparation = taskPreparation,
                     )
                 }
             }
@@ -396,7 +394,6 @@ internal fun ConversationSection(
                 }
             }
         }
-        artifacts()
         PendingAttachmentStrip(screen.pendingAttachments, intents.onRemoveAttachment)
         inputNotice?.let { notice ->
             Text(
@@ -411,11 +408,26 @@ internal fun ConversationSection(
         }
         composerFeedback()
         composerStatus()
-        var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
         ConversationComposer(
             editorKey = screen.openSessionId,
             onChooseModel = { modelPickerRequest++ },
-            optionsContent = composerOptions,
+            optionsContent = {
+                artifacts()
+                TaskLedgerCard(screen.taskLedger, screen.openSessionId)
+                if (runControl.mode == AgentMode.GOAL && !screen.isDraft) {
+                    TextButton(intents.onManageGoal, modifier = Modifier.testTag("goal-manage")) {
+                        Text(stringResource(R.string.goal_manage))
+                    }
+                }
+                if (screen.isFork) {
+                    Text(
+                        stringResource(R.string.session_fork_notice),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 12.dp).testTag("session-fork-notice"),
+                    )
+                }
+                composerOptions()
+            },
             input = input,
             onInput = onInput,
             isSending = screen.isSending,
@@ -511,6 +523,7 @@ internal fun ConversationSection(
                     onConnectors = intents.onConnectors,
                     onSessionSettings = intents.onSettings,
                     onVoice = {
+                        voiceFailure = null
                         when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
                             VoiceInputMapper.Outcome.Available -> {
                                 inputNotice = null
@@ -518,14 +531,17 @@ internal fun ConversationSection(
                                 try {
                                     voiceLauncher.launch(speech.buildIntent(context))
                                 } catch (_: android.content.ActivityNotFoundException) {
-                                    inputNotice = voiceUnavailable
+                                    voiceTarget = null
+                                    voiceHelp = true
                                 } catch (_: SecurityException) {
-                                    inputNotice = voiceUnavailable
+                                    voiceTarget = null
+                                    voiceFailure = VoiceInputMapper.Failure.SERVICE
+                                    voiceHelp = true
                                 }
                             }
 
                             else -> {
-                                inputNotice = voiceUnavailable
+                                voiceHelp = true
                             }
                         }
                     },

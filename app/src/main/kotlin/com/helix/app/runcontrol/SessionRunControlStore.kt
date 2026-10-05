@@ -57,6 +57,7 @@ class SessionRunControlStore(
             budgets = budgets,
             reasoning = reasoning,
             goalBudgets = goalBudgets,
+            immediateMessages = immediateMessages,
         )
 
     private fun SessionRunControlRecord.toConfig(): RunControlConfig =
@@ -67,6 +68,7 @@ class SessionRunControlStore(
                 budgets = budgets,
                 reasoning = reasoning,
                 goalBudgets = goalBudgets,
+                immediateMessages = immediateMessages,
             ),
         )
 }

@@ -1,5 +1,27 @@
 # 当前实施状态
 
+2026-10-05 所有者要求最新版覆盖安装并提交：Developer APK 已在日常 API36 模拟器正常冷启动；开发数据库结构变化触发重建，升级前 1 个会话及配置已备份，文件保留。见[安装与数据边界](../evidence/development/mobile-use-plugin-settings-2026-10-05.md#随后授权覆盖安装与提交)。未调用真实模型。
+
+2026-10-05 所有者要求修复 Mobile Use 显示可用却不能勾选：会话能力列表与实际选择共用配置预检查，缺少应用范围时直接说明并提供配置入口；保留取消选择和写入时复验，不要求系统权限全开。见[原因与边界](../evidence/development/mobile-use-plugin-settings-2026-10-05.md#后续修复已注册不等于可勾选)。本轮设备、真实模型 not requested。
+
+2026-10-05 所有者授权模拟器回归：在独立 API36 Developer 临时实例完成 30 项不同用例，修复任务示例覆盖已有草稿，并纠正旧插件设置导航测试。首任务、排队按钮、成果菜单、插件详情、系统语音帮助及本地模型夹具的停止/重试/分支通过；日常模拟器数据未改动，真实模型、语音识别服务及真机未测试。见[本次回归范围](../product/competitive-doubao-phone-gap.md#8-所有者授权的模拟器回归2026-10-05)。
+
+2026-10-05 所有者要求对标豆包手机助手并优化最大可改善差距：新增[证据化差距报告](../product/competitive-doubao-phone-gap.md)，本轮聚焦首任务入口，采用日常任务示例、直接选模与手机任务集中准备入口，复用现有插件/授权页面，不新增 OEM 渠道或执行框架。设备、模型与竞品实机 not requested。
+
+2026-10-05 所有者要求先完善系统语音兼容性：系统语音诊断与设置入口、识别错误分类、输入服务与 TTS 状态分离；保持系统识别 Activity 和可编辑草稿，不增加其他语音后端。见[实现与主机验证](../evidence/development/system-voice-compatibility-2026-10-05.md)。真机、模拟器及真实语音服务未验证。
+
+2026-10-05 所有者要求发送方式改为会话级默认设置：更多菜单始终可选排队/立即发送，按会话持久化，提交时冻结当前目标，不批量改写已有队列；[实现与验证边界](../evidence/development/session-message-delivery-2026-10-05.md)。设备、真实模型 not requested，Room 开发基线新增字段尚未覆盖安装验证。
+
+2026-10-05 按所有者要求整理会话更多菜单和 Mobile Use 详情：成果、任务清单、Goal 管理与分支说明移入竖向三点菜单；插件内容按名称、描述、启用、设置、技能、工具排序，注册修复仅异常时显示。见[交互与验证边界](../evidence/development/conversation-more-and-plugin-layout-2026-10-05.md)。设备与真实模型 not requested。
+
+2026-10-05 修复工具搜索后会话持续失败：模型投影不再向工具描述追加路径帮助，保留原语义并在参数 schema 中补充路径说明；覆盖动态加载后连续请求与实际 Linux/Job 工具。见[原因、修复和验证边界](../bug-fixes/2026-10-05-discovered-tool-description.md)。本轮设备和真实模型 not requested。
+
+2026-10-05 按所有者要求收敛插件架构：会话仅保存通用插件选择，Mobile Use 执行范围由全局配置与选择身份推导；通知停止只取消原任务；Root 申请授权与使用方连接分开；聊天上下文和派发采用通用插件贡献接口。主机测试、双渠道构建及静态检查通过；所有者随后授权 API36 模拟器安装回归，14 项通过，开发数据库结构变化触发重建且已保存升级前备份。真实模型 not requested。见[架构精简记录](../evidence/development/plugin-architecture-simplification-2026-10-05.md)。
+
+2026-10-05 按所有者要求彻底拆分授权管理与 Mobile Use 设置：系统授权页改由宿主独立组件管理，不依赖自动化后端或插件 Root 连接；插件页保留运行状态、专用连接和应用范围。主机单测、双渠道构建及静态检查通过，设备 not requested，未更新模拟器。见[拆分记录](../evidence/development/system-permissions-plugin-separation-2026-10-05.md)。
+
+本轮完成（2026-10-05）：所有者授权的 Mobile Use 五项优化已完成本地主机、API34/36 定向设备和当前真实模型回归，基线提交为 `73be3752`，后续优化未提交/推送。边界为“Helix 管系统授权，Mobile Use 管自动化能力”；模型已自主完成合成页面操作与自有 APK 安装。参见 [本轮证据及失败尝试](../evidence/development/mobile-use-refactor-2026-10-05.md)，不代表真机、其他模型或发布验收。
+
 2026-10-01 阶段收尾：回放、OAuth 本地增量、R2-A、R3 与 J1 基础观察/等待形成已验证的本地主机候选；[源码/APK 身份、集成复核与交接](../evidence/development/phase-closeout-2026-10-01.md)。该候选仍是未提交工作树，不是下方 v0.0.4 发布内容或 clean P5。完整 J1 仍有观察上下文、可信类型进展判定与设备闭环未完成；本次不扩展 J2/Project Memory。
 
 2026-10-01 v0.0.4 开发预览整合与回放记录保留修复完成主机及 API36 定向验证（21/21）；版本范围与发布限制见[验证记录](../evidence/development/v0.0.4-release-2026-10-01.md)。

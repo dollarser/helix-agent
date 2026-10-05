@@ -50,7 +50,7 @@ def verify_mobile_app_visibility(manifest, developer):
 
 def verify_shizuku(app, developer):
     providers = [item for item in app.findall('provider') if item.get(A + 'name') == 'rikka.shizuku.ShizukuProvider']
-    activities = [item for item in app.findall('activity') if item.get(A + 'name') == 'com.helix.app.automation.shizuku.ShizukuPermissionActivity']
+    activities = [item for item in app.findall('activity') if item.get(A + 'name') == 'com.helix.tools.deviceaccess.ShizukuPermissionActivity']
     if not developer:
         if providers or activities:
             raise RuntimeError('Standard APK leaked Shizuku')
@@ -66,7 +66,7 @@ def verify_shizuku(app, developer):
 
 def verify_mobile_use(app, developer, config=None, resource_table=""):
     """HXA-243: inspect actual service metadata, not just a dependency or UI flag."""
-    name = "com.helix.tools.automation.HelixAccessibilityService"
+    name = "com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
     services = [item for item in app.findall("service") if item.get(A + "name") == name]
     if not developer:
         if services or config is not None:
@@ -215,11 +215,11 @@ def verify(flavor, build_type):
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
-        for namespace in (b"Lrikka/shizuku/", b"Lcom/helix/app/automation/shizuku/"):
+        for namespace in (b"Lrikka/shizuku/", b"Lcom/helix/extensions/mobileuse/automation/backend/"):
             assert (namespace in dex) == developer, f"wrong {flavor} Shizuku dex {namespace}"
-        for namespace in (b"Lcom/topjohnwu/superuser/", b"Lcom/helix/app/automation/shizuku/RootAutomationService;"):
+        for namespace in (b"Lcom/topjohnwu/superuser/", b"Lcom/helix/extensions/mobileuse/automation/backend/RootAutomationService;"):
             assert (namespace in dex) == developer, f"wrong {flavor} Root dex {namespace}"
-        assert "com.helix.app.automation.shizuku.RootAutomationService" not in components, "libsu service is not an Android component"
+        assert "com.helix.extensions.mobileuse.automation.backend.RootAutomationService" not in components, "libsu service is not an Android component"
         for retired in (b"Lcom/helix/provider/api/CleartextAuthorization;",
                         b"Lcom/helix/app/provider/CleartextBindingStore;"):
             if retired in dex:

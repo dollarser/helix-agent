@@ -7,11 +7,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.tools.automation.AutomationActionStatus
-import com.helix.tools.automation.AutomationNodeAction
-import com.helix.tools.automation.AutomationNodeActionRequest
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationActionStatus
+import com.helix.extensions.mobileuse.automation.AutomationNodeAction
+import com.helix.extensions.mobileuse.automation.AutomationNodeActionRequest
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -66,7 +66,8 @@ class MobileUsePackageInstallerVisibilityDeviceTest {
         )
         try {
             ensureAccessibility(previousServices)
-            center.authorizeConversation(conversation, emptySet(), wholePhone = true)
+            com.helix.app.eval
+                .selectMobileUseForTest(conversation, emptySet(), wholePhone = true)
             val port = evaluationAutomationPort(center, conversation)
             var snapshot = port.snapshot().snapshot
             waitUntil(failureMessage = { "latest snapshot=$snapshot" }) {
@@ -103,14 +104,15 @@ class MobileUsePackageInstallerVisibilityDeviceTest {
             }
             println("ACCESSIBILITY_PACKAGE_UPDATE=$previousUpdate->${packageUpdateTime()}")
         } finally {
-            center.revokeConversation(conversation)
+            com.helix.app.eval
+                .deselectMobileUseForTest(conversation)
             runCatching { container.storage.sessions.archive(conversation, System.currentTimeMillis()) }
             restoreAccessibility(previousServices, accessibilityEnabled)
         }
     }
 
     private fun ensureAccessibility(previousServices: String?) {
-        val component = "${app.packageName}/com.helix.tools.automation.HelixAccessibilityService"
+        val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
         val previous = previousServices.orEmpty().split(':').filter(String::isNotBlank)
         val withoutHelix = previous.filterNot { it == component }
         if (withoutHelix.isEmpty()) {

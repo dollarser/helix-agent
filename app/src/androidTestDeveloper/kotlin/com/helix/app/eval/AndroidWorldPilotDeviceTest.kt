@@ -15,10 +15,10 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationSessionStartStatus
 import com.helix.provider.api.CleartextWarning
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
-import com.helix.tools.automation.AutomationSessionStartStatus
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -64,7 +64,7 @@ class AndroidWorldPilotDeviceTest {
             var exposed = JsonObject(emptyMap())
             val started = SystemClock.elapsedRealtime()
             try {
-                val component = "${app.packageName}/com.helix.tools.automation.HelixAccessibilityService"
+                val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
                 val allServices = (services.orEmpty().split(':').filter(String::isNotBlank) + component).distinct()
                 shell("settings put secure enabled_accessibility_services ${allServices.joinToString(":")}")
                 shell("settings put secure accessibility_enabled 1")
@@ -93,7 +93,8 @@ class AndroidWorldPilotDeviceTest {
                 val probe = container.providerService.runConnectionTest(provider)
                 check(probe is com.helix.provider.api.ProbeOutcome.Ok) { "Provider connection failed: $probe" }
                 session = container.chatService.createSession("AndroidWorld-$target", provider, "Qwen3.8-27B")
-                center.authorizeConversation(session, packages, wholePhone = false)
+                com.helix.app.eval
+                    .selectMobileUseForTest(session, packages, wholePhone = false)
                 container.chatService.openSession(session)
                 container.chatService.setMode(AgentMode.ACT)
                 container.chatService.setTurnBudgets(
@@ -179,7 +180,7 @@ class AndroidWorldPilotDeviceTest {
                 container.chatService.setMode(previous.mode)
                 container.chatService.setTurnBudgets(previous.budgets)
                 provider?.let { container.providerService.delete(it) }
-                session?.let(center::revokeConversation)
+                session?.let(::deselectMobileUseForTest)
                 if (services.isNullOrBlank()) {
                     shell("settings delete secure enabled_accessibility_services")
                 } else {

@@ -36,10 +36,10 @@ internal class SystemPromptContext(
         toolsAvailable: Boolean,
         expert: ExpertProfile? = null,
         directory: com.helix.core.workspace.FileScopePath,
-        mobileToolsAvailable: Boolean = false,
+        pluginInstructions: String? = null,
     ): PromptSnapshot {
         val registry = PromptRegistry()
-        registerEnvironment(registry, directory, mode, fileToolsAvailable, mobileToolsAvailable)
+        registerEnvironment(registry, directory, mode, fileToolsAvailable, pluginInstructions)
         if (toolsAvailable) {
             registry.register(
                 PromptSection(
@@ -100,19 +100,14 @@ internal class SystemPromptContext(
         directory: com.helix.core.workspace.FileScopePath,
         mode: AgentMode,
         fileToolsAvailable: Boolean,
-        mobileToolsAvailable: Boolean,
+        pluginInstructions: String?,
     ) = PromptEnvironmentSections.register(
         registry,
         directory,
         mode,
         fileToolsAvailable,
         templates,
-        if (mobileToolsAvailable) {
-            com.helix.app.automation.AutomationModule
-                .skillContext()
-        } else {
-            null
-        },
+        pluginInstructions,
     )
 
     private fun registerProject(

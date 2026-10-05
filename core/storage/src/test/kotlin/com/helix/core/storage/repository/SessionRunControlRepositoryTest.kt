@@ -14,6 +14,18 @@ class SessionRunControlRepositoryTest {
     private val dao = FakeSessionRunControlDao()
     private val repository = SessionRunControlRepository(dao)
 
+    @Test fun messageDeliverySurvivesReopeningAndDoesNotChangeOtherSessions() {
+        val queued = record(AgentMode.ACT, ReasoningEffort.OFF)
+        repository.setForSession("one", queued.copy(immediateMessages = true), 1L)
+        repository.setForSession("two", queued, 2L)
+        val reopened = SessionRunControlRepository(dao)
+        assertEquals(true, reopened.forSession("one")!!.immediateMessages)
+        assertEquals(false, reopened.forSession("two")!!.immediateMessages)
+        val updated = reopened.forSession("one")!!.copy(reasoning = ReasoningEffort.HIGH)
+        reopened.setForSession("one", updated, 3L)
+        assertEquals(true, repository.forSession("one")!!.immediateMessages)
+    }
+
     @Test
     fun missingSessionHasNoSnapshot() {
         assertNull(repository.forSession("session"))

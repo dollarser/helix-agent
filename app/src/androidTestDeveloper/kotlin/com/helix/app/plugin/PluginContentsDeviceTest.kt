@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -48,9 +49,19 @@ class PluginContentsDeviceTest {
                 .isNotEmpty()
         }
         compose.onNodeWithText("ui.snapshot").performScrollTo().performClick()
-        compose.onNodeWithTag("plugin-tool-description-ui.snapshot").assertExists()
+        compose
+            .onNodeWithTag(
+                "plugin-tool-description-ui.snapshot",
+                useUnmergedTree = true,
+            ).performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText("android-ui-task").performScrollTo().performClick()
-        compose.onNodeWithTag("plugin-skill-content-android-ui-task").assertExists()
+        compose
+            .onNodeWithTag(
+                "plugin-skill-content-android-ui-task",
+                useUnmergedTree = true,
+            ).performScrollTo()
+            .assertIsDisplayed()
         assertEquals(before, service.list().single { it.native?.pluginId == "mobile-use" }.enabled)
     }
 }

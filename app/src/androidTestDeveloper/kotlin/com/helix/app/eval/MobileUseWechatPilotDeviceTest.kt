@@ -19,9 +19,9 @@ import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
 import com.helix.provider.api.CleartextWarning
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -102,7 +102,8 @@ class MobileUseWechatPilotDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     System.currentTimeMillis(),
                 )
-                center.authorizeConversation(session, emptySet(), wholePhone = true)
+                com.helix.app.eval
+                    .selectMobileUseForTest(session, emptySet(), wholePhone = true)
                 container.chatService.openSession(session)
                 container.chatService.setMode(AgentMode.ACT)
                 container.chatService.setTurnBudgets(
@@ -209,7 +210,7 @@ class MobileUseWechatPilotDeviceTest {
                 container.chatService.setMode(previous.mode)
                 container.chatService.setTurnBudgets(previous.budgets)
                 provider?.let { container.providerService.delete(it) }
-                session?.let(center::revokeConversation)
+                session?.let(::deselectMobileUseForTest)
                 restoreAccessibility(services, accessibilityEnabled)
                 container.profileStore.switchTo(previousProfile)
 
@@ -238,7 +239,7 @@ class MobileUseWechatPilotDeviceTest {
     }
 
     private fun ensureAccessibility(previousServices: String?) {
-        val component = "${app.packageName}/com.helix.tools.automation.HelixAccessibilityService"
+        val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
         val previous = previousServices.orEmpty().split(':').filter(String::isNotBlank)
         val withoutHelix = previous.filterNot { it == component }
         if (withoutHelix.isEmpty()) {

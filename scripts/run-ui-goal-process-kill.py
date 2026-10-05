@@ -162,7 +162,7 @@ def main():
         'enabled_accessibility_services'], text=True).strip()
     old_enabled = subprocess.check_output(base + ['shell', 'settings', 'get', 'secure',
         'accessibility_enabled'], text=True).strip()
-    component = PACKAGE + '/com.helix.tools.automation.HelixAccessibilityService'
+    component = PACKAGE + '/com.helix.extensions.mobileuse.automation.HelixAccessibilityService'
     services = sorted(set(filter(None, old_services.split(':') if old_services != 'null' else [])) | {component})
     Fixture.services = ':'.join(services)
     Fixture.result_path = args.output / 'last-synthetic-tool-result.json'

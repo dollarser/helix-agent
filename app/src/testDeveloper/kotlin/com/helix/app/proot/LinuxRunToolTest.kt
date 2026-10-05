@@ -29,6 +29,33 @@ import org.junit.Test
  * device-verified (E2E) because it crosses the APK boundary.
  */
 class LinuxRunToolTest {
+    @Test
+    fun modelExposurePreservesLinuxContractAndOnlyAnnotatesHostPaths() {
+        val descriptor = LinuxRunTool.descriptor()
+        val exposed =
+            com.helix.app.chat.FileToolArguments
+                .modelSchema(descriptor)
+        assertEquals(descriptor.description, exposed.description)
+        val schema =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(exposed.inputSchemaJson) as JsonObject
+        val properties = schema["properties"] as JsonObject
+        val original = descriptor.inputSchema["properties"] as JsonObject
+        assertEquals(original["cwd"], properties["cwd"])
+        assertEquals(original["script"], properties["script"])
+        assertEquals(descriptor.inputSchema["required"], schema["required"])
+        assertTrue(properties["files"].toString().contains("current session working directory"))
+        val filesDescription = (original["files"] as JsonObject)["description"] as JsonPrimitive
+        assertTrue(properties["files"].toString().contains(filesDescription.content))
+        val job = DetachedJobTools.start()
+        assertEquals(
+            job.description,
+            com.helix.app.chat.FileToolArguments
+                .modelSchema(job)
+                .description,
+        )
+    }
+
     // ------------------------------------------------------------------ descriptor
 
     @Test

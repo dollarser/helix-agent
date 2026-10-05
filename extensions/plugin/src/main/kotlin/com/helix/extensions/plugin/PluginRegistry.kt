@@ -11,6 +11,18 @@ interface HelixPlugin {
     val manifest: PluginManifest
     val bundledSkills: List<PluginBundledSkill> get() = emptyList()
 
+    val preferredTools: Set<String> get() = emptySet()
+    val dataOrigin: com.helix.core.policy.DataOrigin get() = com.helix.core.policy.DataOrigin.WORKSPACE
+
+    fun configurationError(): String? = null
+
+    fun scopeFor(
+        descriptor: com.helix.tools.framework.ToolDescriptor,
+        sessionId: String,
+    ): com.helix.core.policy.UserScope? = null
+
+    fun imageScope(sessionId: String): com.helix.core.policy.UserScope? = null
+
     fun tools(): List<com.helix.tools.framework.ToolBinding>
 }
 
@@ -26,11 +38,39 @@ data class PluginContents(
 )
 
 /** Trusted native factories only. Installation, enabled state and revision belong to the host catalog. */
+@Suppress("TooManyFunctions") // one registry owns publication and trusted native contributions
 class PluginRegistry(
     private val toolRegistry: ToolRegistry,
     private val catalog: NativePluginCatalog,
 ) {
     private val factories = LinkedHashMap<String, HelixPlugin>()
+
+    internal fun selectedRuntimes(sessionId: String): List<HelixPlugin> =
+        synchronized(catalog.mutationLock) {
+            factories
+                .filter { (id, _) ->
+                    hasPublishedTools(id) && catalog.selectionId(sessionId, id) != null
+                }.values
+                .toList()
+        }
+
+    internal fun runtime(descriptor: com.helix.tools.framework.ToolDescriptor): HelixPlugin? =
+        synchronized(catalog.mutationLock) {
+            val origin = descriptor.origin as? ToolOrigin.PluginOrigin ?: return@synchronized null
+            factories[origin.pluginId]?.takeIf {
+                hasPublishedTools(origin.pluginId) && it.tools().any { binding -> binding.descriptor == descriptor }
+            }
+        }
+
+    fun validateSelection(pluginId: String) {
+        selectionError(pluginId)?.let { error(it) }
+    }
+
+    /** Read-only preflight shared by selection UI and the authoritative write path. */
+    fun selectionError(pluginId: String): String? {
+        val plugin = synchronized(catalog.mutationLock) { factories[pluginId] }
+        return plugin?.configurationError() ?: if (plugin == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null
+    }
 
     fun contents(pluginId: String): PluginContents =
         synchronized(catalog.mutationLock) {

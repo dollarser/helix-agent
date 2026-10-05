@@ -62,6 +62,7 @@ import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
 import com.helix.extensions.a2a.A2aClients
+import com.helix.extensions.plugin.imageScopes
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillRepository
 import com.helix.extensions.skills.SkillTools
@@ -113,11 +114,6 @@ internal class DefaultAppContainer(
 
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
     private val mobileUseLines = PrefsLineStore(context, "helix-mobile-use", synchronous = true)
-    private val mobileUseGrants =
-        com.helix.core.policy.MobileUseGrantStore(
-            mobileUseLines::lines,
-            mobileUseLines::setLines,
-        )
 
     override val settingsRequests =
         com.helix.app.settings
@@ -280,15 +276,11 @@ internal class DefaultAppContainer(
     override val skillImportService: SkillImportService =
         SkillImportService(skillsRoot.resolve("staging"))
 
-    private val pluginCatalog =
+    private val pluginCatalog: com.helix.app.plugin.PluginCatalog =
         com.helix.app.plugin
-            .PluginCatalog(storage) { session, plugin, enabled ->
-                if (plugin == "mobile-use") {
-                    if (enabled) mobileUseGrants.enableFromGlobal(session) else mobileUseGrants.revoke(session)
-                }
-            }
+            .PluginCatalog(storage) { plugin -> pluginRegistry.validateSelection(plugin) }
 
-    override val pluginRegistry =
+    override val pluginRegistry: com.helix.extensions.plugin.PluginRegistry =
         com.helix.extensions.plugin.PluginRegistry(
             toolRegistry,
             com.helix.app.plugin
@@ -562,7 +554,9 @@ internal class DefaultAppContainer(
             context,
             pluginRegistry,
             toolVision.imagePublisher,
-            grants = mobileUseGrants,
+            readConfiguration = mobileUseLines::lines,
+            writeConfiguration = mobileUseLines::setLines,
+            selectionId = { session -> pluginCatalog.selectionId(session, "mobile-use") },
             taskHost =
                 com.helix.app.plugin
                     .PluginTaskHostAdapter(context) { chatService },
@@ -728,6 +722,7 @@ internal class DefaultAppContainer(
                 broker,
                 auditSink,
                 scheduler,
+                plugins = pluginRegistry,
                 disabledToolFilter = disabledToolFilter,
             ).also {
                 it.mcpDiscovery.register(toolRegistry, executionOwnership::metadataExecutor)
@@ -871,7 +866,11 @@ internal class DefaultAppContainer(
             visionSessionBinder = visionImageSource::bindSession,
             mobileScreenScope = { id ->
                 if (storage.sessions.find(id) != null) {
-                    mobileUseGrants.find(id)?.takeIf { it.shareScreens }?.scope
+                    pluginRegistry
+                        .imageScopes(
+                            id,
+                        ).filterIsInstance<com.helix.core.policy.AutomationSessionScope>()
+                        .singleOrNull()
                 } else {
                     null
                 }

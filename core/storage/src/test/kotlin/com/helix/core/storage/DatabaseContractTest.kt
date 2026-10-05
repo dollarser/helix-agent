@@ -166,6 +166,7 @@ class DatabaseContractTest {
                 "revision",
                 "createdAtEpoch",
                 "updatedAtEpoch",
+                "immediateMessages",
             ),
             columns("session_run_controls"),
         )

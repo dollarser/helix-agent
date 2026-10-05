@@ -66,10 +66,19 @@ interface ConnectorDao {
     @Query("SELECT connectorId FROM session_connectors WHERE sessionId = :sessionId ORDER BY connectorId")
     fun selected(sessionId: String): List<String>
 
+    @Query("SELECT selectionId FROM session_connectors WHERE sessionId = :sessionId AND connectorId = :connectorId")
+    fun selectionId(
+        sessionId: String,
+        connectorId: String,
+    ): String?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun select(row: SessionConnectorEntity)
 
-    @Query("INSERT OR IGNORE INTO session_connectors(sessionId, connectorId) SELECT id, :connectorId FROM sessions")
+    @Query(
+        "INSERT OR IGNORE INTO session_connectors(sessionId, connectorId, selectionId) " +
+            "SELECT id, :connectorId, lower(hex(randomblob(16))) FROM sessions",
+    )
     fun selectExistingBundledCapability(connectorId: String)
 
     @Query("DELETE FROM session_connectors WHERE sessionId = :sessionId AND connectorId = :connectorId")
@@ -82,7 +91,8 @@ interface ConnectorDao {
     fun clearSession(sessionId: String)
 
     @Query(
-        "INSERT OR IGNORE INTO session_connectors(sessionId, connectorId) SELECT :sessionId, id " +
+        "INSERT OR IGNORE INTO session_connectors(sessionId, connectorId, selectionId) " +
+            "SELECT :sessionId, id, lower(hex(randomblob(16))) " +
             "FROM connector_installations WHERE defaultSelected = 1",
     )
     fun snapshotDefaults(sessionId: String)

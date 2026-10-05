@@ -1,8 +1,7 @@
 package com.helix.app.automation
 
 import com.helix.app.R
-import com.helix.tools.automation.AutomationBackendState
-import com.helix.tools.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationClickBackend
 import com.helix.tools.root.RootAccessStatus
 import com.helix.tools.root.RootGrantState
 import com.helix.tools.root.RootServiceState
@@ -47,21 +46,10 @@ class RootPermissionPresentationTest {
         assertFalse(rootPermissionPresentation(null, true).canConnect)
     }
 
-    @Test fun summaryUsesReadyBackendPriorityAndPreservesPartialAvailability() {
-        val ready = AutomationBackendState.READY
-        val absent = AutomationBackendState.UNAVAILABLE
-        val connected = AutomationServiceState.CONNECTED
-        assertEquals(R.string.mobile_backend_root, backendSummary(ready, ready, connected))
-        assertEquals(R.string.mobile_backend_shizuku, backendSummary(absent, ready, connected))
-        assertEquals(R.string.mobile_backend_accessibility, backendSummary(absent, absent, connected))
-        assertEquals(R.string.mobile_backend_partial, backendSummary(absent, absent, AutomationServiceState.DISABLED))
-        assertEquals(
-            R.string.mobile_backend_partial,
-            backendSummary(
-                AutomationBackendState.LOST,
-                AutomationBackendState.PERMISSION_REQUIRED,
-                AutomationServiceState.ENABLED_DISCONNECTED,
-            ),
-        )
+    @Test fun summaryDisplaysSelectedBackendAndPreservesPartialAvailability() {
+        assertEquals(R.string.mobile_backend_root, backendSummary(AutomationClickBackend.ROOT))
+        assertEquals(R.string.mobile_backend_shizuku, backendSummary(AutomationClickBackend.SHIZUKU))
+        assertEquals(R.string.mobile_backend_accessibility, backendSummary(AutomationClickBackend.ACCESSIBILITY))
+        assertEquals(R.string.mobile_backend_partial, backendSummary(null))
     }
 }

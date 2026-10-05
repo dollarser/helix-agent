@@ -2,12 +2,12 @@ package com.helix.extensions.mobileuse
 
 import android.content.Context
 import com.helix.core.policy.UserScope
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.PermissionCenterAutomationToolPort
+import com.helix.extensions.mobileuse.tools.AutomationTools
 import com.helix.extensions.plugin.HelixPlugin
 import com.helix.extensions.plugin.PluginManifest
 import com.helix.extensions.plugin.PluginManifestReader
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationTools
-import com.helix.tools.automation.PermissionCenterAutomationToolPort
 import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolOrigin
 
@@ -19,9 +19,8 @@ import com.helix.tools.framework.ToolOrigin
 class MobileUsePlugin(
     context: Context,
     images: com.helix.tools.framework.ToolImagePublication,
+    val permissionCenter: AutomationPermissionCenter,
     taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
-    shizuku: com.helix.tools.automation.AutomationPrivilegedBackend? = null,
-    root: com.helix.tools.automation.AutomationPrivilegedBackend? = null,
     private val enabled: () -> Boolean = { true },
 ) : HelixPlugin {
     override val manifest: PluginManifest =
@@ -38,9 +37,6 @@ class MobileUsePlugin(
                     .use { it.readText() },
             ),
         )
-    val skillContext: String get() = bundledSkills.joinToString("\n\n") { it.content }
-
-    val permissionCenter = AutomationPermissionCenter(context.applicationContext, shizuku, root)
 
     private val origin =
         ToolOrigin.PluginOrigin(
@@ -50,8 +46,8 @@ class MobileUsePlugin(
         )
     private val automation = AutomationTools(PermissionCenterAutomationToolPort(permissionCenter), origin)
     private val device =
-        com.helix.tools.automation.AutomationDeviceTools(
-            com.helix.tools.automation
+        com.helix.extensions.mobileuse.tools.AutomationDeviceTools(
+            com.helix.extensions.mobileuse.automation
                 .PermissionCenterDevicePort(permissionCenter),
             PermissionCenterAutomationToolPort(permissionCenter),
             images,
@@ -62,11 +58,41 @@ class MobileUsePlugin(
         require(manifest.name == PLUGIN_ID) { "unexpected Mobile Use plugin id: ${manifest.name}" }
         require(manifest.helixRuntimeId == RUNTIME_ID) { "unexpected Mobile Use runtime binding" }
         if (taskHost != null) {
-            com.helix.tools.automation.AutomationRuntimePresentationFactory.create = { service ->
+            com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory.create = { service ->
                 MobileUseOverlay(service, taskHost, enabled)
             }
         }
     }
+
+    override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
+    override val preferredTools =
+        setOf(
+            "ui.apps",
+            "ui.launch",
+            "ui.snapshot",
+            "ui.find",
+            "ui.click",
+            "ui.click_match",
+            "ui.set_text",
+            "ui.scroll",
+            "ui.back",
+            "ui.wait",
+            "ui.device",
+            "ui.screenshot",
+            "ui.gesture",
+            "android.open_uri",
+        )
+
+    override fun configurationError(): String? =
+        if (permissionCenter.globalConfiguration() == null) "MOBILE_USE_NOT_CONFIGURED" else null
+
+    override fun scopeFor(
+        descriptor: com.helix.tools.framework.ToolDescriptor,
+        sessionId: String,
+    ): UserScope? = dispatchScopeFor(descriptor, sessionId)
+
+    override fun imageScope(sessionId: String): UserScope? =
+        permissionCenter.conversationGrant(sessionId)?.takeIf { it.shareScreens }?.scope
 
     override fun tools(): List<ToolBinding> =
         automation.descriptors().map { descriptor ->
@@ -92,7 +118,12 @@ class MobileUsePlugin(
         conversationId: String?,
     ): UserScope? =
         if (enabled() && contracts.containsName(toolName) && conversationId != null) {
-            permissionCenter.availableConversationGrant(conversationId, toolName)?.scope
+            permissionCenter
+                .availableConversationGrant(
+                    conversationId,
+                    com.helix.extensions.mobileuse.tools.AutomationEnablement
+                        .capabilityFor(toolName),
+                )?.scope
         } else {
             null
         }

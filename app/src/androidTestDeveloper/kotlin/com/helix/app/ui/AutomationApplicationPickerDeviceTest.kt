@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import com.helix.app.automation.AutomationApplicationPicker
-import com.helix.tools.automation.AutomationApplication
+import com.helix.extensions.mobileuse.automation.AutomationApplication
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule

@@ -41,7 +41,7 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
             failure = true
         }
     }
-    readiness?.let { state ->
+    readiness?.takeIf { record.native == null }?.let { state ->
         Text(stringResource(R.string.extensions_component_status, state.ready, state.total))
         if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
     }
@@ -83,8 +83,7 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
             }, enabled = !busy, modifier = Modifier.testTag("connector-default-${record.id}"))
         }
     }
-    if (record.native != null) {
-        Text(stringResource(R.string.plugin_native_notice), style = MaterialTheme.typography.bodySmall)
+    if (record.native != null && record.enabled && readiness?.fullyReady == false) {
         TextButton(onClick = { perform { service.repairNative(record.id) } }, enabled = !busy) {
             Text(stringResource(R.string.plugin_native_repair))
         }

@@ -20,10 +20,11 @@ class BundledPluginsNavigationDeviceTest {
             compose.onAllNodesWithTag("bundled-plugin-mobile-use").fetchSemanticsNodes().isNotEmpty()
         }
         compose
-            .onNodeWithTag("mobile-use-session-settings")
+            .onNodeWithTag("mobile-use-plugin-settings")
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        compose.onNodeWithTag("screen-session-settings").assertIsDisplayed()
+        compose.onNodeWithTag("mobile-use-global-settings").assertIsDisplayed()
+        compose.onNodeWithTag("screen-session-settings").assertDoesNotExist()
     }
 }

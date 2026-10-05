@@ -6,9 +6,9 @@ import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.automation.shizuku.PrivilegedUiTransactions
-import com.helix.app.automation.shizuku.RootAutomationService
-import com.helix.app.automation.shizuku.ShizukuUiSelector
+import com.helix.extensions.mobileuse.automation.backend.PrivilegedUiTransactions
+import com.helix.extensions.mobileuse.automation.backend.RootAutomationService
+import com.helix.extensions.mobileuse.automation.backend.ShizukuUiSelector
 import com.helix.tools.root.LibsuRootAccess
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals

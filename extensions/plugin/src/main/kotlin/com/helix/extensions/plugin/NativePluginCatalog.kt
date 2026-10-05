@@ -14,6 +14,11 @@ data class NativePluginState(
 interface NativePluginCatalog {
     val mutationLock: Any
 
+    fun selectionId(
+        sessionId: String,
+        pluginId: String,
+    ): String? = null
+
     fun find(pluginId: String): NativePluginState?
 
     fun publish(

@@ -29,7 +29,7 @@
 | P2 | 订阅与 PRoot 的查询、取回结果、确认回执失败后的重试主要由界面回调触发，没有纳入模型恢复闭环 | `SubscriptionRecoveryActions.kt:28-55`；`ChatRecoveryActions.kt:26-91,111-182`；`ProotAcknowledgementActions.kt` | 对账／查询／结果回收由自动恢复执行；用户仍可查看结果，查看按钮不承担启动恢复的责任 |
 | P2 | 提示词仍允许把无法安全协调的文件冲突或 blocker 交给用户解决，和新规则冲突 | `prompts/base.md:4`；`prompts/files.md:10`；`AutomationTools.kt:200,289-290` | 改为自主检查、在权限内补救、可解释放弃；提示词修改不能替代恢复工具与调度实现 |
 
-路径入口：[自动化](../../../tools/automation/src/main/kotlin/com/helix/tools/automation/AutomationSessionManager.kt)、[调度](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkScheduler.kt)、[核查结算](../../../app/src/main/kotlin/com/helix/app/engine/ReviewResolutionSupport.kt)、[恢复投影](../../../app/src/main/kotlin/com/helix/app/ui/RecoveryFactsProjection.kt)、[Goal 结算](../../../app/src/main/kotlin/com/helix/app/agent/GoalRunSettlement.kt)、[队列](../../../app/src/main/kotlin/com/helix/app/ui/SessionInputQueuePanel.kt)、[Runtime 恢复](../../../app/src/main/kotlin/com/helix/app/chat/ChatRecoveryActions.kt)、[提示词](../../../app/src/main/resources/prompts/base.md)。
+路径入口：[自动化](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt)、[调度](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkScheduler.kt)、[核查结算](../../../app/src/main/kotlin/com/helix/app/engine/ReviewResolutionSupport.kt)、[恢复投影](../../../app/src/main/kotlin/com/helix/app/ui/RecoveryFactsProjection.kt)、[Goal 结算](../../../app/src/main/kotlin/com/helix/app/agent/GoalRunSettlement.kt)、[队列](../../../app/src/main/kotlin/com/helix/app/ui/SessionInputQueuePanel.kt)、[Runtime 恢复](../../../app/src/main/kotlin/com/helix/app/chat/ChatRecoveryActions.kt)、[提示词](../../../app/src/main/resources/prompts/base.md)。
 
 ## 不是工具审批的其他确认入口
 

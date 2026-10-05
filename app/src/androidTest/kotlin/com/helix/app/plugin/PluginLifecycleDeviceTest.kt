@@ -18,6 +18,30 @@ class PluginLifecycleDeviceTest {
     private val container get() = app.appContainer
     private val service get() = container.pluginService
 
+    @Test fun selectionIdentitySurvivesRepeatedEnableButNotDisableOrSessionDeletion() {
+        val identity = "plugin-test:${UUID.randomUUID()}"
+        val record = service.install(bundle(), identity)
+        val session = UUID.randomUUID().toString()
+        container.storage.sessions.create(session, "Selection fixture", null, null, 0)
+        val dao = container.storage.connectors
+        try {
+            service.catalog.select(session, record.id, true)
+            val first = requireNotNull(dao.selectionId(session, record.id))
+            assertTrue(first.isNotBlank())
+            service.catalog.select(session, record.id, true)
+            assertEquals(first, dao.selectionId(session, record.id))
+            service.catalog.select(session, record.id, false)
+            assertEquals(null, dao.selectionId(session, record.id))
+            service.catalog.select(session, record.id, true)
+            assertNotEquals(first, dao.selectionId(session, record.id))
+            container.storage.deleteSessionPermanently(session)
+            assertEquals(null, dao.selectionId(session, record.id))
+        } finally {
+            service.list().filter { it.identity == identity }.forEach(service::remove)
+            if (container.storage.sessions.find(session) != null) container.storage.deleteSessionPermanently(session)
+        }
+    }
+
     @Test fun disabledPackageKeepsSelectionHistoryAndCredentialButHidesSkill() {
         val identity = "plugin-test:${UUID.randomUUID()}"
         val record = service.install(bundle(), identity)

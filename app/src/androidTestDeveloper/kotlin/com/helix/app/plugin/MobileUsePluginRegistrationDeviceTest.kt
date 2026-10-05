@@ -26,16 +26,11 @@ class MobileUsePluginRegistrationDeviceTest {
         val lines =
             com.helix.app.internal
                 .PrefsLineStore(app, "helix-mobile-use", synchronous = true)
-        val globalKey =
-            "mobile-use-conversation-" +
-                java.security.MessageDigest
-                    .getInstance("SHA-256")
-                    .digest("plugin:mobile-use:global".toByteArray())
-                    .joinToString("") { "%02x".format(it) }
+        val globalKey = globalKey()
         val originalLines = lines.lines(globalKey)
         val grants =
-            com.helix.core.policy
-                .MobileUseGrantStore(lines::lines, lines::setLines)
+            com.helix.extensions.mobileuse.config
+                .MobileUseGrantStore(lines::lines, lines::setLines, { service.catalog.selectionId(it, "mobile-use") })
         grants.configureGlobal(setOf(app.packageName), false)
         try {
             service.setEnabled(record.id, true)
@@ -45,7 +40,22 @@ class MobileUsePluginRegistrationDeviceTest {
             assertEquals(false, service.catalog.sourceAvailable(source, session))
             service.catalog.select(session, record.id, true)
             assertEquals(true, service.catalog.sourceAvailable(source, session))
+            val center =
+                com.helix.extensions.mobileuse.automation
+                    .AutomationPermissionCenter(app)
+            assertNotNull(center.conversationGrant(session))
+            val persisted = service.catalog.selected(session)
+            val accessibility = center.serviceState()
+            val root =
+                com.helix.tools.deviceaccess.DeviceAccess
+                    .root("mobile-use")
+            val rootGrant = root?.cachedAppGrant
             service.setEnabled(record.id, false)
+            // A plugin revocation denies a previously admitted call without revoking app OS grants.
+            assertEquals(null, center.conversationGrant(session))
+            assertEquals(persisted, service.catalog.selected(session))
+            assertEquals(accessibility, center.serviceState())
+            assertEquals(rootGrant, root?.cachedAppGrant)
             service.repairNative(record.id)
             assertEquals(false, service.list().single { it.id == record.id }.enabled)
             assertEquals(null, tools.resolveBinding(old))
@@ -56,12 +66,14 @@ class MobileUsePluginRegistrationDeviceTest {
                 service.remove(service.list().single { it.id == record.id })
             }
         } finally {
-            grants.revoke(session)
+            service.catalog.select(session, record.id, false)
             lines.setLines(globalKey, originalLines)
             service.setEnabled(record.id, record.enabled)
             container.storage.deleteSessionPermanently(session)
         }
     }
+
+    private fun globalKey() = com.helix.extensions.mobileuse.config.MobileUseGrantStore.CONFIG_KEY
 
     @Test
     fun mobileUseRegistersOnceWithPluginProvenance() {

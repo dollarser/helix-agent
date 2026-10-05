@@ -64,7 +64,7 @@ internal fun ComposerToolbar(
         ) { headerStatus() }
         contextIndicator()
         IconButton({ options = true }, modifier = Modifier.size(48.dp).testTag("chat-composer-options")) {
-            Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_composer_options))
+            Icon(painterResource(R.drawable.ic_more_vertical), stringResource(R.string.chat_composer_options))
         }
     }
     if (options) {

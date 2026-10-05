@@ -73,6 +73,8 @@ class TaskLedgerProgressDeviceTest {
         }
 
     private fun verifyLedgerSummaryAndDetails() {
+        compose.onNodeWithTag("chat-ledger").assertDoesNotExist()
+        compose.onNodeWithTag("chat-composer-options").performClick()
         compose.onNodeWithTag("chat-ledger").assertIsDisplayed()
         compose
             .onNodeWithTag(

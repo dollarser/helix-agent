@@ -18,6 +18,10 @@ class AutomationEvaluationActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra("modelJourney", false)) modelJourney() else clickFixture()
+    }
+
+    private fun clickFixture() {
         val recordClicks = intent.getBooleanExtra("recordClicks", false)
         val counter = getSharedPreferences("ui-goal-kill-counter", MODE_PRIVATE)
         if (recordClicks) check(counter.edit().putInt("clicks", 0).commit())
@@ -64,5 +68,37 @@ class AutomationEvaluationActivity : Activity() {
             },
         )
         setContentView(layout)
+    }
+
+    private fun modelJourney() {
+        val layout =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(24, 120, 24, 96)
+            }
+        val input =
+            android.widget.EditText(this).apply {
+                hint = "测试输入"
+                contentDescription = "测试输入"
+                setSingleLine(true)
+            }
+        layout.addView(input)
+        repeat(24) { index ->
+            layout.addView(
+                TextView(this).apply {
+                    text = "测试条目 ${index + 1}"
+                    setPadding(0, 32, 0, 32)
+                },
+            )
+        }
+        val result = TextView(this)
+        layout.addView(
+            Button(this).apply {
+                text = "完成测试"
+                setOnClickListener { result.text = "TEST_DONE:${input.text}" }
+            },
+        )
+        layout.addView(result)
+        setContentView(android.widget.ScrollView(this).apply { addView(layout) })
     }
 }

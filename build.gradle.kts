@@ -124,7 +124,7 @@ val androidLibraries =
         ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
         ":spikes:bounded-orchestration" to "com.helix.spikes.orchestration",
         ":tools:android" to "com.helix.tools.android",
-        ":tools:automation" to "com.helix.tools.automation",
+        ":tools:device-access" to "com.helix.tools.deviceaccess",
         ":tools:browser" to "com.helix.tools.browser",
         ":tools:root" to "com.helix.tools.root",
     )
@@ -143,6 +143,8 @@ val commonsCompressDependency = libs.commons.compress
 val a2aClientDependency = libs.a2a.client
 val a2aClientRestDependency = libs.a2a.client.rest
 val a2aHttpAndroidDependency = libs.a2a.http.android
+val shizukuApiDependency = libs.shizuku.api
+val shizukuProviderDependency = libs.shizuku.provider
 val libsuCoreDependency = libs.libsu.core
 val libsuServiceDependency = libs.libsu.service
 val roomRuntimeDependency = libs.room.runtime
@@ -191,9 +193,16 @@ val projectDependencies =
         ":provider:catalog" to listOf(":provider:api", ":core:model"),
         ":extensions:mcp" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":extensions:a2a" to listOf(":core:model", ":core:policy", ":tools:framework"),
-        ":extensions:plugin" to listOf(":core:model", ":tools:framework", ":extensions:skills"),
+        ":extensions:plugin" to listOf(":core:model", ":core:policy", ":tools:framework", ":extensions:skills"),
         ":extensions:mobile-use" to
-            listOf(":core:model", ":core:policy", ":extensions:plugin", ":tools:automation", ":tools:framework"),
+            listOf(
+                ":core:model",
+                ":core:policy",
+                ":extensions:plugin",
+                ":tools:device-access",
+                ":tools:root",
+                ":tools:framework",
+            ),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
@@ -219,7 +228,7 @@ val projectDependencies =
         // as :tools:browser. The Context-backed port impl lives in this same module (there is no
         // :feature:android), so the device tests drive the real ClipboardManager + intent build.
         ":tools:android" to listOf(":core:model", ":core:policy", ":tools:framework"),
-        ":tools:automation" to listOf(":core:model", ":core:policy", ":tools:framework"),
+        ":tools:device-access" to listOf(":core:model", ":core:policy", ":tools:framework", ":tools:root"),
         // HXA-062: the browser tools sit on the tools:framework contract (ToolDescriptor /
         // ToolExecutor) and the kotlinx-serialization JsonElement API (transitively via
         // tools:framework's `api` scope, same as :tools:files). The BrowserToolBridge port
@@ -349,10 +358,17 @@ subprojects {
 
             // HXA-090: the Accessibility service lifecycle, system-enabled state, time-bounded
             // session and notification stop path are verified on a dedicated automation device.
-            if (path == ":tools:automation" || path == ":extensions:mobile-use") {
+            if (path == ":tools:device-access" || path == ":extensions:mobile-use") {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
+            if (path == ":tools:device-access" || path == ":extensions:mobile-use") {
+                dependencies.add("implementation", shizukuApiDependency.get())
+                dependencies.add("implementation", shizukuProviderDependency.get())
+                // Match the existing Android test graph instead of pulling Shizuku's old annotation jar.
+                dependencies.add("implementation", "androidx.annotation:annotation:1.7.0")
             }
 
             // HXA-094: libsu is resolved only by the developer-only Root module. JitPack is

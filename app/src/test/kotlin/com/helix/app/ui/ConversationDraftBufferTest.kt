@@ -16,6 +16,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationDraftBufferTest {
+    @Test fun sessionDefaultBindsEachNewSendAndLeavesCapturedInputsFrozen() {
+        val buffer = ConversationDraftBuffer("session")
+        buffer.edit("first")
+        val first = buffer.captureSubmission(true, "turn-one")
+        buffer.edit("second")
+        val second = buffer.captureSubmission(true, "turn-two")
+        assertEquals("turn-one", first.expectedTurnId)
+        assertEquals("turn-two", second.expectedTurnId)
+        val idle = buffer.captureSubmission(true, null)
+        assertNull(idle.expectedTurnId)
+        assertEquals(com.helix.core.storage.repository.SessionInputDelivery.QUEUE, idle.delivery)
+        val queued = buffer.captureSubmission(false, "turn-three")
+        assertNull(queued.expectedTurnId)
+        assertEquals(com.helix.core.storage.repository.SessionInputDelivery.QUEUE, queued.delivery)
+    }
+
     @Test fun activitySnapshotCannotRestoreAnotherConversationsInput() {
         val original = ConversationDraftBuffer("previous")
         original.edit("private previous input")

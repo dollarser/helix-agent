@@ -3,5 +3,15 @@
     <application>
         <activity android:name="com.helix.extensions.mobileuse.OverlayFixtureActivity"
             android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <activity
+            android:name="com.helix.extensions.mobileuse.automation.AutomationFixtureActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:label="Helix M9 fixture"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <receiver
+            android:name="com.helix.extensions.mobileuse.automation.AutomationTestControlReceiver"
+            android:exported="false" />
     </application>
 </manifest>

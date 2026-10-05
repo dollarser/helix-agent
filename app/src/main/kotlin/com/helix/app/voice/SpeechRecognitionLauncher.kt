@@ -6,23 +6,7 @@ import android.speech.RecognizerIntent
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 
-/**
- * The Android seam for voice input (roadmap HXA-067): it queries the SYSTEM speech-recognition
- * capability, builds the `ACTION_RECOGNIZE_SPEECH` intent, and extracts the raw pieces of the
- * returned activity result for the pure-JVM [VoiceInputMapper]. It holds no mic, records nothing,
- * and keeps no listener — the user-initiated system UI does the recording and Helix only receives
- * the transcript on return, so there is no background, resident listening.
- *
- * The recognizer's default language follows the app's UI-language choice (HXA-069): a fixed
- * in-app language (Simplified Chinese / English) is passed as `EXTRA_LANGUAGE` so recognition
- * defaults to what the user reads Helix in, while "follow system" sets no `EXTRA_LANGUAGE` and the
- * system recognition UI keeps its own (device-locale) default. The user can still edit the
- * transcript in the system UI either way.
- *
- * The activity result carries only `resultCode` and, on success, the `EXTRA_RESULTS` transcript
- * list — the platform exposes no error-code extra, so there is nothing further to extract; the
- * pure mapper turns the two pieces into the [VoiceInputMapper.Outcome].
- */
+/** System recognition activity adapter. Receives text only; never captures audio or auto-sends. */
 class SpeechRecognitionLauncher {
     /** Whether the device offers any `ACTION_RECOGNIZE_SPEECH` handler at all. */
     fun isAvailable(context: Context): Boolean = buildIntent(context).resolveActivity(context.packageManager) != null

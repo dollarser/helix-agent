@@ -65,19 +65,19 @@ internal fun BundledPluginsSection(
                     if (record.native?.pluginId == "mobile-use") {
                         Text(stringResource(R.string.bundled_mobile_use_description))
                     }
+                    PluginAvailabilityControls(record, service) { revision++ }
+                    if (record.native?.pluginId == "mobile-use") {
+                        TextButton(onPluginSettings, modifier = Modifier.testTag("mobile-use-plugin-settings")) {
+                            Text(stringResource(R.string.bundled_mobile_use_settings))
+                        }
+                    }
                     Text(
                         stringResource(
                             if (expanded) R.string.plugin_contents_collapse else R.string.plugin_contents_expand,
                         ),
                     )
-                    PluginAvailabilityControls(record, service) { revision++ }
                     if (expanded) {
                         PluginBundledContents(service, requireNotNull(record.native).pluginId)
-                    }
-                    if (record.native?.pluginId == "mobile-use") {
-                        TextButton(onPluginSettings, modifier = Modifier.testTag("mobile-use-plugin-settings")) {
-                            Text(stringResource(R.string.bundled_mobile_use_settings))
-                        }
                     }
                 }
             }

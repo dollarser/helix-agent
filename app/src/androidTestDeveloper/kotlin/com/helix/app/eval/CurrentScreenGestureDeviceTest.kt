@@ -11,7 +11,7 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.tools.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -56,7 +56,10 @@ class CurrentScreenGestureDeviceTest {
                 SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                 System.currentTimeMillis(),
             )
-            check(center.authorizeConversation(session, emptySet(), true))
+            check(
+                com.helix.app.eval
+                    .selectMobileUseForTest(session, emptySet(), true),
+            )
 
             var sequence = 0
 
@@ -131,7 +134,8 @@ class CurrentScreenGestureDeviceTest {
             println("OBSERVED_GESTURE=$gesture")
             assertTrue("$gesture", gesture is ToolDispatchOutcome.Succeeded)
         } finally {
-            center.revokeConversation(session)
+            com.helix.app.eval
+                .deselectMobileUseForTest(session)
             c.storage.deleteSessionPermanently(session)
             c.profileStore.switchTo(old)
         }

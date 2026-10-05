@@ -15,7 +15,7 @@ class FileToolArgumentsTest {
                 .descriptor()
         org.junit.Assert.assertTrue(FileToolArguments.handles(descriptor))
         val schema = FileToolArguments.modelSchema(descriptor)
-        org.junit.Assert.assertTrue(schema.description.contains("current session working directory"))
+        org.junit.Assert.assertTrue(schema.inputSchemaJson.contains("current session working directory"))
         val resolved =
             Json
                 .parseToJsonElement(
@@ -69,7 +69,16 @@ class FileToolArgumentsTest {
         val exposed = FileToolArguments.modelSchema(descriptor)
         val schema = Json.parseToJsonElement(exposed.inputSchemaJson).jsonObject
         assertEquals(descriptor.inputSchema["required"], schema["required"])
-        org.junit.Assert.assertTrue(exposed.description.contains("current session working directory"))
+        val pathHelp =
+            schema
+                .getValue("properties")
+                .jsonObject
+                .getValue("path")
+                .jsonObject
+                .getValue("description")
+                .jsonPrimitive.content
+        org.junit.Assert.assertTrue(pathHelp.contains("current session working directory"))
+        org.junit.Assert.assertTrue(pathHelp.contains(".helix internals are not writable"))
     }
 
     @Test fun relativeAndExplicitPathsUseOneResolverWithoutChangingContent() {

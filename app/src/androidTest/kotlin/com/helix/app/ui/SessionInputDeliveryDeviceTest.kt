@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -22,7 +21,9 @@ class SessionInputDeliveryDeviceTest {
         val record = queuedInput()
         val active = mutableStateOf<String?>("first")
         val busy = mutableStateOf(false)
-        val sent = mutableListOf<Pair<String, String>>()
+        val sent = mutableListOf<Pair<String, String?>>()
+        val edited = mutableListOf<String>()
+        val deleted = mutableListOf<String>()
         compose.setContent {
             MaterialTheme {
                 SessionInputQueuePreview(
@@ -30,19 +31,35 @@ class SessionInputDeliveryDeviceTest {
                     mapOf("queued" to "Please also check the result"),
                     mapOf("queued" to busy.value),
                     active.value,
-                ) { input, target -> sent += input.inputId to target }
+                    actions =
+                        SessionInputQueueActions(
+                            edit = { edited += it.inputId },
+                            delete = { deleted += it.inputId },
+                            send = { input, target -> sent += input.inputId to target },
+                        ),
+                )
             }
         }
         compose.onNodeWithTag("session-input-preview-queued").assertIsDisplayed()
-        compose.runOnIdle { assertEquals(emptyList<Pair<String, String>>(), sent) }
+        compose.onNodeWithTag("session-input-edit-action-queued").performClick()
+        compose.onNodeWithTag("session-input-delete-queued").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf("queued"), edited)
+            assertEquals(listOf("queued"), deleted)
+        }
+        compose.runOnIdle { assertEquals(emptyList<Pair<String, String?>>(), sent) }
         compose.onNodeWithTag("session-input-send-now-queued").performClick()
         compose.runOnIdle {
             assertEquals(listOf("queued" to "first"), sent)
             busy.value = true
         }
         compose.onNodeWithTag("session-input-send-now-queued").assertIsNotEnabled()
-        compose.runOnIdle { active.value = null }
-        compose.onNodeWithTag("session-input-send-now-queued").assertDoesNotExist()
+        compose.runOnIdle {
+            active.value = null
+            busy.value = false
+        }
+        compose.onNodeWithTag("session-input-send-now-queued").performClick()
+        compose.runOnIdle { assertEquals("queued" to null, sent.last()) }
         compose.onNodeWithTag("session-input-preview-queued").assertIsDisplayed()
     }
 
@@ -70,47 +87,38 @@ class SessionInputDeliveryDeviceTest {
             updatedAt = 0,
         )
 
-    @Test fun steeringRequiresExplicitSelectionAndDoesNotRebindWhenTurnChanges() {
-        val delivery = mutableStateOf(SessionInputDelivery.QUEUE)
-        val target = mutableStateOf<String?>(null)
-        val active = mutableStateOf<String?>("first")
+    @Test fun sessionPreferenceIsAlwaysVisibleAndCanBeChangedWhileIdle() {
+        val immediate = mutableStateOf(false)
         compose.setContent {
             MaterialTheme {
-                SessionInputDeliverySelector(delivery.value, target.value, active.value, true) { selected, turn ->
-                    delivery.value = selected
-                    target.value = turn
+                SessionInputDeliverySelector(immediate.value, true) { selected ->
+                    immediate.value = selected
+                    true
                 }
             }
         }
+        compose.onNodeWithTag("session-input-delivery-selector").assertIsDisplayed()
         compose.onNodeWithTag("session-input-delivery-steer").assertIsEnabled().performClick()
-        compose.runOnIdle {
-            assertEquals(SessionInputDelivery.STEER, delivery.value)
-            assertEquals("first", target.value)
-            active.value = "second"
-        }
-        compose.onNodeWithTag("session-input-steer-expired").assertIsDisplayed()
-        compose.runOnIdle { assertEquals("first", target.value) }
-        compose.onNodeWithTag("session-input-delivery-steer").performClick()
-        compose.runOnIdle { assertEquals("second", target.value) }
+        compose.runOnIdle { assertEquals(true, immediate.value) }
         compose.onNodeWithTag("session-input-delivery-queue").performClick()
-        compose.runOnIdle {
-            assertEquals(SessionInputDelivery.QUEUE, delivery.value)
-            assertNull(target.value)
-            active.value = null
-        }
-        compose.onNodeWithTag("session-input-delivery-selector").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(false, immediate.value) }
+        compose.onNodeWithTag("session-input-delivery-selector").assertIsDisplayed()
     }
 
-    @Test fun nonEmptyDeliveryCountRendersPendingAndHistory() {
+    @Test fun emptyQueueHasNoPersistentManagementEntry() {
         compose.setContent {
             MaterialTheme {
-                SessionInputDeliveryCountText(pendingCount = 2, appendedCount = 1)
+                SessionInputQueuePreview(
+                    emptyList(),
+                    emptyMap(),
+                    emptyMap(),
+                    null,
+                    SessionInputQueueActions({}, {}, { _, _ -> }),
+                )
             }
         }
-        compose
-            .onNodeWithTag("session-input-delivery-count")
-            .assertIsDisplayed()
-            .assertTextContains("2", substring = true)
-            .assertTextContains("1", substring = true)
+        compose.onNodeWithTag("session-input-manage").assertDoesNotExist()
+        compose.onNodeWithTag("session-input-queue-toggle").assertDoesNotExist()
+        compose.onNodeWithTag("session-input-preview-queued").assertDoesNotExist()
     }
 }

@@ -49,12 +49,6 @@ internal fun PluginBundledContents(
             androidx.compose.material3.CircularProgressIndicator()
             return@Column
         }
-        Text(stringResource(R.string.plugin_contents_tools, tools.size))
-        tools.forEach { (name, description) ->
-            var open by remember(name) { mutableStateOf(false) }
-            TextButton({ open = !open }) { Text(name) }
-            if (open) Text(description, Modifier.testTag("plugin-tool-description-$name"))
-        }
         Text(stringResource(R.string.plugin_contents_skills, skills.size))
         Text(stringResource(R.string.plugin_contents_skill_hint))
         skills.forEach { skill ->
@@ -62,6 +56,12 @@ internal fun PluginBundledContents(
             TextButton({ open = !open }) { Text(skill.name) }
             Text(skill.description)
             if (open) Text(skill.content, Modifier.testTag("plugin-skill-content-${skill.name}"))
+        }
+        Text(stringResource(R.string.plugin_contents_tools, tools.size))
+        tools.forEach { (name, description) ->
+            var open by remember(name) { mutableStateOf(false) }
+            TextButton({ open = !open }) { Text(name) }
+            if (open) Text(description, Modifier.testTag("plugin-tool-description-$name"))
         }
     }
 }

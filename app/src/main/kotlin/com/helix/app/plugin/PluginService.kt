@@ -114,6 +114,10 @@ class PluginService(
                 readiness?.ready ?: 0,
                 readiness?.total ?: 0,
                 readiness?.hasSkippedComponents ?: false,
+                record?.native?.let {
+                    nativeRegistry?.selectionError(it.pluginId)
+                        ?: if (nativeRegistry == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null
+                },
             )
         }
     }

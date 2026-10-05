@@ -26,10 +26,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private fun statusLabel(row: PluginSessionRow): Int =
+internal fun statusLabel(row: PluginSessionRow): Int =
     when {
         !row.available -> R.string.connector_session_unavailable
         !row.enabled -> R.string.connector_inactive
+        row.selectionError == "MOBILE_USE_NOT_CONFIGURED" -> R.string.mobile_use_configuration_required
+        row.selectionError != null -> R.string.connector_session_setup
         !row.ready -> R.string.connector_session_setup
         else -> R.string.connector_session_ready
     }
@@ -45,6 +47,32 @@ private fun PluginSessionState(row: PluginSessionRow) {
         Text(stringResource(R.string.plugin_partial_ready, row.readyComponents, row.totalComponents))
     }
     Text(stringResource(statusLabel(row)))
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginSessionChoice(
+    row: PluginSessionRow,
+    busy: Boolean,
+    onSelect: (Boolean) -> Unit,
+    onConfigure: () -> Unit,
+) {
+    Row {
+        Checkbox(
+            checked = row.selected,
+            onCheckedChange = onSelect,
+            enabled = !busy && (row.selected || (row.available && row.selectionError == null)),
+            modifier = Modifier.testTag("connector-session-${row.id}"),
+        )
+        Column {
+            PluginSessionState(row)
+            if (row.selectionError != null) {
+                TextButton(onClick = onConfigure, modifier = Modifier.testTag("plugin-session-configure-${row.id}")) {
+                    Text(stringResource(R.string.connector_session_configure))
+                }
+            }
+        }
+    }
 }
 
 /** UI sees only application-service projections; component repair remains in Extensions. */
@@ -103,14 +131,9 @@ fun ConnectorSessionPanel(
                 Text(stringResource(R.string.connector_session_hint))
                 if (rows.isEmpty() && skills.isEmpty()) Text(stringResource(R.string.connector_session_empty))
                 rows.forEach { row ->
-                    Row {
-                        Checkbox(
-                            checked = row.selected,
-                            onCheckedChange = { update(row, it) },
-                            enabled = !busy && (row.available || row.selected),
-                            modifier = Modifier.testTag("connector-session-${row.id}"),
-                        )
-                        Column { PluginSessionState(row) }
+                    PluginSessionChoice(row, busy, { update(row, it) }) {
+                        onDismiss()
+                        onConfigure()
                     }
                 }
                 skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }

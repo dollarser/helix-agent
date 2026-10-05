@@ -16,6 +16,7 @@
 竞品研究采用“总览 + 支撑材料”结构，不合成一个巨型文件：
 
 - [competitive-landscape.md](competitive-landscape.md)：决策总览和阅读路径，是竞品主入口。
+- [competitive-doubao-phone-gap.md](competitive-doubao-phone-gap.md)：豆包手机助手/Roubao 定向核验、Helix 差距、首任务入口改进和后续验收协议。
 - [competitive-direct-agents.md](competitive-direct-agents.md)：直接移动 Agent 档案。
 - [competitive-alternatives.md](competitive-alternatives.md)：替代方案与技术参照。
 - [competitive-platform-ecosystems.md](competitive-platform-ecosystems.md)：系统/OEM/平台生态。

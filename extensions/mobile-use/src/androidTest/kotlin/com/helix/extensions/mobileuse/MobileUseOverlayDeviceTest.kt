@@ -11,11 +11,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.TurnState
+import com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory
+import com.helix.extensions.mobileuse.automation.HelixAccessibilityService
 import com.helix.extensions.plugin.PluginTaskHost
 import com.helix.extensions.plugin.PluginTaskIdentity
 import com.helix.extensions.plugin.PluginTaskSnapshot
-import com.helix.tools.automation.AutomationRuntimePresentationFactory
-import com.helix.tools.automation.HelixAccessibilityService
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
@@ -97,6 +97,23 @@ class MobileUseOverlayDeviceTest {
                 waitUntil { hasControl() }
             } finally {
                 baseline.recycle()
+            }
+        }
+    }
+
+    @Test fun notificationStopWorksWhileControlsAreHidden() {
+        withOverlay { overlay, stopped ->
+            assertTrue(overlay.bind(call()))
+            waitUntil { hasControl() }
+            val lease = requireNotNull(overlay.hideForOperation(call()))
+            try {
+                assertFalse(hasControl())
+                overlay.stopBoundTask()
+                assertEquals(identity, stopped.get())
+                assertFalse(overlay.executionAllowed())
+                assertFalse(overlay.bind(call()))
+            } finally {
+                lease.close()
             }
         }
     }

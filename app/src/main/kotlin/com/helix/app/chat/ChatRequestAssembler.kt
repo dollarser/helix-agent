@@ -20,6 +20,8 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
+import com.helix.extensions.plugin.instructions
+import com.helix.extensions.plugin.preferredTools
 
 /**
  * The single context-construction system (HX2-03; the doc section 34 ContextEngine entry):
@@ -126,7 +128,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 storage.sessionExperts.forSession(sessionId),
                 directory,
-                mobileToolsAvailable = mobileToolsAvailable(tools),
+                pluginInstructions = pluginInstructions(tools, sessionId),
             )
         val request =
             TurnContextRequest(
@@ -190,7 +192,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
-                mobileToolsAvailable = mobileToolsAvailable(tools),
+                pluginInstructions = pluginInstructions(tools, sessionId),
             )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
@@ -260,7 +262,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
-                mobileToolsAvailable = mobileToolsAvailable(tools),
+                pluginInstructions = pluginInstructions(tools, sessionId),
             )
         val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
@@ -303,21 +305,23 @@ internal class ChatRequestAssembler(
         }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
-    private fun mobileToolsAvailable(tools: List<ModelToolSchema>): Boolean =
-        tools.any { schema ->
-            val descriptor = schema.bindingRef?.let { toolPipeline.registry.resolveBinding(it)?.descriptor }
-            com.helix.app.automation.AutomationModule
-                .owns(descriptor)
-        }
+    private fun pluginInstructions(
+        tools: List<ModelToolSchema>,
+        sessionId: String,
+    ): String? =
+        toolPipeline.plugins?.instructions(
+            tools.mapNotNull { schema ->
+                schema.bindingRef?.let { toolPipeline.registry.resolveBinding(it)?.descriptor }
+            },
+            sessionId,
+        )
 
     private fun modelTools(
         sessionId: String,
         control: RunControlConfig,
         recoveryOnly: Boolean = false,
     ): List<ModelToolSchema> {
-        val preferUi =
-            com.helix.app.automation.AutomationModule
-                .scopeFor("ui.apps", sessionId) != null
+        val preferred = toolPipeline.plugins?.preferredTools(sessionId).orEmpty()
         val bindings = toolPipeline.registry.snapshot()
         val latest =
             bindings.map { it.descriptor }.groupBy { it.name }.values.map { versions ->
@@ -337,7 +341,7 @@ internal class ChatRequestAssembler(
             .visible(
                 sessionId,
                 admitted,
-                ModelToolExposureOrder.defaultNames(preferUi),
+                ModelToolExposureOrder.defaultNames(preferred),
             )
             // HXA-209 (ADR section 1.1): a disabled tool leaves the model schema through the
             // SAME shared predicate the execution entry refuses with — visible() applies it too,
@@ -350,7 +354,7 @@ internal class ChatRequestAssembler(
             }.let {
                 ModelToolExposureOrder.prioritize(
                     it,
-                    preferUi = preferUi,
+                    preferred = preferred,
                 )
             }.take(ModelRequest.MAX_TOOLS)
             .map { descriptor ->

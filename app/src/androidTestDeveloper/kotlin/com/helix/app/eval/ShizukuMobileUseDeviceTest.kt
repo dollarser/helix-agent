@@ -4,7 +4,6 @@ import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.automation.shizuku.MobileUseRootConnection
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SafetyProfile
@@ -13,8 +12,9 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.tools.automation.AutomationPermissionCenter
-import com.helix.tools.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
+import com.helix.extensions.mobileuse.automation.AutomationServiceState
+import com.helix.tools.deviceaccess.DeviceAccess
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -63,7 +63,8 @@ class ShizukuMobileUseDeviceTest {
         try {
             container.profileStore.switchTo(SafetyProfile.ADVANCED)
             if (rootMode) prepareRoot()
-            center.authorizeConversation(session, emptySet(), wholePhone = true)
+            com.helix.app.eval
+                .selectMobileUseForTest(session, emptySet(), wholePhone = true)
             if (rootMode) awaitStableInstaller(session, installerPackage)
             val descriptor = requireNotNull(container.toolPipeline.resolveLatest("ui.click_match"))
 
@@ -78,7 +79,6 @@ class ShizukuMobileUseDeviceTest {
                 toolVersion = descriptor.version,
                 args =
                     buildJsonObject {
-                        put("backend", "auto")
                         put("packageName", installerPackage)
                         put("viewId", if (rootMode) "$installerPackage:id/button1" else "android:id/button1")
                         put("text", text)
@@ -105,7 +105,8 @@ class ShizukuMobileUseDeviceTest {
                 now + 1,
             )
             val oldScope = request("stale-grant")
-            center.authorizeConversation(session, setOf(app.packageName), wholePhone = false)
+            com.helix.app.eval
+                .selectMobileUseForTest(session, setOf(app.packageName), wholePhone = false)
             val stale = container.toolPipeline.dispatcher.dispatch(oldScope)
             println("SHIZUKU_STALE_SCOPE=$stale")
             assertTrue(stale !is ToolDispatchOutcome.Succeeded)
@@ -113,7 +114,8 @@ class ShizukuMobileUseDeviceTest {
             println("SHIZUKU_OUTSIDE_SCOPE=$outside")
             assertTrue(outside !is ToolDispatchOutcome.Succeeded)
             assertEquals(before, packageTime())
-            center.authorizeConversation(session, emptySet(), wholePhone = true)
+            com.helix.app.eval
+                .selectMobileUseForTest(session, emptySet(), wholePhone = true)
             val missing = container.toolPipeline.dispatcher.dispatch(request("missing", "HELIX_NO_SUCH_CONTROL"))
             println("SHIZUKU_MISSING_TARGET=$missing")
             assertTrue(missing is ToolDispatchOutcome.ExecutionFailed && missing.sideEffectFree)
@@ -132,8 +134,9 @@ class ShizukuMobileUseDeviceTest {
             assertEquals(1, audit.count { it.type == "tool_dispatch" })
             println("SHIZUKU_PRODUCTION_UPDATE=$before->${packageTime()};audit=${audit.map { it.type }}")
         } finally {
-            if (rootMode) MobileUseRootConnection.disconnect()
-            center.revokeConversation(session)
+            if (rootMode) DeviceAccess.disconnectRoot("mobile-use")
+            com.helix.app.eval
+                .deselectMobileUseForTest(session)
             container.storage.deleteSessionPermanently(session)
             container.profileStore.switchTo(originalProfile)
         }
@@ -147,14 +150,14 @@ class ShizukuMobileUseDeviceTest {
         }
 
     private fun prepareRoot() {
-        MobileUseRootConnection.requestFromUser()
+        DeviceAccess.requestRootFromUser("mobile-use")
         val deadline = SystemClock.elapsedRealtime() + 30_000
-        while (MobileUseRootConnection.access()?.connectedBinder() == null &&
+        while (DeviceAccess.root("mobile-use")?.connectedBinder() == null &&
             SystemClock.elapsedRealtime() < deadline
         ) {
             SystemClock.sleep(100)
         }
-        checkNotNull(MobileUseRootConnection.access()?.connectedBinder())
+        checkNotNull(DeviceAccess.root("mobile-use")?.connectedBinder())
     }
 
     private fun awaitStableInstaller(
@@ -176,11 +179,11 @@ class ShizukuMobileUseDeviceTest {
                 authorizationScopeRef = center.conversationGrant(session)?.scope?.toScopeRef(),
             )
         val port =
-            com.helix.tools.automation
+            com.helix.extensions.mobileuse.automation
                 .PermissionCenterDevicePort(center)
                 .forCall(call)
         val deadline = SystemClock.elapsedRealtime() + 25_000
-        var previous: com.helix.tools.automation.AutomationDisplayTarget? = null
+        var previous: com.helix.extensions.mobileuse.automation.AutomationDisplayTarget? = null
         var stable = 0
         while (stable < 6 && SystemClock.elapsedRealtime() < deadline) {
             val current = port.observe().frame?.target

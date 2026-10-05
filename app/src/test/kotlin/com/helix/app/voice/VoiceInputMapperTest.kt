@@ -5,16 +5,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Pins the pure-JVM half of voice input (roadmap HXA-067): the system `ACTION_RECOGNIZE_SPEECH`
- * activity result maps to exactly one of unavailable / available / draft / cancelled. A success is
- * INERT editable text — a [VoiceInputMapper.Outcome.Draft] carries only text and no "send" signal,
- * so the recognised text can only become composer input, never an auto-send. The activity API
- * returns no error code, so user-cancel and recognition-failure both collapse to the benign
- * [VoiceInputMapper.Outcome.Cancelled] (no draft, no error, no send); the unavailable state is the
- * pre-launch gate. The Android extraction (real `Intent` / `RecognizerIntent`) is device-verified by
- * [SpeechRecognitionDeviceTest].
- */
+/** Recognition results remain inert text; cancellation and explicit platform errors are distinct. */
 class VoiceInputMapperTest {
     @Test
     fun preCheckAvailableYieldsAvailableToLaunch() {
@@ -71,12 +62,29 @@ class VoiceInputMapperTest {
     }
 
     @Test
-    fun anUnknownResultCodeFailsClosedToCancel() {
+    fun anUnknownResultCodeReportsFailureWithoutUsingStaleText() {
         // A result code that is neither OK nor a recognised cancel still yields no draft.
-        assertSame(
-            VoiceInputMapper.Outcome.Cancelled,
-            VoiceInputMapper.mapResult(1, listOf("x")),
+        assertEquals(
+            VoiceInputMapper.Outcome.Failed(VoiceInputMapper.Failure.SERVICE),
+            VoiceInputMapper.mapResult(1234, listOf("x")),
         )
+    }
+
+    @Test fun platformErrorsAreNotSilentlyTreatedAsCancellation() {
+        val expected =
+            listOf(
+                VoiceInputMapper.Failure.NO_MATCH,
+                VoiceInputMapper.Failure.SERVICE,
+                VoiceInputMapper.Failure.SERVICE,
+                VoiceInputMapper.Failure.NETWORK,
+                VoiceInputMapper.Failure.AUDIO,
+            )
+        expected.forEachIndexed { index, failure ->
+            assertEquals(
+                VoiceInputMapper.Outcome.Failed(failure),
+                VoiceInputMapper.mapResult(index + 1, listOf("stale")),
+            )
+        }
     }
 
     @Test

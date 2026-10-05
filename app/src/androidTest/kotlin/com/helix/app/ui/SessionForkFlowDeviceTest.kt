@@ -64,7 +64,9 @@ class SessionForkFlowDeviceTest {
                     compose.onNodeWithTag("chat-fork-$target").performClick()
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
                     val branch = requireNotNull(chat.screen.value.openSessionId)
+                    compose.onNodeWithTag("chat-composer-options").performClick()
                     compose.onNodeWithTag("session-fork-notice").assertExists()
+                    compose.onNodeWithTag("chat-composer-options-close").performClick()
                     assertTrue(storage.turns.listBySession(branch).isEmpty())
                     chat.sendTestMessage("Continue the alternate approach")
                     compose.waitUntil(20_000) {

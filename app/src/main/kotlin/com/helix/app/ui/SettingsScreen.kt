@@ -52,6 +52,7 @@ fun SettingsScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsGroup { LanguageSection() }
+        SettingsGroup { SystemVoiceSettingsEntry() }
         AboutHelixSection()
     }
 }

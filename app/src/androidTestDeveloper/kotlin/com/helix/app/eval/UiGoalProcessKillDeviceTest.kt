@@ -30,7 +30,7 @@ class UiGoalProcessKillDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
     private val center get() =
-        com.helix.tools.automation
+        com.helix.extensions.mobileuse.automation
             .AutomationPermissionCenter(app)
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val automation get() =
@@ -168,10 +168,11 @@ class UiGoalProcessKillDeviceTest {
     private fun prepareUi(facts: Properties) {
         observeEvents()
         instrumentation.sendStatus(2, Bundle().apply { putString("stream", "UI_SERVICE_READY\n") })
-        await { center.serviceState() == com.helix.tools.automation.AutomationServiceState.CONNECTED }
+        await { center.serviceState() == com.helix.extensions.mobileuse.automation.AutomationServiceState.CONNECTED }
         val session = facts.getProperty("session")
         val fixturePackage = instrumentation.context.packageName
-        center.authorizeConversation(session, setOf(fixturePackage), wholePhone = false)
+        com.helix.app.eval
+            .selectMobileUseForTest(session, setOf(fixturePackage), wholePhone = false)
         val grant = requireNotNull(center.conversationGrant(session))
         facts.setProperty("mobileUseScope", grant.scope.toScopeRef())
         save(facts)
@@ -316,7 +317,7 @@ class UiGoalProcessKillDeviceTest {
             }
         }
         container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
-        facts.getProperty("session")?.let(center::revokeConversation)
+        facts.getProperty("session")?.let(::deselectMobileUseForTest)
         check(marker.delete())
     }
 

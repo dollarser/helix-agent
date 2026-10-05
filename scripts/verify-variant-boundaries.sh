@@ -85,7 +85,8 @@ developer_dependencies="$("$project_root/gradlew" -q :app:dependencies --configu
 
 readonly developer_projects=(
     feature:files-allfiles
-    tools:automation
+    tools:device-access
+    extensions:mobile-use
     tools:root
     runtime:proot-client
     runtime:cli-client
