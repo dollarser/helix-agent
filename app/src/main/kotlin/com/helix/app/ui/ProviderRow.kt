@@ -60,11 +60,13 @@ internal fun ProviderRow(
         row.assetSizeBytes?.let { size ->
             Text(stringResource(R.string.local_model_resources, UiLabels.formatBytes(size)))
         }
-        Text(
-            providerLocationLabel(row),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (!row.managedExternally) {
+            Text(
+                providerLocationLabel(row),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (!row.managedExternally) {
             Text(
                 buildString {
@@ -82,7 +84,14 @@ internal fun ProviderRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        val detail = if (row.managedExternally && row.status is ConnectionTestStatus.Passed) null else statusDetail(row)
+        val detail =
+            if (row.managedExternally &&
+                row.status !is ConnectionTestStatus.Failed
+            ) {
+                null
+            } else {
+                statusDetail(row)
+            }
         if (detail != null) {
             Text(
                 detail,
@@ -91,12 +100,6 @@ internal fun ProviderRow(
             )
         }
         if (row.managedExternally) {
-            Text(
-                stringResource(R.string.provider_subscription_experimental_notice),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag("provider-subscription-notice"),
-            )
             if (accountUnavailable) {
                 Text(
                     stringResource(R.string.provider_subscription_runtime_unavailable),

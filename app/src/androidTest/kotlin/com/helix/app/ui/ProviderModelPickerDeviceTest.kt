@@ -107,7 +107,14 @@ class ProviderModelPickerDeviceTest {
         val localId = "a".repeat(64)
         val subscription =
             row("subscription", ProviderProvisioningKind.MANAGED_ACCOUNT, "a")
-                .copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true))
+                .copy(
+                    modelSelection = ProviderModelSelection(listOf("b"), configured = true),
+                    accountState =
+                        com.helix.app.provider.ManagedAccountSnapshot(
+                            com.helix.app.provider.ManagedAccountSnapshot.State.LOGGED_IN,
+                            "12345678-1234-1234-1234-123456789abc",
+                        ),
+                )
         val local =
             row("local", ProviderProvisioningKind.ON_DEVICE_ASSET, localId)
                 .copy(
@@ -129,6 +136,21 @@ class ProviderModelPickerDeviceTest {
         compose.onNodeWithText(localId).assertDoesNotExist()
         compose.onNodeWithTag("chat-model-local-$localId").performClick()
         compose.runOnIdle { assertEquals("local" to localId, selected) }
+    }
+
+    @Test fun loggedOutSubscriptionDoesNotAppearAsACandidateOrSetupRow() {
+        val subscription =
+            row("logged-out", ProviderProvisioningKind.MANAGED_ACCOUNT, "a")
+                .copy(modelSelection = ProviderModelSelection(listOf("a"), configured = true))
+        compose.setContent {
+            MaterialTheme {
+                ComposerModelMenu(listOf(subscription), null, null, true, onSelect = { _, _ -> error("Hidden") })
+            }
+        }
+        compose.onNodeWithTag("chat-model-menu").performClick()
+        compose.onNodeWithTag("chat-model-logged-out-a").assertDoesNotExist()
+        compose.onNodeWithText("logged-out").assertDoesNotExist()
+        compose.onNodeWithTag("chat-model-empty").assertIsDisplayed()
     }
 
     @Test fun reasoningWaitsForTheSelectedModelToBeApplied() {

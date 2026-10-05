@@ -95,7 +95,13 @@ fun ProviderManager(
     Column(Modifier.fillMaxWidth()) {
         ModelSourceTabs(providerService.sourceGroups, group) { group = it }
         Text(
-            stringResource(modelSourceDescription(group)),
+            stringResource(
+                if (group == ProviderProvisioningKind.MANAGED_ACCOUNT) {
+                    R.string.provider_subscription_experimental_notice
+                } else {
+                    modelSourceDescription(group)
+                },
+            ),
             modifier = Modifier.padding(vertical = 12.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -295,18 +301,7 @@ fun ProviderManager(
                     discovery = emptyList()
                     discoveryMessage = null
                 }
-                form =
-                    updated.copy(
-                        error = null,
-                        selectedModels =
-                            if (updated.fields.endpoint ==
-                                currentForm.fields.endpoint
-                            ) {
-                                updated.selectedModels
-                            } else {
-                                emptySet()
-                            },
-                    )
+                form = updated.copy(error = null)
             },
             discoveryState = ProviderFormDiscovery(discovery, discoveryMessage, discovering),
             onDiscover = {

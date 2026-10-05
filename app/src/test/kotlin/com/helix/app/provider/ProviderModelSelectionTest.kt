@@ -15,6 +15,45 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderModelSelectionTest {
+    @Test fun optionalDisplayNamesPersistWithoutChangingModelIdentity() {
+        val backing = InMemoryLineStore()
+        val store = ProviderSelectedModels(backing)
+        val choice = ProviderModelSelection().addCustom("server-model").withDisplayName("server-model", "  我的模型  ")
+        store.save("p", choice)
+        val restored = ProviderSelectedModels(backing).selection("p")
+        val source = row(ProviderProvisioningKind.USER_CONFIGURED).copy(modelSelection = restored)
+        assertEquals("我的模型", source.modelLabel("server-model"))
+        assertEquals(listOf("server-model"), source.conversationModels)
+        assertTrue(store.selection("other").displayNames.isEmpty())
+        store.save("p", restored.withDisplayName("server-model", "   "), expected = restored)
+        assertEquals("server-model", source.copy(modelSelection = store.selection("p")).modelLabel("server-model"))
+        assertTrue(store.selection("p").displayNames.isEmpty())
+    }
+
+    @Test fun onlyLoggedInSubscriptionsAppearInTheModelPicker() {
+        val subscription = row(ProviderProvisioningKind.MANAGED_ACCOUNT)
+        assertFalse(subscription.visibleInModelPicker)
+        ManagedAccountSnapshot.State.entries.forEach { state ->
+            val account =
+                ManagedAccountSnapshot(
+                    state,
+                    if (state ==
+                        ManagedAccountSnapshot.State.LOGGED_IN
+                    ) {
+                        "12345678-1234-1234-1234-123456789abc"
+                    } else {
+                        null
+                    },
+                )
+            assertEquals(
+                state == ManagedAccountSnapshot.State.LOGGED_IN,
+                subscription.copy(accountState = account).visibleInModelPicker,
+            )
+        }
+        assertTrue(row(ProviderProvisioningKind.USER_CONFIGURED).visibleInModelPicker)
+        assertTrue(row(ProviderProvisioningKind.ON_DEVICE_ASSET).visibleInModelPicker)
+    }
+
     @Test fun explicitEmptySurvivesReopenAndIsNotAnUnconfiguredSource() {
         val backing = InMemoryLineStore()
         val choices = ProviderSelectedModels(backing)

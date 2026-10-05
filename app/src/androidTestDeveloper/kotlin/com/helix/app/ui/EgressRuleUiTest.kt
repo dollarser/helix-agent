@@ -49,6 +49,7 @@ class EgressRuleUiTest {
 
         // --- Standard (after reset): the egress section is ABSENT ---
         composeRule.navigateTo("settings/permissions")
+        composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
         composeRule.onNodeWithTag("settings-profile-current").assertIsDisplayed()
         assertTrue(
             "egress section must be absent in Standard",
@@ -63,6 +64,7 @@ class EgressRuleUiTest {
         composeRule.waitForIdle()
 
         // --- Advanced: the section is present and initially empty ---
+        composeRule.onNodeWithTag("settings-egress-options").performScrollTo().performClick()
         composeRule.onNodeWithTag("egress-section-title").performScrollTo()
         composeRule.onNodeWithTag("egress-section-title").assertIsDisplayed()
         composeRule.onNodeWithTag("egress-empty").performScrollTo()
@@ -117,6 +119,9 @@ class EgressRuleUiTest {
         composeRule.runOnUiThread { composeRule.activity.recreate() }
         composeRule.waitForIdle()
         composeRule.navigateTo("settings/permissions")
+        if (composeRule.onAllNodesWithTag("egress-section-title").fetchSemanticsNodes().isEmpty()) {
+            composeRule.onNodeWithTag("settings-egress-options").performScrollTo().performClick()
+        }
         composeRule.onNodeWithTag("egress-section-title").performScrollTo()
         composeRule.onNodeWithTag("egress-rule-target").performScrollTo()
         composeRule.onNodeWithTag("egress-rule-target").assertIsDisplayed()
@@ -134,6 +139,9 @@ class EgressRuleUiTest {
         // but the test just scrolled down to the egress section (below); scroll it back into view
         // first (as every other click in this test does). An off-screen performClick delivers no
         // hit, so without this the switch silently no-ops and the section never leaves.
+        if (composeRule.onAllNodesWithTag("settings-advanced-exit").fetchSemanticsNodes().isEmpty()) {
+            composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
+        }
         composeRule.onNodeWithTag("settings-advanced-exit").performScrollTo()
         composeRule.onNodeWithTag("settings-advanced-exit").performClick()
         // switchTo(STANDARD) is synchronous, but the section-removal recomposition is driven by the

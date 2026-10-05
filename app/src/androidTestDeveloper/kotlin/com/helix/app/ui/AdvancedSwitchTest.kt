@@ -3,9 +3,11 @@ package com.helix.app.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
 import com.helix.core.model.SafetyProfile
@@ -36,6 +38,7 @@ class AdvancedSwitchTest {
 
         // --- Standard: the switch entry exists (developer build) and is risk-gated ---
         composeRule.navigateTo("settings/permissions")
+        composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
         composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Standard（默认）")
         composeRule.onNodeWithTag("settings-advanced-switch").performClick()
         composeRule.waitForIdle()
@@ -47,8 +50,9 @@ class AdvancedSwitchTest {
 
         // --- switched: the UI shows Advanced and the store persisted it ---
         composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Advanced")
-        composeRule.onNodeWithTag("settings-root-section").assertExists()
-        composeRule.onNodeWithTag("settings-automation-section").assertExists()
+        composeRule.onNodeWithTag("settings-system-permissions").assertExists()
+        composeRule.onNodeWithTag("settings-lan-options").assertExists()
+        composeRule.onNodeWithTag("settings-egress-options").assertExists()
         assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
 
         // --- NFR-011: zero side effects across the switch ---
@@ -70,6 +74,9 @@ class AdvancedSwitchTest {
         composeRule.waitForIdle()
         assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
         composeRule.navigateTo("settings/permissions")
+        if (composeRule.onAllNodesWithTag("settings-profile-current").fetchSemanticsNodes().isEmpty()) {
+            composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
+        }
         composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Advanced")
 
         // --- reversible: back to Standard without the risk dialog (downgrade) ---

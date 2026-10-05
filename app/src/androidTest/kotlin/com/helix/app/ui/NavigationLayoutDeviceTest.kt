@@ -31,7 +31,7 @@ class NavigationLayoutDeviceTest {
             compose.waitForIdle()
             captureChatLayout(compose.activity, "provider-picker")
             compose
-                .onNodeWithTag("provider-template-ollama")
+                .onNodeWithTag("provider-template-generic-openai")
                 .performScrollTo()
                 .assertIsDisplayed()
                 .performClick()
@@ -39,10 +39,11 @@ class NavigationLayoutDeviceTest {
             compose.onNodeWithTag("provider-template-guidance").assertTextEquals(
                 compose.activity.getString(
                     R.string.provider_template_note,
-                    compose.activity.getString(R.string.provider_note_ollama),
+                    compose.activity.getString(R.string.provider_note_generic),
                 ),
             )
             captureChatLayout(compose.activity, "provider-form")
+            compose.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
             compose.onNodeWithTag("provider-form-model").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("provider-form-cancel").assertIsDisplayed().performClick()
             compose.waitForIdle()

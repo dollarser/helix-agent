@@ -4,10 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
@@ -69,7 +75,8 @@ internal fun SessionPermissionSection(
     val tools = remember(toolPipeline) { toolPipeline.registry.all() }
     val controller = rememberPermissionController(edit, tools, chatService)
     SettingsGroup {
-        Text(stringResource(R.string.settings_perm_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.settings_perm_default_label), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.settings_default_permissions_hint), style = MaterialTheme.typography.bodySmall)
         if (controller.failed.value) {
             Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
         }
@@ -88,9 +95,8 @@ internal fun SessionPermissionSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        HorizontalDivider(modifier = Modifier.fillMaxWidth())
-        PermissionToolList(controller)
     }
+    PermissionToolList(controller)
 }
 
 /** Current-session authorization only; app defaults and GLOBAL tool availability stay in Settings. */
@@ -170,15 +176,21 @@ private fun rememberPermissionController(
 @Composable
 @Suppress("FunctionName")
 private fun PermissionDefaultPicker(controller: SessionPermissionController) {
-    Text(stringResource(R.string.settings_perm_default_label))
-    SettingsActions {
+    Column(Modifier.selectableGroup()) {
         PRESETS.forEach { mode ->
-            ModeButton(
-                mode = mode,
-                selected = controller.defaultMode.value == mode,
-                testTag = "settings-perm-default-${mode.name}",
-                onClick = { controller.chooseDefault(mode) },
-            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings-perm-default-${mode.name}")
+                    .selectable(controller.defaultMode.value == mode, role = Role.RadioButton) {
+                        controller.chooseDefault(mode)
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(controller.defaultMode.value == mode, onClick = null)
+                Text(stringResource(mode.labelRes()), Modifier.padding(start = 12.dp))
+            }
         }
     }
 }

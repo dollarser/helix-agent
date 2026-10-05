@@ -22,6 +22,10 @@ internal val settingsDrawerEntries =
         DrawerEntry(SETTINGS_DEFAULTS_ROUTE, R.string.settings_defaults_title),
         DrawerEntry(SETTINGS_PERMISSIONS_ROUTE, R.string.settings_permissions_safety_title),
         DrawerEntry(SETUP_RUNTIME_ROUTE, R.string.setup_runtime_title),
+    )
+
+internal val workUtilityDrawerEntries =
+    listOf(
         DrawerEntry(SETTINGS_STORAGE_ROUTE, R.string.settings_storage_title),
         DrawerEntry(SETTINGS_AUDIT_ROUTE, R.string.settings_diagnostics_title),
     )

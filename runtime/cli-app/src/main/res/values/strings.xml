@@ -5,9 +5,9 @@
     <string name="subscription_network_stop">停止</string>
     <string name="codex_login_title">Codex 订阅登录</string>
     <string name="codex_login_warning">第三方、非官方侧载实验。登录会复用 Codex CLI OAuth 身份；OpenAI 尚未公开授权 Helix 使用该身份。凭据由 Helix 内置订阅组件保存。继续可能有账号或服务中断风险。</string>
-    <string name="codex_login_action">在浏览器登录 Codex</string>
-    <string name="codex_device_login_action">生成 Codex Device Code</string>
-    <string name="codex_device_open_browser">打开 Codex Device 验证页</string>
+    <string name="codex_login_action">浏览器登录</string>
+    <string name="codex_device_login_action">生成登录验证码</string>
+    <string name="codex_device_open_browser">复制验证码并打开验证页</string>
     <string name="codex_device_copy_code">复制 Codex Device Code</string>
     <string name="codex_device_copy_url">复制 Codex 验证网址</string>
     <string name="codex_device_preparing">正在向 OpenAI 请求 Device Code。</string>
@@ -143,4 +143,7 @@
     <string name="antigravity_cancelled">已取消本次登录。</string>
     <string name="antigravity_not_configured">此安装包未配置 Antigravity 登录。请使用已配置授权 OAuth 客户端的版本，或选择其他模型服务。</string>
     <string name="antigravity_logout_action">删除 Antigravity 登录凭据</string>
+    <string name="codex_browser_method_hint">浏览器登录 · 推荐在本机使用，授权后自动返回。</string>
+    <string name="codex_device_method_hint">验证码登录 · 浏览器无法返回或需在其他设备授权时使用。需先在 ChatGPT 安全设置中开启设备代码登录。</string>
+    <string name="codex_advanced_options">高级设置</string>
 </resources>

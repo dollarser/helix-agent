@@ -17,7 +17,7 @@ internal fun validateProviderForm(form: ProviderForm): SaveResult.Rejected? =
             SaveResult.Rejected(R.string.provider_endpoint_required)
         }
 
-        form.providerId == null && form.fields.model.isBlank() && form.selectedModels.isEmpty() -> {
+        form.providerId == null && form.fields.model.isBlank() -> {
             SaveResult.Rejected(R.string.provider_model_required)
         }
 
@@ -39,14 +39,9 @@ private fun validateProviderModels(form: ProviderForm): SaveResult.Rejected? {
     if (form.providerId != null) return null
     val entered = form.fields.model.trim()
     return try {
-        com.helix.app.provider.ProviderSelectedModels.validate(
-            if (form.selectedModels.isEmpty()) listOf(entered) else form.selectedModels.toList(),
-        )
-        if (entered.isNotEmpty() && form.selectedModels.isNotEmpty() && entered !in form.selectedModels) {
-            SaveResult.Rejected(R.string.provider_model_selection_mismatch)
-        } else {
-            null
-        }
+        com.helix.app.provider.ProviderSelectedModels
+            .validate(listOf(entered))
+        null
     } catch (_: IllegalArgumentException) {
         SaveResult.Rejected(R.string.provider_model_selection_invalid)
     }

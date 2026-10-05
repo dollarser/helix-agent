@@ -51,6 +51,8 @@ internal fun ProviderModelsDialog(
     var expanded by remember { mutableStateOf<String?>(null) }
     var contextModel by remember { mutableStateOf<String?>(null) }
     var manual by remember { mutableStateOf("") }
+    var manualDisplayName by remember { mutableStateOf("") }
+    var addingModel by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
     var catalogUnsupported by remember { mutableStateOf(false) }
@@ -85,7 +87,10 @@ internal fun ProviderModelsDialog(
     val candidates =
         (selection.models + current.knownModels + selection.customModels).distinct().filter {
             (!onlySelected || it in selection.models) &&
-                (it.contains(query, ignoreCase = true) || current.modelLabel(it).contains(query, ignoreCase = true))
+                (
+                    it.contains(query, ignoreCase = true) ||
+                        current.copy(modelSelection = selection).modelLabel(it).contains(query, ignoreCase = true)
+                )
         }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -164,8 +169,21 @@ internal fun ProviderModelsDialog(
                     }
                 }
                 items(candidates, key = { it }) { model ->
+                    if (expanded == model) {
+                        OutlinedTextField(
+                            value = selection.displayNames[model].orEmpty(),
+                            onValueChange = { selection = selection.withDisplayName(model, it.take(256)) },
+                            label = { Text(stringResource(R.string.provider_model_display_name)) },
+                            supportingText = {
+                                Text(stringResource(R.string.provider_model_display_name_hint))
+                            },
+                            placeholder = { Text(model) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("provider-model-name-$model"),
+                        )
+                    }
                     ProviderModelChoiceRow(
-                        current,
+                        current.copy(modelSelection = selection),
                         model,
                         selection,
                         busy,
@@ -181,31 +199,55 @@ internal fun ProviderModelsDialog(
                 if (current.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET) {
                     item {
                         Column {
-                            OutlinedTextField(
-                                manual,
-                                { manual = it },
-                                singleLine = true,
-                                label = { Text(stringResource(R.string.provider_models_manual_id)) },
-                                modifier = Modifier.fillMaxWidth().testTag("provider-model-manual"),
-                            )
                             TextButton(
-                                onClick = {
-                                    try {
-                                        selection = selection.addCustom(manual.trim())
-                                        manual = ""
-                                        error = false
-                                    } catch (
-                                        _: IllegalArgumentException,
-                                    ) {
-                                        error = true
-                                    }
-                                },
-                                enabled = !busy && manual.isNotBlank(),
-                                modifier = Modifier.testTag("provider-models-add"),
-                            ) {
-                                Text(
-                                    stringResource(R.string.provider_models_add),
+                                onClick = { addingModel = true },
+                                enabled = !busy,
+                                modifier = Modifier.testTag("provider-model-add-entry"),
+                            ) { Text(stringResource(R.string.provider_model_add_entry)) }
+                            if (addingModel) {
+                                Text(stringResource(R.string.provider_model_add_help))
+                                ProviderModelInput(
+                                    value = manual,
+                                    onValueChange = { manual = it },
+                                    models = current.knownModels,
+                                    enabled = !busy,
+                                    modifier = Modifier.testTag("provider-model-manual"),
                                 )
+                                OutlinedTextField(
+                                    value = manualDisplayName,
+                                    onValueChange = { manualDisplayName = it.take(256) },
+                                    label = { Text(stringResource(R.string.provider_model_display_name)) },
+                                    supportingText = {
+                                        Text(stringResource(R.string.provider_model_display_name_hint))
+                                    },
+                                    placeholder = { Text(manual) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().testTag("provider-model-display-name"),
+                                )
+                                TextButton(
+                                    onClick = {
+                                        try {
+                                            selection =
+                                                selection
+                                                    .addCustom(manual.trim())
+                                                    .withDisplayName(manual.trim(), manualDisplayName)
+                                            manual = ""
+                                            manualDisplayName = ""
+                                            addingModel = false
+                                            error = false
+                                        } catch (
+                                            _: IllegalArgumentException,
+                                        ) {
+                                            error = true
+                                        }
+                                    },
+                                    enabled = !busy && manual.isNotBlank(),
+                                    modifier = Modifier.testTag("provider-models-add"),
+                                ) {
+                                    Text(
+                                        stringResource(R.string.provider_models_add),
+                                    )
+                                }
                             }
                         }
                     }

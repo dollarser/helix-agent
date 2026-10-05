@@ -51,7 +51,7 @@ class ProviderFlowTest {
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-picker").assertIsDisplayed()
-        composeRule.onNodeWithTag("provider-template-ollama").performClick()
+        composeRule.onNodeWithTag("provider-template-generic-openai").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-form-dialog").assertIsDisplayed()
 
@@ -59,6 +59,7 @@ class ProviderFlowTest {
         composeRule.onNodeWithTag("provider-form-name").performTextInput(providerName)
         composeRule.onNodeWithTag("provider-form-endpoint").performTextClearance()
         composeRule.onNodeWithTag("provider-form-endpoint").performTextInput("https://127.0.0.1:9/v1")
+        composeRule.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
         composeRule.onNodeWithTag("provider-form-model").performTextInput("probe-model")
         composeRule.onNodeWithTag("provider-form-save").performClick()
         composeRule.waitForIdle()

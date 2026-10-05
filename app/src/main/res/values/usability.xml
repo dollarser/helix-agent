@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="subscription_setup_account">先登录账号，再测试连接；通过后到模型管理选择会话模型。</string>
-    <string name="subscription_setup_connection">还差一步：请先测试连接。通过后，所选模型才能在会话中使用。</string>
-    <string name="subscription_setup_models">连接已通过。请在模型管理中勾选要在会话中使用的模型。</string>
+    <string name="subscription_setup_account">请先登录账号。</string>
+    <string name="subscription_setup_connection">请测试连接。</string>
+    <string name="subscription_setup_models">请选择会话中要使用的模型。</string>
     <string name="subscription_setup_ready">所选模型已可在会话中选择；连接通过不代表所有模型能力均已验证。</string>
-    <string name="subscription_setup_test_action">测试连接（会话选模前必需）</string>
+    <string name="subscription_setup_test_action">测试连接</string>
     <string name="model_picker_setup_action">前往模型管理</string>
     <string name="model_picker_needs_setup">%1$s · 尚未就绪</string>
     <string name="about_helix_title">关于 Helix</string>

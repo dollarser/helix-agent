@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -96,11 +96,11 @@ fun SystemPermissionsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.permissions_help))
-        devicePermissions?.invoke()
+        devicePermissions?.let { SettingsGroup { it() } }
         if (advancedPermissions != null) {
-            var advanced by rememberSaveable { mutableStateOf(false) }
-            TextButton({ advanced = !advanced }) { Text(stringResource(R.string.permissions_root_diagnostics)) }
-            if (advanced) advancedPermissions()
+            SettingsDisclosure(stringResource(R.string.permissions_root_diagnostics), "permissions-root-details") {
+                advancedPermissions()
+            }
         }
         PermissionEntry(R.string.permissions_notifications, notifications, "permission-notifications") {
             if (Build.VERSION.SDK_INT >= 33 &&
@@ -126,12 +126,12 @@ fun SystemPermissionsScreen(
             Text(stringResource(R.string.permissions_app_settings))
         }
         onFileLocations?.let { action ->
-            OutlinedButton(action, Modifier.testTag("permission-file-locations")) {
+            OutlinedButton(action, Modifier.fillMaxWidth().testTag("permission-file-locations")) {
                 Text(stringResource(R.string.permissions_file_locations))
             }
         }
         if (filePermissions != null) {
-            OutlinedButton({ files = true }, Modifier.testTag("permission-files")) {
+            OutlinedButton({ files = true }, Modifier.fillMaxWidth().testTag("permission-files")) {
                 Text(stringResource(R.string.permissions_files))
             }
         }
@@ -152,11 +152,14 @@ private fun PermissionEntry(
     tag: String,
     action: () -> Unit,
 ) {
-    Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
-    Text(
-        stringResource(if (granted) R.string.permissions_granted else R.string.permissions_not_granted),
-        Modifier.testTag("$tag-status"),
-    )
-    OutlinedButton(action, Modifier.testTag(tag)) { Text(stringResource(R.string.permissions_manage)) }
-    HorizontalDivider()
+    SettingsGroup {
+        Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(if (granted) R.string.permissions_granted else R.string.permissions_not_granted),
+            Modifier.testTag("$tag-status"),
+        )
+        OutlinedButton(action, Modifier.fillMaxWidth().testTag(tag)) {
+            Text(stringResource(R.string.permissions_manage))
+        }
+    }
 }

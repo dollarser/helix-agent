@@ -167,7 +167,8 @@ private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
     val destinationTag = "navigation-$route"
     val groupTag =
         when (route) {
-            "tasks", "artifacts", "git", "files", "browser", "terminal" -> "navigation-group-work"
+            "tasks", "artifacts", "git", SETTINGS_STORAGE_ROUTE, SETTINGS_AUDIT_ROUTE -> "navigation-group-work"
+            "files", "browser", "terminal" -> "navigation-group-tools"
             SETUP_RUNTIME_ROUTE -> "navigation-group-settings"
             else -> if (route == "settings" || route.startsWith("settings/")) "navigation-group-settings" else null
         }

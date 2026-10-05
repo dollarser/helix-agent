@@ -5,9 +5,9 @@
     <string name="subscription_network_stop">Stop</string>
     <string name="codex_login_title">Codex subscription login</string>
     <string name="codex_login_warning">Third-party, unofficial sideload experiment. Login reuses the Codex CLI OAuth identity; OpenAI has not publicly authorized Helix to use it. Credentials stay in this app UID. Continuing may risk the account or service continuity.</string>
-    <string name="codex_login_action">Sign in to Codex in browser</string>
-    <string name="codex_device_login_action">Generate Codex device code</string>
-    <string name="codex_device_open_browser">Open Codex device verification</string>
+    <string name="codex_login_action">Browser sign-in</string>
+    <string name="codex_device_login_action">Generate device code</string>
+    <string name="codex_device_open_browser">Copy code and open verification page</string>
     <string name="codex_device_copy_code">Copy Codex device code</string>
     <string name="codex_device_copy_url">Copy Codex verification URL</string>
     <string name="codex_device_preparing">Requesting a device code from OpenAI.</string>
@@ -143,4 +143,7 @@
     <string name="antigravity_cancelled">This sign-in attempt was cancelled.</string>
     <string name="antigravity_not_configured">This build does not configure Antigravity sign-in. Use a build with an authorized OAuth client, or choose another provider.</string>
     <string name="antigravity_logout_action">Delete Antigravity login credentials</string>
+    <string name="codex_browser_method_hint">Browser sign-in · Recommended on this phone. Returns after authorization.</string>
+    <string name="codex_device_method_hint">Device code sign-in · Use if browser return fails or authorize on another device. Enable device code login in ChatGPT security settings first.</string>
+    <string name="codex_advanced_options">Advanced settings</string>
 </resources>

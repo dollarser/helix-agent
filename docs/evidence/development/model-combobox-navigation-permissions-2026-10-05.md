@@ -1,0 +1,44 @@
+# 模型组合框、工具菜单与权限页整理（2026-10-05）
+
+## 所有者要求
+
+服务目录在模型输入框内下拉选择，支持手输；将终端、文件管理器和浏览器合为扩展与工作之间的一级菜单；应用存储、诊断与审计移入工作；降低权限与安全页的理解成本。
+
+## 实现
+
+- 新建 API 来源与模型管理的添加输入共用可编辑下拉框。显式获取服务目录后在框内选择，输入文字筛选候选；手动输入不发网络请求。候选有界显示，继续输入可搜索整个已获取目录。没有列表时不显示空下拉箭头。
+- 新建来源只保存当前输入框中的模型标识，删除原表单独立的多选状态与对应校验分支，避免输入值和隐式选中项冲突。已有模型管理仍可管理多项模型；显示名称与调用标识分离的规则保留。
+- 抽屉顺序：会话、项目、模型、扩展、工具、工作、设置。工具按终端、文件管理器、浏览器排序；工作包含任务、成果、应用存储、诊断与审计。应用存储/审计仅移动导航归属，原路径保留；诊断子页面仍高亮唯一的审计入口。
+- 权限页先解释系统授权和 Agent 操作规则的区别；系统授权使用独立卡片入口，新会话默认规则采用单选行并说明适用范围，当前会话保留跳转入口；全局工具按类别两级展开。
+- 运行模式、局域网地址和敏感内容发送规则采用统一的折叠卡片，默认收起。系统授权子页的设备能力、通知/日历等授权采用同样卡片风格，Root 详情折叠。没有改变权限预设、服务调用、运行模式风险确认、执行准入或审计事实。
+
+## 验证
+
+主机日志 `build/combo-navigation-final.log`：
+
+- `:app:testDeveloperDebugUnitTest`：通过，覆盖新建来源模型输入校验、已有显示名称与候选管理以及菜单路由唯一性等。
+- `:app:assembleDeveloperDebug`、`:app:assembleConsumerDebug`：通过。
+- `:app:compileDeveloperDebugAndroidTestKotlin`：通过；更新组合框选择/手输、菜单移动、折叠权限选项的设备用例前置操作。
+- `detekt`、`spotlessCheck`：通过。首次完整门禁仅剩模型校验文件排版问题，修正后完整重跑通过。
+
+本轮设备、真实服务 `not requested`。没有使用模拟器、安装新 APK、真实账号或模型请求；设备测试仅编译，不能记为设备通过。此前回合的模拟器结果不覆盖本次交互。未提交、未推送。
+
+## 随后授权的模拟器回归与提交收尾
+
+所有者随后明确要求安装、测试、修复并提交到 GitHub。本次仅使用已运行的日常 `emulator-5554`（API36、Developer、`com.helix.agent.developer`），没有启动第二台模拟器。覆盖安装前备份 databases/shared_prefs 到本地忽略目录 `build/ui-final-device/before-config.tar`；测试未清空数据库、删除来源或修改系统授权。
+
+### 发现与修正
+
+- 实际权限页的默认模式单选行高度仅约 24dp，选项拥挤；改为每行至少 48dp，并增加按钮与文字间距。最终 UI 层级中四行均为 126px（420dpi，即 48dp），见 `build/ui-final-device/touch-targets.log` 和 `final-permissions.png`。
+- 移除“Mobile Use 在会话设置中管理”的旧提示，改为本会话操作规则可独立调整，避免混淆插件全局设置与会话选择。
+
+### 最终结果
+
+- `:app:testDeveloperDebugUnitTest`、`:runtime:cli-app:testDebugUnitTest`、`:app:assembleDeveloperDebug`、`:app:assembleConsumerDebug`、`:app:assembleDeveloperDebugAndroidTest`、`detekt`、`spotlessCheck` 全部通过，日志 `build/ui-final-corrected-host.log`。
+- 使用 `adb -s emulator-5554 install -r` 更新应用和测试包。最终 APK SHA-256 为 `86fcea992168d90d1b2e5cde7a810ac6bf5dabca6ceda6b29f08da66efdf890a`；设备 base.apk 与本地产物一致。
+- 运行 `adb -s emulator-5554 shell am instrument -w -r -e class com.helix.app.ui.ProviderSettingsFormDeviceTest,com.helix.app.ui.GroupedNavigationDeviceTest,com.helix.app.ui.ToolAvailabilityGroupsDeviceTest,com.helix.app.ui.ProviderModelPickerDeviceTest com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`：最终 **16/16 通过**，日志 `build/ui-final-device/final-tests.log`。首轮 10 项及补充 6 项也通过；修正布局后在最终包上完整重跑。
+- 覆盖模型手输/下拉选择、协议切换、可选 Key、错误定位、未登录订阅隐藏、模型身份选择、短屏大字体导航、权限二级折叠。均为本地 Compose 夹具，不使用真实服务。
+- 实际应用人工操作核对工具顺序、工作下的应用存储/审计、设置目录、授权管理入口、任务清单空状态；最终权限页复核行距和文案。没有改变真实授权或发送消息。
+- 文档、多语言及 `git diff --check` 通过。提交包含本轮之前尚未提交的会话更多、Provider 显示名称/表单、订阅登录提示及此次菜单/权限优化；临时脚本、设备备份与截图不提交。
+
+设备状态为本次 API36 定向验证 **passed**；API29/34、真机、Consumer 设备运行、真实模型/账号登录及真实服务目录请求均未验证。本次不把界面夹具通过等同于这些外部链路通过。Git 提交及远端身份以实际 Git 历史为准。

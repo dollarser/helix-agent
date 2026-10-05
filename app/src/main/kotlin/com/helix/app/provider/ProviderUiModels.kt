@@ -50,6 +50,7 @@ data class ProviderRowUi(
     val accountState: ManagedAccountSnapshot? = null,
 ) {
     val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
+    val visibleInModelPicker: Boolean get() = !managedExternally || accountState?.ready == true
 
     /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
     val conversationModels: List<String> get() = modelSelection.models
@@ -59,7 +60,14 @@ data class ProviderRowUi(
     val offersConversationModels: Boolean get() = chatSelectable && conversationModels.isNotEmpty()
 
     fun modelLabel(modelId: String): String =
-        if (provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET && modelId == model) displayName else modelId
+        modelSelection.displayNames[modelId]
+            ?: if (provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET &&
+                modelId == model
+            ) {
+                displayName
+            } else {
+                modelId
+            }
 
     /**
      * Selectable for a new session only when the connection test COMPLETED

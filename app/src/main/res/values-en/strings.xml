@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="chat_ledger_empty">No task checklist yet. Progress will appear here when Helix creates one.</string>
     <string name="connector_oauth_client_setup">Discover client configuration</string>
     <string name="connector_oauth_client_issuer">Authorization server: %1$s\nExact redirect: %2$s</string>
     <string name="connector_oauth_client_document">Your HTTPS client metadata URL</string>
@@ -342,7 +343,7 @@
     <string name="egress_rule_expired">(expired)</string>
     <string name="egress_rule_help">Bounded rules for high-sensitivity egress: strictly bound to an exact Provider/MCP, canonical origin and scope, auto-approved only while valid; they expire immediately on expiry, revocation, switching back to Standard, or any bound-field change. Per-call approval is unchanged.</string>
     <string name="egress_target_id_label">Provider / MCP ID (no wildcards)</string>
-    <string name="egress_title">High-sensitivity egress rules</string>
+    <string name="egress_title">Sensitive content sharing rules</string>
     <string name="egress_ttl_days_30">30 days</string>
     <string name="egress_ttl_days_7">7 days</string>
     <string name="egress_ttl_hint">Duration (one-time grant, not a sliding renewal)</string>
@@ -562,7 +563,7 @@
     <string name="provider_capability_tool_calls">Tool calls%1$s</string>
     <string name="provider_capability_vision">Vision%1$s</string>
     <string name="provider_cleartext_warning">Unencrypted HTTP to %1$s:%2$s: requests, attachments and API keys may be read or changed in transit. Connections remain available; HTTPS is recommended.</string>
-    <string name="provider_compose_endpoint_invalid">Endpoint must be an http/https URL (no userinfo, query or fragment)</string>
+    <string name="provider_compose_endpoint_invalid">API address must be an http/https URL (no userinfo, query or fragment)</string>
     <string name="provider_compose_header_conflict">Custom header conflicts with a template header (same name, different value)</string>
     <string name="provider_compose_header_disallowed">Header not allowed: credential-looking names (auth/cookie/token/key, etc.) and transport-reserved names are rejected</string>
     <string name="provider_compose_model_invalid">Model ID must be 1 to %1$s characters with no control characters</string>
@@ -573,11 +574,13 @@
     <string name="provider_edit_button">Edit</string>
     <string name="provider_empty">No API configured. Add one, select models and test the connection to use them in conversations.</string>
     <string name="provider_failed_detail">Failed phase: %1$s — %2$s %3$s</string>
-    <string name="provider_form_api_key_keep">API Key (leave blank to keep the current key)</string>
-    <string name="provider_form_endpoint_label">Endpoint (http/https base URL)</string>
+    <string name="provider_form_api_key_keep">Configured; leave blank to keep the existing key</string>
+    <string name="provider_form_endpoint_label">API address</string>
     <string name="provider_form_header_name_label">Custom header name (optional)</string>
     <string name="provider_form_header_value_label">Custom header value (optional)</string>
-    <string name="provider_form_model_label">Model ID</string>
+    <string name="provider_form_model_label">Model name (server identifier)</string>
+    <string name="provider_model_add_entry">＋ Add model</string>
+    <string name="provider_model_add_help">Choose the model Helix will call. Enter the model name supplied by your service (such as deepseek-chat), or fetch its model list and select one. This is not a custom display name.</string>
     <string name="provider_form_name">Name</string>
     <string name="provider_requires_api_key">This provider requires an API key</string>
     <string name="provider_retryable">(retryable)</string>
@@ -639,7 +642,7 @@
     <string name="settings_proot_remove_confirm">Remove</string>
     <string name="settings_proot_rebaseline_success">The baseline was reset (the previous anchor was removed). Select “Verify Runtime” to verify the new embedded baseline.</string>
     <string name="settings_proot_rebaseline_empty">There is no verified anchor to reset.</string>
-    <string name="provider_subscription_experimental_notice">Unofficial developer experiment. Account access may break or be restricted when the provider protocol changes.</string>
+    <string name="provider_subscription_experimental_notice">Unofficial integration. Sign in with an eligible account; availability depends on the provider.</string>
     <string name="provider_subscription_manage_account">Manage subscription login</string>
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions is unavailable, disabled, or signed by a different key.</string>
     <string name="connector_title">Plugins</string>
@@ -784,7 +787,7 @@
     <string name="chat_details_close">Close</string>
     <string name="files_controls">File options</string>
     <string name="provider_note_openai">Uses the Responses API. For a service that only supports Chat Completions, choose the generic OpenAI-compatible template.</string>
-    <string name="provider_note_generic">Enter the service URL, API key and model ID. The connection test checks the capabilities the service actually supports.</string>
+    <string name="provider_note_generic">For SGLang, vLLM, Ollama or another compatible service, enter its API address (usually ending in /v1) and select the supported protocol.</string>
     <string name="provider_note_ollama">The default address points to this device. For another device on your LAN, enter its address; HTTP is unencrypted. Helix warns without blocking the connection.</string>
     <string name="provider_note_sglang">Enter the SGLang server address and port with /v1 as the path. Before using tools, configure the model’s tool-call parser on the server and run the connection test.</string>
     <string name="provider_note_openrouter">Capabilities such as tool calling depend on the routed upstream model. Check them with the connection test.</string>
@@ -1542,11 +1545,11 @@
     <string name="operation_external">External or device action</string>
     <string name="operation_execute">Code or command execution</string>
     <string name="operation_privileged">Privileged operation</string>
-    <string name="provider_key_optional_label">API Key (optional)</string>
+    <string name="provider_key_optional_label">Optional when the service does not require a key</string>
     <string name="provider_advanced_options">Advanced options</string>
-    <string name="provider_discover_models">Discover models</string>
+    <string name="provider_discover_models">Fetch model list</string>
     <string name="provider_discovering_models">Fetching models…</string>
-    <string name="provider_discovery_hint">Select models to use. A catalog entry does not verify capabilities. You can also enter a model ID.</string>
+    <string name="provider_discovery_hint">Choose from the model field dropdown, or type a model name. Listed models still need capability verification.</string>
     <string name="provider_discovery_failed">Could not fetch models. Check the endpoint and credentials, or enter a model ID.</string>
     <string name="provider_context_load_failed">Could not load context settings or detect the window. Retry, or edit settings that loaded successfully.</string>
     <string name="provider_form_protocol">Protocol: %1$s</string>
@@ -1598,7 +1601,7 @@
     <string name="provider_models_operation_failed">The operation did not complete. Existing settings were not treated as successfully replaced. Check the provider or reload and retry.</string>
     <string name="provider_models_stale">Model selection changed elsewhere. Reload before saving.</string>
     <string name="provider_models_reload">Reload selection</string>
-    <string name="provider_models_manual_id">Manual model ID</string>
+    <string name="provider_models_manual_id">Model name supplied by the service</string>
     <string name="provider_models_add">Add to selection</string>
     <string name="provider_models_save">Save selection</string>
     <string name="provider_models_not_listed">Not listed in the latest catalog</string>
@@ -1683,7 +1686,7 @@
     <string name="settings_storage_title">App storage</string>
     <string name="nav_expanded">Expanded</string>
     <string name="nav_collapsed">Collapsed</string>
-    <string name="settings_session_scope_hint">Current conversation permissions and Mobile Use are managed in Conversation settings. Defaults here apply to new conversations.</string>
+    <string name="settings_session_scope_hint">Adjust this conversation’s operation rules independently, without affecting other conversations.</string>
     <string name="storage_usage_refresh">Refresh</string>
     <string name="files_downloads_folder">Downloads</string>
     <string name="files_documents_folder">Documents</string>
@@ -1839,4 +1842,16 @@
     <string name="phone_task_needs_configuration">The phone-control plugin is disabled or its registration needs attention. Check plugin settings.</string>
     <string name="phone_task_needs_selection">The phone-control plugin is enabled but not selected for this conversation.</string>
     <string name="phone_task_selected">Phone tools are selected for this conversation. Each action still depends on system permissions and the configured scope.</string>
+    <string name="provider_form_protocol_label">Protocol</string>
+    <string name="provider_model_display_name">Display name (optional)</string>
+    <string name="provider_model_display_name_hint">Leave blank to use the server model name</string>
+    <string name="provider_custom_service">Custom service</string>
+    <string name="nav_group_tools">Tools</string>
+    <string name="provider_model_input_hint">Type a model name or choose from the dropdown.</string>
+    <string name="settings_permissions_intro">System permissions control what Helix can access; action rules control when the Agent needs confirmation.</string>
+    <string name="settings_system_permissions_hint">Manage notifications, file access, accessibility, Shizuku and Root permissions.</string>
+    <string name="settings_execution_mode">Operating mode</string>
+    <string name="settings_default_permissions_hint">Applies to new conversations. Change the current conversation in its settings.</string>
+    <string name="settings_lan_summary">Manage allowed local network service addresses.</string>
+    <string name="settings_egress_summary">Manage time-limited approvals for sending sensitive content to external services.</string>
 </resources>

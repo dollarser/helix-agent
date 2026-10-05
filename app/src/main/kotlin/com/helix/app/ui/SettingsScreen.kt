@@ -105,22 +105,49 @@ internal fun PermissionsSafetyScreen(
             .testTag("screen-settings-permissions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SafetyProfileSection(profile, profileStore) { riskDialogOpen = true }
-        OutlinedButton(
-            onClick = onSystemPermissions,
-            modifier = Modifier.fillMaxWidth().testTag("settings-system-permissions"),
-        ) {
-            Text(stringResource(R.string.settings_system_permissions_title))
+        Text(stringResource(R.string.settings_permissions_intro), style = MaterialTheme.typography.bodyMedium)
+        SettingsGroup {
+            Text(
+                stringResource(R.string.settings_system_permissions_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(stringResource(R.string.settings_system_permissions_hint), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(
+                onClick = onSystemPermissions,
+                modifier = Modifier.fillMaxWidth().testTag("settings-system-permissions"),
+            ) {
+                Text(stringResource(R.string.permissions_manage))
+            }
         }
 
         if (sessionPermissionEdit != null && toolPipeline != null) {
             SessionPermissionSection(sessionPermissionEdit, toolPipeline, chatService, onOpenSessionSettings)
         }
 
+        SettingsDisclosure(
+            stringResource(R.string.settings_execution_mode),
+            "settings-profile-options",
+            stringResource(
+                if (profile == SafetyProfile.ADVANCED) {
+                    R.string.settings_current_advanced
+                } else {
+                    R.string.settings_current_standard
+                },
+            ),
+        ) { SafetyProfileSection(profile, profileStore) { riskDialogOpen = true } }
         if (AdvancedProfileAvailability.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
-            HorizontalDivider()
-            lanScopeStore?.let { LanScopeSettingsSection(it) }
-            EgressRuleSection(egressRules)
+            lanScopeStore?.let {
+                SettingsDisclosure(
+                    stringResource(R.string.settings_lan_title),
+                    "settings-lan-options",
+                    stringResource(R.string.settings_lan_summary),
+                ) { LanScopeSettingsSection(it) }
+            }
+            SettingsDisclosure(
+                stringResource(R.string.egress_title),
+                "settings-egress-options",
+                stringResource(R.string.settings_egress_summary),
+            ) { EgressRuleSection(egressRules) }
         }
     }
 

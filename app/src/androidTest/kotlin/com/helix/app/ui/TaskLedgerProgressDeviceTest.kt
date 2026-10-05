@@ -21,6 +21,16 @@ import java.util.UUID
 class TaskLedgerProgressDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun emptyChecklistIsAvailableInMoreWithoutClutteringTheConversation() {
+        compose.resetDeterministicUiState()
+        compose.onNodeWithTag("chat-ledger").assertDoesNotExist()
+        compose.onNodeWithTag("chat-composer-options").performClick()
+        compose.onNodeWithTag("chat-ledger").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("chat-ledger-details-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("chat-ledger-details-close").performClick()
+        compose.onNodeWithTag("chat-ledger").assertIsDisplayed()
+    }
+
     @Test
     fun progressCardShowsTheLatestTodoWriteAndOutlivesLaterWork(): Unit =
         runBlocking {

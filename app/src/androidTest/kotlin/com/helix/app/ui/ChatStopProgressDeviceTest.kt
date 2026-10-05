@@ -211,6 +211,8 @@ class ChatStopProgressDeviceTest {
         }
         compose.onNodeWithTag("chat-turn-error").assertIsDisplayed()
         compose.onNodeWithTag("chat-retry").assertDoesNotExist()
+        chat.setMode(AgentMode.CHAT)
+        compose.waitUntil(10_000) { chat.runControl.value.mode == AgentMode.CHAT && chat.screen.value.hasGoals }
         compose.onNodeWithTag("chat-composer-options").performClick()
         compose.onNodeWithTag("goal-manage").assertIsDisplayed()
         captureChatLayout(compose.activity, "failed-goal")

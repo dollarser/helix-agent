@@ -414,7 +414,7 @@ internal fun ConversationSection(
             optionsContent = {
                 artifacts()
                 TaskLedgerCard(screen.taskLedger, screen.openSessionId)
-                if (runControl.mode == AgentMode.GOAL && !screen.isDraft) {
+                if (runControl.mode == AgentMode.GOAL || screen.hasGoals) {
                     TextButton(intents.onManageGoal, modifier = Modifier.testTag("goal-manage")) {
                         Text(stringResource(R.string.goal_manage))
                     }

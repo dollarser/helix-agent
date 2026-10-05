@@ -93,12 +93,13 @@ internal fun ComposerModelMenu(
     var query by remember { mutableStateOf("") }
     var requestedModel by remember { mutableStateOf<Pair<String, String>?>(null) }
     val currentProvider = providers.firstOrNull { it.id == providerId }
+    val visibleProviders = providers.filter { it.visibleInModelPicker }
     val currentLabel = model?.let { currentProvider?.modelLabel(it) ?: it }
     val entries =
-        providers
+        visibleProviders
             .flatMap { row -> row.conversationModels.map { row to it } }
             .filter { (row, candidate) -> matchesModelQuery(row, candidate, query) }
-    val pendingProviders = providers.filter { it.needsModelSetup(query) }
+    val pendingProviders = visibleProviders.filter { it.needsModelSetup(query) }
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
     LaunchedEffect(openRequest) {
         if (openRequest > 0 && enabled) {

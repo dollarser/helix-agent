@@ -4528,6 +4528,7 @@ class ChatService(
                         pendingAttachments = stagedAttachmentsUi(),
                         shareDraftText = shareDraftText,
                         taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
+                        hasGoals = sessionId?.let { storage.goalControls.bySession(it).isNotEmpty() } == true,
                         isFork =
                             sessionId?.let {
                                 storage.messages.latestOfKind(it, SessionForkPlan.KIND, includeSuperseded = true) !=

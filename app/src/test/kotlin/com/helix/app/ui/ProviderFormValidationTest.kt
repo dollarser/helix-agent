@@ -38,9 +38,9 @@ class ProviderFormValidationTest {
         )
     }
 
-    @Test fun apiKeyRemainsOptionalAndSelectedModelsSatisfyModelEntry() {
+    @Test fun apiKeyRemainsOptionalWithTypedOrChosenModel() {
         assertNull(validateProviderForm(form))
-        assertNull(validateProviderForm(form.copy(fields = form.fields.copy(model = ""), selectedModels = setOf("m"))))
+        assertNull(validateProviderForm(form.copy(fields = form.fields.copy(model = "m"))))
     }
 
     @Test fun partialHeadersAreNotSilentlyDiscarded() {
@@ -67,22 +67,12 @@ class ProviderFormValidationTest {
         assertNull(providerErrorField(SaveResult.Rejected(R.string.provider_save_failed)))
     }
 
-    @Test fun mismatchedModelSelectionExplainsTheCorrection() {
-        val error = validateProviderForm(form.copy(selectedModels = setOf("other")))
-        assertEquals(R.string.provider_model_selection_mismatch, error?.res)
-        assertEquals(ProviderFormField.MODEL, providerErrorField(error))
-        assertNull(validateProviderForm(form.copy(selectedModels = setOf("model"))))
-    }
-
-    @Test fun invalidSelectedModelsAreNotMisreportedAsStorageFailures() {
-        val invalid = listOf(setOf("bad model"), setOf(""), (0..1024).map { "m$it" }.toSet())
-        invalid.forEach { models ->
-            val error = validateProviderForm(form.copy(selectedModels = models))
+    @Test fun invalidModelNamesAreNotMisreportedAsStorageFailures() {
+        listOf("bad model", "m".repeat(257), "bad\u007fmodel").forEach { model ->
+            val error = validateProviderForm(form.copy(fields = form.fields.copy(model = model)))
             assertEquals(R.string.provider_model_selection_invalid, error?.res)
             assertEquals(ProviderFormField.MODEL, providerErrorField(error))
         }
-        val badEntry = form.copy(fields = form.fields.copy(model = "bad model"))
-        assertEquals(R.string.provider_model_selection_invalid, validateProviderForm(badEntry)?.res)
     }
 
     @Test fun scrollbarShowsExtentAndRemainsInsideViewportAfterResize() {

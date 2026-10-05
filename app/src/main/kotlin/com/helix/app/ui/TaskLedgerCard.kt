@@ -28,7 +28,6 @@ internal fun TaskLedgerCard(
     items: List<LedgerItemUi>,
     sessionId: String? = null,
 ) {
-    if (items.isEmpty()) return
     var details by remember(sessionId) { mutableStateOf(false) }
     val blocked = items.count { it.state == "blocked" }
     TextButton(
@@ -42,7 +41,16 @@ internal fun TaskLedgerCard(
                 modifier = Modifier.testTag("chat-ledger-title"),
             )
             Text(
-                stringResource(R.string.chat_ledger_summary, items.count { it.state == "done" }, items.size, blocked),
+                if (items.isEmpty()) {
+                    stringResource(R.string.chat_ledger_empty)
+                } else {
+                    stringResource(
+                        R.string.chat_ledger_summary,
+                        items.count { it.state == "done" },
+                        items.size,
+                        blocked,
+                    )
+                },
                 color =
                     if (blocked >
                         0
@@ -58,6 +66,7 @@ internal fun TaskLedgerCard(
     }
     if (details) {
         ConversationSheet(stringResource(R.string.todo_progress_title), "chat-ledger-details", { details = false }) {
+            if (items.isEmpty()) Text(stringResource(R.string.chat_ledger_empty))
             items.forEachIndexed { index, item -> LedgerRow(item, index) }
         }
     }

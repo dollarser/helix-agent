@@ -83,7 +83,7 @@ class GroupedNavigationDeviceTest {
     }
 
     @Test
-    fun singleWorkChildStillRequiresExpandingItsSection() {
+    fun singleToolChildStillRequiresExpandingItsSection() {
         val visited = mutableListOf<String>()
         compose.setContent {
             MaterialTheme {
@@ -98,7 +98,7 @@ class GroupedNavigationDeviceTest {
             }
         }
         compose.onNodeWithTag("navigation-browser").assertDoesNotExist()
-        compose.onNodeWithTag("navigation-group-work").performClick()
+        compose.onNodeWithTag("navigation-group-tools").performClick()
         compose.runOnIdle { assertEquals(emptyList<String>(), visited) }
         compose.onNodeWithTag("navigation-browser").performClick()
         compose.runOnIdle { assertEquals(listOf("browser"), visited) }
@@ -177,16 +177,25 @@ class GroupedNavigationDeviceTest {
             val groupTag =
                 when (destination) {
                     ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
-                    ShellDestination.Files, ShellDestination.Browser,
-                    -> "navigation-group-work"
+                    -> {
+                        "navigation-group-work"
+                    }
 
-                    ShellDestination.Terminal -> null
+                    ShellDestination.Terminal, ShellDestination.Files, ShellDestination.Browser -> {
+                        "navigation-group-tools"
+                    }
 
-                    ShellDestination.Extensions, ShellDestination.Setup -> null
+                    ShellDestination.Extensions, ShellDestination.Setup -> {
+                        null
+                    }
 
-                    ShellDestination.Settings -> "navigation-group-settings"
+                    ShellDestination.Settings -> {
+                        "navigation-group-settings"
+                    }
 
-                    else -> null
+                    else -> {
+                        null
+                    }
                 }
             if (groupTag != null &&
                 compose.onAllNodesWithTag("navigation-${destination.route}").fetchSemanticsNodes().isEmpty()

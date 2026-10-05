@@ -4,6 +4,15 @@ import com.helix.provider.api.ProviderConfig
 import com.helix.provider.catalog.ProviderTemplate
 import com.helix.provider.catalog.ProviderTemplateCatalog
 
+/** Presentation order must not change protocol/endpoint template resolution. */
+internal fun providerTemplateChoices(): List<ProviderTemplate> {
+    val custom = ProviderTemplateCatalog.genericOpenAi.copy(credentialRequired = false)
+    val preferred = listOf(custom, ProviderTemplateCatalog.deepSeek, ProviderTemplateCatalog.openAi)
+    val combined = setOf("generic-openai", "sglang", "vllm", "ollama")
+    return preferred +
+        ProviderTemplateCatalog.all.filterNot { it.id in combined || it.id in preferred.map { p -> p.id } }
+}
+
 /**
  * The template an edit dialog composes against. The persisted row does not
  * store the template id, so the template is re-resolved from the protocol: an

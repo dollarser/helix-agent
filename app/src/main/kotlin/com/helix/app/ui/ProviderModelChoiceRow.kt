@@ -104,7 +104,7 @@ internal fun ProviderModelChoiceRow(
             )
             Column(Modifier.weight(1f)) {
                 Text(label)
-                if (label != model) Text(model.take(12), style = MaterialTheme.typography.labelSmall)
+                if (label != model) Text(model, style = MaterialTheme.typography.labelSmall)
                 if (row.backendModels != null && model !in row.backendModels) {
                     Text(
                         stringResource(R.string.provider_models_not_listed),

@@ -30,7 +30,7 @@ private val drawerGroupOrder =
         R.string.nav_projects,
         R.string.nav_models,
         R.string.nav_extensions,
-        R.string.nav_terminal,
+        R.string.nav_group_tools,
         R.string.nav_group_work,
         R.string.nav_group_settings,
     )
@@ -54,12 +54,24 @@ internal fun GroupedNavigation(
             .sortedBy { drawerGroupOrder.indexOf(it.navigationGroup()) }
     val groups =
         navigationDestinations.groupBy { it.navigationGroup() }.mapValues { (group, entries) ->
-            if (group ==
-                R.string.nav_group_settings
-            ) {
-                settingsDrawerEntries
-            } else {
-                entries.map { DrawerEntry(it.route, it.titleRes) }
+            when (group) {
+                R.string.nav_group_settings -> {
+                    settingsDrawerEntries
+                }
+
+                R.string.nav_group_work -> {
+                    entries.map { DrawerEntry(it.route, it.titleRes) } + workUtilityDrawerEntries
+                }
+
+                R.string.nav_group_tools -> {
+                    entries
+                        .sortedBy { listOf("terminal", "files", "browser").indexOf(it.route) }
+                        .map { DrawerEntry(it.route, it.titleRes) }
+                }
+
+                else -> {
+                    entries.map { DrawerEntry(it.route, it.titleRes) }
+                }
             }
         }
     val initialExpanded = groups.filterValues { entries -> entries.any { it.matches(currentRoute) } }.keys
@@ -105,7 +117,7 @@ internal fun GroupedNavigation(
             HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             groups.forEach { (group, entries) ->
                 if (group in
-                    setOf(R.string.nav_projects, R.string.nav_models, R.string.nav_extensions, R.string.nav_terminal)
+                    setOf(R.string.nav_projects, R.string.nav_models, R.string.nav_extensions)
                 ) {
                     val destination = entries.first()
                     NavigationDrawerItem(
@@ -165,6 +177,7 @@ internal fun navigationGroupTag(groupResId: Int): String =
     when (groupResId) {
         R.string.nav_group_conversations -> "navigation-group-conversations"
         R.string.nav_group_work -> "navigation-group-work"
+        R.string.nav_group_tools -> "navigation-group-tools"
         R.string.nav_group_configure -> "navigation-group-configure"
         R.string.nav_group_settings -> "navigation-group-settings"
         else -> "navigation-group-$groupResId"
@@ -175,14 +188,13 @@ private fun ShellDestination.navigationGroup(): Int =
         ShellDestination.Sessions -> R.string.nav_group_conversations
 
         ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
-        ShellDestination.Files, ShellDestination.Browser,
         -> R.string.nav_group_work
 
         ShellDestination.Projects -> R.string.nav_projects
 
         ShellDestination.Models -> R.string.nav_models
 
-        ShellDestination.Terminal -> R.string.nav_terminal
+        ShellDestination.Terminal, ShellDestination.Files, ShellDestination.Browser -> R.string.nav_group_tools
 
         ShellDestination.Extensions -> R.string.nav_extensions
 

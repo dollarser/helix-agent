@@ -14,7 +14,14 @@ data class ProviderModelSelection(
     val models: List<String> = emptyList(),
     val configured: Boolean = false,
     val customModels: List<String> = emptyList(),
+    val displayNames: Map<String, String> = emptyMap(),
 ) {
+    fun withDisplayName(
+        model: String,
+        name: String,
+    ): ProviderModelSelection =
+        copy(displayNames = if (name.isBlank()) displayNames - model else displayNames + (model to name.trim()))
+
     fun toggle(
         model: String,
         enabled: Boolean,
@@ -36,6 +43,8 @@ data class ProviderModelSelection(
         ProviderSelectedModels.validate(customModels)
         require(models.distinct() == models)
         require(customModels.distinct() == customModels)
+        ProviderSelectedModels.validate(displayNames.keys.toList())
+        require(displayNames.values.all { it.isNotBlank() && it.length <= 256 })
         require(configured || (models.isEmpty() && customModels.isEmpty()))
     }
 }
@@ -63,7 +72,8 @@ class ProviderSelectedModels(
             val parsed = Json.parseToJsonElement(lines.single())
             val document = requireNotNull(parsed as? kotlinx.serialization.json.JsonObject)
             // Preserve explicit selections from older records, but discard their retired default.
-            require(document.keys == setOf("models", "custom") || document.keys == setOf("models", "default", "custom"))
+            require(document.keys.containsAll(setOf("models", "custom")))
+            require(document.keys.all { it in setOf("models", "custom", "default", "displayNames") })
             val models =
                 requireNotNull(document["models"] as? JsonArray).map {
                     require(it.jsonPrimitive.isString)
@@ -74,7 +84,14 @@ class ProviderSelectedModels(
                     require(it.jsonPrimitive.isString)
                     it.jsonPrimitive.content
                 }
-            ProviderModelSelection(models, configured = true, customModels = custom)
+            val names =
+                document["displayNames"]
+                    ?.jsonObject
+                    ?.mapValues {
+                        require(it.value.jsonPrimitive.isString)
+                        it.value.jsonPrimitive.content
+                    }.orEmpty()
+            ProviderModelSelection(models, configured = true, customModels = custom, displayNames = names)
         }
 
     fun write(
@@ -100,6 +117,14 @@ class ProviderSelectedModels(
                     buildJsonObject {
                         put("models", JsonArray(value.models.map(::JsonPrimitive)))
                         put("custom", JsonArray(value.customModels.map(::JsonPrimitive)))
+                        put(
+                            "displayNames",
+                            buildJsonObject {
+                                value.displayNames.forEach { (id, name) ->
+                                    put(id, name)
+                                }
+                            },
+                        )
                     }.toString(),
                 ),
             )

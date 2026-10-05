@@ -12,7 +12,9 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -45,7 +47,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.catalog.ProviderTemplate
-import com.helix.provider.catalog.ProviderTemplateCatalog
 
 /** The un-persisted provider form (create when [providerId] is null). */
 internal data class ProviderForm(
@@ -54,9 +55,9 @@ internal data class ProviderForm(
     val fields: FormFields,
     val hasStoredKey: Boolean,
     val error: SaveResult.Rejected?,
-    val selectedModels: Set<String> = emptySet(),
     val preservedHeaders: Map<String, String> = emptyMap(),
     val protocol: com.helix.core.model.ProviderProtocol = template.protocol,
+    val modelDisplayName: String = "",
 ) {
     data class FormFields(
         val name: String,
@@ -98,24 +99,24 @@ internal fun TemplatePickerDialog(
                         .heightIn(max = 400.dp)
                         .indicatedVerticalScroll(rememberScrollState()),
             ) {
-                ProviderTemplateCatalog.all.forEach { template ->
+                providerTemplateChoices().forEach { source ->
+                    val template =
+                        if (source.id == "generic-openai") {
+                            source.copy(displayName = stringResource(R.string.provider_custom_service))
+                        } else {
+                            source
+                        }
                     Row(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { onSelect(template) }
                                 .testTag("provider-template-${template.id}")
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(template.displayName, style = MaterialTheme.typography.bodyLarge)
-                            val credentialNote = stringResource(R.string.provider_template_key_optional)
-                            Text(
-                                "${UiLabels.protocolLabel(template.protocol)} · $credentialNote",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
                     }
                 }
@@ -133,6 +134,7 @@ internal fun TemplatePickerDialog(
 // feedback, key entry, the cleartext risk box, the save gate) in one
 // composable; detekt's size/complexity rules do not model UI composition,
 // so both are suppressed per composable (same convention as the app shell).
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 internal fun ProviderFormDialog(
@@ -149,6 +151,7 @@ internal fun ProviderFormDialog(
     val discoveryMessage = discoveryState.message
     var advanced by remember { mutableStateOf(false) }
     var protocolsOpen by remember { mutableStateOf(false) }
+    var addingModel by remember { mutableStateOf(false) }
     val cleartext =
         remember(form.fields.endpoint) {
             tryParseEndpoint(form.fields.endpoint)?.let { CleartextWarning.forEndpoint(it) }
@@ -165,13 +168,16 @@ internal fun ProviderFormDialog(
         tag: String,
     ): Modifier =
         Modifier
+            .fillMaxWidth()
             .bringIntoViewRequester(locations.getValue(field))
             .focusRequester(focuses.getValue(field))
             .testTag(tag)
-    LaunchedEffect(form.error, advanced, saveAttempt) {
+    LaunchedEffect(form.error, advanced, addingModel, saveAttempt) {
         val target = invalidField ?: return@LaunchedEffect
         if (target == ProviderFormField.MODEL && form.providerId != null) return@LaunchedEffect
-        if (target in setOf(ProviderFormField.HEADER_NAME, ProviderFormField.HEADER_VALUE) && !advanced) {
+        if (target == ProviderFormField.MODEL && !addingModel) {
+            addingModel = true
+        } else if (target in setOf(ProviderFormField.HEADER_NAME, ProviderFormField.HEADER_VALUE) && !advanced) {
             advanced = true
         } else {
             withFrameNanos { }
@@ -218,20 +224,26 @@ internal fun ProviderFormDialog(
                         isError = invalidField == ProviderFormField.NAME,
                         modifier = fieldModifier(ProviderFormField.NAME, "provider-form-name"),
                     )
-                    androidx.compose.foundation.layout.Box {
-                        TextButton(
-                            onClick = { protocolsOpen = true },
+                    ExposedDropdownMenuBox(
+                        expanded = protocolsOpen,
+                        onExpandedChange = { if (!saving && !discovering) protocolsOpen = it },
+                    ) {
+                        OutlinedTextField(
+                            value = UiLabels.protocolLabel(form.protocol),
+                            onValueChange = {},
+                            readOnly = true,
                             enabled = !saving && !discovering,
-                            modifier = Modifier.testTag("provider-form-protocol"),
-                        ) {
-                            Text(
-                                stringResource(
-                                    R.string.provider_form_protocol,
-                                    UiLabels.protocolLabel(form.protocol),
-                                ),
-                            )
-                        }
-                        androidx.compose.material3.DropdownMenu(protocolsOpen, { protocolsOpen = false }) {
+                            label = { Text(stringResource(R.string.provider_form_protocol_label)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(protocolsOpen) },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(
+                                        androidx.compose.material3.ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                                        !saving && !discovering,
+                                    ).testTag("provider-form-protocol"),
+                        )
+                        ExposedDropdownMenu(protocolsOpen, { protocolsOpen = false }) {
                             listOf(
                                 com.helix.core.model.ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
                                 com.helix.core.model.ProviderProtocol.OPENAI_RESPONSES,
@@ -241,7 +253,7 @@ internal fun ProviderFormDialog(
                                     text = { Text(UiLabels.protocolLabel(protocol)) },
                                     onClick = {
                                         protocolsOpen = false
-                                        onField(form.copy(protocol = protocol, selectedModels = emptySet()))
+                                        onField(form.copy(protocol = protocol))
                                     },
                                     modifier = Modifier.testTag("provider-protocol-${protocol.name}"),
                                 )
@@ -261,7 +273,8 @@ internal fun ProviderFormDialog(
                         onValueChange = {
                             onField(form.copy(fields = form.fields.copy(apiKey = it)))
                         },
-                        label = {
+                        label = { Text("API Key") },
+                        supportingText = {
                             Text(
                                 if (form.hasStoredKey) {
                                     stringResource(R.string.provider_form_api_key_keep)
@@ -272,7 +285,7 @@ internal fun ProviderFormDialog(
                         },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.testTag("provider-form-key"),
+                        modifier = Modifier.fillMaxWidth().testTag("provider-form-key"),
                     )
                     TextButton(
                         onClick = { advanced = !advanced },
@@ -311,49 +324,55 @@ internal fun ProviderFormDialog(
                         )
                     }
                     if (form.providerId == null) {
-                        OutlinedTextField(
-                            value = form.fields.model,
-                            onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
-                            label = { Text(stringResource(R.string.provider_form_model_label)) },
-                            singleLine = true,
-                            isError = invalidField == ProviderFormField.MODEL,
-                            modifier = fieldModifier(ProviderFormField.MODEL, "provider-form-model"),
-                        )
-                        TextButton(
-                            onClick = onDiscover,
-                            enabled = !discovering && !saving,
-                            modifier = Modifier.testTag("provider-discover-models"),
-                        ) {
-                            val label =
-                                if (discovering) {
-                                    R.string.provider_discovering_models
-                                } else {
-                                    R.string.provider_discover_models
-                                }
-                            Text(stringResource(label))
+                        Text(stringResource(R.string.provider_model_add_help))
+                        if (!addingModel && form.fields.model.isNotBlank()) {
+                            Text(form.fields.model, modifier = Modifier.testTag("provider-current-model"))
                         }
-                        discoveryMessage?.let { Text(stringResource(it)) }
-                        discovery.forEach { model ->
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = model in form.selectedModels,
-                                    onCheckedChange = { checked ->
-                                        val selected =
-                                            if (checked) {
-                                                form.selectedModels + model
-                                            } else {
-                                                form.selectedModels - model
-                                            }
-                                        val target =
-                                            form.fields.model.takeIf { it in selected }
-                                                ?: selected.firstOrNull().orEmpty()
-                                        val fields = form.fields.copy(model = target)
-                                        onField(form.copy(selectedModels = selected, fields = fields))
-                                    },
-                                    modifier = Modifier.testTag("provider-model-choice-$model"),
-                                )
-                                Text(model, Modifier.weight(1f))
+                        TextButton(
+                            onClick = { addingModel = true },
+                            enabled = !saving && !discovering,
+                            modifier = Modifier.testTag("provider-model-add-entry"),
+                        ) { Text(stringResource(R.string.provider_model_add_entry)) }
+                        if (addingModel) {
+                            ProviderModelInput(
+                                value = form.fields.model,
+                                onValueChange = {
+                                    onField(
+                                        form.copy(
+                                            fields = form.fields.copy(model = it),
+                                            modelDisplayName =
+                                                if (it == form.fields.model) form.modelDisplayName else "",
+                                        ),
+                                    )
+                                },
+                                models = discovery,
+                                enabled = !saving && !discovering,
+                                isError = invalidField == ProviderFormField.MODEL,
+                                modifier = fieldModifier(ProviderFormField.MODEL, "provider-form-model"),
+                            )
+                            OutlinedTextField(
+                                value = form.modelDisplayName,
+                                onValueChange = { onField(form.copy(modelDisplayName = it.take(256))) },
+                                label = { Text(stringResource(R.string.provider_model_display_name)) },
+                                supportingText = { Text(stringResource(R.string.provider_model_display_name_hint)) },
+                                placeholder = { Text(form.fields.model) },
+                                singleLine = true,
+                                modifier = Modifier.testTag("provider-model-display-name"),
+                            )
+                            TextButton(
+                                onClick = onDiscover,
+                                enabled = !discovering && !saving,
+                                modifier = Modifier.testTag("provider-discover-models"),
+                            ) {
+                                val label =
+                                    if (discovering) {
+                                        R.string.provider_discovering_models
+                                    } else {
+                                        R.string.provider_discover_models
+                                    }
+                                Text(stringResource(label))
                             }
+                            discoveryMessage?.let { Text(stringResource(it)) }
                         }
                     } else {
                         Text(stringResource(R.string.provider_models_source_settings_hint))
@@ -446,7 +465,6 @@ internal fun editingProviderForm(
         ),
     hasStoredKey = row.hasKey,
     error = null,
-    selectedModels = row.selectedModels.toSet(),
     preservedHeaders =
         config.headers.entries
             .drop(1)
@@ -508,9 +526,7 @@ private suspend fun applySave(
             form.template.copy(protocol = form.protocol, credentialRequired = false, defaultHeaders = emptyMap()),
             form.fields.name.trim(),
             form.fields.endpoint.trim(),
-            form.fields.model
-                .trim()
-                .ifEmpty { form.selectedModels.firstOrNull().orEmpty() },
+            form.fields.model.trim(),
             headers,
         )
     return when (outcome) {
@@ -530,17 +546,16 @@ private suspend fun applySave(
                 }
 
                 else -> {
-                    val models =
-                        if (form.selectedModels.isEmpty()) listOf(draft.model) else form.selectedModels.toList()
+                    val models = listOf(draft.model)
                     com.helix.app.provider.ProviderSelectedModels
                         .validate(models)
                     if (form.providerId == null) {
-                        require(draft.model in models) { "The default must be one of the selected models" }
                         val id = providerService.create(draft, key)
                         providerService.saveModelSelection(
                             id,
                             com.helix.app.provider
-                                .ProviderModelSelection(models, configured = true),
+                                .ProviderModelSelection(models, configured = true)
+                                .withDisplayName(draft.model, form.modelDisplayName),
                         )
                     } else {
                         // Connection edits never overwrite model visibility/default preferences.

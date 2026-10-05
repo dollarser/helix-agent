@@ -99,6 +99,8 @@ class ProviderModelDiscoveryUiTest {
         }
         assertEquals(before, row(id).modelSelection)
         assertEquals(null, row(id).backendModels)
+        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-add-entry"))
+        composeRule.onNodeWithTag("provider-model-add-entry").performClick()
         composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-manual"))
         composeRule.onNodeWithTag("provider-model-manual").performTextInput("manual-fixture")
         androidx.test.espresso.Espresso
@@ -200,6 +202,7 @@ class ProviderModelDiscoveryUiTest {
         composeRule.onNodeWithTag("provider-form-name").performTextInput(name)
         composeRule.onNodeWithTag("provider-form-endpoint").performTextClearance()
         composeRule.onNodeWithTag("provider-form-endpoint").performTextInput(endpoint)
+        composeRule.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
         composeRule.onNodeWithTag("provider-form-model").performTextClearance()
         composeRule.onNodeWithTag("provider-form-model").performTextInput(model)
         if (key != null) {

@@ -16,8 +16,10 @@ import com.helix.app.provider.ProviderSetupStep
 @Composable
 @Suppress("FunctionName")
 internal fun SubscriptionSetupHint(row: ProviderRowUi) {
+    val step = ProviderSetupStep.forRow(row)
+    if (step == ProviderSetupStep.READY) return
     val label =
-        when (ProviderSetupStep.forRow(row)) {
+        when (step) {
             ProviderSetupStep.ACCOUNT -> R.string.subscription_setup_account
             ProviderSetupStep.CONNECTION -> R.string.subscription_setup_connection
             ProviderSetupStep.MODELS -> R.string.subscription_setup_models
