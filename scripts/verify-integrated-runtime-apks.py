@@ -20,10 +20,24 @@ COMPONENTS = {
     "com.helix.runtime.proot.app.ProotJobStopReceiver": ("receiver", ":proot"),
 }
 for activity in ("CodexLoginActivity", "CopilotLoginActivity", "ClaudeLoginActivity", "AntigravityLoginActivity",
-                 "GrokLoginActivity", "CliRuntimeHomeActivity", "SubscriptionNetworkSettingsActivity"):
+                 "GrokLoginActivity", "CliRuntimeHomeActivity"):
     COMPONENTS["com.helix.runtime.cli.app." + activity] = ("activity", ":subscriptions")
 for activity in ("ProotRepairActivity", "ProotLegalActivity"):
     COMPONENTS["com.helix.runtime.proot.app." + activity] = ("activity", ":proot")
+
+
+def packaged_xml_path(resource_table, name):
+    """Resolve the packaged path, including Release resource filename shortening."""
+    blocks = re.split(r"(?m)^\s*resource ", resource_table)
+    matches = [block.splitlines()[1:] for block in blocks if
+               re.fullmatch(r"0x[0-9a-fA-F]+ xml/" + re.escape(name), block.splitlines()[0].strip() if block else "")]
+    if len(matches) != 1:
+        raise RuntimeError(f"Missing or ambiguous XML resource: {name}")
+    entries = [line.strip() for line in matches[0] if line.strip()]
+    path = re.fullmatch(r"\(\) \(file\) (res/[^\s]+\.xml) type=XML", entries[0]) if len(entries) == 1 else None
+    if path is None:
+        raise RuntimeError(f"Unexpected XML resource configurations: {name}")
+    return path.group(1)
 
 
 def verify_http_network_config(app, config, resource_table=""):
@@ -147,14 +161,14 @@ def verify(flavor, build_type):
     apk = apks[0]
     manifest = ET.fromstring(subprocess.check_output([str(ANALYZER), "manifest", "print", str(apk)]))
     app = manifest.find("application")
-    network_config = ET.fromstring(subprocess.check_output([
-        str(ANALYZER), "resources", "xml", "--file", "res/xml/network_security_config.xml", str(apk),
-    ]))
     tools = list(SDK.glob("build-tools/*/aapt2"))
     if not tools:
         raise RuntimeError("aapt2 is required to resolve the packaged network resource identity")
     aapt = max(tools, key=lambda path: tuple(int(n) for n in re.findall(r"\d+", path.parent.name)))
     resources = subprocess.check_output([str(aapt), "dump", "resources", str(apk)], text=True)
+    network_config = ET.fromstring(subprocess.check_output([
+        str(ANALYZER), "resources", "xml", "--file", packaged_xml_path(resources, "network_security_config"), str(apk),
+    ]))
     verify_http_network_config(app, network_config, resources)
     package = manifest.attrib["package"]
     developer = flavor == "developer"
@@ -162,12 +176,14 @@ def verify(flavor, build_type):
     mobile_config = None
     if developer:
         mobile_config = ET.fromstring(subprocess.check_output([
-            str(ANALYZER), "resources", "xml", "--file", "res/xml/helix_accessibility_service.xml", str(apk),
+            str(ANALYZER), "resources", "xml", "--file", packaged_xml_path(resources, "helix_accessibility_service"), str(apk),
         ]))
     verify_mobile_use(app, developer, mobile_config, resources)
     verify_shizuku(app, developer)
     assert package == "com.helix.agent" + (".developer" if developer else "")
     components = {element.get(A + "name"): element for element in app}
+    # Network configuration belongs to global settings; the retired subscription entry must not return.
+    assert "com.helix.runtime.cli.app.SubscriptionNetworkSettingsActivity" not in components
     for name, (kind, suffix) in COMPONENTS.items():
         component = components.get(name)
         if not developer:

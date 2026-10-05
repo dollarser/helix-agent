@@ -22,6 +22,10 @@ Mobile Use 与宿主 device-access 的依赖迁移后，仅更新了部分 Debug
 
 依赖解析通过后，完整 lint 暴露权限 UI 的 6 处 InlinedApi 错误：API29 路径引用了 API30/33 的权限名或设置动作。后续修复在权限清单、应用可见性检查、全部文件权限检测和设置回调处添加实际 SDK 判断；旧系统回退应用设置。保留 minSdk 29，不屏蔽 lint。该问题此前被更早的依赖解析失败挡住，Debug 编译也不能替代 lint。
 
+远端 tests-build 通过后，APK 边界检查还发现 `SubscriptionNetworkSettingsActivity` 的过期存在断言。该页面已随全局网络配置统一而删除；将断言更新为禁止旧页面重新打包，不恢复废弃入口，其他组件隔离与渠道边界检查保留。
+
+本地继续执行 Release APK 检查发现资源读取硬编码 `res/xml/...`，不适用于 Release 缩短后的资源文件名。网络与无障碍 XML 改为按编译资源表的名称解析打包路径；缺失、重复、异常路径或额外配置均报错，内容和引用身份检查继续执行。补充 Debug/Release 路径及拒绝分支的主机回归测试。
+
 ## Alternatives considered
 
 重跑 CI 或清缓存不能补齐提交中的依赖锁。手改锁容易漏掉传递依赖和 lint 配置，因此使用仓库已有生成/复验流程。
@@ -31,6 +35,8 @@ Mobile Use 与宿主 device-access 的依赖迁移后，仅更新了部分 Debug
 首次 `scripts/check-lockfiles.sh` 按预期报告两份锁发生变化；重新运行验证 38 份锁稳定。完整 CI 对应主机命令为 `scripts/check-all.sh --analysis` 与 `--tests-build`，日志位于忽略的 `build/ci-lock-fix/`。远端验收以修复提交对应的 GitHub run 为准，不把本地主机执行等同远端成功。
 
 首次完整 analysis 在依赖修复后因上述 6 处 API 错误失败（`analysis.log`）；版本判断修复后的复验记录为 `analysis-fixed.log`。这两类失败分别记录，不将后续问题归咎于配置缓存。
+
+版本判断修复后，本地完整 analysis、tests-build 和 38 份锁复验通过。远端运行 `37340470753` 的 tests-build 也通过，但后续 APK 检查暴露上述旧页面断言；APK 检查必须单独复验，不以构建成功代替。
 
 ## Residual risk
 

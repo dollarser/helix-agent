@@ -12,6 +12,16 @@ A = GUARD.A
 
 
 class ProviderHttpPolicyTest(unittest.TestCase):
+    def test_packaged_xml_paths_support_release_names_and_reject_ambiguity(self):
+        for path in ('res/xml/network_security_config.xml', 'res/8G.xml'):
+            table = f'    resource 0x7f0d0002 xml/network_security_config\n      () (file) {path} type=XML\n'
+            self.assertEqual(path, GUARD.packaged_xml_path(table, 'network_security_config'))
+            for wrong in ('', table + table, table.replace('network_security_config', 'file_paths'),
+                          table + '      (night) (file) res/other.xml type=XML\n',
+                          table.replace(path, '../outside.xml')):
+                with self.subTest(table=wrong), self.assertRaises(RuntimeError):
+                    GUARD.packaged_xml_path(wrong, 'network_security_config')
+
     def app(self):
         return ET.Element('application', {A + 'networkSecurityConfig': '@xml/network_security_config'})
 
