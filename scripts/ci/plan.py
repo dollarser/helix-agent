@@ -30,7 +30,9 @@ def classify(paths):
     scope = 'source'
     for name in paths:
         path = Path(name)
-        if name.startswith(('docs/', 'scripts/debug/')) or name in {'README.md', 'AGENTS.md', 'LICENSE'}:
+        if name.startswith(('docs/', 'scripts/debug/')) or name in {
+                'README.md', 'README.en.md', 'AGENTS.md', 'LICENSE', 'CONTRIBUTING.md',
+                'SECURITY.md', 'THIRD_PARTY_NOTICES.md'}:
             continue
         if (name.startswith(('.github/', 'gradle/')) or path.name == 'AndroidManifest.xml'
                 or path.suffix in {'.gradle', '.kts', '.pro', '.c', '.cpp', '.h', '.so', '.aar', '.jar'}
@@ -44,8 +46,22 @@ def classify(paths):
     return scope
 
 
+def android_gates(scope):
+    if scope == 'full':
+        return ['analysis', 'release-analysis', 'tests-build']
+    if scope == 'debug':
+        return ['analysis', 'tests-build']
+    if scope == 'source':
+        # Keep matrix expansion valid; the Android job's scope condition skips it.
+        return ['analysis', 'tests-build']
+    raise ValueError('Unknown verification scope')
+
+
 def successful_android_jobs(jobs):
-    required = {'source', 'runtime-assets', 'android (analysis)', 'android (tests-build)', 'verify'}
+    # Only a complete Debug + Release run proves a reusable Android baseline.
+    # Legacy/Debug-only runs conservatively trigger validation from a full baseline.
+    required = {'source', 'runtime-assets', 'android (analysis)',
+                'android (release-analysis)', 'android (tests-build)', 'verify'}
     outcomes = {job['name']: job.get('conclusion') for job in jobs}
     return all(outcomes.get(name) == 'success' for name in required)
 
@@ -125,6 +141,7 @@ def main():
     Path('build/ci/plan.json').write_text(json.dumps(result, indent=2) + '\n')
     with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
         output.write('scope=' + result['scope'] + '\n')
+        output.write('android_gates=' + json.dumps(android_gates(result['scope'])) + '\n')
     print(json.dumps({key: value for key, value in result.items() if key != 'paths'}))
 
 

@@ -11,6 +11,28 @@ spec.loader.exec_module(ci)
 class CiPlanTest(unittest.TestCase):
     def test_docs_and_historical_scripts_only(self):
         self.assertEqual('source', ci.classify(['docs/a.md', 'scripts/debug/2026-09-18/example.sh']))
+        for path in ['README.md', 'README.en.md', 'CONTRIBUTING.md', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md']:
+            with self.subTest(path=path):
+                self.assertEqual('source', ci.classify([path]))
+                self.assertEqual('full', ci.classify([path, 'app/build.gradle.kts']))
+
+    def test_analysis_split_and_complete_baseline(self):
+        self.assertEqual(['analysis', 'release-analysis', 'tests-build'], ci.android_gates('full'))
+        self.assertEqual(['analysis', 'tests-build'], ci.android_gates('debug'))
+        self.assertTrue(ci.android_gates('source'))
+        with self.assertRaises(ValueError):
+            ci.android_gates('unknown')
+        jobs = [{'name': name, 'conclusion': 'success'} for name in
+                ['source', 'runtime-assets', 'android (analysis)', 'android (release-analysis)',
+                 'android (tests-build)', 'verify']]
+        self.assertTrue(ci.successful_android_jobs(jobs))
+        for index in range(len(jobs)):
+            with self.subTest(missing=index):
+                self.assertFalse(ci.successful_android_jobs(jobs[:index] + jobs[index + 1:]))
+            for result in ['failure', 'cancelled', 'skipped', '']:
+                changed = [dict(job) for job in jobs]
+                changed[index]['conclusion'] = result
+                self.assertFalse(ci.successful_android_jobs(changed))
 
     def test_shared_code_and_resources_require_debug(self):
         self.assertEqual('debug', ci.classify(['docs/a.md', 'app/src/main/kotlin/Main.kt']))
@@ -38,7 +60,7 @@ class CiPlanTest(unittest.TestCase):
 
     def test_source_only_success_is_not_an_android_baseline(self):
         jobs = [{'name': name, 'conclusion': 'success'} for name in
-                ['source', 'runtime-assets', 'android (analysis)', 'android (tests-build)', 'verify']]
+                ['source', 'runtime-assets', 'android (analysis)', 'android (release-analysis)', 'android (tests-build)', 'verify']]
         runs = [{'id': 3, 'event': 'workflow_dispatch', 'head_sha': 'c' * 40},
                 {'id': 2, 'event': 'push', 'head_sha': 'b' * 40},
                 {'id': 1, 'event': 'push', 'head_sha': 'a' * 40}]

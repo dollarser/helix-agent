@@ -1,6 +1,6 @@
 # CI 分层与验证边界
 
-更新：2026-09-21。实现入口：[workflow](../../.github/workflows/ci.yml)、[范围选择](../../scripts/ci/plan.py)、[共享门禁](../../scripts/check-all.sh)、[暂存区快检](../../scripts/check-staged.py)。
+更新：2026-10-06。实现入口：[workflow](../../.github/workflows/ci.yml)、[范围选择](../../scripts/ci/plan.py)、[共享门禁](../../scripts/check-all.sh)、[暂存区快检](../../scripts/check-staged.py)。
 
 ## 本地与远端分工
 
@@ -37,11 +37,17 @@ git -c core.hooksPath=.githooks commit
 | Workflow、构建/依赖/Manifest、原生代码、Release 路径、未知类型 | full | 原有完整主机门禁，包含全部 tests、Debug/Release lint 和 assemble |
 | 手动 workflow_dispatch | 默认 full，可选 debug | 用于主动完整验证或复核日常 Debug 路径，不提供手动跳过 Android 的入口 |
 
-Push 使用最近 30 次成功运行内、属于 main 祖先且全部 Android job 成功的 **push** 提交作为比较基线；source-only 成功和手动运行不成为基线。这样代码 CI 被取消后再推文档，仍会验证累计代码变化。PR 使用完整 merge-base 差异，删除/移动按两端路径判断。无可信基线、API 不可用或未知文件时运行 full。
+Push 使用最近 30 次成功运行内、属于 main 祖先且全部 Debug/Release Android job 成功的 **push** 提交作为比较基线；source-only、Debug-only 成功和手动运行不成为完整基线。这样代码 CI 被取消后再推文档，仍会验证累计代码变化。PR 使用完整 merge-base 差异，删除/移动按两端路径判断。无可信基线、API 不可用或未知文件时运行 full。迁移到分片方案时，不将缺少独立 Release job 的旧运行冒充新完整基线；首次运行保守执行 full。
 
 `verify` 保留稳定检查名：source 必须成功；仅 source 档允许两个重型阶段按计划 skipped，其余失败、取消和意外跳过都失败。分支保护如另行强制要求 Android 子 job，需与这一聚合检查策略保持一致。
 
 ## 省去的重复工作
+
+- 文档分类明确覆盖中英文 README、CONTRIBUTING、SECURITY 和 THIRD_PARTY_NOTICES；未知脚本、构建配置仍走 full，不将任意 Markdown 后缀直接放行。
+- full 的 `analysis` 执行 Spotless/Detekt/Debug lint，`release-analysis` 并行执行全部 Release lint；原有任务集合的并集不变。debug 档只创建 analysis/tests-build 两个分片，source 档跳过整个 Android 矩阵。本地 `--analysis` 仍为完整合并检查。
+- CI 门禁启用 Gradle 自带 `--profile`，在诊断附件中保留 `build/reports/profile/`；任务执行、依赖解析、缓存命中和耗时用于后续定位。普通本地门禁不强制开启，显式设置 `HELIX_GRADLE_PROFILE=1` 可复现。
+
+分片增加并行 runner 和部分重复配置/编译开销，目标是降低关键路径的等待时间，不承诺减少总计算分钟。保持原 runner、堆设置和依赖缓存，避免同时改动多个变量；后续按实测再决定平台、内存或缓存策略。没有因加速删掉 Release lint、测试、锁或 APK 边界检查。
 
 - 纯文档/历史脚本提交省掉资产与 Android 构建。脚本开发所需实际设备验收仍按任务规格执行。
 - 日常代码省掉 Release 重复编译/lint，完整门禁仍用于构建配置变更、手动验证和 HXA 收口。该取舍不是 Release 已验证声明。
@@ -49,7 +55,7 @@ Push 使用最近 30 次成功运行内、属于 main 祖先且全部 Android jo
 - 组合制品门禁只扫描一次相同的集成 Runtime APK；独立调用订阅边界脚本仍自带扫描。
 - full 档额外运行 `--release-artifacts`，验证实际 Release APK 的组件/dex/native 边界。原 `--artifacts` 只检查 Debug，不能因为构建了 Release 就声称 Release 边界也通过；本地 `--all` 现包含此补充，Debug 档保持原范围。
 
-source 在 Linux、资产在 arm64 Linux、Android 两分片在 macOS runner。CI 的长期边界是 host/build/static：不启动模拟器、不连接真机、不执行 device instrumentation/matrix，也不执行付费模型、真实账号或 OEM 长稳。设备验证仅可在项目所有者当前任务明确要求时由 AI 代理在本地执行，不能迁入 GitHub Actions。暂不迁移 runner 平台，先测量上述改动的实际收益。
+source 在 Linux、资产在 arm64 Linux、Android 两至三分片在 macOS runner。CI 的长期边界是 host/build/static：不启动模拟器、不连接真机、不执行 device instrumentation/matrix，也不执行付费模型、真实账号或 OEM 长稳。设备验证仅可在项目所有者当前任务明确要求时由 AI 代理在本地执行，不能迁入 GitHub Actions。暂不迁移 runner 平台，先测量上述改动的实际收益。
 
 ## 验证与使用
 
@@ -62,3 +68,7 @@ source 在 Linux、资产在 arm64 Linux、Android 两分片在 macOS runner。C
 调整前基线：[382674c3 / 35515226699](https://github.com/dollarser/helix-agent/actions/runs/35515226699)，总时长约 16 分 40 秒；source 22 秒、资产 2 分 39 秒、analysis 9 分 26 秒、tests-build 13 分 23 秒，两个 Android 分片并行。耗时依赖 runner 与缓存冷热，不能把不同档位的时长差当作同等覆盖加速比例。
 
 新流水线的实际命令、结果和未验边界见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)。后续工作排序见[当前状态](status.md)。
+
+2026-10-06 优化前基线为 [37346442952](https://github.com/dollarser/helix-agent/actions/runs/37346442952)：analysis 命令约 45 分 55 秒、tests-build 命令 12 分 37 秒；analysis 的 1431 项任务中 288 项来自缓存。任务数命中率不能直接换算耗时收益。本轮以分片后相同 full 覆盖的远端运行作比较，设备与真实模型均不属于本次 CI 验证。
+
+本地验证：15 项 CI 策略/门禁/缓存回归、源码门禁与 YAML 语法检查通过；两个新入口实际执行通过，Debug 分析 2 分 17 秒、Release 分析 1 分 47 秒，均生成 Gradle profile。此为本机缓存条件下的顺序验证，不是 GitHub 并行收益。远端优化后的运行尚未执行，不能据此宣称已将 CI 缩短到上述时间。

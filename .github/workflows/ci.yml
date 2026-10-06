@@ -25,6 +25,7 @@ jobs:
   source:
     outputs:
       scope: ${{ steps.plan.outputs.scope }}
+      android_gates: ${{ steps.plan.outputs.android_gates }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -131,7 +132,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        gate: [analysis, tests-build]
+        gate: ${{ fromJSON(needs.source.outputs.android_gates) }}
     timeout-minutes: 60
 
     steps:
@@ -186,9 +187,11 @@ jobs:
           CI_SCOPE: ${{ needs.source.outputs.scope }}
           CI_GATE: ${{ matrix.gate }}
         run: |
-          case "$CI_SCOPE" in
-            debug) ./scripts/ci-run-gate.sh "--debug-$CI_GATE" ;;
-            full) ./scripts/ci-run-gate.sh "--$CI_GATE" ;;
+          case "$CI_SCOPE:$CI_GATE" in
+            debug:analysis|full:analysis) ./scripts/ci-run-gate.sh --debug-analysis ;;
+            full:release-analysis) ./scripts/ci-run-gate.sh --release-analysis ;;
+            debug:tests-build) ./scripts/ci-run-gate.sh --debug-tests-build ;;
+            full:tests-build) ./scripts/ci-run-gate.sh --tests-build ;;
             *) exit 2 ;;
           esac
 
@@ -246,6 +249,7 @@ jobs:
             **/build/test-results/**/*.xml
             **/build/reports/lint-results*.xml
             build/reports/detekt/
+            build/reports/profile/
 
   # Preserve the required check; only the planned source-only skips are accepted.
   verify:

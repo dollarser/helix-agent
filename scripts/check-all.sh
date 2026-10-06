@@ -6,6 +6,10 @@ cd "$project_root"
 
 # Full gates retain experiment coverage even though ordinary builds exclude it.
 export ORG_GRADLE_PROJECT_includeSpikes=true
+gradle_profile=()
+if [[ "${HELIX_GRADLE_PROFILE:-0}" == 1 ]]; then
+    gradle_profile+=(--profile)
+fi
 
 source_checks() {
     python3 scripts/test-review-gates.py
@@ -27,22 +31,26 @@ source_checks() {
 }
 
 analysis_checks() {
-    ./gradlew spotlessCheck detekt lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} spotlessCheck detekt lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
 }
 
 test_build_checks() {
-    ./gradlew test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
         :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
     ./scripts/check-lockfiles.sh
 }
 
 debug_analysis_checks() {
-    ./gradlew spotlessCheck detekt lintDebug lintConsumerDebug lintDeveloperDebug
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} spotlessCheck detekt lintDebug lintConsumerDebug lintDeveloperDebug
+}
+
+release_analysis_checks() {
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} lintRelease lintConsumerRelease lintDeveloperRelease
 }
 
 debug_test_build_checks() {
     # Retain every existing test; only release lint/packaging is omitted.
-    ./gradlew test \
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test \
         :app:assembleConsumerDebug :app:assembleDeveloperDebug
     ./scripts/check-lockfiles.sh
 }
@@ -64,6 +72,7 @@ release_artifact_checks() {
 case "${1:---all}" in
     --source) source_checks ;;
     --analysis) analysis_checks ;;
+    --release-analysis) release_analysis_checks ;;
     --debug-analysis) debug_analysis_checks ;;
     --debug-tests-build) debug_test_build_checks ;;
     --tests-build) test_build_checks ;;
@@ -71,5 +80,5 @@ case "${1:---all}" in
     --artifacts) artifact_checks ;;
     --release-artifacts) release_artifact_checks ;;
     --all) source_checks; build_checks; artifact_checks; release_artifact_checks ;;
-    *) printf 'Usage: %s [--source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--source|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac
