@@ -104,6 +104,12 @@ def run(args):
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
             device("install", "-r", str(output / "app.apk"), timeout=120)
             device("install", "-r", str(output / "test.apk"), timeout=120)
+            if args.clear_app_data:
+                app_package = args.runner.split("/", 1)[0].removesuffix(".test")
+                cleared = device("shell", "pm", "clear", app_package).strip()
+                if cleared != "Success":
+                    raise RuntimeError(f"Failed to clear owned fixture app: {cleared}")
+                (output / "fixture-reset.json").write_text(json.dumps({"package": app_package, "result": cleared}))
             if args.grant_shared_storage:
                 app_package = args.runner.split("/", 1)[0].removesuffix(".test")
                 api = int(device("shell", "getprop", "ro.build.version.sdk").strip())
@@ -215,6 +221,7 @@ if __name__ == "__main__":
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--grant-shared-storage", action="store_true")
+    parser.add_argument("--clear-app-data", action="store_true", help="Reset only the target app before seeding this owned instance")
     parser.add_argument("--airplane-mode", action="store_true",
                         help="Cut the network (disable wifi + data) for the offline scenario")
     parser.add_argument("--night-mode", choices=("yes", "no"), help="Owned emulator system mode; dark also uses font scale 1.3")

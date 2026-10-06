@@ -89,9 +89,10 @@ class RootAccessController internal constructor(
 
     /**
      * A Root manager can revoke future grants without killing an already-open libsu shell or
-     * RootService. There is no manager-neutral passive revocation signal, so retaining either
-     * across an app background transition would leave stale authority usable. Fail closed when
-     * an established grant leaves the foreground; an in-flight manager prompt remains intact.
+     * RootService. There is no manager-neutral passive revocation signal. Detach this diagnostic
+     * consumer when an established grant leaves the foreground; an in-flight manager prompt
+     * remains intact. The host's shared shell is retained for other consumers, and cached grant
+     * observations do not prove that the manager still permits a fresh grant.
      */
     @Synchronized
     fun onAppBackgrounded(): RootAccessStatus {

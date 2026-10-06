@@ -96,18 +96,18 @@ for attempt in range(3):
     if len(cleared) == 1 and cleared[0].get('text') == '': break
 else:
     raise RuntimeError('Could not clear the focused editor before replacement')
-adb('shell', 'input', 'text', 'NORMAL-PROCESS-EDIT-215')
-wait_text('NORMAL-PROCESS-EDIT-215', 'normal-editor-written')
+adb('shell', 'input', 'text', '215001215')
+wait_text('215001215', 'normal-editor-written')
 # The current editor debounces persistence (250ms) and has no saved-status label.
 # Reopened UI plus verifyRevisionRecovery below prove the exact saved text, revision,
 # original message and unchanged Turn count; elapsed time alone is not a pass.
 time.sleep(2)
 view = nodes('normal-editor-before-kill')
-assert any(n.get('text') == 'NORMAL-PROCESS-EDIT-215' for n in view)
+assert any(n.get('text') == '215001215' for n in view)
 pid = int(adb('shell', 'pidof', package).strip())
 kill_emulator_app(base, package, pid)
-open_session('REVISION-RECOVERY', restored_text='NORMAL-PROCESS-EDIT-215')
-wait_text('NORMAL-PROCESS-EDIT-215', 'normal-editor-restored')
+open_session('REVISION-RECOVERY', restored_text='215001215')
+wait_text('215001215', 'normal-editor-restored')
 new_pid = int(adb('shell', 'pidof', package).strip())
 assert new_pid != pid
 # Dismiss editor without discarding, return to sessions, inspect the committed-before-receipt fixture.

@@ -188,7 +188,7 @@ class ProviderModelDiscoveryUiTest {
         name: String,
         endpoint: String,
         model: String,
-        template: String = "ollama",
+        template: String = "generic-openai",
         key: String? = null,
     ): String {
         composeRule.navigateTo("models")

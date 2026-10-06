@@ -113,9 +113,9 @@ class SessionSettingsDeviceTest {
             "composer-add-file",
             "composer-add-reference",
             "composer-add-expert",
-            "composer-add-skills",
             "composer-add-connectors",
             "composer-add-session-settings",
         ).forEach { compose.onNodeWithTag(it).assertIsDisplayed() }
+        compose.onNodeWithTag("composer-add-skills").assertDoesNotExist()
     }
 }

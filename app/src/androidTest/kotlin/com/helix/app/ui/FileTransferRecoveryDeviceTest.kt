@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.files.ManualFileBackend
@@ -72,7 +73,7 @@ class FileTransferRecoveryDeviceTest {
             val manager = compose.container().fileManager
             val entry = manager.pendingTransfers().single { it.source.endsWith("work/recovery-device/source") }
             compose.navigateTo("files")
-            compose.onNodeWithTag("files-recovery-open").performClick()
+            compose.onNodeWithTag("files-recovery-open").performScrollTo().performClick()
             compose.waitUntil(30_000) {
                 compose.onAllNodesWithTag("files-recovery-${entry.id}").fetchSemanticsNodes().isNotEmpty()
             }

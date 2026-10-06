@@ -219,6 +219,9 @@ def main():
     parser.add_argument("--only", choices=("regression", "recovery", "storage"))
     parser.add_argument("--recovery-scenario", choices=tuple(PROCESS_RECOVERY_SCOPE_BY_SCENARIO))
     parser.add_argument("--first-port", type=int, default=5700)
+    parser.add_argument("--avd-prefix", default="Helix191")
+    parser.add_argument("--memory-mb", type=int, choices=(2048, 4096), default=4096)
+    parser.add_argument("--cores", type=int, choices=(2, 4), default=4)
     args = parser.parse_args()
 
     if args.only == "storage" and args.scope != "216":
@@ -256,13 +259,13 @@ def main():
                     sys.executable,
                     "scripts/run-owned-acceptance-emulator.py",
                     "--avd",
-                    f"Helix191_API{api}",
+                    f"{args.avd_prefix}_API{api}",
                     "--port",
                     str(port),
                     "--memory-mb",
-                    "4096",
+                    str(args.memory_mb),
                     "--cores",
-                    "4",
+                    str(args.cores),
                     "--apk",
                     f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",
                     "--test-apk",
@@ -271,6 +274,7 @@ def main():
                     f"{package}.test/com.helix.app.HelixAndroidJUnitRunner",
                     "--classes",
                     ",".join(selected),
+                    "--clear-app-data",
                     "--output",
                     str(target),
                     "--timeout",

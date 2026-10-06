@@ -46,6 +46,12 @@ class MobileUseWechatPilotDeviceTest {
     @Suppress("LongMethod", "TooGenericExceptionCaught")
     fun downloadAndInstallWechatWithRealModel() =
         runBlocking {
+            val arguments = InstrumentationRegistry.getArguments()
+            val optIn = arguments.getString("helixWechatPilot")
+            org.junit.Assume.assumeTrue("Requires an explicit WeChat pilot profile", optIn != null)
+            require(optIn == "true" && arguments.getString("helixRealModel") == "true")
+            val providerPort = requireNotNull(arguments.getString(ARG_PROVIDER_PORT)).toInt()
+            require(providerPort in 1..65535)
             val previous = container.chatService.runControl.value
             val previousProfile = container.profileStore.profile
             val services =
@@ -66,11 +72,9 @@ class MobileUseWechatPilotDeviceTest {
             val started = SystemClock.elapsedRealtime()
             val evidenceFile = File(app.filesDir, EVIDENCE_NAME)
             val screenshotFile = File(app.filesDir, SCREENSHOT_NAME)
-            val arguments = InstrumentationRegistry.getArguments()
             val prompt = arguments.getString(ARG_PROMPT) ?: DEFAULT_PROMPT
             val preserveDownloads = arguments.getString(ARG_PRESERVE_DOWNLOADS).toBoolean()
             val preserveChrome = arguments.getString(ARG_PRESERVE_CHROME).toBoolean()
-            val providerPort = arguments.getString(ARG_PROVIDER_PORT)?.toIntOrNull() ?: DEFAULT_PROVIDER_PORT
 
             try {
                 ensureAccessibility(services)
@@ -121,7 +125,14 @@ class MobileUseWechatPilotDeviceTest {
 
                 exposed = exposedEvaluationTools(container, AgentMode.ACT)
                 check("android.open_uri" in exposed) { "android.open_uri missing from active Mobile Use surface" }
-                check("ui.ime_enter" in exposed) { "ui.ime_enter missing from active Mobile Use surface" }
+                check("ui.snapshot" in exposed && "tools.search" in exposed) { "Mobile Use discovery is unavailable" }
+                check(
+                    container.toolPipeline.registry
+                        .all()
+                        .any { it.name.value == "ui.ime_enter" },
+                ) {
+                    "ui.ime_enter missing from registered Mobile Use tools"
+                }
 
                 container.chatService.sendTestMessage(session, prompt)
                 awaitTerminal(session)
@@ -313,7 +324,6 @@ class MobileUseWechatPilotDeviceTest {
         private const val ARG_PRESERVE_DOWNLOADS = "helixPilotPreserveDownloads"
         private const val ARG_PRESERVE_CHROME = "helixPilotPreserveChrome"
         private const val ARG_PROVIDER_PORT = "helixPilotProviderPort"
-        private const val DEFAULT_PROVIDER_PORT = 30008
         private const val DEFAULT_PROMPT =
             "Install the already downloaded WeChat APK from Chrome Downloads. Do not redownload or switch stores. " +
                 "If Android says this source is not allowed to install apps, use the installer-provided Settings " +

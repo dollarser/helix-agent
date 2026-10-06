@@ -44,7 +44,7 @@ class AutomationForceStopSetupDeviceTest {
         assertTrue(snapshot.active)
         assertEquals(32, snapshot.token.length)
         harness.waitUntil {
-            harness.activeNotificationDump().contains(ForceStopHarness.NOTIFICATION_KEY_FRAGMENT)
+            harness.activeNotificationDump().contains(harness.notificationKeyFragment)
         }
         // Returning would let instrumentation kill this process before the host's force-stop.
         InstrumentationRegistry.getInstrumentation().sendStatus(
@@ -81,7 +81,7 @@ class AutomationForceStopRecoveryDeviceTest {
                     AutomationActionStatus.SERVICE_NOT_CONNECTED.name,
                 ),
         )
-        assertFalse(harness.activeNotificationDump().contains(ForceStopHarness.NOTIFICATION_KEY_FRAGMENT))
+        assertFalse(harness.activeNotificationDump().contains(harness.notificationKeyFragment))
         harness.restoreServices()
     }
 }
@@ -109,6 +109,15 @@ private class ForceStopHarness {
     private var nonce = 10_000L
 
     fun saveAndEnableService() {
+        // Package installation and AccessibilityManager's service discovery are asynchronous.
+        // Do not write a grant before Android knows the freshly installed fixture component.
+        val manager = targetContext.getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+        waitUntil {
+            manager.installedAccessibilityServiceList.any {
+                val service = it.resolveInfo.serviceInfo
+                ComponentName(service.packageName, service.name) == component
+            }
+        }
         val original = enabledComponents().minus(component.flattenToString())
         check(
             targetContext
@@ -189,6 +198,9 @@ private class ForceStopHarness {
 
     fun activeNotificationDump(): String = shell("dumpsys notification --noredact").substringBefore("  mArchive=")
 
+    val notificationKeyFragment: String
+        get() = "|${targetContext.packageName}|${HelixAccessibilityService.NOTIFICATION_ID}|"
+
     fun waitUntil(condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + 20_000
         var met = condition()
@@ -215,6 +227,7 @@ private class ForceStopHarness {
             shell("settings put secure enabled_accessibility_services ${components.joinToString(":")}")
         }
         shell("settings put secure accessibility_enabled ${if (components.isEmpty()) 0 else 1}")
+        waitUntil { components == enabledComponents() }
         assertEquals(components, enabledComponents())
     }
 
@@ -226,7 +239,6 @@ private class ForceStopHarness {
     }
 
     companion object {
-        const val NOTIFICATION_KEY_FRAGMENT = "|com.helix.extensions.mobileuse.automation.test|4900|"
         private const val HARNESS_PREFERENCES = "automation_force_stop_harness"
         private const val KEY_ORIGINAL_SERVICES = "original_services"
     }

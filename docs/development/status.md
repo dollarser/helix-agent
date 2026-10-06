@@ -4,9 +4,11 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-06 main 整合与发布验证：只保留 main、公共评测、BioHelix 三个工作树；完成当前授权的 API29/API36 双渠道扫描与定向复测、24 组输入恢复、每 API 37 个进程死亡场景、API34 Root 5 项及真实模型 Shizuku 安装/卸载。修复前台通知限流与旧开发库版本启动失败；[发布回归记录](../evidence/development/v0.0.5-release-2026-10-06.md)明确失败、修复、跳过和长期/OEM 边界。发布来源与该提交 GitHub CI 以 v0.0.5 的 BUILDINFO 为准，本地通过不代替远端 CI。
+
 - 2026-10-06 无障碍点击反馈优化：区分显示屏与窗口坐标，补充截图兜底与系统触摸过滤的边界，保留无节点控件视觉点击；结果不明不自动跨后端重放。[定点审查与后续优化](../evidence/development/mobile-use-install-optimization-2026-10-06.md)。后续所有者授权 API36 日常模拟器回归：修复无语义测试夹具，四模式定点与安装页对照各 1/1 通过；系统过滤仍存在，不等于无障碍安装成功，未调用真实模型。
 
-- 当前所有者任务：接手优先级 1（版本整合回归）、优先级 2（Mobile Use 分后端验证）与优先级 3（真实任务稳定性与效率实测）。前轮审查已收敛缺陷并完成主机与文档门禁。
+- 前轮整合范围：接手优先级 1（版本整合回归）、优先级 2（Mobile Use 分后端验证）与优先级 3（真实任务稳定性与效率实测）。前轮审查已收敛缺陷并完成主机与文档门禁。
 - 优先级 1 整合回归：修复并验证 `ConversationTopBarDeviceTest` (4/4)、`IaAuthorityDeviceTest` (2/2)、`ConnectorUiDeviceTest` (1/1)、`SystemBarInsetsDeviceTest` (1/1) 与 `HierarchicalNavigationDeviceTest` (5/5)；覆盖这些用例实际断言的 Extensions 展开、导航与会话菜单；不包含全局 Hosts 和消息排队投递的完整回归。
 - 优先级 2 Mobile Use 分后端验证：`MobileUseOverlayDeviceTest` (4/4)、`AutomationServiceDeviceTest` (1/1) 全流程生命周期、无障碍断言及即时停止测试通过；验证 Shizuku 授权就绪 (`moe.shizuku.privileged.api`)、Shizuku 独立设置检查 (`ShizukuSettingsDeviceTest` 1/1 通过)；Root 后端在当前模拟器无 Magisk/KernelSU 守护且 Helix 未获授权时，`RootToolsRootlessDeviceTest` (2/2 通过) 验证无 Root 时的状态与执行拒绝；设置页检查不证明 Shizuku 执行成功，Rootless 检查不证明自动后端回退。真实模型轨迹的观察后端为 Shizuku，Root 成功路径及普通无障碍单后端仍待验证。
 - 优先级 3 真实模型实测：经所有者明确授权 Qwen3.8-27B 模型，在 `emulator-5554` (API 36 arm64) 执行 3 轮完整独立重复合成任务评测（`eval-trial-1`、`eval-trial-2`、`eval-trial-3`），包含 `gui`、`files`、`recovery`、`combined`、`keyboard` 5 项用例，共 15 次独立判定**全部达成并通过 (15/15, 100%)**；详见[模型实测](../evidence/development/current-model-capability-eval-2026-10-05.md)。
@@ -67,7 +69,7 @@
 
 ## Next task
 
-本次所有者要求整体审查和修复明确缺陷、优化文档；当前先完成主机检查与一致性收敛，不继承上一轮设备或真实模型授权。下面是原授权路线的剩余顺序，不自动扩大本次范围。
+上方 main 本地整合及授权回归已收敛；v0.0.5 发布仍遵循精确提交 CI 成功后生成制品的门禁。下表保留后续开发路线；本次只关闭实际执行并有证据的验证项，不自动宣称完成全部 HXA/OEM/真实账号验收。
 
 HXA-239 本地实现和主机整合完成；下一独立开发仍按 J2-1 AUTO → J2-2 用户后台按钮推进，Project Memory 转 HXA-246 收尾验收，不重复其已交付接线，也不重做 HXA-238 或 HXA-236 基础 join、上下文/进展以及 R2-A/R3。前置检查点 `9d0ab5c0` 不自动证明本轮输入体验，239 使用自己的交付证据；固定 P5 仍需选定 clean 提交、指定设备和模型，真实内测另需试用者。
 

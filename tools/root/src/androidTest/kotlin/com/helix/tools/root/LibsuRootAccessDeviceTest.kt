@@ -9,6 +9,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.FixMethodOrder
@@ -24,8 +25,10 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
     @After
     fun tearDown() {
         access?.disconnect()
+        access?.let(::assertDetached)
         access = null
-        awaitCachedShellClosed()
+        // This instrumentation owns the entire test process; production consumers must not do this.
+        Shell.getCachedShell()?.close()
     }
 
     @Test
@@ -71,7 +74,7 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
     }
 
     @Test
-    fun c_immediateDisconnectClosesARequestThatCompletesLate() {
+    fun c_immediateDisconnectIgnoresLateGrantWithoutClosingSharedShell() {
         val expected =
             InstrumentationRegistry.getArguments().getString(EXPECTED_ROOT_ARGUMENT) ?: "rootless"
         assumeTrue("rooted grant UI is intentionally interactive", expected == "rootless")
@@ -79,8 +82,11 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
 
         assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
         rootAccess.disconnect()
+        val sharedShell = Shell.getShell()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         assertEquals(RootGrantState.UNAVAILABLE, rootAccess.status().grant)
-        awaitCachedShellClosed()
+        assertDetached(rootAccess)
+        assertSame(sharedShell, Shell.getCachedShell())
     }
 
     @Test
@@ -90,7 +96,7 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
             val rootAccess = newAccess()
             assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
             verifyGrantedRootServiceAndLoss(rootAccess, killService = true)
-            awaitCachedShellClosed()
+            assertDetached(rootAccess)
             SystemClock.sleep(250)
             assertEquals(RootGrantState.LOST, rootAccess.status().grant)
             assertNull(rootAccess.rootServiceProcessIdForTest())
@@ -99,49 +105,40 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
     }
 
     /**
-     * HXA-094: after the controller closes a dead connection the OS state must follow the
-     * in-memory state — the shell process and its process group are gone. The observation
-     * shell below is an explicit request on the owner-approved policy for this test package,
-     * never an automatic rebind of the dead connection.
+     * The dead service and its descendants disappear, while the host's shared authorization
+     * shell remains available to other consumers. Probing must not rebind the dead service.
      */
     @Test
-    fun e_serviceDeathLeavesNoProcessOrProcessGroup() {
+    fun e_serviceDeathLeavesNoServiceProcessesAndRetainsHostShell() {
         assumeTrue(InstrumentationRegistry.getArguments().getString(EXPECTED_ROOT_ARGUMENT) == "granted")
         val rootAccess = newAccess()
         assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
         awaitStatus(rootAccess) { it.service == RootServiceState.CONNECTED }
         val deadPid = requireNotNull(rootAccess.rootServiceProcessIdForTest())
-        // The test process's own SELinux domain cannot read the su domain's /proc entry, so
-        // the process group is observed through the live root shell before the death.
-        val processGroup =
-            requireNotNull(
-                Shell
-                    .cmd("cat /proc/$deadPid/stat")
-                    .exec()
-                    .out
-                    .joinToString(" ")
-                    .substringAfterLast(')')
-                    .trim()
-                    .split(' ')
-                    .getOrNull(2)
-                    ?.toIntOrNull(),
-            )
+        val sharedShell = Shell.getShell()
+        // libsu may share its host shell's process group. Track the service's actual descendants,
+        // not unrelated consumers or the observer's own ps/awk processes in that shared group.
+        val processes = Shell.cmd("ps -A -o PID,PPID").exec()
+        assertTrue(processes.isSuccess)
+        val parentByPid =
+            processes.out.drop(1).associate { line ->
+                val fields = line.trim().split(Regex("\\s+"))
+                fields[0].toInt() to fields[1].toInt()
+            }
+        val ownedPids = mutableSetOf(deadPid)
+        while (ownedPids.addAll(parentByPid.filterValues { it in ownedPids }.keys)) { /* transitive descendants */ }
 
         assertTrue(Shell.cmd("kill -9 $deadPid").exec().isSuccess)
         val lost = awaitStatus(rootAccess) { it.grant == RootGrantState.LOST }
         assertEquals(RootServiceState.DISCONNECTED, lost.service)
         assertNull(rootAccess.rootServiceProcessIdForTest())
-        awaitCachedShellClosed()
+        assertDetached(rootAccess)
 
-        val probe = Shell.cmd("test -d /proc/$deadPid; echo -n $?").exec()
-        assertEquals("1", probe.out.joinToString("").trim())
-        val groupMembers =
-            Shell.cmd("ps -A -o PID,PGID | awk -v g=\"$processGroup\" 'NR > 1 && $2 == g'").exec()
-        assertEquals(
-            "process group $processGroup still has members after service death",
-            "",
-            groupMembers.out.joinToString("\n").trim(),
-        )
+        ownedPids.forEach { pid ->
+            val probe = Shell.cmd("test -d /proc/$pid; echo -n $?").exec()
+            assertEquals("service-owned process $pid remains", "1", probe.out.joinToString("").trim())
+        }
+        assertSame(sharedShell, Shell.getCachedShell())
         // Close the observation shell explicitly; the subject connection is already closed.
         Shell.getShell().close()
     }
@@ -161,16 +158,17 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
             assertTrue(kill.isSuccess)
         } else {
             awaitOwnerRevocation()
-            // Manager policy changes deny FUTURE requests; no portable passive revocation
-            // signal exists for an already-open shell. The production background boundary
-            // closes it, then a fresh explicit request must observe the changed policy.
+            // Manager policy changes deny FUTURE requests. Backgrounding detaches this
+            // consumer, without closing the host's shared authorization shell.
             rootAccess.onAppBackgrounded()
         }
         val lost = awaitStatus(rootAccess) { it.grant == RootGrantState.LOST }
         assertEquals(RootServiceState.DISCONNECTED, lost.service)
         assertNull(rootAccess.rootServiceProcessIdForTest())
         if (!killService) {
-            awaitCachedShellClosed()
+            assertDetached(rootAccess)
+            // Explicit test-owned fresh-grant probe, not a production consumer disconnect.
+            Shell.getCachedShell()?.close()
             assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
             val denied = awaitTerminalStatus(rootAccess)
             assertEquals(RootGrantState.DENIED, denied.grant)
@@ -220,19 +218,18 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
     private fun newAccess(): LibsuRootAccess =
         LibsuRootAccess(ApplicationProvider.getApplicationContext()).also { access = it }
 
-    private fun awaitCachedShellClosed() {
-        val deadline = SystemClock.elapsedRealtime() + SHELL_CLOSE_TIMEOUT_MS
-        var nullSince: Long? = null
-        while (SystemClock.elapsedRealtime() < deadline) {
-            if (Shell.getCachedShell() == null) {
-                val observedSince = nullSince ?: SystemClock.elapsedRealtime().also { nullSince = it }
-                if (SystemClock.elapsedRealtime() - observedSince >= SHELL_CLOSED_STABILITY_MS) return
-            } else {
-                nullSince = null
-            }
-            SystemClock.sleep(POLL_INTERVAL_MS)
-        }
-        assertNull(Shell.getCachedShell())
+    private fun assertDetached(rootAccess: LibsuRootAccess) {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        assertEquals(RootServiceState.DISCONNECTED, rootAccess.status().service)
+        assertNull(rootAccess.connectedBinder())
+        assertNull(rootAccess.rootServiceProcessIdForTest())
+        assertEquals(
+            RootOperationResult.Failed("ROOT_NOT_CONNECTED"),
+            rootAccess.execute(RootOperationRequest.ProcessList(1)),
+        )
+        SystemClock.sleep(DISCONNECTED_STABILITY_MS)
+        assertEquals(RootServiceState.DISCONNECTED, rootAccess.status().service)
+        assertNull(rootAccess.connectedBinder())
     }
 
     private companion object {
@@ -241,8 +238,7 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
         // Human-operated manager policy changes can cross chat turn boundaries.
         const val REVOCATION_TIMEOUT_MS = 1_800_000L
         const val WAIT_TIMEOUT_MS = 30_000L
-        const val SHELL_CLOSE_TIMEOUT_MS = 5_000L
-        const val SHELL_CLOSED_STABILITY_MS = 500L
+        const val DISCONNECTED_STABILITY_MS = 500L
         const val POLL_INTERVAL_MS = 50L
     }
 }

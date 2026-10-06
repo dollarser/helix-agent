@@ -20,8 +20,9 @@ import com.helix.app.R
 /**
  * The `dataSync` foreground service for user-initiated Provider/MCP transport or local file
  * processing (roadmap HXA-066, architecture doc 5.1). It is brought up by
- * [DataSyncForegroundController] only while a turn is actively moving data and torn down the
- * moment the turn waits for the user — so it is never a background residency. Android 15 (API 35)
+ * [DataSyncForegroundController] only while a turn is actively moving data and torn down
+ * shortly after transport becomes idle, coalescing brief transport gaps without background work.
+ * Android 15 (API 35)
  * bounds a `dataSync` foreground service to 6 h and then invokes [onTimeout] (which stops it);
  * the notification also carries an explicit stop action.
  *
@@ -32,6 +33,14 @@ import com.helix.app.R
 class DataSyncForegroundService : Service() {
     private var latestStartId = 0
     private var stoppingNormally = false
+    private var foregroundStarted = false
+    private val lifecycleHandler = Handler(Looper.getMainLooper())
+    private val idleStop =
+        Runnable {
+            if (!transportRequested.get() && runningInstance.get() === this && latestStartId > 0) {
+                stopLatestStart()
+            }
+        }
 
     override fun onCreate() {
         super.onCreate()
@@ -43,6 +52,7 @@ class DataSyncForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        lifecycleHandler.removeCallbacks(idleStop)
         if (runningInstance.compareAndSet(this, null) && transportRequested.getAndSet(false)) {
             if (stoppingNormally) {
                 // A new turn can request transport after stopSelfResult accepted an older stop.
@@ -70,8 +80,10 @@ class DataSyncForegroundService : Service() {
         if (intent?.action == ACTION_STOP) {
             transportRequested.set(false)
             stopTasks()
+            stopDataSync()
+        } else if (!transportRequested.get()) {
+            requestTransportStop()
         }
-        if (!transportRequested.get()) stopLatestStart()
         return START_NOT_STICKY
     }
 
@@ -102,25 +114,27 @@ class DataSyncForegroundService : Service() {
         }
     }
 
-    private fun startAsForeground(): Boolean =
-        tryForegroundStart({
+    private fun startAsForeground(): Boolean {
+        if (foregroundStarted) return true
+        return tryForegroundStart({
             startForeground(
                 NOTIFICATION_ID,
                 buildDataSyncNotification(this),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
+            foregroundStarted = true
         }, {
             transportRequested.set(false)
             stopTasks("FGS_START_REJECTED")
             stopSelf()
         })
+    }
 
     internal fun requestTransportStop() {
-        Handler(Looper.getMainLooper()).post {
-            if (!transportRequested.get() && runningInstance.get() === this && latestStartId > 0) {
-                stopLatestStart()
-            }
-        }
+        // Model/tool transport can toggle several times within a frame. Reusing its notification
+        // avoids Android's enqueue rate limit; this delay never starts or retains task execution.
+        lifecycleHandler.removeCallbacks(idleStop)
+        lifecycleHandler.postDelayed(idleStop, 250)
     }
 
     private fun stopLatestStart() {
@@ -128,12 +142,15 @@ class DataSyncForegroundService : Service() {
         if (stopSelfResult(latestStartId)) {
             stoppingNormally = true
             stopForeground(STOP_FOREGROUND_REMOVE)
+            foregroundStarted = false
         }
     }
 
     private fun stopDataSync() {
+        lifecycleHandler.removeCallbacks(idleStop)
         transportRequested.set(false)
         stopForeground(STOP_FOREGROUND_REMOVE)
+        foregroundStarted = false
         stopSelf()
     }
 

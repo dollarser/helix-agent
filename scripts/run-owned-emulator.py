@@ -169,7 +169,11 @@ def run(args):
             (output / "command-failure.txt").write_text((error.stdout or "") + (error.stderr or ""))
             if process.poll() is None:
                 try:
-                    (output / "command-failure-logcat.txt").write_text(device("logcat", "-d", timeout=10))
+                    # Native crashes can leave non-UTF-8 bytes in logcat. Preserve the
+                    # original bytes instead of hiding the primary failure with a decode error.
+                    diagnostic = subprocess.run([adb, "-s", serial, "logcat", "-d"],
+                                                capture_output=True, timeout=10, check=True)
+                    (output / "command-failure-logcat.txt").write_bytes(diagnostic.stdout)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as diagnostic_error:
                     (output / "diagnostic-failure.txt").write_text(str(diagnostic_error))
             raise

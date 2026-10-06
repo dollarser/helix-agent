@@ -5,6 +5,8 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
 import com.helix.core.model.SafetyProfile
@@ -30,6 +32,7 @@ class ProfileConsumerFixedTest {
         composeRule.resetDeterministicUiState()
 
         composeRule.navigateTo("settings/permissions")
+        composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
         composeRule.onNodeWithTag("settings-profile-current").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-profile-current").assertTextEquals("当前：Standard（默认）")
         // No Advanced entry exists in the consumer build.

@@ -156,8 +156,8 @@ class ProotJobRunnerDeviceTest {
         spec: ProotJobSpec,
         inputArchive: File,
         owner: android.os.IBinder? = null,
+        inputPfd: ParcelFileDescriptor = ParcelFileDescriptor.open(inputArchive, ParcelFileDescriptor.MODE_READ_ONLY),
     ): ProotJobSubmitResult {
-        val inputPfd = ParcelFileDescriptor.open(inputArchive, ParcelFileDescriptor.MODE_READ_ONLY)
         val outputFile = File(context.cacheDir, "${spec.jobId}-output.zip")
         outputFile.delete()
         val outputPfd =
@@ -357,46 +357,55 @@ class ProotJobRunnerDeviceTest {
         assertEquals(ProotJobState.CANCELLED, record.state)
     }
 
+    /** Hold input EOF so cancellation is exercised before launch, independent of executor timing. */
+    private fun withPendingInput(
+        spec: ProotJobSpec,
+        archive: File,
+        owner: android.os.IBinder? = null,
+        action: () -> Unit,
+    ) {
+        val pipe = ParcelFileDescriptor.createPipe()
+        ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { writer ->
+            writer.write(archive.readBytes())
+            writer.flush()
+            assertTrue(submit(spec, archive, owner, pipe[0]) is ProotJobSubmitResult.Accepted)
+            assertEquals(ProotJobState.PENDING, runner.query(spec.jobId)?.state)
+            action()
+        }
+    }
+
     @Test
-    fun cancellingAQueuedJobPreventsItsCommandFromStarting() {
+    fun cancellingBeforeInputCompletesPreventsItsCommandFromStarting() {
         val (archive, hash) = buildInputArchive(emptyMap())
-        val first = nextJobId()
         val queued = nextJobId()
-        jobIds += first
         jobIds += queued
-        val sleeping = specFor(first, "exec-$first", ProotJobCommand.Argv(listOf("/bin/sleep", "2")), hash)
-        assertTrue(submit(sleeping, archive) is ProotJobSubmitResult.Accepted)
         val command = ProotJobCommand.Argv(listOf("/bin/sh", "-c", "echo SHOULD_NOT_RUN > forbidden.txt"))
-        assertTrue(submit(specFor(queued, "exec-$queued", command, hash), archive) is ProotJobSubmitResult.Accepted)
-        assertEquals(ProotJobState.PENDING, runner.query(queued)?.state)
-        runner.cancel(queued)
-        waitForTerminal(first, 10000)
+        withPendingInput(specFor(queued, "exec-$queued", command, hash), archive) {
+            runner.cancel(queued)
+        }
         assertEquals(ProotJobState.CANCELLED, waitForTerminal(queued, 10000).state)
         val store = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
         assertTrue(!File(store.jobDir(queued), "workspace/forbidden.txt").exists())
     }
 
     @Test
-    fun queuedOwnerDeathCancelsWithoutAcceptingADuplicateOwner() {
+    fun ownerDeathBeforeInputCompletesCancelsWithoutAcceptingADuplicateOwner() {
         val (archive, hash) = buildInputArchive(emptyMap())
-        val first = nextJobId()
         val queued = nextJobId()
-        jobIds += listOf(first, queued)
-        val sleeping = specFor(first, "exec-$first", ProotJobCommand.Argv(listOf("/bin/sleep", "2")), hash)
-        assertTrue(submit(sleeping, archive) is ProotJobSubmitResult.Accepted)
+        jobIds += queued
         val owner = ControllableOwnerFixture()
         val replacement = ControllableOwnerFixture()
         val command = ProotJobCommand.Argv(listOf("/bin/sh", "-c", "echo SHOULD_NOT_RUN > forbidden.txt"))
         val spec = specFor(queued, "exec-$queued", command, hash)
-        assertTrue(submit(spec, archive, owner.binder) is ProotJobSubmitResult.Accepted)
-        assertTrue(submit(spec, archive, replacement.binder) is ProotJobSubmitResult.Duplicate)
-        assertEquals(1, owner.links.get())
-        assertEquals(0, replacement.links.get())
-        replacement.die()
-        assertEquals(ProotJobState.PENDING, runner.query(queued)?.state)
-        owner.die()
-        assertEquals(1, owner.unlinks.get())
-        waitForTerminal(first, 10000)
+        withPendingInput(spec, archive, owner.binder) {
+            assertTrue(submit(spec, archive, replacement.binder) is ProotJobSubmitResult.Duplicate)
+            assertEquals(1, owner.links.get())
+            assertEquals(0, replacement.links.get())
+            replacement.die()
+            assertEquals(ProotJobState.PENDING, runner.query(queued)?.state)
+            owner.die()
+            assertEquals(1, owner.unlinks.get())
+        }
         assertEquals(ProotJobState.CANCELLED, waitForTerminal(queued, 10000).state)
         val store = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
         assertTrue(!File(store.jobDir(queued), "workspace/forbidden.txt").exists())

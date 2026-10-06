@@ -57,7 +57,7 @@ Build editions are separate from conversation permission modes. Subscription ada
 
 The current version is the **[v0.0.5 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**. Choose `helix-v0.0.5-developer-debug.apk` for advanced capabilities, or `helix-v0.0.5-consumer-debug.apk` for the base channel. SHA-256 checksums and build information accompany the release. If Android reports a signing conflict, preserve data before uninstalling or clearing app data.
 
-This version improves Mobile Use and host permission ownership, model setup and subscriptions, conversation input, and extension management. Native network clients now share hosts-based domain resolution. It also fixes Release dependency locks, Android 10 permission API guards, and APK boundary checks. The full host CI passed; this release adds no device or real-model acceptance. See the [release record](docs/evidence/development/v0.0.5-release-2026-10-06.md) for the exact scope.
+This version integrates Mobile Use and host permissions, model and subscription setup, conversation and extension UX, and shared hosts resolution for native clients. Release testing fixed foreground-notification rate limiting during rapid requests and startup failures with earlier development database versions. Validation includes both editions on API29/API36, API34 Root checks, and real-model installation/uninstallation of a test app. See the [release record](docs/evidence/development/v0.0.5-release-2026-10-06.md) and release `BUILDINFO.json` for the exact source, CI and skipped checks; this is not acceptance for every OEM, real account or long-running workload.
 
 ## Privacy and control
 

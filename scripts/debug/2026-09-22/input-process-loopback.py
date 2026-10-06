@@ -54,8 +54,8 @@ class FixtureState:
                     "ordinal": ordinal,
                     "sha256": digest,
                     "bytes": len(body),
-                    "hasActiveInput": "ACTIVE-PROCESS-INPUT" in text,
-                    "hasQueuedInput": "QUEUED-PROCESS-INPUT" in text,
+                    "hasActiveInput": "216001216" in text,
+                    "hasQueuedInput": "216002216" in text,
                 }
             )
         self.event("chat", ordinal=ordinal, sha256=digest, bytes=len(body), mode=mode)

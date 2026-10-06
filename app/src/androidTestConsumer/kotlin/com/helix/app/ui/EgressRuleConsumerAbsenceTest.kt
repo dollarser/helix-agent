@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
 import org.junit.Assert.assertTrue
@@ -26,6 +28,7 @@ class EgressRuleConsumerAbsenceTest {
     fun consumerBuildRendersNoEgressRuleSection() {
         composeRule.resetDeterministicUiState()
         composeRule.navigateTo("settings/permissions")
+        composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
         // Consumer build: Standard is fixed, no Advanced entry...
         composeRule.onNodeWithTag("settings-advanced-absent").assertIsDisplayed()
         // ...and therefore the ADVANCED-only egress-rule section is absent.

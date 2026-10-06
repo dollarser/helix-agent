@@ -32,7 +32,9 @@ class PrivilegedNavigationDeviceTest {
     @Test
     @Suppress("LongMethod")
     fun shizukuNavigationAndNotificationChoiceWithoutAccessibility() {
-        require(InstrumentationRegistry.getArguments().getString("helixPrivilegedNavigation") == "true")
+        val optIn = InstrumentationRegistry.getArguments().getString("helixPrivilegedNavigation")
+        org.junit.Assume.assumeTrue("Requires a configured privileged backend", optIn != null)
+        require(optIn == "true")
         assertEquals(
             0,
             android.provider.Settings.Secure

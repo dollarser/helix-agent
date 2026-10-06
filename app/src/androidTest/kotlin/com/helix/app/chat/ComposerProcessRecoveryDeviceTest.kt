@@ -86,7 +86,7 @@ class ComposerProcessRecoveryDeviceTest {
             val storage = container.storage
             val draft = container.chatService.loadComposerDraft(COMPOSER_SESSION)
             assertNotNull(draft)
-            assertEquals("NORMAL-PROCESS-DRAFT-214", draft!!.text)
+            assertEquals("214001214", draft!!.text)
             assertTrue(draft.revision > 0)
             assertNull(draft.revisedMessageId)
             assertTrue(storage.messages.listBySession(COMPOSER_SESSION).isEmpty())

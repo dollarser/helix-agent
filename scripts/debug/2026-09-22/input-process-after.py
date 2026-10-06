@@ -84,6 +84,11 @@ def wait_server(predicate, label, timeout=20):
             (output / f"server-{label}.json").write_text(json.dumps(last, indent=2))
             return last
         time.sleep(0.2)
+    try:
+        nodes("server-boundary-failure-" + label)
+        (output / "server-boundary-logcat.txt").write_text(adb("logcat", "-d"))
+    except (subprocess.SubprocessError, RuntimeError) as diagnostic:
+        (output / "server-boundary-diagnostic-error.txt").write_text(str(diagnostic))
     raise RuntimeError(f"Server boundary {label} not reached: {last}")
 
 
@@ -152,8 +157,8 @@ def enter_and_send(text):
 def wait_pending_panel():
     return wait_node(
         lambda node: (
-            ("Input delivery" in text_or_description(node) and "pending 1" in text_or_description(node))
-            or ("输入交付" in text_or_description(node) and "待处理 1" in text_or_description(node))
+            node.get("text") == "216002216"
+            and node.get("class") != "android.widget.EditText"
         ),
         "pending-panel",
     )
@@ -340,10 +345,10 @@ breakpoint_evidence = None
 try:
     if scenario == "appended":
         debugger = JdbBoundary(before_pid, BREAKPOINTS[scenario])
-    enter_and_send("ACTIVE-PROCESS-INPUT")
+    enter_and_send("216001216")
     if scenario in ("pending", "cancelling"):
         wait_server(lambda state: state["chatCount"] == 1 and state["heldCount"] == 1, "active-held")
-        enter_and_send("QUEUED-PROCESS-INPUT")
+        enter_and_send("216002216")
         wait_pending_panel()
     if scenario == "http_in_flight":
         wait_server(lambda state: state["chatCount"] == 1 and state["heldCount"] == 1, "http-in-flight")
@@ -380,29 +385,14 @@ open_session(fixture["title"])
 after_pid = int(adb("shell", "pidof", package).strip())
 if after_pid == before_pid:
     raise RuntimeError("MainActivity PID did not change after SIGKILL")
-toggle = wait_node(
-    lambda node: "Input delivery" in text_or_description(node) or "输入交付" in text_or_description(node),
-    "recovered-panel",
-)
-tap(toggle)
 if scenario == "cancelling":
     wait_node(
         lambda node: node.get("text")
         in ("需要处理，请检查后再继续。", "Needs attention. Review before resuming."),
         "recovered-needs-attention",
     )
-elif scenario == "appended":
-    wait_node(
-        lambda node: node.get("text")
-        in ("已加入历史，尚未纳入请求", "Added to history; not included in a request yet"),
-        "recovered-appended",
-    )
-else:
-    wait_node(
-        lambda node: node.get("text")
-        in ("已纳入请求（仅本地记录）", "Included in a request (local record only)"),
-        "recovered-requested",
-    )
+# Delivered inputs no longer have a permanent status panel. Their original request identity,
+# delivery and replay boundaries are asserted below against the server and durable Room facts.
 
 expected_chats = {"pending": 3, "appended": 1, "http_in_flight": 2, "cancelling": 1}[scenario]
 stable = wait_server(lambda state: state["chatCount"] == expected_chats, "after-restart")

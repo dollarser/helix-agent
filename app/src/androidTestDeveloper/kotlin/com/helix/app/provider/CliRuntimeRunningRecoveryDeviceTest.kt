@@ -64,7 +64,16 @@ class CliRuntimeRunningRecoveryDeviceTest {
             Thread.sleep(100)
             thread.get().interrupt()
             assertEquals(CliModelJobClient.AwaitOutcome.TimedOut, result.get(10, java.util.concurrent.TimeUnit.SECONDS))
-            val record = (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record
+            // Interruption acknowledges the cancel request, not the executor's physical exit.
+            // Keep the terminal assertion, but observe the same job until cancellation settles.
+            val deadline = android.os.SystemClock.elapsedRealtime() + 10_000
+            var record = (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record
+            while (record.state == CliModelJobState.CANCEL_REQUESTED &&
+                android.os.SystemClock.elapsedRealtime() < deadline
+            ) {
+                Thread.sleep(25)
+                record = (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record
+            }
             assertEquals(CliModelJobState.CANCELLED, record.state)
             assertEquals(record, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
             assertEquals(null, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).events)

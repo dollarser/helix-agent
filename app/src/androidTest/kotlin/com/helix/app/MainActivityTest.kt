@@ -36,10 +36,11 @@ class MainActivityTest {
         composeRule.onNodeWithTag("drawer-all-conversations").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-sessions").assertDoesNotExist()
         composeRule.onNodeWithTag("navigation-group-work").assertIsDisplayed()
-        composeRule.onNodeWithTag("navigation-group-configure").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-group-tools").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-group-configure").assertDoesNotExist()
         composeRule.onNodeWithTag("navigation-group-settings").assertIsDisplayed()
 
-        composeRule.onNodeWithTag("navigation-group-work").performClick()
+        composeRule.onNodeWithTag("navigation-group-tools").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("navigation-browser").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-browser").performClick()

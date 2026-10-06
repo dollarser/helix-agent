@@ -366,7 +366,11 @@ class HelixStorage internal constructor(
             context: Context,
             name: String,
         ): HelixDatabase {
-            fun build() = Room.databaseBuilder(context, HelixDatabase::class.java, name).build()
+            fun build() =
+                Room
+                    .databaseBuilder(context, HelixDatabase::class.java, name)
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
             val database = build()
             try {
                 database.openHelper.writableDatabase

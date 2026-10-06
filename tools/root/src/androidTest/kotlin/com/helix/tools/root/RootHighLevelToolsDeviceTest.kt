@@ -19,6 +19,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -36,6 +37,8 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
     @After
     fun tearDown() {
         sessions.close()
+        // Only this instrumentation owns the whole process and may close its host shell.
+        Shell.getCachedShell()?.close()
     }
 
     @Test
@@ -104,9 +107,10 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
     private fun assertStaleCallsAndUserCloseAfterLoss() {
         // A stale call after loss must not trigger a new Root request. The loss already
         // expired the session (expire -> onClose -> access.disconnect), so the grant is reset
-        // to UNAVAILABLE: never REQUESTING/GRANTED, no RootService, and no shell. Under this
-        // run's pre-approved policy an automatic request would move the grant toward
-        // REQUESTING/GRANTED and reopen a shell.
+        // to UNAVAILABLE: never REQUESTING/GRANTED and no RootService. The host authorization
+        // shell is shared across consumers and must remain unchanged by this session's loss.
+        val sharedShell = Shell.getCachedShell()
+        assertTrue(sharedShell?.isRoot == true)
         val staleAfterLoss =
             execute(
                 RootTools.FILE_READ,
@@ -116,7 +120,7 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
         assertTrue(staleAfterLoss is ToolExecutorResult.Failed)
         assertEquals(RootGrantState.UNAVAILABLE, access.status().grant)
         assertNull(access.rootServiceProcessIdForTest())
-        assertNull(Shell.getCachedShell())
+        assertSame(sharedShell, Shell.getCachedShell())
 
         // The user disconnect closes the session and the underlying access; the stale scope is
         // rejected with a stable code and no Root request follows.
@@ -130,7 +134,7 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
                 "relativePath" to JsonPrimitive("hosts"),
             )
         assertEquals("ROOT_SESSION_INACTIVE", (afterUserClose as ToolExecutorResult.Failed).detail)
-        assertNull(Shell.getCachedShell())
+        assertSame(sharedShell, Shell.getCachedShell())
     }
 
     /** HXA-095: redaction applies to real device logcat, not only fixtures. */

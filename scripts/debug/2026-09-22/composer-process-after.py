@@ -103,14 +103,14 @@ assert cancel_seed["state"] == "CANCELLING" and cancel_seed["seededBoundary"] is
 # This does not claim a probabilistic kill between a live Stop click and settlement.
 open_session("COMPOSER-RECOVERY")
 wait_text("RECOVER-DRAFT-214", "composer-before")
-replace_editor_text("NORMAL-PROCESS-DRAFT-214")
+replace_editor_text("214001214")
 # The ordinary composer persists after a bounded 500 ms debounce. The post-kill
 # UI and instrumentation assertions below are the durable receipt for that save.
 time.sleep(2)
 pid = int(adb("shell", "pidof", package).strip())
 kill_emulator_app(base, package, pid)
 open_session("COMPOSER-RECOVERY")
-wait_text("NORMAL-PROCESS-DRAFT-214", "composer-restored")
+wait_text("214001214", "composer-restored")
 new_pid = int(adb("shell", "pidof", package).strip())
 assert new_pid != pid
 

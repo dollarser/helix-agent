@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
@@ -15,6 +16,7 @@ import com.helix.app.deviceaccess.RootAuthorization
 import com.helix.app.deviceaccess.ShizukuAuthorization
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 
@@ -53,8 +55,21 @@ class ShizukuSettingsDeviceTest {
         assertEquals(before, mobile?.status())
         assertEquals(null, opened)
         compose.onNodeWithTag("permission-shizuku-manage").assertIsEnabled().performClick()
-        assertNotNull(opened)
-        val target = requireNotNull(opened).component
-        assertEquals(true, target?.packageName in setOf(app.packageName, "moe.shizuku.privileged.api"))
+        if (!com.helix.tools.deviceaccess.DeviceAccess
+                .shizukuReady() &&
+            app.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api") == null
+        ) {
+            // A clean AVD need not have the separately installed Shizuku manager.
+            compose
+                .onNodeWithText(
+                    app.getString(com.helix.app.R.string.permissions_settings_unavailable),
+                ).assertExists()
+            assertNull(opened)
+        } else {
+            assertNotNull(opened)
+            val target = requireNotNull(opened).component
+            assertEquals(true, target?.packageName in setOf(app.packageName, "moe.shizuku.privileged.api"))
+        }
+        assertEquals(before, mobile?.status())
     }
 }

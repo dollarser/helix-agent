@@ -23,7 +23,14 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.helix.app.provider.ConnectionTestStatus
+import com.helix.app.provider.ProviderModelSelection
+import com.helix.app.provider.ProviderRowUi
+import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderResidence
 import com.helix.core.model.ReasoningEffort
+import com.helix.provider.api.CapabilitySource
+import com.helix.provider.api.ProviderCapabilities
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -176,6 +183,23 @@ class ConversationComposerDeviceTest {
     }
 
     @Test fun reasoningSelectionIsExplicitAndLockedDuringGeneration() {
+        val caps = ProviderCapabilities(true, true, false, false, false, false, 8192, CapabilitySource.PROBED)
+        val provider =
+            ProviderRowUi(
+                "fixture",
+                "Fixture",
+                ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                "https://example.test",
+                ProviderResidence.PUBLIC_CLOUD,
+                "selected-model",
+                false,
+                false,
+                ConnectionTestStatus.Passed(1, caps, listOf("selected-model")),
+                caps,
+                listOf("selected-model"),
+                emptyList(),
+                modelSelection = ProviderModelSelection(models = listOf("selected-model"), configured = true),
+            )
         val reasoning = mutableStateOf(ReasoningEffort.OFF)
         val sending = mutableStateOf(false)
         var sends = 0
@@ -188,7 +212,13 @@ class ConversationComposerDeviceTest {
                     false,
                     ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
                     modelSelector = {
-                        ComposerModelMenu(emptyList(), null, "selected-model", !sending.value, { _, _ -> }) {
+                        ComposerModelMenu(
+                            listOf(provider),
+                            provider.id,
+                            "selected-model",
+                            !sending.value,
+                            { _, _ -> },
+                        ) {
                             ComposerReasoningMenu(reasoning.value, !sending.value, { reasoning.value = it })
                         }
                     },

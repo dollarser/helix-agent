@@ -1,10 +1,6 @@
 package com.helix.app.plugin
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -26,10 +22,8 @@ class PluginContentsDeviceTest {
         val before = service.list().single { it.native?.pluginId == "mobile-use" }.enabled
         compose.setContent {
             MaterialTheme {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    com.helix.app.ui
-                        .ExtensionsScreen(null, null, service)
-                }
+                com.helix.app.ui
+                    .ExtensionsScreen(null, null, service)
             }
         }
         compose.waitUntil(5_000) {

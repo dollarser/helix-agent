@@ -52,6 +52,35 @@ class FreshSchemaDeviceTest {
     }
 
     @Test
+    fun earlierDevelopmentVersionIsRebuiltWithoutDeletingExternalFiles() {
+        val file = java.io.File(context.filesDir, "earlier-baseline-retained.txt")
+        file.writeText("retained")
+        try {
+            context.openOrCreateDatabase(DATABASE, 0, null).use { old ->
+                old.execSQL("CREATE TABLE earlier_development_marker (value TEXT)")
+                old.version = 9
+            }
+            withDevelopmentDatabase { room ->
+                val db = room.openHelper.writableDatabase
+                assertEquals(1, db.version)
+                db.query("SELECT name FROM sqlite_master WHERE name = 'earlier_development_marker'").use {
+                    assertFalse(it.moveToFirst())
+                }
+                db.execSQL("CREATE TABLE compatible_version_marker (value TEXT)")
+            }
+            withDevelopmentDatabase { room ->
+                room.openHelper.writableDatabase
+                    .query(
+                        "SELECT name FROM sqlite_master WHERE name = 'compatible_version_marker'",
+                    ).use { assertTrue(it.moveToFirst()) }
+            }
+            assertEquals("retained", file.readText())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun freshDatabaseUsesVersionOneWithForeignKeysAndCurrentTurnIndexes() {
         context.deleteDatabase(DATABASE)
         val room = Room.databaseBuilder(context, HelixDatabase::class.java, DATABASE).build()

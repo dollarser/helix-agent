@@ -112,6 +112,9 @@ class BackgroundTaskFlowDeviceTest {
                         assertTrue(chat.backgroundTasks.value.any { it.id == firstTurn && it.running })
                         compose.waitUntil(10000) { DataSyncForegroundService.runningInstance.get() != null }
                         if (goalId != null) {
+                            // Conversation task controls only list the selected conversation.
+                            chat.openSession(first)
+                            compose.waitUntil(10000) { chat.screen.value.openSessionId == first }
                             compose.onNodeWithTag("chat-conversation-details").performClick()
                             compose.onNodeWithTag("background-tasks-open").performClick()
                             compose.onNodeWithTag("task-pause-$firstTurn").performClick()

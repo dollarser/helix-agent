@@ -42,7 +42,14 @@ class SessionInputStorageDeviceTest {
             assertTrue(storage.sessionInputs.markNeedsAttention(queued.inputId, queued.revision, "USER_STOPPED", 2))
             assertFalse(storage.sessionInputs.steerPending(queued.inputId, queued.revision + 1, target.id, 3))
             val late = accepted(storage, spec("late"))
-            storage.turns.updateState(target, TurnState.COMPLETED, 0, null, null)
+            listOf(
+                TurnState.BUILDING_CONTEXT,
+                TurnState.WAITING_MODEL,
+                TurnState.RECEIVING_MODEL,
+                TurnState.COMPLETED,
+            ).fold(target) { current, state ->
+                storage.turns.updateState(current, state, 0, if (state.isTerminal) 4 else null, null)
+            }
             assertFalse(storage.sessionInputs.steerPending(late.inputId, late.revision, target.id, 4))
             assertEquals(late, storage.sessionInputs.get(late.inputId))
         }

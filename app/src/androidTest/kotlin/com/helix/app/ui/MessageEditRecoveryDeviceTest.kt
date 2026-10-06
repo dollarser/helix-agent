@@ -96,7 +96,7 @@ class MessageEditRecoveryDeviceTest {
             val storage = compose.container().storage
             val draft = compose.container().chatService.loadComposerDraft("revision-recovery")!!
             assertEquals("revision-target", draft.revisedMessageId)
-            assertEquals("NORMAL-PROCESS-EDIT-215", draft.text)
+            assertEquals("215001215", draft.text)
             assertTrue(draft.revision > 0)
             val original = storage.messages.resolve("revision-target")
             assertEquals("ORIGINAL-RECOVERY", storage.messages.readContent(original))

@@ -25,7 +25,9 @@ class MobileUseCurrentModelJourneyDeviceTest {
     fun modelObservesTypesScrollsAndVerifiesWithoutHostActions() =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
-            check(args.getString("helixRealModel") == "true") { "Explicit model opt-in required" }
+            val optIn = args.getString("helixRealModel")
+            org.junit.Assume.assumeTrue("Requires explicit real-model profile", optIn != null)
+            require(optIn == "true") { "Explicit model opt-in required" }
             val installing = args.getString("helixInstallFixture") == "true"
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val c = app.appContainer

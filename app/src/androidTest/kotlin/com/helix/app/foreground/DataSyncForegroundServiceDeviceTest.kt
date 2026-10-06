@@ -40,6 +40,36 @@ class DataSyncForegroundServiceDeviceTest : com.helix.app.test.ForegroundDeviceT
     }
 
     @Test
+    fun repeatedTransportStartsKeepTheExistingNotification() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantNotificationPermission(context)
+        val launcher = AndroidForegroundServiceLauncher(context)
+        launcher.start()
+        waitFor("initial notification") {
+            notifications(context).activeNotifications.any { it.id == DataSyncForegroundService.NOTIFICATION_ID }
+        }
+        val instance = DataSyncForegroundService.runningInstance.get()
+        val postedAt =
+            notifications(context)
+                .activeNotifications
+                .first { it.id == DataSyncForegroundService.NOTIFICATION_ID }
+                .postTime
+        repeat(20) {
+            launcher.start()
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        }
+        assertTrue(instance === DataSyncForegroundService.runningInstance.get())
+        assertEquals(
+            postedAt,
+            notifications(
+                context,
+            ).activeNotifications.first { it.id == DataSyncForegroundService.NOTIFICATION_ID }.postTime,
+        )
+        launcher.stop()
+        waitFor("idle service retirement") { DataSyncForegroundService.runningInstance.get() == null }
+    }
+
+    @Test
     fun stoppingAnOlderServiceDoesNotLoseANewTransportRequest() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         grantNotificationPermission(context)
