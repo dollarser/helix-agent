@@ -27,10 +27,21 @@ internal fun RootAuthorization(context: Context) {
         }
     var presentation by remember { mutableStateOf(rootGrantPresentation(access.status(), access.cachedAppGrant)) }
     var failed by remember { mutableStateOf(false) }
+    var connectRequested by remember { mutableStateOf(false) }
     LaunchedEffect(access) {
         while (true) {
             presentation =
                 withContext(Dispatchers.IO) { rootGrantPresentation(access.status(), access.cachedAppGrant) }
+            if (connectRequested && access.status().grant != com.helix.tools.root.RootGrantState.REQUESTING) {
+                connectRequested = false
+                if (access.status().grant == com.helix.tools.root.RootGrantState.GRANTED) {
+                    try {
+                        DeviceAccess.connectEnabledRootConsumers()
+                    } catch (_: IllegalStateException) {
+                        failed = true
+                    }
+                }
+            }
             delay(750)
         }
     }
@@ -44,6 +55,7 @@ internal fun RootAuthorization(context: Context) {
     ) {
         try {
             DeviceAccess.requestRootFromUser(consumer)
+            connectRequested = true
             failed = false
         } catch (_: RuntimeException) {
             failed = true

@@ -8,17 +8,21 @@ import com.helix.tools.root.HelixRootService
 import com.helix.tools.root.LibsuRootAccess
 
 /** Helix owns OS grants. Trusted consumers own distinct service connections and operation policy. */
+@Suppress("TooManyFunctions") // Host authorization and per-consumer connection lifecycle share one owner.
 object DeviceAccess {
     private val roots = mutableMapOf<String, LibsuRootAccess>()
+    private val enabledConsumers = mutableMapOf<String, () -> Boolean>()
 
     @Synchronized
     fun configure(
         context: Context,
         consumer: String,
         service: Class<out HelixRootService>,
+        enabled: () -> Boolean = { false },
     ) {
         require(consumer.isNotBlank())
         roots.getOrPut(consumer) { LibsuRootAccess(context.applicationContext, service) }
+        enabledConsumers[consumer] = enabled
     }
 
     @Synchronized
@@ -29,6 +33,12 @@ object DeviceAccess {
 
     /** Reuse an existing authorized shell; never launch su or an authorization prompt. */
     fun connectRoot(consumer: String) = checkNotNull(root(consumer)).connectAuthorized()
+
+    /** Called once after explicit host authorization, never by discovery or passive status polling. */
+    @Synchronized
+    fun connectEnabledRootConsumers() {
+        enabledConsumers.filterValues { it() }.keys.forEach { connectRoot(it) }
+    }
 
     fun onAppBackgrounded(consumer: String) = root(consumer)?.onAppBackgrounded()
 

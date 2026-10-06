@@ -109,7 +109,7 @@ fun ConnectorSessionPanel(
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    service.catalog.select(sessionId, row.id, enabled)
+                    service.catalog.selectFromUser(sessionId, row.id, enabled)
                 }
                 failed = false
                 revision++

@@ -147,6 +147,20 @@ class PluginCatalog(
         }
     }
 
+    /** Explicit UI activation also makes Mobile Use available to future conversations. */
+    fun selectFromUser(
+        sessionId: String,
+        connectorId: String,
+        enabled: Boolean,
+    ) = synchronized(mutationLock) {
+        storage.withTransaction {
+            select(sessionId, connectorId, enabled)
+            if (enabled && list().single { it.id == connectorId }.native?.pluginId == "mobile-use") {
+                setDefault(connectorId, true)
+            }
+        }
+    }
+
     @Synchronized
     fun setDefault(
         connectorId: String,

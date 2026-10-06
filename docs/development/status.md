@@ -1,11 +1,19 @@
 # 当前实施状态
 
-更新：2026-10-05。本页只维护当前整合范围、开放工作和下一步；每个阶段的命令、失败尝试、安装与提交身份在对应证据中。旧记录里的“本轮未安装/未提交”只指当时，不代表当前工作树、模拟器或远端状态。
+更新：2026-10-06。本页只维护当前整合范围、开放工作和下一步；每个阶段的命令、失败尝试、安装与提交身份在对应证据中。旧记录里的“本轮未安装/未提交”只指当时，不代表当前工作树、模拟器或远端状态。
 
 ## 当前整合与验证边界
 
-- 当前所有者任务：整体审查后清理已失效材料，范围和恢复依据见[清理记录](../evidence/development/obsolete-material-cleanup-2026-10-05.md)。前轮审查覆盖代码缺陷与文档一致性。已确认文件工具投影仍改写说明、合法长描述可能再次越界，以及实测驱动可能误判旧结果/未传播失败；按[本次审查](../bug-fixes/2026-10-05-current-integration-audit.md)修复和验证。设备、真实模型在本次审查中均为 **not requested**。
-- 最近一次实际安装：日常 API36 Developer；Qwen3.8-27B / Shizuku 五项合成任务通过，键盘透明窗口专项连续两次通过。见[模型实测](../evidence/development/current-model-capability-eval-2026-10-05.md)。这是修复前后有界样本，不是官方榜单、豆包同场横评或当前审查增量的设备验收。
+- 2026-10-06 无障碍点击反馈优化：区分显示屏与窗口坐标，补充截图兜底与系统触摸过滤的边界，保留无节点控件视觉点击；结果不明不自动跨后端重放。[定点审查与后续优化](../evidence/development/mobile-use-install-optimization-2026-10-06.md)。后续所有者授权 API36 日常模拟器回归：修复无语义测试夹具，四模式定点与安装页对照各 1/1 通过；系统过滤仍存在，不等于无障碍安装成功，未调用真实模型。
+
+- 当前所有者任务：接手优先级 1（版本整合回归）、优先级 2（Mobile Use 分后端验证）与优先级 3（真实任务稳定性与效率实测）。前轮审查已收敛缺陷并完成主机与文档门禁。
+- 优先级 1 整合回归：修复并验证 `ConversationTopBarDeviceTest` (4/4)、`IaAuthorityDeviceTest` (2/2)、`ConnectorUiDeviceTest` (1/1)、`SystemBarInsetsDeviceTest` (1/1) 与 `HierarchicalNavigationDeviceTest` (5/5)；覆盖这些用例实际断言的 Extensions 展开、导航与会话菜单；不包含全局 Hosts 和消息排队投递的完整回归。
+- 优先级 2 Mobile Use 分后端验证：`MobileUseOverlayDeviceTest` (4/4)、`AutomationServiceDeviceTest` (1/1) 全流程生命周期、无障碍断言及即时停止测试通过；验证 Shizuku 授权就绪 (`moe.shizuku.privileged.api`)、Shizuku 独立设置检查 (`ShizukuSettingsDeviceTest` 1/1 通过)；Root 后端在当前模拟器无 Magisk/KernelSU 守护且 Helix 未获授权时，`RootToolsRootlessDeviceTest` (2/2 通过) 验证无 Root 时的状态与执行拒绝；设置页检查不证明 Shizuku 执行成功，Rootless 检查不证明自动后端回退。真实模型轨迹的观察后端为 Shizuku，Root 成功路径及普通无障碍单后端仍待验证。
+- 优先级 3 真实模型实测：经所有者明确授权 Qwen3.8-27B 模型，在 `emulator-5554` (API 36 arm64) 执行 3 轮完整独立重复合成任务评测（`eval-trial-1`、`eval-trial-2`、`eval-trial-3`），包含 `gui`、`files`、`recovery`、`combined`、`keyboard` 5 项用例，共 15 次独立判定**全部达成并通过 (15/15, 100%)**；详见[模型实测](../evidence/development/current-model-capability-eval-2026-10-05.md)。
+- 2026-10-06 后续修复：应用启动、返回/主页和系统动作接入 Root/Shizuku；修复系统通知弹窗公开选项被整体脱敏。API36 无障碍关闭时 Shizuku 导航及通知回归通过，当前 Qwen3.8-27B 一次通知/输入/滚动任务通过；[本轮证据](../evidence/development/mobile-use-navigation-notification-2026-10-06.md)。未重跑真实酷安首次弹窗或抖音安装，也不推导 Root/OEM 成功。
+- 2026-10-06 悬浮窗解耦：Helix 集中管理普通悬浮窗授权，Mobile Use 优先普通窗口、回退无障碍窗口；Root/Shizuku 工具绑定共享任务呈现。210 项主机测试及双渠道构建通过，新增设备测试仅编译，设备验证 not requested；[证据与边界](../evidence/development/mobile-use-independent-overlay-2026-10-06.md)。
+- 2026-10-06 三后端真实模型安装/卸载评测：三组安装均未完成，三组卸载通过；高权限安装确认被 Helix 保护节点规则拦截，无障碍安装反复无进展，Root 复现计划式最终回复。普通悬浮窗无无障碍回归 1/1；[结果、配置交互与优先修复建议](../evidence/development/mobile-use-backend-install-eval-2026-10-06.md)。后续修复与当前剩余问题见下一项，不以历史安装记录覆盖。
+- 2026-10-06 安装与授权优化：Root/API34、Shizuku/API36 真实模型安装成功；三后端卸载均通过，各 6 次工具调用。修复系统安装按钮错误保护、增加 `ui.apps(packageName)` 精确核查、集中 Root 授权后连接已启用功能，并调整权限布局。普通无障碍安装仍失败，提示改进未证明能消除重复尝试；[本轮结果与剩余边界](../evidence/development/mobile-use-install-optimization-2026-10-06.md)。
 - Standard/consumer 是完整商店面向产品，Advanced/developer 增加平台/渠道允许的能力。debug 构建、局部设备通过、主机检查和真实账号验收分别记录，不互相替代。
 - 开发期 Room 采用 v1 baseline：不兼容库重建，数据库外文件保留；正式签名、applicationId 和升级承诺仍由 HXA-122 承接。版本下载入口不代表当前未提交代码已发布。
 

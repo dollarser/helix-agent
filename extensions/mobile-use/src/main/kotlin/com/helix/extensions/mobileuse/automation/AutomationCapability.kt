@@ -5,8 +5,8 @@ enum class AutomationCapability(
     val operation: AutomationDeviceOperation? = null,
 ) {
     APPS,
-    LAUNCH,
-    GLOBAL,
+    LAUNCH(AutomationDeviceOperation.LAUNCH),
+    GLOBAL(AutomationDeviceOperation.GLOBAL_ACTION),
     OBSERVE(AutomationDeviceOperation.OBSERVE),
     SNAPSHOT(AutomationDeviceOperation.SNAPSHOT),
     NODE_ACTION(AutomationDeviceOperation.NODE_ACTION),

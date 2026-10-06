@@ -112,7 +112,29 @@ class McpToolDiscoveryTest {
         registerFixture(exact)
         registerFixture(mention)
         assertEquals(listOf(exact), discovery.search("session", "files.archive", 1))
+        assertEquals(listOf(exact), discovery.search("session", "files.archive", 16))
         assertEquals(exact, discovery.search("session", "archive", 2).first())
+    }
+
+    @Test fun exactDisabledToolDoesNotDiscoverAnUnrelatedSubstitute() {
+        val mkdir = search.copy(name = ToolName("files.mkdir"), description = "Create a directory")
+        val other = search.copy(name = ToolName("code.helper"), description = "Alternative to files.mkdir")
+        registerFixture(mkdir)
+        registerFixture(other)
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != mkdir }
+        assertTrue(filtered.search("session", "files.mkdir", 16).isEmpty())
+    }
+
+    @Test fun workspaceDirectoryCreationIsDefaultButStillSubjectToAdmission() {
+        val mkdir = search.copy(name = ToolName("files.mkdir"), description = "Create a directory")
+        registerFixture(mkdir)
+        val defaults =
+            com.helix.app.chat.ModelToolExposureOrder
+                .defaultNames(emptySet())
+        assertTrue(mkdir in discovery.visible("session", registry.all(), defaults))
+        assertFalse(mkdir in discovery.visible("session", listOf(search), defaults))
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != mkdir }
+        assertFalse(mkdir in filtered.visible("session", registry.all(), defaults))
     }
 
     @Test fun compositeQueryFallsBackToRankedPartialMatches() {

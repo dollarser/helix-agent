@@ -17,6 +17,8 @@ interface AutomationRuntimePresentation {
 
     fun hide()
 
+    fun refreshSurface() {}
+
     fun close()
 }
 

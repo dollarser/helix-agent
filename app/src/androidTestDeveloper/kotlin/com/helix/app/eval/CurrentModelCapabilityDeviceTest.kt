@@ -38,7 +38,7 @@ class CurrentModelCapabilityDeviceTest {
                 optIn == "true",
             )
             val case = requireNotNull(args.getString("helixCase"))
-            require(case in setOf("gui", "files", "recovery", "combined", "keyboard"))
+            require(case in setOf("gui", "files", "recovery", "combined", "keyboard", "notification"))
             val provider = requireNotNull(args.getString("helixProvider"))
             val model = requireNotNull(args.getString("helixModel"))
             val trial = requireNotNull(args.getString("helixTrial"))
@@ -63,7 +63,7 @@ class CurrentModelCapabilityDeviceTest {
             val started = SystemClock.elapsedRealtime()
             try {
                 c.pluginService.setEnabled(plugin.id, true)
-                selection.select(session, setOf(app.packageName, "${app.packageName}.test"), false)
+                selection.select(session, setOf(app.packageName, "${app.packageName}.test"), case == "notification")
                 c.sessionPermissionEdit.saveSessionConfig(
                     session,
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
@@ -73,7 +73,7 @@ class CurrentModelCapabilityDeviceTest {
                 c.chatService.setMode(AgentMode.ACT)
                 c.chatService.setTurnBudgets(TurnBudgets(40, 30, 262144, 8192, 524288))
                 await(10_000) { c.chatService.screen.value.openSessionId == session }
-                if (case in setOf("gui", "combined", "keyboard")) {
+                if (case in setOf("gui", "combined", "keyboard", "notification")) {
                     app.startActivity(
                         Intent()
                             .setComponent(
@@ -84,7 +84,8 @@ class CurrentModelCapabilityDeviceTest {
                             ).addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
                                     Intent.FLAG_ACTIVITY_CLEAR_TASK,
-                            ).putExtra("modelJourney", true),
+                            ).putExtra("modelJourney", true)
+                            .putExtra("notificationPrompt", case == "notification"),
                     )
                     SystemClock.sleep(800)
                 }
@@ -104,8 +105,8 @@ class CurrentModelCapabilityDeviceTest {
                         .last()
                         .state == "COMPLETED"
                 val screenDone =
-                    if (case in setOf("gui", "combined", "keyboard")) {
-                        fixtureCompletedOnce()
+                    if (case in setOf("gui", "combined", "keyboard", "notification")) {
+                        fixtureCompletedOnce(case == "notification")
                     } else {
                         true
                     }
@@ -193,7 +194,7 @@ class CurrentModelCapabilityDeviceTest {
         output: File,
     ): Boolean =
         when (case) {
-            "gui", "keyboard" -> {
+            "gui", "keyboard", "notification" -> {
                 true
             }
 
@@ -207,10 +208,11 @@ class CurrentModelCapabilityDeviceTest {
             }
         }
 
-    private fun fixtureCompletedOnce(): Boolean {
+    private fun fixtureCompletedOnce(notification: Boolean): Boolean {
         val uri = android.net.Uri.parse("content://${app.packageName}.test.capability-state/result")
         return app.contentResolver.query(uri, null, null, null, null)?.use {
-            it.moveToFirst() && it.getString(0) == "TEST_DONE:你好 Helix" && it.getInt(1) == 1
+            it.moveToFirst() && it.getString(0) == "TEST_DONE:你好 Helix" && it.getInt(1) == 1 &&
+                (!notification || it.getInt(2) == 0)
         } == true
     }
 
@@ -232,6 +234,10 @@ private fun capabilityPrompt(
     val gui = "把当前页面的“测试输入”填写为“你好 Helix”，向下找到“完成测试”并点击一次，确认实际显示成功结果。"
     return boundary +
         when (case) {
+            "notification" -> {
+                "请在当前测试应用的通知授权弹窗选择不允许，然后在测试页面填写你好 Helix，滚动找到完成按钮并点击一次，最后核实完成结果。"
+            }
+
             "gui" -> {
                 gui
             }

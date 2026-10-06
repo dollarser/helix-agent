@@ -610,6 +610,9 @@ fun ChatScreen(
                         onCommandMode = { mode ->
                             sessionId?.let { chatService.setModeFromComposer(it, mode) } ?: false
                         },
+                        onDetectReasoning = { provider, model ->
+                            providerService.discoverReasoningOptions(provider, model)
+                        },
                         onSetReasoning = chatService::setReasoning,
                         onSetChatTools = chatService::setChatToolsEnabled,
                         onInspectProot = chatService::inspectInterruptedProot,

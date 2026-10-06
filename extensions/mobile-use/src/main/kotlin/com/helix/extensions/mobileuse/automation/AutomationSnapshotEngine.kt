@@ -244,6 +244,7 @@ internal class AutomationSnapshotEngine(
                         redacted = true,
                     )
                 state.hasUsefulSemantics = true
+                if (!observed.password) visitChildren(node, observed.childCount, null, depth, path, state)
                 return
             }
             if (observed.fieldTruncated) state.truncate("FIELD_LIMIT")
@@ -294,24 +295,35 @@ internal class AutomationSnapshotEngine(
                 observed.checkable ||
                 observed.canSetProgress
 
-            val childCount = observed.childCount
-            if (depth == MAX_DEPTH && childCount > 0) {
-                state.truncate("DEPTH_LIMIT")
-                return
-            }
-            for (index in 0 until childCount) {
-                if (state.nodes.size >= MAX_NODES) {
-                    state.truncate("NODE_LIMIT")
-                    return
-                }
-                val child = node.childAt(index) ?: continue
-                visitOwned(child, token, depth + 1, path + index, state)
-                if (state.abortStatus != null) return
-            }
+            visitChildren(node, observed.childCount, token, depth, path, state)
         } catch (_: RuntimeException) {
             state.abortStatus = AutomationSnapshotStatus.UNSUPPORTED_UI
         } finally {
             node.recycleSafely()
+        }
+    }
+
+    @Suppress("ReturnCount") // Each traversal bound exits immediately while visitOwned retains node ownership.
+    private fun visitChildren(
+        node: SnapshotNode,
+        childCount: Int,
+        parentToken: String?,
+        depth: Int,
+        path: List<Int>,
+        state: TraversalState,
+    ) {
+        if (depth == MAX_DEPTH && childCount > 0) {
+            state.truncate("DEPTH_LIMIT")
+            return
+        }
+        for (index in 0 until childCount) {
+            if (state.nodes.size >= MAX_NODES) {
+                state.truncate("NODE_LIMIT")
+                return
+            }
+            val child = node.childAt(index) ?: continue
+            visitOwned(child, parentToken, depth + 1, path + index, state)
+            if (state.abortStatus != null) return
         }
     }
 

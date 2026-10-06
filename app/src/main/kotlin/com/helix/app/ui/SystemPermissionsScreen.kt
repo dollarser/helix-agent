@@ -52,15 +52,17 @@ fun SystemPermissionsScreen(
     advancedPermissions: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val allFilesSupported =
+    val declaredPermissions =
         remember(context) {
-            Build.VERSION.SDK_INT >= 30 &&
-                context.packageManager
-                    .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-                    .requestedPermissions
-                    .orEmpty()
-                    .contains(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            context.packageManager
+                .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+                .requestedPermissions
+                .orEmpty()
+                .toSet()
         }
+    val allFilesSupported =
+        Build.VERSION.SDK_INT >= 30 &&
+            Manifest.permission.MANAGE_EXTERNAL_STORAGE in declaredPermissions
     var revision by remember { mutableIntStateOf(0) }
     var unavailable by remember { mutableStateOf(false) }
     var files by rememberSaveable { mutableStateOf(false) }
@@ -110,6 +112,11 @@ fun SystemPermissionsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.permissions_help))
+        if (devicePermissions != null || Manifest.permission.SYSTEM_ALERT_WINDOW in declaredPermissions) {
+            PermissionGroupTitle(R.string.permissions_group_device)
+            devicePermissions?.invoke()
+            OverlaySystemPermission(revision, open)
+        }
         PermissionGroupTitle(R.string.permissions_group_daily)
         PermissionEntry(
             R.string.permissions_notifications,
@@ -166,10 +173,6 @@ fun SystemPermissionsScreen(
         )
         PermissionGroupTitle(R.string.permissions_group_apps)
         ApplicationVisibilityPermission(revision, appSettings)
-        devicePermissions?.let {
-            PermissionGroupTitle(R.string.permissions_group_device)
-            it()
-        }
         if (advancedPermissions != null) {
             SettingsDisclosure(stringResource(R.string.permissions_root_diagnostics), "permissions-root-details") {
                 Text(

@@ -209,6 +209,8 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 .putString(KEY_ACTION_TOKEN, actionToken)
                 .putInt(KEY_ACTIONS_ATTEMPTED, active?.attemptedActions ?: -1)
                 .putInt(KEY_MAX_ACTIONS, active?.scope?.maxActions ?: -1)
+                .putString(KEY_RUNTIME_ID, active?.id)
+                .putString(KEY_SCOPE_REF, active?.scope?.toScopeRef())
                 .putString(KEY_LAST_STOP_REASON, center.lastStopReason()?.name)
                 .putBoolean(KEY_SNAPSHOT_TRUNCATED, snapshot?.truncated ?: false)
                 .putString(
@@ -273,6 +275,8 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val KEY_ACTION_TOKEN = "action_token"
         const val KEY_ACTIONS_ATTEMPTED = "actions_attempted"
         const val KEY_MAX_ACTIONS = "max_actions"
+        const val KEY_RUNTIME_ID = "runtime_id"
+        const val KEY_SCOPE_REF = "scope_ref"
         const val KEY_LAST_STOP_REASON = "last_stop_reason"
         private const val RESULT_OK = "OK"
         private const val RESULT_NONE = "NONE"

@@ -17,13 +17,14 @@ internal object ModelToolExposureOrder {
             "edit",
             "files.list",
             "files.stat",
+            "files.mkdir",
             "files.search",
             "view_image",
         ).withIndex().associate { (index, name) -> name to index }
 
     fun defaultNames(preferred: Set<String>): Set<String> {
         val shared =
-            coreFiles.keys + GoalLifecycleTools.names +
+            (coreFiles.keys - "files.stat") + GoalLifecycleTools.names +
                 setOf(
                     "tools.search",
                     "ask_user",

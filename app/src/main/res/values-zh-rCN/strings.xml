@@ -1367,13 +1367,13 @@
     <string name="session_settings_model">模型</string>
     <string name="session_settings_manage_models">管理模型</string>
     <string name="session_settings_configure_permissions">配置会话权限</string>
-    <string name="session_expert_title">Expert</string>
+    <string name="session_expert_title">专家</string>
     <string name="session_expert_hint">为当前会话设置一个行为专家。修改只影响后续 Turn。</string>
     <string name="session_expert_name">名称</string>
     <string name="session_expert_instruction">行为指令</string>
-    <string name="session_expert_authority_note">Expert 只影响提示词行为，不会提升权限、启用工具或绕过审批。</string>
-    <string name="session_expert_save_failed">保存 Expert 失败，请重试。</string>
-    <string name="session_expert_clear">清除 Expert</string>
+    <string name="session_expert_authority_note">专家只影响提示词行为，不会提升权限、启用工具或绕过审批。</string>
+    <string name="session_expert_save_failed">保存专家失败，请重试。</string>
+    <string name="session_expert_clear">清除专家</string>
     <string name="session_skills_title">会话 Skills</string>
     <string name="session_skills_hint">只影响此会话后续使用；不会修改全局 Skill 开关。</string>
     <string name="session_skills_empty">没有可用 Skill。</string>
@@ -1390,7 +1390,7 @@
     <string name="conversation_reference_hint">选择一个会话。发送时会冻结已有摘要；没有摘要时冻结最近的有界消息，不会保留实时会话指针。</string>
     <string name="conversation_reference_empty">没有其他可引用的会话。</string>
     <string name="composer_add_session_group">配置此会话</string>
-    <string name="connector_session_title">本次可用能力</string>
+    <string name="connector_session_title">扩展</string>
     <string name="connector_session_hint">只影响本会话后续使用；历史保留。共享 Skill 若有其他有效来源仍可使用。</string>
     <string name="connector_session_empty">尚无可用扩展，请前往扩展添加。</string>
     <string name="connector_session_unavailable">未安装或已移除</string>
@@ -1582,7 +1582,7 @@
     <string name="user_question_title">需要你的选择</string>
     <string name="automatic_recovery_unavailable">原任务发生中断，自动核查未能完成。本次尝试已结束；已有操作与未知结果保持原样，不会自动重放。请查看任务详情中的具体中断原因。</string>
     <string name="git_diff_read_error">无法读取差异，请刷新仓库后重试。</string>
-    <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请重新获取当前可用工具后发起新调用。</string>
+    <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请先用 tools.search 精确搜索工具名，再按下一轮提供的参数定义调用；不要直接重试本次调用。</string>
     <string name="quickjs_native_save_failed">无法读取或保存原生访问设置，请重试。</string>
     <string name="provider_models_manage">管理会话模型</string>
     <string name="provider_models_manage_title">%1$s · 模型</string>
@@ -1795,8 +1795,8 @@
     <string name="device_access_shizuku_title">Shizuku 授权</string>
     <string name="device_access_shizuku_unavailable">Shizuku 未启动或不可用</string>
     <string name="device_access_root_title">Root 授权</string>
-    <string name="device_access_root_help">适用于已 Root 的设备。撤销授权请前往 Root 管理器。</string>
-    <string name="device_access_root_authorize">申请或检查</string>
+    <string name="device_access_root_help">适用于已 Root 的设备。授权后连接已启用功能需要的 Root 服务；撤销授权请前往 Root 管理器。</string>
+    <string name="device_access_root_authorize">授权并连接</string>
     <string name="mobile_root_connection_title">Mobile Use Root 连接</string>
     <string name="mobile_accessibility_connected">Mobile Use 无障碍引擎已连接</string>
     <string name="mobile_accessibility_disabled">Mobile Use 无障碍引擎不可用；已授权的 Root 或 Shizuku 仍可提供相应功能</string>
@@ -1880,4 +1880,10 @@
     <string name="permissions_install_granted">系统已授予</string>
     <string name="permissions_system_restricted">未授予，受系统或签名限制</string>
     <string name="permissions_root_diagnostics_help">用于只读检查软件包、进程、日志及授权目录，排查设备问题。它不是 Root 总开关，也不会启用 Mobile Use。</string>
+    <string name="chat_reasoning_detecting">正在检测能力…</string>
+    <string name="chat_reasoning_detection_failed">检测失败，关闭后点击可重试</string>
+    <string name="chat_reasoning_not_confirmed">未确认支持可调强度，可再次点击检测</string>
+    <string name="chat_reasoning_detect">思考强度 · 检测</string>
+    <string name="permissions_overlay">悬浮窗</string>
+    <string name="permissions_overlay_help">在其他应用上显示任务状态和控制按钮，无需开启无障碍。不授权也可执行手机操作。</string>
 </resources>

@@ -31,6 +31,7 @@ internal object AutomationModule {
                 context,
                 "mobile-use",
                 com.helix.extensions.mobileuse.automation.backend.RootAutomationService::class.java,
+                enabled = { plugins.hasPublishedTools(MobileUsePlugin.PLUGIN_ID) },
             )
         val grants = MobileUseGrantStore(readConfiguration, writeConfiguration, selectionId)
         val plugin =
@@ -49,6 +50,13 @@ internal object AutomationModule {
                         ),
                     ),
                     taskHost,
+                    overlayContext = {
+                        if (android.provider.Settings.canDrawOverlays(context)) {
+                            context.applicationContext
+                        } else {
+                            runtime?.permissionCenter?.accessibilityOverlayContext()
+                        }
+                    },
                 ) {
                     plugins.hasPublishedTools(MobileUsePlugin.PLUGIN_ID)
                 }.also { runtime = it }

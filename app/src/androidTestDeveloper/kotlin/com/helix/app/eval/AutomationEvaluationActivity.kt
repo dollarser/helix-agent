@@ -1,6 +1,5 @@
 package com.helix.app.eval
 
-import android.app.Activity
 import android.os.Bundle
 import android.view.MotionEvent
 import android.widget.Button
@@ -8,7 +7,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /** Synthetic test-APK screen; never included in an application APK. */
-class AutomationEvaluationActivity : Activity() {
+class AutomationEvaluationActivity : NotificationFixtureActivity() {
     private var clicks = 0
     private var downs = 0
     private var ups = 0
@@ -19,6 +18,10 @@ class AutomationEvaluationActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent.getBooleanExtra("modelJourney", false)) modelJourney() else clickFixture()
+        if (intent.getBooleanExtra("notificationPrompt", false) && android.os.Build.VERSION.SDK_INT >= 33) {
+            getSharedPreferences("capability-fixture", MODE_PRIVATE).edit().putInt("notification", -1).commit()
+            requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 104)
+        }
     }
 
     private fun clickFixture() {

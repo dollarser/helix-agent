@@ -35,3 +35,16 @@
 ## 验证
 
 `./scripts/check-all.sh --source` 通过：脚本自测、752 份 Markdown/230 个 HXA 文档检查、36 份 ADR、i18n 与 Secret 扫描均通过；`git diff --check` 通过。逐项比较清理前后的生产/活动测试 diff，确认原有改动未改变；199 个选定路径均已移除。日志见忽略目录 `build/obsolete-cleanup/source-gate.log`。本次不改生产实现，没有运行 Android 构建、设备或真实模型，不新增产品验收结论。
+
+## 2026-10-06：跟踪范围复评与整理
+
+本轮清理前有 4,407 个已跟踪文件、374 个原有未跟踪文件。保留生产源码、有效测试、锁文件、构建脚本、文档和被引用资产；没有把现行测试当作旧辅助脚本删除。
+
+- 220 个无路径/唯一文件名引用、明确改写源码/文档的未跟踪旧编辑器移出工作目录。完整原文保存到 `build/repository-hygiene-2026-10-06/local-one-off-editors.tar.gz`，逐文件路径/SHA-256 见同目录 `archived-editors.json`；压缩后 204,969 字节，归档读取校验通过才移除原文件。未执行这些编辑器；筛选不等于证明所有历史修改均已完成，保留原文以便核查。
+- 两份完全相同的 `clean-packages.py` 合并到原有 `scripts/debug/2026-09-17/hxa194/clean-packages.py`，P0 matrix 改用同一实现；删除 P0 副本。内容逐字节一致，其他调用方不变，没有执行卸载或任何设备命令。
+- `.gitignore` 增加 `.env.*`（保留无凭据 example/template）、APK/AAB/APKS、hprof 和日期目录下显式 `local/`；不整目录忽略 debug/evidence，不忽略 ZIP/JAR/图片/JSON 等可能是有效输入的文件类型。
+- 跟踪策略集中在[开发控制面](../../development/README.md#git-跟踪与留存)，两个脚本入口页引用同一规则。状态/ADR/完成记录/研究按既有职责分开，不创建新的当前计划。
+
+FFmpeg vendor ZIP 经当前构建和验证脚本引用，保留；UI 参考和历史验收截图、Gradle Wrapper JAR、session export JSONL 夹具保留。原始模型输出、旧工作树恢复包和当前 Antigravity 工作不清空；剩余未跟踪诊断/评测脚本不能仅按名称或无直接引用决定删除/提交。
+
+本轮主机验证通过：源码门禁、753 份 Markdown/230 个 HXA、36 份 ADR、i18n/Secret 检查、13 项忽略规则边界、shell 语法及 git diff --check；结果保存在 `build/repository-hygiene-2026-10-06/`。不新增设备或真实模型通过结论。

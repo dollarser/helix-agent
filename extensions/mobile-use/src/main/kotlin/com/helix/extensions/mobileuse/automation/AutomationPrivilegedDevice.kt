@@ -1,7 +1,7 @@
 package com.helix.extensions.mobileuse.automation
 
 /** Closed platform operations; never accepts shell commands or caller-supplied image paths. */
-enum class AutomationDeviceOperation { OBSERVE, SCREENSHOT, GESTURE, SNAPSHOT, NODE_ACTION }
+enum class AutomationDeviceOperation { OBSERVE, SCREENSHOT, GESTURE, SNAPSHOT, NODE_ACTION, LAUNCH, GLOBAL_ACTION }
 
 data class AutomationDeviceRequest(
     val operation: AutomationDeviceOperation,
@@ -10,6 +10,8 @@ data class AutomationDeviceRequest(
     val wholeDisplay: Boolean = false,
     val nodeAction: AutomationNodeActionRequest? = null,
     val nodeFingerprint: String? = null,
+    val launchPackage: String? = null,
+    val globalAction: AutomationGlobalAction? = null,
 )
 
 data class AutomationDeviceReply(
@@ -21,7 +23,13 @@ data class AutomationDeviceReply(
 )
 
 fun AutomationDeviceOperation.hasEffect(): Boolean =
-    this == AutomationDeviceOperation.GESTURE || this == AutomationDeviceOperation.NODE_ACTION
+    this in
+        setOf(
+            AutomationDeviceOperation.GESTURE,
+            AutomationDeviceOperation.NODE_ACTION,
+            AutomationDeviceOperation.LAUNCH,
+            AutomationDeviceOperation.GLOBAL_ACTION,
+        )
 
 /** Shared host/remote validation. Restricted gestures cannot cross an unrelated covering window. */
 @Suppress("ReturnCount") // Distinct absence, changed frame and whole-display boundaries fail closed.

@@ -49,15 +49,20 @@ class AutomationDeviceTools(
                 obj(),
                 deviceOutput(),
                 "Observe phone display/window and get a frame for screenshot or gesture. " +
-                    "A new observation replaces the old frame; semantic node tokens are separate.",
+                    "screenBounds is the full display; windowBounds is the active window, " +
+                    "not a coordinate origin. A new observation replaces the old frame; " +
+                    "semantic node tokens are separate.",
             ),
             descriptor(
                 APPS,
                 ToolOperationClass.READ_ONLY,
-                obj(),
+                obj(mapOf("packageName" to str(255))),
                 appsOutput(),
-                "List Android-visible launchable apps allowed by the user grant. " +
-                    "Not all installed packages; truncated reports incomplete listing.",
+                "Verify installation/uninstallation with packageName: returns INSTALLED, NOT_INSTALLED, or UNKNOWN " +
+                    "for the current Android user. Use the target app package, " +
+                    "not the installer or download source package. " +
+                    "UNKNOWN is not proof of absence. " +
+                    "Without packageName, list visible launchable apps only; missing entries do not prove uninstall.",
             ),
             descriptor(
                 LAUNCH,
@@ -85,7 +90,7 @@ class AutomationDeviceTools(
                     "Several points form a path. " +
                     "Parallel strokes use multiple fingers. " +
                     "Root/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
-                    "Map image pixels via screenBounds. " +
+                    "Map image pixels via that screenshot's screenBounds; never subtract windowBounds. " +
                     "Refresh frame after window/rotation changes. " +
                     "Observe after uncertain outcomes; never blindly replay.",
             ),
@@ -101,7 +106,9 @@ class AutomationDeviceTools(
                     "width/height describe the PNG; imageWidth/imageHeight describe attached pixels. " +
                     "screenX=left+x*(right-left)/imageWidth; screenY=top+y*(bottom-top)/imageHeight. " +
                     "When this is a fallback after semantic targeting failed and the visual target is clear, " +
-                    "use ui.gesture with the returned frame next instead of repeating semantic searches.",
+                    "a visual gesture may work for custom-drawn controls. Missing nodes do " +
+                    "not prove sensitivity. Android can hide sensitive controls and reject " +
+                    "Accessibility touches; pixels do not remove that restriction.",
             ),
         )
 
@@ -175,7 +182,7 @@ class AutomationDeviceTools(
         }
 
     private fun apps(call: ExecutableToolCall): ToolExecutorResult {
-        val listing = port.forCall(call).apps()
+        val listing = port.forCall(call).apps(call.args["packageName"]?.jsonPrimitive?.content)
         val items =
             listing.apps.map { app ->
                 buildJsonObject {
@@ -187,6 +194,7 @@ class AutomationDeviceTools(
             buildJsonObject {
                 put("status", JsonPrimitive(listing.status))
                 put("truncated", JsonPrimitive(listing.truncated))
+                listing.queriedPackage?.let { put("packageName", JsonPrimitive(it)) }
                 put("apps", JsonArray(items))
             },
         )
@@ -220,9 +228,14 @@ class AutomationDeviceTools(
                     JsonPrimitive(
                         if (published.visual != null) {
                             "Pixels are attached. If this screenshot was taken because semantic targeting failed " +
-                                "and the intended visual target is now clear, call ui.gesture next with this same " +
+                                "and the intended visual target is now clear, you may try ui.gesture with this same " +
                                 "frame and the mapped screen coordinates. Do not repeat equivalent semantic searches " +
-                                "or end with a future-intent statement."
+                                "or end with a future-intent statement. Missing nodes have " +
+                                "unknown cause; pixels do not prove touch acceptance. If an" +
+                                " observed attempt has no effect, reassess instead of " +
+                                "repeating the same gesture. Accessibility touches may be " +
+                                "filtered on sensitive controls; request a manual step when" +
+                                " needed."
                         } else {
                             "Pixels were not attached. Do not infer image content or guess coordinates."
                         },
@@ -267,7 +280,8 @@ class AutomationDeviceTools(
                 put("width", JsonPrimitive(frame.target.width))
                 put("height", JsonPrimitive(frame.target.height))
                 put("rotation", JsonPrimitive(frame.target.rotation))
-                put("screenBounds", boundsJson(frame.target.bounds))
+                put("screenBounds", boundsJson(AutomationNodeBounds(0, 0, frame.target.width, frame.target.height)))
+                put("windowBounds", boundsJson(frame.target.bounds))
             }
         }
 
@@ -283,8 +297,8 @@ class AutomationDeviceTools(
         ToolName(name),
         ToolVersion(
             if (name == DEVICE) {
-                3
-            } else if (name == SCREENSHOT) {
+                4
+            } else if (name == SCREENSHOT || name == APPS) {
                 2
             } else {
                 1
@@ -296,7 +310,7 @@ class AutomationDeviceTools(
         operation,
         75.seconds,
         512L * 1024L,
-        setOf(if (name in setOf(LAUNCH, SYSTEM)) Capability.ACCESSIBILITY_AUTOMATION else Capability.MOBILE_USE),
+        setOf(Capability.MOBILE_USE),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
@@ -332,13 +346,23 @@ class AutomationDeviceTools(
                 "height" to integer(),
                 "rotation" to integer(),
                 "screenBounds" to boundsSchema(),
+                "windowBounds" to boundsSchema(),
             ),
             "status",
         )
 
     private fun appsOutput(): JsonObject {
         val entry = obj(mapOf("packageName" to str(255), "label" to str(256)), "packageName", "label")
-        return obj(mapOf("truncated" to bool(), "status" to str(128), "apps" to array(entry, 1_000)), "status", "apps")
+        return obj(
+            mapOf(
+                "truncated" to bool(),
+                "status" to str(128),
+                "packageName" to str(255),
+                "apps" to array(entry, 1_000),
+            ),
+            "status",
+            "apps",
+        )
     }
 
     private fun screenshotOutput() =

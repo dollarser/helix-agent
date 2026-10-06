@@ -8,6 +8,8 @@ import com.helix.extensions.mobileuse.R
 
 internal class AndroidSnapshotNode(
     private val node: AccessibilityNodeInfo,
+    private val permissionController: String? = null,
+    private val installer: String? = null,
 ) : SnapshotNode {
     override val packageName: String?
         get() = node.packageName?.toString()
@@ -49,7 +51,10 @@ internal class AndroidSnapshotNode(
     override val password: Boolean
         get() = node.isPassword
     override val accessibilityDataSensitive: Boolean
-        get() = Build.VERSION.SDK_INT >= 34 && node.isAccessibilityDataSensitive
+        get() =
+            Build.VERSION.SDK_INT >= 34 && node.isAccessibilityDataSensitive &&
+                !publicPermissionControl(permissionController, packageName, viewId, password, editable) &&
+                !publicInstallerControl(installer, packageName, viewId, password, editable, className)
     override val range: AutomationNodeRange?
         get() = node.rangeInfo?.let { AutomationNodeRange(it.min, it.max, it.current) }
     override val canSetProgress: Boolean
@@ -64,7 +69,10 @@ internal class AndroidSnapshotNode(
     override val childCount: Int
         get() = node.childCount
 
-    override fun childAt(index: Int): SnapshotNode? = node.getChild(index)?.let(::AndroidSnapshotNode)
+    override fun childAt(index: Int): SnapshotNode? =
+        node.getChild(index)?.let {
+            AndroidSnapshotNode(it, permissionController, installer)
+        }
 
     override fun performAction(
         action: Int,

@@ -27,3 +27,15 @@ __pycache__/
 # Personal editor state; shared tasks/settings are not blanket-ignored.
 .vscode/*.local.json
 .workbuddy-ai/
+
+# Local credentials/config variants; sanitized examples remain reviewable.
+.env.*
+!.env.example
+!.env.template
+# Generated Android packages and heap dumps belong in ignored build directories.
+*.apk
+*.aab
+*.apks
+*.hprof
+# Optional local one-off scripts; reviewed runners elsewhere remain visible.
+/scripts/debug/*/local/

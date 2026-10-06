@@ -146,6 +146,69 @@ class MobileUseOverlayDeviceTest {
         }
     }
 
+    @Test fun applicationOverlayWorksWithoutHelixAccessibilityAndRemovesAfterRevocation() {
+        val app = instrumentation.context.applicationContext
+        val component = ComponentName(context, HelixAccessibilityService::class.java).flattenToString()
+        val original = shell("settings get secure enabled_accessibility_services").trim()
+        val remaining =
+            original
+                .split(
+                    ':',
+                ).filter { it != component && it != "null" && it.isNotBlank() }
+                .joinToString(":")
+        val originalMode =
+            Regex("SYSTEM_ALERT_WINDOW: (allow|ignore|deny|default|foreground)")
+                .find(shell("cmd appops get ${app.packageName} SYSTEM_ALERT_WINDOW"))
+                ?.groupValues
+                ?.get(1) ?: "default"
+        val overlay =
+            MobileUseOverlay(
+                app,
+                object : PluginTaskHost {
+                    override fun snapshot(task: PluginTaskIdentity) = PluginTaskSnapshot(TurnState.WAITING_MODEL)
+
+                    override fun requestStop(task: PluginTaskIdentity) = Unit
+
+                    override fun openConversation(task: PluginTaskIdentity) = Unit
+                },
+                surface = { app.takeIf { android.provider.Settings.canDrawOverlays(it) } },
+            ) { true }
+        try {
+            if (remaining.isEmpty()) {
+                shell("settings delete secure enabled_accessibility_services")
+            } else {
+                shell("settings put secure enabled_accessibility_services $remaining")
+            }
+            shell("cmd appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
+            waitUntil { android.provider.Settings.canDrawOverlays(app) }
+            context.startActivity(
+                Intent(context, OverlayFixtureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            assertEquals(
+                android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                MobileUseOverlayWindows(app, {}, {}).parameters(false).type,
+            )
+            assertTrue(overlay.bind(call()))
+            waitUntil { hasControl() }
+            val hidden = requireNotNull(overlay.hideForOperation(call()))
+            assertFalse(hasControl())
+            hidden.close()
+            waitUntil { hasControl() }
+            shell("cmd appops set ${app.packageName} SYSTEM_ALERT_WINDOW deny")
+            waitUntil { !hasControl() }
+            // Lack of a presentation grant does not prevent an otherwise authorized backend operation.
+            overlay.hideForOperation(call())?.close() ?: error("No-overlay operation was refused")
+        } finally {
+            overlay.close()
+            shell("cmd appops set ${app.packageName} SYSTEM_ALERT_WINDOW $originalMode")
+            if (original == "null" || original.isBlank()) {
+                shell("settings delete secure enabled_accessibility_services")
+            } else {
+                shell("settings put secure enabled_accessibility_services $original")
+            }
+        }
+    }
+
     private fun withOverlay(block: (MobileUseOverlay, AtomicReference<PluginTaskIdentity?>) -> Unit) {
         val component = ComponentName(context, HelixAccessibilityService::class.java).flattenToString()
         val original = shell("settings get secure enabled_accessibility_services").trim()

@@ -231,6 +231,28 @@ class AutomationSnapshotEngineTest {
         assertEquals(1, password.recycleCount)
     }
 
+    @Test fun protectedContainerDoesNotHidePublicChildrenOrGrantAnAncestorClick() {
+        val child = FakeSnapshotNode(PACKAGE, 4, text = "Deny", clickable = true)
+        val root = FakeSnapshotNode(PACKAGE, 4, accessibilityDataSensitive = true, children = listOf(child))
+        val nodes = engine.capture(root, session, 2).snapshot!!.nodes
+        assertEquals(2, nodes.size)
+        assertTrue(nodes.first().redacted)
+        assertEquals("", nodes.first().token)
+        assertEquals("Deny", nodes.last().text)
+        assertNull(nodes.last().parentToken)
+        assertTrue(nodes.last().token.isNotEmpty())
+        assertEquals(1, child.recycleCount)
+    }
+
+    @Test fun passwordContainerNeverExposesItsChildren() {
+        val child = FakeSnapshotNode(PACKAGE, 4, text = "secret")
+        val root = FakeSnapshotNode(PACKAGE, 4, password = true, children = listOf(child))
+        val nodes = engine.capture(root, session, 2).snapshot!!.nodes
+        assertEquals(1, nodes.size)
+        assertTrue(nodes.single().redacted)
+        assertEquals(0, child.recycleCount)
+    }
+
     @Test
     fun appCategoryNamesDoNotOverrideAnExplicitGrant() {
         for (

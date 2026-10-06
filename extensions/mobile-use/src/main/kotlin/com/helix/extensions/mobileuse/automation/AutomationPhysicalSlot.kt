@@ -6,6 +6,8 @@ import java.util.concurrent.atomic.AtomicReference
 internal class AutomationPhysicalSlot {
     private val owner = AtomicReference<Any?>(null)
 
+    fun isOccupied(): Boolean = owner.get() != null
+
     fun acquire(): Any? = Any().takeIf { owner.compareAndSet(null, it) }
 
     fun release(ticket: Any) {

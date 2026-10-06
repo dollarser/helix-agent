@@ -18,6 +18,8 @@ import java.io.OutputStream
 internal class PrivilegedDeviceService(
     private val guard: IBinder,
     private val screen: ShizukuHierarchy,
+    private val permissionControllerPackage: String?,
+    private val packageManager: android.content.pm.PackageManager,
 ) {
     @Suppress("CyclomaticComplexMethod") // Closed protocol dispatch keeps payload ownership and publication together.
     fun execute(
@@ -25,11 +27,29 @@ internal class PrivilegedDeviceService(
         reply: Parcel,
     ) {
         check(allowed())
-        val target = screen.deviceTarget()
+        val target = if (request.operation == AutomationDeviceOperation.LAUNCH) null else screen.deviceTarget()
         var image: SharedMemory? = null
         var snapshot: com.helix.extensions.mobileuse.automation.AutomationSnapshotResult? = null
         val status =
             when (request.operation) {
+                AutomationDeviceOperation.LAUNCH -> {
+                    PrivilegedNavigationExecution(
+                        ::allowed,
+                        packageManager,
+                    ).launch(requireNotNull(request.launchPackage)).name
+                }
+
+                AutomationDeviceOperation.GLOBAL_ACTION -> {
+                    if (target == null || request.target?.sameWindow(target) != true) {
+                        "TARGET_CHANGED"
+                    } else {
+                        com.helix.extensions.mobileuse.automation
+                            .performPlatformAutomationAction {
+                                if (!allowed()) false else screen.globalAction(requireNotNull(request.globalAction))
+                            }.status.name
+                    }
+                }
+
                 AutomationDeviceOperation.OBSERVE -> {
                     if (target == null) "TARGET_UNAVAILABLE" else "READY"
                 }
@@ -84,7 +104,12 @@ internal class PrivilegedDeviceService(
         }
         val engine =
             com.helix.extensions.mobileuse.automation
-                .PrivilegedSemanticEngine(target.packageName, request.wholeDisplay)
+                .PrivilegedSemanticEngine(
+                    target.packageName,
+                    request.wholeDisplay,
+                    permissionControllerPackage,
+                    systemPackageInstaller(packageManager),
+                )
         val snapshot = engine.capture(screen.freshRoot())
         val after = screen.deviceTarget()
         if (!allowed() || (if (nodeAction) !target.sameWindow(after) else after != target)) {

@@ -22,6 +22,8 @@ class ShizukuUiUserService
     constructor(
         context: Context,
     ) : Binder() {
+        private val packageManager = context.packageManager
+        private val permissionControllerPackage = systemPermissionController(context)
         private val ownerUid = context.applicationInfo.uid.also { require(it >= 10_000) }
         private var hierarchy: ShizukuHierarchy? = null
 
@@ -48,6 +50,23 @@ class ShizukuUiUserService
 
         init {
             attachInterface(null, ShizukuUiProtocol.DESCRIPTOR)
+        }
+
+        private fun executeDevice(
+            data: Parcel,
+            reply: Parcel,
+        ) {
+            val request = PrivilegedDeviceParcel.readRequest(data)
+            val guard = requireNotNull(data.readStrongBinder())
+            require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
+            synchronized(this) {
+                PrivilegedDeviceService(
+                    guard,
+                    screen(guard),
+                    permissionControllerPackage,
+                    packageManager,
+                ).execute(request, reply)
+            }
         }
 
         override fun onTransact(
@@ -90,12 +109,7 @@ class ShizukuUiUserService
                 ShizukuUiProtocol.DEVICE -> {
                     require(getCallingUid() == ownerUid) { "UNTRUSTED_CALLER" }
                     data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
-                    val request = PrivilegedDeviceParcel.readRequest(data)
-                    val guard = requireNotNull(data.readStrongBinder())
-                    require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
-                    synchronized(
-                        this,
-                    ) { PrivilegedDeviceService(guard, screen(guard)).execute(request, requireNotNull(reply)) }
+                    executeDevice(data, requireNotNull(reply))
                     true
                 }
 

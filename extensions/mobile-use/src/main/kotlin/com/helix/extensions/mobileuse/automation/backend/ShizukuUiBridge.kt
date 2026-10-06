@@ -77,7 +77,7 @@ class ShizukuUiBridge(
                 ).daemon(false)
                 .processNameSuffix("helix_ui")
                 .tag("helix-mobile-use-ui")
-                .version(10)
+                .version(17)
                 .debuggable(false)
         val connected = CountDownLatch(1)
         val remote = AtomicReference<IBinder?>()

@@ -59,6 +59,23 @@ class AutomationToolsTest {
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, result))
     }
 
+    @Test fun installerVisibilityHintNeverOverridesProtectedFields() {
+        val original = successfulSnapshot()
+        val tree = requireNotNull(original.snapshot).copy(packageName = "com.android.packageinstaller")
+        port.snapshotResult = original.copy(snapshot = tree, backend = "accessibility")
+        val hint = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))["recoveryHint"]
+        assertTrue(hint.toString().contains("ordinary Accessibility"))
+        port.snapshotResult =
+            original.copy(
+                snapshot =
+                    tree.copy(nodes = tree.nodes.map { it.copy(redacted = true) }),
+                backend = "accessibility",
+            )
+        val protected = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))["recoveryHint"]
+        assertFalse(protected.toString().contains("ordinary Accessibility"))
+        assertTrue(protected.toString().contains("protected", ignoreCase = true))
+    }
+
     private val port = FakeAutomationPort()
     private val tools = AutomationTools(port)
 
@@ -121,12 +138,7 @@ class AutomationToolsTest {
             descriptors.map { it.name.value }.toSet(),
         )
         descriptors.forEach {
-            val expected =
-                if (it.name.value in setOf(AutomationTools.BACK, AutomationTools.HOME)) {
-                    Capability.ACCESSIBILITY_AUTOMATION
-                } else {
-                    Capability.MOBILE_USE
-                }
+            val expected = Capability.MOBILE_USE
             assertEquals(setOf(expected), it.requiredCapabilities)
         }
         assertTrue(descriptors.all { it.executionTarget == ExecutionTargetType.LOCAL_ANDROID })
@@ -484,7 +496,9 @@ class AutomationToolsTest {
 
         port.actionResult = AutomationActionResult(AutomationActionStatus.STALE_TOKEN)
         val failed = execute(AutomationTools.CLICK, args("token" to TOKEN)) as ToolExecutorResult.Failed
-        assertEquals("STALE_TOKEN", failed.detail)
+        assertTrue(failed.detail.startsWith("STALE_TOKEN:"))
+        assertTrue(failed.detail.contains("ui.click_match"))
+        assertTrue(failed.detail.contains("Never reuse"))
         assertTrue(failed.sideEffectFree)
         assertFalse(failed.requiresReview)
     }

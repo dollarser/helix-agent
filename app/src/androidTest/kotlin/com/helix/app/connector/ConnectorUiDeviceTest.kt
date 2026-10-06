@@ -25,6 +25,7 @@ class ConnectorUiDeviceTest {
         composeRule.resetDeterministicUiState()
         composeRule.navigateTo("extensions")
         composeRule.onNodeWithTag("extensions-tab-manage").performScrollTo().performClick()
+        composeRule.onNodeWithTag("extensions-add").performScrollTo().performClick()
         waitForSettingsRows()
         composeRule.onNodeWithTag("connector-import").performScrollTo()
         composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("connector-import").isDisplayed() }

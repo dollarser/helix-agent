@@ -15,7 +15,7 @@ cd "$(dirname "$0")/../../../.."
 export ANDROID_HOME="${ANDROID_HOME:?Set ANDROID_HOME to the Android SDK}"
 export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
 RUNNER=scripts/debug/2026-09-09/run-owned-emulator.py
-CLEAN=scripts/debug/2026-09-17/p0/clean-packages.py
+CLEAN=scripts/debug/2026-09-17/hxa194/clean-packages.py
 ADB="$ANDROID_HOME/platform-tools/adb"
 overall=0
 wait_runnable() {

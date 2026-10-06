@@ -60,6 +60,7 @@ class IaAuthorityDeviceTest {
 
         compose.navigateTo("extensions")
         compose.onNodeWithTag("extensions-tab-manage").performScrollTo().performClick()
+        compose.onNodeWithTag("extensions-add").performScrollTo().performClick()
         compose.onNodeWithTag("connector-import").performScrollTo().assertIsDisplayed()
 
         compose.navigateTo(SETTINGS_AUDIT_ROUTE)

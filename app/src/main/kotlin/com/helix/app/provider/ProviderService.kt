@@ -654,6 +654,23 @@ class ProviderService(
             ?.modelMetadata
             ?.get(model)
 
+    /** Explicit picker action: prefer model metadata, then reuse identity-checked capability detection. */
+    suspend fun discoverReasoningOptions(
+        providerId: String,
+        model: String,
+    ): List<ReasoningEffort> {
+        refreshModelCatalog(providerId)
+        val declared =
+            rows.value
+                .firstOrNull { it.id == providerId }
+                ?.modelMetadata
+                ?.get(model)
+                ?.reasoningEfforts
+        if (declared != null) return reasoningOptions(providerId, model)
+        check(runCapabilityTest(providerId, model) is ProbeOutcome.Ok) { "CAPABILITY_DETECTION_FAILED" }
+        return reasoningOptions(providerId, model)
+    }
+
     fun resolveReasoning(
         providerId: String,
         model: String,

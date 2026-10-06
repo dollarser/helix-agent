@@ -1585,7 +1585,7 @@
     <string name="automatic_recovery_unavailable">The task was interrupted and automatic inspection did not finish. Existing effects and unknown outcomes are preserved; nothing will be replayed automatically. See the task details for the interruption reason.</string>
     <string name="session_input_recovery_ended">A queued request could not be revalidated automatically and has ended without being executed again. Its original content is retained; completed actions are unchanged.</string>
     <string name="git_diff_read_error">Could not read the diff. Refresh the repository and try again.</string>
-    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Refresh the available tools before making a new call.</string>
+    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Search the exact tool name with tools.search, then use the schema exposed in the next request. Do not repeat this call directly.</string>
     <string name="quickjs_native_save_failed">Could not read or save native access settings. Please try again.</string>
     <string name="provider_models_manage">Manage conversation models</string>
     <string name="provider_models_manage_title">%1$s · Models</string>
@@ -1798,8 +1798,8 @@
     <string name="device_access_shizuku_title">Shizuku authorization</string>
     <string name="device_access_shizuku_unavailable">Shizuku is not running or unavailable</string>
     <string name="device_access_root_title">Root authorization</string>
-    <string name="device_access_root_help">For rooted devices. Revoke access in your root manager.</string>
-    <string name="device_access_root_authorize">Request or check</string>
+    <string name="device_access_root_help">For rooted devices. After authorization, connect Root services needed by enabled features. Revoke access in your root manager.</string>
+    <string name="device_access_root_authorize">Authorize and connect</string>
     <string name="mobile_root_connection_title">Mobile Use Root connection</string>
     <string name="mobile_accessibility_connected">Mobile Use accessibility engine connected</string>
     <string name="mobile_accessibility_disabled">Mobile Use accessibility engine unavailable; authorized Root or Shizuku may still be usable</string>
@@ -1883,4 +1883,10 @@
     <string name="permissions_install_granted">Granted by the system</string>
     <string name="permissions_system_restricted">Not granted; restricted by the system or signature</string>
     <string name="permissions_root_diagnostics_help">Read-only inspection of packages, processes, logs and authorized folders for troubleshooting. This is not the root permission switch and does not enable Mobile Use.</string>
+    <string name="chat_reasoning_detecting">Detecting capabilities…</string>
+    <string name="chat_reasoning_detection_failed">Detection failed. Close and tap to retry.</string>
+    <string name="chat_reasoning_not_confirmed">No supported effort confirmed. Tap again to detect.</string>
+    <string name="chat_reasoning_detect">Reasoning · Detect</string>
+    <string name="permissions_overlay">Display over other apps</string>
+    <string name="permissions_overlay_help">Show task status and controls without Accessibility. Optional; phone automation can run without it.</string>
 </resources>
