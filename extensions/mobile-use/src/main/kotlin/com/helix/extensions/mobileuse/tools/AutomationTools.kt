@@ -287,21 +287,40 @@ class AutomationTools(
             }
         }
 
+    private fun snapshotRecoveryHint(
+        snapshot: com.helix.extensions.mobileuse.automation.AutomationSnapshot,
+        backend: String?,
+    ): String? =
+        when {
+            snapshot.nodes.any { it.redacted } -> {
+                PROTECTED_HINT
+            }
+
+            snapshot.truncated -> {
+                "The captured tree is incomplete; result pages cannot recover omitted nodes. " +
+                    "If the target is missing, use ui.device then ui.screenshot. " +
+                    "Perform the next permitted tool call; do not end with a plan to do it."
+            }
+
+            backend == "accessibility" && snapshot.packageName.endsWith(".packageinstaller") -> {
+                "Android may hide installer confirmation and filter ordinary Accessibility touches. " +
+                    "If the required control is missing, do not repeat equivalent semantic queries. " +
+                    "A permitted screenshot can locate controls but cannot remove touch " +
+                    "filtering. If an observed action has no effect, " +
+                    "request the manual confirmation. Never report installation without verification."
+            }
+
+            else -> {
+                null
+            }
+        }
+
     private fun recoveryJson(result: AutomationSnapshotResult): JsonObject =
         buildJsonObject {
             result.snapshot?.let { snapshot ->
                 put("truncated", JsonPrimitive(snapshot.truncated))
                 put("truncationReasons", JsonArray(snapshot.truncationReasons.map(::JsonPrimitive)))
-                if (snapshot.truncated) {
-                    put(
-                        "recoveryHint",
-                        JsonPrimitive(
-                            "The captured tree is incomplete; result pages cannot recover omitted nodes. " +
-                                "If the target is missing, use ui.device then ui.screenshot. " +
-                                "Perform the next permitted tool call; do not end with a plan to do it.",
-                        ),
-                    )
-                }
+                snapshotRecoveryHint(snapshot, result.backend)?.let { put("recoveryHint", JsonPrimitive(it)) }
             }
             result.backend?.let { put("backend", JsonPrimitive(it)) }
             if (result.pauseReason == null && result.status in
@@ -449,7 +468,7 @@ class AutomationTools(
         operation,
         if (name in setOf(WAIT, CLICK_MATCH)) 65.seconds else 15.seconds,
         MAX_OUTPUT_BYTES,
-        setOf(if (name in setOf(BACK, HOME)) Capability.ACCESSIBILITY_AUTOMATION else Capability.MOBILE_USE),
+        setOf(Capability.MOBILE_USE),
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
@@ -703,6 +722,12 @@ class AutomationTools(
     ) = args[key]?.jsonPrimitive?.intOrNull ?: default
 
     companion object {
+        private const val PROTECTED_HINT =
+            "Protected fields are redacted. Use only exposed non-redacted controls. " +
+                "If the required control is missing, ask the user to handle this screen, then observe again. " +
+                "Do not bypass protection with screenshots, coordinates or another backend. " +
+                "Do not finish with a promise to take a screenshot without a tool call."
+
         const val SNAPSHOT = "ui.snapshot"
         const val FIND = "ui.find"
         const val CLICK = "ui.click"

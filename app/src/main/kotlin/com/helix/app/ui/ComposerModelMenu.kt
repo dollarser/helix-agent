@@ -46,6 +46,7 @@ private fun ConversationModelItem(
     model: String,
     current: Boolean,
     enabled: Boolean,
+    reasoning: (@Composable () -> Unit)? = null,
     onSelect: () -> Unit,
 ) {
     DropdownMenuItem(
@@ -64,6 +65,7 @@ private fun ConversationModelItem(
                 }
             }
         },
+        trailingIcon = reasoning,
         onClick = { if (enabled && row.modelSelectable(model)) onSelect() },
         enabled = enabled && row.modelSelectable(model),
         modifier = Modifier.semantics { selected = current }.testTag("chat-model-${row.id}-$model"),
@@ -139,7 +141,6 @@ internal fun ComposerModelMenu(
                                 modifier = Modifier.testTag("chat-model-hidden-current"),
                             )
                         }
-                        ModelReasoningOptions(providerId, model, requestedModel, reasoningContent)
                         IndicatedLazyColumn(Modifier.heightIn(max = 360.dp)) {
                             item {
                                 if (onConfigureSource != null || onManageModels != null) {
@@ -165,7 +166,25 @@ internal fun ComposerModelMenu(
                                 "${row.id.length}:${row.id}$candidate"
                             }) { (row, candidate) ->
                                 val current = row.id == providerId && candidate == model
-                                ConversationModelItem(row, candidate, current, enabled) {
+                                ConversationModelItem(
+                                    row,
+                                    candidate,
+                                    current,
+                                    enabled,
+                                    reasoning =
+                                        if (current) {
+                                            {
+                                                ModelReasoningOptions(
+                                                    providerId,
+                                                    model,
+                                                    requestedModel,
+                                                    reasoningContent,
+                                                )
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                ) {
                                     requestedModel = row.id to candidate
                                     if (reasoningContent == null) expanded = false
                                     if (!current) onSelect(row.id, candidate)

@@ -48,7 +48,7 @@ internal object PrivilegedDeviceTransactions {
                 screenshot,
                 if (request.operation.hasEffect()) {
                     AutomationActionResult(
-                        if (request.operation == AutomationDeviceOperation.NODE_ACTION) {
+                        if (request.operation != AutomationDeviceOperation.GESTURE) {
                             AutomationActionStatus.valueOf(status)
                         } else {
                             shizukuActionStatus(status)

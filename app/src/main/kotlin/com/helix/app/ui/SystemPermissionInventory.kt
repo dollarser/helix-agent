@@ -21,6 +21,7 @@ import com.helix.app.R
 private val dedicatedPermissions =
     buildSet {
         add(Manifest.permission.WRITE_CALENDAR)
+        add(Manifest.permission.SYSTEM_ALERT_WINDOW)
         add("moe.shizuku.manager.permission.API_V23")
         if (Build.VERSION.SDK_INT >= 30) {
             add(Manifest.permission.MANAGE_EXTERNAL_STORAGE)

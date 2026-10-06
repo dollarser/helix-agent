@@ -255,15 +255,13 @@ class PermissionCenterDevicePort(
         } ?: AutomationDeviceObservation("NO_ACTIVE_SESSION")
     }
 
-    override fun apps(): AutomationAppListing =
-        originalCall?.let(center::apps) ?: AutomationAppListing("NO_ACTIVE_SESSION")
+    override fun apps(packageName: String?): AutomationAppListing =
+        originalCall?.let { center.apps(it, packageName) } ?: AutomationAppListing("NO_ACTIVE_SESSION")
 
     override fun launch(
         packageName: String,
         call: ExecutableToolCall,
-    ): AutomationActionResult =
-        lease()?.let { (service, session) -> service.deviceAccess.launch(session, packageName, call) }
-            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+    ): AutomationActionResult = center.launch(call, packageName)
 
     override fun gesture(
         frame: String,

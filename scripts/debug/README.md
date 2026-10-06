@@ -1,6 +1,7 @@
 # Dated debugging and test scripts
 
-Save temporary automation here **before running it**, under `YYYY-MM-DD/` (local date).
+Save temporary automation here **before running it**, under `YYYY-MM-DD/local/`
+(local date, ignored). Reviewed reproduction runners may remain tracked under dated paths.
 Keep reusable supported runners at their existing `scripts/` paths. Store logs, APKs,
 screenshots, UI dumps and user data only in ignored `build/` directories.
 
@@ -9,11 +10,10 @@ and shut down that process in `finally`. Never borrow an emulator started by ano
 person or agent. A physical device must be selected explicitly; fixture tests must
 not run against user data.
 
-Completed, unreferenced one-off editors and inactive source snapshots may be removed
-after checking references and preserving a recoverable source identity. The obsolete
-September 5–9 script snapshots and retired Goal verifier were removed on 2026-10-05;
-see the [cleanup record](../../docs/evidence/development/obsolete-material-cleanup-2026-10-05.md).
-Their original code remains in Git history; do not restore them as current runners.
+Tracking, archival and deletion follow the single [repository retention policy](../../docs/development/README.md#git-跟踪与留存).
+The [cleanup record](../../docs/evidence/development/obsolete-material-cleanup-2026-10-05.md)
+records removed snapshots and locally archived one-off editors. Do not restore
+these as current migration or test entry points.
 
 Example, from the repository root with `ANDROID_HOME` set:
 

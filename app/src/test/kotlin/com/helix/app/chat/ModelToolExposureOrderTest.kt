@@ -41,6 +41,7 @@ class ModelToolExposureOrderTest {
                 descriptor("edit"),
                 descriptor("files.list"),
                 descriptor("files.stat"),
+                descriptor("files.mkdir"),
                 descriptor("files.search"),
                 descriptor("tools.search"),
                 descriptor("goal.report"),

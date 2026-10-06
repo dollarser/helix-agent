@@ -8,7 +8,11 @@ import java.time.Instant
 class PrivilegedSemanticEngine(
     packageName: String,
     wholePhone: Boolean,
+    permissionControllerPackage: String? = null,
+    installerPackage: String? = null,
 ) {
+    private val permissionController = permissionControllerPackage?.takeIf { wholePhone && it == packageName }
+    private val installer = installerPackage?.takeIf { wholePhone && it == packageName }
     private var sequence = 0
     private val registry = NodeTokenRegistry { ByteArray(16).also { it[0] = (++sequence).toByte() } }
     private val session =
@@ -26,7 +30,13 @@ class PrivilegedSemanticEngine(
 
     fun capture(root: AccessibilityNodeInfo?): AutomationSnapshotResult {
         sequence = 0
-        return AutomationSnapshotEngine(registry).capture(root?.let(::AndroidSnapshotNode), session, 0)
+        return AutomationSnapshotEngine(registry).capture(
+            root?.let {
+                AndroidSnapshotNode(it, permissionController, installer)
+            },
+            session,
+            0,
+        )
     }
 
     fun action(
@@ -35,7 +45,7 @@ class PrivilegedSemanticEngine(
         allowed: () -> Boolean,
     ): AutomationActionResult =
         AutomationNodeActionExecutor(registry).execute(
-            root?.let { GuardedSemanticNode(AndroidSnapshotNode(it), allowed) },
+            root?.let { GuardedSemanticNode(AndroidSnapshotNode(it, permissionController, installer), allowed) },
             session,
             0,
             request,

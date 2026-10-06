@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application>
         <provider android:name="com.helix.app.eval.CapabilityFixtureStateProvider"
             android:authorities="com.helix.agent.developer.test.capability-state" android:exported="true" />
+        <activity android:name="com.helix.app.eval.TouchReviewActivity" android:exported="true" />
         <activity android:name="com.helix.app.eval.AutomationInstallSourceActivity" android:exported="true" />
         <provider android:name="com.helix.app.eval.AutomationInstallFixtureProvider" android:authorities="com.helix.agent.developer.test.installfixture" android:exported="false" android:grantUriPermissions="true">
         </provider>

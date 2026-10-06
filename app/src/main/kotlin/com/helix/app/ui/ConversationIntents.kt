@@ -26,6 +26,7 @@ data class ConversationIntents(
     val onSetChatTools: (Boolean) -> Unit,
     val onSelectPermission: suspend (com.helix.core.model.SessionPermissionMode) -> Boolean = { false },
     val onSelectModel: (String, String) -> Unit = { _, _ -> },
+    val onDetectReasoning: (suspend (String, String) -> List<com.helix.core.model.ReasoningEffort>)? = null,
     val onSetReasoning: (com.helix.core.model.ReasoningEffort) -> Unit = {},
     val onNew: () -> Unit = {},
     val onTasks: () -> Unit = {},

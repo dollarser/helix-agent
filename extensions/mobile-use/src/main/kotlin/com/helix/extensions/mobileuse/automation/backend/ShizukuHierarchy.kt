@@ -187,6 +187,9 @@ internal class ShizukuHierarchy : AutoCloseable {
         }
     }
 
+    fun globalAction(action: com.helix.extensions.mobileuse.automation.AutomationGlobalAction): Boolean =
+        checkNotNull(automation).performGlobalAction(action.platformId)
+
     fun screenshot(): android.graphics.Bitmap? = checkNotNull(automation).takeScreenshot()
 
     fun freshRoot(): AccessibilityNodeInfo? {

@@ -128,10 +128,12 @@ class AutomationServiceDeviceTest {
                 .result == AutomationSnapshotStatus.UNSUPPORTED_UI.name
         }
 
+        val activeProbe = bridge(ACTION_PROBE)
         targetContext.sendBroadcast(
-            Intent(targetContext, AutomationStopReceiver::class.java).setAction(
-                HelixAccessibilityService.ACTION_STOP,
-            ),
+            Intent(targetContext, AutomationStopReceiver::class.java)
+                .setAction(HelixAccessibilityService.ACTION_STOP)
+                .putExtra(AutomationStopReceiver.EXTRA_RUNTIME, activeProbe.runtimeId)
+                .putExtra(AutomationStopReceiver.EXTRA_SCOPE, activeProbe.scopeRef),
         )
         waitUntil { !bridge(ACTION_PROBE).active }
         assertFalse(bridge(ACTION_PROBE).active)
@@ -535,6 +537,8 @@ class AutomationServiceDeviceTest {
             actionsAttempted =
                 preferences.getInt(AutomationTestControlReceiver.KEY_ACTIONS_ATTEMPTED, -1),
             maxActions = preferences.getInt(AutomationTestControlReceiver.KEY_MAX_ACTIONS, -1),
+            runtimeId = preferences.getString(AutomationTestControlReceiver.KEY_RUNTIME_ID, null),
+            scopeRef = preferences.getString(AutomationTestControlReceiver.KEY_SCOPE_REF, null),
             lastStopReason =
                 preferences.getString(AutomationTestControlReceiver.KEY_LAST_STOP_REASON, null),
         )
@@ -575,5 +579,7 @@ private data class BridgeResult(
     val actionToken: String = "",
     val actionsAttempted: Int = -1,
     val maxActions: Int = -1,
+    val runtimeId: String? = null,
+    val scopeRef: String? = null,
     val lastStopReason: String? = null,
 )

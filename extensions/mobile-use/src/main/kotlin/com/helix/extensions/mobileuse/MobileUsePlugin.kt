@@ -21,6 +21,7 @@ class MobileUsePlugin(
     images: com.helix.tools.framework.ToolImagePublication,
     val permissionCenter: AutomationPermissionCenter,
     taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
+    private val overlayContext: (() -> Context?)? = null,
     private val enabled: () -> Boolean = { true },
 ) : HelixPlugin {
     override val manifest: PluginManifest =
@@ -54,13 +55,19 @@ class MobileUsePlugin(
             origin,
         )
 
+    private val presentation =
+        taskHost?.let {
+            MobileUseOverlay(context.applicationContext, it, surface = {
+                overlayContext?.invoke()
+                    ?: if (overlayContext == null) permissionCenter.accessibilityOverlayContext() else null
+            }, enabled = enabled)
+        }
+
     init {
         require(manifest.name == PLUGIN_ID) { "unexpected Mobile Use plugin id: ${manifest.name}" }
         require(manifest.helixRuntimeId == RUNTIME_ID) { "unexpected Mobile Use runtime binding" }
-        if (taskHost != null) {
-            com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory.create = { service ->
-                MobileUseOverlay(service, taskHost, enabled)
-            }
+        presentation?.let { shared ->
+            com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory.create = { shared }
         }
     }
 
@@ -96,11 +103,20 @@ class MobileUsePlugin(
 
     override fun tools(): List<ToolBinding> =
         automation.descriptors().map { descriptor ->
-            ToolBinding(descriptor, automation.executor(descriptor.name.value))
+            ToolBinding(descriptor, present(automation.executor(descriptor.name.value)))
         } +
             device.descriptors().map { descriptor ->
-                ToolBinding(descriptor, device.executor(descriptor.name.value))
+                ToolBinding(descriptor, present(device.executor(descriptor.name.value)))
             }
+
+    private fun present(executor: com.helix.tools.framework.ToolExecutor): com.helix.tools.framework.ToolExecutor =
+        presentation?.let {
+            MobileUsePresentedExecutor(executor, it) { call ->
+                permissionCenter.liveDeviceGrant(call) !=
+                    null
+            }
+        }
+            ?: executor
 
     private val contracts by lazy { MobileUseToolContracts(tools().map { it.descriptor }) }
 

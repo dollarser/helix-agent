@@ -90,6 +90,49 @@ class ConnectorCatalogDeviceTest {
         }
     }
 
+    @Test fun mobileUseUserActivationSetsFutureDefaultWithoutChangingOtherSessions() {
+        withStorage { _, _, _, storage ->
+            var ready = false
+            val catalog = PluginCatalog(storage, validateNativeSelection = { check(ready) })
+            val record =
+                InstalledPlugin(
+                    "mobile",
+                    "Mobile Use",
+                    "BUNDLED_PLUGIN",
+                    "hash",
+                    emptyList(),
+                    emptyList(),
+                    emptyList(),
+                    "mobile",
+                    1,
+                    true,
+                    native =
+                        com.helix.app.plugin
+                            .NativePluginComponent("mobile-use", "runtime"),
+                )
+            catalog.publishNative(record, null)
+            storage.sessions.create("current", "Current", null, null, 0)
+            storage.sessions.create("other", "Other", null, null, 0)
+            assertThrows(IllegalStateException::class.java) {
+                catalog.selectFromUser("current", record.id, true)
+            }
+            assertTrue(catalog.selected("current").isEmpty())
+            assertFalse(catalog.defaultSelected(record.id))
+            ready = true
+            catalog.selectFromUser("current", record.id, true)
+            assertTrue(catalog.defaultSelected(record.id))
+            assertTrue(catalog.selected("other").isEmpty())
+            storage.sessions.create("future", "Future", null, null, 1)
+            assertEquals(setOf(record.id), catalog.selected("future"))
+            catalog.selectFromUser("current", record.id, false)
+            assertTrue(catalog.defaultSelected(record.id))
+            assertEquals(setOf(record.id), catalog.selected("future"))
+            catalog.setDefault(record.id, false)
+            storage.sessions.create("later", "Later", null, null, 2)
+            assertTrue(catalog.selected("later").isEmpty())
+        }
+    }
+
     private fun withStorage(block: (Context, String, File, HelixStorage) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "connector-catalog-${UUID.randomUUID()}.db"

@@ -88,7 +88,8 @@ object CodeJavascriptRunTool {
             version = ToolVersion(VERSION),
             description =
                 "Run JavaScript function body; return JSON. Default access=isolated is offline. " +
-                    "Set access=native for direct app-UID file/network/Android access in a private process. " +
+                    "access=native requires the user's Runtime native-access switch; discovery does not enable it. " +
+                    "Prefer read/write/files.mkdir for workspace files. Native runs in a private app-UID process. " +
                     "Native APIs: native.files.readText/writeText/list/mkdirs/delete(path,...); " +
                     "native.net.request(url,method='GET',body=null,headers={}); native.android.context; " +
                     "native.java.create(type,types=[],args=[]), call(target,method,types=[],args=[]), " +

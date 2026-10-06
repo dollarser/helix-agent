@@ -53,13 +53,14 @@ internal class McpToolDiscovery(
         require(query.isNotBlank() && query.length <= 200)
         require(limit in 1..WINDOW)
         val normalizedQuery = query.trim().lowercase()
+        val catalog = searchCatalog(normalizedQuery)
         val terms =
             normalizedQuery
                 .split(Regex("[\\s,;]+"))
                 .filter { it.isNotBlank() }
                 .distinct()
         val matches =
-            latest()
+            catalog
                 .mapNotNull { descriptor ->
                     if (descriptor.name.value == "tools.search" ||
                         admittedWindows[sessionId]?.contains(descriptor) == false
@@ -111,6 +112,12 @@ internal class McpToolDiscovery(
         return matches
     }
 
+    private fun searchCatalog(query: String): List<ToolDescriptor> {
+        val catalog = latest()
+        val exact = catalog.filter { it.name.value.lowercase() == query }
+        return exact.ifEmpty { catalog }
+    }
+
     fun visible(
         sessionId: String,
         admitted: List<ToolDescriptor>,
@@ -160,7 +167,9 @@ internal class McpToolDiscovery(
                 description =
                     "Search user-enabled tools by name or description: files, browser, Android UI, Linux, Skills, " +
                         "connectors, MCP and A2A. Search when a needed tool is absent; " +
-                        "use concise keywords or its name. " +
+                        "use concise keywords or its exact name. Exact-name queries return only that tool. " +
+                        "Use returned tools from the next request's schemas; " +
+                        "do not guess arguments or repeat a successful search. " +
                         "Matches replace the bounded session discovery window; " +
                         "a miss preserves still-available tools. " +
                         "Discovery grants no execution permission.",

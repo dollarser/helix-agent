@@ -44,7 +44,7 @@ internal class AutomationPrivilegedSemanticHost(
                 AutomationDeviceRequest(
                     AutomationDeviceOperation.SNAPSHOT,
                     target,
-                    wholeDisplay = grant.scope.allApplications,
+                    wholeDisplay = grant.scope.allApplications && grant.scope.deniedPackages.isEmpty(),
                 ),
                 allowed,
             )
@@ -118,7 +118,10 @@ internal class AutomationPrivilegedSemanticHost(
                 AutomationDeviceRequest(
                     AutomationDeviceOperation.NODE_ACTION,
                     observed.target,
-                    wholeDisplay = observed.grant.scope.allApplications,
+                    wholeDisplay =
+                        observed.grant.scope.allApplications &&
+                            observed.grant.scope.deniedPackages
+                                .isEmpty(),
                     nodeAction = request.copy(token = token.first),
                     nodeFingerprint = token.second,
                 ),

@@ -3,6 +3,7 @@
     <!-- Advanced-only user-operated target picker includes system apps without launcher activities.
          Enumeration stays local and does not grant automation access. Not packaged in consumer. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application>
         <activity
             android:name="com.helix.app.eval.ShizukuGrantActivity"

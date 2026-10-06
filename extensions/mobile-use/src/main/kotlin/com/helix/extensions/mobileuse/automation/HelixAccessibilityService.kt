@@ -102,7 +102,7 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        runtimePresentation?.close()
+        runtimePresentation?.refreshSurface()
         AutomationServiceController.disconnected(this, AutomationStopReason.SERVICE_DISCONNECTED)
         leaveSessionForeground()
         if (screenReceiverRegistered) {
@@ -137,7 +137,7 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     internal fun leaveSessionForeground() {
-        runtimePresentation?.hide()
+        runtimePresentation?.refreshSurface()
         expiryStop?.let(handler::removeCallbacks)
         expiryStop = null
         stopForeground(STOP_FOREGROUND_REMOVE)

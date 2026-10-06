@@ -1,5 +1,7 @@
 package com.helix.extensions.mobileuse
 
+import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -9,11 +11,10 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.helix.extensions.mobileuse.automation.HelixAccessibilityService
 
 /** Two small trusted windows: the entire status surface passes touches through. Main-thread only. */
 internal class MobileUseOverlayWindows(
-    private val service: HelixAccessibilityService,
+    private val service: Context,
     takeOver: () -> Unit,
     returnToConversation: () -> Unit,
 ) {
@@ -112,11 +113,17 @@ internal class MobileUseOverlayWindows(
             .LayoutParams(
                 dp(width),
                 WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                if (service is AccessibilityService) {
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+                } else {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                },
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     if (statusLayer) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0,
                 PixelFormat.TRANSLUCENT,
             ).apply {
+                // Android 12+ treats application overlays as untrusted touch occluders.
+                if (statusLayer && service !is AccessibilityService) alpha = 0.6f
                 gravity = Gravity.TOP or if (statusLayer) Gravity.START else Gravity.END
                 x = dp(8)
                 y = dp(48)

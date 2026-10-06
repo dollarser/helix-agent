@@ -70,6 +70,8 @@ internal object PrivilegedDeviceParcel {
                 parcel.writeFloat(it.y)
             }
         }
+        parcel.writeString(request.launchPackage)
+        parcel.writeString(request.globalAction?.name)
         parcel.writeString(request.nodeFingerprint)
         parcel.writeString(request.nodeAction?.action?.name)
         request.nodeAction?.let {
@@ -81,8 +83,29 @@ internal object PrivilegedDeviceParcel {
         }
     }
 
+    private fun readNodeAction(parcel: Parcel): com.helix.extensions.mobileuse.automation.AutomationNodeActionRequest? =
+        parcel.readString()?.let { name ->
+            val token = requireNotNull(parcel.readString()).also { require(it.length == 32) }
+            val text = parcel.readString()?.also { require(it.length <= 65_536) }
+            val progress = if (parcel.readInt() == 1) parcel.readDouble().also { require(it.isFinite()) } else null
+            val submit = parcel.readInt() == 1
+            com.helix.extensions.mobileuse.automation.AutomationNodeActionRequest(
+                com.helix.extensions.mobileuse.automation.AutomationNodeAction
+                    .valueOf(name),
+                token,
+                text,
+                progress,
+                submit,
+            )
+        }
+
     fun readRequest(parcel: Parcel): AutomationDeviceRequest {
-        val operation = AutomationDeviceOperation.entries[parcel.readInt().also { require(it in 0..4) }]
+        val operation =
+            AutomationDeviceOperation.entries[
+                parcel.readInt().also {
+                    require(it in AutomationDeviceOperation.entries.indices)
+                },
+            ]
         val target = readTarget(parcel)
         val whole = parcel.readInt() == 1
         val count = parcel.readInt().also { require(it in 0..10) }
@@ -94,26 +117,38 @@ internal object PrivilegedDeviceParcel {
                 val coordinates = List(points) { AutomationPoint(parcel.readFloat(), parcel.readFloat()) }
                 AutomationStroke(coordinates, start, duration)
             }
-        val fingerprint = parcel.readString()?.also { require(it.length == 32) }
-        val action =
-            parcel.readString()?.let { name ->
-                val token = requireNotNull(parcel.readString()).also { require(it.length == 32) }
-                val text = parcel.readString()?.also { require(it.length <= 65_536) }
-                val progress = if (parcel.readInt() == 1) parcel.readDouble().also { require(it.isFinite()) } else null
-                val submit = parcel.readInt() == 1
-                com.helix.extensions.mobileuse.automation.AutomationNodeActionRequest(
-                    com.helix.extensions.mobileuse.automation.AutomationNodeAction
-                        .valueOf(name),
-                    token,
-                    text,
-                    progress,
-                    submit,
+        val launchPackage =
+            parcel.readString()?.also {
+                require(
+                    com.helix.extensions.mobileuse.automation.AndroidPackageName
+                        .isValid(it),
                 )
             }
-        require((operation == AutomationDeviceOperation.OBSERVE) == (target == null))
+        val globalAction =
+            parcel.readString()?.let {
+                com.helix.extensions.mobileuse.automation.AutomationGlobalAction
+                    .valueOf(it)
+            }
+        val fingerprint = parcel.readString()?.also { require(it.length == 32) }
+        val action = readNodeAction(parcel)
+        require(
+            (operation in setOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.LAUNCH)) ==
+                (target == null),
+        )
+        require((operation == AutomationDeviceOperation.LAUNCH) == (launchPackage != null))
+        require((operation == AutomationDeviceOperation.GLOBAL_ACTION) == (globalAction != null))
         require((operation == AutomationDeviceOperation.GESTURE) == strokes.isNotEmpty())
         require((operation == AutomationDeviceOperation.NODE_ACTION) == (action != null))
         require((operation == AutomationDeviceOperation.NODE_ACTION) == (fingerprint != null))
-        return AutomationDeviceRequest(operation, target, strokes, whole, action, fingerprint)
+        return AutomationDeviceRequest(
+            operation,
+            target,
+            strokes,
+            whole,
+            action,
+            fingerprint,
+            launchPackage,
+            globalAction,
+        )
     }
 }

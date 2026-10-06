@@ -54,6 +54,6 @@ class PermissionCenterAutomationToolPort(
             ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
 
     override fun globalAction(action: AutomationGlobalAction) =
-        bound { center.performGlobalAction(action) }
+        originalCall?.let { center.globalAction(it, action) }
             ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
 }

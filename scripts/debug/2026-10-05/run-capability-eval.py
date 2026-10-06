@@ -47,13 +47,14 @@ def arguments(argv=None):
     parser.add_argument('cases', nargs='*')
     parser.add_argument('--serial', default='emulator-5554')
     parser.add_argument('--allow-real-model', action='store_true')
+    parser.add_argument('--without-accessibility', action='store_true')
     args = parser.parse_args(argv)
     args.cases = args.cases or list(CASES)
     if not args.allow_real_model:
         parser.error('Current owner authorization and --allow-real-model are required')
     if not re.fullmatch(r'[a-z0-9-]{1,80}', args.trial):
         parser.error('trial must contain 1-80 lowercase letters, digits or hyphens')
-    if len(set(args.cases)) != len(args.cases) or any(case not in CASES for case in args.cases):
+    if len(set(args.cases)) != len(args.cases) or any(case not in CASES + ('notification',) for case in args.cases):
         parser.error('Unknown or duplicate case')
     if not re.fullmatch(r'emulator-[0-9]+', args.serial):
         parser.error('This runner supports an explicitly authorized emulator only')
@@ -81,10 +82,14 @@ def evaluate(args):
     failed = False
     try:
         print(run('install', '-r', 'app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'), flush=True)
-        service = APP + '/com.helix.extensions.mobileuse.automation.HelixAccessibilityService'
-        services = [s for s in original['enabled_accessibility_services'].split(':') if s not in ('', 'null')]
-        run('shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(dict.fromkeys(services + [service])))
-        run('shell', 'settings', 'put', 'secure', 'accessibility_enabled', '1')
+        if args.without_accessibility:
+            if original['accessibility_enabled'] not in ('0', 'null'):
+                raise ValueError('Disable Accessibility before this bounded run')
+        else:
+            service = APP + '/com.helix.extensions.mobileuse.automation.HelixAccessibilityService'
+            services = [s for s in original['enabled_accessibility_services'].split(':') if s not in ('', 'null')]
+            run('shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(dict.fromkeys(services + [service])))
+            run('shell', 'settings', 'put', 'secure', 'accessibility_enabled', '1')
         for case in args.cases:
             print('START', args.trial, case, flush=True)
             remote = f'files/capability-eval/{args.trial}-{case}.json'

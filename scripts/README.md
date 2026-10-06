@@ -10,7 +10,7 @@
 | 记录索引 | `python3 scripts/generate-completion-index.py`，文档门禁检查生成结果是否过期 |
 | 有外部依赖的发行门禁 | `check-cli-runtime-lock.sh` 会访问并下载锁定的远端制品；`assetGate` 需要指定待发行 runtime assets。二者不能用无资产的主机门禁代替，命令按对应 HXA 执行 |
 | 设备与长稳 | `run-*`、`accept-hxa-*` 保留稳定入口及既有 HXA 参数；不由 check-all 自动调用 |
-| 临时调试 | 一次性编辑器、诊断与自动测试辅助脚本按日期放入 `scripts/debug/YYYY-MM-DD/`，同目录 README 说明能否重跑；产物写入忽略的 build 目录 |
+| 临时调试 | 一次性编辑器按日期放入 `scripts/debug/YYYY-MM-DD/local/`（忽略）；需维护的诊断/测试工具经审查后跟踪；产物写入 build |
 
 历史验收脚本保持路径以供完成记录复现，不因为归档整理破坏旧命令。一次性编辑脚本禁止在最终源码重复执行。测试须显式选择自建、独占设备；不能使用其他任务启动的模拟器，用完关闭自建实例。`__pycache__/` 已由全局 gitignore 规则忽略，不提交解释器缓存。
 
@@ -29,7 +29,7 @@ Reusable entry points live directly in `scripts/`; logs and generated evidence b
 
 Use `--help` for runner arguments. Dated entry points remain compatibility shims for historical commands and imports. Do not borrow an existing emulator. Successful helper tests do not constitute device acceptance.
 
-`scripts/debug/` contains compatibility entries/current diagnostics, retained one-time implementation provenance, and task-specific reference fixtures. Consult its README before execution. Do not blanket-ignore or remove dated directories. Promote supported utilities here; remove obsolete one-off scripts only after checking references and recording their source commit (or a local recovery snapshot for uncommitted editors). Keep newly generated outputs in `build/`, not beside scripts.
+`scripts/debug/` contains compatibility entries, diagnostics and task-specific fixtures. Consult its README before execution; promote supported utilities here. Repository-wide tracking and deletion rules live in [Git 跟踪与留存](../docs/development/README.md#git-跟踪与留存), including the distinction between ignored outputs and irreplaceable local evidence.
 
 ## Experimental Gradle projects
 

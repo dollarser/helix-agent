@@ -1,7 +1,6 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -17,66 +16,109 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.core.model.ReasoningEffort
+import kotlinx.coroutines.launch
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongMethod")
 internal fun ComposerReasoningMenu(
     reasoning: ReasoningEffort,
     enabled: Boolean,
     onReasoning: (ReasoningEffort) -> Unit,
     modifier: Modifier = Modifier,
     efforts: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
+    onDetect: (suspend () -> List<ReasoningEffort>)? = null,
 ) {
-    val options = efforts.map { it to reasoningLabel(it) }
-    ComposerMenu(
-        label = stringResource(R.string.chat_reasoning_selection, reasoningLabel(reasoning)),
-        selected = reasoning,
-        options = options,
-        enabled = enabled,
-        tag = "chat-reasoning",
-        onSelect = onReasoning,
-        modifier = modifier,
-    )
+    var expanded by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var detected by remember(efforts) { mutableStateOf<List<ReasoningEffort>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val options = detected ?: efforts
+    LaunchedEffect(enabled) { if (!enabled) expanded = false }
+    Box(modifier) {
+        TextButton(
+            onClick = {
+                expanded = true
+                if (options.isEmpty() && onDetect != null && !busy) {
+                    busy = true
+                    failed = false
+                    scope.launch {
+                        try {
+                            detected = onDetect()
+                        } catch (cancel: kotlinx.coroutines.CancellationException) {
+                            throw cancel
+                        } catch (_: Exception) {
+                            failed = true
+                        } finally {
+                            busy = false
+                        }
+                    }
+                }
+            },
+            enabled = enabled && !busy && (options.isNotEmpty() || onDetect != null),
+            modifier = Modifier.testTag("chat-reasoning-menu"),
+        ) {
+            Text(
+                stringResource(
+                    when {
+                        busy -> R.string.chat_reasoning_detecting
+                        options.isEmpty() -> R.string.chat_reasoning_detect
+                        else -> R.string.chat_reasoning_selection
+                    },
+                    reasoningLabel(reasoning),
+                ),
+                maxLines = 1,
+            )
+        }
+        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+            ReasoningChoices(options, reasoning, busy, failed, enabled) {
+                expanded = false
+                onReasoning(it)
+            }
+        }
+    }
 }
 
 @Composable
-@Suppress("FunctionName", "LongParameterList")
-private fun <T> ComposerMenu(
-    label: String,
-    selected: T,
-    options: List<Pair<T, String>>,
+@Suppress("FunctionName")
+private fun ReasoningChoices(
+    options: List<ReasoningEffort>,
+    reasoning: ReasoningEffort,
+    busy: Boolean,
+    failed: Boolean,
     enabled: Boolean,
-    tag: String,
-    onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier,
+    onSelect: (ReasoningEffort) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    LaunchedEffect(enabled) { if (!enabled) expanded = false }
-    Box(modifier) {
-        TextButton({ expanded = true }, enabled = enabled, modifier = Modifier.testTag("$tag-menu")) {
-            Text("$label ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (value, text) ->
-                DropdownMenuItem(
-                    text = { Text(if (selected == value) "✓ $text" else text) },
-                    onClick = {
-                        expanded = false
-                        if (enabled && selected != value) onSelect(value)
-                    },
-                    enabled = enabled,
-                    modifier =
-                        Modifier
-                            .heightIn(min = 48.dp)
-                            .semantics { this.selected = selected == value }
-                            .testTag("$tag-${value.toString().lowercase()}"),
+    if (options.isEmpty()) {
+        DropdownMenuItem(
+            text = {
+                Text(
+                    stringResource(
+                        when {
+                            busy -> R.string.chat_reasoning_detecting
+                            failed -> R.string.chat_reasoning_detection_failed
+                            else -> R.string.chat_reasoning_not_confirmed
+                        },
+                    ),
                 )
-            }
-        }
+            },
+            onClick = {},
+            enabled = false,
+            modifier = Modifier.testTag("chat-reasoning-status"),
+        )
+    }
+    options.forEach { value ->
+        DropdownMenuItem(
+            text = { Text(reasoningLabel(value)) },
+            onClick = { onSelect(value) },
+            enabled = enabled && !busy,
+            modifier =
+                Modifier
+                    .semantics { selected = reasoning == value }
+                    .testTag("chat-reasoning-${value.name.lowercase()}"),
+        )
     }
 }
 

@@ -451,9 +451,15 @@ internal fun ConversationSection(
                     reasoningContent = {
                         ComposerReasoningMenu(
                             runControl.reasoning,
-                            screen.badge?.reasoningSupported == true && !screen.isSending,
+                            !screen.isSending && screen.pendingDisclosure == null,
                             intents.onSetReasoning,
                             efforts = screen.badge?.reasoningEfforts.orEmpty(),
+                            onDetect =
+                                screen.badge?.takeIf { it.providerId != null }?.let { badge ->
+                                    intents.onDetectReasoning?.let { detect ->
+                                        { detect(requireNotNull(badge.providerId), badge.model) }
+                                    }
+                                },
                         )
                     },
                 )

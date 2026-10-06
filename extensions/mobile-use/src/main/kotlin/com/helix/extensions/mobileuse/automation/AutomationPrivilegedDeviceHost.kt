@@ -98,6 +98,18 @@ internal class AutomationPrivilegedDeviceHost(
         return AutomationDeviceObservation(
             "READY",
             frame,
+            systemActions =
+                if (AutomationDeviceOperation.GLOBAL_ACTION in backend.deviceOperations) {
+                    AutomationGlobalAction.entries
+                        .filter {
+                            it.platformId <= 8 && (
+                                wholeDisplay(grant.scope) ||
+                                    it in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
+                            )
+                        }.toSet()
+                } else {
+                    emptySet()
+                },
             allApplications = grant.scope.allApplications,
             screenshotSupported =
                 grant.shareScreens &&

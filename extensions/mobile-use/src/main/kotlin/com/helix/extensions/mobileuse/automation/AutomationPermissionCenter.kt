@@ -75,6 +75,38 @@ class AutomationPermissionCenter(
             }
         }
 
+    private val privilegedNavigation =
+        AutomationPrivilegedNavigation(::liveDeviceGrant) {
+            privilegedSemantic.invalidate()
+            privilegedDevice.invalidate()
+        }
+
+    internal fun launch(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        packageName: String,
+    ): AutomationActionResult {
+        val backend = deviceBackend(AutomationDeviceOperation.LAUNCH)
+        return if (backend != null) {
+            privilegedNavigation.execute(call, backend, launchPackage = packageName)
+        } else {
+            deviceLease(call)?.let { (service, session) -> service.deviceAccess.launch(session, packageName, call) }
+                ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        }
+    }
+
+    internal fun globalAction(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        action: AutomationGlobalAction,
+    ): AutomationActionResult {
+        val backend = deviceBackend(AutomationDeviceOperation.GLOBAL_ACTION)
+        return if (backend != null) {
+            privilegedNavigation.execute(call, backend, globalAction = action)
+        } else {
+            withConversation(call) { performGlobalAction(action) }
+                ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        }
+    }
+
     private val allowlist = SharedPreferencesAutomationAllowlistStore(appContext)
 
     fun shizukuState(): AutomationBackendState = shizuku?.state() ?: AutomationBackendState.UNAVAILABLE
@@ -104,6 +136,8 @@ class AutomationPermissionCenter(
                 !appContext.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
         }
     }
+
+    fun accessibilityOverlayContext(): android.content.Context? = AutomationServiceController.overlayContext()
 
     internal fun windowCaptureAvailable(): Boolean =
         android.os.Build.VERSION.SDK_INT >= 34 &&
@@ -163,7 +197,10 @@ class AutomationPermissionCenter(
 
     /** Read-only discovery uses the original call identity and checks authorization again after reading. */
     @Suppress("ReturnCount") // Fail closed before reading and before publishing scoped application data.
-    internal fun apps(call: com.helix.tools.framework.ExecutableToolCall): AutomationAppListing {
+    internal fun apps(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        packageName: String? = null,
+    ): AutomationAppListing {
         val id = call.sessionId ?: return AutomationAppListing("NO_ACTIVE_SESSION")
 
         fun grant() =
@@ -175,6 +212,12 @@ class AutomationPermissionCenter(
                         .isBefore(call.deadline)
             }
         val admitted = grant() ?: return AutomationAppListing("NO_ACTIVE_SESSION")
+        if (packageName != null) {
+            if (!admitted.scope.permitsPackage(packageName)) return AutomationAppListing("OUT_OF_SCOPE")
+            val result = lookupApplication(appContext, packageName)
+            return if (grant() == admitted) result else AutomationAppListing("NO_ACTIVE_SESSION")
+        }
+
         val apps =
             AutomationApplicationCatalog(appContext)
                 .load()

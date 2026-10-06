@@ -37,7 +37,10 @@ object AutomationServiceController {
         val refusal: AutomationResumeStatus? = null,
     )
 
-    private var service: HelixAccessibilityService? = null
+    @Volatile private var service: HelixAccessibilityService? = null
+
+    internal fun overlayContext(): android.content.Context? = service
+
     private var grants: com.helix.extensions.mobileuse.config.MobileUseGrantStore? = null
     private var pluginEnabled: () -> Boolean = { true }
     private var conversationExists: (String) -> Boolean = { false }

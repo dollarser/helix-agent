@@ -58,12 +58,7 @@ class AutomationDeviceToolsTest {
         val descriptors = tools.descriptors()
         assertEquals(6, descriptors.size)
         descriptors.forEach {
-            val expected =
-                if (it.name.value in setOf("ui.launch", "ui.system")) {
-                    Capability.ACCESSIBILITY_AUTOMATION
-                } else {
-                    Capability.MOBILE_USE
-                }
+            val expected = Capability.MOBILE_USE
             assertEquals(setOf(expected), it.requiredCapabilities)
         }
         assertEquals(ToolOperationClass.EXTERNAL_ACTION, descriptor("ui.gesture").operationClass)
@@ -86,6 +81,77 @@ class AutomationDeviceToolsTest {
             )
         }
         assertEquals(1, port.observations)
+    }
+
+    @Test fun dialogWindowDoesNotChangeAbsoluteDisplayCoordinates() {
+        port.windowBounds = AutomationNodeBounds(70, 1016, 1010, 1458)
+        val device = (execute("ui.device", "{}") as ToolExecutorResult.Completed).output.jsonObject
+        assertEquals(json("""{"left":0,"top":0,"right":1080,"bottom":2400}"""), device["screenBounds"])
+        assertEquals(json("""{"left":70,"top":1016,"right":1010,"bottom":1458}"""), device["windowBounds"])
+        assertEquals(4, descriptor("ui.device").version.value)
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(descriptor("ui.device").outputSchema, device),
+        )
+        execute(
+            "ui.gesture",
+            """{"frame":"frame","strokes":[
+            {"points":[{"x":885,"y":1380}],"durationMillis":100}]}""",
+        )
+        assertEquals(
+            885f,
+            port.strokes
+                .single()
+                .points
+                .single()
+                .x,
+        )
+        assertEquals(
+            1380f,
+            port.strokes
+                .single()
+                .points
+                .single()
+                .y,
+        )
+    }
+
+    @Test fun croppedScreenshotRetainsItsOwnMappingRatherThanWindowOrDisplayBounds() {
+        port.windowBounds = AutomationNodeBounds(70, 1016, 1010, 1458)
+        port.capture = AutomationScreenshot("SAVED", byteArrayOf(1), 940, 442, port.windowBounds)
+        val image =
+            (
+                execute(
+                    "ui.screenshot",
+                    """{"frame":"frame"}""",
+                ) as ToolExecutorResult.Completed
+            ).output.jsonObject
+        assertEquals(json("""{"left":70,"top":1016,"right":1010,"bottom":1458}"""), image["screenBounds"])
+        assertEquals("940", image.getValue("width").toString())
+        assertEquals("1", image.getValue("imageWidth").toString())
+        assertFalse(image.containsKey("windowBounds"))
+    }
+
+    @Test fun packageQueryRetainsExactTargetAndAbsenceFact() {
+        val result = execute("ui.apps", """{"packageName":"com.example.missing"}""") as ToolExecutorResult.Completed
+        assertEquals("com.example.missing", port.queriedPackage)
+        assertEquals(
+            "\"NOT_INSTALLED\"",
+            result.output.jsonObject
+                .getValue("status")
+                .toString(),
+        )
+        assertEquals(
+            "\"com.example.missing\"",
+            result.output.jsonObject
+                .getValue("packageName")
+                .toString(),
+        )
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(descriptor("ui.apps").outputSchema, result.output),
+        )
+        assertEquals(2, descriptor("ui.apps").version.value)
     }
 
     @Test fun screenshotPublishesThroughOriginalCallAndVisionSidecar() {
@@ -220,6 +286,7 @@ class AutomationDeviceToolsTest {
 }
 
 private class FakeDevicePort : AutomationDevicePort {
+    var windowBounds = AutomationNodeBounds(0, 0, 1080, 2400)
     var observations = 0
     var result = AutomationActionResult(AutomationActionStatus.SUCCEEDED)
     var strokes = emptyList<AutomationStroke>()
@@ -239,7 +306,7 @@ private class FakeDevicePort : AutomationDevicePort {
                     1080,
                     2400,
                     0,
-                    AutomationNodeBounds(0, 0, 1080, 2400),
+                    windowBounds,
                 ),
             ),
             setOf(AutomationGlobalAction.RECENTS),
@@ -249,7 +316,16 @@ private class FakeDevicePort : AutomationDevicePort {
         )
     }
 
-    override fun apps() = AutomationAppListing("LISTED", listOf(AutomationApp("com.example.app", "App")))
+    var queriedPackage: String? = null
+
+    override fun apps(packageName: String?): AutomationAppListing {
+        queriedPackage = packageName
+        return if (packageName == null) {
+            AutomationAppListing("LISTED", listOf(AutomationApp("com.example.app", "App")))
+        } else {
+            AutomationAppListing("NOT_INSTALLED", queriedPackage = packageName)
+        }
+    }
 
     override fun launch(
         packageName: String,

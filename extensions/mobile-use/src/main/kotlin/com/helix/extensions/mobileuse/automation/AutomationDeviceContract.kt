@@ -41,6 +41,7 @@ data class AutomationAppListing(
     val status: String,
     val apps: List<AutomationApp> = emptyList(),
     val truncated: Boolean = false,
+    val queriedPackage: String? = null,
 )
 
 data class AutomationWindowRegion(
@@ -76,7 +77,7 @@ interface AutomationDevicePort {
 
     fun observe(): AutomationDeviceObservation
 
-    fun apps(): AutomationAppListing
+    fun apps(packageName: String? = null): AutomationAppListing
 
     fun launch(
         packageName: String,
