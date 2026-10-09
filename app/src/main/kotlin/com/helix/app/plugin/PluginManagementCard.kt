@@ -68,18 +68,6 @@ internal fun PluginManagementCard(
                 },
                 style = MaterialTheme.typography.bodySmall,
             )
-            Text(
-                stringResource(
-                    if (record.enabled) R.string.plugin_status_enabled else R.string.plugin_status_disabled,
-                ),
-            )
-            TextButton({ expanded = !expanded }) {
-                Text(
-                    stringResource(
-                        if (expanded) R.string.plugin_contents_collapse else R.string.plugin_contents_expand,
-                    ),
-                )
-            }
             if (expanded) {
                 PluginAvailabilityControls(record, service, onChanged)
                 if (record.native?.pluginId == "mobile-use") {
@@ -87,7 +75,12 @@ internal fun PluginManagementCard(
                         Text(stringResource(R.string.bundled_mobile_use_settings))
                     }
                 }
-                onUse?.let { TextButton(it) { Text(stringResource(R.string.extensions_use)) } }
+                onUse?.let {
+                    TextButton(
+                        it,
+                        Modifier.testTag("plugin-use-${record.id}"),
+                    ) { Text(stringResource(R.string.extensions_use)) }
+                }
                 record.native?.let { PluginBundledContents(service, it.pluginId) } ?: installedContents()
             }
         }

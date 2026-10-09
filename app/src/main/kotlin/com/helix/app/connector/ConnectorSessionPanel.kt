@@ -10,7 +10,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,65 +81,52 @@ fun ConnectorSessionPanel(
     service: PluginService,
     sessionId: String,
     onConfigure: () -> Unit,
+    pluginId: String? = null,
     onDismiss: () -> Unit,
 ) {
-    var rows by remember(sessionId) { mutableStateOf<List<PluginSessionRow>>(emptyList()) }
-    var revision by remember { mutableIntStateOf(0) }
-    var failed by remember { mutableStateOf(false) }
-    var needsConfiguration by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var skills by remember(sessionId) {
-        mutableStateOf<List<com.helix.extensions.skills.SkillListItem>>(emptyList())
-    }
+    val state = remember(service, sessionId, pluginId) { ConnectorSessionPanelState(service, sessionId, pluginId) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(sessionId, revision) {
-        try {
-            rows = withContext(Dispatchers.IO) { service.sessionRows(sessionId) }
-            skills = withContext(Dispatchers.IO) { service.standaloneSkills(sessionId) }
-            failed = false
-        } catch (cancel: kotlinx.coroutines.CancellationException) {
-            throw cancel
-        } catch (_: Exception) {
-            failed = true
-        }
-    }
-    val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled ->
-        busy = true
-        scope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    service.catalog.selectFromUser(sessionId, row.id, enabled)
-                }
-                failed = false
-                revision++
-            } catch (cancel: kotlinx.coroutines.CancellationException) {
-                throw cancel
-            } catch (error: Exception) {
-                failed = true
-                needsConfiguration = error.message == "MOBILE_USE_NOT_CONFIGURED"
-            } finally {
-                busy = false
-            }
-        }
-    }
+    LaunchedEffect(state) { state.refresh() }
+    val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled -> scope.launch { state.select(row, enabled) } }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.connector_session_title)) },
         text = {
             Column(Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("connector-session-panel")) {
+                if (state.title.isNotBlank()) Text(stringResource(R.string.plugin_session_name, state.title))
                 Text(stringResource(R.string.connector_session_hint))
-                if (rows.isEmpty() && skills.isEmpty()) Text(stringResource(R.string.connector_session_empty))
-                rows.forEach { row ->
-                    PluginSessionChoice(row, busy, { update(row, it) }) {
+                if (state.loading) {
+                    Text(
+                        stringResource(R.string.tasks_commands_loading),
+                        Modifier.testTag("plugin-session-loading"),
+                    )
+                }
+                if (state.empty) {
+                    Text(stringResource(R.string.connector_session_empty))
+                }
+                if (state.updated &&
+                    !state.failed
+                ) {
+                    Text(
+                        stringResource(R.string.plugin_session_updated),
+                        Modifier.testTag("plugin-session-updated"),
+                    )
+                }
+                state.rows.forEach { row ->
+                    PluginSessionChoice(row, state.busy || state.loading, { update(row, it) }) {
                         onDismiss()
                         onConfigure()
                     }
                 }
-                skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }
-                if (failed) {
+                state.skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }
+                if (state.failed) {
+                    TextButton(
+                        { scope.launch { state.refresh() } },
+                        enabled = !state.busy && !state.loading,
+                    ) { Text(stringResource(R.string.chat_retry)) }
                     Text(
                         stringResource(
-                            if (needsConfiguration) {
+                            if (state.needsConfiguration) {
                                 R.string.mobile_use_configuration_required
                             } else {
                                 R.string.connector_session_failed

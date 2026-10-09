@@ -1,5 +1,7 @@
 package com.helix.app
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.FutureTask
 
@@ -21,4 +23,7 @@ internal class BackgroundInitialization<T>(
         } catch (failure: ExecutionException) {
             throw (failure.cause ?: failure)
         }
+
+    /** Cancelling a screen interrupts only its wait, never the shared container factory. */
+    suspend fun awaitAsync(): T = runInterruptible(Dispatchers.IO) { await() }
 }

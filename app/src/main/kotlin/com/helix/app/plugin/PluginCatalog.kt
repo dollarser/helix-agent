@@ -147,7 +147,7 @@ class PluginCatalog(
         }
     }
 
-    /** Explicit UI activation also makes Mobile Use available to future conversations. */
+    /** Explicit selection affects only this conversation; defaults have a separate user control. */
     fun selectFromUser(
         sessionId: String,
         connectorId: String,
@@ -155,9 +155,6 @@ class PluginCatalog(
     ) = synchronized(mutationLock) {
         storage.withTransaction {
             select(sessionId, connectorId, enabled)
-            if (enabled && list().single { it.id == connectorId }.native?.pluginId == "mobile-use") {
-                setDefault(connectorId, true)
-            }
         }
     }
 

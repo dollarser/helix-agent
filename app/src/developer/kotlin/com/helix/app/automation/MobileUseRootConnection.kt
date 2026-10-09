@@ -3,7 +3,6 @@ package com.helix.app.automation
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,7 +12,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -27,13 +25,18 @@ internal fun MobileUseRootConnection() {
     var status by remember { mutableStateOf<com.helix.tools.root.RootAccessStatus?>(null) }
     var cachedGrant by remember { mutableStateOf<Boolean?>(null) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(root) {
-        while (true) {
+    com.helix.app.ui.ForegroundRefresh(root) {
+        try {
             withContext(Dispatchers.IO) { root?.let { it.status() to it.cachedAppGrant } }?.let {
                 status = it.first
                 cachedGrant = it.second
             }
-            delay(750)
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (_: RuntimeException) {
+            failed = true
+            status = null
+            cachedGrant = null
         }
     }
     val presentation =

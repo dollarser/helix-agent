@@ -8,10 +8,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.helix.app.R
 import com.helix.extensions.plugin.PluginBundledSkill
 import kotlinx.coroutines.CancellationException
@@ -29,6 +32,10 @@ internal fun PluginBundledContents(
     var skills by remember(pluginId) { mutableStateOf(emptyList<PluginBundledSkill>()) }
     var loaded by remember(pluginId) { mutableStateOf(false) }
     var failed by remember(pluginId) { mutableStateOf(false) }
+    var skillsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
+    var toolsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
+    val expandedLabel = stringResource(R.string.nav_expanded)
+    val collapsedLabel = stringResource(R.string.nav_collapsed)
     LaunchedEffect(service, pluginId) {
         try {
             tools = withContext(Dispatchers.IO) { service.bundledToolDescriptions(pluginId) }
@@ -49,19 +56,33 @@ internal fun PluginBundledContents(
             androidx.compose.material3.CircularProgressIndicator()
             return@Column
         }
-        Text(stringResource(R.string.plugin_contents_skills, skills.size))
-        Text(stringResource(R.string.plugin_contents_skill_hint))
-        skills.forEach { skill ->
-            var open by remember(skill.name) { mutableStateOf(false) }
-            TextButton({ open = !open }) { Text(skill.name) }
-            Text(skill.description)
-            if (open) Text(skill.content, Modifier.testTag("plugin-skill-content-${skill.name}"))
+        TextButton(
+            { skillsExpanded = !skillsExpanded },
+            Modifier.testTag("plugin-skills-heading-$pluginId").semantics {
+                stateDescription = if (skillsExpanded) expandedLabel else collapsedLabel
+            },
+        ) { Text(stringResource(R.string.plugin_contents_skills, skills.size)) }
+        if (skillsExpanded) {
+            Text(stringResource(R.string.plugin_contents_skill_hint))
+            skills.forEach { skill ->
+                var open by remember(skill.name) { mutableStateOf(false) }
+                TextButton({ open = !open }) { Text(skill.name) }
+                Text(skill.description)
+                if (open) Text(skill.content, Modifier.testTag("plugin-skill-content-${skill.name}"))
+            }
         }
-        Text(stringResource(R.string.plugin_contents_tools, tools.size))
-        tools.forEach { (name, description) ->
-            var open by remember(name) { mutableStateOf(false) }
-            TextButton({ open = !open }) { Text(name) }
-            if (open) Text(description, Modifier.testTag("plugin-tool-description-$name"))
+        TextButton(
+            { toolsExpanded = !toolsExpanded },
+            Modifier.testTag("plugin-tools-heading-$pluginId").semantics {
+                stateDescription = if (toolsExpanded) expandedLabel else collapsedLabel
+            },
+        ) { Text(stringResource(R.string.plugin_contents_tools, tools.size)) }
+        if (toolsExpanded) {
+            tools.forEach { (name, description) ->
+                var open by remember(name) { mutableStateOf(false) }
+                TextButton({ open = !open }) { Text(name) }
+                if (open) Text(description, Modifier.testTag("plugin-tool-description-$name"))
+            }
         }
     }
 }

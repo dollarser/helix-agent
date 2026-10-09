@@ -93,14 +93,56 @@ class PluginService(
 
     fun list(): List<InstalledPlugin> = catalog.list()
 
+    fun sessionTitle(sessionId: String): String = storage.sessions.resolve(sessionId).title
+
+    /** Session selection is the user-facing enablement control; it never edits future defaults. */
+    fun selectFromUser(
+        sessionId: String,
+        pluginId: String,
+        enabled: Boolean,
+    ) = synchronized(catalog.mutationLock) {
+        storage.sessions.resolve(sessionId)
+        if (enabled) prepareUserSelection(pluginId)
+        catalog.selectFromUser(sessionId, pluginId, enabled)
+    }
+
+    fun setDefaultFromUser(
+        pluginId: String,
+        enabled: Boolean,
+    ) = synchronized(catalog.mutationLock) {
+        if (enabled) prepareUserSelection(pluginId)
+        catalog.setDefault(pluginId, enabled)
+    }
+
+    private fun prepareUserSelection(pluginId: String) {
+        val record = requireNotNull(list().singleOrNull { it.id == pluginId }) { "PLUGIN_NOT_INSTALLED" }
+        record.native?.let {
+            val registry = requireNotNull(nativeRegistry) { "PLUGIN_HOST_COMPONENT_UNAVAILABLE" }
+            val error = registry.selectionError(it.pluginId)
+            check(error == null) { error.orEmpty() }
+        }
+        if (!record.enabled) {
+            // Legacy global disables must not revive dormant choices in other conversations.
+            // Revoke durable choices before publishing availability; a later failure stays closed.
+            storage.withTransaction {
+                storage.connectors.clearPluginSelections(pluginId)
+                catalog.setDefault(pluginId, false)
+            }
+            setEnabled(pluginId, true)
+        }
+    }
+
     fun bundledSkillContents(pluginId: String) = nativeRegistry?.contents(pluginId)?.skills.orEmpty()
 
     fun bundledToolDescriptions(pluginId: String) = nativeRegistry?.contents(pluginId)?.tools.orEmpty()
 
-    fun sessionRows(sessionId: String): List<PluginSessionRow> {
+    fun sessionRows(
+        sessionId: String,
+        pluginId: String? = null,
+    ): List<PluginSessionRow> {
         val selected = catalog.selected(sessionId)
         val installed = list().filter { it.sessionScoped }.associateBy { it.id }
-        return (installed.keys + selected).map { id ->
+        return (installed.keys + selected).filter { pluginId == null || it == pluginId }.map { id ->
             val record = installed[id]
             val readiness = record?.let(::componentReadiness)
             PluginSessionRow(
@@ -131,7 +173,6 @@ class PluginService(
         )
 
     /** Changes availability only. No connection, model request, credential deletion or approval. */
-    @Synchronized
     fun setEnabled(
         pluginId: String,
         enabled: Boolean,

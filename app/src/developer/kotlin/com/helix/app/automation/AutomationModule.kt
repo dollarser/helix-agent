@@ -80,11 +80,15 @@ internal object AutomationModule {
 
     @Composable
     @Suppress("FunctionName")
-    fun Settings(onPermissions: () -> Unit) {
+    fun Settings(
+        onPermissions: () -> Unit,
+        onBack: () -> Unit = {},
+        onSaved: () -> Unit = {},
+    ) {
         val context = appContext ?: return
         val store = settingsStore ?: return
-        runtime?.permissionCenter?.let { MobileUseBackendStatus(it) }
-        MobileUseRootConnection()
-        MobileUseSettings(context, store, onPermissions)
+        MobileUseSettings(context, store, backendStatus = {
+            runtime?.permissionCenter?.let { MobileUseBackendStatus(it) }
+        }, onBack = onBack, onSaved = onSaved, onPermissions = onPermissions)
     }
 }

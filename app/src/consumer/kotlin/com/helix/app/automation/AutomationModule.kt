@@ -28,5 +28,9 @@ internal object AutomationModule {
     ): UserScope? = null
 
     @Composable
-    fun Settings(onPermissions: () -> Unit) = Unit
+    fun Settings(
+        onPermissions: () -> Unit,
+        onBack: () -> Unit = {},
+        onSaved: () -> Unit = {},
+    ) = Unit
 }

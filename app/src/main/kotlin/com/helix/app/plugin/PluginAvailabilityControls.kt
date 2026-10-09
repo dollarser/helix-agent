@@ -63,21 +63,12 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
             }
         }
     }
-    Row(Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.plugin_global_enabled), Modifier.weight(1f))
-        Switch(
-            checked = record.enabled,
-            enabled = !busy,
-            onCheckedChange = { value -> perform { service.setEnabled(record.id, value) } },
-            modifier = Modifier.testTag("plugin-enabled-${record.id}"),
-        )
-    }
     if (record.sessionScoped) {
         Row(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.connector_session_default), Modifier.weight(1f))
             Switch(defaultSelected, { value ->
                 perform {
-                    service.catalog.setDefault(record.id, value)
+                    service.setDefaultFromUser(record.id, value)
                     defaultSelected = value
                 }
             }, enabled = !busy, modifier = Modifier.testTag("connector-default-${record.id}"))

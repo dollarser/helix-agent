@@ -1,6 +1,7 @@
 package com.helix.app.connector
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -22,6 +23,15 @@ class ConnectorSessionPanelDeviceTest {
 
     @Test
     fun sessionSelectionDoesNotEditGlobalNewSessionDefaults() {
+        verifySelection(scoped = false)
+    }
+
+    @Test
+    fun scopedSelectionHidesOtherPluginsAndPreservesTheirSelection() {
+        verifySelection(scoped = true)
+    }
+
+    private fun verifySelection(scoped: Boolean) {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val service = c.pluginService
         val session = "connector-ui-${UUID.randomUUID()}"
@@ -37,17 +47,28 @@ class ConnectorSessionPanelDeviceTest {
         val initiallySelected = service.catalog.selected(session)
         try {
             compose.setContent {
-                MaterialTheme { ConnectorSessionPanel(service, session, {}, {}) }
+                MaterialTheme {
+                    ConnectorSessionPanel(service, session, {}, pluginId = record.id.takeIf { scoped }, onDismiss = {})
+                }
             }
             val selected = "connector-session-${record.id}"
             val default = "connector-default-${record.id}"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(selected).fetchSemanticsNodes().isNotEmpty() }
+            if (scoped) {
+                service.sessionRows(session).filter { it.id != record.id }.forEach {
+                    compose.onNodeWithTag("connector-session-${it.id}").assertDoesNotExist()
+                }
+            }
             compose
                 .onNodeWithTag(selected)
                 .performScrollTo()
                 .assertIsOff()
                 .performClick()
             compose.waitUntil(10_000) { record.id in service.catalog.selected(session) }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("plugin-session-updated").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag(selected).assertIsEnabled()
             compose.onNodeWithTag(selected).assertIsOn()
             compose.onNodeWithTag(default).assertDoesNotExist()
             service.catalog.setDefault(record.id, true)
@@ -59,7 +80,12 @@ class ConnectorSessionPanelDeviceTest {
         } finally {
             service.remove(record)
             c.storage.deleteSessionPermanently(session)
-            c.storage.deleteSessionPermanently(next)
+            if (c.storage.sessions
+                    .list()
+                    .any { it.id == next }
+            ) {
+                c.storage.deleteSessionPermanently(next)
+            }
         }
     }
 }

@@ -1,8 +1,14 @@
 # 当前实施状态
 
-更新：2026-10-06。本页只维护当前整合范围、开放工作和下一步；每个阶段的命令、失败尝试、安装与提交身份在对应证据中。旧记录里的“本轮未安装/未提交”只指当时，不代表当前工作树、模拟器或远端状态。
+更新：2026-10-09。本页只维护当前整合范围、开放工作和下一步；每个阶段的命令、失败尝试、安装与提交身份在对应证据中。旧记录里的“本轮未安装/未提交”只指当时，不代表当前工作树、模拟器或远端状态。
 
 ## 当前整合与验证边界
+
+- 2026-10-09 有限基线补验：API36 Developer 输入、插件、前后台刷新、实际 Runtime/PTY、J1 等待与收取共 60 个不同场景已有通过证据；初次类名/异步 fixture 失败及修正如实保留。[本轮基线](../evidence/development/local-baseline-closeout-2026-10-09.md)不关闭 IME/OEM/全部真实模型边界。DSH 预算已独立提交 `0d987abf`；新 J2 检查点与项目/Memory、R2-B 继续按下方顺序推进。
+
+- 2026-10-08 预算补充收尾：API29/API36 双渠道完整定向矩阵 316 项通过，包含模拟服务长上下文压缩、旧累计额度不阻止执行、项目 Room 检查及 8 次真实 SIGKILL 恢复；日常 API36 Developer 模拟器安全覆盖安装，原记录身份和数量保留。[本轮证据与改动审查](../evidence/development/dsh-budget-followup-2026-10-08.md)明确失败尝试、夹具修正及边界。真机卡顿/黑屏、真实摘要质量、完整项目 UI/Memory 和后台新功能仍开放；未提交或发布。
+
+- 2026-10-07 所有者要求预算对齐 DSH：普通 Turn 累计用量只统计，Goal 默认最多 256 个自动轮次；上下文压缩与累计任务预算分离。全项目主机测试、静态检查、双渠道 APK 与测试 APK 构建通过；后续授权 API36 Developer 隔离模拟器定向回归 53/53，通过范围与一次旧断言修正见[本轮证据](../evidence/development/dsh-budget-policy-2026-10-07.md)。未覆盖日常模拟器，Consumer/其他设备及真实模型未运行；未提交或发布。
 
 - 2026-10-06 main 整合与发布验证：只保留 main、公共评测、BioHelix 三个工作树；完成当前授权的 API29/API36 双渠道扫描与定向复测、24 组输入恢复、每 API 37 个进程死亡场景、API34 Root 5 项及真实模型 Shizuku 安装/卸载。修复前台通知限流与旧开发库版本启动失败；[发布回归记录](../evidence/development/v0.0.5-release-2026-10-06.md)明确失败、修复、跳过和长期/OEM 边界。发布来源与该提交 GitHub CI 以 v0.0.5 的 BUILDINFO 为准，本地通过不代替远端 CI。
 
@@ -27,7 +33,7 @@
 | 插件 / 会话界面 | [统一插件管理与更多菜单](../evidence/development/conversation-more-and-plugin-layout-2026-10-05.md)、[插件设置](../evidence/development/mobile-use-plugin-settings-2026-10-05.md)、[会话投递设置](../evidence/development/session-message-delivery-2026-10-05.md) | 某次界面回归不关闭完整扩展生命周期或全部并发旅程 |
 | 模型 / 订阅 / 权限交互 | [Provider 入口](../evidence/development/provider-entry-and-subscription-ux-2026-10-05.md)、[模型选择与授权分类](../evidence/development/model-combobox-navigation-permissions-2026-10-05.md) | 支持配置不等于每家真实登录/模型通过；[Antigravity 定向结果](../evidence/development/antigravity-foreground-login-2026-09-30.md)仅覆盖记录中的精确模型 |
 | 原生网络与关于页 | 设置中统一 hosts 文本，保存前整篇校验；API、订阅、MCP、A2A、原生 HTTP 共用解析。[实现与验证](../evidence/development/global-native-dns-2026-10-05.md) | WebView、终端、外部浏览器、独立下载器未纳入；映射不扩大网络权限 |
-| 项目与文件 | [HXA-246](tasks/HXA-246.md)本地主机已交付，项目身份、目录、会话归属和记忆关联有独立契约；[项目设计](../product/projects.md) | 设备重开/交互仍待验证；不是将全部文件目录合并，也不是已支持 Git 回退 |
+| 项目与文件 | [HXA-246](tasks/HXA-246.md)本地主机已交付，项目身份、目录、会话归属和记忆关联有独立契约；[项目设计](../product/projects.md) | API29/API36 有界 Room 重开/服务检查已通过；完整界面/Memory 旅程仍待验，不代表已支持 Git 回退 |
 | 手机助手体验 | [竞品差距与入口优化](../product/competitive-doubao-phone-gap.md)保留首任务、语音及验收协议；系统语音优先 | 没有 OEM/System Image 发行承诺；真实第三方 App 成功率和语音 OEM 兼容性仍待验证 |
 
 ## Completed
@@ -44,7 +50,7 @@
 | 自主视觉 | [HXA-225](../completion-records/HXA-225.md)：view_image、浏览器视觉回填、三协议编码和有界校验；[产品边界](../product/image-reading.md) | 有限工具看图验证不覆盖全部协议、手机整屏截图或设备内视觉 |
 | Linux Job/终端 | [HXA-196](../completion-records/HXA-196.md)～[199](../completion-records/HXA-199.md)：后台 Job 与双 PTY；[HXA-236](tasks/HXA-236.md) 的原身份观察、jobs.await 和停止等待已接线并完成基础主机验证 | J1 本地主机衔接已有交付；完整设备/真实模型组合仍开放，AUTO/手动后台化尚未交付 |
 | 扩展 | [HXA-129](../completion-records/HXA-129.md)、[130](../completion-records/HXA-130.md)、[212](../completion-records/HXA-212.md)；[HXA-235](tasks/HXA-235.md) 已接统一安装目录、会话选择与停用/更新/修复，主机通过 | 不重做 R3 主体；真实 Room/设备旅程尚未验收 |
-| Workspace/Memory | [HXA-210](../completion-records/HXA-210.md)、[目录恢复](../evidence/development/recoverable-workspace-2026-09-27.md)、[HXA-230](../completion-records/HXA-230.md)、[HXA-246](tasks/HXA-246.md) | Global 已交付；Project 已完成本地主机接线，设备验收未请求 |
+| Workspace/Memory | [HXA-210](../completion-records/HXA-210.md)、[目录恢复](../evidence/development/recoverable-workspace-2026-09-27.md)、[HXA-230](../completion-records/HXA-230.md)、[HXA-246](tasks/HXA-246.md) | Global 已交付；Project 主机及有界设备存储/服务检查通过，完整 UI/Memory 仍开放 |
 | 设备内模型 | [HXA-222](../completion-records/HXA-222.md)、[收口](../evidence/development/hxa222-closeout-2026-09-28.md)、[安装](../evidence/development/p3-local-model-install-2026-09-28.md)/[首次使用](../evidence/development/p4-first-success-journey-2026-09-28.md) | 本地 Provider 可驱动完整 Loop，不等于所有设备与任务质量已验证 |
 | Eval/整合 | [HXA-227](../completion-records/HXA-227.md)、[设备基线](../evidence/development/hxa227-device-baseline-2026-09-27.md)、[历史真机验收](../evidence/development/physical-oneplus-acceptance-2026-09-24.md) | 每份证据仅覆盖原基线；公共 benchmark 与生产 Harness 分开报告 |
 
@@ -77,7 +83,7 @@ HXA-239 本地实现和主机整合完成；下一独立开发仍按 J2-1 AUTO �
 | --- | --- | --- |
 | 1．HXA-239 / 238 / 236 收尾验收 | 输入体验与执行接线已有主机交付，实际设备/模型仍待补 | 原身份与未知事实仍可查，但不阻挡普通无关任务；不把放通执行变成放宽权限，也不由编译证明手机验收 |
 | 2．J2-1 → J2-2 | 同次执行 AUTO，再接“继续在后台”按钮 | 原执行身份、日志、预算与租期不变；证明无重新启动/重复副作用，取消/终态竞争与 UI 回执明确 |
-| 3．Project Memory | HXA-246 完成本地主机接线：显式项目身份、会话关联、在途身份约束与管理 | 不能用 Workspace 路径代替 Project；设备未请求，保留实际交互/重开验收边界 |
+| 3．Project Memory | HXA-246 完成本地主机接线：显式项目身份、会话关联、在途身份约束与管理；有界设备存储/服务检查通过 | 不能用 Workspace 路径代替 Project；完整项目 UI、Memory 使用及相关进程死亡旅程仍需补验 |
 | 条件性补验 | HXA-232 故障矩阵/真实恢复；233/234/235/236/237/238/239 设备；125/126/190 服务；同候选 P5/独立内测 | 指定设备、账号及当次授权；缺条件只阻塞对应项，不把 fixture、编译或旧绿色当通过 |
 | 有证据再做 | R2-B、工具发现/Mobile Use、模型/Memory 效果与长稳 | 固定对照或实际瓶颈；区分完成率、时延、成本、资源与 OEM，不凭减少 token 宣称提升 |
 | 发行 | HXA-120 → 122 → 121 → 123 | 渠道审计→身份/签名/升级承诺→同签名候选验收→材料/提交；发布另需明确授权 |

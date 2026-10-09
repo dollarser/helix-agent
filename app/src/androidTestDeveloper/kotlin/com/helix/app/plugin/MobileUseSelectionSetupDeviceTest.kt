@@ -39,7 +39,7 @@ class MobileUseSelectionSetupDeviceTest {
             service.setEnabled(record.id, true)
             compose.setContent {
                 androidx.compose.runtime.key(revision.intValue) {
-                    MaterialTheme { ConnectorSessionPanel(service, session, { configure++ }, {}) }
+                    MaterialTheme { ConnectorSessionPanel(service, session, { configure++ }, onDismiss = {}) }
                 }
             }
             val tag = "connector-session-${record.id}"
@@ -61,5 +61,54 @@ class MobileUseSelectionSetupDeviceTest {
             service.setEnabled(record.id, record.enabled)
             container.storage.deleteSessionPermanently(session)
         }
+    }
+
+    @Test fun scopedUseReturnsToOriginalConversationAfterSavingConfiguration() {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        val container = app.appContainer
+        val service = container.pluginService
+        val record = service.list().single { it.native?.pluginId == "mobile-use" }
+        val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
+        val original = lines.lines(MobileUseGrantStore.CONFIG_KEY)
+        val session = UUID.randomUUID().toString()
+        container.storage.sessions.create(session, "Configuration return fixture", null, null, 0)
+        service.catalog.select(session, record.id, false)
+        try {
+            lines.setLines(MobileUseGrantStore.CONFIG_KEY, emptyList())
+            service.setEnabled(record.id, true)
+            compose.setContent {
+                MaterialTheme {
+                    com.helix.app.ui
+                        .ExtensionsScreen(null, null, service, prepareSession = { session })
+                }
+            }
+            waitForTag("bundled-plugin-mobile-use")
+            compose.onNodeWithTag("bundled-plugin-mobile-use").performScrollTo().performClick()
+            compose.onNodeWithTag("plugin-use-${record.id}").performScrollTo().performClick()
+            waitForTag("plugin-session-configure-${record.id}")
+            compose.onNodeWithTag("plugin-session-configure-${record.id}").performScrollTo().performClick()
+            compose.waitUntil(5_000) {
+                compose
+                    .onAllNodes(
+                        androidx.compose.ui.test
+                            .hasTestTag("mobile-use-save-settings") and
+                            androidx.compose.ui.test
+                                .isEnabled(),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose.onNodeWithTag("mobile-use-save-settings").performClick()
+            waitForTag("connector-session-${record.id}")
+            compose.onNodeWithTag("connector-session-${record.id}").assertIsOff().assertIsEnabled()
+            org.junit.Assert.assertFalse(record.id in service.catalog.selected(session))
+        } finally {
+            lines.setLines(MobileUseGrantStore.CONFIG_KEY, original)
+            service.setEnabled(record.id, record.enabled)
+            container.storage.deleteSessionPermanently(session)
+        }
+    }
+
+    private fun waitForTag(tag: String) {
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     }
 }

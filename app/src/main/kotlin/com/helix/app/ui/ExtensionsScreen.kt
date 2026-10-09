@@ -48,19 +48,51 @@ fun ExtensionsScreen(
     onPermissions: () -> Unit = {},
 ) {
     var mobileSettings by rememberSaveable { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(mobileSettings) { mobileSettings = false }
+    var returnSession by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var useSession by rememberSaveable { mutableStateOf<String?>(null) }
+    var usePluginId by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var catalogRevision by rememberSaveable { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val onUse: () -> Unit = {
+        usePluginId = null
+        if (prepareSession == null) onSessionSettings() else scope.launch { useSession = prepareSession() }
+    }
+    val onUsePlugin: (String?) -> Unit = { pluginId ->
+        usePluginId = pluginId
         if (prepareSession == null) onSessionSettings() else scope.launch { useSession = prepareSession() }
     }
     useSession?.let { id ->
         com.helix.app.connector
-            .ConnectorSessionPanel(connectors, id, { selectedTab = 0 }) { useSession = null }
+            .ConnectorSessionPanel(connectors, id, {
+                if (usePluginId == "bundled-plugin:mobile-use") {
+                    returnSession = id
+                    mobileSettings = true
+                } else {
+                    selectedTab = 0
+                }
+            }, pluginId = usePluginId) { useSession = null }
+    }
+
+    if (mobileSettings) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Text("Mobile Use", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+            com.helix.app.automation.AutomationModule
+                .Settings(onPermissions, onBack = {
+                    mobileSettings = false
+                    useSession = returnSession
+                    returnSession = null
+                }, onSaved = {
+                    if (returnSession != null) {
+                        mobileSettings = false
+                        useSession = returnSession
+                        returnSession = null
+                    }
+                })
+        }
+        return
     }
 
     Column(
@@ -71,15 +103,6 @@ fun ExtensionsScreen(
             .testTag("screen-extensions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (mobileSettings) {
-            androidx.compose.material3.TextButton({ mobileSettings = false }) {
-                Text(stringResource(R.string.permissions_back))
-            }
-            Text("Mobile Use")
-            com.helix.app.automation.AutomationModule
-                .Settings(onPermissions)
-            return@Column
-        }
         if (marketplace != null) {
             ExtensionTabBar(
                 selectedTab = selectedTab,
@@ -95,7 +118,7 @@ fun ExtensionsScreen(
             ConnectorSection(
                 connectors,
                 showInstalled = false,
-                onUse = onUse,
+                onUse = onUsePlugin,
                 onInstalled = { catalogRevision++ },
             )
             if (authoring != null && installation != null) {
@@ -121,7 +144,7 @@ fun ExtensionsScreen(
                 ConnectorSection(
                     connectors,
                     showImport = false,
-                    onUse = onUse,
+                    onUse = onUsePlugin,
                     query = query,
                     onPluginSettings = { mobileSettings = true },
                 )

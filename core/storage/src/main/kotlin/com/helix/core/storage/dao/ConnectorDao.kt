@@ -90,6 +90,9 @@ interface ConnectorDao {
     @Query("DELETE FROM session_connectors WHERE sessionId = :sessionId")
     fun clearSession(sessionId: String)
 
+    @Query("DELETE FROM session_connectors WHERE connectorId = :connectorId")
+    fun clearPluginSelections(connectorId: String)
+
     @Query(
         "INSERT OR IGNORE INTO session_connectors(sessionId, connectorId, selectionId) " +
             "SELECT :sessionId, id, lower(hex(randomblob(16))) " +

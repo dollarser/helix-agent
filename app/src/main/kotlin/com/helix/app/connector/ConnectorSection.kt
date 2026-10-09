@@ -49,7 +49,7 @@ fun ConnectorSection(
     service: PluginService,
     showImport: Boolean = true,
     showInstalled: Boolean = true,
-    onUse: (() -> Unit)? = null,
+    onUse: ((String?) -> Unit)? = null,
     query: String = "",
     onInstalled: () -> Unit = {},
     onPluginSettings: () -> Unit = {},
@@ -228,7 +228,7 @@ fun ConnectorSection(
             ) { Text(stringResource(R.string.common_cancel)) }
         }
         if (installed && onUse != null) {
-            OutlinedButton(onClick = onUse) { Text(stringResource(R.string.extensions_use)) }
+            OutlinedButton(onClick = { onUse(null) }) { Text(stringResource(R.string.extensions_use)) }
         }
         val visible =
             records.filter {
@@ -243,7 +243,17 @@ fun ConnectorSection(
         }
         visible.forEach { record ->
             androidx.compose.runtime.key(record.id) {
-                com.helix.app.plugin.PluginManagementCard(record, service, onUse, onPluginSettings, { revision++ }) {
+                val usePlugin =
+                    onUse?.let { use ->
+                        { use(record.id.takeIf { record.native?.pluginId == "mobile-use" }) }
+                    }
+                com.helix.app.plugin.PluginManagementCard(
+                    record,
+                    service,
+                    usePlugin,
+                    onPluginSettings,
+                    { revision++ },
+                ) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->
                         var enabled by remember(key, revision) { mutableStateOf(false) }

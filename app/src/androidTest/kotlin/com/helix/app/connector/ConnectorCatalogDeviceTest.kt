@@ -90,7 +90,7 @@ class ConnectorCatalogDeviceTest {
         }
     }
 
-    @Test fun mobileUseUserActivationSetsFutureDefaultWithoutChangingOtherSessions() {
+    @Test fun mobileUseUserActivationLeavesDefaultsAndOtherSessionsUnchanged() {
         withStorage { _, _, _, storage ->
             var ready = false
             val catalog = PluginCatalog(storage, validateNativeSelection = { check(ready) })
@@ -120,13 +120,17 @@ class ConnectorCatalogDeviceTest {
             assertFalse(catalog.defaultSelected(record.id))
             ready = true
             catalog.selectFromUser("current", record.id, true)
-            assertTrue(catalog.defaultSelected(record.id))
+            assertFalse(catalog.defaultSelected(record.id))
+            assertEquals(setOf(record.id), catalog.selected("current"))
             assertTrue(catalog.selected("other").isEmpty())
             storage.sessions.create("future", "Future", null, null, 1)
-            assertEquals(setOf(record.id), catalog.selected("future"))
+            assertTrue(catalog.selected("future").isEmpty())
+            catalog.setDefault(record.id, true)
             catalog.selectFromUser("current", record.id, false)
             assertTrue(catalog.defaultSelected(record.id))
-            assertEquals(setOf(record.id), catalog.selected("future"))
+            assertTrue(catalog.selected("future").isEmpty())
+            storage.sessions.create("default-on", "Default on", null, null, 2)
+            assertEquals(setOf(record.id), catalog.selected("default-on"))
             catalog.setDefault(record.id, false)
             storage.sessions.create("later", "Later", null, null, 2)
             assertTrue(catalog.selected("later").isEmpty())

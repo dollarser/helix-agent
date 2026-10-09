@@ -3,6 +3,7 @@ package com.helix.app
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -44,7 +45,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -96,6 +99,7 @@ import com.helix.app.ui.tasksTurnRoute
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -115,31 +119,81 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(wrapped)
     }
 
-    private lateinit var browserOwner: BrowserViewOwner
+    private var browserOwner: BrowserViewOwner? = null
+    private var readyContainer: AppContainer? = null
+    private var startupFailed by mutableStateOf(false)
+    private val pendingIntents = mutableListOf<Intent>()
+    private var startupIntent: Intent? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         consumedReminderId = savedInstanceState?.getString("consumed_goal_reminder")
-        val container = (application as HelixApplication).appContainer
-        browserOwner = BrowserViewOwner(this)
-        container.browser.attach(browserOwner)
+        @Suppress("DEPRECATION")
+        val initialIntent = savedInstanceState?.getParcelable<Intent>("startup_initial_intent") ?: intent
+
+        @Suppress("DEPRECATION")
+        val restoredIntents = savedInstanceState?.getParcelableArrayList<Intent>("startup_pending_intents")
+        pendingIntents.addAll(restoredIntents.orEmpty())
+        startupIntent = initialIntent
+        setContent { AppStartupScreen(startupFailed) }
+        lifecycleScope.launch { initializeContent(initialIntent) }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Show startup failure; cancellation must not attach a destroyed Activity.
+    private suspend fun initializeContent(initialIntent: Intent) {
+        try {
+            val container = (application as HelixApplication).awaitAppContainer()
+            val owner = BrowserViewOwner(this)
+            browserOwner = owner
+            readyContainer = container
+            container.browser.attach(owner)
+            acceptLaunchIntent(container, initialIntent, restore = true)
+            pendingIntents.forEach {
+                consumedReminderId = null
+                acceptLaunchIntent(container, it, restore = false)
+            }
+            pendingIntents.clear()
+            startupIntent = null
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                container.browser.resume(owner)
+                container.providerService.refresh()
+            }
+            setContent { HelixApp(container) }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (failure: Exception) {
+            browserOwner?.let { readyContainer?.browser?.detach(it) }
+            browserOwner = null
+            readyContainer = null
+            startupFailed = true
+            Log.e("HelixStartup", "Application initialization failed", failure)
+        }
+    }
+
+    private fun acceptLaunchIntent(
+        container: AppContainer,
+        request: Intent,
+        restore: Boolean,
+    ) {
         // HXA-056 / PX-06: a share intent (text, images, or PDF/DOCX/HTML files) becomes a
         // local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5). Re-runs when the
         // user shares again into the running task (onNewIntent).
-        val draft = ShareIntentDraft.draftFrom(intent)
-        val hasGoalReminder =
+        val draft = ShareIntentDraft.draftFrom(request)
+        val goalId =
             com.helix.app.goal
-                .goalReminderId(intent) != null
+                .goalReminderId(request)
         container.chatService.acceptShareDraft(draft.text, draft.imageUris, draft.fileUris)
-        acceptGoalReminder(intent)
-        if (draft.isEmpty && !hasGoalReminder) container.chatService.restoreConversationLaunchTarget()
-        setContent { HelixApp(container) }
+        if (goalId != null && goalId != consumedReminderId) {
+            consumedReminderId = goalId
+            container.chatService.openGoalReminder(goalId)
+        }
+        if (restore && draft.isEmpty && goalId == null) container.chatService.restoreConversationLaunchTarget()
     }
 
     // Best-effort WebView pause on background; onPause does not pause JavaScript globally.
     override fun onPause() {
         super.onPause()
-        (application as HelixApplication).appContainer.browser.pause(browserOwner)
+        browserOwner?.let { readyContainer?.browser?.pause(it) }
     }
 
     override fun onStop() {
@@ -152,37 +206,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        (application as HelixApplication).appContainer.browser.resume(browserOwner)
-        (application as HelixApplication).appContainer.providerService.refresh()
+        browserOwner?.let { readyContainer?.browser?.resume(it) }
+        readyContainer?.providerService?.refresh()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        consumedReminderId = null
-        acceptGoalReminder(intent)
-        val draft = ShareIntentDraft.draftFrom(intent)
-        (application as HelixApplication).appContainer.chatService.acceptShareDraft(
-            draft.text,
-            draft.imageUris,
-            draft.fileUris,
-        )
+        val container = readyContainer
+        if (container == null) {
+            pendingIntents += intent
+        } else {
+            consumedReminderId = null
+            acceptLaunchIntent(container, intent, restore = false)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("consumed_goal_reminder", consumedReminderId)
+        startupIntent?.let { outState.putParcelable("startup_initial_intent", it) }
+        outState.putParcelableArrayList("startup_pending_intents", ArrayList(pendingIntents))
         super.onSaveInstanceState(outState)
-    }
-
-    private fun acceptGoalReminder(intent: Intent) {
-        val goalId =
-            com.helix.app.goal
-                .goalReminderId(intent) ?: return
-        // Persist consumption without changing the Activity launch identity.
-        if (goalId != consumedReminderId) {
-            consumedReminderId = goalId
-            (application as HelixApplication).appContainer.chatService.openGoalReminder(goalId)
-        }
     }
 
     /**
@@ -192,7 +236,9 @@ class MainActivity : ComponentActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
-        (application as HelixApplication).appContainer.browser.detach(browserOwner)
+        browserOwner?.let { readyContainer?.browser?.detach(it) }
+        browserOwner = null
+        readyContainer = null
     }
 }
 

@@ -32,6 +32,7 @@ Use existing CodeGraph (MCP when available, otherwise CLI) for code structure, c
 
 ## Task and change discipline
 
+- For optimizations and new features, research relevant Agent products/reference projects where practical before choosing the design. Use primary documentation and current source as evidence, compare their behavior against Helix's Android, authorization, durable-state and product constraints, and record the adopted choices and tradeoffs in the applicable task/ADR. Research does not expand accepted scope or authorize copying reference code; preserve license obligations.
 - Continue until the full user-authorized task is complete; one passing test, one slice or one HXA sub-checkpoint is not a stopping condition.
 - Keep edits inside the current HXA/user-authorized scope. Make reasonable reversible implementation choices without routine approval; pause only for a real architecture decision, missing authority, external dependency, irreversible data-loss risk or evidence-backed blocker.
 - A persistent development Goal is created only when the user explicitly requests one. It may span work, but keeps one HXA checkpoint in progress at a time.

@@ -81,6 +81,33 @@ class PluginLifecycleDeviceTest {
         }
     }
 
+    @Test fun sessionActivationOfLegacyDisabledPluginDoesNotReviveOtherSessionsOrDefaults() {
+        val identity = "plugin-test:${UUID.randomUUID()}"
+        val record = service.install(bundle(), identity)
+        val session = UUID.randomUUID().toString()
+        val other = UUID.randomUUID().toString()
+        container.storage.sessions.create(session, "Current", null, null, 0)
+        container.storage.sessions.create(other, "Other", null, null, 0)
+        try {
+            service.catalog.select(other, record.id, true)
+            service.catalog.setDefault(record.id, true)
+            service.setEnabled(record.id, false)
+            service.selectFromUser(session, record.id, true)
+            assertTrue(service.list().single { it.id == record.id }.enabled)
+            assertTrue(record.id in service.catalog.selected(session))
+            assertFalse(record.id in service.catalog.selected(other))
+            assertFalse(service.catalog.defaultSelected(record.id))
+            service.setDefaultFromUser(record.id, true)
+            service.selectFromUser(session, record.id, false)
+            assertTrue(service.catalog.defaultSelected(record.id))
+            assertFalse(record.id in service.catalog.selected(session))
+        } finally {
+            service.list().filter { it.identity == identity }.forEach(service::remove)
+            container.storage.deleteSessionPermanently(session)
+            container.storage.deleteSessionPermanently(other)
+        }
+    }
+
     @Test fun disabledUpdatePreservesChoiceAndRejectsStaleUninstall() {
         val identity = "plugin-test:${UUID.randomUUID()}"
         val old = service.install(bundle(), identity)

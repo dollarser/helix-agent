@@ -20,6 +20,8 @@ class HelixApplication : Application() {
     val appContainer: AppContainer
         get() = containerInitialization.await()
 
+    suspend fun awaitAppContainer(): AppContainer = containerInitialization.awaitAsync()
+
     private lateinit var processDiagnostics: ProcessDiagnostics
 
     /**
