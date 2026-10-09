@@ -148,6 +148,34 @@ class PluginLifecycleDeviceTest {
         }
     }
 
+    @Test fun cancelledUpdateKeepsOriginalSelectionCredentialAndSkill() {
+        val identity = "plugin-test:${UUID.randomUUID()}"
+        val old = service.install(bundle(), identity)
+        val session = UUID.randomUUID().toString()
+        container.storage.sessions.create(session, "Cancelled plugin update", null, null, 0)
+        val alias = SecretAlias(old.endpoints.single().id)
+        container.storage.secrets.put(alias, "synthetic-cancelled-update")
+        try {
+            service.catalog.select(session, old.id, true)
+            service.setSkillEnabled(old.skills.single(), true)
+            val selection = service.catalog.selected(session)
+            assertThrows(IllegalStateException::class.java) {
+                service.install(bundle("replacement"), identity, old.revision, cancelled = { true })
+            }
+            assertEquals(old, service.list().single { it.id == old.id })
+            assertEquals(selection, service.catalog.selected(session))
+            assertEquals("synthetic-cancelled-update", container.storage.secrets.get(alias))
+            assertTrue(service.catalog.skillAvailable(old.skills.single(), session))
+            val updated = service.install(bundle("retry"), identity, old.revision)
+            assertEquals(old.id, updated.id)
+            assertEquals(selection, service.catalog.selected(session))
+            assertEquals("synthetic-cancelled-update", container.storage.secrets.get(alias))
+        } finally {
+            service.list().filter { it.identity == identity }.forEach(service::remove)
+            container.storage.deleteSessionPermanently(session)
+        }
+    }
+
     private fun bundle(body: String = "fixture") =
         PluginPackageReader().parse(
             mapOf(

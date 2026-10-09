@@ -4,7 +4,7 @@
 
 初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30。本页维护目标结构、未实施阶段的技术卡片及验收。R1 已交付；后续 Core/上下文、插件、等待和策略变更不因本页存在而视作实现。历史证据与竞品来源见 §12，按原核验范围理解。
 
-**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-01 所有者授权阶段收尾：R2-A、R3 与基础 J1 已有本地主机候选，准确范围见[阶段快照](../evidence/development/phase-closeout-2026-10-01.md)；J1 的观察上下文/可信类型进展判断及设备未完成，J2/Project Memory 尚未交付。实时优先级只看 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
+**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../development/tasks/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../development/tasks/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../development/tasks/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时优先级只看 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
 **阅读路径：**§1–3 是目标与规则分类；§4–7 仅作工作流导航，不重复定义底层契约；§8 是异步执行的规范正文；§9–12 是依赖、授权和证据；§13–17 分别定义接口/模块、绑定、上下文、插件；§18 只规定迁移步骤；§19–22 是验证、收益与完成检查。代码类型名是建议契约，不表示类已存在。
 

@@ -3,6 +3,7 @@ package com.helix.app.eval
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /** Read-only owner-authorized inventory; never exports credentials, endpoints or conversation contents. */
@@ -67,6 +68,42 @@ class ValidationInventoryDeviceTest {
                 }
             }
         report("VALIDATION_ACTIVE_TURNS=$active")
+    }
+
+    @Test fun reportSyntheticDiscoveryComparison() {
+        assumeTrue(
+            "Current synthetic comparison boundary required",
+            InstrumentationRegistry.getArguments().getString("liveSinceEpochMillis") != null,
+        )
+        val since = requireNotNull(InstrumentationRegistry.getArguments().getString("liveSinceEpochMillis")).toLong()
+        require(since > 0)
+        val storage = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer.storage
+        val turns =
+            storage.turns
+                .recent(100)
+                .filter {
+                    it.startedAt >= since && storage.sessions.resolve(it.sessionId).title == "Live original Job fixture"
+                }.sortedBy { it.startedAt }
+        check(turns.size == 6) { "Expected exactly six current synthetic comparison turns" }
+        turns.forEachIndexed { index, turn ->
+            report("COMPARISON_TURN index=${index + 1} state=${turn.state} error=${turn.errorCode}")
+            storage.modelCalls
+                .listByTurn(
+                    turn.id,
+                ).forEach { report("COMPARISON_USAGE index=${index + 1} usage=${it.usage}") }
+            storage.toolCalls.listByTurn(turn.id).forEach { call ->
+                val codes =
+                    storage.auditEvents
+                        .listByCorrelation(call.callId)
+                        .filter { it.type == "tool_dispatch" }
+                        .map {
+                            kotlinx.serialization.json.Json
+                                .parseToJsonElement(it.redactedPayload)
+                                as kotlinx.serialization.json.JsonObject
+                        }.map { it["code"]?.toString() }
+                report("COMPARISON_TOOL index=${index + 1} name=${call.name} state=${call.state} codes=$codes")
+            }
+        }
     }
 
     private fun report(value: String) {

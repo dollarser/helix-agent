@@ -1,8 +1,10 @@
 # 当前实施状态
 
-更新：2026-10-09。本页只维护当前整合范围、开放工作和下一步；每个阶段的命令、失败尝试、安装与提交身份在对应证据中。旧记录里的“本轮未安装/未提交”只指当时，不代表当前工作树、模拟器或远端状态。
+更新：2026-10-10。本页只维护当前整合范围、开放工作和下一步；每个阶段的命令、失败尝试、安装与提交身份在对应证据中。旧记录里的“本轮未安装/未提交”只指当时，不代表当前工作树、模拟器或远端状态。
 
 ## 当前整合与验证边界
+
+- 2026-10-10 [HXA-251](tasks/HXA-251.md) 有限补验交付：最终全仓主机/静态检查、双渠道lint及制品编译通过。双API Developer既有各26项、Consumer Memory真正进程死亡与项目提示各3项、CLI wire各4项通过。Provider窗口适配已修复，默认表单各5项、窄屏/大字体输入与保存各9项、实际拼音候选/中文草稿各1项通过；插件取消更新六项及双API Developer原生修复保持选择/权限通过。真实Qwen六轮发现提示对照基线1/3、候选3/3，失败轮包含UNKNOWN_TOOL拒绝及无进展，未发现脚本重复执行；四请求真实Memory读取/拒绝/项目隔离通过。不宣称生产策略普遍收益，[本轮证据](../evidence/development/refactor-closeout-2026-10-10.md)保留完整交叉矩阵、其他IME/OEM、摘要质量和长稳边界。日常主APK未覆盖安装。
 
 - 2026-10-09 Mobile Use 收尾提示：[HXA-250](tasks/HXA-250.md) 在插件技能、摘要和 ui.launch 说明要求验证业务结果后返回原 Helix 对话，再回复；尊重停留/前台活动/手动接管，返回不扩权、不重放。216 项插件主机测试、静态检查与双渠道 APK 构建通过；随后授权日常 API36 Developer 安装及真实 Qwen 返回/停留 2/2，原对话实际顶部标题/窗口焦点确认。[本轮证据](../evidence/development/mobile-use-return-conversation-2026-10-09.md)保留测试资源争抢/夹具失败，不推导普遍遵循率、长稳或真机/OEM 通过。
 
@@ -57,7 +59,7 @@
 | 输入、导航与活动 | HXA-214～219、[226](../completion-records/HXA-226.md)、[228](../completion-records/HXA-228.md)、[229](../completion-records/HXA-229.md)；[跨会话输入与联合回归](../evidence/development/merged-api36-regression-2026-09-29.md) | 不把历史输入/草稿问题重新列为未修复 |
 | 自主视觉 | [HXA-225](../completion-records/HXA-225.md)：view_image、浏览器视觉回填、三协议编码和有界校验；[产品边界](../product/image-reading.md) | 有限工具看图验证不覆盖全部协议、手机整屏截图或设备内视觉 |
 | Linux Job/终端 | [HXA-196](../completion-records/HXA-196.md)～[199](../completion-records/HXA-199.md)：后台 Job 与双 PTY；[HXA-236](tasks/HXA-236.md) 原身份观察与 [HXA-248](tasks/HXA-248.md) AUTO/后台等待释放本地已交付 | API36 Runtime/UI 已通过；完整设备/真实模型组合仍开放，不由等待释放恢复未知执行 |
-| 扩展 | [HXA-129](../completion-records/HXA-129.md)、[130](../completion-records/HXA-130.md)、[212](../completion-records/HXA-212.md)；[HXA-235](tasks/HXA-235.md) 已接统一安装目录、会话选择与停用/更新/修复，主机通过 | 不重做 R3 主体；真实 Room/设备旅程尚未验收 |
+| 扩展 | [HXA-129](../completion-records/HXA-129.md)、[130](../completion-records/HXA-130.md)、[212](../completion-records/HXA-212.md)；[HXA-235](tasks/HXA-235.md) 已接统一安装目录、会话选择与停用/更新/修复，HXA-251 双API真实 Room 取消更新/原生修复通过 | 不重做 R3 主体；完整在途引用/撤销/进程死亡交叉矩阵尚未验收 |
 | Workspace/Memory | [HXA-210](../completion-records/HXA-210.md)、[目录恢复](../evidence/development/recoverable-workspace-2026-09-27.md)、[HXA-230](../completion-records/HXA-230.md)、[HXA-246](tasks/HXA-246.md) | Global/Project 主机、API36 双渠道 UI 与项目记忆进程恢复已通过；其他设备与模型质量仍开放 |
 | 设备内模型 | [HXA-222](../completion-records/HXA-222.md)、[收口](../evidence/development/hxa222-closeout-2026-09-28.md)、[安装](../evidence/development/p3-local-model-install-2026-09-28.md)/[首次使用](../evidence/development/p4-first-success-journey-2026-09-28.md) | 本地 Provider 可驱动完整 Loop，不等于所有设备与任务质量已验证 |
 | Eval/整合 | [HXA-227](../completion-records/HXA-227.md)、[设备基线](../evidence/development/hxa227-device-baseline-2026-09-27.md)、[历史真机验收](../evidence/development/physical-oneplus-acceptance-2026-09-24.md) | 每份证据仅覆盖原基线；公共 benchmark 与生产 Harness 分开报告 |
@@ -72,10 +74,10 @@
 
 | 开放工作 | 已有基础 | 仍需处理的范围 |
 | --- | --- | --- |
-| [HXA-239 会话输入](tasks/HXA-239.md) | 选模前置、指令光标与底部权限快捷入口已接线，主机与双渠道构建通过 | 指定设备 IME、窄屏/大字体、会话切换与实际设置恢复；5 项新增设备场景及原旅程仅编译 |
-| [HXA-238 执行与表单](tasks/HXA-238.md) | 多执行身份、实际引擎/容量协调、PRoot Job/终端共存、Provider 滚动/缺项定位已接线 | 本地主机/制品已通过；指定设备并发、取消恢复及窄屏/键盘旅程仍需补验，真实模型结果不由主机代替 |
-| [HXA-236 J1](tasks/HXA-236.md) | 原身份观察/等待、同一 ContextCompiler 状态投影、可信 Dispatcher 进展证据已接生产；[后续验证](../evidence/development/hxa236-context-progress-2026-10-01.md) | 指定设备真实 Room/任务/取消恢复组合及真实模型效果；代码编译和主机通过不关闭这些范围 |
-| [HXA-233 回放生命周期](tasks/HXA-233.md) | 引用感知清理、归属/分支/在途保护、存储反馈及 24 项新增主机回归已通过；[当前证据](../evidence/development/hxa233-replay-lifecycle-2026-10-01.md) | 8 项设备场景已编译但未执行；保守保留未知归属，不用主机证明进程/真机验收 |
+| [HXA-239 会话输入](tasks/HXA-239.md) | 选模、光标、权限入口及有界API29/API36实际输入旅程、指定拼音预编辑/候选/中文commit与草稿零发送通过，见HXA-251 | 其他IME/OEM与完整切换/恢复边界仍需证据；不再列已执行场景为“仅编译” |
+| [HXA-238 执行与表单](tasks/HXA-238.md) | 多执行身份、实际引擎/容量协调、PRoot Job/终端共存、Provider 滚动/缺项定位已接线；HXA-251 双API有限 Job 与窄屏/大字体输入表单通过 | 完整并发、取消恢复组合及其他 OEM；真实模型结果不由主机代替 |
+| [HXA-236 J1](tasks/HXA-236.md) | 原身份观察/等待、同一 ContextCompiler 状态投影、可信 Dispatcher 进展证据已接生产；HXA-249 真实 J1/AUTO、HXA-251 双API六项及固定模型对照已有实际证据 | 完整取消/恢复交叉组合与其他服务/OEM；有限模型完成率不升级为普遍策略收益 |
+| [HXA-233 回放生命周期](tasks/HXA-233.md) | 引用感知清理、归属/分支/在途保护、存储反馈及主机回归；HXA-251 双API Room/清理各4项、CLI wire 各4项通过 | 保守保留未知归属；真实服务、长稳和完整故障矩阵独立，不由有限设备结果推导真机通过 |
 | [HXA-232 自主恢复](tasks/HXA-232.md) | 自动化授权内恢复、Goal 局部额度衔接、无进展收尾、Runtime 查询/收取、UNKNOWN 只读核查、原 Goal 账本、队列重验证、统一授权；QuickJS 原生总开关、结构化反问与提示词资源化已有实现及有界验证 | 真实模型恢复完成率、完整进程/订阅/PRoot 故障矩阵及 OEM；不把诊断完成或有限场景通过当作原任务成功 |
 | [历史正确性收口](../bug-fixes/2026-09-30-historical-correctness-audit.md) | Provider 探测发布/取消、压缩参数、Git、内容发布/删除并发和执行线程容量已有修复，纳入整合基线 | 仅按记录中遗留问题和新证据继续，不重新执行整个历史缺陷清单 |
 | [偶发问题](../evidence/development/intermittent-closeout-2026-09-28.md) | 可复现 SAF 撤销/异步投影和 Goal 仅规划问题已修 | 历史截断、探测偶发失败与额外只读调用仍保留调查边界；未复现不等于根因关闭 |
@@ -89,7 +91,7 @@ HXA-239 本地实现和主机整合完成；J2-1 AUTO 与 J2-2 用户后台按�
 
 | 顺序/分支 | 剩余工作 | 依赖与退出条件 |
 | --- | --- | --- |
-| 1．HXA-239 / 238 / 236 收尾验收 | 输入体验与执行接线已有主机交付，实际设备/模型仍待补 | 原身份与未知事实仍可查，但不阻挡普通无关任务；不把放通执行变成放宽权限，也不由编译证明手机验收 |
+| 1．既有重构验收余项 | HXA-251有限补验已交付：窄屏修复、指定中文输入、插件取消更新/原生修复、双API回放/Memory与模型对照已有实际证据 | 后续按具体验收切片处理完整取消/恢复交叉矩阵、其他IME/OEM及长稳；不重复已通过旅程，设备/账号仍须当轮授权 |
 | 2．J2-1 → J2-2 | [HXA-248](tasks/HXA-248.md) 本地主机及 API36 Runtime/UI 八项通过；HXA-249 新编码真实 J1/AUTO 各 1/1 | 当前模型协议失败已修复；其他服务与跨生命周期组合仍开放，有限通过不关闭全部设备范围 |
 | 3．Project Memory | HXA-246 本地主机与 API36 双渠道 UI/Memory 各六项、项目记忆进程死亡恢复通过 | 其他设备/真实摘要质量和长稳仍保留，不重复已交付接线与本轮 UI 旅程 |
 | 条件性补验 | HXA-232 故障矩阵/真实恢复；233/234/235/236/237/238/239 设备；125/126/190 服务；同候选 P5/独立内测 | 指定设备、账号及当次授权；缺条件只阻塞对应项，不把 fixture、编译或旧绿色当通过 |

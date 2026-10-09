@@ -285,3 +285,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-248 | 本地交付；模型边界开放 | J2 同执行 AUTO 与用户后台释放 | [任务规格](tasks/HXA-248.md) |
 | HXA-249 | 本地交付；真实 J1/AUTO 通过 | 实际模型多 system 消息协议兼容 | [任务规格](tasks/HXA-249.md) |
 | HXA-250 | 本地交付；API36 模型返回/停留 2/2 | Mobile Use 完成任务后返回原对话 | [任务规格](tasks/HXA-250.md) |
+| HXA-251 | 本地有限补验已交付 | 重构余项设备/模型对照与状态核对 | [任务规格](tasks/HXA-251.md) |
