@@ -288,12 +288,17 @@ class ToolDispatcher(
     /** Ordinary executors keep their existing retry/deadline path; trusted observers release their worker. */
     fun dispatchCompletion(unboundRequest: ToolDispatchRequest): CompletableFuture<ToolDispatchOutcome> {
         val request = pinBinding(unboundRequest)
-        if (!isObservation(request)) return CompletableFuture.completedFuture(dispatch(request))
+        if (!isCompletion(request)) return CompletableFuture.completedFuture(dispatch(request))
         return observeAttempt(request)
     }
 
     internal fun isObservation(request: ToolDispatchRequest): Boolean =
         request.bindingRef?.let(registry::resolveBinding)?.executor is JobObservationExecutor
+
+    internal fun isCompletion(request: ToolDispatchRequest): Boolean =
+        request.bindingRef?.let(registry::resolveBinding)?.executor.let {
+            it is JobObservationExecutor || it is JobLaunchWaitExecutor
+        }
 
     @Suppress("TooGenericExceptionCaught") // Preparation faults and final audit failures stay visible.
     private fun observeAttempt(request: ToolDispatchRequest): CompletableFuture<ToolDispatchOutcome> {
@@ -324,19 +329,48 @@ class ToolDispatcher(
         ctx: DispatchContext,
     ): CompletableFuture<ToolDispatchOutcome> {
         val descriptor = requireNotNull(ctx.descriptor)
-        val executor = ctx.executor as JobObservationExecutor
+        val executor = requireNotNull(ctx.executor)
         val prepared =
             prepareExecution(request, proof, ctx)
                 ?: return CompletableFuture.completedFuture(finishStop(request, startedAt, ctx))
         val permitted = { mayStart(request, descriptor, ctx.attemptProof, DispatchContext()) }
-        val submission = executor.start(prepared.call, permitted)
+        val submission =
+            when (executor) {
+                is JobObservationExecutor -> {
+                    executor.start(prepared.call, permitted)
+                }
+
+                is JobLaunchWaitExecutor -> {
+                    val guarded = executionOwnership?.guard(executor) ?: executor
+                    val launched = executionRunner(executor).executeWithinDeadline(guarded, prepared.call)
+                    if (launched == null) {
+                        JobObservationSubmission.immediate(
+                            ToolExecutorResult.Failed(
+                                "JOB_LAUNCH_FAILED: inspect original identity; nothing replayed",
+                                false,
+                                true,
+                            ),
+                        )
+                    } else {
+                        executor.afterLaunch(prepared.call, launched, permitted)
+                    }
+                }
+
+                else -> {
+                    error("Completion executor changed")
+                }
+            }
         return JobObservationPublication.settle(submission) { result, failure ->
             if (failure != null) {
                 finishExecutionFailure(
                     request,
                     startedAt,
                     ctx,
-                    ToolExecutorResult.Failed("JOB_OBSERVATION_FAILED: original execution is unchanged.", true, false),
+                    ToolExecutorResult.Failed(
+                        "JOB_COMPLETION_FAILED: inspect the original execution; nothing was replayed.",
+                        sideEffectFree = executor is JobObservationExecutor,
+                        requiresReview = executor !is JobObservationExecutor,
+                    ),
                 )
             } else {
                 finishObservation(request, startedAt, ctx, prepared, requireNotNull(result), permitted)
@@ -358,8 +392,8 @@ class ToolDispatcher(
                 if (result is ToolExecutorResult.Completed && !permitted()) {
                     ToolExecutorResult.CancelledWithEffectTruth(
                         "JOB_OBSERVATION_REVOKED: no new job result was disclosed.",
-                        true,
-                        false,
+                        ctx.executor is JobObservationExecutor,
+                        ctx.executor !is JobObservationExecutor,
                     )
                 } else {
                     result

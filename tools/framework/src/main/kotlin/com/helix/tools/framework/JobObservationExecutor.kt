@@ -59,6 +59,36 @@ internal object JobObservationPublication {
             ThreadPoolExecutor.AbortPolicy(),
         ).apply { allowCoreThreadTimeOut(true) }
 
+    /** Preserve the observer quota through the enclosing launch's output validation and audit. */
+    fun map(
+        submission: JobObservationSubmission,
+        transform: (ToolExecutorResult) -> ToolExecutorResult,
+    ): JobObservationSubmission {
+        val observed =
+            java.util.concurrent.atomic
+                .AtomicReference<ToolExecutorResult>()
+        return JobObservationSubmission(
+            submission.result.thenApplyAsync({ result ->
+                val checked = submission.beforePublish(result)
+                observed.set(checked)
+                transform(checked)
+            }, pool),
+            beforePublish = { result ->
+                val original = requireNotNull(observed.get())
+                if (submission.beforePublish(original) == original) {
+                    result
+                } else {
+                    ToolExecutorResult.CancelledWithEffectTruth(
+                        "JOB_LAUNCH_BINDING_CHANGED: inspect the original execution; nothing was replayed.",
+                        sideEffectFree = false,
+                        requiresReview = true,
+                    )
+                }
+            },
+            release = submission::close,
+        )
+    }
+
     fun <T> settle(
         submission: JobObservationSubmission,
         finish: (ToolExecutorResult?, Throwable?) -> T,

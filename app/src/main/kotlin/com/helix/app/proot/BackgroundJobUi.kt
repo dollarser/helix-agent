@@ -8,4 +8,5 @@ data class BackgroundJobUi(
     val title: String,
     val state: CommandDetailState,
     val settlementPending: Boolean,
+    val canReleaseLaunchWait: Boolean = false,
 )

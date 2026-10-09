@@ -167,6 +167,17 @@ class ExecutionOwnership(
     /** Only the concrete trusted control binding may use reserved reconciliation capacity. */
     internal fun isControlExecutor(executor: ToolExecutor): Boolean = executor is ControlExecutor
 
+    /** Trusted continuation of an approved execution; retains its deadline and physical control capacity. */
+    fun executeControlWithinDeadline(
+        executor: ToolExecutor,
+        call: ExecutableToolCall,
+        clock: com.helix.core.model.Clock,
+    ): ToolExecutorResult {
+        require(isControlExecutor(executor)) { "Original control binding required" }
+        return ToolDeadlineRunner(clock, ToolExecutionPools.control).executeWithinDeadline(guard(executor), call)
+            ?: ToolExecutorResult.Failed("CONTROL_DEADLINE_EXPIRED: no control effect started", sideEffectFree = true)
+    }
+
     /** Only platform wiring can wrap the singleton native engine; ordinary isolated JS stays independent. */
     fun nativeExecutor(executor: ToolExecutor): ToolExecutor = NativeExecutor(executor)
 

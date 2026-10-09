@@ -210,6 +210,28 @@ class ExecutionOwnershipTest {
         requireNotNull(gate.acquire("writer")).close()
     }
 
+    @Test fun deadlineControlRequiresOriginalHostAndCannotRunAnOrdinaryExecutor() {
+        val gate = ExecutionOwnership(MemoryStore())
+        val other = ExecutionOwnership(MemoryStore())
+        val clock =
+            object : com.helix.core.model.Clock {
+                override fun now(): Instant = Instant.now()
+            }
+        val control = gate.controlExecutor({ owner }) { _, _ -> error("must not run") }
+        assertThrows(IllegalStateException::class.java) {
+            other.executeControlWithinDeadline(control, call().copy(deadline = Instant.now().plusSeconds(5)), clock)
+        }
+        val ordinary =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall) = error("must not run")
+            }
+        assertThrows(IllegalArgumentException::class.java) {
+            gate.executeControlWithinDeadline(ordinary, call(), clock)
+        }
+        val expired = gate.executeControlWithinDeadline(control, call().copy(deadline = Instant.EPOCH), clock)
+        assertTrue(expired is ToolExecutorResult.Failed)
+    }
+
     @Test fun foreignControlNeverRunsAndQueryFailureKeepsOriginalOwner() {
         val gate = ExecutionOwnership(MemoryStore())
         requireNotNull(gate.acquire("start")).use { it.retain(owner) }

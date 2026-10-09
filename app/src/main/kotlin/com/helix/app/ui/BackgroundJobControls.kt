@@ -24,6 +24,7 @@ internal fun BackgroundJobControls(
         if (job.settlementPending) {
             SettingsActions {
                 BackgroundJobAction.values().forEach { action ->
+                    if (action == BackgroundJobAction.BACKGROUND && !job.canReleaseLaunchWait) return@forEach
                     TextButton(
                         onClick = { onAction(job, action) },
                         enabled = state?.allows(action) != false,
@@ -43,6 +44,7 @@ private fun BackgroundJobAction.label() =
     when (this) {
         BackgroundJobAction.QUERY -> R.string.tasks_job_query
         BackgroundJobAction.STOP_WAITING -> R.string.tasks_job_stop_waiting
+        BackgroundJobAction.BACKGROUND -> R.string.tasks_job_background
         BackgroundJobAction.CANCEL -> R.string.tasks_job_cancel
         BackgroundJobAction.COLLECT -> R.string.tasks_job_collect
     }

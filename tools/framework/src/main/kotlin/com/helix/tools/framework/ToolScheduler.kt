@@ -300,7 +300,7 @@ class ToolScheduler(
                 // BEFORE completing the future: completion wakes the scheduler waiter,
                 // which must observe the freed slot when it immediately re-evaluates.
                 try {
-                    val observation = dispatcher.isObservation(call)
+                    val observation = dispatcher.isCompletion(call)
                     val completion = dispatcher.dispatchCompletion(call)
                     if (observation) releaseSlot(callId)
                     completion.whenComplete { outcome, failure ->

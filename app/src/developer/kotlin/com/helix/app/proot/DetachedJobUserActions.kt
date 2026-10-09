@@ -8,6 +8,7 @@ import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -25,6 +26,13 @@ internal class DetachedJobUserActions(
     private val executors: Map<BackgroundJobAction, ToolExecutor>,
     private val observations: com.helix.tools.framework.JobObservationService,
 ) {
+    fun isLaunchWaiting(job: BackgroundJobUi): Boolean {
+        val call = storage.toolCalls.byTurnAndCallId(job.turnId, job.callId) ?: return false
+        val mode = (Json.parseToJsonElement(call.argsJson) as? JsonObject)?.get("waitMode") as? JsonPrimitive
+        return call.name == DetachedJobTools.START && call.state == "RUNNING" && mode?.content == "AUTO" &&
+            observations.isOriginalLaunchWaiting(job.sessionId, job.callId)
+    }
+
     fun perform(
         job: BackgroundJobUi,
         action: BackgroundJobAction,
@@ -52,6 +60,14 @@ internal class DetachedJobUserActions(
         cancelled: () -> Boolean,
     ): BackgroundJobActionOutcome =
         when (action) {
+            BackgroundJobAction.BACKGROUND -> {
+                if (isLaunchWaiting(job) && observations.stopWaiting(job.sessionId, job.callId)) {
+                    BackgroundJobActionOutcome.WAIT_STOPPED
+                } else {
+                    BackgroundJobActionOutcome.NOT_WAITING
+                }
+            }
+
             BackgroundJobAction.STOP_WAITING -> {
                 if (observations.stopWaitingForJob(job.sessionId, job.callId)) {
                     BackgroundJobActionOutcome.WAIT_STOPPED
@@ -83,10 +99,21 @@ internal class DetachedJobUserActions(
         val deadline = SystemClock.elapsedRealtime() + ACTION_LIMIT_MS
         val name =
             when (action) {
-                BackgroundJobAction.QUERY -> DetachedJobTools.STATUS
-                BackgroundJobAction.STOP_WAITING -> error("Stop-wait is a local observer command")
-                BackgroundJobAction.CANCEL -> DetachedJobTools.CANCEL
-                BackgroundJobAction.COLLECT -> DetachedJobTools.COLLECT
+                BackgroundJobAction.QUERY -> {
+                    DetachedJobTools.STATUS
+                }
+
+                BackgroundJobAction.STOP_WAITING, BackgroundJobAction.BACKGROUND -> {
+                    error("Stop-wait is a local observer command")
+                }
+
+                BackgroundJobAction.CANCEL -> {
+                    DetachedJobTools.CANCEL
+                }
+
+                BackgroundJobAction.COLLECT -> {
+                    DetachedJobTools.COLLECT
+                }
             }
         return ExecutableToolCall(
             "user-job-$id",

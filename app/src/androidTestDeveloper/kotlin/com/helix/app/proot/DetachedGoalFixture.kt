@@ -111,7 +111,12 @@ internal class DetachedGoalFixture(
     }
 
     /** Ordinary Act loop: no fixture-side polling may hide a missing jobs.await integration. */
-    suspend fun submitAwaitJourney() {
+    suspend fun submitAwaitJourney(
+        auto: Boolean = false,
+        fast: Boolean = false,
+        expireLease: Boolean = false,
+        releaseWait: Boolean = false,
+    ) {
         fun originalCall(): String {
             val admittedTurn =
                 storage.turns
@@ -127,9 +132,21 @@ internal class DetachedGoalFixture(
             listOf(
                 ScriptedTaskModelServer.Step(DetachedJobTools.START) {
                     buildJsonObject {
-                        put("script", "sleep 1; printf await-result > result.txt")
+                        val delay =
+                            if (expireLease) {
+                                "sleep 5; "
+                            } else if (fast) {
+                                ""
+                            } else {
+                                "sleep 2; "
+                            }
+                        put("script", delay + "printf await-result > result.txt")
                         put("output", "scope:app:output/${output.name}")
-                        put("leaseSeconds", 20)
+                        put("leaseSeconds", if (expireLease) 2 else 20)
+                        if (auto) {
+                            put("waitMode", "AUTO")
+                            put("waitMillis", if (fast || releaseWait) 15_000 else 250)
+                        }
                     }.toString()
                 },
                 ScriptedTaskModelServer.Step("time.now") { "{}" },
@@ -147,7 +164,7 @@ internal class DetachedGoalFixture(
                 ScriptedTaskModelServer.Step(DetachedJobTools.COLLECT) {
                     buildJsonObject { put("originalCallId", originalCall()) }.toString()
                 },
-            ).withDiscovery(),
+            ).let { if (fast) it.take(1) else it }.withDiscovery(),
         )
         turn =
             container.agentRuntime

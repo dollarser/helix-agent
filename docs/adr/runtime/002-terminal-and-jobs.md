@@ -20,6 +20,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 重启后不重建原 shell 内存、不重放命令。手动终端不套 Goal 预算，其租期/空闲回收、PTY/native/rendering 版本和许可证必须有接线前设备证据。前台 PTY 可以独立验收，不等待后台 Job 成功。
 - 197 首片手动终端采用应用 Workspace 内实际目录直接映射 `/workspace`，不提前启用独立会话目录绑定。手动租期默认两小时、最大八小时，不自动续期；断开连接后三十分钟空闲回收。停止记录独立于可删除的 Runtime 安装目录，环境维护与执行互斥。页面、模型和 Agent Goal 不持有 Runtime 进程资源；具体交付与设备边界以 197 任务记录为准。
 - 宿主维护多条原执行身份，而不是单个全局排他 owner。每条 identity 只约束自己的提交/控制/结算；保留身份或未收取结果不占用其他任务准入。普通线程、Runtime 物理槽直到真实退出才释放；唯一原生 QuickJS 服务的存活身份只阻止该单实例引擎的新调用。identity 文件损坏不得伪造为空闲，普通无关工具仍可执行；控制入口校验原 session/turn/call/job，不凭身份授予权限。
+- HXA-248：已获准 detached lifetime 的 Linux Job 可在初次提交后 AUTO 有界等待（最多 15 秒），快任务收取原结果，未完成返回同一原调用句柄。等待模式与 lifetime 正交；后台资格不足的 one-shot 保留原有限执行/取消契约。提交仍经过原 deadline runner 和 execution ownership，等待复用 J1 物理观察通道；释放业务等待不释放实际 Runtime 容量、不重放命令、不续租。DSH 取消累计任务额度门禁不取消 Runtime lease。用户提前释放等待为后续独立按钮检查点。
 
 ### HXA-197 渲染组件与构建兼容
 
@@ -62,6 +63,10 @@ Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变�
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-09，HXA-248 J2-2：用户后台释放只对仍在 AUTO 原启动观察中的已批准 detached Job 可用；在原 Binding 检查后停止该观察，不停止其他 jobs.await，不取消进程，不续期或重放。UI 资格来自持久调用与当前观察注册的联合提示，服务仍复核；进程死亡不由 UI 布尔值恢复观察。
+
+- 2026-10-09，HXA-248：所有者授权按竞品对照继续 J2-1→J2-2、模拟器/真实模型验证及逐任务提交。接受上述同身份 AUTO 等待契约；固定 Codex 源码和 Claude Code 文档的采用点/Android 取舍见 HXA-248，不复制参考代码。接受设计不等于实现和设备验收已完成。
 
 - 2026-10-04：修复所有者报告的 guest FFmpeg linker/ICU 启动失败：直接映射可读的 `/linkerconfig/ld.config.txt`，不以其目录的可访问性为前提；只在媒体包装脚本内设置固定的 APK 与 ICU APEX 库搜索路径。仍复用原 Job/PTY、原样转发参数，不改 RootFS、不复制平台库、不新增执行域。
 

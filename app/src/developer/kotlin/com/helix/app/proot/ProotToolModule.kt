@@ -350,7 +350,8 @@ internal object ProotToolModule {
 
     fun observeCommandLog(binding: CommandJobBindingFacts) = CommandLogReader.observe(binding)
 
-    fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> = DetachedJobDashboard.read(storage)
+    fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> =
+        DetachedJobDashboard.read(storage).map { it.copy(canReleaseLaunchWait = userJobActions.isLaunchWaiting(it)) }
 
     fun performBackgroundJobAction(
         job: BackgroundJobUi,

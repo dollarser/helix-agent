@@ -5,6 +5,8 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
+import com.helix.tools.framework.ToolExecutor
+import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -18,9 +20,56 @@ import org.junit.Test
 import java.time.Instant
 
 class DetachedJobToolsTest {
-    @Test fun versionOneBackgroundJobApprovalShowsSharedNetworkForScriptAndArgv() {
+    @Test fun autoWaitDefaultsDoNotApplyToUnacceptedOrBackgroundLaunches() {
+        val accepted = ToolExecutorResult.Completed(buildJsonObject { put("accepted", true) })
+        val auto = call().copy(args = buildJsonObject { put("waitMode", "AUTO") })
+        assertEquals(10_000L, DetachedJobWait.millis(auto, accepted))
+        assertEquals(null, DetachedJobWait.millis(call(), accepted))
+        assertEquals(null, DetachedJobWait.millis(auto, ToolExecutorResult.Completed(buildJsonObject {})))
+    }
+
+    @Test fun cancelledAutoWaitNeverCollectsOrClaimsTheJobStopped() {
+        val cancelled =
+            call().copy(
+                cancel =
+                    object : com.helix.tools.framework.CancelSignal {
+                        override fun isCancelled() = true
+                    },
+            )
+        val collect =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult = error("must not collect")
+            }
+        val result =
+            DetachedJobWait.finish(
+                collect,
+                cancelled,
+                ToolExecutorResult.Completed(buildJsonObject { put("accepted", true) }),
+                ToolExecutorResult.Completed(buildJsonObject { put("reason", "CONDITION_MET") }),
+            ) as ToolExecutorResult.CancelledWithEffectTruth
+        assertFalse(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+    }
+
+    @Test fun collectionFailurePreservesOriginalSideEffectTruth() {
+        val collect =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall) = ToolExecutorResult.Failed("IMPORT_FAILED", true, false)
+            }
+        val result =
+            DetachedJobWait.finish(
+                collect,
+                call(),
+                ToolExecutorResult.Completed(buildJsonObject { put("accepted", true) }),
+                ToolExecutorResult.Completed(buildJsonObject { put("reason", "CONDITION_MET") }),
+            ) as ToolExecutorResult.Failed
+        assertFalse(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+    }
+
+    @Test fun backgroundJobApprovalShowsSharedNetworkForScriptAndArgv() {
         val descriptor = DetachedJobTools.start()
-        assertEquals(1, descriptor.version.value)
+        assertEquals(2, descriptor.version.value)
         val script =
             requireNotNull(
                 ApprovalUiMapper.codeExecutionUi(descriptor, buildJsonObject { put("script", "printf hello") }),

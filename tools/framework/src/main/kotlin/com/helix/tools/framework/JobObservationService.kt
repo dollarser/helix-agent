@@ -41,6 +41,26 @@ class JobObservationService(
 
     fun awaitExecutor(): ToolExecutor = JobObservationExecutor(this, waiting = true)
 
+    /** Compiled host wiring only; tool descriptors and extension metadata cannot opt into this path. */
+    fun launchWaitExecutor(
+        launch: ToolExecutor,
+        waitMillis: (ExecutableToolCall, ToolExecutorResult.Completed) -> Long?,
+        finish: (ExecutableToolCall, ToolExecutorResult.Completed, ToolExecutorResult) -> ToolExecutorResult,
+    ): ToolExecutor = JobLaunchWaitExecutor(this, launch, waitMillis, finish)
+
+    internal fun now(): java.time.Instant = clock.now()
+
+    /** UI hint only. Scoped release still resolves the original durable binding at the host. */
+    fun isOriginalLaunchWaiting(
+        sessionId: String,
+        originalCallId: String,
+    ): Boolean =
+        synchronized(lock) {
+            active[originalCallId]?.let {
+                it.sessionId == sessionId && it.handles == setOf(originalCallId)
+            } == true
+        }
+
     /** A user stop-wait command does not call the Runtime's cancellation endpoint. */
     fun stopWaiting(
         sessionId: String,

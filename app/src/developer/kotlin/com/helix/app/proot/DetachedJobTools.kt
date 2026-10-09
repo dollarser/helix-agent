@@ -31,6 +31,32 @@ internal object DetachedJobTools {
                 .jsonObject
                 .toMutableMap()
         properties.remove("timeoutSeconds")
+        properties["waitMode"] =
+            buildJsonObject {
+                put("type", "string")
+                put(
+                    "enum",
+                    buildJsonArray {
+                        add(JsonPrimitive("BACKGROUND"))
+                        add(JsonPrimitive("AUTO"))
+                    },
+                )
+                put(
+                    "description",
+                    "BACKGROUND returns acceptance (default). AUTO waits briefly for this same approved Job, " +
+                        "then returns its result or original handle; never extends its lease.",
+                )
+            }
+        properties["waitMillis"] =
+            buildJsonObject {
+                put("type", "integer")
+                put("minimum", 250)
+                put("maximum", 15_000)
+                put(
+                    "description",
+                    "AUTO wait window only, default 10000ms; independent of the original execution lease.",
+                )
+            }
         properties["leaseSeconds"] =
             buildJsonObject {
                 put("type", "integer")
@@ -43,10 +69,11 @@ internal object DetachedJobTools {
             }
         return base.copy(
             name = ToolName(START),
-            version = ToolVersion(1),
+            version = ToolVersion(2),
             description =
                 "Start one trusted Linux Job in the developer Runtime, sharing Helix UID and network access. " +
-                    "Returns acceptance, not completion. Query/cancel by originalCallId or use jobs.await; " +
+                    "BACKGROUND returns acceptance; AUTO returns the original result when completed during waiting, " +
+                    "otherwise its same handle. Query/cancel by originalCallId or use jobs.await; " +
                     "never replay an uncertain submission.",
             inputSchema = JsonObject(base.inputSchema + ("properties" to JsonObject(properties))),
             outputSchema = resultSchema,
@@ -123,6 +150,8 @@ internal object DetachedJobTools {
         val args = call.args.toMutableMap()
         // Schema validation rejects timeoutSeconds; it cannot override the approved lease.
         args.remove("timeoutSeconds")
+        args.remove("waitMode")
+        args.remove("waitMillis")
         args.remove("leaseSeconds")?.let { args["timeoutSeconds"] = it }
         return when (
             val parsed =

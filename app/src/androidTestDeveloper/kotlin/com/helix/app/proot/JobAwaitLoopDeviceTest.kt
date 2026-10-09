@@ -15,6 +15,7 @@ import org.junit.Test
 import java.security.MessageDigest
 
 /** Real Provider stream, AgentLoop, Dispatcher and Runtime with a local scripted model, not a real account. */
+@Suppress("TooManyFunctions") // Each distinct original-execution boundary remains an independently reported test.
 class JobAwaitLoopDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
@@ -23,7 +24,25 @@ class JobAwaitLoopDeviceTest {
 
     @Test fun openManualTerminalDoesNotBlockBackgroundTimeWaitAndCollect() = journey(true)
 
-    private fun journey(withTerminal: Boolean): Unit =
+    @Test fun autoFastJobCollectsSameOriginalResultWithoutASecondToolCall() = journey(false, auto = true, fast = true)
+
+    @Test fun autoWaitExpiryReturnsSameHandleAndOriginalJobCanBeAwaitedAndCollected() = journey(false, auto = true)
+
+    @Test fun autoWaitingDoesNotExtendTheApprovedExecutionLease() =
+        journey(false, auto = true, fast = true, expireLease = true)
+
+    @Test fun userBackgroundReleaseKeepsTheSameJobAndRepeatedReleaseDoesNotReplay() =
+        journey(false, auto = true, releaseWait = true)
+
+    // One lifecycle joins each Runtime case with binding/hash checks and scoped cleanup.
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
+    private fun journey(
+        withTerminal: Boolean,
+        auto: Boolean = false,
+        fast: Boolean = false,
+        expireLease: Boolean = false,
+        releaseWait: Boolean = false,
+    ): Unit =
         runBlocking {
             compose.resetDeterministicUiState()
             ScriptedTaskModelServer().use { server ->
@@ -35,7 +54,37 @@ class JobAwaitLoopDeviceTest {
                     if (withTerminal) {
                         terminalId = requireNotNull(fixture.container.manualTerminal).start(".", 60_000).sessionId
                     }
-                    fixture.submitAwaitJourney()
+                    fixture.submitAwaitJourney(auto, fast, expireLease, releaseWait)
+                    if (releaseWait) {
+                        compose.waitUntil(30_000) {
+                            ProotToolModule.backgroundJobs(fixture.storage).any {
+                                it.sessionId == fixture.session && it.canReleaseLaunchWait
+                            }
+                        }
+                        val waiting =
+                            ProotToolModule.backgroundJobs(fixture.storage).single {
+                                it.sessionId == fixture.session
+                            }
+                        assertEquals(
+                            BackgroundJobActionOutcome.WAIT_STOPPED,
+                            ProotToolModule.performBackgroundJobAction(
+                                waiting,
+                                BackgroundJobAction.BACKGROUND,
+                            ) { false },
+                        )
+                        compose.waitUntil(10_000) {
+                            ProotToolModule.backgroundJobs(fixture.storage).none {
+                                it.sessionId == fixture.session && it.canReleaseLaunchWait
+                            }
+                        }
+                        assertEquals(
+                            BackgroundJobActionOutcome.NOT_WAITING,
+                            ProotToolModule.performBackgroundJobAction(
+                                waiting,
+                                BackgroundJobAction.BACKGROUND,
+                            ) { false },
+                        )
+                    }
                     compose.waitUntil(60_000) {
                         fixture.storage.turns
                             .resolve(fixture.turn)
@@ -49,10 +98,20 @@ class JobAwaitLoopDeviceTest {
                             .state,
                     )
                     val allCalls = fixture.storage.toolCalls.listByTurn(fixture.turn)
-                    assertEquals(4, allCalls.count { it.name == "tools.search" && it.state == "COMPLETED" })
+                    assertEquals(
+                        if (fast) 1 else 4,
+                        allCalls.count {
+                            it.name == "tools.search" &&
+                                it.state == "COMPLETED"
+                        },
+                    )
                     val calls = allCalls.filter { it.name != "tools.search" }
                     assertEquals(
-                        listOf(DetachedJobTools.START, "time.now", DetachedJobTools.AWAIT, DetachedJobTools.COLLECT),
+                        if (fast) {
+                            listOf(DetachedJobTools.START)
+                        } else {
+                            listOf(DetachedJobTools.START, "time.now", DetachedJobTools.AWAIT, DetachedJobTools.COLLECT)
+                        },
                         calls.map { it.name },
                     )
                     assertTrue(calls.all { it.state == "COMPLETED" })
@@ -62,10 +121,38 @@ class JobAwaitLoopDeviceTest {
                             .listBySession(fixture.session)
                             .size,
                     )
-                    assertEquals(sha256("await-result".toByteArray()), sha256(fixture.output.readBytes()))
+                    if (expireLease) {
+                        assertFalse(fixture.output.exists())
+                    } else {
+                        assertEquals(sha256("await-result".toByteArray()), sha256(fixture.output.readBytes()))
+                    }
                     val job = DetachedJobDashboard.read(fixture.storage).single { it.sessionId == fixture.session }
                     assertFalse(job.settlementPending)
-                    assertObservationContext(fixture, calls.first().callId)
+                    if (!fast) assertObservationContext(fixture, calls.first().callId)
+                    if (auto) {
+                        val body =
+                            fixture.storage.toolResults
+                                .byToolCall(calls.first().callId)
+                                ?.let(fixture.storage.toolResults::readContent)
+                        val result =
+                            kotlinx.serialization.json.Json
+                                .parseToJsonElement(requireNotNull(body))
+                                as kotlinx.serialization.json.JsonObject
+                        assertEquals(
+                            calls.first().callId,
+                            result["originalCallId"]
+                                ?.let {
+                                    it as kotlinx.serialization.json.JsonPrimitive
+                                }?.content,
+                        )
+                        assertEquals(fast.toString(), result["executionComplete"]?.toString())
+                        if (expireLease) {
+                            assertEquals("\"TIMED_OUT\"", result["state"]?.toString())
+                            assertEquals("false", result["resultAvailable"]?.toString())
+                        }
+                        val prepared = fixture.storage.auditEvents.resolve("proot-job-${calls.first().callId}")
+                        assertEquals("proot.job_prepared", prepared.type)
+                    }
                     terminalId?.let { id ->
                         assertFalse(requireNotNull(fixture.container.manualTerminal).query(id).canSettle)
                     }

@@ -1636,6 +1636,7 @@
     <string name="plugin_partial_ready">Partly ready (%1$d/%2$d)</string>
     <string name="plugin_skipped_components">Some components are invalid or unsupported. Other valid components remain usable; see plugin details.</string>
     <string name="tasks_job_stop_waiting">Stop waiting</string>
+    <string name="tasks_job_background">Continue in background</string>
     <string name="tasks_job_wait_stopped">Stopped waiting; the original job was not cancelled.</string>
     <string name="tasks_job_not_waiting">No active observer is waiting for this job.</string>
     <string name="composer_restoring">Opening this conversation…</string>

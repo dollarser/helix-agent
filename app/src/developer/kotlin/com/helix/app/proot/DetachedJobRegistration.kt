@@ -66,7 +66,7 @@ internal object DetachedJobRegistration {
             )
         val executors =
             listOf(
-                DetachedJobTools.start() to start(launcher),
+                DetachedJobTools.start() to startWithWait(observations, launcher, collection, ownership),
                 DetachedJobTools.control(false) to observations.statusExecutor(),
                 DetachedJobTools.await() to observations.awaitExecutor(),
                 DetachedJobTools.control(true) to control.executor(),
@@ -83,6 +83,28 @@ internal object DetachedJobRegistration {
                 BackgroundJobAction.COLLECT to collection.executor(),
             ),
             observations,
+        )
+    }
+
+    private fun startWithWait(
+        observations: com.helix.tools.framework.JobObservationService,
+        launcher: DetachedJobLaunch,
+        collection: DetachedJobCollection,
+        ownership: ExecutionOwnership,
+    ): ToolExecutor {
+        val clock =
+            object : com.helix.core.model.Clock {
+                override fun now(): java.time.Instant = java.time.Instant.now()
+            }
+        val controlled =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult =
+                    ownership.executeControlWithinDeadline(collection.executor(), call, clock)
+            }
+        return observations.launchWaitExecutor(
+            start(launcher),
+            DetachedJobWait::millis,
+            { call, launched, observed -> DetachedJobWait.finish(controlled, call, launched, observed) },
         )
     }
 

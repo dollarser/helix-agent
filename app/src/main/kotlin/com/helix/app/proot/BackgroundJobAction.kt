@@ -1,7 +1,7 @@
 package com.helix.app.proot
 
 /** Closed user actions on an existing Job. There is deliberately no launch or replacement target. */
-enum class BackgroundJobAction { QUERY, STOP_WAITING, CANCEL, COLLECT }
+enum class BackgroundJobAction { QUERY, STOP_WAITING, BACKGROUND, CANCEL, COLLECT }
 
 enum class BackgroundJobActionOutcome {
     ACTIVE,
