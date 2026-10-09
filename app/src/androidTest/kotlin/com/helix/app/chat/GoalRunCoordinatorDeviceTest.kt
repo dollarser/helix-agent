@@ -43,8 +43,8 @@ class GoalRunCoordinatorDeviceTest {
             assertEquals(GoalState.READY.name, storage.goals.resolve(id).state)
             assertTrue(storage.goalRuns.listByGoal(id).isEmpty())
             val started = requireNotNull(coordinator.start(request(id, "turn-1")))
-            assertEquals(2, started.budgets.maxModelCalls)
-            assertEquals(1_000L, started.budgets.maxTotalTokens)
+            assertEquals(limits, started.budgets)
+            assertEquals(800L, started.budgets.maxOutputTokens)
             assertEquals(started.runId, storage.goalTurnBindings.byTurn("turn-1")?.runId)
             assertNull(coordinator.start(request(id, "turn-2")))
             assertEquals(1, storage.goalRuns.listByGoal(id).size)
@@ -67,8 +67,8 @@ class GoalRunCoordinatorDeviceTest {
             TurnRecovery(storage, clock).recover()
             val old = storage.goalRuns.resolve(first.runId)
             val second = requireNotNull(coordinator.start(request(id, "second")))
-            assertEquals(1, second.budgets.maxModelCalls)
-            assertEquals(970L, second.budgets.maxTotalTokens)
+            assertEquals(limits, second.budgets)
+            assertEquals(30L, storage.goals.resolve(id).totalTokens)
             assertEquals(old, storage.goalRuns.resolve(first.runId))
             assertNotNull(old.endedAt)
             assertEquals(2, storage.goals.resolve(id).runCount)
@@ -89,7 +89,7 @@ class GoalRunCoordinatorDeviceTest {
             assertEquals(1, storage.goalRuns.listByGoal(id).size)
             assertNotNull(storage.goalRuns.resolve(started.runId).endedAt)
             val freshCoordinator = coordinator(storage)
-            assertEquals(9, requireNotNull(freshCoordinator.start(request(id, "second"))).budgets.maxModelCalls)
+            assertEquals(limits, requireNotNull(freshCoordinator.start(request(id, "second"))).budgets)
         }
 
     @Test

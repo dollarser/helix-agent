@@ -234,16 +234,8 @@ internal class GoalTimeBudget(
     private fun renew(started: Long = monotonicMillis()): Boolean {
         var renewed = false
         storage.withTransaction {
-            val run = storage.goalRuns.resolve(runId)
-            val goal = storage.goals.resolve(run.goalId)
-            val held = storage.goalUsageReservations.pendingForRun(runId).sumOf { it.reservedMillis }
-            val remaining =
-                minOf(
-                    goal.budgets.maxDurationMillis - goal.runTimeMillis,
-                    goal.budgets.maxWakeDurationMillis - goal.currentWakeMillis,
-                ) -
-                    held
-            val duration = minOf(remaining, GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS)
+            val remaining = Long.MAX_VALUE - started
+            val duration = GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS
             if (duration > 0) {
                 val id = "goal-time:${UUID.randomUUID()}"
                 renewed =

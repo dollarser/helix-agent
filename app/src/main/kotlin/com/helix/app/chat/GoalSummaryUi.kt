@@ -32,6 +32,7 @@ internal data class GoalSummaryUi(
      * entry navigates to it (HXA-202). Null only when the goal has no control row.
      */
     val sessionId: String? = null,
+    val roundsStarted: Int = 0,
 )
 
 internal data class GoalStatusUi(
@@ -88,7 +89,7 @@ internal class GoalSummaryQuery(
             GoalSummaryUi(
                 goal.id,
                 goal.objective,
-                GoalStatusUi(goal.state, runs.lastOrNull()?.outcome, goal.nextCheckpoint, null),
+                GoalStatusUi(goal.state, goal.finishReason ?: runs.lastOrNull()?.outcome, goal.nextCheckpoint, null),
                 goal.criteria.map { it.description },
                 goal.budgets,
                 GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
@@ -101,6 +102,7 @@ internal class GoalSummaryQuery(
                 storage.goalControls.find(goal.id)?.revision ?: 0,
                 canEditObjective(goal),
                 sessionId = ownerSession,
+                roundsStarted = GoalRoundAllowance(storage).used(goal.id),
             )
         }
 
@@ -128,7 +130,7 @@ internal class GoalSummaryQuery(
                 goal.objective,
                 GoalStatusUi(
                     goal.state,
-                    runs.lastOrNull()?.outcome,
+                    goal.finishReason ?: runs.lastOrNull()?.outcome,
                     goal.nextCheckpoint,
                     runs.lastOrNull()?.let { latest ->
                         storage.turns
@@ -151,6 +153,7 @@ internal class GoalSummaryQuery(
                 storage.goalControls.find(goal.id)?.revision ?: 0,
                 canEditObjective(goal),
                 sessionId = owner,
+                roundsStarted = GoalRoundAllowance(storage).used(goal.id),
             )
         }
     }

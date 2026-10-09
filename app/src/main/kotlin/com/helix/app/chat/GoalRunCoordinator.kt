@@ -31,7 +31,6 @@ internal data class StartedGoalTurn(
     val runId: String,
     val coordinator: TurnCoordinator,
     val budgets: TurnBudgets,
-    val remainingToolCalls: Int,
 )
 
 /** User-action boundary, not a model Tool. It never schedules work or replays an interrupted Turn. */
@@ -97,6 +96,7 @@ internal class GoalRunCoordinator(
         if (request.recoveryInspection) return RecoveryGoalRunStart(storage, clock, idGenerator).start(request)
         var started: StartedGoalTurn? = null
         storage.withTransaction {
+            if (GoalRoundAllowance(storage).blockIfExhausted(request.goalId)) return@withTransaction
             val previous = storage.goals.resolve(request.goalId).toRuntimeGoal()
             if (com.helix.core.agent.GoalDriver.admit(
                     previous,
@@ -112,7 +112,7 @@ internal class GoalRunCoordinator(
                 require(
                     storage.goalRuns.listOpenByGoal(request.goalId).isEmpty(),
                 ) { "Goal has an unreconciled open run" }
-                val limits = remainingLimits(effect, request.turnLimits)
+                val limits = request.turnLimits
                 val runId = idGenerator()
                 storage.goals.updateGoal(step.state.toStoredGoal())
                 storage.goalRuns.open(runId, request.goalId, request.wakeReason.name, clock.now().toEpochMilli())
@@ -124,7 +124,7 @@ internal class GoalRunCoordinator(
                         request.turn.copy(goalRunId = runId),
                     )
                 audit(step.state, "goal.run_started")
-                started = StartedGoalTurn(runId, turn, limits, effect.remainingToolCalls)
+                started = StartedGoalTurn(runId, turn, limits)
             }
         }
         return started
@@ -156,17 +156,6 @@ internal class GoalRunCoordinator(
         }
         return changed
     }
-
-    private fun remainingLimits(
-        effect: GoalEffect.StartRun,
-        configured: TurnBudgets,
-    ): TurnBudgets =
-        configured.copy(
-            maxModelCalls = minOf(configured.maxModelCalls, effect.remainingModelCalls),
-            maxInputTokens = minOf(configured.maxInputTokens, effect.remainingTotalTokens),
-            maxOutputTokens = minOf(configured.maxOutputTokens, effect.remainingTotalTokens),
-            maxTotalTokens = minOf(configured.maxTotalTokens, effect.remainingTotalTokens),
-        )
 
     fun setCheckpoint(
         goalId: String,

@@ -145,7 +145,7 @@ internal class ChatRequestAssembler(
         return com.helix.core.agent.ContextCapacity.forContinuation(
             request,
             prompt,
-            control.budgets.maxInputTokens,
+            com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
             window,
         ) == null
     }

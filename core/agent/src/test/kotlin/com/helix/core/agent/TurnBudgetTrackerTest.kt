@@ -33,15 +33,15 @@ class TurnBudgetTrackerTest {
         }
         assertEquals(1024, tracker.consumedCalls)
         assertEquals(21504L, tracker.consumedTokens)
-        assertEquals(TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT, tracker.prepareCall(request()).decision)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request()).decision)
     }
 
     @Test
-    fun modelCallLimitFailsBeforeAnExtraProviderCall() {
+    fun historicalModelCallLimitDoesNotBlockAnotherProviderCall() {
         val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 200))
         val request = request()
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
-        assertEquals(TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT, tracker.prepareCall(request).decision)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
     }
 
     @Test
@@ -51,18 +51,18 @@ class TurnBudgetTrackerTest {
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
         val stream = ModelStreamState().also { it.apply(ModelEvent.TextDelta("1234")) }
         assertTrue(tracker.finishCall("call-1", request, stream))
-        assertEquals(TurnBudgetTracker.BeginDecision.TOKEN_LIMIT, tracker.prepareCall(request).decision)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
     }
 
     @Test
-    fun outputIsBoundByInputEstimateAndRemainingTotalBeforeTransport() {
+    fun outputIsIndependentOfAccumulatedInputUsage() {
         val tracker = TurnBudgetTracker(TurnBudgets(2, 3, 100, 100, 50))
         val first = requireNotNull(tracker.prepareCall(request("1234").copy(maxOutputTokens = 100)).request)
-        assertEquals(33L, first.maxOutputTokens)
+        assertEquals(100L, first.maxOutputTokens)
         val stream = ModelStreamState().also { it.apply(ModelEvent.Usage(1, 10)) }
         assertTrue(tracker.finishCall("first", first, stream))
         val second = requireNotNull(tracker.prepareCall(request("1234")).request)
-        assertEquals(22L, second.maxOutputTokens)
+        assertEquals(100L, second.maxOutputTokens)
     }
 
     @Test
@@ -72,11 +72,11 @@ class TurnBudgetTrackerTest {
     }
 
     @Test
-    fun noOutputHeadroomRejectsWithoutSpendingTheModelCall() {
+    fun historicalTotalLimitDoesNotRejectNewRequest() {
         val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 18))
         val refused = tracker.prepareCall(request("12345678"))
-        assertEquals(TurnBudgetTracker.BeginDecision.TOKEN_LIMIT, refused.decision)
-        assertEquals(null, refused.request)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, refused.decision)
+        assertEquals(100L, refused.request?.maxOutputTokens)
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request("1234")).decision)
     }
 
@@ -97,23 +97,21 @@ class TurnBudgetTrackerTest {
         assertEquals(10L, tracker.consumedTokens)
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request("1")).decision)
         assertEquals(3, tracker.consumedCalls)
-        assertEquals(TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT, tracker.prepareCall(request()).decision)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request()).decision)
 
         val tokenBound = TurnBudgetTracker.restore(budgets, consumedModelCalls = 0, consumedTokens = 40)
-        assertEquals(TurnBudgetTracker.BeginDecision.TOKEN_LIMIT, tokenBound.prepareCall(request("1")).decision)
-        assertEquals(0, tokenBound.consumedCalls)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tokenBound.prepareCall(request("1")).decision)
+        assertEquals(1, tokenBound.consumedCalls)
     }
 
     @Test
-    fun restoredTrackerRejectsCheckpointOutsideImmutableBudget() {
+    fun restoredTrackerAcceptsUsageBeyondHistoricalLimitsAndRejectsNegativeUsage() {
         val budgets = TurnBudgets(4, 3, 100, 100, 50)
 
-        assertThrows(IllegalArgumentException::class.java) {
-            TurnBudgetTracker.restore(budgets, consumedModelCalls = 4, consumedTokens = 0)
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            TurnBudgetTracker.restore(budgets, consumedModelCalls = 0, consumedTokens = 51)
-        }
+        assertEquals(4, TurnBudgetTracker.restore(budgets, 4, 51).consumedCalls)
+        assertEquals(51L, TurnBudgetTracker.restore(budgets, 4, 51).consumedTokens)
+        assertThrows(IllegalArgumentException::class.java) { TurnBudgetTracker.restore(budgets, -1, 0) }
+        assertThrows(IllegalArgumentException::class.java) { TurnBudgetTracker.restore(budgets, 0, -1) }
     }
 
     @Test

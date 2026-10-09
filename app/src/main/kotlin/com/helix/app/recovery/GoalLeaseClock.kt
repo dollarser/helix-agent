@@ -20,20 +20,9 @@ internal class GoalLeaseClock(
             val run = storage.goalRuns.resolve(reservation.runId)
             val goal = storage.goals.resolve(run.goalId)
             if (run.endedAt != null || goal.state != "RUNNING") return@withTransaction
-            val otherHeld =
-                storage.goalUsageReservations
-                    .pendingForRun(run.id)
-                    .filter { it.id != id }
-                    .sumOf { it.reservedMillis }
-            val capacity =
-                minOf(
-                    goal.budgets.maxDurationMillis - goal.runTimeMillis,
-                    goal.budgets.maxWakeDurationMillis - goal.currentWakeMillis,
-                ) - otherHeld
             held =
                 maxOf(reservation.reservedMillis, minimumMillis)
                     .coerceAtMost(maximumMillis)
-                    .coerceAtMost(capacity.coerceAtLeast(0))
             storage.goalUsageReservations.checkpointLease(id, held, reservation.chargedMillis ?: 0L)
         }
         return held

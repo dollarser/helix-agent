@@ -53,7 +53,7 @@ class ContextCompactionRound(
             request.messages.size,
             admissionInput(request),
             request.maxOutputTokens,
-            control.budgets.maxInputTokens,
+            com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
             settings.window,
         )
 
@@ -145,7 +145,12 @@ class ContextCompactionRound(
     }
 
     private suspend fun shouldCompact(request: TurnContextRequest): Boolean =
-        ContextCapacity.shouldCompact(request, settings, control.budgets.maxInputTokens, admissionInput(request))
+        ContextCapacity.shouldCompact(
+            request,
+            settings,
+            com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
+            admissionInput(request),
+        )
 
     private fun validationFailure(
         plan: ContextCompactionPlan,

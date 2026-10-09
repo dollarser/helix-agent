@@ -41,9 +41,12 @@ class ChatCompactionFlowDeviceTest {
 
     @Test fun cancelledSummaryKeepsThePreviousHistory() = exercise(manual = true, cancel = true)
 
-    @Test fun summaryCannotBypassTheModelCallBudget() = exercise(manual = false, calls = 1)
+    @Test fun summaryAndContinuationIgnoreTheLegacyModelCallLimit() = exercise(manual = false, calls = 1)
 
-    @Test fun goalSummarySpendsGoalBudgetAndStopsAtTheSharedLimit() = exercise(manual = false, goal = true)
+    @Test fun goalSummaryRecordsUsageAndCompletesBeyondTheLegacySharedLimit() = exercise(manual = false, goal = true)
+
+    @Test fun nearWindowSummaryIgnoresLegacyInputAndCumulativeTokenLimits() =
+        exercise(manual = false, legacyTokenLimits = true)
 
     @Test fun failedSummaryRetriesOnceThroughTheRealProviderAndKeepsAccounting() =
         exercise(manual = false, failSummary = true)
@@ -55,6 +58,7 @@ class ChatCompactionFlowDeviceTest {
         calls: Int = 4,
         goal: Boolean = false,
         failSummary: Boolean = false,
+        legacyTokenLimits: Boolean = false,
     ) = runBlocking {
         compose.resetDeterministicUiState()
         val container = compose.container()
@@ -88,26 +92,42 @@ class ChatCompactionFlowDeviceTest {
                     ProviderContextSettings(
                         manualWindow = if (goal) 65536 else 8192,
                         autoCompact = !manual,
-                        triggerPercent = if (goal) 10 else 30,
+                        triggerPercent =
+                            if (legacyTokenLimits) {
+                                80
+                            } else if (goal) {
+                                10
+                            } else {
+                                30
+                            },
                     ),
                 )
-                seed(session)
+                seed(session, if (legacyTokenLimits) 1200 else 600)
                 val originals =
                     storage.messages.listBySession(session).associate {
                         it.id to storage.messages.readContent(it)
                     }
                 chat.openSession(session)
                 chat.setMode(if (goal) AgentMode.GOAL else AgentMode.CHAT)
-                chat.setTurnBudgets(TurnBudgets(4, calls, 65536, 4096, 100000))
+                val budgets =
+                    TurnBudgets(
+                        4,
+                        calls,
+                        if (legacyTokenLimits) 1 else 65536,
+                        4096,
+                        if (legacyTokenLimits) 1 else 100000,
+                    )
+                chat.setTurnBudgets(budgets)
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 compose.waitUntil(10_000) {
                     storage.sessionRunControls.forSession(session)?.let {
                         it.mode == (if (goal) AgentMode.GOAL else AgentMode.CHAT) &&
-                            it.budgets == TurnBudgets(4, calls, 65536, 4096, 100000)
+                            it.budgets == budgets
                     } == true
                 }
                 server.holdChatStreams.set(cancel)
                 server.forceTextResponses = goal
+                if (goal) server.goalReportStatus = "complete"
                 server.failNextSummary.set(failSummary)
                 val goalId =
                     if (goal) {
@@ -151,11 +171,11 @@ class ChatCompactionFlowDeviceTest {
                     assertTrue(!server.failNextSummary.get())
                 }
                 if (goalId != null) {
-                    compose.waitUntil(10_000) { storage.goals.resolve(goalId).state == "BLOCKED" }
-                    assertEquals(2, storage.goals.resolve(goalId).modelCalls)
+                    compose.waitUntil(10_000) { storage.goals.resolve(goalId).state == "COMPLETED" }
+                    assertEquals(3, storage.goals.resolve(goalId).modelCalls)
                     assertTrue(
                         "Goal calls=${storage.goals.resolve(goalId).modelCalls}, error=${turn.errorCode}",
-                        storage.goals.resolve(goalId).modelCalls >= 2,
+                        storage.goals.resolve(goalId).modelCalls > 2,
                     )
                     assertEquals(1, storage.goalRuns.listByGoal(goalId).size)
                 }
@@ -163,8 +183,6 @@ class ChatCompactionFlowDeviceTest {
                 val expected =
                     if (cancel) {
                         "CANCELLED"
-                    } else if (calls == 1) {
-                        "FAILED"
                     } else {
                         "COMPLETED"
                     }
@@ -173,11 +191,11 @@ class ChatCompactionFlowDeviceTest {
                 originals.forEach { (id, content) ->
                     assertEquals(content, storage.messages.readContent(storage.messages.resolve(id)))
                 }
-                if (!cancel && calls > 1) {
+                if (!cancel) {
                     assertEquals(
                         if (manual) {
                             1
-                        } else if (failSummary) {
+                        } else if (failSummary || goal || legacyTokenLimits) {
                             3
                         } else {
                             2
@@ -192,7 +210,12 @@ class ChatCompactionFlowDeviceTest {
                         assertTrue(server.lastChatRequest.get()!!.contains("Continue with the current request."))
                     }
                 }
-                if (calls == 1) assertEquals("MODEL_CALL_LIMIT", turn.errorCode)
+                if (!cancel) assertNull(turn.errorCode)
+                if (legacyTokenLimits) {
+                    assertTrue(
+                        storage.turnRuntimeRecords.resolve(turn.id).consumedTokens > budgets.maxTotalTokens,
+                    )
+                }
             } finally {
                 chat.stop()
                 compose.waitUntil(10_000) { !chat.screen.value.isSending }
@@ -205,7 +228,10 @@ class ChatCompactionFlowDeviceTest {
         }
     }
 
-    private fun seed(session: String) {
+    private fun seed(
+        session: String,
+        repetitions: Int,
+    ) {
         val storage = compose.container().storage
         val clock =
             object : Clock {
@@ -218,7 +244,7 @@ class ChatCompactionFlowDeviceTest {
                     storage,
                     clock,
                     next,
-                    TurnStartSpec(session, next(), next(), "{}", "constraint-$index " + "context ".repeat(600)),
+                    TurnStartSpec(session, next(), next(), "{}", "constraint-$index " + "context ".repeat(repetitions)),
                 )
             val stream = coordinator.beginModelStream()
             stream.apply(ModelEvent.TextDelta("answer-$index"))

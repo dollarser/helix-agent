@@ -21,7 +21,7 @@ class ContextCompiler(
         inputScale: Double = 1.0,
     ): ContextCompactionPlan? {
         require(inputScale.isFinite() && inputScale >= 1.0)
-        if (!needsPlan(request, control, settings, force, snapshot.inputFloor)) return null
+        if (!needsPlan(request, settings, force, snapshot.inputFloor)) return null
         val previous = snapshot.checkpoint
         val history = snapshot.rows
         val selected = mutableListOf<ContextSourceRow>()
@@ -33,7 +33,7 @@ class ContextCompiler(
                 control.budgets.maxOutputTokens,
                 settings.window,
             )
-        val inputLimit = compactionInputLimit(control, settings, summaryOutput, inputScale)
+        val inputLimit = compactionInputLimit(settings, summaryOutput, inputScale)
         var through: Long? = null
         var prefixBytes = TokenEstimator.utf8Bytes(prefix.toString())
         for (turn in ContextSegments.candidates(history, snapshot.currentTurnId)) {
@@ -82,14 +82,16 @@ class ContextCompiler(
         }.toString()
 
     private fun compactionInputLimit(
-        control: RunControlConfig,
         settings: ProviderContextSettings,
         output: SummaryOutputBudget,
         inputScale: Double,
     ): Long {
         val reserve = minOf(COMPACTION_ENVELOPE_RESERVE, settings.window / 4)
         return (
-            minOf(settings.window - output.allowance - reserve, control.budgets.maxInputTokens - reserve) /
+            minOf(
+                settings.window - output.allowance - reserve,
+                com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND - reserve,
+            ) /
                 inputScale
         ).toLong()
     }
@@ -155,7 +157,6 @@ class ContextCompiler(
 
         fun needsPlan(
             request: TurnContextRequest,
-            control: RunControlConfig,
             settings: ProviderContextSettings,
             force: Boolean,
             inputFloor: Long,
@@ -164,7 +165,7 @@ class ContextCompiler(
                 ContextCapacity.shouldCompact(
                     request,
                     settings,
-                    control.budgets.maxInputTokens,
+                    com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
                     maxOf(request.inputTokens(), inputFloor),
                 )
     }

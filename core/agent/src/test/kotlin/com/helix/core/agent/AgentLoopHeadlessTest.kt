@@ -147,13 +147,13 @@ class AgentLoopHeadlessTest {
 
     @Test fun resumedLedgerDoesNotResetModelCallBudget() =
         runBlocking {
-            val fixture = HeadlessLoopFixture { error("budget must block") }
+            val fixture = HeadlessLoopFixture { listOf(ModelEvent.TextDelta("done"), ModelEvent.Completed("stop")) }
             fixture.restored = LoopUsageSnapshot("fixture", fixture.control.budgets.maxModelCalls, 42, 0)
             assertEquals(
-                TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "MODEL_CALL_LIMIT")),
+                TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.COMPLETED, null)),
                 fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control),
             )
-            assertTrue(fixture.requests.isEmpty())
+            assertEquals(1, fixture.requests.size)
         }
 
     @Test fun truncatedArgumentsOrLengthStopNeverReachDispatcher() =

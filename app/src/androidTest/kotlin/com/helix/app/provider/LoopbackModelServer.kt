@@ -244,8 +244,13 @@ internal class LoopbackModelServer(
                 "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}\n\n" +
                 "data: [DONE]\n\n"
         }
+        val request =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                requestBody,
+            ) as kotlinx.serialization.json.JsonObject
+        val tools = request["tools"] as? kotlinx.serialization.json.JsonArray
         val report = goalReportStatus
-        if (report != null) {
+        if (report != null && !tools.isNullOrEmpty()) {
             if (requestBody.contains("\"role\":\"tool\"")) return OPENAI_TEXT_STREAM
             val arguments =
                 kotlinx.serialization.json
@@ -265,11 +270,6 @@ internal class LoopbackModelServer(
                 "{\"id\":\"report-call\",\"index\":0,\"type\":\"function\",\"function\":$function}]}," +
                 "\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n"
         }
-        val request =
-            kotlinx.serialization.json.Json.parseToJsonElement(
-                requestBody,
-            ) as kotlinx.serialization.json.JsonObject
-        val tools = request["tools"] as? kotlinx.serialization.json.JsonArray
         return if (!forceTextResponses && !tools.isNullOrEmpty()) OPENAI_TOOL_STREAM else OPENAI_TEXT_STREAM
     }
 

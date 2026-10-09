@@ -18,8 +18,16 @@ class GoalBudgetsTest {
     fun storageStringMatchesKnownVector() {
         val expected =
             "{\"maxModelCalls\":10,\"maxToolCalls\":20,\"maxTotalTokens\":100000," +
-                "\"maxDurationMillis\":3600000,\"maxWakeDurationMillis\":600000,\"maxRetries\":3}"
+                "\"maxDurationMillis\":3600000,\"maxWakeDurationMillis\":600000,\"maxRetries\":3,\"maxGoalRounds\":256}"
         assertEquals(expected, budgets().toStorageString())
+    }
+
+    @Test
+    fun legacySnapshotReceivesRoundDefaultAndCustomRoundCountSurvives() {
+        val legacy = budgets().toStorageString().replace(",\"maxGoalRounds\":256", "")
+        assertEquals(256, GoalBudgets.parse(legacy).maxGoalRounds)
+        val custom = budgets().copy(maxGoalRounds = 7)
+        assertEquals(custom, GoalBudgets.parse(custom.toStorageString()))
     }
 
     @Test
@@ -53,6 +61,7 @@ class GoalBudgetsTest {
         assertThrows<IllegalArgumentException> { budgets().copy(maxDurationMillis = -1) }
         assertThrows<IllegalArgumentException> { budgets().copy(maxWakeDurationMillis = -1) }
         assertThrows<IllegalArgumentException> { budgets().copy(maxRetries = -1) }
+        assertThrows<IllegalArgumentException> { budgets().copy(maxGoalRounds = 0) }
     }
 
     @Test

@@ -61,18 +61,24 @@ class TurnRuntimeRecordCodecTest {
     }
 
     @Test
-    fun `decode rejects checkpoint beyond immutable Turn budget`() {
+    fun `decode retains usage beyond historical limits and rejects negative usage`() {
         val base = validRecord()
-
-        assertThrows(IllegalArgumentException::class.java) {
-            TurnRuntimeRecordCodec.decode(base.copy(consumedModelCalls = 10))
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            TurnRuntimeRecordCodec.decode(base.copy(consumedTokens = 60_001))
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            TurnRuntimeRecordCodec.decode(base.copy(admittedToolRounds = 8))
-        }
+        val decoded =
+            TurnRuntimeRecordCodec.decode(
+                base.copy(consumedModelCalls = 10, consumedTokens = 60_001, admittedToolRounds = 8),
+            )
+        assertEquals(10, decoded.consumedModelCalls)
+        assertEquals(60_001L, decoded.consumedTokens)
+        assertEquals(8, decoded.admittedToolRounds)
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { TurnRuntimeRecordCodec.decode(base.copy(consumedTokens = -1)) }
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { TurnRuntimeRecordCodec.decode(base.copy(consumedModelCalls = -1)) }
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { TurnRuntimeRecordCodec.decode(base.copy(admittedToolRounds = -1)) }
     }
 
     private fun validRecord() =

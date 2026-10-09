@@ -53,13 +53,13 @@ internal object TurnRuntimeRecordCodec {
         require(record.providerId.isNotBlank()) { "providerId must not be blank" }
         require(record.modelId.isNotBlank()) { "modelId must not be blank" }
         require(record.providerSnapshot.isNotBlank()) { "providerSnapshot must not be blank" }
-        require(record.consumedModelCalls in 0..control.budgets.maxModelCalls) {
+        require(record.consumedModelCalls >= 0) {
             "consumed model calls exceed Turn budget"
         }
-        require(record.consumedTokens in 0..control.budgets.maxTotalTokens) {
+        require(record.consumedTokens >= 0) {
             "consumed tokens exceed Turn budget"
         }
-        require(record.admittedToolRounds in 0..control.budgets.maxSteps) {
+        require(record.admittedToolRounds >= 0) {
             "admitted tool rounds exceed Turn budget"
         }
         return TurnRuntimeSnapshot(

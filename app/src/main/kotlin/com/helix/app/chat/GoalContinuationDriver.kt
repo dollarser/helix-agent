@@ -157,7 +157,9 @@ internal class GoalContinuationDriver(
             providerId = ProviderId(activation.providerId),
             mode = AgentMode.GOAL,
             text =
-                "[Goal continuation] Continue the existing objective using current history and results. " +
+                "[Goal continuation ${GoalRoundAllowance(storage).used(activation.goalId) + 1}/" +
+                    "${storage.goals.resolve(activation.goalId).budgets.maxGoalRounds}] " +
+                    "Continue the existing objective using current history and results. " +
                     "Do not repeat settled actions. Read get_goal, then report complete, in_progress or blocked " +
                     "with update_goal.",
             budgets = activation.control.budgets,
@@ -172,6 +174,7 @@ internal class GoalContinuationDriver(
 
     @Suppress("ReturnCount") // Prepared human requests and settled automatic predecessors have distinct admission.
     private fun eligible(activation: Activation): Boolean {
+        if (GoalRoundAllowance(storage).blockIfExhausted(activation.goalId)) return false
         val turn = storage.turns.resolve(activation.lastTurnId)
         val goal = storage.goals.resolve(activation.goalId).toRuntimeGoal()
         if (activation.prepared) {

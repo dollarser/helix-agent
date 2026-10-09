@@ -263,17 +263,18 @@ internal class GoalLifecycleService(
                             ?.outcome
                             ?.let { kotlinx.serialization.json.JsonPrimitive(it) } ?: JsonNull,
                     )
-                    put("rounds_started", goal.runCount)
+                    put(
+                        "rounds_started",
+                        com.helix.app.chat
+                            .GoalRoundAllowance(storage)
+                            .used(goal.id),
+                    )
                     put("model_calls", goal.modelCalls)
                     put("tool_calls", goal.toolCalls)
                     put("tokens", goal.totalTokens)
                     put("runtime_millis", goal.runTimeMillis)
-                    put("max_model_calls", goal.budgets.maxModelCalls)
-                    put("max_tool_calls", goal.budgets.maxToolCalls)
-                    put("max_tokens", goal.budgets.maxTotalTokens)
-                    put("max_runtime_millis", goal.budgets.maxDurationMillis)
-                    put("max_round_millis", goal.budgets.maxWakeDurationMillis)
-                    put("max_retries", goal.budgets.maxRetries)
+                    put("max_goal_rounds", goal.budgets.maxGoalRounds)
+                    put("blocker_code", if (goal.finishReason == "BLOCKED(round-limit)") "round-limit" else null)
                 },
             )
         }
@@ -297,14 +298,7 @@ internal class GoalLifecycleService(
         previous: GoalBudgets,
     ): GoalBudgets =
         previous.copy(
-            maxModelCalls = args?.get("max_model_calls")?.jsonPrimitive?.int ?: previous.maxModelCalls,
-            maxToolCalls = args?.get("max_tool_calls")?.jsonPrimitive?.int ?: previous.maxToolCalls,
-            maxTotalTokens = args?.get("max_tokens")?.jsonPrimitive?.long ?: previous.maxTotalTokens,
-            maxDurationMillis = args?.get("max_runtime_millis")?.jsonPrimitive?.long ?: previous.maxDurationMillis,
-            maxWakeDurationMillis =
-                args?.get("max_round_millis")?.jsonPrimitive?.long
-                    ?: previous.maxWakeDurationMillis,
-            maxRetries = args?.get("max_retries")?.jsonPrimitive?.int ?: previous.maxRetries,
+            maxGoalRounds = args?.get("max_goal_rounds")?.jsonPrimitive?.int ?: previous.maxGoalRounds,
         )
 
     private companion object {

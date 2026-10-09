@@ -29,7 +29,7 @@ class GoalRecoveryInspectionTest {
 
     @Test fun exhaustedOrTerminalGoalDoesNotGainAnotherRun() {
         val blocked = runningGoal().copy(state = GoalState.BLOCKED, modelCalls = 2)
-        assertTrue(GoalReducer.reduce(blocked, GoalEvent.RecoveryInspection).effects.none { it is GoalEffect.StartRun })
+        assertTrue(GoalReducer.reduce(blocked, GoalEvent.RecoveryInspection).effects.any { it is GoalEffect.StartRun })
         listOf(GoalState.COMPLETED, GoalState.FAILED, GoalState.CANCELLED).forEach {
             assertTrue(GoalReducer.reduce(blocked.copy(state = it), GoalEvent.RecoveryInspection).ignored)
         }

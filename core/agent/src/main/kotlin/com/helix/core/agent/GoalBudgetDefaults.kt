@@ -6,9 +6,5 @@ import com.helix.core.model.GoalBudgets
 object GoalBudgetDefaults {
     val VALUE = GoalBudgets(512, 2_048, 32_000_000, 28_800_000, 7_200_000, 0)
 
-    fun validate(budgets: GoalBudgets): GoalBudgets =
-        budgets.also {
-            require(it.maxTotalTokens > 0 && it.maxDurationMillis > 0 && it.maxWakeDurationMillis > 0)
-            require(it.maxWakeDurationMillis <= it.maxDurationMillis)
-        }
+    fun validate(budgets: GoalBudgets): GoalBudgets = budgets.also { require(it.maxGoalRounds >= 1) }
 }

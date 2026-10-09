@@ -69,8 +69,8 @@ class GoalUsageReservationsDeviceTest {
             val journal = GoalUsageReservations(f.storage)
             assertTrue(journal.reserve(f.model("first", 600)))
             assertFalse(journal.reserve(f.model("first", 600)))
-            assertFalse(journal.reserve(f.model("second", 500)))
-            assertTrue(journal.reserve(f.model("second", 400)))
+            assertTrue(journal.reserve(f.model("second", 500)))
+            assertFalse(journal.reserve(f.model("second", 400)))
             assertEquals(
                 0L,
                 f.storage.goals
@@ -87,16 +87,16 @@ class GoalUsageReservationsDeviceTest {
             val goal = f.storage.goals.resolve(f.goalId)
             assertEquals(2, goal.modelCalls)
             assertEquals(300L, goal.totalTokens)
-            assertEquals("BLOCKED", goal.state)
+            assertEquals("RUNNING", goal.state)
             assertEquals(
-                "BUDGET_EXHAUSTED(maxModelCalls)",
+                null,
                 f.storage.goalRuns
                     .resolve(f.started.runId)
                     .outcome,
             )
             assertFalse(journal.settle("second", 999, 0, 2_003))
             assertEquals(goal, f.storage.goals.resolve(f.goalId))
-            assertFalse(journal.reserve(f.model("third", 1)))
+            assertTrue(journal.reserve(f.model("third", 1)))
         }
 
     @Test
@@ -139,24 +139,27 @@ class GoalUsageReservationsDeviceTest {
             assertEquals(goal, f.storage.goals.resolve(f.goalId))
             f.started = requireNotNull(f.coordinator().start(f.request("second")))
             val recovered = GoalUsageReservations(f.storage)
-            assertFalse(recovered.reserve(f.model("too-large", 401)))
+            assertTrue(recovered.reserve(f.model("too-large", 401)))
             assertTrue(recovered.reserve(f.model("last", 400)))
             f.reopen()
             val report = TurnRecovery(f.storage, backwards).recover()
             assertTrue(report.closedRuns.contains(f.started.runId))
             assertEquals(
-                1_000L,
+                1_401L,
                 f.storage.goals
                     .resolve(f.goalId)
                     .totalTokens,
             )
             assertEquals(
-                2,
+                3,
                 f.storage.goals
                     .resolve(f.goalId)
                     .modelCalls,
             )
-            assertNull(f.coordinator().start(f.request("third")))
+            val settled = f.storage.goals.resolve(f.goalId)
+            TurnRecovery(f.storage, backwards).recover()
+            assertEquals(settled, f.storage.goals.resolve(f.goalId))
+            assertNotNull(f.coordinator().start(f.request("third")))
         }
 
     @Test
@@ -208,19 +211,19 @@ class GoalUsageReservationsDeviceTest {
             }
             assertTrue(journal.reserve(f.reservation("first", GoalUsageReservations.Kind.TIME, millis = 5_000)))
             assertTrue(journal.reserve(f.reservation("second", GoalUsageReservations.Kind.TIME, millis = 5_000)))
-            assertFalse(journal.reserve(f.reservation("full", GoalUsageReservations.Kind.TIME, millis = 1)))
+            assertTrue(journal.reserve(f.reservation("full", GoalUsageReservations.Kind.TIME, millis = 1)))
             assertTrue(journal.settle("first", 0, 100, 2_100))
-            assertFalse(journal.reserve(f.reservation("too-large", GoalUsageReservations.Kind.TIME, millis = 5_000)))
+            assertTrue(journal.reserve(f.reservation("too-large", GoalUsageReservations.Kind.TIME, millis = 5_000)))
             assertTrue(journal.reserve(f.reservation("remaining", GoalUsageReservations.Kind.TIME, millis = 4_900)))
             TurnRecovery(f.storage, f.clock).recover()
             assertEquals(
-                10_000L,
+                15_001L,
                 f.storage.goals
                     .resolve(f.goalId)
                     .runTimeMillis,
             )
             assertEquals(
-                "BUDGET_EXHAUSTED(maxWakeDurationMillis)",
+                "INTERRUPTED",
                 f.storage.goalRuns
                     .resolve(f.started.runId)
                     .outcome,
@@ -244,9 +247,9 @@ class GoalUsageReservationsDeviceTest {
                     }
                 start.countDown()
                 val admitted = futures.count { it.get(10, java.util.concurrent.TimeUnit.SECONDS) }
-                assertEquals(1, admitted)
+                assertEquals(3, admitted)
                 assertEquals(
-                    1,
+                    3,
                     f.storage.goalUsageReservations
                         .pendingForRun(f.started.runId)
                         .size,
@@ -263,10 +266,10 @@ class GoalUsageReservationsDeviceTest {
             var elapsed = 0L
             val timer = GoalTimeBudget(f.storage, f.clock, f.started.runId) { elapsed }
             assertTrue(timer.start())
-            assertEquals(10_000L, timer.remainingExecutionMillis())
+            assertEquals(Long.MAX_VALUE, timer.remainingExecutionMillis())
             elapsed = 1_000
             assertTrue(timer.pulse())
-            assertEquals(9_000L, timer.remainingExecutionMillis())
+            assertEquals(Long.MAX_VALUE - 1_000, timer.remainingExecutionMillis())
             assertEquals(
                 1_000L,
                 f.storage.goals

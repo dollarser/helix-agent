@@ -34,6 +34,7 @@ internal class GoalBlockerResolution(
                     .lastOrNull()
                     ?.outcome
             if (outcome == "BLOCKED(CONTEXT_WINDOW_LIMIT)" && !contextFits) return@withTransaction
+            if (!GoalRoundAllowance(storage).available(goalId)) return@withTransaction
             val step = GoalReducer.reduce(goal, GoalEvent.BlockerResolved)
             if (!step.ignored) {
                 storage.goals.updateGoal(step.state.toStoredGoal())

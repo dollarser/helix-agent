@@ -246,14 +246,6 @@ class AgentLoop(
                             request.tools,
                         )
                 ) {
-                    is ToolRoundLimit -> {
-                        coordinator.recordDiagnostic(
-                            "budget.result",
-                            RequestBudgetDiagnostics.result("TOOL_STEP_LIMIT", acc, budgetTracker),
-                        )
-                        return TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT"))
-                    }
-
                     is ToolRoundContinued -> {
                         toolRounds = round.toolRounds
                         context = contextAssembler.buildBackfill(sessionId, turnId, control)
@@ -397,8 +389,6 @@ class AgentLoop(
         val toolRounds: Int,
     ) : ToolRoundResult()
 
-    private class ToolRoundLimit : ToolRoundResult()
-
     private class ToolRoundNoProgress : ToolRoundResult()
 
     private class ToolRoundReviewRequired(
@@ -410,8 +400,6 @@ class AgentLoop(
      * the model step's row, persists the assistant's tool-call step, runs the batch
      * (bounded parallel execution, deterministic call-order settlement), persists the
      * results in the SAME call sequence, and opens the next model step's row.
-     * [ToolRoundLimit] when the turn's tool-round budget is exhausted (fail closed — the
-     * turn ends FAILED with the safe label rather than silently truncating the work);
      * null when there is no finished call to run (the model's final answer).
      */
     @Suppress("ReturnCount") // one early return per guard (no finished call / budget limit)
@@ -427,7 +415,6 @@ class AgentLoop(
         val turnId = coordinator.id
         val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
-        if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
         runtimeAccounting.checkpointToolRound(turnId, toolRounds)
         val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls, directory, exposedTools), idGenerator)
         coordinator.beginToolBatch(localBatch.calls.map { it.callId })

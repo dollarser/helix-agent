@@ -103,14 +103,13 @@ class RunControlStoreTest {
     }
 
     @Test
-    fun rejectsEveryExtremeAndCrossFieldViolation() {
+    fun onlyOutputRemainsAConfigurableRequestLimit() {
         val store = PersistedRunControlStore(InMemoryLineStore())
-        assertFails { store.setBudgets(TurnBudgets(TurnBudgetBounds.MAX_STEPS + 1, 1, 1, 1, 1)) }
-        assertFails { store.setBudgets(TurnBudgets(1, TurnBudgetBounds.MAX_MODEL_CALLS + 1, 1, 1, 1)) }
-        assertFails { store.setBudgets(TurnBudgets(1, 1, TurnBudgetBounds.MAX_INPUT_TOKENS + 1, 1, 1)) }
-        assertFails { store.setBudgets(TurnBudgets(1, 1, 1, TurnBudgetBounds.MAX_OUTPUT_TOKENS + 1, 200_000)) }
-        assertFails { store.setBudgets(TurnBudgets(1, 1, 1, 1, TurnBudgetBounds.MAX_TOTAL_TOKENS + 1)) }
-        assertFails { store.setBudgets(TurnBudgets(1, 1, 1, 2, 1)) }
+        val historical = TurnBudgets(10001, 20001, 2000000, 2, 1)
+        store.setBudgets(historical)
+        assertEquals(historical, store.current.budgets)
+        assertFails { store.setBudgets(historical.copy(maxOutputTokens = 0)) }
+        assertFails { store.setBudgets(historical.copy(maxOutputTokens = TurnBudgetBounds.MAX_OUTPUT_TOKENS + 1)) }
     }
 
     private fun assertFails(block: () -> Unit) {

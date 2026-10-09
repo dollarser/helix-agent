@@ -112,10 +112,12 @@ class GoalReminderControlsDeviceTest {
             compose.onNodeWithTag("goal-editor-close").performClick()
             assertEquals(before, container.storage.goals.resolve(id))
             openBudgetEditor(id)
-            listOf("5", "9", "2000", "120", "20", "1").forEachIndexed { index, value ->
+            listOf("5").forEachIndexed { index, value ->
                 compose.onNodeWithTag("goal-budget-$index").performScrollTo().performTextReplacement(value)
             }
-            val expected = GoalBudgets(5, 9, 2000, 120000, 20000, 1)
+            val expected =
+                com.helix.core.agent.GoalBudgetDefaults.VALUE
+                    .copy(maxGoalRounds = 5)
             compose.onNodeWithTag("goal-save").performClick()
             compose.waitUntil(10_000) {
                 container.storage.goals

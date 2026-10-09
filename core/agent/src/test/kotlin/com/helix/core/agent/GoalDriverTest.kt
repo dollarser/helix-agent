@@ -111,14 +111,17 @@ class GoalDriverTest {
     // --- budget gate (shares Goal.hasRunBudgetHeadroom with the reducer) ---
 
     @Test
-    fun eachExhaustedBudgetDimensionIsRejected() {
+    fun historicalResourceLimitsDoNotBlockAdmission() {
         val paused = pausedGoal()
         val noModelCalls = paused.copy(modelCalls = paused.budgets.maxModelCalls)
         val noToolCalls = paused.copy(toolCalls = paused.budgets.maxToolCalls)
         val noTokens = paused.copy(totalTokens = paused.budgets.maxTotalTokens)
         val noDuration = paused.copy(runTimeMillis = paused.budgets.maxDurationMillis)
         for (goal in listOf(noModelCalls, noToolCalls, noTokens, noDuration)) {
-            assertEquals(GoalRejectionReason.BUDGET_EXHAUSTED, reject(GoalDriver.admit(goal, GoalWakeReason.USER_OPEN)))
+            assertEquals(
+                GoalRunAdmission.Admitted(GoalWakeReason.USER_OPEN),
+                GoalDriver.admit(goal, GoalWakeReason.USER_OPEN),
+            )
         }
     }
 

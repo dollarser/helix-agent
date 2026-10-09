@@ -16,8 +16,8 @@ data class RunControlConfig(
 )
 
 /**
- * Product bounds for a single phone Turn. These caps are independent of Standard/Advanced:
- * neither a profile nor the UI can widen them. Provider limits are intersected at request time.
+ * Request output bounds and historical snapshot templates shared by both channels.
+ * Legacy cumulative fields/constants are storage compatibility values, not execution limits.
  */
 object TurnBudgetBounds {
     const val MAX_STEPS = 10_000
@@ -32,11 +32,6 @@ object TurnBudgetBounds {
 
     fun validate(value: TurnBudgets): TurnBudgets =
         value.also {
-            require(it.maxSteps <= MAX_STEPS) { "maxSteps exceeds product cap" }
-            require(it.maxModelCalls <= MAX_MODEL_CALLS) { "maxModelCalls exceeds product cap" }
-            require(it.maxInputTokens in 1..MAX_INPUT_TOKENS) { "maxInputTokens is outside product bounds" }
             require(it.maxOutputTokens in 1..MAX_OUTPUT_TOKENS) { "maxOutputTokens is outside product bounds" }
-            require(it.maxTotalTokens in 1..MAX_TOTAL_TOKENS) { "maxTotalTokens is outside product bounds" }
-            require(it.maxOutputTokens <= it.maxTotalTokens) { "maxOutputTokens exceeds maxTotalTokens" }
         }
 }

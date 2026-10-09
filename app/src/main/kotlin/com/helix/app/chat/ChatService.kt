@@ -608,7 +608,7 @@ class ChatService(
         val goalId = storage.goalTurnBindings.byTurn(parentId)?.let { storage.goalRuns.resolve(it.runId).goalId }
         val limits =
             com.helix.app.engine.AutomaticRecoveryPolicy
-                .limits(snapshot, goalId != null) ?: return null
+                .limits(snapshot) ?: return null
         return launchTurn(
             text = packagedPromptTemplates.text("automatic-recovery").trim() + "\n\n" + executorObservation,
             providerId = snapshot.providerId,

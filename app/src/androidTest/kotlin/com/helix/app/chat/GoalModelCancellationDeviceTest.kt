@@ -24,16 +24,18 @@ import org.junit.runner.RunWith
 class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestHost() {
     @Test fun explicitStopClosesModelSocketAndGoalRun() = exercise(stop = true)
 
-    @Test fun wakeTimeLimitClosesModelSocketAndBlocksGoal() = exercise(stop = false)
+    @Test fun historicalWakeLimitDoesNotStopAnActiveModelSocket() = exercise(stop = true, crossOldLimit = true)
 
     @Test fun rotationKeepsTheOriginalRunningGoalAndModelSocket() = exercise(stop = true, rotate = true)
 
     @Test fun disconnectedModelStreamFailsOnceWithoutReplayingTheGoal() = exercise(stop = false, disconnect = true)
 
+    @Suppress("LongMethod") // One live SSE fixture owns setup, cancellation assertions and mandatory cleanup.
     private fun exercise(
         stop: Boolean,
         rotate: Boolean = false,
         disconnect: Boolean = false,
+        crossOldLimit: Boolean = false,
     ) = runBlocking {
         val container = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val chat = container.chatService
@@ -46,7 +48,7 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
                 chat.createGoal(
                     "Bound model cancellation",
                     listOf("Verified output"),
-                    GoalBudgets(3, 4, 100000, 60000, if (stop || disconnect) 30000 else 2000, 0),
+                    GoalBudgets(3, 4, 100000, 60000, if (crossOldLimit) 2000 else 30000, 0),
                 )
             try {
                 chat.openSession(session)
@@ -65,6 +67,16 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
                             "turns=${container.storage.turns.listBySession(session).map { it.state to it.errorCode }}",
                         error,
                     )
+                }
+                if (crossOldLimit) {
+                    kotlinx.coroutines.delay(2500)
+                    assertEquals(
+                        "RUNNING",
+                        container.storage.goals
+                            .resolve(goal)
+                            .state,
+                    )
+                    assertTrue(!server.heldStreamDisconnected.get())
                 }
                 if (rotate) verifyGoalRotation(container, goal, session, server)
                 if (disconnect) requireNotNull(server.heldSocket.get()).close()

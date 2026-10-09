@@ -83,22 +83,12 @@ internal fun GoalDialog(
                     GoalBlockerControls(service, row) { revision++ }
                     Text(
                         stringResource(
-                            R.string.goal_usage,
+                            R.string.goal_round_usage,
+                            row.roundsStarted,
+                            row.budgets.maxGoalRounds,
                             row.usage.modelCalls,
-                            row.budgets.maxModelCalls,
                             row.usage.toolCalls,
-                            row.budgets.maxToolCalls,
                             row.usage.tokens,
-                            row.budgets.maxTotalTokens,
-                            row.usage.millis / 1_000,
-                            row.budgets.maxDurationMillis / 1_000,
-                        ),
-                    )
-                    Text(
-                        stringResource(
-                            R.string.goal_wake_retry_summary,
-                            row.budgets.maxWakeDurationMillis / 1_000,
-                            row.budgets.maxRetries,
                         ),
                     )
                     GoalCriterionDescriptions(row.criteria)
@@ -159,12 +149,7 @@ internal fun GoalEditor(
     var fields by remember {
         mutableStateOf(
             listOf(
-                initialBudget.maxModelCalls.toString(),
-                initialBudget.maxToolCalls.toString(),
-                initialBudget.maxTotalTokens.toString(),
-                (initialBudget.maxDurationMillis / 1_000).toString(),
-                (initialBudget.maxWakeDurationMillis / 1_000).toString(),
-                initialBudget.maxRetries.toString(),
+                initialBudget.maxGoalRounds.toString(),
             ),
         )
     }
@@ -173,12 +158,7 @@ internal fun GoalEditor(
     val budgets = parseGoalBudgetFields(fields)
     val labels =
         listOf(
-            R.string.goal_model_limit,
-            R.string.goal_tool_limit,
-            R.string.goal_token_limit,
-            R.string.goal_duration_limit,
-            R.string.goal_wake_limit,
-            R.string.goal_retry_limit,
+            R.string.goal_round_limit,
         )
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
@@ -249,28 +229,10 @@ private suspend fun reportGoalSaveFailure(onFailure: () -> Unit, save: suspend (
 }
 
 internal fun parseGoalBudgetFields(fields: List<String>): GoalBudgets? {
-    val bounds =
-        listOf(
-            1..Int.MAX_VALUE.toLong(),
-            1..Int.MAX_VALUE.toLong(),
-            0..Long.MAX_VALUE,
-            0..Long.MAX_VALUE / 1_000,
-            0..Long.MAX_VALUE / 1_000,
-            0..Int.MAX_VALUE.toLong(),
-        )
-    val values = fields.map(String::toLongOrNull)
-    return if (values.size == bounds.size &&
-        values.zip(bounds).all { (value, bound) -> value != null && value in bound }
-    ) {
-        val numbers = values.map(::requireNotNull)
-        GoalBudgets(
-            numbers[0].toInt(),
-            numbers[1].toInt(),
-            numbers[2],
-            numbers[3] * 1_000,
-            numbers[4] * 1_000,
-            numbers[5].toInt(),
-        )
+    val rounds = fields.singleOrNull()?.toIntOrNull() ?: return null
+    return if (rounds > 0) {
+        com.helix.core.agent.GoalBudgetDefaults.VALUE
+            .copy(maxGoalRounds = rounds)
     } else {
         null
     }
@@ -290,6 +252,7 @@ private fun goalStateLabel(state: String): Int =
 
 private fun goalPauseLabel(outcome: String?): Int? =
     when {
+        outcome == "BLOCKED(round-limit)" -> R.string.goal_round_exhausted
         outcome == "USER_PAUSED" -> R.string.goal_user_paused
         outcome?.startsWith("SYSTEM_PAUSED(") == true -> R.string.goal_system_paused
         outcome == "RUN_FINISHED" -> R.string.goal_pause_run_finished

@@ -35,23 +35,13 @@ class AutomaticRecoveryPolicyTest {
         assertFalse(AutomaticRecoveryPolicy.isInspection(child.copy(clientRequestId = "user-input")))
     }
 
-    @Test fun ordinaryInspectionOnlyUsesOriginalRemainder() {
-        val snapshot = snapshot().copy(consumedModelCalls = 8, consumedTokens = 950, admittedToolRounds = 9)
-        val budget = requireNotNull(AutomaticRecoveryPolicy.limits(snapshot, false))
-        assertEquals(2, budget.maxModelCalls)
-        assertEquals(1, budget.maxSteps)
-        assertEquals(50L, budget.maxTotalTokens)
-        assertEquals(50L, budget.maxOutputTokens)
-        assertNull(AutomaticRecoveryPolicy.limits(snapshot.copy(consumedModelCalls = 10), false))
-        assertNull(AutomaticRecoveryPolicy.limits(snapshot.copy(consumedTokens = 1000), false))
-        assertNull(AutomaticRecoveryPolicy.limits(snapshot.copy(admittedToolRounds = 10), false))
-    }
-
-    @Test fun goalInspectionIsBoundedBeforeCumulativeLedgerAdmission() {
-        val budget = requireNotNull(AutomaticRecoveryPolicy.limits(snapshot(), true))
-        assertEquals(4, budget.maxModelCalls)
-        assertEquals(8, budget.maxSteps)
-        assertEquals(1000L, budget.maxTotalTokens)
+    @Test fun inspectionPreservesOutputSettingAndIgnoresHistoricalResourceUsage() {
+        val snapshot = snapshot().copy(consumedModelCalls = 12, consumedTokens = 2000, admittedToolRounds = 20)
+        run {
+            val config = requireNotNull(AutomaticRecoveryPolicy.limits(snapshot))
+            assertEquals(snapshot.control.budgets, config)
+            assertEquals(200L, config.maxOutputTokens)
+        }
     }
 
     private fun snapshot() =

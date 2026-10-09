@@ -27,13 +27,8 @@ internal class GoalModelCallBudget(
             } else {
                 val run = storage.goalRuns.resolve(binding.runId)
                 val goal = storage.goals.resolve(run.goalId)
-                val held = storage.goalUsageReservations.pendingForRun(run.id).sumOf { it.reservedTokens }
                 val input = ModelInputEstimate.of(request).total
-                val output =
-                    minOf(
-                        request.maxOutputTokens ?: Long.MAX_VALUE,
-                        goal.budgets.maxTotalTokens - goal.totalTokens - held - input,
-                    )
+                val output = request.maxOutputTokens ?: 1L
                 if (output > 0) {
                     val reservation =
                         GoalUsageReservations.Request(
@@ -75,11 +70,7 @@ internal class GoalModelCallBudget(
         val binding = storage.goalTurnBindings.byTurn(turnId) ?: return true
         val run = storage.goalRuns.resolve(binding.runId)
         val goal = storage.goals.resolve(run.goalId)
-        return run.endedAt == null && goal.state == GoalState.RUNNING.name &&
-            goal.modelCalls < goal.budgets.maxModelCalls && goal.toolCalls < goal.budgets.maxToolCalls &&
-            goal.totalTokens < goal.budgets.maxTotalTokens &&
-            goal.currentWakeMillis < goal.budgets.maxWakeDurationMillis &&
-            goal.runTimeMillis < goal.budgets.maxDurationMillis
+        return run.endedAt == null && goal.state == GoalState.RUNNING.name
     }
 
     private fun reservationId(callId: String): String = "goal-model:$callId"

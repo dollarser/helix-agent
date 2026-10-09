@@ -124,25 +124,19 @@ class GoalLeaseClockDeviceTest {
             )
         }
 
-    @Test fun allocationCannotExceedTheOriginalGoalDeadline() =
+    @Test fun allocationUsesRuntimeLeaseLimitRatherThanRetiredGoalDeadline() =
         Fixture().use { f ->
             assertTrue(f.timer.start())
             f.now = 600
             assertTrue(f.timer.pulse())
             val allocation = requireNotNull(f.timer.transferToLease("lease", 30_000))
-            assertEquals(9_500L, allocation.durationMs)
+            assertEquals(30_000L, allocation.durationMs)
             f.now = 10_100
-            assertEquals("GOAL_BUDGET_LIMIT", f.timer.expiredCode())
-            assertFalse(f.timer.pulse())
-            assertFalse(f.timer.completeLease(allocation))
+            assertNull(f.timer.expiredCode())
+            assertTrue(f.timer.pulse())
+            assertTrue(f.timer.completeLease(allocation))
             f.timer.finish()
             assertEquals(10_000L, f.used())
-            assertEquals(
-                0L,
-                f.storage.goalUsageReservations
-                    .byId("lease")!!
-                    .reservedMillis,
-            )
         }
 
     @Test fun unstartedOrExpiredWindowsNeverAllocate() =

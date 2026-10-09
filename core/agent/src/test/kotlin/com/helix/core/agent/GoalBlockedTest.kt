@@ -24,7 +24,7 @@ class GoalBlockedTest {
 
     @Test fun resolutionCannotInventBudgetOrCompletion() {
         val blocked = GoalFixtures.newGoal().copy(state = GoalState.BLOCKED, modelCalls = 2)
-        assertTrue(GoalReducer.reduce(blocked, GoalEvent.BlockerResolved).ignored)
+        assertEquals(GoalState.PAUSED, GoalReducer.reduce(blocked, GoalEvent.BlockerResolved).state.state)
         assertTrue(GoalReducer.reduce(blocked, GoalEvent.CompleteRequested).ignored)
         assertEquals(GoalState.CANCELLED, GoalReducer.reduce(blocked, GoalEvent.Cancelled).state.state)
     }

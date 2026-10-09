@@ -61,7 +61,8 @@ class GoalTimeLeaseDeviceTest {
 
     @Test fun leaseCannotOverlapAnotherClockOrOversubscribeTheWakeBudget() =
         Fixture().use { f ->
-            assertFalse(f.reserve(10_001))
+            assertTrue(f.journal.reserve(f.request("beyond-old-limit", GoalUsageReservations.Kind.TIME_LEASE, 10_001)))
+            assertTrue(f.journal.checkpointLease("beyond-old-limit", 0, 2000, terminal = true))
             assertThrows(IllegalArgumentException::class.java) { f.reserve(GoalUsageReservations.MAX_LEASE_MILLIS + 1) }
             assertTrue(f.journal.reserve(f.request("ordinary", GoalUsageReservations.Kind.TIME, 1_000)))
             assertFalse(f.reserve())
@@ -169,13 +170,13 @@ class GoalTimeLeaseDeviceTest {
             )
             assertTrue(f.journal.checkpointLease("lease", 12_000, 13_001, terminal = true))
             assertEquals(
-                "BLOCKED",
+                "RUNNING",
                 f.storage.goals
                     .resolve(f.goalId)
                     .state,
             )
             assertEquals(
-                "BUDGET_EXHAUSTED(maxWakeDurationMillis)",
+                null,
                 f.storage.goalRuns
                     .resolve(f.started.runId)
                     .outcome,

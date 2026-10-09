@@ -11,41 +11,33 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
-### 自动核查的预算归属
+### 自动核查的用量归属
 
-HXA-232 的恢复核查绑定原 Goal，不能通过未绑定 Turn 绕过累计账本。先保守结算旧 run 未结分配（包括时间 reservation，不视作执行器已退出），然后 `RecoveryInspection` 仅在原 Goal 非终态且总额度可用时准入；普通 `Continued` 仍不能越过 BLOCKED。核查最多四次模型调用、八个工具轮，同时受原 Goal 剩余额度限制；普通非 Goal 核查扣除原 Turn 已用额度。核查结束将未完成 Goal 如实结束为 FAILED，不将诊断回复当作完成证据。原外部执行所有权、未知副作用和原工具结果保留。
+HXA-232 的恢复核查绑定原 Goal，不能通过未绑定 Turn 绕过累计账本。先保守结算旧 run 未结分配（包括时间 reservation，不视作执行器已退出），然后 `RecoveryInspection` 仅在原 Goal 非终态且原身份/恢复门禁允许时准入；普通 `Continued` 仍不能越过 BLOCKED。核查不因历史资源用量拒绝，保留只读权限和禁止递归核查；核查不计入 Goal 自动轮数。核查结束将未完成 Goal 如实结束为 FAILED，不将诊断回复当作完成证据。原外部执行所有权、未知副作用和原工具结果保留。
 
 ### 目标、运行与激活
 
-Goal 是持久目标；Turn/run 是一次有界执行；激活是独立的进程内运行资格，不由持久状态自动恢复。用户以 Goal 模式发送或显式选择连续继续时激活同会话 Driver。普通 Chat/Act 不推断持续运行授权。
+Goal 是持久目标；Turn/run 是一次执行；激活是独立的进程内运行资格，不由持久状态自动恢复。用户以 Goal 模式发送或显式选择连续继续时激活同会话 Driver。普通 Chat/Act 不推断持续运行授权。
 
-Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 GoalRun/Turn 都是一次有界 execution attempt：前轮先持久结算，下一轮绑定激活标识和前轮 ID，准入时重验，重复通知不能重复启动。正常结束且仍有工作、预算充足、无未决副作用时可以创建下一 Run；局部额度停止按下方“预算与恢复”重验后可衔接，不能与总额度耗尽混为一类。完成、阻塞、等待输入、取消、不可衔接异常、截断、容量不足或总额度不足时解除激活。显式停止先解除旧激活，再安全结算当前轮；普通 Queue/Steer 不解除激活、不暂停或取消当前轮。终局后同会话已就绪用户队列优先，普通用户后继结束再重验保留的 Goal 激活；不能因页面处于 Goal 模式创建第二个目标。切换会话本身不取消任务。具体交付与停止停泊按 [ADR-AGENT-001](../agent/001-turn-coordination.md)。
+Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 GoalRun/Turn 都是一次 execution attempt：前轮先持久结算，下一轮绑定激活标识和前轮 ID，准入时重验，重复通知不能重复启动。正常结束且仍有工作、自动轮数未用尽、无未决副作用时可以创建下一 Run。完成、阻塞、等待输入、取消、不可衔接异常、截断、容量不足或自动轮数耗尽时解除激活。显式停止先解除旧激活，再安全结算当前轮；普通 Queue/Steer 不解除激活、不暂停或取消当前轮。终局后同会话已就绪用户队列优先，普通用户后继结束再重验保留的 Goal 激活；不能因页面处于 Goal 模式创建第二个目标。切换会话本身不取消任务。具体交付与停止停泊按 [ADR-AGENT-001](../agent/001-turn-coordination.md)。
 
 用户启动的连续任务通过有效前台服务路径衔接下一轮，Activity 退后台不解除激活。等待审批/输入不维持空转服务；系统拒绝、超时、进程死亡或强停后不自动恢复旧 Run。当前 GoalRun 随旧 Turn 结束为 interrupted/blocked outcome；正常任务恢复仍需新的运行准入并创建新 GoalRun/Turn，不恢复死亡前的激活。HXA-232 的有界只读 RecoveryInspection 使用下述独立准入，并非旧任务自动续跑。WorkManager/checkpoint 只提醒，不自动调用模型；未知副作用不得重放。
 
 ### 状态与阻塞
 
-保留 DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/BLOCKED/COMPLETED/FAILED/CANCELLED。PAUSED 记录可重新准入的停泊原因；BLOCKED 记录必须处理的具体阻碍。未知副作用使 Goal BLOCKED。现有 effect review 正式解决事实后，Goal 才进入 PAUSED/READY 的可重新准入语义，由新 GoalRun/Turn 继续，不把旧 Run 从 BLOCKED 直接复活为 RUNNING。自动只读 RecoveryInspection 不等于 effect review 通过，不解除 UNKNOWN；其预算与失败收尾见“自动核查的预算归属”。平台已证实的预算/容量/未知副作用立即门控，不等待模型重复报告。测试失败但 Agent 仍能修复，不应仅因此 blocked。没有全局三轮门槛。
+保留 DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/BLOCKED/COMPLETED/FAILED/CANCELLED。PAUSED 记录可重新准入的停泊原因；BLOCKED 记录必须处理的具体阻碍。未知副作用使 Goal BLOCKED。现有 effect review 正式解决事实后，Goal 才进入 PAUSED/READY 的可重新准入语义，由新 GoalRun/Turn 继续，不把旧 Run 从 BLOCKED 直接复活为 RUNNING。自动只读 RecoveryInspection 不等于 effect review 通过，不解除 UNKNOWN；其预算与失败收尾见“自动核查的用量归属”。平台已证实的轮数/容量/未知副作用立即门控，不等待模型重复报告。测试失败但 Agent 仍能修复，不应仅因此 blocked。没有全局三轮门槛。
 
 任务列表投影持久 Turn，不另建执行器；取消针对精确 turn ID，结果回收只标记已查看，不重跑或自动转发。暂停请求、阻塞原因、run outcome 与审计持久化；副作用未知优先于“已暂停”展示。
 
-重复无进展在策略警告后持续发生时，不再产生 INPUT_REQUIRED；在剩余额度允许时给模型一次禁止工具的收尾回复机会，然后以失败事实结束。无法调用模型时由 Harness 如实结算。这是 HXA-232 已接受的收尾策略，不是业务目标不可能完成的证明。
+重复无进展在策略警告后持续发生时，不再产生 INPUT_REQUIRED；给模型一次禁止工具的收尾回复机会，然后以失败事实结束。无法调用模型时由 Harness 如实结算。这是 HXA-232 已接受的收尾策略，不是业务目标不可能完成的证明。
 
-### 预算与恢复
+### 自动续跑轮数与恢复
 
-模型调用、工具调用、累计 token、单次执行时间、累计执行时间共同限制运行；Goal 级模型/工具/token/总时间跨 run 累计，单个 Turn/Run 的局部预算在新 attempt 重新计算并受剩余 Goal budget clamp。最终上限取 Goal、当前调用及平台限制中更严格者。额度耗尽不等于完成，按原因分别处理：
+参考 DSH 固定版本 `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720`：默认最多 256 个自动 Goal round，人工消息和恢复核查不消耗自动轮数。一个 round 是一个持久化准入的自动提示 Turn，不是一次模型调用或工具调用。既有 `goal_runs` 与 Turn 绑定是计数事实；重启、取消和重复通知不清零或重复记轮。
 
-| 情况 | 当前有效规则 |
-| --- | --- |
-| 局部模型调用/工具轮/累计 token 上限 | 作为可衔接 attempt 边界；已有连续 Goal 激活、无暂停/未知/拒绝、原 run 已结算、Goal PAUSED 且总额度充足时自动创建后继。沿用前轮唯一请求键、当前配置校验和累计账本，不要求仅为局部窗口增加总预算 |
-| Goal 总额度不足 | 不静默扩额；记录具体维度并停泊，用户调整必要预算且重新准入后才可继续 |
-| 容量不足、输出截断、网络终局、用户取消 | 不通过局部额度入口自动续跑；按对应终态/恢复契约处理 |
-| 非 Goal 的普通会话 | 不因本条自动获得连续激活；沿用其自己的预算与恢复规则 |
+普通 Turn 和 Goal 不再由累计 token、模型/工具调用数或累计/单轮运行时间停泊。旧资源字段仅供存储兼容，用量仍准确记账；已保存 Goal 缺少轮数配置时采用 256，已有自动轮记录计入，不重置历史。轮数耗尽记录 `BLOCKED(round-limit)`，最后已准入轮可以完整结算；用户调整轮数并明确解决阻塞/继续后才恢复。完成结果优先，不将最后一轮的成功改成失败。
 
-
-新 Goal 的未自定义默认预算为 512 次模型调用、2,048 次工具调用、32,000,000 累计 token、8 小时累计执行时间和 2 小时单次运行时间。默认值用于减少长任务中不必要的停泊，不代表模型单次上下文或输出能力。已保存的用户预算与现有 Goal 不自动扩额；自动重试默认仍为 0，权限审批和未知副作用核查不因预算增大而改变。
-
-运行期间保存有界 durable Goal usage checkpoint，恢复保留已记账累计用量，不把死亡后的墙钟时长计为执行时间，不因反复崩溃赠送预算。旧 Turn 的局部 model-call/tool-round checkpoint 不用于复活同一 Run；successor Run 使用新 Turn budget，Goal 累计 usage 不退款。结算与 checkpoint 不重复记账。Room 快照与审计是事实源，不因参考桌面产品改成另一套 event-sourcing 引擎。
+异常、截断、取消、进程死亡和未知副作用不自动开始下一轮；恢复保持原权限和未知事实。模型窗口、单次输出、工具执行期限、物理容量、后台 Job 租期及 crash heartbeat 窗口是独立边界，不因移除累计预算取消。Room 继续保存用量与身份，不引入第二套日志引擎。
 
 ### 模型工具与完成
 
@@ -53,7 +45,7 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 
 读取返回目标、revision、待结算修改和累计用量。创建、目标/预算编辑及 active/paused 操作只接受当前直接用户请求来源，并引用该请求原文；自动轮和重试不携带此来源。Steer 的新增直接用户来源绑定独立 input/message ID，只有该输入真正进入当前模型请求后才可用于本请求；不把会话历史或原目标原文冒充新指令。模型解释请求语义，原文匹配只证明来源，不是独立语义验证。Plan 模式不开放 Goal 创建或激活，已绑定批准 Plan 的目标不能绕过 Plan 审阅修改。
 
-创建/编辑属于闭合的会话 METADATA 操作，使用持久控制记录保存归属、版本与待结算修改。编辑在当前 Turn 成功结算后原子生效，不中途扩大当前预算；取消、失败及进程恢复清理未生效修改。创建的首个 Goal run 在当前 Turn 结算后启动，当前普通 Turn 仍受原预算约束。UI 与模型编辑共用版本冲突规则。暂停解除激活，READY/BLOCKED/INPUT_REQUIRED 不被强改成可继续状态；运行中的一轮结算后停泊。
+创建/编辑属于闭合的会话 METADATA 操作，使用持久控制记录保存归属、版本与待结算修改。编辑在当前 Turn 成功结算后原子生效，不中途扩大当前预算；取消、失败及进程恢复清理未生效修改。创建的首个自动 Goal run 在当前 Turn 结算后启动并消耗自动轮数；当前普通 Turn 不消耗自动轮数。UI 与模型编辑共用版本冲突规则。暂停解除激活，READY/BLOCKED/INPUT_REQUIRED 不被强改成可继续状态；运行中的一轮结算后停泊。
 
 有效报告必须绑定当前 Goal/Turn；Harness 校验归属、状态、正常结算及未决副作用，再持久化 complete/in_progress/blocked 与摘要。普通文本结束不等于 Goal 完成；不设置通用的 criterion/verifier 证据绑定。可选确定性工作流验收不能伪装成所有 Goal 的必需门禁。结构化报告是可追溯判断，不是独立正确性认证。
 
@@ -74,6 +66,8 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 交付证据看 [HXA-208](../../completion-records/HXA-208.md)、[HXA-232](../../development/tasks/HXA-232.md) 与[实施状态](../../development/status.md)。回归覆盖模型 CRUD、revision 冲突、跨轮预算、双 flavor/API29/36、真实进程死亡、后台衔接和未知副作用；已有证据不代表定时/Channel 自动激活或长稳完成。
 
 ## Decision history
+
+- 2026-10-07：所有者要求预算实现参考 DSH，采用默认 256 自动轮的独立 allowance；撤销历史 Goal 资源总额和异常自动重试契约，保留用量事实与权限/恢复边界。
 
 - 2026-09-30（文档收敛）：将已接受的局部额度续跑、无进展收尾和只读核查边界合入所属 Decision 正文；移除需读者叠加解释的旧宽泛描述。未新增状态、扩大授权或改变自动核查收尾策略。
 

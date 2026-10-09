@@ -45,12 +45,8 @@ internal fun GoalSettingsSection(
         val budgets = config.goalBudgets
         Text(
             stringResource(
-                R.string.goal_defaults_summary,
-                budgets.maxModelCalls,
-                budgets.maxToolCalls,
-                budgets.maxTotalTokens,
-                budgets.maxDurationMillis / 60_000,
-                budgets.maxWakeDurationMillis / 60_000,
+                R.string.goal_round_defaults,
+                budgets.maxGoalRounds,
             ),
         )
         SettingsActions {

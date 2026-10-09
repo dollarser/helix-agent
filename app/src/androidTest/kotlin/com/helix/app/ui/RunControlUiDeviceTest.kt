@@ -60,47 +60,45 @@ class RunControlSettingsUiDeviceTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun recommendedValuesDiscardUnsavedEditsAndRestoreAutomaticInput() {
+    fun resourceBudgetsAreAbsentAndOutputRequiresExplicitSave() {
         composeRule.resetDeterministicUiState()
         composeRule.navigateTo("settings/defaults")
-        replace("budget-total", "20000")
-        composeRule.onNodeWithTag("budget-recommended").performScrollTo().performClick()
+        composeRule.onNodeWithTag("budget-total").assertDoesNotExist()
+        composeRule.onNodeWithTag("budget-calls").assertDoesNotExist()
+        composeRule.onNodeWithTag("budget-steps").assertDoesNotExist()
+        val before =
+            composeRule
+                .container()
+                .runControlStore.current.budgets
+        replace("budget-output", "2000")
+        check(
+            composeRule
+                .container()
+                .runControlStore.current.budgets == before,
+        )
         composeRule.onNodeWithTag("budget-save").performScrollTo().performClick()
         composeRule.waitForIdle()
         check(
             composeRule
                 .container()
-                .runControlStore.current.budgets == TurnBudgetBounds.DEFAULT,
+                .runControlStore.current.budgets.maxOutputTokens == 2000L,
         )
-        composeRule.onNodeWithTag("budget-advanced").performScrollTo().performClick()
-        composeRule.onNodeWithTag("budget-input").assertDoesNotExist()
-        composeRule.onNodeWithTag("budget-saved").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun boundedBudgetsPersistAcrossActivityRecreation() {
+    fun outputPersistsAcrossActivityRecreation() {
         composeRule.resetDeterministicUiState()
         composeRule.navigateTo("settings/defaults")
-        composeRule.onNodeWithTag("settings-turn-budgets").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("budget-steps").assertDoesNotExist()
-        composeRule.onNodeWithTag("budget-advanced").performScrollTo().performClick()
-        composeRule.onNodeWithTag("budget-auto-input").performScrollTo().performClick()
-        replace("budget-steps", "7")
-        replace("budget-calls", "6")
-        replace("budget-input", "12000")
         replace("budget-output", "2000")
-        replace("budget-total", "14000")
         composeRule.onNodeWithTag("budget-save").performScrollTo().performClick()
         composeRule.waitForIdle()
-
         composeRule.runOnUiThread { composeRule.activity.recreate() }
         composeRule.waitForIdle()
         composeRule.navigateTo("settings/defaults")
-        val expected = TurnBudgets(7, 6, 12_000, 2_000, 14_000)
         check(
             composeRule
                 .container()
-                .runControlStore.current.budgets == expected,
+                .runControlStore.current.budgets.maxOutputTokens == 2000L,
         )
     }
 

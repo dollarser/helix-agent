@@ -95,7 +95,7 @@ internal object ContextCompaction {
         require(inputScale.isFinite() && inputScale >= 1.0)
         val floor = ContextPressure.inputFloor(storage, sessionId, currentTurnId, request.model)
         if (!com.helix.core.agent.ContextCompiler
-                .needsPlan(request, control, settings, force, floor)
+                .needsPlan(request, settings, force, floor)
         ) {
             return null
         }

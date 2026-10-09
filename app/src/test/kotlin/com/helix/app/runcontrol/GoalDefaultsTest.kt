@@ -45,12 +45,10 @@ class GoalDefaultsTest {
         val first = PersistedRunControlStore(lines)
         val custom = GoalBudgetDefaults.VALUE.copy(maxModelCalls = 80)
         first.setGoalBudgets(custom)
-        listOf(
-            custom.copy(maxTotalTokens = 0),
-            custom.copy(maxWakeDurationMillis = 0),
-            custom.copy(maxDurationMillis = 1),
-        ).forEach { invalid ->
-            assertThrows(IllegalArgumentException::class.java) { first.setGoalBudgets(invalid) }
+        for (invalid in listOf(0, -1)) {
+            assertThrows(
+                IllegalArgumentException::class.java,
+            ) { first.setGoalBudgets(custom.copy(maxGoalRounds = invalid)) }
             assertEquals(custom, PersistedRunControlStore(lines).current.goalBudgets)
         }
     }

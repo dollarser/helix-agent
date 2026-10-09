@@ -83,24 +83,8 @@ data class Goal(
     val isTerminal: Boolean
         get() = state.isTerminal
 
-    fun remainingModelCalls(): Int = budgets.maxModelCalls - modelCalls
-
-    fun remainingToolCalls(): Int = budgets.maxToolCalls - toolCalls
-
-    fun remainingTotalTokens(): Long = budgets.maxTotalTokens - totalTokens
-
-    /**
-     * Whether the remaining goal budget can still be materialized as a legal per-run
-     * [com.helix.core.model.TurnBudgets] (ADR-0004 item 1): at least one model call, one tool
-     * call and one token of headroom, plus lifetime and single-wake duration headroom.
-     *
-     * Single source of truth shared by the reducer's [GoalEvent.Continued] acceptance and the
-     * [GoalDriver] pre-flight, so the "can a run start?" and "should we attempt one?" layers
-     * never diverge.
-     */
-    fun hasRunBudgetHeadroom(): Boolean =
-        remainingModelCalls() >= 1 && remainingToolCalls() >= 1 && remainingTotalTokens() >= 1 &&
-            runTimeMillis < budgets.maxDurationMillis && budgets.maxWakeDurationMillis > 0
+    /** Resource counters remain telemetry; only the host's durable automatic-round count gates continuation. */
+    fun hasRunBudgetHeadroom(): Boolean = !isTerminal
 
     companion object {
         const val MAX_OBJECTIVE_LENGTH = 16_384

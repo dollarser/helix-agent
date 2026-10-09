@@ -8,18 +8,10 @@ import com.helix.core.model.Sha256
  * scheduling, running a Turn). Effects never touch model/tool bodies themselves.
  */
 sealed interface GoalEffect {
-    /**
-     * Start a new run (Turn) for this goal. The coordinator composes the per-turn
-     * `TurnBudgets` from the remaining goal budget (stricter with user/provider limits, per
-     * architecture doc section 5.3) and executes the Turn; usage comes back via
-     * [GoalEvent.WakeUsageReported]/[GoalEvent.WakeFailed].
-     */
+    /** Start a run after lifecycle/automatic-round admission; resource usage is observed independently. */
     data class StartRun(
         val wakeReason: GoalWakeReason,
         val runNumber: Int,
-        val remainingModelCalls: Int,
-        val remainingToolCalls: Int,
-        val remainingTotalTokens: Long,
         val planHash: Sha256?,
     ) : GoalEffect
 

@@ -53,16 +53,16 @@ class RequestBudgetDiagnosticsTest {
                 .jsonPrimitive.long,
         )
         val smaller = TurnBudgetTracker(exact.copy(maxInputTokens = estimate.total - 1))
-        assertEquals(TurnBudgetTracker.BeginDecision.INPUT_LIMIT, smaller.prepareCall(request).decision)
-        assertEquals(0, smaller.consumedCalls)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, smaller.prepareCall(request).decision)
+        assertEquals(1, smaller.consumedCalls)
     }
 
     @Test fun actualLimitDimensionsStayDistinctAndUsageNeverWraps() {
         val request = context.modelRequest()
         for ((usage, code) in listOf(
-            (100L to 1L) to "INPUT_TOKEN_LIMIT",
+            (100L to 1L) to null,
             (1L to 11L) to "OUTPUT_TOKEN_LIMIT",
-            (Long.MAX_VALUE to 1L) to "TURN_TOTAL_TOKEN_LIMIT",
+            (Long.MAX_VALUE to 1L) to null,
         )) {
             val tracker = TurnBudgetTracker(TurnBudgets(1, 1, 80, 10, 1000))
             val stream =
@@ -72,7 +72,7 @@ class RequestBudgetDiagnosticsTest {
                             .Usage(usage.first, usage.second),
                     )
                 }
-            assertFalse(tracker.finishCall("call", request, stream))
+            assertEquals(code == null, tracker.finishCall("call", request, stream))
             assertEquals(code, tracker.lastFailureCode)
             assertTrue(tracker.consumedTokens > 0)
         }

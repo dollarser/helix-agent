@@ -62,8 +62,8 @@ object ContextCapacity {
         return failure(
             request.messages.size,
             (estimate * ratio).toLong(),
-            request.maxOutputTokens ?: 0,
-            budgets.maxInputTokens,
+            minOf(request.maxOutputTokens ?: 0, budgets.maxOutputTokens),
+            com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
             window,
         )
     }

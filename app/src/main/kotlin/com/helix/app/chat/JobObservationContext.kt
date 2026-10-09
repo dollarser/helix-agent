@@ -71,7 +71,11 @@ internal class JobObservationContext(
                     }
                 }
             }
-        val remaining = (control.budgets.maxInputTokens - request.inputTokens()).coerceAtLeast(0)
+        val remaining =
+            (com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND - request.inputTokens())
+                .coerceAtLeast(
+                    0,
+                )
         val maxBytes = remaining.coerceAtMost(8192).toInt()
         return ContextCompiler.withJobObservations(request, candidates, System.currentTimeMillis(), maxBytes)
     }

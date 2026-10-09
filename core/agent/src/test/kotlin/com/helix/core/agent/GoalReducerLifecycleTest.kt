@@ -65,9 +65,7 @@ class GoalReducerLifecycleTest {
         val start = step.effects.single() as GoalEffect.StartRun
         assertEquals(GoalWakeReason.USER_OPEN, start.wakeReason)
         assertEquals(1, start.runNumber)
-        assertEquals(2, start.remainingModelCalls)
-        assertEquals(5, start.remainingToolCalls)
-        assertEquals(100, start.remainingTotalTokens)
+        assertEquals(1, start.runNumber)
         assertNull(start.planHash)
     }
 
@@ -75,7 +73,7 @@ class GoalReducerLifecycleTest {
     fun continueFromPausedAndInputRequired() {
         // Park the goal via budget exhaustion, extend the budget, then continue.
         var goal = runningGoal()
-        goal = reduceGoal(goal, GoalEvent.WakeUsageReported(3, 0, 0, 0)).state
+        goal = reduceGoal(goal, GoalEvent.Blocked).state
         assertEquals(GoalState.BLOCKED, goal.state)
         goal = reduceGoal(goal, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 5))).state
         goal = reduceGoal(goal, GoalEvent.BlockerResolved).state

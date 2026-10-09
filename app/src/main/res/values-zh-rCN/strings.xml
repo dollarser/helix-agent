@@ -685,8 +685,8 @@
     <string name="chat_tools_enable">为 Chat 显式开启 L0 只读工具</string>
     <string name="chat_tools_disable">关闭 Chat 工具</string>
     <string name="chat_budget_summary">本 Turn 上限 — 步数：%1$d，模型调用：%2$d，输出 token：%3$d，总 token：%4$d</string>
-    <string name="settings_turn_budgets_title">Turn 预算</string>
-    <string name="settings_turn_budgets_note">适用于所有配置和模式；Provider 上限会在请求时取更严值，Advanced 不能突破这些硬上限。</string>
+    <string name="settings_turn_budgets_title">模型输出设置</string>
+    <string name="settings_turn_budgets_note">单次请求的输出上限仍受模型能力约束。设置对新任务生效。</string>
     <string name="settings_budget_steps">最大工具步骤（1–32）</string>
     <string name="settings_budget_calls">最大模型调用（1–16）</string>
     <string name="settings_budget_input">单次最大输入 token（1–1000000）</string>
@@ -708,7 +708,7 @@
     <string name="goal_explicit_continue">发送任务即可创建 Goal；继续后自动推进，支持后台运行。停止或重启后需再次继续。修改预算只会保存，模型负责报告完成。</string>
     <string name="goal_usage">模型 %1$d/%2$d · 工具 %3$d/%4$d · token %5$d/%6$d · 时间 %7$d/%8$d 秒</string>
     <string name="goal_continue">继续</string>
-    <string name="goal_edit_budgets">调整预算</string>
+    <string name="goal_edit_budgets">调整续跑轮数</string>
     <string name="goal_edit_objective">编辑目标</string>
     <string name="goal_close">关闭</string>
     <string name="goal_save">保存</string>
@@ -1105,7 +1105,7 @@
     <string name="audit_details_show">查看审计详情</string>
     <string name="audit_details_hide">收起详情</string>
     <string name="goal_settings_title">Goal 运行设置</string>
-    <string name="goal_settings_note">选择 Goal 后，直接输入任务并发送。默认值只用于新目标；当前目标的预算可在下方单独调整。累计 token 包含每次请求的输入与输出，不是上下文窗口大小；实际请求仍受模型能力与单轮预算约束。</string>
+    <string name="goal_settings_note">Goal 默认最多自动续跑 256 轮，可调整新目标默认值或单独修改现有目标。人工消息不消耗自动轮数；用量仅作统计。</string>
     <string name="goal_defaults_summary">模型调用：%1$d · 工具调用：%2$d · 累计 token：%3$d · 总执行（分钟）：%4$d · 单次（分钟）：%5$d</string>
     <string name="goal_defaults_reset">恢复默认值</string>
     <string name="chat_blocked_session_busy">当前会话仍在执行，请等待结束或停止后重试；附件已保留。</string>
@@ -1886,4 +1886,10 @@
     <string name="chat_reasoning_detect">思考强度 · 检测</string>
     <string name="permissions_overlay">悬浮窗</string>
     <string name="permissions_overlay_help">在其他应用上显示任务状态和控制按钮，无需开启无障碍。不授权也可执行手机操作。</string>
+    <string name="budget_observation_only">输入与输出用量仅作统计，不以累计 token、模型调用次数或工具轮数停止任务。上下文由模型窗口和压缩设置管理。</string>
+    <string name="chat_output_summary">单次输出上限：%1$d tokens</string>
+    <string name="goal_round_defaults">默认最多自动续跑 %1$d 轮；人工消息不计入轮数。</string>
+    <string name="goal_round_usage">自动续跑 %1$d / %2$d 轮 · 已用模型调用 %3$d 次、工具调用 %4$d 次、%5$d tokens</string>
+    <string name="goal_round_limit">自动续跑轮数上限</string>
+    <string name="goal_round_exhausted">自动续跑轮数已用尽。调整轮数并明确继续后才能恢复。</string>
 </resources>

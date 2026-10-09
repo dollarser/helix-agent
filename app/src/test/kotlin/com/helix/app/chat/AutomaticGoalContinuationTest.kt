@@ -8,7 +8,7 @@ import org.junit.Test
 class AutomaticGoalContinuationTest {
     @Test fun localAttemptLimitsAllowRecheckingTheExistingGoalBudget() {
         for (reason in listOf("MODEL_CALL_LIMIT", "TOOL_STEP_LIMIT", "TURN_TOTAL_TOKEN_LIMIT", "TOKEN_BUDGET_LIMIT")) {
-            assertTrue(reason, AutomaticGoalContinuation.accepts("FAILED", reason, null))
+            assertFalse(reason, AutomaticGoalContinuation.accepts("FAILED", reason, null))
         }
         assertTrue(AutomaticGoalContinuation.accepts("COMPLETED", null, null))
     }

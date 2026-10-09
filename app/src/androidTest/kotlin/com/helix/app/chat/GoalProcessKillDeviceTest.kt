@@ -28,7 +28,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class GoalProcessKillDeviceTest {
     @Test
-    fun repeatedProcessDeathDoesNotReplenishGoalBudget() {
+    fun repeatedProcessDeathPreservesUsageAndAutomaticRoundsWithoutReplaying() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val phase = InstrumentationRegistry.getArguments().getString("goal.kill.phase") ?: "control"
         require(phase in setOf("control", "prepare", "recover-prepare", "recover-final"))
@@ -126,8 +126,8 @@ class GoalProcessKillDeviceTest {
         val report = TurnRecovery(storage, clock(wallTime)).recover()
         assertEquals(1, report.closedRuns.size)
         val goal = storage.goals.resolve(goalId)
-        // ADR-0039: exhaustion blocks continuation; interruption alone remains resumable.
-        assertEquals(if (runs == 2) "BLOCKED" else "PAUSED", goal.state)
+        assertEquals("PAUSED", goal.state)
+        assertEquals(runs, GoalRoundAllowance(storage).used(goalId))
         assertNull(storage.goalControls.find(goalId)?.pendingJson)
         assertEquals("Bound interrupted execution", goal.objective)
         assertTrue(!GoalContinuationDriver(storage).isArmed("session", goalId))
@@ -143,8 +143,9 @@ class GoalProcessKillDeviceTest {
         assertTrue(TurnRecovery(storage, clock(wallTime)).recover().closedRuns.isEmpty())
         assertEquals(goal, storage.goals.resolve(goalId))
         if (runs == 2) {
-            assertNull(coordinator(storage).start(request(goalId, "forbidden-third")))
-            assertEquals(2, storage.turns.listBySession("session").size)
+            assertNotNull(coordinator(storage).start(request(goalId, "third")))
+            assertEquals(3, storage.turns.listBySession("session").size)
+            assertEquals(3, GoalRoundAllowance(storage).used(goalId))
         }
     }
 
@@ -167,7 +168,7 @@ class GoalProcessKillDeviceTest {
         turnId: String,
     ) = GoalTurnStart(
         goalId,
-        GoalWakeReason.USER_OPEN,
+        GoalWakeReason.FOREGROUND_CONTINUATION,
         TurnStartSpec("session", turnId, "message-$turnId", "snapshot", "run"),
         TurnBudgets(5, 10, 800, 800, 5_000),
     )

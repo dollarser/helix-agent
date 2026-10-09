@@ -19,12 +19,7 @@ import kotlin.time.Duration.Companion.seconds
 internal object GoalLifecycleTools {
     val names = setOf("create_goal", "get_goal", "update_goal", GoalReportTool.NAME)
     private const val BUDGETS = """{"type":"object","properties":{
-        "max_model_calls":{"type":"integer","minimum":1},
-        "max_tool_calls":{"type":"integer","minimum":1},
-        "max_tokens":{"type":"integer","minimum":1},
-        "max_runtime_millis":{"type":"integer","minimum":1},
-        "max_round_millis":{"type":"integer","minimum":1},
-        "max_retries":{"type":"integer","minimum":0}
+        "max_goal_rounds":{"type":"integer","minimum":1}
     },"additionalProperties":false}"""
     private val createSchema = """{"type":"object","properties":{
         "objective":{"type":"string","minLength":1,"maxLength":16384},
@@ -53,7 +48,8 @@ internal object GoalLifecycleTools {
                     "override only if requested. " +
                     "Execution begins after this turn settles. Use get_goal first; " +
                     "only one unfinished goal is allowed.",
-                "get_goal" to "Read this session's current goal, revision, pending changes and cumulative budgets. " +
+                "get_goal" to "Read this session's current goal, revision, pending changes, " +
+                    "automatic round allowance and observed usage. " +
                     "Call before update_goal; never use an old revision or another session's goal.",
                 "update_goal" to "Update the goal read by get_goal using its exact id and expected_revision. " +
                     "Report complete, in_progress or blocked with a concrete summary after all other tools. " +

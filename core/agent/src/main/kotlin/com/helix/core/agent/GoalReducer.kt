@@ -171,9 +171,6 @@ object GoalReducer {
             GoalEffect.StartRun(
                 wakeReason = event.wakeReason,
                 runNumber = next.runCount,
-                remainingModelCalls = next.remainingModelCalls(),
-                remainingToolCalls = next.remainingToolCalls(),
-                remainingTotalTokens = next.remainingTotalTokens(),
                 planHash = state.planHash,
             )
         return step(state, next, listOf(start))
@@ -192,13 +189,7 @@ object GoalReducer {
                 runTimeMillis = state.runTimeMillis + event.wakeDurationMillis,
                 currentWakeMillis = state.currentWakeMillis + event.wakeDurationMillis,
             )
-        val exhausted = firstExhaustedLimit(next)
-        return if (exhausted != null) {
-            val parked = next.copy(state = GoalState.BLOCKED, currentWakeMillis = 0L)
-            step(next, parked, listOf(GoalEffect.BudgetExhausted(exhausted)))
-        } else {
-            step(state, next)
-        }
+        return step(state, next)
     }
 
     private fun onWakeFailed(
@@ -206,20 +197,14 @@ object GoalReducer {
         event: GoalEvent.WakeFailed,
     ): GoalStep {
         if (state.state != GoalState.RUNNING) return GoalStep.unchanged(state)
-        val retryable = event.error.retryable && state.retries + 1 <= state.budgets.maxRetries
-        return if (retryable) {
-            val next = state.copy(retries = state.retries + 1, currentWakeMillis = 0L)
-            step(state, next, listOf(GoalEffect.RetryWake(next.retries)))
-        } else {
-            val next =
-                state.copy(
-                    state = GoalState.FAILED,
-                    error = event.error,
-                    currentWakeMillis = 0L,
-                    nextCheckpoint = null,
-                )
-            step(state, next, listOf(GoalEffect.GoalFailed(event.error), GoalEffect.ReminderCancelled))
-        }
+        val next =
+            state.copy(
+                state = GoalState.FAILED,
+                error = event.error,
+                currentWakeMillis = 0L,
+                nextCheckpoint = null,
+            )
+        return step(state, next, listOf(GoalEffect.GoalFailed(event.error), GoalEffect.ReminderCancelled))
     }
 
     private fun onRecoveryEnded(
@@ -313,18 +298,8 @@ object GoalReducer {
         event: GoalEvent.BudgetsUpdated,
     ): GoalStep {
         val budgets = event.budgets
-        // A budget below already-consumed usage would make the StartRun remainders negative
-        // (illegal TurnBudgets) and park or fail the goal on the next wake; extending is the
-        // only meaningful update, so a reduction below usage in ANY of the six dimensions —
-        // including maxRetries vs state.retries — is ignored.
         val acceptable =
-            (state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED)) &&
-                budgets.maxModelCalls >= state.modelCalls &&
-                budgets.maxToolCalls >= state.toolCalls &&
-                budgets.maxTotalTokens >= state.totalTokens &&
-                budgets.maxDurationMillis >= state.runTimeMillis &&
-                budgets.maxWakeDurationMillis >= state.currentWakeMillis &&
-                budgets.maxRetries >= state.retries
+            state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED)
         if (!acceptable) return GoalStep.unchanged(state)
         return step(state, state.copy(budgets = budgets))
     }
@@ -360,17 +335,6 @@ object GoalReducer {
      * to [Goal.hasRunBudgetHeadroom] so the reducer and the [GoalDriver] share one rule.
      */
     private fun Goal.canStartRun(): Boolean = hasRunBudgetHeadroom()
-
-    /** First goal-lifetime budget that `goal` exceeds, in a fixed check order, or null. */
-    private fun firstExhaustedLimit(goal: Goal): String? =
-        when {
-            goal.modelCalls > goal.budgets.maxModelCalls -> "maxModelCalls"
-            goal.toolCalls > goal.budgets.maxToolCalls -> "maxToolCalls"
-            goal.totalTokens > goal.budgets.maxTotalTokens -> "maxTotalTokens"
-            goal.currentWakeMillis > goal.budgets.maxWakeDurationMillis -> "maxWakeDurationMillis"
-            goal.runTimeMillis > goal.budgets.maxDurationMillis -> "maxDurationMillis"
-            else -> null
-        }
 
     /** Records the step, enforcing the GoalState transition rules and state invariants. */
     private fun step(

@@ -50,11 +50,8 @@ internal fun ModeControlSection(
         }
         Text(
             stringResource(
-                R.string.chat_budget_summary,
-                config.budgets.maxSteps,
-                config.budgets.maxModelCalls,
+                R.string.chat_output_summary,
                 config.budgets.maxOutputTokens,
-                config.budgets.maxTotalTokens,
             ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

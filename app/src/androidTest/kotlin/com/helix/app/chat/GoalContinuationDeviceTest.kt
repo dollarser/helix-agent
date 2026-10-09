@@ -69,15 +69,10 @@ class GoalContinuationDeviceTest {
             driver.started("session", goal, "provider", control, "limited", null, "snapshot")
             first.coordinator.beginModelStream()
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "MODEL_CALL_LIMIT"))
-            val next = requireNotNull(driver.next("session", "limited"))
-            assertEquals(goal, next.goalId?.value)
-            assertEquals(budgets, next.goalBudgets)
-            assertEquals("goal-next-limited", next.clientRequestId)
-            assertEquals(next.clientRequestId, driver.next("session", "limited")?.clientRequestId)
-            assertTrue(driver.admits("session", goal, requireNotNull(next.goalContinuation), "snapshot"))
-            assertFalse(driver.admits("session", goal, next.goalContinuation!!, "changed snapshot"))
-            driver.disarm("session")
             assertNull(driver.next("session", "limited"))
+            assertEquals(goal, storage.goalRuns.resolve(first.runId).goalId)
+            assertEquals(budgets, storage.goals.resolve(goal).budgets)
+            assertFalse(driver.hasActivation("session"))
         }
 
     @Test fun userSuccessorPreservesGoalPredecessorUntilExplicitStop() =
@@ -226,7 +221,7 @@ class GoalContinuationDeviceTest {
             service.bind(goal, "session")
             val edit = turn(storage, "edit")
             val args = """{"id":"$goal","expected_revision":0,"objective":"Changed",
-            "budgets":{"max_model_calls":20},"user_request":"please"}"""
+            "budgets":{"max_goal_rounds":20},"user_request":"please"}"""
             assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Completed)
             edit.beginModelStream()
             edit.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
@@ -236,7 +231,7 @@ class GoalContinuationDeviceTest {
                 20,
                 storage.goals
                     .resolve(goal)
-                    .budgets.maxModelCalls,
+                    .budgets.maxGoalRounds,
             )
             val cancelled = turn(storage, "cancel")
             assertTrue(

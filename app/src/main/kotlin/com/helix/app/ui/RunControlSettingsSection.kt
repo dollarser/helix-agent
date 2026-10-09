@@ -30,17 +30,9 @@ import com.helix.core.model.TurnBudgets
 @Suppress("FunctionName", "LongMethod")
 internal fun RunControlSettingsSection(store: RunControlStore) {
     val config by store.flow.collectAsStateWithLifecycle()
-    var steps by remember(config.budgets) { mutableStateOf(config.budgets.maxSteps.toString()) }
-    var calls by remember(config.budgets) { mutableStateOf(config.budgets.maxModelCalls.toString()) }
-    var input by remember(config.budgets) { mutableStateOf(config.budgets.maxInputTokens.toString()) }
     var output by remember(config.budgets) { mutableStateOf(config.budgets.maxOutputTokens.toString()) }
-    var total by remember(config.budgets) { mutableStateOf(config.budgets.maxTotalTokens.toString()) }
     var invalid by remember { mutableStateOf(false) }
-    var advanced by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
-    var automaticInput by remember(config.budgets) {
-        mutableStateOf(config.budgets.maxInputTokens == TurnBudgetBounds.MAX_INPUT_TOKENS)
-    }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("settings-turn-budgets")) {
         Text(stringResource(R.string.settings_turn_budgets_title), style = MaterialTheme.typography.titleMedium)
@@ -49,59 +41,11 @@ internal fun RunControlSettingsSection(store: RunControlStore) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(stringResource(R.string.budget_total_help))
-        BudgetField(total, {
-            total = it
+        Text(stringResource(R.string.budget_observation_only))
+        BudgetField(output, {
+            output = it
             saved = false
-        }, R.string.settings_budget_total, "budget-total")
-        if (config.budgets != TurnBudgetBounds.DEFAULT) Text(stringResource(R.string.budget_custom_active))
-        TextButton(onClick = { advanced = !advanced }, modifier = Modifier.testTag("budget-advanced")) {
-            Text(stringResource(R.string.budget_advanced))
-        }
-        if (advanced) {
-            Row {
-                Switch(checked = automaticInput, onCheckedChange = {
-                    automaticInput = it
-                    saved = false
-                }, modifier = Modifier.testTag("budget-auto-input"))
-                Text(stringResource(R.string.budget_auto_input))
-            }
-            Text(stringResource(R.string.budget_input_help))
-            if (!automaticInput) {
-                BudgetField(input, {
-                    input = it
-                    saved = false
-                }, R.string.settings_budget_input, "budget-input")
-            }
-            BudgetField(output, {
-                output = it
-                saved = false
-            }, R.string.settings_budget_output, "budget-output")
-            BudgetField(steps, {
-                steps = it
-                saved = false
-            }, R.string.settings_budget_steps, "budget-steps")
-            BudgetField(calls, {
-                calls = it
-                saved = false
-            }, R.string.settings_budget_calls, "budget-calls")
-            Text(stringResource(R.string.budget_calls_help))
-        }
-        TextButton(
-            onClick = {
-                val defaults = TurnBudgetBounds.DEFAULT
-                store.setBudgets(defaults)
-                steps = defaults.maxSteps.toString()
-                calls = defaults.maxModelCalls.toString()
-                input = defaults.maxInputTokens.toString()
-                output = defaults.maxOutputTokens.toString()
-                total = defaults.maxTotalTokens.toString()
-                automaticInput = true
-                invalid = false
-                saved = true
-            },
-            modifier = Modifier.testTag("budget-recommended"),
-        ) { Text(stringResource(R.string.budget_recommended)) }
+        }, R.string.settings_budget_output, "budget-output")
         if (invalid) {
             Text(
                 stringResource(R.string.settings_turn_budgets_invalid),
@@ -113,13 +57,7 @@ internal fun RunControlSettingsSection(store: RunControlStore) {
                 invalid =
                     try {
                         store.setBudgets(
-                            TurnBudgets(
-                                steps.toInt(),
-                                calls.toInt(),
-                                if (automaticInput) TurnBudgetBounds.MAX_INPUT_TOKENS else input.toLong(),
-                                output.toLong(),
-                                total.toLong(),
-                            ),
+                            config.budgets.copy(maxOutputTokens = output.toLong()),
                         )
                         saved = true
                         false

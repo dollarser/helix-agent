@@ -7,16 +7,8 @@ import com.helix.core.model.internal.requireLong
 import com.helix.core.model.internal.requireObject
 
 /**
- * Hard limits for a persistent Goal across all of its runs (modes doc section 6.1:
- * "GoalBudgets at least include max model calls, tool calls, cumulative tokens, run duration,
- * single-wake duration and failure retry count").
- *
- * Unlike [TurnBudgets] these are goal-lifetime limits: consumed usage is accumulated by the
- * Goal reducer across wakes. Exhaustion parks the goal in PAUSED (or FAILED when retryable
- * failures exhaust [maxRetries]) - never COMPLETED. A zero duration/token budget means the goal
- * may not spend any; a zero [maxRetries] means a failed wake fails the goal.
- *
- * Storage encoding: fixed-order canonical JSON (see ADR-0001).
+ * Automatic continuation allowance. maxGoalRounds is the only Goal execution allowance. Legacy resource and
+ * retry fields remain serialized for old records and are not enforced. Usage remains independently persisted.
  */
 data class GoalBudgets(
     val maxModelCalls: Int,
@@ -25,8 +17,10 @@ data class GoalBudgets(
     val maxDurationMillis: Long,
     val maxWakeDurationMillis: Long,
     val maxRetries: Int,
+    val maxGoalRounds: Int = 256,
 ) {
     init {
+        require(maxGoalRounds >= 1) { "maxGoalRounds must be positive" }
         require(maxModelCalls >= 1) { "maxModelCalls must be >= 1" }
         require(maxToolCalls >= 1) { "maxToolCalls must be >= 1" }
         require(maxTotalTokens >= 0) { "maxTotalTokens must be >= 0" }
@@ -44,6 +38,7 @@ data class GoalBudgets(
             maxDurationMillis = minOf(maxDurationMillis, other.maxDurationMillis),
             maxWakeDurationMillis = minOf(maxWakeDurationMillis, other.maxWakeDurationMillis),
             maxRetries = minOf(maxRetries, other.maxRetries),
+            maxGoalRounds = minOf(maxGoalRounds, other.maxGoalRounds),
         )
 
     fun toStorageString(): String {
@@ -55,6 +50,7 @@ data class GoalBudgets(
                 "maxDurationMillis" to Json.long(maxDurationMillis),
                 "maxWakeDurationMillis" to Json.long(maxWakeDurationMillis),
                 "maxRetries" to Json.long(maxRetries.toLong()),
+                "maxGoalRounds" to Json.long(maxGoalRounds.toLong()),
             )
         return Json.objectBody(pairs)
     }
@@ -71,7 +67,19 @@ data class GoalBudgets(
             )
 
         fun parse(text: String): GoalBudgets {
-            val fields = parseJson(text).requireObject("GoalBudgets", FIELDS)
+            val node = parseJson(text)
+            val keys = (node as? com.helix.core.model.internal.JsonNode.Obj)?.entries?.map { it.first }.orEmpty()
+            val fields =
+                node.requireObject(
+                    "GoalBudgets",
+                    if ("maxGoalRounds" in
+                        keys
+                    ) {
+                        FIELDS + "maxGoalRounds"
+                    } else {
+                        FIELDS
+                    },
+                )
             return GoalBudgets(
                 maxModelCalls = fields.requireInt("maxModelCalls"),
                 maxToolCalls = fields.requireInt("maxToolCalls"),
@@ -79,6 +87,7 @@ data class GoalBudgets(
                 maxDurationMillis = fields.requireLong("maxDurationMillis"),
                 maxWakeDurationMillis = fields.requireLong("maxWakeDurationMillis"),
                 maxRetries = fields.requireInt("maxRetries"),
+                maxGoalRounds = if ("maxGoalRounds" in fields) fields.requireInt("maxGoalRounds") else 256,
             )
         }
     }

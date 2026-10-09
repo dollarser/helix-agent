@@ -13,12 +13,7 @@ class TurnBudgetTracker(
     private var totalTokens = initialTotalTokens
 
     init {
-        require(initialModelCalls in 0..budgets.maxModelCalls) {
-            "restored model calls exceed Turn budget"
-        }
-        require(initialTotalTokens in 0..budgets.maxTotalTokens) {
-            "restored tokens exceed Turn budget"
-        }
+        require(initialModelCalls >= 0 && initialTotalTokens >= 0)
     }
 
     val consumedTokens: Long get() = totalTokens
@@ -31,34 +26,15 @@ class TurnBudgetTracker(
         val request: ModelRequest? = null,
     )
 
-    /** Bind the transport request before spending a call; no positive output headroom means no request. */
+    /** Usage is observed, not a cumulative execution allowance. */
     fun prepareCall(request: ModelRequest): CallAdmission {
-        val estimatedInput = ModelInputEstimate.of(request).total
-        val remaining = budgets.maxTotalTokens - totalTokens
-        val output =
-            minOf(
-                request.maxOutputTokens ?: Long.MAX_VALUE,
-                budgets.maxOutputTokens,
-                remaining - estimatedInput,
-            )
-        return when {
-            modelCalls >= budgets.maxModelCalls -> {
-                CallAdmission(BeginDecision.MODEL_CALL_LIMIT)
-            }
-
-            estimatedInput > budgets.maxInputTokens -> {
-                CallAdmission(BeginDecision.INPUT_LIMIT)
-            }
-
-            output < 1 -> {
-                CallAdmission(BeginDecision.TOKEN_LIMIT)
-            }
-
-            else -> {
-                modelCalls += 1
-                CallAdmission(BeginDecision.ALLOWED, request.copy(maxOutputTokens = output))
-            }
-        }
+        modelCalls = if (modelCalls == Int.MAX_VALUE) modelCalls else modelCalls + 1
+        return CallAdmission(
+            BeginDecision.ALLOWED,
+            request.copy(
+                maxOutputTokens = minOf(request.maxOutputTokens ?: budgets.maxOutputTokens, budgets.maxOutputTokens),
+            ),
+        )
     }
 
     fun finishCall(
@@ -68,24 +44,11 @@ class TurnBudgetTracker(
     ): Boolean {
         val account = ModelCallUsage.account(callId, request, stream)
         val callTotal = ModelCallUsage.total(account)
-        val remaining = budgets.maxTotalTokens - totalTokens
         lastFailureCode =
-            when {
-                callTotal > remaining -> {
-                    "TURN_TOTAL_TOKEN_LIMIT"
-                }
-
-                account.effectiveInput > budgets.maxInputTokens -> {
-                    "INPUT_TOKEN_LIMIT"
-                }
-
-                account.effectiveOutput > minOf(budgets.maxOutputTokens, request.maxOutputTokens ?: Long.MAX_VALUE) -> {
-                    "OUTPUT_TOKEN_LIMIT"
-                }
-
-                else -> {
-                    null
-                }
+            if (account.effectiveOutput > minOf(budgets.maxOutputTokens, request.maxOutputTokens ?: Long.MAX_VALUE)) {
+                "OUTPUT_TOKEN_LIMIT"
+            } else {
+                null
             }
         totalTokens = if (callTotal > Long.MAX_VALUE - totalTokens) Long.MAX_VALUE else totalTokens + callTotal
         return lastFailureCode == null

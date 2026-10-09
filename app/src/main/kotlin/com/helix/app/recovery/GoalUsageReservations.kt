@@ -226,22 +226,7 @@ class GoalUsageReservations(
         goal: StoredGoal,
         pending: List<GoalUsageReservationEntity>,
         request: Request,
-    ): Boolean {
-        val models = pending.count { it.kind == Kind.MODEL.name }.toLong() + if (request.kind == Kind.MODEL) 1 else 0
-        val tools = pending.count { it.kind == Kind.TOOL.name }.toLong() + if (request.kind == Kind.TOOL) 1 else 0
-        val tokens = pending.sumOf { it.reservedTokens }
-        val millis = pending.sumOf { it.reservedMillis }
-        return ownsClock(pending, request) && goal.modelCalls < goal.budgets.maxModelCalls &&
-            goal.toolCalls < goal.budgets.maxToolCalls &&
-            goal.totalTokens < goal.budgets.maxTotalTokens &&
-            goal.currentWakeMillis < goal.budgets.maxWakeDurationMillis &&
-            goal.runTimeMillis < goal.budgets.maxDurationMillis &&
-            models <= goal.budgets.maxModelCalls.toLong() - goal.modelCalls &&
-            tools <= goal.budgets.maxToolCalls.toLong() - goal.toolCalls &&
-            request.tokens <= goal.budgets.maxTotalTokens - goal.totalTokens - tokens &&
-            request.millis <= goal.budgets.maxWakeDurationMillis - goal.currentWakeMillis - millis &&
-            request.millis <= goal.budgets.maxDurationMillis - goal.runTimeMillis - millis
-    }
+    ): Boolean = goal.state == GoalState.RUNNING.name && ownsClock(pending, request)
 
     private fun validate(request: Request) {
         require(request.id.isNotBlank() && request.runId.isNotBlank())

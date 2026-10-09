@@ -75,6 +75,15 @@ class ContextCapacityTest {
                 .TurnBudgets(10, 10, 10000, 256, 20000)
         val estimate = ModelInputEstimate.of(request).total
         assertNull(ContextCapacity.forSummary(request, estimate, estimate, budgets, 1024))
+        assertNull(
+            ContextCapacity.forSummary(
+                request,
+                estimate,
+                estimate,
+                budgets.copy(maxInputTokens = 1, maxTotalTokens = 1),
+                1024,
+            ),
+        )
         assertEquals(
             "CONTEXT_WINDOW_LIMIT",
             ContextCapacity.forSummary(request, estimate * 10, estimate, budgets, 1024),

@@ -39,14 +39,8 @@ internal class RecoveryGoalRunStart(
         if (storage.goalRuns.listOpenByGoal(request.goalId).isNotEmpty()) return null
         val goal = storage.goals.resolve(request.goalId).toRuntimeGoal()
         val step = GoalReducer.reduce(goal, GoalEvent.RecoveryInspection)
-        val effect = step.effects.filterIsInstance<GoalEffect.StartRun>().singleOrNull() ?: return null
-        val limits =
-            request.turnLimits.copy(
-                maxModelCalls = minOf(request.turnLimits.maxModelCalls, effect.remainingModelCalls),
-                maxInputTokens = minOf(request.turnLimits.maxInputTokens, effect.remainingTotalTokens),
-                maxOutputTokens = minOf(request.turnLimits.maxOutputTokens, effect.remainingTotalTokens),
-                maxTotalTokens = minOf(request.turnLimits.maxTotalTokens, effect.remainingTotalTokens),
-            )
+        if (step.effects.filterIsInstance<GoalEffect.StartRun>().singleOrNull() == null) return null
+        val limits = request.turnLimits
         val runId = ids()
         storage.goals.updateGoal(step.state.toStoredGoal())
         storage.goalRuns.open(runId, request.goalId, request.wakeReason.name, clock.now().toEpochMilli())
@@ -59,6 +53,6 @@ internal class RecoveryGoalRunStart(
             "{}",
             clock.now().toEpochMilli(),
         )
-        return StartedGoalTurn(runId, coordinator, limits, effect.remainingToolCalls)
+        return StartedGoalTurn(runId, coordinator, limits)
     }
 }

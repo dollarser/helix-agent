@@ -72,36 +72,15 @@ class GoalDurableUsageLedger(
         require(run.goalId == goalId) { "run does not belong to goal" }
         require(goal.state == GoalState.RUNNING.name) { "goal is not RUNNING" }
         val next = add(goal, delta)
-        // Other admitted work must settle before closing the run; admission still includes every
-        // outstanding reservation, so deferring closure cannot mint extra capacity.
-        val exhausted = if (storage.goalUsageReservations.pendingForRun(runId).isEmpty()) firstExhausted(next) else null
-        storage.goals.updateGoal(
-            next.copy(
-                state = if (exhausted == null) next.state else GoalState.BLOCKED.name,
-                currentWakeMillis = if (exhausted == null) next.currentWakeMillis else 0,
-                finishReason = exhausted?.let { "BUDGET_EXHAUSTED($it)" } ?: next.finishReason,
-            ),
+        storage.goals.updateGoal(next)
+        storage.goalRuns.checkpointUsage(
+            run,
+            Math.addExact(run.modelCalls, delta.modelCalls),
+            Math.addExact(run.toolCalls, delta.toolCalls),
+            Math.addExact(run.tokens, delta.tokens),
+            Math.addExact(run.wakeDurationMillis ?: 0L, delta.durationMillis),
         )
-        val updatedRun =
-            storage.goalRuns.checkpointUsage(
-                run,
-                Math.addExact(run.modelCalls, delta.modelCalls),
-                Math.addExact(run.toolCalls, delta.toolCalls),
-                Math.addExact(run.tokens, delta.tokens),
-                Math.addExact(run.wakeDurationMillis ?: 0L, delta.durationMillis),
-            )
-        if (exhausted != null) {
-            storage.goalRuns.finish(
-                updatedRun,
-                "BUDGET_EXHAUSTED($exhausted)",
-                atMillis.coerceAtLeast(run.startedAt),
-                requireNotNull(updatedRun.wakeDurationMillis),
-                updatedRun.modelCalls,
-                updatedRun.toolCalls,
-                updatedRun.tokens,
-            )
-        }
-        appendAudit(goal, goalId, runId, boundary, delta, exhausted, atMillis)
+        appendAudit(goal, goalId, runId, boundary, delta, null, atMillis)
     }
 
     private fun add(
@@ -115,16 +94,6 @@ class GoalDurableUsageLedger(
             runTimeMillis = Math.addExact(goal.runTimeMillis, delta.durationMillis),
             currentWakeMillis = Math.addExact(goal.currentWakeMillis, delta.durationMillis),
         )
-
-    private fun firstExhausted(goal: StoredGoal): String? =
-        when {
-            goal.modelCalls >= goal.budgets.maxModelCalls -> "maxModelCalls"
-            goal.toolCalls >= goal.budgets.maxToolCalls -> "maxToolCalls"
-            goal.totalTokens >= goal.budgets.maxTotalTokens -> "maxTotalTokens"
-            goal.currentWakeMillis >= goal.budgets.maxWakeDurationMillis -> "maxWakeDurationMillis"
-            goal.runTimeMillis >= goal.budgets.maxDurationMillis -> "maxDurationMillis"
-            else -> null
-        }
 
     @Suppress("LongParameterList")
     private fun appendAudit(

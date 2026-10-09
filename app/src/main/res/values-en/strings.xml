@@ -686,8 +686,8 @@
     <string name="chat_tools_enable">Enable L0 read-only tools for Chat</string>
     <string name="chat_tools_disable">Disable Chat tools</string>
     <string name="chat_budget_summary">Turn limits — steps: %1$d, model calls: %2$d, output tokens: %3$d, total tokens: %4$d</string>
-    <string name="settings_turn_budgets_title">Turn budgets</string>
-    <string name="settings_turn_budgets_note">Applies to every profile and mode. Provider limits are intersected at request time; Advanced cannot exceed these hard caps.</string>
+    <string name="settings_turn_budgets_title">Model output settings</string>
+    <string name="settings_turn_budgets_note">Per-request output remains bounded by model capability. Changes apply to new tasks.</string>
     <string name="settings_budget_steps">Maximum tool steps (1–32)</string>
     <string name="settings_budget_calls">Maximum model calls (1–16)</string>
     <string name="settings_budget_input">Maximum input tokens per call (1–1000000)</string>
@@ -709,7 +709,7 @@
     <string name="goal_explicit_continue">Send a task to create a Goal. Continue enables automatic rounds, including in the background. Stop or restarting requires another explicit continue. Budget edits only save; the model reports completion.</string>
     <string name="goal_usage">Model %1$d/%2$d · Tools %3$d/%4$d · Tokens %5$d/%6$d · Time (s): %7$d/%8$d</string>
     <string name="goal_continue">Continue</string>
-    <string name="goal_edit_budgets">Edit budgets</string>
+    <string name="goal_edit_budgets">Edit continuation rounds</string>
     <string name="goal_edit_objective">Edit objective</string>
     <string name="goal_close">Close</string>
     <string name="goal_save">Save</string>
@@ -1107,7 +1107,7 @@
     <string name="audit_details_show">View audit details</string>
     <string name="audit_details_hide">Hide details</string>
     <string name="goal_settings_title">Goal execution settings</string>
-    <string name="goal_settings_note">Select Goal, type a task and send. Defaults apply only to new goals; adjust the current goal separately below. Cumulative tokens count input and output across requests, not context size. Model and per-turn limits still apply.</string>
+    <string name="goal_settings_note">Goals default to 256 automatic continuation rounds. Edit defaults for new goals or adjust an existing goal. Human messages do not consume rounds; resource usage is observed only.</string>
     <string name="goal_defaults_summary">Model calls: %1$d · Tool calls: %2$d · Total tokens: %3$d · Execution (min): %4$d · Per run (min): %5$d</string>
     <string name="goal_defaults_reset">Reset defaults</string>
     <string name="chat_blocked_session_busy">This conversation is still running. Wait or stop it before retrying. Attachments are retained.</string>
@@ -1889,4 +1889,10 @@
     <string name="chat_reasoning_detect">Reasoning · Detect</string>
     <string name="permissions_overlay">Display over other apps</string>
     <string name="permissions_overlay_help">Show task status and controls without Accessibility. Optional; phone automation can run without it.</string>
+    <string name="budget_observation_only">Input and output usage is observed, not a cumulative token, model-call or tool-round allowance. Model context settings manage capacity and compaction.</string>
+    <string name="chat_output_summary">Per-request output limit: %1$d tokens</string>
+    <string name="goal_round_defaults">Default automatic continuation allowance: %1$d rounds. Human messages do not consume rounds.</string>
+    <string name="goal_round_usage">Automatic rounds %1$d / %2$d · Observed: %3$d model calls, %4$d tool calls, %5$d tokens</string>
+    <string name="goal_round_limit">Automatic continuation round limit</string>
+    <string name="goal_round_exhausted">Automatic continuation rounds exhausted. Increase the allowance and explicitly resume to continue.</string>
 </resources>
