@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -180,6 +181,29 @@ class ProviderSettingsFormDeviceTest {
         compose.onNodeWithTag("provider-form-model").performClick()
         compose.onNodeWithTag("provider-form-save").assertIsEnabled()
         compose.onNodeWithTag("provider-form-advanced").performScrollTo().performClick()
-        compose.onNodeWithTag("provider-form-key").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("provider-form-key").performScrollTo()
+        compose.waitUntil(5_000) { compose.onNodeWithTag("provider-form-key").isDisplayed() }
+        captureKeyGeometry()
+        compose.onNodeWithTag("provider-form-key").assertIsDisplayed()
+        compose.onNodeWithTag("provider-form-save").assertIsDisplayed()
+    }
+
+    private fun captureKeyGeometry() {
+        val fieldBounds = compose.onNodeWithTag("provider-form-key").fetchSemanticsNode().boundsInRoot
+        val viewportBounds = compose.onNodeWithTag("provider-form-scroll").fetchSemanticsNode().boundsInRoot
+        println("PROVIDER_KEY_BOUNDS=$fieldBounds VIEWPORT=$viewportBounds")
+        if (!compose.onNodeWithTag("provider-form-key").isDisplayed()) {
+            val context =
+                androidx.test.core.app.ApplicationProvider
+                    .getApplicationContext<android.content.Context>()
+            val bitmap =
+                androidx.test.platform.app.InstrumentationRegistry
+                    .getInstrumentation()
+                    .uiAutomation
+                    .takeScreenshot()
+            java.io.File(context.cacheDir, "provider-form-failure.png").outputStream().use {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
     }
 }

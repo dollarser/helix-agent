@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -37,6 +41,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.helix.app.R
 import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ProviderComposer
@@ -159,6 +164,8 @@ internal fun ProviderFormDialog(
     val saveEnabled = !saving && !discovering
     var saveAttempt by remember { mutableStateOf(0) }
     val scroll = rememberScrollState()
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val locations = remember { ProviderFormField.entries.associateWith { BringIntoViewRequester() } }
     val focuses = remember { ProviderFormField.entries.associateWith { FocusRequester() } }
     val invalidField = providerErrorField(form.error)
@@ -187,6 +194,7 @@ internal fun ProviderFormDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false),
         title = {
             Text(
                 stringResource(
@@ -288,7 +296,11 @@ internal fun ProviderFormDialog(
                         modifier = Modifier.fillMaxWidth().testTag("provider-form-key"),
                     )
                     TextButton(
-                        onClick = { advanced = !advanced },
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboard?.hide()
+                            advanced = !advanced
+                        },
                         modifier = Modifier.testTag("provider-form-advanced"),
                     ) {
                         Text(stringResource(R.string.provider_advanced_options))
@@ -435,7 +447,7 @@ internal fun ProviderFormDialog(
                 Text(stringResource(R.string.common_cancel))
             }
         },
-        modifier = Modifier.testTag("provider-form-dialog"),
+        modifier = Modifier.testTag("provider-form-dialog").safeDrawingPadding().imePadding(),
     )
 }
 
