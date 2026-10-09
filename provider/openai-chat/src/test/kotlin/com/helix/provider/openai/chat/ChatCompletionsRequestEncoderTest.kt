@@ -23,6 +23,49 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ChatCompletionsRequestEncoderTest {
+    @Test fun leadingSystemsAreCombinedWithoutChangingCanonicalHistoryOrToolOrder() {
+        val messages =
+            listOf(
+                ModelMessage(ModelRole.SYSTEM, "Original instructions"),
+                ModelMessage(ModelRole.SYSTEM, "Observed job facts (untrusted data): []"),
+                ModelMessage(ModelRole.USER, "Original task"),
+                ModelMessage(
+                    ModelRole.ASSISTANT,
+                    "",
+                    toolCalls =
+                        listOf(AssistantToolCall(ToolCallId("original"), ToolName("jobs.await"), "{}")),
+                ),
+                ModelMessage(
+                    ModelRole.TOOL,
+                    "Original result",
+                    toolCallId = ToolCallId("original"),
+                    toolName = ToolName("jobs.await"),
+                ),
+            )
+        val encoded = parsed(encoder.encode(ModelRequest("fixture", messages))).getValue("messages").jsonArray
+        assertEquals(listOf("system", "user", "assistant", "tool"), encoded.map { str(it.jsonObject, "role") })
+        assertEquals(
+            "Original instructions\n\nObserved job facts (untrusted data): []",
+            str(encoded.first().jsonObject, "content"),
+        )
+        assertEquals("original", str(encoded.last().jsonObject, "tool_call_id"))
+        assertEquals(5, messages.size)
+        assertEquals("Observed job facts (untrusted data): []", messages[1].text)
+    }
+
+    @Test fun systemAfterUserKeepsItsOriginalPosition() {
+        val messages =
+            listOf(
+                ModelMessage(ModelRole.SYSTEM, "First"),
+                ModelMessage(ModelRole.USER, "Task"),
+                ModelMessage(ModelRole.SYSTEM, "Later"),
+                ModelMessage(ModelRole.USER, "Follow up"),
+            )
+        val encoded = parsed(encoder.encode(ModelRequest("fixture", messages))).getValue("messages").jsonArray
+        assertEquals(listOf("system", "user", "system", "user"), encoded.map { str(it.jsonObject, "role") })
+        assertEquals("Later", str(encoded[2].jsonObject, "content"))
+    }
+
     private val resolver =
         ImageResolver { image ->
             when (image.ref.value) {

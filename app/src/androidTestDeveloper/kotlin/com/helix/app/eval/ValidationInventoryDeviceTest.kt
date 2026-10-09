@@ -7,6 +7,21 @@ import org.junit.Test
 
 /** Read-only owner-authorized inventory; never exports credentials, endpoints or conversation contents. */
 class ValidationInventoryDeviceTest {
+    @Test fun reportInstalledRoomIdentityOnly() {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        android.database.sqlite.SQLiteDatabase
+            .openDatabase(
+                app.getDatabasePath("helix.db").path,
+                null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
+            ).use { db ->
+                db.rawQuery("SELECT identity_hash FROM room_master_table WHERE id=42", null).use { rows ->
+                    check(rows.moveToFirst())
+                    report("VALIDATION_ROOM_IDENTITY=${rows.getString(0)}")
+                }
+            }
+    }
+
     @Test fun reportLatestSyntheticJobFailure() {
         val storage = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer.storage
         val turn =

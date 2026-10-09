@@ -75,6 +75,16 @@ public class ChatCompletionsRequestEncoder(
     /** Synthetic observations follow the entire result batch; persisted user intent is unchanged. */
     private fun messageElements(messages: List<ModelMessage>): List<JsonElement> =
         buildList {
+            val leadingSystems = messages.takeWhile { it.role == ModelRole.SYSTEM }
+            val remaining = if (leadingSystems.size > 1) messages.drop(leadingSystems.size) else messages
+            if (leadingSystems.size > 1) {
+                add(
+                    buildJsonObject {
+                        put("role", "system")
+                        put("content", leadingSystems.joinToString("\n\n") { it.modelText })
+                    },
+                )
+            }
             val observations = mutableListOf<ModelMessage>()
 
             fun flushImages() {
@@ -94,7 +104,7 @@ public class ChatCompletionsRequestEncoder(
                 }
                 observations.clear()
             }
-            messages.forEach { message ->
+            remaining.forEach { message ->
                 if (message.role != ModelRole.TOOL) flushImages()
                 add(messageElement(message))
                 if (message.role == ModelRole.TOOL && message.images.isNotEmpty()) observations += message

@@ -1,5 +1,7 @@
 # J2 同执行等待：2026-10-09 本地证据
 
+后续更新：所有者要求更新日常模拟器后，[HXA-249 当前安装与真实模型证据](chat-system-compatibility-2026-10-09.md)记录 Chat 编码修复、API36 Developer 覆盖安装与真实 Qwen J1/AUTO 各 1/1。下文“未更新”和 PROTOCOL 是原阶段事实；保留失败轨迹，不覆盖为成功。新旅程不关闭真机/OEM、其他模型或完整生命周期组合。
+
 范围：[HXA-248](../../development/tasks/HXA-248.md)。所有者明确授权模拟器、现有真实模型测试和逐任务提交；未推送、发布或更新日常模拟器主 APK。隔离 AVD 为 API36 arm64 Developer，运行器记录键盘设置、制品 SHA、设备属性和每项 instrumentation 结果；此轮不证明真机/OEM 或中文输入法完整验收。
 
 ## 实现与身份
