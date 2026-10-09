@@ -69,7 +69,13 @@ class AutomationDeviceTools(
                 ToolOperationClass.EXTERNAL_ACTION,
                 obj(mapOf("packageName" to str(255)), "packageName"),
                 actionOutput(),
-                "Open an authorized app by package name from ui.apps; never grants new targets.",
+                "Open an authorized app by package name from ui.apps; never grants new targets. " +
+                    "After a verified phone task, use the observed originating Helix package to return before " +
+                    "the final reply, unless the user requested staying in the target app " +
+                    "or it needs manual takeover. " +
+                    "Observe afterward: successful launch alone does not prove " +
+                    "the originating conversation is visible. " +
+                    "Do not guess a Helix package, change scope, or replay an uncertain launch.",
             ),
             descriptor(
                 SYSTEM,

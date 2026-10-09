@@ -31,7 +31,8 @@ class MobileUsePlugin(
         listOf(
             com.helix.extensions.plugin.PluginBundledSkill(
                 "android-ui-task",
-                "Operate authorized Android apps with fresh observations, bounded waits and result verification.",
+                "Operate authorized Android apps, verify results, then return to the originating Helix conversation " +
+                    "unless the user requested staying on the target screen or manual takeover is needed.",
                 context.assets
                     .open("plugins/mobile-use/skills/android-ui-task/SKILL.md")
                     .bufferedReader()

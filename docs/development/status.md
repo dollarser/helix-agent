@@ -4,6 +4,8 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-09 Mobile Use 收尾提示：[HXA-250](tasks/HXA-250.md) 在插件技能、摘要和 ui.launch 说明要求验证业务结果后返回原 Helix 对话，再回复；尊重停留/前台活动/手动接管，返回不扩权、不重放。216 项插件主机测试、静态检查与双渠道 APK 构建通过；[本轮证据](../evidence/development/mobile-use-return-conversation-2026-10-09.md)。设备 not requested，未安装，不把提示与打包通过当实际模型返回成功。
+
 - 2026-10-09 实际模型协议瓶颈：[HXA-249](tasks/HXA-249.md) 修复 Chat 前导 system 编码兼容，全仓主机门禁通过。所有者明确要求后已覆盖安装日常 API36 Developer 0.0.5，安装前后 Room identity 一致；同一 Qwen 的新编码协议对照、真实 J1 与 AUTO 各 1/1 通过。[对照与旅程证据](../evidence/development/chat-system-compatibility-2026-10-09.md)保留旧 PROTOCOL 失败，不宣称普遍完成率、成本收益或真机通过。
 
 - 2026-10-09 Project/Memory 本地收尾：API36 Developer/Consumer 界面/权限/项目隔离各 6/6，Global/Project 真正进程死亡恢复 1/1；修复项目文件页来源异步加载前崩溃。[本轮证据](../evidence/development/project-memory-device-2026-10-09.md)保留夹具失败、实际崩溃与各制品身份，其他设备/IME/真实摘要质量不由此关闭。
