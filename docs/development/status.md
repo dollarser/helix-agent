@@ -48,6 +48,8 @@
 
 ## Completed
 
+2026-10-10：[HXA-253](../completion-records/HXA-253.md)统一 host fixture discovery，补齐五套漏测入口并拒绝空/全跳过/导入/断言失败；151 项回归及 source gates 通过。没有删除旧测试或在 CI 启动设备。
+
 2026-10-10：[HXA-252 通用工具发现提示](../completion-records/HXA-252.md)已交付，主机门禁通过；API36/既有 Qwen 有效严格对照候选 6/6、基线 5/6，手动 Job 的窗口误用减少，未扩大工具/授权策略。原归档夹具错误与补测、快照恢复失败及所有者随后授权数据库重建均保留在[本轮证据](../evidence/development/discovery-guidance-2026-10-10.md)。日常同哈希原 APK、重建库、Qwen、无在途任务及实际拼音提交核查通过；没有安装候选日常 APK，不宣称历史数据恢复或普遍模型收益。
 
 完整历史交付查[完成记录索引](../completion-records/index.md)和[M0](../completion-records/M0.md)；各记录只证明其明确验收范围。

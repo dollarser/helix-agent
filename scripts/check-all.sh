@@ -13,17 +13,7 @@ fi
 
 source_checks() {
     python3 scripts/test-review-gates.py
-    python3 -m unittest discover -s scripts/tests -p 'test_ci_*.py'
-    python3 -m unittest discover -s scripts/tests -p test_staged_gate.py
-    python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
-    python3 -m unittest discover -s scripts/tests -p test_terminal_reports.py
-    python3 -m unittest discover -s scripts/tests -p test_product_journeys.py
-    python3 -m unittest discover -s scripts/tests -p test_owned_acceptance.py
-    python3 -m unittest discover -s scripts/tests -p test_agent_eval.py
-    python3 -m unittest discover -s scripts/tests -p test_instrumentation_junit.py
-    python3 -m unittest discover -s scripts/tests -p test_device_baseline_runner.py
-    python3 -m unittest discover -s scripts/tests -p test_provider_http_policy.py
-    python3 -m unittest discover -s scripts/tests -p test_mobile_use_contract.py
+    python3 scripts/run-host-tests.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh
     ./scripts/check-i18n.sh

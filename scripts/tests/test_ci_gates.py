@@ -49,5 +49,40 @@ class CiGatesTest(unittest.TestCase):
             self.assertEqual('7', report.read_text().strip().split('\t')[-1])
 
 
+class SourceGateTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        scripts = self.root / 'scripts'
+        (scripts / 'tests').mkdir(parents=True)
+        for name in ('check-all.sh', 'run-host-tests.py'):
+            shutil.copy2(ROOT / 'scripts' / name, scripts / name)
+        (scripts / 'test-review-gates.py').write_text('pass\n')
+        for name in ('check-docs.sh', 'verify-adr.sh', 'check-i18n.sh', 'check-secrets.sh'):
+            script = scripts / name
+            script.write_text('#!/usr/bin/env bash\ntouch later-host-checks-ran\n')
+            script.chmod(0o755)
+
+    def run_source(self, body):
+        (self.root / 'scripts/tests/test_future_contract.py').write_text(
+            'import unittest\nfrom pathlib import Path\nclass Fixture(unittest.TestCase):\n'
+            ' def test_future(self): ' + body + '\n')
+        return subprocess.run(['bash', str(self.root / 'scripts/check-all.sh'), '--source'],
+                              cwd=self.root, capture_output=True, text=True)
+
+    def test_source_gate_discovers_a_future_fixture_without_changing_its_list(self):
+        result = self.run_source("Path('future-test-ran').touch()")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertTrue((self.root / 'future-test-ran').is_file())
+        self.assertTrue((self.root / 'later-host-checks-ran').is_file())
+
+    def test_new_failure_stops_the_gate_before_later_checks(self):
+        result = self.run_source("self.fail('new regression')")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('new regression', result.stderr)
+        self.assertFalse((self.root / 'later-host-checks-ran').exists())
+
+
 if __name__ == '__main__':
     unittest.main()

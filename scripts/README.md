@@ -5,6 +5,7 @@
 | 分组 | 入口 / 约束 |
 | --- | --- |
 | 源码与文档 | `check-all.sh --source`：脚本自测、文档、ADR、i18n、Secret |
+| 主机脚本测试 | `python3 scripts/run-host-tests.py`：统一发现 `scripts/tests/test_*.py`；导入/断言失败、空套件、全跳过不算通过。测试实际设备 runner 的解析/Mock 不启动设备；真实设备验证仍显式运行 |
 | 编译与回归 | `check-all.sh --build`：Spotless、Detekt、JVM、库及双 flavor Debug/Release lint、四 App Debug/Release 构建、锁文件 |
 | APK 边界 | `check-all.sh --artifacts`：先构建 APK，再检查 variant 与 CLI Runtime 边界 |
 | 记录索引 | `python3 scripts/generate-completion-index.py`，文档门禁检查生成结果是否过期 |

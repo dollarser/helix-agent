@@ -287,3 +287,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-250 | 本地交付；API36 模型返回/停留 2/2 | Mobile Use 完成任务后返回原对话 | [任务规格](tasks/HXA-250.md) |
 | HXA-251 | 本地有限补验已交付 | 重构余项设备/模型对照与状态核对 | [任务规格](tasks/HXA-251.md) |
 | HXA-252 | 已交付；API36 有界模型通过 | 通用工具发现提示与多任务对照 | [完成记录](../completion-records/HXA-252.md) |
+| HXA-253 | 已交付；151 项 host 通过 | 主机测试统一发现与漏测保护 | [完成记录](../completion-records/HXA-253.md) |
