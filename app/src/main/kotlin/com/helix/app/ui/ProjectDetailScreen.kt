@@ -53,18 +53,26 @@ internal fun ProjectDetailScreen(
             if (project.description.isNotBlank()) Text(project.description, maxLines = 3)
             if (project.archivedAt != null) Text(stringResource(R.string.project_archived))
             SettingsActions {
-                TextButton({ editing = true }, enabled = !actions.busy) {
+                TextButton(
+                    { editing = true },
+                    enabled = !actions.busy,
+                    modifier = Modifier.testTag("project-edit"),
+                ) {
                     Text(stringResource(R.string.project_settings))
                 }
                 TextButton({
                     actions.run { service.archive(project, project.archivedAt == null) }
-                }, enabled = !actions.busy) {
+                }, enabled = !actions.busy, modifier = Modifier.testTag("project-archive")) {
                     val label =
                         if (project.archivedAt == null) R.string.project_archive else R.string.project_restore
                     Text(stringResource(label))
                 }
                 TextButton({ memoryOpen = true }) { Text(stringResource(R.string.memory_title)) }
-                TextButton({ deleting = true }, enabled = !actions.busy) {
+                TextButton(
+                    { deleting = true },
+                    enabled = !actions.busy,
+                    modifier = Modifier.testTag("project-delete"),
+                ) {
                     Text(stringResource(R.string.project_delete))
                 }
             }
@@ -131,12 +139,16 @@ internal fun ProjectDetailScreen(
                 }
             },
             confirmButton = {
-                TextButton({
-                    actions.run {
-                        service.delete(project)
-                        onDeleted()
-                    }
-                }, enabled = !actions.busy) { Text(stringResource(R.string.project_delete)) }
+                TextButton(
+                    {
+                        actions.run {
+                            service.delete(project)
+                            onDeleted()
+                        }
+                    },
+                    enabled = !actions.busy,
+                    modifier = Modifier.testTag("project-delete-confirm"),
+                ) { Text(stringResource(R.string.project_delete)) }
             },
             dismissButton = {
                 TextButton({ deleting = false }, enabled = !actions.busy) {

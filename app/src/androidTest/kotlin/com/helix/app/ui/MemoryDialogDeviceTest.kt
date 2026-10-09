@@ -11,6 +11,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.memory.MemoryService
 import com.helix.core.workspace.memory.MarkdownMemoryStore
 import com.helix.core.workspace.memory.MemoryScope
+import com.helix.core.workspace.memory.ProjectMemoryScopeKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -21,6 +22,26 @@ import java.util.UUID
 /** Compiled fixtures; execution requires explicit owner authorization for this task. */
 class MemoryDialogDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun projectDialogSavesOnlyTheExplicitProjectIdentity() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val root = File(context.cacheDir, "memory-project-ui-${UUID.randomUUID()}")
+        val service = MemoryService(MarkdownMemoryStore(root.toPath()), { false }, { _, _ -> })
+        val first = MemoryScope.Project(ProjectMemoryScopeKey("project-a"))
+        val second = MemoryScope.Project(ProjectMemoryScopeKey("project-b"))
+        try {
+            service.save(second, "user.md", "OTHER_PROJECT", "new")
+            compose.setContent { MaterialTheme { MemoryDialog(service, null, projectId = "project-a") {} } }
+            compose.onNodeWithTag("memory-markdown").performScrollTo().performTextReplacement("PROJECT_A_ONLY")
+            compose.onNodeWithTag("memory-save").performScrollTo().performClick()
+            compose.waitUntil(10_000) { service.list(first).size == 1 }
+            assertEquals("PROJECT_A_ONLY", service.read(first, "user.md").markdown)
+            assertEquals("OTHER_PROJECT", service.read(second, "user.md").markdown)
+            assertTrue(service.list(MemoryScope.Global).isEmpty())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
 
     @Test fun manualSaveReopenAndConfirmedDeleteUseTheMarkdownStore() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

@@ -170,6 +170,7 @@ internal class FilesScreenState(
             entries.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
     val visibleEntries: List<FileEntry> get() = visible.value
+    val hasSelectedSource: Boolean get() = sources.any { it.scopeId == selectedScopeId }
     val currentSource: FileSource get() = sources.first { it.scopeId == selectedScopeId }
     val canMutate: Boolean get() = currentSource.available && currentSource.supportsMutation
 }

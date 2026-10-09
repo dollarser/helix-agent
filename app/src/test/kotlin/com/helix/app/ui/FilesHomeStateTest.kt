@@ -13,6 +13,18 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class FilesHomeStateTest {
+    @Test fun initialProjectDirectoryWaitsForItsSourceWithoutSelectingAnotherScope() {
+        val state = state()
+        val local = state.sources.single()
+        state.openLocation("ws-1", "project")
+        assertFalse(state.hasSelectedSource)
+        assertEquals("ws-1", state.selectedScopeId)
+        state.replaceSources(listOf(local, workspace(1)))
+        assertTrue(state.hasSelectedSource)
+        assertEquals("ws-1", state.currentSource.scopeId)
+        assertEquals("project", state.currentPath)
+    }
+
     @get:Rule val temporary = TemporaryFolder()
 
     private fun state(): FilesScreenState {

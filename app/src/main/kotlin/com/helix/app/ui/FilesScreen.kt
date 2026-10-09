@@ -6,12 +6,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import com.helix.app.FeatureFiles
 import com.helix.app.R
 import com.helix.app.files.ExportTarget
@@ -65,6 +68,7 @@ fun FilesScreen(
             FilesDirectoryEffects(state, actions)
             FilesPreviewEffects(state, actions)
             FilesScopeEffects(state, actions)
+            if (filesSourcePending(state)) return
             Column {
                 if (!state.homeOpen && handoff != null) {
                     FileDirectoryTask(state, handoff)
@@ -84,6 +88,19 @@ fun FilesScreen(
             FilesSafDialog(state, actions) { treePicker.launch(null) }
         }
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun filesSourcePending(state: FilesScreenState): Boolean {
+    if (state.hasSelectedSource) return false
+    Column {
+        Text(state.status ?: stringResource(R.string.files_sources_loading))
+        if (state.status != null) {
+            TextButton({ state.reloadTick++ }) { Text(stringResource(R.string.chat_retry)) }
+        }
+    }
+    return true
 }
 
 @Composable

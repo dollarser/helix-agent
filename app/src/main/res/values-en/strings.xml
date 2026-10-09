@@ -1913,4 +1913,5 @@
     <string name="goal_round_usage">Automatic rounds %1$d / %2$d · Observed: %3$d model calls, %4$d tool calls, %5$d tokens</string>
     <string name="goal_round_limit">Automatic continuation round limit</string>
     <string name="goal_round_exhausted">Automatic continuation rounds exhausted. Increase the allowance and explicitly resume to continue.</string>
+    <string name="files_sources_loading">Loading directory information…</string>
 </resources>
