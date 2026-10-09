@@ -2,6 +2,7 @@
 
 文档状态：Baseline 1.3
 基线日期：2026-08-31
+知识补充：2026-10-10（UiAutomation、无障碍服务与 Shizuku；不新增产品范围）
 适用范围：Google Play、国内 Android 应用商店与官网直接分发；按渠道真实政策保留最大能力
 
 ## 1. 目标和边界
@@ -41,7 +42,7 @@ data class CapabilityGrant(
 )
 ```
 
-`MOBILE_USE` 表示宿主 Mobile Use 插件已启用并发布工具，不等于无障碍、Root 或 Shizuku 授权。应用查询、精确点击、屏幕观察、截图和手势使用此入口能力，仍由原会话范围和具体后端的实时检查决定是否执行。语义节点、应用启动和系统动作保留 `ACCESSIBILITY_AUTOMATION` 系统能力检查；consumer 不提供 Mobile Use，解析为 unavailable。
+`MOBILE_USE` 表示宿主 Mobile Use 插件已启用并发布工具，不等于无障碍、Root 或 Shizuku 授权。手机工具使用此入口能力，仍由原会话范围和具体后端的实时检查决定是否执行。语义节点、应用启动和系统动作可使用已就绪的特权后端，不统一要求 `ACCESSIBILITY_AUTOMATION`；consumer 不提供 Mobile Use，解析为 unavailable。当前条款见 [ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md)，底层机制区别见下文 5.1.1。
 
 `CapabilityGrant` 只能由平台适配层根据系统真实状态产生。模型不能构造、修改或缓存它。Tool 执行时必须再次检查；不能因为数据库里曾记录 `GRANTED` 就跳过系统状态检查。
 
@@ -177,6 +178,48 @@ Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatch
 
 勾选系统设置/系统界面同时允许已有系统全局操作，界面明确提示，但不暗中补入其他系统包。确认选择只修改当前表单，点击保存才更新该 Conversation 的持久集合；取消、搜索、刷新不改变已存配置。大集合仍完整保存在 Scope/Codec 中，超过审计字段长度的引用以整个规范化 Scope 的 SHA-256 表示，不以长度上限限制可选应用数。
 
+### 5.1.1 Android 无障碍底层与应用服务的区别
+
+Android 的无障碍子系统负责窗口、界面节点和事件；`AccessibilityService` 是应用接入它的一种客户端，`UiAutomation` 是另一种受控自动化客户端。用户关闭 Helix 的无障碍服务，只停止该应用服务，不关闭 Android 整套无障碍子系统。因此 UiAutomation 使用无障碍底层读取节点，不等于依赖 Helix 的服务已开启。[Android 无障碍服务生命周期](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService)、[UiAutomation 接口](https://developer.android.com/reference/android/app/UiAutomation)。
+
+```mermaid
+flowchart LR
+    A[用户开启 Helix 无障碍服务] --> B[系统绑定 AccessibilityService]
+    C[Shizuku 已启动且 Helix 已授权] --> D[特权进程建立 UiAutomation 连接]
+    B --> E[Android 无障碍子系统]
+    D --> E
+    E --> F[窗口、节点和界面事件]
+```
+
+| 对比 | Helix AccessibilityService | UiAutomation |
+| --- | --- | --- |
+| 入口与生命周期 | 用户在设置开启，系统绑定并管理服务 | 通常由测试 Instrumentation 获取；Helix 的 Shizuku 后端在特权进程建立连接并释放 |
+| 节点与窗口 | 按服务声明、配置及系统限制读取 | 默认接入无障碍子系统，有独立连接和配置 |
+| 操作与截图 | 节点动作、声明能力后的手势；截图受 API/声明/窗口限制 | 节点动作、输入事件注入、截图等自动化接口；实际能力受执行身份/API/系统限制 |
+| 额外权限 | 开启服务本身不授予 shell 或 Root | 提供 shell/测试权限管理接口，普通应用不能靠实例化它取得这些权限；Shizuku shell 身份不等于 UID 0 |
+
+Helix 当前 `ShizukuHierarchy` 在 shell/Root UID 的特权进程中连接 UiAutomation，获取自己的 serviceInfo 并配置窗口/节点读取；没有借用 `HelixAccessibilityService`。Shizuku 路径需要 Shizuku 已启动、Helix 已授权、特权服务实际连接及操作能力可用，不需要用户开启 Helix 的无障碍服务。此机制也用于当前共享的特权观察实现，不意味着每个 Root/OEM 已验收。代码入口为 [ShizukuHierarchy.kt](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/backend/ShizukuHierarchy.kt) 与 [PrivilegedDeviceService.kt](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/backend/PrivilegedDeviceService.kt)；服务不可用、锁屏、窗口保护和用户范围仍真实拒绝，不因特权接入绕过 Dispatcher/Policy/Approval。
+
+### 5.1.2 抑制、不抑制与不使用无障碍
+
+三个设置作用不同：
+
+| 设置 | 含义 | 不代表什么 |
+| --- | --- | --- |
+| UiAutomation 默认连接 | 连接期间抑制普通无障碍服务运行，以隔离自动化环境 | 不等于修改用户的服务启用设置，也不等于关闭底层子系统 |
+| `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`（API24+） | 已有服务可继续运行，新服务也可启动；UiAutomation 自己仍可使用无障碍底层 | 不自动开启未启用的服务、不授予权限、不保证多个 UiAutomation 连接并存 |
+| `FLAG_DONT_USE_ACCESSIBILITY`（API31+） | 不让该 UiAutomation 接入无障碍子系统，依赖它的节点/窗口接口不可用 | 不是既能读取节点又能消除连接冲突的替代开关 |
+
+定义见 [Android UiAutomation flags](https://developer.android.com/reference/android/app/UiAutomation#FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)。Helix 特权观察连接使用“不抑制”标志；普通无障碍服务原本没开启时，它不会自动开启该服务。生产应用的用户授权与测试框架接入权限必须分别核查。
+
+### 5.1.3 自动化连接占用与测试方式
+
+普通无障碍服务与 UiAutomation 可以在“不抑制”模式下共存，但两个使用无障碍子系统的 UiAutomation 客户端另有注册占用限制。[AOSP UiAutomationManager](https://github.com/aosp-mirror/platform_frameworks_base/blob/master/services/accessibility/java/com/android/server/accessibility/UiAutomationManager.java) 的注册路径在已有连接时拒绝再次注册；这是调研当日源码，不保证所有 OEM 实现相同。测试端即使只读取 rootInActiveWindow，也可能建立连接，争抢 Helix Shizuku 后端的观察资源。“不抑制服务”不能解决这种冲突。
+
+测试 Mobile Use 时先检查测试框架是否创建 UiAutomation，不同时让它和生产后端拥有观察连接。Helix 自身对话页可用现有 Compose 语义、原会话身份和窗口焦点核验；跨应用前台可用不建立 UiAutomation 的只读宿主核查。确实需要测试 UiAutomation 时，应明确其使用时段和释放边界；测试不能默默关闭生产服务或改系统授权来制造绿色结果。无障碍后端测试需要读取屏幕时采用“不抑制”模式，仍核查其他 UiAutomation 占用。
+
+[HXA-250 实测记录](../evidence/development/mobile-use-return-conversation-2026-10-09.md)中，普通无障碍服务当时未开启，前两轮出现 UNSUPPORTED_UI/PRIVILEGED_DEVICE_FAILED；移除测试端 UiAutomation 并修正界面夹具后，同一 Shizuku 路径通过返回/停留 2/2。这支持测试连接资源冲突的解释；未采集系统注册拒绝原始异常，不能把所有失败归因于服务抑制，也不能从错误码单独断定连接冲突。该记录只证明当次 API36/模型旅程，不代表手机/OEM 或全部后端通过。
+
 ### 5.2 工具与操作类型
 
 | Tool | 操作类型 | 实际能力 |
@@ -195,7 +238,7 @@ Mobile Use 是 Advanced/developer 的 host-native 插件，复用现有 Dispatch
 
 两组共 18 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。`ui.ime_enter` 仅在 API 30+ 且当前可编辑节点实际声明 IME Enter action 时可用；枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会暂停物理操作而不删除 Conversation 授权，应由模型按任务意图选择。
 
-`ui.click_match` v5 默认 `backend=auto`：对于精确 `packageName` + `viewId` + `text` 且无额外筛选参数的点击，按当前已授权且连接的 Root → Shizuku → Accessibility 选择一次。显式 `root`/`shizuku`/`accessibility` 固定路径；派发失败或 UNKNOWN 不跨后端重放。其他筛选、节点 token、截图、手势和输入仍使用已实现的 Accessibility 能力。`ui.device` v3 返回 `rootState`、`shizukuState` 和 `clickMatchBackend`，后者不代表所有操作的后端。
+手机操作按各工具/参数实际支持能力选择已就绪的 Root → Shizuku → Accessibility，不只限于早期精确点击。语义节点 token 绑定原观察后端，执行不能把旧 token 移到另一后端；派发失败或 UNKNOWN 不跨后端重放。工具名称/schema 以当前发布 descriptor 为准，`ui.device` 返回实际后端状态及能力，不能把一个后端就绪解释为所有操作均支持。应用启动与系统动作也采用已实现的独立特权路径，合同见 ADR-PERMISSIONS-001 的 2026-10-06 决定。
 
 Mobile Use 的 Root 连接由设置中的明确授权按钮创建，允许切换目标应用，并可主动断开；状态查询和模型调用不请求 Root、不冷绑定。复用 libsu 非 daemon 服务与同一有界特权点击协议，原 `root.*` 的后台失权规则不变。Root manager 撤销未来授权未必杀死已运行的 UID 0 服务；逐调用仍检查原会话范围、停止、锁屏和取消，不能将系统 Root 授权视为业务授权。验证与边界见 [Root 优先级证据](../evidence/development/mobile-use-root-priority-2026-10-04.md)。
 
@@ -303,7 +346,7 @@ P2 高权限：ui.*, root.*
 | --- | --- | --- |
 | Tasker | 实现官方 Android automation plugin 的 action/event/state；允许 Tasker 调用 Helix 动作，或 Helix 触发用户命名 Task | 首阶段不导入完整 profile；插件输入仍经 schema/Policy/Approval，Tasker 不是授权主体 |
 | Auto.js/AutoJs6 | 独立 Runtime 应用/UID 提供特定版本的 JavaScript/Android API、Accessibility、屏幕捕获和可选 Root 适配，经 signature-protected IPC 返回有界结果 | 任意来源脚本可导入和诊断，但执行兼容按版本/API/权限/模块矩阵声明；不在主进程或 QuickJS 暴露 Java bridge，不复制许可证不兼容源码 |
-| Root / Shizuku 点击 | Advanced Mobile Use 设置中显式授权；精确 `ui.click_match` 自动按 Root → Shizuku → Accessibility 选择，也可显式指定 | 原会话范围、无障碍租约、默认显示与执行限制仍有效；封闭点击协议，不开放 shell；断连/结果不确定不重放 |
+| Root / Shizuku（已实现路径对照） | Advanced 宿主显式授权，Mobile Use 按各操作实际就绪能力选择；不统一依赖 Helix 无障碍服务 | 原会话范围、显示/窗口、调用取消和执行限制仍有效；封闭特权协议，不开放模型 shell 参数；断连/结果不确定不重放 |
 | 无线 ADB | Android 11+ 由用户启用无线调试并通过配对码/二维码建立连接；本机 client 需要单独评估 native 依赖、密钥和前台生命周期 | 不自动打开开发者选项、不静默配对；按 Android 版本/OEM 实测，用户可撤销，配对不等于全局 Full Access |
 
 “兼容任意 Tasker/Auto.js 脚本”只能作为长期方向。可验收合同必须拆为导入、解析、API、权限、执行和行为六层；某脚本可导入不代表它能在当前 Runtime、ROM 与目标 App 上正确执行。授权边界遵循 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)。
