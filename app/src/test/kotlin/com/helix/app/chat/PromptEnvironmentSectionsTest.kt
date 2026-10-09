@@ -121,6 +121,23 @@ class PromptEnvironmentSectionsTest {
     }
 
     @Test
+    fun packagedDiscoveryGuidanceIsGenericAndPreservesAuthorityInEveryMode() {
+        for (mode in AgentMode.values()) {
+            val registry = PromptRegistry()
+            PromptEnvironmentSections.register(registry, directory, mode, true)
+            val prompt = registry.assemble()
+            assertTrue(prompt.contains("combine concise keywords for related capabilities"))
+            assertTrue(prompt.contains("REPLACES the bounded session discovery window"))
+            assertTrue(prompt.contains("Do not issue multiple tools.search calls in the same response"))
+            assertTrue(prompt.contains("schemas exposed in the next model request"))
+            assertTrue(prompt.contains("does not enable a disabled tool or grant execution permission"))
+            assertTrue(prompt.contains("Uncertain side effects require reconciliation"))
+            assertTrue(!prompt.contains("linux job time await"))
+            assertTrue(!prompt.contains("limit=8"))
+        }
+    }
+
+    @Test
     fun aBlankTemplateIsDroppedForThatStep() {
         val blankPlan =
             PromptTemplateSource { name ->

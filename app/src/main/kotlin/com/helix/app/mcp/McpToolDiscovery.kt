@@ -167,10 +167,12 @@ internal class McpToolDiscovery(
                 description =
                     "Search user-enabled tools by name or description: files, browser, Android UI, Linux, Skills, " +
                         "connectors, MCP and A2A. Search when a needed tool is absent; " +
-                        "use concise keywords or its exact name. Exact-name queries return only that tool. " +
+                        "combine concise keywords for related capabilities, or use its exact name for one tool. " +
+                        "Exact-name queries return only that tool. " +
                         "Use returned tools from the next request's schemas; " +
                         "do not guess arguments or repeat a successful search. " +
-                        "Matches replace the bounded session discovery window; " +
+                        "Matches REPLACE the bounded session discovery window, not accumulate. " +
+                        "Do not issue multiple searches in one response; later results can discard earlier ones. " +
                         "a miss preserves still-available tools. " +
                         "Discovery grants no execution permission.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,

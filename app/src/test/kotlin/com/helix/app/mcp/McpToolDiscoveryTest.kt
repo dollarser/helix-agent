@@ -211,6 +211,20 @@ class McpToolDiscoveryTest {
     }
 
     @Test
+    fun combinedCapabilitiesStayExposedTogetherButSeparateSearchesReplaceTheWindow() {
+        val start = search.copy(name = ToolName("code.job.start"), description = "Start a background job")
+        val await = search.copy(name = ToolName("jobs.await"), description = "Await a background job")
+        registerFixture(start)
+        registerFixture(await)
+        assertEquals(listOf(start), discovery.search("session", "code.job.start", 8))
+        assertEquals(listOf(await), discovery.search("session", "jobs.await", 8))
+        assertEquals(setOf(search, await), discovery.visible("session", registry.all()).toSet())
+        assertEquals(setOf(start, await), discovery.search("session", "job start await", 8).toSet())
+        assertEquals(setOf(search, start, await), discovery.visible("session", registry.all()).toSet())
+        assertEquals(listOf(search), discovery.visible("other-session", registry.all()))
+    }
+
+    @Test
     fun newSearchReplacesWindowAndNeverGrowsBeyondSixteen() {
         catalog()
         assertEquals(16, discovery.search("session", "catalog", 16).size)

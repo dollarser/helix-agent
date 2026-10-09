@@ -212,3 +212,4 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-229 | [HXA-229：Model-authored Agent Activity Presentation](HXA-229.md) |
 | HXA-230 | [HXA-230：Markdown-native Hierarchical Agent Memory](HXA-230.md) |
 | HXA-231 | [HXA-231：问题收口与原子工具绑定](HXA-231.md) |
+| HXA-252 | [HXA-252：通用工具发现提示与多任务对照](HXA-252.md) |
