@@ -73,7 +73,7 @@ class ProjectService(
         storage.projects.assign(sessionId, projectId)
     }
 
-    suspend fun sessions() = withContext(Dispatchers.IO) { storage.sessions.list() }
+    internal val sessions get() = projectSessionRows(storage.sessions.observeSummaries())
 
     internal suspend fun records(members: Set<String>) =
         withContext(Dispatchers.IO) {

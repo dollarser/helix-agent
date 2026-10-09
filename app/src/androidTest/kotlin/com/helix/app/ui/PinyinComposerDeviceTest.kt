@@ -113,8 +113,24 @@ class PinyinComposerDeviceTest {
             (0 until node.childCount).flatMap { index -> node.getChild(index)?.let(::keyboardLabels).orEmpty() }
 
     private fun commitCandidate() {
+        // Predictions may rank a longer phrase first; committing its prefix is not the same Chinese draft.
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        try {
+            compose.waitUntil(2_000) { findKeyboardNode(automation, "你好") != null }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            if (findKeyboardNode(automation, "其他候选键") == null) throw failure
+            clickKeyboard("其他候选键")
+        }
         clickKeyboard("你好")
     }
+
+    private fun findKeyboardNode(
+        automation: android.app.UiAutomation,
+        label: String,
+    ): AccessibilityNodeInfo? =
+        automation.windows
+            .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+            .firstNotNullOfOrNull { window -> window.root?.let { findCandidate(it, label) } }
 
     private fun clickKeyboard(label: String) {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
@@ -123,13 +139,18 @@ class PinyinComposerDeviceTest {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             }
         var candidate: AccessibilityNodeInfo? = null
+        var lastBounds = Rect()
+        var stableSince = SystemClock.uptimeMillis()
         try {
             compose.waitUntil(10_000) {
-                candidate =
-                    automation.windows
-                        .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
-                        .firstNotNullOfOrNull { window -> window.root?.let { findCandidate(it, label) } }
-                candidate != null
+                candidate = findKeyboardNode(automation, label)
+                val currentBounds = Rect()
+                candidate?.getBoundsInScreen(currentBounds)
+                if (currentBounds != lastBounds) {
+                    lastBounds = currentBounds
+                    stableSince = SystemClock.uptimeMillis()
+                }
+                candidate != null && !currentBounds.isEmpty && SystemClock.uptimeMillis() - stableSince >= 250
             }
         } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
             capturePreedit("pinyin-failure.png")
@@ -138,6 +159,16 @@ class PinyinComposerDeviceTest {
         if (label == "你好") capturePreedit("pinyin-preedit.png")
         val bounds = Rect()
         requireNotNull(candidate).getBoundsInScreen(bounds)
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply {
+                putString(
+                    "stream",
+                    "PINYIN_TOUCH label=$label text=${candidate?.text} " +
+                        "description=${candidate?.contentDescription} bounds=$bounds\n",
+                )
+            },
+        )
         check(bounds.width() > 0 && bounds.height() > 0)
         val downTime = SystemClock.uptimeMillis()
         for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
@@ -158,6 +189,8 @@ class PinyinComposerDeviceTest {
                 event.recycle()
             }
         }
+        // Touch injection acknowledgement precedes the IME's asynchronous preedit/candidate update.
+        SystemClock.sleep(150)
     }
 
     private fun findCandidate(
@@ -166,8 +199,10 @@ class PinyinComposerDeviceTest {
     ): AccessibilityNodeInfo? {
         val text = node.text?.toString().orEmpty()
         val description = node.contentDescription?.toString().orEmpty()
-        val candidateDescription = label == "你好" && description.startsWith(label)
-        if (text.equals(label, true) || description.equals(label, true) || candidateDescription) {
+        val candidateDescription =
+            label == "你好" && description.substringBefore(',').substringBefore('，').trim() == label
+        // A predicted Latin word (such as "I") is not the keyboard's lowercase letter key.
+        if (text == label || description == label || candidateDescription) {
             return node
         }
         return (0 until node.childCount).firstNotNullOfOrNull { index ->

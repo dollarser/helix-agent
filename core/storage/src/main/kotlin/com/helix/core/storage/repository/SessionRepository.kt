@@ -1,7 +1,9 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.storage.SessionSummary
 import com.helix.core.storage.dao.SessionDao
 import com.helix.core.storage.entity.SessionEntity
+import kotlinx.coroutines.flow.Flow
 
 @Suppress("TooManyFunctions") // One session aggregate, including bounded privacy inventory; no second state owner.
 class SessionRepository(
@@ -47,6 +49,8 @@ class SessionRepository(
     }
 
     fun list(): List<SessionEntity> = dao.list()
+
+    fun observeSummaries(): Flow<List<SessionSummary>> = dao.observeSummaries()
 
     fun find(id: String): SessionEntity? = dao.byId(id)
 

@@ -48,6 +48,8 @@
 
 ## Completed
 
+2026-10-10：[HXA-254](../completion-records/HXA-254.md)项目会话页面消费窄读模型，Room 驱动外部重命名、归档/恢复及新候选实时刷新；读取失败可重试，切换/归档清理加入模式，原归属与活动 Turn 保护保持。默认构建主机及两渠道 Debug lint/制品通过，API36 Consumer/Developer各8项（含真实拼音）通过；[本轮证据](../evidence/development/project-session-readmodel-2026-10-10.md)保留两次输入夹具失败及端口启动拒绝。日常APK/数据库未动，未调用模型或关闭真机卡顿/黑屏边界。
+
 2026-10-10：[HXA-253](../completion-records/HXA-253.md)统一 host fixture discovery，补齐五套漏测入口并拒绝空/全跳过/导入/断言失败；151 项回归及 source gates 通过。没有删除旧测试或在 CI 启动设备。
 
 2026-10-10：[HXA-252 通用工具发现提示](../completion-records/HXA-252.md)已交付，主机门禁通过；API36/既有 Qwen 有效严格对照候选 6/6、基线 5/6，手动 Job 的窗口误用减少，未扩大工具/授权策略。原归档夹具错误与补测、快照恢复失败及所有者随后授权数据库重建均保留在[本轮证据](../evidence/development/discovery-guidance-2026-10-10.md)。日常同哈希原 APK、重建库、Qwen、无在途任务及实际拼音提交核查通过；没有安装候选日常 APK，不宣称历史数据恢复或普遍模型收益。
@@ -74,6 +76,7 @@
 
 ## In progress
 
+
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 
 | 开放工作 | 已有基础 | 仍需处理的范围 |
@@ -88,6 +91,8 @@
 | [HXA-126](tasks/HXA-126.md) | issuer/resource、准备取消、CIMD/显式 DCR、持久归属及配置修复已通过主机集成；[新增 24 项回归](../evidence/development/hxa126-client-registration-2026-10-01.md) | 新 UI 设备验证、两家真实服务、自有域名/App Link/签名仍需输入 |
 
 ## Next task
+
+2026-10-10 架构审查后续按小切片推进，依据[系统/测试审查](../research/topics/architecture-and-test-maintenance-audit-2026-10-10.md)。HXA-253 已解决主机 fixture 漏测，HXA-254 收敛项目会话展示。下一步优先将权限页面的仓储访问放回应用服务，并逐类迁移 TurnCoordinator 的 fixture-only 桥，保留原取消、UNKNOWN、权限及恢复断言；随后迁移 ChatService 的输入/附件或界面投影完整 owner，不按行数拆文件或建立第二套队列。历史脚本只按路径级引用与唯一证据核对清理；大列表/长会话性能及真机卡顿黑屏另需可复现测量，不能由结构变化推导改善。
 
 上方 main 本地整合及授权回归已收敛；v0.0.5 发布仍遵循精确提交 CI 成功后生成制品的门禁。下表保留后续开发路线；本次只关闭实际执行并有证据的验证项，不自动宣称完成全部 HXA/OEM/真实账号验收。
 

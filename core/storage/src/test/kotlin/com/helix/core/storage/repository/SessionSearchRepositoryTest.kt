@@ -298,6 +298,17 @@ class SessionSearchRepositoryTest {
 
         override fun list(): List<SessionEntity> = rows.values.sortedByDescending { it.createdAt }
 
+        // Search tests use a fixed list snapshot; real invalidation is exercised by the project device suite.
+        override fun observeSummaries() =
+            kotlinx.coroutines.flow.flow {
+                emit(
+                    list().map {
+                        com.helix.core.storage
+                            .SessionSummary(it.id, it.title, it.archivedAt != null)
+                    },
+                )
+            }
+
         override fun archive(
             id: String,
             archivedAt: Long,

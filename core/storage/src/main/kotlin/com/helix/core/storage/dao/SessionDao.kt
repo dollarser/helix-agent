@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.helix.core.storage.SessionSummary
 import com.helix.core.storage.entity.SessionEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 @Suppress("TooManyFunctions") // Keep queries for the same Room table together; pagination must include archived rows.
@@ -23,6 +25,9 @@ interface SessionDao {
 
     @Query("SELECT * FROM sessions ORDER BY createdAt DESC")
     fun list(): List<SessionEntity>
+
+    @Query("SELECT id, title, archivedAt IS NOT NULL AS archived FROM sessions ORDER BY createdAt DESC")
+    fun observeSummaries(): Flow<List<SessionSummary>>
 
     /** Affected row count is 0 when the session is missing or already archived. */
     @Query("UPDATE sessions SET archivedAt = :archivedAt WHERE id = :id AND archivedAt IS NULL")

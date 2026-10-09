@@ -1722,6 +1722,9 @@
     <string name="project_add_session">加入已有会话</string>
     <string name="project_membership_hint">更改项目归属会影响后续使用的项目指令和记忆，但不搬动文件、不改变会话工作目录或授权。</string>
     <string name="project_sessions_empty">没有可显示的会话</string>
+    <string name="project_sessions_loading">正在加载会话…</string>
+    <string name="project_sessions_failed">会话列表加载失败。请重试。</string>
+    <string name="project_sessions_retry">重新加载</string>
     <string name="project_join">加入此项目</string>
     <string name="project_open_session">打开会话</string>
     <string name="project_remove_session">移出项目</string>

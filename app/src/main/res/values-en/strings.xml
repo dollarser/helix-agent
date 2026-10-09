@@ -1725,6 +1725,9 @@
     <string name="project_add_session">Add existing chat</string>
     <string name="project_membership_hint">Changing project membership changes future project guidance and memory. It does not move files, change the working folder or grant access.</string>
     <string name="project_sessions_empty">No chats to show</string>
+    <string name="project_sessions_loading">Loading chats…</string>
+    <string name="project_sessions_failed">Unable to load chats. Try again.</string>
+    <string name="project_sessions_retry">Reload</string>
     <string name="project_join">Join this project</string>
     <string name="project_open_session">Open chat</string>
     <string name="project_remove_session">Remove from project</string>

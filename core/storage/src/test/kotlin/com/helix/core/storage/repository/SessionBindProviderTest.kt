@@ -140,6 +140,17 @@ class SessionBindProviderTest {
 
         override fun list(): List<SessionEntity> = rows.values.sortedByDescending { it.createdAt }
 
+        // Binding tests use a fixed list snapshot; real invalidation is exercised by the project device suite.
+        override fun observeSummaries() =
+            kotlinx.coroutines.flow.flow {
+                emit(
+                    list().map {
+                        com.helix.core.storage
+                            .SessionSummary(it.id, it.title, it.archivedAt != null)
+                    },
+                )
+            }
+
         override fun deletePermanently(id: String): Int = if (rows.remove(id) != null) 1 else 0
 
         override fun archive(

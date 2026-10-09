@@ -16,11 +16,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.projects.ProjectService
-import com.helix.core.storage.entity.SessionEntity
+import com.helix.app.projects.ProjectSessionRow
+import com.helix.app.projects.ProjectSessionState
 
 @Composable
 @Suppress("FunctionName", "LongParameterList")
@@ -32,48 +35,85 @@ internal fun ProjectSessions(
     onNew: () -> Unit,
     onOpen: (String) -> Unit,
 ) {
-    var rows by remember { mutableStateOf<List<SessionEntity>>(emptyList()) }
-    var adding by remember { mutableStateOf(false) }
+    var reload by remember(service, projectId) { mutableStateOf(false) }
+    val snapshots = remember(service, reload) { service.sessions }
+    val state by snapshots.collectAsStateWithLifecycle(ProjectSessionState.Loading)
+    val rows = (state as? ProjectSessionState.Ready)?.rows.orEmpty()
+    var adding by remember(service, projectId) { mutableStateOf(false) }
     val actions = rememberProjectActions()
-    LaunchedEffect(members, adding) { actions.run { rows = service.sessions() } }
+    LaunchedEffect(archived) { if (archived) adding = false }
+    val joining = adding && !archived
     Column {
         if (!archived) {
             SettingsActions {
                 TextButton(onNew) { Text(stringResource(R.string.project_new_session)) }
                 TextButton({
                     adding = !adding
-                }) { Text(stringResource(if (adding) R.string.common_cancel else R.string.project_add_session)) }
+                }, modifier = Modifier.testTag("project-add-session")) {
+                    Text(stringResource(if (adding) R.string.common_cancel else R.string.project_add_session))
+                }
             }
         }
         actions.error?.let { Text(stringResource(it)) }
+        if (state == ProjectSessionState.Failed) {
+            TextButton({ reload = !reload }, modifier = Modifier.testTag("project-sessions-retry")) {
+                Text(stringResource(R.string.project_sessions_retry))
+            }
+        }
         if (adding) Text(stringResource(R.string.project_membership_hint))
-        val visible = rows.filter { if (adding) it.id !in members && it.archivedAt == null else it.id in members }
+        val visible = rows.filter { if (joining) it.id !in members && !it.archived else it.id in members }
         IndicatedLazyColumn(contentPadding = PaddingValues(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (visible.isEmpty()) item { Text(stringResource(R.string.project_sessions_empty)) }
+            if (visible.isEmpty()) {
+                item {
+                    Text(stringResource(projectSessionsEmptyMessage(state)))
+                }
+            }
             items(visible, key = { it.id }) { session ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(session.title)
-                        if (session.archivedAt != null) Text(stringResource(R.string.project_archived))
-                        SettingsActions {
-                            if (adding) {
-                                TextButton({
-                                    actions.run {
-                                        service.assign(session.id, projectId)
-                                        adding = false
-                                    }
-                                }, enabled = !actions.busy) { Text(stringResource(R.string.project_join)) }
-                            } else {
-                                TextButton(
-                                    { onOpen(session.id) },
-                                ) { Text(stringResource(R.string.project_open_session)) }
-                                TextButton({
-                                    actions.run {
-                                        service.assign(session.id, null)
-                                    }
-                                }, enabled = !actions.busy) { Text(stringResource(R.string.project_remove_session)) }
-                            }
-                        }
+                ProjectSessionCard(session, joining, actions.busy, onOpen, onJoin = { id ->
+                    actions.run {
+                        service.assign(id, projectId)
+                        adding = false
+                    }
+                }, onRemove = { id -> actions.run { service.assign(id, null) } })
+            }
+        }
+    }
+}
+
+private fun projectSessionsEmptyMessage(state: ProjectSessionState): Int =
+    when (state) {
+        ProjectSessionState.Loading -> R.string.project_sessions_loading
+        ProjectSessionState.Failed -> R.string.project_sessions_failed
+        is ProjectSessionState.Ready -> R.string.project_sessions_empty
+    }
+
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+private fun ProjectSessionCard(
+    row: ProjectSessionRow,
+    joining: Boolean,
+    busy: Boolean,
+    onOpen: (String) -> Unit,
+    onJoin: (String) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text(row.title)
+            if (row.archived) Text(stringResource(R.string.project_archived))
+            SettingsActions {
+                if (joining) {
+                    TextButton(
+                        { onJoin(row.id) },
+                        enabled = !busy,
+                        modifier = Modifier.testTag("project-join-${row.id}"),
+                    ) {
+                        Text(stringResource(R.string.project_join))
+                    }
+                } else {
+                    TextButton({ onOpen(row.id) }) { Text(stringResource(R.string.project_open_session)) }
+                    TextButton({ onRemove(row.id) }, enabled = !busy) {
+                        Text(stringResource(R.string.project_remove_session))
                     }
                 }
             }
