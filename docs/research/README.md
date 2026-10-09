@@ -18,6 +18,8 @@ Research 不是实现授权，也不是 current backlog。使用顺序：
 | 专题研究 | [topics/](topics/README.md) | 工具曝光/发现、插件/Mobile Use 与异步 Job 的专门比较，保留研究日期与证据边界 |
 | 历史研究 | [research-history/](../evidence/research-history/README.md) | 追查已被实现/方案承接的原始结论，不恢复其旧排期 |
 
+全系统结构与留存评估见 [2026-10-10 架构及测试维护审查](topics/architecture-and-test-maintenance-audit-2026-10-10.md)：覆盖模块边界、应用层职责、测试入口、历史脚本/证据分类及竞品参考；建议不是新增实施授权。
+
 ## 已被当前文档承接的主题
 
 | 研究主题 | 当前入口 |
@@ -25,7 +27,7 @@ Research 不是实现授权，也不是 current backlog。使用顺序：
 | Core 生命周期、successor Turn | [Agent ADR](../adr/agent/001-turn-coordination.md)、[HXA-220](../completion-records/HXA-220.md) / [HXA-223](../completion-records/HXA-223.md) |
 | Conversation-first、活动展示、Memory | [HXA-228](../completion-records/HXA-228.md)、[HXA-229](../completion-records/HXA-229.md)、[Memory 产品边界](../product/memory.md) |
 | Workspace 与设备内模型 | [Workspace](../product/workspace.md)、[本地模型](../product/local-models.md)；不再以旧研究判断它们尚未立项 |
-| 自主图片读取与工具视觉回填 | [使用说明](../product/image-reading.md)、[HXA-225](../completion-records/HXA-225.md)；手机整屏截图仍是独立候选 |
+| 自主图片读取与工具视觉回填 | [使用说明](../product/image-reading.md)、[HXA-225](../completion-records/HXA-225.md)；Mobile Use 原生截图及会话授权由 [HXA-243](../development/tasks/HXA-243.md)、[HXA-244](../development/tasks/HXA-244.md) 承接，实际验证范围看当前 status |
 | 工具数量、MCP/Skill 大目录与按需发现 | [工具综合研究 §2](modules/04-tools-browser-and-extensions.md#2-tool-exposure)、[2026-09-29 专题](topics/tool-exposure-and-discovery-2026-09-29.md)；区分当前源码、历史评测和待接受策略 |
 | 自主恢复与 QuickJS 访问 | [HXA-232](../development/tasks/HXA-232.md)、[QuickJS ADR](../adr/runtime/003-quickjs.md)；[旧人工介入审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与[访问备选](../evidence/research-history/quickjs-access-and-autonomous-recovery-2026-09-29.md)已归历史，不恢复待选状态 |
 | 后续能力架构与实施顺序 | [Harness 方案](../architecture/harness-refactor-plan.md)、[开发原则](../development/feature-refactor-strategy.md)、[候选索引](../development/candidate-decisions.md) |
