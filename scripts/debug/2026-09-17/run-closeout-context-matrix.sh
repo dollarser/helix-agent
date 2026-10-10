@@ -13,7 +13,7 @@ for quadrant in 'consumer 29 5566 Helix_API_29' 'developer 36 5564 Helix_API_36_
     read -r flavor api port avd <<< "$quadrant"
     package=com.helix.agent
     if [[ "$flavor" == developer ]]; then package+=.developer; fi
-    python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+    python3 scripts/run-owned-emulator.py --raw-results \
         --avd "$avd" --port "$port" \
         --apk "app/build/outputs/apk/$flavor/debug/app-$flavor-debug.apk" \
         --test-apk "app/build/outputs/apk/androidTest/$flavor/debug/app-$flavor-debug-androidTest.apk" \

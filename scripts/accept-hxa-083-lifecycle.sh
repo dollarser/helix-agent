@@ -69,7 +69,7 @@ run_phase() {
   if echo "$out" | grep -qE "Skipped: [1-9]"; then
     echo "PHASE $method SKIPPED — host pre-state was not in place; see the test's assume message"; exit 1
   fi
-  echo "$out" | grep -q "OK (1 test)" || { echo "PHASE $method produced no clean result"; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
   echo "phase $method PASSED"
 }
 

@@ -19,7 +19,7 @@ for connector_phase in seedRealConnectionAndDispatch recoverRealConnectionInNewP
   "$connector_adb" -s "$connector_serial" shell am instrument -w -r \
     -e connectorExternal true -e class "com.helix.app.connector.ConnectorExternalDeviceTest#$connector_phase" \
     com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$connector_log"
-  rg '^OK \(1 test\)' "$connector_log"
+python3 "$connector_root/scripts/instrumentation_junit.py" "$connector_log"
   if rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -[234]' "$connector_log"; then
     exit 1
   fi

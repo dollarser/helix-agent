@@ -142,7 +142,7 @@ try:
         raise RuntimeError("Device rebooted")
     if device("shell", "pidof", package) != new_pid:
         raise RuntimeError("Recovered main process did not remain alive")
-    result = device("shell", "am", "instrument", "-w", "-e", "class",
+    result = device("shell", "am", "instrument", "-w", "-r", "-e", "class",
                     "com.helix.app.proot.DetachedJobHostJourneyDeviceTest", "-e", "hostJobPhase", "verify",
                     package + ".test/com.helix.app.HelixAndroidJUnitRunner")
     (output / "host-job-verify.txt").write_text(result)

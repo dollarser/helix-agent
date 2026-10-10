@@ -58,7 +58,6 @@ class SourceGateTest(unittest.TestCase):
         (scripts / 'tests').mkdir(parents=True)
         for name in ('check-all.sh', 'run-host-tests.py'):
             shutil.copy2(ROOT / 'scripts' / name, scripts / name)
-        (scripts / 'test-review-gates.py').write_text('pass\n')
         for name in ('check-docs.sh', 'verify-adr.sh', 'check-i18n.sh', 'check-secrets.sh'):
             script = scripts / name
             script.write_text('#!/usr/bin/env bash\ntouch later-host-checks-ran\n')

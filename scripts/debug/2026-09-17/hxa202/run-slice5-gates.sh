@@ -16,7 +16,7 @@ L2=build/slice5-p3.log
 ./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest >"$L2" 2>&1; F1=$?
 ./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest >>"$L2" 2>&1; F2=$?
 ./gradlew :app:lintConsumerDebug :app:lintDeveloperDebug >>"$L2" 2>&1; F3=$?
-python3 scripts/debug/2026-09-09/run-owned-emulator.py --help >>"$L2" 2>&1; F4=$?
+python3 scripts/run-owned-emulator.py --raw-results --help >>"$L2" 2>&1; F4=$?
 echo "P3_UNIT_EXIT=$F1 P3_ASSEMBLE_EXIT=$F2 P3_LINT_EXIT=$F3 P3_RUNNERHELP_EXIT=$F4" >>"$L2"
 status=0
 for code in "$E1" "$E2" "$E3" "$F1" "$F2" "$F3" "$F4"; do

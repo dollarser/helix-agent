@@ -16,7 +16,7 @@ case "${3:-all}" in
   *) exit 2 ;;
 esac
 for api in 29 36; do
-  python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+  python3 scripts/run-owned-emulator.py --raw-results \
     --avd "HelixApkUpgrade_API${api}_20260918" --port "$port" --memory-mb 4096 --cores 4 \
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \
@@ -27,7 +27,7 @@ for api in 29 36; do
     "${missing[@]}" \
     --output "build/${prefix}-api${api}" --timeout 600
   port=$((port + 2))
-  python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+  python3 scripts/run-owned-emulator.py --raw-results \
     --avd "HelixApkUpgrade_API${api}_20260918" --port "$port" --memory-mb 4096 --cores 4 \
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \
@@ -36,5 +36,5 @@ for api in 29 36; do
     --output "build/${prefix}-control-api${api}" --timeout 600
   port=$((port + 2))
 done
-python3 scripts/debug/2026-09-18/summarize-job-submission.py "$prefix" 1
-python3 scripts/debug/2026-09-18/summarize-job-submission.py "${prefix}-control" 10
+python3 scripts/summarize-owned-runs.py "build/${prefix}-api29" "build/${prefix}-api36" --output "build/${prefix}-summary.json"
+python3 scripts/summarize-owned-runs.py "build/${prefix}-api29" "build/${prefix}-api36" --output "build/${prefix}-summary.json"

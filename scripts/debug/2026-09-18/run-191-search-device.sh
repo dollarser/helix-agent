@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # HXA-191 search slice: ONE device quadrant per invocation
 # (consumer|developer x API29|API36), on its OWN AVD (Helix191_API*) and a
-# unique even console port, via scripts/debug/2026-09-09/run-owned-emulator.py:
+# unique even console port, via scripts/run-owned-emulator.py --raw-results:
 #   1. recovery setup instrument run: seeds the fixed-id fixture, records the
 #      process id and kills the process ("Process crashed" is expected);
 #   2. main instrument run with recoveryPhase=verify: the restart test asserts
@@ -28,7 +28,7 @@ case "$VARIANT" in
 esac
 
 rm -rf "$OUT"
-python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+python3 scripts/run-owned-emulator.py --raw-results \
     --avd "Helix191_API${API}" \
     --port "$PORT" \
     --apk "app/build/outputs/apk/${VARIANT}/debug/app-${VARIANT}-debug.apk" \

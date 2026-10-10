@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[3]
-runner = root / 'scripts/debug/2026-09-09/run-owned-emulator.py'
+runner = root / 'scripts/run-owned-emulator.py'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--start-index', type=int, choices=range(10), default=0)
 args = parser.parse_args()

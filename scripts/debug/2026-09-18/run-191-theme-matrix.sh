@@ -21,7 +21,7 @@ run_quadrant() {
   local variant="$1" api="$2" port="$3"
   local out="build/hxa-191-theme-${variant}-api${api}"
   echo "=== theme quadrant: ${variant} API${api} (port ${port}) -> ${out} ==="
-  python3 scripts/debug/2026-09-18/with-host-slot.py -- \
+  python3 scripts/with-host-slot.py -- \
     python3 scripts/debug/2026-09-18/run-191-theme-device.py "$variant" "$api" "$port" "$out"
 }
 

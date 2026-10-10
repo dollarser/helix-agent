@@ -9,7 +9,7 @@ port="${3:?unused even port}"
 out="${4:?new evidence directory}"
 export HELIX_UPGRADE_NEW_APK="$repo_root/app/build/outputs/apk/developer/debug/app-developer-debug.apk"
 export HELIX_UPGRADE_NEW_TEST_APK="$repo_root/app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk"
-python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+python3 scripts/run-owned-emulator.py --raw-results \
     --avd "$avd" --port "$port" --output "$out" \
     --apk "$old_root/app/build/outputs/apk/developer/debug/app-developer-debug.apk" \
     --test-apk "$old_root/app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk" \

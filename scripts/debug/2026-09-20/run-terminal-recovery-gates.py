@@ -8,7 +8,7 @@ root = Path(__file__).resolve().parents[3]
 prefix = sys.argv[1]
 for api, port in ((29, 5584), (36, 5586)):
     subprocess.run([
-        sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+        sys.executable, "scripts/run-owned-acceptance-emulator.py",
         "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
         "--apk", "app/build/outputs/apk/developer/debug/app-developer-debug.apk",
         "--test-apk", "app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk",

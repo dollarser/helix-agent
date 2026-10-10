@@ -18,7 +18,7 @@ sample_log="$sample_out/${sample_serial//[^a-zA-Z0-9_-]/_}.log"
 "$sample_adb" -s "$sample_serial" shell am instrument -w -r \
   -e connectorSample true -e connectorSampleSha256 "$sample_hash" -e class com.helix.app.connector.ConnectorSuppliedArchiveDeviceTest \
   com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$sample_log"
-rg '^OK \(1 test\)' "$sample_log"
+python3 "$sample_root/scripts/instrumentation_junit.py" "$sample_log"
 if rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -[234]' "$sample_log"; then
   exit 1
 fi

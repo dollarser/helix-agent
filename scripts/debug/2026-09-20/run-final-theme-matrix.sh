@@ -10,7 +10,5 @@ for variant in developer consumer; do
       "$variant" "$api" "$port" "build/${prefix}-${variant}-api${api}"
     port=$((port + 2))
   done
-  count=7
-  if [[ "$variant" == developer ]]; then count=8; fi
-  python3 scripts/debug/2026-09-20/summarize-subscription-theme.py "${prefix}-${variant}" "$count"
+  python3 scripts/debug/2026-09-20/summarize-subscription-theme.py "${prefix}-${variant}"
 done

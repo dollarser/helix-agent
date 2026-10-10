@@ -6,7 +6,7 @@
 #   e.g. run-193-integrated.sh Helix193_API36 5638 build/193-closeout/api36-fresh
 #
 # This is a wrapper for provenance; the 32 cases + owned-emulator lifecycle live in
-# verify-integrated-runtimes.py and scripts/debug/2026-09-09/run-owned-emulator.py.
+# verify-integrated-runtimes.py and scripts/run-owned-emulator.py --raw-results.
 set -euo pipefail
 # Script lives at scripts/debug/<date>/run-193-integrated.sh -> repo root is 3 levels up.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

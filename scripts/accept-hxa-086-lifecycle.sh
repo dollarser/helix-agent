@@ -140,7 +140,7 @@ run_phase() {
   if echo "$out" | grep -qE "Skipped: [1-9]"; then
     echo "PHASE SKIPPED — host pre-state was not in place; see the test's assume message"; exit 1
   fi
-  echo "$out" | grep -q "OK (1 test)" || { echo "PHASE produced no clean result"; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
   echo "phase PASSED"
 }
 
@@ -161,7 +161,7 @@ run_companion_phase() {
   if echo "$out" | grep -qE "Skipped: [1-9]"; then
     echo "COMPANION PHASE $class SKIPPED — see the test's assume message"; exit 1
   fi
-  echo "$out" | grep -q "OK (" || { echo "COMPANION PHASE $class produced no clean result"; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
   echo "companion phase PASSED"
 }
 
@@ -219,7 +219,7 @@ LONG_OUT=$($ADB shell am instrument -w -r \
   -e hxa086_host_phase 1 \
   -e class "$LIFECYCLE_CLASS#phaseLongJobThenReturnWithJobId" "$RUNNER" 2>&1) || true
 echo "$LONG_OUT" | { grep -E "OK \(|FAILURES|Skipped" || true; } | tail -2
-echo "$LONG_OUT" | grep -q "OK (1 test)" || { echo "LONG JOB PHASE produced no clean result"; exit 1; }
+printf '%s\n' "$LONG_OUT" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 ORPHAN_JOB=$(job_id_of)
 [[ -n "$ORPHAN_JOB" ]] || { echo "no LIFECYCLE-JOB-ID marker after the long-job phase"; exit 1; }
 echo "long job: $ORPHAN_JOB (main app force-stopped by instrumentation → unbind → orphan)"
@@ -230,7 +230,7 @@ warm_companion
 out=$($ADB shell am instrument -w -r -e hxa086_host_phase 1 -e class "$LIFECYCLE_CLASS#phaseQueryTheOrphanedJobByJobId" \
   -e job_id "$ORPHAN_JOB" "$RUNNER" 2>&1) || true
 echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
-echo "$out" | grep -q "OK (1 test)" || { echo "ORPHAN QUERY FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 echo "main-app-death-mid-job → ORPHANED reconciliation PASSED"
 
 # =============== phase 6: companion death MID JOB (binder → DEAD_OBJECT) ======
@@ -244,7 +244,7 @@ out=$($ADB shell am instrument -w -r \
   -e class "$LIFECYCLE_CLASS#phaseAwaitJobWhileTheHostKillsTheCompanion" "$RUNNER" 2>&1) || true
 wait "$KILL_PID" 2>/dev/null || true
 echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
-echo "$out" | grep -q "OK (1 test)" || { echo "COMPANION KILL AWAIT FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 KILLED_JOB=$(job_id_of)
 [[ -n "$KILLED_JOB" ]] || { echo "no LIFECYCLE-JOB-ID marker after the await-kill phase"; exit 1; }
 echo "killed mid-job: $KILLED_JOB (client settled stable non-success: DEAD_OBJECT or ORPHANED)"
@@ -252,7 +252,7 @@ warm_companion
 out=$($ADB shell am instrument -w -r -e hxa086_host_phase 1 -e class "$LIFECYCLE_CLASS#phaseQueryTheOrphanedJobByJobId" \
   -e job_id "$KILLED_JOB" "$RUNNER" 2>&1) || true
 echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
-echo "$out" | grep -q "OK (1 test)" || { echo "KILLED-JOB ORPHAN QUERY FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 echo "companion-death-mid-job → DEAD_OBJECT + ORPHANED reconciliation PASSED"
 
 # =============== phase 7: wake-lock / FGS leak sampling during a job ===========
@@ -304,7 +304,7 @@ fi
 if echo "$out" | grep -qE "Skipped: [1-9]"; then
   echo "ISOLATION E2E SKIPPED — see the test's assume message"; exit 1
 fi
-echo "$out" | grep -q "OK (2 tests)" || { echo "ISOLATION E2E produced no clean result"; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 echo "main-app-side isolation PASSED"
 
 echo "HXA-086 lifecycle acceptance PASSED on $SERIAL"

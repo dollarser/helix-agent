@@ -101,7 +101,7 @@ ensure_anchor() {
     -e class "com.helix.app.proot.ProotRuntimeBindingE2eDeviceTest#coldBindHandshakeVerifiesTheLockConsistentDescriptor" \
     "$RUNNER" 2>&1) || true
   echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
-  echo "$out" | grep -q "OK (1 test)" || { echo "ANCHOR VERIFICATION FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
   echo "anchor verified"
 }
 
@@ -117,7 +117,7 @@ fi
 if echo "$out" | grep -qE "Skipped: [1-9]"; then
   echo "COMPANION UPDATE SUITE SKIPPED — see the test's assume message"; exit 1
 fi
-echo "$out" | grep -q "OK (7 tests)" || { echo "COMPANION UPDATE SUITE produced no clean result"; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 echo "companion update-lifecycle suite PASSED"
 
 # =============== phase 2: main-app-side E2E (legal page / removal / re-baseline)
@@ -133,7 +133,7 @@ fi
 if echo "$out" | grep -qE "Skipped: [1-9]"; then
   echo "APP UPDATE E2E SKIPPED — see the test's assume message"; exit 1
 fi
-echo "$out" | grep -q "OK (4 tests)" || { echo "APP UPDATE E2E produced no clean result"; exit 1; }
+printf '%s\n' "$out" | python3 "$REPO_ROOT/scripts/instrumentation_junit.py"
 echo "app-side update E2E PASSED"
 
 echo "HXA-087 update/removal/legal acceptance PASSED on $SERIAL"

@@ -48,6 +48,8 @@
 
 ## Completed
 
+- 2026-10-10 [HXA-267](../completion-records/HXA-267.md)：固定套件总数门禁改为实际方法/完成事件，清理390个已失效或已迁移脚本/本地草稿，有效host覆盖归并统一发现，206项回归及完整Debug主机门禁通过；[维护手册](debugging-playbook.md)保留方法和模板。设备与真实模型not requested，历史证据及唯一诊断保留。
+
 2026-10-10：[HXA-255](../completion-records/HXA-255.md)权限页经EgressRuleService读写，窄行模型与精确目标/固定TTL校验，取消/致命错误传播、无message读取失败可重试，旧提交不清空新草稿；移动页面到permissions/ui。新JVM5项每渠道、主机/两渠道Debug lint与制品通过；API36 Developer4/4、Consumer3/3（均含实际拼音）通过。[本轮证据](../evidence/development/egress-application-interface-2026-10-10.md)保留夹具断言失败，日常APK/数据库未动；继续测试桥和ChatService职责整理。
 
 2026-10-10：[HXA-254](../completion-records/HXA-254.md)项目会话页面消费窄读模型，Room 驱动外部重命名、归档/恢复及新候选实时刷新；读取失败可重试，切换/归档清理加入模式，原归属与活动 Turn 保护保持。默认构建主机及两渠道 Debug lint/制品通过，API36 Consumer/Developer各8项（含真实拼音）通过；[本轮证据](../evidence/development/project-session-readmodel-2026-10-10.md)保留两次输入夹具失败及端口启动拒绝。日常APK/数据库未动，未调用模型或关闭真机卡顿/黑屏边界。
@@ -78,7 +80,8 @@
 
 ## In progress
 
-- 本轮[HXA-263](../completion-records/HXA-263.md)连续测试日志与真实Qwen压缩约束保留2/2；[HXA-264](../completion-records/HXA-264.md)双渠道主回归各42/42、追加20项及14个实际进程死亡边界；[HXA-265](../completion-records/HXA-265.md)双渠道900秒资源pilot；[HXA-266](../completion-records/HXA-266.md)当前DSH契约/真实Qwen Goal与Skill完整9/9均有界本地交付。当前没有尚在执行的本轮检查点；下表保留完整设备/服务矩阵与长稳边界，日常与真机未操作。
+
+- 本轮[HXA-263](../completion-records/HXA-263.md)连续测试日志与真实Qwen压缩约束保留2/2；[HXA-264](../completion-records/HXA-264.md)双渠道主回归各42/42、追加20项及14个实际进程死亡边界；[HXA-265](../completion-records/HXA-265.md)双渠道900秒资源pilot；[HXA-266](../completion-records/HXA-266.md)当前DSH契约/真实Qwen Goal与Skill完整9/9均有界本地交付。HXA-267脚本维护也已主机交付；当前没有尚在执行的本轮检查点；下表保留完整设备/服务矩阵与长稳边界，日常与真机未操作。
 
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 

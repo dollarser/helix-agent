@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from instrumentation_junit import require_passed
 
 prefix = sys.argv[1]
 summary = json.loads(Path(f"build/{prefix}-summary.json").read_text())
@@ -14,7 +16,7 @@ for api in (29, 36):
     assert facts["mainPid"] != facts["newMainPid"]
     assert "RUNNING" in facts["states"] and facts["states"][-1] == "SUCCEEDED"
     assert facts["verifyTests"] == 1 and facts["modelCalls"] == 2
-    assert "OK (1 test)" in log and "FAILURES" not in log
+    require_passed(log)
     journeys.append(dict(api=api, **facts))
 Path(f"build/{prefix}-journeys.json").write_text(json.dumps({
     "prepareTests": summary["tests"], "verificationTests": len(journeys), "journeys": journeys,

@@ -8,7 +8,7 @@ cd "$ROOT_DIR"
 : "${JAVA_HOME:?Set JAVA_HOME to the JDK home}"
 : "${ANDROID_HOME:?Set ANDROID_HOME to the Android SDK}"
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-RUNNER=scripts/debug/2026-09-09/run-owned-emulator.py
+RUNNER=scripts/run-owned-emulator.py --raw-results
 ADB="$ANDROID_HOME/platform-tools/adb"
 overall=0
 

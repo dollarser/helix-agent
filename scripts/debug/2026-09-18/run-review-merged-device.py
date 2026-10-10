@@ -27,7 +27,7 @@ if variant == "developer":
     ]
     after = "verify-196-owner-death.py"
 subprocess.run([
-    sys.executable, "scripts/debug/2026-09-09/run-owned-emulator.py",
+    sys.executable, "scripts/run-owned-emulator.py",
     "--avd", f"HelixApkUpgrade_API{api}_20260918", "--port", port,
     "--memory-mb", "4096", "--cores", "4", "--output", output,
     "--apk", f"app/build/outputs/apk/{variant}/debug/app-{variant}-debug.apk",

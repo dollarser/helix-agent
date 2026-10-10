@@ -36,7 +36,7 @@ for flavor in args.flavor or ("consumer", "developer"):
     package = "com.helix.agent" + (".developer" if flavor == "developer" else "")
     for api in args.api or (29, 36):
         target = args.output / f"{flavor}-api{api}"
-        command = [sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+        command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
                    "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
                    "--apk", f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",
                    "--test-apk", f"app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk",

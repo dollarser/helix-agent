@@ -36,7 +36,7 @@ def main():
             sources = {str(source.relative_to(ROOT)): hashlib.sha256(source.read_bytes()).hexdigest()}
             (args.output / f"{label}-expected.json").write_text(json.dumps({"methods": expected, "sources": sources}, indent=2))
             target = args.output / label
-            command = [sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+            command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
                        "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
                        "--apk", f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",
                        "--test-apk", "core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk",

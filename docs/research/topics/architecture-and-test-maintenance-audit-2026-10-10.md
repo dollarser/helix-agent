@@ -162,4 +162,6 @@ flowchart TD
 | E 大类/构建与性能 | HXA-260逐项核对构建及Dispatcher/PRoot/产物/Provider，保留已有状态owner；修正取消容量说明；[HXA-261](../../completion-records/HXA-261.md)完成API36双渠道基线/候选四组600会话/1000消息及20次真实新PID启动 | 5次有限debug样本未证明普遍收益；真机黑屏仍缺实体设备，其他OEM/长稳开放 |
 | D/E 验证收尾 | [HXA-263](../../completion-records/HXA-263.md)持续日志保留；[HXA-264](../../completion-records/HXA-264.md)双渠道各42项及14个实际死亡边界；[HXA-265](../../completion-records/HXA-265.md)双900秒资源pilot；[HXA-266](../../completion-records/HXA-266.md)真实Qwen Goal/Skill完整9项通过，原256轮/取消/权限断言保留 | source172项；旧1-token/会话投影/遗漏启用审批等夹具原因与历史未知截断分开，完整矩阵/2h24h/真机/账号仍开放 |
 
+[HXA-267](../../completion-records/HXA-267.md)进一步依Owner要求退役390个已失效/已迁移脚本及本地草稿，host统一发现206项通过；固定套件数量不再作门禁，当前调用统一稳定路径，历史Git/path/hash及有效领域回归保留。方法见[维护手册](../../development/debugging-playbook.md)。
+
 最新通过、失败尝试、制品身份及边界以各HXA证据为准；后续用例按已批准DSH契约更新旧累计预算断言，不删除用量、取消、权限或256轮验证。

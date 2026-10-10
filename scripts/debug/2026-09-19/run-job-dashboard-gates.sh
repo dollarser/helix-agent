@@ -7,7 +7,7 @@ port="${2:-5662}"
 ./scripts/check-all.sh --all
 ./gradlew :app:assembleDeveloperDebugAndroidTest
 for api in 29 36; do
-  python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+  python3 scripts/run-owned-emulator.py --raw-results \
     --avd "HelixApkUpgrade_API${api}_20260918" --port "$port" --memory-mb 4096 --cores 4 \
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \
@@ -16,4 +16,4 @@ for api in 29 36; do
     --output "build/${prefix}-api${api}" --timeout 600
   port=$((port + 2))
 done
-python3 scripts/debug/2026-09-18/summarize-job-submission.py "$prefix" 5
+python3 scripts/summarize-owned-runs.py "build/${prefix}-api29" "build/${prefix}-api36" --output "build/${prefix}-summary.json"

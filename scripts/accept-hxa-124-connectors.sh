@@ -20,7 +20,7 @@ connector_log="$connector_output/device-${connector_serial//[^a-zA-Z0-9_-]/_}.lo
   -e class com.helix.app.connector.ConnectorDeviceTest,com.helix.app.connector.ConnectorUiDeviceTest \
   com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$connector_log"
 # Android's instrument command may exit zero for test failures; inspect its terminal evidence.
-rg '^OK \([0-9]+ tests?\)' "$connector_log"
+python3 "$connector_root/scripts/instrumentation_junit.py" "$connector_log"
 if rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$connector_log"; then
   exit 1
 fi
@@ -32,7 +32,7 @@ for connector_phase in seedPersistedConnector recoverInNewProcess; do
     -e connectorRecoveryPhase "$connector_phase" \
     -e class "com.helix.app.connector.ConnectorProcessRecoveryDeviceTest#$connector_phase" \
     com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$connector_phase_log"
-  rg '^OK \(1 test\)' "$connector_phase_log"
+python3 "$connector_root/scripts/instrumentation_junit.py" "$connector_phase_log"
   if rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -3|INSTRUMENTATION_STATUS_CODE: -4' "$connector_phase_log"; then
     exit 1
   fi

@@ -23,7 +23,7 @@ import sys
 import time
 
 root = Path(__file__).resolve().parents[3]
-runner = root / "scripts/debug/2026-09-18/run-owned-emulator-207.py"
+runner = root / "scripts/run-owned-acceptance-emulator.py"
 adb = Path(os.environ["ANDROID_HOME"]) / "platform-tools" / "adb"
 # The four task-assigned ADB console ports (emulator-<port>). Even, and above the range other
 # parallel sessions use, so they are collision-free by reservation.

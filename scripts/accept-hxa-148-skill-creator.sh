@@ -11,19 +11,19 @@ creator_log="$creator_out/$creator_serial-native.log"
 "$creator_adb" -s "$creator_serial" shell am instrument -w -r \
   -e class com.helix.app.SkillAuthoringDeviceTest \
   com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$creator_log"
-rg '^OK \(2 tests\)' "$creator_log"
+python3 "$creator_root/scripts/instrumentation_junit.py" "$creator_log"
 ! rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -[234]' "$creator_log"
 creator_log="$creator_out/$creator_serial-ui.log"
 "$creator_adb" -s "$creator_serial" shell am instrument -w -r \
   -e class com.helix.app.ui.SkillAuthoringUiTest \
   com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$creator_log"
-rg '^OK \(2 tests\)' "$creator_log"
+python3 "$creator_root/scripts/instrumentation_junit.py" "$creator_log"
 ! rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -[234]' "$creator_log"
 if [[ -n "${HELIX_SKILL_MODEL:-}" ]]; then
   creator_log="$creator_out/$creator_serial-real-model.log"
   "$creator_adb" -s "$creator_serial" shell am instrument -w -r \
     -e class com.helix.app.SkillCreatorModelDeviceTest -e skillCreatorModel true -e model "$HELIX_SKILL_MODEL" \
     com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$creator_log"
-  rg '^OK \(1 test\)' "$creator_log"
+python3 "$creator_root/scripts/instrumentation_junit.py" "$creator_log"
   ! rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -[234]' "$creator_log"
 fi

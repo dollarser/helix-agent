@@ -49,3 +49,30 @@ def to_xml(records):
             tag = 'skipped' if code in (-3, -4) else 'error' if code == -1 else 'failure'
             ET.SubElement(case, tag, message=detail).text = detail
     return ET.tostring(suite, encoding='unicode') + '\n'
+
+
+def require_passed(raw):
+    """Validate actual per-method outcomes, without a hard-coded suite size."""
+    records = parse(raw)
+    if any(code != 0 for code, _ in records.values()) or 'FAILURES!!!' in raw:
+        raise ValueError('Instrumentation contains failed or skipped tests')
+    totals = {int(value) for value in re.findall(r'^INSTRUMENTATION_STATUS: numtests=(\d+)\s*$', raw, re.M)}
+    if totals and totals != {len(records)}:
+        raise ValueError('Declared instrumentation total differs from observed methods')
+    return records
+
+
+if __name__ == '__main__':
+    import argparse
+    from pathlib import Path
+    import sys
+
+    arguments = argparse.ArgumentParser(description=__doc__)
+    arguments.add_argument('log', nargs='?', help='Raw am instrument -w -r log; defaults to stdin')
+    args = arguments.parse_args()
+    try:
+        raw = Path(args.log).read_text() if args.log else sys.stdin.read()
+        records = require_passed(raw)
+    except (OSError, ValueError) as failure:
+        arguments.exit(1, f'Instrumentation verification failed: {failure}\n')
+    print(f'Instrumentation verification passed: {len(records)} methods')

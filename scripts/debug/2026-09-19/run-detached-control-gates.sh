@@ -8,4 +8,4 @@ port="${3:-5674}"
 ./scripts/check-all.sh --all
 ./gradlew :app:assembleDeveloperDebugAndroidTest
 bash scripts/debug/2026-09-18/run-job-submission-regression.sh "$prefix" "$port"
-python3 scripts/debug/2026-09-18/summarize-job-submission.py "$prefix" "$expected"
+python3 scripts/summarize-owned-runs.py "build/${prefix}-api29" "build/${prefix}-api36" --output "build/${prefix}-summary.json"

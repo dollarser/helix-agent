@@ -31,7 +31,7 @@ for q in "consumer 36 5642" "consumer 29 5644" "developer 36 5646" "developer 29
   # shellcheck disable=SC2086
   set -- $q
   echo "=== search quadrant: $1 API$2 (port $3) ==="
-  if python3 scripts/debug/2026-09-18/with-host-slot.py -- \
+  if python3 scripts/with-host-slot.py -- \
       bash scripts/debug/2026-09-18/run-191-search-device.sh "$1" "$2" "$3" "build/hxa-191-search-${1}-api${2}"; then
     echo "SEARCH PASS: $1 API$2"
   else

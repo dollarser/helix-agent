@@ -3,9 +3,10 @@
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from instrumentation_junit import require_passed
 
 
 def main():
@@ -26,14 +27,13 @@ def main():
         raise RuntimeError("Owned AVD identity mismatch")
     classes = ("com.helix.app.export.SessionExportJourneyDeviceTest,com.helix.app.ui.SessionExportUiDeviceTest,"
                "com.helix.app.ui.SessionExportPickerDeviceTest")
-    result = subprocess.run([adb, "-s", serial, "shell", "am", "instrument", "-w", "-e", "class", classes, runner],
+    result = subprocess.run([adb, "-s", serial, "shell", "am", "instrument", "-w", "-r", "-e", "class", classes, runner],
                             capture_output=True, text=True, timeout=180, check=True)
     (output / "journey-instrumentation.txt").write_text(result.stdout)
     log = subprocess.check_output([adb, "-s", serial, "logcat", "-d", "-t", "20000", "-s", "TestRunner"], text=True)
     (output / "journey-logcat.txt").write_text(log)
     print(result.stdout, flush=True)
-    if not re.search(r"^OK \(7 tests\)", result.stdout, re.M) or "FAILURES!!!" in result.stdout:
-        raise RuntimeError("Export journeys did not pass all seven tests")
+    require_passed(result.stdout)
     narrow = Path(__file__).with_name("run-session-export-narrow.py")
     environment = dict(os.environ, HXA211_PACKAGE=runner.split("/", 1)[0].removesuffix(".test"))
     subprocess.run([sys.executable, str(narrow), serial, str(output)], env=environment, check=True, timeout=120)

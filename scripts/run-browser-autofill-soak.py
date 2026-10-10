@@ -30,7 +30,7 @@ import sys
 import time
 
 _evidence_spec = importlib.util.spec_from_file_location(
-    "helix_soak_evidence", pathlib.Path(__file__).resolve().parent / "debug/2026-09-10/soak_evidence.py",
+    "helix_soak_evidence", pathlib.Path(__file__).resolve().parent / "soak_evidence.py",
 )
 _evidence = importlib.util.module_from_spec(_evidence_spec)
 _evidence_spec.loader.exec_module(_evidence)

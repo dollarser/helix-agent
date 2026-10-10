@@ -1,8 +1,9 @@
 import sys
+import subprocess
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from instrumentation_junit import parse, to_xml
+from instrumentation_junit import parse, require_passed, to_xml
 
 
 def event(code, name='method'):
@@ -10,6 +11,28 @@ def event(code, name='method'):
 
 
 class InstrumentationXmlTest(unittest.TestCase):
+    def test_cli_accepts_raw_results_and_rejects_summary_only(self):
+        script = Path(__file__).resolve().parents[1] / 'instrumentation_junit.py'
+        for raw, code in [(event(1) + event(0) + 'INSTRUMENTATION_CODE: -1\n', 0), ('OK (1 test)', 1)]:
+            result = subprocess.run([sys.executable, str(script)], input=raw, text=True,
+                                    capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, code)
+
+    def test_pass_validation_tracks_growing_suites_without_fixed_totals(self):
+        for count in (1, 8, 11):
+            with self.subTest(count=count):
+                raw = ''.join(event(1, str(i)) + event(0, str(i)) for i in range(count))
+                self.assertEqual(len(require_passed(raw + 'INSTRUMENTATION_CODE: -1\n')), count)
+
+    def test_pass_validation_rejects_skips_failures_and_dynamic_total_mismatch(self):
+        for code in (-1, -2, -3, -4):
+            with self.subTest(code=code), self.assertRaises(ValueError):
+                require_passed(event(1) + event(code) + 'INSTRUMENTATION_CODE: -1\n')
+        with self.assertRaisesRegex(ValueError, 'total differs'):
+            start = event(1).replace('INSTRUMENTATION_STATUS_CODE: 1',
+                                     'INSTRUMENTATION_STATUS: numtests=2\nINSTRUMENTATION_STATUS_CODE: 1')
+            require_passed(start + event(0) + 'INSTRUMENTATION_CODE: -1\n')
+
     def test_stream_diagnostic_is_not_an_extra_test_or_terminal(self):
         diagnostic = 'INSTRUMENTATION_STATUS: stream=IME preedit\nINSTRUMENTATION_STATUS_CODE: 0\n'
         records = parse(event(1) + diagnostic + event(0) + 'INSTRUMENTATION_CODE: -1\n')

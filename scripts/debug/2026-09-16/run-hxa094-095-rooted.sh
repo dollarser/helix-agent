@@ -236,7 +236,7 @@ case "$phase" in
             com.helix.tools.root.test/androidx.test.runner.AndroidJUnitRunner \
             > "$evidence_dir/root-instrumentation.log" 2>&1
         cat "$evidence_dir/root-instrumentation.log"
-        grep -Eq 'OK \(8 tests\)' "$evidence_dir/root-instrumentation.log"
+        python3 "$project_root/scripts/instrumentation_junit.py" "$evidence_dir/root-instrumentation.log"
         ! grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|Process crashed' "$evidence_dir/root-instrumentation.log"
         printf 'HXA-094/095 rootless phase passed on %s.\n' "$device_serial"
         ;;
@@ -342,7 +342,7 @@ case "$phase" in
             com.helix.tools.root.test/androidx.test.runner.AndroidJUnitRunner \
             > "$evidence_dir/root-instrumentation.log" 2>&1
         cat "$evidence_dir/root-instrumentation.log"
-        grep -Eq 'OK \(1 test\)' "$evidence_dir/root-instrumentation.log"
+        python3 "$project_root/scripts/instrumentation_junit.py" "$evidence_dir/root-instrumentation.log"
         ! grep -Eq 'FAILURES|INSTRUMENTATION_FAILED|Process crashed' "$evidence_dir/root-instrumentation.log"
         printf 'HXA-094 revoked phase passed.\n'
         ;;

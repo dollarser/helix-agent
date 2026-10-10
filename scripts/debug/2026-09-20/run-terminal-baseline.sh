@@ -10,4 +10,4 @@ for api in 29 36; do
     --memory-mb 4096 --cores 4 --output "build/${prefix}-api${api}"
   port=$((port + 2))
 done
-python3 scripts/debug/2026-09-18/summarize-job-submission.py "$prefix" 37
+python3 scripts/summarize-owned-runs.py "build/${prefix}-api29" "build/${prefix}-api36" --output "build/${prefix}-summary.json"

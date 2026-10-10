@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts"))
 from owned_acceptance import collect_owned
 
-spec = importlib.util.spec_from_file_location("acceptance_matrix", Path(__file__).with_name("run-acceptance-matrix.py"))
+spec = importlib.util.spec_from_file_location("acceptance_matrix", (Path(__file__).resolve().parents[3] / "scripts/run-acceptance-matrix.py"))
 matrix = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(matrix)
 
@@ -37,7 +37,7 @@ def main():
             (args.output / f"{label}-expected.json").write_text(json.dumps({"methods": expected, "sources": sources}, indent=2))
             target = args.output / label
             suffix = ".developer" if flavor == "developer" else ""
-            command = [sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+            command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
                        "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
                        "--apk", f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",
                        "--test-apk", f"app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk",

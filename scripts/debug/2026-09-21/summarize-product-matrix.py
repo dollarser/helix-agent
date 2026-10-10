@@ -11,7 +11,7 @@ root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(root / "scripts"))
 from owned_acceptance import collect_owned, sha256, test_records
 
-spec = importlib.util.spec_from_file_location("matrix", Path(__file__).with_name("run-acceptance-matrix.py"))
+spec = importlib.util.spec_from_file_location("matrix", (Path(__file__).resolve().parents[3] / "scripts/run-acceptance-matrix.py"))
 matrix = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(matrix)
 parser = argparse.ArgumentParser(description=__doc__)

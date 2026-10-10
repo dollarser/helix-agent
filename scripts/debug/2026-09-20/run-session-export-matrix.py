@@ -24,7 +24,7 @@ def main():
             runner = f"com.helix.agent{suffix}.test/com.helix.app.HelixAndroidJUnitRunner"
             target = f"{flavor}-api{api}"
             port = (5584 if api == 29 else 5586) + (6 if flavor == "developer" else 0)
-            command = [sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+            command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
                        "--avd", f"Helix191_API{api}", "--port", str(port),
                        "--memory-mb", "4096", "--cores", "4",
                        "--apk", f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",

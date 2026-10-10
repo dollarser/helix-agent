@@ -12,7 +12,7 @@ for quadrant in "$@"; do
         [[ "$api" == 29 || "$api" == 36 ]]
         suffix=""
         if [[ "$variant" == developer ]]; then suffix=".developer"; fi
-        python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+        python3 scripts/run-owned-emulator.py --raw-results \
             --avd "HelixIntegration191_API${api}_20260918" --port "$port" \
             --apk "app/build/outputs/apk/${variant}/debug/app-${variant}-debug.apk" \
             --test-apk "app/build/outputs/apk/androidTest/${variant}/debug/app-${variant}-debug-androidTest.apk" \

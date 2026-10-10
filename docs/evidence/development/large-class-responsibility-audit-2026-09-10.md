@@ -10,7 +10,7 @@
 
 行数包括注释、schema、类型声明和空行，**不是类体行数或圈复杂度**。逐项结论来自声明、状态成员和关键执行路径的结构阅读；不冒充全仓逐行缺陷、安全或并发审计。未通过 AST 计算精确方法复杂度。
 
-复现脚本：[inventory-large-production-files.py](../../../scripts/debug/2026-09-10/inventory-large-production-files.py)。机器清单写入忽略目录 `build/debug/2026-09-10/large-class-audit/inventory.json`，保存文件路径、行数和声明锚点。审查建议由 [write-large-class-audit.py](../../../scripts/debug/2026-09-10/write-large-class-audit.py) 与该清单生成，后续代码改变需重新审查，不应仅重跑脚本便把旧建议当成新结论。
+复现脚本：[inventory-large-production-files.py](../../../scripts/debug/2026-09-10/inventory-large-production-files.py)。机器清单写入忽略目录 `build/debug/2026-09-10/large-class-audit/inventory.json`，保存文件路径、行数和声明锚点。审查建议由历史生成器（现已退役，Git来源见 [删除清单](../../../scripts/debug/archive/2026-10-10-retired-scripts.json)）与该清单生成，后续代码改变需重新审查，不应仅重跑脚本便把旧建议当成新结论。
 
 上轮只看 main source set，漏掉 developer 的 LinuxRunTool；本轮补齐。多类聚合文件、Compose 函数文件和单一状态机分别评估，避免把“大文件”误诊成“大类”。
 

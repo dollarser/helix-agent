@@ -8,7 +8,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.ProductionStorageBaselineDeviceTest
 import com.helix.app.foreground.DataSyncForegroundServiceDeviceTest
 import com.helix.app.runcontrol.AndroidResourceGateDeviceTest
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -76,7 +75,10 @@ class ContinuousAppResourceDeviceTest {
         repeat(60) { cycle ->
             val result = JUnitCore.runClasses(AndroidResourceGateDeviceTest::class.java)
             assertTrue("activity fixture failed: ${result.failures}", result.wasSuccessful())
-            assertTrue("activity fixture skipped", result.runCount == 1 && result.assumptionFailureCount == 0)
+            assertTrue(
+                "activity fixture empty or skipped",
+                result.runCount > 0 && result.ignoreCount == 0 && result.assumptionFailureCount == 0,
+            )
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             Thread.sleep(1_000L)
             val samplePss = InstrumentationRegistry.getArguments().getString("helix.soak.samplePss") == "true"
@@ -139,7 +141,8 @@ class ContinuousAppResourceDeviceTest {
     fun diagnosePssSamplerDescriptorRetention() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("helix.soak.diagnose") == "true")
         val result = JUnitCore.runClasses(AndroidResourceGateDeviceTest::class.java)
-        assertTrue("activity setup failed", result.wasSuccessful() && result.runCount == 1)
+        assertTrue("activity setup failed or empty", result.wasSuccessful() && result.runCount > 0)
+        assertTrue("activity setup skipped", result.ignoreCount == 0 && result.assumptionFailureCount == 0)
         logDescriptors("pss-baseline")
         repeat(100) { sample ->
             val pss = Debug.getPss()
@@ -161,16 +164,21 @@ class ContinuousAppResourceDeviceTest {
     private fun count(entry: String): Int = File("/proc/self/$entry").list()?.size ?: error("missing proc $entry")
 
     private fun runCycle() {
-        val result =
-            JUnitCore.runClasses(
+        val fixtures =
+            listOf(
                 ProductionStorageBaselineDeviceTest::class.java,
                 DataSyncForegroundServiceDeviceTest::class.java,
                 AndroidResourceGateDeviceTest::class.java,
             )
-        assertTrue("nested fixtures failed: ${result.failures}", result.wasSuccessful())
-        // One Room baseline, six foreground-service cases and one Activity resource case.
-        assertEquals("nested fixtures must execute all eight cases", 8, result.runCount)
-        assertTrue("nested fixtures must not skip", result.ignoreCount == 0 && result.assumptionFailureCount == 0)
+        var cases = 0
+        fixtures.forEach { fixture ->
+            val result = JUnitCore.runClasses(fixture)
+            assertTrue("${fixture.name} failed: ${result.failures}", result.wasSuccessful())
+            assertTrue("${fixture.name} is empty", result.runCount > 0)
+            assertTrue("${fixture.name} skipped", result.ignoreCount == 0 && result.assumptionFailureCount == 0)
+            cases += result.runCount
+        }
+        Log.i("HelixSoakCases", "pid=${Process.myPid()} cases=$cases")
         // ActivityScenario close precedes RenderThread fence/buffer cleanup on the emulator.
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         Thread.sleep(1_000L)

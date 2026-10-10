@@ -68,7 +68,6 @@ GATES = {"FD": 8, "thread": 16, "PSS": 96 * 1024}
 SAMPLING_INTERVAL = 30      # host app-process sampling tick (seconds)
 WATCHDOG_GAP_MAX = 90       # host suspended / sampling gap -> INFRA_INTERRUPTED
 TIMEOUT_SLACK = 180         # instrumentation must finish within duration + slack
-CASES_PER_CYCLE = 8         # one Room, six foreground-service, one Activity case; no skip
 BASELINE_WARMUP_CYCLES = 1  # the fixture runs one runCycle() before the measured loop
 
 
@@ -290,7 +289,7 @@ class Soak:
     def scan_logcat(self):
         res = {"fixturePids": set(), "cycles": None, "fixturePeakFd": None,
                "fixturePeakThreads": None, "fixturePeakPssKb": None, "nHelixSoak": 0,
-               "testRunnerFinished": False, "failureMsgs": []}
+               "testRunnerFinished": False, "failureMsgs": [], "nestedCaseCounts": []}
         path = self.out / "logcat.log"
         if not path.exists():
             return res
@@ -306,7 +305,11 @@ class Soak:
                         res["fixturePeakFd"] = max(res["fixturePeakFd"] or 0, int(m.group(3)))
                         res["fixturePeakThreads"] = max(res["fixturePeakThreads"] or 0, int(m.group(4)))
                         res["fixturePeakPssKb"] = max(res["fixturePeakPssKb"] or 0, int(m.group(5)))
-                elif "TestRunner:" in line and re.search(r"run finished:\s*1 tests,\s*0 failed", line):
+                elif "HelixSoakCases:" in line:
+                    match = re.search(r"pid=(\d+) cases=(\d+)", line)
+                    if match:
+                        res["nestedCaseCounts"].append(int(match.group(2)))
+                elif "TestRunner:" in line and re.search(r"run finished:\s*[1-9]\d* tests,\s*0 failed", line):
                     res["testRunnerFinished"] = True
                 elif "FAILURES!!!" in line or "AssertionError" in line or "drift:" in line:
                     if len(res["failureMsgs"]) < 20:
@@ -405,18 +408,19 @@ class Soak:
         }
         state, note, attribution = classify(ev)
         eff_pids = lc["fixturePids"] or self.host_pids
-        # Count only completed, observed app cycles. A failed warmup is not eight passes;
+        # Count only completed, observed app cycles; never estimate from a fixed suite size.
         # the independent browser loop does not run the app's nested JUnit suite.
         app_cycles = self.args.workload == "app"
-        warmup_cycles = BASELINE_WARMUP_CYCLES if app_cycles and lc["cycles"] is not None else 0
+        case_counts = lc.get("nestedCaseCounts", []) if app_cycles else []
+        warmup_cycles = BASELINE_WARMUP_CYCLES if app_cycles and case_counts else 0
         result = {
             **self.identity,
             "state": state, "note": note, "attribution": attribution,
             "elapsedSeconds": round(elapsed, 1),
             "cycles": lc["cycles"],
             "baselineWarmupCycles": warmup_cycles,
-            "casesPerCycle": CASES_PER_CYCLE if app_cycles else None,
-            "totalNestedCases": ((lc["cycles"] or 0) + warmup_cycles) * CASES_PER_CYCLE if app_cycles else None,
+            "casesPerCycle": case_counts[0] if case_counts and len(set(case_counts)) == 1 else None,
+            "totalNestedCases": sum(case_counts) if app_cycles and (case_counts or lc["cycles"] is None) else None,
             "singlePid": len(eff_pids) == 1,
             "fixturePids": sorted(lc["fixturePids"]),
             "hostPids": sorted(self.host_pids),

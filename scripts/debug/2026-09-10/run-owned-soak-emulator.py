@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch an OWNED emulator, drive run-browser-autofill-soak.py against it, and ALWAYS close it.
 
-Forks the ownership contract of scripts/debug/2026-09-09/run-owned-emulator.py (refuse a taken
+Forks the ownership contract of scripts/run-owned-emulator.py (refuse a taken
 serial, verify AVD identity, force 1080x2400@420, record pid/serial/avd/bootId, kill only our own
 process group in a finally block) but drives the soak RUNNER instead of a single `am instrument`.
 The runner writes its own evidence (result.json / progress.json / cycles.jsonl / manifest.json /

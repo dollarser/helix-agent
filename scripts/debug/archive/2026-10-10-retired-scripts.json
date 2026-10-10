@@ -1,0 +1,3134 @@
+{
+  "baseCommit": "978249b43420f96a494ec310213b9149878ebe5b",
+  "archive": "build/maintenance-cleanup-20261010/removed-scripts.tar.gz",
+  "archiveSha256": "b58787b6cc53d7847babb26620374d431b57edb8a918901365d6822864738d10",
+  "reason": "owner-authorized explicit-path retirement after caller verification and regression promotion",
+  "files": [
+    {
+      "path": "scripts/debug/2026-09-09/add-background-recovery-checks.py",
+      "sha256": "348c467c0ecf4dee96398594102859dd4a8495dd5a0d35e5fe87df0c273ed4b0",
+      "bytes": 2716,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/add-goal-report-ui-fixture.py",
+      "sha256": "a8b7d54a9e01cd48627367784429e7f464edd491ff86ab0dec4e4718d8f307ba",
+      "bytes": 6413,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/add-goal-transition-migration.py",
+      "sha256": "6d40fb610a8ea5372b132e3a1d09bbaf8da7058be6b23ca34fd5839ff634d66c",
+      "bytes": 2053,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/add-model-goal-regressions.py",
+      "sha256": "33761f5a0dc0df94d284846c4325277bc16f10e1cd73fea95b429d75b97a9cb3",
+      "bytes": 8410,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/add-preview-recovery-regressions.py",
+      "sha256": "47478cdff7ddcb9c7c4c8f8729bd52b6f97f70c00aae4636210e52a719162c06",
+      "bytes": 1808,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/add-task-migration-proof.py",
+      "sha256": "996a5427f656985d12854005479a03e7105c9a4ad4316e9f4ffff3143b1f4690",
+      "bytes": 1283,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/align-goal-contract-comments.py",
+      "sha256": "32ebf6e8c80e8285ec2833f120c2765c95715b3c2b2b7e57539df9535931d245",
+      "bytes": 895,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/allow-objective-only-goals.py",
+      "sha256": "c29a2c11f1b50a5c9db91e13df4cdaa5f3cbe8c56bdf596a532442303dd60091",
+      "bytes": 2231,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/await-background-task-publication.py",
+      "sha256": "d4acaaea9c06bc61db06996b604d0a06b95ec7d18c71877513e3d78ee1e3729b",
+      "bytes": 708,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/capture-goal-model-boundary.py",
+      "sha256": "aa6158184c1f0ac6a896cc3ebfb062d1d3daf0fd90c901076ed4d373c9fdbe10",
+      "bytes": 177,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed source editor; its maintained diagnostics/runner already exist",
+      "gitSourceSha256": "2aa8ac1967fd40a80246cb6ff555160dd08babaf854bf0589c2cc9ac630d7808",
+      "exactDeletedBytesSource": "verified ignored archive; Git contains pre-cleanup editor"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/clean-chat-component-imports.py",
+      "sha256": "be62e7e1bd6ed983b03bc4957eec8e89ca45076f10b423d9bb33f87d1e8abe0f",
+      "bytes": 481,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/clean-chat-extraction.py",
+      "sha256": "9cbc2fb24f8684a6b9cfac58cdf0a53a604624626c834cb847bf0a2128f521e4",
+      "bytes": 621,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/clean-retired-goal-resources.py",
+      "sha256": "7d65a8f7e300bbbb17b96a5f64b852453ffc5d13da2779f9757ebb2968d73441",
+      "bytes": 819,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/close-background-verification.py",
+      "sha256": "354650954fbcb8574b3302949209086aa36e3a1bac6f2c40a1c2b7ddb8e3f387",
+      "bytes": 2264,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/close-responsibility-file-work.py",
+      "sha256": "a02d42a7e7ba47c42c99888614ba8870ba595785c9a8ce363069726323cec5ee",
+      "bytes": 1845,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/collect-host-test-counts.py",
+      "sha256": "2a832f4d3be87b1ff7eebf3aeb428be95b167667e748356d65ef4ca664571cea",
+      "bytes": 977,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/complete-task-history-contract.py",
+      "sha256": "ec94833cd09db6370d2d0a94165650b7195c47c40d20da096692691e3fd1e3b2",
+      "bytes": 2181,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/cover-stale-goal-report.py",
+      "sha256": "082c40b3f8497f335a9541d4ab2f75d25664e2aaec9583bdf7bd38ba906d9a4f",
+      "bytes": 2481,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/diagnose-format.py",
+      "sha256": "d3fd36a178b4d8c0beeacd1d30ec2c342466ae4e3160005e881848b3b637a64d",
+      "bytes": 539,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/document-goal-guide-adoption.py",
+      "sha256": "773ce46991c611235d810274d4a12c02c0862368f0dac745f46f280685eb9bd7",
+      "bytes": 1548,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/extend-goal-report-boundaries.py",
+      "sha256": "08b4b1334a1dca3331bb943d125d6ff9d22ac848667f7a1eff796f171656256c",
+      "bytes": 3907,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/extract-chat-model-and-goal.py",
+      "sha256": "31d690fab888923c86c1766ac32fc098ce93a6ac5df2abacb01ef566a20c2448",
+      "bytes": 3808,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/extract-manual-tree-transfer.py",
+      "sha256": "fd42944c82876ad201d4b66fac9e359b538d85699a9e95b12588def876cab662",
+      "bytes": 3415,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/final-file-test-diagnostics.py",
+      "sha256": "cb4112d4293104d4c16cf509124fe82e24737d41aa7e53715d238780548c7248",
+      "bytes": 1376,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/finalize-task-contracts.py",
+      "sha256": "46e4bfbe55e47ce3565e7bfceb0ff80e8354e097271e7312f39ef84511dbc804",
+      "bytes": 3006,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/finish-goal-copy-and-order.py",
+      "sha256": "cfc6408df242a4012ff39583f3eba5f32017642a79dd5a212eebda111863ed75",
+      "bytes": 873,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fit-model-report-format.py",
+      "sha256": "20ba9129b46d6e01719b087f6659122e9f1b5094720565c1a55cae5bc95c7035",
+      "bytes": 1528,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fix-file-preview-publication.py",
+      "sha256": "128258b755edeec787fa5d72f7bbe3442162b29f1043a8e1f9ca1eba3ae7bb9c",
+      "bytes": 4141,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fix-goal-query-snapshots.py",
+      "sha256": "9b06f74da199a2983563a18fdfe3a819e4c4782f72f1f2960a34c173fd8e30b8",
+      "bytes": 1508,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fix-goal-tool-model-contract.py",
+      "sha256": "bb33ff9e276fc5bfe91a48b95fd83f38346539e65d927b08fe874dae524167bd",
+      "bytes": 912,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fix-manual-format.py",
+      "sha256": "3d8d17d60c404ccb47174362ed8c6e6c8e3a56b17846b2b7af5ff6efe58d71ed",
+      "bytes": 788,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fix-manual-lint-lines.py",
+      "sha256": "20438eb3f6a14a2b761e6ee565ca37ba7c1c930fa2b1b1271bd06d7735c25196",
+      "bytes": 1542,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/fix-manual-permission-test-runner.py",
+      "sha256": "35968eb2182382d4f852ed29ac671da464778ffa423d081a88f4e613c257c2f2",
+      "bytes": 2897,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/format-model-goal-imports.py",
+      "sha256": "528f17030b00b81e3aaa42bda219cd220960cdfc65344bdb91f3042f19361224",
+      "bytes": 1517,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/format-task-fixture.py",
+      "sha256": "299de19c9ca7e340127368bd307bdf47a3b5ecc16c10e09082a8629145852a25",
+      "bytes": 577,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/implement-background-tasks.py",
+      "sha256": "45a7f2273d3b234cb519e6d7b2b7db2c86e3a4d3a93d4f6cf7078e8f541139e0",
+      "bytes": 6190,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/implement-model-goal-report.py",
+      "sha256": "62d68b115699dc4c3f71ad7883a9b47dd34a5b5b270a31c49ca63e5c541dbec0",
+      "bytes": 8693,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/isolate-background-fixture.py",
+      "sha256": "145e9dc3794a4148dfc873a8c6a10ef870318ce5eae1170ed14e27d4a8213ef6",
+      "bytes": 2185,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refactor-compaction-settlement.py",
+      "sha256": "b1cf736f5e2a912e54d562a3c30be9bd8a498a8bf756b0d9f13dfee95dbab1bd",
+      "bytes": 3368,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refine-background-regressions.py",
+      "sha256": "bd9933ab97a2d8b364a472ef55415c6c0ba44e874dffc6c1830cbe5c603c8d45",
+      "bytes": 2747,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refine-manual-file-ui.py",
+      "sha256": "c9ae3e9bc14880918aa807d5d51314b1a82cd3e97593c627adfcd4146bd71154",
+      "bytes": 6375,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refine-manual-transfer-safety.py",
+      "sha256": "76c7a2b11b6b5b3a149f60d01a65d92ae4529bc2f36472f95871d55a76e32a4c",
+      "bytes": 3660,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refine-model-report-structure.py",
+      "sha256": "060a919feef0d9f53b79c7ee007eb155022e6c8c95bbfb0d8f4e71c4962659f1",
+      "bytes": 4186,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refine-recovery-boundaries.py",
+      "sha256": "e525bd11cefe47e38dd8846ebbb6082380f0be26f5e64498414ed8214fe35a13",
+      "bytes": 3256,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/refresh-current-documentation.py",
+      "sha256": "dd8fd9c0ecb2d28080aa80a29c855d8678839c6cc16890a22c607d01c49294c6",
+      "bytes": 4088,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/rename-background-decision.py",
+      "sha256": "9fd4ce309be5f9e10ea1179705f6a9b5e49b5c1338a77127709cc602db55f895",
+      "bytes": 479,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/repair-background-fixture-layout.py",
+      "sha256": "00aecb9077ac93dab90a9683020e0cf648269c6506adb154fb45a632aa71ca6f",
+      "bytes": 623,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/repair-task-fixtures.py",
+      "sha256": "748cab1c64d9c4775365f5470aa8280459133d5ed2ab85ffcb1f14cff9670354",
+      "bytes": 2323,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/run-owned-emulator.py",
+      "sha256": "ad25eb2611627f94d80635176161f7cb06f7c5cca4d02ed74b2dcac6aaf5560a",
+      "bytes": 311,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "redundant compatibility shim; retained callers use scripts/run-owned-emulator.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/shorten-goal-report-description.py",
+      "sha256": "b09a76ce476e8ce23faea0898b8d65ff6b5bc8abaeb185a506be0557e8a13182",
+      "bytes": 730,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/split-tool-settlement-and-timeline.py",
+      "sha256": "20c03c65e814609c7481e534d3376153c60093d04761c6fdbe190feac135dc16",
+      "bytes": 3375,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/start-file-recovery-work.py",
+      "sha256": "0328d90a30aca957920691c0091cb6002ad12e048b6da1d5c3345a35f63e905c",
+      "bytes": 4271,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/start-model-goal-migration.py",
+      "sha256": "74f433f0953d26463b888802963b5e38c12b88a4c81d7f9520b03061d4277820",
+      "bytes": 4877,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/start-responsibility-file-work.py",
+      "sha256": "a3749e2bb57c58c1fc47aee3230843debc687681db1624003c095ff5b515a374",
+      "bytes": 1689,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/summarize-background-verification.py",
+      "sha256": "5614daf4006b751af4c202fd549d615687f532b2c17050acf007d0fc16e6aeee",
+      "bytes": 732,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/summarize-compaction-verification.py",
+      "sha256": "54abc7a80d7096c1a18409c831f89849aa86781b132529e56b63236eb70bec26",
+      "bytes": 968,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/summarize-goal-report-verification.py",
+      "sha256": "e8fca6fe25fc63e1c7f266b029726f9702d47cce7c811c26372b7423196e4aac",
+      "bytes": 819,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/test-goal-blocker-order.py",
+      "sha256": "5443220cc952c0331f3f3e6890c5429da088b907ffc4b503c54993e3b27f223c",
+      "bytes": 1014,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/test-owned-emulator.py",
+      "sha256": "f21ecea61dca3485abb1a121e3030e8e08a897e8c160573886167f1e34735d93",
+      "bytes": 1353,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/tests/test_owned_emulator.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/trace-file-preview-loading.py",
+      "sha256": "eb625db902fcd33c83ffeea77661abaee13c431f3267715b3ef4b6de301b072a",
+      "bytes": 1379,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed source editor; its maintained diagnostics/runner already exist",
+      "gitSourceSha256": "72ec3a02888d152ea46825227e79e320d9e797343e82e608b202320f111d799d",
+      "exactDeletedBytesSource": "verified ignored archive; Git contains pre-cleanup editor"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/update-blocker-tests.py",
+      "sha256": "d8610c4e46e2b9e21bc2cfdabd937a9f0dc72e1619aebd74a8866e6eb1584d94",
+      "bytes": 3967,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/update-file-manager-contract-docs.py",
+      "sha256": "ec3c8c54a8396998f71480b0343ffcbae02049af9375cdcfb7a6303d2a020dbc",
+      "bytes": 5565,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/update-goal-blocked-contract.py",
+      "sha256": "241c429df8fd05845442247d52b99bbdde4c3ac30db7e38ad9ee0a8b7aed1290",
+      "bytes": 2923,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/update-goal-public-contract.py",
+      "sha256": "78170bdb4aaa122f9a7d3de4ccf63cb917f5039accb6c529002ed4e47d24da02",
+      "bytes": 3134,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/update-live-schema-fixture.py",
+      "sha256": "34c46a7a80e2716a92a6b1e1ae646b6fb9f765f75bd6d4dacff3f1e4d7087b50",
+      "bytes": 404,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/upgrade-compaction.py",
+      "sha256": "e62e3e01ffd43552bfce5b94747ab85d5288fd67e1bcf503b08e373983c64e04",
+      "bytes": 4860,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/verify-saf-publication-identity.py",
+      "sha256": "60f7eab1e364a6adfff06c868b760b8dac2186950bc4f1160bf72d95fdcb9eab",
+      "bytes": 2277,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/wire-background-ui.py",
+      "sha256": "02f7d78a090351c70630670e82743f045acddb78460efe05320cf2fd35c6086c",
+      "bytes": 6601,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/wire-manual-file-operations.py",
+      "sha256": "e9dcb53fdff02cadee4400e5e62d2947ca9a64db4711c5fe260b01dfca38bdc6",
+      "bytes": 6768,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/wire-model-goal-context.py",
+      "sha256": "f3cae744432c8cd83f68ab2832b6f9b7075ff5a0d5a9add869dbec901972c9d8",
+      "bytes": 5104,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/wire-recovery-panel.py",
+      "sha256": "27417a4c483d81858f70421dcfa56e3ad0a1c62a3377cfe46b35f1d1674a980a",
+      "bytes": 1807,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-09/wire-transfer-recovery.py",
+      "sha256": "edc6af0c9ed39e29ed068d6bde71eb19a64358b79bc931b9cddbde26d86ffb2a",
+      "bytes": 4324,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/add-connection-and-layout-checks.py",
+      "sha256": "9e50c99b97117084f2d8037d342196cb246c16a181901dbb5380517ce33d32fd",
+      "bytes": 6471,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/add-goal-entry-regressions.py",
+      "sha256": "e07e6e5bfded01ffba0db426ca4451d972ad552425007bad96c5456fd9a94f05",
+      "bytes": 4656,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/add-process-recovery-runner.py",
+      "sha256": "4574a9799b2487a919af9b6b09c15f8d7c4e92efd1420c8411248ed45e5d5c65",
+      "bytes": 1192,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed source editor; its maintained diagnostics/runner already exist",
+      "gitSourceSha256": "d8b98678731211747062bd6ad045931bf92fd45eac5e8dd13d716ef17b1697cc",
+      "exactDeletedBytesSource": "verified ignored archive; Git contains pre-cleanup editor"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/add-subscription-dns-resources.py",
+      "sha256": "5b41a5a782d7ea5f2ec528ef6b40eb5e7a46d972b979081bb2a6617431467ee2",
+      "bytes": 2902,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/add-tool-timeline-strings.py",
+      "sha256": "cc4c718ece39f830fe343d99ac402181760544c5a923a59009c1d6a268b41f52",
+      "bytes": 981,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/clean-extracted-imports.py",
+      "sha256": "6f60bfe91a75b24a207e4c2da12e8fa09f4aee47cf3f0b3c013189acb811bac5",
+      "bytes": 1666,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/clean-goal-budget-editor.py",
+      "sha256": "982fb4ade6c4377d38d3fe375357871da1e5eb6e5a656a9692ebd8a64cdaec53",
+      "bytes": 2644,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/close-hxa183.py",
+      "sha256": "4c80c8b09f49d6974f0aef8dd3375b0eb6a6bb33c5052f61eb89cd8ade79a07f",
+      "bytes": 8242,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/close-hxa184.py",
+      "sha256": "180f1b2d36de66e0219c624dcc677824465341b2f318beb2b6a95ed4d2af5a79",
+      "bytes": 10648,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/close-physical-browser-root.py",
+      "sha256": "15e02832407a487f9426228dc803ef7493216c61f3ecde27474434a4a1c18434",
+      "bytes": 9711,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/close-physical-regression.py",
+      "sha256": "b53d78a50b29a0340c6dd494c2af7863895499f8dde6dbacfea4425d93dc6068",
+      "bytes": 7077,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/close-quickjs-freezer-fix.py",
+      "sha256": "7603ac6dc347154d213ffca542ac8510276674a6669d35c9e405667685ac62a2",
+      "bytes": 8453,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/close-recovery-work.py",
+      "sha256": "42827b19b2281ad0b0e6a31f0c171f4c7fc638b8603eae32759b59fce664cf43",
+      "bytes": 2286,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/document-recovery-contract.py",
+      "sha256": "2a0cc20d0bfb3b21566d929384802d74de1ff4f3a843ac6f225071ccf119a026",
+      "bytes": 1593,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/embed-runtime-apks.py",
+      "sha256": "2f33f0c2f4a83907aac08d2518dfb072bf8cea702a7d0166edc4fdbaf089b820",
+      "bytes": 6380,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/extract-backup-verification.py",
+      "sha256": "ad864f3db0a3dab30d9b3ec913f03c8c2b31d94a39773ab72f5c07b80442f0cf",
+      "bytes": 723,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/extract-file-trash.py",
+      "sha256": "90d08e04ac716afa22174817bfc41027e8a4bce557b8f60026339e00f53c25fb",
+      "bytes": 1860,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/extract-hxa184-boundaries.py",
+      "sha256": "02f7c604b11732587c23aaabbe5725be3f6b9fc828633adedcdb3b10b2459131",
+      "bytes": 6502,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/extract-hxa184-execution.py",
+      "sha256": "71478af9cee38ff1dd1d2a5709557cb78bd5d9995bb4f5960e897415b4b5f107",
+      "bytes": 7041,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/extract-hxa184-support.py",
+      "sha256": "c315944d32e58316093686c4d53a72c65f687127a1fb3cff7f7ca257ee53403d",
+      "bytes": 3974,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/extract-subscription-header.py",
+      "sha256": "838d0ac9ed4fb919a112f1d706a2c98f9a333547853c2cbe714cbc72518d9b91",
+      "bytes": 641,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/finalize-hxa185-source.py",
+      "sha256": "a6d9cf8a2377aa47f9c8dbdb8c7ec893d43337735ded5c0e1bf8673824715226",
+      "bytes": 1894,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/finish-act-recovery.py",
+      "sha256": "0bc90eeaf958df0bc2fe4ea572d7dc85804a1d3aee18a9e85233bfaa54a6327b",
+      "bytes": 1077,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/finish-relative-file-contracts.py",
+      "sha256": "88698a801165da2800a8d2ddab2ae342b6c655ef195365846c814ec9611adb08",
+      "bytes": 743,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/finish-subscription-check-split.py",
+      "sha256": "0d49ea44ec9b256ae0085acd2c60fb811d4fca79d221fef59f9f9138342666b1",
+      "bytes": 6467,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/finish-subscription-error-ui.py",
+      "sha256": "891c34b2369d87fecc6216df2843b323cdcbc53715d9dbc3d5b718abf730a1ef",
+      "bytes": 1857,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-hxa184-races.py",
+      "sha256": "c152abfec64f713fea55642b662a7412acf1a2d3011580d217a3cf81c6904c16",
+      "bytes": 2657,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-quickjs-bind-cleanup.py",
+      "sha256": "75b2335e5ec907716412867e9373fd8dd6c3f2c156483f7142eff82d2ea98669",
+      "bytes": 1170,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-root-callback-reentrancy.py",
+      "sha256": "86df9f96bed7f9afcde5cf7f9ab9f110dfee7be58e5e6c8c63e05ad55e8e46b1",
+      "bytes": 3256,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-runtime-assets-task.py",
+      "sha256": "e693d068014d04f2627a3439ddcd21b9b61334381d2eac965ebcb4c8eab1e9a2",
+      "bytes": 2048,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-smoke-terminal-and-hints.py",
+      "sha256": "73fc112cefa6a2d5f6ab4775a5b1d6cfaf83fd685b88a286561c7b96e6bb5294",
+      "bytes": 4625,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-subscription-test-errors.py",
+      "sha256": "48d40bab0f760a3095e1ed60522263cc1b9ec41b945b9b3903221e81a3152f08",
+      "bytes": 1571,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/fix-write-and-tool-timeline.py",
+      "sha256": "bb58127e2d4255b54047bc7d2931cbed6c062ef43485acabdf3128062af38ca7",
+      "bytes": 3459,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/format-subscription-fixture.py",
+      "sha256": "1093740756a67fc42980cfcc0218aefa95570f9e45b21211d1c5193a4442815c",
+      "bytes": 612,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/format-subscription-presentation.py",
+      "sha256": "2f08d5a6050fddcdbd288b662be71de83e8faae82eb5ca48d87e9776f7881d61",
+      "bytes": 1060,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/implement-codex-image-envelope.py",
+      "sha256": "bf697fe077594e96c76615a17d86940cb2a734f1c182a0d3c448c73ae1da3828",
+      "bytes": 7104,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/keep-fingerprint-cancellable.py",
+      "sha256": "f86042e1c7390d3ad079e516bd6af59573dae906f17c4cc29c506ef3c122ea69",
+      "bytes": 946,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/move-goal-settings.py",
+      "sha256": "a76c1497659a4fa860a96464d72e9c05f51f4df4ab2069e9b9bd1479ea0b6705",
+      "bytes": 8579,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/normalize-file-fix-records.py",
+      "sha256": "af723bb3338e7d6d3e0d9e28721911dae23c6db9f7a42fcbfb77c49784d2a660",
+      "bytes": 1685,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/optimize-account-connection.py",
+      "sha256": "0a77b7d597c199acdca4d1f191e915e851acc65a6978aee2f15bd8b325d953ea",
+      "bytes": 6375,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/order-file-fix-records.py",
+      "sha256": "4a76668bb7c01a51c5e2820906303ee6905e279056c4b9a2e3227052dfb30b17",
+      "bytes": 762,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/patch-hxa185-autofill.py",
+      "sha256": "1ae8dbd1251793334e4af6cd3279ddab3500549757fe92e1b578f201d34c2544",
+      "bytes": 4158,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/patch-quickjs-visible-test-host.py",
+      "sha256": "e81bead6d0e63bb8f3600ea25da855d09351220eea43daba9733f0a308fcbb97",
+      "bytes": 596,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/prepare-hxa185.py",
+      "sha256": "012192b59de23c42eae429afdf8245604739b7dd962c9136bb7ca5753baae06b",
+      "bytes": 6327,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off implementation/commit gate; current host tests and stable parsing retained"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/prepare-physical-root-host.py",
+      "sha256": "d6f27b730bbc686d64995be635d4ffa26f0255b5a9e470908efe1e35f4052622",
+      "bytes": 2560,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/prepare-review-fixes.py",
+      "sha256": "13e7c3a9ede2cbc5f7bab64f3431eac664c7951da46eb61e64946ac88d4a2dde",
+      "bytes": 5314,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/prepare-subscription-capability-fixture.py",
+      "sha256": "46ac1921349e81e48a890cd33b68f257ee80ae6878d7af733fad8a37943eca1c",
+      "bytes": 1766,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/recount-hxa184-module-results.py",
+      "sha256": "29c8d99c046e66a2e583530ef369fc7e4b50d9dc8c83cd77cacbf5b158a44dcd",
+      "bytes": 637,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-bundled-installer.py",
+      "sha256": "6b7b3cc7f7f24a6764fd54c4be2747426cdbcdade00aa66fba7e3875271d9e8d",
+      "bytes": 1627,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-extracted-owners.py",
+      "sha256": "ca60b34eb8e0b027106c549b4fd1c7391a8ea909942b37aa37a2fdc3868f9c2e",
+      "bytes": 2679,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-goal-send-admission.py",
+      "sha256": "aaf893f6280c8ce5623378a2005a8e16839230ce7de5688d755dc5c9423f1232",
+      "bytes": 2969,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-hxa184-layout.py",
+      "sha256": "91bbf2d157799e3b82d5fb5f4272b88dfd51ba4257b216ee09f0e785e951f08c",
+      "bytes": 2878,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-hxa184-owners.py",
+      "sha256": "a5bdf61c5f08e8734d08073a86aa92796cf9871563f1de5996b4cf6021461383",
+      "bytes": 1925,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-hxa185-goal.py",
+      "sha256": "601af95573484dd80dc16a15090428807412acb6035c6f3cd2989ba484c7deac",
+      "bytes": 2216,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-split-file-layout.py",
+      "sha256": "3e7a3d491e027df6f3a8a1fa206e076861bee5afb7bdffcbc0224caf9f5cfd20",
+      "bytes": 903,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-subscription-name.py",
+      "sha256": "204489a8f34c4fa0b86ee53e9801546095b3762f19a705553467d2a1c68ee89b",
+      "bytes": 385,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-subscription-network-errors.py",
+      "sha256": "4d6f38153b71ee0acf263b784b80ccdff98ec4a43b8e09571755e461abf04ae1",
+      "bytes": 2555,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/refine-unresolved-publication.py",
+      "sha256": "2a2080a763a301d49173d3cebc8a19bfa4c08777f1c3db5774aa406b3c3d58a7",
+      "bytes": 1187,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/remove-subscription-response-caps.py",
+      "sha256": "665e6ed131609d2f3d64425fdf9d5344c10b1f37475b891c31c4c2469b0b258b",
+      "bytes": 4812,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/rename-subscription-presentation.py",
+      "sha256": "434b2a60436ceed11e5be71665b463fd1afc3c0505f9b1d7ff6196f0786b2afa",
+      "bytes": 2506,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/repair-settings-audit-layout.py",
+      "sha256": "4189bfc6749ebb8c44200239f03cf2e35485d2575c0b5d3d76618c6d7832af3f",
+      "bytes": 4766,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/restore-locked-proot-assets.py",
+      "sha256": "ceb233adc0ceff5621dbdfad150ad5ade7b06f81d1bd74b59ae94a849601400d",
+      "bytes": 1666,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/scope-runtime-installer-strings.py",
+      "sha256": "057a821951ef1cb5d9d8524e1514b168652eff00dcc2f59d2e94751c3b00692a",
+      "bytes": 647,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/simplify-goal-entry.py",
+      "sha256": "a96dd4aeec6378a4fda04fe24320b9755a1f5e2a1166b2c27ef3f01408e595ef",
+      "bytes": 6084,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/soak_evidence.py",
+      "sha256": "a30cfc943af51ba6cde3c29be5956985b4b3f006dc49641742276adf22b0a03e",
+      "bytes": 780,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/soak_evidence.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/split-hxa184-declarations.py",
+      "sha256": "15f87e97a10b01ce5eb5f696d50fd0a741059efc6335d0d9c6598e382cf8967c",
+      "bytes": 4519,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/split-provider-checks.py",
+      "sha256": "4ee96342833906c705686feeaff6da814ebbd9d58aafc39ec7c3330a86fa4705",
+      "bytes": 9545,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/split-responsibilities.py",
+      "sha256": "97e89e1513c0e23fc1bc1f63879f7b5448e66bc59d27fed00b5c9347b7055f9a",
+      "bytes": 6087,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/split-runtime-and-chat.py",
+      "sha256": "1be669a619197c0d363543e2080f4b19363aebf0ffdd94b65d83326ac017255b",
+      "bytes": 5399,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/summarize-account-connection-layout.py",
+      "sha256": "2589961e30c502a413184fb0aff30250b83860e1adff419d8a5ad61d90b03340",
+      "bytes": 745,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/summarize-dns-turn-tests.py",
+      "sha256": "63dbdc5f63ed1c89814015a1bd120c22ab084959037b2f447d02631d2d2b093b",
+      "bytes": 741,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/summarize-goal-entry.py",
+      "sha256": "72199bdf5f1852d878929f469d7795b6f368764e4c8a908a5af8c633c6023d6a",
+      "bytes": 606,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/summarize-subscription-errors.py",
+      "sha256": "fcfcb0588ddc3e44ca6170db7eceafb937a0ba454e0bf45bb58ce03c7f3d3365",
+      "bytes": 512,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/test_soak_evidence.py",
+      "sha256": "5b277e5c7c60cfd97e05f76127d07cf35be366b3f333e52d3feea5768811fe76",
+      "bytes": 1471,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/tests/test_soak_evidence.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/update-dns-and-turn-defaults.py",
+      "sha256": "59369f6adc01d403c9003c818ed17aef1fc54b95b37dbb1b3ee25970677124de",
+      "bytes": 2173,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/update-goal-ui-regressions.py",
+      "sha256": "63ddca9a8239c81ac9ec4e923c19aad420523bf816cc51562f07f7f31239b921",
+      "bytes": 6207,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/update-recovery-matrix.py",
+      "sha256": "de013cdccba3250453d3450e89c7d31391bcc03983cf9b6331cd0ca9c0af6efb",
+      "bytes": 415,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/update-relative-file-regressions.py",
+      "sha256": "38bc82d2f5b9a693aaa526d424566cf8efdd8923e4fb8e705639a76e55939f8c",
+      "bytes": 653,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/use-real-process-death.py",
+      "sha256": "9a7d40f865fc57fa9bc5c14469cc6abedaf216d45467ad0c347b841a0d37e74c",
+      "bytes": 1417,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/wire-draft-owner.py",
+      "sha256": "fe31a0b25c919e48757f16b3238766feecb0ae58f31c7048fdcdc53a9f9523ba",
+      "bytes": 2831,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/wire-dynamic-model-metadata.py",
+      "sha256": "3384ca48c2b7c3afb914ed39ec2213d9910a1287e9ff0286e87b2d5b55e4bb8e",
+      "bytes": 6496,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/write-large-class-audit.py",
+      "sha256": "fa6379faa1ce53ddcc0a89308b76b800cbd4806892f4b598cab67c3a090c6bef",
+      "bytes": 17214,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-13/normalize-research-whitespace.py",
+      "sha256": "06db0fa4357215d5a8b7a428b9b893ac4fd34749b4a2b3d23b4e97c9e742e391",
+      "bytes": 414,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-13/retire-merged-worktrees.py",
+      "sha256": "e68d98e0b94472ceed8e8242351f9f7815153fad1d1d71f16e0493ba144c4ef9",
+      "bytes": 4726,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-13/summarize-main-review.py",
+      "sha256": "da250fd96af9bddf6af159052ba9a4d88df965edf27fe6dc9623cdebd4ea62c5",
+      "bytes": 935,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-14/organize-harness-research.py",
+      "sha256": "4d51ad85a9dc3d178fedf0708be2e2c9e792998bd00578ed76a3ee5e7343da1f",
+      "bytes": 3536,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-14/register-harness-handoff.py",
+      "sha256": "fcae263e045cf06799692bde97fe54dc994fbe9427cd22d31278fea9540facf8",
+      "bytes": 2999,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-15/summarize-apref-host.py",
+      "sha256": "b12e072e479c0a177660bfd73fd56f729ce99c0710c781dd4f5130b122d5346d",
+      "bytes": 1075,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-15/summarize-hxa200-acceptance.py",
+      "sha256": "890c55e019c2e3cc1dac07a7e7a920b51ef221d0e0cb967e0dcc42d4b8605ece",
+      "bytes": 1802,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-16/summarize-baseline-host.py",
+      "sha256": "7ea0be9577189b33ae7d921c0a0dfd4402b6ac65ea839997544be62850ac73a9",
+      "bytes": 991,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-16/summarize-hxa201-host.py",
+      "sha256": "dbcf75a5f458a6ebab8d4f385673a257b1ece2d7ec1c7335149cb1d1b7a68b9a",
+      "bytes": 1750,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-16/update-takeover-records.py",
+      "sha256": "ed58e327029d8dbdbbb125de56e993912bfb9add072a8e50e16112a6ca431071",
+      "bytes": 3959,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-17/context-budget-resources.py",
+      "sha256": "d5ed9ed7cf44bafdd25880144999160d0edd7ca9fe28794653347d8dae8ea278",
+      "bytes": 4554,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa192/test-matrix-exit.py",
+      "sha256": "c2e5ffbb812576bf48c32d8434ea55c0f9aeb0e201b4e207decf19e779235363",
+      "bytes": 1201,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/tests/test_historical_matrix_exit.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-17/summarize-context-budget.py",
+      "sha256": "02c31f001e92bb810a869a69a8c78c2442789fd56d11d9730fbfc3688dcd2530",
+      "bytes": 1297,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/add-log-strings.py",
+      "sha256": "91d6b31cb8e6ddc8ddac52632ab87634bc80d23d5ff6e548d7287d8264aad76e",
+      "bytes": 1237,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/apply-permission-atomic-fix.py",
+      "sha256": "a3e005fc1d7c7eb02991a87afed7ae781399eb18cbb37ad905d3a9a6c1da2bcf",
+      "bytes": 3856,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/apply-stability-ui-fix.py",
+      "sha256": "0d72e44ddc518c945b1fa833fed8d63e9afb87cd4b793d0acde92d4417ec368d",
+      "bytes": 3200,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/extract-detached-protocol-helpers.py",
+      "sha256": "60afba7783bca4113c12c6e8fdcd6e3e692e4185cd807630e62eeb5479fba4de",
+      "bytes": 1144,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/extract-detached-ui-helpers.py",
+      "sha256": "65474c66ecd7c28d376a2009576c5bafd0d4c3211bbad7c97ad8eb5f573f4fd0",
+      "bytes": 1164,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/extract-proot-orphan-sweep.py",
+      "sha256": "ee28ac3f54de0193b86e3c1dcac55a0f81d12cfa1952e1f22f3ece63ac914fe9",
+      "bytes": 1050,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/hxa193/closeout-docs.py",
+      "sha256": "b1470df1dff9337632f20c188896d7958feb3e733430d52b3e62e4f28112d59f",
+      "bytes": 2190,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+      "sha256": "d398d9305f4fd39900749b32f6152117972d85f96abdb423c1b157d1d8a00e74",
+      "bytes": 333,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "redundant compatibility shim; retained callers use scripts/run-owned-acceptance-emulator.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-execution-ownership.py",
+      "sha256": "be642554deac9c5154ec9812c5e7e18c1a45a82e90525daac40943f949001562",
+      "bytes": 1423,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-hxa207-device.py",
+      "sha256": "8936d7284d0530911ba394c8cceb4728658e0e2a1225fab7b1dcd71d9d82bb7c",
+      "bytes": 4632,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-job-submission.py",
+      "sha256": "1cd36be44ab0c0dd30f90ec90c50e414e5cf4cc66c6f3d42a9d359fce7a307c5",
+      "bytes": 1524,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-merged-matrix.py",
+      "sha256": "0554f9aa1945e80174552151c8656eb6cdb62dab70f8dfd599e3a9efd39d368b",
+      "bytes": 2447,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-merged-theme.py",
+      "sha256": "c4de6a89efd577ea2538a1de1c682d344bb163f12937c7695dac78b99de06af4",
+      "bytes": 985,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-review-matrix.py",
+      "sha256": "663396f852567995b6d2993f8850e88650a76d9f2734f7c9265b5c506f602b3b",
+      "bytes": 2219,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/summarize-runtime-stream-lease.py",
+      "sha256": "ca32778e3a4ebce25cc4ddd7efee86b8c932c4f1989742dcd9918aad1b7d3d7b",
+      "bytes": 1717,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-18/with-host-slot.py",
+      "sha256": "fcfbdfd60cb0ab3508d22cb2caf146ba5314d7bffa93e4fbfee8d36370010efd",
+      "bytes": 303,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "redundant compatibility shim; retained callers use scripts/with-host-slot.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-19/summarize-command-browse.py",
+      "sha256": "d28400911cb65cfc3a3ad1694d15c862225f58ac55a51d13cc7f15dbc105ac0c",
+      "bytes": 1720,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-19/summarize-goal-lease.py",
+      "sha256": "27277f1ad279718052da06e1d3726a2eeb6eca35e520bf81f3a91f1d87a75102",
+      "bytes": 1702,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-20/add-pty-worker-journey.py",
+      "sha256": "1379f217f46d1df2817b002f277245e7ea354dea7df19b47c709aa55cd98b25f",
+      "bytes": 489,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-20/summarize-final-search.py",
+      "sha256": "46019abac639ca8540267457eb8c040a815a05de195512e31c82a2d81711c63b",
+      "bytes": 1031,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-21/run-acceptance-matrix.py",
+      "sha256": "43776da991daa57581b68934eb7ddec8391a2b07ff739cb1481ec234601d42ff",
+      "bytes": 317,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "redundant compatibility shim; retained callers use scripts/run-acceptance-matrix.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-27/summarize-hxa210-closeout.py",
+      "sha256": "ddb57d2dbf2f8a8cd1c283b1d815f2821e385316701920701a9d767fab963e00",
+      "bytes": 3093,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-27/summarize-hxa210-devices.py",
+      "sha256": "131f2119374f406c386b12b2e9a5590bcf5d08971ca0e936a717b2bc7185d49d",
+      "bytes": 2033,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-27/summarize-hxa227.py",
+      "sha256": "400b580eaa233297246b2ba48f66884d5c41a52df5b8a7bd166bf85bd7a7b30a",
+      "bytes": 1808,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-27/summarize-hxa229-host.py",
+      "sha256": "7e344d29687ed26ce1a1eb9e064cbf9645df2e3e67c1ec4bd9e4b70f81882282",
+      "bytes": 1298,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-28/isolate-public-eval-work.py",
+      "sha256": "8e984da6cc0b8e45433e845f02d4a2fc2960dcdbfb391e5db7a920e89a7d3692",
+      "bytes": 1999,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-28/summarize-closeout.py",
+      "sha256": "64b1c00420c6f52ece692bb494e5d35ab404fb40347f2189b5501484b30c1b8a",
+      "bytes": 2137,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-28/summarize-public-eval.py",
+      "sha256": "6c57f7bd733cef3bdd8455397aaeaddae9360b753461ad36317204b62bbe536b",
+      "bytes": 1814,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-28/summarize-real-model.py",
+      "sha256": "135482bbb49edddec64e39d90ae260f7fae4685e389697d48478c0eb9209e5a1",
+      "bytes": 1112,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-29/context-dialog-edit.py",
+      "sha256": "f45a165f5498da9372e1e67a107d511916e8cb4f80f8f1059c5919350ea7be50",
+      "bytes": 6833,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-29/provider-ui-edit.py",
+      "sha256": "5858c03f8c6acbe6cc67f0b87dd59a68c3041c968f5c8fc00921ccc32d5192b1",
+      "bytes": 11420,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/extract-compaction-prompt.py",
+      "sha256": "755e5f89f6414d01003a4969afe9876407ccd046c92f8e80fd1d6d5df9d3c91d",
+      "bytes": 549,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/extract-prompts.py",
+      "sha256": "4c03aece7f0d8682c0a58e899d7ec148af01c569a44757d7b145aa3aa74f269a",
+      "bytes": 1058,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/finish-historical-git-reader.py",
+      "sha256": "e2947dfff5c21b9a708eab1b7a3f38ab28777730833256f8f6118b7a85264972",
+      "bytes": 936,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/freeze-published-contract.py",
+      "sha256": "d3d92a8c5872339ee7ab69daba73e68971da3fe99c91e9aa0556d21cc82e279f",
+      "bytes": 2128,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/guard-publication-reentry.py",
+      "sha256": "bde25589a71008e524807539873fefcd08d4de1dd5c564c95a6e2d5087af3b2d",
+      "bytes": 1465,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/migrate-tool-registry.py",
+      "sha256": "6e06d24e6d2656b006188ca957bcd5ea002a76549812a47864f2c3cf21956f92",
+      "bytes": 1805,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/r1-adversarial-tests.py",
+      "sha256": "3c362da05d8b8fc8f59eee9c2f686a4387d73a3a9fdc15d8ce559ca6e5018d04",
+      "bytes": 5939,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/restore-public-client.py",
+      "sha256": "68c53feef4f9ec5ec6186be903a75f8ff8c10bdcb3d6780949acd6f51c2ea82d",
+      "bytes": 2738,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-closeout-tests.py",
+      "sha256": "d9a44049e668c92f33687c1e9cfa502efcdd79fbe2d8e608cbe8410d932bc2e6",
+      "bytes": 724,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-historical-tests.py",
+      "sha256": "d636b44a97697ff9f271b8f5f7c0620ad8e6df7fd2ce0fd5f7adc7de98b846ae",
+      "bytes": 1426,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-hxa232-device.py",
+      "sha256": "8fccf4f3a4eac7b35021ab8e9598d77c956917593991b959c3b570aa51ecf3a8",
+      "bytes": 1737,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-optimization-followup.py",
+      "sha256": "043ce9003f1b1449f1fd637c6ea2d526938ceba77b7d67d7dcdaebcf5c906b4d",
+      "bytes": 1581,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-post-commit-fixes.py",
+      "sha256": "3b343805c8e967c5ac1c639913faba65e6bed45951234ccd3623b5b29bb11fb9",
+      "bytes": 2506,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-provider-model-management.py",
+      "sha256": "f1f5c7069fc976ab71658ec867b0c8c3bc5a774fb97b6f9f3cb604dd3751a5f8",
+      "bytes": 2461,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-runtime-fault-matrix.py",
+      "sha256": "eb9b447aafb76e41df424f1aafeca1fb2c6edc0e2f078199bd790a1924b8b849",
+      "bytes": 2988,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/summarize-subscription-closeout.py",
+      "sha256": "d5148a4d82cda9a170a3fd6574f19a271dfe4114200329ae573b3a2bb4078184",
+      "bytes": 2759,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/write-r1-device-closeout.py",
+      "sha256": "482fde72d92850c832af17104a51c479dfe80f34156f8bf42ca213e2fdc7595f",
+      "bytes": 6906,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/add-hxa237-resources.py",
+      "sha256": "ea53315fe1314c0a151a8526bbdd666061dae1893108c4e24feab5f759397eb3",
+      "bytes": 5627,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/check-hxa237-artifacts.py",
+      "sha256": "34a87fd4ab222967020b022dda69369b20361000ed3006fee0159666ac786e32",
+      "bytes": 3453,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/migrate-r2-context-compiler.py",
+      "sha256": "ec974d43d21eb48e45f587c7d6940dcf44524bc2cd4c51a695e4e2081ebed926",
+      "bytes": 13056,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/migrate-r2-domain-values.py",
+      "sha256": "67220bc998c6fb9c82a53ff6ccd87ca024e44d899c6cb0716d09c85bf7141f07",
+      "bytes": 10371,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/migrate-r2-live-loop.py",
+      "sha256": "99d2e31e8e770113b6f5c0bdbf22b61d64b4966671219f64ebcdd18f26f97f57",
+      "bytes": 12472,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/migrate-r2-tool-ports.py",
+      "sha256": "4794c4c26afeb97a5ebf7f168ea4bbf47d3e6298dd9daa01be39241038a1d0fe",
+      "bytes": 7368,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/migrate-r3-package-owner.py",
+      "sha256": "501f21009baa78b041c706000efdc0c02f001093eff12f75ca6056ac4da6b707",
+      "bytes": 7152,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/pin-r2-historical-source-links.py",
+      "sha256": "6bb02902e3bc6416e8f013634c198d59c9d9d3f30fcb6c7a4bec7eaf9ff685db",
+      "bytes": 1946,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/prepare-j1-completion.py",
+      "sha256": "4a9e74555a77604799850f94e28193e7d7d3d4d5a920234d2bc69f2cadc80aee",
+      "bytes": 10603,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/promote-j1-candidate.py",
+      "sha256": "02dc74e7abc8b8e76be436798340a2333841cd80e8944a97085dce797f688079",
+      "bytes": 2043,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/summarize-hxa233-host.py",
+      "sha256": "2d8edde687ce72d007a1cac0481f50433bd5ed17c038b225c1e29c2c15866d0c",
+      "bytes": 2713,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/summarize-hxa234-host.py",
+      "sha256": "a32f57f855cf75f1ae7db60ec62d30e197815b9b838767c9e8a4e0a19032170d",
+      "bytes": 1547,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/summarize-hxa236-followup.py",
+      "sha256": "d5fa17bc94cfcf85ed4954f756cb6e898af2276f751af474b4bc74a6fcd66ab6",
+      "bytes": 2397,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/summarize-j1-host.py",
+      "sha256": "665854a684f3ac4d61566bafbed7e74ad9326fde669971d74c7abab8a883f8e7",
+      "bytes": 2167,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/commit-hxa240-check.sh",
+      "sha256": "feab0a84c356f1ac18d8f6f3cc36b2fb01432c9d70e97986f77d4845d47c4187",
+      "bytes": 793,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off implementation/commit gate; current host tests and stable parsing retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/migrate-execution-tests.py",
+      "sha256": "41bf0e95cc537cd3d2b9c66211f76f78c4669799fe96096079d78518ec3d9cf5",
+      "bytes": 3128,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/summarize-execution-concurrency.py",
+      "sha256": "d13d433a73bd623ebc687aff5f211941a49a2fd54487d170699a7b39b620fc10",
+      "bytes": 3617,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/summarize-hxa239.py",
+      "sha256": "abca1e3bffcb59d30b5c1ae7515246d0f8792dd511d2b06da83e76a6634fde50",
+      "bytes": 2444,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/summarize-hxa240.py",
+      "sha256": "3969098a417d1dd0c8f6521491d5f736ebb76e67b20e793ff81a71c058c7edab",
+      "bytes": 3655,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/test-ffmpeg-proot-package.py",
+      "sha256": "14efc3f3c8e72c8b5d4b4d05802007a2107ab05bd6dce7d2590206b872e4530a",
+      "bytes": 2703,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/tests/test_ffmpeg_proot_package.py"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/finish-boundary-fixtures.py",
+      "sha256": "8bfac860663d22f75636e39504f4ef5cccc57b7850d3785fa424ba42f817f59d",
+      "bytes": 2962,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/refine-final-fixtures.py",
+      "sha256": "48fc513ccf5c2899a08182f92c970e184a40a35f442fb3690164e2aeee1b7230",
+      "bytes": 2606,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/refine-proot-goal-fixture.py",
+      "sha256": "0a6234ab13d2d0c81c157311d329a5dc2fb693a95b1c86061b15131a4fb74b85",
+      "bytes": 2717,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/summarize-final-matrix.py",
+      "sha256": "f7cafa5a249f4f55398f132892b1ea276077eb84e95f7fafb522045390439242",
+      "bytes": 1501,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/summarize-hxa245-final.py",
+      "sha256": "82434fee93ce850677c930abbd39597bed232478f9fa9d2ac15b2854778c0789",
+      "bytes": 962,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/collect-mobile-visual-host.py",
+      "sha256": "8c10b9dee36b0438b829b2ccb108a5690bb371a56ea60ae3aa81bdd6520dc855",
+      "bytes": 2321,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/document-mobile-use-partial.py",
+      "sha256": "d865e10ce0accba33098e3ff95f909c6f347cf956524ffbca6417c62a89964f1",
+      "bytes": 4177,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/extend-device-hierarchy.py",
+      "sha256": "0457e7b0cee442206147110e493c6c2c0420f69c00f64066b3cde6980dc072f4",
+      "bytes": 2568,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/file-workflow.py",
+      "sha256": "ee13216aa805c5b96d6f89e7b81b3e43c3b671bf353dff7ad921571fc49c3013",
+      "bytes": 3475,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/refine-files-picker.py",
+      "sha256": "33a26565f0b3255a669ae0ef43439eb6d576677a04de5b82245489c56b7dab31",
+      "bytes": 555,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/root-evidence-summary.py",
+      "sha256": "2225040761f3d61d70265e299d0bfd44924f097255bb6f75dc3f30cf3a906776",
+      "bytes": 1200,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/shizuku-evidence-summary.py",
+      "sha256": "d6df440e146bc98487be30bc07653cf27e00ff182013320ad42fe056eda3e680",
+      "bytes": 1101,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/summarize-media-tests.py",
+      "sha256": "03eb8987c145b6cd5d21ac99d634ca4bb1db6a42f1c2496b4e44e70cc7f4db50",
+      "bytes": 515,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/summarize-projects.py",
+      "sha256": "e60907b4fe582d9074a3f27b1347b0fa4cbcf9c7718582d2159cc089f41fff11",
+      "bytes": 1066,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/translate-storage-settings.py",
+      "sha256": "0e407d4aab106287fecbc2bbc3da2c3c03231be051aca40dab8adf67089494af",
+      "bytes": 1271,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/wire-privileged-device.py",
+      "sha256": "882cc9bf264795dea06bf829b618252d703d3fd8f6592a97885680bbc6bae1f2",
+      "bytes": 4128,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/backend-status-refine.py",
+      "sha256": "a7697c5dcc30709505464724d5854e5e9494529257d0e821df01204caeb04302",
+      "bytes": 726,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/count-current-audit-tests.py",
+      "sha256": "3bb945fd81c9d11e1cdad40aedb527db54079e6875e2b2fc7c94fdfe3c6f681c",
+      "bytes": 767,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/document-hosts-editor.py",
+      "sha256": "2fb45fee02eca9b01a6afde8fef736fa49424ebd278534a0162abc44b8c30d5c",
+      "bytes": 1285,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/extract-mobile-descriptions.py",
+      "sha256": "18ef21ec2e2d885e425c9e1bb4fd0419d59bbdd8a3d3b3b75518b5fcade431b1",
+      "bytes": 1065,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-doc-links.py",
+      "sha256": "58bf6e1f57fb35bc15a55ffb4cafae66f54f096bb3255fd5e52f0ed47f30f51f",
+      "bytes": 605,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/plugin-grant-helper.py",
+      "sha256": "1c7226eb39d9dbba8a5c3c994c46cdb74e183098ebcee97f6c7879b7cd2d3e83",
+      "bytes": 400,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/plugin-unify-docs.py",
+      "sha256": "1b174bfaef024156ae7b27457e8f0bdcef6307e42218eb81504aef7901fd807a",
+      "bytes": 1321,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/queue-inline-cleanup.py",
+      "sha256": "618faf700cb97e43cb3c5bbb7462406c4a144e0842361a6ea2d2d5fe0293e6fd",
+      "bytes": 2248,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/refine-permission-layout.py",
+      "sha256": "50903b824178dc788d3660fbb8f4ab6b7f6c17b7a2b549d2cb19b272659067f9",
+      "bytes": 9162,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/refine-semantic-hints.py",
+      "sha256": "de7b24a13df76c89bd6fb9ae4c4f500716848cbc5da0e0147e3418b2bdf38d13",
+      "bytes": 1444,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/restore-capability-launch.py",
+      "sha256": "2ba44094ecb26f4cb521f42a9549fc3a776057ecab111fea6d1f6f6eb39afdde",
+      "bytes": 829,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/restore-capability-scope.py",
+      "sha256": "2cd24dccde8590e48619ebd409cacb5d90d17c2f5a2a959fab4a94fb1a8c76c0",
+      "bytes": 1689,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/summarize-capability-eval.py",
+      "sha256": "7f7d9daab829ea8af8e9718d65e3e39d2de0ef435dd612605bd1f77153ac305d",
+      "bytes": 1390,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/summarize-hosts-tests.py",
+      "sha256": "f546f5473c61c9299e67467be466bed5faca7a75a039e8b81099049eab42ff32",
+      "bytes": 441,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/summarize-install-traces.py",
+      "sha256": "0916be4050f8b5505e71f7170f39ce8e83d60976034de309b9defd6858b8e70c",
+      "bytes": 975,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/test-capability-runner.py",
+      "sha256": "e793863e22ee855203fe9247c91f9241d82521ed5d2bb2f5848a0b742a0c4b3d",
+      "bytes": 5871,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/tests/test_capability_runner.py"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/align-main-regression-fixtures.py",
+      "sha256": "a9b52ea3c129085bff71d0ef0ebb94953cd24afcd3b2cc0c5cd1da01fe439573",
+      "bytes": 2191,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/align-recovery-ui-fixtures.py",
+      "sha256": "7260f1cc102a4c5e66c1982c8baf33175bb925cec15ac19a533270385e49dc5b",
+      "bytes": 1013,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/align-root-lifecycle-fixture.py",
+      "sha256": "a96d0cc8f503fdaa1b28829633e9ad157724bc37e914e53304b582b59b6a8724",
+      "bytes": 3422,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/decouple-overlay.py",
+      "sha256": "78b9b46d62d5127025918064ffed712b50b375cc79201056051f287798865e54",
+      "bytes": 5579,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/extend-privileged-navigation.py",
+      "sha256": "b45ea71b809b4667799e9d6cfb8661a35f6f64c9482624d18188fc5d531f881c",
+      "bytes": 6048,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/finish-package-query.py",
+      "sha256": "3f575eb825c10a35e5ddfdd417d1bbdaf155575507ed3ba416f5165688aad0fe",
+      "bytes": 4935,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/fix-overlay-style.py",
+      "sha256": "f612967879a320d0cc0338408661d88d3bafc7d5faa7b5e739da167f24dbcd66",
+      "bytes": 2145,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/fix-proot-pending-fixture.py",
+      "sha256": "0077494830c1dc4dd25ca42498fc462297e8ee1812df097d5743afb731104a0b",
+      "bytes": 2947,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/optimize-installer-controls.py",
+      "sha256": "2961ec5d80038f6d1c471c603deb4aa5272d6662341627465d8f6326b477c831",
+      "bytes": 3427,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/optimize-package-query.py",
+      "sha256": "eb82cf7fd7b07dd57dc840b47102d53f5e834919f9e20344fe33400f733f543b",
+      "bytes": 4254,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/prepare-optimization-verification.py",
+      "sha256": "fda6044dbc754ed12dc134d8af7daf43807092d5695888268b146f899f40a5f4",
+      "bytes": 1621,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/reasoning-picker.py",
+      "sha256": "5d69efeb705e0c08ab11e9d7e526ec81a212c1056f8229d9ba8ac40b5fa55210",
+      "bytes": 6371,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/refine-protected-controls.py",
+      "sha256": "0739f1132a1b9b7679612e3aff966468c607ddf24e30b9b2784d7e9461a30d85",
+      "bytes": 4824,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/refine-snapshot-feedback.py",
+      "sha256": "b831d80a6e5263e2d20294d1a1e9f44c99892a94442c7239c3704b6697bcac77",
+      "bytes": 2281,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/refine-touch-guidance.py",
+      "sha256": "a5dbd82b85f025fb0e1825c75e1d0bf0b946316f9ce2280431d925c779a1c2df",
+      "bytes": 4001,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/streamline-root-authorization.py",
+      "sha256": "1fcfe96413eaf5743661820105d7413759ea04adc5abfb68499a7dbd35c35cbb",
+      "bytes": 3843,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/summarize-backend-evidence.py",
+      "sha256": "1b9f08295a715f053fdb9035acc5bac624a98665eb0af0b0c6ae51fcf8e6a3b5",
+      "bytes": 564,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/summarize-main-modules.py",
+      "sha256": "a2daf41cf8bbd8a44af11da105b9487cdd36aa7e27114848f0db115081b4dd54",
+      "bytes": 421,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/summarize-main-validation.py",
+      "sha256": "6889464c69267b9938af208c2a5fd5d365dcbc8a6833d0484c1efad22d2a8b9c",
+      "bytes": 507,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "one-off historical totals/reconciliation; use current instrumentation_junit, summarize-android-tests and curated evidence"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/validate-release-readiness.py",
+      "sha256": "0d38dcc22d4b4aea3558b873ca7f418935a6e7f4e92b618d0a31a76d8a79c350",
+      "bytes": 3032,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/async-main-startup.py",
+      "sha256": "ac62f252dba1be7ce927cbb8a99efcfd4ec39210e234cfeab5ebb653c95a72c2",
+      "bytes": 3967,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-budget-cleanup.py",
+      "sha256": "9400f470e8db002e6b84c2c513f886bffd1a926cf5eec5d3e35826256c7373d5",
+      "bytes": 6636,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-budget-policy.py",
+      "sha256": "36a88f1139a63d816b7acc3f272bce51cc424261baf9cbf6a1ef02435a26b437",
+      "bytes": 6453,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-budget-tests.py",
+      "sha256": "77ac246767ff5e84dc07ad257db7c59d8e9acdb9a4240887f63e3e55925a6109",
+      "bytes": 7824,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed test-source generator uses removed one-off DSH editor; resulting current tests retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-budget-ui.py",
+      "sha256": "d62edd985f82032270bb122a1829684a5716065c83efdadbbad218c15411b4eb",
+      "bytes": 4356,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-device-contract-tests.py",
+      "sha256": "a20194acdc17222290d6b57571aa6fb1fb2c4dbdfcc46f85e2cbdb052ae466c5",
+      "bytes": 7620,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed test-source generator uses removed one-off DSH editor; resulting current tests retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-doc-contract.py",
+      "sha256": "78a1d0ab9d6af9181effff0973ba1ed21310f571bc47c5cc524e32eabccc369a",
+      "bytes": 2503,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-final-cleanup.py",
+      "sha256": "765f204ba9d86fa738ff0413e88f0e16a0c087b2a046f9945a2fe2f50f7de6db",
+      "bytes": 3776,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-goal-rounds.py",
+      "sha256": "c6dcedf5b356533a7fdd23d54a632255a22c37e3afa64881cb3e338b994cd750",
+      "bytes": 6580,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-host-contract-tests.py",
+      "sha256": "b741f4a3a8f15ac499d5db639e3055292fb5e3f6c4be4ed5f07621d13b834774",
+      "bytes": 2934,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed test-source generator; current tests retain its accepted DSH coverage"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/dsh-test-adjustments.py",
+      "sha256": "8fbfdf1525a0fedabf8d4e5c8d8e6b0e29a09b09192b97b5b51cc41621bdcad8",
+      "bytes": 2548,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/mobile-feedback-resources.py",
+      "sha256": "ce4b263459a61e1abeff4f2569bf90e9c95063e127a99ab3eb634a7391c2e3ec",
+      "bytes": 854,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/mobile-status-resources.py",
+      "sha256": "67510e5f0038623ecbecaefeaacc1089957890f16212a469e4af256ffa3f2ca9",
+      "bytes": 778,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/refine-mobile-settings.py",
+      "sha256": "21e8b472c9ffd293b675309be57a34faa7de7946bd3686953b53a5bbf440c753",
+      "bytes": 4839,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/refine-session-panel.py",
+      "sha256": "5eabe7bff40c9b5024e4063ce370e2cf71ccb574c878aa63517a6ee82126ba3b",
+      "bytes": 1996,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-07/startup-feedback-resources.py",
+      "sha256": "bb05c4945c109d04c07ce751a03d2dee1ff8f7536c8aab3c479cc6ab10e272e1",
+      "bytes": 572,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off source/document editor; maintained result in current source/tests and Git history"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/architecture-audit-inventory.py",
+      "sha256": "ee62ffed5ce26ef416ba3428db54a5949bd586fc60f70e1f0e84bb2e452016cf",
+      "bytes": 2690,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/catalog-progress.py",
+      "sha256": "de220c37cb2822241f8156f06fb48fbe4e7cf96a407c240ae4459f52ce607674",
+      "bytes": 1377,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/chat-owner-recovery-after.py",
+      "sha256": "d841d7e5081c883fce7e782606f303b4e6f6dc70fe9e74b564d59e1e19952b73",
+      "bytes": 4991,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/check-staged-secrets.py",
+      "sha256": "846fcd140ca014a3c18ea9112b189850a09623f5ac4c2b2c700da6ff77489e1d",
+      "bytes": 886,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/cleanup-derived-recovery-images.py",
+      "sha256": "7ff9b6c4398e7c231732142f876b00e4f86e67f0743c15263429213f3e1ca175",
+      "bytes": 1169,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/close-fault-record.py",
+      "sha256": "d1355bd6c47abb723834f976f94a34de2cfc3deacd09c141095d236bf4dcdfbc",
+      "bytes": 1874,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/close-model-record.py",
+      "sha256": "58230f35f50ac31043bc8e97cf5570a223e819e8e6cc64238d3096a2b5452928",
+      "bytes": 6963,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/close-resource-record.py",
+      "sha256": "b2fc37286806addf3bf595ccddeb735ceaa54004406bf4a673ae17035acf9438",
+      "bytes": 3862,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/composer-process-after.py",
+      "sha256": "c15434849ad4136c01e4d2eb899a3ceba5f958f1a5f7ab37f8e43ae38bd6794c",
+      "bytes": 7506,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/extract-session-catalog.py",
+      "sha256": "cb9a33451670c723ecd3eed61391439602f3c7a01874623c23817ae5ae43331b",
+      "bytes": 4773,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/extract-session-state-owners.py",
+      "sha256": "3ec1a7b2401aeca927eac07731c300293670bde0f34cdcf25cc70cb543330d99",
+      "bytes": 7546,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/fault-closeout-after.py",
+      "sha256": "c151468749f8b8f6de6c29222ade3b7f2323f560005b4f033f8f1bfcdc930165",
+      "bytes": 1279,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/finish-log-closeout.py",
+      "sha256": "6d325b41ae9360aa238626909e43367b1772ee270082e71490f0ccd6948b4c92",
+      "bytes": 4594,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/finish-page-model-validation.py",
+      "sha256": "3df046cc2b60420ca7c5827bd368d53c9ab4f4090dfd28d7fef46ed24f4cfd42",
+      "bytes": 8048,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/finish-projection-validation.py",
+      "sha256": "0c16491c50803cadee0b25d9f0fd79a2868dfb86cb072fb49cb75ac25997bc60",
+      "bytes": 5586,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/fixture-recovery-after.py",
+      "sha256": "7f456ce6df3a30360249087c29e65bd3916bef293a1710918df37c75efee9c53",
+      "bytes": 3713,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/fixture-result-summary.py",
+      "sha256": "f6ed63e9bb5529a4de12e7ddb66b38d29395898e7c3adbc9f25d57580cff19b5",
+      "bytes": 676,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/freeze-fault-artifacts-r3.py",
+      "sha256": "571792044f797fb133bd70496a4a295dc41db8ed6b7d5d1d5b3775bbf2179966",
+      "bytes": 955,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/freeze-fault-artifacts.py",
+      "sha256": "868f8e7f9ac066f4893044e5ace037cbed5faf9498a670e55844dfe1830d1863",
+      "bytes": 1258,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/freeze-model-artifacts.py",
+      "sha256": "d201684355305c53aa0a3d5528df4294240a0b31376e2319c59375dc46eeefef",
+      "bytes": 1291,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/freeze-projection-artifacts-r2.py",
+      "sha256": "7a1c5c6ec4e81571ade0e7d1a59c4141a4c4ba4bcd5c99f8ff3c218dcd5be030",
+      "bytes": 1277,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/freeze-projection-artifacts.py",
+      "sha256": "471c145e036a76d7c33c3d2ec8175c838fc3dd55fef738c789fa41ec66333017",
+      "bytes": 1274,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/freeze-resource-artifacts.py",
+      "sha256": "5fac9b2d566e7095d75f73b8132ef8be65b1204b866ceda6cf5ba40b6c784c80",
+      "bytes": 1315,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/goal-ui-closeout-after.py",
+      "sha256": "9d00776f37623ac938efee727212485e7a08d345ba5a65fe59bf9a13675410fc",
+      "bytes": 2631,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/group-feature-ui.py",
+      "sha256": "aa45ab3c21cc2c0785966e9c95d71ddb4b19fb6de4da6a5b5532140d839b005e",
+      "bytes": 4280,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/inspect-live-fixture-facts.py",
+      "sha256": "b3581a56e1b224b73c1887be2c90820c0557ad345dc3a5579b1d8f4ca66d08c5",
+      "bytes": 1638,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/inspect-qcow-recovery.py",
+      "sha256": "4472e414fc1a266d8f386f5b5f3350acc9ee9e0cd53e5037eaf4d6b46991e157",
+      "bytes": 2944,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/inspect-queue-failure.py",
+      "sha256": "9642af94d73daa69f6baed06cfe8acc15f5c4909bae94dd32ee30312440e7e51",
+      "bytes": 943,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/migrate-turn-fixtures.py",
+      "sha256": "60d95fd2e81a391525c3ad276299c32793c389d62d3e8620c0b32c3fd2a1c8bc",
+      "bytes": 3365,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/monitor-model-closeout.py",
+      "sha256": "9cf40ba1c98f71bb716cdd162ac8dc07ee053986996cdb26db991d58b3e4e158",
+      "bytes": 2122,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/monitor-queue-diagnostic.py",
+      "sha256": "609ecd62cf93bae92b0d014f3f449bdc48a254b2c1d0043a250d4006305ca484",
+      "bytes": 1550,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/prepare-projection-r2.py",
+      "sha256": "f81ee6959b6a9dfe6b59b72cafb931a7241d6dcfdda8118f04da3c29670b393d",
+      "bytes": 485,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/prepare-qcow-candidate.py",
+      "sha256": "5bf3d8031b22bf6641a00e309aca8ed0654662804336d80e5795425d2442d64b",
+      "bytes": 840,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/project-keyboard-followup.py",
+      "sha256": "4128819aa4a184979fc91742dda2f5a7a64876b323a1b5021a714b9b5813d64f",
+      "bytes": 1891,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/projection-load-after.py",
+      "sha256": "1f9a9857f2529bdb3cb15eb0a28ca19f0421764371d15c89cc7d2f8315d55201",
+      "bytes": 2665,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/rebuild-daily.py",
+      "sha256": "9c55d73e0b0ebc127d9ce4ca9cafd3fa13184ccb0d23847897c2c31b04646d3e",
+      "bytes": 1815,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/reseed-daily.py",
+      "sha256": "ab9294f0c3ebeb196cf0ce127ae4d5b731aa0353eec8baae3855b7c7457e925d",
+      "bytes": 3365,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/resource-closeout-after.py",
+      "sha256": "d6979a32077de080b3bcd6b7fc1091455de845fec52b1a503f2d8e016b49d076",
+      "bytes": 1217,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/resume-feature-ui.py",
+      "sha256": "7ffb709e05da8bba651de63aaac6863e0583788a9da3b47030cec8d9b5009941",
+      "bytes": 1466,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/retire-stale-editor.py",
+      "sha256": "d03da5c7e7517420d652b1fa3c92ec95d4a3901c76cba295424e010492265cc5",
+      "bytes": 773,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/revision-process-after.py",
+      "sha256": "30c994bcbf244512e3b900b667cb9d3db7fffbb213b6a6f779680456dc85e3d3",
+      "bytes": 7085,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-catalog-matrix.py",
+      "sha256": "bfa6e490ba29ef0acd930743862a4920e64516dfdbe56cfd2e6c0bc95affdcab",
+      "bytes": 2564,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-checkpoint-owned.py",
+      "sha256": "cbdec34cbe70b47d7761026c162b683f613cb1acb3d78434423a33b7078f5bed",
+      "bytes": 1334,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-fault-closeout.py",
+      "sha256": "363e8189835fde1dc595eadb010aa2601b85b7431a814e819cb4f66b0629d552",
+      "bytes": 1516,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-fixture-matrix.py",
+      "sha256": "e32028b01521c7ce056d6635479ff19b360263d5a0f6fbb050ac1ab568589fcb",
+      "bytes": 2797,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-goal-ui-closeout.py",
+      "sha256": "c668c6cef704e0e89f073e4290d89454a26dd7cab6caca773e99909dc9fffcff",
+      "bytes": 1389,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-live-context.py",
+      "sha256": "deab2ad5d96cbd5bb8152288cf79c9975bbcc068184d92ebdc63153b2809028f",
+      "bytes": 1004,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-log-retention-model.py",
+      "sha256": "4af8cec79e5f8ccf693b7fc2c63cd1ca730f4a6d8a62248d4d5a56f29d90776b",
+      "bytes": 799,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-page-followup.py",
+      "sha256": "32710b70ee410b5794db3eb9ae1a587a31769d0e07f1767eeb042124bf58a3de",
+      "bytes": 1823,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-projection-developer.py",
+      "sha256": "fc574a197d2565761e698a80588c1716defd6b251cc0c527ab3a041871cc6466",
+      "bytes": 419,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-projection-four-remaining.py",
+      "sha256": "015f34fc48c6b84a167f9ad1b7a3d0912aff0c716148cd66059695dacc92ca67",
+      "bytes": 821,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-projection-four.py",
+      "sha256": "cb188796ff82506ddcb38c90e023d7e1e42ffe082a5ae6ec47f6569e19c1bbbf",
+      "bytes": 675,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-projection-load.py",
+      "sha256": "c44bac8253e4cd59b75abe27e047ce4353184db74ad59614171a897676f1a2a8",
+      "bytes": 1487,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-queue-diagnostic.py",
+      "sha256": "ddadc291e936bcdf74c9aba637e00dfb10ce17d2e60b7a3657a31f51b67bde68",
+      "bytes": 705,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/run-resource-closeout.py",
+      "sha256": "989cc762b9b8f5d9f323210072eabe8299413fa9359b27ec006d2ff5431ae8f7",
+      "bytes": 1127,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/show-restored-helix.py",
+      "sha256": "e22f485dd08fa290c4d29a3f6da6ec7814125baf12abe3ac12a5f1528eb9a98b",
+      "bytes": 800,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/stage-feature-ui.py",
+      "sha256": "853cbd2b0640811bf049eaae85d64ae583a69c6169b1d5be8253ba2e962930ad",
+      "bytes": 1786,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/start-fault-closeout.py",
+      "sha256": "f77e434f8682575612c6ef85738424f5afc95e1e9fc0159a937cd10db349bddf",
+      "bytes": 2761,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/start-log-closeout.py",
+      "sha256": "3b7a57bd96034ba91a0316d3dca26a4bd1f7f99555d1b9a0e6ad176cd61c98d6",
+      "bytes": 2239,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/start-page-model-followup.py",
+      "sha256": "fb41c6d357541b070f6c6ee4fb1c006bf63d6dcd360fde86d216e27bff66e0b0",
+      "bytes": 3323,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/summarize-discovery.py",
+      "sha256": "a7dee0b7f73e84b393a3dc1d443da987e0f405a797f0d2f9aea950e082496b28",
+      "bytes": 2029,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/summarize-projection.py",
+      "sha256": "9c3efe2c2555a3b66865b05d60d9292ee0976e8357e90b19019926ff85e8c54c",
+      "bytes": 1570,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/update-current-validation.py",
+      "sha256": "155fb2a2b8a34114f516be5762c21ba4919d7b8391ee0eab18bebcbc8352b09a",
+      "bytes": 527,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/verify-feature-move.py",
+      "sha256": "7b1d1f39174fc72a35bf8a2b1a32c328cac77a459eeeed5a80811e2f2f0af062",
+      "bytes": 888,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/verify-fixture-apk-isolation.py",
+      "sha256": "da09e3aee7be389d2c394857d20aca38eec1092b6cb3e54fafa7c2636b120b3e",
+      "bytes": 1273,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/verify-restored-keyboard.py",
+      "sha256": "da46bbda5e69754fdbc9267bf2fad4dc9586c2bf2f65cd738a2559c5771c012e",
+      "bytes": 1176,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed HXA-261..266 one-off local editor/launch/reconciliation; stable tools and recorded evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/restore-daily-after-discovery.py",
+      "sha256": "8f0cacf46575982f011a1dbc3bc25bfdcacc3d4b874d47c2f9411265f98f666c",
+      "bytes": 6067,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed one-off prior AVD restoration; prior recovery evidence retained, not a supported runner"
+    },
+    {
+      "path": "scripts/test-review-gates.py",
+      "sha256": "87ba63192117ee2f5040bfb8084d0f0ac0ec530f0b1f430f3127c28b4b7bd160",
+      "bytes": 7635,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "preserved regression/helper at scripts/tests/test_review_gates.py"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/verify-recovery-evidence.py",
+      "sha256": "e4c106faf3cecbd6ad8ce356909254c110a81ddb32a994b8a443f8a27cd1bcc8",
+      "bytes": 921,
+      "tracked": true,
+      "source_commit": "978249b43420f96a494ec310213b9149878ebe5b",
+      "reason": "unused one-off reconciliation of fixed HXA-182 snapshot against then-current APK; stable strict parser and historical evidence retained"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/ComposerInputState.kt.txt",
+      "sha256": "301e572a8e4bcc95290c15a9cde2bb87ebe4bca614232390d36083e9c53546d6",
+      "bytes": 1787,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/ComposerInputStateTest.kt.txt",
+      "sha256": "70134e8e155b0e7af8f2018cb1943d21d704ce746f7fbb2099a9078d34611808",
+      "bytes": 2860,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/SessionCatalog.kt.txt",
+      "sha256": "4fb621ad6cf3391d47fff4ef1684fb80ee92802db874d2ca3c40acdcfaeb936b",
+      "bytes": 5173,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/SessionCatalogDeviceTest.kt.txt",
+      "sha256": "2bc2d85a8f709140c25546985e29dd596de0d845034ffe88b1f79593c3cb8407",
+      "bytes": 5994,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/SessionDirectory.kt.txt",
+      "sha256": "5658df8de2e88f12427d59cea4491c79e52bd5aef2a1c3e3e94bf018aaf381d0",
+      "bytes": 3920,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/SessionDirectoryServiceTest.kt.txt",
+      "sha256": "cdd7fed5f58bb1b442b5a1c0ec3e636b17c65a419481554fc4824adc0bbed410",
+      "bytes": 4379,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/SessionProjectionLoadDeviceTest.kt.txt",
+      "sha256": "e31d4d4787043c009e7c701dfd375579a5168e408cba653edcc57347fbd6ccfa",
+      "bytes": 5196,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/TaskDashboardProjection.kt.txt",
+      "sha256": "4820d7e6fa1b68d2b3c0962287e29f1daa58599a49024a9eaa151506410f316c",
+      "bytes": 2341,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/apply-script-cleanup.py",
+      "sha256": "70a5938f02ebee6ad3cf277072de9cf6fbfeb4b372295fad8d6663dac864ecc5",
+      "bytes": 4202,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/archive-final-verifier.py",
+      "sha256": "f473b77deb1d89d75318a1c4a56745ca77dc58c07fa72b6f369a794db37d1343",
+      "bytes": 1436,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/expand-script-cleanup.py",
+      "sha256": "7877f6fa7b120d7e7be6b2ffb6fa1967e5c47bb7c8a18a6316736ffabbecd861",
+      "bytes": 2048,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/extract-chat-responsibilities-retired.py.txt",
+      "sha256": "65aedd190b6f3628fffdfc3451aef6c9f25eb85d253185989305cf139891de2c",
+      "bytes": 6311,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/finish-retained-summaries.py",
+      "sha256": "f2bcbad1fab8ea410130c3a80d5fdc75d00f5bb1bbcddb3e568a5b6543573ddb",
+      "bytes": 2199,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/inventory-maintenance.py",
+      "sha256": "9141078ca18a56c1a3b3b5c09a671b4aae68bfa01a281aa109f46de5e0b67ad1",
+      "bytes": 1207,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/plan-script-cleanup.py",
+      "sha256": "8f7abc88ac931a29ce5918f2fb8b276795a131b6ab10ee97fd27252cb77fe2eb",
+      "bytes": 961,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/replace-suite-totals.py",
+      "sha256": "a3981435a74b6934750e2f4f45f898166e3a633f2f0a47ac482817c3a13414de",
+      "bytes": 757,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/retire-maintenance-helpers.py",
+      "sha256": "34e0e03970414a49f73d80e4b6f6bc38f5e1360c85f4075dc1f7bf339a418ddb",
+      "bytes": 1602,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    },
+    {
+      "path": "scripts/debug/2026-10-10/local/rewire-historical-runners.py",
+      "sha256": "c9e98d0bbb190b2187ce7f1c3efbc062e74e1cab749349d8c40ae9ad2d563059",
+      "bytes": 2696,
+      "tracked": false,
+      "source_commit": null,
+      "reason": "completed ignored draft or cleanup helper; current source/host tests and maintenance playbook retain applicable behavior"
+    }
+  ]
+}

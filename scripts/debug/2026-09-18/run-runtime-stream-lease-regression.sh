@@ -7,7 +7,7 @@ for api in 29 36; do
   python3 scripts/verify-integrated-runtimes.py \
     --avd "HelixApkUpgrade_API${api}_20260918" --port 5670 --memory-mb 4096 --cores 4 \
     --output "build/${prefix}-runtime-api${api}"
-  python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+  python3 scripts/run-owned-emulator.py --raw-results \
     --avd "HelixApkUpgrade_API${api}_20260918" --port 5672 --memory-mb 4096 --cores 4 \
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \

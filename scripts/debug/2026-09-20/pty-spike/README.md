@@ -6,13 +6,13 @@
 
 ## 执行
 
-先运行父级准备脚本；在工程根通过 `scripts/debug/2026-09-18/with-host-slot.py` 包装以下 Gradle 命令：
+先运行父级准备脚本；在工程根通过 `scripts/with-host-slot.py` 包装以下 Gradle 命令：
 
 ```sh
 ./gradlew --project-dir build/hxa197-termlib-build-spike assembleDebug assembleDebugAndroidTest
 ```
 
-再通过同一 slot 包装 `python3 scripts/debug/2026-09-18/run-owned-emulator-207.py`，参数如下（每次换未使用输出目录和空闲偶数端口，范围 5554～5682）：
+再通过同一 slot 包装 `python3 scripts/run-owned-acceptance-emulator.py`，参数如下（每次换未使用输出目录和空闲偶数端口，范围 5554～5682）：
 
 ```sh
 --avd Helix191_API29 --port 5618 \

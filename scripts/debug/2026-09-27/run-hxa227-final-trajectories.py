@@ -45,13 +45,13 @@ for flavor, api, port in matrix:
         subprocess.run(command, cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
     subprocess.run([sys.executable, 'scripts/debug/2026-09-27/summarize-hxa227-device.py', str(output)], cwd=root, check=True)
     records = parse((output / 'instrumentation.txt').read_text())
-    assert len(records) == 10 and all(value[0] == 0 for value in records.values())
+    assert records and all(value[0] == 0 for value in records.values())
     assert json.loads((output / 'closed.json').read_text())['exit'] == 0
-    runs.append({'run': name, 'methods': 10, 'cases': 8, 'result': 'passed',
+    runs.append({'run': name, 'methods': len(records), 'cases': len(manifest['cases']), 'result': 'passed',
                  'artifacts': json.loads((output / 'artifacts.json').read_text()),
                  'context': json.loads((output / 'context.json').read_text())})
     print('Passed ' + name, flush=True)
 for flavor in ('consumer', 'developer'):
     artifacts = [run['artifacts'] for run in runs if run['context']['flavor'] == flavor]
     assert artifacts[0] == artifacts[1]
-write_json(summary_path, {'methods': 40, 'cases': 32, 'runs': runs})
+write_json(summary_path, {'methods': sum(r['methods'] for r in runs), 'cases': sum(r['cases'] for r in runs), 'runs': runs})

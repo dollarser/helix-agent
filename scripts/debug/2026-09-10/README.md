@@ -52,7 +52,7 @@ HXA-182 跨日继续。所有权约束和制品冻结复用前一日的 `run-own
 ## HXA-185 待 Claude 验证
 
 - `prepare-hxa185.py`、`patch-hxa185-autofill.py`、`refine-hxa185-goal.py`、`finalize-hxa185-source.py`：本轮一次性源码编辑记录，不是可重跑修复器。
-- `soak_evidence.py`：纯 WebView 当前包/版本解析；`test_soak_evidence.py` 为未执行的主机回归。
+- WebView纯解析已迁入 `scripts/soak_evidence.py`，回归在 `scripts/tests/test_soak_evidence.py` 自动发现；本段其他日期记载仅作历史来源。
 - `analyze-fd-phases.py`：离线阶段统计，拒绝混合进程/轮次；输出不判定泄漏归属、不改变资源门限。
 - 所有编译、测试与模拟器操作交给 Claude；详见仓库 `docs/development/hxa185-claude-test-handoff.md`。
 

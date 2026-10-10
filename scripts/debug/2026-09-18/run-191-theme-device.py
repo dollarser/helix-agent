@@ -120,7 +120,7 @@ def main():
                     device("shell", "settings", "get", "system", "font_scale"))
 
                 # Two-phase restart protocol in this mode (setup kills; verify is a fresh process).
-                setup = device("shell", "am", "instrument", "-w", "-e", "class", theme_class,
+                setup = device("shell", "am", "instrument", "-w", "-r", "-e", "class", theme_class,
                                "-e", "recoveryPhase", "setup", runner, timeout=600, check=False)
                 (out / f"{mode}-setup.txt").write_text(setup)
                 if "process crashed" not in setup.lower():
@@ -130,7 +130,7 @@ def main():
                 if not marker.isdigit():
                     raise RuntimeError(f"theme setup ({mode}) did not write a durable pid marker")
 
-                verify = device("shell", "am", "instrument", "-w", "-e", "class", verify_classes,
+                verify = device("shell", "am", "instrument", "-w", "-r", "-e", "class", verify_classes,
                                 "-e", "recoveryPhase", "verify", "-e", "expectedNight", night,
                                 runner, timeout=900, check=False)
                 (out / f"{mode}-instrument.txt").write_text(verify)

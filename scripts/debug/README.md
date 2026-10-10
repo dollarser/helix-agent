@@ -25,7 +25,7 @@ python3 scripts/run-owned-emulator.py \
   --classes com.helix.app.ui.SystemBarInsetsDeviceTest \
   --runner com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner \
   --output build/debug/2026-09-09/unique-run
-python3 scripts/debug/2026-09-09/test-owned-emulator.py
+python3 scripts/run-host-tests.py
 ```
 
 The runner freezes both APKs and hashes, checks nonempty JUnit results, and records
@@ -38,12 +38,10 @@ Each run also streams filtered TestRunner/System.out logcat evidence from before
 The stream retains early events rather than taking only a terminal fixed-size tail. Live model
 tests use synthetic history and never read the phone's provider or conversations.
 
-HXA-177 one-off implementation scripts in `2026-09-09/` are retained for provenance,
-not supported migrations to rerun. `run-owned-emulator.py` is the reusable runner;
+HXA-177 one-off editors are recovered from Git when needed, not supported migrations to rerun. `run-owned-emulator.py` is the reusable runner;
 `hxa177-*` output folders contain failed and successful frozen attempts separately.
 
-HXA-179/180/181 extraction, wiring, formatting and documentation-edit scripts are
-one-off provenance, not repeatable migrations. Use `scripts/debug/2026-09-09/run-chat-responsibility-regression.sh`
+HXA-179/180/181 editors are retired; their resulting code/tests and history remain. Use `scripts/debug/2026-09-09/run-chat-responsibility-regression.sh`
 and `scripts/debug/2026-09-09/run-manual-files-regression.sh` for their device suites, and choose a fresh output
 folder. The manual file suite uses `--grant-shared-storage` before instrumentation:
 changing that permission from inside a running test can terminate its process.
@@ -52,6 +50,8 @@ Failed runs additionally retain synthetic-device logcat and a UI hierarchy dump.
 ## Stable entry points
 
 Reusable runners now live under `scripts/`; see [supported tools](../README.md).
-The former dated runner paths are compatibility shims, not duplicate implementations.
+Redundant dated shims and completed editors are retired with Git/path/hash provenance.
 New references should use the stable paths. Retained historical runners remain available;
 ignored output directories are not a substitute for preserving reproduction tools.
+
+See the [maintenance playbook](../../docs/development/debugging-playbook.md) and [retirement record](../../docs/evidence/development/test-script-maintenance-2026-10-10.md) for current alternatives and recovery provenance.

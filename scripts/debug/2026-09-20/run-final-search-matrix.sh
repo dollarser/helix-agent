@@ -11,5 +11,5 @@ for variant in developer consumer; do
     bash scripts/debug/2026-09-18/run-191-search-device.sh "$variant" "$api" "$port" "$output"
     port=$((port + 2))
   done
-  python3 scripts/debug/2026-09-18/summarize-job-submission.py "${prefix}-${variant}" 8
+  python3 scripts/summarize-owned-runs.py "build/${prefix}-${variant}-api29" "build/${prefix}-${variant}-api36" --output "build/${prefix}-${variant}-summary.json"
 done

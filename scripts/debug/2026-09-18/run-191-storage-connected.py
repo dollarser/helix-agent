@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """HXA-191 follow-up on the owned serial: the storage connected query test.
 
-Invoked by scripts/debug/2026-09-09/run-owned-emulator.py as
+Invoked by scripts/run-owned-emulator.py as
 `python3 <this> <serial> <output-dir>` after the app instrumentation passes,
 before the emulator is torn down. Builds and runs the Room-level search query
 test on the same device, then fails the run unless a fresh result XML shows
-4/4 passing for com.helix.core.storage.SessionSearchQueryDeviceTest.
+all selected methods passing for com.helix.core.storage.SessionSearchQueryDeviceTest.
 """
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
-import xml.etree.ElementTree as ET
+import importlib.util
 
 CLASS = "com.helix.core.storage.SessionSearchQueryDeviceTest"
-EXPECTED_TESTS = 4
 
 
 def main() -> None:
@@ -63,29 +62,13 @@ def main() -> None:
             f"no fresh result XML under {results_root} "
             "(the connected run must produce one before the run may pass)"
         )
-    total = failures = errors = 0
-    found = False
-    for xml in fresh:
-        for suite in ET.parse(xml).getroot().iter("testsuite"):
-            if suite.get("name") == CLASS:
-                found = True
-                total += int(suite.get("tests", "0"))
-                failures += int(suite.get("failures", "0"))
-                errors += int(suite.get("errors", "0"))
-    if not found:
-        raise SystemExit(
-            f"no testsuite for {CLASS} in the fresh result XMLs "
-            f"({', '.join(str(xml) for xml in fresh)})"
-        )
-    if (total, failures, errors) != (EXPECTED_TESTS, 0, 0):
-        raise SystemExit(
-            f"unexpected storage connected result: tests={total} failures={failures} "
-            f"errors={errors} (want {EXPECTED_TESTS}/0/0)"
-        )
-    print(
-        f"storage connected OK: {CLASS} tests={total} failures=0 errors=0 "
-        f"(serial={serial}, xml={', '.join(str(xml) for xml in fresh)})"
-    )
+    spec = importlib.util.spec_from_file_location("android_summary", repo / "scripts/summarize-android-tests.py")
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    result = helper.summarize(fresh)
+    if result["status"] != "PASS" or any(case["class"] != CLASS for case in result["cases"]):
+        raise SystemExit(f"unexpected storage connected result: {result['status']}")
+    print(f"storage connected OK: {CLASS} tests={result['tests']} failures=0 errors=0 skipped=0 (serial={serial})")
 
 
 if __name__ == "__main__":

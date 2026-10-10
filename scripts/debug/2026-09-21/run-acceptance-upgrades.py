@@ -20,7 +20,7 @@ environment = dict(os.environ,
                    HELIX_UPGRADE_NEW_TEST_APK=str(root / "app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk"))
 for index, api in enumerate((29, 36)):
     target = args.output / f"api{api}"
-    command = [sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+    command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
                "--avd", f"Helix191_API{api}", "--port", str(args.first_port + 2 * index),
                "--memory-mb", "4096", "--cores", "4", "--apk", str(args.old_apk.resolve()),
                "--test-apk", str(args.old_test_apk.resolve()),

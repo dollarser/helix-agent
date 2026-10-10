@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../../.."
 prefix="${1:?new evidence prefix}"
 port="${2:-5674}"
 for api in 29 36; do
-  python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+  python3 scripts/run-owned-emulator.py --raw-results \
     --avd "HelixApkUpgrade_API${api}_20260918" --port "$port" --memory-mb 4096 --cores 4 \
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \

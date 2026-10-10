@@ -30,8 +30,16 @@ class SoakRunnerTest(unittest.TestCase):
     def test_library_identity_remains_independent(self):
         self.assertEqual(runner.workload_identity('browser'), runner.WORKLOADS['browser'])
 
-    def test_report_counts_all_current_resource_cases(self):
-        self.assertEqual(runner.CASES_PER_CYCLE, 8)
+    def test_report_reads_actual_completed_cycle_sizes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            soak = runner.Soak.__new__(runner.Soak)
+            soak.out = Path(directory)
+            (soak.out / 'logcat.log').write_text(
+                'HelixSoakCases: pid=4000 cases=8\nHelixSoakCases: pid=4000 cases=11\n'
+                'TestRunner: run finished: 2 tests, 0 failed, 0 ignored\n')
+            facts = soak.scan_logcat()
+            self.assertEqual(facts['nestedCaseCounts'], [8, 11])
+            self.assertTrue(facts['testRunnerFinished'])
 
     def test_failed_warmup_does_not_claim_completed_nested_cases(self):
         with tempfile.TemporaryDirectory() as directory:

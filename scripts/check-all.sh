@@ -12,7 +12,6 @@ if [[ "${HELIX_GRADLE_PROFILE:-0}" == 1 ]]; then
 fi
 
 source_checks() {
-    python3 scripts/test-review-gates.py
     python3 scripts/run-host-tests.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh

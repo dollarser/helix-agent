@@ -6,7 +6,7 @@ port="${3:?exclusive even port}"
 output="${4:?new evidence directory}"
 suffix=""
 if [[ "$variant" == developer ]]; then suffix=.developer; fi
-python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+python3 scripts/run-owned-emulator.py --raw-results \
   --avd "HelixApkUpgrade_API${api}_20260918" --port "$port" --memory-mb 4096 --cores 4 \
   --output "$output" \
   --apk "app/build/outputs/apk/$variant/debug/app-$variant-debug.apk" \

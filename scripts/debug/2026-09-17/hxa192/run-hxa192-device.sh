@@ -25,7 +25,7 @@ suffix=
 if [ "$variant" = developer ]; then suffix=.developer; fi
 classes="com.helix.app.plan.PlanExecuteCloseLoopDeviceTest,com.helix.app.plan.PlanExecutionAcceptanceDeviceTest,com.helix.app.plan.PlanAuthorizationLinkageDeviceTest,com.helix.app.plan.PlanExecutionRecoveryDeviceTest"
 recovery="com.helix.app.plan.PlanExecutionRecoveryDeviceTest"
-python3 scripts/debug/2026-09-09/run-owned-emulator.py --avd "Helix_M11_Test_API_$api" --port "$port" \
+python3 scripts/run-owned-emulator.py --raw-results --avd "Helix_M11_Test_API_$api" --port "$port" \
  --apk "app/build/outputs/apk/$variant/debug/app-$variant-debug.apk" \
  --test-apk "app/build/outputs/apk/androidTest/$variant/debug/app-$variant-debug-androidTest.apk" \
  --runner "com.helix.agent$suffix.test/com.helix.app.HelixAndroidJUnitRunner" \
