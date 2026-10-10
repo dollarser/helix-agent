@@ -136,7 +136,7 @@ private fun ToolTimelineSummary(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.testTag("tool-row-intent-${row.callId}"),
             )
-            ToolTimelineHeading(row)
+            ToolTimelineHeading(row, expanded)
         }
         IconButton(onClick = onToggle, modifier = Modifier.testTag("tool-details-${row.callId}")) {
             Icon(
@@ -150,7 +150,10 @@ private fun ToolTimelineSummary(
 
 @Composable
 @Suppress("FunctionName")
-private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
+private fun ToolTimelineHeading(
+    row: com.helix.app.chat.ToolTimelineRow,
+    expanded: Boolean,
+) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val isDenied = row.card?.state == com.helix.app.approval.ApprovalCardState.DENIED
         val badgeColor =
@@ -170,7 +173,7 @@ private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        row.durationMs?.let { duration ->
+        row.durationMs?.takeIf { expanded }?.let { duration ->
             val formatted =
                 if (duration < 1000L) {
                     stringResource(R.string.tool_duration_ms, duration)

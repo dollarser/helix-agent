@@ -193,7 +193,7 @@
     <string name="approval_no">No</string>
     <string name="approval_no_egress">No egress</string>
     <string name="approval_no_input">No input</string>
-    <string name="approval_no_permanent_allow">Applies to this action only. This version offers no “model approves for me” and no “allow all from now on”.</string>
+    <string name="approval_no_permanent_allow">Applies to this action only.</string>
     <string name="approval_online">Online</string>
     <string name="approval_profile_advanced">Advanced (enhanced, not full access)</string>
     <string name="approval_profile_standard">Standard (default)</string>
@@ -1917,4 +1917,5 @@
     <string name="goal_round_limit">Automatic continuation round limit</string>
     <string name="goal_round_exhausted">Automatic continuation rounds exhausted. Increase the allowance and explicitly resume to continue.</string>
     <string name="files_sources_loading">Loading directory information…</string>
+    <string name="approval_review_action">Allow this action? %1$s</string>
 </resources>

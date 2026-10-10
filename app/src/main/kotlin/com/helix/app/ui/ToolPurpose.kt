@@ -18,7 +18,7 @@ internal object ToolPurpose {
         return target(arguments)?.let { "$label · $it" } ?: label
     }
 
-    private fun actionRes(name: String): Int =
+    fun actionRes(name: String): Int =
         when {
             name == "write" -> R.string.tool_purpose_write
             name == "edit" -> R.string.tool_purpose_edit
@@ -44,10 +44,18 @@ internal object ToolPurpose {
             } catch (_: IllegalArgumentException) {
                 null
             } ?: return null
-        return listOf("destination", "path", "source", "tabId", "name")
-            .firstNotNullOfOrNull { key ->
-                (fields[key] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
-            }?.replace('\n', ' ')
+        return listOf(
+            "destination",
+            "path",
+            "source",
+            "packageName",
+            "url",
+            "query",
+            "tabId",
+            "name",
+        ).firstNotNullOfOrNull { key ->
+            (fields[key] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
+        }?.replace('\n', ' ')
             ?.replace('\r', ' ')
             ?.take(120)
     }

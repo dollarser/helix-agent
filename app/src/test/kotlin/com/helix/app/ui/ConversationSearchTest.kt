@@ -23,7 +23,36 @@ class ConversationSearchTest {
             )
         val matches = findMatches("match", screen)
         assertEquals(listOf("q1", "a1", "q2", "a2"), matches.map { it.targetId })
-        assertEquals(listOf(0, 2, 3, 4), matches.map { it.listIndex })
+        assertEquals(listOf(0, 1, 2, 3), matches.map { it.listIndex })
+    }
+
+    @Test fun everyMatchingToolUsesItsOwnInlineItemIndex() {
+        val screen =
+            createScreen(
+                messages =
+                    listOf(
+                        MessageUi("before", "assistant", "match", "turn-1", 1),
+                        MessageUi("after", "assistant", "match", "turn-1", 4),
+                    ),
+                tools =
+                    listOf("later" to 3L, "earlier" to 2L).map { (id, sequence) ->
+                        ToolTimelineRow(
+                            "turn-1",
+                            id,
+                            "read",
+                            "match",
+                            "completed",
+                            null,
+                            null,
+                            position =
+                                com.helix.app.chat
+                                    .ToolTimelinePosition(sequence, 0),
+                        )
+                    },
+            )
+        val matches = findMatches("match", screen)
+        assertEquals(listOf("before", "earlier", "later", "after"), matches.map { it.targetId })
+        assertEquals(listOf(0, 1, 2, 3), matches.map { it.listIndex })
     }
 
     private fun createScreen(

@@ -99,6 +99,16 @@ class PinyinComposerDeviceTest {
     private fun typePinyin() {
         // Google Pinyin's first-use layout chooser is an IME setup screen, not a text key.
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.serviceInfo =
+            automation.serviceInfo.apply {
+                flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            }
+        val bannerLabel = "关闭新语言包安装横幅。"
+        val banner =
+            automation.windows
+                .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                .firstNotNullOfOrNull { window -> window.root?.let { findCandidate(it, bannerLabel) } }
+        if (banner != null) clickKeyboard(bannerLabel)
         val layout =
             automation.windows
                 .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }

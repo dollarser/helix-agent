@@ -191,7 +191,7 @@
     <string name="approval_no">否</string>
     <string name="approval_no_egress">无出网</string>
     <string name="approval_no_input">无输入</string>
-    <string name="approval_no_permanent_allow">仅对本次动作生效。本版本不提供“模型帮我批准”或“此后全部允许”。</string>
+    <string name="approval_no_permanent_allow">仅对本次操作生效。</string>
     <string name="approval_online">联网</string>
     <string name="approval_profile_advanced">Advanced（增强，非完全访问）</string>
     <string name="approval_profile_standard">Standard（默认）</string>
@@ -1914,4 +1914,5 @@
     <string name="goal_round_limit">自动续跑轮数上限</string>
     <string name="goal_round_exhausted">自动续跑轮数已用尽。调整轮数并明确继续后才能恢复。</string>
     <string name="files_sources_loading">正在加载目录信息…</string>
+    <string name="approval_review_action">允许此操作？%1$s</string>
 </resources>

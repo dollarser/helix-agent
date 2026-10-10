@@ -28,4 +28,11 @@ data class ToolTimelineRow(
     val prootRecoveredOutput: com.helix.app.proot.ProotRecoveredOutput? = null,
     val prootResultUnavailable: Boolean = false,
     val prootRecoveryReport: com.helix.app.proot.ProotRecoveryReport? = null,
+    val position: ToolTimelinePosition? = null,
+)
+
+/** Original request location, independent of completion/approval arrival order. */
+data class ToolTimelinePosition(
+    val sequence: Long,
+    val index: Int,
 )

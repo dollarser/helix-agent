@@ -51,6 +51,7 @@ internal class ChatToolTimeline(
         card: com.helix.app.approval.ApprovalCardUi?,
         durationMs: Long? = null,
         modelIntent: String? = null,
+        position: ToolTimelinePosition? = null,
     ) {
         // Atomic update: this row mutation races other timeline writers (the card sink
         // runs on a scheduler pool thread; settle/cancel run on the IO scope). A
@@ -77,6 +78,7 @@ internal class ChatToolTimeline(
                                 resultSummary = resultSummary,
                                 card = preserved,
                                 durationMs = effectiveDuration,
+                                position = position ?: existing?.position,
                             ),
                         ),
             )

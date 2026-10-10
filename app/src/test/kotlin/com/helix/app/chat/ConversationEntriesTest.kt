@@ -5,6 +5,45 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ConversationEntriesTest {
+    @Test fun callsStayBetweenTheirOriginalMessagesDespiteReverseSettlementAndApproval() {
+        val messages =
+            listOf(
+                MessageUi("u", "user", "start", "t", 1),
+                MessageUi("before", "assistant", "checking", "t", 2),
+                MessageUi("between", "assistant", "now write", "t", 4),
+                MessageUi("answer", "assistant", "done", "t", 6),
+            )
+        val first =
+            ToolTimelineRow("t", "first", "read", "{}", "running", null, null, position = ToolTimelinePosition(3, 0))
+        val sibling = first.copy(callId = "sibling", position = ToolTimelinePosition(3, 1))
+        val second = first.copy(callId = "second", position = ToolTimelinePosition(5, 0))
+        val entry = ConversationEntry("t", messages, listOf(second, sibling, first), emptyList())
+        val expected = listOf("u", "before", "tool-first", "tool-sibling", "between", "tool-second", "answer")
+        assertEquals(expected, entry.timeline.map { it.key })
+        assertEquals(
+            expected,
+            entry
+                .copy(
+                    tools = listOf(sibling.copy(stateLabel = "denied"), second, first.copy(stateLabel = "completed")),
+                ).timeline
+                .map {
+                    it.key
+                },
+        )
+        assertEquals(
+            listOf(
+                "u",
+                "before",
+                "between",
+                "answer",
+                "tool-unlocated",
+            ),
+            entry.copy(tools = listOf(first.copy(callId = "unlocated", position = null))).timeline.map {
+                it.key
+            },
+        )
+    }
+
     @Test fun laterUserAnswerStaysAfterTheAssistantQuestion() {
         val messages =
             listOf(
@@ -14,9 +53,8 @@ class ConversationEntriesTest {
                 MessageUi("a2", "assistant", "Done", "t"),
             )
         val entry = ConversationEntry("t", messages, emptyList(), emptyList())
-        assertEquals(listOf("q1"), entry.initialMessages.map { it.id })
-        assertEquals(listOf("a1", "q2", "a2"), entry.followingMessages.map { it.id })
-        assertEquals(messages, entry.initialMessages + entry.followingMessages)
+        assertEquals(listOf("q1", "a1", "q2", "a2"), entry.timeline.map { it.key })
+        assertEquals(messages, entry.timeline.map { (it as ConversationContent.Message).value })
     }
 
     @Test fun oldToolsAndMessageFreeTurnsStayBeforeTheNewestAnswer() {

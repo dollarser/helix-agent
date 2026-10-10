@@ -42,7 +42,7 @@ internal class ChatScreenProjection(
         if (sessionId == null) return liveRows
         val superseded = storage.messages.supersededTurns(sessionId)
         val sessionTurns = storage.turns.listBySession(sessionId).filterNot { it.id in superseded }
-        val persisted = persistedToolTimeline(sessionTurns)
+        val persisted = persistedToolTimeline(sessionTurns, ChatTimelineOrder.positions(storage, sessionId))
         // Scope the overlay to THIS session's turns: a live row from another session
         // (e.g. a pending card left open when the user switched) must not appear here.
         val turnsInSession = sessionTurns.map { it.id }.toSet()
@@ -69,7 +69,10 @@ internal class ChatScreenProjection(
         }
     }
 
-    private fun persistedToolTimeline(sessionTurns: List<TurnEntity>): List<ToolTimelineRow> =
+    private fun persistedToolTimeline(
+        sessionTurns: List<TurnEntity>,
+        positions: Map<String, ToolTimelinePosition>,
+    ): List<ToolTimelineRow> =
         sessionTurns
             .flatMap { turn ->
                 storage.toolCalls
@@ -89,6 +92,7 @@ internal class ChatScreenProjection(
                             stateLabel = persistedStateLabel(persistedCallState(turn, call.state)),
                             resultSummary = result?.summary,
                             card = null,
+                            position = positions[call.callId],
                             prootRecoveryAvailable = ProotToolModule.AVAILABLE && interruptedProot,
                         )
                     }
@@ -134,7 +138,7 @@ internal class ChatScreenProjection(
                 if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
                     null
                 } else {
-                    MessageUi(entity.id, entity.role.lowercase(), content.orEmpty(), entity.turnId)
+                    MessageUi(entity.id, entity.role.lowercase(), content.orEmpty(), entity.turnId, entity.sequence)
                 }
             }
     }

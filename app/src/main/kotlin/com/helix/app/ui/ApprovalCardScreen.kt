@@ -62,18 +62,17 @@ fun ApprovalCard(
         ) {
             Text(
                 stringResource(
-                    R.string.approval_title,
-                    localizedString(card.sourceRes, card.sourceArgs),
-                    stringResource(card.targetRes),
+                    R.string.approval_review_action,
+                    ToolPurpose.text(card.toolName, card.arguments),
                 ),
                 style = MaterialTheme.typography.titleMedium,
             )
             if (expanded) {
                 ApprovalCardFields(card)
             } else {
-                Text(card.scope, style = MaterialTheme.typography.bodySmall)
                 Text(
-                    approvalArgumentSummary(card.arguments),
+                    com.helix.app.approval.ApprovalArgumentPreview
+                        .text(card.arguments),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 3,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -92,22 +91,6 @@ fun ApprovalCard(
                 Text(stringResource(if (expanded) R.string.summary_collapse else R.string.summary_expand))
             }
             ApprovalCardActions(card, onApprove, onDeny)
-        }
-    }
-}
-
-private fun approvalArgumentSummary(arguments: String): String {
-    val fields =
-        runCatching {
-            kotlinx.serialization.json.Json
-                .parseToJsonElement(arguments) as? kotlinx.serialization.json.JsonObject
-        }.getOrNull() ?: return arguments.take(160)
-    val targets = fields.filterKeys { it in setOf("path", "source", "destination", "url", "command") }
-    return if (targets.isEmpty()) {
-        fields.keys.joinToString(", ")
-    } else {
-        targets.entries.joinToString(" · ") {
-            "${it.key}: ${it.value}"
         }
     }
 }

@@ -7,10 +7,15 @@ internal data class ConversationEntry(
     val tools: List<ToolTimelineRow>,
     val recoveries: List<SubscriptionRecoveryUi>,
 ) {
-    // Only the initial user input precedes the operations block. Later user answers
-    // stay between the assistant messages that preceded and followed them.
-    val initialMessages: List<MessageUi> get() = messages.takeWhile { it.role == "user" }
-    val followingMessages: List<MessageUi> get() = messages.drop(initialMessages.size)
+    val timeline: List<ConversationContent>
+        get() =
+            (
+                messages.mapIndexed { index, message ->
+                    ConversationContent.Message(message, message.sequence ?: index.toLong())
+                } + tools.map { ConversationContent.Tool(it) }
+            ).sortedWith(
+                compareBy<ConversationContent> { it.sequence }.thenBy { it.index },
+            )
 
     fun forkMessageId(screen: ChatScreenState): String? {
         val turn = screen.turns.firstOrNull { it.id == key }
@@ -43,5 +48,27 @@ internal fun conversationEntries(screen: ChatScreenState): List<ConversationEntr
             tools[key].orEmpty(),
             recoveries[key].orEmpty(),
         )
+    }
+}
+
+internal sealed interface ConversationContent {
+    val sequence: Long
+    val index: Int
+    val key: String
+
+    data class Message(
+        val value: MessageUi,
+        override val sequence: Long,
+    ) : ConversationContent {
+        override val index: Int get() = -1
+        override val key: String get() = value.id
+    }
+
+    data class Tool(
+        val value: ToolTimelineRow,
+    ) : ConversationContent {
+        override val sequence: Long get() = value.position?.sequence ?: Long.MAX_VALUE
+        override val index: Int get() = value.position?.index ?: 0
+        override val key: String get() = "tool-${value.callId}"
     }
 }

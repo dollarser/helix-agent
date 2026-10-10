@@ -551,6 +551,7 @@ internal class ChatToolCalls(
             null,
             null,
             modelIntent = modelIntent,
+            position = ChatTimelineOrder.positions(storage, turn.sessionId)[toolCallId],
         )
         val request =
             requests

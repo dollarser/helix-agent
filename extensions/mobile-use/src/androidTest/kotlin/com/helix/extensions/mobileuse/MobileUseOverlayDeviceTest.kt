@@ -150,6 +150,12 @@ class MobileUseOverlayDeviceTest {
         }
     }
 
+    private fun overlayGrantMode(packageName: String): String =
+        Regex("SYSTEM_ALERT_WINDOW: (allow|ignore|deny|default|foreground)")
+            .find(shell("cmd appops get $packageName SYSTEM_ALERT_WINDOW"))
+            ?.groupValues
+            ?.get(1) ?: "default"
+
     @Test fun applicationOverlayWorksWithoutHelixAccessibilityAndRemovesAfterRevocation() {
         val app = instrumentation.context.applicationContext
         val component = ComponentName(context, HelixAccessibilityService::class.java).flattenToString()
@@ -160,11 +166,7 @@ class MobileUseOverlayDeviceTest {
                     ':',
                 ).filter { it != component && it != "null" && it.isNotBlank() }
                 .joinToString(":")
-        val originalMode =
-            Regex("SYSTEM_ALERT_WINDOW: (allow|ignore|deny|default|foreground)")
-                .find(shell("cmd appops get ${app.packageName} SYSTEM_ALERT_WINDOW"))
-                ?.groupValues
-                ?.get(1) ?: "default"
+        val originalMode = overlayGrantMode(app.packageName)
         val overlay =
             MobileUseOverlay(
                 app,

@@ -101,36 +101,11 @@ private fun scanEntryMatches(
 ): Int {
     var currentIndex = startIndex
 
-    // 1. Initial user input, matching the visible timeline partition.
-    val userMessages = entry.initialMessages
-    for (msg in userMessages) {
+    for (content in entry.timeline) {
         val itemIndex = currentIndex++
-        if (msg.content.contains(query, ignoreCase = true)) {
-            results.add(SearchMatch(targetId = msg.id, listIndex = itemIndex, snippet = msg.content))
-        }
+        contentMatch(content, query, itemIndex)?.let(results::add)
     }
-
-    // 2. Operations / Tools item
-    val operationsIndex = currentIndex++
-    val matchingTool =
-        entry.tools.firstOrNull { tool ->
-            tool.toolName.contains(query, ignoreCase = true) ||
-                tool.requestSummary.contains(query, ignoreCase = true) ||
-                (tool.resultSummary?.contains(query, ignoreCase = true) == true)
-        }
-    if (matchingTool != null) {
-        val snippet = matchingTool.resultSummary ?: matchingTool.requestSummary
-        results.add(SearchMatch(targetId = matchingTool.callId, listIndex = operationsIndex, snippet = snippet))
-    }
-
-    // 3. Remaining messages in persisted order, including later user answers.
-    val assistantMessages = entry.followingMessages
-    for (msg in assistantMessages) {
-        val itemIndex = currentIndex++
-        if (msg.content.contains(query, ignoreCase = true)) {
-            results.add(SearchMatch(targetId = msg.id, listIndex = itemIndex, snippet = msg.content))
-        }
-    }
+    if (entry.recoveries.isNotEmpty()) currentIndex++
 
     // 4. Past error
     val past = screen.turns.firstOrNull { it.id == entry.key && it.id != screen.activeTurn?.id }
@@ -146,3 +121,33 @@ private fun scanEntryMatches(
 
     return currentIndex
 }
+
+private fun contentMatch(
+    content: com.helix.app.chat.ConversationContent,
+    query: String,
+    itemIndex: Int,
+): SearchMatch? =
+    when (content) {
+        is com.helix.app.chat.ConversationContent.Message -> {
+            content.value.let { message ->
+                if (message.content.contains(query, ignoreCase = true)) {
+                    SearchMatch(message.id, itemIndex, message.content)
+                } else {
+                    null
+                }
+            }
+        }
+
+        is com.helix.app.chat.ConversationContent.Tool -> {
+            content.value.let { tool ->
+                if (tool.toolName.contains(query, ignoreCase = true) ||
+                    tool.requestSummary.contains(query, ignoreCase = true) ||
+                    tool.resultSummary?.contains(query, ignoreCase = true) == true
+                ) {
+                    SearchMatch(tool.callId, itemIndex, tool.resultSummary ?: tool.requestSummary)
+                } else {
+                    null
+                }
+            }
+        }
+    }

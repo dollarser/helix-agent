@@ -82,9 +82,9 @@ fun ChatScreen(
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
     val sessionId = screen.openSessionId
-    androidx.lifecycle.compose.LifecycleResumeEffect(chatService, sessionId) {
-        val view = sessionId?.let { chatService.showConversation() }
-        onPauseOrDispose { view?.close() }
+    androidx.lifecycle.compose.LifecycleResumeEffect(chatService) {
+        val view = chatService.showConversation()
+        onPauseOrDispose { view.close() }
     }
     val imageDisclosures by chatService.toolVisionConsent.pending.collectAsStateWithLifecycle()
     if (screen.pendingDisclosure == null) {

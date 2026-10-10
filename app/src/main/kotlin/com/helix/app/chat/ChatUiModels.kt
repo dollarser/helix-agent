@@ -68,6 +68,7 @@ data class MessageUi(
     val role: String,
     val content: String,
     val turnId: String? = null,
+    val sequence: Long? = null,
 )
 
 /**
