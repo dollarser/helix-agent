@@ -6,7 +6,7 @@
 
 本次复核：审批折叠已归201，Goal创建归208，首次配置归205；这里只保留主题与会话/历史检索。
 
-核对依据：[源码或有效证据](../../../app/src/main/kotlin/com/helix/app/ui/SessionListSection.kt)。本轮只审查，不新增测试通过或完成声明。
+核对依据：[源码或有效证据](../../../app/src/main/kotlin/com/helix/app/chat/ui/SessionListSection.kt)。本轮只审查，不新增测试通过或完成声明。
 
 ## 范围与验收要求
 

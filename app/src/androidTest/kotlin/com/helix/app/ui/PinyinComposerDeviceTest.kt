@@ -56,24 +56,44 @@ class PinyinComposerDeviceTest {
             }
         }
         compose.onNodeWithTag("ime-probe").performClick().assertIsFocused()
-        typePinyin()
-        InstrumentationRegistry.getInstrumentation().sendStatus(
-            0,
-            android.os.Bundle().apply {
-                putString("stream", "PINYIN_PROBE text=${probe.value.text} composition=${probe.value.composition}\n")
-            },
-        )
+        enterPinyin("ime-probe") { probe.value.text }
         // Gboard keeps Pinyin preedit in its own window; other IMEs may also expose TextField composition.
         // Capture the IME preedit and verify its Chinese candidate and actual commit, regardless of its IPC strategy.
-        commitCandidate()
         compose.waitUntil(10_000) { probe.value.text == "你好" && probe.value.composition == null }
         compose.onNodeWithTag("ime-probe").assertTextEquals("你好")
         compose.onNodeWithTag("chat-input").performClick().assertIsFocused()
-        typePinyin()
-        commitCandidate()
+        enterPinyin("chat-input") { draft.value }
         compose.waitUntil(10_000) { draft.value == "你好" }
         compose.onNodeWithTag("chat-input").assertTextEquals("你好")
         compose.runOnIdle { assertEquals(0, sends) }
+    }
+
+    /** Some startup attempts expose committed ni plus hao preedit; clear both before one bounded retry. */
+    private fun enterPinyin(
+        tag: String,
+        text: () -> String,
+    ) {
+        for (attempt in 0 until 2) {
+            try {
+                typePinyin()
+                capturePreedit("pinyin-$tag-attempt-$attempt.png")
+                commitCandidate()
+                return
+            } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+                if (attempt == 1) throw failure
+                InstrumentationRegistry.getInstrumentation().sendStatus(
+                    0,
+                    android.os.Bundle().apply { putString("stream", "PINYIN_RETRY tag=$tag attempt=$attempt\n") },
+                )
+                // Hardware Delete clears the IME preedit and any prematurely committed Latin text.
+                // Never inject Chinese or change the expected exact candidate/commit assertions.
+                repeat(12) {
+                    InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DEL)
+                }
+                compose.waitUntil(10_000) { text().isEmpty() }
+                compose.onNodeWithTag(tag).assertIsFocused()
+            }
+        }
     }
 
     private fun typePinyin() {

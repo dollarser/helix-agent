@@ -47,7 +47,7 @@ data class SessionSearchHitUi(
 
 /**
  * The observable outcome of the service-owned session search (HXA-191 slice). [query] is
- * the trimmed query being shown ("" = not searching); [scannedMessages] and
+ * the exact typed query being shown ("" = not searching); [scannedMessages] and
  * [skippedMessages] state the explicit scope of the bounded message-body scan, and
  * [truncated] marks that older messages were not searched — never an implicit "this page
  * only".

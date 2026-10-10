@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.chat.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -7,23 +7,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.helix.app.chat.ChatService
+import com.helix.app.chat.SessionDirectory
+import com.helix.app.chat.SessionHistoryActions
+import com.helix.app.ui.SessionRenameDialog
 
 /** Secondary history/search surface. Opening a row returns to the primary Conversation route. */
 @Composable
 @Suppress("FunctionName")
 internal fun ConversationHistoryScreen(
-    chatService: ChatService,
+    directory: SessionDirectory,
+    actions: SessionHistoryActions,
     focusSearch: Boolean,
     onOpenConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
 ) {
-    val sessions by chatService.sessions.collectAsStateWithLifecycle()
-    val search by chatService.sessionSearch.collectAsStateWithLifecycle()
+    val sessions by directory.sessions.collectAsStateWithLifecycle()
+    val search by directory.search.collectAsStateWithLifecycle()
     var renameId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        chatService.refreshSessions()
+    LaunchedEffect(directory) {
+        directory.refresh()
     }
 
     SessionListSection(
@@ -31,12 +34,12 @@ internal fun ConversationHistoryScreen(
         search = search,
         onNew = onNewConversation,
         onOpen = onOpenConversation,
-        onArchive = chatService::archiveSession,
-        onRestore = chatService::restoreSession,
+        onArchive = actions.archive,
+        onRestore = actions.restore,
         onTasks = {},
         onRename = { renameId = it },
         onNavigation = {},
-        onSearch = chatService::searchSessions,
+        onSearch = directory::search,
         showHeader = false,
         focusSearch = focusSearch,
     )
@@ -46,7 +49,7 @@ internal fun ConversationHistoryScreen(
             sessions.firstOrNull { it.id == id }?.title.orEmpty(),
             onDismiss = { renameId = null },
             onSave = {
-                chatService.renameSession(id, it)
+                actions.rename(id, it)
                 renameId = null
             },
         )

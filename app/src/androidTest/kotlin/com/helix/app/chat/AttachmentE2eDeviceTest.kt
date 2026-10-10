@@ -97,12 +97,12 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
-            val goalId = fixtureGoal(fixture)
+            val goalId = fixtureGoal(fixture, maxGoalRounds = 1)
             fixture.wire.script(sseResponse(textAnswerStream("first")), sseResponse(textAnswerStream("second")))
             fixture.service.continueGoal(goalId, "First check")
-            // Explicit Continue activates the production driver. Both bounded rounds must
-            // settle without a second user action, and usage persists across their boundary.
-            await(fixture, "continuous Goal exhausts its two-round model budget") {
+            // One human wake plus one automatic round; cumulative usage is accounting,
+            // while the automatic round allowance bounds this scripted journey.
+            await(fixture, "continuous Goal exhausts its automatic round allowance") {
                 fixture.wire.callCount == 2 && turnIsTerminal(fixture) &&
                     fixture.storage.goals
                         .resolve(goalId)
@@ -131,8 +131,18 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 assertEquals(14L, run.tokens)
                 assertNotNull(run.endedAt)
             }
-            fixture.service.continueGoal(goalId, "No remaining calls")
-            await(fixture, "exhausted Goal refuses Continue") { fixture.service.screen.value.blockedReason != null }
+            assertEquals(1, GoalRoundAllowance(fixture.storage).used(goalId))
+            assertEquals(
+                "BLOCKED(round-limit)",
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .finishReason,
+            )
+            fixture.service.continueGoal(goalId, "No remaining automatic rounds")
+            await(
+                fixture,
+                "round-exhausted Goal refuses Continue",
+            ) { fixture.service.screen.value.blockedReason != null }
             assertEquals(2, fixture.wire.callCount)
         } finally {
             settleAndClose(fixture)
@@ -193,9 +203,12 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
-            val goalId = fixtureGoal(fixture, maxModelCalls = 1)
+            val goalId = fixtureGoal(fixture, maxModelCalls = 1, maxGoalRounds = 1)
             stageTextAttachment(fixture, "Synthetic Goal input")
-            fixture.wire.script(sseResponse(textAnswerStream("checked")))
+            fixture.wire.script(
+                sseResponse(textAnswerStream("checked")),
+                sseResponse(textAnswerStream("checked again")),
+            )
             fixture.service.continueGoal(goalId, "Check attachment")
             await(fixture, "Goal attachment disclosure") { fixture.service.screen.value.pendingDisclosure != null }
             assertTrue(
@@ -205,11 +218,14 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             )
             assertEquals(0, fixture.wire.callCount)
             fixture.service.confirmSend()
-            await(fixture, "confirmed Goal completes") { turnIsTerminal(fixture) }
-            val turn =
-                fixture.storage.turns
-                    .listBySession(SESSION_ID)
-                    .single()
+            await(fixture, "confirmed Goal settles both bounded rounds") {
+                turnIsTerminal(fixture) && fixture.storage.goals
+                    .resolve(goalId)
+                    .state == "BLOCKED"
+            }
+            val turns = fixture.storage.turns.listBySession(SESSION_ID)
+            assertEquals(2, turns.size)
+            val turn = turns.minBy { it.startedAt }
             val binding = requireNotNull(fixture.storage.goalTurnBindings.byTurn(turn.id))
             assertEquals(
                 goalId,
@@ -218,11 +234,21 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .goalId,
             )
             assertEquals(
-                1,
+                2,
                 fixture.storage.goals
                     .resolve(goalId)
                     .modelCalls,
             )
+            turns.forEach {
+                val linked = requireNotNull(fixture.storage.goalTurnBindings.byTurn(it.id))
+                assertEquals(
+                    goalId,
+                    fixture.storage.goalRuns
+                        .resolve(linked.runId)
+                        .goalId,
+                )
+            }
+            assertEquals(2, fixture.wire.callCount)
         } finally {
             settleAndClose(fixture)
         }
@@ -267,18 +293,19 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     private fun fixtureGoal(
         fixture: Fixture,
         maxModelCalls: Int = 2,
+        maxGoalRounds: Int = 256,
     ): String =
         kotlinx.coroutines.runBlocking {
             fixture.service.createGoal(
                 "Check synthetic output",
                 listOf("Verified output"),
                 com.helix.core.model
-                    .GoalBudgets(maxModelCalls, 4, 100_000, 60_000, 10_000, 0),
+                    .GoalBudgets(maxModelCalls, 4, 100_000, 60_000, 10_000, 0, maxGoalRounds = maxGoalRounds),
             )
         }
 
     @Test
-    fun goalModelCallExhaustionStopsBeforeExecutingReturnedTools() {
+    fun legacyGoalModelCallCountDoesNotPreventAuthorizedToolsOrUsageSettlement() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
@@ -288,29 +315,34 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         "One call",
                         listOf("Checked"),
                         com.helix.core.model
-                            .GoalBudgets(1, 4, 100_000, 60_000, 10_000, 0),
+                            .GoalBudgets(1, 4, 100_000, 60_000, 10_000, 0, maxGoalRounds = 1),
                     )
                 }
-            fixture.wire.script(sseResponse(toolCallStream("not-executed", "\"time.now\"", "{}")))
-            fixture.service.continueGoal(goalId, "Check time")
-            await(fixture, "Goal model budget stops the turn") { turnIsTerminal(fixture) }
-            val turn =
-                fixture.storage.turns
-                    .listBySession(SESSION_ID)
-                    .single()
-            assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
-            assertTrue(
-                fixture.storage.toolCalls
-                    .listByTurn(turn.id)
-                    .isEmpty(),
+            fixture.wire.script(
+                sseResponse(toolCallStream("executed", "\"time.now\"", "{}")),
+                sseResponse(textAnswerStream("checked")),
+                sseResponse(textAnswerStream("continued")),
             )
+            fixture.service.continueGoal(goalId, "Check time")
+            await(fixture, "Goal reaches its automatic round boundary") {
+                turnIsTerminal(fixture) && fixture.storage.goals
+                    .resolve(goalId)
+                    .state == "BLOCKED"
+            }
+            val turns = fixture.storage.turns.listBySession(SESSION_ID)
+            assertEquals(2, turns.size)
+            turns.forEach { assertEquals(TurnState.COMPLETED.name, it.state) }
+            val call = turns.flatMap { fixture.storage.toolCalls.listByTurn(it.id) }.single()
+            assertEquals("COMPLETED", call.state)
+            assertNotNull(fixture.storage.toolResults.byToolCall(call.id))
+            assertGoalRoundAccounting(fixture, goalId, modelCalls = 3, toolCalls = 1)
             assertEquals(
                 1,
                 fixture.storage.goals
                     .resolve(goalId)
-                    .modelCalls,
+                    .budgets.maxModelCalls,
             )
-            assertEquals(1, fixture.wire.callCount)
+            assertEquals(3, fixture.wire.callCount)
         } finally {
             settleAndClose(fixture)
         }
@@ -336,7 +368,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     @Test
-    fun goalToolBudgetSettlesEverySlotAndExecutesOnlyTheAdmittedCall() {
+    fun legacyGoalToolCountDoesNotDropBatchSlotsAndEveryResultSettles() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
@@ -346,24 +378,29 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         "Bound tools",
                         listOf("Checked"),
                         com.helix.core.model
-                            .GoalBudgets(3, 1, 100_000, 60_000, 10_000, 0),
+                            .GoalBudgets(3, 1, 100_000, 60_000, 10_000, 0, maxGoalRounds = 1),
                     )
                 }
-            val extra =
-                "{\"id\":\"two\",\"index\":1,\"type\":\"function\"," +
-                    "\"function\":{\"name\":\"time.now\",\"arguments\":\"{}\"}},"
-            val stream =
-                toolCallStream("one", "\"time.now\"", "{}").replace(
-                    "\"tool_calls\":[",
-                    "\"tool_calls\":[" + extra,
-                )
-            fixture.wire.script(sseResponse(stream))
+            fixture.wire.script(
+                sseResponse(twoTimeCallStream()),
+                sseResponse(textAnswerStream("checked twice")),
+                sseResponse(textAnswerStream("continued")),
+            )
             fixture.service.continueGoal(goalId, "Check twice")
-            await(fixture, "tool budget settles the batch") { turnIsTerminal(fixture) }
+            await(fixture, "both batch slots settle before the automatic round boundary") {
+                turnIsTerminal(fixture) && fixture.storage.goals
+                    .resolve(goalId)
+                    .state == "BLOCKED"
+            }
+            val turns = fixture.storage.turns.listBySession(SESSION_ID)
+            assertEquals(2, turns.size)
+            turns.forEach { assertEquals(TurnState.COMPLETED.name, it.state) }
             val turn =
-                fixture.storage.turns
-                    .listBySession(SESSION_ID)
-                    .single()
+                turns.single {
+                    fixture.storage.toolCalls
+                        .listByTurn(it.id)
+                        .size == 2
+                }
             val calls =
                 fixture.storage.toolCalls
                     .listByTurn(turn.id)
@@ -371,30 +408,24 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             assertEquals(2, calls.size)
             val aliases = persistedToolAliases(fixture)
             assertEquals("COMPLETED", calls.getValue(aliases.getValue("one")).state)
-            assertEquals("FAILED", calls.getValue(aliases.getValue("two")).state)
+            assertEquals("COMPLETED", calls.getValue(aliases.getValue("two")).state)
             calls.values.forEach { assertNotNull(fixture.storage.toolResults.byToolCall(it.id)) }
+            assertGoalRoundAccounting(fixture, goalId, modelCalls = 3, toolCalls = 2)
             assertEquals(
                 1,
                 fixture.storage.goals
                     .resolve(goalId)
-                    .toolCalls,
+                    .budgets.maxToolCalls,
             )
-            assertEquals(
-                "BUDGET_EXHAUSTED(maxToolCalls)",
-                fixture.storage.goalRuns
-                    .listByGoal(goalId)
-                    .single()
-                    .outcome,
-            )
-            assertEquals(1, fixture.wire.callCount)
-            assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
+            assertEquals(3, fixture.wire.callCount)
+            assertNull(turn.errorCode)
         } finally {
             settleAndClose(fixture)
         }
     }
 
     @Test
-    fun goalWakeTimeBudgetStopsAStalledModelAndParksInsteadOfCancellingTheGoal() {
+    fun legacyGoalWakeDurationDoesNotStopTransportButUserStopSettlesUsage() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
@@ -411,34 +442,87 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 stalledResponse("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"waiting\"}}]}\n\n"),
             )
             fixture.service.continueGoal(goalId, "Wait for a result")
-            await(fixture, "Goal duration stops the stalled flow") { turnIsTerminal(fixture) }
+            await(fixture, "Goal enters its stalled model flow") {
+                fixture.wire.callCount == 1 && fixture.service.screen.value.isSending
+            }
+            android.os.SystemClock.sleep(2_300)
+            assertEquals(
+                TurnState.RECEIVING_MODEL.name,
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+                    .state,
+            )
+            assertEquals(
+                "RUNNING",
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .state,
+            )
+            fixture.service.stop()
+            await(fixture, "explicit stop settles the model and reservations") { turnIsTerminal(fixture) }
             val turn =
                 fixture.storage.turns
                     .listBySession(SESSION_ID)
                     .single()
             val goal = fixture.storage.goals.resolve(goalId)
-            assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
-            assertEquals("BLOCKED", goal.state)
+            assertEquals(TurnState.CANCELLED.name, turn.state)
+            assertNull(turn.errorCode)
+            assertEquals("PAUSED", goal.state)
             assertTrue(goal.runTimeMillis >= 2_000)
             assertEquals(1, goal.modelCalls)
             assertEquals(1, fixture.wire.callCount)
-            val run =
-                fixture.storage.goalRuns
-                    .listByGoal(goalId)
-                    .single()
-            assertEquals("BUDGET_EXHAUSTED(maxWakeDurationMillis)", run.outcome)
-            assertTrue(
-                fixture.storage.goalUsageReservations
-                    .pendingForRun(run.id)
-                    .isEmpty(),
-            )
+            assertStoppedGoalRun(fixture, goalId)
         } finally {
             settleAndClose(fixture)
         }
     }
 
+    private fun twoTimeCallStream(): String {
+        val extra =
+            "{\"id\":\"two\",\"index\":1,\"type\":\"function\"," +
+                "\"function\":{\"name\":\"time.now\",\"arguments\":\"{}\"}},"
+        return toolCallStream("one", "\"time.now\"", "{}").replace(
+            "\"tool_calls\":[",
+            "\"tool_calls\":[" + extra,
+        )
+    }
+
+    private fun assertGoalRoundAccounting(
+        fixture: Fixture,
+        goalId: String,
+        modelCalls: Int,
+        toolCalls: Int,
+    ) {
+        val goal = fixture.storage.goals.resolve(goalId)
+        assertEquals(modelCalls, goal.modelCalls)
+        assertEquals(toolCalls, goal.toolCalls)
+        assertEquals(1, GoalRoundAllowance(fixture.storage).used(goalId))
+        assertEquals("BLOCKED(round-limit)", goal.finishReason)
+        fixture.storage.goalRuns
+            .listByGoal(goalId)
+            .forEach { assertNotNull(it.endedAt) }
+    }
+
+    private fun assertStoppedGoalRun(
+        fixture: Fixture,
+        goalId: String,
+    ) {
+        val run =
+            fixture.storage.goalRuns
+                .listByGoal(goalId)
+                .single()
+        assertEquals("USER_PAUSED", run.outcome)
+        assertNotNull(run.endedAt)
+        assertTrue(
+            fixture.storage.goalUsageReservations
+                .pendingForRun(run.id)
+                .isEmpty(),
+        )
+    }
+
     @Test
-    fun remainingTokenBudgetBoundsTheActualWireRequest() {
+    fun requestOutputAllowanceIsIndependentOfCumulativeLegacyTokens() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
@@ -474,7 +558,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     // ModelInputEstimate adds the conservative 16-token envelope per message.
                     messages.length() * 16L
             assertTrue("system sections must count toward input", estimatedInput > 1)
-            assertEquals(20_000L - estimatedInput, body.getLong("max_tokens"))
+            assertEquals(20_000L, body.getLong("max_tokens"))
             assertEquals(
                 TurnState.COMPLETED.name,
                 fixture.storage.turns
@@ -488,7 +572,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     @Test
-    fun missingOutputHeadroomPreventsTheWireCall() {
+    fun outputLimitStopsOverlongResponseWithoutPretendingNoWireCall() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
@@ -503,15 +587,24 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 com.helix.core.model
                     .TurnBudgets(2, 1, 100, 1, 1),
             )
+            fixture.wire.script(sseResponse(textAnswerStream("done")))
             fixture.service.sendTestMessage("1234")
-            await(fixture, "budget rejection terminalizes") { turnIsTerminal(fixture) }
-            assertEquals(0, fixture.wire.callCount)
+            await(fixture, "per-request output failure terminalizes") { turnIsTerminal(fixture) }
+            assertEquals(1, fixture.wire.callCount)
+            assertEquals(1L, org.json.JSONObject(fixture.wire.lastRequestBody).getLong("max_tokens"))
             assertEquals(
                 TurnState.FAILED.name,
                 fixture.storage.turns
                     .listBySession(SESSION_ID)
                     .single()
                     .state,
+            )
+            assertEquals(
+                "OUTPUT_TOKEN_LIMIT",
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+                    .errorCode,
             )
         } finally {
             settleAndClose(fixture)

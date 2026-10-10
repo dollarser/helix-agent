@@ -56,6 +56,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.helix.app.allfiles.AllFilesModule
+import com.helix.app.chat.SessionHistoryActions
+import com.helix.app.chat.ui.ConversationHistoryScreen
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.root.RootModule
 import com.helix.app.ui.AppAgentDefaultsScreen
@@ -71,7 +73,6 @@ import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.CommandResultDetailScreen
 import com.helix.app.ui.CompactPageHeader
 import com.helix.app.ui.ConversationDrawerState
-import com.helix.app.ui.ConversationHistoryScreen
 import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
@@ -473,7 +474,13 @@ internal fun HelixApp(container: AppContainer) {
                         }
                         composable(CONVERSATION_HISTORY_ROUTE) {
                             ConversationHistoryScreen(
-                                chatService = container.chatService,
+                                directory = container.chatService.directory,
+                                actions =
+                                    SessionHistoryActions(
+                                        container.chatService::archiveSession,
+                                        container.chatService::restoreSession,
+                                        container.chatService::renameSession,
+                                    ),
                                 focusSearch = false,
                                 onOpenConversation = { sessionId ->
                                     container.chatService.openSession(sessionId)
@@ -487,7 +494,13 @@ internal fun HelixApp(container: AppContainer) {
                         }
                         composable(CONVERSATION_SEARCH_ROUTE) {
                             ConversationHistoryScreen(
-                                chatService = container.chatService,
+                                directory = container.chatService.directory,
+                                actions =
+                                    SessionHistoryActions(
+                                        container.chatService::archiveSession,
+                                        container.chatService::restoreSession,
+                                        container.chatService::renameSession,
+                                    ),
                                 focusSearch = true,
                                 onOpenConversation = { sessionId ->
                                     container.chatService.openSession(sessionId)

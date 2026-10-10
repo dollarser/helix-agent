@@ -81,7 +81,6 @@ import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputSpec
 import com.helix.core.storage.repository.SessionInputState
-import com.helix.core.storage.repository.SessionSearchMatchKind
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentClassifier
 import com.helix.feature.files.AttachmentImportResult
@@ -101,7 +100,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -120,32 +118,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.jvm.Volatile
 
-/** The artifact center's files section is a digest, not the file manager (that is the Files page). */
-private const val ARTIFACT_FILES_LIMIT = 50
-
-/** Session-search debounce: one bounded scan per pause of typing, on the service's IO scope. */
-private const val SEARCH_DEBOUNCE_MILLIS = 200L
-
 /**
- * The chat service (HXA-028): owns the chat send path end to end. The UI
- * dispatches intents ([send]/[stop]/[retry]/…) and observes [sessions] +
- * [screen] — it NEVER holds a network Job (doc 02 section 12; HXA-028 task
- * text): the streaming Job lives in this service's scope, one active turn per
- * session (doc 02: single SessionTurnCoordinator, Mutex).
- *
- * Persistence (doc 02 section 5.3: stream events are persisted as they are
- * received, under the storage API available in M2):
- * - the user message row is persisted BEFORE the request is sent (a process
- *   death never loses the committed user message, NFR-004);
- * - the turn row and the model-call row are persisted before and during the
- *   stream (state transitions + usage at the terminal);
- * - the assistant content row is persisted at the terminal (the M2 storage
- *   API has no message-content update; the in-flight text is observable via
- *   [TurnUi.streamingText] and survives only as committed content from the
- *   terminal on — an interrupted process parks the turn, no blind replay).
- *
- * This facade owns session admission and live Turn orchestration. Tool dispatch/approval
- * and recovery actions have explicit collaborators; UI state updates remain atomic.
+ * Session application facade: UI actions retain the original admission, receipt and
+ * authorization gates. TurnEngine owns live/durable execution and the sole Core loop.
+ * Directory, composer input and dashboard collaborators each own their projections;
+ * this facade never creates a second queue, execution registry or persistence authority.
  */
 @Suppress("TooManyFunctions", "LargeClass", "LongParameterList")
 class ChatService(
@@ -216,7 +193,8 @@ class ChatService(
     internal val planReview: PlanReviewService = PlanReviewService(StoragePlanReviewPort(storage, clock, idGenerator))
 
     // Observers started in init may refresh immediately on another thread.
-    private val drafts = ChatDraftStore()
+    private val inputState = ComposerInputState()
+    private val drafts get() = inputState.drafts
     private val conversationReferences = ConversationReferenceResolver(storage)
     private val sessionRunControls = SessionRunControlStore(storage, runControlStore)
     private val workspaceRecovery = SessionWorkspaceRecovery(storage, bindSessionDirectory)
@@ -322,44 +300,26 @@ class ChatService(
 
     private fun egressRejectedLabel(code: String): String = labels.egressRejectedLabel(code)
 
-    private val _sessions = MutableStateFlow<List<SessionRowUi>>(emptyList())
+    private val directoryService = SessionDirectoryService.create(workScope, storage, providerService)
+    val directory: SessionDirectory get() = directoryService
+    val sessionSearch: StateFlow<SessionSearchUiState> get() = directory.search
 
-    /**
-     * Bounded session/history search (HXA-191 slice): service-owned state — the UI observes,
-     * it holds no Job (doc 02 section 12). The scan runs on [workScope] (IO by default),
-     * never on the Compose main thread.
-     */
-    private val _sessionSearch = MutableStateFlow(SessionSearchUiState())
-    val sessionSearch: StateFlow<SessionSearchUiState> = _sessionSearch.asStateFlow()
-
-    private var searchJob: Job? = null
-    private val _backgroundTasks = MutableStateFlow<List<BackgroundTaskUi>>(emptyList())
-    val backgroundTasks: StateFlow<List<BackgroundTaskUi>> = _backgroundTasks
-    private val backgroundJobsState = MutableStateFlow<List<com.helix.app.proot.BackgroundJobUi>>(emptyList())
-    internal val backgroundJobs: StateFlow<List<com.helix.app.proot.BackgroundJobUi>> = backgroundJobsState
-    private val jobActions =
-        com.helix.app.proot.BackgroundJobActions(
-            workScope,
-            com.helix.app.proot.ProotToolModule::performBackgroundJobAction,
-        ) {
-            refreshBackgroundTasks()
-            refreshTaskDashboards()
-        }
-    internal val backgroundJobAction = jobActions.state
+    private val dashboards by lazy {
+        TaskDashboardProjection(storage, workScope, turnGate) { goalContinuation.hasHandoff }
+    }
+    val backgroundTasks: StateFlow<List<BackgroundTaskUi>> get() = dashboards.tasks
+    internal val backgroundJobs get() = dashboards.jobs
+    internal val backgroundJobAction get() = dashboards.jobActions.state
+    val foregroundTransportState: StateFlow<TurnState?> get() = dashboards.foregroundTransport
+    internal val goalDashboard get() = dashboards.goals
+    internal val planDashboard get() = dashboards.plans
+    internal val artifactFiles get() = dashboards.artifacts
 
     internal fun performBackgroundJobAction(
         job: com.helix.app.proot.BackgroundJobUi,
         action: com.helix.app.proot.BackgroundJobAction,
-    ) = jobActions.submit(job, action)
+    ) = dashboards.jobActions.submit(job, action)
 
-    private val transportState = MutableStateFlow<TurnState?>(null)
-    val foregroundTransportState: StateFlow<TurnState?> = transportState
-    private val goalDashboardState = MutableStateFlow<List<GoalSummaryUi>>(emptyList())
-    internal val goalDashboard: StateFlow<List<GoalSummaryUi>> = goalDashboardState
-    private val planDashboardState = MutableStateFlow<List<PlanRowUi>>(emptyList())
-    internal val planDashboard: StateFlow<List<PlanRowUi>> = planDashboardState
-    private val artifactFilesState = MutableStateFlow<List<ArtifactRowUi>>(emptyList())
-    internal val artifactFiles: StateFlow<List<ArtifactRowUi>> = artifactFilesState
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
 
     /** UI-owned deep links for recovery repair; ChatService still holds no NavController. */
@@ -400,7 +360,7 @@ class ChatService(
         reminderGoalState.value = null
     }
 
-    val sessions: StateFlow<List<SessionRowUi>> = _sessions.asStateFlow()
+    val sessions: StateFlow<List<SessionRowUi>> get() = directory.sessions
     val screen: StateFlow<ChatScreenState> = _screen.asStateFlow()
 
     /** The runtime safety profile for the chat header (ADR-0005 display). */
@@ -823,31 +783,8 @@ class ChatService(
      * [acceptShareDraft], cleared by [consumeShareDraftText] and whenever the open session
      * changes — a draft belongs to the session it was opened for, never to a later one).
      */
-    @Volatile
-    private var shareDraftText: String? = null
-
-    /**
-     * HXA-049 (ADR-0014 §5): the open session's staged attachments — in memory, local until
-     * an EXPLICIT send. Staging (pick/import) never reaches the model.
-     * [StagedAttachmentEntry.file] is a REAL workspace path used ONLY for hashing /
-     * re-materialization inside this service — it never enters UI state, logs, audit or
-     * model context (the scope-relative [StagedAttachmentEntry.relativePath] is what does).
-     *
-     * Thread-safety: EVERY mutation is serialized on [stagedLock] (stage/remove/clear/send/
-     * confirm all run on the work-scope IO pool — a read-modify-write outside the lock could
-     * drop a concurrently staged file); the @Volatile keeps a single READ of the whole list
-     * atomic without the lock.
-     */
-    @Volatile
-    private var stagedAttachments: List<StagedAttachmentEntry> = emptyList()
-
-    /**
-     * Serializes every MUTATION of [stagedAttachments] (the staged-list writers race on the
-     * work-scope IO pool: stage append, remove, clear, the send/confirm clears). Single
-     * reads stay lock-free — [stagedAttachments] is @Volatile, so one read sees exactly one
-     * whole list.
-     */
-    private val stagedLock = Any()
+    private val shareDraftText get() = inputState.shareText
+    private val stagedAttachments get() = inputState.staged
 
     /**
      * ADR-0014 §5 「凭据类内容仍拒绝出网」: the credential-shape scanner the attachment
@@ -946,9 +883,7 @@ class ChatService(
      * container init may call this from any thread; the [sessions] StateFlow
      * updates when the read completes.
      */
-    fun refreshSessions() {
-        workScope.launch { refreshSessionsNow() }
-    }
+    fun refreshSessions() = directory.refresh()
 
     /**
      * Restores the conversation surface chosen by the user on a normal app launch.
@@ -974,73 +909,11 @@ class ChatService(
         }
     }
 
-    private fun refreshSessionsNow() {
-        val providerNames = providerService.rows.value.associate { it.id to it.displayName }
-        _sessions.value =
-            storage.sessions
-                .list()
-                .map { entity ->
-                    SessionRowUi.from(entity, entity.providerId?.let { providerNames[it] })
-                }
-    }
+    private fun refreshSessionsNow() = directoryService.refreshNow()
 
-    /**
-     * Bounded session/history search (HXA-191 slice). A blank query clears the search;
-     * otherwise the query is reflected in the state immediately, the previous pass is
-     * cancelled, and one bounded scan runs on [workScope] after a short debounce. The
-     * result states its own scope (scanned/skipped/truncated) so the UI never implies
-     * "only the current page" was searched.
-     */
-    @Synchronized
-    fun searchSessions(rawQuery: String) {
-        val query = rawQuery
-        searchJob?.cancel()
-        searchJob = null
-        if (query.isBlank()) {
-            _sessionSearch.value = SessionSearchUiState()
-            return
-        }
-        // The list's search field is controlled by this state, so the typed query must be
-        // reflected before the debounced scan completes: a stale [query] would let the next
-        // recomposition pull the field back and cancel the in-flight scan.
-        // Clear old hits so they cannot appear to match the new query.
-        _sessionSearch.value = SessionSearchUiState(query = query)
-        searchJob =
-            workScope.launch {
-                delay(SEARCH_DEBOUNCE_MILLIS)
-                val context = currentCoroutineContext()
-                val result = storage.sessionSearch.search(query, checkActive = { context.ensureActive() })
-                synchronized(this@ChatService) {
-                    context.ensureActive()
-                    _sessionSearch.value =
-                        SessionSearchUiState(
-                            query = query,
-                            hits =
-                                result.hits.map { hit ->
-                                    SessionSearchHitUi(
-                                        sessionId = hit.sessionId,
-                                        title = hit.sessionTitle,
-                                        isArchived = hit.isArchived,
-                                        matchesTitle = hit.matchedKinds.contains(SessionSearchMatchKind.TITLE),
-                                        matchesMessage = hit.matchedKinds.contains(SessionSearchMatchKind.MESSAGE),
-                                        messageSnippet = hit.messageSnippet,
-                                    )
-                                },
-                            scannedMessages = result.scannedMessages,
-                            skippedMessages = result.skippedMessages,
-                            truncated = result.truncated,
-                        )
-                }
-            }
-    }
+    fun searchSessions(rawQuery: String) = directory.search(rawQuery)
 
-    /** Clears the search: the session list returns to its normal state. */
-    @Synchronized
-    fun clearSessionSearch() {
-        searchJob?.cancel()
-        searchJob = null
-        _sessionSearch.value = SessionSearchUiState()
-    }
+    fun clearSessionSearch() = directory.clearSearch()
 
     private val sessionDraft: SessionDraft? get() = drafts.current
     private val preparingDraft: Boolean get() = drafts.preparing
@@ -1073,7 +946,7 @@ class ChatService(
     }
 
     private fun openSessionDraft(directory: String?): String? {
-        val current = _sessions.value.firstOrNull { it.id == openSessionId }
+        val current = sessions.value.firstOrNull { it.id == openSessionId }
         val providerId = sessionDraft?.session?.providerId ?: current?.providerId
         val modelId = sessionDraft?.session?.modelId ?: current?.model
         val entity =
@@ -1093,7 +966,7 @@ class ChatService(
         conversationLaunchStore.selectNewDraft()
         clearStagedAttachments()
         clearSessionSearch()
-        shareDraftText = null
+        inputState.share(null)
         workScope.launch { refreshScreen() }
         return entity.id
     }
@@ -1321,7 +1194,7 @@ class ChatService(
         conversationLaunchStore.selectSession(id)
         clearStagedAttachments()
         clearSessionSearch()
-        shareDraftText = null // a draft pre-fill belongs to the session it opened for (HXA-056)
+        inputState.share(null) // a draft pre-fill belongs to the session it opened for (HXA-056)
         workScope.launch {
             val control =
                 if (storage.sessions.find(id) != null) {
@@ -1349,7 +1222,7 @@ class ChatService(
         clearStagedAttachments()
         _runControl.value = sessionRunControls.defaultSnapshot()
         clearSessionSearch()
-        shareDraftText = null
+        inputState.share(null)
         workScope.launch { refreshScreen() }
     }
 
@@ -1363,7 +1236,7 @@ class ChatService(
             openSessionId = null
             conversationLaunchStore.selectNewDraft()
             clearStagedAttachments()
-            shareDraftText = null
+            inputState.share(null)
             _runControl.value = sessionRunControls.defaultSnapshot()
         }
     }
@@ -1374,9 +1247,7 @@ class ChatService(
      * it. The imported files themselves remain durable in the workspace `input/` region.
      */
     private fun clearStagedAttachments() {
-        synchronized(stagedLock) {
-            stagedAttachments = emptyList()
-        }
+        inputState.clearStaged()
     }
 
     /** Dismisses the current user-visible [ChatScreenState.blockedReason] banner. */
@@ -1418,7 +1289,7 @@ class ChatService(
             if (openSessionId != null) {
                 openSessionId = null
                 clearStagedAttachments()
-                shareDraftText = null
+                inputState.share(null)
             }
             val id = idGenerator()
             val now = clock.now().toEpochMilli()
@@ -1429,14 +1300,14 @@ class ChatService(
             refreshSessionsNow()
             openSession(id)
             (imageUris + fileUris).forEach { uri -> stageAttachmentNow(uri) }
-            shareDraftText = text
+            inputState.share(text)
             refreshScreen()
         }
     }
 
     /** One-shot consume: the UI applied [ChatScreenState.shareDraftText] to the composer. */
     fun consumeShareDraftText() {
-        shareDraftText = null
+        inputState.share(null)
         _screen.update { it.copy(shareDraftText = null) }
     }
 
@@ -1727,7 +1598,7 @@ class ChatService(
             setBlocked(str(R.string.chat_blocked_no_open_session))
             return
         }
-        // Fast-fail UX only: the AUTHORITATIVE cap check runs inside [stagedLock] in
+        // Fast-fail UX only: the AUTHORITATIVE cap check runs inside the input owner in
         // [stageImportedAttachment] — two concurrent stages can both pass this one.
         val attachmentCount = sessionDraft?.attachments?.size ?: stagedAttachments.size
         if (attachmentCount >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
@@ -1804,22 +1675,21 @@ class ChatService(
      * failure sets the blocked state and appends NOTHING (the durable artifact row stays, inert).
      * Returns true when the entry was appended.
      */
-    private fun admitStagedEntry(entry: StagedAttachmentEntry): Boolean {
-        var admitted = false
-        synchronized(stagedLock) {
-            if (openSessionId == entry.sessionId) {
-                if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
-                    setBlocked(
-                        str(R.string.chat_blocked_max_attachments, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE),
-                    )
-                } else {
-                    stagedAttachments = stagedAttachments + entry
-                    admitted = true
-                }
+    private fun admitStagedEntry(entry: StagedAttachmentEntry): Boolean =
+        when (inputState.admit(entry) { openSessionId }) {
+            ComposerInputState.Admission.ADDED -> {
+                true
+            }
+
+            ComposerInputState.Admission.STALE_SESSION -> {
+                false
+            }
+
+            ComposerInputState.Admission.FULL -> {
+                setBlocked(str(R.string.chat_blocked_max_attachments, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE))
+                false
             }
         }
-        return admitted
-    }
 
     /** The fixed, user-visible (Chinese) reason for a refused attachment import — never the raw detail. */
     private fun importRefusalReason(refusal: ImportRefusal?): String =
@@ -1840,9 +1710,7 @@ class ChatService(
     fun removePendingAttachment(id: String) {
         workScope.launch {
             drafts.removeAttachment(id)
-            synchronized(stagedLock) {
-                stagedAttachments = stagedAttachments.filterNot { it.artifactId == id }
-            }
+            inputState.removeStaged(listOf(id))
             refreshScreen()
         }
     }
@@ -2122,22 +1990,13 @@ class ChatService(
                     missing.add(id)
                 }
             }
-            synchronized(stagedLock) {
-                if (openSessionId == sessionId) {
-                    stagedAttachments = restored
-                }
-            }
+            inputState.replaceStaged(restored, sessionId) { openSessionId }
             refreshScreen()
             missing
         }
 
     fun currentStagedAttachmentIds(expectedSessionId: String? = null): List<String> =
-        synchronized(stagedLock) {
-            stagedAttachments
-                .filter {
-                    expectedSessionId == null || it.sessionId == expectedSessionId
-                }.map { it.artifactId }
-        }
+        inputState.stagedIds(expectedSessionId)
 
     /** CAS acknowledgement: an old receipt cannot clear an edited draft or another session. */
     suspend fun acknowledgeSubmission(receipt: ChatSubmissionReceipt): Boolean =
@@ -2203,7 +2062,7 @@ class ChatService(
                         )
                     if (saved == null) saveComposerDraft(draft)
                     require(openSessionId == sessionId)
-                    synchronized(stagedLock) { stagedAttachments = restored }
+                    require(inputState.replaceStaged(restored, sessionId) { openSessionId })
                     refreshScreen()
                     draft
                 } catch (cancelled: CancellationException) {
@@ -2261,9 +2120,7 @@ class ChatService(
                 val cleared = storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
                 if (cleared && openSessionId == request.sessionId) {
                     if (pendingSubmission == request) cancelPendingSend()
-                    synchronized(stagedLock) {
-                        stagedAttachments = stagedAttachments.filterNot { it.artifactId in request.attachmentIds }
-                    }
+                    inputState.removeStaged(request.attachmentIds)
                     refreshScreen()
                 }
                 cleared
@@ -2829,9 +2686,7 @@ class ChatService(
             )
         if (isAcceptedInput(outcome)) {
             // Only consume attachments after the user message and its bindings are durable.
-            synchronized(stagedLock) {
-                stagedAttachments = stagedAttachments.filterNot { it.artifactId in approvedAttachmentIds }
-            }
+            inputState.removeStaged(approvedAttachmentIds)
         }
         refreshScreen()
         return outcome
@@ -3070,20 +2925,7 @@ class ChatService(
             .filter { it.sessionId == sessionId && it.running }
             .map { it.id }
 
-    private fun refreshBackgroundTasks() {
-        synchronized(turnGate) {
-            val tasks = BackgroundTaskQuery(storage).read()
-            _backgroundTasks.value = tasks
-            backgroundJobsState.value =
-                com.helix.app.proot.ProotToolModule
-                    .backgroundJobs(storage)
-            transportState.value = tasks
-                .firstOrNull {
-                    !it.awaitingApproval &&
-                        it.state in com.helix.app.foreground.DataSyncForegroundController.TRANSPORT_ACTIVE
-                }?.state ?: if (goalContinuation.hasHandoff) TurnState.BUILDING_CONTEXT else null
-        }
-    }
+    private fun refreshBackgroundTasks() = dashboards.refreshBackground()
 
     /**
      * Re-read the background-task list from storage onto the shared [backgroundTasks] flow.
@@ -3107,12 +2949,7 @@ class ChatService(
      * caller: the goal/plan mutations that re-read after their write run on the CALLER's
      * dispatcher — the UI's main one — and Room refuses database work on the main thread.
      */
-    private suspend fun refreshTaskDashboards() =
-        withContext(Dispatchers.IO) {
-            goalDashboardState.value = GoalSummaryQuery(storage).forAll()
-            planDashboardState.value = PlanRowQuery(storage).read()
-            artifactFilesState.value = ArtifactQuery(storage).recent(ARTIFACT_FILES_LIMIT)
-        }
+    private suspend fun refreshTaskDashboards() = dashboards.refreshTasks()
 
     fun refreshTaskDashboardsNow() {
         workScope.launch { refreshTaskDashboards() }
@@ -4459,7 +4296,7 @@ class ChatService(
         sessionDraft?.takeIf { it.session.id == openSessionId }?.let { draft ->
             val refreshed =
                 EMPTY_SCREEN.copy(
-                    sessions = _sessions.value,
+                    sessions = sessions.value,
                     openSessionId = draft.session.id,
                     sessionTitle = draft.session.title,
                     badge = projection.badgeForProvider(draft.session.providerId, draft.session.modelId),
@@ -4494,7 +4331,7 @@ class ChatService(
                 val retryTarget = projection.retryTargetFor(sessionId)
                 val refreshed =
                     ChatScreenState(
-                        sessions = _sessions.value,
+                        sessions = sessions.value,
                         openSessionId = sessionId,
                         preparingDraft = preparingDraft,
                         sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
@@ -4565,7 +4402,7 @@ class ChatService(
                 retryable = turn.retryable,
             ),
         )
-        if (_backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) {
+        if (backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) {
             // A turn-state change settles goal runs and can move plans — re-read the dashboard
             // facts too, so an open Tasks screen tracks the same live state as the task list.
             // publishTurn is not suspend (it runs from the stream event path), so go through

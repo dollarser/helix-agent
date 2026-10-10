@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.chat.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
@@ -35,6 +35,8 @@ import com.helix.app.chat.SessionRowUi
 import com.helix.app.chat.SessionSearchHitUi
 import com.helix.app.chat.SessionSearchUiState
 import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.ui.NavigationMenuIcon
+import com.helix.app.ui.UiLabels
 
 // The Compose DSL keeps each section in one composable; detekt's LongMethod and
 // CyclomaticComplexMethod do not model UI composition well (each item/branch is
