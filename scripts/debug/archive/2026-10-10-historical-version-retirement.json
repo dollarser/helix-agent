@@ -1,0 +1,439 @@
+{
+  "baseCommit": "71bb20b067926ddc8af1b0f5cd2c5f9a3e73b854",
+  "files": [
+    {
+      "path": "scripts/debug/2026-09-10/install-dns-turn-defaults.py",
+      "sha256": "8568a5cccb92f046d91ff38d362076edceb0afe425b824c7028bc70061a2c3a6",
+      "bytes": 1921,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/install-physical-developer.py",
+      "sha256": "04762de1cc2bb49bebc890080ea0ffce220f511aa4caf26f68c7fd6b06564c24",
+      "bytes": 1450,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/install-subscription-bugfix.py",
+      "sha256": "cdcbce9f983d3a95f9a919f995c8439a22295546142efdc6f481789e8dfb9284",
+      "bytes": 1974,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/install-tool-context-fixes.py",
+      "sha256": "28eacd48be53b4f0ed41428d099b0ffdae555ecdd3c0be68a2530991309ddb45",
+      "bytes": 1187,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/install-write-timeline.py",
+      "sha256": "0e4009e05b9eaba9f6a6fc0105c258d419f36407ab63d5a4bac906da315b4163",
+      "bytes": 1014,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/verify-hxa183-evidence.py",
+      "sha256": "83150127439cfc02cc0b00d8a8e05cab04e625cd8d8b0186d6f793de5fb0ec7c",
+      "bytes": 2218,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-10/verify-hxa184-evidence.py",
+      "sha256": "947c9beec9b1dbfbe5563c51f930d8e400d54667521080a779746c55726ceed1",
+      "bytes": 2691,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-15/prepare-hxa201-baseline.py",
+      "sha256": "9e017506a35e85fd5140395372477e0169cb37c52d170e789283a13d92124d37",
+      "bytes": 1574,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-09-27/verify-hxa210-final-followup.py",
+      "sha256": "33ade717b240eef45af0aca785b51e5350c24e069220e96077a09c816ad1db5a",
+      "bytes": 374,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/release004-device.sh",
+      "sha256": "6775bf207aaaa03575ac33bbbb46612c1f0691c9f829e5bd01dfb3ad598aa259",
+      "bytes": 627,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/prepare-hxa240.py",
+      "sha256": "81c43bc39397e6b3c95e3a7d713db9542ec20ecf878943ef4a27de3bbbc33440",
+      "bytes": 1555,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/prepare-hxa242-commit.py",
+      "sha256": "a7f6407e8d15f3ae659e3e52a79e31f595482a3448561c813ec9213731d8ed6a",
+      "bytes": 2544,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/verify-hxa240-apks.py",
+      "sha256": "eea175735062e0671dbceabd3e92d3f45de1972287de5799b02fd3c9604e5df5",
+      "bytes": 4911,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/verify-hxa241-final-evidence.py",
+      "sha256": "84f9cf3384664c0c6591476f3aeff7b2509657cc3e163560bfb06003f2946ef9",
+      "bytes": 11732,
+      "tracked": true,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/install-provider-unified.sh",
+      "sha256": "f9e0e5bb2afee8750ee9847f1c6dfd9987c02ecead5d7805e7b27d83f40ac220",
+      "bytes": 1080,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/install-ui-final.sh",
+      "sha256": "87a22acf274e3640350a15c73fff4016d7c03893566253a2f470e72f035cd36f",
+      "bytes": 1004,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/collect-main-release-results.py",
+      "sha256": "265e9c57618425c284be13401afcc4f72ec5b6233109217db506fcf03d092caf",
+      "bytes": 1626,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/inspect-release-model.py",
+      "sha256": "183e06d4f4f46244f58743a41ac5930431e44c37976c2f86b0b3474f0511797f",
+      "bytes": 900,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/prepare-v005-publication.py",
+      "sha256": "d9f2e2e92771733563011c8a7c68be97c2c6a0b0ef443c287955464c32937c38",
+      "bytes": 3774,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-release-model-r2.py",
+      "sha256": "e9fe6f9104631199ac2057301b5d8b14af43f127a78fb644f354f029b87a2c48",
+      "bytes": 1999,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-release-model.py",
+      "sha256": "43c4c1e76a4790d30cc19676819d9fc54c7b0ee2f3dcff87a7e57f74c5449cdd",
+      "bytes": 1993,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "scripts/debug/2026-10-08/dsh-install-daily.py",
+      "sha256": "dfb406e6010225157db42c36f8d66186f9a4457f33dfa497d905e2e81e9bb458",
+      "bytes": 2819,
+      "tracked": false,
+      "reason": "completed version-specific installer/preparer/frozen verifier; use current supported entry points"
+    },
+    {
+      "path": "build/release-branch-docs-check.log",
+      "sha256": "de155f305cebc37277c0dfe6d33d1da2f47a313e0f969e57332eca3d97c1741a",
+      "bytes": 71,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release-v0.0.4/BUILDINFO.json",
+      "sha256": "f626651f864ce310de232e47a22a1cd4c69aa7afda28d6993df24329ff200276",
+      "bytes": 243,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release-v0.0.4/SHA256SUMS",
+      "sha256": "03ff9f94d2ebc04287f50e193f8b0cba8a1e157a07a9f873e0e36c6f6b09198f",
+      "bytes": 197,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release-v0.0.4/helix-v0.0.4-consumer-debug.apk",
+      "sha256": "3687a5978919642d7ef0ac3652451dd10af1e3c48577b2c88b2509b01c95e368",
+      "bytes": 79753423,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release-v0.0.4/helix-v0.0.4-developer-debug.apk",
+      "sha256": "34cd56d51b7d5b8f05ae8fa0b47e4ada0da9cfd34806d0af21e4f59d545bfcf4",
+      "bytes": 135355598,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release-v0.0.4/notes.md",
+      "sha256": "b309e44b5c2af7ba28cfa5e28ca535debaee9b2c470083eb89b98875823f306c",
+      "bytes": 2090,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release-v0.0.4/remote-release.json",
+      "sha256": "a24aad2bcc8fedc389e9cf49ae24a3dbdc326177992439e69a97e69efe6de586",
+      "bytes": 2145,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-artifacts.log",
+      "sha256": "202a45696782608504107f8a49a8575ab7edd853ddda9287717e72873a119fe2",
+      "bytes": 397,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-device-fixtures-host.log",
+      "sha256": "c78ef3b74389c04d418c1070a6a6f7668dab0abfe846683d111dd4cf2798dc4a",
+      "bytes": 60910,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-device-fixtures-r3-host.log",
+      "sha256": "02e7a013cd5d2857688535868dda13cf46b08ac259bcb962f56c1c69bb001df3",
+      "bytes": 60887,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-device-r2.txt",
+      "sha256": "81a9f533f1eaf806b5a073cdf386ee3b7bc5ee507bbbe1cbca84ba89396ebbd1",
+      "bytes": 15869,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-device-r3.txt",
+      "sha256": "9cea182ac35b620cb351eb886dd368dd34a80bf5fe7f0588d8d2476e6414e39c",
+      "bytes": 14414,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-device.txt",
+      "sha256": "0881811e54c15c5ae6fe4effd0e0829704a5eb184c3e4cb8bd43db92e47c2a5b",
+      "bytes": 21885,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-format-final.log",
+      "sha256": "7bf82f63858387a752cdb5d82bed72b13b0c195bb4a390153732f46c868101c2",
+      "bytes": 4342,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-host-r2.log",
+      "sha256": "7681caac92c657cf3e8544b40ac839e536731c6d03f12c04c8864b564b3bdfec",
+      "bytes": 75884,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-host.log",
+      "sha256": "4eb61c14fa0d50bee4a4efd6daa1ebe5ebc6da933231cb854d21c78078b45091",
+      "bytes": 73575,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-initial-status.txt",
+      "sha256": "3e5502deeacb95a5366030b135bb87818396da159e359d2920b33302f5fcfd7e",
+      "bytes": 10294,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-navigation.txt",
+      "sha256": "49f3c5d4175b072ee5a945e8e4027cf310e1305ceab0c03bd2f50eb4e66f2921",
+      "bytes": 25062,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-profile-navigation.txt",
+      "sha256": "d6481475ddbc2bba3cfb3ef1dac45acfe9a01c8df4faae550b705a1b272ecda6",
+      "bytes": 25135,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-retention-before.log",
+      "sha256": "61ca4e4cd36efc9b0ea544bea7e4b36a5a013289f7bef596e991082833cd55a9",
+      "bytes": 8343,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-source-final.log",
+      "sha256": "56d04e60e4ba98640836c0301536691309ab8c8f853a9bfda2097d97574eafa4",
+      "bytes": 1524,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-source.log",
+      "sha256": "b338ec3eb8ce3d05961fcdab9425e936c963a07707a4c0b228140f3d27457f2f",
+      "bytes": 1524,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/release004-stage-paths.txt",
+      "sha256": "a1d6a5608dda7721d51c92c6d5f7156b8c62059fce8ff158307bd01970878408",
+      "bytes": 6645,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/v003-refresh-build.log",
+      "sha256": "a9b2975724bafcc8e2d24605bebf415f850b73bc3ea739f1a854fb05cfe7a1a9",
+      "bytes": 37418,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "build/v003-refresh-docs.log",
+      "sha256": "ef9443b662b7845c5dc800e2728b0a4eb8f43ab0d7370af016727fe99509a903",
+      "bytes": 71,
+      "tracked": false,
+      "reason": "superseded v0.0.3/v0.0.4 local release output; historical findings retained in curated documentation"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/commit-hxa241-check.py",
+      "sha256": "91752c9165f9546e6f606df26f60671aba07041c3a2eaf66f260fb19b5fde92d",
+      "bytes": 5009,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-host-r2.log",
+      "sha256": "0682ccfdce40bfc4f25445e29c4c94697d0fe90fe2e2684901b85391222e8acf",
+      "bytes": 40464,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-final-host.log",
+      "sha256": "50bbbcd69fbab52bf6c14a2d4079cfc41ffae593b252ef0582e39517287aa5ee",
+      "bytes": 64297,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-intent-navigation.txt",
+      "sha256": "7a9c2a47d465d5273709b3775de99554e0269d32bc1107b4f6a741dca97161bd",
+      "bytes": 24471,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-package.log",
+      "sha256": "e10553abc4551fc4396ab5287f23699890469aac830f45b460a7f59c243ac396",
+      "bytes": 37382,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-collapse-apks.log",
+      "sha256": "42edf57bc0c7eae3567c85896a636eacb1eef3a9f93236c3ffc7edb9e5385026",
+      "bytes": 37179,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-collapse-navigation.txt",
+      "sha256": "62e6ef258d5b3535394590b7c62eb4f9e1113958cef643f08486bcbb42b56371",
+      "bytes": 24884,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-device-r1.txt",
+      "sha256": "8c6b7fb81e5c22491c2e7bfdcb6ce22136a4ccfd8db0044c0ade01257e6e1e7b",
+      "bytes": 4260,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-intent-heading-host.log",
+      "sha256": "ba2cfe1510e9e4f1bc2e1e3300f2dca712c7b70a7449be94e4b8980ec1cc1dee",
+      "bytes": 53479,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-collapse-device.txt",
+      "sha256": "234e9510201bffe817663233034e79adc6bc95a2379fb30dfdc89acbce7cc669",
+      "bytes": 8910,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-source.log",
+      "sha256": "77ce69c1094f9058ffd31e694dee8dc19b1ffca8bb4f04a47a60fa0ffaf3b705",
+      "bytes": 1524,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-collapse-final.log",
+      "sha256": "1309f0b47635b21fd5b74d21e4bba892aa371055fa2a953da2555d78e29bff7c",
+      "bytes": 53288,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-device-final.txt",
+      "sha256": "b6a64f193d95cfaa2b356f76fe1b3ef9194b6241502d90f644eadbd2433081c9",
+      "bytes": 4260,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/tool-collapse-host.log",
+      "sha256": "8989f694f1c51b57f762acb74ba2db673215bccdfe219e859f41a88512187c00",
+      "bytes": 53339,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    },
+    {
+      "path": "build/subscription-layout-host.log",
+      "sha256": "80e034d71ffc3c1ea2386f0ab1f922141fbb028426c69a2e72b855d41b672296",
+      "bytes": 38173,
+      "tracked": false,
+      "reason": "completed frozen version preparation or historical UI validation; findings retained in documentation"
+    }
+  ]
+}

@@ -106,3 +106,5 @@ H.264/HEVC 的 MediaCodec 路径继续依赖设备，历史异步参数只是候
 - [HXA-240 任务](../../development/tasks/HXA-240.md)、[现有终端/Job ADR](../../adr/runtime/002-terminal-and-jobs.md)、[独立候选历史](ffmpeg-ready-preintegration-2026-10-01.md)。
 - [Termux PRoot-Distro](https://github.com/termux/proot-distro) 的 Android 系统目录/Bionic 执行设计仅作参考，没有复制其 GPL 实现。新增包装器/映射为本项目实现；实际平台兼容以本候选设备证据为准。
 - [FFmpeg CLI](https://ffmpeg.org/ffmpeg.html) 用于参数/流映射和编入能力的操作参考，不把 FFmpeg 全部上游能力等同于本裁剪包。
+
+历史材料维护（2026-10-10）：本页提及的`verify-hxa240-apks.py`已退役；以上为当时执行记录，现行入口与删除来源见[整理摘要](historical-version-retirement-2026-10-10.md)。

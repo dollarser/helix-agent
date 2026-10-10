@@ -18,3 +18,5 @@
 本轮未提交、未推送，不扩大此前账号验收范围。
 
 最终版本复验：`build/subscription-layout-device-final.txt`，6/6 通过，10.388s；`build/subscription-layout-final-host.log` 的 Consumer 单元测试、双渠道 lint、应用/AndroidTest APK 与 detekt 通过，最终文案打包和 spotlessCheck 见 `build/subscription-layout-package.log`。源码门禁 `build/subscription-layout-source.log`、最终国际化检查与 `git diff --check` 通过。已覆盖安装到可见模拟器，保留账号数据并恢复测试前的语言偏好状态。
+
+历史材料维护（2026-10-10）：本记录涉及的旧版本地日志/导航输出及v0.0.4本地制品现已按Owner授权删除；正文结果为当时报告，原始日志不再可用。必要结论、失败机制、来源hash和保留边界见[历史整理摘要](historical-version-retirement-2026-10-10.md)，不构成当前设备验证。

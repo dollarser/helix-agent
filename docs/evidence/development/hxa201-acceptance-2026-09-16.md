@@ -107,3 +107,5 @@ python3 scripts/debug/2026-09-15/compare-hxa201-device-results.py \
 JGit TrustAll 已由 HXA-200 修复，本次双flavor lint仍绿。基线 GitStatus 的 `SilentFileInputStream.readNBytes(I)[B` 是 API29 上单独复现的兼容性失败，不是 TrustAll，不凭未改文件推断为依赖漂移。
 
 未执行完整仓库 check-all --build/--all、真实账号/外部服务、Release设备、长稳或发布验收。任务范围是否完成以对应完成记录为准；本页保留可复核的局部和全套证据边界。
+
+历史材料维护（2026-10-10）：本页提及的`prepare-hxa201-baseline.py`已退役；以上为当时执行记录，现行入口与删除来源见[整理摘要](historical-version-retirement-2026-10-10.md)。

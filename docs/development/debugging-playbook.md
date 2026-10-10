@@ -75,3 +75,5 @@ owned汇总严格检查实际方法结果、owner与closed PID一致、正常退
 删除前逐路径核对实际用途、所有当前调用者及替代；tracked源码记录Git来源，未提交或本地唯一脚本先保存并校验恢复副本。原始失败日志、数据库及模型轨迹和脚本分开留存，本地tar不是长期备份。历史复现以删除清单中的Git提交和path/hash恢复，禁止直接在当前工作树重跑旧改写器。
 
 本次具体删除、迁移与验证见[HXA-267记录](../completion-records/HXA-267.md)及[清理证据](../evidence/development/test-script-maintenance-2026-10-10.md)。
+
+历史版本日志不必永久另存副本：经Owner明确授权，核对其归属及当前复现入口后，按“来源提交/版本与APK身份 → 当时成功和初轮失败机制 → 修正与验证边界 → 现行复现入口 → 删除路径/hash”汇总。删除后在原报告注明原始日志不可用；未经执行不填当前通过，不用hash冒充备份。示例见[历史版本整理](../evidence/development/historical-version-retirement-2026-10-10.md)。

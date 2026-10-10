@@ -54,3 +54,5 @@ API 36 使用 `Helix_Main_Verify_API36`，API 29 使用 `Helix_Main_Verify_API29
 ## 2026-10-09 提交前复核
 
 所有者授权每完成一项任务提交一次。当前工作树复跑 `./gradlew test detekt spotlessCheck :app:lintDeveloperDebug :app:lintConsumerDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest --offline`，49 秒成功，940 个任务（21 执行）；日志 `build/hxa-baseline-20261009-host.log`。预算 checkpoint 按生产/测试路径和共享资源键分组；Mobile Use、启动优化和其他历史调试脚本保留未暂存，不随此提交。历史设备矩阵仍按上文日期记录，未冒称本日重跑。
+
+历史材料维护（2026-10-10）：本页提及的`dsh-install-daily.py`已退役；以上为当时执行记录，现行入口与删除来源见[整理摘要](historical-version-retirement-2026-10-10.md)。

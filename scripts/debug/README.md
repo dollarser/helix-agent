@@ -55,3 +55,5 @@ New references should use the stable paths. Retained historical runners remain a
 ignored output directories are not a substitute for preserving reproduction tools.
 
 See the [maintenance playbook](../../docs/development/debugging-playbook.md) and [retirement record](../../docs/evidence/development/test-script-maintenance-2026-10-10.md) for current alternatives and recovery provenance.
+
+Completed version-specific installers, frozen verifiers and local release logs may be retired after owner-authorized curation. Read the [historical version summary](../../docs/evidence/development/historical-version-retirement-2026-10-10.md); historical commands are provenance, not supported current entry points.

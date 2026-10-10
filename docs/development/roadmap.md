@@ -302,3 +302,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-265 | 有界本地交付 | 双渠道有界资源稳定性收尾 | [完成记录](../completion-records/HXA-265.md) |
 | HXA-266 | 有界本地交付 | 当前Goal契约与真实模型旅程收尾 | [完成记录](../completion-records/HXA-266.md) |
 | HXA-267 | 主机交付；设备not requested | 门禁与历史调试脚本维护 | [完成记录](../completion-records/HXA-267.md) |
+| HXA-268 | 主机交付；设备not requested | 历史版本脚本与日志退役 | [完成记录](../completion-records/HXA-268.md) |
