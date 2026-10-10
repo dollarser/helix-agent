@@ -17,10 +17,12 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
+import com.helix.app.chat.GoalRoundAllowance
 import com.helix.app.provider.ProviderDraft
+import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.core.model.TurnBudgets
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
@@ -48,7 +50,7 @@ class GoalRealModelUiDeviceTest {
     private var goalId: String? = null
 
     @Test
-    fun creationBudgetPauseAndExplicitContinueUseTheRealModelThroughUi() =
+    fun creationBlockerRecheckAndExplicitContinueUseTheRealModelThroughUi() =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
             assumeTrue("requires an explicitly configured real endpoint", args.getString("helix.goalUi") == "true")
@@ -59,13 +61,14 @@ class GoalRealModelUiDeviceTest {
                 createProvider(model, requireNotNull(args.getString("helix.goalUi.port")).toInt())
                 sessionId = service.createSession("Goal real UI fixture", requireNotNull(providerId), model)
                 service.openSession(requireNotNull(sessionId))
-                service.setTurnBudgets(TurnBudgets(4, 1, 32768, 2048, 34816))
+                service.setTurnBudgets(TurnBudgetBounds.DEFAULT)
+                service.setReasoning(ReasoningEffort.OFF)
                 compose.navigateTo("sessions")
                 compose.waitUntil(10_000) { service.screen.value.openSessionId == sessionId }
                 compose.onNodeWithTag("chat-input").performTextInput("/goal")
                 compose.onNodeWithTag("chat-send").performClick()
                 createGoalThroughUi()
-                continueAndVerify(1, "GOAL_UI_FIRST", start = false)
+                continueAndVerify(1, "GOAL_UI_FIRST", "BLOCKED", start = false)
                 compose.onNodeWithTag("chat-composer-options").performClick()
                 compose.onNodeWithTag("goal-manage").performClick()
                 compose.onNodeWithTag("goal-continue-$goalId").performScrollTo().assertIsNotEnabled()
@@ -76,14 +79,15 @@ class GoalRealModelUiDeviceTest {
                 compose.waitUntil(10_000) {
                     storage.goals
                         .resolve(requireNotNull(goalId))
-                        .budgets.maxModelCalls == 2
+                        .budgets.maxGoalRounds == 2
                 }
                 assertRunCount(1)
                 compose.navigateTo("sessions")
-                compose.onNodeWithTag("chat-input").performTextInput("Reply only GOAL_UI_SECOND. Do not call tools.")
+                compose.onNodeWithTag("chat-input").performTextInput(reportObjective("complete", "GOAL_UI_SECOND"))
                 compose.onNodeWithTag("chat-composer-options").performClick()
                 compose.onNodeWithTag("goal-manage").performClick()
-                continueAndVerify(2, "GOAL_UI_SECOND")
+                recheckAndEditObjective()
+                continueAndVerify(2, "GOAL_UI_SECOND", "COMPLETED")
                 saveEvidence(model)
             } finally {
                 service.stop()
@@ -92,6 +96,7 @@ class GoalRealModelUiDeviceTest {
                 container.runControlStore.setGoalBudgets(previous.goalBudgets)
                 service.setMode(previous.mode)
                 service.setTurnBudgets(previous.budgets)
+                service.setReasoning(previous.reasoning)
                 goalId?.let(storage.goals::delete)
                 sessionId?.let { storage.sessions.archive(it, System.currentTimeMillis()) }
                 providerId?.let { container.providerService.delete(it) }
@@ -122,7 +127,7 @@ class GoalRealModelUiDeviceTest {
     }
 
     private fun createGoalThroughUi() {
-        val objective = "Reply only GOAL_UI_FIRST. Do not call tools. Fixture ${UUID.randomUUID()}."
+        val objective = reportObjective("blocked", "GOAL_UI_FIRST") + " Fixture ${UUID.randomUUID()}."
         compose.navigateTo("settings/defaults")
         compose.onNodeWithTag("goal-defaults-edit").performScrollTo().performClick()
         replace("goal-budget-0", "1")
@@ -140,6 +145,27 @@ class GoalRealModelUiDeviceTest {
         }
     }
 
+    private fun reportObjective(
+        status: String,
+        marker: String,
+    ): String =
+        "Read get_goal and call update_goal with its id and expected_revision, status=$status and summary=$marker. " +
+            "Then reply only $marker. Do not use any other tools. " +
+            if (status == "blocked") "The next step requires new input from the user; do not report completion." else ""
+
+    private fun recheckAndEditObjective() {
+        compose.onNodeWithTag("goal-continue-$goalId").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("goal-recheck-$goalId").performScrollTo().performClick()
+        compose.waitUntil(10_000) { storage.goals.resolve(requireNotNull(goalId)).state == "PAUSED" }
+        assertRunCount(1)
+        val objective = reportObjective("complete", "GOAL_UI_SECOND")
+        compose.onNodeWithTag("goal-objective-edit-$goalId").performScrollTo().performClick()
+        replace("goal-objective-$goalId", objective)
+        compose.onNodeWithTag("goal-objective-save-$goalId").performScrollTo().performClick()
+        compose.waitUntil(10_000) { storage.goals.resolve(requireNotNull(goalId)).objective == objective }
+        assertRunCount(1)
+    }
+
     private fun replace(
         tag: String,
         text: String,
@@ -151,6 +177,7 @@ class GoalRealModelUiDeviceTest {
     private fun continueAndVerify(
         count: Int,
         marker: String,
+        expectedState: String,
         start: Boolean = true,
     ) {
         if (start) {
@@ -162,18 +189,22 @@ class GoalRealModelUiDeviceTest {
         }
         compose.waitUntil(180_000) {
             val turns = storage.turns.listBySession(requireNotNull(sessionId))
-            turns.size == count && turns.all { TurnState.valueOf(it.state).isTerminal }
+            turns.size == count && turns.all { TurnState.valueOf(it.state).isTerminal } &&
+                !service.screen.value.isSending && storage.goals.resolve(requireNotNull(goalId)).state == expectedState
         }
         val goal = storage.goals.resolve(requireNotNull(goalId))
-        assertEquals("PAUSED", goal.state)
-        assertEquals(count, goal.modelCalls)
+        assertEquals(expectedState, goal.state)
+        assertEquals(0, GoalRoundAllowance(storage).used(goal.id))
         assertTrue(goal.totalTokens > 0)
         val turn = storage.turns.listBySession(requireNotNull(sessionId)).last()
-        assertTrue(storage.toolCalls.listByTurn(turn.id).isEmpty())
+        assertEquals(turn.errorCode, "COMPLETED", turn.state)
+        val calls = storage.toolCalls.listByTurn(turn.id)
+        assertTrue(calls.any { it.name in setOf("update_goal", "goal.report") && it.state == "COMPLETED" })
+        assertTrue(calls.all { it.name in setOf("get_goal", "update_goal", "goal.report") })
         val binding = requireNotNull(storage.goalTurnBindings.byTurn(turn.id))
         val run = storage.goalRuns.resolve(binding.runId)
         assertEquals(goalId, run.goalId)
-        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", run.outcome)
+        assertEquals(if (expectedState == "BLOCKED") "BLOCKED(MODEL_REPORTED)" else "MODEL_COMPLETED", run.outcome)
         val text =
             storage.messages
                 .listBySession(requireNotNull(sessionId))
@@ -203,7 +234,13 @@ class GoalRealModelUiDeviceTest {
     private fun assertRunCount(count: Int) {
         assertEquals(count, storage.goalRuns.listByGoal(requireNotNull(goalId)).size)
         assertEquals(count, storage.turns.listBySession(requireNotNull(sessionId)).size)
-        assertEquals(count, storage.goals.resolve(requireNotNull(goalId)).modelCalls)
+        val modelCalls =
+            storage.turns.listBySession(requireNotNull(sessionId)).sumOf {
+                storage.modelCalls
+                    .listByTurn(it.id)
+                    .size
+            }
+        assertEquals(modelCalls, storage.goals.resolve(requireNotNull(goalId)).modelCalls)
     }
 
     private fun saveEvidence(model: String) {
@@ -214,18 +251,23 @@ class GoalRealModelUiDeviceTest {
                 put("model", model)
                 put("goalState", goal.state)
                 put("modelCalls", goal.modelCalls)
+                put("automaticRounds", GoalRoundAllowance(storage).used(goal.id))
                 put("tokens", goal.totalTokens)
                 put("runs", storage.goalRuns.listByGoal(goal.id).size)
-                put("scope", "UI create, explicit Continue, budget pause, UI budget extension, explicit Continue")
+                put(
+                    "scope",
+                    "UI create, model blocker, allowance edit without execution, " +
+                        "explicit recheck/Continue, model completion",
+                )
                 put("latestRepliesFullyVisibleWithoutTestScroll", true)
-                put("completionClaim", false)
+                put("completionClaim", true)
             }
         val directory = File(compose.activity.filesDir, "hxa102-goal-ui").apply { mkdirs() }
         captureUi("conversation.png")
         compose.onNodeWithTag("chat-composer-options").performClick()
         compose.onNodeWithTag("goal-manage").performClick()
         compose.onNodeWithTag("goal-continue-$goalId").performScrollTo().assertIsNotEnabled()
-        captureUi("budget-paused.png")
+        captureUi("completed.png")
         compose.onNodeWithTag("goal-close").performClick()
         directory.resolve("result.json").writeText(result.toString())
     }

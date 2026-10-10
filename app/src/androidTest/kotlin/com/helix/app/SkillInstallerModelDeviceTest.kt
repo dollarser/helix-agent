@@ -21,7 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.nio.file.Files
 
-/** Explicit opt-in real model test; approves only writing its newly owned draft manifest. */
+/** Explicit opt-in real model test; approves only its owned draft and exact installed snapshot. */
 class SkillInstallerModelDeviceTest {
     @get:Rule val activity = ActivityScenarioRule(MainActivity::class.java)
 
@@ -55,10 +55,10 @@ class SkillInstallerModelDeviceTest {
             try {
                 check(container.providerService.runConnectionTest(provider) is com.helix.provider.api.ProbeOutcome.Ok)
                 val session = chat.createSession("Skill Creator evaluation", provider, model)
-                chat.openSession(session)
-                chat.setMode(AgentMode.ACT)
-                chat.setTurnBudgets(TurnBudgets(12, 10, 524288, 32768, 557056))
+                val budgets = TurnBudgets(12, 10, 524288, 32768, 557056)
+                chat.openTestSessionControl(session, AgentMode.ACT, budgets)
                 chat.sendTestMessage(
+                    session,
                     "Create a useful Skill for summarizing a local text file. Use write to create $path/SKILL.md. " +
                         "Its YAML name must be $name, with description and Markdown instructions. The parent exists. " +
                         "Then call skills.preview on $path and fix any errors. " +
@@ -98,6 +98,17 @@ class SkillInstallerModelDeviceTest {
             "skills.install" -> {
                 target == path && args["expectedHash"]?.jsonPrimitive?.content ==
                     requireNotNull(container.skillAuthoringService).preview(path).snapshotHash
+            }
+
+            "skills.enable" -> {
+                val ownName = path.substringAfterLast('/')
+                val ownHash = requireNotNull(container.skillAuthoringService).preview(path).snapshotHash
+                container.skillRepository.list().any {
+                    it.key.name == ownName && it.key.snapshotHash == ownHash &&
+                        args["source"]?.jsonPrimitive?.content == it.key.source.name &&
+                        args["name"]?.jsonPrimitive?.content == it.key.name &&
+                        args["snapshotHash"]?.jsonPrimitive?.content == it.key.snapshotHash
+                }
             }
 
             else -> {

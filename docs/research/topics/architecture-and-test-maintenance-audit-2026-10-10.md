@@ -160,5 +160,6 @@ flowchart TD
 | A 会话应用层 | [HXA-257](../../completion-records/HXA-257.md)已交付目录/搜索、原draft与附件锁、任务面板完整状态owner及历史页窄接口；[HXA-258](../../completion-records/HXA-258.md)集中元数据与模型默认原子事务 | ChatService尚未成为最终薄facade；不凭行数继续拆文件，不将职责收敛称性能收益 |
 | D 历史路径整理 | [HXA-260](../../completion-records/HXA-260.md)删除一份失效编辑器并保存Git来源/哈希/恢复指针；仍被引用的shim和独有协议保留，两个实际入口路径修正 | 不推导所有日期目录均已逐文件审计，不批量清目录 |
 | E 大类/构建与性能 | HXA-260逐项核对构建及Dispatcher/PRoot/产物/Provider，保留已有状态owner；修正取消容量说明；[HXA-261](../../completion-records/HXA-261.md)完成API36双渠道基线/候选四组600会话/1000消息及20次真实新PID启动 | 5次有限debug样本未证明普遍收益；真机黑屏仍缺实体设备，其他OEM/长稳开放 |
+| D/E 验证收尾 | [HXA-263](../../completion-records/HXA-263.md)持续日志保留；[HXA-264](../../completion-records/HXA-264.md)双渠道各42项及14个实际死亡边界；[HXA-265](../../completion-records/HXA-265.md)双900秒资源pilot；[HXA-266](../../completion-records/HXA-266.md)真实Qwen Goal/Skill完整9项通过，原256轮/取消/权限断言保留 | source172项；旧1-token/会话投影/遗漏启用审批等夹具原因与历史未知截断分开，完整矩阵/2h24h/真机/账号仍开放 |
 
 最新通过、失败尝试、制品身份及边界以各HXA证据为准；后续用例按已批准DSH契约更新旧累计预算断言，不删除用量、取消、权限或256轮验证。

@@ -2,6 +2,10 @@ package com.helix.app
 
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmission
+import com.helix.core.model.AgentMode
+import com.helix.core.model.TurnBudgets
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import java.util.UUID
 
 /**
@@ -33,4 +37,19 @@ internal fun ChatService.sendTestMessage(
 internal fun ChatService.sendTestMessage(text: String) {
     val sessionId = requireNotNull(screen.value.openSessionId) { "test chat session is not open" }
     sendTestMessage(sessionId, text)
+}
+
+/** Wait for this fixture's asynchronous projection/configuration before admitting its input. */
+internal suspend fun ChatService.openTestSessionControl(
+    sessionId: String,
+    mode: AgentMode,
+    budgets: TurnBudgets,
+) {
+    openSession(sessionId)
+    withTimeout(10_000) {
+        screen.first { it.openSessionId == sessionId }
+        setMode(mode)
+        setTurnBudgets(budgets)
+        runControl.first { it.mode == mode && it.budgets == budgets }
+    }
 }

@@ -55,10 +55,10 @@ class SkillCreatorModelDeviceTest {
             try {
                 check(container.providerService.runConnectionTest(provider) is com.helix.provider.api.ProbeOutcome.Ok)
                 val session = chat.createSession("Skill Creator evaluation", provider, model)
-                chat.openSession(session)
-                chat.setMode(AgentMode.ACT)
-                chat.setTurnBudgets(TurnBudgets(12, 10, 524288, 32768, 557056))
+                val budgets = TurnBudgets(12, 10, 524288, 32768, 557056)
+                chat.openTestSessionControl(session, AgentMode.ACT, budgets)
                 chat.sendTestMessage(
+                    session,
                     "Create a useful Skill for summarizing a local text file. Use write to create $path/SKILL.md. " +
                         "Its YAML name must be $name, with description and Markdown instructions. The parent exists. " +
                         "Then call skills.preview on $path and fix any errors. " +

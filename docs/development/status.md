@@ -78,7 +78,7 @@
 
 ## In progress
 
-- [HXA-265](../completion-records/HXA-265.md)本轮API36双渠道900秒单PID资源pilot已passed，原峰值门禁保持；HXA-264停止/恢复组合已通过。下一步真实Qwen的Goal/Skill旅程补验，日常与真机不操作。
+- 本轮[HXA-263](../completion-records/HXA-263.md)连续测试日志与真实Qwen压缩约束保留2/2；[HXA-264](../completion-records/HXA-264.md)双渠道主回归各42/42、追加20项及14个实际进程死亡边界；[HXA-265](../completion-records/HXA-265.md)双渠道900秒资源pilot；[HXA-266](../completion-records/HXA-266.md)当前DSH契约/真实Qwen Goal与Skill完整9/9均有界本地交付。当前没有尚在执行的本轮检查点；下表保留完整设备/服务矩阵与长稳边界，日常与真机未操作。
 
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 
@@ -95,7 +95,7 @@
 
 ## Next task
 
-2026-10-10 架构审查后续按小切片推进，依据[系统/测试审查](../research/topics/architecture-and-test-maintenance-audit-2026-10-10.md)。HXA-253已解决主机fixture漏测，HXA-254/255收敛项目/权限应用接口，HXA-256完成生产测试桥清理，HXA-257/258交付会话状态owner与元数据事务；HXA-259完成22个项目/Provider页面功能归属的主机验证，HXA-260完成路径级清理和复杂类/构建条件取舍。ChatService保留原身份/门禁/应用仲裁，不以最终空壳或行数作为退出条件。HXA-261已完成授权有界性能对照；HXA-262已补验同一冻结候选双渠道页面与真实Qwen多次压缩约束保留；下一步仅根据实际故障或输入就绪推进下表开放边界，不继续凭行数拆分。历史未知截断、完整故障组合/长稳与真机卡顿黑屏仍需实际证据，不能由结构变化推导改善。
+2026-10-10 架构审查后续按小切片推进，依据[系统/测试审查](../research/topics/architecture-and-test-maintenance-audit-2026-10-10.md)。HXA-253已解决主机fixture漏测，HXA-254/255收敛项目/权限应用接口，HXA-256完成生产测试桥清理，HXA-257/258交付会话状态owner与元数据事务；HXA-259完成22个项目/Provider页面功能归属的主机验证，HXA-260完成路径级清理和复杂类/构建条件取舍。ChatService保留原身份/门禁/应用仲裁，不以最终空壳或行数作为退出条件。HXA-261已完成授权有界性能对照；HXA-262已补验同一冻结候选双渠道页面与真实Qwen多次压缩约束保留；HXA-263～266进一步完成日志保留、双渠道停止/进程恢复组合、双900秒资源pilot和当前DSH契约真实Goal/Skill旅程；两类过期测试夹具已修，不修改生产默认额度。下一步仅根据实际故障或输入就绪推进下表开放边界，不继续凭行数拆分。历史未知截断、完整故障组合/长稳与真机卡顿黑屏仍需实际证据，不能由结构变化推导改善。
 
 上方 main 本地整合及授权回归已收敛；v0.0.5 发布仍遵循精确提交 CI 成功后生成制品的门禁。下表保留后续开发路线；本次只关闭实际执行并有证据的验证项，不自动宣称完成全部 HXA/OEM/真实账号验收。
 
@@ -103,7 +103,7 @@ HXA-239 本地实现和主机整合完成；J2-1 AUTO 与 J2-2 用户后台按�
 
 | 顺序/分支 | 剩余工作 | 依赖与退出条件 |
 | --- | --- | --- |
-| 1．既有重构验收余项 | HXA-251有限补验已交付：窄屏修复、指定中文输入、插件取消更新/原生修复、双API回放/Memory与模型对照已有实际证据 | 后续按具体验收切片处理完整取消/恢复交叉矩阵、其他IME/OEM及长稳；不重复已通过旅程，设备/账号仍须当轮授权 |
+| 1．既有重构验收余项 | HXA-251有限补验已交付；HXA-264增加双渠道停止/队列/Goal取消/恢复组合和14个实际进程死亡边界，HXA-265增加双900秒同PID资源pilot，HXA-266当前Goal/Skill模型旅程通过 | 后续按具体验收切片处理完整取消/恢复交叉矩阵、其他IME/OEM及长稳；不重复已通过旅程，设备/账号仍须当轮授权 |
 | 2．J2-1 → J2-2 | [HXA-248](tasks/HXA-248.md) 本地主机及 API36 Runtime/UI 八项通过；HXA-249 新编码真实 J1/AUTO 各 1/1 | 当前模型协议失败已修复；其他服务与跨生命周期组合仍开放，有限通过不关闭全部设备范围 |
 | 3．Project Memory | HXA-246 本地主机与 API36 双渠道 UI/Memory 各六项、项目记忆进程死亡恢复通过 | 其他设备/真实摘要质量和长稳仍保留，不重复已交付接线与本轮 UI 旅程 |
 | 条件性补验 | HXA-232 故障矩阵/真实恢复；233/234/235/236/237/238/239 设备；125/126/190 服务；同候选 P5/独立内测 | 指定设备、账号及当次授权；缺条件只阻塞对应项，不把 fixture、编译或旧绿色当通过 |
@@ -139,7 +139,7 @@ QuickJS 默认 isolated UID，原生总开关对应共享应用 UID 私有进程
 | 范围 | 当前保留边界与证据 |
 | --- | --- |
 | SAF/模型偶发行为 | 已修复项不重开；其他 OEM 空列表、OUTPUT_TOKEN_LIMIT、探测偶发失败、skill-001/003 多余调用保留原轨迹，见[偶发记录](../evidence/development/intermittent-closeout-2026-09-28.md)与[最终收口](../evidence/development/final-closeout-2026-09-29.md) |
-| 系统与长稳 | JNI/Binder、goldfish FD/UID-proxy Binder 根因未全部关闭；[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器核验](../evidence/development/browser-controller-reference-verification.md)、[剩余调查](../evidence/development/main-optimization-todo.md) |
+| 系统与长稳 | HXA-265双渠道900秒原资源峰值门禁通过，不代表2h/24h或全部Runtime；JNI/Binder、goldfish FD/UID-proxy Binder 根因未全部关闭；[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器核验](../evidence/development/browser-controller-reference-verification.md)、[剩余调查](../evidence/development/main-optimization-todo.md) |
 | 真机/OEM/资源 | OnePlus API35 Root 与[P0修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)是固定范围；其他 OEM、低内存、热压、Doze、Root grant/revoke/loss、16 KiB 另验；x86_64 静态制品不证明运行 |
 | 文件与 Runtime 恢复 | HXA-182 不承诺断电事务、字节续传、跨 Provider 原子性或自动后台队列；目标/备份变化需核查。订阅结果物化与资源压力的历史边界结合 HXA-232 后续切片判断，见[原记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md) |
 | 模型与附件 | 导入不等于理解；图片受视觉能力/预算约束；任意文档、音视频、OCR 未因管线存在而交付；真实 token 偏差与物理内存峰值仍须测量 |

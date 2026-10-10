@@ -304,3 +304,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-264 | 有界本地交付 | 停止与恢复组合本地收尾 | [完成记录](../completion-records/HXA-264.md) |
 
 | HXA-265 | 有界本地交付 | 双渠道有界资源稳定性收尾 | [完成记录](../completion-records/HXA-265.md) |
+
+| HXA-266 | 有界本地交付 | 当前Goal契约与真实模型旅程收尾 | [完成记录](../completion-records/HXA-266.md) |
