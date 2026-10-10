@@ -78,7 +78,7 @@
 
 ## In progress
 
-- 本轮架构维护HXA-253～262有限范围已交付；[HXA-262](../completion-records/HXA-262.md)当前授权API36双渠道页面/拼音各17/17、真实Qwen三次压缩和三次约束跟随及拼音2/2通过，见[证据](../evidence/development/page-model-followup-2026-10-10.md)。[HXA-261](../completion-records/HXA-261.md)四组性能各2/2及20次新PID启动通过；不宣布普遍收益或整个产品验收。
+- [HXA-263](../completion-records/HXA-263.md)日志持续采集已交付，165项host/原runner及本轮API36 Qwen 2/2通过；随后按单独检查点补并发/恢复组合与有界长稳。HXA-253～262已有通过证据保留；日常实例及真机不操作。
 
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 

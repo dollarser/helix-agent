@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch an exclusive emulator, run a bounded instrumentation suite, always close it."""
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -22,6 +23,37 @@ def passed(output):
     return bool(re.search(r"^OK \([1-9][0-9]* tests?\)", output, re.M)) and not any(
         marker in output for marker in ("FAILURES!!!", "INSTRUMENTATION_FAILED", "Process crashed")
     )
+
+
+@contextmanager
+def capture_test_logcat(adb, serial, output, owner_alive):
+    """Stream this owned run's filtered bytes before instrumentation can overflow logd."""
+    if not owner_alive():
+        raise RuntimeError("Owned emulator exited before log capture")
+    with (output / "test-logcat.txt").open("wb") as log, (output / "logcat-errors.txt").open("wb") as errors:
+        capture = subprocess.Popen(
+            [adb, "-s", serial, "logcat", "-v", "threadtime", "-s",
+             "TestRunner", "System.out", "HelixChat", "HelixFilePreview"],
+            stdout=log, stderr=errors,
+        )
+        try:
+            yield
+            # Allow the streaming reader to drain final test events, without truncating
+            # earlier evidence to a fixed tail or changing the device log buffers.
+            time.sleep(0.3)
+            if not owner_alive() or capture.poll() is not None:
+                raise RuntimeError("Owned log capture ended before instrumentation completed")
+        finally:
+            if capture.poll() is None:
+                capture.terminate()
+                try:
+                    capture.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    capture.kill()
+                    capture.wait(timeout=10)
+            (output / "logcat-capture.json").write_text(
+                json.dumps({"pid": capture.pid, "exit": capture.returncode, "serial": serial})
+            )
 
 
 def run(args):
@@ -149,9 +181,9 @@ def run(args):
                 subprocess.run(["python3", args.between_recovery_script, serial, str(output)],
                                check=True, timeout=args.timeout)
             raw = ["-r"] if getattr(args, "raw_results", False) else []
-            result = device("shell", "am", "instrument", "-w", *raw, "-e", "class", args.classes, *extras,
-                            args.runner, timeout=args.timeout)
-            (output / "test-logcat.txt").write_text(device("logcat", "-d", "-t", "2000", "-s", "TestRunner", "System.out", "HelixChat", "HelixFilePreview"))
+            with capture_test_logcat(adb, serial, output, lambda: process.poll() is None):
+                result = device("shell", "am", "instrument", "-w", *raw, "-e", "class", args.classes, *extras,
+                                args.runner, timeout=args.timeout)
             (output / "instrumentation.txt").write_text(result)
             print(result, flush=True)
             if not passed(result):
