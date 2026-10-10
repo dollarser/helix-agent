@@ -134,7 +134,7 @@ for _ in range(2):
 else:
     raise RuntimeError('Revision editor did not remain closed after dismissing the IME and dialog')
 open_history('accepted')
-tap(wait_text('REVISION-ACCEPTED', 'accepted-session-list'))
+tap(find_session('REVISION-ACCEPTED', 'accepted-session-list'))
 wait_text('NEW-ACCEPTED', 'accepted-no-replay')
 assert not any(n.get('text') == 'OLD-ACCEPTED' for n in nodes('accepted-effective-history'))
 (output / 'normal-process.json').write_text(json.dumps({'beforePid':pid, 'afterPid':new_pid,

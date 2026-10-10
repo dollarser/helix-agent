@@ -32,6 +32,8 @@ flowchart TD
 
 手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
 
+会话应用层内部由`SessionDirectory`持有目录/检索投影、Job与取消发布边界，`ComposerInputState`持有原草稿与附件原子快照/锁，`TaskDashboardProjection`持有任务面板六类读投影。`SessionCatalog`集中元数据及模型默认/运行配置的Room事务；ChatService继续仲裁原用户动作、准入和权限重验，运行配置仍由原`SessionRunControlStore`保存。这些协作者共用原Room、clock、ID及工作区恢复对象，不新增执行循环、状态副本或动作队列；历史页消费目录接口与动作回调。具体交付及验证边界见[status](../development/status.md)。
+
 [HXA-234](../development/tasks/HXA-234.md) 已将实际 Loop、状态/预算值、执行端口与上下文选择迁入 Core，Android 侧保留适配与同一 Room 事务。应用协调、原历史编解码和权限/附件 I/O 仍在宿主；这不是把所有 App 逻辑搬入 Core，也没有创建远程 Execution Host。实现、主机与真实设备验收分别记账。
 
 ## 运行、上下文与恢复

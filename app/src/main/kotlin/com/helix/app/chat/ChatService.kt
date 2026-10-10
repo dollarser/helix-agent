@@ -100,7 +100,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -198,6 +197,16 @@ class ChatService(
     private val conversationReferences = ConversationReferenceResolver(storage)
     private val sessionRunControls = SessionRunControlStore(storage, runControlStore)
     private val workspaceRecovery = SessionWorkspaceRecovery(storage, bindSessionDirectory)
+    private val catalog =
+        SessionCatalog(
+            storage,
+            providerService,
+            sessionRunControls,
+            workspaceRecovery,
+            clock,
+            idGenerator,
+            bindSessionDirectory,
+        )
     private val _runControl = MutableStateFlow(sessionRunControls.defaultSnapshot())
     val toolVisionConsent =
         com.helix.app.vision
@@ -985,15 +994,7 @@ class ChatService(
         fallbackTitle: String = str(R.string.chat_attachment_button),
     ): List<DraftAttachment>? {
         val attachments =
-            drafts.persist(expectedSessionId, text, fallbackTitle) { draft ->
-                val row = draft.session
-                storage.withTransaction {
-                    val directory = workspaceRecovery.availableDirectory(row.directoryRef)
-                    storage.sessions.create(row.id, row.title, row.providerId, row.modelId, row.createdAt, directory)
-                    if (row.directoryRef != null && directory == null) workspaceRecovery.record(row.id, row.createdAt)
-                    sessionRunControls.set(row.id, draft.control, row.createdAt)
-                }
-            } ?: return null
+            drafts.persist(expectedSessionId, text, fallbackTitle, catalog::persistDraft) ?: return null
         expectedSessionId?.let { id ->
             storage.sessions.find(id)?.takeIf { it.archivedAt == null }?.let {
                 conversationLaunchStore.selectSession(id)
@@ -1016,8 +1017,7 @@ class ChatService(
                 refreshScreen()
                 return@launch
             }
-            val row = storage.sessions.resolve(id)
-            storage.sessions.updateDetails(id, title, row.directoryRef)
+            catalog.rename(id, title)
             refreshSessionsNow()
             refreshScreen()
         }
@@ -1042,22 +1042,7 @@ class ChatService(
                 if (draft != null && draft.session.id == targetSessionId) {
                     drafts.directory(draft.session.id, bound)
                 } else {
-                    val row = storage.sessions.find(targetSessionId) ?: return@async false
-                    storage.withTransaction {
-                        storage.sessions.updateDetails(row.id, row.title, bound)
-                        val binding = storage.workspaces.binding(row.id)
-                        storage.auditEvents.append(
-                            idGenerator(),
-                            row.id,
-                            "workspace.bound",
-                            "user",
-                            buildJsonObject {
-                                put("workspaceId", binding?.workspaceId.orEmpty())
-                                put("revision", binding?.revision ?: 0L)
-                            }.toString(),
-                            clock.now().toEpochMilli(),
-                        )
-                    }
+                    if (!catalog.setDirectory(targetSessionId, bound)) return@async false
                     refreshSessionsNow()
                 }
                 if (openSessionId == targetSessionId &&
@@ -1098,17 +1083,8 @@ class ChatService(
         modelId: String,
     ): String =
         withContext(workScope.coroutineContext) {
-            require(providerService.chatSelectable(providerId)) {
-                "the provider must pass a connection test before a session can use it"
-            }
-            // This explicit target API does not enumerate or choose a default. Picker preferences are not permission.
-            // Interactive/default model selection separately uses conversationModels and never expands the catalog.
-            val id = idGenerator()
-            val now = clock.now().toEpochMilli()
-            storage.withTransaction {
-                storage.sessions.create(id, title, providerId, modelId, now)
-                sessionRunControls.set(id, sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT), now)
-            }
+            // Explicit user target, not an expansion of the selectable model catalog.
+            val id = catalog.create(title, providerId, modelId)
             refreshSessionsNow()
             id
         }
@@ -1123,21 +1099,7 @@ class ChatService(
         messageId: String,
     ): String =
         withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val context = kotlin.coroutines.coroutineContext
-            val id = idGenerator()
-            val title =
-                storage.sessions
-                    .resolve(sessionId)
-                    .title
-                    .take(160)
-            val branchTitle = str(R.string.session_fork_title, title)
-            val now = clock.now().toEpochMilli()
-            storage.withTransaction {
-                SessionFork(storage, bindSessionDirectory).create(sessionId, messageId, id, branchTitle, now) {
-                    context.ensureActive()
-                }
-                sessionRunControls.set(id, sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT), now)
-            }
+            val id = catalog.fork(sessionId, messageId) { str(R.string.session_fork_title, it) }
             refreshSessionsNow()
             id
         }
@@ -1167,7 +1129,7 @@ class ChatService(
     fun archiveSession(id: String) {
         workScope.launch {
             try {
-                storage.sessions.archive(id, clock.now().toEpochMilli())
+                catalog.setArchived(id, true)
                 refreshSessionsNow()
             } catch (e: IllegalArgumentException) {
                 // Already archived or gone (race with the UI); the next
@@ -1178,7 +1140,7 @@ class ChatService(
 
     fun restoreSession(id: String) {
         workScope.launch {
-            storage.sessions.restore(id)
+            catalog.setArchived(id, false)
             refreshSessionsNow()
             refreshScreen()
         }
@@ -1291,12 +1253,7 @@ class ChatService(
                 clearStagedAttachments()
                 inputState.share(null)
             }
-            val id = idGenerator()
-            val now = clock.now().toEpochMilli()
-            storage.withTransaction {
-                storage.sessions.create(id, str(R.string.session_shared_draft), null, null, now)
-                sessionRunControls.set(id, sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT), now)
-            }
+            val id = catalog.create(str(R.string.session_shared_draft), null, null)
             refreshSessionsNow()
             openSession(id)
             (imageUris + fileUris).forEach { uri -> stageAttachmentNow(uri) }
@@ -1337,7 +1294,7 @@ class ChatService(
             }
             if (turnGateHolds(sessionId)) return@launch // a turn in flight owns the session's target
             try {
-                storage.sessions.bindProvider(sessionId, providerId, modelId)
+                catalog.bindProvider(sessionId, providerId, modelId)
             } catch (_: IllegalArgumentException) {
                 // Swallowed deliberately: the IAE message carries the internal session id,
                 // and the user-visible label stays the one stable, path-free sentence
@@ -1418,10 +1375,7 @@ class ChatService(
                     drafts.model(sessionId, providerId, modelId)
                     drafts.control(sessionId, next)
                 } else {
-                    storage.withTransaction {
-                        storage.sessions.selectModel(sessionId, providerId, modelId)
-                        sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
-                    }
+                    check(catalog.persistSettings(sessionId, providerId, modelId, next, null))
                 }
                 if (openSessionId == sessionId) _runControl.value = next
                 SessionModelSelectionResult.APPLIED
@@ -1519,26 +1473,7 @@ class ChatService(
         next: RunControlConfig,
         call: com.helix.tools.framework.ExecutableToolCall?,
     ): Boolean {
-        var saved = false
-        storage.withTransaction {
-            val selected =
-                if (call == null) {
-                    storage.sessions.selectModel(sessionId, providerId, modelId)
-                    true
-                } else {
-                    storage.sessions.selectFutureModel(
-                        sessionId,
-                        providerId,
-                        modelId,
-                        requireNotNull(call.turnId),
-                        call.toolCallId,
-                    )
-                }
-            if (selected) {
-                sessionRunControls.set(sessionId, next, clock.now().toEpochMilli())
-                saved = true
-            }
-        }
+        val saved = catalog.persistSettings(sessionId, providerId, modelId, next, call)
         if (saved && openSessionId == sessionId) _runControl.value = next
         return saved
     }

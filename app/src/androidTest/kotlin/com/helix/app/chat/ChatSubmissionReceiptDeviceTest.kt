@@ -404,6 +404,8 @@ class ChatSubmissionReceiptDeviceTest {
                     compose.waitUntil(
                         10_000,
                     ) { chat.screen.value.openSessionId == session && !chat.screen.value.isDraft }
+                    // This ordinary-answer fixture owns its session budget, independent of saved AVD defaults.
+                    chat.setTurnBudgets(com.helix.core.agent.TurnBudgetBounds.DEFAULT)
                     compose.onNodeWithTag("chat-input").performTextInput("Reply briefly")
                     compose.onNodeWithTag("chat-input").assertTextEquals("Reply briefly")
                     compose.onNodeWithTag("chat-send").performClick()
@@ -421,7 +423,11 @@ class ChatSubmissionReceiptDeviceTest {
                     awaitRegenerateAnswer(session, answer)
                     val turns = storage.turns.listBySession(session)
                     assertEquals(2, turns.size)
-                    assertTrue(turns.all { it.state == "COMPLETED" })
+                    assertTrue(
+                        "Regenerate states=${turns.map { it.state to it.errorCode }}, " +
+                            "output=${storage.sessionRunControls.forSession(session)?.budgets?.maxOutputTokens}",
+                        turns.all { it.state == "COMPLETED" },
+                    )
                     assertNotNull(storage.messages.resolve(answer).supersededBy)
                     assertEquals(1, storage.messages.listBySession(session).count { it.role == "USER" })
                 } finally {

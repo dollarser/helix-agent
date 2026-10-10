@@ -157,7 +157,7 @@ flowchart TD
 | D 主机入口 | [HXA-253](../../completion-records/HXA-253.md)统一发现、防空/漏测；HXA-256之后153项host回归 | 原独立断言保留，没有按日期删除测试 |
 | B 项目及权限应用接口 | [HXA-254](../../completion-records/HXA-254.md)项目会话读模型；[HXA-255](../../completion-records/HXA-255.md)外发规则应用服务及permissions/ui | 明确feature归属的其他UI目录尚需路径/调用者核对 |
 | C 生产测试桥 | [HXA-256](../../completion-records/HXA-256.md)：32文件原163项保留，桥仅在AndroidTest，真实Engine/clock/ID保持；双渠道原受影响回归与真实进程恢复有限交付 | 不把此次范围称所有设备或完整产品验收 |
-| A 会话应用层 | [HXA-257](../../completion-records/HXA-257.md)已交付目录/搜索、原draft与附件锁、任务面板完整状态owner及历史页窄接口 | 元数据事务与模型默认写入仍需评估/收敛；ChatService尚未成为最终薄facade |
+| A 会话应用层 | [HXA-257](../../completion-records/HXA-257.md)已交付目录/搜索、原draft与附件锁、任务面板完整状态owner及历史页窄接口；[HXA-258](../../completion-records/HXA-258.md)集中元数据与模型默认原子事务 | ChatService尚未成为最终薄facade；不凭行数继续拆文件，不将职责收敛称性能收益 |
 | D 历史路径整理 | 已确定旧一次性编辑器与仍被历史命令引用的shim应区别处理 | 路径级删除/保留来源和恢复办法尚未交付，不批量清目录 |
 | E 大类/构建与性能 | 保留现有模块和授权/执行边界，不凭大小重写 | 条件项需具体源码取舍；大列表/长会话和启动需有界测量，真机黑屏缺实体设备 |
 

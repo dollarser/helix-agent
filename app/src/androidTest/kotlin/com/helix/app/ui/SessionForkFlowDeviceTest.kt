@@ -68,13 +68,10 @@ class SessionForkFlowDeviceTest {
                     compose.onNodeWithTag("session-fork-notice").assertExists()
                     compose.onNodeWithTag("chat-composer-options-close").performClick()
                     assertTrue(storage.turns.listBySession(branch).isEmpty())
+                    // Keep source/history assertions independent of a persisted one-token AVD default.
+                    chat.setTurnBudgets(com.helix.core.agent.TurnBudgetBounds.DEFAULT)
                     chat.sendTestMessage("Continue the alternate approach")
-                    compose.waitUntil(20_000) {
-                        storage.turns
-                            .listBySession(branch)
-                            .lastOrNull()
-                            ?.state == "COMPLETED"
-                    }
+                    awaitBranchAnswer(branch)
                     assertRequest(server.lastChatRequest.get().orEmpty())
                     assertEquals(3, storage.messages.listBySession(source).size)
                     compose.waitUntil(10_000) { chat.screen.value.messages.size >= 4 }
@@ -101,6 +98,24 @@ class SessionForkFlowDeviceTest {
         assertTrue(request.contains("Selected answer"))
         assertFalse(request.contains("EXCLUDE-FUTURE-99"))
         assertFalse(request.contains("sourceSessionId"))
+    }
+
+    private fun awaitBranchAnswer(branch: String) {
+        val storage = compose.container().storage
+        try {
+            compose.waitUntil(20_000) {
+                storage.turns
+                    .listBySession(branch)
+                    .lastOrNull()
+                    ?.state == "COMPLETED"
+            }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError(
+                "Fork states=${storage.turns.listBySession(branch).map { it.state to it.errorCode }}, " +
+                    "output=${storage.sessionRunControls.forSession(branch)?.budgets?.maxOutputTokens}",
+                failure,
+            )
+        }
     }
 
     private fun providerDraft(port: Int) =

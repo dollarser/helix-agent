@@ -292,3 +292,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-255 | 已交付；主机/API36双渠道通过 | 权限页面外发规则应用接口 | [完成记录](../completion-records/HXA-255.md) |
 | HXA-256 | 本地主机/API36有界交付 | 测试生命周期夹具迁移与生产桥清理 | [完成记录](../completion-records/HXA-256.md) |
 | HXA-257 | 本地主机/API36有界交付 | 会话目录、输入与任务投影职责 | [完成记录](../completion-records/HXA-257.md) |
+| HXA-258 | 本地主机/API36有界交付 | 会话元数据事务职责 | [完成记录](../completion-records/HXA-258.md) |
