@@ -4,6 +4,13 @@
 
 本目录保存开发过程中的验收、整合、调查、复核和历史进度快照。文件数量较多，**不要按目录列表推断当前状态**；当前任务只看 `docs/development/status.md` 和 active HXA。
 
+已整理的旧版本报告：
+
+- [客户端交互验证经验](historical-client-ui-validation.md)：模型/导航、工具展开、终端准备、窄屏与Goal输入。
+- [Provider与发布验证经验](historical-provider-and-release-validation.md)：认证目录、DNS边界、压缩用量、签名回放与v0.0.4历史验收。
+
+原始重复报告已经删除；章节标明历史日期和边界，不能当当前验收或安装指令。
+
 建议按目的检索：
 
 - **验收/整合**：`acceptance-*`、`branch-*`、`main-*integration*`、`main-*verification*`。

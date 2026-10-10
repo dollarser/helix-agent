@@ -117,3 +117,25 @@
 后续文档门禁发现实施指南改写后缺少四个按字面校验的契约表述，已恢复 status 完整路径、不得重做已完成 HXA、持久 Goal 须明确要求及 verification matrix 原称；没有放宽门禁。整理记录追加后发现尾部多余空行，已删除。一度专项 JSON 先报告内容检查通过、随后 Git 空白检查失败；现将 Git 结果纳入最终报告后再写出总状态，不据该中间 JSON 宣称全部通过。
 
 最终仓库门禁使用 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh` 及相应状态声明检查；命令结果单独留证。仅更新文档、路径和一次性核验材料，不改变 ADR 的接受状态、生产行为、任务优先级或设备/账号授权；不执行构建、设备、真实模型、Git 提交或推送。
+
+## 2026-10-10 旧版报告按主题承接
+
+Owner明确要求必要内容汇总为文档，不需要的旧报告删除。本轮将9份2026-09-10～10-01客户端/Provider/旧发布报告承接为[客户端交互验证经验](historical-client-ui-validation.md)与[Provider及发布验证经验](historical-provider-and-release-validation.md)。保留阶段性失败、修订顺序、真实服务/合成夹具、host/device区分与未通过边界；重复安装流水账、机器路径、临时分工、旧下一步和失效预算参数表退出维护。既有历史数字仅解释当时执行，不能作为本轮设备通过。
+
+原文Git来源为`028a625212841d2aa8fb7e3cd4ba16ef3c307c6d`，按下表完整路径恢复，无重定向占位或第二份正文备份；SHA用于核对原文身份。
+
+| 删除的旧报告（docs/evidence/development下） | SHA-256 | 承接章节 |
+| --- | --- | --- |
+| `navigation-model-entry-2026-10-01.md` | `0daac99dd7b57084c9543fdff0da76c60b57caeff448ba14f3dca1dca2c4a4c3` | [主题摘要](historical-client-ui-validation.md#会话模型与导航) |
+| `subscription-model-settings-2026-09-30.md` | `4ed15c251e7f5e4e95aed44bc85134da520751fd727919ceeceb4668a9a29b7b` | [主题摘要](historical-client-ui-validation.md#会话模型与导航) |
+| `tool-details-collapse-2026-10-01.md` | `c7847aa9789c4ddc39b00faf176bcc21499bf2927841f93868fb7179ec8c6c49` | [主题摘要](historical-client-ui-validation.md#工具详情与审批) |
+| `terminal-menu-entry-2026-10-01.md` | `d89f3bb10f9f910d2ba5f976bebcdc7c4dd66cd6a0a4a207986a3ed0a022be9e` | [主题摘要](historical-client-ui-validation.md#终端发现与准备) |
+| `goal-conversation-entry-2026-09-10.md` | `2ffc875bc0ebe89176b201a4ddc0a9130bf9192d9a9240204fb4e234e63c9593` | [主题摘要](historical-client-ui-validation.md#goal输入与过期预算说明) |
+| `account-connection-and-settings-layout-2026-09-10.md` | `ff3ef7ea50e5489030f7742950981a1e1be533d41386348bcd69d5a563951555` | [主题摘要](historical-provider-and-release-validation.md#账号连接与dns) |
+| `dns-and-turn-defaults-2026-09-10.md` | `f187114050ad4d5342e4b87ee6d55bfca0b103f58033d8f876b1f52e99dbc628` | [主题摘要](historical-provider-and-release-validation.md#账号连接与dns) |
+| `session-context-ask-user-2026-10-01.md` | `6201fb4c92c5fcc9a58e671d4aa4d4c17986ec4afa03eaec3a6ea99b151b2b91` | [主题摘要](historical-provider-and-release-validation.md#压缩用量与签名回放) |
+| `v0.0.4-release-2026-10-01.md` | `a9ba6d347b6cd08947e5e4b48a9e72ce0858ff12bc7845438995da81e380bdbd` | [主题摘要](historical-provider-and-release-validation.md#v004发布与回放依赖) |
+
+当前v0.0.5正式发布报告、DSH现行契约及较新验收、HXA专属身份/故障证据和未关闭偶发问题继续保留，未按旧日期删除ADR/HXA或有效测试。现行引用已改到具体主题章节。验证：编辑完成后`./scripts/check-all.sh --source`通过，206项host测试及文档/ADR/国际化/秘密扫描通过；9份原文Git/SHA一致、原路径不存在，改动/新页22个本地章节链接全部有效。Git空白检查通过，最终文档收口通过（801份Markdown、251个HXA），暂存门禁通过。日志在ignored的build/report-consolidation-20261010/source-final.log和reference-check.json。本轮设备与真实模型not requested，未重跑旧报告中的设备/账号测试或更新APK。纯文档整理不另建HXA。
+
+本轮整理脚本首次记录相对路径时出错，原9报告尚未删除；修正后核对原文Git字节及SHA再承接。首次source检查与整理过程重叠，文档检查读取到已删除的旧路径而退出；属于本轮执行顺序问题，最终检查在编辑完成后顺序重跑，不削弱门禁。

@@ -48,6 +48,8 @@
 
 ## Completed
 
+- 2026-10-10 旧版报告整理：9份客户端/Provider/旧发布报告有效内容汇为[客户端交互](../evidence/development/historical-client-ui-validation.md)与[Provider/发布经验](../evidence/development/historical-provider-and-release-validation.md)，原重复报告删除并修入链，206项host回归及源码门禁通过；历史结果不计当前设备通过。
+
 - 2026-10-10 [HXA-268](../completion-records/HXA-268.md)：按Owner追加授权删除62个历史版本脚本/日志/旧发布产物，必要结论与来源hash汇总文档；206项host回归与源码门禁通过。设备和真实模型not requested，当前回归/构建输入/未闭合故障与工作树恢复包保留。
 
 - 2026-10-10 [HXA-267](../completion-records/HXA-267.md)：固定套件总数门禁改为实际方法/完成事件，清理390个已失效或已迁移脚本/本地草稿，有效host覆盖归并统一发现，206项回归及完整Debug主机门禁通过；[维护手册](debugging-playbook.md)保留方法和模板。设备与真实模型not requested，历史证据及唯一诊断保留。

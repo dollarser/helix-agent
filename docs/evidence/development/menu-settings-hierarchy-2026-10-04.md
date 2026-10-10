@@ -3,7 +3,7 @@
 ## 范围
 
 所有者要求：设置与工作、配置统一为点击展开子栏目，梳理分类、层级、风格及重复和分散的配置入口。
-保留此前明确要求的模型独立入口及其位于工作之前的顺序，参见[模型入口记录](navigation-model-entry-2026-10-01.md)。配置归属同步到[授权 ADR](../../adr/permissions/001-session-authorization.md)。
+保留此前明确要求的模型独立入口及其位于工作之前的顺序，参见[模型入口记录](historical-client-ui-validation.md#会话模型与导航)。配置归属同步到[授权 ADR](../../adr/permissions/001-session-authorization.md)。
 
 ## 最终结构
 
