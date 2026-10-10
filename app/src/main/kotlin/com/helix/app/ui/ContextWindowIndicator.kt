@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -26,15 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
-import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
-internal fun ContextWindowIndicator(
-    usage: ChatContextUsage,
-    onCompact: () -> Unit = {},
-    canCompact: Boolean = false,
-) {
+internal fun ContextWindowIndicator(usage: ChatContextUsage) {
     var detailsOpen by remember { mutableStateOf(false) }
     val title = stringResource(R.string.chat_context_title)
     val label = usage.percentageLabel
@@ -74,43 +68,26 @@ internal fun ContextWindowIndicator(
     }
     if (detailsOpen) {
         val unknown = stringResource(R.string.chat_context_unknown)
-        val usageLabel =
-            if (usage.estimatedAfterCompaction) {
-                R.string.context_compacted_usage
-            } else {
-                R.string.chat_context_usage
-            }
         AlertDialog(
             onDismissRequest = { detailsOpen = false },
             title = { Text(title) },
             text = {
+                val used = usage.usedTokens?.toString() ?: unknown
+                val usedLabel =
+                    when {
+                        usage.usedTokens == null -> unknown
+                        usage.estimatedAfterCompaction || usage.projectedTokens != null -> "≈$used"
+                        else -> "≥$used"
+                    }
+                val limit = usage.windowTokens?.toString() ?: unknown
                 Text(
                     stringResource(
-                        usageLabel,
-                        usage.inputTokens?.toString() ?: unknown,
-                        usage.windowTokens?.toString() ?: unknown,
-                    ) +
-                        "\n\n" +
-                        (
-                            if (usage.estimatedWindow) {
-                                stringResource(
-                                    R.string.context_window_estimated_note,
-                                ) + "\n\n"
-                            } else {
-                                ""
-                            }
-                        ) +
-                        stringResource(R.string.chat_context_explanation),
-                    modifier = Modifier.indicatedVerticalScroll(rememberScrollState()),
+                        R.string.chat_context_usage,
+                        usedLabel,
+                        if (usage.estimatedWindow && usage.windowTokens != null) "≈$limit" else limit,
+                    ),
+                    modifier = Modifier.testTag("chat-context-usage-details"),
                 )
-            },
-            dismissButton = {
-                TextButton({
-                    detailsOpen = false
-                    onCompact()
-                }, enabled = canCompact, modifier = Modifier.testTag("context-compact-now")) {
-                    Text(stringResource(R.string.context_compact_now))
-                }
             },
             confirmButton = {
                 TextButton(

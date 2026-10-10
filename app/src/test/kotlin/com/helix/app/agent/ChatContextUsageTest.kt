@@ -5,6 +5,36 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ChatContextUsageTest {
+    @Test fun projectedSurfaceIncludesRetainedAnswerAndToolGrowthWithoutAddingBillingOutput() {
+        val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
+        val sample =
+            ChatContextProjection.InputSample(
+                snapshot,
+                """{"inputTokens":1000,"outputTokens":9000}""",
+                true,
+                false,
+                retainedGrowth = 200,
+            )
+        val usage = ChatContextProjection.select(sequenceOf(sample), "endpoint", "a")
+        assertEquals(1000L, usage.inputTokens)
+        assertEquals(1200L, usage.usedTokens)
+        assertEquals(12L, usage.copy(windowTokens = 10000).percentage)
+        assertEquals(
+            1000L,
+            ChatContextProjection.select(sequenceOf(sample.copy(retainedGrowth = null)), "endpoint", "a").usedTokens,
+        )
+        assertEquals(
+            Long.MAX_VALUE,
+            ChatContextProjection
+                .select(
+                    sequenceOf(sample.copy(retainedGrowth = Long.MAX_VALUE)),
+                    "endpoint",
+                    "a",
+                ).usedTokens,
+        )
+        assertNull(ChatContextProjection.select(sequenceOf(sample), "endpoint", "other").usedTokens)
+    }
+
     @Test fun completedIntermediateRequestReplacesUsageWhileNextRequestIsPending() {
         val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
         val samples =

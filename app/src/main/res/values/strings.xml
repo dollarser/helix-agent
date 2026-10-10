@@ -868,7 +868,7 @@
     <string name="files_shared_detail">浏览手机共享文件；首次使用按需授权，也可添加指定文件夹。</string>
     <string name="chat_context_title">上下文窗口</string>
     <string name="chat_context_unknown">未知</string>
-    <string name="chat_context_usage">上次请求输入：%1$s tokens\n模型上下文上限：%2$s tokens</string>
+    <string name="chat_context_usage">上下文上限：%2$s tokens\n已占用：%1$s tokens</string>
     <string name="chat_context_explanation" formatted="false">圆环显示当前会话上次已确认的输入用量，包含系统提示、工具说明和历史；每次模型调用完成后更新，包括随后执行工具的中间调用；单次调用流式输出期间保留上次确认值。失败或未生效的压缩不替换该用量。百分比向下取整，不足 1% 时显示 0%。已生效压缩后的用量和未知窗口上限可能采用估算值，不含未发送文字。未知服务端上限时使用 200,000 tokens，可按模型设置。压缩保留原始历史，并计入调用与 token 预算。</string>
     <string name="chat_context_close">关闭</string>
     <string name="chat_restore">恢复</string>

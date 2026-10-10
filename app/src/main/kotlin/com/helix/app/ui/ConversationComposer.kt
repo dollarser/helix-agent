@@ -123,7 +123,7 @@ internal fun ConversationComposer(
             )
         }
         ComposerToolbar(mode, headerStatus, optionsContent) {
-            ContextWindowIndicator(contextUsage, onCompact, canCompact)
+            ContextWindowIndicator(contextUsage)
         }
         Column(
             Modifier

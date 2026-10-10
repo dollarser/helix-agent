@@ -15,16 +15,20 @@ data class ChatContextUsage(
     val windowTokens: Long? = com.helix.provider.api.ProviderContextSettings.DEFAULT_WINDOW,
     val estimatedAfterCompaction: Boolean = false,
     val estimatedWindow: Boolean = false,
+    val projectedTokens: Long? = null,
 ) {
+    /** Last measured prompt plus retained surface growth; never cumulative billing. */
+    val usedTokens: Long? get() = projectedTokens ?: inputTokens
+
     val fraction: Float?
         get() =
-            inputTokens?.takeIf { it >= 0 }?.let { used ->
+            usedTokens?.takeIf { it >= 0 }?.let { used ->
                 windowTokens?.takeIf { it > 0 }?.let { (used.toDouble() / it).coerceIn(0.0, 1.0).toFloat() }
             }
 
     val percentage: Long?
         get() =
-            inputTokens?.takeIf { it >= 0 }?.let { used ->
+            usedTokens?.takeIf { it >= 0 }?.let { used ->
                 windowTokens?.takeIf { it > 0 }?.let { (used.toDouble() / it * PERCENT).toLong() }
             }
 
@@ -79,6 +83,11 @@ internal object ChatContextProjection {
                         call.state == "COMPLETED",
                         isSummary(storage, call.id),
                         checkpoint?.takeIf { it.sourceCallId == call.id }?.estimatedInputTokens,
+                        if (call.state == "COMPLETED" && !isSummary(storage, call.id)) {
+                            retainedGrowth(storage, session.id, call.requestManifest)
+                        } else {
+                            null
+                        },
                     )
                 }
         return select(samples, config.transportIdentity, model).copy(
@@ -93,6 +102,7 @@ internal object ChatContextProjection {
         val completed: Boolean,
         val summary: Boolean,
         val committedEstimate: Long? = null,
+        val retainedGrowth: Long? = null,
     )
 
     internal fun select(
@@ -119,10 +129,47 @@ internal object ChatContextProjection {
                 }
 
                 else -> {
-                    inputFor(sample.snapshot, sample.usage, endpoint, model)?.let { ChatContextUsage(it) }
+                    inputFor(sample.snapshot, sample.usage, endpoint, model)?.let { input ->
+                        ChatContextUsage(
+                            input,
+                            projectedTokens =
+                                sample.retainedGrowth?.takeIf { it >= 0 }?.let { delta ->
+                                    if (delta > Long.MAX_VALUE - input) Long.MAX_VALUE else input + delta
+                                },
+                        )
+                    }
                 }
             }
         } ?: ChatContextUsage()
+
+    /** Bounded telemetry only; malformed/legacy manifests retain the measured prompt floor. */
+    private fun retainedGrowth(
+        storage: HelixStorage,
+        sessionId: String,
+        manifest: String?,
+    ): Long? =
+        runCatching {
+            val json = manifest?.let(Json::parseToJsonElement)?.jsonObject ?: return@runCatching null
+            if (json["tr"]?.jsonPrimitive?.content == "true") return@runCatching null
+            val refs = json["m"] as? kotlinx.serialization.json.JsonArray ?: return@runCatching null
+            val lastId =
+                (refs.lastOrNull() as? kotlinx.serialization.json.JsonArray)
+                    ?.firstOrNull()
+                    ?.jsonPrimitive
+                    ?.content ?: return@runCatching null
+            val retained = ContextHistory.load(storage, sessionId).rows
+            val boundary = retained.indexOfFirst { it.id == lastId }
+            if (boundary < 0) return@runCatching null
+            val appended = retained.drop(boundary + 1).filter { it.kind != ContextCompaction.KIND }
+            val messages =
+                ContextHistoryMapping.rows(storage, appended).flatMap { row ->
+                    require(row.mappingFailure == null)
+                    row.messages
+                }
+            com.helix.core.agent.ModelInputEstimate
+                .of(messages, emptyList())
+                .total
+        }.getOrNull()
 
     internal fun isSummary(
         storage: HelixStorage,

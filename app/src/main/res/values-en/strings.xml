@@ -866,7 +866,7 @@
     <string name="files_shared_detail">Browse shared files on this device. Grant access when needed, or add a specific folder.</string>
     <string name="chat_context_title">Context window</string>
     <string name="chat_context_unknown">Unknown</string>
-    <string name="chat_context_usage">Last request input: %1$s tokens\nModel context limit: %2$s tokens</string>
+    <string name="chat_context_usage">Context limit: %2$s tokens\nUsed: %1$s tokens</string>
     <string name="chat_context_explanation" formatted="false">The ring uses this conversation’s last confirmed input usage, including instructions, tool descriptions and history. Updates after each completed model call, including calls followed by tools. While a call is still streaming, its previous confirmed value stays visible. Failed or ineffective compaction does not replace it. Percentages round down; usage below 1% displays as 0%. Committed compaction usage and unknown window limits may be estimated. Unsent text is excluded. The fallback window is 200,000 tokens; you can configure it per model. Compaction preserves original history and consumes model-call/token budgets.</string>
     <string name="chat_context_close">Close</string>
     <string name="chat_restore">Restore</string>
