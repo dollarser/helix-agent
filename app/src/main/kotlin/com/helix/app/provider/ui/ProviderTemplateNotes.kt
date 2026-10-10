@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource

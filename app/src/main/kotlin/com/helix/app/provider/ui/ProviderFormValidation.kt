@@ -1,6 +1,6 @@
 @file:Suppress("MatchingDeclarationName") // Field mapping and form-only validation belong together.
 
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import com.helix.app.R
 

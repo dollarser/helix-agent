@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.helix.app.privacy.ProviderEvidenceCleanup
 import com.helix.app.privacy.ProviderEvidenceCleanup.Status
+import com.helix.app.provider.ui.ProviderEvidenceCleanupSection
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Rule

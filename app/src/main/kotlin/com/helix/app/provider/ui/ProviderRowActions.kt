@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue

@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row

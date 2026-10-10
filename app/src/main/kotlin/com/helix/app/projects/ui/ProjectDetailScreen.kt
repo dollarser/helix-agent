@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.projects.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.AppContainer
 import com.helix.app.R
+import com.helix.app.ui.FileConversationHandoff
+import com.helix.app.ui.FilesScreen
+import com.helix.app.ui.MemoryDialog
+import com.helix.app.ui.SettingsActions
 import com.helix.core.workspace.FileScopePath
 
 @Composable

@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.provider.ui.providerGroupLabel
 import com.helix.core.model.ProviderProvisioningKind
 
 private fun orderedSources(groups: List<ProviderProvisioningKind>) =

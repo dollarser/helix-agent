@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.projects.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
+import com.helix.app.ui.IndicatedLazyColumn
 
 internal const val PROJECT_ROUTE = "project/{projectId}"
 

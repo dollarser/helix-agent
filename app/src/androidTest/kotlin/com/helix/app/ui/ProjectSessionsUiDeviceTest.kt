@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.R
+import com.helix.app.projects.ui.ProjectSessions
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test

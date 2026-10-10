@@ -32,6 +32,7 @@ import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderService
+import com.helix.app.provider.ui.ProviderManager
 import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline

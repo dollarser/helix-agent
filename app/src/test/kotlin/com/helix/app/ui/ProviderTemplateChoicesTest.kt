@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import com.helix.app.provider.ui.providerTemplateChoices
 import com.helix.provider.catalog.ProviderTemplateCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Test

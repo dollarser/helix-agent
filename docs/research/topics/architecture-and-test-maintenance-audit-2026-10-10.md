@@ -72,7 +72,7 @@ flowchart TD
 
 审查时 `EgressRuleSection.kt` 接收 `HighSensitivityRuleRepository`，在 Composable 内构造授权规则并读/存/撤销；`SettingsScreen` 和 `MainActivity` 沿链传递仓储。它实际使用 `Dispatchers.IO`，不能把它描述为已证实的主线程数据库阻塞或直接 DAO 访问。问题是页面同时承担业务校验与持久操作编排，测试和变更边界不清晰。HXA-255 的迁移入口为当前 [`permissions/ui/EgressRuleSection.kt`](../../../app/src/main/kotlin/com/helix/app/permissions/ui/EgressRuleSection.kt)，验收状态以 status 为准。
 
-审查时 [`ProjectSessions.kt`](../../../app/src/main/kotlin/com/helix/app/ui/ProjectSessions.kt) 已通过 `ProjectService` 操作，但显示状态仍是 `List<SessionEntity>`，泄露 Room 层类型。建议提供必要字段组成的会话读模型；权限页面通过应用 service/state/action 接口保留 fail-closed 校验、错误反馈和取消语义。
+审查时 [`ProjectSessions.kt`](../../../app/src/main/kotlin/com/helix/app/projects/ui/ProjectSessions.kt) 已通过 `ProjectService` 操作，但显示状态仍是 `List<SessionEntity>`，泄露 Room 层类型。建议提供必要字段组成的会话读模型；权限页面通过应用 service/state/action 接口保留 fail-closed 校验、错误反馈和取消语义。
 
 文件布局先在现有 app 模块内按功能归属 `chat/ui`、`projects/ui`、`permissions/ui`、`provider/ui`、`extensions/ui`；把通用布局留在共享 UI 包。这是目标示例，不要求一次性重命名所有文件，也不新建几十个 Gradle 模块。迁移检查内部可见性、字符串/Compose testTag、导航和 consumer/developer 调用者。禁止把重排目录说成性能修复。
 
@@ -155,7 +155,7 @@ flowchart TD
 | 建议 | 当前承接 | 仍开放的部分 |
 | --- | --- | --- |
 | D 主机入口 | [HXA-253](../../completion-records/HXA-253.md)统一发现、防空/漏测；HXA-256之后153项host回归 | 原独立断言保留，没有按日期删除测试 |
-| B 项目及权限应用接口 | [HXA-254](../../completion-records/HXA-254.md)项目会话读模型；[HXA-255](../../completion-records/HXA-255.md)外发规则应用服务及permissions/ui | 明确feature归属的其他UI目录尚需路径/调用者核对 |
+| B 项目及权限应用接口 | [HXA-254](../../completion-records/HXA-254.md)项目会话读模型；[HXA-255](../../completion-records/HXA-255.md)外发规则应用服务及permissions/ui；[HXA-259](../../completion-records/HXA-259.md)22个项目/Provider页面按功能包归属、主机通过 | 本轮目录迁移设备not requested；不把编译或旧设备结果当本轮页面验收 |
 | C 生产测试桥 | [HXA-256](../../completion-records/HXA-256.md)：32文件原163项保留，桥仅在AndroidTest，真实Engine/clock/ID保持；双渠道原受影响回归与真实进程恢复有限交付 | 不把此次范围称所有设备或完整产品验收 |
 | A 会话应用层 | [HXA-257](../../completion-records/HXA-257.md)已交付目录/搜索、原draft与附件锁、任务面板完整状态owner及历史页窄接口；[HXA-258](../../completion-records/HXA-258.md)集中元数据与模型默认原子事务 | ChatService尚未成为最终薄facade；不凭行数继续拆文件，不将职责收敛称性能收益 |
 | D 历史路径整理 | 已确定旧一次性编辑器与仍被历史命令引用的shim应区别处理 | 路径级删除/保留来源和恢复办法尚未交付，不批量清目录 |

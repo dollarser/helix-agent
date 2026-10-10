@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.catalog.ProviderTemplate

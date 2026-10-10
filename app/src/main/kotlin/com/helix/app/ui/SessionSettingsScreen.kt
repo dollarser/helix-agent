@@ -23,6 +23,7 @@ import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
 import com.helix.app.plugin.PluginService
+import com.helix.app.projects.ui.SessionProjectSection
 import com.helix.app.provider.ProviderService
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ProviderProvisioningKind

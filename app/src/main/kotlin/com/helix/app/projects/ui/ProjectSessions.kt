@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.projects.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +24,8 @@ import com.helix.app.R
 import com.helix.app.projects.ProjectService
 import com.helix.app.projects.ProjectSessionRow
 import com.helix.app.projects.ProjectSessionState
+import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.ui.SettingsActions
 
 @Composable
 @Suppress("FunctionName", "LongParameterList")

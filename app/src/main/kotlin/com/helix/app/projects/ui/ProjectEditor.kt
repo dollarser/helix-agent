@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.projects.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
+import com.helix.app.ui.SessionDirectoryDialog
+import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.storage.entity.ProjectEntity
 import com.helix.core.workspace.FileScopePath
 

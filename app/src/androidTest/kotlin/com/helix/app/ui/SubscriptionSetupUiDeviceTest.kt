@@ -10,6 +10,7 @@ import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ManagedAccountSnapshot
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.provider.ui.ProviderConnectionTestAction
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence

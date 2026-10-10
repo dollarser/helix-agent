@@ -60,7 +60,7 @@ class ProviderHttpPolicyTest(unittest.TestCase):
                  'app/src/main/kotlin/com/helix/app/provider/ProviderDraftDiscovery.kt',
                  'app/src/main/kotlin/com/helix/app/chat/ChatService.kt',
                  'app/src/main/kotlin/com/helix/app/chat/SessionInputDeliveryCoordinator.kt',
-                 'app/src/main/kotlin/com/helix/app/ui/ProviderFormDialog.kt')
+                 'app/src/main/kotlin/com/helix/app/provider/ui/ProviderFormDialog.kt')
         for path in paths:
             text = (ROOT / path).read_text()
             for gate in ('isCleartextPermitted', 'cleartextConfirmed', 'CleartextBindingStore'):

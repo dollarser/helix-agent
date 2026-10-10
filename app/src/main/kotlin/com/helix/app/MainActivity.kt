@@ -448,8 +448,8 @@ internal fun HelixApp(container: AppContainer) {
                                     },
                             )
                         }
-                        composable(com.helix.app.ui.PROJECT_ROUTE) { entry ->
-                            com.helix.app.ui.ProjectDetailScreen(
+                        composable(com.helix.app.projects.ui.PROJECT_ROUTE) { entry ->
+                            com.helix.app.projects.ui.ProjectDetailScreen(
                                 container,
                                 requireNotNull(entry.arguments?.getString("projectId")),
                                 onOpenSession = { id ->
@@ -522,7 +522,7 @@ internal fun HelixApp(container: AppContainer) {
                                 projects = container.projects,
                                 onProject = {
                                     navController.navigate(
-                                        com.helix.app.ui
+                                        com.helix.app.projects.ui
                                             .projectRoute(it),
                                     )
                                 },
@@ -754,9 +754,9 @@ private fun DestinationScreen(
 
         ShellDestination.Projects -> {
             container.projects?.let { service ->
-                com.helix.app.ui.ProjectsScreen(service, container.fileManager) { id ->
+                com.helix.app.projects.ui.ProjectsScreen(service, container.fileManager) { id ->
                     navController.navigate(
-                        com.helix.app.ui
+                        com.helix.app.projects.ui
                             .projectRoute(id),
                     )
                 }

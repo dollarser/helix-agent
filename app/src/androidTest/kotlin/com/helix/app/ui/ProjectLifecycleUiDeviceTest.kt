@@ -11,6 +11,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.app.projects.ui.ProjectDetailScreen
+import com.helix.app.projects.ui.ProjectsScreen
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

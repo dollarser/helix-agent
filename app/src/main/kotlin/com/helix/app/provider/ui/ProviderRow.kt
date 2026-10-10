@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +23,9 @@ import com.helix.app.R
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.ui.UiLabels
+import com.helix.app.ui.localizedString
+import com.helix.app.ui.managedAccountLabel
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Declarative variant-specific controls.

@@ -9,6 +9,9 @@ import androidx.compose.ui.test.performClick
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.provider.ui.ProviderModelChoiceRow
+import com.helix.app.provider.ui.ProviderRow
+import com.helix.app.provider.ui.ProviderRowActions
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence

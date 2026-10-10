@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import android.util.Log
 import androidx.compose.foundation.layout.Column
@@ -24,6 +24,10 @@ import com.helix.app.chat.ChatService
 import com.helix.app.provider.ManagedProviderAccountResult
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.LocalModelDialog
+import com.helix.app.ui.ModelSourceTabs
+import com.helix.app.ui.modelSourceDescription
+import com.helix.app.ui.modelSourceEmpty
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ProbeOutcome

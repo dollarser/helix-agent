@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.projects.ui
 
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -11,6 +11,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.projects.ProjectService
+import com.helix.app.ui.SettingsActions
+import com.helix.app.ui.SettingsGroup
 
 @Composable
 @Suppress("FunctionName")

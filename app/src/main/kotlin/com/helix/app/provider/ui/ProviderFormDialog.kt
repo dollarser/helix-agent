@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,7 +47,9 @@ import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ProviderComposer
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.UiLabels
 import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.app.ui.localizedString
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProviderConfig

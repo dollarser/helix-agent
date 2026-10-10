@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.provider.ui.SubscriptionSetupHint
 
 /** A setup route, never a model-selection or test bypass. Sources with no selected models stay discoverable. */
 @Composable

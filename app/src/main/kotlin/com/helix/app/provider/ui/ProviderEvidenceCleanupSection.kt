@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.provider.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.OutlinedButton
@@ -15,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.privacy.ProviderEvidenceCleanup
 import com.helix.app.privacy.ProviderEvidenceCleanup.Status
+import com.helix.app.ui.formatBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 

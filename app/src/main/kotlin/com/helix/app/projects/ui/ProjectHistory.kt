@@ -1,4 +1,4 @@
-package com.helix.app.ui
+package com.helix.app.projects.ui
 
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,6 +13,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.projects.ProjectRecords
+import com.helix.app.ui.ArtifactsScreenDestination
+import com.helix.app.ui.TasksScreen
 import kotlinx.coroutines.CancellationException
 
 @Composable

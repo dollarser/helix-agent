@@ -78,7 +78,7 @@
 
 ## In progress
 
-- [HXA-258](../completion-records/HXA-258.md)已交付：会话元数据与模型默认原子事务集中管理，保留原动作/准入/权限门禁；主机及API36双渠道有界回归、实际进程恢复通过。[证据](../evidence/development/session-metadata-transactions-2026-10-10.md)保留旧APK同样复现的1-token测试配置问题及修复补验。随后继续路径级留存、功能归属及性能证据。
+- [HXA-259](../completion-records/HXA-259.md)主机交付：项目与Provider的22个页面/表单按功能包归属，原行为与断言保留；全仓主机及双渠道制品编译通过，[证据](../evidence/development/feature-ui-ownership-2026-10-10.md)保留失败尝试。本轮设备not requested，随后继续路径级留存、复杂类/构建取舍与性能验证准备。
 
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 

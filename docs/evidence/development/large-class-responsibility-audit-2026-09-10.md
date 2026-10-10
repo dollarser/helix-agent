@@ -31,7 +31,7 @@ A/B/C/D 是维护建议，不是缺陷严重度；没有仅凭体积判定的紧
 | [LinuxRunTool.kt](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt) · 1038 | Tool object＋嵌套生产执行器：schema、参数解析、快照、环境审查、提交/等待、结果导入 | 先分离 Tool 合约与 ProductionLinuxExecutor；再提取快照/导入。保持提交前持久关联、按原 jobId 对账及精确审批。 |
 | [ProotJobRunner.kt](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt) · 1028 | Runner＋输出捕获辅助类：输入解包、进程启动、输出捕获、终态、归档、进程组/孤儿清理 | 先抽输出捕获/归档和进程组控制，再抽输入准备；终态写入与取消/超时裁决仍集中，不能拆成互相竞争的 owner。 |
 | [ChatScreen.kt](../../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) · 842 | 多个 Compose 函数：会话列表、会话主体、模式说明、工具行/恢复入口和回调接线 | 拆 SessionListSection、ConversationSection 和恢复/工具展示；复用已有 composer/timeline，不在 UI 新增执行状态机。 |
-| [ProviderScreen.kt](../../../app/src/main/kotlin/com/helix/app/ui/ProviderScreen.kt) · 832 | 多个 Compose 函数和表单类型：列表管理、模板选择、配置表单、行操作、状态文案、endpoint 解析 | 拆表单状态/校验、模板对话框、Provider 行和状态展示；保存/连接测试仍经 ProviderService。 |
+| [ProviderScreen.kt](../../../app/src/main/kotlin/com/helix/app/provider/ui/ProviderScreen.kt) · 832 | 多个 Compose 函数和表单类型：列表管理、模板选择、配置表单、行操作、状态文案、endpoint 解析 | 拆表单状态/校验、模板对话框、Provider 行和状态展示；保存/连接测试仍经 ProviderService。 |
 | [FileManagerServiceTransfers.kt](../../../app/src/main/kotlin/com/helix/app/files/FileManagerServiceTransfers.kt) · 831 | 传输合约＋FileManagerTransfers：单文件/目录导入、导出目标、冲突命名、拒绝与结果映射 | 拆导入、导出、结果映射；共用冲突命名规则。不能混淆原 picker 管线与新手动恢复日志。 |
 | [ChatToolCalls.kt](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt) · 685 | 工具调用编排类：审批动作、模型工具消息转换、调用准备、批调度/单调度 | 先抽模型工具消息编码和 DispatchRequest 准备；保留 dispatchFacts、结果顺序、取消/未执行项结算的唯一归属，避免刚拆出又长成新大类。 |
 

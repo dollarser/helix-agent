@@ -11,6 +11,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import com.helix.app.provider.ui.ProviderForm
+import com.helix.app.provider.ui.ProviderFormDialog
+import com.helix.app.provider.ui.ProviderFormDiscovery
+import com.helix.app.provider.ui.ProviderFormField
+import com.helix.app.provider.ui.TemplatePickerDialog
+import com.helix.app.provider.ui.providerErrorField
+import com.helix.app.provider.ui.validateProviderForm
 import com.helix.provider.catalog.ProviderTemplateCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Rule

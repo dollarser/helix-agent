@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.provider.ui.ProviderContextEditor
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import com.helix.provider.api.ProviderContextSettings
