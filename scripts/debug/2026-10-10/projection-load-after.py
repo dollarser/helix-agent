@@ -53,6 +53,12 @@ def collect(serial, destination):
 
     report = validate_report(json.loads(adb('shell', 'run-as', package, 'cat', 'no_backup/projection-load.json')))
     (output / 'projection-load.json').write_text(json.dumps(report, indent=2))
+    # Instrumentation normally ends its application process. Establish an unmeasured
+    # launch before diagnostics and the five separately verified new-PID samples.
+    warmup = adb('shell', 'am', 'start', '-W', '-n', package + '/com.helix.app.MainActivity')
+    assert re.search(r'^Status: ok$', warmup, re.MULTILINE)
+    (output / 'warmup-launch.txt').write_text(warmup)
+    time.sleep(1)
     (output / 'load-graphics.txt').write_text(adb('shell', 'dumpsys', 'gfxinfo', package, 'framestats'))
     (output / 'load-memory.txt').write_text(adb('shell', 'dumpsys', 'meminfo', package))
     starts = []

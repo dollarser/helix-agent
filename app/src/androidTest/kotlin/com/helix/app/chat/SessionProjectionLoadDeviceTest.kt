@@ -93,12 +93,14 @@ class SessionProjectionLoadDeviceTest {
 
     private fun measureConversation(): Long {
         val chat = compose.container().chatService
+        // Leave history before changing the selected session; navigation observes that selection.
+        compose.navigateTo("sessions")
         chat.closeSession()
         compose.waitUntil(30_000) { chat.screen.value.openSessionId == null }
+        compose.waitForIdle()
         val elapsed =
             timed {
                 chat.openSession(HEAVY)
-                compose.navigateTo("sessions")
                 compose.waitUntil(30_000) {
                     chat.screen.value.openSessionId == HEAVY &&
                         chat.screen.value.messages.size == 1000

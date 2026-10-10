@@ -295,4 +295,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-258 | 本地主机/API36有界交付 | 会话元数据事务职责 | [完成记录](../completion-records/HXA-258.md) |
 | HXA-259 | 主机交付；设备not requested | 项目与模型页面功能归属 | [完成记录](../completion-records/HXA-259.md) |
 | HXA-260 | 主机交付；设备not requested | 历史入口与复杂边界维护 | [完成记录](../completion-records/HXA-260.md) |
-| HXA-261 | 主机夹具就绪；设备not requested | 有界会话性能对照 | [任务](tasks/HXA-261.md) |
+| HXA-261 | 有界本地交付 | 有界会话性能对照 | [完成记录](../completion-records/HXA-261.md) |
