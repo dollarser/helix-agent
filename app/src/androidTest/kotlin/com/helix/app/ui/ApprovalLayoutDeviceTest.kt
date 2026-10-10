@@ -75,15 +75,7 @@ class ApprovalLayoutDeviceTest {
             }
         }
         compose.onNodeWithTag("approval-card-args").assertDoesNotExist()
-        if (inTimeline) {
-            compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
-            compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
-            compose
-                .onNodeWithTag("tool-row-state-call")
-                .assertIsDisplayed()
-                .onChild()
-                .assertTextContains("待审批")
-        }
+        if (inTimeline) verifyCollapsedTimeline({ approved }, { denied })
         compose.onNodeWithTag("approval-details-layout").performScrollTo().performClick()
         compose
             .onNodeWithTag(
@@ -102,6 +94,25 @@ class ApprovalLayoutDeviceTest {
         compose.runOnIdle {
             assertEquals(1, approved)
             assertEquals(1, denied)
+        }
+    }
+
+    private fun verifyCollapsedTimeline(
+        approved: () -> Int,
+        denied: () -> Int,
+    ) {
+        compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
+        compose
+            .onNodeWithTag("tool-row-state-call", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .onChild()
+            .assertTextContains("待审批")
+        repeat(2) { compose.onNodeWithTag("tool-details-call").performScrollTo().performClick() }
+        compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals(0, approved())
+            assertEquals(0, denied())
         }
     }
 }

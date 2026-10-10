@@ -86,7 +86,7 @@
 
 ## In progress
 
-- [HXA-271](tasks/HXA-271.md)：三阶段实现与主机、API36会话/浮窗/真实Qwen有界验证通过并分阶段提交；新AVD额外Gboard未出现你好候选，实际拼音验收pending。保留活动任务，后续复核输入法语言包/中文模式并运行原严格断言，不重新实现已交付功能。
+- [HXA-271](tasks/HXA-271.md)：三阶段实现与主机、API36会话/浮窗/真实Qwen有界验证通过并分阶段提交；追加灰色默认收起/整行披露/紧邻指示符，主机与API36布局交互13/13通过。Owner随后反馈中文测试正常；旧新AVD拼音夹具失败保留为独立未闭合证据，不把它推定为Helix输入缺陷。本次不重复语言包排查，不重新实现已交付功能。
 
 - [HXA-270](tasks/HXA-270.md)：Owner追加悬浮审批要求，原任务只读诊断确认 launch/snapshot 成功、ui.click 待审批；实施可信原生单次批准/拒绝、完整详情展开、等待状态同步及查看会话不取消。主机source/全仓JVM/静态/双渠道lint与制品编译已通过，新增6项回归通过；[证据](../evidence/development/mobile-use-overlay-approval-2026-10-10.md)。Owner追加手机更新测试后，OnePlus/API35 的现有 Qwen 合成 Settings 原生批准/拒绝、详情滚动、查看会话和接管路径 passed；已修正实机布局，更新最终APK，未重试或批准真实微信操作，其他设备矩阵 pending。
 

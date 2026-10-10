@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -20,6 +21,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.helix.app.chat.ToolTimelineRow
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -32,7 +34,7 @@ class ToolTimelineLayoutDeviceTest {
             ToolTimelineRow("turn", "call", "mcp.documents.search_workspace_records", "{}", "执行失败", "No match", null),
         )
         val row = compose.onNodeWithTag("tool-row-call").getUnclippedBoundsInRoot()
-        val status = compose.onNodeWithTag("tool-row-state-call")
+        val status = compose.onNodeWithTag("tool-row-state-call", useUnmergedTree = true)
         status.assertIsDisplayed()
         val bounds = status.getUnclippedBoundsInRoot()
         assertTrue(bounds.left >= row.left && bounds.right <= row.right)
@@ -72,13 +74,13 @@ class ToolTimelineLayoutDeviceTest {
         compose.onNodeWithTag("tool-inline-preview-call").assertDoesNotExist()
         compose.onNodeWithTag("command-detail-call").assertDoesNotExist()
         compose.onNodeWithTag("proot-query-call").assertDoesNotExist()
-        compose.onNodeWithTag("tool-row-state-call").assertIsDisplayed()
-        compose.onNodeWithTag("tool-row-duration-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-state-call", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("tool-row-duration-call", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("tool-details-call").performClick()
         compose.onNodeWithTag("tool-row-name-call").assertExists()
         compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)
         compose.onNodeWithTag("tool-row-status-detail-call").assertTextContains("需要审查", substring = true)
-        compose.onNodeWithTag("tool-row-duration-call").assertIsDisplayed()
+        compose.onNodeWithTag("tool-row-duration-call", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("tool-row-call-id-detail-call").assertTextContains("call", substring = true)
         compose.onNodeWithTag("tool-row-args-call").assertTextContains("./gradlew", substring = true)
         compose.onNodeWithTag("tool-row-result-call").assertTextContains("effect uncertain", substring = true)
@@ -115,7 +117,7 @@ class ToolTimelineLayoutDeviceTest {
         compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
         compose
-            .onNodeWithTag("tool-row-state-call")
+            .onNodeWithTag("tool-row-state-call", useUnmergedTree = true)
             .assertIsDisplayed()
             .onChild()
             .assertTextContains("执行失败")
@@ -137,10 +139,35 @@ class ToolTimelineLayoutDeviceTest {
             ),
         )
         compose
-            .onNodeWithTag("tool-row-state-call")
+            .onNodeWithTag("tool-row-state-call", useUnmergedTree = true)
             .assertIsDisplayed()
             .onChild()
             .assertTextContains("已拒绝")
+    }
+
+    @Test fun summaryAndChevronOnlyTogglePresentation() {
+        var actions = 0
+        val intents =
+            timelineIntents().copy(
+                onSend = { actions++ },
+                onStop = { actions++ },
+                onApproveApproval = { actions++ },
+                onDenyApproval = { actions++ },
+            )
+        render(ToolTimelineRow("turn", "call", "read", "{}", "执行中", null, null), intents = intents)
+        val title = compose.onNodeWithTag("tool-row-intent-call", useUnmergedTree = true)
+        val chevron = compose.onNodeWithTag("tool-chevron-call", useUnmergedTree = true)
+        val iconBounds = chevron.getUnclippedBoundsInRoot()
+        val titleBounds = title.getUnclippedBoundsInRoot()
+        assertTrue("Disclosure must sit immediately before the title", iconBounds.right <= titleBounds.left)
+        assertTrue("Disclosure gap must stay compact", titleBounds.left - iconBounds.right <= 8.dp)
+        chevron.assertHasNoClickAction()
+        compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        title.performClick()
+        compose.onNodeWithTag("tool-row-args-call").assertExists()
+        chevron.performScrollTo().performClick()
+        compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, actions) }
     }
 
     private fun assertIntentLayout(widthDp: Int) {
@@ -160,10 +187,15 @@ class ToolTimelineLayoutDeviceTest {
             fontScale = 2f,
         )
         val row = compose.onNodeWithTag("tool-row-call").getUnclippedBoundsInRoot()
-        compose.onNodeWithTag("tool-row-intent-call").assertIsDisplayed().assertTextContains(intent)
+        compose
+            .onNodeWithTag(
+                "tool-row-intent-call",
+                useUnmergedTree = true,
+            ).assertIsDisplayed()
+            .assertTextContains(intent)
         compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
-        compose.onNodeWithTag("tool-row-state-call").assertIsDisplayed()
+        compose.onNodeWithTag("tool-row-state-call", useUnmergedTree = true).assertIsDisplayed()
         val details = compose.onNodeWithTag("tool-details-call")
         details.assertIsDisplayed().assertHasClickAction()
         val bounds = details.getUnclippedBoundsInRoot()
@@ -187,13 +219,14 @@ class ToolTimelineLayoutDeviceTest {
         row: ToolTimelineRow,
         widthDp: Int = 240,
         fontScale: Float = 1.8f,
+        intents: ConversationIntents = timelineIntents(),
     ) {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 MaterialTheme {
                     Column(Modifier.width(widthDp.dp).verticalScroll(rememberScrollState())) {
-                        ToolTimelineItem(row, timelineIntents())
+                        ToolTimelineItem(row, intents)
                     }
                 }
             }

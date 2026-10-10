@@ -1,7 +1,7 @@
 package com.helix.app.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,6 +27,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
@@ -58,7 +61,6 @@ internal fun ToolTimelineItem(
             Modifier
                 .fillMaxWidth()
                 .then(borderModifier)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.medium)
                 .padding(8.dp)
                 .testTag("tool-row-${row.callId}"),
     ) {
@@ -126,24 +128,39 @@ private fun ToolTimelineSummary(
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+    val toggleLabel = stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show)
+    val expandedState = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClickLabel = toggleLabel, role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = expandedState }
+            .testTag("tool-details-${row.callId}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_expand_summary),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                Modifier
+                    .size(16.dp)
+                    .rotate(if (expanded) 180f else 0f)
+                    .testTag("tool-chevron-${row.callId}"),
+        )
         Column(Modifier.weight(1f)) {
             Text(
                 displayIntent,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.testTag("tool-row-intent-${row.callId}"),
             )
             ToolTimelineHeading(row, expanded)
-        }
-        IconButton(onClick = onToggle, modifier = Modifier.testTag("tool-details-${row.callId}")) {
-            Icon(
-                painterResource(R.drawable.ic_expand_summary),
-                stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show),
-                modifier = Modifier.rotate(if (expanded) 180f else 0f),
-            )
         }
     }
 }

@@ -49,3 +49,13 @@ r5 冻结制品 SHA-256：
 最终显示保护候选 r6：主会话/真实Qwen套件仍22/22，无skip；损坏/缺失正文留下无法定位的调用行在Turn末端，批次正常位置不受影响。Qwen实际write/read各一次，序列为用户0、说明1、工具2、说明4、工具5、最终回复7；重开一致。输入7456，投影7506。r6主APK `6104ba8abd81df199bf391aa6ac146a1d5a7a9f2da3495cd964450a711d43bc5`，测试APK `19f5d05e308192d6fa49c954efb70823ae903323ec73a06d7da072d564e50f2c`，均在`api36-r6/artifacts.json`冻结。主APK签名验证通过；本轮没有安装到日常模拟器或真机。
 
 IME补验沿用相同主候选制品，独立轮次不再调用模型。准备尝试记录在`api36-ime-r1`～`r10`：搜索入口有“Search language”与“Search for a language”，简体中文条目显示本地名“简体中文”，默认拼音已经选中，重复点击会取消选择并隐藏保存按钮。r4已确认简体中文/拼音配置；后续处理首次语言横幅、首次启动引导、窗口检索、语言包等待，并只调整自有未运行AVD原生显示尺寸。r9/r10仍未出现你好候选，Latin字符直接进入输入框；硬件Shift切换尝试未解决。r10会话显示测试1/1通过，随后实际拼音断言失败，owned runner已关闭。`pinyin.txt`及`pinyin-ime-probe-attempt-1.png`保留节点和画面。该输入法候选/模式环境问题尚未定位，不能证明Helix中文输入通过，也不能断言生产输入框缺陷；状态为额外拼音检查 failed、输入法验收 pending。保留严格预编辑/你好提交/零发送断言，不以UTF-8注入、跳过或仅配置成功替代。后续需在自有实例复核Gboard语言包与中文输入模式，再运行同一断言。
+
+## 工具披露交互追加
+
+同日Owner反馈中文测试正常，并指出工具默认样式和右侧独立展开按钮仍不符合要求。中文反馈是Owner观察，不反写前轮自动夹具失败。按固定DSH流程header/样式参考，去掉卡片背景/粗标题，使用灰色文字和紧贴标题前的16dp指示符；整个48dp标题行点击只修改本地详情开关，指示符没有独立执行动作。审批仍默认可见，错误/拒绝状态保留。普通过程说明与最终回复字号区分是后续设计建议，本次没有将所有assistant消息统一折叠或修改其语义。
+
+追加主机命令与前轮相同（本次未改Mobile Use模块，不重复其AndroidTest APK编译）；`tool-disclosure-host-r3.log` exit 0，全仓JVM/spotless/detekt、双渠道lint/APK和App AndroidTest APK通过。初次新增审批测试超出函数长度限制，提取辅助方法保留断言；验证运行与源码更新曾重叠，另一轮lint出现Kotlin FIR异常，已结束该轮并在冻结源码后串行完整重跑通过，不忽略lint。源码门禁日志为`tool-disclosure-source-final.log`。
+
+设备仅同一自有API36/Developer，三个类ToolTimelineLayoutDeviceTest、ToolTimelineScrollStateDeviceTest、ApprovalLayoutDeviceTest，总13项。命令沿用owned runner入口，输出`tool-disclosure-api36-r2`；原始制品哈希/设备身份/owner/closed均在该目录。r1为12/13：整行可点击将耗时标签合并到无障碍header，旧测试查询默认合并树失败；改用未合并树，保留展开后实际可见断言。r2 passed：`instrumentation.txt`为OK (13 tests)，无skip，owned进程已关闭。追加回归覆盖标题/指示符点击仅展示、紧邻位置、窄屏/大字体、长参数与结果、滚动重入、待审批仍可操作及折叠不批准/拒绝。没有追加模型调用或覆盖安装日常/真机；前轮真实Qwen证据不冒充本次执行。
+
+r2冻结主APK SHA-256为`fda1f05f75c56837651bae34745bf3916433bbc86ceb2bc4d39d2c76102eaba5`，测试APK为`d1f3911b99c17b893b2df307dfc98d140103751aacfc0d01c89d5e721468272b`；工作树既有在途改动仍未纳入本次提交，不将制品称为纯净HEAD。
