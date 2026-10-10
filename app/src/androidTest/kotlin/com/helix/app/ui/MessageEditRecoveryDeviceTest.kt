@@ -8,6 +8,8 @@ import com.helix.app.chat.TurnInputFingerprint
 import com.helix.app.chat.toInputSnapshot
 import com.helix.app.engine.TurnAdmissionResult
 import com.helix.app.engine.TurnEngine
+import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
@@ -63,28 +65,30 @@ class MessageEditRecoveryDeviceTest {
             object : Clock {
                 override fun now(): Instant = Instant.ofEpochMilli(10)
             }
+        val engine = TurnEngine(storage, clock) { UUID.randomUUID().toString() }
         val admitted =
-            TurnEngine(storage, clock) { UUID.randomUUID().toString() }.admit(
-                TurnStartSpec(
-                    "revision-accepted",
-                    "revision-turn",
-                    "revision-model",
-                    "fixture",
-                    accepted.text,
-                    clientRequestId = accepted.clientRequestId,
-                    inputFingerprint =
-                        TurnInputFingerprint.of(
-                            accepted.text,
-                            emptyList(),
-                            revisedMessageId = "accepted-target",
-                        ),
-                    revisedMessageId = "accepted-target",
-                ),
-                RunControlConfig(AgentMode.ACT, true, TurnBudgets(4, 4, 8_000, 2_000, 16_000)),
-                GoalWakeReason.USER_OPEN,
-                providerId = "fixture-provider",
-                modelId = "fixture-model",
-            )
+            engine
+                .admit(
+                    TurnStartSpec(
+                        "revision-accepted",
+                        "revision-turn",
+                        "revision-model",
+                        "fixture",
+                        accepted.text,
+                        clientRequestId = accepted.clientRequestId,
+                        inputFingerprint =
+                            TurnInputFingerprint.of(
+                                accepted.text,
+                                emptyList(),
+                                revisedMessageId = "accepted-target",
+                            ),
+                        revisedMessageId = "accepted-target",
+                    ),
+                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(4, 4, 8_000, 2_000, 16_000)),
+                    GoalWakeReason.USER_OPEN,
+                    providerId = "fixture-provider",
+                    modelId = "fixture-model",
+                ).bindFixtureLifecycle(engine)
         val coordinator = (admitted as TurnAdmissionResult.Started).turn.coordinator
         assertEquals(accepted.clientRequestId, storage.messages.resolve("accepted-target").supersededBy)
         coordinator.beginModelStream()

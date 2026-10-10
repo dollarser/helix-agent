@@ -10,6 +10,23 @@ def event(code, name='method'):
 
 
 class InstrumentationXmlTest(unittest.TestCase):
+    def test_stream_diagnostic_is_not_an_extra_test_or_terminal(self):
+        diagnostic = 'INSTRUMENTATION_STATUS: stream=IME preedit\nINSTRUMENTATION_STATUS_CODE: 0\n'
+        records = parse(event(1) + diagnostic + event(0) + 'INSTRUMENTATION_CODE: -1\n')
+        self.assertEqual({('Fixture', 'method'): (0, '')}, records)
+        for raw in [diagnostic + 'INSTRUMENTATION_CODE: -1\n',
+                    event(1) + diagnostic + 'INSTRUMENTATION_CODE: -1\n']:
+            with self.assertRaises(ValueError):
+                parse(raw)
+
+    def test_missing_or_partial_identity_cannot_hide_as_diagnostic(self):
+        for bundle in ['stream=detail\nINSTRUMENTATION_STATUS: class=Fixture',
+                       'stream=detail\nINSTRUMENTATION_STATUS: test=method',
+                       'stream=detail\nINSTRUMENTATION_STATUS: numtests=1']:
+            raw = event(1) + 'INSTRUMENTATION_STATUS: ' + bundle + '\nINSTRUMENTATION_STATUS_CODE: 0\n'
+            with self.assertRaises(ValueError):
+                parse(raw + event(0) + 'INSTRUMENTATION_CODE: -1\n')
+
     def test_pass_requires_start_and_terminal(self):
         records = parse(event(1) + event(0) + 'INSTRUMENTATION_CODE: -1\n')
         self.assertIn('classname="Fixture"', to_xml(records))

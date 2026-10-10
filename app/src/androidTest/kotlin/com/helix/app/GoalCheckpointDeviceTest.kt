@@ -6,11 +6,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.GoalReminderReconciler
 import com.helix.app.goal.GoalReminderScheduler
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.Checkpoint
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
@@ -99,7 +100,7 @@ class GoalCheckpointDeviceTest {
         val storage = HelixStorage.open(context, name, content)
         val clock = SystemClock()
         val scheduler = GoalReminderScheduler.create(context)
-        val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+        val coordinator = FixtureGoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
         val goalId: String
 
         init {

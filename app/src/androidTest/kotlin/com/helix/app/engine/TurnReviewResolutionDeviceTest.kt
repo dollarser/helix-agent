@@ -6,9 +6,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.review.ToolReviewSubmission
 import com.helix.app.review.TurnReviewResolutionResult
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.parkFixtureForReview
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnMessageDraft
@@ -179,7 +181,7 @@ class TurnReviewResolutionDeviceTest {
         )
         storage.sessions.create(SESSION, "Review", PROVIDER, MODEL, 1_000L)
         val goalBudgets = GoalBudgets(20, 20, 100_000, 100_000, 100_000, 1)
-        val goalId = GoalRunCoordinator(storage, clock, ids).create("finish safely", emptyList(), goalBudgets)
+        val goalId = FixtureGoalRunCoordinator(storage, clock, ids).create("finish safely", emptyList(), goalBudgets)
         val control =
             RunControlConfig(
                 AgentMode.GOAL,
@@ -188,15 +190,17 @@ class TurnReviewResolutionDeviceTest {
                 ReasoningEffort.LOW,
                 goalBudgets,
             )
+        val engine = TurnEngine(storage, clock, ids)
         val admitted =
-            TurnAdmission(storage, clock, ids).start(
-                TurnStartSpec(SESSION, TURN, MODEL_CALL_1, SNAPSHOT, "do work"),
-                control = control,
-                wakeReason = GoalWakeReason.USER_OPEN,
-                providerId = PROVIDER,
-                modelId = MODEL,
-                resolveGoal = { goalId },
-            ) as TurnAdmissionResult.Started
+            engine
+                .admit(
+                    TurnStartSpec(SESSION, TURN, MODEL_CALL_1, SNAPSHOT, "do work"),
+                    control = control,
+                    wakeReason = GoalWakeReason.USER_OPEN,
+                    providerId = PROVIDER,
+                    modelId = MODEL,
+                    resolveGoal = { goalId },
+                ).bindFixtureLifecycle(engine) as TurnAdmissionResult.Started
         val binding = requireNotNull(storage.goalTurnBindings.byTurn(TURN))
         return GoalFixture(
             clock,

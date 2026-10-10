@@ -127,43 +127,6 @@ internal class TurnCoordinator private constructor(
         runtime.terminalize(state)
     }
 
-    /** AndroidTest fixture bridge only; production terminalization enters through TurnEngine. */
-    @Deprecated("Fixture only; production uses TurnEngine")
-    internal fun settleFixtureTerminal(outcome: ModelStreamTerminal) {
-        val settled =
-            com.helix.app.engine
-                .TurnSettlement(
-                    storage,
-                    clock,
-                    idGenerator,
-                ).settle(terminalCheckpoint(), outcome)
-        markTerminalCommitted(settled.state)
-    }
-
-    /** AndroidTest fixture bridge only; production review parking enters through TurnEngine. */
-    @Deprecated("Fixture only; production uses TurnEngine")
-    internal fun parkFixtureForReview(reviewCallIds: List<String>) {
-        val checkpoint = reviewCheckpoint(reviewCallIds)
-        storage.withTransaction {
-            com.helix.app.engine
-                .TurnReviewParking(storage, clock, idGenerator)
-                .persist(checkpoint)
-        }
-        markRuntimeParked(reviewCallIds)
-    }
-
-    /** AndroidTest fixture bridge for Steer-vs-final-answer; production injects TurnEngine. */
-    @Deprecated("Fixture only; production injects TurnEngine terminal persistence")
-    internal fun completeResponseOrContinueFixture(
-        prepared: TurnSteeringDraft?,
-        nextModelCallId: String,
-    ): ResponseInputBoundary =
-        completeResponseOrContinue(prepared, nextModelCallId) { checkpoint, outcome ->
-            com.helix.app.engine
-                .TurnSettlement(storage, clock, idGenerator)
-                .settleInTransaction(checkpoint, outcome)
-        }
-
     /** Metadata only: request limits and compaction outcomes survive process death. */
     fun recordDiagnostic(
         type: String,

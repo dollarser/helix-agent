@@ -7,6 +7,8 @@ import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
@@ -219,7 +221,7 @@ class GoalTimeLeaseDeviceTest {
 
         init {
             storage.sessions.create("session", "Lease", null, null, 1_000)
-            val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+            val coordinator = FixtureGoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
             goalId =
                 coordinator.create(
                     "Check result",

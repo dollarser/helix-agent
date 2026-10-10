@@ -7,6 +7,9 @@ import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.goal.GoalLifecycleService
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
@@ -45,7 +48,7 @@ class GoalContinuationDeviceTest {
 
     @Test fun localBudgetLimitRetainsGoalIdentityAndRevalidatesTheClaim() =
         fixture { storage ->
-            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val goal = coordinator.create("Finish work", emptyList(), budgets)
             val first =
                 requireNotNull(
@@ -77,7 +80,7 @@ class GoalContinuationDeviceTest {
 
     @Test fun userSuccessorPreservesGoalPredecessorUntilExplicitStop() =
         fixture { storage ->
-            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val goal = coordinator.create("Finish work", emptyList(), budgets)
             val first =
                 requireNotNull(
@@ -129,7 +132,7 @@ class GoalContinuationDeviceTest {
 
     @Test fun settledRoundContinuesWithoutActivityAndStopInvalidatesQueuedClaim() =
         fixture { storage ->
-            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val goal = coordinator.create("Finish work", emptyList(), budgets)
             val first =
                 requireNotNull(
@@ -196,7 +199,7 @@ class GoalContinuationDeviceTest {
     @Test fun automaticAndForeignRequestsCannotEditAndStaleRevisionFails() =
         fixture { storage ->
             val service = service(storage)
-            val goal = GoalRunCoordinator(storage, clock, ids).create("Original", emptyList(), budgets)
+            val goal = FixtureGoalRunCoordinator(storage, clock, ids).create("Original", emptyList(), budgets)
             service.bind(goal, "session")
             turn(storage, "edit")
             val args = """{"id":"$goal","expected_revision":0,"objective":"Changed","user_request":"please"}"""
@@ -217,7 +220,7 @@ class GoalContinuationDeviceTest {
     @Test fun editsCommitTogetherOnlyAfterSuccessfulSettlement() =
         fixture { storage ->
             val service = service(storage)
-            val goal = GoalRunCoordinator(storage, clock, ids).create("Original", emptyList(), budgets)
+            val goal = FixtureGoalRunCoordinator(storage, clock, ids).create("Original", emptyList(), budgets)
             service.bind(goal, "session")
             val edit = turn(storage, "edit")
             val args = """{"id":"$goal","expected_revision":0,"objective":"Changed",
@@ -252,7 +255,7 @@ class GoalContinuationDeviceTest {
 
     @Test fun systemPauseIsDurableAndDoesNotContinue() =
         fixture { storage ->
-            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val goal = coordinator.create("Finish work", emptyList(), budgets)
             val started =
                 requireNotNull(
@@ -295,7 +298,7 @@ class GoalContinuationDeviceTest {
 
     @Test fun staleBudgetEditAndPendingDeletionAreRejected() =
         fixture { storage ->
-            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val goal = coordinator.create("Original", emptyList(), budgets)
             service(storage).bind(goal, "session")
             assertTrue(coordinator.updateBudgets(goal, budgets.copy(maxModelCalls = 10), 0))
@@ -318,7 +321,7 @@ class GoalContinuationDeviceTest {
 
     @Test fun currentGoalFollowsTheLastUsedGoalRatherThanControlInsertionOrder() =
         fixture { storage ->
-            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val first = coordinator.create("Current work", emptyList(), budgets)
             val other = coordinator.create("Other parked work", emptyList(), budgets)
             val service = service(storage)
@@ -349,7 +352,7 @@ class GoalContinuationDeviceTest {
     private fun turn(
         storage: HelixStorage,
         id: String,
-    ) = TurnCoordinator.start(
+    ) = startFixtureTurn(
         storage,
         clock,
         ids,

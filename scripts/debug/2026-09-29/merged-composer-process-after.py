@@ -62,6 +62,18 @@ def wait_text(text, label):
     raise RuntimeError("UI text not found: " + repr(choices))
 
 
+def find_session(title, label):
+    # Historical fixture timestamps can sort below newer independent journeys.
+    # Scroll the actual list; exact title matching remains mandatory.
+    for page in range(30):
+        view = nodes(label + '-' + str(page))
+        found = next((node for node in view if node.get('text') == title), None)
+        if found is not None:
+            return found
+        adb('shell', 'input', 'swipe', '500', '1700', '500', '550', '300')
+        time.sleep(.3)
+    raise RuntimeError('Seeded session not found in bounded history traversal: ' + title)
+
 def open_session(title):
     adb("shell", "am", "start", "-n", package + "/com.helix.app.MainActivity")
     time.sleep(1)
@@ -71,7 +83,7 @@ def open_session(title):
 def select_session(title):
     tap(wait_text(("应用导航", "App navigation"), "navigation-open"))
     tap(wait_text(("全部会话", "All conversations"), "history-open"))
-    tap(wait_text(title, "session-list"))
+    tap(find_session(title, "session-list"))
 
 
 def replace_editor_text(replacement):
@@ -103,14 +115,14 @@ assert cancel_seed["state"] == "CANCELLING" and cancel_seed["seededBoundary"] is
 # This does not claim a probabilistic kill between a live Stop click and settlement.
 open_session("COMPOSER-RECOVERY")
 wait_text("RECOVER-DRAFT-214", "composer-before")
-replace_editor_text("NORMAL-PROCESS-DRAFT-214")
+replace_editor_text("214001214")
 # The ordinary composer persists after a bounded 500 ms debounce. The post-kill
 # UI and instrumentation assertions below are the durable receipt for that save.
 time.sleep(2)
 pid = int(adb("shell", "pidof", package).strip())
 kill_emulator_app(base, package, pid)
 open_session("COMPOSER-RECOVERY")
-wait_text("NORMAL-PROCESS-DRAFT-214", "composer-restored")
+wait_text("214001214", "composer-restored")
 new_pid = int(adb("shell", "pidof", package).strip())
 assert new_pid != pid
 

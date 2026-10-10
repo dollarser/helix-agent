@@ -8,6 +8,8 @@ import com.helix.app.goal.GoalLifecycleTools
 import com.helix.app.goal.GoalReportTool
 import com.helix.app.goal.goalModelReport
 import com.helix.app.recovery.GoalUsageReservations
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
@@ -215,7 +217,7 @@ class GoalModelReportDeviceTest {
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             val next =
                 requireNotNull(
-                    GoalRunCoordinator(s, clock, ::id).start(
+                    FixtureGoalRunCoordinator(s, clock, ::id).start(
                         GoalTurnStart(
                             g,
                             GoalWakeReason.USER_OPEN,
@@ -241,7 +243,7 @@ class GoalModelReportDeviceTest {
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val next =
                 requireNotNull(
-                    GoalRunCoordinator(s, clock, ::id).start(
+                    FixtureGoalRunCoordinator(s, clock, ::id).start(
                         GoalTurnStart(
                             g,
                             GoalWakeReason.USER_OPEN,
@@ -387,7 +389,7 @@ class GoalModelReportDeviceTest {
         val s = HelixStorage.open(context, name, content)
         try {
             s.sessions.create("s", "Fixture", null, null, 1000)
-            val coordinator = GoalRunCoordinator(s, clock, ::id)
+            val coordinator = FixtureGoalRunCoordinator(s, clock, ::id)
             val goal =
                 coordinator.create(
                     "Explain clearly",

@@ -6,6 +6,8 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ContextCompactionPlan
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.TurnContextRequest
@@ -127,7 +129,7 @@ class TurnCancellationRaceDeviceTest {
                     override fun now(): Instant = Instant.ofEpochMilli(2000L)
                 }
             val turn =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     clock,
                     { UUID.randomUUID().toString() },

@@ -59,6 +59,18 @@ def open_history(label):
     tap(wait_text(('应用导航', 'App navigation'), label + '-navigation'))
     tap(wait_text(('全部会话', 'All conversations'), label + '-history'))
 
+def find_session(title, label):
+    # Historical fixture timestamps can sort below newer independent journeys.
+    # Scroll the actual list; exact title matching remains mandatory.
+    for page in range(30):
+        view = nodes(label + '-' + str(page))
+        found = next((node for node in view if node.get('text') == title), None)
+        if found is not None:
+            return found
+        adb('shell', 'input', 'swipe', '500', '1700', '500', '550', '300')
+        time.sleep(.3)
+    raise RuntimeError('Seeded session not found in bounded history traversal: ' + title)
+
 def open_session(title, restored_text=None):
     failure = None
     for attempt in range(2):
@@ -73,7 +85,7 @@ def open_session(title, restored_text=None):
             # ActivityManager can briefly retain the killed task on API36 and report
             # that the launch was delivered even though Launcher is still visible.
             open_history(f'open-session-{attempt}')
-            session = wait_text(title, f'session-list-{attempt}')
+            session = find_session(title, f'session-list-{attempt}')
         except RuntimeError as error:
             failure = error
             continue

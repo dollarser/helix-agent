@@ -5,6 +5,8 @@ import com.helix.app.MainActivity
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.ModelStreamTerminal
@@ -60,7 +62,7 @@ class ComposerProcessRecoveryDeviceTest {
                     override fun now(): Instant = Instant.ofEpochMilli(10)
                 }
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     clock,
                     { UUID.randomUUID().toString() },
@@ -122,7 +124,7 @@ class ComposerProcessRecoveryDeviceTest {
     ) {
         storage.sessions.create(CANCEL_SESSION, "COMPOSER-CANCELLING", null, null, 3)
         val turn =
-            TurnCoordinator.start(
+            startFixtureTurn(
                 storage,
                 clock,
                 { UUID.randomUUID().toString() },

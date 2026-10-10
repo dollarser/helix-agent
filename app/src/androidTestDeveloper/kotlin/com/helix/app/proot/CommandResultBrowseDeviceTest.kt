@@ -16,6 +16,8 @@ import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
@@ -111,16 +113,15 @@ class CommandResultBrowseDeviceTest {
     }
 
     private fun seedTurn(storage: HelixStorage) {
-        TurnCoordinator
-            .start(
-                storage,
-                SystemClock(),
-                { UUID.randomUUID().toString() },
-                TurnStartSpec(SESSION, TURN, "$TURN-model", "command-fixture", "HXA194 developer fixture"),
-            ).apply {
-                beginModelStream().apply(ModelEvent.TextDelta("HXA194 developer fixture result"))
-                settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
-            }
+        startFixtureTurn(
+            storage,
+            SystemClock(),
+            { UUID.randomUUID().toString() },
+            TurnStartSpec(SESSION, TURN, "$TURN-model", "command-fixture", "HXA194 developer fixture"),
+        ).apply {
+            beginModelStream().apply(ModelEvent.TextDelta("HXA194 developer fixture result"))
+            settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+        }
     }
 
     /**

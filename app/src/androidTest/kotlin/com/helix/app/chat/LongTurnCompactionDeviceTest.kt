@@ -9,6 +9,9 @@ import com.helix.app.agent.GoalModelCallBudget
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.contextCompactionRound
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ContextSegments
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelLoopAdmission
@@ -52,7 +55,7 @@ class LongTurnCompactionDeviceTest {
     @Suppress("LongMethod") // One durable Goal lifecycle: summary accounting, parking, then immediate explicit wake.
     fun goalLongTurnCompactsSettledStepsAndNextWakeChecksImmediately() =
         withStorage { storage ->
-            val goals = GoalRunCoordinator(storage, clock, ::next)
+            val goals = FixtureGoalRunCoordinator(storage, clock, ::next)
             val goal =
                 goals.create(
                     "Keep ORANGE-42 and finish verification",
@@ -534,7 +537,7 @@ class LongTurnCompactionDeviceTest {
         }
 
     private fun start(storage: HelixStorage) =
-        TurnCoordinator.start(
+        startFixtureTurn(
             storage,
             clock,
             ::next,

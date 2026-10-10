@@ -26,6 +26,8 @@ import com.helix.app.chat.TurnInputFingerprint
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.test.TransferTestDocumentsProvider
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -109,7 +111,7 @@ class ConversationReceiptRaceDeviceTest {
                         ),
                     )
                 val coordinator =
-                    TurnCoordinator.start(
+                    startFixtureTurn(
                         storage,
                         SystemClock(),
                         {
@@ -250,6 +252,9 @@ class ConversationReceiptRaceDeviceTest {
                 try {
                     chat.openSession(session)
                     awaitEditableComposer()
+                    val fixtureBudgets = com.helix.core.agent.TurnBudgetBounds.DEFAULT
+                    chat.setTurnBudgets(fixtureBudgets)
+                    compose.waitUntil(WAIT_MILLIS) { chat.runControl.value.budgets == fixtureBudgets }
                     chat.stageAttachment(attachmentUri())
                     compose.waitUntil(WAIT_MILLIS) { chat.currentStagedAttachmentIds(session).size == 1 }
 
@@ -257,9 +262,19 @@ class ConversationReceiptRaceDeviceTest {
                     compose.onNodeWithTag("chat-send").performClick()
                     compose.waitUntil(WAIT_MILLIS) { chat.screen.value.pendingDisclosure != null }
                     compose.onNodeWithTag("egress-confirm").performClick()
-                    compose.waitUntil(WAIT_MILLIS) {
-                        storage.turns.listBySession(session).size == 1 &&
-                            storage.turns.listBySession(session).all { it.state == TurnState.COMPLETED.name }
+                    try {
+                        compose.waitUntil(WAIT_MILLIS) {
+                            storage.turns.listBySession(session).size == 1 &&
+                                storage.turns.listBySession(session).all { it.state == TurnState.COMPLETED.name }
+                        }
+                    } catch (failure: ComposeTimeoutException) {
+                        throw AssertionError(
+                            "attachment send: turns=${storage.turns.listBySession(
+                                session,
+                            ).map { it.state to it.errorCode }}, " +
+                                "blocked=${chat.screen.value.blockedReason}",
+                            failure,
+                        )
                     }
                     try {
                         compose.waitUntil(WAIT_MILLIS) {

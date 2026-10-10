@@ -33,12 +33,6 @@ internal class TurnSettlement(
         return requireNotNull(result)
     }
 
-    /** Existing fixture seam; production calls the AgentTurnStore port. */
-    fun settle(
-        checkpoint: TurnTerminalCheckpoint,
-        outcome: ModelStreamTerminal,
-    ): ModelStreamTerminal = commitBlocking(TerminalCommitCommand(checkpoint, outcome)).requireOutcome()
-
     /** Parent transaction owns Steer-vs-final-answer linearization; never start a separate commit. */
     fun settleInTransaction(
         checkpoint: TurnTerminalCheckpoint,

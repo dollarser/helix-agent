@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalBudgetDefaults
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
@@ -80,7 +82,7 @@ class GoalRoundAllowanceDeviceTest {
             goal = coordinator().create("Finish work", emptyList(), GoalBudgetDefaults.VALUE)
         }
 
-        fun coordinator() = GoalRunCoordinator(storage, clock, ids)
+        fun coordinator() = FixtureGoalRunCoordinator(storage, clock, ids)
 
         fun request(reason: GoalWakeReason) =
             GoalTurnStart(

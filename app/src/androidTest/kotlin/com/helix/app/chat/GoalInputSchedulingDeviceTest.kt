@@ -9,6 +9,8 @@ import com.helix.app.foreground.DataSyncForegroundController
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.CancelResult
@@ -85,7 +87,7 @@ class GoalInputSchedulingDeviceTest {
                 val spentBeforeResume = storage.goals.resolve(goal).modelCalls
                 assertTrue(spentBeforeResume > 0)
                 assertTrue(wire.body(1).contains("Perform this separate user request"))
-                assertFalse(wire.body(1).contains("[Goal continuation]"))
+                assertFalse(wire.body(1).contains("[Goal continuation "))
                 assertEquals(CancelResult.AlreadyTerminal(TurnState.COMPLETED), chat.stopTurn(first))
                 assertEquals(TurnState.RECEIVING_MODEL.name, storage.turns.resolve(userTurn).state)
                 assertEquals(userInput, storage.sessionInputs.get(queued.clientRequestId))
@@ -103,7 +105,7 @@ class GoalInputSchedulingDeviceTest {
                     }
                 val resumedBinding = requireNotNull(storage.goalTurnBindings.byTurn(resumedTurn.id))
                 assertEquals(goal, storage.goalRuns.resolve(resumedBinding.runId).goalId)
-                assertTrue(wire.body(2).contains("[Goal continuation]"))
+                assertTrue(wire.body(2), wire.body(2).contains("[Goal continuation 1/${goalBudget.maxGoalRounds}]"))
                 assertEquals(1, GoalSummaryQuery(storage).forSession(session).size)
 
                 chat.stopTurn(resumedTurn.id)
@@ -178,7 +180,7 @@ class GoalInputSchedulingDeviceTest {
                 assertNull(storage.goalTurnBindings.byTurn(fresh))
                 val freshBody = wire.body(1)
                 assertFalse(freshBody.contains("Keep this queued text parked"))
-                assertFalse(wire.body(1).contains("[Goal continuation]"))
+                assertFalse(wire.body(1).contains("[Goal continuation "))
                 wire.release(1)
                 compose.waitUntil(15_000) { !chat.screen.value.isSending }
                 assertFalse(wire.entered[2].await(500, TimeUnit.MILLISECONDS))
@@ -373,7 +375,7 @@ class GoalInputSchedulingDeviceTest {
             val before = goal?.let(storage.goals::resolve)
             repeat(3) {
                 val old =
-                    TurnCoordinator.start(
+                    startFixtureTurn(
                         storage,
                         object : Clock {
                             override fun now() = java.time.Instant.now()

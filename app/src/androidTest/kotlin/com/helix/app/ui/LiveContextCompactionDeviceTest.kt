@@ -8,6 +8,8 @@ import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
@@ -75,6 +77,11 @@ class LiveContextCompactionDeviceTest {
                 chat.openSession(id)
                 chat.setMode(AgentMode.CHAT)
                 chat.setReasoning(ReasoningEffort.OFF)
+                // This live fixture owns its finite output limit; another suite's 128-token
+                // configuration must not truncate the summary before we test its contents.
+                val fixtureBudgets = previous.budgets.copy(maxOutputTokens = 8192)
+                chat.setTurnBudgets(fixtureBudgets)
+                compose.waitUntil(10_000) { chat.runControl.value.budgets == fixtureBudgets }
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == id }
                 chat.compactContext()
                 compose.waitUntil(180_000) {
@@ -108,6 +115,14 @@ class LiveContextCompactionDeviceTest {
                 println("LIVE_CONTEXT_SUMMARY_AND_FOLLOWUP=PASS")
                 repeat(2) { cycle ->
                     seed(id, includeConstraint = false)
+                    // Preparation writes Room through a fixture Engine, not the application's
+                    // live observation stream. Refresh the visible projection before using
+                    // the same guarded compact action a user clicks.
+                    chat.openSession(id)
+                    compose.waitUntil(10_000) {
+                        chat.screen.value.openSessionId == id && !chat.screen.value.isSending &&
+                            !requireNotNull(container.turnEngine).liveExecution.hasActive(id)
+                    }
                     val before = storage.turns.listBySession(id).size
                     val started = System.currentTimeMillis()
                     chat.compactContext()
@@ -143,11 +158,18 @@ class LiveContextCompactionDeviceTest {
                     println("LIVE_REPEAT_COMPACTION cycle=$cycle elapsedMs=${System.currentTimeMillis() - started}")
                 }
             } finally {
+                session?.let { id ->
+                    println(
+                        "LIVE_FINAL_STATE turns=${storage.turns.listBySession(id).map { it.state to it.errorCode }} " +
+                            "blocked=${chat.screen.value.blockedReason}",
+                    )
+                }
                 chat.stop()
                 compose.waitUntil(15_000) { !chat.screen.value.isSending }
                 chat.closeSession()
                 chat.setMode(previous.mode)
                 chat.setReasoning(previous.reasoning)
+                chat.setTurnBudgets(previous.budgets)
                 session?.let { storage.sessions.archive(it, System.currentTimeMillis()) }
                 service.delete(provider)
             }
@@ -161,7 +183,8 @@ class LiveContextCompactionDeviceTest {
         val turns = container.storage.turns.listBySession(session)
         return turns.size == expectedTurns &&
             turns.last().state in setOf("COMPLETED", "FAILED", "CANCELLED") &&
-            !container.chatService.screen.value.isSending
+            !container.chatService.screen.value.isSending &&
+            !requireNotNull(container.turnEngine).liveExecution.hasActive(session)
     }
 
     private fun seed(
@@ -191,7 +214,7 @@ class LiveContextCompactionDeviceTest {
         prompts.forEach { prompt ->
             val next = { UUID.randomUUID().toString() }
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     clock,
                     next,

@@ -12,6 +12,11 @@ def parse(raw):
                 bundle[key] = value
         elif line.startswith('INSTRUMENTATION_STATUS_CODE: '):
             code = int(line.split(': ', 1)[1])
+            # Instrumentation.sendStatus(0, {stream: diagnostic}) is not a test
+            # terminal. Accept only this exact diagnostic shape; it creates no pass.
+            if code == 0 and set(bundle) == {'stream'}:
+                bundle = {}
+                continue
             key = (bundle.get('class'), bundle.get('test'))
             if not all(key):
                 raise ValueError('Missing test identity in status bundle')

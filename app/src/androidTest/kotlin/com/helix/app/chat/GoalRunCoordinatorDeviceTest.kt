@@ -7,6 +7,8 @@ import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalDurableUsageLedger
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
@@ -309,7 +311,10 @@ class GoalRunCoordinatorDeviceTest {
         limits,
     )
 
-    private fun coordinator(storage: HelixStorage) = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+    private fun coordinator(storage: HelixStorage) =
+        FixtureGoalRunCoordinator(storage, clock) {
+            UUID.randomUUID().toString()
+        }
 
     private fun withStorage(block: (HelixStorage) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<Context>()

@@ -5,7 +5,10 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
+import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.ForegroundDeviceTestHost
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
@@ -35,7 +38,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             HelixStorage.open(context, name, java.io.File(context.cacheDir, name)).withClose { storage ->
                 storage.sessions.create("s", "Fixture", null, null, 1000)
                 val turn =
-                    TurnCoordinator.start(
+                    startFixtureTurn(
                         storage,
                         clock,
                         ::id,
@@ -106,7 +109,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             assertEquals("NEEDS_REVIEW", storage.toolCalls.resolve("unknown").state)
         }
 
-    @Test fun recoveryChargesReservedBudgetAndKeepsExhaustionBlocked() =
+    @Test fun recoveryChargesReservedUsageOnceWithoutBlockingFreshRounds() =
         fixture { storage, coordinator, goal ->
             val first = requireNotNull(coordinator.start(request(goal, "first")))
             val journal =
@@ -124,11 +127,16 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
                 ),
             )
             TurnRecovery(storage, clock).recover()
-            assertEquals("BLOCKED", storage.goals.resolve(goal).state)
+            assertEquals("PAUSED", storage.goals.resolve(goal).state)
             assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
             assertFalse(GoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
-            assertNull(coordinator.start(request(goal, "second")))
             TurnRecovery(storage, clock).recover()
+            assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
+            val second = requireNotNull(coordinator.start(request(goal, "second")))
+            assertEquals(2, storage.goalRuns.listByGoal(goal).size)
+            assertEquals("INTERRUPTED", storage.turns.resolve("first").state)
+            assertEquals("RUNNING", storage.goals.resolve(goal).state)
+            second.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
         }
 
@@ -136,7 +144,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
         fixture { storage, _, _ ->
             repeat(205) { index ->
                 val turn =
-                    TurnCoordinator.start(
+                    startFixtureTurn(
                         storage,
                         clock,
                         ::id,
@@ -187,13 +195,13 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
         TurnBudgets(5, 10, 800, 800, 5000),
     )
 
-    private fun fixture(block: (HelixStorage, GoalRunCoordinator, String) -> Unit) {
+    private fun fixture(block: (HelixStorage, FixtureGoalRunCoordinator, String) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "goal-blocker-${id()}.db"
         try {
             HelixStorage.open(context, name, java.io.File(context.cacheDir, name)).withClose { storage ->
                 storage.sessions.create("s", "Fixture", null, null, 1000)
-                val coordinator = GoalRunCoordinator(storage, clock, ::id)
+                val coordinator = FixtureGoalRunCoordinator(storage, clock, ::id)
                 val goal = coordinator.create("Fixture", listOf("Evidence"), GoalBudgets(5, 5, 10000, 60000, 10000, 0))
                 block(storage, coordinator, goal)
             }

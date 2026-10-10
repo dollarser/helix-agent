@@ -3,6 +3,8 @@ package com.helix.app.engine
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalBudgetDefaults
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
@@ -58,9 +60,10 @@ class ExpertAdmissionDeviceTest {
         storage: HelixStorage,
         turnId: String,
         requestId: String,
-    ): TurnAdmissionResult =
-        TurnAdmission(storage, clock) { UUID.randomUUID().toString() }
-            .start(
+    ): TurnAdmissionResult {
+        val engine = TurnEngine(storage, clock) { UUID.randomUUID().toString() }
+        return engine
+            .admit(
                 spec =
                     TurnStartSpec(
                         sessionId = SESSION,
@@ -75,7 +78,8 @@ class ExpertAdmissionDeviceTest {
                 wakeReason = GoalWakeReason.USER_OPEN,
                 providerId = "provider",
                 modelId = "model",
-            )
+            ).bindFixtureLifecycle(engine)
+    }
 
     private val control =
         RunControlConfig(

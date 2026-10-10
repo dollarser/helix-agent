@@ -13,6 +13,8 @@ import com.helix.app.MainActivity
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.BackgroundTaskQuery
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
@@ -163,16 +165,15 @@ class DetachedJobDashboardDeviceTest {
     ): String {
         val id = UUID.randomUUID().toString()
         storage.sessions.create(id, "Background fixture", null, null, 1)
-        TurnCoordinator
-            .start(
-                storage,
-                SystemClock(),
-                { UUID.randomUUID().toString() },
-                TurnStartSpec(id, id, "$id-model", "fixture", "Job projection"),
-            ).apply {
-                beginModelStream().apply(ModelEvent.TextDelta("Turn complete"))
-                settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
-            }
+        startFixtureTurn(
+            storage,
+            SystemClock(),
+            { UUID.randomUUID().toString() },
+            TurnStartSpec(id, id, "$id-model", "fixture", "Job projection"),
+        ).apply {
+            beginModelStream().apply(ModelEvent.TextDelta("Turn complete"))
+            settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+        }
         storage.toolCalls.append(id, id, id, DetachedJobTools.START, "1", """{"script":"sleep 30"}""", "COMPLETED")
         storage.auditEvents.append(
             "proot-job-$id",

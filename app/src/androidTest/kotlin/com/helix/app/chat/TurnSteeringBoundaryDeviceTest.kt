@@ -7,6 +7,8 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
+import com.helix.app.test.completeResponseOrContinueFixture
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ResponseInputBoundary
 import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.Clock
@@ -177,7 +179,7 @@ class TurnSteeringBoundaryDeviceTest {
             storage.sessions.create("session", "Steering", null, null, 1_000)
             var id = 0
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     object : Clock {
                         override fun now(): Instant = Instant.ofEpochMilli(2_000)

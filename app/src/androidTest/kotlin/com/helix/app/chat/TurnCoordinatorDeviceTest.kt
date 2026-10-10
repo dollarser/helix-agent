@@ -6,6 +6,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.parkFixtureForReview
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.model.Clock
@@ -52,7 +55,7 @@ class TurnCoordinatorDeviceTest {
             storage.sessions.create("session-1", "Coordinator", null, null, 1_000L)
             var nextId = 0
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     FixedClock(2_000L),
                     { "generated-${nextId++}" },
@@ -105,7 +108,7 @@ class TurnCoordinatorDeviceTest {
             storage.sessions.create("session-review", "Review", null, null, 1_000L)
             var nextId = 0
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     FixedClock(2_000L),
                     { "review-generated-${nextId++}" },
@@ -171,7 +174,7 @@ class TurnCoordinatorDeviceTest {
                 )
             var nextId = 0
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     FixedClock(2_000L),
                     { "generated-${nextId++}" },

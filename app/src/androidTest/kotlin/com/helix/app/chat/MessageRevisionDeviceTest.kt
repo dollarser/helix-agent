@@ -6,8 +6,11 @@ import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.engine.TurnAdmission
 import com.helix.app.engine.TurnAdmissionResult
+import com.helix.app.engine.TurnEngine
+import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
@@ -83,7 +86,7 @@ class MessageRevisionDeviceTest {
             start(storage, "old", "original").settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val target = storage.messages.latestUser("s")!!.id
             assertThrows(Exception::class.java) {
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     testClock,
                     { "new-message" },
@@ -129,9 +132,10 @@ class MessageRevisionDeviceTest {
         id: String,
         text: String,
         target: String? = null,
-    ): TurnAdmissionResult =
-        TurnAdmission(storage, testClock) { UUID.randomUUID().toString() }
-            .start(
+    ): TurnAdmissionResult {
+        val engine = TurnEngine(storage, testClock) { UUID.randomUUID().toString() }
+        return engine
+            .admit(
                 TurnStartSpec(
                     sessionId = "s",
                     turnId = id,
@@ -145,7 +149,8 @@ class MessageRevisionDeviceTest {
                 wakeReason = GoalWakeReason.USER_OPEN,
                 providerId = "provider",
                 modelId = "model",
-            )
+            ).bindFixtureLifecycle(engine)
+    }
 
     private val control =
         RunControlConfig(

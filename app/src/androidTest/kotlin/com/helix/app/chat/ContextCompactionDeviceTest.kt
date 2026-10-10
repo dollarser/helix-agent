@@ -6,6 +6,9 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.completeResponseOrContinueFixture
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
@@ -381,7 +384,7 @@ class ContextCompactionDeviceTest {
         storage.sessions.create("s", "Compaction fixture", null, null, 1000)
         repeat(3) { index ->
             val old =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     clock,
                     ::next,
@@ -393,7 +396,7 @@ class ContextCompactionDeviceTest {
             stream.apply(ModelEvent.Completed("stop"))
             old.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
-        return TurnCoordinator.start(
+        return startFixtureTurn(
             storage,
             clock,
             ::next,

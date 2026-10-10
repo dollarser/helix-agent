@@ -4,6 +4,8 @@ import com.helix.app.agent.ChatContextProjection
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderModelsIntegrationDeviceTest
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
@@ -35,7 +37,7 @@ class SessionContextUsageDeviceTest {
             f.storage.sessions.create("b", "B", "p", "a", time++)
 
             fun start(session: String) =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     f.storage,
                     clock,
                     next,

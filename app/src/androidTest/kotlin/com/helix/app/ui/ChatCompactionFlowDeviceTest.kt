@@ -11,6 +11,8 @@ import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
@@ -240,7 +242,7 @@ class ChatCompactionFlowDeviceTest {
         repeat(3) { index ->
             val next = { UUID.randomUUID().toString() }
             val coordinator =
-                TurnCoordinator.start(
+                startFixtureTurn(
                     storage,
                     clock,
                     next,

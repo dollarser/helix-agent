@@ -6,6 +6,9 @@ import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnAdmission
 import com.helix.app.engine.TurnAdmissionResult
+import com.helix.app.engine.TurnEngine
+import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
@@ -116,9 +119,12 @@ class MessageRegenerateDeviceTest {
     fun duplicateRegenerateReceiptReturnsOriginalReplacementBeforeAnyFreshSideEffect() =
         fixture { storage ->
             val answerId = completedOriginalAnswer(storage)
-            val admission = TurnAdmission(storage, testClock) { UUID.randomUUID().toString() }
+            val ids = { UUID.randomUUID().toString() }
+            val admission = TurnAdmission(storage, testClock, ids)
+            val engine = TurnEngine(storage, testClock, ids)
             val first =
                 admitRegenerate(admission, "t2", "regen-request", "regen-fingerprint", answerId)
+                    .bindFixtureLifecycle(engine)
                     as TurnAdmissionResult.Started
             first.turn.coordinator.beginModelStream()
             first.turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
@@ -207,10 +213,11 @@ class MessageRegenerateDeviceTest {
         id: String,
         text: String?,
         regenerateTarget: String? = null,
-    ): TurnCoordinator =
-        (
-            TurnAdmission(storage, testClock) { UUID.randomUUID().toString() }
-                .start(
+    ): TurnCoordinator {
+        val engine = TurnEngine(storage, testClock) { UUID.randomUUID().toString() }
+        return (
+            engine
+                .admit(
                     TurnStartSpec(
                         sessionId = "s",
                         turnId = id,
@@ -225,8 +232,9 @@ class MessageRegenerateDeviceTest {
                     wakeReason = GoalWakeReason.USER_OPEN,
                     providerId = "provider",
                     modelId = "model",
-                ) as TurnAdmissionResult.Started
+                ).bindFixtureLifecycle(engine) as TurnAdmissionResult.Started
         ).turn.coordinator.also { it.beginModelStream() }
+    }
 
     private val control =
         RunControlConfig(

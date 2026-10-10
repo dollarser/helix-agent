@@ -20,6 +20,8 @@ import com.helix.app.chat.ArtifactQuery
 import com.helix.app.chat.ChatService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
@@ -212,13 +214,9 @@ class TaskJourneyDeviceTest {
      * CANCELLED, a repeated stop is a no-op, a stale stop on a completed turn changes
      * nothing, and stopping one turn never rewrites another turn's settled row.
      *
-     * The journeys run one at a time BY DESIGN of the app, not as a test convenience: the
-     * ToolScheduler serializes exclusive (mutating) tool calls across turns (doc 11 section
-     * 3.1 — a write is a full barrier), and a pending approval HOLDS its tool call's slot
-     * until the call settles. A second turn's tool call therefore only reaches its approval
-     * after the first turn's stop releases the slot; stopping the first turn while the
-     * second is in flight settles that barrier — it is not a race between two pending
-     * approvals, and the app must never run one mutation under another's un-decided one.
+     * These fixture journeys run sequentially to isolate each stop's durable identity.
+     * A pending approval retains its concrete executor lease until settlement; this test
+     * does not establish a global mutation barrier across unrelated executor resources.
      */
     @Test
     fun stopPersistsCancellingUntilSettledAndIsRaceSafe() {
@@ -268,6 +266,7 @@ class TaskJourneyDeviceTest {
                     stopAwait { !chat.screen.value.isSending }
                     chat.closeSession()
                     chat.setMode(previous.mode)
+                    chat.setTurnBudgets(previous.budgets)
                     container.providerService.delete(provider)
                 }
             }
@@ -337,7 +336,7 @@ class TaskJourneyDeviceTest {
     ) {
         if (storage.turns.find(turnId) != null) return
         val coordinator =
-            TurnCoordinator.start(
+            startFixtureTurn(
                 storage,
                 SystemClock(),
                 { UUID.randomUUID().toString() },
@@ -587,14 +586,17 @@ class TaskJourneyDeviceTest {
     ): SettledTurnRow {
         chat.openSession(sessionId)
         chat.setMode(AgentMode.ACT)
+        chat.setTurnBudgets(com.helix.core.agent.TurnBudgetBounds.DEFAULT)
         stopAwait {
             storage.sessionRunControls.forSession(sessionId)?.mode == AgentMode.ACT &&
+                storage.sessionRunControls.forSession(sessionId)?.budgets ==
+                com.helix.core.agent.TurnBudgetBounds.DEFAULT &&
                 chat.screen.value.openSessionId == sessionId
         }
         com.helix.app.test
             .discoverFixtureTool(containerFromApp().toolPipeline, sessionId, "echo")
         chat.sendTestMessage(sessionId, probe)
-        stopAwait { approvalPresent(storage, sessionId) }
+        awaitApproval(storage, chat, sessionId)
         val turn = storage.turns.listBySession(sessionId).single()
         stopAwait { chat.backgroundTasks.value.any { it.id == turn.id } }
         // The journey is durably live in its tool phase BEFORE the stop. The turn row persists
@@ -651,6 +653,22 @@ class TaskJourneyDeviceTest {
             if (TurnState.valueOf(turn.state).isTerminal) return@let
             chat.stopTask(turn.id)
             stopAwait { storage.turns.resolve(turn.id).state == "CANCELLED" }
+        }
+    }
+
+    private fun awaitApproval(
+        storage: HelixStorage,
+        chat: ChatService,
+        sessionId: String,
+    ) {
+        try {
+            stopAwait { approvalPresent(storage, sessionId) }
+        } catch (failure: AssertionError) {
+            val turns = storage.turns.listBySession(sessionId).map { it.state to it.errorCode }
+            throw AssertionError(
+                "approval never published: turns=$turns, blocked=${chat.screen.value.blockedReason}",
+                failure,
+            )
         }
     }
 

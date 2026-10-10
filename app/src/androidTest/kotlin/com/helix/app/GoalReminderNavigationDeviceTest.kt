@@ -14,10 +14,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.goalReminderId
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.GoalBudgets
@@ -58,7 +59,7 @@ class GoalReminderNavigationDeviceTest {
         val sessionId = "reminder-session-$suffix"
         val clock = SystemClock()
         storage.sessions.create(sessionId, "Reminder fixture", null, null, clock.now().toEpochMilli())
-        val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+        val coordinator = FixtureGoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
         val id =
             coordinator.create(
                 "Reminder navigation $suffix",
@@ -97,7 +98,7 @@ class GoalReminderNavigationDeviceTest {
     }
 
     private fun parkGoal(
-        coordinator: GoalRunCoordinator,
+        coordinator: FixtureGoalRunCoordinator,
         id: String,
         sessionId: String,
         suffix: String,

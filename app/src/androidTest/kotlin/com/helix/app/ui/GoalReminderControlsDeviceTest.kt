@@ -18,9 +18,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.WorkManager
 import com.helix.app.HelixApplication
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
 import com.helix.app.goal.GoalReminderPayload
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.GoalBudgets
@@ -286,7 +287,7 @@ class GoalReminderControlsDeviceTest {
         val storage = app.appContainer.storage
         val clock = SystemClock()
         storage.sessions.create(sessionId, "Reminder UI fixture", null, null, clock.now().toEpochMilli())
-        val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+        val coordinator = FixtureGoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
         val id =
             coordinator.create(
                 "Reminder UI fixture",

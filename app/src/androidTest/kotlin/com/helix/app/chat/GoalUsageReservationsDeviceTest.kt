@@ -7,6 +7,8 @@ import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.model.Clock
@@ -387,7 +389,7 @@ class GoalUsageReservationsDeviceTest {
             started = requireNotNull(coordinator().start(request("first")))
         }
 
-        fun coordinator() = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+        fun coordinator() = FixtureGoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
 
         fun request(turnId: String) =
             GoalTurnStart(

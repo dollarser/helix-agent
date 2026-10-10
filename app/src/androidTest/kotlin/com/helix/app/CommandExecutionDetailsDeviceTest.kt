@@ -14,6 +14,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.test.settleFixtureTerminal
+import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
@@ -97,16 +99,15 @@ class CommandExecutionDetailsDeviceTest {
     }
 
     private fun seedTurn(storage: HelixStorage) {
-        TurnCoordinator
-            .start(
-                storage,
-                SystemClock(),
-                { UUID.randomUUID().toString() },
-                TurnStartSpec(SESSION, TURN, "$TURN-model", "command-fixture", "HXA194 command fixture"),
-            ).apply {
-                beginModelStream().apply(ModelEvent.TextDelta("HXA194 command fixture result"))
-                settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
-            }
+        startFixtureTurn(
+            storage,
+            SystemClock(),
+            { UUID.randomUUID().toString() },
+            TurnStartSpec(SESSION, TURN, "$TURN-model", "command-fixture", "HXA194 command fixture"),
+        ).apply {
+            beginModelStream().apply(ModelEvent.TextDelta("HXA194 command fixture result"))
+            settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+        }
     }
 
     /** One settled bash call of the fixture, with (or without) its persisted result row. */

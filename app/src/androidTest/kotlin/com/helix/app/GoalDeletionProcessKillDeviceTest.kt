@@ -7,12 +7,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkManager
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
 import com.helix.app.goal.GoalDeletionCoordinator
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.GoalReminderReconciler
 import com.helix.app.goal.GoalReminderScheduler
+import com.helix.app.test.FixtureGoalRunCoordinator
+import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.Checkpoint
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
@@ -94,7 +95,7 @@ class GoalDeletionProcessKillDeviceTest {
         scheduler: GoalReminderScheduler,
     ): String {
         val clock = SystemClock()
-        val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+        val coordinator = FixtureGoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
         storage.sessions.create("session", "Deletion kill fixture", null, null, clock.now().toEpochMilli())
         val id =
             coordinator.create(
