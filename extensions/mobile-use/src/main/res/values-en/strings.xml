@@ -15,4 +15,10 @@
     <string name="automation_notification_stop">Stop now</string>
     <string name="automation_all_applications">Whole phone (user authorized)</string>
     <string name="automation_revoke_failed">Could not finish disabling Mobile Use. Check the relevant conversation settings. Already dispatched actions may still be completing.</string>
+    <string name="mobile_overlay_approve">Approve once</string>
+    <string name="mobile_overlay_deny">Reject</string>
+    <string name="mobile_overlay_details">Show details</string>
+    <string name="mobile_overlay_collapse">Hide details</string>
+    <string name="mobile_overlay_view_chat">View chat</string>
+    <string name="mobile_overlay_request">Pending (%1$d) · %2$s</string>
 </resources>

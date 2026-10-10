@@ -247,6 +247,7 @@ class ChatService(
             strings,
             lanScopes,
             attachmentStaging.workspaceScopeId,
+            ::refreshBackgroundTasks,
         )
     }
     private val agentLoop by lazy {
@@ -316,6 +317,19 @@ class ChatService(
     private val dashboards by lazy {
         TaskDashboardProjection(storage, workScope, turnGate) { goalContinuation.hasHandoff }
     }
+    private val conversationViews =
+        java.util.concurrent.ConcurrentHashMap
+            .newKeySet<Any>()
+
+    val conversationVisible: Boolean get() = conversationViews.isNotEmpty()
+
+    /** A resumed screen owns only its display lease; closing it never stops a task. */
+    fun showConversation(): AutoCloseable {
+        val lease = Any()
+        conversationViews.add(lease)
+        return AutoCloseable { conversationViews.remove(lease) }
+    }
+
     val backgroundTasks: StateFlow<List<BackgroundTaskUi>> get() = dashboards.tasks
     internal val backgroundJobs get() = dashboards.jobs
     internal val backgroundJobAction get() = dashboards.jobActions.state
@@ -2937,6 +2951,15 @@ class ChatService(
 
     fun recoveryRetryNewCall(turnId: String) = turnRecovery.retryNewCall(turnId)
 
+    fun nativeApprovals(turnId: String) = toolCalls.nativeApprovals(turnId)
+
+    fun reviewNativeApproval(
+        sessionId: String,
+        turnId: String,
+        approvalId: String,
+        approve: Boolean,
+    ) = toolCalls.reviewNativeApproval(sessionId, turnId, approvalId, approve)
+
     fun approveApproval(approvalId: String) = toolCalls.approveApproval(approvalId)
 
     fun denyApproval(approvalId: String) = toolCalls.denyApproval(approvalId)
@@ -2944,7 +2967,8 @@ class ChatService(
     fun onApprovalCard(
         approvalId: String,
         request: ApprovalRequest,
-    ) = toolCalls.onApprovalCard(approvalId, request)
+    ): Pair<com.helix.tools.framework.ToolDescriptor, com.helix.extensions.plugin.PluginTaskIdentity> =
+        toolCalls.onApprovalCard(approvalId, request)
 
     fun dispatchToolCall(
         toolCallId: String,

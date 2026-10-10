@@ -12,6 +12,50 @@ class MobileUseOverlayStateTest {
     private val second = PluginTaskIdentity("conversation-b", "turn-b")
     private val active = PluginTaskSnapshot(TurnState.WAITING_MODEL)
 
+    @Test fun navigationAndForegroundVisibilityNeverStopOrRebindTheTask() {
+        val state = MobileUseOverlayState()
+        state.bind(first)
+        for (snapshot in listOf(active, PluginTaskSnapshot(TurnState.RUNNING_TOOL, true))) {
+            assertTrue(state.canNavigate(first))
+            assertFalse(state.canNavigate(second))
+            assertFalse(state.visible(first, snapshot, conversationVisible = true))
+            assertTrue(state.allowed())
+            assertTrue(state.visible(first, snapshot, conversationVisible = false))
+        }
+        assertTrue(state.takeOver(first))
+        assertFalse(state.allowed())
+        state.close()
+        assertFalse(state.canNavigate(first))
+    }
+
+    @Test fun approvalIsScopedToCurrentOwnerAndExactRequest() {
+        val state = MobileUseOverlayState()
+        state.bind(first)
+        val pending =
+            PluginTaskSnapshot(
+                TurnState.RUNNING_TOOL,
+                true,
+                listOf(
+                    com.helix.extensions.plugin
+                        .PluginTaskApproval("approval-a", "ui.click", "Click", "token"),
+                ),
+            )
+        assertTrue(state.canReview(first, pending, "approval-a"))
+        assertFalse(state.canReview(second, pending, "approval-a"))
+        assertFalse(state.canReview(first, pending, "approval-b"))
+        assertFalse(state.canReview(first, pending.copy(approvals = emptyList()), "approval-a"))
+        assertFalse(state.canReview(first, pending.copy(state = TurnState.CANCELLING), "approval-a"))
+        assertFalse(state.canReview(first, pending.copy(state = TurnState.COMPLETED), "approval-a"))
+        val hidden = state.suppress()
+        assertFalse(state.canReview(first, pending, "approval-a"))
+        state.release(hidden)
+        assertTrue(state.canReview(first, pending, "approval-a"))
+        state.takeOver(first)
+        assertFalse(state.canReview(first, pending, "approval-a"))
+        state.close()
+        assertFalse(state.canReview(first, pending, "approval-a"))
+    }
+
     @Test fun activeOwnerIsVisibleAndMissingHostTaskIsHidden() {
         val state = MobileUseOverlayState()
         assertTrue(state.bind(first))

@@ -911,7 +911,11 @@ internal class DefaultAppContainer(
             },
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
-            approvalCardSink.sink = it::onApprovalCard
+            val chat = it
+            approvalCardSink.sink = { approvalId, request ->
+                val (descriptor, task) = chat.onApprovalCard(approvalId, request)
+                pluginRegistry.presentApproval(descriptor, task)
+            }
             // HXA-066: keep the dataSync foreground service up only while a turn is actively
             // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
             appScope.launch {

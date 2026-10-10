@@ -23,7 +23,8 @@ class MobileUsePlugin(
     taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     private val overlayContext: (() -> Context?)? = null,
     private val enabled: () -> Boolean = { true },
-) : HelixPlugin {
+) : HelixPlugin,
+    com.helix.extensions.plugin.PluginApprovalPresentation {
     override val manifest: PluginManifest =
         context.assets.open(MANIFEST_ASSET).use { PluginManifestReader.parse(it.readBytes()) }
 
@@ -120,6 +121,10 @@ class MobileUsePlugin(
             ?: executor
 
     private val contracts by lazy { MobileUseToolContracts(tools().map { it.descriptor }) }
+
+    override fun showApproval(task: com.helix.extensions.plugin.PluginTaskIdentity) {
+        presentation?.showApproval(task)
+    }
 
     fun isAvailable(): Boolean = enabled()
 

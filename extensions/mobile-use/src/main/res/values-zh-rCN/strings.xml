@@ -15,4 +15,10 @@
     <string name="automation_notification_stop">立即停止</string>
     <string name="automation_all_applications">全手机（用户已授权）</string>
     <string name="automation_revoke_failed">关闭 Mobile Use 时遇到问题，请在对应会话设置中检查。已发出的操作可能仍在完成。</string>
+    <string name="mobile_overlay_approve">本次批准</string>
+    <string name="mobile_overlay_deny">拒绝</string>
+    <string name="mobile_overlay_details">查看详情</string>
+    <string name="mobile_overlay_collapse">收起详情</string>
+    <string name="mobile_overlay_view_chat">查看会话</string>
+    <string name="mobile_overlay_request">待审批（%1$d）· %2$s</string>
 </resources>

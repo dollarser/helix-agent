@@ -55,6 +55,7 @@ internal class ChatToolCalls(
     private val strings: (Int, Array<out Any>) -> String,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
     private val workspaceScopeId: String,
+    private val approvalChanged: () -> Unit,
 ) : AgentToolGateway {
     private val requests = ChatDispatchRequests(toolPipeline, liveHandles, lanScopes)
     private val timeline = ChatToolTimeline(screen, strings)
@@ -66,6 +67,30 @@ internal class ChatToolCalls(
     private val executionStartTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val pendingApprovals = PendingTurnApprovals()
+    private val nativeCards = NativeApprovalProjection()
+
+    fun nativeApprovals(turnId: String) = nativeCards.forTurn(turnId)
+
+    fun reviewNativeApproval(
+        sessionId: String,
+        turnId: String,
+        approvalId: String,
+        approve: Boolean,
+    ) {
+        workScope.launch {
+            val turn = storage.turns.resolve(turnId)
+            if (turn.sessionId != sessionId ||
+                turn.state != com.helix.core.model.TurnState.RUNNING_TOOL.name
+            ) {
+                return@launch
+            }
+            val card = nativeCards.forTurn(turnId).firstOrNull { it.approvalId == approvalId } ?: return@launch
+            val call = storage.toolCalls.byTurnAndCallId(turnId, nativeCards.callId(approvalId) ?: return@launch)
+            if (call?.state != ToolCallState.AWAITING_APPROVAL.name) return@launch
+            if (nativeCards.claim(turnId, card.approvalId) == null) return@launch
+            decideApproval(card.approvalId, if (approve) ApprovalDecision.APPROVED else ApprovalDecision.DENIED)
+        }
+    }
 
     private fun str(
         resId: Int,
@@ -73,10 +98,12 @@ internal class ChatToolCalls(
     ): String = strings(resId, args)
 
     fun cancelPendingApproval(turnId: String) {
+        nativeCards.finishTurn(turnId)
         pendingApprovals.forTurn(turnId).forEach { toolPipeline.broker.cancel(it) }
     }
 
     fun finishTurn(turnId: String) {
+        nativeCards.finishTurn(turnId)
         val callsForTurn = dispatchFacts.filterValues { it.turnId == turnId }.keys
         callsForTurn.forEach { executionStartTimes.remove(it) }
         dispatchFacts.values.removeIf { it.turnId == turnId }
@@ -104,6 +131,8 @@ internal class ChatToolCalls(
         workScope.launch {
             try {
                 toolPipeline.broker.decide(approvalId, decision)
+                nativeCards.remove(approvalId)
+                approvalChanged()
                 if (decision == ApprovalDecision.APPROVED) {
                     timeline.updateCard(approvalId) { it.copy(state = ApprovalCardState.APPROVED) }
                 } else {
@@ -118,6 +147,8 @@ internal class ChatToolCalls(
                 // A stale card (the record was already decided or the id is unknown): the
                 // repository's one-time guard throws — surface a stable card error, never a
                 // crash, never a silent no-op (the user's tap must be visible as handled).
+                nativeCards.remove(approvalId)
+                approvalChanged()
                 Log.e(TAG, "approval $approvalId could not be decided", e)
                 timeline.updateCard(approvalId) {
                     it.copy(
@@ -140,7 +171,7 @@ internal class ChatToolCalls(
     fun onApprovalCard(
         approvalId: String,
         request: ApprovalRequest,
-    ) {
+    ): Pair<ToolDescriptor, com.helix.extensions.plugin.PluginTaskIdentity> {
         val callId = request.binding.toolCallId
         val facts = dispatchFacts[callId]
         val descriptor = facts?.descriptor
@@ -171,6 +202,8 @@ internal class ChatToolCalls(
         storage.toolCalls
             .byTurnAndCallId(facts.turnId, callId)
             ?.let { row -> storage.toolCalls.updateState(row, ToolCallState.AWAITING_APPROVAL) }
+        nativeCards.register(facts.turnId, callId, card)
+        approvalChanged()
         // The stream path publishes a request row before the dispatch, so the card
         // attaches to it; a direct-dispatch caller (tests, future non-stream flows) has
         // no row yet — create one from the trusted facts. A card is NEVER dropped:
@@ -188,6 +221,9 @@ internal class ChatToolCalls(
                 card = card,
             )
         }
+        return descriptor to
+            com.helix.extensions.plugin
+                .PluginTaskIdentity(storage.turns.resolve(facts.turnId).sessionId, facts.turnId)
     }
 
     override fun prepareModelCalls(
@@ -304,6 +340,8 @@ internal class ChatToolCalls(
                             durationMs,
                         )
                     }
+                    nativeCards.finishCall(p.callId)
+                    approvalChanged()
                     observer.settled(p.callId, sideEffectUnknown = unknown)
                     if (unknown) reviewCallIds += p.callId
                 } catch (failure: Exception) {
@@ -525,23 +563,44 @@ internal class ChatToolCalls(
                     currentProfile,
                     mode,
                     chatToolsEnabled,
-                ).copy(bindingRef = bindingRef, bindingPinned = true, onExecutionStarting = {
-                    executionStartTimes[toolCallId] = clock.now().toEpochMilli()
-                    storage.toolCalls.updateState(row, ToolCallState.RUNNING)
-                    timeline.publishToolRow(
-                        turn.id,
-                        toolCallId,
-                        toolNameRaw,
-                        canonical,
-                        str(R.string.tool_state_running),
-                        null,
-                        null,
-                    )
-                })
+                ).copy(
+                    bindingRef = bindingRef,
+                    bindingPinned = true,
+                    onExecutionStarting = executionStarting(turn.id, toolCallId, row, toolNameRaw, canonical),
+                )
         dispatchFacts[toolCallId] =
-            DispatchFacts(descriptor, args, currentProfile, DataOrigin.WORKSPACE, turn.id, request.egress)
+            DispatchFacts(
+                descriptor,
+                args,
+                currentProfile,
+                request.dataOrigin,
+                turn.id,
+                request.egress,
+            )
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
     }
+
+    private fun executionStarting(
+        turnId: String,
+        toolCallId: String,
+        row: com.helix.core.storage.entity.ToolCallEntity,
+        toolNameRaw: String,
+        canonical: String,
+    ): () -> Unit =
+        {
+            executionStartTimes[toolCallId] = clock.now().toEpochMilli()
+            storage.toolCalls.updateState(row, ToolCallState.RUNNING)
+            approvalChanged()
+            timeline.publishToolRow(
+                turnId,
+                toolCallId,
+                toolNameRaw,
+                canonical,
+                str(R.string.tool_state_running),
+                null,
+                null,
+            )
+        }
 
     private fun recoveryEffectRejection(
         turn: com.helix.core.storage.entity.TurnEntity,

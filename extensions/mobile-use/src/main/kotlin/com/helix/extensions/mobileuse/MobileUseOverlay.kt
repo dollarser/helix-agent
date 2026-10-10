@@ -31,6 +31,10 @@ internal class MobileUseOverlay(
     private var closed = false
     private val tick = Runnable { render() }
 
+    fun showApproval(task: PluginTaskIdentity) {
+        if (state.bind(task)) handler.post { render() }
+    }
+
     override fun bind(call: ExecutableToolCall): Boolean {
         val conversation = call.sessionId
         val turn = call.turnId
@@ -62,17 +66,18 @@ internal class MobileUseOverlay(
             val source = if (available) surface() else null
             if (source !== windowContext) {
                 check(detach()) { "Overlay detach failed" }
-                windows = source?.let { MobileUseOverlayWindows(it, ::takeOver, ::returnToConversation) }
+                windows =
+                    source?.let { MobileUseOverlayWindows(it, ::takeOver, ::returnToConversation, ::reviewApproval) }
                 windowContext = source
             }
-            val visible = owner != null && source != null && state.visible(owner, snapshot)
+            val visible = owner != null && source != null && state.visible(owner, snapshot, host.conversationVisible)
             if (visible &&
                 !com.helix.extensions.mobileuse.automation.AutomationServiceController.physicalInput
                     .isOccupied()
             ) {
                 displayed = owner
                 val label = overlayLabel(state.allowed(), snapshot)
-                windows?.show(service.getString(label), !state.allowed())
+                windows?.show(service.getString(label), !state.allowed(), snapshot?.approvals.orEmpty())
             } else {
                 displayed = null
                 detach()
@@ -95,11 +100,21 @@ internal class MobileUseOverlay(
 
     private fun returnToConversation() {
         val owner = displayed ?: return
-        if (state.owner != owner) return
-        // Returning hands the screen back to the user; never race an automatic gesture.
-        if (state.takeOver(owner)) host.requestStop(owner)
+        if (!state.canNavigate(owner)) return
+        // Navigation does not change the original execution identity, approval or cancellation.
         host.openConversation(owner)
         render()
+    }
+
+    private fun reviewApproval(
+        approvalId: String,
+        approve: Boolean,
+    ) {
+        val owner = displayed?.takeIf { state.owner == it && state.allowed() } ?: return
+        if (state.canReview(owner, host.snapshot(owner), approvalId)) {
+            host.reviewApproval(owner, approvalId, approve)
+            render()
+        }
     }
 
     override fun hideForOperation(call: ExecutableToolCall): AutoCloseable? {

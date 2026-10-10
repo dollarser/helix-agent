@@ -44,6 +44,9 @@ class MobileUseOverlayDeviceTest {
     private val context = instrumentation.targetContext
     private val identity = PluginTaskIdentity("overlay-fixture-conversation", "overlay-fixture-turn")
     private val returned = AtomicReference<PluginTaskIdentity?>()
+    private val conversationVisible =
+        java.util.concurrent.atomic
+            .AtomicBoolean()
 
     @Test fun translucentStatusPassesTouchesAndPhysicalSuppressionRestoresPixels() {
         withOverlay { overlay, _ ->
@@ -131,15 +134,16 @@ class MobileUseOverlayDeviceTest {
         }
     }
 
-    @Test fun returningStopsOriginalTaskAndServiceCloseRemovesControls() {
+    @Test fun returningOnlyNavigatesAndServiceCloseRemovesControls() {
         withOverlay { overlay, stopped ->
             overlay.bind(call())
-            waitUntil { controlBounds(R.string.mobile_overlay_return) != null }
-            val bounds = requireNotNull(controlBounds(R.string.mobile_overlay_return))
+            waitUntil { controlBounds(R.string.mobile_overlay_view_chat) != null }
+            val bounds = requireNotNull(controlBounds(R.string.mobile_overlay_view_chat))
             shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
             waitUntil { returned.get() != null }
             assertEquals(identity, returned.get())
-            assertEquals(identity, stopped.get())
+            assertNull(stopped.get())
+            assertTrue(overlay.executionAllowed())
             overlay.close()
             waitUntil { !hasControl() }
             assertFalse(overlay.bind(call()))
@@ -165,6 +169,17 @@ class MobileUseOverlayDeviceTest {
             MobileUseOverlay(
                 app,
                 object : PluginTaskHost {
+                    override val conversationVisible: Boolean get() =
+                        this@MobileUseOverlayDeviceTest
+                            .conversationVisible
+                            .get()
+
+                    override fun reviewApproval(
+                        task: PluginTaskIdentity,
+                        approvalId: String,
+                        approve: Boolean,
+                    ) = Unit
+
                     override fun snapshot(task: PluginTaskIdentity) = PluginTaskSnapshot(TurnState.WAITING_MODEL)
 
                     override fun requestStop(task: PluginTaskIdentity) = Unit
@@ -186,7 +201,7 @@ class MobileUseOverlayDeviceTest {
             )
             assertEquals(
                 android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                MobileUseOverlayWindows(app, {}, {}).parameters(false).type,
+                MobileUseOverlayWindows(app, {}, {}, { _, _ -> }).parameters(false).type,
             )
             assertTrue(overlay.bind(call()))
             waitUntil { hasControl() }
@@ -209,6 +224,22 @@ class MobileUseOverlayDeviceTest {
         }
     }
 
+    @Test fun conversationVisibilityHidesAndRestoresWithoutStopping() {
+        withOverlay { overlay, stopped ->
+            overlay.bind(call())
+            waitUntil { hasControl() }
+            conversationVisible.set(true)
+            overlay.refreshSurface()
+            waitUntil { !hasControl() }
+            assertNull(stopped.get())
+            assertTrue(overlay.executionAllowed())
+            conversationVisible.set(false)
+            overlay.refreshSurface()
+            waitUntil { hasControl() }
+            assertNull(stopped.get())
+        }
+    }
+
     private fun withOverlay(block: (MobileUseOverlay, AtomicReference<PluginTaskIdentity?>) -> Unit) {
         val component = ComponentName(context, HelixAccessibilityService::class.java).flattenToString()
         val original = shell("settings get secure enabled_accessibility_services").trim()
@@ -220,6 +251,17 @@ class MobileUseOverlayDeviceTest {
             MobileUseOverlay(
                 service,
                 object : PluginTaskHost {
+                    override val conversationVisible: Boolean get() =
+                        this@MobileUseOverlayDeviceTest
+                            .conversationVisible
+                            .get()
+
+                    override fun reviewApproval(
+                        task: PluginTaskIdentity,
+                        approvalId: String,
+                        approve: Boolean,
+                    ) = Unit
+
                     override fun snapshot(task: PluginTaskIdentity) = PluginTaskSnapshot(TurnState.WAITING_MODEL)
 
                     override fun requestStop(task: PluginTaskIdentity) {

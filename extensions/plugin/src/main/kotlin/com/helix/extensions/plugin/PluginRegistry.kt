@@ -62,6 +62,22 @@ class PluginRegistry(
             }
         }
 
+    fun presentApproval(
+        descriptor: com.helix.tools.framework.ToolDescriptor,
+        task: PluginTaskIdentity,
+    ) {
+        val presentation =
+            synchronized(catalog.mutationLock) {
+                val origin = descriptor.origin as? ToolOrigin.PluginOrigin
+                if (origin == null || catalog.selectionId(task.conversationId, origin.pluginId) == null) {
+                    null
+                } else {
+                    runtime(descriptor) as? PluginApprovalPresentation
+                }
+            }
+        presentation?.showApproval(task)
+    }
+
     fun validateSelection(pluginId: String) {
         selectionError(pluginId)?.let { error(it) }
     }

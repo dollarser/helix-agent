@@ -18,6 +18,32 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun approvalPresentationRequiresTheSelectedCurrentNativePlugin() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        val shown = mutableListOf<PluginTaskIdentity>()
+        val native =
+            object : HelixPlugin by base, PluginApprovalPresentation {
+                override fun showApproval(task: PluginTaskIdentity) {
+                    shown += task
+                }
+            }
+        registry.register(native)
+        val descriptor = base.tools().single().descriptor
+        val original = PluginTaskIdentity("a", "turn-a")
+        registry.presentApproval(descriptor, original)
+        assertEquals(emptyList<PluginTaskIdentity>(), shown)
+        catalog.selections["a" to "fixture"] = "selection"
+        registry.presentApproval(descriptor, original)
+        assertEquals(listOf(original), shown)
+        registry.presentApproval(descriptor, PluginTaskIdentity("b", "turn-b"))
+        registry.presentApproval(descriptor.copy(description = "stale"), original)
+        registry.setEnabled("fixture", false)
+        registry.presentApproval(descriptor, original)
+        assertEquals(listOf(original), shown)
+    }
+
     @Test fun contextComesOnlyFromSelectedPublishedPlugins() {
         val catalog = MemoryNativePluginCatalog()
         val registry = PluginRegistry(ToolRegistry(), catalog)

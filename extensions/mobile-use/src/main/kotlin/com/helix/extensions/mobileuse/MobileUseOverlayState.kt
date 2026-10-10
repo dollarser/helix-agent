@@ -33,7 +33,20 @@ internal class MobileUseOverlayState {
     fun visible(
         task: PluginTaskIdentity,
         snapshot: PluginTaskSnapshot?,
-    ): Boolean = !closed && hidden.isEmpty() && owner == task && snapshot?.active == true
+        conversationVisible: Boolean = false,
+    ): Boolean = !conversationVisible && !closed && hidden.isEmpty() && owner == task && snapshot?.active == true
+
+    @Synchronized
+    fun canNavigate(expected: PluginTaskIdentity): Boolean = !closed && owner == expected
+
+    @Synchronized
+    fun canReview(
+        task: PluginTaskIdentity,
+        snapshot: PluginTaskSnapshot?,
+        approvalId: String,
+    ): Boolean =
+        visible(task, snapshot) && task !in stopped && snapshot?.state != com.helix.core.model.TurnState.CANCELLING &&
+            snapshot?.approvals?.any { it.id == approvalId } == true
 
     @Synchronized
     fun suppress(): Any = Any().also { hidden.add(it) }

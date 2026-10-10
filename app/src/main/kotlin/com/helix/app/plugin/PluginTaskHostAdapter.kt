@@ -15,13 +15,50 @@ internal class PluginTaskHostAdapter(
     private val context: Context,
     private val chat: () -> ChatService,
 ) : PluginTaskHost {
+    private var displayedCards = emptyList<com.helix.app.approval.ApprovalCardUi>()
+    private var displayedLocale = ""
+    private var displayedApprovals = emptyList<com.helix.extensions.plugin.PluginTaskApproval>()
+
+    @Synchronized
+    private fun display(
+        cards: List<com.helix.app.approval.ApprovalCardUi>,
+    ): List<com.helix.extensions.plugin.PluginTaskApproval> {
+        val locale =
+            context.resources.configuration.locales
+                .toLanguageTags()
+        if (cards != displayedCards || locale != displayedLocale) {
+            displayedApprovals = cards.map { NativeApprovalDisplay.map(context, it) }
+            displayedCards = cards
+            displayedLocale = locale
+        }
+        return displayedApprovals
+    }
+
     private fun task(identity: PluginTaskIdentity) =
         chat().backgroundTasks.value.singleOrNull {
             it.id == identity.turnId && it.sessionId == identity.conversationId
         }
 
+    override val conversationVisible: Boolean get() = chat().conversationVisible
+
     override fun snapshot(task: PluginTaskIdentity): PluginTaskSnapshot? =
-        task(task)?.let { PluginTaskSnapshot(it.state, it.awaitingApproval) }
+        task(task)?.let {
+            val cards = if (it.running) chat().nativeApprovals(task.turnId) else emptyList()
+            PluginTaskSnapshot(
+                it.state,
+                cards.isNotEmpty(),
+                display(cards),
+            )
+        }
+
+    override fun reviewApproval(
+        task: PluginTaskIdentity,
+        approvalId: String,
+        approve: Boolean,
+    ) {
+        val current = task(task)?.takeIf { it.running } ?: return
+        chat().reviewNativeApproval(current.sessionId, current.id, approvalId, approve)
+    }
 
     override fun requestStop(task: PluginTaskIdentity) {
         val current = task(task)?.takeIf { it.running } ?: return
