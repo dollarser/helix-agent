@@ -545,7 +545,7 @@ internal fun HelixApp(container: AppContainer) {
                         composable(SETTINGS_PERMISSIONS_ROUTE) {
                             PermissionsSafetyScreen(
                                 profileStore = container.profileStore,
-                                egressRules = container.storage.highSensitivityRules,
+                                egressRules = container.egressRules,
                                 lanScopeStore = container.lanScopeStore,
                                 sessionPermissionEdit = container.sessionPermissionEdit,
                                 toolPipeline = container.toolPipeline,

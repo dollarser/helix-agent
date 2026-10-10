@@ -99,6 +99,11 @@ internal class DefaultAppContainer(
     override val diagnosticReport = DiagnosticReportService(appContext as Application)
 
     override val storage: HelixStorage = HelixStorage.create(context)
+
+    override val egressRules by lazy {
+        com.helix.app.egress
+            .EgressRuleService(storage.highSensitivityRules)
+    }
     override val sessionExport =
         com.helix.app.export.SessionExportService(
             context,

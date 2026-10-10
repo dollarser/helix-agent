@@ -45,6 +45,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision history
 
+- 2026-10-10：HXA-255 将外发规则页面的精确目标/端点/固定期限校验与读写收敛到 EgressRuleService，界面消费窄读模型，不传递规则仓储。取消及致命错误传播；普通读取失败可重试，不冒充成功空列表或持续加载。已提交的授权写入不因随后读取/协程取消而声称回滚。Advanced入口、APP scope、固定TTL、PolicyEngine的live读取及逐次审批保持原owner和契约。
+
 - 2026-09-30：外发确认收敛为数据外发审批，复用工具审批动作组件；实际 Provider/endpoint、内容与附件哈希仍由原边界重新校验。统一的是授权交互，不合并不同授权对象或静默放行；变更目标/内容不能复用旧批准。
 
 - 2026-09-30：HXA-232 的 `helix.settings.apply` 将当前会话未来输入的模式、已有 Provider/模型及思考强度修改接入正常工具授权。它是 LOCAL_MUTATION，可信 footprint 为 DEVICE_SYSTEM_MUTATION，不使用 METADATA 豁免，Plan/Chat 不因此获得模式升级通路。执行时绑定当前 live Turn，重新检查取消、时限、配置可用性与排队输入；不能更改权限、QuickJS 原生开关、运行档位或凭据。旧 `propose` 仅保留页面导航；配置参数明确拒绝并指向 `apply`，不再工具返回成功后等待配置弹窗。数据外发保留原内容/目标绑定，和工具审批共用“本次批准/拒绝”交互。外发发生在模型调用前，继续由原外发准入服务负责，不伪造 ToolCall；两类授权 proof 不互换。

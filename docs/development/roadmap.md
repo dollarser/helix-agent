@@ -289,3 +289,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-252 | 已交付；API36 有界模型通过 | 通用工具发现提示与多任务对照 | [完成记录](../completion-records/HXA-252.md) |
 | HXA-253 | 已交付；151 项 host 通过 | 主机测试统一发现与漏测保护 | [完成记录](../completion-records/HXA-253.md) |
 | HXA-254 | 已交付；主机及 API36 双渠道各8项通过 | 项目会话实时读模型 | [完成记录](../completion-records/HXA-254.md) |
+| HXA-255 | 已交付；主机/API36双渠道通过 | 权限页面外发规则应用接口 | [完成记录](../completion-records/HXA-255.md) |

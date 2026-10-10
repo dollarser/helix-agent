@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
-import com.helix.app.egress.EgressRuleSection
+import com.helix.app.egress.EgressRuleService
+import com.helix.app.permissions.ui.EgressRuleSection
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ProotToolModule
@@ -37,7 +38,6 @@ import com.helix.app.tool.ToolPipeline
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SafetyProfile
-import com.helix.core.storage.repository.HighSensitivityRuleRepository
 
 /** General application preferences; agent defaults and storage have their own drawer entries. */
 @Composable
@@ -90,7 +90,7 @@ internal fun AppAgentDefaultsScreen(
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun PermissionsSafetyScreen(
     profileStore: SafetyProfileStore,
-    egressRules: HighSensitivityRuleRepository,
+    egressRules: EgressRuleService,
     lanScopeStore: com.helix.app.network.LanScopeStore?,
     sessionPermissionEdit: SessionPermissionEditService?,
     toolPipeline: ToolPipeline?,

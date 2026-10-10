@@ -58,6 +58,11 @@ interface AppContainer {
 
     val storage: HelixStorage
 
+    val egressRules: com.helix.app.egress.EgressRuleService
+        get() =
+            com.helix.app.egress
+                .EgressRuleService(storage.highSensitivityRules)
+
     val profileStore: SafetyProfileStore
     val lanScopeStore: com.helix.app.network.LanScopeStore
 

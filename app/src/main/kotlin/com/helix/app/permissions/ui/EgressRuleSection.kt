@@ -1,4 +1,4 @@
-package com.helix.app.egress
+package com.helix.app.permissions.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,19 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.helix.app.APP_SCOPE_ID
 import com.helix.app.R
-import com.helix.core.model.McpServerId
-import com.helix.core.model.ProviderId
-import com.helix.core.policy.EgressTarget
-import com.helix.core.policy.HighSensitivityRule
+import com.helix.app.egress.EgressRuleDraft
+import com.helix.app.egress.EgressRuleRow
+import com.helix.app.egress.EgressRuleService
 import com.helix.core.policy.RuleDuration
-import com.helix.core.policy.WorkspaceScope
-import com.helix.core.storage.repository.HighSensitivityRuleRepository
-import com.helix.core.storage.repository.StoredEgressRule
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -46,19 +39,19 @@ import java.time.format.DateTimeFormatter
  * This is the ONLY place rules are created (developer/Advanced build, ADVANCED profile); the
  * section is gated by the caller and never renders in consumer/Standard. A rule is bound to an
  * EXACT provider/MCP id + canonical origin + the app's scope + a fixed 1h/24h/7d/30d TTL — no
- * wildcard, no sliding renewal, no "allow all" (the value types reject wildcards at
- * construction and [HighSensitivityRule.withDuration] re-parses the origin fail-closed).
+ * wildcard, no sliding renewal, no "allow all". [EgressRuleService] owns validation and storage;
+ * this section owns only the draft and display/action state.
  *
- * Every Room call runs on [Dispatchers.IO] (HelixStorage does not allow main-thread queries).
+ * The application service runs storage on IO and propagates cancellation and fatal failures.
  * If the store cannot be read, the section shows the error and the per-call approval path is
  * unaffected — a missing/broken store can never silently widen what is auto-approved
  * (ADR-0012: 存储损坏 fail closed; [com.helix.core.policy.LiveEgressRules] is the engine-side gate).
  */
 @Composable
 @Suppress("FunctionName", "LongMethod") // composable (PascalCase per Compose) + one form/list body of UI layout
-fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
+fun EgressRuleSection(rules: EgressRuleService) {
     val scope = rememberCoroutineScope()
-    var rows by remember { mutableStateOf<List<StoredEgressRule>?>(null) }
+    var rows by remember(rules) { mutableStateOf<List<EgressRuleRow>?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var formError by remember { mutableStateOf<String?>(null) }
 
@@ -69,7 +62,8 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
     var ttl by remember { mutableStateOf(RuleDuration.DEFAULT) }
 
     suspend fun load() {
-        runCatching { withContext(Dispatchers.IO) { rules.all() } }
+        rules
+            .load()
             .fold(
                 onSuccess = {
                     rows = it
@@ -77,59 +71,41 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
                 },
                 onFailure = {
                     rows = null
-                    loadError = it.message
+                    loadError = it.egressMessage()
                 },
             )
     }
 
     fun create() {
         formError = null
-        // Fail-closed at the two seams the value types do not already cover: a blank/wildcard
-        // id is rejected by ProviderId/McpServerId at construction, and a non-canonical origin
-        // (non-http/https, userinfo, query, fragment) is rejected by NormalizedEndpoint.parse.
-        runCatching {
-            val target =
-                if (targetIsProvider) {
-                    EgressTarget.Provider(ProviderId(targetId))
-                } else {
-                    EgressTarget.Mcp(McpServerId(targetId))
-                }
-            HighSensitivityRule.withDuration(
-                target,
-                originUrl,
-                WorkspaceScope(APP_SCOPE_ID),
-                ttl,
-                Instant.now(),
+        val draft = EgressRuleDraft(targetIsProvider, targetId, originUrl, ttl)
+        scope.launch {
+            rules.create(draft).fold(
+                onSuccess = {
+                    // Preserve edits made while IO was in flight.
+                    if (targetId == draft.targetId && originUrl == draft.origin && targetIsProvider == draft.provider) {
+                        targetId = ""
+                        originUrl = ""
+                    }
+                    load()
+                },
+                onFailure = { formError = it.egressMessage() },
             )
-        }.fold(
-            onSuccess = { rule ->
-                scope.launch {
-                    runCatching { withContext(Dispatchers.IO) { rules.save(rule) } }
-                        .fold(
-                            onSuccess = {
-                                targetId = ""
-                                originUrl = ""
-                                load()
-                            },
-                            onFailure = { formError = it.message },
-                        )
-                }
-            },
-            onFailure = { formError = it.message },
-        )
+        }
     }
 
     fun revoke(id: String) {
         scope.launch {
-            runCatching { withContext(Dispatchers.IO) { rules.revoke(id) } }
+            rules
+                .revoke(id)
                 .fold(
                     onSuccess = { load() },
-                    onFailure = { loadError = it.message },
+                    onFailure = { loadError = it.egressMessage() },
                 )
         }
     }
 
-    LaunchedEffect(Unit) { load() }
+    LaunchedEffect(rules) { load() }
 
     Column(
         modifier =
@@ -207,6 +183,9 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("egress-load-error"),
                 )
+                TextButton({ scope.launch { load() } }, modifier = Modifier.testTag("egress-retry")) {
+                    Text(stringResource(R.string.chat_retry))
+                }
             }
 
             current == null -> {
@@ -236,22 +215,14 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
 @Composable
 @Suppress("FunctionName") // composable (PascalCase per Compose)
 private fun RuleRow(
-    stored: StoredEgressRule,
+    stored: EgressRuleRow,
     onRevoke: () -> Unit,
 ) {
-    val rule = stored.rule
-    val target = rule.target
-    val targetId =
-        when (target) {
-            is EgressTarget.Provider -> "provider:${target.id.value}"
-            is EgressTarget.Mcp -> "mcp:${target.id.value}"
-            is EgressTarget.A2a -> "a2a:${target.id.value}"
-        }
     val windowEnd =
-        rule.expiresAt
+        stored.expiresAt
             .atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-    val expired = !Instant.now().isBefore(rule.expiresAt)
+    val expired = !Instant.now().isBefore(stored.expiresAt)
     Row(
         modifier =
             Modifier
@@ -265,16 +236,16 @@ private fun RuleRow(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                targetId,
+                stored.target,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.testTag("egress-rule-target"),
             )
             Text(
                 stringResource(
                     R.string.egress_rule_detail,
-                    rule.origin.origin,
-                    rule.dataCategory.name,
-                    rule.scope.toScopeRef(),
+                    stored.origin,
+                    stored.category,
+                    stored.scope,
                     windowEnd,
                     if (expired) stringResource(R.string.egress_rule_expired) else "",
                 ),
@@ -317,3 +288,5 @@ private fun ttlRes(duration: RuleDuration): Int =
         RuleDuration.DAYS_7 -> R.string.egress_ttl_days_7
         RuleDuration.DAYS_30 -> R.string.egress_ttl_days_30
     }
+
+private fun Throwable.egressMessage(): String = message ?: javaClass.simpleName

@@ -48,6 +48,8 @@
 
 ## Completed
 
+2026-10-10：[HXA-255](../completion-records/HXA-255.md)权限页经EgressRuleService读写，窄行模型与精确目标/固定TTL校验，取消/致命错误传播、无message读取失败可重试，旧提交不清空新草稿；移动页面到permissions/ui。新JVM5项每渠道、主机/两渠道Debug lint与制品通过；API36 Developer4/4、Consumer3/3（均含实际拼音）通过。[本轮证据](../evidence/development/egress-application-interface-2026-10-10.md)保留夹具断言失败，日常APK/数据库未动；继续测试桥和ChatService职责整理。
+
 2026-10-10：[HXA-254](../completion-records/HXA-254.md)项目会话页面消费窄读模型，Room 驱动外部重命名、归档/恢复及新候选实时刷新；读取失败可重试，切换/归档清理加入模式，原归属与活动 Turn 保护保持。默认构建主机及两渠道 Debug lint/制品通过，API36 Consumer/Developer各8项（含真实拼音）通过；[本轮证据](../evidence/development/project-session-readmodel-2026-10-10.md)保留两次输入夹具失败及端口启动拒绝。日常APK/数据库未动，未调用模型或关闭真机卡顿/黑屏边界。
 
 2026-10-10：[HXA-253](../completion-records/HXA-253.md)统一 host fixture discovery，补齐五套漏测入口并拒绝空/全跳过/导入/断言失败；151 项回归及 source gates 通过。没有删除旧测试或在 CI 启动设备。
@@ -92,7 +94,7 @@
 
 ## Next task
 
-2026-10-10 架构审查后续按小切片推进，依据[系统/测试审查](../research/topics/architecture-and-test-maintenance-audit-2026-10-10.md)。HXA-253 已解决主机 fixture 漏测，HXA-254 收敛项目会话展示。下一步优先将权限页面的仓储访问放回应用服务，并逐类迁移 TurnCoordinator 的 fixture-only 桥，保留原取消、UNKNOWN、权限及恢复断言；随后迁移 ChatService 的输入/附件或界面投影完整 owner，不按行数拆文件或建立第二套队列。历史脚本只按路径级引用与唯一证据核对清理；大列表/长会话性能及真机卡顿黑屏另需可复现测量，不能由结构变化推导改善。
+2026-10-10 架构审查后续按小切片推进，依据[系统/测试审查](../research/topics/architecture-and-test-maintenance-audit-2026-10-10.md)。HXA-253 已解决主机 fixture 漏测，HXA-254 收敛项目会话展示，HXA-255 完成权限页应用接口。下一步逐类迁移 TurnCoordinator 的 fixture-only 桥，保留原取消、UNKNOWN、权限及恢复断言；随后迁移 ChatService 的输入/附件或界面投影完整 owner，不按行数拆文件或建立第二套队列。历史脚本只按路径级引用与唯一证据核对清理；大列表/长会话性能及真机卡顿黑屏另需可复现测量，不能由结构变化推导改善。
 
 上方 main 本地整合及授权回归已收敛；v0.0.5 发布仍遵循精确提交 CI 成功后生成制品的门禁。下表保留后续开发路线；本次只关闭实际执行并有证据的验证项，不自动宣称完成全部 HXA/OEM/真实账号验收。
 

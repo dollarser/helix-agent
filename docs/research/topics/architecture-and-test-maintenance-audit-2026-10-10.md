@@ -70,9 +70,9 @@ flowchart TD
 
 ### B. 整理 UI 数据接口和文件归属（高价值，适合先做小切片）
 
-[`EgressRuleSection.kt`](../../../app/src/main/kotlin/com/helix/app/egress/EgressRuleSection.kt) 接收 `HighSensitivityRuleRepository`，在 Composable 内构造授权规则并读/存/撤销；`SettingsScreen` 和 `MainActivity` 沿链传递仓储。它实际使用 `Dispatchers.IO`，不能把它描述为已证实的主线程数据库阻塞或直接 DAO 访问。问题是页面同时承担业务校验与持久操作编排，测试和变更边界不清晰。
+审查时 `EgressRuleSection.kt` 接收 `HighSensitivityRuleRepository`，在 Composable 内构造授权规则并读/存/撤销；`SettingsScreen` 和 `MainActivity` 沿链传递仓储。它实际使用 `Dispatchers.IO`，不能把它描述为已证实的主线程数据库阻塞或直接 DAO 访问。问题是页面同时承担业务校验与持久操作编排，测试和变更边界不清晰。HXA-255 的迁移入口为当前 [`permissions/ui/EgressRuleSection.kt`](../../../app/src/main/kotlin/com/helix/app/permissions/ui/EgressRuleSection.kt)，验收状态以 status 为准。
 
-[`ProjectSessions.kt`](../../../app/src/main/kotlin/com/helix/app/ui/ProjectSessions.kt) 已通过 `ProjectService` 操作，但显示状态仍是 `List<SessionEntity>`，泄露 Room 层类型。建议提供必要字段组成的会话读模型；权限页面通过应用 service/state/action 接口保留 fail-closed 校验、错误反馈和取消语义。
+审查时 [`ProjectSessions.kt`](../../../app/src/main/kotlin/com/helix/app/ui/ProjectSessions.kt) 已通过 `ProjectService` 操作，但显示状态仍是 `List<SessionEntity>`，泄露 Room 层类型。建议提供必要字段组成的会话读模型；权限页面通过应用 service/state/action 接口保留 fail-closed 校验、错误反馈和取消语义。
 
 文件布局先在现有 app 模块内按功能归属 `chat/ui`、`projects/ui`、`permissions/ui`、`provider/ui`、`extensions/ui`；把通用布局留在共享 UI 包。这是目标示例，不要求一次性重命名所有文件，也不新建几十个 Gradle 模块。迁移检查内部可见性、字符串/Compose testTag、导航和 consumer/developer 调用者。禁止把重排目录说成性能修复。
 
@@ -84,7 +84,7 @@ flowchart TD
 
 ### D. 对齐 Python host 测试入口（优先、风险低）
 
-[`check-all.sh`](../../../scripts/check-all.sh) 的 source gate 当前逐项枚举测试文件，CI 的 `test_ci_*.py` 另行 discovery。18 个 `scripts/tests/test_*.py` 中以下 5 个没有被此入口选中，限定检查 `.github`、`scripts/ci`、开发文档和稳定脚本说明也未发现额外明确选中入口：
+审查基线中 [`check-all.sh`](../../../scripts/check-all.sh) 的 source gate 逐项枚举测试文件，CI 的 `test_ci_*.py` 另行 discovery。18 个 `scripts/tests/test_*.py` 中以下 5 个没有被此入口选中，限定检查 `.github`、`scripts/ci`、开发文档和稳定脚本说明也未发现额外明确选中入口：
 
 - `test_public_oauth.py`：扫描豁免只允许精确声明。
 - `test_export_codex_mcp.py`：导出脱敏、非法 TOML/大小边界。
