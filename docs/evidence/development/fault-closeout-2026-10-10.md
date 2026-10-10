@@ -10,7 +10,7 @@ main九类为PinyinComposer、TurnCancellationRace、SessionInputQueue、GoalMod
 
 失败与修复：原Consumer42/42及追加协议通过；原Developer四项失败，独立10项队列/Pinyin再现四失败。在仍存活的自有实例读取合成Room事实，原Turn FAILED/OUTPUT_TOKEN_LIMIT，turnBudgetsJson的maxOutputTokens=1；这是正向夹具继承旧负向预算，当前生产默认16384未改。两项完成断言失败，两项Steer因额外恢复Turn失败。修正只使自有正向Session使用TurnBudgetBounds.DEFAULT并等待持久设置，finally恢复先前预算；原完成/原身份/无重放断言完整保留，负向预算测试未弱化。
 
-首次修正全仓门禁发现fixture LongMethod 63>60；提取原初始化步骤为helper，未增加静态抑制。错误地在未核实门禁终态前启动的Consumer r2被限定PID检查后取消，未运行测试，owned finally正常关闭；保留为cancelled，不计pass。最终重新冻结r3后双渠道全部通过。fresh全仓test/detekt/spotlessCheck/双渠道lint/App和AndroidTest编译：47秒、993任务（32执行），退出0。source门禁独立重新执行，结果随最终提交记录。
+首次修正全仓门禁发现fixture LongMethod 63>60；提取原初始化步骤为helper，未增加静态抑制。错误地在未核实门禁终态前启动的Consumer r2被限定PID检查后取消，未运行测试，owned finally正常关闭；保留为cancelled，不计pass。最终重新冻结r3后双渠道全部通过。fresh全仓test/detekt/spotlessCheck/双渠道lint/App和AndroidTest编译：47秒、993任务（32执行），退出0。source门禁独立重新执行退出0：165项host、799份Markdown/247项HXA、36项ADR、国际化与秘密扫描通过；日志fault-closeout-source.log。
 
 冻结基础39ab176b，队列fixture SHA-256 edd4caed4c78b69fa56cb7e45ed37351b58cdf4f566617f0127b8b034896c69a：
 

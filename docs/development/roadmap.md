@@ -302,3 +302,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-263 | 有界本地交付 | 自有设备测试日志完整采集 | [完成记录](../completion-records/HXA-263.md) |
 
 | HXA-264 | 有界本地交付 | 停止与恢复组合本地收尾 | [完成记录](../completion-records/HXA-264.md) |
+
+| HXA-265 | 有界本地交付 | 双渠道有界资源稳定性收尾 | [完成记录](../completion-records/HXA-265.md) |

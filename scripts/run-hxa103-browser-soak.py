@@ -68,8 +68,21 @@ GATES = {"FD": 8, "thread": 16, "PSS": 96 * 1024}
 SAMPLING_INTERVAL = 30      # host app-process sampling tick (seconds)
 WATCHDOG_GAP_MAX = 90       # host suspended / sampling gap -> INFRA_INTERRUPTED
 TIMEOUT_SLACK = 180         # instrumentation must finish within duration + slack
-CASES_PER_CYCLE = 7         # the fixture asserts runCount == 7 per cycle (no skip)
+CASES_PER_CYCLE = 8         # one Room, six foreground-service, one Activity case; no skip
 BASELINE_WARMUP_CYCLES = 1  # the fixture runs one runCycle() before the measured loop
+
+
+def workload_identity(workload, flavor="consumer"):
+    """Resolve explicit channel identity without changing shared workload definitions."""
+    if flavor not in ("consumer", "developer"):
+        raise ValueError("unknown app flavor")
+    if workload == "browser" and flavor != "consumer":
+        raise ValueError("browser is an independent library fixture, not a Developer app")
+    identity = dict(WORKLOADS[workload])
+    if workload == "app" and flavor == "developer":
+        identity["measure_pkg"] = "com.helix.agent.developer"
+        identity["component"] = "com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner"
+    return identity
 
 
 def classify(ev):
@@ -149,7 +162,7 @@ def classify(ev):
 class Soak:
     def __init__(self, args):
         self.args = args
-        self.wl = WORKLOADS[args.workload]
+        self.wl = workload_identity(args.workload, getattr(args, "flavor", "consumer"))
         self.test_pkg = self.wl["component"].split("/", 1)[0]
         self.base = [args.adb, "-s", args.serial]
         self.out = args.output
@@ -200,7 +213,8 @@ class Soak:
         api = self.shell("getprop", "ro.build.version.sdk").strip()
         ident = {
             "preset": self.args.preset, "runId": self.args.run_id, "serial": self.args.serial,
-            "workload": self.args.workload, "seconds": self.seconds,
+            "workload": self.args.workload, "flavor": getattr(self.args, "flavor", "consumer"),
+            "seconds": self.seconds,
             "avd": self.shell_ok("getprop", "ro.boot.qemu.avd_name"),
             "api": api,
             "release": self.shell("getprop", "ro.build.version.release").strip(),
@@ -361,8 +375,8 @@ class Soak:
                 cat_fh.close()
             except Exception:
                 pass
-            self.finalize(elapsed, infra, (self.out / "instrumentation.log"))
-        return 0
+            result_code = self.finalize(elapsed, infra, (self.out / "instrumentation.log"))
+        return result_code
 
     # ---- §5.4 forensics-first finalize -------------------------------------
     def finalize(self, elapsed, infra, inst_path):
@@ -391,14 +405,18 @@ class Soak:
         }
         state, note, attribution = classify(ev)
         eff_pids = lc["fixturePids"] or self.host_pids
+        # Count only completed, observed app cycles. A failed warmup is not eight passes;
+        # the independent browser loop does not run the app's nested JUnit suite.
+        app_cycles = self.args.workload == "app"
+        warmup_cycles = BASELINE_WARMUP_CYCLES if app_cycles and lc["cycles"] is not None else 0
         result = {
             **self.identity,
             "state": state, "note": note, "attribution": attribution,
             "elapsedSeconds": round(elapsed, 1),
             "cycles": lc["cycles"],
-            "baselineWarmupCycles": BASELINE_WARMUP_CYCLES,
-            "casesPerCycle": CASES_PER_CYCLE,
-            "totalNestedCases": ((lc["cycles"] or 0) + BASELINE_WARMUP_CYCLES) * CASES_PER_CYCLE,
+            "baselineWarmupCycles": warmup_cycles,
+            "casesPerCycle": CASES_PER_CYCLE if app_cycles else None,
+            "totalNestedCases": ((lc["cycles"] or 0) + warmup_cycles) * CASES_PER_CYCLE if app_cycles else None,
             "singlePid": len(eff_pids) == 1,
             "fixturePids": sorted(lc["fixturePids"]),
             "hostPids": sorted(self.host_pids),
@@ -423,6 +441,7 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("serial", help="dedicated emulator serial (emulator-NNNN)")
     parser.add_argument("--workload", choices=["app", "browser"], default="app")
+    parser.add_argument("--flavor", choices=["consumer", "developer"], default="consumer")
     parser.add_argument("--preset", choices=list(PRESETS), default="pilot",
                         help="pilot=900s / precheck=7200s / p24h=86400s (default pilot)")
     parser.add_argument("--seconds", type=int, default=None,
@@ -443,6 +462,8 @@ def main():
         parser.error("requires an explicit dedicated emulator serial (emulator-NNNN)")
     if args.observe_breaches and args.workload != "app":
         parser.error("--observe-breaches is available only for the app workload")
+    if args.workload == "browser" and args.flavor != "consumer":
+        parser.error("browser is an independent library fixture, not a Developer app")
     seconds = args.seconds if args.seconds is not None else PRESETS[args.preset]
     if not 60 <= seconds <= 86400:
         parser.error("--seconds must be in 60..86400")

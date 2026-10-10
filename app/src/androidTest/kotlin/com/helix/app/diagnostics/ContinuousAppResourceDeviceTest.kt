@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.ProductionStorageBaselineDeviceTest
 import com.helix.app.foreground.DataSyncForegroundServiceDeviceTest
 import com.helix.app.runcontrol.AndroidResourceGateDeviceTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -167,7 +168,8 @@ class ContinuousAppResourceDeviceTest {
                 AndroidResourceGateDeviceTest::class.java,
             )
         assertTrue("nested fixtures failed: ${result.failures}", result.wasSuccessful())
-        assertTrue("nested fixtures must execute all seven cases", result.runCount == 7)
+        // One Room baseline, six foreground-service cases and one Activity resource case.
+        assertEquals("nested fixtures must execute all eight cases", 8, result.runCount)
         assertTrue("nested fixtures must not skip", result.ignoreCount == 0 && result.assumptionFailureCount == 0)
         // ActivityScenario close precedes RenderThread fence/buffer cleanup on the emulator.
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()

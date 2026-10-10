@@ -34,7 +34,8 @@ snapshots; retries create a new process and a new output directory.
 
 For explicitly configured live fixtures, `--reverse-port PORT` forwards only on the
 owned emulator, and repeatable `--instrument-arg KEY=VALUE` supplies test arguments.
-Each run also captures bounded TestRunner/System.out logcat evidence. Live model
+Each run also streams filtered TestRunner/System.out logcat evidence from before instrumentation.
+The stream retains early events rather than taking only a terminal fixed-size tail. Live model
 tests use synthetic history and never read the phone's provider or conversations.
 
 HXA-177 one-off implementation scripts in `2026-09-09/` are retained for provenance,
