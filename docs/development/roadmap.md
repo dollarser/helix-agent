@@ -300,3 +300,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-262 | 有界本地交付 | 页面迁移与真实模型连续压缩补验 | [完成记录](../completion-records/HXA-262.md) |
 
 | HXA-263 | 有界本地交付 | 自有设备测试日志完整采集 | [完成记录](../completion-records/HXA-263.md) |
+
+| HXA-264 | 有界本地交付 | 停止与恢复组合本地收尾 | [完成记录](../completion-records/HXA-264.md) |

@@ -339,7 +339,11 @@ class SessionInputQueueDeviceTest {
                         !chat.screen.value.isSending
                 }
                 val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
-                assertEquals("COMPLETED", storage.turns.resolve(firstTurn).state)
+                assertEquals(
+                    storage.turns.resolve(firstTurn).errorCode,
+                    "COMPLETED",
+                    storage.turns.resolve(firstTurn).state,
+                )
                 assertEquals("INPUT_REVALIDATION_FAILED", parked.blockedReason)
                 assertRecoveryEnded(storage, parked)
                 assertEquals(queued.text, storage.sessionInputs.readText(parked))
@@ -391,7 +395,11 @@ class SessionInputQueueDeviceTest {
                         !chat.screen.value.isSending
                 }
                 val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
-                assertEquals("COMPLETED", storage.turns.resolve(firstTurn).state)
+                assertEquals(
+                    storage.turns.resolve(firstTurn).errorCode,
+                    "COMPLETED",
+                    storage.turns.resolve(firstTurn).state,
+                )
                 assertEquals("INPUT_REVALIDATION_FAILED", parked.blockedReason)
                 assertRecoveryEnded(storage, parked)
                 assertEquals(queued.text, storage.sessionInputs.readText(parked))
@@ -441,6 +449,7 @@ class SessionInputQueueDeviceTest {
         compose.resetDeterministicUiState()
         val container = compose.container()
         val chat = container.chatService
+        val previous = chat.runControl.value
         LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
             server.start()
             val provider =
@@ -471,18 +480,42 @@ class SessionInputQueueDeviceTest {
                     }
                     textAnswerStream("fixture answer")
                 }
-                chat.openSession(session)
+                openQueueFixture(chat, session)
                 block(chat, session, entered, release, requests)
             } finally {
                 release.countDown()
+                println(
+                    "QUEUE_FIXTURE_TERMINAL=${container.storage.turns.listBySession(
+                        session,
+                    ).map { it.state to it.errorCode }}",
+                )
                 container.storage.turns
                     .listBySession(session)
                     .forEach { chat.stopTurn(it.id) }
                 compose.waitUntil(10_000) { !chat.screen.value.isSending }
                 chat.closeSession()
+                chat.setTurnBudgets(previous.budgets)
                 container.storage.sessions.archive(session, System.currentTimeMillis())
                 container.providerService.delete(provider)
             }
+        }
+    }
+
+    private fun openQueueFixture(
+        chat: ChatService,
+        session: String,
+    ) {
+        chat.openSession(session)
+        // Queue/Steer success must not inherit another fixture's one-token negative budget.
+        val budgets = com.helix.core.agent.TurnBudgetBounds.DEFAULT
+        chat.setTurnBudgets(budgets)
+        compose.waitUntil(10_000) {
+            chat.screen.value.openSessionId == session &&
+                compose
+                    .container()
+                    .storage.sessionRunControls
+                    .forSession(session)
+                    ?.budgets == budgets
         }
     }
 }
