@@ -159,6 +159,6 @@ flowchart TD
 | C 生产测试桥 | [HXA-256](../../completion-records/HXA-256.md)：32文件原163项保留，桥仅在AndroidTest，真实Engine/clock/ID保持；双渠道原受影响回归与真实进程恢复有限交付 | 不把此次范围称所有设备或完整产品验收 |
 | A 会话应用层 | [HXA-257](../../completion-records/HXA-257.md)已交付目录/搜索、原draft与附件锁、任务面板完整状态owner及历史页窄接口；[HXA-258](../../completion-records/HXA-258.md)集中元数据与模型默认原子事务 | ChatService尚未成为最终薄facade；不凭行数继续拆文件，不将职责收敛称性能收益 |
 | D 历史路径整理 | [HXA-260](../../completion-records/HXA-260.md)删除一份失效编辑器并保存Git来源/哈希/恢复指针；仍被引用的shim和独有协议保留，两个实际入口路径修正 | 不推导所有日期目录均已逐文件审计，不批量清目录 |
-| E 大类/构建与性能 | HXA-260逐项核对构建及Dispatcher/PRoot/产物/Provider，保留已有状态owner；修正取消容量说明 | 大列表/长会话和启动仍需有界测量，真机黑屏缺实体设备；条件评估不称已测性能收益 |
+| E 大类/构建与性能 | HXA-260逐项核对构建及Dispatcher/PRoot/产物/Provider，保留已有状态owner；修正取消容量说明；[HXA-261](../../development/tasks/HXA-261.md)准备有界性能夹具与采集 | 实际大列表/长会话和启动测量设备not requested；真机黑屏缺实体设备，条件评估/编译不称已测性能收益 |
 
 最新通过、失败尝试、制品身份及边界以各HXA证据为准；后续用例按已批准DSH契约更新旧累计预算断言，不删除用量、取消、权限或256轮验证。
