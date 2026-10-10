@@ -296,3 +296,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-259 | 主机交付；设备not requested | 项目与模型页面功能归属 | [完成记录](../completion-records/HXA-259.md) |
 | HXA-260 | 主机交付；设备not requested | 历史入口与复杂边界维护 | [完成记录](../completion-records/HXA-260.md) |
 | HXA-261 | 有界本地交付 | 有界会话性能对照 | [完成记录](../completion-records/HXA-261.md) |
+
+| HXA-262 | 有界本地交付 | 页面迁移与真实模型连续压缩补验 | [完成记录](../completion-records/HXA-262.md) |

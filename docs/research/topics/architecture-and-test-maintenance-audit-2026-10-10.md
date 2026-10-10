@@ -155,7 +155,7 @@ flowchart TD
 | 建议 | 当前承接 | 仍开放的部分 |
 | --- | --- | --- |
 | D 主机入口 | [HXA-253](../../completion-records/HXA-253.md)统一发现、防空/漏测；HXA-256之后153项host回归 | 原独立断言保留，没有按日期删除测试 |
-| B 项目及权限应用接口 | [HXA-254](../../completion-records/HXA-254.md)项目会话读模型；[HXA-255](../../completion-records/HXA-255.md)外发规则应用服务及permissions/ui；[HXA-259](../../completion-records/HXA-259.md)22个项目/Provider页面按功能包归属、主机通过 | 本轮目录迁移设备not requested；不把编译或旧设备结果当本轮页面验收 |
+| B 项目及权限应用接口 | [HXA-254](../../completion-records/HXA-254.md)项目会话读模型；[HXA-255](../../completion-records/HXA-255.md)外发规则应用服务及permissions/ui；[HXA-259](../../completion-records/HXA-259.md)22个项目/Provider页面按功能包归属、主机通过 | [HXA-262](../../completion-records/HXA-262.md)本轮API36双渠道页面各17/17；其他OEM/IME和全产品范围不由此关闭 |
 | C 生产测试桥 | [HXA-256](../../completion-records/HXA-256.md)：32文件原163项保留，桥仅在AndroidTest，真实Engine/clock/ID保持；双渠道原受影响回归与真实进程恢复有限交付 | 不把此次范围称所有设备或完整产品验收 |
 | A 会话应用层 | [HXA-257](../../completion-records/HXA-257.md)已交付目录/搜索、原draft与附件锁、任务面板完整状态owner及历史页窄接口；[HXA-258](../../completion-records/HXA-258.md)集中元数据与模型默认原子事务 | ChatService尚未成为最终薄facade；不凭行数继续拆文件，不将职责收敛称性能收益 |
 | D 历史路径整理 | [HXA-260](../../completion-records/HXA-260.md)删除一份失效编辑器并保存Git来源/哈希/恢复指针；仍被引用的shim和独有协议保留，两个实际入口路径修正 | 不推导所有日期目录均已逐文件审计，不批量清目录 |
