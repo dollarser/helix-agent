@@ -78,7 +78,7 @@
 
 ## In progress
 
-- [HXA-259](../completion-records/HXA-259.md)主机交付：项目与Provider的22个页面/表单按功能包归属，原行为与断言保留；全仓主机及双渠道制品编译通过，[证据](../evidence/development/feature-ui-ownership-2026-10-10.md)保留失败尝试。本轮设备not requested，随后继续路径级留存、复杂类/构建取舍与性能验证准备。
+- [HXA-260](../completion-records/HXA-260.md)主机交付：历史入口逐项清理、复杂类/构建条件评估及历史截断证据复核；[证据](../evidence/development/maintenance-boundaries-2026-10-10.md)保留删除来源和仍未知的历史截断。HXA-259页面归属已主机交付；随后准备性能对照，本轮设备/真实模型not requested。
 
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 

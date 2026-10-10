@@ -42,8 +42,8 @@ not supported migrations to rerun. `run-owned-emulator.py` is the reusable runne
 `hxa177-*` output folders contain failed and successful frozen attempts separately.
 
 HXA-179/180/181 extraction, wiring, formatting and documentation-edit scripts are
-one-off provenance, not repeatable migrations. Use `run-chat-responsibility-regression.sh`
-and `run-manual-files-regression.sh` for their device suites, and choose a fresh output
+one-off provenance, not repeatable migrations. Use `scripts/debug/2026-09-09/run-chat-responsibility-regression.sh`
+and `scripts/debug/2026-09-09/run-manual-files-regression.sh` for their device suites, and choose a fresh output
 folder. The manual file suite uses `--grant-shared-storage` before instrumentation:
 changing that permission from inside a running test can terminate its process.
 Failed runs additionally retain synthetic-device logcat and a UI hierarchy dump.

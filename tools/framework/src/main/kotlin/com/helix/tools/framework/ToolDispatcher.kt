@@ -130,7 +130,8 @@ const val MAX_ATTEMPTS_HARD_CAP = 2
  * 5. **timeout/cancel** — a cancel signal set before start stops the dispatch with zero
  *    side effects; the deadline is the descriptor's hard timeout passed to the executor AND
  *    enforced by the dispatcher: an executor that does not return by its deadline settles
- *    as the stable TIMEOUT (its blocked thread is interrupted best-effort and abandoned);
+ *    as the stable TIMEOUT. Its thread is interrupted best-effort; physical capacity remains
+ *    occupied until the executor actually exits, even if it ignores the interrupt;
  * 6. **execute** — the registered implementation; the approval proof, if any, is consumed
  *    exactly when execution STARTS (the authorization is spent the moment the effect
  *    begins; a cancelled-before-start call never spends it);
