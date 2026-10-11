@@ -25,6 +25,7 @@ fun PluginRegistry.executionContext(
 fun PluginRegistry.instructions(
     repository: com.helix.extensions.skills.SkillRepository,
     sessionId: String,
+    turnId: String? = null,
 ): String? =
     skillDocuments(sessionId)
         .map {
@@ -33,8 +34,17 @@ fun PluginRegistry.instructions(
                     .SkillKey(entry.source, entry.name, entry.contentHash)
             }
         }.distinct()
-        .filter { key -> repository.list(sessionId).any { it.key == key && it.enabled } }
-        .joinToString("\n\n") { repository.read(it, sessionId).body }
+        .filter { key -> repository.listForModel(sessionId, turnId).any { it.key == key && it.enabled } }
+        .map { repository.read(it, sessionId, turnId).body }
+        .plus(
+            turnId
+                ?.let {
+                    repository.activatedContent(sessionId, it).map { (document, arguments) ->
+                        "${document.body}\n\n[USER SKILL ARGUMENTS]\n$arguments\n[/USER SKILL ARGUMENTS]"
+                    }
+                }.orEmpty(),
+        ).distinct()
+        .joinToString("\n\n")
         .takeIf { it.isNotBlank() }
 
 fun PluginRegistry.preferredTools(sessionId: String): Set<String> =

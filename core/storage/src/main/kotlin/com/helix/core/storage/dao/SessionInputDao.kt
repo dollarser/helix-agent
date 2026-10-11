@@ -14,6 +14,21 @@ interface SessionInputDao {
     @Query("SELECT * FROM session_inputs WHERE inputId = :id")
     fun byId(id: String): SessionInputEntity?
 
+    @Query(
+        "SELECT * FROM session_inputs WHERE sessionId = :sessionId AND consumedTurnId IN (:turnIds) " +
+            "AND state = 'APPENDED' AND skillActivationsRevoked = 0 ORDER BY sequence",
+    )
+    fun skillActivations(
+        sessionId: String,
+        turnIds: List<String>,
+    ): List<SessionInputEntity>
+
+    @Query(
+        "UPDATE session_inputs SET skillActivationsRevoked = 1 WHERE consumedTurnId IN (:turnIds) " +
+            "AND skillActivationsJson != '[]'",
+    )
+    fun revokeSkillActivations(turnIds: List<String>): Int
+
     /** Exact producer family, not LIKE: ids containing SQL wildcard characters stay literal. */
     @Query(
         "SELECT * FROM session_inputs WHERE sessionId = :sessionId " +
@@ -54,7 +69,9 @@ interface SessionInputDao {
     fun pendingCount(sessionId: String): Int
 
     @Query(
-        "SELECT COALESCE(SUM(textBytes + referenceContentBytes), 0) FROM session_inputs WHERE sessionId = :sessionId " +
+        "SELECT COALESCE(SUM(textBytes + referenceContentBytes + " +
+            "CASE WHEN skillActivationsJson = '[]' THEN 0 ELSE LENGTH(CAST(skillActivationsJson AS BLOB)) END), 0) " +
+            "FROM session_inputs WHERE sessionId = :sessionId " +
             "AND state IN ('PENDING','NEEDS_ATTENTION')",
     )
     fun pendingBytes(sessionId: String): Long

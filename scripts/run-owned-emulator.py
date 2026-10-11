@@ -118,11 +118,13 @@ def run(args):
                 device("shell", "svc", "data", "disable")
             device("shell", "wm", "size", "1080x2400")
             device("shell", "wm", "density", str(args.density_dpi))
+            device("shell", "settings", "put", "system", "font_scale", str(args.font_scale))
             properties = {key: device("shell", "getprop", prop).strip() for key, prop in {
                 "api": "ro.build.version.sdk", "abi": "ro.product.cpu.abi",
                 "fingerprint": "ro.build.fingerprint",
             }.items()}
-            properties.update(serial=serial, avd=args.avd, densityDpi=args.density_dpi)
+            properties.update(serial=serial, avd=args.avd, densityDpi=args.density_dpi,
+                              fontScale=device("shell", "settings", "get", "system", "font_scale").strip())
             (output / "device-properties.json").write_text(json.dumps(properties, indent=2))
             if args.reverse_port:
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
@@ -243,7 +245,8 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--memory-mb", type=int, choices=(2048, 4096, 8192), default=2048)
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
-    parser.add_argument("--density-dpi", type=int, choices=(400, 420), default=420)
+    parser.add_argument("--density-dpi", type=int, choices=(400, 420, 640), default=420)
+    parser.add_argument("--font-scale", type=float, choices=(1.0, 1.3, 1.5), default=1.0)
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--clear-app-data", action="store_true")
     parser.add_argument("--grant-shared-storage", action="store_true")

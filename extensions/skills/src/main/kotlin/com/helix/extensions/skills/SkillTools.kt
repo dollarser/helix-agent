@@ -127,7 +127,7 @@ object SkillTools {
         val sessionId = call.sessionId
         val offset = call.args.optionalInt("offset") ?: 0
         val limit = call.args.optionalInt("limit") ?: DEFAULT_LIST_LIMIT
-        val allItems = repository.list(sessionId)
+        val allItems = repository.listForModel(sessionId, call.turnId)
         val items = allItems.drop(offset).take(limit)
         val entries =
             items.map { item ->
@@ -152,7 +152,7 @@ object SkillTools {
         call: ExecutableToolCall,
     ): JsonObject {
         val key = call.args.skillKey()
-        val document = repository.read(key, call.sessionId)
+        val document = repository.read(key, call.sessionId, call.turnId)
         require(document.rawContent.toByteArray().size <= MAX_INSTRUCTION_BYTES) {
             "Skill instructions exceed activation limit"
         }
@@ -174,6 +174,7 @@ object SkillTools {
                 call.args.skillKey(),
                 call.args.requiredString("path"),
                 call.sessionId,
+                call.turnId,
             )
         return buildJsonObject {
             put("path", JsonPrimitive(resource.relativePath))

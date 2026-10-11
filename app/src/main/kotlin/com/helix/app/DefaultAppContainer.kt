@@ -301,6 +301,19 @@ internal class DefaultAppContainer(
                 pluginCatalog.skillAvailable(key, session) && pluginRegistry.skillAvailable(key, session)
             },
             contributedDocuments = pluginRegistry::skillDocuments,
+            userActivations = { session, turn ->
+                storage.sessionInputs.skillActivations(session, turn).map { activation ->
+                    com.helix.extensions.skills.UserSkillActivation(
+                        com.helix.extensions.skills.SkillKey(
+                            com.helix.extensions.skills.SkillSource
+                                .valueOf(activation.source),
+                            activation.name,
+                            activation.snapshotHash,
+                        ),
+                        activation.arguments,
+                    )
+                }
+            },
             onIndependentInstall = { pluginCatalog.claim(it, independent = true) },
             beforeRemove = { key ->
                 require(pluginCatalog.list().none { key in it.skills }) { "SKILL_REFERENCED_BY_CONNECTOR" }

@@ -109,6 +109,7 @@ class SkillLoader {
             metadata = metadata,
             allowedTools = allowedTools,
             additionalFields = additionalFields,
+            invocation = SkillInvocationPolicy.parse(frontmatter),
         )
     }
 

@@ -1952,4 +1952,9 @@
     <string name="plugin_setup_generic">此插件还有未完成的配置。请到扩展设置补全所需配置，再返回开启插件。</string>
     <string name="plugin_setup_continue">去设置</string>
     <string name="plugin_setup_later">暂不设置</string>
+    <string name="skill_invocation_arguments">本次参数（可选）</string>
+    <string name="skill_invocation_once">使用一次</string>
+    <string name="skill_invocation_prompt">使用技能：%1$s</string>
+    <string name="skill_invocation_selected">本次技能：%1$s · 点击移除</string>
+    <string name="skill_invocation_limit">一次输入最多使用 4 个技能，请先移除一个。</string>
 </resources>

@@ -32,6 +32,73 @@ import java.util.concurrent.TimeUnit
 /** Storage acceptance only: actual process death and protocol delivery belong to the app matrix. */
 @RunWith(AndroidJUnit4::class)
 class SessionInputStorageDeviceTest {
+    @Test fun continuousGoalUsesOriginalActivationButIndependentTurnDoesNot() =
+        withStorage { storage ->
+            val activation =
+                com.helix.core.storage.repository.InputSkillActivation(
+                    "USER_IMPORTED",
+                    "workflow",
+                    "a".repeat(64),
+                    "goal parameter",
+                )
+            val goal =
+                com.helix.core.storage.mapping.StoredGoal(
+                    "goal",
+                    "Read guide",
+                    emptyList(),
+                    com.helix.core.model
+                        .GoalBudgets(4, 8, 1000, 60000, 10000, 1),
+                    "RUNNING",
+                    null,
+                    null,
+                    null,
+                    "corr",
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null,
+                )
+            storage.goals.save(goal)
+            storage.goalRuns.open("run", goal.id, "USER_OPEN", 1)
+            accepted(storage, spec("goal-input").copy(skillActivations = listOf(activation)))
+            assertTrue(consume(storage, "goal-input", 0, "goal-first", "goal-message"))
+            storage.goalTurnBindings.bind("goal-first", "run")
+            storage.turns.start("goal-next", SESSION, 3)
+            storage.goalTurnBindings.bind("goal-next", "run")
+            storage.turns.start("independent", SESSION, 4)
+            assertEquals(listOf(activation), storage.sessionInputs.skillActivations(SESSION, "goal-next"))
+            assertTrue(storage.sessionInputs.skillActivations(SESSION, "independent").isEmpty())
+            storage.sessionInputs.revokeSkillActivations("goal-next")
+            assertTrue(storage.sessionInputs.skillActivations(SESSION, "goal-first").isEmpty())
+            assertTrue(storage.sessionInputs.skillActivations(SESSION, "goal-next").isEmpty())
+        }
+
+    @Test fun acceptedActivationIsScopedAndDurablyRevoked() =
+        withStorage { storage ->
+            val activation =
+                com.helix.core.storage.repository.InputSkillActivation(
+                    "USER_IMPORTED",
+                    "workflow",
+                    "a".repeat(64),
+                    "参数",
+                )
+            accepted(storage, spec("activated").copy(skillActivations = listOf(activation)))
+            assertTrue(storage.sessionInputs.skillActivations(SESSION, "absent").isEmpty())
+            assertTrue(consume(storage, "activated", 0, "active-turn", "active-message"))
+            assertEquals(listOf(activation), storage.sessionInputs.skillActivations(SESSION, "active-turn"))
+            assertTrue(storage.sessionInputs.skillActivations("fork", "active-turn").isEmpty())
+            storage.sessionInputs.revokeSkillActivations("active-turn")
+            assertTrue(storage.sessionInputs.skillActivations(SESSION, "active-turn").isEmpty())
+            assertEquals(listOf(activation), storage.sessionInputs.get("activated")!!.skillActivations)
+            assertTrue(storage.sessionInputs.get("activated")!!.skillActivationsRevoked)
+        }
+
     @Test fun promotionDoesNotReleaseParkedInputsOrCrossSessionsAndLosesToFinalization() =
         withStorage { storage ->
             val target = storage.turns.start("target", SESSION, 1)
@@ -252,7 +319,14 @@ class SessionInputStorageDeviceTest {
         var storage = HelixStorage.open(context, name, content)
         try {
             storage.sessions.create(SESSION, "Reopen", null, null, 0)
-            accepted(storage, spec("already-appended"))
+            val activation =
+                com.helix.core.storage.repository.InputSkillActivation(
+                    "USER_IMPORTED",
+                    "workflow",
+                    "a".repeat(64),
+                    "persisted parameter",
+                )
+            accepted(storage, spec("already-appended").copy(skillActivations = listOf(activation)))
             assertTrue(consume(storage, "already-appended", 0, "reopen-turn", "reopen-message"))
             accepted(storage, spec("pending"))
             storage.close()
@@ -264,6 +338,12 @@ class SessionInputStorageDeviceTest {
             assertEquals(1, storage.messages.listBySession(SESSION).size)
             assertEquals(1, storage.turns.listBySession(SESSION).size)
             assertTrue(storage.modelCalls.listByTurn("reopen-turn").isEmpty())
+            assertEquals(listOf(activation), storage.sessionInputs.skillActivations(SESSION, "reopen-turn"))
+            storage.sessionInputs.revokeSkillActivations("reopen-turn")
+            storage.close()
+            storage = HelixStorage.open(context, name, content)
+            assertTrue(storage.sessionInputs.skillActivations(SESSION, "reopen-turn").isEmpty())
+            assertTrue(storage.sessionInputs.get("already-appended")!!.skillActivationsRevoked)
         } finally {
             storage.close()
             context.deleteDatabase(name)

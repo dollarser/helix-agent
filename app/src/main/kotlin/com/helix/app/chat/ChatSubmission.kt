@@ -22,10 +22,13 @@ data class ChatSubmission(
     val expectedTurnId: String? = null,
     val referenceSourceSessionId: String? = null,
     val referenceKind: com.helix.core.storage.repository.ConversationReferenceKind? = null,
+    val skillActivations: List<com.helix.core.storage.repository.InputSkillActivation> = emptyList(),
 ) {
     init {
         require(sessionId.isNotBlank() && clientRequestId.isNotBlank())
         require(revision >= 0)
+        com.helix.core.storage.repository.InputSkillActivations
+            .encode(skillActivations)
         require((referenceSourceSessionId == null) == (referenceKind == null))
         require(referenceSourceSessionId == null || referenceSourceSessionId != sessionId)
     }
@@ -67,6 +70,8 @@ internal fun ChatSubmission.toInputSnapshot() =
         expectedTurnId,
         referenceSourceSessionId,
         referenceKind?.name,
+        com.helix.core.storage.repository.InputSkillActivations
+            .encode(skillActivations),
     )
 
 internal fun com.helix.core.storage.input.ComposerInputSnapshot.toSubmission(): ChatSubmission {
@@ -88,5 +93,7 @@ internal fun com.helix.core.storage.input.ComposerInputSnapshot.toSubmission(): 
         expectedTurnId,
         referenceSourceSessionId,
         referenceKind?.let(com.helix.core.storage.repository.ConversationReferenceKind::valueOf),
+        com.helix.core.storage.repository.InputSkillActivations
+            .decode(skillActivationsJson),
     )
 }

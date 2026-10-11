@@ -46,7 +46,7 @@ internal class ConversationDraftBuffer(
             value != saved &&
                 (
                     saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty() ||
-                        value.referenceSourceSessionId != null
+                        value.referenceSourceSessionId != null || value.skillActivations.isNotEmpty()
                 )
     val editable: Boolean get() = ready && revisionMessageId == null
     val canSubmit: Boolean get() = !sending && attachmentsReady && missingAttachments.isEmpty()
@@ -71,7 +71,27 @@ internal class ConversationDraftBuffer(
     }
 
     fun captureSubmission(): ChatSubmission =
-        value.copy(attachmentIds = value.attachmentIds.toList()).also { submitted = it }
+        value
+            .copy(
+                attachmentIds = value.attachmentIds.toList(),
+                skillActivations = value.skillActivations.toList(),
+            ).also {
+                submitted =
+                    it
+            }
+
+    fun skills(items: List<com.helix.core.storage.repository.InputSkillActivation>) {
+        if (sending || revisionMessageId != null || value.skillActivations == items) return
+        com.helix.core.storage.repository.InputSkillActivations
+            .encode(items)
+        edited = true
+        value =
+            value.copy(
+                skillActivations = items.toList(),
+                clientRequestId = newId(),
+                revision = ComposerEditClock.next(value.revision),
+            )
+    }
 
     fun edit(text: String) {
         if (value.text == text || revisionMessageId != null) return
@@ -241,7 +261,7 @@ internal class ConversationDraftBuffer(
             value.text == request.text &&
             value.attachmentIds == request.attachmentIds &&
             value.referenceSourceSessionId == request.referenceSourceSessionId &&
-            value.referenceKind == request.referenceKind
+            value.referenceKind == request.referenceKind && value.skillActivations == request.skillActivations
 
     companion object {
         /** rememberSaveable inputs do not validate a restored Activity snapshot's session. */
@@ -281,6 +301,8 @@ internal class ConversationDraftBuffer(
                         value.expectedTurnId.orEmpty(),
                         value.referenceSourceSessionId.orEmpty(),
                         value.referenceKind?.name.orEmpty(),
+                        com.helix.core.storage.repository.InputSkillActivations
+                            .encode(value.skillActivations),
                     ),
                 )
             }
@@ -303,6 +325,8 @@ internal class ConversationDraftBuffer(
                     com.helix.core.storage.repository.ConversationReferenceKind
                         .valueOf(it)
                 },
+                com.helix.core.storage.repository.InputSkillActivations
+                    .decode(parts.getOrNull(10) ?: "[]"),
             )
         }
     }

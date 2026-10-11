@@ -128,7 +128,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 storage.sessionExperts.forSession(sessionId),
                 directory,
-                pluginInstructions = pluginInstructions(sessionId),
+                pluginInstructions = pluginInstructions(sessionId, null),
             )
         val request =
             TurnContextRequest(
@@ -192,7 +192,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
-                pluginInstructions = pluginInstructions(sessionId),
+                pluginInstructions = pluginInstructions(sessionId, turnId),
             )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
@@ -262,7 +262,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
-                pluginInstructions = pluginInstructions(sessionId),
+                pluginInstructions = pluginInstructions(sessionId, turnId),
             )
         val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
@@ -305,8 +305,10 @@ internal class ChatRequestAssembler(
         }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
-    private fun pluginInstructions(sessionId: String): String? =
-        toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId) }
+    private fun pluginInstructions(
+        sessionId: String,
+        turnId: String?,
+    ): String? = toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId, turnId) }
 
     private fun modelTools(
         sessionId: String,

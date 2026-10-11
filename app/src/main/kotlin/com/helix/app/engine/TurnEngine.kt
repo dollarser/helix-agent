@@ -185,7 +185,7 @@ class TurnEngine internal constructor(
             }
             require(turn.sessionId == sessionId) { "turn/session mismatch" }
             val phase = TurnState.valueOf(turn.state)
-            recordUserStop(turn, phase, reason)
+            recordUserStop(turn, phase, reason, parkTerminalDelivery)
             decision =
                 when {
                     phase.isTerminal -> {
@@ -225,8 +225,10 @@ class TurnEngine internal constructor(
         turn: com.helix.core.storage.entity.TurnEntity,
         phase: TurnState,
         reason: String,
+        ownsDelivery: Boolean,
     ) {
         if (reason != "USER_STOP") return
+        if (!phase.isTerminal || ownsDelivery) storage.sessionInputs.revokeSkillActivations(turn.id)
         if (phase == TurnState.NEEDS_REVIEW || phase == TurnState.INTERRUPTED) {
             storage.turns.updateState(turn, phase, turn.stepCount, turn.endedAt, reason)
             storage.sessionInputs.parkSessionInputs(turn.sessionId, reason, clock.now().toEpochMilli())

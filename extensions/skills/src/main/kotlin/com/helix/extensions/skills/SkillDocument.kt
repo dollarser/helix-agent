@@ -26,6 +26,7 @@ data class SkillDocument(
     val metadata: Map<String, String>,
     val allowedTools: String?,
     val additionalFields: Map<String, Any?>,
+    val invocation: SkillInvocationPolicy = SkillInvocationPolicy(),
 )
 
 data class SkillCatalogDiagnostic(

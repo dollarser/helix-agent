@@ -18,6 +18,34 @@ class SessionInputRepository internal constructor(
 
     fun get(inputId: String): SessionInputRecord? = transaction { dao.byId(inputId)?.record() }
 
+    /** Original accepted identity and current task state, never a model-provided invocation flag. */
+    fun skillActivations(
+        sessionId: String,
+        turnId: String,
+    ): List<InputSkillActivation> =
+        transaction {
+            val turn = database.turnDao().byId(turnId)
+            if (turn == null || turn.sessionId != sessionId) return@transaction emptyList()
+            val inactive =
+                TurnState.valueOf(turn.state).isTerminal ||
+                    turn.state in setOf("CANCELLING", "NEEDS_REVIEW", "INTERRUPTED")
+            if (inactive) return@transaction emptyList()
+            dao
+                .skillActivations(sessionId, taskTurnIds(turnId))
+                .asReversed()
+                .flatMap {
+                    InputSkillActivations.decode(it.skillActivationsJson)
+                }.distinctBy { Triple(it.source, it.name, it.snapshotHash) }
+        }
+
+    fun revokeSkillActivations(turnId: String) = transaction { dao.revokeSkillActivations(taskTurnIds(turnId)) }
+
+    private fun taskTurnIds(turnId: String): List<String> {
+        val binding = database.goalTurnBindingDao().byTurn(turnId)
+        val run = binding?.let { database.goalRunDao().byId(it.runId) }
+        return run?.let { database.goalTurnBindingDao().turnsForGoal(it.goalId) } ?: listOf(turnId)
+    }
+
     fun latestAttempt(
         sessionId: String,
         baseId: String,
@@ -140,7 +168,9 @@ class SessionInputRepository internal constructor(
             if (dao.pendingCount(spec.sessionId) >= MAX_PENDING_COUNT) {
                 return@transaction SessionInputAcceptResult.Rejected("INPUT_QUEUE_FULL")
             }
-            val bytes = SessionInputValidation.textBytes(spec) + SessionInputValidation.referenceBytes(spec)
+            val bytes =
+                SessionInputValidation.textBytes(spec) + SessionInputValidation.referenceBytes(spec) +
+                    SessionInputValidation.skillBytes(spec.skillActivations)
             if (dao.pendingBytes(spec.sessionId) + bytes > MAX_PENDING_BYTES) {
                 return@transaction SessionInputAcceptResult.Rejected("INPUT_QUEUE_BYTES")
             }
@@ -182,8 +212,12 @@ class SessionInputRepository internal constructor(
                 return@transaction false
             }
             val bytes =
-                SessionInputValidation.textBytes(replacement) + SessionInputValidation.referenceBytes(replacement)
-            if (dao.pendingBytes(old.sessionId) - old.textBytes - old.referenceContentBytes + bytes >
+                SessionInputValidation.textBytes(replacement) + SessionInputValidation.referenceBytes(replacement) +
+                    SessionInputValidation.skillBytes(replacement.skillActivations)
+            val originalBytes =
+                old.textBytes + old.referenceContentBytes +
+                    SessionInputValidation.skillBytes(InputSkillActivations.decode(old.skillActivationsJson))
+            if (dao.pendingBytes(old.sessionId) - originalBytes + bytes >
                 MAX_PENDING_BYTES
             ) {
                 return@transaction false
@@ -482,7 +516,7 @@ class SessionInputRepository internal constructor(
         return record.sessionId == spec.sessionId && record.delivery == spec.delivery &&
             record.expectedTurnId == spec.expectedTurnId && record.configuration == spec.configuration &&
             record.attachments == spec.attachments && readText(record) == spec.text &&
-            readReference(record) == spec.reference
+            readReference(record) == spec.reference && record.skillActivations == spec.skillActivations
     }
 
     private fun SessionInputEntity.record() =
@@ -506,6 +540,8 @@ class SessionInputRepository internal constructor(
             createdAt,
             updatedAt,
             referenceRecord(),
+            InputSkillActivations.decode(skillActivationsJson),
+            skillActivationsRevoked,
         )
 
     private fun SessionInputEntity.referenceRecord(): InputConversationReference? {

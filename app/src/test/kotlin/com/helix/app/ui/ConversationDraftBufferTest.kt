@@ -4,6 +4,7 @@ import androidx.compose.runtime.saveable.SaverScope
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.ChatSubmissionReceipt
+import com.helix.core.storage.repository.InputSkillActivation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -16,6 +17,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationDraftBufferTest {
+    @Test fun selectedSkillSurvivesRotationAndNewEditsAreNotClearedByOldReceipt() =
+        runBlocking {
+            val buffer = ConversationDraftBuffer("session")
+            val activation = InputSkillActivation("USER_IMPORTED", "workflow", "a".repeat(64), "参数")
+            buffer.skills(listOf(activation))
+            val scope =
+                object : SaverScope {
+                    override fun canBeSaved(value: Any): Boolean = true
+                }
+            val saved = with(ConversationDraftBuffer.saverFor("session")) { requireNotNull(scope.save(buffer)) }
+            val restored = requireNotNull(ConversationDraftBuffer.saverFor("session").restore(saved))
+            assertEquals(listOf(activation), restored.value.skillActivations)
+            val clicked = restored.captureSubmission()
+            restored.skills(listOf(activation.copy(arguments = "new")))
+            val receipt = ChatSubmissionReceipt(clicked, ChatSubmissionOutcome.Accepted("turn"))
+            restored.accepted(receipt, { true }, { null })
+            assertEquals(
+                "new",
+                restored.value.skillActivations
+                    .single()
+                    .arguments,
+            )
+            assertNull(ConversationDraftBuffer.saverFor("fork").restore(saved))
+        }
+
     @Test fun sessionDefaultBindsEachNewSendAndLeavesCapturedInputsFrozen() {
         val buffer = ConversationDraftBuffer("session")
         buffer.edit("first")

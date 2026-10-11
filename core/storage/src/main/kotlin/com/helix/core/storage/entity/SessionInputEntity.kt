@@ -55,6 +55,8 @@ data class SessionInputEntity(
     val blockedReason: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    val skillActivationsJson: String = "[]",
+    val skillActivationsRevoked: Boolean = false,
 )
 
 /** NO_ACTION protects accepted attachment references from independent artifact deletion. */

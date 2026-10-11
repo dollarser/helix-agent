@@ -64,6 +64,11 @@ internal object SessionInputBinding {
                 put("revisionTarget", request.revisedMessageId)
                 put("referenceSession", request.referenceSourceSessionId)
                 put("referenceKind", request.referenceKind?.name)
+                put(
+                    "skills",
+                    com.helix.core.storage.repository.InputSkillActivations
+                        .encode(request.skillActivations),
+                )
             }.toString(),
         )
 

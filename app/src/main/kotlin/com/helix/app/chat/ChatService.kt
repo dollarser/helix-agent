@@ -827,6 +827,7 @@ class ChatService(
             providerSnapshot = ::providerSnapshot,
             clock = clock,
             turnGate = turnGate,
+            skillActivationsValid = ::validSkillActivations,
             launchQueuedTurn = { input, content, bindings, control, requireHead ->
                 launchTurn(
                     text = content,
@@ -3321,6 +3322,7 @@ class ChatService(
         return ChatSubmissionOutcome.Rejected(reason)
     }
 
+    @Suppress("ReturnCount") // Distinct accepted input and legacy explicit retry/revision admission.
     private suspend fun submitMessageTurn(
         submission: ChatSubmission,
         text: String,
@@ -3332,6 +3334,7 @@ class ChatService(
         if (submission.revisedMessageId == null && goalId == null) {
             return acceptSessionInput(submission, providerId, attachments, reference)
         }
+        if (submission.skillActivations.isNotEmpty()) return submissionBlocked("SKILL_ACTIVATION_REQUIRES_NEW_INPUT")
         val started =
             submitTurn(
                 text,
@@ -3572,12 +3575,16 @@ class ChatService(
     }
 
     /** Egress has already been approved for these exact bytes and provider before this admission. */
+    @Suppress("ReturnCount") // Activation rejection precedes acceptance; original delivery outcomes remain.
     private suspend fun acceptSessionInput(
         request: ChatSubmission,
         providerId: String,
         attachments: List<AttachmentBindingIntent>,
         reference: ConversationReferenceSnapshotInput?,
     ): ChatSubmissionOutcome {
+        if (!validSkillActivations(request.sessionId, request.skillActivations)) {
+            return submissionBlocked("SKILL_ACTIVATION_UNAVAILABLE")
+        }
         val accepted = persistSessionInput(request, providerId, attachments, reference)
         if (accepted is SessionInputAcceptResult.Rejected) return ChatSubmissionOutcome.Rejected(accepted.reason)
         val input = (accepted as SessionInputAcceptResult.Accepted).record
@@ -3652,6 +3659,7 @@ class ChatService(
                     configuration,
                     clock.now().toEpochMilli(),
                     reference = reference,
+                    skillActivations = request.skillActivations,
                 ),
             )
         }
@@ -3678,6 +3686,29 @@ class ChatService(
         input: SessionInputRecord,
         requireHead: Boolean,
     ): Boolean = sessionInputDelivery.queueStillConsumable(input, requireHead)
+
+    private fun validSkillActivations(
+        session: String,
+        activations: List<com.helix.core.storage.repository.InputSkillActivation>,
+    ): Boolean =
+        activations.all { activation ->
+            val repository = toolPipeline.skills ?: return@all false
+            try {
+                repository.prepareUserActivation(
+                    com.helix.extensions.skills.SkillKey(
+                        com.helix.extensions.skills.SkillSource
+                            .valueOf(activation.source),
+                        activation.name,
+                        activation.snapshotHash,
+                    ),
+                    session,
+                    activation.arguments,
+                )
+                true
+            } catch (_: IllegalArgumentException) {
+                false
+            }
+        }
 
     @Suppress("TooGenericExceptionCaught") // Admission already committed: retain its receipt and park failed delivery.
     private suspend fun consumeAcceptedInput(input: SessionInputRecord, requireHead: Boolean) {

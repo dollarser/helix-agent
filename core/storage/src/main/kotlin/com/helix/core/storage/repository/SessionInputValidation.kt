@@ -5,6 +5,7 @@ import com.helix.core.storage.entity.SessionInputEntity
 
 internal object SessionInputValidation {
     fun validate(spec: SessionInputSpec) {
+        InputSkillActivations.encode(spec.skillActivations)
         listOf(spec.inputId, spec.sessionId, spec.configuration.providerId).forEach(::identifier)
         spec.expectedTurnId?.let(::identifier)
         require(spec.revision >= 0 && spec.createdAt >= 0)
@@ -44,6 +45,17 @@ internal object SessionInputValidation {
             .toByteArray(Charsets.UTF_8)
             .size
             .toLong()
+
+    fun skillBytes(items: List<InputSkillActivation>): Long =
+        if (items.isEmpty()) {
+            0L
+        } else {
+            InputSkillActivations
+                .encode(items)
+                .toByteArray(Charsets.UTF_8)
+                .size
+                .toLong()
+        }
 
     fun referenceBytes(spec: SessionInputSpec): Long =
         spec.reference
@@ -92,6 +104,7 @@ internal object SessionInputValidation {
         blockedReason = null,
         createdAt = spec.createdAt,
         updatedAt = spec.createdAt,
+        skillActivationsJson = InputSkillActivations.encode(spec.skillActivations),
     )
 
     private fun identifier(value: String) {

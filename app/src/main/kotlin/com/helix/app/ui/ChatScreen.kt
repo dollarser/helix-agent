@@ -30,6 +30,7 @@ import com.helix.app.chat.ChatSubmissionReceipt
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SessionPermissionMode
+import com.helix.core.storage.repository.InputSkillActivation
 import com.helix.extensions.skills.SkillRepository
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -117,13 +118,40 @@ fun ChatScreen(
                 onSystemPermissions = onPermissions,
             ) { connectorsOpen = false }
     }
-    if (skillsOpen && sessionId != null && skills != null) {
-        SkillSessionPanel(skills, sessionId, onExtensions) { skillsOpen = false }
-    }
     val buffer =
         rememberSaveable(sessionId, saver = ConversationDraftBuffer.saverFor(sessionId ?: "closed-composer")) {
             ConversationDraftBuffer(sessionId ?: "closed-composer")
         }
+    val skillPrompt = stringResource(R.string.skill_invocation_prompt)
+    val skillLimit = stringResource(R.string.skill_invocation_limit)
+    if (skillsOpen && sessionId != null && skills != null) {
+        SkillSessionPanel(
+            skills,
+            sessionId,
+            onExtensions,
+            onDismiss = { skillsOpen = false },
+            onInvoke = { activation ->
+                val key = activation.key
+                val item =
+                    InputSkillActivation(
+                        key.source.name,
+                        key.name,
+                        key.snapshotHash,
+                        activation.arguments,
+                    )
+                val retained =
+                    buffer.value.skillActivations.filterNot {
+                        it.source == item.source && it.name == item.name
+                    }
+                if (retained.size < 4) {
+                    buffer.skills(retained + item)
+                    if (buffer.value.text.isBlank()) buffer.edit(skillPrompt.format(key.name))
+                } else {
+                    chatService.showBlockedReason(skillLimit)
+                }
+            },
+        )
+    }
     if (expertOpen && sessionId != null) {
         SessionExpertDialog(chatService, sessionId) { expertOpen = false }
     }
@@ -428,6 +456,17 @@ fun ChatScreen(
                         localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                     ),
                 composerStatus = {
+                    buffer.value.skillActivations.forEach { activation ->
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                buffer.skills(buffer.value.skillActivations - activation)
+                            },
+                            enabled = buffer.editable && !buffer.sending,
+                            modifier = Modifier.testTag("skill-activation-${activation.name}"),
+                        ) {
+                            Text(stringResource(R.string.skill_invocation_selected, activation.name))
+                        }
+                    }
                     sessionId?.let { id ->
                         SessionInputQueuePanel(
                             chatService,

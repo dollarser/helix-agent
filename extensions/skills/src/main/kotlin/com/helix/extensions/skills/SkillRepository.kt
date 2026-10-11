@@ -24,6 +24,7 @@ data class SkillListItem(
     val key: SkillKey,
     val description: String,
     val enabled: Boolean,
+    val invocation: SkillInvocationPolicy = SkillInvocationPolicy(),
 )
 
 data class SkillResource(
@@ -39,7 +40,7 @@ enum class SkillEnablementScope {
     GLOBAL,
 }
 
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList") // Narrow content/source/accepted-input ports; no execution owner.
 class SkillRepository(
     private val snapshotsRoot: Path,
     private val stateFile: Path,
@@ -50,6 +51,7 @@ class SkillRepository(
     private val onIndependentInstall: (SkillKey) -> Unit = {},
     private val beforeRemove: (SkillKey) -> Unit = {},
     private val contributedDocuments: (String?) -> List<SkillDocument> = { emptyList() },
+    private val userActivations: (String, String) -> List<UserSkillActivation> = { _, _ -> emptyList() },
 ) {
     private val lock = Any()
     private val inspector = SkillSnapshotInspector(SkillImportLimits(), SkillLoader())
@@ -77,7 +79,12 @@ class SkillRepository(
             records.entries
                 .filter { (key, _) -> sourceAvailable(key, sessionId) }
                 .map { (key, record) ->
-                    SkillListItem(key, record.document.catalogEntry.description, isEnabled(key, sessionId))
+                    SkillListItem(
+                        key,
+                        record.document.catalogEntry.description,
+                        isEnabled(key, sessionId),
+                        record.document.invocation,
+                    )
                 }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
         }
 
@@ -91,22 +98,30 @@ class SkillRepository(
     fun read(
         key: SkillKey,
         sessionId: String? = null,
-    ): SkillDocument =
-        synchronized(lock) {
+        turnId: String? = null,
+    ): SkillDocument {
+        val activations = acceptedActivations(sessionId, turnId)
+        return synchronized(lock) {
             refreshContributions()
             require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
-            records[key]?.document ?: throw IllegalArgumentException("Unknown skill snapshot: ${key.name}")
+            val document = requireNotNull(records[key]) { "Unknown skill snapshot: ${key.name}" }.document
+            requireModelEligibility(document, key, activations)
+            document
         }
+    }
 
     fun readResource(
         key: SkillKey,
         relativePath: String,
         sessionId: String? = null,
-    ): SkillResource =
-        synchronized(lock) {
+        turnId: String? = null,
+    ): SkillResource {
+        val activations = acceptedActivations(sessionId, turnId)
+        return synchronized(lock) {
             refreshContributions()
             require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             val record = records[key] ?: throw IllegalArgumentException("Unknown skill snapshot: ${key.name}")
+            requireModelEligibility(record.document, key, activations)
             val root = record.directory ?: throw IllegalArgumentException("Built-in skill has no external resources")
             val safePath = resourcePath(root, relativePath)
             val bytes = readBounded(safePath)
@@ -119,6 +134,72 @@ class SkillRepository(
                 content = text ?: Base64.getEncoder().encodeToString(bytes),
             )
         }
+    }
+
+    fun listForModel(
+        sessionId: String?,
+        turnId: String?,
+    ): List<SkillListItem> {
+        val activations = acceptedActivations(sessionId, turnId)
+        return synchronized(lock) {
+            list(sessionId).filter { item ->
+                modelEligible(records.getValue(item.key).document, item.key, activations)
+            }
+        }
+    }
+
+    /** Validate a real UI choice before acceptance; a selected plugin alone is not invocation. */
+    fun prepareUserActivation(
+        key: SkillKey,
+        sessionId: String,
+        arguments: String,
+    ): UserSkillActivation =
+        synchronized(lock) {
+            refreshContributions()
+            require(arguments.length <= 4096 && '\u0000' !in arguments) { "Skill arguments exceed bounds" }
+            require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
+            val document = requireNotNull(records[key]) { "Unknown skill snapshot: ${key.name}" }.document
+            require(document.invocation.userInvocable) { "SKILL_USER_INVOCATION_DISABLED" }
+            require(document.invocation.unsupportedExecutionFields.isEmpty()) { "SKILL_EXECUTION_UNSUPPORTED" }
+            UserSkillActivation(key, arguments)
+        }
+
+    fun activatedContent(
+        sessionId: String,
+        turnId: String,
+    ): List<Pair<SkillDocument, String>> =
+        userActivations(sessionId, turnId).map { activation ->
+            read(activation.key, sessionId, turnId) to activation.arguments
+        }
+
+    /** Durable lookup must not acquire a Room transaction while holding the content lock. */
+    private fun acceptedActivations(
+        sessionId: String?,
+        turnId: String?,
+    ): List<UserSkillActivation> =
+        if (sessionId == null || turnId == null) emptyList() else userActivations(sessionId, turnId)
+
+    private fun requireModelEligibility(
+        document: SkillDocument,
+        key: SkillKey,
+        activations: List<UserSkillActivation>,
+    ) {
+        require(document.invocation.unsupportedExecutionFields.isEmpty()) { "SKILL_EXECUTION_UNSUPPORTED" }
+        require(modelEligible(document, key, activations)) { "SKILL_MODEL_INVOCATION_DISABLED" }
+    }
+
+    private fun modelEligible(
+        document: SkillDocument,
+        key: SkillKey,
+        activations: List<UserSkillActivation>,
+    ): Boolean =
+        document.invocation.unsupportedExecutionFields.isEmpty() &&
+            (
+                document.invocation.modelInvocable || (
+                    document.invocation.userInvocable &&
+                        activations.any { it.key == key }
+                )
+            )
 
     fun setEnabled(
         key: SkillKey,

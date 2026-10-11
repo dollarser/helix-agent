@@ -1952,4 +1952,9 @@
     <string name="plugin_setup_generic">This plugin needs more setup. Complete the required settings in Extensions, then return and enable it.</string>
     <string name="plugin_setup_continue">Go to settings</string>
     <string name="plugin_setup_later">Not now</string>
+    <string name="skill_invocation_arguments">Arguments for this input (optional)</string>
+    <string name="skill_invocation_once">Use once</string>
+    <string name="skill_invocation_prompt">Use skill: %1$s</string>
+    <string name="skill_invocation_selected">Skill for this input: %1$s · Remove</string>
+    <string name="skill_invocation_limit">Use up to 4 skills per input. Remove one before adding another.</string>
 </resources>

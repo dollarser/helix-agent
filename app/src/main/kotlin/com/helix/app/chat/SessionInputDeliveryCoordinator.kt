@@ -40,6 +40,11 @@ internal class SessionInputDeliveryCoordinator(
         RunControlConfig,
         Boolean,
     ) -> String?,
+    private val skillActivationsValid: (
+        String,
+        List<com.helix.core.storage.repository.InputSkillActivation>,
+    ) -> Boolean =
+        { _, items -> items.isEmpty() },
 ) {
     fun queueStillConsumable(
         input: SessionInputRecord,
@@ -98,6 +103,7 @@ internal class SessionInputDeliveryCoordinator(
         parkFailure: Boolean = true,
     ): Pair<String, List<MessageAttachmentRepository.Binding>>? =
         try {
+            check(skillActivationsValid(input.sessionId, input.skillActivations)) { "SKILL_ACTIVATION_UNAVAILABLE" }
             val session = storage.sessions.resolve(input.sessionId)
             val provider = input.configuration.providerId
             check(providerService.chatSelectable(provider))
