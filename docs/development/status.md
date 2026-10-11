@@ -4,6 +4,8 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-11 [HXA-271阶段4](tasks/HXA-271.md)过程/最终答复展示分层主机交付：根据持久原子工具步骤识别过程，灰色小字，成功且存在之后可见回答时长说明三行预览、整行披露；未确认/流式及失败/停止/恢复正常展示，提问/审批独立，搜索命中展开，原文和调用顺序不变。全仓JVM/source/静态、双渠道lint/APK及App测试APK通过，新增分类每渠道6项通过；[本轮证据](../evidence/development/chat-message-presentation-2026-10-11.md)。本轮设备/模型not requested，四项UI夹具只编译，未更新日常或手机。
+
 - 2026-10-10 [HXA-271](tasks/HXA-271.md)会话交互本地交付：查看会话仅导航、对话内隐藏浮窗，简洁窗口上限/保留上下文占用，工具按原持久调用顺序穿插、搜索逐节点定位，审批/诊断详情展开。全仓主机/双渠道lint与制品通过；自有API36 Developer会话/真实Qwen22/22、浮窗6/6通过，无skip。[证据](../evidence/development/chat-interaction-context-timeline-2026-10-10.md)保留真实wire/local身份修正和夹具失败；新AVD额外Gboard实际拼音检查失败，输入法验收pending，不覆盖日常/真机APK或关闭其他OEM边界。
 
 - 2026-10-10 [HXA-251](tasks/HXA-251.md) 有限补验交付：最终全仓主机/静态检查、双渠道lint及制品编译通过。双API Developer既有各26项、Consumer Memory真正进程死亡与项目提示各3项、CLI wire各4项通过。Provider窗口适配已修复，默认表单各5项、窄屏/大字体输入与保存各9项、实际拼音候选/中文草稿各1项通过；插件取消更新六项及双API Developer原生修复保持选择/权限通过。真实Qwen六轮发现提示对照基线1/3、候选3/3，失败轮包含UNKNOWN_TOOL拒绝及无进展，未发现脚本重复执行；四请求真实Memory读取/拒绝/项目隔离通过。不宣称生产策略普遍收益，[本轮证据](../evidence/development/refactor-closeout-2026-10-10.md)保留完整交叉矩阵、其他IME/OEM、摘要质量和长稳边界。日常主APK未覆盖安装。
@@ -86,7 +88,7 @@
 
 ## In progress
 
-- [HXA-271](tasks/HXA-271.md)：三阶段实现与主机、API36会话/浮窗/真实Qwen有界验证通过并分阶段提交；追加灰色默认收起/整行披露/紧邻指示符，主机与API36布局交互13/13通过。Owner随后反馈中文测试正常；旧新AVD拼音夹具失败保留为独立未闭合证据，不把它推定为Helix输入缺陷。本次不重复语言包排查，不重新实现已交付功能。
+- [HXA-271](tasks/HXA-271.md)：三阶段实现与主机、API36会话/浮窗/真实Qwen有界验证通过并分阶段提交；追加灰色默认收起/整行披露/紧邻指示符，主机与API36布局交互13/13通过。2026-10-11过程/最终答复分层已主机交付，本轮设备/模型not requested，不沿用先前结果代替新UI验证。Owner随后反馈中文测试正常；旧新AVD拼音夹具失败保留为独立未闭合证据，不把它推定为Helix输入缺陷。本次不重复语言包排查，不重新实现已交付功能。
 
 - [HXA-270](tasks/HXA-270.md)：Owner追加悬浮审批要求，原任务只读诊断确认 launch/snapshot 成功、ui.click 待审批；实施可信原生单次批准/拒绝、完整详情展开、等待状态同步及查看会话不取消。主机source/全仓JVM/静态/双渠道lint与制品编译已通过，新增6项回归通过；[证据](../evidence/development/mobile-use-overlay-approval-2026-10-10.md)。Owner追加手机更新测试后，OnePlus/API35 的现有 Qwen 合成 Settings 原生批准/拒绝、详情滚动、查看会话和接管路径 passed；已修正实机布局，更新最终APK，未重试或批准真实微信操作，其他设备矩阵 pending。
 

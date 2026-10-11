@@ -119,28 +119,37 @@ internal class ChatScreenProjection(
         screen: ChatScreenState,
     ): List<MessageUi> {
         if (sessionId == null) return screen.messages
-        return storage.messages
-            .listBySession(sessionId)
-            .filter {
-                (
-                    it.role in setOf(ModelRole.USER.name, ModelRole.ASSISTANT.name) ||
-                        (it.role == "SYSTEM" && it.kind == "RECOVERY_NOTICE")
-                ) &&
-                    it.kind !in
-                    setOf(
-                        ContextCompaction.KIND,
-                        ChatHistoryBuilder.KIND_TOOL_CALLS,
-                        ChatHistoryBuilder.KIND_TOOL_RESULT,
-                        UserQuestionService.KIND,
-                    )
-            }.mapNotNull { entity ->
-                val content = storage.messages.readContent(entity)
-                if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
-                    null
-                } else {
-                    MessageUi(entity.id, entity.role.lowercase(), content.orEmpty(), entity.turnId, entity.sequence)
+        val history = storage.messages.listBySession(sessionId)
+        val messages =
+            history
+                .filter {
+                    (
+                        it.role in setOf(ModelRole.USER.name, ModelRole.ASSISTANT.name) ||
+                            (it.role == "SYSTEM" && it.kind == "RECOVERY_NOTICE")
+                    ) &&
+                        it.kind !in
+                        setOf(
+                            ContextCompaction.KIND,
+                            ChatHistoryBuilder.KIND_TOOL_CALLS,
+                            ChatHistoryBuilder.KIND_TOOL_RESULT,
+                            UserQuestionService.KIND,
+                        )
+                }.mapNotNull { entity ->
+                    val content = storage.messages.readContent(entity)
+                    if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
+                        null
+                    } else {
+                        MessageUi(entity.id, entity.role.lowercase(), content.orEmpty(), entity.turnId, entity.sequence)
+                    }
                 }
-            }
+        return MessagePresentationPolicy.apply(
+            history,
+            messages,
+            storage.turns.listBySession(sessionId).associate {
+                it.id to
+                    it.state
+            },
+        )
     }
 
     /**

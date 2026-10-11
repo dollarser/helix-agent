@@ -65,6 +65,7 @@ internal fun MarkdownText(
     source: String,
     modifier: Modifier = Modifier,
     searchQuery: String? = null,
+    muted: Boolean = false,
 ) {
     val blocks = remember(source) { markdownBlocks(source) }
     val highlightStyle =
@@ -112,7 +113,13 @@ internal fun MarkdownText(
                         }
                     Text(
                         annotated,
-                        style = style,
+                        style = if (muted) MaterialTheme.typography.bodySmall else style,
+                        color =
+                            if (muted) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                androidx.compose.ui.graphics.Color.Unspecified
+                            },
                         fontStyle = if (block.kind == MarkdownBlock.Kind.QUOTE) FontStyle.Italic else null,
                     )
                 }

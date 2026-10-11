@@ -1918,4 +1918,5 @@
     <string name="goal_round_exhausted">Automatic continuation rounds exhausted. Increase the allowance and explicitly resume to continue.</string>
     <string name="files_sources_loading">Loading directory information…</string>
     <string name="approval_review_action">Allow this action? %1$s</string>
+    <string name="message_progress_label">Progress update</string>
 </resources>

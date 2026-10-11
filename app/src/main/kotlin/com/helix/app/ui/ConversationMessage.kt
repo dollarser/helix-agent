@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ConversationEntry
+import com.helix.app.chat.MessagePresentation
 import com.helix.app.chat.MessageUi
 
 private const val MESSAGE_COPY_FEEDBACK_MS = 1500L
@@ -128,6 +130,8 @@ internal fun MessageRow(
                 color =
                     if (isUser) {
                         MaterialTheme.colorScheme.surfaceContainerHigh
+                    } else if (message.presentation != MessagePresentation.NORMAL) {
+                        Color.Transparent
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerLow
                     },
@@ -149,19 +153,7 @@ internal fun MessageRow(
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     SelectionContainer {
                         if (!isUser) {
-                            val parsed =
-                                androidx.compose.runtime.remember(
-                                    message.content,
-                                ) { ThinkingParser.parse(message.content) }
-                            if (parsed.thinking != null) {
-                                ThinkingAccordion(
-                                    thinking = parsed.thinking,
-                                    isStreaming = parsed.isStreaming,
-                                    messageId = message.id,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                )
-                            }
-                            MarkdownText(parsed.text, bodyModifier, searchQuery)
+                            AssistantMessageBody(message, bodyModifier, searchQuery, isCurrentMatch)
                         } else {
                             val highlightStyle =
                                 SpanStyle(

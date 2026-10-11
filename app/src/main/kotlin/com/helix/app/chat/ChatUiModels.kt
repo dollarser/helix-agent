@@ -69,7 +69,10 @@ data class MessageUi(
     val content: String,
     val turnId: String? = null,
     val sequence: Long? = null,
+    val presentation: MessagePresentation = MessagePresentation.NORMAL,
 )
+
+enum class MessagePresentation { NORMAL, PROGRESS, COMPLETED_PROGRESS }
 
 /**
  * The active turn of the open session. [streamingText] is the in-progress

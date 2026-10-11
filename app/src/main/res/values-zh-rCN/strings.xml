@@ -1915,4 +1915,5 @@
     <string name="goal_round_exhausted">自动续跑轮数已用尽。调整轮数并明确继续后才能恢复。</string>
     <string name="files_sources_loading">正在加载目录信息…</string>
     <string name="approval_review_action">允许此操作？%1$s</string>
+    <string name="message_progress_label">过程说明</string>
 </resources>
