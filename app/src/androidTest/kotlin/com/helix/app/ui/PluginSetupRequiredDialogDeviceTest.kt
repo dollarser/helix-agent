@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.R
+import com.helix.app.plugin.PluginSetupReason
 import com.helix.app.plugin.PluginSetupRequiredDialog
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -19,7 +20,7 @@ class PluginSetupRequiredDialogDeviceTest {
     private var dismissals = 0
 
     private fun show(
-        error: String,
+        error: PluginSetupReason,
         explanation: Int,
     ) {
         val visible = mutableStateOf(true)
@@ -48,7 +49,7 @@ class PluginSetupRequiredDialogDeviceTest {
     }
 
     @Test fun missingBackendDoesNotNavigateUntilExplicitConfirmation() {
-        show("MOBILE_USE_BACKEND_UNAVAILABLE", R.string.plugin_setup_mobile_backend)
+        show(PluginSetupReason.MOBILE_BACKEND, R.string.plugin_setup_mobile_backend)
         compose.onNodeWithTag("plugin-setup-continue").performClick()
         compose.waitForIdle()
         assertEquals(1, navigations)
@@ -56,7 +57,7 @@ class PluginSetupRequiredDialogDeviceTest {
     }
 
     @Test fun decliningScopeSetupDoesNotNavigate() {
-        show("MOBILE_USE_NOT_CONFIGURED", R.string.plugin_setup_mobile_scope)
+        show(PluginSetupReason.MOBILE_SCOPE, R.string.plugin_setup_mobile_scope)
         compose.onNodeWithTag("plugin-setup-dismiss").performClick()
         compose.waitForIdle()
         assertEquals(0, navigations)
@@ -64,7 +65,7 @@ class PluginSetupRequiredDialogDeviceTest {
     }
 
     @Test fun unknownRequirementAlsoWaitsForConfirmation() {
-        show("PLUGIN_REQUIRES_CONFIGURATION", R.string.plugin_setup_generic)
+        show(PluginSetupReason.CONTENT, R.string.plugin_setup_generic)
         compose.onNodeWithTag("plugin-setup-continue").performClick()
         compose.waitForIdle()
         assertEquals(1, navigations)

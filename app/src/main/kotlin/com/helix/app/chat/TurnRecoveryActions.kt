@@ -1,17 +1,17 @@
 package com.helix.app.chat
 
+import com.helix.app.ui.RecoveryBlockClass
 import com.helix.app.ui.RecoveryOperation
 import com.helix.app.ui.RecoverySummary
 import com.helix.app.ui.recoverySummary
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 
 /**
  * HXA-204 slice 2: executes the panel operations. Each operation keeps its OWN identity and
@@ -27,7 +27,6 @@ internal class TurnRecoveryActions(
     private val workScope: CoroutineScope,
     private val screenState: MutableStateFlow<ChatScreenState>,
     private val retryTargetFor: (String?) -> String?,
-    private val repairNavigation: RecoveryRepairNavigation,
     private val onContinueGoal: (String, String) -> Unit,
     private val onRetry: () -> Unit,
     private val onInspectProot: (String, String, Boolean) -> Unit,
@@ -37,13 +36,9 @@ internal class TurnRecoveryActions(
 
     /**
      * Auth/network repair: the user fixes the provider, then starts a NEW call — no re-submit.
-     * The navigation to the repair surface hops to the main thread (this service runs on its
-     * IO scope) so the NavController back-stack lifecycle is driven on the main thread.
+     * Returns freshly admitted facts; the requesting page owns navigation and its lifecycle.
      */
-    fun reconnect(turnId: String) =
-        execute(turnId, RecoveryOperation.RECONNECT) { _, _ ->
-            withContext(Dispatchers.Main.immediate) { repairNavigation.models() }
-        }
+    fun reconnect(turnId: String) = repairTarget(turnId, RecoveryOperation.RECONNECT, RecoveryRepairDestination.MODELS)
 
     /**
      * Unknown result: reconcile only. Inspect the parked proot jobs read-only (developer
@@ -61,9 +56,20 @@ internal class TurnRecoveryActions(
 
     /** Capability repair: the user grants the missing permission, then a NEW call exercises it. */
     fun grantPermission(turnId: String) =
-        execute(turnId, RecoveryOperation.GRANT_PERMISSION) { _, _ ->
-            withContext(Dispatchers.Main.immediate) { repairNavigation.permissions() }
+        repairTarget(turnId, RecoveryOperation.GRANT_PERMISSION, RecoveryRepairDestination.PERMISSIONS)
+
+    private fun repairTarget(
+        turnId: String,
+        operation: RecoveryOperation,
+        destination: RecoveryRepairDestination,
+    ) = workScope.async {
+        mutex.withLock {
+            val sessionId = screenState.value.openSessionId ?: return@withLock null
+            val source = admittedSource(turnId, operation) ?: return@withLock null
+            RecoveryRepairTarget(sessionId, source.second.turnId, destination, source.first.blockClass)
+                .takeIf { screenState.value.openSessionId == sessionId }
         }
+    }
 
     /** The bound Goal's own explicit continue path — its admission was just re-verified. */
     fun continueGoal(turnId: String) =
@@ -89,27 +95,7 @@ internal class TurnRecoveryActions(
     ) {
         workScope.launch {
             mutex.withLock {
-                val sessionId = screenState.value.openSessionId
-                val retryTarget = sessionId?.let { retryTargetFor(it) }
-                val source =
-                    sessionId?.let { id ->
-                        loadTurnRecoverySources(storage, id, includeTurnId = retryTarget)
-                            .singleOrNull { it.turnId == turnId }
-                    }
-                val summary = source?.let { recoverySummary(it.facts) }
-                // The render-time retry admission (retryAllowed) is re-earned here: a late
-                // successful result settling between render and click supersedes the failure
-                // and must void the retry, exactly as the panel button would have disappeared.
-                val admitted =
-                    source != null &&
-                        summary != null &&
-                        summary.blocked &&
-                        operation in summary.operations &&
-                        (
-                            operation != RecoveryOperation.RETRY_NEW_CALL ||
-                                !source.supersededByCompleted
-                        )
-                if (admitted) {
+                admittedSource(turnId, operation)?.let { (summary, source) ->
                     setBusy(turnId, operation, true)
                     try {
                         body(summary, source)
@@ -118,6 +104,21 @@ internal class TurnRecoveryActions(
                     }
                 }
             }
+        }
+    }
+
+    private fun admittedSource(
+        turnId: String,
+        operation: RecoveryOperation,
+    ): Pair<RecoverySummary, TurnRecoverySource>? {
+        val sessionId = screenState.value.openSessionId ?: return null
+        val source =
+            loadTurnRecoverySources(storage, sessionId, includeTurnId = retryTargetFor(sessionId))
+                .singleOrNull { it.turnId == turnId }
+        return source?.let {
+            val summary = recoverySummary(it.facts)
+            val supersededRetry = operation == RecoveryOperation.RETRY_NEW_CALL && it.supersededByCompleted
+            (summary to it).takeIf { summary.blocked && operation in summary.operations && !supersededRetry }
         }
     }
 
@@ -144,7 +145,16 @@ internal class TurnRecoveryActions(
     }
 }
 
-internal data class RecoveryRepairNavigation(
-    val models: () -> Unit,
-    val permissions: () -> Unit,
-)
+internal enum class RecoveryRepairDestination { MODELS, PERMISSIONS }
+
+internal data class RecoveryRepairTarget(
+    val sessionId: String,
+    val turnId: String,
+    val destination: RecoveryRepairDestination,
+    val reason: RecoveryBlockClass,
+) {
+    fun matches(
+        currentSessionId: String?,
+        requestedTurnId: String,
+    ): Boolean = sessionId == currentSessionId && turnId == requestedTurnId
+}

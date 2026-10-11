@@ -16,6 +16,7 @@ import com.helix.tools.framework.ToolOrigin
  * Automation permission center supplies Android facts/actions and every call still executes via
  * the ordinary Helix ToolDispatcher.
  */
+@Suppress("TooManyFunctions") // Plugin contracts include read-only saved/backend facts alongside execution hooks.
 class MobileUsePlugin(
     context: Context,
     images: com.helix.tools.framework.ToolImagePublication,
@@ -96,6 +97,14 @@ class MobileUsePlugin(
                 com.helix.extensions.mobileuse.automation.AutomationDeviceOperation.SNAPSHOT,
             ) != null
         }
+
+    override fun configurationSaved(): Boolean = permissionCenter.globalConfiguration() != null
+
+    override fun runtimeTarget(): String? =
+        permissionCenter
+            .preferredBackend(
+                com.helix.extensions.mobileuse.automation.AutomationDeviceOperation.SNAPSHOT,
+            )?.name
 
     override fun scopeFor(
         descriptor: com.helix.tools.framework.ToolDescriptor,

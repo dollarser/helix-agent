@@ -308,7 +308,15 @@ internal class ChatRequestAssembler(
     private fun pluginInstructions(
         sessionId: String,
         turnId: String?,
-    ): String? = toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId, turnId) }
+    ): String? =
+        listOfNotNull(
+            toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId, turnId) },
+            toolPipeline.pluginReadiness
+                ?.invoke(
+                    sessionId,
+                    turnId,
+                )?.let { "[PLUGIN READINESS]\n$it\n[/PLUGIN READINESS]" },
+        ).joinToString("\n\n").takeIf { it.isNotBlank() }
 
     private fun modelTools(
         sessionId: String,

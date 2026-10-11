@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.plugin.PluginSetupReason
 
 internal fun matchesPluginQuery(
     record: InstalledPlugin,
@@ -71,7 +72,7 @@ internal fun PluginManagementCard(
             )
             if (expanded) {
                 PluginAvailabilityControls(record, service, onChanged) { error ->
-                    if (error == "MOBILE_USE_BACKEND_UNAVAILABLE") onSystemPermissions() else onPluginSettings()
+                    if (error == PluginSetupReason.MOBILE_BACKEND) onSystemPermissions() else onPluginSettings()
                 }
                 if (record.native?.pluginId == "mobile-use") {
                     TextButton(onPluginSettings, Modifier.testTag("mobile-use-plugin-settings")) {

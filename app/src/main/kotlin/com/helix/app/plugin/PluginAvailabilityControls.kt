@@ -17,13 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.app.plugin.PluginSetupReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-private fun configurationRequirement(error: IllegalStateException): String? =
-    error.message?.takeIf { it == "MOBILE_USE_NOT_CONFIGURED" || it == "MOBILE_USE_BACKEND_UNAVAILABLE" }
 
 /** Manual management calls an application service; no model Turn or direct DAO access. */
 @Composable
@@ -32,14 +30,14 @@ internal fun PluginAvailabilityControls(
     record: InstalledPlugin,
     service: PluginService,
     onChanged: () -> Unit,
-    onConfigurationRequired: (String) -> Unit = {},
+    onConfigurationRequired: (PluginSetupReason) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var busy by remember(record.id) { mutableStateOf(false) }
     var failure by remember(record.id) { mutableStateOf(false) }
-    var setupError by remember(record.id) { mutableStateOf<String?>(null) }
+    var setupError by remember(record.id) { mutableStateOf<PluginSetupReason?>(null) }
     var defaultSelected by remember(record) { mutableStateOf(false) }
-    var readiness by remember(record) { mutableStateOf<PluginComponentReadiness?>(null) }
+    var readiness by remember(record) { mutableStateOf<PluginReadinessSnapshot?>(null) }
     LaunchedEffect(record) {
         try {
             defaultSelected = withContext(Dispatchers.IO) { service.catalog.defaultSelected(record.id) }
@@ -61,8 +59,8 @@ internal fun PluginAvailabilityControls(
                 onChanged()
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (error: IllegalStateException) {
-                setupError = configurationRequirement(error)
+            } catch (error: PluginSelectionUnavailable) {
+                setupError = error.reason
                 failure = setupError == null
                 onChanged()
             } catch (_: Exception) {
@@ -106,10 +104,11 @@ internal fun PluginAvailabilityControls(
 @Suppress("FunctionName")
 private fun PluginReadinessSummary(
     record: InstalledPlugin,
-    readiness: PluginComponentReadiness?,
+    readiness: PluginReadinessSnapshot?,
 ) {
     readiness?.takeIf { record.native == null }?.let { state ->
-        Text(stringResource(R.string.extensions_component_status, state.ready, state.total))
+        Text(stringResource(R.string.extensions_component_status, state.ready, state.components.size))
         if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
     }
+    readiness?.let { PluginReadinessDetails(it) }
 }

@@ -89,6 +89,24 @@ class RecoveryJourneyDeviceTest {
 
     // ---- recovery-button journeys: each operation does exactly its class, never a replay ----
 
+    @Test fun repairFactsCanBeReadWithoutNavigationAndAreRejectedAfterSessionChange() =
+        runBlocking {
+            val chat = compose.container().chatService
+            val turn = openAndAwaitPanel(SESSION_NET)
+            val target = requireNotNull(chat.recoveryReconnect(turn).await())
+            assertEquals(SESSION_NET, target.sessionId)
+            assertEquals(turn, target.turnId)
+            assertEquals(SESSION_NET, chat.screen.value.openSessionId)
+            compose.onNodeWithTag("recovery-reconnect-$turn").assertIsDisplayed()
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            assertEquals(SESSION_NET, chat.screen.value.openSessionId)
+            compose.onNodeWithTag("recovery-reconnect-$turn").assertIsDisplayed()
+            openAndAwaitPanel(SESSION_CAP)
+            org.junit.Assert.assertFalse(target.matches(chat.screen.value.openSessionId, turn))
+            org.junit.Assert.assertNull(chat.recoveryReconnect(turn).await())
+        }
+
     @Test
     fun networkFailureOffersReconnectAndNeverAutoReplays() {
         assumeTrue(recoveryPhase() != "setup")

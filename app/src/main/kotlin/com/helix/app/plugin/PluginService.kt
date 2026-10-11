@@ -9,16 +9,22 @@ import com.helix.core.storage.HelixStorage
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.mcp.oauth.McpOAuthVendor
 import com.helix.extensions.mcp.oauth.mcpOAuthVendor
+import com.helix.extensions.plugin.PluginComponentKind
+import com.helix.extensions.plugin.PluginComponentState
 import com.helix.extensions.plugin.PluginPackage
 import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillKey
+import com.helix.extensions.skills.SkillListItem
 import com.helix.extensions.skills.SkillRepository
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.nio.file.Files
 
 /** UI facade: bounded metadata and references enter Room; credentials remain in SecretStore. */
-@Suppress("TooManyFunctions") // single UI facade for import, connection and component lifecycle
+@Suppress("TooManyFunctions", "LongParameterList") // Existing owners plus a read-only Browser host probe.
 class PluginService(
     private val context: Context,
     private val storage: HelixStorage,
@@ -29,6 +35,7 @@ class PluginService(
     val catalog: PluginCatalog = PluginCatalog(storage),
     private val installBoundary: (String) -> Unit = {},
     private val nativeRegistry: com.helix.extensions.plugin.PluginRegistry? = null,
+    private val browserHostAvailable: () -> Boolean = { false },
 ) {
     private val snapshots = context.filesDir.toPath().resolve("skills/snapshots")
     private val reader = PluginPackageReader()
@@ -120,9 +127,9 @@ class PluginService(
     private fun prepareUserSelection(pluginId: String) {
         val record = requireNotNull(list().singleOrNull { it.id == pluginId }) { "PLUGIN_NOT_INSTALLED" }
         record.native?.let {
-            val registry = requireNotNull(nativeRegistry) { "PLUGIN_HOST_COMPONENT_UNAVAILABLE" }
+            val registry = nativeRegistry ?: throw PluginSelectionUnavailable(PluginSetupReason.HOST_UNAVAILABLE)
             val error = registry.selectionError(it.pluginId)
-            check(error == null) { error.orEmpty() }
+            pluginSetupReason(error)?.let { reason -> throw PluginSelectionUnavailable(reason) }
         }
         if (!record.enabled) {
             // Legacy global disables must not revive dormant choices in other conversations.
@@ -145,9 +152,16 @@ class PluginService(
     ): List<PluginSessionRow> {
         val selected = catalog.selected(sessionId)
         val installed = list().filter { it.sessionScoped }.associateBy { it.id }
+        val turnId =
+            storage.turns
+                .listActive()
+                .singleOrNull { it.sessionId == sessionId }
+                ?.id
+        val items = skills.list().associateBy { it.key }
+        val readable = skills.listForModel(sessionId, turnId).map { it.key }.toSet()
         return (installed.keys + selected).filter { pluginId == null || it == pluginId }.map { id ->
             val record = installed[id]
-            val readiness = record?.let(::componentReadiness)
+            val readiness = record?.let { readinessSnapshot(it, items, readable) }
             PluginSessionRow(
                 id,
                 record?.name ?: id,
@@ -157,23 +171,170 @@ class PluginService(
                 readiness?.fullyReady == true,
                 record?.enabled ?: false,
                 readiness?.ready ?: 0,
-                readiness?.total ?: 0,
+                readiness?.components?.size ?: 0,
                 readiness?.hasSkippedComponents ?: false,
-                record?.native?.let {
-                    nativeRegistry?.selectionError(it.pluginId)
-                        ?: if (nativeRegistry == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null
-                },
+                readiness?.setup,
+                readiness?.copy(selected = id in selected),
             )
         }
     }
 
-    internal fun componentReadiness(record: InstalledPlugin): PluginComponentReadiness =
-        PluginComponentReadiness(
-            record.enabled,
-            record.endpoints.map(::enabled) + record.skills.map(::skillEnabled) +
-                record.native?.let { listOf(nativeRegistry?.ready(it.pluginId) == true) }.orEmpty(),
-            record.diagnostics,
+    internal fun componentReadiness(
+        record: InstalledPlugin,
+        sessionId: String? = null,
+        turnId: String? = null,
+    ): PluginReadinessSnapshot {
+        val readable = sessionId?.let { skills.listForModel(it, turnId).map { item -> item.key }.toSet() }
+        return readinessSnapshot(record, skills.list().associateBy { it.key }, readable)
+    }
+
+    private fun readinessSnapshot(
+        record: InstalledPlugin,
+        items: Map<SkillKey, SkillListItem>,
+        readable: Set<SkillKey>?,
+    ) = PluginReadinessSnapshot(
+        record.id,
+        record.revision,
+        false,
+        record.enabled,
+        record.endpoints.map(::endpointFact) + record.skills.map { skillFact(it, items[it], readable) } +
+            listOfNotNull(record.native?.let { nativeFact(record, it) }),
+        record.diagnostics.map(com.helix.extensions.plugin.PluginDiagnostics::project),
+    )
+
+    private fun skillFact(
+        key: SkillKey,
+        item: SkillListItem?,
+        readable: Set<SkillKey>?,
+    ): PluginComponentFact {
+        val state =
+            when {
+                item == null -> PluginComponentState.HOST_UNAVAILABLE
+                item.invocation.unsupportedExecutionFields.isNotEmpty() -> PluginComponentState.UNSUPPORTED
+                !item.enabled -> PluginComponentState.DISABLED
+                else -> PluginComponentState.AVAILABLE
+            }
+        return PluginComponentFact(
+            "${key.source}:${key.name}:${key.snapshotHash}",
+            PluginComponentKind.SKILL,
+            state,
+            item != null,
+            item != null,
+            setup =
+                when (state) {
+                    PluginComponentState.UNSUPPORTED -> PluginSetupReason.UNSUPPORTED
+                    PluginComponentState.HOST_UNAVAILABLE -> PluginSetupReason.HOST_UNAVAILABLE
+                    PluginComponentState.DISABLED -> PluginSetupReason.CONTENT
+                    else -> null
+                },
+            requestAvailable = readable?.contains(key) ?: (item?.invocation?.modelInvocable == true),
         )
+    }
+
+    private fun endpointFact(endpoint: InstalledEndpoint): PluginComponentFact {
+        val saved = storage.mcpServers.list().singleOrNull { it.id == endpoint.id }
+        val loaded = saved != null && mcp.configurationLoaded(endpoint.id)
+        val credential = saved?.authAlias?.let { storage.secrets.contains(SecretAlias(it)) } == true
+        val state =
+            when {
+                endpoint.endpoint.needsCredential && !credential -> PluginComponentState.NEEDS_CONFIGURATION
+                loaded -> PluginComponentState.AVAILABLE
+                mcp.isActive(endpoint.id) -> PluginComponentState.RELOAD_REQUIRED
+                else -> PluginComponentState.NOT_CONNECTED
+            }
+        val uri = java.net.URI(endpoint.endpoint.url)
+        return PluginComponentFact(
+            endpoint.id,
+            PluginComponentKind.MCP,
+            state,
+            saved != null,
+            loaded,
+            "${uri.scheme}://${uri.rawAuthority}",
+            saved?.authAlias,
+            if (loaded) null else PluginSetupReason.CONNECTION,
+        )
+    }
+
+    private fun nativeFact(
+        record: InstalledPlugin,
+        native: NativePluginComponent,
+    ): PluginComponentFact {
+        val reason =
+            pluginSetupReason(
+                nativeRegistry?.selectionError(native.pluginId)
+                    ?: if (nativeRegistry == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null,
+            )
+        val loaded = nativeRegistry?.ready(native.pluginId) == true
+        val setup = reason ?: if (loaded) null else PluginSetupReason.RELOAD
+        val state =
+            when (setup) {
+                PluginSetupReason.MOBILE_SCOPE -> {
+                    PluginComponentState.NEEDS_CONFIGURATION
+                }
+
+                PluginSetupReason.MOBILE_BACKEND -> {
+                    PluginComponentState.NOT_CONNECTED
+                }
+
+                PluginSetupReason.HOST_UNAVAILABLE -> {
+                    PluginComponentState.HOST_UNAVAILABLE
+                }
+
+                null -> {
+                    if (loaded) {
+                        PluginComponentState.AVAILABLE
+                    } else {
+                        PluginComponentState.RELOAD_REQUIRED
+                    }
+                }
+
+                else -> {
+                    PluginComponentState.RELOAD_REQUIRED
+                }
+            }
+        return PluginComponentFact(
+            record.id,
+            PluginComponentKind.NATIVE,
+            state,
+            nativeRegistry?.configurationSaved(native.pluginId) == true,
+            loaded,
+            nativeRegistry?.runtimeTarget(native.pluginId),
+            setup = setup,
+        )
+    }
+
+    /** Same read-only snapshot as the UI; request exposure still re-enters the normal dispatcher. */
+    fun requestReadiness(
+        sessionId: String,
+        turnId: String? = null,
+    ): String =
+        buildJsonObject {
+            val selected = catalog.selected(sessionId)
+            val installed = list()
+            val items = skills.list().associateBy { it.key }
+            val readable = skills.listForModel(sessionId, turnId).map { it.key }.toSet()
+            val snapshots =
+                installed.take(64).map {
+                    readinessSnapshot(it, items, readable).copy(selected = it.id in selected)
+                }
+            put("plugins", JsonArray(snapshots.map { it.modelFacts() }))
+            put(
+                "browserHost",
+                buildJsonObject {
+                    val available = browserHostAvailable()
+                    val state =
+                        if (available) {
+                            PluginComponentState.AVAILABLE
+                        } else {
+                            PluginComponentState.HOST_UNAVAILABLE
+                        }
+                    put("kind", JsonPrimitive(PluginComponentKind.BROWSER.name))
+                    put("state", JsonPrimitive(state.name))
+                    put("loaded", JsonPrimitive(available))
+                },
+            )
+            put("truncated", JsonPrimitive(installed.size > 64))
+        }.toString()
 
     /** Changes availability only. No connection, model request, credential deletion or approval. */
     fun setEnabled(

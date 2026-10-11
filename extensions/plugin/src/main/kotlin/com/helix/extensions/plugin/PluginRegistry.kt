@@ -17,6 +17,10 @@ interface HelixPlugin {
 
     fun configurationError(): String? = null
 
+    fun configurationSaved(): Boolean = true
+
+    fun runtimeTarget(): String? = null
+
     fun scopeFor(
         descriptor: com.helix.tools.framework.ToolDescriptor,
         sessionId: String,
@@ -151,6 +155,10 @@ class PluginRegistry(
             val factory = factories[pluginId]
             current?.enabled == true && factory != null && projectionMatches(current, factory)
         }
+
+    fun configurationSaved(pluginId: String): Boolean = factories[pluginId]?.configurationSaved() == true
+
+    fun runtimeTarget(pluginId: String): String? = factories[pluginId]?.runtimeTarget()
 
     private fun projectionMatches(
         state: NativePluginState,

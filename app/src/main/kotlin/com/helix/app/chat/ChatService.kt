@@ -345,10 +345,6 @@ class ChatService(
 
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
 
-    /** UI-owned deep links for recovery repair; ChatService still holds no NavController. */
-    internal var recoveryModelsNavigation: (() -> Unit)? = null
-    internal var recoveryPermissionsNavigation: (() -> Unit)? = null
-
     /** HXA-204 slice 2: the panel operations — each keeps its own identity and admission. */
     private val turnRecovery =
         TurnRecoveryActions(
@@ -356,10 +352,6 @@ class ChatService(
             workScope,
             _screen,
             { sessionId -> projection.retryTargetFor(sessionId) },
-            RecoveryRepairNavigation(
-                models = { recoveryModelsNavigation?.invoke() },
-                permissions = { recoveryPermissionsNavigation?.invoke() },
-            ),
             ::continueGoal,
             ::retry,
             ::inspectInterruptedProot,
@@ -2942,11 +2934,11 @@ class ChatService(
     ) = recovery.retryProotAcknowledgement(turnId, callId)
 
     /** HXA-204 slice 2: the turn recovery panel operations (own identity, re-checked admission). */
-    fun recoveryReconnect(turnId: String) = turnRecovery.reconnect(turnId)
+    internal fun recoveryReconnect(turnId: String) = turnRecovery.reconnect(turnId)
 
     fun recoveryQueryResult(turnId: String) = turnRecovery.queryResult(turnId)
 
-    fun recoveryGrantPermission(turnId: String) = turnRecovery.grantPermission(turnId)
+    internal fun recoveryGrantPermission(turnId: String) = turnRecovery.grantPermission(turnId)
 
     fun recoveryContinueGoal(turnId: String) = turnRecovery.continueGoal(turnId)
 

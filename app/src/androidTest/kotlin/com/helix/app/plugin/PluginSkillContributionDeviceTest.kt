@@ -12,6 +12,66 @@ import java.util.UUID
 
 /** Synthetic production install/selection/read; never operates a user account or device app. */
 class PluginSkillContributionDeviceTest {
+    @Test fun passiveReadinessKeepsWorkingSkillSeparateFromUnconnectedMcp() {
+        val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+        val name = "partial-${UUID.randomUUID()}"
+        val bundle =
+            PluginPackageReader().parse(
+                mapOf(
+                    ".claude-plugin/plugin.json" to """{"name":"$name"}""".toByteArray(),
+                    ".mcp.json" to """{"mcpServers":{"test":{"url":"https://example.invalid/mcp"}}}""".toByteArray(),
+                    "skills/$name/SKILL.md" to
+                        "---\nname: $name\ndescription: Partial workflow\n---\nDraft only".toByteArray(),
+                ),
+            )
+        val installed = c.pluginService.install(bundle, "fixture:$name")
+        val session = UUID.randomUUID().toString()
+        c.storage.sessions.create(session, "Partial readiness fixture", null, null, 0)
+        try {
+            c.pluginService.setSkillEnabled(installed.skills.single(), true)
+            c.pluginService.selectFromUser(session, installed.id, true)
+            val initial = c.pluginService.sessionRows(session).single { it.id == installed.id }
+            assertFalse(
+                requireNotNull(initial.readiness)
+                    .components
+                    .single {
+                        it.kind == com.helix.extensions.plugin.PluginComponentKind.MCP
+                    }.saved,
+            )
+            // Explicit configuration action; installation alone does not create a live server row.
+            val endpoint = installed.endpoints.single()
+            c.mcpService.registerDisabled(endpoint.id, endpoint.endpoint.url, null)
+            repeat(3) {
+                val state = c.pluginService.sessionRows(session).single { it.id == installed.id }
+                assertTrue(state.selected)
+                assertEquals(1, state.readyComponents)
+                assertEquals(2, state.totalComponents)
+                assertFalse(state.ready)
+                assertEquals(null, state.setupReason)
+                val mcp =
+                    requireNotNull(state.readiness).components.single {
+                        it.kind == com.helix.extensions.plugin.PluginComponentKind.MCP
+                    }
+                assertTrue(mcp.saved)
+                assertFalse(mcp.loaded)
+                assertFalse(c.mcpService.isActive(installed.endpoints.single().id))
+                assertTrue(c.pluginService.requestReadiness(session).contains("NOT_CONNECTED"))
+            }
+            assertEquals(
+                "Draft only",
+                c.skillRepository
+                    .read(installed.skills.single(), session)
+                    .body
+                    .trim(),
+            )
+            c.pluginService.selectFromUser(session, installed.id, false)
+            assertTrue(c.pluginService.requestReadiness(session).contains("NOT_SELECTED"))
+        } finally {
+            c.pluginService.remove(installed)
+            c.storage.deleteSessionPermanently(session)
+        }
+    }
+
     @Test fun pureSkillPackageReadsResourcesOnlyWhileItsSourceIsSelected() {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val name = "pure-flow-${UUID.randomUUID()}"

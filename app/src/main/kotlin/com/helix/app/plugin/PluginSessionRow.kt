@@ -11,5 +11,6 @@ data class PluginSessionRow(
     val readyComponents: Int = 0,
     val totalComponents: Int = 0,
     val hasSkippedComponents: Boolean = false,
-    val selectionError: String? = null,
+    val setupReason: PluginSetupReason? = null,
+    val readiness: PluginReadinessSnapshot? = null,
 )

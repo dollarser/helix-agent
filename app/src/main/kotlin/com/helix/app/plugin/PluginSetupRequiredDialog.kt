@@ -9,12 +9,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.app.plugin.PluginSetupReason
 import com.helix.app.ui.indicatedVerticalScroll
 
-internal fun pluginSetupExplanation(error: String): Int =
+internal fun pluginSetupExplanation(error: PluginSetupReason): Int =
     when (error) {
-        "MOBILE_USE_NOT_CONFIGURED" -> R.string.plugin_setup_mobile_scope
-        "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.plugin_setup_mobile_backend
+        PluginSetupReason.MOBILE_SCOPE -> R.string.plugin_setup_mobile_scope
+        PluginSetupReason.MOBILE_BACKEND -> R.string.plugin_setup_mobile_backend
+        PluginSetupReason.CONNECTION -> R.string.plugin_setup_connection
+        PluginSetupReason.HOST_UNAVAILABLE -> R.string.plugin_setup_host
+        PluginSetupReason.UNSUPPORTED -> R.string.plugin_setup_unsupported
+        PluginSetupReason.RELOAD -> R.string.plugin_setup_reload
         else -> R.string.plugin_setup_generic
     }
 
@@ -22,7 +27,7 @@ internal fun pluginSetupExplanation(error: String): Int =
 @Composable
 @Suppress("FunctionName")
 internal fun PluginSetupRequiredDialog(
-    error: String,
+    error: PluginSetupReason,
     onContinue: () -> Unit,
     onDismiss: () -> Unit,
 ) {

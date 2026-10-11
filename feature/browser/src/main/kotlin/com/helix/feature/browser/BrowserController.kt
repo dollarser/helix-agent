@@ -91,6 +91,9 @@ class BrowserController(
     /** Live tab state; the UI composes from this. */
     val state: StateFlow<BrowserTabController.State> = _state.asStateFlow()
 
+    /** Read-only host fact; observing it never creates a WebView or attaches an owner. */
+    fun hostAvailable(): Boolean = ownerBinding.get()?.available == true
+
     /** The download queue; newly requested items are appended at the end. */
     val downloads: StateFlow<List<DownloadItem>> = downloadQueue.downloads
 

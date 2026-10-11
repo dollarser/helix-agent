@@ -138,6 +138,10 @@ class McpDynamicToolBridge(
 
     fun descriptors(): List<ToolDescriptor> = descriptors
 
+    fun matchesConfiguration(current: McpServerConfig): Boolean = config == current
+
+    fun serverIdentity(): McpServerIdentity = identity
+
     fun dispatchFacts(
         descriptor: ToolDescriptor,
         arguments: JsonObject,

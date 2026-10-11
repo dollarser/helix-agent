@@ -21,6 +21,32 @@ import org.junit.Test
 import java.time.Instant
 
 class McpDynamicToolBridgeTest {
+    @Test fun loadedConfigurationIsBoundToExactEndpointAndAccountReference() {
+        val bridge = bridge(metadata())
+        val config =
+            McpServerConfig(
+                McpServerId("fixture"),
+                NormalizedEndpoint.parse("https://mcp.example.com/mcp"),
+                enabled = true,
+            )
+        assertTrue(bridge.matchesConfiguration(config))
+        assertFalse(bridge.matchesConfiguration(config.copy(enabled = false)))
+        assertFalse(
+            bridge.matchesConfiguration(
+                config.copy(endpoint = NormalizedEndpoint.parse("https://mcp.example.com/another")),
+            ),
+        )
+        assertFalse(
+            bridge.matchesConfiguration(
+                config.copy(
+                    bearerSecretAlias =
+                        com.helix.core.model
+                            .SecretAlias("account-b"),
+                ),
+            ),
+        )
+    }
+
     @Test
     fun registersNamespacedToolAndNeverTrustsReadOnlyOrIdempotentHints() {
         val bridge = bridge(metadata(hints = mapOf("readOnlyHint" to true, "idempotentHint" to true)))

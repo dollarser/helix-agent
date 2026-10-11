@@ -73,6 +73,8 @@ class SkillUserInvocationModelDeviceTest {
                 c.pluginService.setSkillEnabled(key, true)
                 c.pluginService.selectFromUser(id, installed.id, true)
                 assertTrue(c.skillRepository.listForModel(id, "fake").none { it.key == key })
+                val unavailable = c.pluginService.componentReadiness(installed, id, "fake").copy(selected = true)
+                assertTrue(unavailable.modelFacts().toString().contains("REQUEST_UNAVAILABLE"))
                 assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, id, "fake") }
                 val activation = c.skillRepository.prepareUserActivation(key, id, "中文参数")
                 c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(12, 10, 524288, 32768, 557056))

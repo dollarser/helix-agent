@@ -1771,7 +1771,7 @@
     <string name="extensions_manage">Manage and configure</string>
     <string name="extensions_select_tools">Select all tools for this connection</string>
     <string name="extensions_tool_details">Review or customize tools</string>
-    <string name="extensions_component_status">Configured components: %1$d / %2$d; execution still checks conversation permissions</string>
+    <string name="extensions_component_status">Available components: %1$d / %2$d</string>
     <string name="extensions_search">Search added extensions</string>
     <string name="mobile_use_global_help">These settings apply to every conversation using Mobile Use. Saving does not enable it in any conversation. Select the plugin in conversation extensions. Scope changes invalidate previous observations and approvals.</string>
     <string name="mobile_use_save_settings">Save plugin settings</string>
@@ -1957,4 +1957,20 @@
     <string name="skill_invocation_prompt">Use skill: %1$s</string>
     <string name="skill_invocation_selected">Skill for this input: %1$s · Remove</string>
     <string name="skill_invocation_limit">Use up to 4 skills per input. Remove one before adding another.</string>
+    <string name="plugin_state_disconnected">Not connected</string>
+    <string name="plugin_state_host_missing">Host unavailable</string>
+    <string name="plugin_state_not_selected">Not selected in this conversation</string>
+    <string name="plugin_state_unsupported">Execution unsupported</string>
+    <string name="plugin_state_metadata">Metadata only</string>
+    <string name="plugin_state_reload">Configuration changed; reconnect</string>
+    <string name="plugin_effect_next_request">Changes apply to the next request</string>
+    <string name="plugin_revision">Installed revision: %1$d</string>
+    <string name="plugin_saved_loaded">Configuration saved: %1$s; loaded: %2$s</string>
+    <string name="plugin_fact_yes">Yes</string>
+    <string name="plugin_fact_no">No</string>
+    <string name="plugin_setup_connection">This component is not connected. Complete its configuration and connect in Extensions, then return to select it.</string>
+    <string name="plugin_setup_host">The required host capability is unavailable. Check Extensions and its runtime requirements, then return to select it.</string>
+    <string name="plugin_setup_unsupported">This package contains components that cannot execute here. Review support in Extensions or choose a supported package.</string>
+    <string name="plugin_setup_reload">Configuration is saved but not loaded. Reconnect or repair in Extensions, then return to select it.</string>
+    <string name="plugin_state_request_unavailable">Unavailable to this request</string>
 </resources>

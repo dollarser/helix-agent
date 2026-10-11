@@ -746,6 +746,7 @@ internal class DefaultAppContainer(
                 plugins = pluginRegistry,
                 disabledToolFilter = disabledToolFilter,
                 skills = skillRepository,
+                pluginReadiness = { session, turn -> pluginService.requestReadiness(session, turn) },
             ).also {
                 it.mcpDiscovery.register(toolRegistry, executionOwnership::metadataExecutor)
             }
@@ -829,6 +830,7 @@ internal class DefaultAppContainer(
             mcpOAuthCoordinator,
             pluginCatalog,
             nativeRegistry = pluginRegistry,
+            browserHostAvailable = browser::hostAvailable,
         )
     }
 

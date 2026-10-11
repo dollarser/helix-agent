@@ -135,6 +135,12 @@ class McpAppService(
 
     fun isActive(serverId: String): Boolean = activeBridges.containsKey(serverId)
 
+    /** A loaded bridge is not proof that subsequently saved configuration is in effect. */
+    fun configurationLoaded(serverId: String): Boolean =
+        activeBridges[serverId]?.matchesConfiguration(storage.load(serverId)) == true
+
+    fun loadedServerIdentity(serverId: String) = activeBridges[serverId]?.serverIdentity()
+
     fun disable(serverId: String) {
         synchronized(callGate) {
             registry.replaceMcpServer(serverId, emptyList()) {

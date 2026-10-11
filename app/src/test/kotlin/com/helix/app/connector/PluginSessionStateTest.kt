@@ -2,6 +2,7 @@ package com.helix.app.connector
 
 import com.helix.app.R
 import com.helix.app.plugin.PluginSessionRow
+import com.helix.app.plugin.PluginSetupReason
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -11,12 +12,12 @@ class PluginSessionStateTest {
     @Test fun registeredToolsDoNotHideMissingConfiguration() {
         assertEquals(
             R.string.mobile_use_configuration_required,
-            statusLabel(ready.copy(selectionError = "MOBILE_USE_NOT_CONFIGURED")),
+            statusLabel(ready.copy(setupReason = PluginSetupReason.MOBILE_SCOPE)),
         )
-        assertEquals(R.string.connector_session_setup, statusLabel(ready.copy(selectionError = "UNKNOWN")))
+        assertEquals(R.string.connector_session_setup, statusLabel(ready.copy(setupReason = PluginSetupReason.RELOAD)))
         assertEquals(
             R.string.mobile_use_needs_access,
-            statusLabel(ready.copy(selectionError = "MOBILE_USE_BACKEND_UNAVAILABLE")),
+            statusLabel(ready.copy(setupReason = PluginSetupReason.MOBILE_BACKEND)),
         )
         assertEquals(R.string.connector_session_ready, statusLabel(ready))
     }

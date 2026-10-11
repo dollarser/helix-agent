@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSessionRow
+import com.helix.app.plugin.PluginSetupReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -94,9 +95,9 @@ internal fun phonePreparationStatus(
 ): Int =
     when {
         failed || row == null -> R.string.phone_task_check_failed
-        row.selectionError == "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.mobile_use_needs_access
-        row.selectionError == "MOBILE_USE_NOT_CONFIGURED" -> R.string.mobile_use_configuration_required
-        !row.enabled || !row.ready || row.selectionError != null -> R.string.phone_task_needs_configuration
+        row.setupReason == PluginSetupReason.MOBILE_BACKEND -> R.string.mobile_use_needs_access
+        row.setupReason == PluginSetupReason.MOBILE_SCOPE -> R.string.mobile_use_configuration_required
+        !row.enabled || !row.ready || row.setupReason != null -> R.string.phone_task_needs_configuration
         !row.selected -> R.string.phone_task_needs_selection
         else -> R.string.phone_task_selected
     }

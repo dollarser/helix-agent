@@ -41,6 +41,7 @@ class ToolPipeline(
      */
     val disabledToolFilter: ((sessionId: String, descriptor: ToolDescriptor) -> Boolean)? = null,
     val skills: com.helix.extensions.skills.SkillRepository? = null,
+    val pluginReadiness: ((String, String?) -> String)? = null,
 ) {
     internal val mcpDiscovery =
         com.helix.app.mcp

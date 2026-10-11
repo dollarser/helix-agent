@@ -267,6 +267,8 @@ UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保�
 
 ## Decision history
 
+- 2026-10-11：HXA-274已实现同源原因/保存加载/请求资格投影与数据化恢复目标，删除服务持有页面导航回调；主机、API36和Qwen有界证据见[274记录](../../evidence/development/hxa274-plugin-readiness-2026-10-11.md)。不改变原Room准入、权限或重试身份；275及后续增量仍独立验收。
+
 - 2026-10-11：所有者要求将系统分层分析、优化建议与原HXA/ADR对齐。保留单一 Core Loop、Engine 生命周期和原 Dispatcher；HXA-274 承接恢复目标数据化与当前页面导航，HXA-277 承接四类 owner 的原生资源接线。复用 HXA-220/223/234/257/258 已交付边界，完整 Turn 宿主提取需实际消费者，不另建重构任务或兼容层。本次为文档决定，未实施或验证增量。
 
 - 2026-10-10：HXA-258把会话元数据、工作区绑定审计及模型默认/运行配置的原子写入收敛到SessionCatalog，共用原Room、clock、ID、SessionRunControlStore和工作区恢复对象。原用户动作排序、turnGate/submissionGate、输入身份、模型可选性和Dispatcher重验仍归应用调用者；协作者不授予权限、不改变live snapshot、不新增状态队列。Room事务失败不能被当作外部文件副作用回滚或成功回执；具体实现和验证以任务证据为准。

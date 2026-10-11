@@ -191,15 +191,23 @@ fun ChatScreen(
     exportSessionId?.let { id ->
         if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
     }
-    androidx.compose.runtime.DisposableEffect(chatService, onModels, onPermissions) {
-        chatService.recoveryModelsNavigation = onModels
-        chatService.recoveryPermissionsNavigation = onPermissions
-        onDispose {
-            if (chatService.recoveryModelsNavigation === onModels) chatService.recoveryModelsNavigation = null
-            if (chatService.recoveryPermissionsNavigation ===
-                onPermissions
-            ) {
-                chatService.recoveryPermissionsNavigation = null
+
+    fun repairRecovery(
+        turnId: String,
+        permissions: Boolean,
+    ) {
+        scope.launch {
+            val target =
+                if (permissions) {
+                    chatService.recoveryGrantPermission(turnId).await()
+                } else {
+                    chatService.recoveryReconnect(turnId).await()
+                }
+            if (target?.matches(chatService.screen.value.openSessionId, turnId) == true) {
+                when (target.destination) {
+                    com.helix.app.chat.RecoveryRepairDestination.MODELS -> onModels()
+                    com.helix.app.chat.RecoveryRepairDestination.PERMISSIONS -> onPermissions()
+                }
             }
         }
     }
@@ -670,9 +678,9 @@ fun ChatScreen(
                         onRetryProotAck = chatService::retryProotAcknowledgement,
                         onInspectSubscription = chatService::inspectInterruptedSubscription,
                         onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
-                        onRecoveryReconnect = chatService::recoveryReconnect,
+                        onRecoveryReconnect = { repairRecovery(it, false) },
                         onRecoveryQueryResult = chatService::recoveryQueryResult,
-                        onRecoveryGrantPermission = chatService::recoveryGrantPermission,
+                        onRecoveryGrantPermission = { repairRecovery(it, true) },
                         onRecoveryContinueGoal = chatService::recoveryContinueGoal,
                         onRecoveryRetry = chatService::recoveryRetryNewCall,
                         onOpenCommandDetail = onOpenCommandDetail,

@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSessionRow
+import com.helix.app.plugin.PluginSetupReason
 import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,9 +30,9 @@ internal fun statusLabel(row: PluginSessionRow): Int =
     when {
         !row.available -> R.string.connector_session_unavailable
         !row.enabled -> R.string.connector_inactive
-        row.selectionError == "MOBILE_USE_NOT_CONFIGURED" -> R.string.mobile_use_configuration_required
-        row.selectionError == "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.mobile_use_needs_access
-        row.selectionError != null -> R.string.connector_session_setup
+        row.setupReason == PluginSetupReason.MOBILE_SCOPE -> R.string.mobile_use_configuration_required
+        row.setupReason == PluginSetupReason.MOBILE_BACKEND -> R.string.mobile_use_needs_access
+        row.setupReason != null -> R.string.connector_session_setup
         !row.ready -> R.string.connector_session_setup
         else -> R.string.connector_session_ready
     }
@@ -61,14 +62,24 @@ internal fun PluginSessionChoice(
         Checkbox(
             checked = row.selected,
             onCheckedChange = { selected ->
-                if (selected && row.selectionError != null) onConfigure() else onSelect(selected)
+                if (selected && row.readyComponents == 0 &&
+                    row.setupReason != null
+                ) {
+                    onConfigure()
+                } else {
+                    onSelect(selected)
+                }
             },
             enabled = !busy && (row.selected || row.available),
             modifier = Modifier.testTag("connector-session-${row.id}"),
         )
         Column {
             PluginSessionState(row)
-            if (row.selectionError != null) {
+            row.readiness?.let {
+                com.helix.app.plugin
+                    .PluginReadinessDetails(it)
+            }
+            if (row.setupReason != null) {
                 TextButton(
                     onClick = onConfigure,
                     enabled = !busy,
@@ -76,9 +87,9 @@ internal fun PluginSessionChoice(
                 ) {
                     Text(
                         stringResource(
-                            when (row.selectionError) {
-                                "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.phone_task_permissions
-                                "MOBILE_USE_NOT_CONFIGURED" -> R.string.phone_task_configure
+                            when (row.setupReason) {
+                                PluginSetupReason.MOBILE_BACKEND -> R.string.phone_task_permissions
+                                PluginSetupReason.MOBILE_SCOPE -> R.string.phone_task_configure
                                 else -> R.string.connector_session_configure
                             },
                         ),
@@ -92,13 +103,13 @@ internal fun PluginSessionChoice(
 /** UI sees only application-service projections; component repair remains in Extensions. */
 private fun openPluginConfiguration(
     row: PluginSessionRow,
-    error: String?,
+    error: PluginSetupReason?,
     onConfigure: () -> Unit,
     onMobileUseConfiguration: () -> Unit,
     onSystemPermissions: () -> Unit,
 ) {
     when {
-        error == "MOBILE_USE_BACKEND_UNAVAILABLE" -> onSystemPermissions()
+        error == PluginSetupReason.MOBILE_BACKEND -> onSystemPermissions()
         row.id == "bundled-plugin:mobile-use" -> onMobileUseConfiguration()
         else -> onConfigure()
     }
@@ -117,9 +128,9 @@ fun ConnectorSessionPanel(
 ) {
     val state = remember(service, sessionId, pluginId) { ConnectorSessionPanelState(service, sessionId, pluginId) }
     val scope = rememberCoroutineScope()
-    var setupRequest by remember(state) { mutableStateOf<Pair<PluginSessionRow, String>?>(null) }
+    var setupRequest by remember(state) { mutableStateOf<Pair<PluginSessionRow, PluginSetupReason>?>(null) }
     LaunchedEffect(state) { state.refresh() }
-    val configure: (PluginSessionRow, String?) -> Unit = { row, error ->
+    val configure: (PluginSessionRow, PluginSetupReason?) -> Unit = { row, error ->
         if (error != null) {
             setupRequest = row to error
         } else {
@@ -130,7 +141,7 @@ fun ConnectorSessionPanel(
     val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled ->
         scope.launch {
             state.select(row, enabled)
-            state.selectionError?.let { configure(row, it) }
+            state.setupReason?.let { configure(row, it) }
         }
     }
     val request = setupRequest
@@ -178,7 +189,7 @@ fun ConnectorSessionPanel(
                 }
                 state.rows.forEach { row ->
                     PluginSessionChoice(row, state.busy || state.loading, { update(row, it) }) {
-                        configure(row, row.selectionError)
+                        configure(row, row.setupReason)
                     }
                 }
                 state.skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }

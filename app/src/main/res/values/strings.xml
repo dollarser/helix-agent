@@ -1771,7 +1771,7 @@
     <string name="extensions_manage">管理与配置</string>
     <string name="extensions_select_tools">选择此连接的全部工具</string>
     <string name="extensions_tool_details">查看或调整工具</string>
-    <string name="extensions_component_status">已配置组件：%1$d / %2$d；执行仍按会话权限检查</string>
+    <string name="extensions_component_status">可用组件：%1$d / %2$d</string>
     <string name="extensions_search">搜索已添加的扩展</string>
     <string name="mobile_use_global_help">以下设置对所有启用 Mobile Use 的会话生效。保存不会自动启用任何会话。会话只需在扩展中开启或关闭插件。修改范围后，旧观察和旧批准不再有效。</string>
     <string name="mobile_use_save_settings">保存插件设置</string>
@@ -1957,4 +1957,20 @@
     <string name="skill_invocation_prompt">使用技能：%1$s</string>
     <string name="skill_invocation_selected">本次技能：%1$s · 点击移除</string>
     <string name="skill_invocation_limit">一次输入最多使用 4 个技能，请先移除一个。</string>
+    <string name="plugin_state_disconnected">未连接</string>
+    <string name="plugin_state_host_missing">宿主能力不可用</string>
+    <string name="plugin_state_not_selected">本会话未选择</string>
+    <string name="plugin_state_unsupported">不支持执行</string>
+    <string name="plugin_state_metadata">仅保留说明</string>
+    <string name="plugin_state_reload">配置已变化，请重新连接</string>
+    <string name="plugin_effect_next_request">修改在下一次请求生效</string>
+    <string name="plugin_revision">安装版本：%1$d</string>
+    <string name="plugin_saved_loaded">配置已保存：%1$s；已加载：%2$s</string>
+    <string name="plugin_fact_yes">是</string>
+    <string name="plugin_fact_no">否</string>
+    <string name="plugin_setup_connection">组件尚未连接。请在扩展设置中补全连接配置并连接，再返回选择。</string>
+    <string name="plugin_setup_host">此组件需要的宿主能力当前不可用。请检查扩展设置和运行条件，再返回选择。</string>
+    <string name="plugin_setup_unsupported">此包包含当前不能执行的组件。请在扩展详情查看支持范围，或选择支持的包。</string>
+    <string name="plugin_setup_reload">配置已保存但尚未加载。请在扩展设置中重新连接或修复，再返回选择。</string>
+    <string name="plugin_state_request_unavailable">本次请求不能调用</string>
 </resources>

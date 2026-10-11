@@ -3,8 +3,10 @@ package com.helix.app.connector
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.helix.app.plugin.PluginSelectionUnavailable
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSessionRow
+import com.helix.app.plugin.PluginSetupReason
 import com.helix.extensions.skills.SkillListItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +34,7 @@ internal class ConnectorSessionPanelState(
         private set
     var updated by mutableStateOf(false)
         private set
-    var selectionError by mutableStateOf<String?>(null)
+    var setupReason by mutableStateOf<PluginSetupReason?>(null)
         private set
     val empty get() = if (loading || failed) false else rows.isEmpty() && skills.isEmpty()
     val editable get() = !loading && !busy
@@ -71,20 +73,18 @@ internal class ConnectorSessionPanelState(
         if (!editable) return
         busy = true
         updated = false
-        selectionError = null
+        setupReason = null
         try {
             withContext(Dispatchers.IO) { service.selectFromUser(sessionId, row.id, enabled) }
             refresh()
             updated = !failed
         } catch (cancel: CancellationException) {
             throw cancel
-        } catch (error: Exception) {
+        } catch (error: PluginSelectionUnavailable) {
+            needsConfiguration = error.reason == PluginSetupReason.MOBILE_SCOPE
+            setupReason = error.reason
+        } catch (_: Exception) {
             failed = true
-            needsConfiguration = error.message == "MOBILE_USE_NOT_CONFIGURED"
-            selectionError =
-                error.message.takeIf {
-                    it == "MOBILE_USE_NOT_CONFIGURED" || it == "MOBILE_USE_BACKEND_UNAVAILABLE"
-                }
         } finally {
             busy = false
         }

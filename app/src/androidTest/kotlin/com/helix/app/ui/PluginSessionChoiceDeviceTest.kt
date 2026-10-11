@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.app.connector.PluginSessionChoice
 import com.helix.app.plugin.PluginSessionRow
+import com.helix.app.plugin.PluginSetupReason
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -20,17 +21,17 @@ class PluginSessionChoiceDeviceTest {
     private val row = PluginSessionRow("bundled-plugin:mobile-use", "Mobile Use", false, false, true, true)
     private val tag = "connector-session-${row.id}"
 
-    @Test fun missingConfigurationClickOpensSetupWithoutSelecting() = blocked("MOBILE_USE_NOT_CONFIGURED")
+    @Test fun missingConfigurationClickOpensSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_SCOPE)
 
-    @Test fun missingBackendClickOpensSetupWithoutSelecting() = blocked("MOBILE_USE_BACKEND_UNAVAILABLE")
+    @Test fun missingBackendClickOpensSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_BACKEND)
 
-    private fun blocked(error: String) {
+    private fun blocked(error: PluginSetupReason) {
         var configured = 0
         val selections = mutableListOf<Boolean>()
         compose.setContent {
             MaterialTheme {
                 PluginSessionChoice(
-                    row.copy(selectionError = error),
+                    row.copy(setupReason = error),
                     false,
                     { selections += it },
                     { configured++ },
@@ -47,7 +48,7 @@ class PluginSessionChoiceDeviceTest {
     }
 
     @Test fun returningFromSetupRequiresAnotherExplicitClick() {
-        val facts = mutableStateOf(row.copy(selectionError = "MOBILE_USE_BACKEND_UNAVAILABLE"))
+        val facts = mutableStateOf(row.copy(setupReason = PluginSetupReason.MOBILE_BACKEND))
         val selections = mutableListOf<Boolean>()
         compose.setContent {
             MaterialTheme { PluginSessionChoice(facts.value, false, { selections += it }, {}) }
@@ -66,7 +67,7 @@ class PluginSessionChoiceDeviceTest {
         compose.setContent {
             MaterialTheme {
                 PluginSessionChoice(
-                    row.copy(selected = true, available = false, selectionError = "MOBILE_USE_BACKEND_UNAVAILABLE"),
+                    row.copy(selected = true, available = false, setupReason = PluginSetupReason.MOBILE_BACKEND),
                     false,
                     { selections += it },
                     { configured++ },
@@ -83,7 +84,7 @@ class PluginSessionChoiceDeviceTest {
         compose.setContent {
             MaterialTheme {
                 PluginSessionChoice(
-                    row.copy(selectionError = "MOBILE_USE_BACKEND_UNAVAILABLE"),
+                    row.copy(setupReason = PluginSetupReason.MOBILE_BACKEND),
                     true,
                     { actions++ },
                     { actions++ },
