@@ -31,6 +31,9 @@ API36均使用 owned runner 的自有只读 `Helix_HXA271_API36`，所有进程�
 | 共享 Browser 引擎/观察资源 | 32/32，0 skip，实际状态流完结 | `build/hxa277-browser-resources/` | 两者均 `18d5cee551d1c963b3b219df8efacbf3a5885a38a53e2a667d5bd0983ca548f5` |
 | Developer 应用组合 | 20/20，0 skip，45.124s | `build/hxa277-developer-cross-owner-final/` | `17ceae328212c630714e0e89c5fe41a351e59c2161836b7198d0ee299141539a` / `7a68eb2311bc27f7aa7a633ffb86778af7b7aa442f7567d6c0c639b302cb2f2f` |
 | Standard/consumer 应用组合 | 19/19，0 skip，44.396s | `build/hxa277-consumer-cross-owner-final/` | `9f069f3dcd6601c9fe7252cd4f1115b4a9076fc49132267caba177aa5ba11802` / `4892b4f1d17e1b90bc586f38073212bad6e45b11cff1288b8913eb51b5f7723c` |
+| 最终 Developer 制品复核 | 20/20，0 skip，26.803s | `build/hxa277-developer-current-artifact/` | `00ee7bce01ab31fa747d7de620a6bd07c8dbd1ed83df6b75f424f6ff0993bea5` / `7a68eb2311bc27f7aa7a633ffb86778af7b7aa442f7567d6c0c639b302cb2f2f` |
+
+最终全仓构建后的 Developer APK 与先前制品有一个 `classes8.dex` 条目不同，差异原因未确认；因此对最终精确制品重新执行同一20项组合，全部通过，自有模拟器关闭 exit0。Consumer 和测试 APK 哈希未变。后续内容策略基线冻结最终 Developer 制品，不以此前通过推定新字节制品通过。
 
 Mobile Use 使用真正开启的 Helix 无障碍服务，包括实际节点/系统操作与授权撤销；新增 fixture 将真实 SDK 手势派发给 Android，停止等待/退休后 ticket 与呈现仍保留，真实完成或取消回调才释放。该 SDK fixture 没有调用模型或绕称完整模型任务通过；不是零工具 ChatReply 替代后端。Browser 32 项是共享实现验收，独立观察和原 owner 销毁均实际运行，不计作每渠道各32项。
 
