@@ -40,6 +40,7 @@ internal object BrowserToolResultMapper {
                     )
                 },
             message = "",
+            observedAtMillis = s.mintedAtMillis,
         )
 
     fun failedSnapshot(

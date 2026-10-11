@@ -76,13 +76,23 @@ class BrowserTabController(
     // ---------------------------------------------------------------- commands
 
     /** Expected UI capacity refusal, without creating a tab or throwing. */
-    fun tryNewTab(isIncognito: Boolean = false): String? = if (state.tabs.size < maxTabs) newTab(isIncognito) else null
+    fun tryNewTab(
+        isIncognito: Boolean = false,
+        originSessionId: String? = null,
+    ): String? = if (state.tabs.size < maxTabs) newTab(isIncognito, originSessionId) else null
 
     /** Creates a blank tab, selects it, and returns its id. Fails at [maxTabs]. */
-    fun newTab(isIncognito: Boolean = false): String {
+    fun newTab(
+        isIncognito: Boolean = false,
+        originSessionId: String? = null,
+    ): String {
         check(state.tabs.size < maxTabs) { "tab limit reached: $maxTabs" }
         val id = newTabId()
-        state = state.copy(tabs = state.tabs + BrowserTab(id, isIncognito = isIncognito), selectedId = id)
+        state =
+            state.copy(
+                tabs = state.tabs + BrowserTab(id, isIncognito = isIncognito, originSessionId = originSessionId),
+                selectedId = id,
+            )
         return id
     }
 

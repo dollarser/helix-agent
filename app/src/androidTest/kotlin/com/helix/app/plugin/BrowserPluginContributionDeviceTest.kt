@@ -25,6 +25,76 @@ import java.util.UUID
 
 class BrowserPluginContributionDeviceTest {
     @Test
+    @Suppress("LongMethod") // Keep the original Dispatcher turn and owned Activity together.
+    fun scopedTabsAndWaitExecuteThroughDispatcherAndStopAfterRevocation() =
+        runBlocking {
+            val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            val session = UUID.randomUUID().toString()
+            val turn = UUID.randomUUID().toString()
+            val plugin = c.pluginService.list().single { it.native?.pluginId == "browser" }
+            c.storage.sessions.create(session, "Observation dispatcher fixture", null, null, 0)
+            c.sessionPermissionEdit.saveSessionConfig(
+                session,
+                SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+                System.currentTimeMillis(),
+            )
+            c.storage.turns.start(turn, session, 0)
+            c.chatService.openSession(session)
+            var tab: String? = null
+            try {
+                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    scenario.onActivity {
+                        val page = "<h1>Ready fixture</h1>" + "<button>Same</button>".repeat(80)
+                        tab = c.browser.openTab("data:text/html," + android.net.Uri.encode(page), session).tabId
+                    }
+                    val id = requireNotNull(tab)
+                    awaitLoaded(scenario, c, id)
+
+                    suspend fun dispatch(
+                        name: String,
+                        arguments: String,
+                    ) = c.chatService.dispatchToolCall(
+                        UUID.randomUUID().toString(),
+                        turn,
+                        name,
+                        arguments,
+                        mode = AgentMode.ACT,
+                    )
+                    val tabs = dispatch("browser.tabs", "{}")
+                    assertTrue(tabs.toString(), tabs is ToolDispatchOutcome.Succeeded)
+                    assertTrue(tabs.toString().contains(id))
+                    val snapshot = dispatch("browser.snapshot", """{"tabId":"$id"}""")
+                    assertTrue(snapshot.toString(), snapshot is ToolDispatchOutcome.Succeeded)
+                    assertTrue(snapshot.toString().contains("\"urlTruncated\":true"))
+                    val arguments =
+                        """{"tabId":"$id","query":"Ready fixture","condition":"PRESENT",""" +
+                            """"timeoutMillis":500}"""
+                    val found = dispatch("browser.wait", arguments)
+                    assertTrue(found.toString(), found is ToolDispatchOutcome.Succeeded)
+                    assertTrue(found.toString().contains("SATISFIED"))
+                    val absent = dispatch("browser.wait", arguments.replace("Ready fixture", "Missing fixture"))
+                    assertTrue(absent.toString(), absent is ToolDispatchOutcome.Succeeded)
+                    assertTrue(absent.toString().contains("TIMED_OUT"))
+                    c.pluginService.selectFromUser(session, plugin.id, false)
+                    val denied = dispatch("browser.wait", arguments)
+                    assertTrue(denied.toString(), denied is ToolDispatchOutcome.Denied)
+                    assertEquals(DispatchOutcomeCode.TOOL_DISABLED, (denied as ToolDispatchOutcome.Denied).code)
+                    scenario.onActivity { c.browser.closeTab(id) }
+                    tab = null
+                }
+            } finally {
+                tab?.let { id ->
+                    androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        c.browser.closeTab(id)
+                    }
+                }
+                c.toolPipeline.endTurn(turn)
+                c.chatService.closeSession()
+                c.storage.deleteSessionPermanently(session)
+            }
+        }
+
+    @Test
     @Suppress("LongMethod") // One owned Activity journey keeps selection/default and manual-tab assertions together.
     fun defaultSelectionRevocationKeepsManualTabsAndUserDefaults() {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
@@ -36,7 +106,7 @@ class BrowserPluginContributionDeviceTest {
                     it.descriptor.name.value
                         .startsWith("browser.")
                 }
-        assertEquals(12, bindings.size)
+        assertEquals(14, bindings.size)
         assertTrue(bindings.all { it.descriptor.origin == ToolOrigin.PluginOrigin("browser", "0.1.0", "browser") })
         val first = UUID.randomUUID().toString()
         c.storage.sessions.create(first, "Browser contribution fixture", null, null, 0)

@@ -126,8 +126,11 @@ class BrowserController(
 
     // ---------------------------------------------------------------- tab commands
 
-    fun tryNewTab(isIncognito: Boolean = false): String? {
-        val id = tabs.tryNewTab(isIncognito) ?: return null
+    fun tryNewTab(
+        isIncognito: Boolean = false,
+        originSessionId: String? = null,
+    ): String? {
+        val id = tabs.tryNewTab(isIncognito, originSessionId) ?: return null
         hosts.values.forEach { it.cancelDialogs() }
         publish()
         return id
@@ -238,11 +241,14 @@ class BrowserController(
      * [url] yields a blank tab; a denied [url] leaves the fresh tab on its policy error page and
      * is reported as the blank document — the denied URL is never loaded.
      */
-    fun openTab(url: String): BrowserOpenResult {
+    fun openTab(
+        url: String,
+        originSessionId: String? = null,
+    ): BrowserOpenResult {
         if (url.isNotBlank() && ownerBinding.get()?.available != true) {
             return BrowserOpenResult("", "", "", "browser-host-unavailable")
         }
-        val id = tryNewTab()
+        val id = tryNewTab(originSessionId = originSessionId)
         return if (id ==
             null
         ) {
@@ -346,6 +352,7 @@ class BrowserController(
     @Suppress("ComplexCondition")
     fun snapshot(
         id: String,
+        stillRequested: () -> Boolean = { true },
         onResult: (SnapshotResult) -> Unit,
     ) {
         val tab = tabs.state().tabs.firstOrNull { it.id == id }
@@ -357,7 +364,7 @@ class BrowserController(
         val owner = ownerBinding.get()
         host.evaluateFixed(BrowserSnapshotScript.EXTRACT) { raw ->
             val liveTab = tab(id)
-            if (ownerBinding.get() !== owner || hosts[id] !== host ||
+            if (!stillRequested() || ownerBinding.get() !== owner || hosts[id] !== host ||
                 liveTab == null || liveTab.navigationGeneration != tab.navigationGeneration || liveTab.isLoading
             ) {
                 onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
@@ -371,6 +378,12 @@ class BrowserController(
 
     /** The last successful snapshot for [id], if any — the snapshot whose node tokens are live. */
     fun latestSnapshot(id: String): BrowserSnapshot? = snapshots[id]
+
+    internal fun observationBinding(id: String): BrowserObservationBinding? =
+        BrowserObservationBinding.capture(tab(id), ownerBinding.get(), hosts[id])
+
+    internal fun observationState(binding: BrowserObservationBinding): com.helix.tools.browser.BrowserWaitStatus? =
+        binding.state(ownerBinding.get(), hosts[binding.tabId], tab(binding.tabId))
 
     /**
      * The tab's live state, or null when unknown (HXA-062). Thread-safe: reads the published

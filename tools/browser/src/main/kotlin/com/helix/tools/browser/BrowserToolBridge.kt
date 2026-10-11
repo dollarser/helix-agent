@@ -20,7 +20,16 @@ package com.helix.tools.browser
 @Suppress("TooManyFunctions")
 interface BrowserToolBridge {
     /** Opens a new tab, selects it and navigates it to [url] (a blank [url] leaves a blank tab). */
-    fun open(url: String): OpenOutcome
+    fun open(
+        url: String,
+        sessionId: String? = null,
+    ): OpenOutcome
+
+    /** Discover only the original session's tabs, or the exact trusted target scope. */
+    fun tabs(context: BrowserObservationContext): BrowserTabsOutcome
+
+    /** Observe a settled document; navigation/owner change invalidates the original wait. */
+    fun waitFor(request: BrowserWaitRequest): BrowserWaitOutcome
 
     /** Navigates [tabId] to [url] through the URL policy choke point (doc 09 §3.4). */
     fun navigate(
@@ -149,6 +158,7 @@ data class SnapshotOutcome(
     val nodeCount: Int,
     val nodes: List<BrowserNodeView>,
     val message: String,
+    val observedAtMillis: Long = 0,
 )
 
 /** One [BrowserToolBridge.find] hit within the most recent snapshot. */
@@ -167,6 +177,57 @@ data class FindOutcome(
     val matchCount: Int,
     val matches: List<BrowserFindMatch>,
     val message: String,
+    val truncated: Boolean = false,
+    val observationExpired: Boolean = true,
+    val observedAtMillis: Long? = null,
+)
+
+/** Host-provided identity only. Model arguments never supply session or scope. */
+data class BrowserObservationContext(
+    val sessionId: String?,
+    val scopeRef: String?,
+)
+
+data class BrowserTabView(
+    val tabId: String,
+    val url: String,
+    val title: String,
+    val selected: Boolean,
+    val pageState: String,
+    val hostAvailable: Boolean,
+    val navigationGeneration: Long,
+    val urlTruncated: Boolean,
+    val titleTruncated: Boolean,
+) {
+    companion object {
+        const val MAX_URL_CHARS = 512
+        const val MAX_TITLE_CHARS = 128
+    }
+}
+
+data class BrowserTabsOutcome(
+    val tabs: List<BrowserTabView>,
+    val hostAvailable: Boolean,
+    val truncated: Boolean,
+)
+
+enum class BrowserWaitCondition { PRESENT, ABSENT }
+
+data class BrowserWaitRequest(
+    val tabId: String,
+    val query: String,
+    val condition: BrowserWaitCondition,
+    val timeoutMillis: Int,
+    val context: BrowserObservationContext,
+    val deadline: java.time.Instant,
+    val isCancelled: () -> Boolean,
+)
+
+enum class BrowserWaitStatus { SATISFIED, TIMED_OUT, CANCELLED, NO_PAGE, OUT_OF_SCOPE, PAGE_CHANGED, HOST_UNAVAILABLE }
+
+data class BrowserWaitOutcome(
+    val status: BrowserWaitStatus,
+    val observation: FindOutcome? = null,
 )
 
 enum class ActionStatus { PERFORMED, REFUSED, STALE_TOKEN, NO_TAB, TIMED_OUT, ERROR }
@@ -225,3 +286,6 @@ data class DownloadOutcome(
     val contentType: String,
     val reason: String,
 )
+
+internal fun FindOutcome.uniqueCurrentToken(): String? =
+    matches.singleOrNull()?.takeIf { matchCount == 1 && !truncated && !observationExpired }?.token

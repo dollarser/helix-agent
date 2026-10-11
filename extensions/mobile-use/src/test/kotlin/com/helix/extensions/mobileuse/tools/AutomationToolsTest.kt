@@ -206,6 +206,32 @@ class AutomationToolsTest {
     }
 
     @Test
+    fun cappedFindDoesNotHideAmbiguityOrSuggestAnUnprovenUniqueClick() {
+        val result = successfulSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        val node = snapshot.nodes.single()
+        port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = listOf(node, node.copy(token = "second"))))
+        val found =
+            completed(
+                execute(
+                    AutomationTools.FIND,
+                    buildJsonObject {
+                        put("text", JsonPrimitive("Continue"))
+                        put("maxResults", JsonPrimitive(1))
+                    },
+                ),
+            )
+        assertEquals("2", found.getValue("matchCount").jsonPrimitive.content)
+        assertEquals("true", found.getValue("ambiguous").jsonPrimitive.content)
+        assertEquals("true", found.getValue("truncated").jsonPrimitive.content)
+        assertFalse(found.containsKey("suggestedClickToken"))
+        assertEquals(
+            snapshot.createdAt.toEpochMilli().toString(),
+            found.getValue("observedAtMillis").jsonPrimitive.content,
+        )
+    }
+
+    @Test
     fun offscreenFindSuggestsScrollWithoutClickToken() {
         val result = successfulSnapshot()
         val snapshot = requireNotNull(result.snapshot)
@@ -375,8 +401,8 @@ class AutomationToolsTest {
     @Test
     fun findAndWaitDescriptorsExposeClickSuggestionContract() {
         val descriptors = tools.descriptors().associateBy { it.name.value }
-        assertEquals(8, descriptors.getValue(AutomationTools.FIND).version.value)
-        assertEquals(8, descriptors.getValue(AutomationTools.WAIT).version.value)
+        assertEquals(9, descriptors.getValue(AutomationTools.FIND).version.value)
+        assertEquals(9, descriptors.getValue(AutomationTools.WAIT).version.value)
         assertTrue(
             descriptors
                 .getValue(AutomationTools.FIND)

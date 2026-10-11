@@ -12,6 +12,8 @@ object BrowserTools {
         visualPreparation: ToolVisualPreparation? = null,
     ): List<ToolBinding> =
         listOf(
+            ToolBinding(BrowserTabsTool.descriptor(origin), BrowserTabsTool.executor(bridge)),
+            ToolBinding(BrowserWaitTool.descriptor(origin), BrowserWaitTool.executor(bridge)),
             ToolBinding(BrowserOpenTool.descriptor(origin), BrowserOpenTool.executor(bridge)),
             ToolBinding(BrowserNavigateTool.descriptor(origin), BrowserNavigateTool.executor(bridge)),
             ToolBinding(BrowserBackTool.descriptor(origin), BrowserBackTool.executor(bridge)),

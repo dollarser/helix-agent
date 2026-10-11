@@ -26,6 +26,8 @@ enum class AutomationFindStatus {
 data class AutomationFindResult(
     val status: AutomationFindStatus,
     val nodes: List<AutomationSnapshotNode> = emptyList(),
+    val matchCount: Int = nodes.size,
+    val truncated: Boolean = false,
 )
 
 enum class AutomationNodeAction {

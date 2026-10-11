@@ -1,7 +1,7 @@
 # ADR-PLATFORM-002: 浏览器 View 与逻辑标签生命周期
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-11
+Date: 2026-09-16; revised 2026-10-12
 HXA: HXA-160, HXA-276, HXA-277, HXA-279
 Deciders: Project owner（2026-10-11 要求同步 Browser 插件贡献、资源与交互优化 ADR；不兼容旧版）
 
@@ -9,7 +9,7 @@ Deciders: Project owner（2026-10-11 要求同步 Browser 插件贡献、资源�
 
 WebView 必须由正确的 Activity 生命周期持有，逻辑标签与页面实例不能混为一个跨 Activity 单例。
 
-HXA-276/277/279 将 Browser 接入插件贡献，并增加标签发现、有界条件等待；这些能力必须复用现有 Activity owner、页面身份和观察链。目标设计已接受；HXA-276 单一贡献已交付并完成授权有界验收，277 资源接线已完成有界验收，279 增量仍待实施。
+HXA-276/277/279 将 Browser 接入插件贡献，并增加标签发现、有界条件等待；这些能力必须复用现有 Activity owner、页面身份和观察链。目标设计已接受；HXA-276 单一贡献已交付并完成授权有界验收，277 资源接线已完成有界验收，279 增量已实现，有界验收按对应证据结算。
 
 ## Decision
 
@@ -23,7 +23,7 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 
 ### 原生插件贡献与手动浏览（HXA-276）
 
-`:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。12 个既有工具统一为 Browser 的 PluginOrigin，走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
+`:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。12 个原有工具及279两项新增工具统一为 Browser 的 PluginOrigin，走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
 
 新会话默认集合与组件就绪规则由 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)定义。插件贡献不持有 Activity/WebView，也不因选择或状态查看而拉起 UI。手动浏览、书签、历史和用户导航属于浏览器功能；撤销 Agent 来源仅撤下后续准入，不能销毁用户正在浏览的标签。无 host、页面失效或视觉不可用返回真实原因；URL/origin、目标范围、generation/token 与像素披露要求保持有效。
 
@@ -39,6 +39,10 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 
 - **标签发现**：在原会话/目标 scope 和输出上限内返回准确 tab ID、允许披露的标题/URL、选中状态与页面/host 状态。只读列表不加载页面、不获取额外权限；别的上下文内容不能因共享 BrowserController 自动披露。无可操作页面与空列表按实际原因区分。
 - **条件等待**：在已有只读页面观察上等待首版明确支持的页面/目标条件，绑定准确 tab、owner、页面身份及原调用 deadline；参数校验限定条件集合、等待上限与输出大小，不接受任意页面 JS。达到条件、超时、取消、页面/host 失效分别结算，页面变化不把旧 token 指向新页面；需要继续时重新观察并发起新调用。等待引用使用上节生命周期，不建第二个调度器。
+
+首版`browser.tabs`只披露原会话调用创建的逻辑标签，或原准确BrowserTabScope；未识别scope不回退。来源标记只保存在现有不持久化逻辑标签，不是授权，也不回填手动标签或旧来源。未明确目标scope的手动/其他会话标签不进入列表。`browser.wait`只支持已settled文档的语义子串PRESENT/ABSENT，最多10秒并受原deadline及单调时间约束；加载中NO_PAGE，导航/host变化明确失效。截断树不能证明ABSENT，多匹配不提供唯一token。
+
+标签列表只提供元数据，URL含HTML也不能作为当前页面正文的证据；读取正文使用真实snapshot。列表和快照的URL/标题按声明上限返回完整Unicode前缀并明确各自截断，不扩大schema；完整页面URL、origin、fingerprint和token身份不变，前缀不能当作完整导航目标。
 
 匹配数量/歧义、截断、实际后端、观察过期与像素是否提供仅补执行器能够证明的字段；通用输出语义见 [ADR-TOOLS-001](../tools/001-descriptor-contract.md)。超时或未知效果不自动重放点击、发送、安装等动作，拒绝也不触发后端绕行。首版不扩展 tab close、完整 role/label locator、任意脚本 API 或通用 Observation 平台；Mobile Use 已有 `ui.wait` 继续复用。
 
@@ -59,7 +63,7 @@ Browser 进入统一插件选择与工具治理，手动浏览继续按 Activity
 
 ## Verification
 
-HXA-276 已完成单一贡献、选择与手动浏览的主机/API36 有界验收，见[276证据](../../evidence/development/hxa276-browser-contribution-2026-10-12.md)。HXA-277 资源接线与授权 API36 有界验收见[277证据](../../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-279 待实施，后续验收覆盖 12 工具唯一来源、选择撤销、无 host、空列表与 scope 过滤、等待 deadline/取消、导航失效、owner 替换、迟到回调、共享引用及清理失败。设备/模型对照固定已有标签、延迟条件、旧 token、同名控件歧义、截图未披露、动作结果未知六类旅程，并记录手动浏览及图像回流是否保持；具体授权和入口由对应 HXA 管理。
+HXA-276 已完成单一贡献、选择与手动浏览的主机/API36 有界验收，见[276证据](../../evidence/development/hxa276-browser-contribution-2026-10-12.md)。HXA-277 资源接线与授权 API36 有界验收见[277证据](../../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-279已接入14工具，实际验收见[279证据](../../evidence/development/hxa279-browser-observation-2026-10-12.md)；覆盖工具唯一来源、选择撤销、无 host、空列表与 scope 过滤、等待 deadline/取消、导航失效、owner 替换、迟到回调、共享引用及清理失败。设备/模型对照固定已有标签、延迟条件、旧 token、同名控件歧义、截图未披露、动作结果未知六类旅程，并记录手动浏览及图像回流是否保持；具体授权和入口由对应 HXA 管理。
 
 本次为现行决策整理，不新增功能通过结论。实现范围与实际命令结果以[实施状态](../../development/status.md)、对应 HXA 及完成记录为准；修改本契约后须覆盖成功、失败、取消、边界和恢复，不能用文档门禁代替设备/功能验收。
 
@@ -88,3 +92,9 @@ HXA-276 已完成单一贡献、选择与手动浏览的主机/API36 有界验�
 ## Decision history — 2026-10-12：Browser 观察引用与宿主退休
 
 HXA-277 保留 Activity 的 View 所有权和手动浏览；独立观察回调不互相取消，销毁时明确结算原请求，旧 owner/导航结果不更新新页面。观察注册结束不表示渲染器执行退出；插件停用不关闭手动标签。API36 共享引擎与双渠道应用有界验收通过，新增 tabs/wait 仍由 279 承接。
+
+## Decision history — 2026-10-12：有界标签发现与条件等待
+
+Owner要求完成279。采用[Playwright Pages](https://playwright.dev/docs/pages)的上下文隔离和[Actionability](https://playwright.dev/docs/actionability)的有界观察思路，保留Android现有Activity/page身份与权限路径；不复制参考代码或引入完整locator/任意JS。原会话来源仅为逻辑资源事实；原调用的精确scope、owner/generation和取消/deadline限定披露及等待，未知动作不重放。手动标签无原会话来源时需要明确目标scope，这是首版范围限制，不能通过共享Controller自动扩权。固定合成旅程与像素编码、真实SDK失效分别验收。
+
+实测长data URL导致原快照输出schema拒绝，按上限提供显式前缀/截断而保留完整执行身份；实测模型仅列标签结束读取任务，澄清元数据与当前正文证据。测试汇总原始及恢复全部Turn，像素自述使用明确二值答复和实际artifact事实，结果与遗留边界见279证据。

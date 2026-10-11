@@ -12,8 +12,14 @@ import com.helix.feature.browser.snapshot.SnapshotToken
 import com.helix.feature.browser.snapshot.TokenVerdict
 import com.helix.tools.browser.ActionOutcome
 import com.helix.tools.browser.ActionStatus
-import com.helix.tools.browser.BrowserFindMatch
+import com.helix.tools.browser.BrowserObservationContext
+import com.helix.tools.browser.BrowserTabView
+import com.helix.tools.browser.BrowserTabsOutcome
 import com.helix.tools.browser.BrowserToolBridge
+import com.helix.tools.browser.BrowserWaitCondition
+import com.helix.tools.browser.BrowserWaitOutcome
+import com.helix.tools.browser.BrowserWaitRequest
+import com.helix.tools.browser.BrowserWaitStatus
 import com.helix.tools.browser.DownloadOutcome
 import com.helix.tools.browser.FindOutcome
 import com.helix.tools.browser.HistStatus
@@ -60,8 +66,11 @@ class BrowserToolBridgeImpl(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val downloader = BrowserDownloader(workspaceStore, scopeId)
 
-    override fun open(url: String): OpenOutcome {
-        val result = onMain(SYNC_TIMEOUT_MS) { controller.openTab(url) }
+    override fun open(
+        url: String,
+        sessionId: String?,
+    ): OpenOutcome {
+        val result = onMain(SYNC_TIMEOUT_MS) { controller.openTab(url, sessionId) }
         return OpenOutcome(result.tabId, result.url, result.origin, result.failureReason)
     }
 
@@ -170,21 +179,146 @@ class BrowserToolBridgeImpl(
     ): FindOutcome {
         val snapshot = onMain(SYNC_TIMEOUT_MS) { controller.latestSnapshot(tabId) }
         if (snapshot == null) {
-            return FindOutcome(false, tabId, query, 0, emptyList(), "no snapshot yet — take a snapshot first")
+            return FindOutcome(false, tabId, query, 0, emptyList(), "no snapshot — take a snapshot first")
         }
-        val needle = query.lowercase()
-        val matches = ArrayList<BrowserFindMatch>()
-        for (node in snapshot.nodes) {
-            if (matches.size >= MAX_FIND_MATCHES) break
-            val haystack =
-                listOf(node.text.text, node.name?.text.orEmpty(), node.role, node.href?.text.orEmpty())
-                    .joinToString(" ")
-                    .lowercase()
-            if (needle.isNotEmpty() && haystack.contains(needle)) {
-                matches.add(BrowserFindMatch(node.index, node.role, node.text.text, node.token))
+        val expired =
+            System.currentTimeMillis() - snapshot.mintedAtMillis >= SnapshotToken.DEFAULT_TTL_MILLIS ||
+                controller
+                    .tab(
+                        tabId,
+                    )?.let { it.isLoading || it.navigationGeneration != snapshot.navigationGeneration } !=
+                false
+        return BrowserObservationFacts.find(snapshot, query, expired)
+    }
+
+    override fun tabs(context: BrowserObservationContext): BrowserTabsOutcome =
+        onMain(SYNC_TIMEOUT_MS) {
+            val state = controller.state.value
+            val allowed = state.tabs.filter { BrowserObservationFacts.allowed(it, context) }
+            BrowserTabsOutcome(
+                allowed.take(32).map { tab ->
+                    val host = controller.hostView(tab.id) != null && controller.hostAvailable()
+                    val url = BrowserObservationFacts.prefix(tab.url, BrowserTabView.MAX_URL_CHARS)
+                    val title = BrowserObservationFacts.prefix(tab.title.orEmpty(), BrowserTabView.MAX_TITLE_CHARS)
+                    BrowserTabView(
+                        tab.id,
+                        url,
+                        title,
+                        tab.id == state.selectedId,
+                        when {
+                            tab.error != null -> "ERROR"
+                            tab.isLoading -> "LOADING"
+                            !host || tab.navigationGeneration < 1 -> "NO_PAGE"
+                            else -> "READY"
+                        },
+                        host,
+                        tab.navigationGeneration,
+                        url != tab.url,
+                        title != tab.title.orEmpty(),
+                    )
+                },
+                controller.hostAvailable(),
+                allowed.size > 32,
+            )
+        }
+
+    @Suppress("SwallowedException") // interruption is cancellation, latch timeout is a truthful read-only timeout
+    override fun waitFor(request: BrowserWaitRequest): BrowserWaitOutcome {
+        val deadline = minOf(request.deadline.toEpochMilli(), System.currentTimeMillis() + request.timeoutMillis)
+        val timer = WaitTimer(request, deadline)
+        if (!timer.active()) return timer.terminal()
+        return try {
+            val (binding, status) = onMain(timer.remaining(SYNC_TIMEOUT_MS)) { prepareWait(request) }
+            if (binding == null) {
+                BrowserWaitOutcome(status ?: BrowserWaitStatus.NO_PAGE)
+            } else {
+                waitOnDocument(request, binding, timer)
             }
+        } catch (interrupted: InterruptedException) {
+            Thread.currentThread().interrupt()
+            BrowserWaitOutcome(BrowserWaitStatus.CANCELLED)
+        } catch (timeout: MainHopTimeout) {
+            timer.terminal()
+        } finally {
+            timer.close()
         }
-        return FindOutcome(true, tabId, query, matches.size, matches, "")
+    }
+
+    private class WaitTimer(
+        val request: BrowserWaitRequest,
+        val deadline: Long,
+    ) {
+        private val worker = Thread.currentThread()
+        private val ended = AtomicBoolean(false)
+        private val monotonicEnd = System.nanoTime() + request.timeoutMillis * 1_000_000L
+
+        fun remaining(ceiling: Long): Long =
+            minOf(
+                ceiling,
+                deadline - System.currentTimeMillis(),
+                (monotonicEnd - System.nanoTime()) / 1_000_000,
+            ).coerceAtLeast(1)
+
+        fun active(): Boolean {
+            if (ended.get() || request.isCancelled() || worker.isInterrupted) return false
+            return System.currentTimeMillis() < deadline && System.nanoTime() < monotonicEnd
+        }
+
+        fun close() {
+            ended.set(true)
+        }
+
+        fun terminal(): BrowserWaitOutcome =
+            BrowserWaitOutcome(
+                if (request.isCancelled() || worker.isInterrupted) {
+                    BrowserWaitStatus.CANCELLED
+                } else {
+                    BrowserWaitStatus.TIMED_OUT
+                },
+            )
+    }
+
+    private fun prepareWait(request: BrowserWaitRequest): Pair<BrowserObservationBinding?, BrowserWaitStatus?> {
+        val tab = controller.tab(request.tabId)
+        if (tab != null &&
+            !BrowserObservationFacts.allowed(tab, request.context)
+        ) {
+            return null to BrowserWaitStatus.OUT_OF_SCOPE
+        }
+        val binding = controller.observationBinding(request.tabId)
+        val failure = if (controller.hostAvailable()) BrowserWaitStatus.NO_PAGE else BrowserWaitStatus.HOST_UNAVAILABLE
+        return binding to if (binding == null) failure else null
+    }
+
+    @Suppress("ReturnCount") // each original wait has one truthful terminal observation
+    private fun waitOnDocument(
+        request: BrowserWaitRequest,
+        binding: BrowserObservationBinding,
+        timer: WaitTimer,
+    ): BrowserWaitOutcome {
+        while (timer.active()) {
+            val result =
+                onMainAsync<SnapshotResult>(timer.remaining(EVAL_TIMEOUT_MS)) { complete ->
+                    if (controller.observationState(binding) != null || !timer.active()) {
+                        complete(SnapshotResult.Failed(com.helix.feature.browser.snapshot.SnapshotFailure.NO_PAGE))
+                    } else {
+                        controller.snapshot(request.tabId, timer::active, complete)
+                    }
+                }
+            if (!timer.active()) return timer.terminal()
+            val invalid = onMain(timer.remaining(SYNC_TIMEOUT_MS)) { controller.observationState(binding) }
+            if (invalid != null) return BrowserWaitOutcome(invalid)
+            if (result is SnapshotResult.Failed) return BrowserWaitOutcome(BrowserWaitStatus.NO_PAGE)
+            val found = BrowserObservationFacts.find((result as SnapshotResult.Success).snapshot, request.query, false)
+            val satisfied =
+                when (request.condition) {
+                    BrowserWaitCondition.PRESENT -> found.matchCount > 0
+                    BrowserWaitCondition.ABSENT -> found.matchCount == 0 && !found.truncated
+                }
+            if (satisfied) return BrowserWaitOutcome(BrowserWaitStatus.SATISFIED, found)
+            if (timer.active()) Thread.sleep(timer.remaining(150))
+        }
+        return timer.terminal()
     }
 
     override fun click(
@@ -413,7 +547,6 @@ class BrowserToolBridgeImpl(
         const val EVAL_TIMEOUT_MS = 7_000L
         const val SETTLE_TIMEOUT_MS = 6_000L
         const val SETTLE_POLL_MS = 50L
-        const val MAX_FIND_MATCHES = 50
     }
 
     /** Raised when a main-thread hop / eval outlives its latch deadline (a genuine hang). */

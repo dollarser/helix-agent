@@ -31,6 +31,8 @@ data class BrowserTab(
     val progress: Int = 0,
     val isDesktopMode: Boolean = false,
     val isIncognito: Boolean = false,
+    /** Resource provenance, assigned only by the trusted host call; never a permission grant. */
+    val originSessionId: String? = null,
 ) {
     /**
      * The short label for the tab strip: the title when the page set one, else the host; null for

@@ -70,7 +70,7 @@ v2 编码使旧 contractHash/精确批准不再匹配，须重新审批，不能
 
 ## Verification
 
-HXA-276/277/279 的增量设计已接受，尚未实施。需证明单一 owner、旧绑定拒绝、取消但 executor 未退出时资源不释放，以及新观察事实真正进入下一 ModelRequest。覆盖歧义/截断、像素未提供、deadline、导航/owner 失效和未知动作，不由历史 R1 结果推定通过；具体主机、设备与模型验收见对应 HXA。
+HXA-276/277已交付有界验收；279观察增量已实现，实际结果见[279证据](../../evidence/development/hxa279-browser-observation-2026-10-12.md)。需证明单一 owner、旧绑定拒绝、取消但 executor 未退出时资源不释放，以及新观察事实真正进入下一 ModelRequest。覆盖歧义/截断、像素未提供、deadline、导航/owner 失效和未知动作，不由历史 R1 结果推定通过；具体主机、设备与模型验收见对应 HXA。
 
 本方案已接受；当前 R1 主机迁移与交错验收见[主机证据](../../evidence/development/hxa231-atomic-binding-2026-09-30.md)。包含逐字段变化、来源碰撞、请求别名、审批/排队替换、可变集合与无关更新反例；设备/真实服务本轮 not requested。当前编码修复及实际运行见[收敛证据](../../evidence/development/contract-document-convergence-2026-09-29.md)，不借用历史 HXA-042 数字证明新编码。
 
@@ -111,3 +111,7 @@ HXA-276/277/279 的增量设计已接受，尚未实施。需证明单一 owner�
 ## Decision history — 2026-10-11：插件来源与可核实观察结果
 
 所有者要求同步新增插件 HXA 的设计决定。接受 Browser 唯一 PluginOrigin、同一 Dispatcher 下的资源引用，以及执行器提供的最小观察事实；内部来源和结果契约直接替换，不保留旧批准转换或结果兼容层。资源归属由 Plugin/Browser ADR 维护，当前 R1 绑定算法不重建；新增功能尚待各任务实现和验收。
+
+## Decision history — 2026-10-12：最小观察事实接线
+
+279直接替换Browser snapshot/find/screenshot及Mobile Use snapshot/find/wait的所涉结果版本。Browser采用实际WEBVIEW_DOM、观察时间和已知TTL/页面失效事实；查找总数与返回上限分离，截断不证明唯一或全局不存在。Mobile Use保留实际后端、不编造不同后端的统一TTL。pixelsAttached表示经视觉准备提供artifact，实际请求图像仍由原receipt与最后读取/编码证明；仅保存路径为false，字段不能替代授权。两项只读工具沿现有schema/policy/授权/执行/审计，R1绑定算法、发现上限与未知副作用结算不改。

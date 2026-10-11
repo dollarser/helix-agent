@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 
 object BrowserScreenshotTool {
     const val NAME: String = "browser.screenshot"
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
@@ -47,8 +47,14 @@ object BrowserScreenshotTool {
                             put("sizeBytes", integerSchema("The PNG size in bytes.", 0, null))
                             put("sha256", stringSchema(64, "The lowercase hex SHA-256 of the saved PNG."))
                             put("reason", stringSchema(MAX_DETAIL_CHARS, "An explanatory note; empty on success."))
+                            put(
+                                "pixelsAttached",
+                                booleanSchema(
+                                    "Validated visual artifact prepared for image backfill; file alone is false.",
+                                ),
+                            )
                         },
-                    required = listOf("status", "reference", "sizeBytes", "sha256", "reason"),
+                    required = listOf("status", "reference", "sizeBytes", "sha256", "reason", "pixelsAttached"),
                 ),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
             timeout = 45.seconds,
@@ -91,6 +97,7 @@ object BrowserScreenshotTool {
                                     put("sizeBytes", JsonPrimitive(out.sizeBytes))
                                     put("sha256", JsonPrimitive(out.sha256))
                                     put("reason", JsonPrimitive(bounded(note)))
+                                    put("pixelsAttached", JsonPrimitive(visual != null))
                                 },
                             auditDetail =
                                 buildJsonObject {

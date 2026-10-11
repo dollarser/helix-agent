@@ -5,6 +5,8 @@ import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolSchemaValidation
+import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -23,7 +25,135 @@ import java.time.Instant
  * impl (:feature:browser), so this exercises the model-facing contract in isolation.
  */
 class BrowserToolsMappingTest {
+    @Test
+    fun longSnapshotMetadataFitsItsSchemaWithoutChangingPageIdentity() {
+        val original =
+            bridge.snapshotResult.copy(
+                url = "a".repeat(MAX_URL - 1) + "😀tail",
+                title = "a".repeat(MAX_NODE_TEXT - 1) + "😀tail",
+            )
+        bridge.snapshotResult = original
+        val output =
+            json(
+                run(
+                    BrowserSnapshotTool.NAME,
+                    BrowserSnapshotTool.executor(bridge),
+                    buildJsonObject { put("tabId", JsonPrimitive("t1")) },
+                ),
+            )
+        assertEquals("a".repeat(MAX_URL - 1), output.getValue("url").jsonPrimitive.content)
+        assertEquals("a".repeat(MAX_NODE_TEXT - 1), output.getValue("title").jsonPrimitive.content)
+        assertEquals("true", output.getValue("urlTruncated").jsonPrimitive.content)
+        assertEquals("true", output.getValue("titleTruncated").jsonPrimitive.content)
+        assertEquals(original, bridge.snapshotResult)
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                BrowserSnapshotTool
+                    .descriptor(
+                        com.helix.tools.framework.ToolOrigin
+                            .PluginOrigin("browser", "0.1.0", "browser"),
+                    ).outputSchema,
+                output,
+            ),
+        )
+        bridge.snapshotResult = original.copy(url = "a".repeat(MAX_URL), title = "a".repeat(MAX_NODE_TEXT))
+        val exact =
+            json(
+                run(
+                    BrowserSnapshotTool.NAME,
+                    BrowserSnapshotTool.executor(bridge),
+                    buildJsonObject { put("tabId", JsonPrimitive("t1")) },
+                ),
+            )
+        assertEquals("false", exact.getValue("urlTruncated").jsonPrimitive.content)
+        assertEquals("false", exact.getValue("titleTruncated").jsonPrimitive.content)
+    }
+
     private val bridge = FakeBridge()
+
+    @Test fun escapedTabMetadataFitsTheDeclaredOutputBudget() {
+        bridge.tabsResult =
+            BrowserTabsOutcome(
+                (0..31).map {
+                    BrowserTabView(
+                        "tab-$it",
+                        "\u0000".repeat(BrowserTabView.MAX_URL_CHARS),
+                        "\u0000".repeat(BrowserTabView.MAX_TITLE_CHARS),
+                        false,
+                        "READY",
+                        true,
+                        1,
+                        true,
+                        true,
+                    )
+                },
+                true,
+                false,
+            )
+        val result =
+            BrowserTabsTool.executor(bridge).execute(call(BrowserTabsTool.NAME, buildJsonObject {}))
+                as ToolExecutorResult.Completed
+        val origin =
+            com.helix.tools.framework.ToolOrigin
+                .PluginOrigin("browser", "0.1.0", "browser")
+        assertTrue(
+            result.output
+                .toString()
+                .toByteArray()
+                .size <= BrowserTabsTool.descriptor(origin).maxOutputBytes,
+        )
+    }
+
+    @Test
+    fun scopedDiscoveryUsesOnlyTrustedCallIdentityAndWaitDoesNotInventUniqueToken() {
+        val contextCall =
+            call(BrowserTabsTool.NAME, buildJsonObject {}).copy(sessionId = "s", authorizationScopeRef = "scope")
+        json(BrowserTabsTool.executor(bridge).execute(contextCall))
+        assertEquals(BrowserObservationContext("s", "scope"), bridge.tabsContext)
+        val args =
+            buildJsonObject {
+                put("tabId", JsonPrimitive("t1"))
+                put("query", JsonPrimitive("Same"))
+                put("condition", JsonPrimitive("PRESENT"))
+                put("timeoutMillis", JsonPrimitive(500))
+            }
+        bridge.waitResult =
+            BrowserWaitOutcome(
+                BrowserWaitStatus.SATISFIED,
+                FindOutcome(
+                    true,
+                    "t1",
+                    "Same",
+                    2,
+                    listOf(BrowserFindMatch(0, "button", "Same", "token")),
+                    "",
+                    true,
+                    false,
+                ),
+            )
+        val output = json(BrowserWaitTool.executor(bridge).execute(contextCall.copy(args = args)))
+        assertEquals("true", output.getValue("ambiguous").jsonPrimitive.content)
+        assertTrue(!output.containsKey("token"))
+        assertEquals(contextCall.deadline, bridge.waitRequest!!.deadline)
+        assertEquals(BrowserObservationContext("s", "scope"), bridge.waitRequest!!.context)
+        bridge.waitResult = BrowserWaitOutcome(BrowserWaitStatus.CANCELLED)
+        assertEquals(
+            ToolExecutorResult.Cancelled,
+            BrowserWaitTool.executor(bridge).execute(contextCall.copy(args = args)),
+        )
+        assertTrue(
+            BrowserWaitTool.executor(bridge).execute(
+                contextCall.copy(
+                    args =
+                        JsonObject(
+                            args +
+                                ("timeoutMillis" to JsonPrimitive(10001)),
+                        ),
+                ),
+            ) is ToolExecutorResult.Failed,
+        )
+    }
 
     @Test
     fun browserContributionHasOnePluginOwnerForEveryContract() {
@@ -31,8 +161,8 @@ class BrowserToolsMappingTest {
             com.helix.tools.framework.ToolOrigin
                 .PluginOrigin("browser", "0.1.0", "browser")
         val bindings = BrowserTools.bindings(bridge, origin)
-        assertEquals(12, bindings.size)
-        assertEquals(12, bindings.map { it.descriptor.name }.distinct().size)
+        assertEquals(14, bindings.size)
+        assertEquals(14, bindings.map { it.descriptor.name }.distinct().size)
         assertTrue(bindings.all { it.descriptor.origin == origin })
         assertTrue(
             bindings.all {
@@ -425,6 +555,12 @@ class BrowserToolsMappingTest {
                 buildJsonObject { put("tabId", JsonPrimitive("t1")) },
             ) as ToolExecutorResult.Completed
         assertEquals(image, result.visualArtifact)
+        assertEquals(
+            "true",
+            result.output.jsonObject
+                .getValue("pixelsAttached")
+                .jsonPrimitive.content,
+        )
     }
 
     @Test
@@ -644,6 +780,10 @@ class BrowserToolsMappingTest {
 
     /** Returns one canned outcome per port method; each test sets the field it exercises. */
     private class FakeBridge : BrowserToolBridge {
+        var tabsContext: BrowserObservationContext? = null
+        var tabsResult: BrowserTabsOutcome = BrowserTabsOutcome(emptyList(), false, false)
+        var waitRequest: BrowserWaitRequest? = null
+        var waitResult: BrowserWaitOutcome = BrowserWaitOutcome(BrowserWaitStatus.TIMED_OUT)
         var openResult: OpenOutcome = OpenOutcome("t1", "https://example.com/", "example.com")
         var navResult: NavigateOutcome =
             NavigateOutcome(NavStatus.STARTED, "https://example.com/", "example.com", "")
@@ -683,7 +823,20 @@ class BrowserToolsMappingTest {
                 "",
             )
 
-        override fun open(url: String): OpenOutcome = openResult
+        override fun open(
+            url: String,
+            sessionId: String?,
+        ): OpenOutcome = openResult
+
+        override fun tabs(context: BrowserObservationContext): BrowserTabsOutcome {
+            tabsContext = context
+            return tabsResult
+        }
+
+        override fun waitFor(request: BrowserWaitRequest): BrowserWaitOutcome {
+            waitRequest = request
+            return waitResult
+        }
 
         override fun navigate(
             tabId: String,

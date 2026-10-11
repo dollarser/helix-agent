@@ -262,8 +262,16 @@ class AutomationTools(
         return buildJsonObject {
             put("status", JsonPrimitive(if (result.snapshot == null) result.status.name else found.status.name))
             put("nodes", JsonArray(found.nodes.map { AutomationNodeJson.full(it, nodeIndex) }))
-            putClickSuggestion(found.nodes, nodeIndex)?.forEach { (key, value) -> put(key, value) }
             recoveryJson(result).forEach { (key, value) -> put(key, value) }
+            put("matchCount", JsonPrimitive(found.matchCount))
+            put("ambiguous", JsonPrimitive(found.matchCount > 1))
+            put("truncated", JsonPrimitive(found.truncated))
+            result.snapshot?.let { put("observedAtMillis", JsonPrimitive(it.createdAt.toEpochMilli())) }
+            if (!found.truncated) {
+                putClickSuggestion(found.nodes, nodeIndex)?.forEach { (key, value) ->
+                    put(key, value)
+                }
+            }
         }
     }
 
@@ -275,6 +283,7 @@ class AutomationTools(
                 put("packageName", JsonPrimitive(snapshot.packageName))
                 put("windowId", JsonPrimitive(snapshot.windowId))
                 put("generation", JsonPrimitive(snapshot.generation))
+                put("observedAtMillis", JsonPrimitive(snapshot.createdAt.toEpochMilli()))
                 val nodeIndex = snapshot.nodes.associateBy { it.token }
                 // Keep the complete index for click ancestors, but omit empty layout containers from model output.
                 val visibleNodes =
@@ -447,11 +456,11 @@ class AutomationTools(
         ToolName(name),
         ToolVersion(
             if (name in setOf(FIND, WAIT)) {
-                8
+                9
             } else if (name == CLICK_MATCH) {
                 7
             } else if (name == SNAPSHOT) {
-                7
+                8
             } else if (name == SET_TEXT) {
                 3
             } else if (name == SCROLL) {
@@ -577,6 +586,9 @@ class AutomationTools(
                 "recoveryHint" to str(512),
                 "backend" to str(16),
                 "nodes" to array(nodeSchema(), 50),
+                "matchCount" to integer(0),
+                "ambiguous" to bool(),
+                "observedAtMillis" to integer(0),
                 "truncated" to bool(),
                 "truncationReasons" to array(str(32), 4),
                 "waitStatus" to str(64),
@@ -599,6 +611,7 @@ class AutomationTools(
                 "packageName" to str(255),
                 "windowId" to integer(0),
                 "generation" to integer(0),
+                "observedAtMillis" to integer(0),
                 "truncated" to bool(),
                 "truncationReasons" to array(str(32), 4),
                 "nodes" to array(nodeSchema(compact = true), 200),

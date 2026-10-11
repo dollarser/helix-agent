@@ -418,7 +418,12 @@ class ToolVisionFlowDeviceTest {
             ExecutableToolCall(
                 "call",
                 toolName,
-                "1",
+                if (browser == null) {
+                    "1"
+                } else {
+                    com.helix.tools.browser.BrowserScreenshotTool.VERSION
+                        .toString()
+                },
                 if (browser == null) {
                     JsonObject(mapOf("path" to JsonPrimitive("scope:ws:input/sample.png")))
                 } else {

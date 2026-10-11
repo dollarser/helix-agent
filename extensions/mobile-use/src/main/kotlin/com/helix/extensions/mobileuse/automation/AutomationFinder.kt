@@ -6,7 +6,7 @@ object AutomationFinder {
         query: AutomationFindQuery,
     ): AutomationFindResult {
         val matches =
-            findAll(snapshot, query)?.take(query.maxResults)
+            findAll(snapshot, query)
                 ?: return AutomationFindResult(AutomationFindStatus.INVALID_QUERY)
         return AutomationFindResult(
             status =
@@ -15,7 +15,9 @@ object AutomationFinder {
                 } else {
                     AutomationFindStatus.FOUND
                 },
-            nodes = matches,
+            nodes = matches.take(query.maxResults),
+            matchCount = matches.size,
+            truncated = snapshot.truncated || matches.size > query.maxResults,
         )
     }
 
