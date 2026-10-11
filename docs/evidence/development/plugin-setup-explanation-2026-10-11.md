@@ -19,3 +19,7 @@ HXA全仓 JVM/source、spotless/detekt、双渠道lint/APK与Developer AndroidTe
 随后规划整理继续新增HXA-276～279，使当前全仓文档门禁再次被未完成的其他任务卡阻塞。本阶段改为从已暂存的拥有路径导出独立文档快照核对，避免反复修改其他在途任务；独立快照的通过只证明本阶段文档集合，不宣称活动工作树中所有新规划已收敛。独立快照按自身Git忽略规则核对通过（813 Markdown、254 HXA，退出0）；全仓源码/JVM的上述通过仍对应当时实际执行的工作树。
 
 原始主机日志在 ignored `build/plugin-setup-dialog-*.log`。本轮设备/真实模型not requested，未操作日常模拟器或实体手机、未安装APK。上一阶段指定日常只读诊断授权不扩展到本阶段界面验证；设备点击、窄屏/字体及设置返回仍须后续实际验证。
+
+## 后续授权补验 — 2026-10-11
+
+Owner明确授权收尾交互并实施HXA-272～275的模拟器/现有模型验证。使用自有API36 arm64专用AVD、Developer渠道和冻结APK，在独立进程执行 `PluginSetupRequiredDialogDeviceTest`，3/3通过，无skip（7.295秒），确认说明内容、明确确认前零导航及取消不导航；进程已由runner关闭。证据位于ignored `build/hxa272-preflight-dialog/`，含冻结制品hash、设备信息、instrumentation和关闭记录。不借用正在运行的日常模拟器，也未更新其APK或操作真机。这次结果只关闭纯提示夹具边界，完整会话/设置返回与模型旅程继续在后续阶段验证。
