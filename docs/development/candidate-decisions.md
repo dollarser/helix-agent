@@ -30,7 +30,7 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 | --- | --- | --- |
 | R2 Core 解耦 / ContextCompiler | [HXA-234](tasks/HXA-234.md)：实际 Core Loop、中立执行/提交端口与纯上下文编译已有生产接线 | 当前主机/真实存储及设备边界见任务；R2-B 的策略优化不混入等价迁移 |
 | R3＋最小 R5 插件统一生命周期 | [HXA-235](tasks/HXA-235.md)：统一包身份/目录、会话选择、局部失败、更新/停用/修复已接生产并完成本地主机验证 | 保留真实 Room/设备旅程，不重做已交付主体；安装仍不是审批 |
-| 插件优化 A/C/E1/B/E2/D | 2026-10-11 Owner要求拆解并更新计划，HXA-272～279 已登记，未开工；源码复核与研究映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收) | 按 [status](status.md#插件优化队列2026-10-11) 的硬依赖推进；单一目标实现、不兼容旧版。F/G 及新增执行域继续按下方条件队列，不由登记任务推定功能交付 |
+| 插件优化 A/C/E1/B/E2/D | 2026-10-11 Owner要求拆解并更新计划，HXA-272～275 已有界本地交付，276～279 已登记并按当前授权继续实施；最新进度以 status 为准；源码复核与研究映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收) | 按 [status](status.md#插件优化队列2026-10-11) 的硬依赖推进；单一目标实现、不兼容旧版。F/G 及新增执行域继续按下方条件队列，不由登记任务推定功能交付 |
 | J1 通用 Job 观察与等待 | [HXA-236](tasks/HXA-236.md)：原身份观察/等待、统一上下文及可信类型进展判断已接生产 | HXA-249 真实 Qwen J1、HXA-251 双API Job 六项通过；不扩大到全部生命周期/OEM |
 | J2 同次执行前后台切换 | [HXA-248](tasks/HXA-248.md)：AUTO/USER 释放等待，保留同一原执行与 lease，本地已交付 | API36 Runtime/UI 八项及 HXA-249 真实 AUTO 通过；完整取消/恢复组合仍独立 |
 
