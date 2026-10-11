@@ -42,7 +42,7 @@ Remote services may charge for model usage. On-device models require downloaded 
 
 ### Operating Android apps
 
-Enable **Mobile Use** in Extensions, configure it, and select it in the conversation. Helix manages system authorization and connections for Accessibility, Shizuku, and Root; the plugin uses capabilities granted to the host. All permissions are not required at once: partial readiness is supported, while each action still needs its specific capabilities.
+Configure **Mobile Use** in Extensions, connect at least one usable screen backend, then select it in the conversation. If setup or connection is missing, clicking the checkbox opens the relevant settings; select it again after setup. Helix manages system authorization and connections for Accessibility, Shizuku, and Root; the plugin uses capabilities granted to the host. All permissions are not required at once, while each action still needs its specific capabilities.
 
 Supported operations prefer available **Root → Shizuku → Accessibility** backends. Backend coverage differs, and elevated permissions do not guarantee access to every secure window. Verify uncertain outcomes before repeating an action that may already have taken effect.
 

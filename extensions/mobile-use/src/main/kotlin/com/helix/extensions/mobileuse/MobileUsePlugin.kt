@@ -93,7 +93,11 @@ class MobileUsePlugin(
         )
 
     override fun configurationError(): String? =
-        if (permissionCenter.globalConfiguration() == null) "MOBILE_USE_NOT_CONFIGURED" else null
+        MobileUseSelectionReadiness.error(permissionCenter.globalConfiguration() != null) {
+            permissionCenter.preferredBackend(
+                com.helix.extensions.mobileuse.automation.AutomationDeviceOperation.SNAPSHOT,
+            ) != null
+        }
 
     override fun scopeFor(
         descriptor: com.helix.tools.framework.ToolDescriptor,

@@ -1701,7 +1701,7 @@
     <string name="files_workspaces_empty">No matching work directories</string>
     <string name="files_workspace_files">Browse workspace files</string>
     <string name="git_session_readonly">Session: %1$s. Read-only branch, staged and unstaged changes for this workspace. No commit or push.</string>
-    <string name="bundled_mobile_use_description">Observe and operate authorized Android apps. Enabling the plugin does not grant device access; select a scope and start it in session settings.</string>
+    <string name="bundled_mobile_use_description">Observe and operate authorized Android apps. Configure the plugin and authorize screen access, then select it in the conversation.</string>
     <string name="bundled_mobile_use_settings">Plugin settings</string>
     <string name="settings_troubleshooting">Troubleshooting</string>
     <string name="settings_operation_records">Operation records</string>

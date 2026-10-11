@@ -32,6 +32,8 @@ internal class ConnectorSessionPanelState(
         private set
     var updated by mutableStateOf(false)
         private set
+    var selectionError by mutableStateOf<String?>(null)
+        private set
     val empty get() = if (loading || failed) false else rows.isEmpty() && skills.isEmpty()
     val editable get() = !loading && !busy
 
@@ -69,6 +71,7 @@ internal class ConnectorSessionPanelState(
         if (!editable) return
         busy = true
         updated = false
+        selectionError = null
         try {
             withContext(Dispatchers.IO) { service.selectFromUser(sessionId, row.id, enabled) }
             refresh()
@@ -78,6 +81,10 @@ internal class ConnectorSessionPanelState(
         } catch (error: Exception) {
             failed = true
             needsConfiguration = error.message == "MOBILE_USE_NOT_CONFIGURED"
+            selectionError =
+                error.message.takeIf {
+                    it == "MOBILE_USE_NOT_CONFIGURED" || it == "MOBILE_USE_BACKEND_UNAVAILABLE"
+                }
         } finally {
             busy = false
         }

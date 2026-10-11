@@ -43,6 +43,8 @@ internal fun SessionSettingsScreen(
     onModels: () -> Unit,
     onExtensions: () -> Unit,
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
+    onMobileUseConfiguration: () -> Unit = onExtensions,
+    onSystemPermissions: () -> Unit = onExtensions,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
@@ -139,7 +141,13 @@ internal fun SessionSettingsScreen(
         }
     }
     if (connectorsOpen && sessionId != null) {
-        com.helix.app.connector.ConnectorSessionPanel(connectors, sessionId, onExtensions) {
+        com.helix.app.connector.ConnectorSessionPanel(
+            connectors,
+            sessionId,
+            onExtensions,
+            onMobileUseConfiguration = onMobileUseConfiguration,
+            onSystemPermissions = onSystemPermissions,
+        ) {
             connectorsOpen = false
         }
     }

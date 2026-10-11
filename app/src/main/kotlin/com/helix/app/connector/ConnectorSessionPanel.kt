@@ -30,6 +30,7 @@ internal fun statusLabel(row: PluginSessionRow): Int =
         !row.available -> R.string.connector_session_unavailable
         !row.enabled -> R.string.connector_inactive
         row.selectionError == "MOBILE_USE_NOT_CONFIGURED" -> R.string.mobile_use_configuration_required
+        row.selectionError == "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.mobile_use_needs_access
         row.selectionError != null -> R.string.connector_session_setup
         !row.ready -> R.string.connector_session_setup
         else -> R.string.connector_session_ready
@@ -50,7 +51,7 @@ private fun PluginSessionState(row: PluginSessionRow) {
 
 @Composable
 @Suppress("FunctionName")
-private fun PluginSessionChoice(
+internal fun PluginSessionChoice(
     row: PluginSessionRow,
     busy: Boolean,
     onSelect: (Boolean) -> Unit,
@@ -59,15 +60,29 @@ private fun PluginSessionChoice(
     Row {
         Checkbox(
             checked = row.selected,
-            onCheckedChange = onSelect,
-            enabled = !busy && (row.selected || (row.available && row.selectionError == null)),
+            onCheckedChange = { selected ->
+                if (selected && row.selectionError != null) onConfigure() else onSelect(selected)
+            },
+            enabled = !busy && (row.selected || row.available),
             modifier = Modifier.testTag("connector-session-${row.id}"),
         )
         Column {
             PluginSessionState(row)
             if (row.selectionError != null) {
-                TextButton(onClick = onConfigure, modifier = Modifier.testTag("plugin-session-configure-${row.id}")) {
-                    Text(stringResource(R.string.connector_session_configure))
+                TextButton(
+                    onClick = onConfigure,
+                    enabled = !busy,
+                    modifier = Modifier.testTag("plugin-session-configure-${row.id}"),
+                ) {
+                    Text(
+                        stringResource(
+                            when (row.selectionError) {
+                                "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.phone_task_permissions
+                                "MOBILE_USE_NOT_CONFIGURED" -> R.string.phone_task_configure
+                                else -> R.string.connector_session_configure
+                            },
+                        ),
+                    )
                 }
             }
         }
@@ -75,6 +90,20 @@ private fun PluginSessionChoice(
 }
 
 /** UI sees only application-service projections; component repair remains in Extensions. */
+private fun openPluginConfiguration(
+    row: PluginSessionRow,
+    error: String?,
+    onConfigure: () -> Unit,
+    onMobileUseConfiguration: () -> Unit,
+    onSystemPermissions: () -> Unit,
+) {
+    when {
+        error == "MOBILE_USE_BACKEND_UNAVAILABLE" -> onSystemPermissions()
+        row.id == "bundled-plugin:mobile-use" -> onMobileUseConfiguration()
+        else -> onConfigure()
+    }
+}
+
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught") // failures are visible; cancellation propagates
 fun ConnectorSessionPanel(
@@ -82,12 +111,23 @@ fun ConnectorSessionPanel(
     sessionId: String,
     onConfigure: () -> Unit,
     pluginId: String? = null,
+    onMobileUseConfiguration: () -> Unit = onConfigure,
+    onSystemPermissions: () -> Unit = onConfigure,
     onDismiss: () -> Unit,
 ) {
     val state = remember(service, sessionId, pluginId) { ConnectorSessionPanelState(service, sessionId, pluginId) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(state) { state.refresh() }
-    val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled -> scope.launch { state.select(row, enabled) } }
+    val configure: (PluginSessionRow, String?) -> Unit = { row, error ->
+        onDismiss()
+        openPluginConfiguration(row, error, onConfigure, onMobileUseConfiguration, onSystemPermissions)
+    }
+    val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled ->
+        scope.launch {
+            state.select(row, enabled)
+            state.selectionError?.let { configure(row, it) }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.connector_session_title)) },
@@ -114,8 +154,7 @@ fun ConnectorSessionPanel(
                 }
                 state.rows.forEach { row ->
                     PluginSessionChoice(row, state.busy || state.loading, { update(row, it) }) {
-                        onDismiss()
-                        onConfigure()
+                        configure(row, row.selectionError)
                     }
                 }
                 state.skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }

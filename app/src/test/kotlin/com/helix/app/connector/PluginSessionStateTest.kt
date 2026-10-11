@@ -14,6 +14,10 @@ class PluginSessionStateTest {
             statusLabel(ready.copy(selectionError = "MOBILE_USE_NOT_CONFIGURED")),
         )
         assertEquals(R.string.connector_session_setup, statusLabel(ready.copy(selectionError = "UNKNOWN")))
+        assertEquals(
+            R.string.mobile_use_needs_access,
+            statusLabel(ready.copy(selectionError = "MOBILE_USE_BACKEND_UNAVAILABLE")),
+        )
         assertEquals(R.string.connector_session_ready, statusLabel(ready))
     }
 

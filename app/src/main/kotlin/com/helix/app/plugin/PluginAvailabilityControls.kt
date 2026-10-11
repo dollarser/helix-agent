@@ -22,10 +22,25 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private fun openConfigurationFor(
+    error: IllegalStateException,
+    onConfigurationRequired: (String) -> Unit,
+) {
+    error.message
+        ?.takeIf {
+            it == "MOBILE_USE_NOT_CONFIGURED" || it == "MOBILE_USE_BACKEND_UNAVAILABLE"
+        }?.let(onConfigurationRequired)
+}
+
 /** Manual management calls an application service; no model Turn or direct DAO access. */
 @Composable
 @Suppress("FunctionName") // Compose UI entry point.
-internal fun PluginAvailabilityControls(record: InstalledPlugin, service: PluginService, onChanged: () -> Unit) {
+internal fun PluginAvailabilityControls(
+    record: InstalledPlugin,
+    service: PluginService,
+    onChanged: () -> Unit,
+    onConfigurationRequired: (String) -> Unit = {},
+) {
     val scope = rememberCoroutineScope()
     var busy by remember(record.id) { mutableStateOf(false) }
     var failure by remember(record.id) { mutableStateOf(false) }
@@ -55,6 +70,10 @@ internal fun PluginAvailabilityControls(record: InstalledPlugin, service: Plugin
                 onChanged()
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (error: IllegalStateException) {
+                failure = true
+                onChanged()
+                openConfigurationFor(error, onConfigurationRequired)
             } catch (_: Exception) {
                 failure = true
                 onChanged()

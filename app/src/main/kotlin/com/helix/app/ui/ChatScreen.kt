@@ -73,6 +73,7 @@ fun ChatScreen(
     onExtensions: () -> Unit = {},
     memory: com.helix.app.memory.MemoryService? = null,
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
+    onMobileUseConfiguration: () -> Unit = onExtensions,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
@@ -108,7 +109,13 @@ fun ChatScreen(
     val modelRequiredReason = stringResource(R.string.chat_model_required_before_send)
     if (connectorsOpen && sessionId != null && connectors != null) {
         com.helix.app.connector
-            .ConnectorSessionPanel(connectors, sessionId, onExtensions) { connectorsOpen = false }
+            .ConnectorSessionPanel(
+                connectors,
+                sessionId,
+                onExtensions,
+                onMobileUseConfiguration = onMobileUseConfiguration,
+                onSystemPermissions = onPermissions,
+            ) { connectorsOpen = false }
     }
     if (skillsOpen && sessionId != null && skills != null) {
         SkillSessionPanel(skills, sessionId, onExtensions) { skillsOpen = false }

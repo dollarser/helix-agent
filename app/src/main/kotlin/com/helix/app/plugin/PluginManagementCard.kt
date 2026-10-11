@@ -44,6 +44,7 @@ internal fun PluginManagementCard(
     onUse: (() -> Unit)?,
     onPluginSettings: () -> Unit,
     onChanged: () -> Unit,
+    onSystemPermissions: () -> Unit = onPluginSettings,
     installedContents: @Composable () -> Unit,
 ) {
     var expanded by rememberSaveable(record.id) { mutableStateOf(false) }
@@ -69,7 +70,9 @@ internal fun PluginManagementCard(
                 style = MaterialTheme.typography.bodySmall,
             )
             if (expanded) {
-                PluginAvailabilityControls(record, service, onChanged)
+                PluginAvailabilityControls(record, service, onChanged) { error ->
+                    if (error == "MOBILE_USE_BACKEND_UNAVAILABLE") onSystemPermissions() else onPluginSettings()
+                }
                 if (record.native?.pluginId == "mobile-use") {
                     TextButton(onPluginSettings, Modifier.testTag("mobile-use-plugin-settings")) {
                         Text(stringResource(R.string.bundled_mobile_use_settings))

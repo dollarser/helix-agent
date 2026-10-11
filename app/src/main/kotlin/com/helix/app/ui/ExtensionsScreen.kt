@@ -35,6 +35,22 @@ import com.helix.app.skills.SkillInstallationService
 import com.helix.app.ui.indicatedVerticalScroll
 import kotlinx.coroutines.launch
 
+internal const val MOBILE_USE_SETTINGS_ROUTE = "extensions/mobile-use/settings"
+
+@Composable
+@Suppress("FunctionName")
+internal fun MobileUseSettingsScreen(
+    onPermissions: () -> Unit,
+    onBack: () -> Unit,
+    onSaved: () -> Unit = {},
+) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Mobile Use", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+        com.helix.app.automation.AutomationModule
+            .Settings(onPermissions, onBack, onSaved)
+    }
+}
+
 /** Navigation to managed extensions and marketplace catalog. */
 @Composable
 @Suppress("FunctionName", "LongMethod")
@@ -73,25 +89,24 @@ fun ExtensionsScreen(
                 } else {
                     selectedTab = 0
                 }
-            }, pluginId = usePluginId) { useSession = null }
+            }, pluginId = usePluginId, onSystemPermissions = onPermissions, onMobileUseConfiguration = {
+                returnSession = id
+                mobileSettings = true
+            }) { useSession = null }
     }
 
     if (mobileSettings) {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Text("Mobile Use", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
-            com.helix.app.automation.AutomationModule
-                .Settings(onPermissions, onBack = {
-                    mobileSettings = false
-                    useSession = returnSession
-                    returnSession = null
-                }, onSaved = {
-                    if (returnSession != null) {
-                        mobileSettings = false
-                        useSession = returnSession
-                        returnSession = null
-                    }
-                })
-        }
+        MobileUseSettingsScreen(onPermissions, onBack = {
+            mobileSettings = false
+            useSession = returnSession
+            returnSession = null
+        }, onSaved = {
+            if (returnSession != null) {
+                mobileSettings = false
+                useSession = returnSession
+                returnSession = null
+            }
+        })
         return
     }
 
@@ -146,7 +161,9 @@ fun ExtensionsScreen(
                     showImport = false,
                     onUse = onUsePlugin,
                     query = query,
-                    onPluginSettings = { mobileSettings = true },
+                    onPluginSettings = { error ->
+                        if (error == "MOBILE_USE_BACKEND_UNAVAILABLE") onPermissions() else mobileSettings = true
+                    },
                 )
                 StandaloneSkillsSection(connectors, onUse, query)
             }

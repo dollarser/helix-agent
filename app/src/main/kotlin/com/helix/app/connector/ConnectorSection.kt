@@ -52,7 +52,7 @@ fun ConnectorSection(
     onUse: ((String?) -> Unit)? = null,
     query: String = "",
     onInstalled: () -> Unit = {},
-    onPluginSettings: () -> Unit = {},
+    onPluginSettings: (String?) -> Unit = {},
 ) {
     val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
@@ -251,8 +251,9 @@ fun ConnectorSection(
                     record,
                     service,
                     usePlugin,
-                    onPluginSettings,
+                    { onPluginSettings(null) },
                     { revision++ },
+                    onSystemPermissions = { onPluginSettings("MOBILE_USE_BACKEND_UNAVAILABLE") },
                 ) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->

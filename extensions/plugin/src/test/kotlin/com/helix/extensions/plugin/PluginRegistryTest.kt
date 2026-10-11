@@ -18,6 +18,35 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun losingBackendBlocksNewSelectionWithoutRevokingAnExistingSelectionOrPublishedTools() {
+        val catalog = MemoryNativePluginCatalog()
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, catalog)
+        val base = plugin("fixture")
+        var error: String? = null
+        registry.register(
+            object : HelixPlugin by base {
+                override fun configurationError() = error
+            },
+        )
+        registry.validateSelection("fixture")
+        catalog.selections["session" to "fixture"] = "original-selection"
+        val before = tools.snapshot()
+        error = "MOBILE_USE_BACKEND_UNAVAILABLE"
+        assertEquals(
+            error,
+            assertThrows(IllegalStateException::class.java) {
+                registry.validateSelection("fixture")
+            }.message,
+        )
+        assertEquals("original-selection", catalog.selections["session" to "fixture"])
+        assertEquals(before, tools.snapshot())
+        assertEquals(true, registry.ready("fixture"))
+        error = null
+        registry.validateSelection("fixture")
+        assertEquals("original-selection", catalog.selections["session" to "fixture"])
+    }
+
     @Test fun approvalPresentationRequiresTheSelectedCurrentNativePlugin() {
         val catalog = MemoryNativePluginCatalog()
         val registry = PluginRegistry(ToolRegistry(), catalog)

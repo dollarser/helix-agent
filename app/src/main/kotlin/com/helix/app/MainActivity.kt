@@ -531,6 +531,12 @@ internal fun HelixApp(container: AppContainer) {
                                     navController.navigate("${ShellDestination.Models.route}?source=${source.name}")
                                 },
                                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                                onMobileUseConfiguration = {
+                                    navController.navigate(
+                                        com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE,
+                                    )
+                                },
+                                onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
                             )
                         }
                         composable(SETUP_READINESS_ROUTE) {
@@ -569,6 +575,13 @@ internal fun HelixApp(container: AppContainer) {
                             PermissionsScreenDestination(
                                 container,
                             ) { navController.navigate(ShellDestination.Files.route) }
+                        }
+                        composable(com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) {
+                            com.helix.app.ui.MobileUseSettingsScreen(
+                                onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                                onBack = { navController.popBackStack() },
+                                onSaved = { navController.popBackStack() },
+                            )
                         }
                         composable(SETTINGS_STORAGE_ROUTE) {
                             StorageUsageScreen(
@@ -672,6 +685,7 @@ private fun DestinationScreen(
                 memory = container.memory,
                 connectors = container.pluginService,
                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                onMobileUseConfiguration = { navController.navigate(com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) },
                 onNavigation = onOpenDrawer,
                 onModels = { navController.navigate(ShellDestination.Models.route) },
                 onConfigureModelSource = { source ->

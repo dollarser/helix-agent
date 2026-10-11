@@ -1698,7 +1698,7 @@
     <string name="files_workspaces_empty">没有匹配的工作目录</string>
     <string name="files_workspace_files">浏览工作空间文件</string>
     <string name="git_session_readonly">会话：%1$s。只读查看此工作目录的分支、暂存及未暂存差异，不会提交或推送。</string>
-    <string name="bundled_mobile_use_description">观察并操作已授权的手机应用。启用插件不等于授权控制手机，需在会话设置中选择范围并启动。</string>
+    <string name="bundled_mobile_use_description">观察并操作已授权的手机应用。先完成插件配置和屏幕操作授权，再在会话中选用。</string>
     <string name="bundled_mobile_use_settings">插件设置</string>
     <string name="settings_troubleshooting">故障排查</string>
     <string name="settings_operation_records">操作记录</string>

@@ -94,6 +94,7 @@ internal fun phonePreparationStatus(
 ): Int =
     when {
         failed || row == null -> R.string.phone_task_check_failed
+        row.selectionError == "MOBILE_USE_BACKEND_UNAVAILABLE" -> R.string.mobile_use_needs_access
         row.selectionError == "MOBILE_USE_NOT_CONFIGURED" -> R.string.mobile_use_configuration_required
         !row.enabled || !row.ready || row.selectionError != null -> R.string.phone_task_needs_configuration
         !row.selected -> R.string.phone_task_needs_selection
