@@ -43,6 +43,16 @@ class HelixAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var expiryStop: Runnable? = null
     private val generationTracker = AccessibilityGenerationTracker()
+    private var targetObserver = newTargetObserver()
+
+    private fun newTargetObserver() =
+        AccessibilityTargetObserver(
+            query = ::observeActiveTarget,
+            dispatch = { handler.post(it) },
+            observe = { AutomationServiceController.targetObserved(it.packageName) },
+            windowChanged = { generationTracker.contentChanged() },
+        )
+
     private val tokenRegistry = NodeTokenRegistry()
     private val snapshotEngine = AutomationSnapshotEngine(tokenRegistry)
     private val actionExecutor = AutomationNodeActionExecutor(tokenRegistry)
@@ -72,6 +82,8 @@ class HelixAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        targetObserver.close()
+        targetObserver = newTargetObserver()
         ensureNotificationChannel()
         ensurePresentation()
         AutomationServiceController.connected(this)
@@ -83,12 +95,13 @@ class HelixAccessibilityService : AccessibilityService() {
             AutomationServiceController.stop(AutomationStopReason.DEVICE_LOCKED)
             return
         }
-        val activeWindow = observeActiveTarget()
+        val activeWindow = targetObserver.activeWindow
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             generationTracker.contentChangedInWindow(event.windowId, activeWindow)
         } else {
             generationTracker.contentChanged()
         }
+        targetObserver.request(event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
     }
 
     override fun onInterrupt() {
@@ -96,12 +109,14 @@ class HelixAccessibilityService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        targetObserver.close()
         AutomationServiceController.disconnected(this, AutomationStopReason.SERVICE_DISCONNECTED)
         leaveSessionForeground()
         return false
     }
 
     override fun onDestroy() {
+        targetObserver.close()
         runtimePresentation?.refreshSurface()
         AutomationServiceController.disconnected(this, AutomationStopReason.SERVICE_DISCONNECTED)
         leaveSessionForeground()
@@ -273,11 +288,10 @@ class HelixAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun observeActiveTarget(): Int? {
+    private fun observeActiveTarget(): AccessibilityTarget? {
         val root = currentAccessibilityRoot() ?: return null
         return try {
-            root.packageName?.toString()?.let(AutomationServiceController::targetObserved)
-            root.windowId
+            root.packageName?.toString()?.let { AccessibilityTarget(it, root.windowId) }
         } catch (_: RuntimeException) {
             // A recycled or disappearing window is not evidence of a stable target change.
             null
