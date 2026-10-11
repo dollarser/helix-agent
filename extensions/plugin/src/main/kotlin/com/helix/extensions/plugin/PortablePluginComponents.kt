@@ -38,7 +38,10 @@ internal object PortablePluginComponents {
                     .mapKeys { (key, _) -> key.removePrefix("$path/") }
                     .mapValues { it.value.copyOf() }
             try {
-                SkillLoader().validatePackageMember(content.getValue("SKILL.md"), name)
+                PluginComponentAudit.skill(
+                    SkillLoader().validatePackageMember(content.getValue("SKILL.md"), name),
+                    diagnostics,
+                )
                 PluginSkill(name, content)
             } catch (_: InvalidSkillException) {
                 diagnostics += "PLUGIN_SKILL_INVALID:$name"
@@ -159,7 +162,7 @@ internal object PortablePluginComponents {
         }
     }
 
-    private fun loopback(host: String): Boolean {
+    internal fun loopback(host: String): Boolean {
         if (host == "localhost" || host in setOf("[::1]", "::1", "[0:0:0:0:0:0:0:1]")) return true
         val numbers = host.split('.')
         return numbers.size == 4 && numbers.first() == "127" &&

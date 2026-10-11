@@ -313,7 +313,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-272 | 实现/全仓主机/source、Developer API36 11项含Qwen、Standard纯Skill 1项及样例解析通过；其他OEM/长稳边界保留 | 统一 Skill 内容贡献与原生插件独立激活 | [任务](tasks/HXA-272.md) |
 | HXA-273 | 有界本地交付；全仓主机/source、Developer API36含Qwen5项、storage17项及Standard窄屏2项通过 | Skill 用户与模型调用资格及显式激活 | [任务](tasks/HXA-273.md) |
 | HXA-274 | 有界本地交付；全仓主机/source、Developer组合20项与内容/Qwen补验4项、Standard窄屏11项通过 | 插件就绪原因与配置生效状态统一投影 | [任务](tasks/HXA-274.md) |
-| HXA-275 | 已排期，未开工；设备/模型not requested | 插件组件兼容诊断与可执行作者样例 | [任务](tasks/HXA-275.md) |
+| HXA-275 | 有界本地交付；主机、API36双渠道及既有Qwen通过 | 插件组件兼容诊断与可执行作者样例 | [任务](tasks/HXA-275.md) |
 | HXA-276 | 已排期，未开工；设备/模型not requested | Browser 原生插件贡献与统一选择入口 | [任务](tasks/HXA-276.md) |
 | HXA-277 | 已排期，未开工；设备/模型not requested | 原生插件资源归属与停止释放契约 | [任务](tasks/HXA-277.md) |
 | HXA-278 | 已排期，未开工；设备/模型not requested | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |

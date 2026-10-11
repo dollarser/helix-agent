@@ -27,7 +27,7 @@ internal object PluginInstallationTools {
             val descriptor =
                 ToolDescriptor(
                     name = ToolName(if (install) "connectors.install" else "connectors.preview"),
-                    version = ToolVersion(1),
+                    version = ToolVersion(2),
                     description =
                         if (install) {
                             "Install a reviewed workspace plugin directory/JSON/ZIP with its exact hash; no connection."
@@ -70,6 +70,12 @@ internal object PluginInstallationTools {
                                         put("name", JsonPrimitive(record.name))
                                         put("hash", JsonPrimitive(record.hash))
                                         put("installed", JsonPrimitive(true))
+                                        put(
+                                            "diagnostics",
+                                            kotlinx.serialization.json.JsonArray(
+                                                record.componentDiagnostics.map { it.modelFacts() },
+                                            ),
+                                        )
                                     }
                                 } else {
                                     val bundle = service.preview(path) { call.cancel.isCancelled() }
@@ -129,8 +135,16 @@ internal object PluginInstallationTools {
                 },
             ),
         )
-        put("diagnostics", kotlinx.serialization.json.JsonArray(bundle.diagnostics.map { JsonPrimitive(it) }))
+        put("diagnostics", kotlinx.serialization.json.JsonArray(bundle.componentDiagnostics.map { it.modelFacts() }))
     }
+
+    private const val DIAGNOSTICS_SCHEMA = """{"type":"array","items":{"type":"object","properties":{
+      "domain":{"type":"string","enum":["PACKAGE_SUPPORT"]},
+      "code":{"type":"string"},"kind":{"type":"string"},"path":{"type":"string"},
+      "state":{"type":"string"},"action":{"type":"string"},"omitted":{"type":"boolean"},
+      "requirement":{"type":"string"}},
+      "required":["domain","code","kind","path","state","action","omitted","requirement"],
+      "additionalProperties":false}}"""
 
     private const val INPUT = """{
       "type":"object","properties":{
@@ -140,8 +154,9 @@ internal object PluginInstallationTools {
     }"""
     private const val OUTPUT = """{
       "type":"object","properties":{
-        "id":{"type":"string"},"name":{"type":"string"},"hash":{"type":"string"},"installed":{"type":"boolean"}
-      },"required":["id","name","hash","installed"],"additionalProperties":false
+        "id":{"type":"string"},"name":{"type":"string"},"hash":{"type":"string"},"installed":{"type":"boolean"},
+        "diagnostics":$DIAGNOSTICS_SCHEMA
+      },"required":["id","name","hash","installed","diagnostics"],"additionalProperties":false
     }"""
     private const val PREVIEW_INPUT = """{
       "type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":512}},
@@ -158,7 +173,7 @@ internal object PluginInstallationTools {
           "name":{"type":"string"},"files":{"type":"array","items":{"type":"object","properties":{
             "path":{"type":"string"},"sizeBytes":{"type":"integer"}},"required":["path","sizeBytes"]}}},
           "required":["name","files"]}},
-        "diagnostics":{"type":"array","items":{"type":"string"}}
+        "diagnostics":$DIAGNOSTICS_SCHEMA
       },"required":["name","hash","source","path","endpoints","skills","diagnostics"],"additionalProperties":false
     }"""
 }

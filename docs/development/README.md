@@ -14,6 +14,7 @@
 - [environment.md](environment.md)、[ci.md](ci.md)：开发环境与 GitHub CI 边界。
 - [Agent Eval](agent-eval.md)、[Harness 系统基线](harness-system-baseline.md)：证据字段、比较方法与固定系统测量口径。
 - [内测清单](internal-pilot.md)：用户任务、独立结果核验与反馈记录。
+- [插件作者指南](plugin-authoring.md)：当前组件支持范围、统一诊断和三种生产路径样例；不承诺外部宿主完整执行语义。
 - [发行就绪条件](release-readiness.md)：非重构收口、外部输入与发行依赖，不维护第二份当前状态。
 
 完成的 HXA 转入 `../completion-records/`；运行日志、诊断、历史验证计划和交接证据转入 `../evidence/`；方案研究转入 `../research/`。不要在本目录长期保存阶段性的 Wave 执行手册、按模型命名 handoff、已完成任务计划或时间点设备占用信息；`engineering-playbook.md` 只维护长期方法与案例，不承担阶段排期或交接职责。

@@ -31,7 +31,10 @@ data class PluginPackage(
     val diagnostics: List<String>,
     val versionLabel: String? = null,
     val releaseNotes: String? = null,
-)
+) {
+    val componentDiagnostics: List<PluginDiagnostic>
+        get() = PluginDiagnostics.components(endpoints, skills.map { it.directory }, diagnostics)
+}
 
 /** Reads a bounded archive without extracting any foreign paths or running setup code. */
 @Suppress("TooManyFunctions", "MagicNumber")
@@ -116,12 +119,7 @@ class PluginPackageReader {
         val name = manifest.string("name") ?: "imported-connector"
         require(NAME.matches(name)) { "CONNECTOR_INVALID_NAME" }
         val diagnostics = mutableListOf<String>()
-        UNSUPPORTED.forEach { field ->
-            if (field in manifest || files.keys.any { it == field || it.startsWith("$field/") }) {
-                diagnostics += "UNSUPPORTED_${field.uppercase()}"
-            }
-        }
-        if (".app.json" in files || "apps" in manifest) diagnostics += "HOST_APP_REQUIRES_NEW_CONNECTION"
+        PluginComponentAudit.declarations(files, manifest, diagnostics)
         if (files.keys.any { it.endsWith(".toml") }) diagnostics += "TOML_REQUIRES_MCP_JSON_EXPORT"
         val configs = linkedMapOf<String, JsonObject>()
         val defaults =
@@ -180,6 +178,7 @@ class PluginPackageReader {
     private fun portable(files: Map<String, ByteArray>): PluginPackage {
         val manifest = PluginManifestReader.parse(files.getValue(AGENT_PLUGIN_MANIFEST))
         val diagnostics = manifest.diagnostics.toMutableList()
+        PluginComponentAudit.declarations(files, json(files.getValue(AGENT_PLUGIN_MANIFEST)), diagnostics)
         val endpoints =
             PortablePluginComponents.servers(files, diagnostics).mapNotNull { (name, config) ->
                 endpoint(name, config, diagnostics)
@@ -259,6 +258,11 @@ class PluginPackageReader {
             val directory = declaredName ?: name
             require('/' !in safePath(directory)) { "CONNECTOR_INVALID_SKILL_NAME" }
             require(names.add(directory)) { "CONNECTOR_DUPLICATE_SKILL_NAME" }
+            val document =
+                com.helix.extensions.skills
+                    .SkillLoader()
+                    .validatePackageMember(adapted.getValue("SKILL.md"), directory)
+            PluginComponentAudit.skill(document, diagnostics)
             return@map PluginSkill(directory, adapted)
         }
     }
@@ -285,7 +289,10 @@ class PluginPackageReader {
     private fun portableUrl(value: String): Boolean =
         runCatching {
             val uri = URI(value)
-            value.length <= 2048 && uri.scheme == "https" && !uri.host.isNullOrBlank() &&
+            val transport =
+                uri.scheme == "https" ||
+                    (uri.scheme == "http" && uri.host?.let(PortablePluginComponents::loopback) == true)
+            value.length <= 2048 && transport && !uri.host.isNullOrBlank() &&
                 uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
                 '$' !in value && '{' !in value && '}' !in value
         }.getOrDefault(false)
@@ -357,7 +364,6 @@ class PluginPackageReader {
             )
         private const val AGENT_PLUGIN_MANIFEST = "plugin.json"
         private val NAME = Regex("[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}")
-        private val UNSUPPORTED = listOf("hooks", "agents", "commands", "rules", "workflows", "mcp", "dependencies")
         private val AUTH_FIELDS =
             setOf(
                 "headers",

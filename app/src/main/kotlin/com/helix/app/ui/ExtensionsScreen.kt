@@ -161,9 +161,8 @@ fun ExtensionsScreen(
                     showImport = false,
                     onUse = onUsePlugin,
                     query = query,
-                    onPluginSettings = { error ->
-                        if (error == "MOBILE_USE_BACKEND_UNAVAILABLE") onPermissions() else mobileSettings = true
-                    },
+                    onPluginSettings = { mobileSettings = true },
+                    onSystemPermissions = onPermissions,
                 )
                 StandaloneSkillsSection(connectors, onUse, query)
             }

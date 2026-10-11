@@ -43,8 +43,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-// Shared import action state preserves cancellation.
-@Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
+// Shared import action state preserves cancellation; settings/permission destinations remain explicit UI callbacks.
+@Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod", "LongParameterList")
 fun ConnectorSection(
     service: PluginService,
     showImport: Boolean = true,
@@ -52,7 +52,8 @@ fun ConnectorSection(
     onUse: ((String?) -> Unit)? = null,
     query: String = "",
     onInstalled: () -> Unit = {},
-    onPluginSettings: (String?) -> Unit = {},
+    onPluginSettings: () -> Unit = {},
+    onSystemPermissions: () -> Unit = onPluginSettings,
 ) {
     val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
@@ -193,7 +194,8 @@ fun ConnectorSection(
                 }
             }
             if (bundle.skills.isNotEmpty()) Text(stringResource(R.string.connector_skill_review))
-            bundle.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
+            com.helix.app.plugin
+                .PluginCompatibilityDetails(bundle.componentDiagnostics)
             OutlinedButton(
                 enabled = !action.busy && (bundle.endpoints.isNotEmpty() || bundle.skills.isNotEmpty()),
                 onClick = {
@@ -251,9 +253,9 @@ fun ConnectorSection(
                     record,
                     service,
                     usePlugin,
-                    { onPluginSettings(null) },
+                    onPluginSettings,
                     { revision++ },
-                    onSystemPermissions = { onPluginSettings("MOBILE_USE_BACKEND_UNAVAILABLE") },
+                    onSystemPermissions = onSystemPermissions,
                 ) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->
@@ -280,12 +282,8 @@ fun ConnectorSection(
                     TextButton({ technical = !technical }) { Text(stringResource(R.string.plugin_connection_details)) }
                     if (technical) {
                         Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
-                        record.diagnostics.forEach {
-                            Text(
-                                diagnosticText(it),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+                        com.helix.app.plugin
+                            .PluginCompatibilityDetails(record.componentDiagnostics)
                         record.endpoints.forEach { endpoint ->
                             androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
                         }
@@ -746,24 +744,6 @@ private fun OAuthAuthSection(
             )
         }
     }
-}
-
-@Composable
-private fun diagnosticText(code: String): String {
-    val resource =
-        when {
-            code.startsWith("SKILL_METADATA_") -> R.string.connector_diag_metadata
-            code.startsWith("SKILL_REQUIRES_") -> R.string.connector_diag_dependency
-            code.startsWith("QWENWORK_") -> R.string.connector_diag_snapshot
-            code.startsWith("UNRECOGNIZED_MCP_") -> R.string.connector_diag_config
-            code.startsWith("AUTH_") -> R.string.connector_diag_auth
-            code.startsWith("STDIO_") -> R.string.connector_diag_stdio
-            code.startsWith("HOST_APP_") -> R.string.connector_diag_host
-            code.startsWith("ENDPOINT_") -> R.string.connector_diag_endpoint
-            code.startsWith("TOML_") -> R.string.connector_diag_toml
-            else -> R.string.connector_diag_unsupported
-        }
-    return stringResource(resource, code)
 }
 
 @Composable

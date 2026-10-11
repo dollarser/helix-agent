@@ -667,16 +667,6 @@
     <string name="connector_enable">启用所选工具</string>
     <string name="connector_disable">停用工具</string>
     <string name="connector_connection_failed">连接操作失败。检查网络、独立授权及服务协议；平台代持的登录态不能迁移。</string>
-    <string name="connector_diag_auth">请在 Helix 重新配置认证：%1$s</string>
-    <string name="connector_diag_stdio">本地命令需要 Android Runtime 适配：%1$s</string>
-    <string name="connector_diag_host">平台专有应用需要独立连接：%1$s</string>
-    <string name="connector_diag_endpoint">端点需改为可直接连接的 HTTPS 地址后重新导入：%1$s</string>
-    <string name="connector_diag_toml">请先用仓库导出脚本将 Codex TOML 转为 MCP JSON：%1$s</string>
-    <string name="connector_diag_unsupported">此组件或选项尚未迁移：%1$s</string>
-    <string name="connector_diag_metadata">已转换扩展元数据为字符串，原始 SKILL.md 保存在 references/helix-import/original-SKILL.md.txt：%1$s</string>
-    <string name="connector_diag_dependency">此 Skill 声明了运行依赖，导入不会安装或执行依赖：%1$s</string>
-    <string name="connector_diag_snapshot">按快照导入 QwenWork 端点；不继承源配置的授权、替换或冲突策略：%1$s</string>
-    <string name="connector_diag_config">发现未识别的 MCP 配置，请检查迁移预览：%1$s</string>
     <string name="common_save">保存</string>
     <string name="chat_mode_chat_explanation">聊天：默认不使用工具；开启后仅提供低风险只读工具。</string>
     <string name="chat_mode_plan_explanation">规划：只读调研，不修改文件或操作应用。</string>
@@ -1970,4 +1960,9 @@
     <string name="plugin_setup_unsupported">此包包含当前不能执行的组件。请在扩展详情查看支持范围，或选择支持的包。</string>
     <string name="plugin_setup_reload">配置已保存但尚未加载。请在扩展设置中重新连接或修复，再返回选择。</string>
     <string name="plugin_state_request_unavailable">本次请求不能调用</string>
+    <string name="plugin_compatibility">组件支持范围</string>
+    <string name="plugin_compat_supported">支持；连接和会话选择需另行确认</string>
+    <string name="plugin_dependency_required">声明为必要包依赖；Helix 不自动安装或启用</string>
+    <string name="plugin_dependency_optional">声明为可选依赖；此扩展字段只作诊断，不自动解析</string>
+    <string name="plugin_dependency_runtime">运行条件声明；不证明 Android 上已具备该依赖</string>
 </resources>

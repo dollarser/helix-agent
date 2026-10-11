@@ -96,6 +96,6 @@ data class PluginReadinessSnapshot(
                     },
                 ),
             )
-            put("diagnostics", JsonArray(diagnostics.map { JsonPrimitive(it.code) }))
+            put("diagnostics", JsonArray(diagnostics.map { it.modelFacts() }))
         }
 }

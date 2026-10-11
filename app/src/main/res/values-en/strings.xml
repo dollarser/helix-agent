@@ -668,16 +668,6 @@
     <string name="connector_enable">Enable selected tools</string>
     <string name="connector_disable">Disable tools</string>
     <string name="connector_connection_failed">Connection operation failed. Check network, independent credentials, and server protocol; host-managed login state cannot be migrated.</string>
-    <string name="connector_diag_auth">Configure credentials independently in Helix: %1$s</string>
-    <string name="connector_diag_stdio">Local commands need Android Runtime adaptation: %1$s</string>
-    <string name="connector_diag_host">Host-managed apps need an independent connection: %1$s</string>
-    <string name="connector_diag_endpoint">Reimport with a directly usable HTTPS endpoint: %1$s</string>
-    <string name="connector_diag_toml">Use the repository export script to convert Codex TOML to MCP JSON first: %1$s</string>
-    <string name="connector_diag_unsupported">This component or option was not migrated: %1$s</string>
-    <string name="connector_diag_metadata">Extended metadata converted to strings; original SKILL.md preserved at references/helix-import/original-SKILL.md.txt: %1$s</string>
-    <string name="connector_diag_dependency">This Skill declares a runtime dependency; import does not install or execute it: %1$s</string>
-    <string name="connector_diag_snapshot">Importing QwenWork endpoints as a snapshot; source authorization, replacement and conflict policies are not inherited: %1$s</string>
-    <string name="connector_diag_config">Unrecognized MCP configuration found; review migration preview: %1$s</string>
     <string name="common_save">Save</string>
     <string name="chat_mode_chat_explanation">Chat: no tools by default; opt in to low-risk read-only tools.</string>
     <string name="chat_mode_plan_explanation">Plan: read-only research, without changing files or operating apps.</string>
@@ -1973,4 +1963,9 @@
     <string name="plugin_setup_unsupported">This package contains components that cannot execute here. Review support in Extensions or choose a supported package.</string>
     <string name="plugin_setup_reload">Configuration is saved but not loaded. Reconnect or repair in Extensions, then return to select it.</string>
     <string name="plugin_state_request_unavailable">Unavailable to this request</string>
+    <string name="plugin_compatibility">Component support</string>
+    <string name="plugin_compat_supported">Supported; connection and conversation selection are separate</string>
+    <string name="plugin_dependency_required">Declared required package; Helix does not install or enable it automatically</string>
+    <string name="plugin_dependency_optional">Declared optional dependency; this extension field is diagnostic only</string>
+    <string name="plugin_dependency_runtime">Declared runtime requirement; availability on Android is not confirmed</string>
 </resources>

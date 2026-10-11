@@ -199,7 +199,7 @@ class PluginService(
         record.enabled,
         record.endpoints.map(::endpointFact) + record.skills.map { skillFact(it, items[it], readable) } +
             listOfNotNull(record.native?.let { nativeFact(record, it) }),
-        record.diagnostics.map(com.helix.extensions.plugin.PluginDiagnostics::project),
+        record.componentDiagnostics,
     )
 
     private fun skillFact(

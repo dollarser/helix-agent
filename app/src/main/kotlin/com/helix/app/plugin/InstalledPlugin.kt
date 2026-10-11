@@ -38,7 +38,16 @@ data class InstalledPlugin(
     val releaseNotes: String? = null,
     val enabled: Boolean = true,
     val native: NativePluginComponent? = null,
-)
+) {
+    val componentDiagnostics: List<com.helix.extensions.plugin.PluginDiagnostic>
+        get() =
+            com.helix.extensions.plugin.PluginDiagnostics.components(
+                endpoints.map { it.endpoint },
+                skills.map { it.name },
+                diagnostics,
+                native?.runtimeId,
+            )
+}
 
 internal fun encode(record: InstalledPlugin): String =
     buildJsonObject {
