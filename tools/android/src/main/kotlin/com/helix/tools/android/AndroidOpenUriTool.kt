@@ -27,14 +27,15 @@ object AndroidOpenUriTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Open a known or verified http/https URL in the device's system handler (the OS picks the app). " +
-                    "This tool only opens the link: it never navigates inside the handler or follows it into " +
-                    "another app. Prefer it over manually typing a known URL into a browser UI, but do not invent " +
-                    "download paths. For app installation, prefer an installed app store when available; otherwise " +
-                    "resolve the official download URL with fetch/browser inspection first. If Android later blocks " +
-                    "installation because this source is not allowed to install unknown apps, keep the verified APK " +
-                    "and use android.open_settings for the source package instead of switching stores. " +
-                    "Non-http(s) URLs are refused.",
+                "Open a known/verified http/https URL via Android's system handler; Android chooses the app. " +
+                    "Installation alone does not ensure app routing: URL paths, domain approval and user defaults " +
+                    "matter. A homepage may open in a browser. opened only means launch accepted; observe the actual " +
+                    "app/page before claiming success. To open an installed app itself, use available authorized " +
+                    "ui.apps then ui.launch. Only opens the link; no navigation or follow-on app control. " +
+                    "Prefer known links over browser typing. Never invent download URLs; prefer an installed app " +
+                    "store, otherwise verify the official download URL with fetch/browser first. If unknown-source " +
+                    "permission blocks installation, retain the verified APK and use android.open_settings for the " +
+                    "source package rather than switching stores. Non-http(s) URLs refused.",
             inputSchema =
                 objectSchema(
                     properties =
@@ -51,7 +52,7 @@ object AndroidOpenUriTool {
                                 "status",
                                 enumSchema(
                                     listOf(ST_OPENED, ANDROID_SYSTEM_REFUSED, ST_NO_HANDLER),
-                                    "opened, refused (non-http/https scheme) or no-handler (no app can open it).",
+                                    "opened (launch accepted; app/page unverified), refused (scheme) or no-handler.",
                                 ),
                             )
                             put("url", stringSchema(MAX_URL, "The URL that was opened (or requested)."))
