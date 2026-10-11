@@ -1946,4 +1946,10 @@
     <string name="device_access_status_checking">正在检查…</string>
     <string name="device_access_status_failed">暂时无法确认状态</string>
     <string name="device_access_root_failed">无法授权或连接，请检查 Root 管理器中的 Helix 授权后重试。</string>
+    <string name="plugin_setup_title">插件尚未配置完成</string>
+    <string name="plugin_setup_mobile_scope">尚未保存手机操作范围。请在 Mobile Use 设置中选择全手机或指定应用并保存，再返回开启插件。</string>
+    <string name="plugin_setup_mobile_backend">手机操作没有可用的屏幕后端。请到系统授权页配置无障碍、Shizuku 或 Root 中的一种，并确认连接可用，再返回开启插件。</string>
+    <string name="plugin_setup_generic">此插件还有未完成的配置。请到扩展设置补全所需配置，再返回开启插件。</string>
+    <string name="plugin_setup_continue">去设置</string>
+    <string name="plugin_setup_later">暂不设置</string>
 </resources>

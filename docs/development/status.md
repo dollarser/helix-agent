@@ -4,6 +4,8 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-11 HXA-271阶段9按Owner要求将配置不足的静默跳转改为先说明原因和步骤，再由“去设置”导航；会话选择和默认新会话开启统一提示，取消不选中/不保存。全仓主机/source、双渠道lint/APK与Developer测试APK通过，三项UI夹具仅编译；设备/模型not requested，未安装APK。[证据](../evidence/development/plugin-setup-explanation-2026-10-11.md)。
+
 - 2026-10-11 HXA-271阶段8检查Owner指定日常API36的抖音链接：已安装40.7.0且域名verified，但首页URL无抖音Activity匹配，系统解析为Chrome；会话把opened误说成必然进入App。已澄清工具说明、要求观察及授权应用启动，全仓主机/source/双渠道制品和映射30/30通过；当前设备只读诊断passed，真实模型遵循率未验，未更新设备APK。[证据](../evidence/development/open-uri-routing-diagnosis-2026-10-11.md)。
 
 - 2026-10-11 [HXA-271阶段7](tasks/HXA-271.md)优化系统授权/连接状态和恢复入口，Root复用授权的显式连接，以及Mobile Use执行拒绝原因；全仓主机/source、双渠道lint/制品及定向19/19通过。本轮设备/真实模型not requested，阶段6安装包未更新，后端恢复后真实工具执行边界仍开放。[证据](../evidence/development/mobile-use-authorization-recovery-2026-10-11.md)。

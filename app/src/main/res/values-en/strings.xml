@@ -1946,4 +1946,10 @@
     <string name="device_access_status_checking">Checking…</string>
     <string name="device_access_status_failed">Unable to check status</string>
     <string name="device_access_root_failed">Authorization or connection failed. Check Helix authorization in your Root manager and retry.</string>
+    <string name="plugin_setup_title">Plugin setup required</string>
+    <string name="plugin_setup_mobile_scope">Mobile Use has no saved phone access scope. Choose the whole phone or specific apps in Mobile Use settings, save, then return and enable it.</string>
+    <string name="plugin_setup_mobile_backend">Mobile Use has no available screen backend. In system permissions, authorize and connect Accessibility, Shizuku or Root. Confirm one is available, then return and enable the plugin.</string>
+    <string name="plugin_setup_generic">This plugin needs more setup. Complete the required settings in Extensions, then return and enable it.</string>
+    <string name="plugin_setup_continue">Go to settings</string>
+    <string name="plugin_setup_later">Not now</string>
 </resources>

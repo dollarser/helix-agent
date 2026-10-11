@@ -304,5 +304,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-267 | 主机交付；设备not requested | 门禁与历史调试脚本维护 | [完成记录](../completion-records/HXA-267.md) |
 | HXA-268 | 主机交付；设备not requested | 历史版本脚本与日志退役 | [完成记录](../completion-records/HXA-268.md) |
 | HXA-269 | 阻塞修复及有界真机交付；整体黑屏验收pending | 真机后台返回黑屏诊断、主线程修复与Qwen回归 | [任务](tasks/HXA-269.md) |
-| HXA-271 | 会话/浮窗/Qwen及日常API36有界交付；阶段7授权恢复19项回归通过，阶段8日常链接只读诊断及工具说明修正、全仓主机/source/制品与映射30项通过；后端恢复执行、模型新说明遵循率及其他设备边界开放 | 会话执行交互与信息层级 | [任务](tasks/HXA-271.md) |
+| HXA-271 | 会话/浮窗/Qwen及日常API36有界交付；授权恢复、链接说明修正、阶段9先说明再设置的主机/source/制品通过，新UI夹具仅编译；提示交互、后端恢复执行、模型新说明遵循率及其他设备边界开放 | 会话执行交互与信息层级 | [任务](tasks/HXA-271.md) |
 | HXA-270 | 实现、主机及OnePlus有界Qwen验收完成；其他设备矩阵pending | Mobile Use 悬浮审批与等待状态同步 | [任务](tasks/HXA-270.md) |

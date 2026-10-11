@@ -22,15 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private fun openConfigurationFor(
-    error: IllegalStateException,
-    onConfigurationRequired: (String) -> Unit,
-) {
-    error.message
-        ?.takeIf {
-            it == "MOBILE_USE_NOT_CONFIGURED" || it == "MOBILE_USE_BACKEND_UNAVAILABLE"
-        }?.let(onConfigurationRequired)
-}
+private fun configurationRequirement(error: IllegalStateException): String? =
+    error.message?.takeIf { it == "MOBILE_USE_NOT_CONFIGURED" || it == "MOBILE_USE_BACKEND_UNAVAILABLE" }
 
 /** Manual management calls an application service; no model Turn or direct DAO access. */
 @Composable
@@ -44,6 +37,7 @@ internal fun PluginAvailabilityControls(
     val scope = rememberCoroutineScope()
     var busy by remember(record.id) { mutableStateOf(false) }
     var failure by remember(record.id) { mutableStateOf(false) }
+    var setupError by remember(record.id) { mutableStateOf<String?>(null) }
     var defaultSelected by remember(record) { mutableStateOf(false) }
     var readiness by remember(record) { mutableStateOf<PluginComponentReadiness?>(null) }
     LaunchedEffect(record) {
@@ -56,10 +50,7 @@ internal fun PluginAvailabilityControls(
             failure = true
         }
     }
-    readiness?.takeIf { record.native == null }?.let { state ->
-        Text(stringResource(R.string.extensions_component_status, state.ready, state.total))
-        if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
-    }
+    PluginReadinessSummary(record, readiness)
 
     fun perform(action: () -> Unit) {
         scope.launch {
@@ -71,9 +62,9 @@ internal fun PluginAvailabilityControls(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: IllegalStateException) {
-                failure = true
+                setupError = configurationRequirement(error)
+                failure = setupError == null
                 onChanged()
-                openConfigurationFor(error, onConfigurationRequired)
             } catch (_: Exception) {
                 failure = true
                 onChanged()
@@ -99,4 +90,26 @@ internal fun PluginAvailabilityControls(
         }
     }
     if (failure) Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
+    setupError?.let { error ->
+        PluginSetupRequiredDialog(
+            error,
+            onContinue = {
+                setupError = null
+                onConfigurationRequired(error)
+            },
+            onDismiss = { setupError = null },
+        )
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginReadinessSummary(
+    record: InstalledPlugin,
+    readiness: PluginComponentReadiness?,
+) {
+    readiness?.takeIf { record.native == null }?.let { state ->
+        Text(stringResource(R.string.extensions_component_status, state.ready, state.total))
+        if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
+    }
 }

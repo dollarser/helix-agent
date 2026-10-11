@@ -117,16 +117,40 @@ fun ConnectorSessionPanel(
 ) {
     val state = remember(service, sessionId, pluginId) { ConnectorSessionPanelState(service, sessionId, pluginId) }
     val scope = rememberCoroutineScope()
+    var setupRequest by remember(state) { mutableStateOf<Pair<PluginSessionRow, String>?>(null) }
     LaunchedEffect(state) { state.refresh() }
     val configure: (PluginSessionRow, String?) -> Unit = { row, error ->
-        onDismiss()
-        openPluginConfiguration(row, error, onConfigure, onMobileUseConfiguration, onSystemPermissions)
+        if (error != null) {
+            setupRequest = row to error
+        } else {
+            onDismiss()
+            openPluginConfiguration(row, error, onConfigure, onMobileUseConfiguration, onSystemPermissions)
+        }
     }
     val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled ->
         scope.launch {
             state.select(row, enabled)
             state.selectionError?.let { configure(row, it) }
         }
+    }
+    val request = setupRequest
+    if (request != null) {
+        com.helix.app.plugin.PluginSetupRequiredDialog(
+            request.second,
+            onContinue = {
+                setupRequest = null
+                onDismiss()
+                openPluginConfiguration(
+                    request.first,
+                    request.second,
+                    onConfigure,
+                    onMobileUseConfiguration,
+                    onSystemPermissions,
+                )
+            },
+            onDismiss = { setupRequest = null },
+        )
+        return
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -158,21 +182,7 @@ fun ConnectorSessionPanel(
                     }
                 }
                 state.skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }
-                if (state.failed) {
-                    TextButton(
-                        { scope.launch { state.refresh() } },
-                        enabled = !state.busy && !state.loading,
-                    ) { Text(stringResource(R.string.chat_retry)) }
-                    Text(
-                        stringResource(
-                            if (state.needsConfiguration) {
-                                R.string.mobile_use_configuration_required
-                            } else {
-                                R.string.connector_session_failed
-                            },
-                        ),
-                    )
-                }
+                SessionSelectionFailure(state) { scope.launch { state.refresh() } }
             }
         },
         confirmButton = {
@@ -187,6 +197,26 @@ fun ConnectorSessionPanel(
             }
         },
     )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun SessionSelectionFailure(
+    state: ConnectorSessionPanelState,
+    onRetry: () -> Unit,
+) {
+    if (state.failed) {
+        TextButton(onRetry, enabled = !state.busy && !state.loading) { Text(stringResource(R.string.chat_retry)) }
+        Text(
+            stringResource(
+                if (state.needsConfiguration) {
+                    R.string.mobile_use_configuration_required
+                } else {
+                    R.string.connector_session_failed
+                },
+            ),
+        )
+    }
 }
 
 @Composable
