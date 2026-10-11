@@ -143,6 +143,22 @@ MCP 包装不会自动取得截图/辅助功能授权，也不会自动隔离所
 
 此判断不意味着 MCP 只用于第三方或远程服务：本机 CUA 正是内置能力采用本地 MCP 的实例。Helix 的具体选择另见[优化方案 §6.5](helix-plugin-architecture-optimization-2026-10-11.md#65-按执行边界选择原生ipccli-或-mcp)。
 
+### 2.8 插件与执行分层的总体合理性复核
+
+2026-10-11 进一步对照公开客户端/宿主接口，判断已有 Helix 分层及 HXA-272～279 的合理性。Helix 依据同日[源码分层分析](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)与 `161f5776293fc2f8fd32d89ea4e814e5a48c3237` 的计划；本节新增外部证据和取舍分析，没有重新执行产品或性能验收。
+
+| 公开机制与来源 | 可以支持的判断 | 对 Helix 的适用边界 |
+| --- | --- | --- |
+| [Codex App Server](https://learn.chatgpt.com/docs/app-server) 提供会话、审批和流式 Agent 事件，用于接入丰富客户端；使用双向 JSON-RPC 接口 | 客户端展示与执行宿主可以通过稳定命令/事件契约分工 | 支持 AgentRuntime 与 Engine 读投影的方向；不能由此推导 Android 单设备产品必须立即部署独立 server，也不能把 App Server 协议直接等同 MCP |
+| [OpenCode Server](https://opencode.ai/docs/server/) 提供 HTTP/OpenAPI 接口，TUI 作为客户端接入 | 独立宿主有利于多客户端和程序化调用 | Helix 完整 Turn 宿主仍依赖 App/Room，独立运行的完成度有差异；是否提取取决于真实消费者和部署需求 |
+| [OpenAI 插件架构](https://developers.openai.com/plugins/concepts/plugins) 允许仅含 Skill 的包，MCP 和 UI 按需组合 | 插件交付身份、内容贡献和工具执行应分别表达 | 支持 HXA-272 的零工具插件；插件数量不决定 server/进程数量，原生能力仍按实际边界接入 |
+| [Claude Code Skills](https://code.claude.com/docs/en/skills) 区分用户/模型调用、按需读取正文，并说明重复调用与压缩行为 | 调用资格与上下文装载是独立契约 | 支持 HXA-273/278；外部字段的可读取性不导入该宿主的授权语义，Helix 按自身 ADR 执行 |
+| [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/docs/architecture.md) 通过 Cordis 装配服务，连 Agent Loop 也可作为宿主插件 | 服务贡献、注册撤销与实例归属可以统一管理 | 支持 HXA-277 的最小资源契约；Helix 当前能力插件与 DSH 宿主插件层级不同，全面动态替换核心服务需要额外消费者 |
+
+**综合判断。** 当前方案与样本中的内容/工具分离、客户端/宿主分工、明确状态和资源归属等原则一致。AgentLoop、TurnEngine、调度、执行准入和插件资源分别解决不同问题；同进程类型化接口可承载这些边界。公开样本未提供必须合并这些职责、替换 Room 或增加通用插件容器的依据。
+
+架构合理性、功能完成度和真实任务效果分别评价。当前优先补齐的是插件作者路径、可解释状态、共享资源释放和观察/装载质量；不能以模块数量、减少正文 token 或其他产品使用某协议推导任务收益。Helix 的采用范围与验收映射见[优化方案 §2.1](helix-plugin-architecture-optimization-2026-10-11.md#21-总体合理性与收敛尺度)，尚需产品选择的事项见[待决策索引](../../development/candidate-decisions.md#本轮插件与分层评审的决策结论)。
+
 ## 3 系统权限归于执行后端，内置与 MCP 是不同维度
 
 **已核实的本机事实。** `unified-computer-use/26.1007.21159/.mcp.json` 用 ChatGPT 捆绑的 Node 启动 `cua_repl`，登记 `browser`、`sky` 两个服务；`SKY_CUA_SERVICE_PATH` 指向 `Codex Computer Use.app`。该应用的 Info.plist 声明 `CFBundleIdentifier=com.openai.sky.CUAService`、`CFBundleName=Codex Computer Use`。因此当前内置能力本身就有 MCP 入口，也包含独立的 helper 应用身份。
@@ -321,3 +337,7 @@ DSH 使用官方仓库 `deepseek-ai/deepseek-harness`。本地 checkout 为 `c69
 | Helix Developer AutomationModule 与 MobileUsePlugin | §4.5 所列 HEAD 加工作区的原生注册关系；原始调研快照与本轮核验范围分开记录 |
 
 后续若要判断某产品“优先”哪种接入方式，应再统计该版本随产品提供的插件清单，逐项区分组件类型，并寻找官方选型准则；当前样本只用于核实可行路径及反例。
+
+### 6.5 总体合理性复核的补充来源
+
+§2.8 的 Codex App Server、OpenAI 插件架构、Claude Skills 和 OpenCode Server 均使用 2026-10-11 读取的官方在线文档；DSH 沿用 §6.3 的固定版本架构证据。新增的是公开宿主接口与 Helix 分层的比较，没有据此确认私有 Computer Use 后端实现，也没有在这些产品上运行对照任务。在线文档后续可能变化，实施时应重新核对涉及的协议与字段。
