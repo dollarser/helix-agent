@@ -103,8 +103,8 @@ class SkillRepository(
         val activations = acceptedActivations(sessionId, turnId)
         return synchronized(lock) {
             refreshContributions()
-            require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             val document = requireNotNull(records[key]) { "Unknown skill snapshot: ${key.name}" }.document
+            require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             requireModelEligibility(document, key, activations)
             document
         }
@@ -119,12 +119,19 @@ class SkillRepository(
         val activations = acceptedActivations(sessionId, turnId)
         return synchronized(lock) {
             refreshContributions()
-            require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             val record = records[key] ?: throw IllegalArgumentException("Unknown skill snapshot: ${key.name}")
+            require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             requireModelEligibility(record.document, key, activations)
-            val root = record.directory ?: throw IllegalArgumentException("Built-in skill has no external resources")
-            val safePath = resourcePath(root, relativePath)
-            val bytes = readBounded(safePath)
+            skillResourceParts(relativePath)
+            val bytes =
+                if (record.directory == null) {
+                    val text = requireNotNull(record.document.resources[relativePath]) { "Unknown skill resource" }
+                    text.toByteArray(Charsets.UTF_8).also {
+                        require(it.size <= resourceLimitBytes) { "Skill resource exceeds the read limit" }
+                    }
+                } else {
+                    readBounded(resourcePath(record.directory, relativePath))
+                }
             val text = decodeUtf8OrNull(bytes)
             SkillResource(
                 relativePath = relativePath,
@@ -335,15 +342,7 @@ class SkillRepository(
         root: Path,
         relativePath: String,
     ): Path {
-        require(relativePath.isNotBlank() && relativePath.length <= MAX_RESOURCE_PATH_LENGTH) {
-            "Invalid skill resource path"
-        }
-        require(!relativePath.startsWith('/') && '\\' !in relativePath) { "Skill resource path must be relative" }
-        val parts = relativePath.split('/')
-        require(parts.none { it.isBlank() || it == "." || it == ".." }) { "Skill resource path contains traversal" }
-        require(parts.first() == "references" || parts.first() == "assets") {
-            "Only references and assets can be read as skill resources"
-        }
+        val parts = skillResourceParts(relativePath)
         var current = root
         parts.forEach { part ->
             current = current.resolve(part)
@@ -502,7 +501,6 @@ class SkillRepository(
     )
 
     companion object {
-        private const val MAX_RESOURCE_PATH_LENGTH = 512
         private const val GLOBAL_STATE_FIELD_COUNT = 5
         private const val SESSION_STATE_FIELD_COUNT = 6
         private const val GLOBAL_SCOPE_MARKER = "G"

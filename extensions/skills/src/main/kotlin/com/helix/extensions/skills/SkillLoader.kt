@@ -58,7 +58,32 @@ class SkillLoader {
     fun loadBuiltIn(
         content: String,
         name: String,
-    ): SkillDocument = parse(content.toByteArray(Charsets.UTF_8), name, SkillSource.BUILT_IN, true)
+        resources: Map<String, String> = emptyMap(),
+    ): SkillDocument {
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        require(bytes.size <= MAX_SKILL_BYTES) { "SKILL.md exceeds the byte limit" }
+        val document = parse(bytes, name, SkillSource.BUILT_IN, true)
+        if (resources.isEmpty()) return document
+        val limits = SkillImportLimits()
+        require(resources.size + 1 <= limits.maxFiles) { "Skill contains too many resources" }
+        var total = bytes.size.toLong()
+        val frozen = java.util.Collections.unmodifiableMap(resources.toSortedMap())
+        frozen.forEach { (path, text) ->
+            skillResourceParts(path)
+            val size = text.toByteArray(Charsets.UTF_8).size.toLong()
+            require(size <= limits.maxSingleFileBytes) { "Skill resource exceeds the single-file limit" }
+            total += size
+            require(total <= limits.maxTotalBytes) { "Skill exceeds the total size limit" }
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+        (frozen + (SKILL_FILE_NAME to content)).toSortedMap().forEach { (path, text) ->
+            val member = text.toByteArray(Charsets.UTF_8)
+            digest.skillFileHeader(path, member.size.toLong())
+            digest.update(member)
+        }
+        val hash = digest.digest().joinToString("") { "%02x".format(it) }
+        return document.copy(catalogEntry = document.catalogEntry.copy(contentHash = hash), resources = frozen)
+    }
 
     /** Validate an already bounded package member with exactly the ordinary Skill contract. */
     fun validatePackageMember(

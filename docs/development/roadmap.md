@@ -8,7 +8,7 @@
 
 候选需求和目标设计不混入正式实现任务；见[候选需求与待裁决索引](candidate-decisions.md)。
 
-2026-10-11 所有者要求依据插件调研与当前代码登记 **HXA-272～279**，按单一目标实现设计，不兼容旧版。272～274已有界交付，275～279待实施；优先级、默认顺序和技术依赖集中在 [status 插件队列](status.md#插件优化队列2026-10-11)，研究与任务映射见[优化方案](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。本次不新增远程设备服务、任意 hooks 或未选定格式的文档运行时。
+2026-10-11 所有者要求依据插件调研与当前代码登记 **HXA-272～279**，按单一目标实现设计，不兼容旧版。272～278已有界交付，279待实施；优先级、默认顺序和技术依赖集中在 [status 插件队列](status.md#插件优化队列2026-10-11)，研究与任务映射见[优化方案](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。本次不新增远程设备服务、任意 hooks 或未选定格式的文档运行时。
 
 同日系统分层分析已并入[现有执行引擎研究](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)：HXA-274 追加恢复导航的应用/表现边界，HXA-277 追加跨层资源 owner 与退出事实接线；其余复用原任务或登记条件项，不新增编号。实施优先级与切片顺序见 [status 系统分层承接](status.md#系统分层优化承接2026-10-11)，不重启已交付 Core/Engine/会话状态重构。
 
@@ -316,5 +316,5 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-275 | 有界本地交付；主机、API36双渠道及既有Qwen通过 | 插件组件兼容诊断与可执行作者样例 | [任务](tasks/HXA-275.md) |
 | HXA-276 | 主机、API36双渠道9/9与共享引擎29/29 passed；真实模型未调用 | Browser 原生插件贡献与统一选择入口 | [任务](tasks/HXA-276.md) |
 | HXA-277 | 主机、API36真实后端8/8、Browser32/32与双渠道应用20/20、19/19 passed；模型未调用 | 原生插件资源归属与停止释放契约 | [任务](tasks/HXA-277.md) |
-| HXA-278 | 已排期，未开工；设备/模型not requested | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |
+| HXA-278 | 主机、Developer内容6/6、consumer适用内容5/5 passed；Qwen三类各2轮基线/候选均6/6，成本混合 | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |
 | HXA-279 | 已排期，未开工；设备/模型not requested | UI 观察反馈与 Browser 标签发现及有界等待 | [任务](tasks/HXA-279.md) |

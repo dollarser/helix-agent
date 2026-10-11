@@ -4,6 +4,8 @@
 
 ## 格式与执行边界
 
+原生 Mobile Use/Browser 使用短 `SKILL.md` 入口，长流程放在 `references/` 中，通过 `skills.read_resource` 按准确快照读取。会话选择只注入发现元数据及必需短操作规则；正文通过普通读取或可信用户显式激活装载。原生参考资料的字节也绑定内容 hash，不能用同名新资料替代已接受的旧快照。外部导入仍采用现有文件快照，不执行包内脚本。
+
 标准包入口是根目录 `plugin.json`，采用生产解析器支持的 Agent Plugins `1.0.0` schema；不是 Standard 应用渠道。标准 MCP 配置位于 `mcp.json`。外部导入入口还识别 `.claude-plugin/plugin.json`、`.codex-plugin/plugin.json`、`.codebuddy-plugin/plugin.json`、`connector.json`、MCP JSON 导出和 `qwenwork.mcp/v1`。这里只承诺下表的组件子集，不承诺外部宿主完整运行语义或未来格式版本。
 
 | 组件或条件 | 当前处理 | 作者/用户操作 |

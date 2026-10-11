@@ -37,8 +37,21 @@ class MobileUsePlugin(
                     .bufferedReader()
                     .use { it.readText() },
                 "android-ui-task",
+                mapOf(
+                    "references/android-ui-reference.md" to
+                        context.assets
+                            .open("plugins/mobile-use/skills/android-ui-task/references/android-ui-reference.md")
+                            .bufferedReader()
+                            .use { it.readText() },
+                ),
             ),
         )
+
+    override val requiredInstructions =
+        context.assets
+            .open("plugins/mobile-use/required.md")
+            .bufferedReader()
+            .use { it.readText() }
 
     private val origin =
         ToolOrigin.PluginOrigin(

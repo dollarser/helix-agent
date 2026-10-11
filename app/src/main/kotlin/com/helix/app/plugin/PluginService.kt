@@ -18,9 +18,6 @@ import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillListItem
 import com.helix.extensions.skills.SkillRepository
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import java.nio.file.Files
 
 /** UI facade: bounded metadata and references enter Room; credentials remain in SecretStore. */
@@ -309,33 +306,25 @@ class PluginService(
         sessionId: String,
         turnId: String? = null,
     ): String =
-        buildJsonObject {
+        run {
             val selected = catalog.selected(sessionId)
             val installed = list()
             val items = skills.list().associateBy { it.key }
             val readable = skills.listForModel(sessionId, turnId).map { it.key }.toSet()
             val snapshots =
-                installed.take(64).map {
+                installed.sortedByDescending { it.id in selected }.take(64).map {
                     readinessSnapshot(it, items, readable).copy(selected = it.id in selected)
                 }
-            put("plugins", JsonArray(snapshots.map { it.modelFacts() }))
-            put(
-                "browserHost",
-                buildJsonObject {
-                    val available = browserHostAvailable()
-                    val state =
-                        if (available) {
-                            PluginComponentState.AVAILABLE
-                        } else {
-                            PluginComponentState.HOST_UNAVAILABLE
-                        }
-                    put("kind", JsonPrimitive(PluginComponentKind.BROWSER.name))
-                    put("state", JsonPrimitive(state.name))
-                    put("loaded", JsonPrimitive(available))
+            pluginRequestReadiness(
+                snapshots,
+                installed.size,
+                browserHostAvailable(),
+                installed.count {
+                    it.id in
+                        selected
                 },
             )
-            put("truncated", JsonPrimitive(installed.size > 64))
-        }.toString()
+        }
 
     /** Changes availability only. No connection, model request, credential deletion or approval. */
     fun setEnabled(

@@ -14,10 +14,60 @@ import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun bodiesLoadOnlyFromExactDurableActivationsAndRetainMandatoryRules() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        val guide = skill("guide")
+        registry.register(
+            object : HelixPlugin by base {
+                override val skills = listOf(guide)
+                override val requiredInstructions = "Mandatory rule"
+            },
+        )
+        catalog.selections["s" to "fixture"] = "selection"
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("progressive-content")
+        var activations = emptyList<com.helix.extensions.skills.UserSkillActivation>()
+        val repository =
+            com.helix.extensions.skills.SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+                sourceAvailable = registry::skillAvailable,
+                contributedDocuments = registry::skillDocuments,
+                userActivations = { _, _ -> activations },
+            )
+        val key = repository.list("s").single().key
+        val discovered = requireNotNull(registry.instructions(repository, "s", "turn"))
+        assertTrue(discovered.startsWith("Mandatory rule"))
+        assertTrue(discovered.contains("SKILL CATALOG"))
+        assertTrue(!discovered.contains("Observe before acting"))
+        val activation = repository.prepareUserActivation(key, "s", "user argument")
+        activations = listOf(activation, activation)
+        val text = requireNotNull(registry.instructions(repository, "s", "turn"))
+        assertEquals(1, Regex("Observe before acting").findAll(text).count())
+        assertTrue(text.contains("@${key.snapshotHash}"))
+        assertTrue(text.contains("user argument"))
+        assertEquals(discovered, registry.instructions(repository, "s"))
+        repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "s")
+        assertThrows(IllegalArgumentException::class.java) { registry.instructions(repository, "s", "turn") }
+        activations = emptyList()
+        assertEquals("Mandatory rule", registry.instructions(repository, "s", "next"))
+        catalog.selections.clear()
+        assertEquals(null, registry.instructions(repository, "s", "next"))
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "s") }
+        activations = listOf(activation.copy(key = key.copy(snapshotHash = "missing")))
+        assertThrows(IllegalArgumentException::class.java) { registry.instructions(repository, "s", "next") }
+    }
+
     @Test fun withdrawalPrecedesRetirementAndRepairDoesNotReopenHealthyResources() {
         val tools = ToolRegistry()
         val registry = PluginRegistry(tools, MemoryNativePluginCatalog())
@@ -178,6 +228,7 @@ class PluginRegistryTest {
             object : HelixPlugin by base {
                 override val preferredTools = setOf("fixture.fixture")
                 override val skills = listOf(skill("guide"))
+                override val requiredInstructions = "Mandatory operational rule"
                 override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
 
                 override fun imageScope(sessionId: String) = scope
@@ -206,10 +257,13 @@ class PluginRegistryTest {
         assertEquals(scope, registry.executionContext(descriptor, "session")?.scope)
         assertEquals(setOf("fixture.fixture"), registry.preferredTools("session"))
         assertEquals(listOf(scope), registry.imageScopes("session"))
-        assertEquals("Observe before acting", registry.instructions(repository, "session")?.trim())
+        val instructions = requireNotNull(registry.instructions(repository, "session"))
+        assertTrue(instructions.startsWith("Mandatory operational rule"))
+        assertTrue(!instructions.contains("Observe before acting"))
         val key = repository.list("session").single { it.key.name == "guide" }.key
         repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
-        assertEquals(null, registry.instructions(repository, "session"))
+        assertEquals("Mandatory operational rule", registry.instructions(repository, "session"))
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "session") }
         repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
         registry.setEnabled("fixture", false)
         assertEquals(null, registry.executionContext(descriptor, "session"))

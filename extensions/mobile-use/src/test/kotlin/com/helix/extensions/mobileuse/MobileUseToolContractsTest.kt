@@ -32,7 +32,11 @@ class MobileUseToolContractsTest {
     private val contracts = MobileUseToolContracts(listOf(descriptor))
 
     @Test fun packagedSkillExplainsObservationRecoveryAndPermissionBoundaries() {
-        val text = java.io.File("src/main/assets/plugins/mobile-use/skills/android-ui-task/SKILL.md").readText()
+        val root = java.io.File("src/main/assets/plugins/mobile-use/skills/android-ui-task")
+        val entry = root.resolve("SKILL.md").readText()
+        assertTrue(entry.toByteArray().size < 1024)
+        assertTrue(entry.contains("references/android-ui-reference.md"))
+        val text = entry + root.resolve("references/android-ui-reference.md").readText()
         assertTrue(text.contains("name: android-ui-task"))
         assertTrue(text.contains("ui.wait"))
         assertTrue(text.contains("ACTION_OUTCOME_UNKNOWN"))

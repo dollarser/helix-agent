@@ -9,6 +9,74 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SkillRepositoryTest {
+    @Test fun nativeReferenceReadsUseTheSameSnapshotEligibilityAndBounds() {
+        val root = Files.createTempDirectory("native-references")
+        val manifest = "---\nname: guide\ndescription: Guide\n---\nShort entry"
+        val inputs = linkedMapOf("references/guide.txt" to "参考")
+        val loader = SkillLoader()
+        val document = loader.loadBuiltIn(manifest, "guide", inputs)
+        inputs["references/guide.txt"] = "mutated caller"
+        var documents = listOf(document)
+        var available = true
+        val repository =
+            SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+                resourceLimitBytes = 6,
+                sourceAvailable = { _, _ -> available },
+                contributedDocuments = { documents },
+            )
+        val key = repository.list("s").single().key
+        val resource = repository.readResource(key, "references/guide.txt", "s")
+        assertEquals("参考", resource.content)
+        assertEquals(6L, resource.sizeBytes)
+        assertEquals("utf-8", resource.encoding)
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "../guide.txt", "s") }
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "scripts/run", "s") }
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "references/missing", "s") }
+        available = false
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "references/guide.txt", "s") }
+        available = true
+        repository.setEnabled(key, false, SkillEnablementScope.SESSION, "s")
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "references/guide.txt", "s") }
+        documents = listOf(loader.loadBuiltIn(manifest, "guide", mapOf("references/guide.txt" to "changed")))
+        val changed = repository.list("s").single().key
+        assertTrue(changed.snapshotHash != key.snapshotHash)
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "references/guide.txt", "s") }
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { repository.readResource(changed, "references/guide.txt", "s") }
+        documents = emptyList()
+        assertTrue(repository.list("s").isEmpty())
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { repository.readResource(changed, "references/guide.txt", "s") }
+    }
+
+    @Test fun nativeReferenceIdentityMatchesTheFilesystemSnapshotAndRejectsUnsafeNames() {
+        val root = Files.createTempDirectory("native-reference-identity")
+        val manifest = "---\nname: guide\ndescription: Guide\n---\nShort entry"
+        val directory = root.resolve("guide")
+        Files.createDirectories(directory.resolve("references"))
+        Files.writeString(directory.resolve("SKILL.md"), manifest)
+        Files.writeString(directory.resolve("references/guide.txt"), "reference")
+        val loader = SkillLoader()
+        val document = loader.loadBuiltIn(manifest, "guide", mapOf("references/guide.txt" to "reference"))
+        assertEquals(
+            SkillSnapshotInspector(SkillImportLimits(), loader)
+                .inspect(directory, SkillSource.BUILT_IN)
+                .snapshotHash,
+            document.catalogEntry.contentHash,
+        )
+        listOf("/references/a", "references/../a", "references/a\\b", "scripts/a", "references//a").forEach { path ->
+            assertThrows(
+                IllegalArgumentException::class.java,
+            ) { loader.loadBuiltIn(manifest, "guide", mapOf(path to "x")) }
+        }
+    }
+
     @Test fun changedHostContentInvalidatesOldKeyWithoutOverwritingSameNameContent() {
         val root = Files.createTempDirectory("host-skill-revisions")
         val loader = SkillLoader()

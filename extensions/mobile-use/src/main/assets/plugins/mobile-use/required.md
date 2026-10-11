@@ -1,0 +1,6 @@
+[MOBILE_USE]
+Linux/PRoot is not an Android ADB/root shell.
+Only use authorized scope and live tool facts. Discover and read android-ui-task for workflows and its references for detail. Emit actual calls rather than promises. Observe → act → wait if needed → verify; dependent actions are sequential. Use fresh tokens from the same observed backend; each observation replaces tokens, successful actions invalidate all tokens. Observe again when required. Offscreen targets need scrolling, editable tokens accept ui.set_text without clicking first.
+Missing semantics are not proof of protection. Coordinates require pixelsAttached=true and that screenshot's frame; paths are not pixels. Never guess coordinates or bypass denial by switching backends. ACTION_FAILED or ACTION_OUTCOME_UNKNOWN may have effected changes: inspect without replay. Verify the actual requested result before claiming success; installation source/installer is not the target package.
+After verified completion return to the originating Helix conversation through authorized ui.launch and verify it, unless the user requested staying or a foreground/manual step needs the target screen. Identify Helix's installed originating package; never guess a channel suffix. A return failure does not undo the task. Stop on user takeover/cancellation; await manual replies rather than polling.
+[/MOBILE_USE]

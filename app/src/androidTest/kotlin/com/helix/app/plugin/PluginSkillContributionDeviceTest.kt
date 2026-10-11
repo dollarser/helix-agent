@@ -12,6 +12,52 @@ import java.util.UUID
 
 /** Synthetic production install/selection/read; never operates a user account or device app. */
 class PluginSkillContributionDeviceTest {
+    @Test fun nativeBrowserEntryAndReferenceShareExactIdentityAndSelection() {
+        val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+        val session = UUID.randomUUID().toString()
+        c.storage.sessions.create(session, "Native reference fixture", null, null, 0)
+        val plugin = c.pluginService.list().single { it.native?.pluginId == "browser" }
+        try {
+            c.pluginService.selectFromUser(session, plugin.id, true)
+            val key =
+                c.skillRepository
+                    .list(session)
+                    .single { it.key.name == "browser" }
+                    .key
+            val entry = c.skillRepository.read(key, session)
+            assertTrue(entry.body.toByteArray().size < 1024)
+            assertTrue(entry.body.contains("references/browser-workflow.md"))
+            val reference = c.skillRepository.readResource(key, "references/browser-workflow.md", session)
+            assertTrue(reference.content.contains("Do not replay"))
+            assertEquals("utf-8", reference.encoding)
+            assertEquals(
+                reference.content
+                    .toByteArray()
+                    .size
+                    .toLong(),
+                reference.sizeBytes,
+            )
+            assertThrows(IllegalArgumentException::class.java) {
+                c.skillRepository.readResource(
+                    key.copy(snapshotHash = "0".repeat(64)),
+                    "references/browser-workflow.md",
+                    session,
+                )
+            }
+            c.skillRepository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, session)
+            assertThrows(IllegalArgumentException::class.java) {
+                c.skillRepository.readResource(key, "references/browser-workflow.md", session)
+            }
+            c.skillRepository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, session)
+            c.pluginService.selectFromUser(session, plugin.id, false)
+            assertThrows(IllegalArgumentException::class.java) {
+                c.skillRepository.readResource(key, "references/browser-workflow.md", session)
+            }
+        } finally {
+            c.storage.deleteSessionPermanently(session)
+        }
+    }
+
     @Test fun passiveReadinessKeepsWorkingSkillSeparateFromUnconnectedMcp() {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val name = "partial-${UUID.randomUUID()}"

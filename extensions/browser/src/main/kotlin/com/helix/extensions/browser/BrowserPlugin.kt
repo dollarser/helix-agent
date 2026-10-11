@@ -27,8 +27,20 @@ class BrowserPlugin(
                     .bufferedReader()
                     .use { it.readText() },
                 PLUGIN_ID,
+                mapOf(
+                    "references/browser-workflow.md" to
+                        context.assets
+                            .open("plugins/browser/skills/browser/references/browser-workflow.md")
+                            .bufferedReader()
+                            .use { it.readText() },
+                ),
             ),
         )
+    override val requiredInstructions =
+        context.assets
+            .open("plugins/browser/required.md")
+            .bufferedReader()
+            .use { it.readText() }
     override val dataOrigin = DataOrigin.BROWSER
     override val preferredTools = setOf("browser.open", "browser.snapshot", "browser.find")
     private val bindings =

@@ -1,7 +1,6 @@
 package com.helix.extensions.skills
 
 import java.io.InputStream
-import java.nio.ByteBuffer
 import java.nio.channels.Channels
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -123,10 +122,7 @@ internal class SkillSnapshotInspector(
     ): String {
         val digest = MessageDigest.getInstance("SHA-256")
         files.forEach { file ->
-            val pathBytes = file.relativePath.toByteArray(Charsets.UTF_8)
-            digest.update(ByteBuffer.allocate(Int.SIZE_BYTES).putInt(pathBytes.size).array())
-            digest.update(pathBytes)
-            digest.update(ByteBuffer.allocate(Long.SIZE_BYTES).putLong(file.sizeBytes).array())
+            digest.skillFileHeader(file.relativePath, file.sizeBytes)
             openNoFollow(root.resolve(file.relativePath)).use { input -> updateDigest(digest, input) }
         }
         return digest.digest().toHex()

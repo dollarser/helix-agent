@@ -27,6 +27,8 @@ data class SkillDocument(
     val allowedTools: String?,
     val additionalFields: Map<String, Any?>,
     val invocation: SkillInvocationPolicy = SkillInvocationPolicy(),
+    /** Immutable UTF-8 data supplied by a native package, covered by the catalog content hash. */
+    val resources: Map<String, String> = emptyMap(),
 )
 
 data class SkillCatalogDiagnostic(

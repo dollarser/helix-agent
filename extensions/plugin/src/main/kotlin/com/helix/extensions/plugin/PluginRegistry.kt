@@ -12,6 +12,9 @@ interface HelixPlugin {
     val manifest: PluginManifest
     val skills: List<SkillDocument> get() = emptyList()
 
+    /** Host-authored operational rules only; optional workflow bodies load through the Skill repository. */
+    val requiredInstructions: String get() = ""
+
     val preferredTools: Set<String> get() = emptySet()
     val dataOrigin: com.helix.core.policy.DataOrigin get() = com.helix.core.policy.DataOrigin.WORKSPACE
 
@@ -289,7 +292,12 @@ class PluginRegistry(
             .getInstance("SHA-256")
             .digest(
                 (
-                    listOf(plugin.manifest.name, plugin.manifest.version, plugin.manifest.helixRuntimeId) +
+                    listOf(
+                        plugin.manifest.name,
+                        plugin.manifest.version,
+                        plugin.manifest.helixRuntimeId,
+                        plugin.requiredInstructions,
+                    ) +
                         bindings.map { it.descriptor.contractHash.hex }.sorted() +
                         plugin.skills
                             .sortedBy {
