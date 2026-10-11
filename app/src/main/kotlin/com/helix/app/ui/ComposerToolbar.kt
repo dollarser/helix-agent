@@ -52,7 +52,7 @@ internal fun ComposerToolbar(
     var options by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().testTag("chat-composer-header"), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            mode.name,
+            stringResource(modeLabel(mode)),
             Modifier.testTag("chat-current-mode"),
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,

@@ -679,9 +679,9 @@
     <string name="connector_diag_snapshot">Importing QwenWork endpoints as a snapshot; source authorization, replacement and conflict policies are not inherited: %1$s</string>
     <string name="connector_diag_config">Unrecognized MCP configuration found; review migration preview: %1$s</string>
     <string name="common_save">Save</string>
-    <string name="chat_mode_chat_explanation">Chat: no tools by default; explicit opt-in exposes only L0 read-only tools.</string>
-    <string name="chat_mode_plan_explanation">Plan: read-only research; exposes only READ_ONLY tools with dynamic risk up to L1.</string>
-    <string name="chat_mode_act_explanation">Act: completes this interactive task; every tool still passes Policy, Approval, budgets, and audit.</string>
+    <string name="chat_mode_chat_explanation">Chat: no tools by default; opt in to low-risk read-only tools.</string>
+    <string name="chat_mode_plan_explanation">Plan: read-only research, without changing files or operating apps.</string>
+    <string name="chat_mode_act_explanation">Act: complete this task using the conversation permissions and approvals.</string>
     <string name="chat_mode_goal_explanation">Goal: send an objective to keep working within its budget including while the app is in the background, until completion, blocking or stop. Resume explicitly after a stop or system interruption.</string>
     <string name="chat_tools_enable">Enable L0 read-only tools for Chat</string>
     <string name="chat_tools_disable">Disable Chat tools</string>
@@ -691,9 +691,9 @@
     <string name="settings_budget_steps">Maximum tool steps (1–32)</string>
     <string name="settings_budget_calls">Maximum model calls (1–16)</string>
     <string name="settings_budget_input">Maximum input tokens per call (1–1000000)</string>
-    <string name="settings_budget_output">Maximum output tokens per call (1–128000)</string>
+    <string name="settings_budget_output">Maximum output tokens per request</string>
     <string name="settings_budget_total">Maximum total tokens per Turn (1–1000000)</string>
-    <string name="settings_turn_budgets_invalid">The budget is invalid or exceeds a hard cap; output must not exceed total.</string>
+    <string name="settings_turn_budgets_invalid">Enter a whole number between 1 and 128000.</string>
     <string name="model_error_model_call_limit">This Turn reached its model-call limit.</string>
     <string name="model_error_token_budget_limit">This Turn reached its token budget.</string>
     <string name="settings_lan_title">Local network scopes</string>
@@ -1107,7 +1107,7 @@
     <string name="audit_details_show">View audit details</string>
     <string name="audit_details_hide">Hide details</string>
     <string name="goal_settings_title">Goal execution settings</string>
-    <string name="goal_settings_note">Goals default to 256 automatic continuation rounds. Edit defaults for new goals or adjust an existing goal. Human messages do not consume rounds; resource usage is observed only.</string>
+    <string name="goal_settings_note">Set automatic follow-up rounds for new goals, or adjust an existing goal separately.</string>
     <string name="goal_defaults_summary">Model calls: %1$d · Tool calls: %2$d · Total tokens: %3$d · Execution (min): %4$d · Per run (min): %5$d</string>
     <string name="goal_defaults_reset">Reset defaults</string>
     <string name="chat_blocked_session_busy">This conversation is still running. Wait or stop it before retrying. Attachments are retained.</string>
@@ -1910,7 +1910,7 @@
     <string name="mobile_use_needs_access">Screen access needs authorization or connection</string>
     <string name="app_starting">Starting Helix…</string>
     <string name="app_start_failed">Helix could not initialize. Restart the app and try again.</string>
-    <string name="budget_observation_only">Input and output usage is observed, not a cumulative token, model-call or tool-round allowance. Model context settings manage capacity and compaction.</string>
+    <string name="budget_observation_only">Cumulative usage is for reporting. Context is managed by the model window and compaction settings.</string>
     <string name="chat_output_summary">Per-request output limit: %1$d tokens</string>
     <string name="goal_round_defaults">Default automatic continuation allowance: %1$d rounds. Human messages do not consume rounds.</string>
     <string name="goal_round_usage">Automatic rounds %1$d / %2$d · Observed: %3$d model calls, %4$d tool calls, %5$d tokens</string>
@@ -1919,4 +1919,22 @@
     <string name="files_sources_loading">Loading directory information…</string>
     <string name="approval_review_action">Allow this action? %1$s</string>
     <string name="message_progress_label">Progress update</string>
+    <string name="settings_budget_output_range">Enter 1–128000; the model may enforce a lower limit.</string>
+    <string name="chat_mode_label_chat">Chat</string>
+    <string name="chat_mode_label_plan">Plan</string>
+    <string name="chat_mode_label_act">Act</string>
+    <string name="chat_mode_label_goal">Goal</string>
+    <string name="tool_purpose_apps">List installed apps</string>
+    <string name="tool_purpose_launch">Open app</string>
+    <string name="tool_purpose_snapshot">View current screen</string>
+    <string name="tool_purpose_screenshot">Capture screen</string>
+    <string name="tool_purpose_find_control">Find screen element</string>
+    <string name="tool_purpose_click">Tap screen element</string>
+    <string name="tool_purpose_input">Enter text</string>
+    <string name="tool_purpose_scroll">Scroll screen</string>
+    <string name="tool_purpose_back">Go back</string>
+    <string name="tool_purpose_wait">Wait for screen change</string>
+    <string name="tool_purpose_device">View device status</string>
+    <string name="tool_purpose_gesture">Perform touch gesture</string>
+    <string name="tool_purpose_open_link">Open link</string>
 </resources>

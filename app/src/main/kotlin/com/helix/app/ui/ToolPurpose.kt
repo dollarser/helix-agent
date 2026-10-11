@@ -19,7 +19,7 @@ internal object ToolPurpose {
     }
 
     fun actionRes(name: String): Int =
-        when {
+        mobileActions[name] ?: when {
             name == "write" -> R.string.tool_purpose_write
             name == "edit" -> R.string.tool_purpose_edit
             isRead(name) -> R.string.tool_purpose_read
@@ -29,6 +29,24 @@ internal object ToolPurpose {
             name == "bash" || name == "code.javascript.run" -> R.string.tool_purpose_run
             else -> R.string.tool_purpose_execute
         }
+
+    private val mobileActions =
+        mapOf(
+            "ui.apps" to R.string.tool_purpose_apps,
+            "ui.launch" to R.string.tool_purpose_launch,
+            "ui.snapshot" to R.string.tool_purpose_snapshot,
+            "ui.screenshot" to R.string.tool_purpose_screenshot,
+            "ui.find" to R.string.tool_purpose_find_control,
+            "ui.click" to R.string.tool_purpose_click,
+            "ui.click_match" to R.string.tool_purpose_click,
+            "ui.set_text" to R.string.tool_purpose_input,
+            "ui.scroll" to R.string.tool_purpose_scroll,
+            "ui.back" to R.string.tool_purpose_back,
+            "ui.wait" to R.string.tool_purpose_wait,
+            "ui.device" to R.string.tool_purpose_device,
+            "ui.gesture" to R.string.tool_purpose_gesture,
+            "android.open_uri" to R.string.tool_purpose_open_link,
+        )
 
     private fun isRead(name: String): Boolean =
         name == "read" || name.endsWith(".read") || name.endsWith(".read_resource")

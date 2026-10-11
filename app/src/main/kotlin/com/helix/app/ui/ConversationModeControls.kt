@@ -67,3 +67,11 @@ private fun modeExplanation(mode: AgentMode): Int =
         AgentMode.ACT -> R.string.chat_mode_act_explanation
         AgentMode.GOAL -> R.string.chat_mode_goal_explanation
     }
+
+internal fun modeLabel(mode: AgentMode): Int =
+    when (mode) {
+        AgentMode.CHAT -> R.string.chat_mode_label_chat
+        AgentMode.PLAN -> R.string.chat_mode_label_plan
+        AgentMode.ACT -> R.string.chat_mode_label_act
+        AgentMode.GOAL -> R.string.chat_mode_label_goal
+    }

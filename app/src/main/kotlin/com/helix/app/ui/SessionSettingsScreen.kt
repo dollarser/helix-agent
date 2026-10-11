@@ -75,7 +75,7 @@ internal fun SessionSettingsScreen(
     ) {
         SettingsGroup {
             Text(stringResource(R.string.session_settings_mode))
-            Text(runControl.mode.name)
+            Text(stringResource(modeLabel(runControl.mode)))
             Text(stringResource(R.string.chat_command_mode_hint))
             Text(stringResource(R.string.session_settings_model))
             ComposerModelMenu(

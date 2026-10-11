@@ -681,9 +681,9 @@
     <string name="connector_diag_snapshot">按快照导入 QwenWork 端点；不继承源配置的授权、替换或冲突策略：%1$s</string>
     <string name="connector_diag_config">发现未识别的 MCP 配置，请检查迁移预览：%1$s</string>
     <string name="common_save">保存</string>
-    <string name="chat_mode_chat_explanation">Chat：默认不提供工具；显式开启后也只提供 L0 只读工具。</string>
-    <string name="chat_mode_plan_explanation">Plan：只读调研；仅提供动态风险不高于 L1 的 READ_ONLY 工具。</string>
-    <string name="chat_mode_act_explanation">Act：完成当前交互任务；所有工具仍经过 Policy、Approval、预算和审计。</string>
+    <string name="chat_mode_chat_explanation">聊天：默认不使用工具；开启后仅提供低风险只读工具。</string>
+    <string name="chat_mode_plan_explanation">规划：只读调研，不修改文件或操作应用。</string>
+    <string name="chat_mode_act_explanation">执行：完成当前任务，工具操作遵循会话权限与审批。</string>
     <string name="chat_mode_goal_explanation">Goal：发送目标后，按预算连续推进，离开界面也可继续，直到完成、阻塞或停止。停止或系统中断后需手动继续；每轮结束不等于完成。</string>
     <string name="chat_tools_enable">为 Chat 显式开启 L0 只读工具</string>
     <string name="chat_tools_disable">关闭 Chat 工具</string>
@@ -693,9 +693,9 @@
     <string name="settings_budget_steps">最大工具步骤（1–32）</string>
     <string name="settings_budget_calls">最大模型调用（1–16）</string>
     <string name="settings_budget_input">单次最大输入 token（1–1000000）</string>
-    <string name="settings_budget_output">单次最大输出 token（1–128000）</string>
+    <string name="settings_budget_output">单次最大输出 token</string>
     <string name="settings_budget_total">Turn 最大总 token（1–1000000）</string>
-    <string name="settings_turn_budgets_invalid">预算无效或超过硬上限；输出上限也不得超过总上限。</string>
+    <string name="settings_turn_budgets_invalid">请输入 1–128000 之间的整数。</string>
     <string name="model_error_model_call_limit">已达到本 Turn 的模型调用上限</string>
     <string name="model_error_token_budget_limit">已达到本 Turn 的 token 预算上限</string>
     <string name="settings_lan_title">局域网连接范围</string>
@@ -1124,7 +1124,7 @@
     <string name="audit_details_show">查看审计详情</string>
     <string name="audit_details_hide">收起详情</string>
     <string name="goal_settings_title">Goal 运行设置</string>
-    <string name="goal_settings_note">Goal 默认最多自动续跑 256 轮，可调整新目标默认值或单独修改现有目标。人工消息不消耗自动轮数；用量仅作统计。</string>
+    <string name="goal_settings_note">设置新目标的自动续跑轮数，也可单独调整现有目标。</string>
     <string name="goal_defaults_summary">模型调用：%1$d · 工具调用：%2$d · 累计 token：%3$d · 总执行（分钟）：%4$d · 单次（分钟）：%5$d</string>
     <string name="goal_defaults_reset">恢复默认值</string>
     <string name="chat_blocked_session_busy">当前会话仍在执行，请等待结束或停止后重试；附件已保留。</string>
@@ -1910,7 +1910,7 @@
     <string name="mobile_use_needs_access">屏幕操作需要授权或连接</string>
     <string name="app_starting">正在启动 Helix…</string>
     <string name="app_start_failed">Helix 初始化失败，请重新启动应用后重试。</string>
-    <string name="budget_observation_only">输入与输出用量仅作统计，不以累计 token、模型调用次数或工具轮数停止任务。上下文由模型窗口和压缩设置管理。</string>
+    <string name="budget_observation_only">累计用量仅作统计。上下文由模型窗口与压缩设置管理。</string>
     <string name="chat_output_summary">单次输出上限：%1$d tokens</string>
     <string name="goal_round_defaults">默认最多自动续跑 %1$d 轮；人工消息不计入轮数。</string>
     <string name="goal_round_usage">自动续跑 %1$d / %2$d 轮 · 已用模型调用 %3$d 次、工具调用 %4$d 次、%5$d tokens</string>
@@ -1919,4 +1919,22 @@
     <string name="files_sources_loading">正在加载目录信息…</string>
     <string name="approval_review_action">允许此操作？%1$s</string>
     <string name="message_progress_label">过程说明</string>
+    <string name="settings_budget_output_range">请输入 1–128000；实际输出仍受模型能力约束。</string>
+    <string name="chat_mode_label_chat">聊天</string>
+    <string name="chat_mode_label_plan">规划</string>
+    <string name="chat_mode_label_act">执行</string>
+    <string name="chat_mode_label_goal">目标</string>
+    <string name="tool_purpose_apps">查看已安装应用</string>
+    <string name="tool_purpose_launch">打开应用</string>
+    <string name="tool_purpose_snapshot">查看当前界面</string>
+    <string name="tool_purpose_screenshot">截取屏幕</string>
+    <string name="tool_purpose_find_control">查找界面元素</string>
+    <string name="tool_purpose_click">点击界面元素</string>
+    <string name="tool_purpose_input">输入文字</string>
+    <string name="tool_purpose_scroll">滚动界面</string>
+    <string name="tool_purpose_back">返回上一页</string>
+    <string name="tool_purpose_wait">等待界面变化</string>
+    <string name="tool_purpose_device">查看设备状态</string>
+    <string name="tool_purpose_gesture">执行触摸手势</string>
+    <string name="tool_purpose_open_link">打开链接</string>
 </resources>
