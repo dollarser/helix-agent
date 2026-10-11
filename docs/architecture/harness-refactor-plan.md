@@ -6,6 +6,8 @@
 
 **授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../development/tasks/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../development/tasks/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../development/tasks/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时优先级只看 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
+**2026-10-11 分层复核：**实际 Core Loop、Turn 生命周期、宿主适配、工具调度/准入与物理执行的职责见[当前架构](overview.md)，源码证据与建议归属见[执行引擎研究 §9](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)。HXA-274 追加结构化恢复目标及页面导航承载，HXA-277 追加 Turn/调度/执行/插件引用的原 owner 接线；其他已交付 Core/Engine/会话状态工作不重开。完整 Turn 宿主提取须有真实消费者和验证场景，当前不预建服务或新模块。新增决定见 ADR-AGENT-001 / CONNECTORS-003，单一目标实现且代码未实施；任务默认顺序仍由 [status](../development/status.md#系统分层优化承接2026-10-11)维护。
+
 **阅读路径：**§1–3 是目标与规则分类；§4–7 仅作工作流导航，不重复定义底层契约；§8 是异步执行的规范正文；§9–12 是依赖、授权和证据；§13–17 分别定义接口/模块、绑定、上下文、插件；§18 只规定迁移步骤；§19–22 是验证、收益与完成检查。代码类型名是建议契约，不表示类已存在。
 
 **按任务读取：**职责与减法看 §13.6，结果反馈看 §15.6，Core/端口看 §13–14，上下文看 §16，插件生命周期看 §17，等待/后台化看 §8；卡片/测试看 §18–19，不要求每次全文加载。R1 的有效规范以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准，§15 只作衔接概要；其他提案与有效 ADR 不同时先裁决。
@@ -124,7 +126,7 @@ R2 不再仅是“统一 Assembler”。它包含两个不混做的目标：**R2
 
 ## 6. R3：插件安装与会话选择闭环
 
-统一交付包身份，不合并 Skill 内容、MCP 连接或 Runtime 的运行机制。**规范正文见 §17；卡片见 §18 的 R3-1、R3-2 / R5-min；测试见 T10/T11/T14/T17。**
+统一交付包身份，不合并 Skill 内容、MCP 连接或 Runtime 的运行机制。**设计决定见 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，接线说明见 §17；卡片见 §18 的 R3-1、R3-2 / R5-min；测试见 T10/T11/T14/T17。**
 
 R3 和最小安装/选择/配置/修复 UI 同步交付，R5 仅保留后续展示优化。保留独立 Skill/connection；不同组件就绪状态与包安全校验分开，不要求所有远端服务同时在线。外部规范是带版本/状态的输入，不作为 Helix 所有协议与模块的公共数据模型。
 
@@ -679,6 +681,8 @@ headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fa
 
 ### 15.5 生命周期与引用释放
 
+HXA-277 的原生插件 owner、注册句柄与共享服务释放决定归 [ADR-CONNECTORS-003 §11](../adr/connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)；Browser 的具体 View/等待引用归[平台 ADR](../adr/platform/002-browser-lifecycle.md)。本节保留执行与引用接线说明，不建立平行资源契约。
+
 请求保留 BindingRef 和必要投影；真正执行持有的旧 executor 只保留到该次工作结算。卸载/更新不得回收活跃 Job 需要的 Runtime、原目标/认证绑定及唯一结果证据；已不可新调用的来源仍可由 host 管理入口执行授权范围内的查询/停止/对账。
 
 历史审计保留原来源和版本，不随卸载重写。非活跃旧快照、未引用暂存和日志按已接受的 retention/GC 规则有界清理，不新建无限版本仓库。
@@ -707,7 +711,7 @@ headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fa
 
 ### 16.1 输入与输出
 
-本节是上下文的唯一规范正文。输入为已接受用户请求、持久历史/检查点、会话权限和来源选择、Workspace 请求绑定、附件/引用、Memory/Skill 内容、准确工具快照与 Provider 容量；冻结配置和即时撤销事实分开，不复制可写 Session。
+本节维护上下文编译的接口与接线规范；Skill 内容身份、调用资格和渐进装载的功能决定归 [ADR-SKILLS-001](../adr/skills/001-authoring-and-installation.md)。输入为已接受用户请求、持久历史/检查点、会话权限和来源选择、Workspace 请求绑定、附件/引用、Memory/Skill 内容、准确工具快照与 Provider 容量；冻结配置和即时撤销事实分开，不复制可写 Session。
 
 最小 ContextItem 含 kind、sourceRef、trust/authority、scope、estimatedTokens、atomicGroup、contentRef；复用现有类型，只有实际规则需要时才增加 priority/freshness。输出是 ModelRequest、精确 BindingRef 映射、实际 included/omitted/compressed 清单及容量诊断；扩展 RequestContextManifest，不新建上下文库。
 
@@ -784,7 +788,7 @@ PluginInstallation（稳定身份、已提交 revision）
 
 MCP/Skill/native 的生命周期不同，不并入万能 registry。A2A 继续是已配置的外部 Agent Client，不因作为 Tool 可调用就变成本地 Subagent 或远程 ExecutionTarget。
 
-本节是 R3 安装/选择的规范正文。Plugin 是交付单位，Tool 是可调用契约，Skill 是指导内容；Connection service 保留配置/认证/重连。将 Connector 的通用包职责迁入 PluginInstallationService 或现有等价服务，复用 archive hardening，不创建万能安装事务引擎。保留独立 Skill 导入和用户 connection，不制造假的 Plugin/Connector 身份。
+本节维护 R3 安装/选择的接线说明，设计决定归 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)；2026-10-11 接受的内容、状态与原生资源增量见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)，不由 R3 既有交付推定完成。Plugin 是交付单位，Tool 是可调用契约，Skill 是指导内容；Connection service 保留配置/认证/重连。将 Connector 的通用包职责迁入 PluginInstallationService 或现有等价服务，复用 archive hardening，不创建万能安装事务引擎。保留独立 Skill 导入和用户 connection，不制造假的 Plugin/Connector 身份。
 
 `PluginInstallation` 只引用 Skill snapshot、MCP connection、native contribution 等身份。SecretStore 不迁进包清单；账号绑定不按 URL 相同自动共享。Marketplace 展示安装视图和组件 badge，独立用户连接不被强制包装成 marketplace item。
 

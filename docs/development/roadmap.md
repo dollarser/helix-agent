@@ -2,11 +2,15 @@
 
 任务范围与验收只在未完成任务文件维护；已完成任务只链接交付证据。编号不是强制执行顺序，不补造空号。当前优先级见[实施状态](status.md)，通用规则见[实施指南](implementation-guide.md)及[验收规则](verification-matrix.md)。
 
-当前 `tasks/` 保留正式开放的 15 项 HXA：120、121、122、123、125、126、190、232、233、234、235、236、237、238、239。所有者追加授权 [HXA-232](tasks/HXA-232.md) 自主恢复，[HXA-231](../completion-records/HXA-231.md) 完整 R1 已完成主机交付；已交付能力通过完成记录追溯，不因历史摘要重开。当前优先级以[实施状态](status.md)为准；内测与发行的依赖/退出条件见[发行就绪条件](release-readiness.md)。
+`tasks/` 保存正式开放、已排期和保留验收边界的 HXA，具体状态看下表与[实施状态](status.md)；不维护固定开放数量。已交付能力通过完成记录追溯，不因历史摘要重开。内测与发行的依赖/退出条件见[发行就绪条件](release-readiness.md)。
 
 2026-10-01 [阶段收尾](../evidence/development/phase-closeout-2026-10-01.md)的历史范围保留；236 的后续统一观察上下文与可信进展接线已由[后续证据](../evidence/development/hxa236-context-progress-2026-10-01.md)承接，126/233/234/235/236/237 保留收尾验收。开放数量不等于仍缺实现的功能数量，主机/编译不替代设备、真实模型或发行验收；未创建整体完成记录或文档 HXA。
 
-候选需求和目标设计不混入开放 HXA 数量；见[候选需求与待裁决索引](candidate-decisions.md)。
+候选需求和目标设计不混入正式实现任务；见[候选需求与待裁决索引](candidate-decisions.md)。
+
+2026-10-11 所有者要求依据插件调研与当前代码登记 **HXA-272～279**，按单一目标实现设计，不兼容旧版。任务均为已排期、未开工；优先级、默认顺序和技术依赖集中在 [status 插件队列](status.md#插件优化队列2026-10-11)，研究与任务映射见[优化方案](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。本次不新增远程设备服务、任意 hooks 或未选定格式的文档运行时。
+
+同日系统分层分析已并入[现有执行引擎研究](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)：HXA-274 追加恢复导航的应用/表现边界，HXA-277 追加跨层资源 owner 与退出事实接线；其余复用原任务或登记条件项，不新增编号。实施优先级与切片顺序见 [status 系统分层承接](status.md#系统分层优化承接2026-10-11)，不重启已交付 Core/Engine/会话状态重构。
 
 ## 能力交付取舍
 
@@ -306,3 +310,11 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-269 | 阻塞修复及有界真机交付；整体黑屏验收pending | 真机后台返回黑屏诊断、主线程修复与Qwen回归 | [任务](tasks/HXA-269.md) |
 | HXA-271 | 会话/浮窗/Qwen及日常API36有界交付；授权恢复、链接说明修正、阶段9先说明再设置的主机/source/制品通过，新UI夹具仅编译；提示交互、后端恢复执行、模型新说明遵循率及其他设备边界开放 | 会话执行交互与信息层级 | [任务](tasks/HXA-271.md) |
 | HXA-270 | 实现、主机及OnePlus有界Qwen验收完成；其他设备矩阵pending | Mobile Use 悬浮审批与等待状态同步 | [任务](tasks/HXA-270.md) |
+| HXA-272 | 已排期，未开工；设备/模型not requested | 统一 Skill 内容贡献与原生插件独立激活 | [任务](tasks/HXA-272.md) |
+| HXA-273 | 已排期，未开工；设备/模型not requested | Skill 用户与模型调用资格及显式激活 | [任务](tasks/HXA-273.md) |
+| HXA-274 | 已排期，未开工；设备/模型not requested | 插件就绪原因与配置生效状态统一投影 | [任务](tasks/HXA-274.md) |
+| HXA-275 | 已排期，未开工；设备/模型not requested | 插件组件兼容诊断与可执行作者样例 | [任务](tasks/HXA-275.md) |
+| HXA-276 | 已排期，未开工；设备/模型not requested | Browser 原生插件贡献与统一选择入口 | [任务](tasks/HXA-276.md) |
+| HXA-277 | 已排期，未开工；设备/模型not requested | 原生插件资源归属与停止释放契约 | [任务](tasks/HXA-277.md) |
+| HXA-278 | 已排期，未开工；设备/模型not requested | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |
+| HXA-279 | 已排期，未开工；设备/模型not requested | UI 观察反馈与 Browser 标签发现及有界等待 | [任务](tasks/HXA-279.md) |

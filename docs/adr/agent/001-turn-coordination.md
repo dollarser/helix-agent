@@ -1,8 +1,8 @@
 # ADR-AGENT-001: Turn 执行引擎、输入交付与恢复
 
 Status: accepted
-Date: 2026-09-25
-HXA: HXA-011, HXA-039, HXA-214, HXA-215, HXA-216, HXA-220
+Date: 2026-10-11
+HXA: HXA-011, HXA-039, HXA-214, HXA-215, HXA-216, HXA-220, HXA-223, HXA-234, HXA-257, HXA-258, HXA-274, HXA-277
 Deciders: Project owner
 
 ## Context
@@ -43,6 +43,18 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 终态通过 `AgentTurnStore` 的领域命令进入原 Room 事务。写入 assistant、Turn、ModelCall 与 GoalRun 前校验 session/Turn/ModelCall 归属、预期 phase/step 和唯一活跃 ModelCall；返回 Applied、AlreadyApplied、Conflict 或 Unavailable。重复提交返回原持久结果，冲突不追加正文；数据库错误传播，不能被包装为成功。用户持久取消优先于迟到成功。
 
 首个 ModelCall 与 step=1、后续 ModelCall 与递增 step 同事务发布，不能等下一次流开始才更新步骤。Steer 与最终回答仍在原父事务线性化。Core 仅持有进程内投影，持久状态、外部副作用和物理执行所有权不迁入另一份内存事实。
+
+### 1.2 应用入口、表现与执行资源边界（2026-10-11）
+
+`AgentRuntime` 的 submit/cancel/observe 是稳定职责边界，当前 `AppAgentRuntime` 通过原 ChatService 命令和 Engine runtime view 实现。它不持有执行状态，也不意味着完整 Harness 已成为独立 Server。Core Loop 的可替换端口、完整 Turn 宿主、实际 Tool Runtime 是不同范围；`core:storage` 是 Android/Room 基础设施，不能因目录名将其视为纯 JVM 领域层。
+
+应用服务提供业务命令、只读状态和结构化恢复目标，页面解释导航。HXA-274 直接替换所涉 `recoveryModelsNavigation` / `recoveryPermissionsNavigation` 服务回调：恢复原因、目标类型和必要归属以数据表达，用户点击后由当前 UI 导航；无订阅、旋转、重复订阅、切换会话不自动触发跳转或执行。保留 HXA-271 已交付的原因说明和显式设置行为，不以结构调整重做系统授权。就绪与恢复目标的内容归 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)，本节约束其应用/表现依赖。
+
+其他应用命令/读模型按实际消费者逐步收窄，复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog 及原门禁；不以 ChatService 变成空壳、类行数或模块数量验收。只有明确消费者及部署/验证需求后才评估完整 Turn 宿主提取，先定义存储、Goal 联动、观察等必要端口，再证明同一幂等身份、Room 事务、取消/恢复语义，最后决定物理模块。该条件项不授权预建 CLI、远程执行服务或第二个 Engine。
+
+区分四类所有权：TurnEngine 管整轮 live driver 与持久生命周期；ToolScheduler 管调度/观察槽位；Executor/Runtime 管实际执行容量及原执行身份；插件/宿主管共享资源引用。完成观察等待可释放 worker，Turn 终态、UI detach 或取消信号都不能证明 executor 已退出。HXA-277 的原生资源句柄消费现有 ExecutionOwnership / Runtime 退出与对账事实，不复制执行状态或替代原取消协议。权限准入始终归原 Dispatcher；就绪投影和资源引用不授予执行能力。
+
+本节新增恢复导航与原生资源接线为 accepted、尚待 HXA-274/277 实施。按单一目标实现迁移当前调用者并删除被替换入口，不保留旧版 adapter、双写或双注册；保持仍有效的输入/执行/审批身份。完整宿主提取只登记[进入条件](../../development/candidate-decisions.md#系统分层的条件性增量)，不是本轮实施任务。
 
 ### 2. 每个 Turn 保存 immutable execution snapshot
 
@@ -220,7 +232,7 @@ startup recovery 只从 TurnEngine 进入并只读取 Room fact，不 replay 外
 
 Deadline Expired、Executor Exited、Effect Settled/Isolated 是不同事件。coroutine timeout/cancel 不能释放仍执行中的 effect ownership。
 
-ordinary executor 的 permit 在实际 executor return 后才释放；retained PRoot/PTY owner 只有在明确 no-start proof 或 terminal reconciliation 后释放。超时后 executor 若仍运行，冲突资源的新操作继续被阻断。
+ordinary executor 的 permit 在实际 executor return 后才释放；retained PRoot/PTY owner 只有在明确 no-start proof 或 terminal reconciliation 后释放。超时后 executor 若仍运行，所占物理容量及该具体不可重入引擎/控制通道继续保留；同文件、同 origin、写/代码类别不自动阻断无关工作。插件引用释放继续遵循 §1.2 与各 Runtime 的真实退出事实。
 
 ### 14. Observation
 
@@ -254,6 +266,8 @@ UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保�
 - 所有者于 2026-09-29 追加要求清理废弃表：当前开发期 Room v1 baseline 移除 `composer_drafts`、对应 DAO/Room Entity 与注册入口，不再保留结构兼容。文件输入使用独立 `ComposerInputSnapshot` / `ComposerInputCache`，不是 Room aggregate；不引入旧库/文件双写。所有者随后明确授权开发期覆盖升级遇到 schema identity 不兼容时直接删库重建，文件保留；不把更新源码说成设备数据已经清空。正式消息、队列、回执和仍在使用的 CUSTOM 权限编辑表保留。
 
 ## Decision history
+
+- 2026-10-11：所有者要求将系统分层分析、优化建议与原HXA/ADR对齐。保留单一 Core Loop、Engine 生命周期和原 Dispatcher；HXA-274 承接恢复目标数据化与当前页面导航，HXA-277 承接四类 owner 的原生资源接线。复用 HXA-220/223/234/257/258 已交付边界，完整 Turn 宿主提取需实际消费者，不另建重构任务或兼容层。本次为文档决定，未实施或验证增量。
 
 - 2026-10-10：HXA-258把会话元数据、工作区绑定审计及模型默认/运行配置的原子写入收敛到SessionCatalog，共用原Room、clock、ID、SessionRunControlStore和工作区恢复对象。原用户动作排序、turnGate/submissionGate、输入身份、模型可选性和Dispatcher重验仍归应用调用者；协作者不授予权限、不改变live snapshot、不新增状态队列。Room事务失败不能被当作外部文件副作用回滚或成功回执；具体实现和验证以任务证据为准。
 
@@ -309,7 +323,7 @@ ChatService 已不再作为 live AgentLoop driver：Job registry、cancel/timer�
 
 ## Verification
 
-当前实现迁移与交付证据以 HXA-220 为准。新恢复模型至少覆盖：
+Engine 生命周期与 live driver 的交付分别追溯 HXA-220/223，Core 迁移追溯 HXA-234，当前范围与后续边界以 status 为准。恢复模型至少覆盖：
 
 - process death 下多 RUNNING、RUNNING+PENDING/AWAITING_APPROVAL；
 - old Turn 只进入 NEEDS_REVIEW/INTERRUPTED/CANCELLED，不再转回 BUILDING_CONTEXT；
@@ -321,7 +335,9 @@ ChatService 已不再作为 live AgentLoop driver：Job registry、cancel/timer�
 - exact submit dedup、Queue/Steer、regenerate 原子性保持；
 - timeout executor 未退出时 ownership 不释放；
 - late observer / Activity recreate 从 Room 重建中断/Review/Successor 事实；
-- v30→v31 cutover 物理删除 runtime same-Turn receipt 字段；当前 schema 不再表达 old ModelCall review resume。
+- 当前 schema 不再表达 old ModelCall review resume；历史 v30→v31 cutover 是既有交付记录，不作为新任务的旧库迁移要求。
+
+HXA-274 追加无页面订阅、旧恢复目标失效、重复状态消费和 UI 重建场景；导航仅由当前用户动作触发，原页面回调入口删除。HXA-277 追加观察已结束/Turn 已结算但 executor 未退出、多个消费者共享、旧实例迟到回调和清理失败，分别断言调度、执行与引用事实。复用既有 fixture，每项结果只覆盖实际范围，不继承旧任务通过结论。
 
 AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/真机验证仅在项目所有者对当前任务明确要求时执行。未要求时记 `not requested`，已要求但未完成时记 `pending`。
 ## Reconsider when
@@ -330,6 +346,8 @@ AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/
 
 ## References
 
+- [2026-10-11 分层复核与优化承接](../../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)
+- [HXA-274：就绪与恢复投影](../../development/tasks/HXA-274.md)、[HXA-277：原生资源](../../development/tasks/HXA-277.md)
 - [Agent 主题入口](README.md)
 - [Goal 生命周期](../goal/001-lifecycle-and-completion.md)
 - [Runtime 执行域](../runtime/001-execution-domains.md)

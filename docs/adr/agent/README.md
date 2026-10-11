@@ -4,7 +4,7 @@
 
 ## 当前有效决定
 
-- accepted [ADR-AGENT-001](001-turn-coordination.md)：TurnEngine、batch settlement、Queue/Steer、修订重发、UNKNOWN/review、successor-Turn recovery、runtime snapshot 与 receipt 的统一执行生命周期；当前重构/迁移归 HXA-220。
+- accepted [ADR-AGENT-001](001-turn-coordination.md)：TurnEngine、batch settlement、Queue/Steer、修订重发、UNKNOWN/review、successor-Turn recovery、runtime snapshot 与 receipt；Engine/Core 既有交付追溯 HXA-220/223/234。2026-10-11 补充应用入口/表现/执行资源边界，恢复导航增量归 HXA-274，原生资源接线归 HXA-277，代码未实施；完整宿主提取保留进入条件。
 - accepted [ADR-AGENT-002](002-context-compaction.md)：模型请求上下文与步骤边界压缩。
 - accepted [ADR-AGENT-003](003-attachments.md)：附件快照与请求物化。
 - accepted [ADR-AGENT-004](004-bounded-delegation.md)：有界只读委托与工作流边界。

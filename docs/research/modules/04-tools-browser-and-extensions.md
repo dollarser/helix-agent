@@ -2,6 +2,8 @@
 
 > 综合初稿：2026-09-25；工具曝光部分更新：2026-09-29。综合 tool exposure、browser、MCP/Skill/Connector/A2A 研究，其他比较仍按各自来源日期和证据边界理解。
 
+2026-10-11 的[插件架构调研](../topics/agent-plugin-architecture-research-2026-10-11.md)保存八类 Codex 插件及 Codex 公开核心、Claude Code、Gemini CLI、OpenCode、DSH 与 Helix 的机制和证据对照；补充 Computer Use 采用 MCP 的实现及推断收益，并区分核心工具、官方插件包与宿主框架插件。样本支持原生与 MCP 等方式混合接入，未证明内置插件普遍优先 MCP。独立的[Helix 优化方案](../topics/helix-plugin-architecture-optimization-2026-10-11.md)承接 Skill 激活/调用规则、配置生效、兼容诊断、Browser 归属和共享资源释放；§6.5 补充原生/IPC/CLI/MCP 的选择、客户端导入与服务端导出的边界，保留建议顺序与验收条件。
+
 ## 1. 工具架构原则
 
 现代 Harness 的工具系统不是“把所有函数塞给模型”，而是：
@@ -39,7 +41,7 @@ Helix 已有自有 WebView + typed browser tools：snapshot/find/click/type/scro
 
 原研究识别的“截图只返回 Workspace reference、模型看不到像素”已由 [HXA-225](../../completion-records/HXA-225.md)承接：`view_image` 与浏览器截图接入受预算/来源约束的工具视觉通道，见[使用说明](../../product/image-reading.md)。后续真实工具图片识别的有限证据见[最终收口](../../evidence/development/final-closeout-2026-09-29.md)，不扩大为任意视觉任务都通过。
 
-Mobile Use 整机截图、设备内模型视觉和文档/视频解析仍是不同能力，不能因图像回填已交付就视为全部完成。候选入口看[待裁决索引](../../development/candidate-decisions.md)。
+Mobile Use 整机截图和原生手势已由 HXA-243 等后续工作接入；具体后端与有限设备证据看[当前状态](../../development/status.md)。设备内模型视觉和文档/视频解析仍是不同能力，不能因图像回填已交付就视为全部完成。候选入口看[待裁决索引](../../development/candidate-decisions.md)。
 
 ### 不建议照搬 Codex Control Chrome/任意 Node bridge
 
@@ -87,7 +89,7 @@ Accessibility/Shizuku/Root/Intent 等是 capability provider，不是权限绕�
 
 模型应使用类型化 action 与当前观察事实，不把“视觉模型能看屏幕”理解成可自动获得系统权限。
 
-2026-09-29 的 [Mobile Use 设备就绪与可靠性专题](../topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)固化了钉钉界面辅助、锁屏与后台讨论，并核对生产代码。优先检查动作发出后的失败分类、现有 `ui.wait` 与测试接线、token/截断元数据、启动与恢复反馈；自动解锁、手机截图和调整授权寿命是另外的候选范围。源码风险不等于已经在真实业务复现，专题不修改当前实施顺序。
+2026-09-29 的 [Mobile Use 设备就绪与可靠性专题](../topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)固化了钉钉界面辅助、锁屏与后台讨论，以及当时的源码风险。手机截图等后续交付以[当前状态](../../development/status.md)为准，不恢复为待开发；动作失败分类、等待、观察元数据和恢复反馈按当前源码及具体验收旅程复核。自动解锁和调整授权寿命仍需独立决定，专题不修改当前实施顺序。
 
 ## 7. 冲突裁决
 

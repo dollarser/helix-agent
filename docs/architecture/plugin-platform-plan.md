@@ -1,10 +1,10 @@
 # Plugin Platform 专项设计：包格式与 Mobile Use
 
-初稿：2026-09-28；内容收敛：2026-09-30。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择的目标契约只在 [Harness §17](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护。
+初稿：2026-09-28；内容收敛：2026-09-30；实现状态校正：2026-10-11。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择与原生资源的设计决定归 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，[Harness §17](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护接线说明。
 
-**已有与目标分开：**PluginOrigin、App 级 PluginRegistry、Mobile Use MVP 已有实现，R1 原子绑定已由 [HXA-231](../completion-records/HXA-231.md)交付；完整 R3 生命周期仍需任务接受。本页不维护第二条 P0/P1/P2 排期，也不因“决策摘要”标题接受新能力。
+**当前实现：**PluginOrigin、App 级 PluginRegistry、Mobile Use 已有实现，R1 原子绑定由 [HXA-231](../completion-records/HXA-231.md)交付，R3 安装、组件归属、选择、停用/更新/修复由 [HXA-235](../development/tasks/HXA-235.md)接入生产；[HXA-251](../development/tasks/HXA-251.md)补充有限 Room/设备旅程。完整在途引用/撤销/进程死亡交叉矩阵仍独立。本页保留的 MVP 示例是历史范围，不是现行能力上限，也不维护第二条 P0/P1/P2 排期。
 
-来源：[插件生态与 Mobile Use 研究](../research/topics/plugin-ecosystem-and-mobile-use-2026-09-28.md)及[原 MVP 证据](../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)。外部 Agent Plugins 1.0.0 在既有核验中为 Working Draft，格式支持按版本矩阵，不承诺完整客户端兼容或运行时拉取远端 schema。
+来源：[插件生态与 Mobile Use 研究](../research/topics/plugin-ecosystem-and-mobile-use-2026-09-28.md)及[原 MVP 证据](../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)；参考产品和源码事实见[插件架构调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md)，增量建议见[Helix 优化方案](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)。外部格式按明确支持的版本矩阵和 HXA-235 解析契约处理，不以早期研究的草案状态判断当前规范，也不承诺完整客户端兼容或运行时拉取远端 schema。
 
 ## 1. 决策摘要
 
@@ -18,7 +18,13 @@ plugin.json + skills/ + mcp.json + extensions.com.helix.agent
                                    → Dispatcher / Policy / Approval / Audit
 ```
 
-Plugin 是交付和归属单位，不拥有 ModelClient、AgentLoop、Turn 生命周期、审批或第二份执行事实。Mobile Use 将既有 Android 自动化作为插件贡献，不为它重建 runtime。
+本页的 Plugin 指 Helix 的交付包及能力贡献，不拥有 ModelClient、AgentLoop、Turn 生命周期、审批或第二份执行事实。DSH 的宿主基础模块也叫 plugin，其可替换 Agent Loop 的装配方式不属于本页接口，区别见[职责分工调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md#25-agent插件与运行时的分工)。Mobile Use 将既有 Android 自动化作为插件贡献，不为它重建 runtime。
+
+### 2026-10-11 任务化与目标实现
+
+所有者要求把插件研究转为现有开发任务，HXA-272～279 已登记，尚未开工；具体范围见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前优先级与依赖只在 [status](../development/status.md#插件优化队列2026-10-11)维护。
+
+采用单一目标实现：Skill 内容统一后删除原生正文专用注入；Browser 作为 APK 已知 native contribution，直接替换旧 built-in 发布；原生资源按实际 owner 和使用引用收尾。不做旧版本、旧数据库、旧会话或旧批准迁移，不留双写、双注册或兼容 adapter；当前外部包格式的明确支持范围独立维护。MCP 仍是可选 adapter，Mobile Use 不为对齐 CUA 改成 MCP。2026-10-11 已按所有者要求将新增契约同步到四份现有主题 ADR，并追加 Decision history，见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。设计已接受、代码尚未实施，既有验收结论不随之扩大。
 
 ## 2. 当前问题
 
@@ -26,10 +32,10 @@ Plugin 是交付和归属单位，不拥有 ModelClient、AgentLoop、Turn 生�
 
 | 初始问题 | 当前承接 / 剩余范围 |
 | --- | --- |
-| ConnectorPackageReader 解析 Codex/Claude/CodeBuddy 插件、MCP JSON 和 Skill，安装概念过载 | 已有读取/安全归档基础；包读取与安装归属的模块收窄属于 R3 |
+| ConnectorPackageReader 解析 Codex/Claude/CodeBuddy 插件、MCP JSON 和 Skill，安装概念过载 | HXA-235 已将包导入、安装与组件归属收敛到 Plugin 领域；保留独立 Skill 和手动连接 |
 | 本地工具没有 Plugin provenance，只能当 Built-in | PluginOrigin 已加入，Mobile Use 已采用，不再立项重做 |
 | AutomationModule 直接注册 ui.*，局部创建 PluginRegistry | 已有 App 级唯一 PluginRegistry；R1 使用统一 ToolBinding 原子发布 |
-| Marketplace 以 CONNECTOR/MCP/SKILL 分类，缺包与组件区分 | 仍是 R3/最小 R5 的产品化范围；不因 R1 完成宣称已交付 |
+| Marketplace 以 CONNECTOR/MCP/SKILL 分类，缺包与组件区分 | HXA-235 已统一包目录与组件投影；后续完善诊断体验和未覆盖的生命周期验收，不重做主体 |
 
 当前实现、验证和下一步只看 [status](../development/status.md) 与[候选索引](../development/candidate-decisions.md)。
 
@@ -41,7 +47,7 @@ Plugin 是交付和归属单位，不拥有 ModelClient、AgentLoop、Turn 生�
 
 ### 3.2 PluginManifest
 
-根入口为 `plugin.json`，可包含 Skill 和 MCP 配置。公共字段按明确支持的草案版本验证；Helix 私有字段置于 `extensions.com.helix.agent`，首个已知 runtime 为 `mobile-use`。其他客户端的目录布局经 importer 适配，不成为 Core 数据模型。
+根入口为 `plugin.json`，可包含 Skill 和 MCP 配置。公共字段按明确支持的规范版本验证；Helix 私有字段置于 `extensions.com.helix.agent`，首个已知 runtime 为 `mobile-use`。其他客户端的目录布局经 importer 适配，不成为 Core 数据模型。
 
 ### 3.3 PluginRuntime
 
@@ -56,7 +62,7 @@ interface HelixPlugin {
 
 ### 3.4 PluginRegistry
 
-App 级唯一实例维护插件身份和 native contribution，校验重复项及发布顺序；所有工具最终进入同一 ToolRegistry。安装/停用、组件诊断、来源、更新/卸载与会话选择属于主方案 §17 的后续生命周期，不是另外一套 Registry 真相。
+App 级唯一实例维护插件身份和 native contribution，校验重复项及发布顺序；所有工具最终进入同一 ToolRegistry。安装/停用、组件诊断、来源、更新/卸载与会话选择由 HXA-235 接入主方案 §17 的统一生命周期，不是另外一套 Registry 真相。
 
 ## 4. Tool provenance 重构
 
@@ -150,9 +156,9 @@ App 装配 → 唯一 PluginRegistry 校验 plugin/runtime 身份
 
 ## 10. Artifact / screenshot
 
-Mobile Use MVP 主要使用 Accessibility 语义树，没有因此获得手机屏幕截图工具。后续采集入口按需产生 ArtifactStore 图片，经 HXA-225 已有的类型化图片引用送给视觉模型，不把 Base64 普通字符串当图片输入。
+Mobile Use 初版 MVP 主要使用 Accessibility 语义树。HXA-243 等后续工作已经接入手机截图、原生手势及按实际就绪能力选择的观察/动作后端；当前实现与设备证据看[状态](../development/status.md)和[平台能力](android-platform-capabilities.md#5-accessibility-自动化)。视觉结果复用 HXA-225 的类型化图片通路，不把 Base64 普通字符串当图片输入。
 
-截图授权、API30/34 差异、受保护窗口、树/图身份、新鲜度、隐私与预算见[可靠性专题 §4.8](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)；[已有视觉契约](../adr/agent/011-tool-multimodal-vision-feedback.md)不证明手机截图、设备内视觉或绕过锁屏已实现。
+截图授权、API30/34 差异、受保护窗口、树/图身份、新鲜度、隐私与预算的研究输入见[可靠性专题 §4.8](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)。[已有视觉契约](../adr/agent/011-tool-multimodal-vision-feedback.md)与有限设备通过，不证明设备内模型推理、绕过锁屏或所有 OEM/受保护窗口均可截图。
 
 ## 11. 与 MCP Mobile Use 的关系
 
@@ -167,7 +173,7 @@ Mobile Use MVP 主要使用 Accessibility 语义树，没有因此获得手机�
 | Manifest/归属 | 支持版本解析、重复插件 ID、已知/未知 runtime、PluginOrigin/contractHash、MobileUsePlugin 全部贡献的来源；默认 Built-in 构造仅在仍保留时测 |
 | 注册集成 | App 级唯一 PluginRegistry，候选批次发布；developer ui.snapshot 的 provenance 为 mobile-use，复用 R1 绑定/撤销测试 |
 | Android 行为 | snapshot/find、click/set_text/scroll、stale token、敏感目标/动作、force-stop/许可清理；已授权目标恢复不引入额外周期确认 |
-| 未来 R3 | 按主方案 T10/T11/T14/T17 和 R3 卡验收安装、选择、局部失败、更新及活跃资源；不在这里复制一套 oracle |
+| 已有 R3 生命周期与剩余验收 | 主体及有限补验见 HXA-235/HXA-251；完整在途引用/撤销/进程死亡组合按主方案验收，不在这里复制一套 oracle |
 
 主机命令按[公共验收](../development/verification-matrix.md)及当前任务，保持 Spotless/Detekt/source/diff 等适用门禁。设备仅在本次明确授权后运行，不能用历史“可行时跑模拟器”作为授权。
 
@@ -175,11 +181,11 @@ Mobile Use MVP 主要使用 Accessibility 语义树，没有因此获得手机�
 
 初版目标已经由[Plugin Platform P0 / Mobile Use MVP 证据](../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)承接：manifest/registry、PluginOrigin 与 policy/audit、mobile-use manifest、复用既有自动化、不以 BuiltInOrigin 冒充来源、保持治理路径。后续原子注册由 HXA-231 完成。
 
-不再保留可被误当待办的初版复选框。文档、源码和各类验证的完成边界按原记录分别解释；R1 或 MVP 完成不关闭后续 R3、截图、远端 provider 与 OEM 验收。
+不再保留可被误当待办的初版复选框。文档、源码和各类验证的完成边界按原记录分别解释；R3 和手机截图已有后续交付，完整生命周期矩阵、远端 provider 与 OEM 验收分别维护，不由 MVP 记录推导完成。
 
-## 14. 明确非目标
+## 14. 初版 MVP 的非目标及后续承接
 
-不夹带完整 Agent Plugins client conformance、任意原生代码加载、全部 Marketplace IA、Connector 数据大迁移、手机截图、remote provider、hooks 或 Plugin 自有 AgentLoop；不改变 TurnEngine/Dispatcher ownership。各能力在明确接受后按主方案接入，当前不以假想实现撑大抽象。
+初版未包含完整 Agent Plugins client conformance、任意原生代码加载、全部 Marketplace IA、Connector 数据大迁移、手机截图、remote provider、hooks 或 Plugin 自有 AgentLoop。插件生命周期及手机截图后来分别由 HXA-235、HXA-243 等接入；其他能力只按当前任务和有效决定接受。TurnEngine/Dispatcher ownership 保持，不以假想实现撑大抽象。
 
 ## 15. 现有 Extensions / Connector / Marketplace / Tool Registry 统一审查
 
@@ -199,4 +205,4 @@ Plugin installed 不等于 tool executable；Plugin/Skill enabled 不等于 appr
 
 早期本页的双注册表和逐项发布方案已被 R1 替换：`HelixPlugin.tools()` 返回统一 ToolBinding，完整候选校验后发布，MCP/A2A 同样按 owner 原子替换。稳定身份、撤销、失败保留旧快照与验证以[工具 ADR](../adr/tools/001-descriptor-contract.md)和[HXA-231](../completion-records/HXA-231.md)为准。
 
-后续只执行 Harness §18 中被当前任务接受的 R3/R5 卡；不得从旧 P0/P1/P2 列表再次安排原子绑定，也不以文档整理启动第三方导入、远程设备或新的 native runtime。
+后续只执行当前任务接受的增量和验收；不得从旧 P0/P1/P2 或 R3/R5 列表重新安排已交付工作，也不以文档整理启动远程设备或新的 native runtime。

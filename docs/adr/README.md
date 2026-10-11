@@ -22,9 +22,27 @@
 ## 决策与交付
 
 - `accepted` 是已授权的设计；实际能力和证据查[实施状态](../development/status.md)、[路线](../development/roadmap.md)及完成记录。
-- `proposed` 仍需决定，不能因整理文档而接受。工具 descriptor 完整契约保持候选；会话工作目录绑定已 accepted 并由 HXA-210 完成本地交付。Connector 安全替换/会话启停已接受，HXA-129 已本地交付，整合状态见实施页；签名索引已接受并交付离线范围。
+- `proposed` 仍需决定，不能因整理文档而接受。工具 descriptor 与原子绑定已由 ADR-TOOLS-001 接受；会话工作目录绑定已 accepted 并由 HXA-210 完成本地交付。Connector 安全替换/会话启停已接受，HXA-129 已本地交付，整合状态见实施页；签名索引已接受并交付离线范围。
 - 会话权限新方案已接受并由 HXA-209 交付（见[完成记录](../completion-records/HXA-209.md)）；Goal 按 HXA-208 的范围交付。二者不能共用“全绿”结论。
 - 已授权方案可以要求重构现有代码。实现尚未跟上不是架构冲突，不恢复被废弃的兼容行为；未授权的范围变化才需新的决定。
+
+## 插件优化任务的 ADR 归属（2026-10-11）
+
+所有者要求将 HXA-272～279 的规划同步为现有主题 ADR，并按单一目标实现设计、不兼容旧版。以下增量均为 **accepted，代码未实施**；当前顺序见 [status](../development/status.md#插件优化队列2026-10-11)，研究依据见[任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。
+
+| HXA | 主决策归属 | 跨主题边界 |
+| --- | --- | --- |
+| 272、273、278 | [ADR-SKILLS-001](skills/001-authoring-and-installation.md)：统一内容、调用资格、渐进装载 | 包/组件归属沿用 CONNECTORS-003；上下文复用 ContextCompiler |
+| 274、275 | [ADR-CONNECTORS-003](connectors/003-ownership-and-installation.md)：状态、生效时点、支持矩阵、作者样例 | 复用 HXA-271 授权恢复；274 的恢复目标与页面导航边界由 [AGENT-001](agent/001-turn-coordination.md)约束；内容资格由 SKILLS-001 定义 |
+| 276 | [ADR-CONNECTORS-003](connectors/003-ownership-and-installation.md)：Browser 贡献与默认集合 | [PLATFORM-002](platform/002-browser-lifecycle.md)负责 View；[TOOLS-001](tools/001-descriptor-contract.md)负责唯一绑定 |
+| 277 | [ADR-CONNECTORS-003 §11](connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)：原生 owner、引用与释放 | AGENT-001 区分 Turn/调度/执行/插件引用；PLATFORM-002 负责 Browser 具体引用，TOOLS-001 保持原准入边界 |
+| 279 | [ADR-PLATFORM-002](platform/002-browser-lifecycle.md)：标签发现、条件等待 | TOOLS-001 定义可核实观察结果；CONNECTORS-003 定义资源释放 |
+
+## 系统分层优化的决策承接（2026-10-11）
+
+[本轮源码分析](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)沿用现有主题，无新 ADR 编号。ADR-AGENT-001 补应用命令/表现与执行资源边界；CONNECTORS-003 补 HXA-274 的恢复目标数据及 HXA-277 对原执行事实的复用，均追加 Decision history。原权限、工具和 Runtime 决策继续生效。
+
+Core/Engine 和 HXA-257/258 已交付范围不重开；完整 Turn 宿主提取仅接受[进入条件](../development/candidate-decisions.md#系统分层的条件性增量)，未排入实现。优先级与顺序归 [status](../development/status.md#系统分层优化承接2026-10-11)，ADR accepted 不代表本次增量已实施或验收。
 
 ## 编写与更新
 

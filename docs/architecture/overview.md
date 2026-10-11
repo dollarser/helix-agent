@@ -1,34 +1,43 @@
 # Helix 总体架构
 
-本文说明当前职责与已接受的演进边界；实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线。
+本文说明当前职责与已接受的演进边界；2026-10-11 按当前源码复核。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；本次源码分析与优化承接见[执行引擎研究 §9](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)。
 
 ## 职责与调用路径
 
 | 层 | 所有权 | 不承担的职责 |
 | --- | --- | --- |
-| UI / feature | 用户意图、导航、展示、人工操作入口 | 直接访问 DAO、网络客户端或执行器 |
-| TurnEngine | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot/checkpoint、live AgentLoop driver/observation | UI 投影、重新定义工具策略或 Runtime 退出事实 |
-| 应用协调 / ChatService | 用户提交/确认、composer 与 UI-facing projection、请求接线 | 持有第二个 worker/startGate 或改写 Turn terminal/review |
-| Core Agent / Goal | 纯 JVM 的唯一 AgentLoop、工具结果回填、上下文选择与容量；经宿主端口访问 Goal 与持久事实 | 依赖 App/Room/UI、凭模型内容创建用户授权 |
-| Tool Dispatcher | schema、效果归一、策略、授权解析、执行边界复检、持久结算 | 把 Provider 请求当工具执行 |
-| 数据与 Runtime | Room 状态、文件 scope、执行与结果对账 | 因重连而自动重放未知副作用 |
+| UI / feature | 用户意图、导航、展示、人工操作入口，订阅应用读模型 | 直接访问 DAO、网络客户端或执行器；持有 Turn worker |
+| 应用协调 / ChatService | 用户提交/确认、composer、会话配置与 UI-facing projection；AppAgentRuntime 将 submit/cancel/observe 接到原应用命令及 Engine 观察接口 | 持有第二个 worker/startGate 或改写 Turn terminal/review |
+| TurnEngine / TurnExecutionDriver | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot、live AgentLoop driver/observation | UI 导航、重新定义工具策略或 Runtime 退出事实 |
+| Core Agent | 纯 JVM 的唯一 AgentLoop、模型调用、工具结果回填、上下文压缩与预算；通过端口使用宿主与 Goal 事实 | 依赖 App/Room/UI、凭模型内容创建用户授权 |
+| 宿主适配 | AgentLoopHost 装配端口；TurnCoordinator 经 AgentTurnJournal 提供 round checkpoint；ChatToolCalls 实现 AgentToolGateway、持久调用与批次结果适配 | 另建循环或取得 Turn 最终结算权 |
+| ToolScheduler | 有界批次调度、真实不可重入资源约束、原调用顺序结算 | 按潜在业务结果冲突建立全局写锁、决定用户授权 |
+| ToolDispatcher | schema/绑定、能力与策略、会话授权、执行前复检、期限及结果/审计处理 | 以展示就绪代替实时准入、把 Provider 请求当工具执行 |
+| ToolExecutor / Runtime / 数据 | 实际操作、执行身份与物理资源、Room 持久事实、Workspace 与结果对账 | 因重连而自动重放未知副作用、将取消请求等同实际退出 |
 
 ```mermaid
 flowchart TD
   UI[会话与任务 UI] --> Coordinator[应用协调 / ChatService]
-  Coordinator --> Engine[TurnEngine durable lifecycle]
+  Coordinator --> Entry[AgentRuntime / AppAgentRuntime 接入原应用命令]
+  Entry --> Engine[TurnEngine / TurnExecutionDriver]
   Engine --> Host[AgentLoopHost / 本机适配]
   Host --> Loop[core:agent / 唯一 AgentLoop]
   Engine --> State[Room durable state / runtime checkpoint]
   Loop --> Provider[ModelProvider]
   Loop --> Gateway[AgentToolGateway / 中立调用]
-  Gateway --> Dispatcher[Tool Dispatcher]
+  Gateway --> Adapter[ChatToolCalls / 持久调用适配]
+  Adapter --> Scheduler[ToolScheduler / 有界调度]
+  Scheduler --> Dispatcher[ToolDispatcher / 执行准入]
   Dispatcher --> Tools[文件 / 网络 / 浏览器 / MCP 等工具]
   Dispatcher --> Runtime[获准的本地执行]
   Manual[手动文件管理 / 能力安装 / 浏览器入口] --> Services[对应应用服务]
-  Dispatcher --> State
+  Adapter --> State
+  State --> Projection[应用读模型 / StateFlow]
+  Projection --> UI
   Provider --> Subscription[可选订阅客户端与私有进程]
 ```
+
+图表示职责与调用方向，不表示每层一个进程或 Server。`AppAgentRuntime` 当前由 ChatService 构造，submit/cancel 回调原应用命令；它是端口适配，不是已经独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
 
 手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
 
@@ -42,6 +51,16 @@ flowchart TD
 Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy 决定。生产请求组装保留持久历史、摘要、附件恢复、工具调用配对与图片绑定；整理上下文不能用旧测试 Builder 替换这些语义。MCP 已有按需发现和会话曝光，内置工具预算是独立优化。
 
 恢复依次区分历史展示、原 Job 结果对账、用户继续和未知副作用待核查。停止使排队与等待审批的调用同样持久结算；进程死亡不等于任务成功，也不授予新的运行激活。
+
+## 模块、权限与资源边界
+
+`core:model`、`core:agent`、`core:policy`、`core:workspace` 是 JVM 模块；`core:storage` 是承载 Room 的 Android Library。因此 `core/` 目录名不等于所有内容都可脱离 Android。`core:agent` 通过中立端口复用，完整 TurnEngine 与持久宿主仍在 App；当前没有另一个独立 Turn Server。真实模块依赖见[Gradle 声明](../../build.gradle.kts)。
+
+一次工具调用按原 Registry 绑定和 schema 校验，进入 live capability / Policy 硬约束、工具可用性与会话授权，再按需要取得精确审批；等待后开始执行前复检取消、权限和绑定。安装、会话选择、系统权限、配置就绪和某次调用的批准分别记录：系统权限满足能力条件，readiness 只说明可观察准备事实，均不能替代 Dispatcher 准入。具体规则归[权限 ADR](../adr/permissions/001-session-authorization.md)和[工具 ADR](../adr/tools/001-descriptor-contract.md)。
+
+区分四类所有权：Engine 的 Turn live owner、Scheduler 的调用槽位、Executor/Runtime 的实际容量及原执行身份、插件/宿主的共享资源引用。完成等待可以释放观察 worker，取消或超时不能释放仍运行的 executor 容量；插件撤销也不能关闭其他消费者还在使用的后端。原执行结果/退出事实继续由原 Runtime 提供，HXA-277 只补原生贡献资源引用与释放。
+
+UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 ChatService，并把部分恢复导航回调存入服务。恢复目标改为数据、由当前页面处理导航的增量归 HXA-274；其他命令/读模型按实际消费者收窄，复用 HXA-257/258 已交付状态 owner。完整 Turn 宿主提取以明确消费者和可验收场景为进入条件，不因类行数重启 Core 重构。任务范围与实施顺序统一见[系统分层优化承接](../development/status.md#系统分层优化承接2026-10-11)。
 
 ## 专项契约
 

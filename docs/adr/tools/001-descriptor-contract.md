@@ -1,9 +1,9 @@
 # ADR-TOOLS-001: 工具描述契约与审批绑定
 
 Status: accepted
-Date: 2026-09-16
-HXA: HXA-042, HXA-231
-Deciders: Project owner（2026-09-30 明确要求按完整架构实施 HXA-231 R1）
+Date: 2026-09-16; revised 2026-10-11
+HXA: HXA-042, HXA-231, HXA-276, HXA-277, HXA-279
+Deciders: Project owner（2026-09-30 接受 R1；2026-10-11 要求同步插件来源、资源引用与观察结果增量，不兼容旧版）
 
 ## Context
 
@@ -41,7 +41,20 @@ Deciders: Project owner（2026-09-30 明确要求按完整架构实施 HXA-231 R
 
 `tools.search` 和封闭的 `ask_user` 通过受信任 metadata executor 避免被原后台 Job owner 阻断；发现与反问不授予执行权限，普通写入/Runtime 启动仍受原 owner 互斥控制。
 
+### 插件增量复用同一绑定与结果契约（HXA-276/277/279）
+
+Browser 的 12 个现有工具由唯一 PluginOrigin 发布，原 built-in 路径直接删除；新增标签发现和条件等待同样提供真实 descriptor/schema、操作类别、目标/能力、期限、大小限制与 executor，纳入既有发现窗口。契约变化通过 version/contractHash 和实现身份表达，不能保留不匹配的旧审批或在调用时转查同名新实现。
+
+注册引用与调用身份保持原子绑定规则；HXA-277 的资源 owner 和释放契约由 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)维护。工具注册被撤销不等于已准入 executor 退出；执行器未退出前不能释放其物理容量或所需资源。共享宿主服务不构成执行旁路，复合调用仍经 Dispatcher，不直接调用其他插件 executor。
+
+Browser/Mobile Use 的观察结果复用现有 ToolResult、InvocationOutcome 和视觉产物通路，只增加确有缺失的事实：匹配数量与歧义、截断、实际后端、观察是否失效、像素是否真的提供。不是要求所有工具输出统一大 JSON；字段由真实执行器或图片发布结果产生，不能把文件 URI/截图路径当成模型已收到像素，也不能把截断列表上的未找到报告为全局不存在。
+
+区分派发成功、条件满足、业务结果确认及效果未知；等待命中只证明所声明条件满足，不自动证明用户目标完成。未知结果的后续核查保持只读、原目标与原身份，不自动重放动作；被拒绝不获得换账号/后端绕行的许可。取消、deadline、无 host、导航/owner 失效分别返回真实结果，不能 catch 后报成功。受影响的旧内部结果形态直接替换，不增加兼容层或新的执行引擎。
+
 ## Alternatives considered
+
+- 为插件内部组合直接调用其他 executor：会绕过请求绑定、权限、期限与审计，仍使用同一 Dispatcher；可信宿主服务复用按资源 owner 的最小接口处理。
+- 只增加提示词或统一 success 字段：不能证明实际后端、观察有效性和像素回流；在既有结果通路提供真实事实，不引入通用 Observation 平台。
 
 1. **强制安全字段变化必提升 `toolVersion`（roadmap 的另一选项）**：需要一套跨模块的静态检查在注册期比对"字段变化 vs version 是否递增"，而 registry 不保留旧 version 的 descriptor 历史（同 version 禁止重注册、不同 version 允许并存），无法在进程内可靠判定"相对上一次注册是否改了安全字段"。且模型请求 `(name, version)` 显式版本，version 语义已用于契约演进，用它额外编码安全字段会污染版本语义。未选择。
 2. **只把 `timeout` 等个别字段单独加进现有九字段 binding**：与"完整契约"相反——遗漏任何一个安全字段（如 `maxOutputBytes` 从 8KiB 放宽到 8MiB 而不改变 hash）就复现同一缺口；逐字段枚举易漏且难证明覆盖完整。未选择。
@@ -49,11 +62,15 @@ Deciders: Project owner（2026-09-30 明确要求按完整架构实施 HXA-231 R
 
 ## Consequences
 
+插件来源和新增观察结果继续使用同一绑定与结算通路。增加事实字段会占用输出预算，需保持有界且与模型实际收到的产物一致；内部契约改变后，旧请求与不匹配批准直接失效，调用方重新发现并按当前规则准入。
+
 v2 编码使旧 contractHash/精确批准不再匹配，须重新审批，不能兼容重用旧凭证。现有 `origin.canonicalOf()` 仍供来源启停键和展示使用，本轮不迁移这些键，避免把已有禁用设置意外恢复为默认启用。原子绑定按上述 R1 决定实施；完整插件安装/更新生命周期仍不在此范围。
 
 同一主题维护一份规范；接受设计和实现验收仍分开记账。
 
 ## Verification
+
+HXA-276/277/279 的增量设计已接受，尚未实施。需证明单一 owner、旧绑定拒绝、取消但 executor 未退出时资源不释放，以及新观察事实真正进入下一 ModelRequest。覆盖歧义/截断、像素未提供、deadline、导航/owner 失效和未知动作，不由历史 R1 结果推定通过；具体主机、设备与模型验收见对应 HXA。
 
 本方案已接受；当前 R1 主机迁移与交错验收见[主机证据](../../evidence/development/hxa231-atomic-binding-2026-09-30.md)。包含逐字段变化、来源碰撞、请求别名、审批/排队替换、可变集合与无关更新反例；设备/真实服务本轮 not requested。当前编码修复及实际运行见[收敛证据](../../evidence/development/contract-document-convergence-2026-09-29.md)，不借用历史 HXA-042 数字证明新编码。
 
@@ -63,6 +80,10 @@ v2 编码使旧 contractHash/精确批准不再匹配，须重新审批，不能
 
 ## References
 
+- [HXA-276：Browser 贡献](../../development/tasks/HXA-276.md)
+- [HXA-277：原生资源](../../development/tasks/HXA-277.md)
+- [HXA-279：UI 观察反馈](../../development/tasks/HXA-279.md)
+- [插件研究与任务映射](../../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
@@ -86,3 +107,7 @@ v2 编码使旧 contractHash/精确批准不再匹配，须重新审批，不能
 - 删除独立可写实现表与双写辅助接口。权限、effect、审批消费、UNKNOWN 和原执行所有权继续由原有边界维护。
 
 实施按[HXA-231](../../completion-records/HXA-231.md)验证，R2/J1/插件生命周期不由本决定自动启动。
+
+## Decision history — 2026-10-11：插件来源与可核实观察结果
+
+所有者要求同步新增插件 HXA 的设计决定。接受 Browser 唯一 PluginOrigin、同一 Dispatcher 下的资源引用，以及执行器提供的最小观察事实；内部来源和结果契约直接替换，不保留旧批准转换或结果兼容层。资源归属由 Plugin/Browser ADR 维护，当前 R1 绑定算法不重建；新增功能尚待各任务实现和验收。
