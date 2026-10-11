@@ -31,6 +31,108 @@ import java.util.UUID
 
 /** Deterministically pause between the durable stop intent and the later coroutine cancel signal. */
 class TurnCancellationRaceDeviceTest {
+    @Suppress("LongMethod", "SwallowedException") // The fixture ignores interrupt until actual exit.
+    @Test
+    fun durableTerminalCannotReleaseAnExecutorOrAnotherConsumersNativeReference() =
+        withFixture { storage, turn ->
+            val entered = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val exited = java.util.concurrent.CountDownLatch(1)
+            val cancelled =
+                java.util.concurrent.atomic
+                    .AtomicBoolean()
+            val cleaned =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            val resource =
+                com.helix.extensions.plugin
+                    .NativeResource(Any()) { cleaned.incrementAndGet() }
+            val otherConsumer = requireNotNull(resource.borrow())
+            val gate =
+                com.helix.tools.framework.ExecutionOwnership(
+                    object : com.helix.tools.framework.ExecutionOwnership.Store {
+                        override fun owners() = emptySet<com.helix.tools.framework.ExecutionOwnership.Owner>()
+
+                        override fun update(
+                            expected: Set<com.helix.tools.framework.ExecutionOwnership.Owner>,
+                            replacement: Set<com.helix.tools.framework.ExecutionOwnership.Owner>,
+                        ): Boolean = error("Ordinary execution must not create a detached runtime owner")
+                    },
+                )
+            val call =
+                com.helix.tools.framework.ExecutableToolCall(
+                    "original-resource-call",
+                    "fixture.read",
+                    "1",
+                    kotlinx.serialization.json.JsonObject(emptyMap()),
+                    com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
+                    Instant.now().plusSeconds(30),
+                    object : com.helix.tools.framework.CancelSignal {
+                        override fun isCancelled() = cancelled.get()
+                    },
+                    "session",
+                    "turn",
+                )
+            val executor =
+                object : com.helix.tools.framework.ToolExecutor {
+                    override fun execute(
+                        call: com.helix.tools.framework.ExecutableToolCall,
+                    ): com.helix.tools.framework.ToolExecutorResult =
+                        requireNotNull(resource.borrow()).use {
+                            assertEquals("original-resource-call", call.toolCallId)
+                            assertEquals("turn", call.turnId)
+                            entered.countDown()
+                            while (release.count != 0L) {
+                                try {
+                                    release.await()
+                                } catch (_: InterruptedException) {
+                                    // Actual native IO has not exited.
+                                }
+                            }
+                            com.helix.tools.framework.ToolExecutorResult.Completed(
+                                kotlinx.serialization.json.JsonObject(emptyMap()),
+                            )
+                        }
+                }
+            val workers =
+                java.util.concurrent.Executors
+                    .newSingleThreadExecutor()
+            try {
+                val future =
+                    workers.submit {
+                        try {
+                            gate.guard(executor).execute(call)
+                        } finally {
+                            exited.countDown()
+                        }
+                    }
+                assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                stopIntent(storage)
+                cancelled.set(true)
+                future.cancel(true)
+                turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
+                resource.close()
+                assertEquals("CANCELLED", storage.turns.resolve("turn").state)
+                assertTrue(future.isDone)
+                assertEquals(1L, exited.count)
+                assertThrows(IllegalStateException::class.java) { gate.acquire(call.toolCallId) }
+                assertEquals(com.helix.extensions.plugin.NativeResource.State.DRAINING, resource.state)
+                release.countDown()
+                assertTrue(exited.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                requireNotNull(gate.acquire(call.toolCallId)).close()
+                assertEquals(0, cleaned.get())
+                otherConsumer.close()
+                assertEquals(com.helix.extensions.plugin.NativeResource.State.CLOSED, resource.state)
+                assertEquals(1, cleaned.get())
+            } finally {
+                release.countDown()
+                workers.shutdown()
+                assertTrue(workers.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS))
+                otherConsumer.close()
+                resource.close()
+            }
+        }
+
     @Test fun durableStopBeforeStreamStartIsCancellationRatherThanInternalFailure() =
         withFixture { storage, turn ->
             stopIntent(storage)

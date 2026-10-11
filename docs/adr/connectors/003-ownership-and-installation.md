@@ -224,3 +224,7 @@ HXA-274 同时覆盖无订阅与页面重建、重复读取不自动导航、旧
 ## Decision history — 2026-10-12：Browser 贡献与新会话默认值
 
 HXA-276 已实现 12 个工具的单一 PluginOrigin 与原生 Skill；仅首次安装设置 Browser 新会话默认值，重新发布保留用户设置，不追溯选中已有会话。双渠道实际工具选择/撤销与手动标签独立通过，详见[276证据](../../evidence/development/hxa276-browser-contribution-2026-10-12.md)。不增加旧会话、批准或数据库迁移；277 的新增资源契约仍待实现。
+
+## Decision history — 2026-10-12：真实原生资源注册与在途引用
+
+HXA-277 按准确实例实施 registration/使用引用；先撤下准入，物理回调仍保留原资源，最后引用后确认清理，失败保留事实。Browser 沿用实际 Activity owner，不为无资源贡献创建空 runtime；Mobile Use 的共享后端和系统授权仍归宿主。真实 API36 后端、双渠道 Room/执行边界与浏览器观察回归见[277证据](../../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)，不扩展通用 hooks、容器或执行注册表。

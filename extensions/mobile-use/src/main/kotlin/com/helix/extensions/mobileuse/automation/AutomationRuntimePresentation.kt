@@ -6,7 +6,7 @@ import com.helix.tools.framework.ExecutableToolCall
 interface AutomationRuntimePresentation {
     fun bind(call: ExecutableToolCall): Boolean
 
-    fun stopBoundTask()
+    fun stopBoundTask(task: com.helix.extensions.plugin.PluginTaskIdentity)
 
     fun executionAllowed(): Boolean
 
@@ -23,6 +23,45 @@ interface AutomationRuntimePresentation {
 }
 
 object AutomationRuntimePresentationFactory {
-    @Volatile
-    var create: ((HelixAccessibilityService) -> AutomationRuntimePresentation)? = null
+    private val usage =
+        ThreadLocal<
+            com.helix.extensions.plugin.NativeResource.Lease<AutomationRuntimePresentation>?,
+        >()
+    private val current =
+        java.util.concurrent.atomic.AtomicReference<
+            com.helix.extensions.plugin.NativeResource<AutomationRuntimePresentation>?,
+        >(null)
+
+    fun presentation(): AutomationRuntimePresentation? =
+        usage.get()?.value ?: current.get()?.let {
+            if (it.state == com.helix.extensions.plugin.NativeResource.State.ACTIVE) it.value else null
+        }
+
+    fun borrow(): com.helix.extensions.plugin.NativeResource.Lease<AutomationRuntimePresentation>? =
+        usage.get()?.retain() ?: current.get()?.borrow()
+
+    internal fun <T> withUsage(
+        reference: com.helix.extensions.plugin.NativeResource.Lease<AutomationRuntimePresentation>,
+        block: () -> T,
+    ): T {
+        val previous = usage.get()
+        usage.set(reference)
+        return try {
+            block()
+        } finally {
+            if (previous == null) usage.remove() else usage.set(previous)
+        }
+    }
+
+    fun register(resource: com.helix.extensions.plugin.NativeResource<AutomationRuntimePresentation>): AutoCloseable {
+        check(current.compareAndSet(null, resource)) { "MOBILE_USE_PRESENTATION_ALREADY_REGISTERED" }
+        return AutoCloseable {
+            current.compareAndSet(resource, null)
+            try {
+                resource.value.hide()
+            } finally {
+                resource.close()
+            }
+        }
+    }
 }

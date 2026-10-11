@@ -34,15 +34,16 @@ internal class AutomationGestureDispatch(
         )
         val gesture = build(frame.target.displayId, strokes)
         if (!callIsActive(call)) return notDispatched()
-        val ticket = inFlight.acquire() ?: return notDispatched()
+        val ticket = inFlight.acquire(AutomationRuntimePresentationFactory.borrow()) ?: return notDispatched()
         val presentation = service.runtimePresentation
         val hidden = presentation?.hideForOperation(call)
         if (presentation != null && hidden == null) {
             inFlight.release(ticket)
             return notDispatched()
         }
+        hidden?.let { inFlight.attach(ticket, it) }
         val pending = PendingAutomationResult<AutomationActionResult>()
-        val finishPhysicalOperation = { finishOperation(hidden, ticket) }
+        val finishPhysicalOperation = { inFlight.release(ticket) }
         val callback = callback(pending, finishPhysicalOperation)
         var entered = false
         try {
@@ -88,28 +89,35 @@ internal class AutomationGestureDispatch(
         callIsActive(call) && currentTarget() == frame.target &&
             session.scope.permitsPackage(frame.target.packageName) && permittedWindows()
 
-    private fun finishOperation(
-        hidden: AutoCloseable?,
-        ticket: Any,
-    ) {
-        hidden?.close()
-        inFlight.release(ticket)
-    }
-
     private fun callback(
         pending: PendingAutomationResult<AutomationActionResult>,
         finish: () -> Unit,
     ): AccessibilityService.GestureResultCallback =
         object : AccessibilityService.GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription) {
-                finish()
-                pending.complete(AutomationActionResult(AutomationActionStatus.SUCCEEDED))
+                val status =
+                    if (finishSafely(finish)) {
+                        AutomationActionStatus.SUCCEEDED
+                    } else {
+                        AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
+                    }
+                pending.complete(AutomationActionResult(status))
             }
 
             override fun onCancelled(gestureDescription: GestureDescription) {
-                finish()
+                finishSafely(finish)
                 pending.complete(AutomationActionResult(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN))
             }
+        }
+
+    @Suppress("TooGenericExceptionCaught") // NativeResource retains the failed cleanup fact; no success is returned.
+    private fun finishSafely(finish: () -> Unit): Boolean =
+        try {
+            finish()
+            true
+        } catch (error: RuntimeException) {
+            android.util.Log.e("MobileUseLifecycle", "Gesture cleanup failed: ${error.javaClass.simpleName}")
+            false
         }
 
     private fun build(

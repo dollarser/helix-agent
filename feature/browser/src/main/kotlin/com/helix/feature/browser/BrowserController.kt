@@ -354,11 +354,15 @@ class BrowserController(
             onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
             return
         }
+        val owner = ownerBinding.get()
         host.evaluateFixed(BrowserSnapshotScript.EXTRACT) { raw ->
-            // The tab may have closed / committed a newer page while the script ran: only
-            // publish a result for a tab that still exists.
-            if (!isLive(id)) return@evaluateFixed
-            val liveTab = tabs.state().tabs.firstOrNull { it.id == id } ?: return@evaluateFixed
+            val liveTab = tab(id)
+            if (ownerBinding.get() !== owner || hosts[id] !== host ||
+                liveTab == null || liveTab.navigationGeneration != tab.navigationGeneration || liveTab.isLoading
+            ) {
+                onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
+                return@evaluateFixed
+            }
             val result = SnapshotBinder.bind(raw, liveTab, clockMillis())
             if (result is SnapshotResult.Success) snapshots[id] = result.snapshot else snapshots.remove(id)
             onResult(result)
@@ -394,9 +398,14 @@ class BrowserController(
             onResult(EvalFixedOutcome.NoPage)
             return
         }
+        val owner = ownerBinding.get()
         host.evaluateFixed(script) { raw ->
-            if (!isLive(id)) return@evaluateFixed
-            onResult(EvalFixedOutcome.Result(raw))
+            val liveTab = tab(id)
+            val current =
+                ownerBinding.get() === owner && hosts[id] === host &&
+                    liveTab?.navigationGeneration == tab.navigationGeneration && !liveTab.isLoading
+            // Dispatch already occurred. A lost page cannot prove the action had no effect.
+            onResult(EvalFixedOutcome.Result(if (current) raw else null))
         }
     }
 

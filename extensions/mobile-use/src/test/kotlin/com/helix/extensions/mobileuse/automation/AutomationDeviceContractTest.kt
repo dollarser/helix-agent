@@ -105,6 +105,45 @@ class AutomationDeviceContractTest {
         assertTrue(slot.acquire() != null)
     }
 
+    @Test fun cancelledWaitKeepsPresentationAndSuppressionUntilOriginalPhysicalCallbackExits() {
+        var cleaned = 0
+        var restored = 0
+        val resource =
+            com.helix.extensions.plugin
+                .NativeResource(Any()) { cleaned++ }
+        val caller = requireNotNull(resource.borrow())
+        val slot = AutomationPhysicalSlot()
+        val ticket = requireNotNull(slot.acquire(caller.retain()))
+        slot.attach(ticket, AutoCloseable { restored++ })
+        resource.close()
+        caller.close() // The waiting executor returned; the Android callback has not exited.
+        assertTrue(slot.isOccupied())
+        assertEquals(0, restored)
+        assertEquals(0, cleaned)
+        slot.release(ticket)
+        assertEquals(1, restored)
+        assertEquals(1, cleaned)
+        val next = requireNotNull(slot.acquire())
+        slot.release(ticket)
+        assertTrue(slot.isOccupied())
+        slot.release(next)
+    }
+
+    @Test fun occupiedSlotDoesNotLeakARejectedBorrowAndCleanupFailureDoesNotPinExitedCapacity() {
+        val resource =
+            com.helix.extensions.plugin
+                .NativeResource(Any()) { error("synthetic cleanup failure") }
+        val slot = AutomationPhysicalSlot()
+        val original = requireNotNull(slot.acquire())
+        assertNull(slot.acquire(resource.borrow()))
+        slot.release(original)
+        val next = requireNotNull(slot.acquire(resource.borrow()))
+        resource.close()
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) { slot.release(next) }
+        org.junit.Assert.assertFalse(slot.isOccupied())
+        assertEquals(com.helix.extensions.plugin.NativeResource.State.CLEANUP_FAILED, resource.state)
+    }
+
     @Test fun scopedGesturesRejectAnUnapprovedOverlayButWholePhoneRemainsUsable() {
         val scope =
             com.helix.core.policy

@@ -47,6 +47,60 @@ class MobileUseOverlayDeviceTest {
     private val conversationVisible =
         java.util.concurrent.atomic
             .AtomicBoolean()
+    private var activeRegistration: AutoCloseable? = null
+
+    @Test fun stoppedWaitRetainsTheRealGestureAndPresentationUntilItsAndroidCallback() {
+        withOverlay { overlay, _ ->
+            val reference = requireNotNull(AutomationRuntimePresentationFactory.borrow())
+            val service =
+                com.helix.extensions.mobileuse.automation.AutomationServiceController
+                    .overlayContext() as HelixAccessibilityService
+            val physical = com.helix.extensions.mobileuse.automation.AutomationServiceController.physicalInput
+            val ticket = requireNotNull(physical.acquire(reference.retain()))
+            physical.attach(ticket, requireNotNull(overlay.hideForOperation(call())))
+            val done = java.util.concurrent.CountDownLatch(1)
+            val path = android.graphics.Path().apply { moveTo(dp(40).toFloat(), dp(90).toFloat()) }
+            val gesture =
+                android.accessibilityservice.GestureDescription
+                    .Builder()
+                    .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 1500))
+                    .build()
+            var accepted = false
+            try {
+                instrumentation.runOnMainSync {
+                    accepted =
+                        service.dispatchGesture(
+                            gesture,
+                            object : android.accessibilityservice.AccessibilityService.GestureResultCallback() {
+                                override fun onCompleted(description: android.accessibilityservice.GestureDescription) {
+                                    physical.release(ticket)
+                                    done.countDown()
+                                }
+
+                                override fun onCancelled(description: android.accessibilityservice.GestureDescription) {
+                                    physical.release(ticket)
+                                    done.countDown()
+                                }
+                            },
+                            null,
+                        )
+                }
+                assertTrue("Fixture gesture must really be submitted to Android", accepted)
+                requireNotNull(activeRegistration).close()
+                reference.close() // Original caller finished waiting; physical gesture remains in progress.
+                assertFalse(reference.accepting)
+                assertTrue("Cancellation/retirement cannot release Android's original ticket", physical.isOccupied())
+                assertNull(AutomationRuntimePresentationFactory.borrow())
+                assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                assertFalse(physical.isOccupied())
+                assertFalse("Final callback must complete actual presentation cleanup", overlay.bind(call()))
+            } finally {
+                if (!accepted) physical.release(ticket)
+                reference.close()
+                if (accepted) assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            }
+        }
+    }
 
     @Test fun translucentStatusPassesTouchesAndPhysicalSuppressionRestoresPixels() {
         withOverlay { overlay, _ ->
@@ -111,7 +165,10 @@ class MobileUseOverlayDeviceTest {
             val lease = requireNotNull(overlay.hideForOperation(call()))
             try {
                 assertFalse(hasControl())
-                overlay.stopBoundTask()
+                overlay.stopBoundTask(PluginTaskIdentity("old-conversation", "old-turn"))
+                assertNull(stopped.get())
+                assertTrue(overlay.executionAllowed())
+                overlay.stopBoundTask(identity)
                 assertEquals(identity, stopped.get())
                 assertFalse(overlay.executionAllowed())
                 assertFalse(overlay.bind(call()))
@@ -248,10 +305,9 @@ class MobileUseOverlayDeviceTest {
         val enabled = original.takeUnless { it == "null" || it.isBlank() }.orEmpty()
         val overlay = AtomicReference<MobileUseOverlay?>()
         val stopped = AtomicReference<PluginTaskIdentity?>()
-        val oldFactory = AutomationRuntimePresentationFactory.create
-        AutomationRuntimePresentationFactory.create = { service ->
+        val presentation =
             MobileUseOverlay(
-                service,
+                context,
                 object : PluginTaskHost {
                     override val conversationVisible: Boolean get() =
                         this@MobileUseOverlayDeviceTest
@@ -274,8 +330,17 @@ class MobileUseOverlayDeviceTest {
                         returned.set(task)
                     }
                 },
+                surface = {
+                    com.helix.extensions.mobileuse.automation.AutomationServiceController
+                        .overlayContext()
+                },
             ) { true }.also { overlay.set(it) }
-        }
+        val resource =
+            com.helix.extensions.plugin.NativeResource<
+                com.helix.extensions.mobileuse.automation.AutomationRuntimePresentation,
+            >(presentation) { it.close() }
+        val registration = AutomationRuntimePresentationFactory.register(resource)
+        activeRegistration = registration
         try {
             context.startActivity(
                 Intent(context, OverlayFixtureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -283,18 +348,21 @@ class MobileUseOverlayDeviceTest {
             val components = listOf(enabled, component).filter { it.isNotEmpty() }.joinToString(":")
             shell("settings put secure enabled_accessibility_services $components")
             shell("settings put secure accessibility_enabled 1")
-            waitUntil { overlay.get() != null }
+            waitUntil {
+                com.helix.extensions.mobileuse.automation.AutomationServiceController
+                    .overlayContext() != null
+            }
             instrumentation.waitForIdleSync()
             block(requireNotNull(overlay.get()), stopped)
         } finally {
-            overlay.get()?.close()
+            registration.close()
+            activeRegistration = null
             if (enabled.isEmpty()) {
                 shell("settings delete secure enabled_accessibility_services")
             } else {
                 shell("settings put secure enabled_accessibility_services $enabled")
             }
             shell("settings put secure accessibility_enabled ${if (enabled.isEmpty()) 0 else 1}")
-            AutomationRuntimePresentationFactory.create = oldFactory
             instrumentation.waitForIdleSync()
         }
     }

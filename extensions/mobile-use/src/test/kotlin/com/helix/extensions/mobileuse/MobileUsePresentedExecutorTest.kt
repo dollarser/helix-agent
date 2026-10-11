@@ -29,6 +29,10 @@ class MobileUsePresentedExecutorTest {
             "turn",
         )
     private val surface = Surface()
+    private val resource =
+        com.helix.extensions.plugin.NativeResource<AutomationRuntimePresentation>(
+            surface,
+        ) { it.close() }
     private val completed = ToolExecutorResult.Completed(JsonObject(emptyMap()))
     private var calls = 0
     private var authorized = true
@@ -45,7 +49,7 @@ class MobileUsePresentedExecutorTest {
     private val executor =
         MobileUsePresentedExecutor(
             delegate,
-            surface,
+            { resource.borrow() },
         ) { if (authorized) null else "MOBILE_USE_AUTHORIZATION_UNAVAILABLE" }
 
     @Test fun everyBackendHidesBeforeExecutionAndForwardsTakeoverWithoutChangingIdentity() {
@@ -74,7 +78,8 @@ class MobileUsePresentedExecutorTest {
     }
 
     @Test fun backendFailureNeverBindsAndIsNotReportedAsTaskStopped() {
-        val unavailable = MobileUsePresentedExecutor(delegate, surface) { "MOBILE_USE_BACKEND_UNAVAILABLE" }
+        val unavailable =
+            MobileUsePresentedExecutor(delegate, { resource.borrow() }) { "MOBILE_USE_BACKEND_UNAVAILABLE" }
         assertEquals("MOBILE_USE_BACKEND_UNAVAILABLE", (unavailable.execute(call) as ToolExecutorResult.Failed).detail)
         assertNull(surface.bound)
         assertEquals(0, calls)
@@ -96,7 +101,7 @@ class MobileUsePresentedExecutorTest {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = error("failure")
             }
         assertThrows(IllegalStateException::class.java) {
-            MobileUsePresentedExecutor(failing, surface) { null }.execute(call)
+            MobileUsePresentedExecutor(failing, { resource.borrow() }) { null }.execute(call)
         }
         assertFalse(surface.hidden)
     }
@@ -113,7 +118,7 @@ class MobileUsePresentedExecutorTest {
             return allowed
         }
 
-        override fun stopBoundTask() {
+        override fun stopBoundTask(task: com.helix.extensions.plugin.PluginTaskIdentity) {
             allowed = false
         }
 

@@ -21,7 +21,7 @@ class MobileUsePlugin(
     context: Context,
     images: com.helix.tools.framework.ToolImagePublication,
     val permissionCenter: AutomationPermissionCenter,
-    taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
+    private val taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     private val overlayContext: (() -> Context?)? = null,
     private val enabled: () -> Boolean = { true },
 ) : HelixPlugin,
@@ -56,21 +56,57 @@ class MobileUsePlugin(
             origin,
         )
 
-    private val presentation =
-        taskHost?.let {
-            MobileUseOverlay(context.applicationContext, it, surface = {
-                overlayContext?.invoke()
-                    ?: if (overlayContext == null) permissionCenter.accessibilityOverlayContext() else null
-            }, enabled = enabled)
-        }
+    private val appContext = context.applicationContext
+
+    @Volatile private var presentationResource:
+        com.helix.extensions.plugin.NativeResource<
+            com.helix.extensions.mobileuse.automation.AutomationRuntimePresentation,
+        >? = null
 
     init {
         require(manifest.name == PLUGIN_ID) { "unexpected Mobile Use plugin id: ${manifest.name}" }
         require(manifest.helixRuntimeId == RUNTIME_ID) { "unexpected Mobile Use runtime binding" }
-        presentation?.let { shared ->
-            com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory.create = { shared }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Clean this initialization and rethrow the original failure.
+    override fun openRegistration(): AutoCloseable? {
+        val host = taskHost ?: return null
+        check(presentationResource?.state in setOf(null, com.helix.extensions.plugin.NativeResource.State.CLOSED)) {
+            "MOBILE_USE_PRESENTATION_NOT_RELEASED"
+        }
+        val shared =
+            MobileUseOverlay(appContext, host, surface = {
+                overlayContext?.invoke()
+                    ?: if (overlayContext == null) permissionCenter.accessibilityOverlayContext() else null
+            }, enabled = enabled)
+        val resource =
+            com.helix.extensions.plugin.NativeResource<
+                com.helix.extensions.mobileuse.automation.AutomationRuntimePresentation,
+            >(shared) { it.close() }
+        try {
+            val registration =
+                com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory
+                    .register(resource)
+            presentationResource = resource
+            return registration
+        } catch (error: Throwable) {
+            try {
+                resource.close()
+            } catch (cleanup: Throwable) {
+                error.addSuppressed(cleanup)
+            }
+            throw error
         }
     }
+
+    override fun registrationError(): String? =
+        if (taskHost == null || presentationResource?.state ==
+            com.helix.extensions.plugin.NativeResource.State.ACTIVE
+        ) {
+            null
+        } else {
+            "MOBILE_USE_PRESENTATION_${presentationResource?.state ?: "UNAVAILABLE"}"
+        }
 
     override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
     override val preferredTools =
@@ -123,17 +159,20 @@ class MobileUsePlugin(
             }
 
     private fun present(executor: com.helix.tools.framework.ToolExecutor): com.helix.tools.framework.ToolExecutor =
-        presentation?.let {
-            MobileUsePresentedExecutor(executor, it) { call ->
+        if (taskHost == null) {
+            executor
+        } else {
+            MobileUsePresentedExecutor(executor, { presentationResource?.borrow() }) { call ->
                 permissionCenter.admissionError(call)
             }
         }
-            ?: executor
 
     private val contracts by lazy { MobileUseToolContracts(tools().map { it.descriptor }) }
 
     override fun showApproval(task: com.helix.extensions.plugin.PluginTaskIdentity) {
-        presentation?.showApproval(task)
+        presentationResource?.borrow()?.use { lease ->
+            (lease.value as MobileUseOverlay).showApproval(task)
+        }
     }
 
     fun isAvailable(): Boolean = enabled()

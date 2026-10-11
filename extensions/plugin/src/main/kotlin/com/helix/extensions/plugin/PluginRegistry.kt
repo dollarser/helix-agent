@@ -21,6 +21,11 @@ interface HelixPlugin {
 
     fun runtimeTarget(): String? = null
 
+    /** Only real native resources register here; content-only contributions return null. */
+    fun openRegistration(): AutoCloseable? = null
+
+    fun registrationError(): String? = null
+
     fun scopeFor(
         descriptor: com.helix.tools.framework.ToolDescriptor,
         sessionId: String,
@@ -37,12 +42,13 @@ data class PluginContents(
 )
 
 /** Trusted native factories only. Installation, enabled state and revision belong to the host catalog. */
-@Suppress("TooManyFunctions") // one registry owns publication and trusted native contributions
+@Suppress("TooManyFunctions", "TooGenericExceptionCaught") // Publication errors propagate; cleanup cannot mask them.
 class PluginRegistry(
     private val toolRegistry: ToolRegistry,
     private val catalog: NativePluginCatalog,
 ) {
     private val factories = LinkedHashMap<String, HelixPlugin>()
+    private val registrations = LinkedHashMap<String, AutoCloseable>()
 
     internal fun selectedRuntimes(sessionId: String): List<HelixPlugin> =
         synchronized(catalog.mutationLock) {
@@ -84,7 +90,12 @@ class PluginRegistry(
     /** Read-only preflight shared by selection UI and the authoritative write path. */
     fun selectionError(pluginId: String): String? {
         val plugin = synchronized(catalog.mutationLock) { factories[pluginId] }
-        return plugin?.configurationError() ?: if (plugin == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null
+        return plugin?.configurationError()
+            ?: if (plugin == null) {
+                "PLUGIN_HOST_COMPONENT_UNAVAILABLE"
+            } else {
+                plugin.registrationError().takeIf { catalog.find(pluginId)?.enabled == true }
+            }
     }
 
     fun contents(pluginId: String): PluginContents =
@@ -135,6 +146,7 @@ class PluginRegistry(
             val manifest = plugin.manifest
             require(manifest.name !in factories) { "duplicate plugin id: ${manifest.name}" }
             publish(plugin, catalog.find(manifest.name)?.enabled ?: true)
+            if (catalog.find(manifest.name)?.enabled == true) openRegistration(plugin)
             factories[manifest.name] = plugin
             manifest
         }
@@ -146,14 +158,30 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             val current = requireNotNull(catalog.find(pluginId)) { "PLUGIN_NOT_INSTALLED" }
             val plugin = requireNotNull(factories[pluginId]) { "PLUGIN_HOST_COMPONENT_UNAVAILABLE" }
-            if (current.enabled == enabled) current else publish(plugin, enabled)
+            if (current.enabled == enabled) {
+                if (enabled) plugin.registrationError()?.let { error(it) }
+                current
+            } else if (enabled) {
+                openRegistration(plugin)
+                try {
+                    publish(plugin, true)
+                } catch (error: Throwable) {
+                    closeRegistration(pluginId, error)
+                    throw error
+                }
+            } else {
+                val state = publish(plugin, false) // Withdraw new admission before retiring resources.
+                registrations.remove(pluginId)?.close()
+                state
+            }
         }
 
     fun ready(pluginId: String): Boolean =
         synchronized(catalog.mutationLock) {
             val current = catalog.find(pluginId)
             val factory = factories[pluginId]
-            current?.enabled == true && factory != null && projectionMatches(current, factory)
+            current?.enabled == true && factory != null && factory.registrationError() == null &&
+                projectionMatches(current, factory)
         }
 
     fun configurationSaved(pluginId: String): Boolean = factories[pluginId]?.configurationSaved() == true
@@ -177,8 +205,33 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             val current = requireNotNull(catalog.find(pluginId)) { "PLUGIN_NOT_INSTALLED" }
             val factory = requireNotNull(factories[pluginId]) { "PLUGIN_HOST_COMPONENT_UNAVAILABLE" }
+            if (current.enabled && (pluginId !in registrations || factory.registrationError() != null)) {
+                registrations.remove(pluginId)?.close()
+                openRegistration(factory)
+            }
             publish(factory, current.enabled)
         }
+
+    private fun openRegistration(plugin: HelixPlugin) {
+        try {
+            plugin.openRegistration()?.let { registrations[plugin.manifest.name] = it }
+        } catch (error: Throwable) {
+            // The durable installation remains authoritative, but this projection is unavailable.
+            toolRegistry.replaceOwner(bindingOwner("plugin", plugin.manifest.name), emptyList())
+            throw error
+        }
+    }
+
+    private fun closeRegistration(
+        pluginId: String,
+        cause: Throwable,
+    ) {
+        try {
+            registrations.remove(pluginId)?.close()
+        } catch (cleanup: Throwable) {
+            cause.addSuppressed(cleanup)
+        }
+    }
 
     private fun publish(
         plugin: HelixPlugin,

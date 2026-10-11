@@ -87,7 +87,7 @@ internal class WebViewTabHost(
      * pending callback explicit so replacing an evaluation or destroying a tab releases that
      * closure immediately instead of waiting for [SNAPSHOT_TIMEOUT_MS].
      */
-    private val pendingEvalTimeouts = mutableSetOf<Runnable>()
+    private val pendingEvalTimeouts = LinkedHashMap<Runnable, () -> Unit>()
 
     private var destroyed = false
 
@@ -341,10 +341,11 @@ internal class WebViewTabHost(
      * Two guards make a hostile / flaky page safe to evaluate:
      * - a [SNAPSHOT_TIMEOUT_MS] deadline synthesizes a null result if the script never
      *   returns (a page can block its own main thread), so the caller is never hung;
-     * - a per-request generation counter discards a late callback that arrives after the
-     *   deadline already answered (or after the tab was destroyed), so a stale page result
-     *   can never be attributed to a newer request.
+     * - each request settles once and captures its host generation. Independent observers
+     *   keep their own callbacks; retirement settles every original request with null, and
+     *   late results cannot answer another request.
      */
+    @Suppress("TooGenericExceptionCaught") // Complete this exact request, then propagate the platform failure.
     fun evaluateFixed(
         script: String,
         onResult: (String?) -> Unit,
@@ -353,32 +354,29 @@ internal class WebViewTabHost(
             onResult(null)
             return
         }
-        cancelPendingEvaluationTimeouts()
-        fixedEvalGeneration += 1
         val generation = fixedEvalGeneration
         var answered = false
-
         lateinit var timeout: Runnable
-        timeout =
-            Runnable {
-                pendingEvalTimeouts.remove(timeout)
-                if (!answered) {
-                    answered = true
-                    if (generation == fixedEvalGeneration) {
-                        dialogs.cancel()
-                        onResult(null)
-                    }
-                }
-            }
-        pendingEvalTimeouts += timeout
-        mainHandler.postDelayed(timeout, SNAPSHOT_TIMEOUT_MS)
 
-        webView.evaluateJavascript(script) { raw ->
-            if (answered) return@evaluateJavascript // deadline (or destroy) already settled this request
+        fun finish(raw: String?) {
+            if (answered) return
             answered = true
             mainHandler.removeCallbacks(timeout)
             pendingEvalTimeouts.remove(timeout)
-            if (generation == fixedEvalGeneration) onResult(raw)
+            onResult(if (generation == fixedEvalGeneration && !destroyed) raw else null)
+        }
+        timeout =
+            Runnable {
+                dialogs.cancel()
+                finish(null)
+            }
+        pendingEvalTimeouts[timeout] = { finish(null) }
+        mainHandler.postDelayed(timeout, SNAPSHOT_TIMEOUT_MS)
+        try {
+            webView.evaluateJavascript(script) { raw -> finish(raw) }
+        } catch (error: RuntimeException) {
+            finish(null)
+            throw error
         }
     }
 
@@ -484,8 +482,12 @@ internal class WebViewTabHost(
     internal fun pendingEvaluationCountForTest(): Int = pendingEvalTimeouts.size
 
     private fun cancelPendingEvaluationTimeouts() {
-        pendingEvalTimeouts.forEach(mainHandler::removeCallbacks)
+        val pending = pendingEvalTimeouts.toMap()
         pendingEvalTimeouts.clear()
+        pending.forEach { (timeout, finish) ->
+            mainHandler.removeCallbacks(timeout)
+            finish()
+        }
     }
 
     private fun isSameDocument(

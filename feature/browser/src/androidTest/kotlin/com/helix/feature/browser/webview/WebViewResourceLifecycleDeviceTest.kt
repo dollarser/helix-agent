@@ -24,6 +24,45 @@ import java.util.concurrent.TimeUnit
 /** HXA-103 device gates for WebView callback and file-descriptor lifecycle. */
 @RunWith(AndroidJUnit4::class)
 class WebViewResourceLifecycleDeviceTest : BrowserResourceTestHost() {
+    @Test fun independentObserversBothReceiveTheirOriginalResult() {
+        val done = CountDownLatch(2)
+        val results = arrayOfNulls<String>(2)
+        var host: WebViewTabHost? = null
+        try {
+            onMain {
+                host = newHost()
+                host!!.evaluateFixed("'first-observer'") {
+                    results[0] = it
+                    done.countDown()
+                }
+                host!!.evaluateFixed("'second-observer'") {
+                    results[1] = it
+                    done.countDown()
+                }
+                assertEquals(2, host!!.pendingEvaluationCountForTest())
+            }
+            assertTrue(done.await(10, TimeUnit.SECONDS))
+            assertEquals("\"first-observer\"", results[0])
+            assertEquals("\"second-observer\"", results[1])
+        } finally {
+            onMain { host?.destroy() }
+        }
+    }
+
+    @Test fun ownerRetirementSettlesAllOriginalObserversExactlyOnce() {
+        val results = mutableListOf<String?>()
+        onMain {
+            val host = newHost()
+            host.evaluateFixed("'old-first'") { results += it }
+            host.evaluateFixed("'old-second'") { results += it }
+            host.destroy()
+            assertEquals(listOf<String?>(null, null), results)
+            assertEquals(0, host.pendingEvaluationCountForTest())
+        }
+        Thread.sleep(500)
+        assertEquals(listOf<String?>(null, null), results)
+    }
+
     @Test
     fun unusedHostLifecycleNeverAllocatesOrResurrectsAWebView() {
         onMain {

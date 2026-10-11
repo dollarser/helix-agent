@@ -44,9 +44,8 @@ internal class MobileUseOverlay(
         return accepted
     }
 
-    override fun stopBoundTask() {
-        val owner = state.owner ?: return
-        if (state.takeOver(owner)) host.requestStop(owner)
+    override fun stopBoundTask(task: PluginTaskIdentity) {
+        if (state.takeOver(task)) host.requestStop(task)
         handler.post { render() }
     }
 
@@ -193,11 +192,29 @@ internal class MobileUseOverlay(
 
     override fun close() {
         state.close()
-        handler.post {
-            closed = true
-            handler.removeCallbacks(tick)
-            detach()
+        val removed = CountDownLatch(1)
+        val error =
+            java.util.concurrent.atomic
+                .AtomicReference<RuntimeException?>()
+        val remove =
+            Runnable {
+                closed = true
+                handler.removeCallbacks(tick)
+                if (!detach()) error.set(IllegalStateException("MOBILE_USE_WINDOW_CLEANUP_FAILED"))
+                removed.countDown()
+            }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            remove.run()
+        } else {
+            check(handler.post(remove)) { "MOBILE_USE_WINDOW_CLEANUP_REJECTED" }
+            try {
+                check(removed.await(500, TimeUnit.MILLISECONDS)) { "MOBILE_USE_WINDOW_CLEANUP_TIMED_OUT" }
+            } catch (interrupted: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw IllegalStateException("MOBILE_USE_WINDOW_CLEANUP_INTERRUPTED", interrupted)
+            }
         }
+        error.get()?.let { throw it }
     }
 }
 

@@ -18,6 +18,53 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun withdrawalPrecedesRetirementAndRepairDoesNotReopenHealthyResources() {
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, MemoryNativePluginCatalog())
+        val base = plugin("fixture")
+        var opened = 0
+        var closed = 0
+        registry.register(
+            object : HelixPlugin by base {
+                override fun openRegistration(): AutoCloseable {
+                    opened++
+                    return AutoCloseable {
+                        assertEquals(0, tools.snapshot().size)
+                        closed++
+                    }
+                }
+            },
+        )
+        registry.repair("fixture")
+        assertEquals(1, opened)
+        registry.setEnabled("fixture", false)
+        registry.setEnabled("fixture", false)
+        assertEquals(1, closed)
+        registry.setEnabled("fixture", true)
+        assertEquals(2, opened)
+        registry.setEnabled("fixture", false)
+        assertEquals(2, closed)
+    }
+
+    @Test fun initializationFailureWithdrawsProjectionWithoutClaimingDurableInstallationWasRolledBack() {
+        val tools = ToolRegistry()
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(tools, catalog)
+        val base = plugin("fixture")
+        assertThrows(IllegalStateException::class.java) {
+            registry.register(
+                object : HelixPlugin by base {
+                    override fun openRegistration(): AutoCloseable = error("synthetic initialization failure")
+                },
+            )
+        }
+        assertEquals(true, catalog.find("fixture")?.enabled)
+        assertEquals(false, registry.ready("fixture"))
+        assertEquals(0, tools.snapshot().size)
+        registry.register(base)
+        assertEquals(true, registry.ready("fixture"))
+    }
+
     private fun skill(
         name: String,
         body: String = "Observe before acting",

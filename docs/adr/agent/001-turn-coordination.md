@@ -54,7 +54,7 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 区分四类所有权：TurnEngine 管整轮 live driver 与持久生命周期；ToolScheduler 管调度/观察槽位；Executor/Runtime 管实际执行容量及原执行身份；插件/宿主管共享资源引用。完成观察等待可释放 worker，Turn 终态、UI detach 或取消信号都不能证明 executor 已退出。HXA-277 的原生资源句柄消费现有 ExecutionOwnership / Runtime 退出与对账事实，不复制执行状态或替代原取消协议。权限准入始终归原 Dispatcher；就绪投影和资源引用不授予执行能力。
 
-本节新增恢复导航与原生资源接线为 accepted、尚待 HXA-274/277 实施。按单一目标实现迁移当前调用者并删除被替换入口，不保留旧版 adapter、双写或双注册；保持仍有效的输入/执行/审批身份。完整宿主提取只登记[进入条件](../../development/candidate-decisions.md#系统分层的条件性增量)，不是本轮实施任务。
+本节恢复导航与原生资源接线为 accepted，HXA-274/277 已完成各自有界实施与验收；具体边界见对应证据。按单一目标实现迁移当前调用者并删除被替换入口，不保留旧版 adapter、双写或双注册；保持仍有效的输入/执行/审批身份。完整宿主提取只登记[进入条件](../../development/candidate-decisions.md#系统分层的条件性增量)，不是本轮实施任务。
 
 ### 2. 每个 Turn 保存 immutable execution snapshot
 
@@ -358,3 +358,7 @@ AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/
 - [HXA-220 交付记录](../../completion-records/HXA-220.md)
 
 - **2026-10-01（折叠标题调整）**：所有者要求折叠标题优先显示 intent，工具名仅在详情展示；无有效 intent 继续 ToolPurpose 回退，状态、耗时和待审批入口不受意图文本替代。
+
+## Decision history — 2026-10-12：Turn 终态与真实资源退出独立
+
+HXA-277 扩展原取消 fixture：Room 已结算 CANCELLED、等待 Future 已结束时，仍运行的 executor 保留原执行身份和资源引用；实际退出后另一消费者继续持有，最后引用才清理。没有新增状态机或取消协议，设备/主机范围见[277证据](../../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)。

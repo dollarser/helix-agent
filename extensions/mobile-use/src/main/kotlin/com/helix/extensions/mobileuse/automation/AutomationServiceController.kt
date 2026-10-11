@@ -202,7 +202,17 @@ object AutomationServiceController {
 
     @Synchronized
     fun stop(reason: AutomationStopReason = AutomationStopReason.USER_STOP): Boolean {
-        if (reason == AutomationStopReason.USER_STOP) service?.runtimePresentation?.stopBoundTask()
+        if (reason == AutomationStopReason.USER_STOP) {
+            val active = sessionManager.current()
+            val conversation = active?.conversationId
+            val turn = active?.turnId
+            if (conversation != null && turn != null) {
+                service?.runtimePresentation?.stopBoundTask(
+                    com.helix.extensions.plugin
+                        .PluginTaskIdentity(conversation, turn),
+                )
+            }
+        }
         val stopped = sessionManager.stop(reason)
         if (stopped) {
             service?.leaveSessionForeground()

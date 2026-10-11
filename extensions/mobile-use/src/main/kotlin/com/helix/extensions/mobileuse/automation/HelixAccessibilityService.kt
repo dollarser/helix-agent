@@ -23,16 +23,10 @@ import java.time.Instant
 /** User-enabled service for bounded snapshots and token-bound actions. */
 @Suppress("TooManyFunctions")
 class HelixAccessibilityService : AccessibilityService() {
-    @Volatile internal var runtimePresentation: AutomationRuntimePresentation? = null
-        private set
+    internal val runtimePresentation: AutomationRuntimePresentation?
+        get() = AutomationRuntimePresentationFactory.presentation()
 
-    @Synchronized
-    private fun ensurePresentation(): AutomationRuntimePresentation? {
-        if (runtimePresentation == null) {
-            runtimePresentation = AutomationRuntimePresentationFactory.create?.invoke(this)
-        }
-        return runtimePresentation
-    }
+    private fun ensurePresentation(): AutomationRuntimePresentation? = runtimePresentation
 
     internal fun bindPresentation(call: com.helix.tools.framework.ExecutableToolCall): Boolean =
         ensurePresentation()?.bind(call) ?: true

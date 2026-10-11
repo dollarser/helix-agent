@@ -315,6 +315,6 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-274 | 有界本地交付；全仓主机/source、Developer组合20项与内容/Qwen补验4项、Standard窄屏11项通过 | 插件就绪原因与配置生效状态统一投影 | [任务](tasks/HXA-274.md) |
 | HXA-275 | 有界本地交付；主机、API36双渠道及既有Qwen通过 | 插件组件兼容诊断与可执行作者样例 | [任务](tasks/HXA-275.md) |
 | HXA-276 | 主机、API36双渠道9/9与共享引擎29/29 passed；真实模型未调用 | Browser 原生插件贡献与统一选择入口 | [任务](tasks/HXA-276.md) |
-| HXA-277 | 已排期，未开工；设备/模型not requested | 原生插件资源归属与停止释放契约 | [任务](tasks/HXA-277.md) |
+| HXA-277 | 主机、API36真实后端8/8、Browser32/32与双渠道应用20/20、19/19 passed；模型未调用 | 原生插件资源归属与停止释放契约 | [任务](tasks/HXA-277.md) |
 | HXA-278 | 已排期，未开工；设备/模型not requested | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |
 | HXA-279 | 已排期，未开工；设备/模型not requested | UI 观察反馈与 Browser 标签发现及有界等待 | [任务](tasks/HXA-279.md) |

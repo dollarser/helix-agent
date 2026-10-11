@@ -36,18 +36,17 @@ internal class AutomationScreenshotCapture(
         ) {
             return AutomationScreenshot("CANCELLED")
         }
-        val ticket = inFlight.acquire() ?: return AutomationScreenshot("CAPTURE_IN_PROGRESS")
+        val ticket =
+            inFlight.acquire(AutomationRuntimePresentationFactory.borrow())
+                ?: return AutomationScreenshot("CAPTURE_IN_PROGRESS")
         val presentation = service.runtimePresentation
         val hidden = presentation?.hideForOperation(call)
         if (presentation != null && hidden == null) {
             inFlight.release(ticket)
             return AutomationScreenshot("OVERLAY_NOT_READY")
         }
-        return try {
-            captureSupported(frame, session, call, currentTarget, ticket)
-        } finally {
-            hidden?.close()
-        }
+        hidden?.let { inFlight.attach(ticket, it) }
+        return captureSupported(frame, session, call, currentTarget, ticket)
     }
 
     @Suppress("ReturnCount") // Buffer and callback ownership stay in one try/finally.
@@ -62,8 +61,11 @@ internal class AutomationScreenshotCapture(
         val wholeDisplay = session.scope.allApplications && session.scope.deniedPackages.isEmpty()
         val pending =
             PendingAutomationResult<CaptureResult> { result ->
-                result.image?.hardwareBuffer?.close()
-                inFlight.release(ticket)
+                try {
+                    result.image?.hardwareBuffer?.close()
+                } finally {
+                    releaseLateCallback(ticket)
+                }
             }
         val callback =
             object : AccessibilityService.TakeScreenshotCallback {
@@ -116,6 +118,15 @@ internal class AutomationScreenshotCapture(
             return AutomationScreenshot("CAPTURE_EXCEEDS_IMAGE_BUDGET")
         } finally {
             pending.abandon()
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Retain the failed cleanup fact on an already abandoned capture.
+    private fun releaseLateCallback(ticket: Any) {
+        try {
+            inFlight.release(ticket)
+        } catch (error: RuntimeException) {
+            android.util.Log.e("MobileUseLifecycle", "Capture cleanup failed: ${error.javaClass.simpleName}")
         }
     }
 
