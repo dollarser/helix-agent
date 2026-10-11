@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "browser",
+  "version": "0.1.0",
+  "description": "Browse authorized webpages with Helix's in-app browser.",
+  "extensions": {
+    "com.helix.agent": {
+      "runtime": "browser"
+    }
+  }
+}

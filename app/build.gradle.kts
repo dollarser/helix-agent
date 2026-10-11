@@ -91,8 +91,8 @@ dependencies {
     implementation(project(":feature:files"))
     // HXA-060: the minimal hardened WebView browser (tabs / URL policy / downloads UI).
     implementation(project(":feature:browser"))
-    // HXA-062: the browser.* tool descriptors / executors live in :tools:browser; :app calls
-    // BrowserTools.registerAll directly (same direct-dep pattern as :tools:files). A distinct
+    // HXA-276: Browser native contribution reuses descriptors / executors in :tools:browser.
+    // App composition injects the existing host bridge through :extensions:browser. A distinct
     // :tools:browser group (root build.gradle.kts) keeps it from colliding with :feature:browser.
     implementation(project(":tools:browser"))
     // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
@@ -112,6 +112,7 @@ dependencies {
     // types remain behind :extensions:mcp's Helix-owned facade.
     implementation(project(":extensions:mcp"))
     implementation(project(":extensions:plugin"))
+    implementation(project(":extensions:browser"))
     // HXA-078: client-only A2A configuration and Agent Card discovery/snapshot. The transport
     // remains behind :extensions:a2a's Helix-owned facade; dynamic tools arrive in HXA-079.
     implementation(project(":extensions:a2a"))

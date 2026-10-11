@@ -10,7 +10,6 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
-import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -21,7 +20,7 @@ object BrowserSnapshotTool {
     const val NAME: String = "browser.snapshot"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -75,7 +74,7 @@ object BrowserSnapshotTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     private fun nodesArraySchema(): JsonObject =
@@ -115,15 +114,6 @@ object BrowserSnapshotTool {
                 )
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }
 
 // ===========================================================================
@@ -133,7 +123,7 @@ object BrowserFindTool {
     const val NAME: String = "browser.find"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -168,7 +158,7 @@ object BrowserFindTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     private fun matchesArraySchema(): JsonObject =
@@ -233,13 +223,4 @@ object BrowserFindTool {
                 )
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }

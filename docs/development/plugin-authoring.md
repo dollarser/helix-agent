@@ -36,7 +36,7 @@ Claude Code 的[清单参考](https://code.claude.com/docs/en/plugins/manifest-r
 样例在 [samples](../../extensions/plugin/src/test/resources/samples/README.md)。它们不是下载器、市场或新 SDK。
 
 1. **纯 Skill**：`pure-workflow` 包含清单和文本工作流，无占位工具。用现有插件入口预览并安装，启用内容、会话选择，再通过 `skills.read` 读取准确 key；取消选择后不可再读。首次读取不自动发送信息或执行包内脚本。
-2. **已知 native**：`known-native` 展示宿主自己的 `chat-reply` 清单。外部导入会明确省略 native；真实工厂来自 APK。使用应用已有 Chat Reply 来源、选择会话并读取其 Skill，停用后拒绝后续读取。此 native 本身是零工具工作流，不伪造执行工具。
+2. **已知 native**：`known-native/plugin.json` 展示宿主自己的零工具 `chat-reply` 工作流，`browser-plugin.json` 展示有工具的 Browser。外部导入会明确省略 native；真实工厂来自 APK。使用应用已有来源、选择会话并读取其 Skill，停用后拒绝后续读取或工具调用。Browser 在双渠道提供，新会话默认选择可由用户修改；取消 Agent 选择不关闭手动标签。选择、导入清单或读取 Skill 都不创建页面或授予网站访问。
 3. **远程 MCP**：`remote-mcp` 使用不可达占位域名，作者应替换为自己 HTTPS Streamable HTTP 服务。预览→安装→显式配置/连接→选择工具和会话→首次调用按真实授权链执行→取消选择及断开。设备回归使用受控 loopback JSON-RPC 服务代替真实账号，验证首次发送审批和停用后的网络零调用。
 
 精确样例文件由 `PluginAuthorSampleTest` 使用生产解析器验证；`PluginAuthorExamplesDeviceTest` 使用同契约的唯一命名实例走生产安装、选择和 Dispatcher，避免同名资产冲突。真实模型沿用现有可信 Skill 输入回归，不操作第三方账号。

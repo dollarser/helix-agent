@@ -6,6 +6,7 @@ import com.helix.extensions.plugin.NativePluginState
 /** The same installation manifest, version and session selection used by imported packages. */
 class RoomNativePluginCatalog(
     private val catalog: PluginCatalog,
+    private val newInstallationDefaults: Set<String> = emptySet(),
 ) : NativePluginCatalog {
     override fun selectionId(
         sessionId: String,
@@ -46,7 +47,7 @@ class RoomNativePluginCatalog(
                 enabled = state.enabled,
                 native = NativePluginComponent(state.pluginId, state.runtimeId),
             )
-        catalog.publishNative(record, expectedRevision)
+        catalog.publishNative(record, expectedRevision, state.pluginId in newInstallationDefaults)
     }
 
     private fun InstalledPlugin.nativeState(): NativePluginState {

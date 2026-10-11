@@ -67,18 +67,9 @@ internal class ToolVisionServices(
             MobileUseScreenTarget(session.id, providers.storedConfig(provider), model)
         }
 
-    fun registerTools(
-        registry: com.helix.tools.framework.ToolRegistry,
-        browser: com.helix.feature.browser.BrowserController,
-    ) {
+    fun registerTools(registry: com.helix.tools.framework.ToolRegistry) {
         com.helix.tools.files.ViewImageTool
             .register(registry, preparation)
-        com.helix.tools.browser.BrowserTools.registerAll(
-            registry,
-            com.helix.feature.browser
-                .BrowserToolBridgeImpl(browser, workspace, scopeId),
-            preparation,
-        )
     }
 
     val preparation =

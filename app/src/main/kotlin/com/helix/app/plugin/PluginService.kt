@@ -265,7 +265,12 @@ class PluginService(
                     ?: if (nativeRegistry == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null,
             )
         val loaded = nativeRegistry?.ready(native.pluginId) == true
-        val setup = reason ?: if (loaded) null else PluginSetupReason.RELOAD
+        val setup =
+            reason ?: when {
+                !loaded -> PluginSetupReason.RELOAD
+                native.pluginId == "browser" && !browserHostAvailable() -> PluginSetupReason.HOST_UNAVAILABLE
+                else -> null
+            }
         val state =
             when (setup) {
                 PluginSetupReason.MOBILE_SCOPE -> {
@@ -281,11 +286,7 @@ class PluginService(
                 }
 
                 null -> {
-                    if (loaded) {
-                        PluginComponentState.AVAILABLE
-                    } else {
-                        PluginComponentState.RELOAD_REQUIRED
-                    }
+                    PluginComponentState.AVAILABLE
                 }
 
                 else -> {
@@ -294,7 +295,7 @@ class PluginService(
             }
         return PluginComponentFact(
             record.id,
-            PluginComponentKind.NATIVE,
+            if (native.pluginId == "browser") PluginComponentKind.BROWSER else PluginComponentKind.NATIVE,
             state,
             nativeRegistry?.configurationSaved(native.pluginId) == true,
             loaded,

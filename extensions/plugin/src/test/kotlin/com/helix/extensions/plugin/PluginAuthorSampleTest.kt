@@ -5,6 +5,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PluginAuthorSampleTest {
+    @Test fun browserNativeExampleDoesNotCreateAHostOrGrantWebsiteAccess() {
+        val bytes =
+            requireNotNull(javaClass.getResourceAsStream("/samples/known-native/browser-plugin.json"))
+                .use { it.readBytes() }
+        assertEquals("browser", PluginManifestReader.parse(bytes).helixRuntimeId)
+        val bundle = PluginPackageReader().parse(mapOf("plugin.json" to bytes))
+        assertTrue(bundle.componentDiagnostics.any { it.kind == PluginComponentKind.NATIVE && it.omitted })
+        assertTrue(bundle.endpoints.isEmpty())
+        assertTrue(bundle.skills.isEmpty())
+    }
+
     @Test fun remoteMcpExampleIsRecognizedButNotConnectedByParsing() {
         val files =
             listOf("plugin.json", "mcp.json").associateWith {

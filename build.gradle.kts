@@ -121,6 +121,7 @@ val androidLibraries =
         ":extensions:a2a" to "com.helix.extensions.a2a",
         ":extensions:mobile-use" to "com.helix.extensions.mobileuse",
         ":extensions:chat-reply" to "com.helix.extensions.chatreply",
+        ":extensions:browser" to "com.helix.extensions.browser",
         ":spikes:a2a-sdk" to "com.helix.spikes.a2a.sdk",
         ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
         ":spikes:bounded-orchestration" to "com.helix.spikes.orchestration",
@@ -207,6 +208,15 @@ val projectDependencies =
             ),
         ":extensions:chat-reply" to
             listOf(":core:model", ":core:policy", ":extensions:plugin", ":extensions:skills", ":tools:framework"),
+        ":extensions:browser" to
+            listOf(
+                ":core:model",
+                ":core:policy",
+                ":extensions:plugin",
+                ":extensions:skills",
+                ":tools:framework",
+                ":tools:browser",
+            ),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
@@ -263,6 +273,9 @@ subprojects {
             // touching the artifact name or any external lockfile (project deps are not locked).
             if (path == ":tools:browser") {
                 group = "com.helix.tools"
+            }
+            if (path == ":extensions:browser") {
+                group = "com.helix.extensions"
             }
 
             // Uniform test baseline for every android library: a module adding its first

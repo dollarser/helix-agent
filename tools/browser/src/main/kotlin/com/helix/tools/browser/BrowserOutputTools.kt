@@ -10,7 +10,6 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
-import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
@@ -19,7 +18,7 @@ object BrowserScreenshotTool {
     const val NAME: String = "browser.screenshot"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -57,7 +56,7 @@ object BrowserScreenshotTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(
@@ -123,16 +122,6 @@ object BrowserScreenshotTool {
                 }
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-        visualPreparation: com.helix.tools.framework.ToolVisualPreparation? = null,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge, visualPreparation))
-    }
 }
 
 // ===========================================================================
@@ -143,7 +132,7 @@ object BrowserDownloadTool {
     const val VERSION: Int = 1
 
     @Suppress("LongMethod") // 8-field output schema: the download surface is wider than the sibling browser tools
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -219,7 +208,7 @@ object BrowserDownloadTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -291,13 +280,4 @@ object BrowserDownloadTool {
                 }
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }

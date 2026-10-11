@@ -10,7 +10,6 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
-import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
@@ -19,7 +18,7 @@ object BrowserOpenTool {
     const val NAME: String = "browser.open"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -57,7 +56,7 @@ object BrowserOpenTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -79,15 +78,6 @@ object BrowserOpenTool {
                 )
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }
 
 // ===========================================================================
@@ -97,7 +87,7 @@ object BrowserNavigateTool {
     const val NAME: String = "browser.navigate"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -137,7 +127,7 @@ object BrowserNavigateTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -189,13 +179,4 @@ object BrowserNavigateTool {
                 }
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }

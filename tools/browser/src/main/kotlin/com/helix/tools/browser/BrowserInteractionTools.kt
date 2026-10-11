@@ -10,7 +10,6 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
-import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -20,7 +19,7 @@ object BrowserClickTool {
     const val NAME: String = "browser.click"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -64,7 +63,7 @@ object BrowserClickTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -86,15 +85,6 @@ object BrowserClickTool {
                 return actionResult(out)
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }
 
 // ===========================================================================
@@ -104,7 +94,7 @@ object BrowserTypeTool {
     const val NAME: String = "browser.type"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -149,7 +139,7 @@ object BrowserTypeTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -174,15 +164,6 @@ object BrowserTypeTool {
                 return actionResult(out)
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }
 
 /** Maps a closed [ActionOutcome] to the click/type result (shared by [BrowserClickTool] and [BrowserTypeTool]). */
@@ -215,7 +196,7 @@ object BrowserScrollTool {
     const val NAME: String = "browser.scroll"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -256,7 +237,7 @@ object BrowserScrollTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -311,13 +292,4 @@ object BrowserScrollTool {
                 }
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }

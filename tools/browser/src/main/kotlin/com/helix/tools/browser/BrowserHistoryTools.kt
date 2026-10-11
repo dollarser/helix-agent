@@ -10,7 +10,6 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
-import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
@@ -19,7 +18,7 @@ object BrowserBackTool {
     const val NAME: String = "browser.back"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -53,7 +52,7 @@ object BrowserBackTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -70,15 +69,6 @@ object BrowserBackTool {
                 return historyResult(out)
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }
 
 // ===========================================================================
@@ -88,7 +78,7 @@ object BrowserForwardTool {
     const val NAME: String = "browser.forward"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -122,7 +112,7 @@ object BrowserForwardTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -139,15 +129,6 @@ object BrowserForwardTool {
                 return historyResult(out)
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }
 
 /** Maps a closed [HistoryOutcome] to the back/forward result (shared by [BrowserBackTool] / [BrowserForwardTool]). */
@@ -195,7 +176,7 @@ object BrowserReloadTool {
     const val NAME: String = "browser.reload"
     const val VERSION: Int = 1
 
-    fun descriptor(): ToolDescriptor =
+    fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
@@ -228,7 +209,7 @@ object BrowserReloadTool {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin = origin,
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -267,13 +248,4 @@ object BrowserReloadTool {
                 }
             }
         }
-
-    fun register(
-        registry: ToolRegistry,
-        bridge: BrowserToolBridge,
-    ) {
-        val d = descriptor()
-
-        registry.register(d, executor(bridge))
-    }
 }

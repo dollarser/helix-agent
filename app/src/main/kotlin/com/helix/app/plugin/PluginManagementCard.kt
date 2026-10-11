@@ -34,7 +34,11 @@ internal fun matchesPluginQuery(
 }
 
 internal fun pluginDisplayName(record: InstalledPlugin): String =
-    if (record.native?.pluginId == "mobile-use") "Mobile Use" else record.name
+    when (record.native?.pluginId) {
+        "mobile-use" -> "Mobile Use"
+        "browser" -> "Browser"
+        else -> record.name
+    }
 
 /** One presentation for all installations; source only controls applicable management actions. */
 @Composable

@@ -174,17 +174,18 @@ class PluginCatalog(
     fun defaultSelected(connectorId: String): Boolean =
         dao.installations().single { it.id == connectorId }.defaultSelected
 
-    /** Installing a native plugin never selects it in a conversation or grants its scope. */
+    /** A host product default applies once, without selecting existing conversations or granting scope. */
     @Synchronized
     fun publishNative(
         record: InstalledPlugin,
         expectedRevision: Long?,
+        defaultForNewSessions: Boolean = false,
     ) {
         require(record.source == "BUNDLED_PLUGIN" && record.native != null)
         storage.withTransaction {
             publish(record, expectedRevision)
             if (expectedRevision == null) {
-                check(dao.setDefault(record.id, false) == 1)
+                check(dao.setDefault(record.id, defaultForNewSessions) == 1)
             }
         }
     }

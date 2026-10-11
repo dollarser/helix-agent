@@ -4,7 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.HelixApplication
+import com.helix.app.MainActivity
 import com.helix.app.ToolArtifactRegistrationSink
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.TurnCoordinator
@@ -37,20 +40,28 @@ import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
+import com.helix.feature.browser.BrowserController
+import com.helix.feature.browser.BrowserToolBridgeImpl
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.openai.responses.ImagePayload
 import com.helix.provider.openai.responses.ImageResolver
 import com.helix.provider.openai.responses.ResponsesRequestEncoder
+import com.helix.tools.browser.BrowserTools
 import com.helix.tools.files.ViewImageTool
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolOrigin
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -64,6 +75,74 @@ import java.util.UUID
 
 /** Offline pixel, storage and encoding integration; no model service is invoked. */
 class ToolVisionFlowDeviceTest {
+    @Test
+    fun actualBrowserScreenshotPixelsFlowThroughHistoryAndConsent() =
+        runBlocking {
+            val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                lateinit var tab: String
+                scenario.onActivity { activity ->
+                    val html =
+                        "<meta name=viewport content='width=device-width,initial-scale=1'>" +
+                            "<body style='margin:0;background:linear-gradient(to right," +
+                            "red 0%,red 50%,lime 50%,lime 100%)'>Browser pixels</body>"
+                    tab = c.browser.openTab("data:text/html," + android.net.Uri.encode(html)).tabId
+                    activity.setContentView(
+                        c.browser.hostView(tab)!!,
+                        android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        ),
+                    )
+                }
+                try {
+                    val deadline = android.os.SystemClock.elapsedRealtime() + 10000
+                    var loaded = false
+                    while (!loaded && android.os.SystemClock.elapsedRealtime() < deadline) {
+                        scenario.onActivity { loaded = c.browser.tab(tab)?.isLoading == false }
+                        if (!loaded) delay(50)
+                    }
+                    assertTrue("Synthetic browser page did not settle", loaded)
+                    delay(200)
+                    Fixture(browser = c.browser, tabId = tab).use { fixture ->
+                        val result = fixture.prepare() as ToolExecutorResult.Completed
+                        assertTrue("Screenshot must contain actual pixels", result.visualArtifact != null)
+                        fixture.coordinator.settleBatchCall("call", false)
+                        fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                        assertUnapprovedPixelsBlocked(fixture)
+                        val messages = authorizeProjection(fixture)
+                        val pixels = fixture.source.load(messages.last().images.single(), fixture.config)
+                        assertBrowserPixels(pixels.base64)
+                        val body =
+                            ResponsesRequestEncoder(
+                                ImageResolver { image ->
+                                    ImagePayload.Base64(fixture.source.load(image, fixture.config).base64)
+                                },
+                            ).encode(ModelRequest("vision", messages))
+                        assertTrue(body.contains(pixels.base64))
+                        assertTrue(body.contains("input_image"))
+                    }
+                } finally {
+                    scenario.onActivity { c.browser.closeTab(tab) }
+                }
+            }
+        }
+
+    private fun assertBrowserPixels(base64: String) {
+        val bytes = Base64.getDecoder().decode(base64)
+        val bitmap = requireNotNull(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+        try {
+            assertTrue(bitmap.width >= 64 && bitmap.height >= 64)
+            val left = bitmap.getPixel(bitmap.width / 4, bitmap.height / 2)
+            val right = bitmap.getPixel(bitmap.width * 3 / 4, bitmap.height / 2)
+            println("BROWSER_SCREENSHOT_PIXELS=${bitmap.width}x${bitmap.height} left=$left right=$right")
+            assertTrue("Missing rendered red half", Color.red(left) > 200 && Color.green(left) < 40)
+            assertTrue("Missing rendered green half", Color.green(right) > 200 && Color.red(right) < 40)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     @Test
     fun pixelsFlowThroughHistoryAndConsent() =
         runBlocking {
@@ -255,6 +334,8 @@ class ToolVisionFlowDeviceTest {
 
     private class Fixture(
         onDevice: Boolean = false,
+        private val browser: BrowserController? = null,
+        private val tabId: String? = null,
     ) : Closeable {
         private val context = ApplicationProvider.getApplicationContext<Context>()
         private val name = "vision-${UUID.randomUUID()}.db"
@@ -332,14 +413,19 @@ class ToolVisionFlowDeviceTest {
                 clock,
                 { true },
             )
+        private val toolName = if (browser == null) "view_image" else "browser.screenshot"
         val call =
             ExecutableToolCall(
                 "call",
-                "view_image",
+                toolName,
                 "1",
-                JsonObject(mapOf("path" to JsonPrimitive("scope:ws:input/sample.png"))),
+                if (browser == null) {
+                    JsonObject(mapOf("path" to JsonPrimitive("scope:ws:input/sample.png")))
+                } else {
+                    JsonObject(mapOf("tabId" to JsonPrimitive(requireNotNull(tabId))))
+                },
                 ExecutionTargetType.LOCAL_ANDROID,
-                clock.now().plusSeconds(30),
+                if (browser == null) clock.now().plusSeconds(30) else Instant.now().plusSeconds(30),
                 NoCancellation,
                 "s",
                 "turn",
@@ -370,22 +456,43 @@ class ToolVisionFlowDeviceTest {
                     TurnStartSpec("s", "turn", "first", "fixture", "Inspect the image"),
                 )
             val stream = coordinator.beginModelStream()
-            stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call"), "view_image"))
+            stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call"), toolName))
             stream.apply(ModelEvent.ToolArgumentsDelta(0, call.args.toString()))
             stream.apply(ModelEvent.ToolCallFinished(0))
             coordinator.beginToolBatch(listOf("call"))
-            val toolStep = """[{"id":"call","name":"view_image","arguments":"{}"}]"""
+            val toolStep =
+                buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("id", "call")
+                            put("name", toolName)
+                            put("arguments", call.args.toString())
+                        },
+                    )
+                }.toString()
             coordinator.commitModelToolStep(toolStep)
             createPixels()
         }
 
-        fun prepare() = ViewImageTool.executor(preparer).execute(call)
+        fun prepare() =
+            if (browser == null) {
+                ViewImageTool.executor(preparer).execute(call)
+            } else {
+                BrowserTools
+                    .bindings(
+                        BrowserToolBridgeImpl(browser, workspace, "ws"),
+                        ToolOrigin.PluginOrigin("browser", "0.1.0", "browser"),
+                        preparer,
+                    ).single { it.descriptor.name.value == toolName }
+                    .executor
+                    .execute(call)
+            }
 
         fun draft(result: ToolExecutorResult.Completed) =
             ChatToolMessageEncoder { _, _ -> "" }.toolResultDraft(
                 SettledCall(
                     "call",
-                    "view_image",
+                    toolName,
                     ToolDispatchOutcome.Succeeded(
                         BoundToolResult(
                             result.output.toString(),

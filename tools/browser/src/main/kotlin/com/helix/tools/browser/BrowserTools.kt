@@ -1,29 +1,31 @@
 package com.helix.tools.browser
 
-import com.helix.tools.framework.ToolRegistry
+import com.helix.tools.framework.ToolBinding
+import com.helix.tools.framework.ToolOrigin
+import com.helix.tools.framework.ToolVisualPreparation
 
 object BrowserTools {
-    /**
-     * Registers all 12 `browser.*` contracts and registry against the shared [bridge].
-     * Called once from the app container (which owns the production `BrowserToolBridgeImpl`);
-     * tests build a [ToolRegistry] / [ToolRegistry] pair and a fake bridge.
-     */
-    fun registerAll(
-        registry: ToolRegistry,
+    /** The host-native Browser contribution owns publication; executors keep their existing bridge. */
+    fun bindings(
         bridge: BrowserToolBridge,
-        visualPreparation: com.helix.tools.framework.ToolVisualPreparation? = null,
-    ) {
-        BrowserOpenTool.register(registry, bridge)
-        BrowserNavigateTool.register(registry, bridge)
-        BrowserBackTool.register(registry, bridge)
-        BrowserForwardTool.register(registry, bridge)
-        BrowserReloadTool.register(registry, bridge)
-        BrowserSnapshotTool.register(registry, bridge)
-        BrowserFindTool.register(registry, bridge)
-        BrowserClickTool.register(registry, bridge)
-        BrowserTypeTool.register(registry, bridge)
-        BrowserScrollTool.register(registry, bridge)
-        BrowserScreenshotTool.register(registry, bridge, visualPreparation)
-        BrowserDownloadTool.register(registry, bridge)
-    }
+        origin: ToolOrigin.PluginOrigin,
+        visualPreparation: ToolVisualPreparation? = null,
+    ): List<ToolBinding> =
+        listOf(
+            ToolBinding(BrowserOpenTool.descriptor(origin), BrowserOpenTool.executor(bridge)),
+            ToolBinding(BrowserNavigateTool.descriptor(origin), BrowserNavigateTool.executor(bridge)),
+            ToolBinding(BrowserBackTool.descriptor(origin), BrowserBackTool.executor(bridge)),
+            ToolBinding(BrowserForwardTool.descriptor(origin), BrowserForwardTool.executor(bridge)),
+            ToolBinding(BrowserReloadTool.descriptor(origin), BrowserReloadTool.executor(bridge)),
+            ToolBinding(BrowserSnapshotTool.descriptor(origin), BrowserSnapshotTool.executor(bridge)),
+            ToolBinding(BrowserFindTool.descriptor(origin), BrowserFindTool.executor(bridge)),
+            ToolBinding(BrowserClickTool.descriptor(origin), BrowserClickTool.executor(bridge)),
+            ToolBinding(BrowserTypeTool.descriptor(origin), BrowserTypeTool.executor(bridge)),
+            ToolBinding(BrowserScrollTool.descriptor(origin), BrowserScrollTool.executor(bridge)),
+            ToolBinding(
+                BrowserScreenshotTool.descriptor(origin),
+                BrowserScreenshotTool.executor(bridge, visualPreparation),
+            ),
+            ToolBinding(BrowserDownloadTool.descriptor(origin), BrowserDownloadTool.executor(bridge)),
+        )
 }

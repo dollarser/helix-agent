@@ -25,6 +25,23 @@ import java.time.Instant
 class BrowserToolsMappingTest {
     private val bridge = FakeBridge()
 
+    @Test
+    fun browserContributionHasOnePluginOwnerForEveryContract() {
+        val origin =
+            com.helix.tools.framework.ToolOrigin
+                .PluginOrigin("browser", "0.1.0", "browser")
+        val bindings = BrowserTools.bindings(bridge, origin)
+        assertEquals(12, bindings.size)
+        assertEquals(12, bindings.map { it.descriptor.name }.distinct().size)
+        assertTrue(bindings.all { it.descriptor.origin == origin })
+        assertTrue(
+            bindings.all {
+                it.descriptor.name.value
+                    .startsWith("browser.")
+            },
+        )
+    }
+
     private val noCancel =
         object : CancelSignal {
             override fun isCancelled(): Boolean = false

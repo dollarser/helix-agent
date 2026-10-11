@@ -76,7 +76,6 @@ import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.android.EgressPolicy
 import com.helix.tools.android.EgressPolicyProvider
-import com.helix.tools.browser.BrowserTools
 import com.helix.tools.framework.TimeNowTool
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
@@ -289,7 +288,7 @@ internal class DefaultAppContainer(
         com.helix.extensions.plugin.PluginRegistry(
             toolRegistry,
             com.helix.app.plugin
-                .RoomNativePluginCatalog(pluginCatalog),
+                .RoomNativePluginCatalog(pluginCatalog, setOf(com.helix.extensions.browser.BrowserPlugin.PLUGIN_ID)),
         )
 
     override val skillRepository: SkillRepository =
@@ -605,7 +604,14 @@ internal class DefaultAppContainer(
             workspaceStore,
             toolVision.artifactSink,
         )
-        toolVision.registerTools(toolRegistry, browser)
+        toolVision.registerTools(toolRegistry)
+        pluginRegistry.register(
+            com.helix.extensions.browser.BrowserPlugin(
+                context,
+                BrowserToolBridgeImpl(browser, workspaceStore, APP_SCOPE_ID),
+                toolVision.preparation,
+            ),
+        )
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
