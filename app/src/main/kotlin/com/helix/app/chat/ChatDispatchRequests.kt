@@ -73,6 +73,9 @@ internal class ChatDispatchRequests(
                     )
                 }
         val pluginContext = toolPipeline.plugins?.executionContext(descriptor, turn.sessionId)
+        val accessibilityOrigin =
+            pluginContext?.dataOrigin == DataOrigin.ACCESSIBILITY ||
+                (pluginContext == null && descriptor?.name?.value?.startsWith("ui.") == true)
         return ToolDispatchRequest(
             toolCallId = toolCallId,
             turnId = turn.id,
@@ -87,6 +90,7 @@ internal class ChatDispatchRequests(
             dataOrigin =
                 when {
                     pluginContext != null -> pluginContext.dataOrigin
+                    accessibilityOrigin -> DataOrigin.ACCESSIBILITY
                     descriptor?.name?.value?.startsWith("root.") == true -> DataOrigin.ROOT
                     else -> DataOrigin.WORKSPACE
                 },

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chat-reply",
+  "version": "0.1.0",
+  "description": "Analyze an authorized visible chat and prepare user-reviewed reply suggestions.",
+  "extensions": {
+    "com.helix.agent": {
+      "runtime": "chat-reply"
+    }
+  }
+}

@@ -138,6 +138,7 @@ dependencies {
     add("developerImplementation", project(":feature:files-allfiles"))
     add("developerImplementation", project(":tools:device-access"))
     add("developerImplementation", project(":extensions:mobile-use"))
+    add("developerImplementation", project(":extensions:chat-reply"))
     add("developerImplementation", project(":tools:root"))
     add("developerImplementation", libs.shizuku.api)
     add("developerImplementation", libs.shizuku.provider)

@@ -43,6 +43,7 @@ include(
     ":extensions:a2a",
     ":extensions:plugin",
     ":extensions:mobile-use",
+    ":extensions:chat-reply",
     ":extensions:skills",
     ":feature:browser",
     ":feature:files",

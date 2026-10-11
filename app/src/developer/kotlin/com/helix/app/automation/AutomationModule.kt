@@ -62,6 +62,12 @@ internal object AutomationModule {
                 }.also { runtime = it }
         if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(plugin)
         plugin.permissionCenter.configureConversations(grants, conversationExists, plugin::isAvailable)
+        if (plugins.find(com.helix.extensions.chatreply.ChatReplyPlugin.PLUGIN_ID) == null) {
+            plugins.register(
+                com.helix.extensions.chatreply
+                    .ChatReplyPlugin(context.applicationContext),
+            )
+        }
         appContext = context.applicationContext
         settingsStore = grants
     }
