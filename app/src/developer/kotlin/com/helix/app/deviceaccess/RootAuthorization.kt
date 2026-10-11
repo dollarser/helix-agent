@@ -50,16 +50,27 @@ internal fun RootAuthorization(context: Context) {
         description = stringResource(R.string.device_access_root_help),
         status = stringResource(presentation.label),
         tag = "permission-root-authorize",
-        actionLabel = stringResource(R.string.device_access_root_authorize),
+        actionLabel =
+            stringResource(
+                if (presentation.reuseGrant) {
+                    R.string.device_access_root_reconnect
+                } else {
+                    R.string.device_access_root_authorize
+                },
+            ),
         enabled = presentation.canRequest,
     ) {
         try {
-            DeviceAccess.requestRootFromUser(consumer)
-            connectRequested = true
+            if (presentation.reuseGrant) {
+                DeviceAccess.connectEnabledRootConsumers()
+            } else {
+                DeviceAccess.requestRootFromUser(consumer)
+                connectRequested = true
+            }
             failed = false
         } catch (_: RuntimeException) {
             failed = true
         }
     }
-    if (failed) Text(stringResource(R.string.permissions_settings_unavailable))
+    if (failed) Text(stringResource(R.string.device_access_root_failed))
 }

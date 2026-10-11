@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,7 +15,8 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.tools.deviceaccess.DeviceAccess
 import com.helix.tools.deviceaccess.ShizukuPermissionActivity
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 @Suppress("FunctionName")
@@ -24,12 +24,10 @@ internal fun ShizukuAuthorization(context: Context) {
     var ready by remember { mutableStateOf(false) }
     var granted by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(context) {
-        while (true) {
-            ready = DeviceAccess.shizukuReady()
-            granted = DeviceAccess.shizukuGranted()
-            delay(750)
-        }
+    com.helix.app.ui.ForegroundRefresh(context) {
+        val facts = withContext(Dispatchers.IO) { DeviceAccess.shizukuReady() to DeviceAccess.shizukuGranted() }
+        ready = facts.first
+        granted = facts.second
     }
     Column(Modifier.testTag("permission-shizuku")) {
         com.helix.app.ui.SystemPermissionCard(
@@ -39,7 +37,7 @@ internal fun ShizukuAuthorization(context: Context) {
                 stringResource(
                     when {
                         !ready -> R.string.device_access_shizuku_unavailable
-                        granted -> R.string.permissions_granted
+                        granted -> R.string.device_access_backend_ready
                         else -> R.string.permissions_not_granted
                     },
                 ),

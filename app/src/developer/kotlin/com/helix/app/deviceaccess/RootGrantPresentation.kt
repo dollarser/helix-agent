@@ -8,6 +8,7 @@ import com.helix.tools.root.RootServiceState
 internal data class RootGrantPresentation(
     val label: Int,
     val canRequest: Boolean,
+    val reuseGrant: Boolean,
 )
 
 /** App authorization only. A cached grant says nothing about a plugin connection. */
@@ -16,7 +17,6 @@ internal fun rootGrantPresentation(
     cached: Boolean?,
 ): RootGrantPresentation {
     val requesting = status.grant == RootGrantState.REQUESTING
-    val connected = cached != false && status.service == RootServiceState.CONNECTED
     return RootGrantPresentation(
         label =
             when {
@@ -25,6 +25,7 @@ internal fun rootGrantPresentation(
                 cached == true -> R.string.device_root_granted
                 else -> R.string.device_root_unknown
             },
-        canRequest = !requesting && !connected && status.service != RootServiceState.CONNECTING,
+        canRequest = !requesting && status.service != RootServiceState.CONNECTING,
+        reuseGrant = cached == true && status.grant != RootGrantState.DENIED,
     )
 }

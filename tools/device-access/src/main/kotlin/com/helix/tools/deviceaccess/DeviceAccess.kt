@@ -65,11 +65,19 @@ object DeviceAccess {
         context: Context,
         component: ComponentName,
     ): Boolean =
-        Settings.Secure.getInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1 &&
-            Settings.Secure
-                .getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-                .orEmpty()
-                .split(':')
-                .mapNotNull(ComponentName::unflattenFromString)
-                .any { it == component }
+        Settings.Secure
+            .getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            .orEmpty()
+            .split(':')
+            .mapNotNull(ComponentName::unflattenFromString)
+            .any { it == component }
+
+    /** Runtime binding is separate from the persisted user choice, including during suppression. */
+    fun accessibilityConnected(
+        context: Context,
+        component: ComponentName,
+    ): Boolean =
+        requireNotNull(context.getSystemService(android.view.accessibility.AccessibilityManager::class.java))
+            .getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { ComponentName(it.resolveInfo.serviceInfo.packageName, it.resolveInfo.serviceInfo.name) == component }
 }

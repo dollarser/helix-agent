@@ -10,6 +10,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RootGrantPresentationTest {
+    @Test fun hostConnectionDoesNotPreventRepairingAnotherConsumer() {
+        val view = rootGrantPresentation(RootAccessStatus(RootGrantState.GRANTED, RootServiceState.CONNECTED), true)
+        assertEquals(R.string.device_root_granted, view.label)
+        assertTrue(view.canRequest)
+        assertTrue(view.reuseGrant)
+    }
+
+    @Test fun currentDenialRequiresExplicitAuthorizationEvenWithStaleCache() {
+        val view = rootGrantPresentation(RootAccessStatus(RootGrantState.DENIED, RootServiceState.DISCONNECTED), true)
+        assertEquals(R.string.device_root_denied, view.label)
+        assertFalse(view.reuseGrant)
+    }
+
     @Test fun disconnectedHostCanVerifyCachedAppGrantWithoutClaimingPluginReadiness() {
         val view =
             rootGrantPresentation(RootAccessStatus(RootGrantState.UNAVAILABLE, RootServiceState.DISCONNECTED), true)

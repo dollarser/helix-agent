@@ -11,12 +11,18 @@ import com.helix.tools.framework.ToolExecutorResult
 internal class MobileUsePresentedExecutor(
     private val delegate: ToolExecutor,
     private val presentation: AutomationRuntimePresentation,
-    private val authorized: (ExecutableToolCall) -> Boolean,
+    private val admissionError: (ExecutableToolCall) -> String?,
 ) : ToolExecutor {
     override fun execute(call: ExecutableToolCall): ToolExecutorResult =
         AutomationServiceController.withPhysicalOperation {
-            if (!authorized(call) || !presentation.bind(call)) {
-                return@withPhysicalOperation refused("MOBILE_USE_TASK_NOT_ACTIVE")
+            admissionError(call)?.let { return@withPhysicalOperation refused(it) }
+            if (!presentation.bind(
+                    call,
+                )
+            ) {
+                return@withPhysicalOperation refused(
+                    "MOBILE_USE_TASK_UNAVAILABLE: Open the conversation to check whether the task stopped.",
+                )
             }
             val guarded =
                 call.copy(
@@ -29,11 +35,19 @@ internal class MobileUsePresentedExecutor(
                 presentation.hideForOperation(guarded)
                     ?: return@withPhysicalOperation refused("OVERLAY_HIDE_NOT_CONFIRMED")
             hidden.use {
-                if (guard(guarded)) delegate.execute(guarded) else refused("MOBILE_USE_TASK_NOT_ACTIVE")
+                when {
+                    !presentation.executionAllowed() -> {
+                        refused(
+                            "MOBILE_USE_TASK_STOPPED: The task was stopped or taken over; do not retry automatically.",
+                        )
+                    }
+
+                    else -> {
+                        admissionError(guarded)?.let(::refused) ?: delegate.execute(guarded)
+                    }
+                }
             }
         }
-
-    private fun guard(call: ExecutableToolCall) = !call.cancel.isCancelled() && authorized(call)
 
     private fun refused(detail: String) = ToolExecutorResult.Failed(detail, sideEffectFree = true)
 }

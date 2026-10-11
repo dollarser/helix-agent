@@ -1937,4 +1937,13 @@
     <string name="tool_purpose_device">View device status</string>
     <string name="tool_purpose_gesture">Perform touch gesture</string>
     <string name="tool_purpose_open_link">Open link</string>
+    <string name="device_access_accessibility_none">No accessibility service in this build</string>
+    <string name="device_access_accessibility_disconnected">Authorized · Not connected</string>
+    <string name="device_access_accessibility_restore">Restore connection</string>
+    <string name="device_access_accessibility_restore_help">Open Android settings and check Helix accessibility. If enabled but disconnected, turn it off and on again.</string>
+    <string name="device_access_backend_ready">Available</string>
+    <string name="device_access_root_reconnect">Reconnect enabled features</string>
+    <string name="device_access_status_checking">Checking…</string>
+    <string name="device_access_status_failed">Unable to check status</string>
+    <string name="device_access_root_failed">Authorization or connection failed. Check Helix authorization in your Root manager and retry.</string>
 </resources>

@@ -137,6 +137,29 @@ class AutomationPermissionCenter(
         }
     }
 
+    internal fun admissionError(call: com.helix.tools.framework.ExecutableToolCall): String? {
+        val grant = call.sessionId?.let(::conversationGrant)
+        val scopeMatches = grant != null && grant.scope.toScopeRef() == call.authorizationScopeRef
+        return com.helix.extensions.mobileuse
+            .MobileUseAdmission(
+                hasSession = call.sessionId != null,
+                hasGrant = grant != null,
+                scopeMatches = scopeMatches,
+                backendReady =
+                    supports(
+                        com.helix.extensions.mobileuse.tools.AutomationEnablement
+                            .capabilityFor(call.toolName),
+                    ),
+                cancelled = call.cancel.isCancelled(),
+                expired =
+                    !java.time.Instant
+                        .now()
+                        .isBefore(call.deadline),
+                locked = appContext.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked,
+                scopeSupplied = call.authorizationScopeRef != null,
+            ).error()
+    }
+
     fun accessibilityOverlayContext(): android.content.Context? = AutomationServiceController.overlayContext()
 
     internal fun windowCaptureAvailable(): Boolean =

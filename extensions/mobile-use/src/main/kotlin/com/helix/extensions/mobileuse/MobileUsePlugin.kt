@@ -118,8 +118,7 @@ class MobileUsePlugin(
     private fun present(executor: com.helix.tools.framework.ToolExecutor): com.helix.tools.framework.ToolExecutor =
         presentation?.let {
             MobileUsePresentedExecutor(executor, it) { call ->
-                permissionCenter.liveDeviceGrant(call) !=
-                    null
+                permissionCenter.admissionError(call)
             }
         }
             ?: executor

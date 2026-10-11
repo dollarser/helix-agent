@@ -42,7 +42,11 @@ class MobileUsePresentedExecutorTest {
                 return completed
             }
         }
-    private val executor = MobileUsePresentedExecutor(delegate, surface) { authorized }
+    private val executor =
+        MobileUsePresentedExecutor(
+            delegate,
+            surface,
+        ) { if (authorized) null else "MOBILE_USE_AUTHORIZATION_UNAVAILABLE" }
 
     @Test fun everyBackendHidesBeforeExecutionAndForwardsTakeoverWithoutChangingIdentity() {
         assertEquals(completed, executor.execute(call))
@@ -53,7 +57,25 @@ class MobileUsePresentedExecutorTest {
 
     @Test fun missingGrantNeverBindsOrExecutes() {
         authorized = false
-        assertTrue((executor.execute(call) as ToolExecutorResult.Failed).sideEffectFree)
+        val failure = executor.execute(call) as ToolExecutorResult.Failed
+        assertTrue(failure.sideEffectFree)
+        assertEquals("MOBILE_USE_AUTHORIZATION_UNAVAILABLE", failure.detail)
+        assertNull(surface.bound)
+        assertEquals(0, calls)
+    }
+
+    @Test fun takeoverAfterHideRefusesAndReleasesWindow() {
+        surface.afterHide = { surface.allowed = false }
+        val failure = executor.execute(call) as ToolExecutorResult.Failed
+        assertTrue(failure.detail.startsWith("MOBILE_USE_TASK_STOPPED"))
+        assertTrue(failure.sideEffectFree)
+        assertFalse(surface.hidden)
+        assertEquals(0, calls)
+    }
+
+    @Test fun backendFailureNeverBindsAndIsNotReportedAsTaskStopped() {
+        val unavailable = MobileUsePresentedExecutor(delegate, surface) { "MOBILE_USE_BACKEND_UNAVAILABLE" }
+        assertEquals("MOBILE_USE_BACKEND_UNAVAILABLE", (unavailable.execute(call) as ToolExecutorResult.Failed).detail)
         assertNull(surface.bound)
         assertEquals(0, calls)
     }
@@ -74,7 +96,7 @@ class MobileUsePresentedExecutorTest {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = error("failure")
             }
         assertThrows(IllegalStateException::class.java) {
-            MobileUsePresentedExecutor(failing, surface) { true }.execute(call)
+            MobileUsePresentedExecutor(failing, surface) { null }.execute(call)
         }
         assertFalse(surface.hidden)
     }

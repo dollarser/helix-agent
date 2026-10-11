@@ -1937,4 +1937,13 @@
     <string name="tool_purpose_device">查看设备状态</string>
     <string name="tool_purpose_gesture">执行触摸手势</string>
     <string name="tool_purpose_open_link">打开链接</string>
+    <string name="device_access_accessibility_none">此版本未提供无障碍服务</string>
+    <string name="device_access_accessibility_disconnected">已授权 · 未连接</string>
+    <string name="device_access_accessibility_restore">恢复连接</string>
+    <string name="device_access_accessibility_restore_help">前往系统设置检查 Helix 无障碍。若已开启但未连接，可关闭后重新开启。</string>
+    <string name="device_access_backend_ready">可用</string>
+    <string name="device_access_root_reconnect">连接已启用的功能</string>
+    <string name="device_access_status_checking">正在检查…</string>
+    <string name="device_access_status_failed">暂时无法确认状态</string>
+    <string name="device_access_root_failed">无法授权或连接，请检查 Root 管理器中的 Helix 授权后重试。</string>
 </resources>
