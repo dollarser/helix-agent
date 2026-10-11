@@ -22,9 +22,9 @@ plugin.json + skills/ + mcp.json + extensions.com.helix.agent
 
 ### 2026-10-11 任务化与目标实现
 
-所有者要求把插件研究转为现有开发任务，HXA-272～279 已登记，尚未开工；具体范围见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前优先级与依赖只在 [status](../development/status.md#插件优化队列2026-10-11)维护。
+所有者要求把插件研究转为现有开发任务，HXA-272～279 已登记；272已进入统一内容实现与有界验收，273～279尚未实施。具体范围见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前优先级与依赖只在 [status](../development/status.md#插件优化队列2026-10-11)维护。
 
-采用单一目标实现：Skill 内容统一后删除原生正文专用注入；Browser 作为 APK 已知 native contribution，直接替换旧 built-in 发布；原生资源按实际 owner 和使用引用收尾。不做旧版本、旧数据库、旧会话或旧批准迁移，不留双写、双注册或兼容 adapter；当前外部包格式的明确支持范围独立维护。MCP 仍是可选 adapter，Mobile Use 不为对齐 CUA 改成 MCP。2026-10-11 已按所有者要求将新增契约同步到四份现有主题 ADR，并追加 Decision history，见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。设计已接受、代码尚未实施，既有验收结论不随之扩大。
+采用单一目标实现：Skill 内容统一后删除原生正文专用注入；Browser 作为 APK 已知 native contribution，直接替换旧 built-in 发布；原生资源按实际 owner 和使用引用收尾。不做旧版本、旧数据库、旧会话或旧批准迁移，不留双写、双注册或兼容 adapter；当前外部包格式的明确支持范围独立维护。MCP 仍是可选 adapter，Mobile Use 不为对齐 CUA 改成 MCP。2026-10-11 已按所有者要求将新增契约同步到四份现有主题 ADR，并追加 Decision history，见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。272统一内容实现的实际结果见[证据](../evidence/development/hxa272-skill-content-2026-10-11.md)；其他已接受设计不代表代码或功能验收。
 
 ## 2. 当前问题
 

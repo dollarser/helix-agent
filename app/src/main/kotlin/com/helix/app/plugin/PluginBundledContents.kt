@@ -16,7 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.helix.app.R
-import com.helix.extensions.plugin.PluginBundledSkill
+import com.helix.extensions.skills.SkillDocument
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,7 +29,7 @@ internal fun PluginBundledContents(
     pluginId: String,
 ) {
     var tools by remember(pluginId) { mutableStateOf(emptyList<Pair<String, String>>()) }
-    var skills by remember(pluginId) { mutableStateOf(emptyList<PluginBundledSkill>()) }
+    var skills by remember(pluginId) { mutableStateOf(emptyList<SkillDocument>()) }
     var loaded by remember(pluginId) { mutableStateOf(false) }
     var failed by remember(pluginId) { mutableStateOf(false) }
     var skillsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
@@ -65,10 +65,10 @@ internal fun PluginBundledContents(
         if (skillsExpanded) {
             Text(stringResource(R.string.plugin_contents_skill_hint))
             skills.forEach { skill ->
-                var open by remember(skill.name) { mutableStateOf(false) }
-                TextButton({ open = !open }) { Text(skill.name) }
-                Text(skill.description)
-                if (open) Text(skill.content, Modifier.testTag("plugin-skill-content-${skill.name}"))
+                var open by remember(skill.catalogEntry) { mutableStateOf(false) }
+                TextButton({ open = !open }) { Text(skill.catalogEntry.name) }
+                Text(skill.catalogEntry.description)
+                if (open) Text(skill.rawContent, Modifier.testTag("plugin-skill-content-${skill.catalogEntry.name}"))
             }
         }
         TextButton(

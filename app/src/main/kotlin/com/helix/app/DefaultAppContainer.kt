@@ -297,7 +297,10 @@ internal class DefaultAppContainer(
             snapshotsRoot = skillsRoot.resolve("snapshots"),
             stateFile = skillsRoot.resolve("enablement.txt"),
             trashRoot = skillsRoot.resolve("trash"),
-            sourceAvailable = pluginCatalog::skillAvailable,
+            sourceAvailable = { key, session ->
+                pluginCatalog.skillAvailable(key, session) && pluginRegistry.skillAvailable(key, session)
+            },
+            contributedDocuments = pluginRegistry::skillDocuments,
             onIndependentInstall = { pluginCatalog.claim(it, independent = true) },
             beforeRemove = { key ->
                 require(pluginCatalog.list().none { key in it.skills }) { "SKILL_REFERENCED_BY_CONNECTOR" }
@@ -729,6 +732,7 @@ internal class DefaultAppContainer(
                 scheduler,
                 plugins = pluginRegistry,
                 disabledToolFilter = disabledToolFilter,
+                skills = skillRepository,
             ).also {
                 it.mcpDiscovery.register(toolRegistry, executionOwnership::metadataExecutor)
             }

@@ -28,16 +28,14 @@ class MobileUsePlugin(
     override val manifest: PluginManifest =
         context.assets.open(MANIFEST_ASSET).use { PluginManifestReader.parse(it.readBytes()) }
 
-    override val bundledSkills =
+    override val skills =
         listOf(
-            com.helix.extensions.plugin.PluginBundledSkill(
-                "android-ui-task",
-                "Operate authorized Android apps, verify results, then return to the originating Helix conversation " +
-                    "unless the user requested staying on the target screen or manual takeover is needed.",
+            com.helix.extensions.skills.SkillLoader().loadBuiltIn(
                 context.assets
                     .open("plugins/mobile-use/skills/android-ui-task/SKILL.md")
                     .bufferedReader()
                     .use { it.readText() },
+                "android-ui-task",
             ),
         )
 

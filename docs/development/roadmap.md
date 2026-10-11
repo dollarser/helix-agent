@@ -310,7 +310,7 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-269 | 阻塞修复及有界真机交付；整体黑屏验收pending | 真机后台返回黑屏诊断、主线程修复与Qwen回归 | [任务](tasks/HXA-269.md) |
 | HXA-271 | 会话/浮窗/Qwen及日常API36有界交付；授权恢复、链接说明修正、阶段9先说明再设置的主机/source/制品通过，新UI夹具仅编译；提示交互、后端恢复执行、模型新说明遵循率及其他设备边界开放 | 会话执行交互与信息层级 | [任务](tasks/HXA-271.md) |
 | HXA-270 | 实现、主机及OnePlus有界Qwen验收完成；其他设备矩阵pending | Mobile Use 悬浮审批与等待状态同步 | [任务](tasks/HXA-270.md) |
-| HXA-272 | 已排期，未开工；设备/模型not requested | 统一 Skill 内容贡献与原生插件独立激活 | [任务](tasks/HXA-272.md) |
+| HXA-272 | 实现/全仓主机/source、Developer API36 11项含Qwen、Standard纯Skill 1项及样例解析通过；其他OEM/长稳边界保留 | 统一 Skill 内容贡献与原生插件独立激活 | [任务](tasks/HXA-272.md) |
 | HXA-273 | 已排期，未开工；设备/模型not requested | Skill 用户与模型调用资格及显式激活 | [任务](tasks/HXA-273.md) |
 | HXA-274 | 已排期，未开工；设备/模型not requested | 插件就绪原因与配置生效状态统一投影 | [任务](tasks/HXA-274.md) |
 | HXA-275 | 已排期，未开工；设备/模型not requested | 插件组件兼容诊断与可执行作者样例 | [任务](tasks/HXA-275.md) |

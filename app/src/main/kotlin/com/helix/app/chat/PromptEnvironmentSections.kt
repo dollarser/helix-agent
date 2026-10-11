@@ -36,7 +36,7 @@ internal val packagedPromptTemplates: PromptTemplateSource =
  * - [FILES_NAME] only when the session's admitted tools include the local file tools — the
  *   working directory comes from session facts ([FileScopePath]), never from model-visible text;
  * - [PLAN_NAME] only in Plan mode: plan is read-only and file/tool text cannot enable Act.
- * - [PLUGIN_NAME] only when selected plugin tools are exposed: shared operating guidance, not permission.
+ * - [PLUGIN_NAME] for selected content read through SkillRepository: guidance, not permission.
  *
  * Harness sections are [PromptSource.BUILTIN_TEMPLATE]; plugin skills remain external content,
  * ordered before every Goal section so the harness invariants precede the goal's own text.

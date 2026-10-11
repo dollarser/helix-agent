@@ -178,7 +178,11 @@ class TurnEngine internal constructor(
     ): EngineCancelDecision {
         lateinit var decision: EngineCancelDecision
         storage.withTransaction {
-            val turn = storage.turns.resolve(turnId)
+            val turn = storage.turns.find(turnId)
+            if (turn == null) {
+                decision = EngineCancelDecision.NotFound
+                return@withTransaction
+            }
             require(turn.sessionId == sessionId) { "turn/session mismatch" }
             val phase = TurnState.valueOf(turn.state)
             recordUserStop(turn, phase, reason)
@@ -233,6 +237,8 @@ class TurnEngine internal constructor(
 }
 
 internal sealed interface EngineCancelDecision {
+    data object NotFound : EngineCancelDecision
+
     data class AlreadyTerminal(
         val phase: TurnState,
     ) : EngineCancelDecision

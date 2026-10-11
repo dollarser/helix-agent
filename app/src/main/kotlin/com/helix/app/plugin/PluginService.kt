@@ -36,7 +36,9 @@ class PluginService(
     fun previewJson(text: String): PluginPackage = reader.readJson(text.toByteArray(Charsets.UTF_8))
 
     fun standaloneSkills(sessionId: String? = null) =
-        skills.list(sessionId).filter { catalog.independentlyInstalled(it.key) }
+        skills.list(sessionId).filter {
+            catalog.independentlyInstalled(it.key) && nativeRegistry?.ownsSkill(it.key) != true
+        }
 
     fun selectSkill(
         key: com.helix.extensions.skills.SkillKey,
@@ -44,6 +46,7 @@ class PluginService(
         selected: Boolean,
     ) {
         require(catalog.independentlyInstalled(key)) { "PLUGIN_OWNED_SKILL" }
+        require(nativeRegistry?.ownsSkill(key) != true) { "PLUGIN_OWNED_SKILL" }
         skills.setEnabled(key, selected, com.helix.extensions.skills.SkillEnablementScope.SESSION, sessionId)
     }
 

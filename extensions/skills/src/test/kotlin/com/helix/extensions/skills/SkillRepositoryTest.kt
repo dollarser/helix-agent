@@ -9,6 +9,28 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SkillRepositoryTest {
+    @Test fun changedHostContentInvalidatesOldKeyWithoutOverwritingSameNameContent() {
+        val root = Files.createTempDirectory("host-skill-revisions")
+        val loader = SkillLoader()
+
+        fun document(body: String) = loader.loadBuiltIn("---\nname: guide\ndescription: Guide\n---\n$body", "guide")
+        var documents = listOf(document("first"), document("other owner"))
+        val repository =
+            SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+                contributedDocuments = { documents },
+            )
+        val old = repository.list("s").map { it.key }
+        assertEquals(2, old.size)
+        assertEquals(2, old.map { it.snapshotHash }.distinct().size)
+        documents = listOf(document("replacement"))
+        assertThrows(IllegalArgumentException::class.java) { repository.read(old.first(), "s") }
+        assertEquals("replacement", repository.read(repository.list("s").single().key, "s").body.trim())
+    }
+
     @Test fun disabledSkillCanBeInspectedButCannotBeReadForExecution() {
         val root =
             java.nio.file.Files

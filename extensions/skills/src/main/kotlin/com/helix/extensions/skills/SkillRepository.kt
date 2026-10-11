@@ -49,12 +49,14 @@ class SkillRepository(
     private val sourceAvailable: (SkillKey, String?) -> Boolean = { _, _ -> true },
     private val onIndependentInstall: (SkillKey) -> Unit = {},
     private val beforeRemove: (SkillKey) -> Unit = {},
+    private val contributedDocuments: (String?) -> List<SkillDocument> = { emptyList() },
 ) {
     private val lock = Any()
     private val inspector = SkillSnapshotInspector(SkillImportLimits(), SkillLoader())
     private val records = linkedMapOf<SkillKey, SkillRecord>()
     private val globalOverrides = linkedMapOf<SkillKey, Boolean>()
     private val sessionOverrides = linkedMapOf<String, MutableMap<SkillKey, Boolean>>()
+    private var contributionKeys = emptySet<SkillKey>()
 
     init {
         Files.createDirectories(snapshotsRoot)
@@ -71,6 +73,7 @@ class SkillRepository(
 
     fun list(sessionId: String? = null): List<SkillListItem> =
         synchronized(lock) {
+            refreshContributions()
             records.entries
                 .filter { (key, _) -> sourceAvailable(key, sessionId) }
                 .map { (key, record) ->
@@ -81,6 +84,7 @@ class SkillRepository(
     /** Manual management preview only; execution must use read and its enablement checks. */
     fun inspect(key: SkillKey): SkillDocument =
         synchronized(lock) {
+            refreshContributions()
             requireNotNull(records[key]) { "Unknown skill snapshot: ${key.name}" }.document
         }
 
@@ -89,6 +93,7 @@ class SkillRepository(
         sessionId: String? = null,
     ): SkillDocument =
         synchronized(lock) {
+            refreshContributions()
             require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             records[key]?.document ?: throw IllegalArgumentException("Unknown skill snapshot: ${key.name}")
         }
@@ -99,6 +104,7 @@ class SkillRepository(
         sessionId: String? = null,
     ): SkillResource =
         synchronized(lock) {
+            refreshContributions()
             require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             val record = records[key] ?: throw IllegalArgumentException("Unknown skill snapshot: ${key.name}")
             val root = record.directory ?: throw IllegalArgumentException("Built-in skill has no external resources")
@@ -121,6 +127,7 @@ class SkillRepository(
         sessionId: String? = null,
     ) {
         synchronized(lock) {
+            refreshContributions()
             require(records.containsKey(key)) { "Unknown skill snapshot: ${key.name}" }
             when (scope) {
                 SkillEnablementScope.GLOBAL -> {
@@ -225,9 +232,22 @@ class SkillRepository(
         key: SkillKey,
         sessionId: String?,
     ): Boolean {
-        if (!sourceAvailable(key, sessionId)) return false
+        if (!sourceAvailable(key, sessionId) ||
+            (key in contributionKeys && contributedDocuments(sessionId).none { it.catalogEntry.toKey() == key })
+        ) {
+            return false
+        }
         val session = sessionId?.let { sessionOverrides[it]?.get(key) }
         return session ?: globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)
+    }
+
+    /** Replace host content facts; stale revisions cannot remain readable through an old key. */
+    private fun refreshContributions() {
+        val current = contributedDocuments(null).associateBy { it.catalogEntry.toKey() }
+        require(current.keys.all { it.source == SkillSource.BUILT_IN }) { "Host content must use built-in source" }
+        (contributionKeys - current.keys).forEach(records::remove)
+        current.forEach { (key, document) -> records[key] = SkillRecord(document, null) }
+        contributionKeys = current.keys
     }
 
     private fun resourcePath(

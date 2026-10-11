@@ -21,19 +21,20 @@ fun PluginRegistry.executionContext(
             }?.let { PluginExecutionContext(it.scopeFor(tool, sessionId), it.dataOrigin) }
     }
 
-/** Only plugins represented in the admitted tool list contribute instructions. */
+/** Content uses the same repository and source/selection checks as skills.read. */
 fun PluginRegistry.instructions(
-    descriptors: List<ToolDescriptor>,
+    repository: com.helix.extensions.skills.SkillRepository,
     sessionId: String,
 ): String? =
-    descriptors
-        .mapNotNull(::runtime)
-        .filter {
-            it in selectedRuntimes(sessionId)
+    skillDocuments(sessionId)
+        .map {
+            it.catalogEntry.let { entry ->
+                com.helix.extensions.skills
+                    .SkillKey(entry.source, entry.name, entry.contentHash)
+            }
         }.distinct()
-        .flatMap { it.bundledSkills }
-        .distinct()
-        .joinToString("\n\n") { it.content }
+        .filter { key -> repository.list(sessionId).any { it.key == key && it.enabled } }
+        .joinToString("\n\n") { repository.read(it, sessionId).body }
         .takeIf { it.isNotBlank() }
 
 fun PluginRegistry.preferredTools(sessionId: String): Set<String> =

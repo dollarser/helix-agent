@@ -6,9 +6,9 @@ The feature is developer-channel only for now, matching Mobile Use availability.
 
 ## Status: prototype checkpoint
 
-This module is not a completed automatic-reply feature. `chat.assist` currently returns workflow guidance; it does not extract a conversation or verify that the target chat is ready. `ChatConversation` and `NewIncomingMessageGate` have local unit-test coverage but are not connected to the production observation path. The gate uses message text and side, not stable message IDs, and is not suitable as an automatic-send trigger.
+This module is not a completed automatic-reply feature. It contributes only a Skill; the former `chat.assist` guidance-only tool is removed. It does not extract a conversation or verify that the target chat is ready. `ChatConversation` and `NewIncomingMessageGate` have local unit-test coverage but are not connected to the production observation path. The gate uses message text and side, not stable message IDs, and is not suitable as an automatic-send trigger.
 
-The bundled guidance still uses the existing native Skill injection path. [HXA-272](../../docs/development/tasks/HXA-272.md) and [HXA-273](../../docs/development/tasks/HXA-273.md) define the accepted replacement: independent Skill activation and trusted user/model invocation rules. This checkpoint does not implement those tasks. No end-to-end visible-chat, draft-insertion, background-monitoring or automatic-send acceptance is claimed; further work must define its target app and product scope. See the [workspace review](../../docs/evidence/development/workspace-submission-review-2026-10-11.md).
+The bundled guidance uses the shared SkillRepository list/read path and its host-owned source selection. It can be selected without publishing any tool. [HXA-272](../../docs/development/tasks/HXA-272.md) records content integration; [HXA-273](../../docs/development/tasks/HXA-273.md) defines the subsequent trusted user/model invocation rules. No end-to-end visible-chat, draft-insertion, background-monitoring or automatic-send acceptance is claimed; further work must define its target app and product scope. See the [workspace review](../../docs/evidence/development/workspace-submission-review-2026-10-11.md) for the preceding prototype.
 
 ## Jev reference
 

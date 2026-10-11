@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pure-workflow",
+  "version": "1.0.0",
+  "description": "Summarize supplied text into a reviewable draft without adding tools."
+}

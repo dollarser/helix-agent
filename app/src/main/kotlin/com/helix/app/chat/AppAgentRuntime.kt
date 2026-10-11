@@ -40,6 +40,7 @@ internal class AppAgentRuntime(
         val phase = runtime.persistedPhase(turnId.value)
         if (phase == null) return CancelResult.NotFound
         return when (val outcome = cancelTurn(turnId.value)) {
+            TurnCancelOutcome.NotFound -> CancelResult.NotFound
             is TurnCancelOutcome.AlreadyTerminal -> CancelResult.AlreadyTerminal(outcome.phase)
             TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
             TurnCancelOutcome.ReviewRequired -> CancelResult.ReviewRequired
@@ -111,6 +112,8 @@ internal class TurnStartBlocked(
 ) : RuntimeException(message)
 
 internal sealed interface TurnCancelOutcome {
+    data object NotFound : TurnCancelOutcome
+
     data class AlreadyTerminal(
         val phase: TurnState,
     ) : TurnCancelOutcome

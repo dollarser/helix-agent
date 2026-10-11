@@ -3185,7 +3185,7 @@ class ChatService(
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val outcome =
                 synchronized(turnGate) {
-                    val task = storage.turns.resolve(turnId)
+                    val task = storage.turns.find(turnId) ?: return@synchronized TurnCancelOutcome.NotFound
                     val owner = turnEngine.liveExecution.active(task.sessionId)
                     val handoffOwner = goalContinuation.handoffOwner(task.sessionId)
                     val ownsHandoff = owner == null && handoffOwner == turnId
@@ -3205,6 +3205,10 @@ class ChatService(
                         )
                     val result =
                         when (decision) {
+                            EngineCancelDecision.NotFound -> {
+                                TurnCancelOutcome.NotFound
+                            }
+
                             is EngineCancelDecision.AlreadyTerminal -> {
                                 if (ownsDelivery) goalContinuation.disarm(task.sessionId)
                                 TurnCancelOutcome.AlreadyTerminal(decision.phase)

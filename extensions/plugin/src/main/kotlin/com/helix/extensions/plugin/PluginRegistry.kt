@@ -1,5 +1,6 @@
 package com.helix.extensions.plugin
 
+import com.helix.extensions.skills.SkillDocument
 import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
@@ -9,7 +10,7 @@ import java.security.MessageDigest
 /** Host-native component of an Agent Plugin. It contributes capabilities, never another AgentLoop. */
 interface HelixPlugin {
     val manifest: PluginManifest
-    val bundledSkills: List<PluginBundledSkill> get() = emptyList()
+    val skills: List<SkillDocument> get() = emptyList()
 
     val preferredTools: Set<String> get() = emptySet()
     val dataOrigin: com.helix.core.policy.DataOrigin get() = com.helix.core.policy.DataOrigin.WORKSPACE
@@ -26,15 +27,9 @@ interface HelixPlugin {
     fun tools(): List<com.helix.tools.framework.ToolBinding>
 }
 
-data class PluginBundledSkill(
-    val name: String,
-    val description: String,
-    val content: String,
-)
-
 data class PluginContents(
     val tools: List<Pair<String, String>>,
-    val skills: List<PluginBundledSkill>,
+    val skills: List<SkillDocument>,
 )
 
 /** Trusted native factories only. Installation, enabled state and revision belong to the host catalog. */
@@ -49,7 +44,7 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             factories
                 .filter { (id, _) ->
-                    hasPublishedTools(id) && catalog.selectionId(sessionId, id) != null
+                    ready(id) && catalog.selectionId(sessionId, id) != null
                 }.values
                 .toList()
         }
@@ -93,13 +88,43 @@ class PluginRegistry(
             val plugin = factories[pluginId]
             PluginContents(
                 plugin?.tools().orEmpty().map { it.descriptor.name.value to it.descriptor.description },
-                plugin?.bundledSkills.orEmpty(),
+                plugin?.skills.orEmpty(),
             )
         }
 
     /** Nonblocking presentation hint only; execution still resolves the authoritative binding. */
     fun hasPublishedTools(pluginId: String): Boolean =
         toolRegistry.snapshot().any { it.ref.owner == bindingOwner("plugin", pluginId) }
+
+    /** Immutable content facts; management sees installed content, execution sees selected owners. */
+    fun skillDocuments(sessionId: String?): List<SkillDocument> =
+        synchronized(catalog.mutationLock) {
+            val owners = if (sessionId == null) factories.values.toList() else selectedRuntimes(sessionId)
+            owners.flatMap { it.skills }.distinctBy { it.catalogEntry }
+        }
+
+    fun skillAvailable(
+        key: com.helix.extensions.skills.SkillKey,
+        sessionId: String?,
+    ): Boolean =
+        synchronized(catalog.mutationLock) {
+            val owners = factories.filterValues { plugin -> plugin.skills.any { matches(it, key) } }
+            owners.isEmpty() ||
+                owners.any { (id, _) ->
+                    ready(id) && (sessionId == null || catalog.selectionId(sessionId, id) != null)
+                }
+        }
+
+    fun ownsSkill(key: com.helix.extensions.skills.SkillKey): Boolean =
+        synchronized(catalog.mutationLock) { factories.values.any { plugin -> plugin.skills.any { matches(it, key) } } }
+
+    private fun matches(
+        document: SkillDocument,
+        key: com.helix.extensions.skills.SkillKey,
+    ): Boolean =
+        document.catalogEntry.let { entry ->
+            entry.source == key.source && entry.name == key.name && entry.contentHash == key.snapshotHash
+        }
 
     fun register(plugin: HelixPlugin): PluginManifest =
         synchronized(catalog.mutationLock) {
@@ -135,6 +160,7 @@ class PluginRegistry(
         val published = toolRegistry.snapshot().filter { it.ref.owner == bindingOwner("plugin", state.pluginId) }
         return factory.manifest.version == state.version && factory.manifest.helixRuntimeId == state.runtimeId &&
             published.map { it.descriptor }.toSet() == expected &&
+            state.fingerprint == contentFingerprint(factory, factory.tools()) &&
             published.all { it.binding.implementationRevision == "${state.revision}:${state.fingerprint}" }
     }
 
@@ -164,20 +190,7 @@ class PluginRegistry(
             "plugin ${manifest.name} contributes duplicate tool contracts"
         }
         require(bindings.all { it.descriptor.origin == expectedOrigin }) { "plugin provenance mismatch" }
-        val fingerprint =
-            MessageDigest
-                .getInstance("SHA-256")
-                .digest(
-                    (
-                        listOf(manifest.name, manifest.version, runtimeId) +
-                            bindings.map { it.descriptor.contractHash.hex }.sorted() +
-                            plugin.bundledSkills
-                                .sortedBy {
-                                    it.name
-                                }.map { "${it.name}:${it.description}:${it.content}" }
-                    ).joinToString("\n")
-                        .toByteArray(Charsets.UTF_8),
-                ).joinToString("") { "%02x".format(it) }
+        val fingerprint = contentFingerprint(plugin, bindings)
         val previous = catalog.find(manifest.name)
         if (previous == null) {
             require(
@@ -206,6 +219,24 @@ class PluginRegistry(
         }
         return state
     }
+
+    private fun contentFingerprint(
+        plugin: HelixPlugin,
+        bindings: List<ToolBinding>,
+    ): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(
+                (
+                    listOf(plugin.manifest.name, plugin.manifest.version, plugin.manifest.helixRuntimeId) +
+                        bindings.map { it.descriptor.contractHash.hex }.sorted() +
+                        plugin.skills
+                            .sortedBy {
+                                it.catalogEntry.name
+                            }.map { "${it.catalogEntry}:${it.rawContent}" }
+                ).joinToString("\n")
+                    .toByteArray(Charsets.UTF_8),
+            ).joinToString("") { "%02x".format(it) }
 
     fun all(): List<PluginManifest> =
         synchronized(catalog.mutationLock) {

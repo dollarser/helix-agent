@@ -128,7 +128,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 storage.sessionExperts.forSession(sessionId),
                 directory,
-                pluginInstructions = pluginInstructions(tools, sessionId),
+                pluginInstructions = pluginInstructions(sessionId),
             )
         val request =
             TurnContextRequest(
@@ -192,7 +192,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
-                pluginInstructions = pluginInstructions(tools, sessionId),
+                pluginInstructions = pluginInstructions(sessionId),
             )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
@@ -262,7 +262,7 @@ internal class ChatRequestAssembler(
                 tools.isNotEmpty(),
                 expert,
                 directory,
-                pluginInstructions = pluginInstructions(tools, sessionId),
+                pluginInstructions = pluginInstructions(sessionId),
             )
         val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
@@ -305,16 +305,8 @@ internal class ChatRequestAssembler(
         }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
-    private fun pluginInstructions(
-        tools: List<ModelToolSchema>,
-        sessionId: String,
-    ): String? =
-        toolPipeline.plugins?.instructions(
-            tools.mapNotNull { schema ->
-                schema.bindingRef?.let { toolPipeline.registry.resolveBinding(it)?.descriptor }
-            },
-            sessionId,
-        )
+    private fun pluginInstructions(sessionId: String): String? =
+        toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId) }
 
     private fun modelTools(
         sessionId: String,

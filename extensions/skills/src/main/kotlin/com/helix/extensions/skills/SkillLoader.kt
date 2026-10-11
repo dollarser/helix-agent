@@ -55,7 +55,7 @@ class SkillLoader {
         return parseFrontmatter(sections.frontmatter) to sections.body
     }
 
-    internal fun loadBuiltIn(
+    fun loadBuiltIn(
         content: String,
         name: String,
     ): SkillDocument = parse(content.toByteArray(Charsets.UTF_8), name, SkillSource.BUILT_IN, true)

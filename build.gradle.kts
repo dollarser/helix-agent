@@ -200,11 +200,13 @@ val projectDependencies =
                 ":core:model",
                 ":core:policy",
                 ":extensions:plugin",
+                ":extensions:skills",
                 ":tools:device-access",
                 ":tools:root",
                 ":tools:framework",
             ),
-        ":extensions:chat-reply" to listOf(":core:model", ":core:policy", ":extensions:plugin", ":tools:framework"),
+        ":extensions:chat-reply" to
+            listOf(":core:model", ":core:policy", ":extensions:plugin", ":extensions:skills", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace

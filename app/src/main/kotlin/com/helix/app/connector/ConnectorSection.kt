@@ -75,7 +75,7 @@ fun ConnectorSection(
                         record.id to
                             record.native
                                 ?.let {
-                                    service.bundledSkillContents(it.pluginId).map { skill -> skill.name } +
+                                    service.bundledSkillContents(it.pluginId).map { skill -> skill.catalogEntry.name } +
                                         service.bundledToolDescriptions(it.pluginId).map { tool -> tool.first }
                                 }.orEmpty()
                     }

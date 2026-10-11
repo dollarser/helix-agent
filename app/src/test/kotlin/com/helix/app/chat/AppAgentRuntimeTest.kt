@@ -113,6 +113,16 @@ class AppAgentRuntimeTest {
         assertEquals(listOf("t1"), fixture.cancelled)
     }
 
+    @Test fun cancelDeletedBetweenAdmissionAndCancellationReportsNotFound() {
+        val fixture =
+            Fixture().apply {
+                phase = TurnState.COMPLETED
+                cancelOutcome = TurnCancelOutcome.NotFound
+            }
+        assertEquals(CancelResult.NotFound, runBlocking { fixture.agent.cancel(turnId) })
+        assertEquals(listOf("t1"), fixture.cancelled)
+    }
+
     @Test
     fun cancelLiveTurnReportsStopAccepted() {
         val fixture =

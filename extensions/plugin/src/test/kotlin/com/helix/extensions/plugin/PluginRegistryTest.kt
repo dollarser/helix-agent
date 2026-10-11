@@ -18,6 +18,47 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    private fun skill(
+        name: String,
+        body: String = "Observe before acting",
+    ) = com.helix.extensions.skills.SkillLoader().loadBuiltIn(
+        "---\nname: $name\ndescription: Workflow guide\n---\n$body",
+        name,
+    )
+
+    @Test fun zeroToolPluginContentUsesRepositoryAndRevocationCannotBeBypassed() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("workflow")
+        registry.register(
+            object : HelixPlugin {
+                override val manifest = base.manifest
+                override val skills = listOf(skill("guide"))
+
+                override fun tools() = emptyList<ToolBinding>()
+            },
+        )
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("zero-tool-skills")
+        val repository =
+            com.helix.extensions.skills.SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                contributedDocuments = registry::skillDocuments,
+            )
+        val key = repository.list().single { it.key.name == "guide" }.key
+        assertEquals(true, registry.ready("workflow"))
+        assertEquals(false, repository.list("session").single { it.key == key }.enabled)
+        catalog.selections["session" to "workflow"] = "selection"
+        assertEquals("Observe before acting", repository.read(key, "session").body.trim())
+        catalog.selections.clear()
+        repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "session") }
+        assertEquals("Observe before acting", repository.inspect(key).body.trim())
+    }
+
     @Test fun losingBackendBlocksNewSelectionWithoutRevokingAnExistingSelectionOrPublishedTools() {
         val catalog = MemoryNativePluginCatalog()
         val tools = ToolRegistry()
@@ -89,7 +130,7 @@ class PluginRegistryTest {
         val contribution =
             object : HelixPlugin by base {
                 override val preferredTools = setOf("fixture.fixture")
-                override val bundledSkills = listOf(PluginBundledSkill("guide", "guide", "Observe before acting"))
+                override val skills = listOf(skill("guide"))
                 override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
 
                 override fun imageScope(sessionId: String) = scope
@@ -100,6 +141,16 @@ class PluginRegistryTest {
                 ) = scope
             }
         registry.register(contribution)
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("plugin-skills")
+        val repository =
+            com.helix.extensions.skills.SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                contributedDocuments = registry::skillDocuments,
+            )
         val descriptor = base.tools().single().descriptor
         assertEquals(null, registry.executionContext(descriptor, "session"))
         assertEquals(emptySet<String>(), registry.preferredTools("session"))
@@ -108,15 +159,18 @@ class PluginRegistryTest {
         assertEquals(scope, registry.executionContext(descriptor, "session")?.scope)
         assertEquals(setOf("fixture.fixture"), registry.preferredTools("session"))
         assertEquals(listOf(scope), registry.imageScopes("session"))
-        assertEquals("Observe before acting", registry.instructions(listOf(descriptor, descriptor), "session"))
-        assertEquals(null, registry.instructions(listOf(descriptor.copy(description = "stale")), "session"))
+        assertEquals("Observe before acting", registry.instructions(repository, "session")?.trim())
+        val key = repository.list("session").single { it.key.name == "guide" }.key
+        repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
+        assertEquals(null, registry.instructions(repository, "session"))
+        repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
         registry.setEnabled("fixture", false)
         assertEquals(null, registry.executionContext(descriptor, "session"))
-        assertEquals(null, registry.instructions(listOf(descriptor), "session"))
+        assertEquals(null, registry.instructions(repository, "session"))
         assertEquals(emptySet<String>(), registry.preferredTools("session"))
         registry.setEnabled("fixture", true)
         catalog.selections.clear()
-        assertEquals(null, registry.instructions(listOf(descriptor), "session"))
+        assertEquals(null, registry.instructions(repository, "session"))
         assertEquals(null, registry.executionContext(descriptor, "session"))
     }
 
@@ -146,11 +200,11 @@ class PluginRegistryTest {
         val tools = ToolRegistry()
         val registry = PluginRegistry(tools, MemoryNativePluginCatalog())
         val original = plugin("mobile-use")
-        val skill = PluginBundledSkill("android-ui-task", "Android workflow", "Observe before acting")
+        val skill = skill("android-ui-task")
         registry.register(
             object : HelixPlugin {
                 override val manifest = original.manifest
-                override val bundledSkills = listOf(skill)
+                override val skills = listOf(skill)
 
                 override fun tools() = original.tools()
             },

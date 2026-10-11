@@ -40,6 +40,7 @@ class ToolPipeline(
      * Null when no availability store is wired (everything stays visible).
      */
     val disabledToolFilter: ((sessionId: String, descriptor: ToolDescriptor) -> Boolean)? = null,
+    val skills: com.helix.extensions.skills.SkillRepository? = null,
 ) {
     internal val mcpDiscovery =
         com.helix.app.mcp

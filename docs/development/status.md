@@ -123,11 +123,11 @@
 
 ### 插件优化队列（2026-10-11）
 
-Owner 已要求将[调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md)和[优化建议](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)结合当前代码拆成任务，并明确**不兼容旧版，按单一目标实现设计**。本次登记 HXA-272～279，均未开工；没有应用代码、设备或真实模型验收。当前代码复核与研究切片映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。
+Owner 已要求将[调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md)和[优化建议](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)结合当前代码拆成任务，并明确**不兼容旧版，按单一目标实现设计**。HXA-272～279已登记；本轮Owner授权收尾交互并完成272～275，272统一内容实现的主机/source、Developer API36 11项含真实Qwen、Standard纯Skill 1项及作者样例解析均通过；迟到取消崩溃已修复并复验，其他OEM/长稳边界保留。273～279代码未开工。当前代码复核与研究切片映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。
 
-2026-10-11 已按所有者要求同步四份现有主题 ADR 的有效正文与 Decision history，见 [HXA→ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。HXA-277 的通用原生资源规则归 ADR-CONNECTORS-003，Browser 具体生命周期归 ADR-PLATFORM-002；设计已接受，代码仍未开工。
+2026-10-11 已按所有者要求同步四份现有主题 ADR 的有效正文与 Decision history，见 [HXA→ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。HXA-277 的通用原生资源规则归 ADR-CONNECTORS-003，Browser 具体生命周期归 ADR-PLATFORM-002；设计已接受，277代码仍未开工。
 
-**调度规则。** 当前正在执行的 HXA-269/270/271 切片先按原范围结算；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。下一个无外部输入的插件开发任务是 **HXA-272**。
+**调度规则。** 当前正在执行的 HXA-269/270/271 切片先按原范围结算；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。272本轮切片已交付，下一项插件开发任务是 **HXA-273**。
 
 本队列 P1 表示先解决内容/调用正确性和配置可理解性，P2 表示随后完成贡献归属、资源及交互/策略增量；这些是开发优先级，不是缺陷严重度。默认按表顺序推进，每次明确一个实现检查点；技术硬依赖与推荐顺序分开，避免因无关账号或设备输入阻塞本地工作。
 

@@ -1,3 +1,8 @@
+---
+name: chat-reply
+description: Interpret a visible chat and draft replies for user review.
+---
+
 # Chat reply assistant
 
 Use this guidance only when the user asks for help understanding or replying to a visible chat.
