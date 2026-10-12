@@ -56,8 +56,7 @@ internal class McpToolDiscovery(
         require(limit in 1..WINDOW)
         require(source == null || (source.isNotBlank() && source.length <= 200))
         require(category == null || (category.isNotBlank() && category.length <= 200))
-        val normalizedQuery = query.trim().lowercase()
-        val catalog = searchCatalog(normalizedQuery)
+        val (normalizedQuery, catalog) = searchCatalog(query.trim().lowercase())
         val terms =
             normalizedQuery
                 .split(Regex("[\\s,;]+"))
@@ -114,10 +113,13 @@ internal class McpToolDiscovery(
             if (matches.isEmpty()) previous else ToolDiscoveryWorkset.retain(matches, previous, available)
     }
 
-    private fun searchCatalog(query: String): List<ToolDescriptor> {
+    private fun searchCatalog(query: String): Pair<String, List<ToolDescriptor>> {
         val catalog = latest()
         val exact = catalog.filter { it.name.value.lowercase() == query }
-        return exact.ifEmpty { catalog }
+        if (exact.isNotEmpty()) return query to exact
+        // Foreign MCP qualified names are search hints only, never Dispatcher aliases.
+        val hint = if (query.startsWith("mcp__")) query.substringAfterLast("__").ifBlank { query } else query
+        return hint to catalog
     }
 
     private fun ToolDiscoveryMetadata.matches(
@@ -237,7 +239,7 @@ internal class McpToolDiscovery(
         val descriptor =
             ToolDescriptor(
                 name = ToolName("tools.search"),
-                version = ToolVersion(3),
+                version = ToolVersion(4),
                 description =
                     "Search user-enabled tools by name, description, source, fields or common Chinese aliases: " +
                         "files, browser, Android UI, Linux, Skills, " +
@@ -250,6 +252,7 @@ internal class McpToolDiscovery(
                         "Older tools can be evicted; use the next request's schemas. " +
                         "Do not issue multiple searches in one response. " +
                         "a miss preserves still-available tools. " +
+                        "Returned names are discovery hints, not current schemas. " +
                         "Discovery grants no execution permission.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
@@ -287,6 +290,7 @@ internal class McpToolDiscovery(
                             )
                         return ToolExecutorResult.Completed(
                             buildJsonObject {
+                                put("schemaAvailability", JsonPrimitive("next_request"))
                                 put(
                                     "tools",
                                     JsonArray(
@@ -319,6 +323,6 @@ internal class McpToolDiscovery(
         private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16},"source":{"type":"string","minLength":1,"maxLength":200},"category":{"type":"string","minLength":1,"maxLength":200}},"required":["query"],"additionalProperties":false}"""
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
-        private const val OUTPUT = """{"type":"object","properties":{"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"},"source":{"type":"string"},"category":{"type":"string"}},"required":["name","description","version","source","category"],"additionalProperties":false}}},"required":["tools"],"additionalProperties":false}"""
+        private const val OUTPUT = """{"type":"object","properties":{"schemaAvailability":{"type":"string","enum":["next_request"]},"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"},"source":{"type":"string"},"category":{"type":"string"}},"required":["name","description","version","source","category"],"additionalProperties":false}}},"required":["schemaAvailability","tools"],"additionalProperties":false}"""
     }
 }

@@ -1,7 +1,7 @@
 # ADR-MCP-001: MCP Client、传输与工具接入
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-12
+Date: 2026-09-16; revised 2026-10-13
 HXA: HXA-070
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
@@ -48,6 +48,8 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-13：Owner要求优化工具发现误调用并直接复用外部插件。工具描述/Skill/历史中的名称仅是发现线索，调用以本次实际schema为准；tools.search版本4明确schemaAvailability=next_request，仍重验撤销/版本，不在同批或旧请求开放。其他宿主的mcp__限定名可按远端动作部分检索，返回Helix当前名称；不注册执行别名、不自动调度或重放。Browser观察描述就近提醒动作需先发现。实际模型收益与设备验证另计，主机契约不冒充遵循率。
 
 - 2026-10-12：Owner授权实施完整工具优化，HXA-280切片3将替换窗口改为新发现优先、可用前置契约及有界近期保留；MCP提前加载按来源组成本，取消16/17数量阈值。Mobile Use只将ui.device改为发现，坐标动作发现同时加载可用截图/设备契约；其他默认组保持。保留撤销、原身份、取消和UNKNOWN不重放；有界真实对照及成本取舍记录在任务证据，不预报收益。
 

@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
 
 object BrowserSnapshotTool {
     const val NAME: String = "browser.snapshot"
-    const val VERSION: Int = 2
+    const val VERSION: Int = 3
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
@@ -28,7 +28,10 @@ object BrowserSnapshotTool {
                 "Capture a bounded semantic snapshot of a browser tab: its url, title, origin, " +
                     "navigation generation, tree fingerprint, and the semantic nodes (links, buttons, " +
                     "fields, images, headings). Each node carries a short-lived token that " +
-                    "browser.click / browser.type consume.",
+                    "browser.click / browser.type consume. Those names are discovery hints: " +
+                    "if the action is absent from this request's tool schemas, first call tools.search " +
+                    "with its exact name, then use the schema from the following request. " +
+                    "Taking a snapshot does not load action tools or authorize them.",
             inputSchema =
                 objectSchema(
                     properties =

@@ -365,7 +365,7 @@ class McpToolDiscoveryTest {
             ExecutableToolCall(
                 "call",
                 "tools.search",
-                "1",
+                search.version.value.toString(),
                 Json.parseToJsonElement("""{"query":"tool_499"}""").jsonObject,
                 ExecutionTargetType.LOCAL_ANDROID,
                 Instant.now().plusSeconds(5),
@@ -376,6 +376,53 @@ class McpToolDiscoveryTest {
             )
         assertEquals(ToolExecutorResult.Cancelled, registry.executor(search.name, search.version).execute(call))
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
+    }
+
+    @Test
+    fun successfulDiscoveryReportsNextRequestAndDoesNotMutateTheCurrentToolTable() {
+        catalog()
+        val currentRequest = discovery.visible("session", registry.all())
+        val call =
+            ExecutableToolCall(
+                "search",
+                search.name.value,
+                search.version.value.toString(),
+                Json.parseToJsonElement("""{"query":"tool_499"}""").jsonObject,
+                ExecutionTargetType.LOCAL_ANDROID,
+                Instant.now().plusSeconds(5),
+                object : CancelSignal {
+                    override fun isCancelled() = false
+                },
+                "session",
+            )
+        val result = registry.executor(search.name, search.version).execute(call) as ToolExecutorResult.Completed
+        assertEquals(
+            kotlinx.serialization.json.JsonPrimitive("next_request"),
+            result.output.jsonObject["schemaAvailability"],
+        )
+        assertFalse(currentRequest.contains(remote(499)))
+        assertTrue(discovery.visible("session", registry.all()).contains(remote(499)))
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(search.outputSchema, result.output),
+        )
+    }
+
+    @Test
+    fun foreignMcpNamesAreOnlySearchHintsAndCannotBypassSourceAvailability() {
+        val action =
+            search.copy(
+                name = ToolName("mcp.catalog.create_issue"),
+                description = "Create an issue",
+                operationClass = ToolOperationClass.NETWORK,
+                origin = ToolOrigin.McpOrigin("catalog", "2025-03-26", "a".repeat(64)),
+            )
+        registerFixture(action)
+        assertEquals(listOf(action), discovery.search("session", "mcp__plugin_github_github__create_issue", 8))
+        val denied = McpToolDiscovery(registry) { _, tool -> tool != action }
+        assertTrue(denied.search("session", "mcp__github__create_issue", 8).isEmpty())
+        assertTrue(registry.all().none { it.name.value == "mcp__github__create_issue" })
     }
 
     @Test fun optionalBuiltInIsSearchableAndOnlyLoadedForItsSession() {
