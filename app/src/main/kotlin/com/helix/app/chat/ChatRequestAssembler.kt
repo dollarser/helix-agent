@@ -310,6 +310,7 @@ internal class ChatRequestAssembler(
         turnId: String?,
     ): String? =
         listOfNotNull(
+            toolPipeline.mcpDiscovery.catalog(sessionId),
             toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId, turnId) },
             toolPipeline.pluginReadiness
                 ?.invoke(

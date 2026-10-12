@@ -3,7 +3,6 @@ package com.helix.app.mcp
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
-import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.NoCancellation
@@ -68,7 +67,8 @@ class DiscoveryOwnershipTest {
                 "s",
                 "t",
             )
-        val result = ownership.guard(registry.executor(ToolName("tools.search"), ToolVersion(1))).execute(call)
+        val search = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
+        val result = ownership.guard(registry.executor(search.name, search.version)).execute(call)
         assertTrue(result is ToolExecutorResult.Completed)
         assertTrue(collect in discovery.visible("s", registry.all()))
         requireNotNull(ownership.acquire("still-blocked")).close()

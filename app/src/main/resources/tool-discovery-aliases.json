@@ -1,0 +1,17 @@
+{
+  "categories": {
+    "files": "文件", "ui": "手机 安卓 界面", "android": "手机 安卓 界面",
+    "browser": "浏览器 网页", "code": "代码 终端 命令 脚本", "jobs": "后台 任务 查询 收取",
+    "bash": "终端 命令", "skills": "技能 流程 指引 参考资料", "goals": "目标 持久任务 计划 状态",
+    "memory": "记忆 回忆"
+  },
+  "operations": {
+    "read": "读取", "read_resource": "读取 参考资料", "write": "写入", "edit": "编辑",
+    "set_text": "输入", "list": "列表 目录", "apps": "应用 列表", "tabs": "标签 列表",
+    "search": "搜索", "find": "查找", "archive": "压缩 归档", "extract": "解压",
+    "snapshot": "观察 节点 快照", "screenshot": "截图 图片 像素", "capture": "截图",
+    "view_image": "图片", "click": "点击", "click_match": "点击", "long_click": "长按",
+    "gesture": "手势 坐标", "scroll": "滚动", "wait": "等待", "await": "等待",
+    "collect": "收取", "device": "设备 信息", "launch": "启动", "open": "打开", "open_uri": "打开 链接"
+  }
+}

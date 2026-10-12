@@ -49,9 +49,13 @@ internal class McpToolDiscovery(
         sessionId: String,
         query: String,
         limit: Int,
+        source: String? = null,
+        category: String? = null,
     ): List<ToolDescriptor> {
         require(query.isNotBlank() && query.length <= 200)
         require(limit in 1..WINDOW)
+        require(source == null || (source.isNotBlank() && source.length <= 200))
+        require(category == null || (category.isNotBlank() && category.length <= 200))
         val normalizedQuery = query.trim().lowercase()
         val catalog = searchCatalog(normalizedQuery)
         val terms =
@@ -67,22 +71,9 @@ internal class McpToolDiscovery(
                     ) {
                         return@mapNotNull null
                     }
-                    val name = descriptor.name.value.lowercase()
-                    val description = descriptor.description.lowercase()
-                    val nameHits = terms.count { it in name }
-                    val descriptionHits = terms.count { it !in name && it in description }
-                    val matchedTerms = nameHits + descriptionHits
-                    if (matchedTerms == 0) return@mapNotNull null
-                    SearchCandidate(
-                        descriptor = descriptor,
-                        exactName = name == normalizedQuery,
-                        allTerms = matchedTerms == terms.size,
-                        phraseInName = normalizedQuery in name,
-                        nameHits = nameHits,
-                        matchedTerms = matchedTerms,
-                        phraseInDescription = normalizedQuery in description,
-                        descriptionHits = descriptionHits,
-                    )
+                    val metadata = ToolDiscoveryMetadata.of(descriptor)
+                    if (!metadata.matches(source, category)) return@mapNotNull null
+                    candidate(descriptor, metadata, normalizedQuery, terms)
                 }.sortedWith(
                     compareByDescending<SearchCandidate> { it.exactName }
                         .thenByDescending { it.allTerms }
@@ -116,6 +107,39 @@ internal class McpToolDiscovery(
         val catalog = latest()
         val exact = catalog.filter { it.name.value.lowercase() == query }
         return exact.ifEmpty { catalog }
+    }
+
+    private fun ToolDiscoveryMetadata.matches(
+        source: String?,
+        category: String?,
+    ): Boolean {
+        val sourceMatches = source == null || this.source.equals(source.trim(), ignoreCase = true)
+        val categoryMatches = category == null || this.category.equals(category.trim(), ignoreCase = true)
+        return sourceMatches && categoryMatches
+    }
+
+    private fun candidate(
+        descriptor: ToolDescriptor,
+        metadata: ToolDiscoveryMetadata,
+        query: String,
+        terms: List<String>,
+    ): SearchCandidate? {
+        val name = descriptor.name.value.lowercase()
+        val description = descriptor.description.lowercase() + " " + metadata.searchText
+        val nameHits = terms.count { it in name }
+        val descriptionHits = terms.count { it !in name && it in description }
+        val matchedTerms = nameHits + descriptionHits
+        if (matchedTerms == 0) return null
+        return SearchCandidate(
+            descriptor,
+            name == query,
+            matchedTerms == terms.size,
+            query in name,
+            nameHits,
+            matchedTerms,
+            query in description,
+            descriptionHits,
+        )
     }
 
     fun visible(
@@ -156,6 +180,45 @@ internal class McpToolDiscovery(
             .values
             .map { it.maxBy { version -> version.version.value } }
 
+    /** Same admitted snapshot as this request's schemas; metadata is data, never permission. */
+    fun catalog(sessionId: String): String? {
+        val admitted = synchronized(this) { admittedWindows[sessionId]?.toList().orEmpty() }
+        val rows =
+            admitted
+                .filter { availability(sessionId, it) }
+                .map(ToolDiscoveryMetadata::of)
+                .groupBy { it.source }
+                .toSortedMap()
+                .map { (source, tools) ->
+                    buildJsonObject {
+                        put("source", JsonPrimitive(source))
+                        put(
+                            "categories",
+                            JsonArray(
+                                tools
+                                    .map { it.category }
+                                    .distinct()
+                                    .sorted()
+                                    .map(::JsonPrimitive),
+                            ),
+                        )
+                    }.toString()
+                }
+        if (rows.isEmpty()) return null
+        val included = mutableListOf<String>()
+        var bytes = 0
+        for (row in rows) {
+            val size = row.toByteArray(Charsets.UTF_8).size + 1
+            if (bytes + size > CATALOG_BYTES) break
+            included += row
+            bytes += size
+        }
+        return "[TOOL SOURCES: metadata only; use tools.search for callable schemas]\n" +
+            included.joinToString("\n") +
+            (if (included.size < rows.size) "\nMore sources are searchable; directory summary truncated." else "") +
+            "\n[/TOOL SOURCES]"
+    }
+
     fun register(
         registry: ToolRegistry,
         metadata: (ToolExecutor) -> ToolExecutor = { it },
@@ -163,9 +226,10 @@ internal class McpToolDiscovery(
         val descriptor =
             ToolDescriptor(
                 name = ToolName("tools.search"),
-                version = ToolVersion(1),
+                version = ToolVersion(2),
                 description =
-                    "Search user-enabled tools by name or description: files, browser, Android UI, Linux, Skills, " +
+                    "Search user-enabled tools by name, description, source, fields or common Chinese aliases: " +
+                        "files, browser, Android UI, Linux, Skills, " +
                         "connectors, MCP and A2A. Search when a needed tool is absent; " +
                         "combine concise keywords for related capabilities, or use its exact name for one tool. " +
                         "Exact-name queries return only that tool. " +
@@ -201,7 +265,14 @@ internal class McpToolDiscovery(
                                 .jsonPrimitive.content
                         val limit = call.args["limit"]?.jsonPrimitive?.intOrNull ?: 8
                         if (query.isBlank()) return ToolExecutorResult.Failed("MCP_DISCOVERY_QUERY_REQUIRED")
-                        val matches = search(session, query, limit)
+                        val matches =
+                            search(
+                                session,
+                                query,
+                                limit,
+                                call.args["source"]?.jsonPrimitive?.content,
+                                call.args["category"]?.jsonPrimitive?.content,
+                            )
                         return ToolExecutorResult.Completed(
                             buildJsonObject {
                                 put(
@@ -212,6 +283,9 @@ internal class McpToolDiscovery(
                                                 put("name", JsonPrimitive(tool.name.value))
                                                 put("description", JsonPrimitive(tool.description.take(240)))
                                                 put("version", JsonPrimitive(tool.version.value))
+                                                val metadata = ToolDiscoveryMetadata.of(tool)
+                                                put("source", JsonPrimitive(metadata.source))
+                                                put("category", JsonPrimitive(metadata.category))
                                             }
                                         },
                                     ),
@@ -227,11 +301,12 @@ internal class McpToolDiscovery(
     companion object {
         const val WINDOW = 16
         private const val MAX_SESSIONS = 128
+        private const val CATALOG_BYTES = 4096
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
-        private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16}},"required":["query"],"additionalProperties":false}"""
+        private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16},"source":{"type":"string","minLength":1,"maxLength":200},"category":{"type":"string","minLength":1,"maxLength":200}},"required":["query"],"additionalProperties":false}"""
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
-        private const val OUTPUT = """{"type":"object","properties":{"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"}},"required":["name","description","version"],"additionalProperties":false}}},"required":["tools"],"additionalProperties":false}"""
+        private const val OUTPUT = """{"type":"object","properties":{"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"},"source":{"type":"string"},"category":{"type":"string"}},"required":["name","description","version","source","category"],"additionalProperties":false}}},"required":["tools"],"additionalProperties":false}"""
     }
 }

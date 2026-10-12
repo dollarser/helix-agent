@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -223,6 +224,38 @@ class McpToolDiscoveryTest {
         assertEquals(listOf(search), discovery.visible("other-session", registry.all()))
     }
 
+    @Test fun chineseActionAndSchemaFieldsAreDiscoverableWithSourceFilters() {
+        val screenshot = search.copy(name = ToolName("ui.screenshot"), description = "Capture current frame")
+        val click = search.copy(name = ToolName("ui.click"), description = "Press a node")
+        val archive = search.copy(name = ToolName("files.archive"), description = "Create ZIP")
+        listOf(screenshot, click, archive).forEach(::registerFixture)
+        assertEquals(listOf(screenshot), discovery.search("session", "截图", 8))
+        assertEquals(listOf(archive), discovery.search("session", "压缩", 8, source = "helix", category = "files"))
+        assertTrue(discovery.search("session", "压缩", 8, source = "mcp:other").isEmpty())
+        assertTrue(discovery.search("session", "query", 8).isNotEmpty())
+    }
+
+    @Test fun capabilityCatalogUsesCurrentAdmissionAndDoesNotRetainDisabledSources() {
+        catalog(3)
+        val allowed = mutableSetOf(remote(1).name)
+        val filtered =
+            McpToolDiscovery(registry) { _, descriptor -> descriptor == search || descriptor.name in allowed }
+        filtered.visible("session", registry.all())
+        assertTrue(requireNotNull(filtered.catalog("session")).contains("mcp:catalog"))
+        assertNull(filtered.catalog("other-session"))
+        allowed.clear()
+        assertFalse(requireNotNull(filtered.catalog("session")).contains("mcp:catalog"))
+        filtered.visible("session", emptyList())
+        assertNull(filtered.catalog("session"))
+    }
+
+    @Test fun sourceAndCategoryFiltersCannotBypassAvailability() {
+        catalog(3)
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor.name != remote(1).name }
+        assertTrue(filtered.search("session", remote(1).name.value, 8, source = "mcp:catalog").isEmpty())
+        assertTrue(filtered.search("session", "catalog", 8, category = "files").isEmpty())
+    }
+
     @Test
     fun newSearchReplacesWindowAndNeverGrowsBeyondSixteen() {
         catalog()
@@ -287,7 +320,7 @@ class McpToolDiscoveryTest {
                 },
                 "session",
             )
-        assertEquals(ToolExecutorResult.Cancelled, registry.executor(search.name, ToolVersion(1)).execute(call))
+        assertEquals(ToolExecutorResult.Cancelled, registry.executor(search.name, search.version).execute(call))
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
 
