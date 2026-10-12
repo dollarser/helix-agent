@@ -4,6 +4,8 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-12 Owner连接OnePlus/API34要求真机补验，并允许本轮未复现则关闭黑屏问题。独立Standard实际UI/后台20/20、socket取消/断流/旋转4/4、新Standard6次及原Developer2次普通返回通过，未复现黑屏；HXA-269按Owner规则关闭。原Developer是9月24日旧包，数据库不兼容，未覆盖；Mobile Use临时授权/Root及升级选择仍等待确认，不由普通UI通过代替。[当前真机证据](../evidence/development/physical-followup-2026-10-12.md)。
+
 - 2026-10-12 输入法/真实视觉/稳定性补验：只读root确认故障AVD的70份Gboard公共中文资源全为0字节，健康同版资源完整；保留故障数据，新空白自有API36实际拼音及冷启动通过。真实Qwen图片请求字节与附件哈希一致，两种布局实际选择/点击通过；健康中文Mobile Use合成表单2/2、SDK8/8、固定Developer14/14和Consumer16/16及双渠道900秒资源pilot通过。当前无实体手机，不关闭Root/Shizuku/OEM及真机黑屏边界；更强会话返回和最终主机结果见[补验证据](../evidence/development/device-vision-stability-followup-2026-10-12.md)。未更新日常APK或清数据。
 
 - 2026-10-11 HXA-271阶段9按Owner要求将配置不足的静默跳转改为先说明原因和步骤，再由“去设置”导航；会话选择和默认新会话开启统一提示，取消不选中/不保存。全仓主机/source、双渠道lint/APK与Developer测试APK通过，三项UI夹具仅编译；设备/模型not requested，未安装APK。[证据](../evidence/development/plugin-setup-explanation-2026-10-11.md)。
@@ -106,9 +108,9 @@
 
 - [HXA-270](tasks/HXA-270.md)：Owner追加悬浮审批要求，原任务只读诊断确认 launch/snapshot 成功、ui.click 待审批；实施可信原生单次批准/拒绝、完整详情展开、等待状态同步及查看会话不取消。主机source/全仓JVM/静态/双渠道lint与制品编译已通过，新增6项回归通过；[证据](../evidence/development/mobile-use-overlay-approval-2026-10-10.md)。Owner追加手机更新测试后，OnePlus/API35 的现有 Qwen 合成 Settings 原生批准/拒绝、详情滚动、查看会话和接管路径 passed；已修正实机布局，更新最终APK，未重试或批准真实微信操作，其他设备矩阵 pending。
 
-- [HXA-269](tasks/HXA-269.md)：Owner追加实施修复及同一真机/Qwen回归，已移除无障碍事件主线程节点查询，采用有界后台观察、合并及失效结果丢弃；224项插件测试、全仓JVM/source/静态/双渠道lint与编译通过。最终OnePlus/API35 Developer 6次返回、12次滚动及实际Qwen launch/snapshot通过，无新Helix ANR/FATAL；保留2次未伴随黑屏的系统窗口异常。阻塞路径修复及有界回归交付；原包诊断也未复现视觉黑屏，长后台/其他后端/OEM故障验收pending，详见[诊断与修复证据](../evidence/development/physical-mobile-use-black-screen-2026-10-10.md)。
+- [HXA-269](tasks/HXA-269.md)：Owner追加实施修复及同一真机/Qwen回归，已移除无障碍事件主线程节点查询，采用有界后台观察、合并及失效结果丢弃；224项插件测试、全仓JVM/source/静态/双渠道lint与编译通过。最终OnePlus/API35 Developer 6次返回、12次滚动及实际Qwen launch/snapshot通过，无新Helix ANR/FATAL；保留2次未伴随黑屏的系统窗口异常。阻塞路径修复及有界回归交付；2026-10-12新增API34补验未复现，按Owner新规则关闭黑屏问题。其他后端/OEM完整矩阵独立保留；历史诊断详见[诊断与修复证据](../evidence/development/physical-mobile-use-black-screen-2026-10-10.md)。
 
-- 本轮[HXA-263](../completion-records/HXA-263.md)连续测试日志与真实Qwen压缩约束保留2/2；[HXA-264](../completion-records/HXA-264.md)双渠道主回归各42/42、追加20项及14个实际进程死亡边界；[HXA-265](../completion-records/HXA-265.md)双渠道900秒资源pilot；[HXA-266](../completion-records/HXA-266.md)当前DSH契约/真实Qwen Goal与Skill完整9/9均有界本地交付。HXA-267/268脚本与历史版本维护也已主机交付；此前维护检查点已收口；HXA-269本轮真机诊断、阻塞修复与有界回归已记录，整体黑屏验收pending；下表保留此前维护检查点完整设备/服务矩阵与长稳边界，本轮另行操作真机，未操作日常模拟器。
+- 本轮[HXA-263](../completion-records/HXA-263.md)连续测试日志与真实Qwen压缩约束保留2/2；[HXA-264](../completion-records/HXA-264.md)双渠道主回归各42/42、追加20项及14个实际进程死亡边界；[HXA-265](../completion-records/HXA-265.md)双渠道900秒资源pilot；[HXA-266](../completion-records/HXA-266.md)当前DSH契约/真实Qwen Goal与Skill完整9/9均有界本地交付。HXA-267/268脚本与历史版本维护也已主机交付；此前维护检查点已收口；HXA-269本轮真机诊断、阻塞修复与有界回归已记录，黑屏问题已按2026-10-12Owner规则关闭；下表保留此前维护检查点完整设备/服务矩阵与长稳边界，本轮另行操作真机，未操作日常模拟器。
 
 以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
 
@@ -131,7 +133,7 @@ Owner 已要求将[调研](../research/topics/agent-plugin-architecture-research
 
 2026-10-11 已按所有者要求同步四份现有主题 ADR 的有效正文与 Decision history，见 [HXA→ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。HXA-277 的通用原生资源规则归 ADR-CONNECTORS-003，Browser 具体生命周期归 ADR-PLATFORM-002；设计已接受，277已完成授权有界实现与验收，后续完整故障组合和长稳仍需独立证据。
 
-**调度规则。** 当前正在执行的 HXA-269/270/271 切片先按原范围结算；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。272～279本轮切片已交付；后续优先处理有实际复现的故障和已记录设备边界，不自动启动条件性新功能。2026-10-12已定位测试AVD的Gboard公共中文资源损坏，保留原数据并建立实际拼音通过的自有替代环境；真实Qwen浏览器像素识别、图片传输及操作核验和双渠道900秒pilot已补验。Root/Shizuku/OEM、实体后台黑屏、整屏视觉及2h/24h长稳仍开放，详见补验证据。
+**调度规则。** 当前正在执行的 HXA-269/270/271 切片先按原范围结算；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。272～279本轮切片已交付；后续优先处理有实际复现的故障和已记录设备边界，不自动启动条件性新功能。2026-10-12已定位测试AVD的Gboard公共中文资源损坏，保留原数据并建立实际拼音通过的自有替代环境；真实Qwen浏览器像素识别、图片传输及操作核验和双渠道900秒pilot已补验。Root/Shizuku/OEM、整屏视觉及2h/24h长稳仍开放；实体黑屏问题按Owner新规则及当前补验关闭，详见补验证据。
 
 本队列 P1 表示先解决内容/调用正确性和配置可理解性，P2 表示随后完成贡献归属、资源及交互/策略增量；这些是开发优先级，不是缺陷严重度。默认按表顺序推进，每次明确一个实现检查点；技术硬依赖与推荐顺序分开，避免因无关账号或设备输入阻塞本地工作。
 
