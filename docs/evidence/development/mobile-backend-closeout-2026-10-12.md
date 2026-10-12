@@ -36,7 +36,11 @@ Shizuku从[官方13.6.0发布源](https://github.com/RikkaApps/Shizuku/releases/
 
 两种实际SIGKILL恢复已通过：已落库动作/模型回填等待与动作已发生/结果未结算。各自recover、recover-final两次重开通过，独立持久clicks始终为1；未结算调用INTERRUPTED、Goal BLOCKED(NEEDS_REVIEW)，已落库调用保持COMPLETED且不重放。当前阶段没有以coroutine取消替代进程死亡；测试使用合成本机HTTP夹具，和前述真实Qwen分别记录。
 
-两小时应用资源检查正在执行，完成后追加实际结果。其他OEM及24小时不能推导通过。手机当前未安装微信，未指定另一可核验账号任务，不记录第三方真实账号业务通过。
+两小时应用资源检查在Codex重启后主机管理/采集进程退出，最后主机采样为548秒，重连时采样缺口已超过原90秒上限。本轮完整host验收为INFRA_INTERRUPTED，不能因手机还在跑而记录PASS。手机原PID及instrumentation当时仍运行；另启脱离Codex父进程的有界只读observer收集后续结果，不重启测试、不补造丢失采样或原instrumentation完成流。
+
+18:11:57（北京时间）手机实际失败：`cumulative PSS drift: 196771 -> 301483` KiB，增长104712 KiB（约102.3 MiB），超过原96 MiB上限。此前34轮日志同一PID、FD134，线程约43–47；第35轮资源检查失败，TestRunner明确记录1方法/1失败/0忽略。随后清理UiAutomation发生DeadObjectException并终止进程，与资源断言分别保留；没有因此重开Owner已关闭的历史黑屏。Observer发现PID消失时的采样读取也失败，保留原日志和独立人工复核，不当作仍在运行。只读collector及临时防休眠均已结束。
+
+原目录与`soak-restart-observer/`保留ignored证据。当前长稳未通过：已有明确设备资源失败，同时host证据因重启中断；这不足以断定PSS增长是生产泄漏或必由重启造成，需要不依赖Codex进程的同条件对照再定位，未自动重跑。其他OEM及24小时不能推导通过。手机当前未安装微信，未指定另一可核验账号任务，不记录第三方真实账号业务通过。
 
 ## 主机与安装身份
 

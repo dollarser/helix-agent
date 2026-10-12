@@ -42,6 +42,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from instrumentation_junit import require_passed
 
 # Per-workload identity: the app process to sample independently, the instrumentation component, and
 # the single test method that runs the soak. `test_pkg` is derived from the component's package part.
@@ -93,6 +94,21 @@ def validate_device_serial(serial, physical=False):
         raise ValueError("physical validation requires explicit --physical-device")
 
 
+def launch_detached(argv, output):
+    """A separate session with closed terminal descriptors survives the initiating CLI's exit."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.with_suffix('.launcher.log').open('xb') as log:
+        child = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), *[a for a in argv if a != '--detach'],
+             '--detached-worker'], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+            start_new_session=True, close_fds=True,
+        )
+    owner = {"pid": child.pid, "state": "STARTING", "output": str(output.resolve()),
+             "startUtc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+    output.with_suffix('.owner.json').write_text(json.dumps(owner, indent=2))
+    return owner
+
+
 def classify(ev):
     """Pure forensics-first judgment. `ev` is a dict of EVIDENCE (see run()); returns
     (state, note, attribution). Device-independent: unit-testable without an emulator.
@@ -127,6 +143,8 @@ def classify(ev):
         return ("FAIL_FUNCTIONAL",
                 "am-instrument stream is not 'OK (1 test)'",
                 "test did not report success")
+    if not ev.get('instVerified'):
+        return ('INCONCLUSIVE', 'missing exact unskipped method completion', 'instrumentation evidence incomplete')
 
     # Stream is green: the fixture's own per-cycle log is the authoritative process evidence.
     pids = ev.get("fixturePids") or ev.get("hostPids") or set()
@@ -139,6 +157,13 @@ def classify(ev):
                 "no process-id evidence (HelixSoak pid= and pidof both empty); cannot confirm "
                 "same-process for this soak",
                 "single-process evidence missing")
+
+    if ev.get("fixturePids") and ev.get("hostPids") and ev["fixturePids"] != ev["hostPids"]:
+        return ("FAIL_FUNCTIONAL", "host/fixture process identities disagree", "process attribution mismatch")
+    if not ev.get("testRunnerFinished"):
+        return ("INCONCLUSIVE", "missing successful TestRunner completion", "completion evidence missing")
+    if ev.get("fixtureElapsedMs") is None or ev["fixtureElapsedMs"] < ev["seconds"] * 1000:
+        return ("INCONCLUSIVE", "fixture measured duration is missing or too short", "device duration incomplete")
 
     if ev.get("elapsedSec") is not None and ev.get("seconds") is not None \
             and ev["elapsedSec"] < ev["seconds"]:
@@ -285,6 +310,11 @@ class Soak:
         else:
             raw = self.shell_ok("dumpsys", "meminfo", self.wl["measure_pkg"])
         if raw:
+            snapshots = self.out / 'meminfo'
+            snapshots.mkdir(exist_ok=True)
+            snapshot = snapshots / f'{len(self.samples):06d}.txt'
+            snapshot.write_text(raw)
+            rec['meminfoRef'] = str(snapshot.relative_to(self.out))
             pss = self.parse_pss(raw)
             rec["appPssKb"] = pss
             rec["ok"] = pss is not None
@@ -302,11 +332,11 @@ class Soak:
     def scan_logcat(self):
         res = {"fixturePids": set(), "cycles": None, "fixturePeakFd": None,
                "fixturePeakThreads": None, "fixturePeakPssKb": None, "nHelixSoak": 0,
-               "testRunnerFinished": False, "failureMsgs": [], "nestedCaseCounts": []}
+               "testRunnerFinished": False, "failureMsgs": [], "nestedCaseCounts": [], "fixtureElapsedMs": None}
         path = self.out / "logcat.log"
         if not path.exists():
             return res
-        cycle_re = re.compile(r"pid=(\d+) cycles=(\d+) elapsedMs=\d+ fd=(\d+) threads=(\d+) pssKb=(\d+)")
+        cycle_re = re.compile(r"pid=(\d+) cycles=(\d+) elapsedMs=(\d+) fd=(\d+) threads=(\d+) pssKb=(\d+)")
         with path.open() as f:
             for line in f:
                 if "HelixSoak:" in line:
@@ -315,14 +345,15 @@ class Soak:
                         res["nHelixSoak"] += 1
                         res["fixturePids"].add(int(m.group(1)))
                         res["cycles"] = int(m.group(2))
-                        res["fixturePeakFd"] = max(res["fixturePeakFd"] or 0, int(m.group(3)))
-                        res["fixturePeakThreads"] = max(res["fixturePeakThreads"] or 0, int(m.group(4)))
-                        res["fixturePeakPssKb"] = max(res["fixturePeakPssKb"] or 0, int(m.group(5)))
+                        res["fixtureElapsedMs"] = int(m.group(3))
+                        res["fixturePeakFd"] = max(res["fixturePeakFd"] or 0, int(m.group(4)))
+                        res["fixturePeakThreads"] = max(res["fixturePeakThreads"] or 0, int(m.group(5)))
+                        res["fixturePeakPssKb"] = max(res["fixturePeakPssKb"] or 0, int(m.group(6)))
                 elif "HelixSoakCases:" in line:
                     match = re.search(r"pid=(\d+) cases=(\d+)", line)
                     if match:
                         res["nestedCaseCounts"].append(int(match.group(2)))
-                elif "TestRunner:" in line and re.search(r"run finished:\s*[1-9]\d* tests,\s*0 failed", line):
+                elif "TestRunner:" in line and re.search(r"run finished:\s*[1-9]\d* tests,\s*0 failed,\s*0 ignored", line):
                     res["testRunnerFinished"] = True
                 elif "FAILURES!!!" in line or "AssertionError" in line or "drift:" in line:
                     if len(res["failureMsgs"]) < 20:
@@ -402,10 +433,17 @@ class Soak:
         except Exception:
             inst_stream = ""
         lc = self.scan_logcat()
+        try:
+            methods = require_passed(inst_stream)
+            expected = tuple(self.wl['test'].split('#'))
+            inst_verified = set(methods) == {expected}
+        except ValueError:
+            inst_verified = False
         ev = {
             "cancelled": self.cancelled,
             "infraError": infra,
             "instStream": inst_stream,
+            "instVerified": inst_verified,
             "seconds": self.seconds,
             "elapsedSec": round(elapsed, 1),
             "preset": self.args.preset,
@@ -418,6 +456,7 @@ class Soak:
                 "failed": sum(1 for s in self.samples if not s["ok"]),
             },
             "testRunnerFinished": lc["testRunnerFinished"],
+            "fixtureElapsedMs": lc.get("fixtureElapsedMs"),
         }
         state, note, attribution = classify(ev)
         eff_pids = lc["fixturePids"] or self.host_pids
@@ -430,6 +469,7 @@ class Soak:
             **self.identity,
             "state": state, "note": note, "attribution": attribution,
             "elapsedSeconds": round(elapsed, 1),
+            "fixtureElapsedMs": lc.get("fixtureElapsedMs"),
             "cycles": lc["cycles"],
             "baselineWarmupCycles": warmup_cycles,
             "casesPerCycle": case_counts[0] if case_counts and len(set(case_counts)) == 1 else None,
@@ -459,6 +499,8 @@ def main():
     parser.add_argument("serial", help="explicit owned emulator or owner-authorized physical serial")
     parser.add_argument("--physical-device", action="store_true",
                         help="explicit current owner-authorized physical validation; never inferred from connectivity")
+    parser.add_argument("--detach", action="store_true", help="start an independent background session")
+    parser.add_argument("--detached-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--workload", choices=["app", "browser"], default="app")
     parser.add_argument("--flavor", choices=["consumer", "developer"], default="consumer")
     parser.add_argument("--preset", choices=list(PRESETS), default="pilot",
@@ -490,6 +532,15 @@ def main():
         parser.error("--seconds must be in 60..86400")
     if args.output.exists():
         parser.error(f"output dir already exists: {args.output} (a prior attempt lives here)")
+    if args.detach:
+        print(json.dumps(launch_detached(sys.argv[1:], args.output)))
+        return 0
+    if args.detached_worker:
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        keeper = shutil.which('caffeinate')
+        if keeper:
+            subprocess.Popen([keeper, '-i', '-w', str(os.getpid())],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     args.seconds = seconds
     if not args.run_id:
         args.run_id = f"ev03-{args.workload}-{args.preset}-{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}"

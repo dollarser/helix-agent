@@ -21,7 +21,8 @@ FAIL = "FAILURES!!!\njava.lang.AssertionError: cumulative PSS drift: 140000 -> 2
 def base(**kw):
     ev = {"instStream": GREEN, "fixturePids": {123}, "hostPids": {123},
           "seconds": 86400, "elapsedSec": 86405, "preset": "p24h", "cycles": 600,
-          "sampling": {"total": 2880, "ok": 2880, "failed": 0}, "testRunnerFinished": True}
+          "sampling": {"total": 2880, "ok": 2880, "failed": 0}, "testRunnerFinished": True,
+          "instVerified": True, "fixtureElapsedMs": 86400000}
     ev.update(kw)
     return ev
 

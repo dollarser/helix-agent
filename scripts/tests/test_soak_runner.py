@@ -13,6 +13,61 @@ spec.loader.exec_module(runner)
 
 
 class SoakRunnerTest(unittest.TestCase):
+    def green(self, **changes):
+        facts = dict(instStream='OK (1 test)', instVerified=True, fixturePids={12}, hostPids={12},
+                     testRunnerFinished=True, fixtureElapsedMs=7200000, seconds=7200,
+                     elapsedSec=7250, preset='precheck')
+        return {**facts, **changes}
+
+    def test_artifact_preflight_only_reads_paths_and_hashes(self):
+        soak = runner.Soak.__new__(runner.Soak)
+        soak.shell_ok = Mock(side_effect=['package:/owned/base.apk', 'abc123 /owned/base.apk'])
+        self.assertEqual({'path': '/owned/base.apk', 'sha256': 'abc123'}, soak._installed_artifact('owned'))
+
+    def test_sample_preserves_actual_memory_categories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            soak = runner.Soak.__new__(runner.Soak)
+            soak.out = Path(directory)
+            soak.started = runner.time.monotonic()
+            soak.samples = []
+            soak.host_pids = set()
+            soak.memory_sampler = 'full'
+            soak.wl = runner.workload_identity('app')
+            soak.target_pid = Mock(return_value=12)
+            raw = 'Native Heap 100\nDalvik Heap 200\n TOTAL 300\n'
+            soak.shell_ok = Mock(return_value=raw)
+            soak.sample()
+            record = json.loads((soak.out/'samples.jsonl').read_text())
+            self.assertEqual(300, record['appPssKb'])
+            self.assertEqual(raw, (soak.out/record['meminfoRef']).read_text())
+
+    def test_green_summary_requires_completed_unskipped_method_and_device_duration(self):
+        self.assertEqual('PASS', runner.classify(self.green())[0])
+        for changes in ({'instVerified': False}, {'testRunnerFinished': False},
+                        {'fixtureElapsedMs': 7199999}, {'fixtureElapsedMs': None}):
+            with self.subTest(changes=changes):
+                self.assertEqual('INCONCLUSIVE', runner.classify(self.green(**changes))[0])
+
+    def test_conflicting_host_process_is_not_hidden_by_fixture_identity(self):
+        self.assertEqual('FAIL_FUNCTIONAL', runner.classify(self.green(hostPids={13}))[0])
+
+    def test_detached_launch_preserves_explicit_target_and_closes_terminal_descriptors(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(runner.subprocess, 'Popen') as popen:
+            popen.return_value.pid = 42
+            out = Path(directory)/'new-run'
+            owner = runner.launch_detached(['owned-phone', '--physical-device', '--detach', '--output', str(out)], out)
+            args, kwargs = popen.call_args
+            self.assertIn('owned-phone', args[0])
+            self.assertIn('--physical-device', args[0])
+            self.assertNotIn('--detach', args[0])
+            self.assertIn('--detached-worker', args[0])
+            self.assertTrue(kwargs['start_new_session'])
+            self.assertTrue(kwargs['close_fds'])
+            self.assertEqual(runner.subprocess.DEVNULL, kwargs['stdin'])
+            self.assertEqual(42, owner['pid'])
+            with self.assertRaises(FileExistsError):
+                runner.launch_detached([], out)
+
     def test_physical_device_is_explicit_and_never_an_emulator_alias(self):
         runner.validate_device_serial('emulator-5668')
         runner.validate_device_serial('owned-phone', physical=True)
@@ -56,6 +111,7 @@ class SoakRunnerTest(unittest.TestCase):
             soak.seconds = 900
             soak.cancelled = False
             soak.identity = {}
+            soak.wl = runner.workload_identity('app')
             soak.samples = []
             soak.host_pids = set()
             soak.scan_logcat = Mock(return_value={

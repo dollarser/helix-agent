@@ -4,7 +4,9 @@
 
 ## 当前整合与验证边界
 
-- 2026-10-12 HXA-271阶段11已实现隐藏确认组复用及原生取消/超时结算；OnePlus/API34实际AX/Root/Shizuku Qwen各2轮、Qwen截图/坐标两轮、后台返回8次、SDK9项、Root/Shizuku短按及两种实际进程死亡不重放恢复均通过。Shizuku本轮授权安装/ADB运行后撤销临时Helix授权，未重建数据库；两小时应用资源检查仍pending，其他OEM/24h/第三方账号不推导通过。[阶段证据](../evidence/development/mobile-backend-closeout-2026-10-12.md)。
+- 2026-10-12 Owner要求先复核门禁再重测。资源预算保持原阈值，不把PSS峰值等同泄漏；管理器补实际方法/设备时长/PID一致性及meminfo分类，并支持独立后台session。217项host/source通过，同一OnePlus/API34原APK两小时复测18:26:58启动，已核实worker脱离Codex父进程，当前pending，未改库/权限。[评估与本轮状态](../evidence/development/resource-gate-review-2026-10-12.md)。
+
+- 2026-10-12 HXA-271阶段11已实现隐藏确认组复用及原生取消/超时结算；OnePlus/API34实际AX/Root/Shizuku Qwen各2轮、Qwen截图/坐标两轮、后台返回8次、SDK9项、Root/Shizuku短按及两种实际进程死亡不重放恢复均通过。Shizuku本轮授权安装/ADB运行后撤销临时Helix授权，未重建数据库；两小时主机检查因Codex重启采样中断为INFRA_INTERRUPTED，手机随后约12分钟触发PSS增长约102 MiB超过96 MiB门禁而failed，清理UiAutomation又遇连接失效。是否独立于重启需对照，未自动重跑；其他OEM/24h/第三方账号不推导通过。[阶段证据](../evidence/development/mobile-backend-closeout-2026-10-12.md)。
 
 - 2026-10-12 HXA-271阶段10减少浮窗显隐：纯观察保留浮窗且排除自有节点，截图/动作保留移除、两帧及View脱离确认，150毫秒合并显示恢复，审批/取消和实际物理租约不延后。全仓主机/双渠道制品通过，同一OnePlus/API34最终SDK9/9及实际Dispatcher中文输入/连续观察2/2通过；已更新真机、保留数据库并恢复临时权限。本轮无真实模型/日常模拟器/账号测试，首个像素失败及其他OEM边界如实保留。[本轮证据](../evidence/development/overlay-observation-retention-2026-10-12.md)。
 
