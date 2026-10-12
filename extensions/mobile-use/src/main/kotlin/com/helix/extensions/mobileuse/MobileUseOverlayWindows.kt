@@ -221,10 +221,12 @@ internal class MobileUseOverlayWindows(
         added = false
     }
 
+    val attached: Boolean get() = status.isAttachedToWindow || controls.isAttachedToWindow
+
     fun ownsWindow(id: Int): Boolean {
         // Attachment can assign IDs after show() returns. Resolve again on the service's
         // main-thread event callback, retaining hidden-window IDs for late events.
-        if (added) {
+        if (added && android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
             windowIds = windowIds + listOf(windowId(status), windowId(controls)).filter { it >= 0 }
         }
         return id >= 0 && id in windowIds

@@ -229,9 +229,10 @@ class HelixAccessibilityService : AccessibilityService() {
                 emptyList()
             }
         try {
+            val candidates = windows.filterNot { runtimePresentation?.ownsWindow(it.id) == true }
             val target =
-                windows.firstOrNull(AccessibilityWindowInfo::isFocused)
-                    ?: windows.firstOrNull(AccessibilityWindowInfo::isActive)
+                candidates.firstOrNull(AccessibilityWindowInfo::isFocused)
+                    ?: candidates.firstOrNull(AccessibilityWindowInfo::isActive)
             freshWindowRoot(target)?.let { return it }
         } finally {
             windows.forEach { it.recycle() }
@@ -272,7 +273,10 @@ class HelixAccessibilityService : AccessibilityService() {
 
     @Suppress("SwallowedException")
     private fun refreshed(root: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (root == null) return null
+        if (root == null || runtimePresentation?.ownsWindow(root.windowId) == true) {
+            root?.recycleSafely()
+            return null
+        }
         return try {
             root.takeIf { it.refresh() }
         } catch (_: RuntimeException) {

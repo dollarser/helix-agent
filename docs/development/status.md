@@ -4,6 +4,8 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-12 HXA-271阶段10减少浮窗显隐：纯观察保留浮窗且排除自有节点，截图/动作保留移除、两帧及View脱离确认，150毫秒合并显示恢复，审批/取消和实际物理租约不延后。全仓主机/双渠道制品通过，同一OnePlus/API34最终SDK9/9及实际Dispatcher中文输入/连续观察2/2通过；已更新真机、保留数据库并恢复临时权限。本轮无真实模型/日常模拟器/账号测试，首个像素失败及其他OEM边界如实保留。[本轮证据](../evidence/development/overlay-observation-retention-2026-10-12.md)。
+
 - 2026-10-12 修复OnePlus/API34无障碍输入后连续TARGET_CHANGED：浮窗隐藏后的延迟窗口层级事件使遍历结果过期；保留失效保护，原授权内有界重采只读观察，不重放动作。严格观察修复前2/10、修复后10/10；新增8项JVM、真实Qwen表单两轮及4次会话后台返回通过，全仓主机/source通过。已更新真机并恢复临时设置，没有再次重建数据库；Root前轮通过及黑屏关闭保持，其他OEM/Shizuku/长稳独立保留。[修复对照](../evidence/development/accessibility-observation-stability-2026-10-12.md)。
 
 - 2026-10-12 Owner批准真机备份后更新/重建及临时权限。首阶段OnePlus/API34 Developer更新到76aedcf6，新库identity/完整性正确；SDK8项、Root探针/Dispatcher断连恢复/短按各1项及Root真实Qwen表单两轮通过。无障碍Qwen当时首轮业务失败、次轮240秒超时，后续已按上方记录定位修复；不重开历史黑屏。[阶段证据](../evidence/development/physical-followup-2026-10-12.md#批准后的升级后端与模型补验)。Shizuku未准备及其他OEM/长稳仍独立保留。

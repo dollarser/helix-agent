@@ -13,6 +13,7 @@ import com.helix.tools.framework.ToolExecutorResult
 internal class MobileUsePresentedExecutor(
     private val delegate: ToolExecutor,
     private val borrowPresentation: () -> NativeResource.Lease<AutomationRuntimePresentation>?,
+    private val retainOverlay: Boolean = false,
     private val admissionError: (ExecutableToolCall) -> String?,
 ) : ToolExecutor {
     override fun execute(call: ExecutableToolCall): ToolExecutorResult =
@@ -41,18 +42,25 @@ internal class MobileUsePresentedExecutor(
                             call.cancel.isCancelled() || !reference.accepting || !presentation.executionAllowed()
                     },
             )
+        if (retainOverlay) return executeBound(guarded, reference)
         val hidden = presentation.hideForOperation(guarded) ?: return refused("OVERLAY_HIDE_NOT_CONFIRMED")
-        return hidden.use {
-            if (guarded.cancel.isCancelled()) {
-                refused(
-                    "MOBILE_USE_TASK_STOPPED: The task was stopped or taken over; do not retry automatically.",
-                )
-            } else {
-                admissionError(guarded)?.let(::refused)
-                    ?: AutomationRuntimePresentationFactory.withUsage(reference) { delegate.execute(guarded) }
-            }
-        }
+        return hidden.use { executeBound(guarded, reference) }
     }
+
+    private fun executeBound(
+        call: ExecutableToolCall,
+        reference: NativeResource.Lease<AutomationRuntimePresentation>,
+    ): ToolExecutorResult =
+        if (call.cancel.isCancelled()) {
+            refused("MOBILE_USE_TASK_STOPPED: The task was stopped or taken over; do not retry automatically.")
+        } else {
+            admissionError(call)?.let(::refused)
+                ?: AutomationRuntimePresentationFactory.withUsage(reference) { delegate.execute(call) }
+        }
 
     private fun refused(detail: String) = ToolExecutorResult.Failed(detail, sideEffectFree = true)
 }
+
+/** Classification comes from the trusted registered descriptor, never tool arguments or model metadata. */
+internal fun retainsMobileUseOverlay(toolName: String): Boolean =
+    toolName in setOf("ui.snapshot", "ui.find", "ui.wait", "ui.device", "ui.apps")

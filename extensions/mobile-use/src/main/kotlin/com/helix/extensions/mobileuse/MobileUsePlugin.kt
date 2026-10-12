@@ -165,17 +165,24 @@ class MobileUsePlugin(
 
     override fun tools(): List<ToolBinding> =
         automation.descriptors().map { descriptor ->
-            ToolBinding(descriptor, present(automation.executor(descriptor.name.value)))
+            ToolBinding(descriptor, present(descriptor.name.value, automation.executor(descriptor.name.value)))
         } +
             device.descriptors().map { descriptor ->
-                ToolBinding(descriptor, present(device.executor(descriptor.name.value)))
+                ToolBinding(descriptor, present(descriptor.name.value, device.executor(descriptor.name.value)))
             }
 
-    private fun present(executor: com.helix.tools.framework.ToolExecutor): com.helix.tools.framework.ToolExecutor =
+    private fun present(
+        toolName: String,
+        executor: com.helix.tools.framework.ToolExecutor,
+    ): com.helix.tools.framework.ToolExecutor =
         if (taskHost == null) {
             executor
         } else {
-            MobileUsePresentedExecutor(executor, { presentationResource?.borrow() }) { call ->
+            MobileUsePresentedExecutor(
+                executor,
+                { presentationResource?.borrow() },
+                retainsMobileUseOverlay(toolName),
+            ) { call ->
                 permissionCenter.admissionError(call)
             }
         }

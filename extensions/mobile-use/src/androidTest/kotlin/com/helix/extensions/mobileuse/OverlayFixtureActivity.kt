@@ -13,6 +13,7 @@ class OverlayFixtureActivity : Activity() {
         setContentView(
             View(this).apply {
                 setBackgroundColor(Color.rgb(240, 220, 180))
+                contentDescription = "Overlay observation fixture"
                 setOnClickListener { clicks.incrementAndGet() }
             },
         )

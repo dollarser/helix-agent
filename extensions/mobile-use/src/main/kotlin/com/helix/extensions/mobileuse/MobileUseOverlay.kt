@@ -24,9 +24,10 @@ internal class MobileUseOverlay(
     private val enabled: () -> Boolean,
 ) : AutomationRuntimePresentation {
     private val handler = Handler(Looper.getMainLooper())
-    private val state = MobileUseOverlayState()
+    private val state = MobileUseOverlayState(restoreDelayMillis = RESTORE_DELAY_MILLIS)
     private var windowContext: Context? = null
-    private var windows: MobileUseOverlayWindows? = null
+
+    @Volatile private var windows: MobileUseOverlayWindows? = null
     private var displayed: PluginTaskIdentity? = null
     private var closed = false
     private val tick = Runnable { render() }
@@ -124,7 +125,7 @@ internal class MobileUseOverlay(
             AutoCloseable {
                 if (released.compareAndSet(false, true)) {
                     state.release(ticket)
-                    handler.post { render() }
+                    handler.postDelayed({ render() }, RESTORE_DELAY_MILLIS)
                 }
             }
         val hidden = CountDownLatch(1)
@@ -143,7 +144,7 @@ internal class MobileUseOverlay(
             // Wait two frame boundaries so WindowManager/InputDispatcher observe the removal before capture/gesture.
             Choreographer.getInstance().postFrameCallback {
                 Choreographer.getInstance().postFrameCallback {
-                    confirmed.set(true)
+                    confirmed.set(windows?.attached != true)
                     hidden.countDown()
                 }
             }
@@ -217,6 +218,8 @@ internal class MobileUseOverlay(
         error.get()?.let { throw it }
     }
 }
+
+private const val RESTORE_DELAY_MILLIS = 150L
 
 private fun overlayLabel(
     allowed: Boolean,

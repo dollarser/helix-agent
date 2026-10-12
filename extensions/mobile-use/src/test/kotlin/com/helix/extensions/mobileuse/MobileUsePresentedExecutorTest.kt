@@ -106,6 +106,52 @@ class MobileUsePresentedExecutorTest {
         assertFalse(surface.hidden)
     }
 
+    @Test fun registeredObservationsKeepControlsAndPreserveTakeoverCancellation() {
+        for (name in listOf("ui.snapshot", "ui.find", "ui.wait", "ui.device", "ui.apps")) {
+            assertTrue(retainsMobileUseOverlay(name))
+        }
+        for (name in listOf("ui.screenshot", "ui.gesture", "ui.click", "ui.set_text", "ui.launch", "future.read")) {
+            assertFalse(retainsMobileUseOverlay(name))
+        }
+        val observing =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    assertFalse(surface.hidden)
+                    assertEquals("chat", call.sessionId)
+                    assertEquals("turn", call.turnId)
+                    surface.allowed = false
+                    assertTrue(call.cancel.isCancelled())
+                    calls++
+                    return completed
+                }
+            }
+        assertEquals(
+            completed,
+            MobileUsePresentedExecutor(observing, { resource.borrow() }, true) { null }.execute(call),
+        )
+        assertEquals(1, calls)
+    }
+
+    @Test fun retainedObservationsStillRejectRevocationAndPreCancellation() {
+        val observing =
+            MobileUsePresentedExecutor(delegate, { resource.borrow() }, true) { if (authorized) null else "REVOKED" }
+        authorized = false
+        assertEquals("REVOKED", (observing.execute(call) as ToolExecutorResult.Failed).detail)
+        authorized = true
+        surface.allowed = false
+        assertTrue(observing.execute(call) is ToolExecutorResult.Failed)
+        surface.allowed = true
+        val cancelled =
+            call.copy(
+                cancel =
+                    object : com.helix.tools.framework.CancelSignal {
+                        override fun isCancelled() = true
+                    },
+            )
+        assertTrue(observing.execute(cancelled) is ToolExecutorResult.Failed)
+        assertEquals(0, calls)
+    }
+
     private class Surface : AutomationRuntimePresentation {
         var bound: ExecutableToolCall? = null
         var hidden = false

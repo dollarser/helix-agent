@@ -4,17 +4,22 @@ import com.helix.extensions.plugin.PluginTaskIdentity
 import com.helix.extensions.plugin.PluginTaskSnapshot
 
 /** Process-local display/control fence. Durable cancellation remains owned by the host. */
-internal class MobileUseOverlayState {
+internal class MobileUseOverlayState(
+    private val restoreDelayMillis: Long = 0,
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+) {
     @Volatile
     var owner: PluginTaskIdentity? = null
         private set
     private val stopped = mutableSetOf<PluginTaskIdentity>()
     private val hidden = mutableSetOf<Any>()
     private var closed = false
+    private var restoreAt: Long? = null
 
     @Synchronized
     fun bind(task: PluginTaskIdentity): Boolean {
         if (closed || task in stopped) return false
+        if (owner != task) restoreAt = null
         owner = task
         return true
     }
@@ -34,7 +39,9 @@ internal class MobileUseOverlayState {
         task: PluginTaskIdentity,
         snapshot: PluginTaskSnapshot?,
         conversationVisible: Boolean = false,
-    ): Boolean = !conversationVisible && !closed && hidden.isEmpty() && owner == task && snapshot?.active == true
+    ): Boolean =
+        !conversationVisible && !closed && hidden.isEmpty() && owner == task && snapshot?.active == true &&
+            (restoreAt?.let { now() >= it } != false || snapshot.awaitingApproval)
 
     @Synchronized
     fun canNavigate(expected: PluginTaskIdentity): Boolean = !closed && owner == expected
@@ -53,7 +60,7 @@ internal class MobileUseOverlayState {
 
     @Synchronized
     fun release(ticket: Any) {
-        hidden.remove(ticket)
+        if (hidden.remove(ticket) && hidden.isEmpty()) restoreAt = now() + restoreDelayMillis
     }
 
     @Synchronized

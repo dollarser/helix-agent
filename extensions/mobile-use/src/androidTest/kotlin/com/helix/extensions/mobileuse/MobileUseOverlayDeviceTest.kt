@@ -11,7 +11,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.TurnState
+import com.helix.extensions.mobileuse.automation.AutomationActionStatus
+import com.helix.extensions.mobileuse.automation.AutomationPoint
 import com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory
+import com.helix.extensions.mobileuse.automation.AutomationServiceController
+import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
+import com.helix.extensions.mobileuse.automation.AutomationStopReason
+import com.helix.extensions.mobileuse.automation.AutomationStroke
 import com.helix.extensions.mobileuse.automation.HelixAccessibilityService
 import com.helix.extensions.plugin.PluginTaskHost
 import com.helix.extensions.plugin.PluginTaskIdentity
@@ -19,6 +25,8 @@ import com.helix.extensions.plugin.PluginTaskSnapshot
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
+import com.helix.tools.framework.ToolExecutor
+import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -124,15 +132,13 @@ class MobileUseOverlayDeviceTest {
                 } finally {
                     shown.recycle()
                 }
-                val clicks = OverlayFixtureActivity.clicks.get()
-                shell("input tap ${dp(40)} ${dp(90)}")
-                waitUntil { OverlayFixtureActivity.clicks.get() > clicks }
                 val lease = overlay.hideForOperation(call())
                 assertNotNull("Overlay must hide before capture", lease)
                 try {
                     assertFalse(hasControl())
                     val hidden = requireNotNull(automation.takeScreenshot())
                     try {
+                        if (hasBlendedPixel(baseline, hidden)) saveFailurePixels(baseline, hidden)
                         assertFalse("Hidden status must not contaminate pixels", hasBlendedPixel(baseline, hidden))
                     } finally {
                         hidden.recycle()
@@ -141,6 +147,11 @@ class MobileUseOverlayDeviceTest {
                     lease?.close()
                 }
                 waitUntil { hasControl() }
+                // Check pixels before injecting a touch: system touch visualization can affect
+                // this same pixel region. Preserve the independent pass-through assertion.
+                val clicks = OverlayFixtureActivity.clicks.get()
+                shell("input tap ${dp(40)} ${dp(90)}")
+                waitUntil { OverlayFixtureActivity.clicks.get() > clicks }
                 assertNull(
                     overlay.hideForOperation(
                         call().copy(
@@ -174,6 +185,136 @@ class MobileUseOverlayDeviceTest {
                 assertFalse(overlay.bind(call()))
             } finally {
                 lease.close()
+            }
+        }
+    }
+
+    @Test fun semanticObservationsRetainWindowIdentityAndExcludeOverlayNodes() {
+        withOverlay { overlay, _ ->
+            assertTrue(overlay.bind(call()))
+            waitUntil { hasControl() }
+            val controller = AutomationServiceController
+            controller.replaceAllowlist(context, setOf(context.packageName))
+            assertNotNull(controller.startUserSession(context, setOf(context.packageName)).session)
+            var ids = emptySet<Int>()
+            waitUntil {
+                instrumentation.runOnMainSync {
+                    ids =
+                        automation.windows
+                            .filter { overlay.ownsWindow(it.id) }
+                            .map { it.id }
+                            .toSet()
+                }
+                ids.isNotEmpty()
+            }
+            assertTrue(ids.isNotEmpty())
+            val executor =
+                MobileUsePresentedExecutor(
+                    object : ToolExecutor {
+                        override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                            val result = controller.snapshot()
+                            assertEquals(AutomationSnapshotStatus.SUCCESS, result.status)
+                            val snapshot = requireNotNull(result.snapshot)
+                            assertEquals(context.packageName, snapshot.packageName)
+                            assertFalse(snapshot.windowId in ids)
+                            assertTrue(snapshot.nodes.any { it.contentDescription == "Overlay observation fixture" })
+                            assertTrue(hasControl())
+                            return ToolExecutorResult.Completed(JsonObject(emptyMap()))
+                        }
+                    },
+                    { AutomationRuntimePresentationFactory.borrow() },
+                    retainOverlay = true,
+                ) { null }
+            try {
+                repeat(10) {
+                    assertTrue(executor.execute(call()) is ToolExecutorResult.Completed)
+                    assertEquals(
+                        ids,
+                        automation.windows
+                            .filter { overlay.ownsWindow(it.id) }
+                            .map { it.id }
+                            .toSet(),
+                    )
+                    Thread.sleep(60)
+                }
+            } finally {
+                controller.stop(AutomationStopReason.USER_STOP)
+            }
+        }
+    }
+
+    @Test fun nestedCaptureSuppressionKeepsPixelsClearUntilRealShortGestureCompletes() {
+        withOverlay { overlay, _ ->
+            val baseline = awaitScreenshot { Color.red(it.getPixel(dp(40), dp(90))) == 240 }
+            try {
+                overlay.bind(call())
+                waitUntil { hasControl() }
+                val outer = requireNotNull(overlay.hideForOperation(call()))
+                try {
+                    repeat(4) { assertNestedCapture(overlay, baseline) }
+                    val controller = AutomationServiceController
+                    controller.replaceAllowlist(context, setOf(context.packageName))
+                    val session =
+                        requireNotNull(
+                            controller.startUserSession(context, setOf(context.packageName)).session,
+                        )
+                    val service = controller.overlayContext() as HelixAccessibilityService
+                    val frame = requireNotNull(service.deviceAccess.observe(session).frame)
+                    val image = service.deviceAccess.screenshot(session, frame.token, call())
+                    assertEquals("SAVED", image.status)
+                    val png = requireNotNull(image.png)
+                    val bitmap = requireNotNull(android.graphics.BitmapFactory.decodeByteArray(png, 0, png.size))
+                    try {
+                        assertEquals(240, Color.red(bitmap.getPixel(bitmap.width / 2, bitmap.height / 2)))
+                    } finally {
+                        bitmap.recycle()
+                    }
+                    val clicks = OverlayFixtureActivity.clicks.get()
+                    val result =
+                        service.deviceAccess.gesture(
+                            session,
+                            frame.token,
+                            listOf(
+                                AutomationStroke(listOf(AutomationPoint(dp(40).toFloat(), dp(90).toFloat())), 0, 100),
+                            ),
+                            call(),
+                        )
+                    assertEquals(AutomationActionStatus.SUCCEEDED, result.status)
+                    waitUntil { OverlayFixtureActivity.clicks.get() == clicks + 1 }
+                    assertFalse(hasControl())
+                } finally {
+                    outer.close()
+                }
+                waitUntil { hasControl() }
+            } finally {
+                baseline.recycle()
+            }
+        }
+    }
+
+    private fun assertNestedCapture(
+        overlay: MobileUseOverlay,
+        baseline: Bitmap,
+    ) {
+        requireNotNull(overlay.hideForOperation(call())).use {
+            val pixels = requireNotNull(automation.takeScreenshot())
+            try {
+                assertFalse("Confirmed hide must exclude overlay pixels", hasBlendedPixel(baseline, pixels))
+                assertFalse(hasControl())
+            } finally {
+                pixels.recycle()
+            }
+        }
+        overlay.bind(call())
+    }
+
+    private fun saveFailurePixels(
+        before: Bitmap,
+        after: Bitmap,
+    ) {
+        for ((name, image) in listOf("overlay-baseline.png" to before, "overlay-hidden.png" to after)) {
+            java.io.File(context.cacheDir, name).outputStream().use {
+                image.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
         }
     }
@@ -355,6 +496,7 @@ class MobileUseOverlayDeviceTest {
             instrumentation.waitForIdleSync()
             block(requireNotNull(overlay.get()), stopped)
         } finally {
+            AutomationServiceController.stop(AutomationStopReason.USER_STOP)
             registration.close()
             activeRegistration = null
             if (enabled.isEmpty()) {

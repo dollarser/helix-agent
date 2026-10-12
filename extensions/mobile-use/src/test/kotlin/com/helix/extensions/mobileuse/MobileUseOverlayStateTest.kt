@@ -129,6 +129,39 @@ class MobileUseOverlayStateTest {
         assertFalse(state.visible(first, active))
     }
 
+    @Test fun consecutiveOperationsCoalesceRestorationWithoutExtendingDuplicateRelease() {
+        var now = 0L
+        val state = MobileUseOverlayState(150) { now }
+        state.bind(first)
+        val firstRead = state.suppress()
+        state.release(firstRead)
+        assertFalse(state.visible(first, active))
+        now = 100
+        val secondRead = state.suppress()
+        state.release(secondRead)
+        now = 150
+        assertFalse(state.visible(first, active))
+        state.release(secondRead)
+        now = 249
+        assertFalse(state.visible(first, active))
+        now = 250
+        assertTrue(state.visible(first, active))
+    }
+
+    @Test fun approvalBypassesRestorationDelayButNeverPhysicalSuppression() {
+        val state = MobileUseOverlayState(150) { 0 }
+        state.bind(first)
+        val pending = PluginTaskSnapshot(TurnState.RUNNING_TOOL, true)
+        val ticket = state.suppress()
+        assertFalse(state.visible(first, pending))
+        state.release(ticket)
+        assertTrue(state.visible(first, pending))
+        assertFalse(state.visible(first, active))
+        assertFalse(state.visible(first, pending, conversationVisible = true))
+        state.close()
+        assertFalse(state.visible(first, pending))
+    }
+
     @Test fun reviewAndInterruptedTasksDoNotShowAsRunning() {
         val state = MobileUseOverlayState()
         state.bind(first)

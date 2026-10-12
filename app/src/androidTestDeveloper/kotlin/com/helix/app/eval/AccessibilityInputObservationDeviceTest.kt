@@ -48,6 +48,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -56,9 +57,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** Owner-opt-in native input/observation regression; no model or third-party application. */
 class AccessibilityInputObservationDeviceTest {
-    @Test
+    @Test fun freshObservationRecoversAfterInput() = exercise(dispatchedInput = false)
+
+    @Test fun freshObservationFeedsDispatchedInput() = exercise(dispatchedInput = true)
+
     @Suppress("LongMethod") // Keep the bounded real-platform transition and exact restoration together.
-    fun freshObservationRecoversAfterInput() =
+    private fun exercise(dispatchedInput: Boolean) =
         runBlocking {
             val inst = InstrumentationRegistry.getInstrumentation()
             assumeTrue(InstrumentationRegistry.getArguments().getString("helixAccessibilityInput") == "true")
@@ -91,8 +95,8 @@ class AccessibilityInputObservationDeviceTest {
                         ).filter(String::isNotBlank) + component
                 ).distinct().joinToString(":")
             try {
-                automation.executeShellCommand("settings put secure enabled_accessibility_services $services").close()
-                automation.executeShellCommand("settings put secure accessibility_enabled 1").close()
+                shell(automation, "settings put secure enabled_accessibility_services $services")
+                shell(automation, "settings put secure accessibility_enabled 1")
                 val center = AutomationPermissionCenter(app)
                 waitFor { center.serviceState() == AutomationServiceState.CONNECTED }
                 c.profileStore.switchTo(SafetyProfile.ADVANCED)
@@ -192,13 +196,36 @@ class AccessibilityInputObservationDeviceTest {
                     before.status == AutomationSnapshotStatus.SUCCESS
                 }
                 val input = requireNotNull(before.snapshot).nodes.single { it.editable }
-                // Isolate native input from the observation wrapper under test. Real model
-                // journeys separately exercise dispatched set_text and its stale-token guard.
-                val action =
-                    port.nodeAction(
-                        AutomationNodeActionRequest(AutomationNodeAction.SET_TEXT, input.token, "你好 Helix"),
-                    )
-                assertTrue("$action events=$events", action.status == AutomationActionStatus.SUCCEEDED)
+                val succeeded =
+                    if (dispatchedInput) {
+                        c.toolPipeline.dispatcher
+                            .dispatch(
+                                ToolDispatchRequest(
+                                    toolCallId = "$turn-input",
+                                    turnId = turn,
+                                    sessionId = session,
+                                    toolName = ToolName("ui.set_text"),
+                                    toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui.set_text")).version,
+                                    args =
+                                        buildJsonObject {
+                                            put("token", input.token)
+                                            put("text", "你好 Helix")
+                                        },
+                                    mode = AgentMode.ACT,
+                                    profile = SafetyProfile.ADVANCED,
+                                    executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+                                    dataOrigin = DataOrigin.WORKSPACE,
+                                    scope = requireNotNull(center.conversationGrant(session)).scope,
+                                    uiToken = "chat:$turn",
+                                ),
+                            ).also { println("DISPATCHED_INPUT result=$it") } is ToolDispatchOutcome.Succeeded
+                    } else {
+                        port
+                            .nodeAction(
+                                AutomationNodeActionRequest(AutomationNodeAction.SET_TEXT, input.token, "你好 Helix"),
+                            ).status == AutomationActionStatus.SUCCEEDED
+                    }
+                assertTrue("Input must succeed; dispatched=$dispatchedInput events=$events", succeeded)
                 val observations =
                     (0 until 10).map { index ->
                         SystemClock.sleep(300)
@@ -248,16 +275,27 @@ class AccessibilityInputObservationDeviceTest {
                 provider?.let { c.providerService.delete(it) }
                 server.close()
                 c.profileStore.switchTo(profile)
-                automation
-                    .executeShellCommand(
-                        if (original.isNullOrBlank()) {
-                            "settings delete secure enabled_accessibility_services"
-                        } else {
-                            "settings put secure enabled_accessibility_services $original"
-                        },
-                    ).close()
-                automation.executeShellCommand("settings put secure accessibility_enabled $enabled").close()
+                shell(
+                    automation,
+                    if (original.isNullOrBlank()) {
+                        "settings delete secure enabled_accessibility_services"
+                    } else {
+                        "settings put secure enabled_accessibility_services $original"
+                    },
+                )
+                shell(automation, "settings put secure accessibility_enabled $enabled")
             }
+        }
+
+    private fun shell(
+        automation: UiAutomation,
+        command: String,
+    ): String =
+        automation.executeShellCommand(command).use {
+            java.io
+                .FileInputStream(it.fileDescriptor)
+                .bufferedReader()
+                .readText()
         }
 
     private fun waitFor(predicate: () -> Boolean) {
