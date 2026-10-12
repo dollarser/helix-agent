@@ -4,9 +4,11 @@
 
 ## 当前整合与验证边界
 
-- 2026-10-12 Owner批准真机备份后更新/重建及临时权限。OnePlus/API34 Developer已更新到76aedcf6，新库identity/完整性正确；SDK8项、Root探针/Dispatcher断连恢复/短按各1项及Root真实Qwen表单两轮通过，临时权限与reverse恢复。无障碍Qwen首轮业务失败、次轮240秒超时，输入后TARGET_CHANGED/旧token及恢复限制另列开放缺陷；不改生产安全判断，不重开历史黑屏。[追加证据](../evidence/development/physical-followup-2026-10-12.md#批准后的升级后端与模型补验)。Shizuku未准备及其他OEM/长稳仍独立保留。
+- 2026-10-12 修复OnePlus/API34无障碍输入后连续TARGET_CHANGED：浮窗隐藏后的延迟窗口层级事件使遍历结果过期；保留失效保护，原授权内有界重采只读观察，不重放动作。严格观察修复前2/10、修复后10/10；新增8项JVM、真实Qwen表单两轮及4次会话后台返回通过，全仓主机/source通过。已更新真机并恢复临时设置，没有再次重建数据库；Root前轮通过及黑屏关闭保持，其他OEM/Shizuku/长稳独立保留。[修复对照](../evidence/development/accessibility-observation-stability-2026-10-12.md)。
 
-- 2026-10-12 Owner连接OnePlus/API34要求真机补验，并允许本轮未复现则关闭黑屏问题。独立Standard实际UI/后台20/20、socket取消/断流/旋转4/4、新Standard6次及原Developer2次普通返回通过，未复现黑屏；HXA-269按Owner规则关闭。原Developer是9月24日旧包，数据库不兼容，未覆盖；Mobile Use临时授权/Root及升级选择仍等待确认，不由普通UI通过代替。[当前真机证据](../evidence/development/physical-followup-2026-10-12.md)。
+- 2026-10-12 Owner批准真机备份后更新/重建及临时权限。首阶段OnePlus/API34 Developer更新到76aedcf6，新库identity/完整性正确；SDK8项、Root探针/Dispatcher断连恢复/短按各1项及Root真实Qwen表单两轮通过。无障碍Qwen当时首轮业务失败、次轮240秒超时，后续已按上方记录定位修复；不重开历史黑屏。[阶段证据](../evidence/development/physical-followup-2026-10-12.md#批准后的升级后端与模型补验)。Shizuku未准备及其他OEM/长稳仍独立保留。
+
+- 2026-10-12 Owner连接OnePlus/API34要求真机补验，并允许本轮未复现则关闭黑屏问题。独立Standard实际UI/后台20/20、socket取消/断流/旋转4/4、新Standard6次及原Developer2次普通返回通过，未复现黑屏；HXA-269按Owner规则关闭。原Developer是9月24日不兼容旧库，首阶段未覆盖；后续批准的升级及后端补验见上方，不由普通UI通过代替。[真机证据](../evidence/development/physical-followup-2026-10-12.md)。
 
 - 2026-10-12 输入法/真实视觉/稳定性补验：只读root确认故障AVD的70份Gboard公共中文资源全为0字节，健康同版资源完整；保留故障数据，新空白自有API36实际拼音及冷启动通过。真实Qwen图片请求字节与附件哈希一致，两种布局实际选择/点击通过；健康中文Mobile Use合成表单2/2、SDK8/8、固定Developer14/14和Consumer16/16及双渠道900秒资源pilot通过。当前无实体手机，不关闭Root/Shizuku/OEM及真机黑屏边界；更强会话返回和最终主机结果见[补验证据](../evidence/development/device-vision-stability-followup-2026-10-12.md)。未更新日常APK或清数据。
 
