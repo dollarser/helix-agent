@@ -6,7 +6,6 @@ import com.helix.app.goal.GoalLifecycleTools
 import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
-import com.helix.core.model.ModelRequest
 import com.helix.extensions.plugin.preferredTools
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -70,7 +69,7 @@ internal fun exposedEvaluationTools(
                     it,
                     preferred = preferred,
                 )
-            }.take(ModelRequest.MAX_TOOLS)
+            }
     return buildJsonObject { exposed.forEach { put(it.name.value, it.version.value) } }
 }
 

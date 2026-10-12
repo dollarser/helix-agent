@@ -166,21 +166,12 @@ class ModelRequestTest {
         assertThrows<IllegalArgumentException>("duplicate tool name must be rejected") {
             ModelRequest(model = "m", messages = listOf(user), tools = listOf(schema, schema))
         }
-        assertThrows<IllegalArgumentException>("too many tools must be rejected") {
-            ModelRequest(
-                model = "m",
-                messages = listOf(user),
-                tools =
-                    (1..ModelRequest.MAX_TOOLS + 1)
-                        .map { ModelToolSchema(ToolName("tool$it"), "t", "{}") },
-            )
-        }
         assertEquals(
-            ModelRequest.MAX_TOOLS,
+            160,
             ModelRequest(
                 model = "m",
                 messages = listOf(user),
-                tools = (1..ModelRequest.MAX_TOOLS).map { ModelToolSchema(ToolName("tool$it"), "t", "{}") },
+                tools = (1..160).map { ModelToolSchema(ToolName("tool$it"), "t", "{}") },
             ).tools.size,
         )
     }

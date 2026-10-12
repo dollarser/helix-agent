@@ -1,7 +1,6 @@
 package com.helix.app.chat
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.ModelRequest
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -46,10 +45,10 @@ class ModelToolExposureOrderTest {
                 descriptor("tools.search"),
                 descriptor("goal.report"),
             )
-        val exposed = ModelToolExposureOrder.prioritize(optional + essential).take(ModelRequest.MAX_TOOLS)
+        val exposed = ModelToolExposureOrder.prioritize(optional + essential)
         val names = exposed.map { it.name.value }
         essential.forEach { assertTrue("${it.name.value} must survive truncation", it.name.value in names) }
-        assertEquals(ModelRequest.MAX_TOOLS, exposed.size)
+        assertEquals((optional + essential).toSet(), exposed.toSet())
     }
 
     @Test fun optionalToolsKeepTheirOriginalRelativeOrder() {
@@ -88,7 +87,7 @@ class ModelToolExposureOrderTest {
                             .map {
                                 it.name.value
                             }.toSet(),
-                ).take(ModelRequest.MAX_TOOLS)
+                )
         assertTrue(exposed.containsAll(ui))
         assertTrue(
             exposed.none {
@@ -96,7 +95,7 @@ class ModelToolExposureOrderTest {
             },
         )
         assertTrue(exposed.any { it.name.value == "write" })
-        assertEquals(ModelRequest.MAX_TOOLS, exposed.size)
+        assertEquals(crowded.toSet(), exposed.toSet())
     }
 
     @Test fun priorityNeverReintroducesAnUnavailableContract() {
@@ -106,12 +105,11 @@ class ModelToolExposureOrderTest {
 
     @Test fun withoutAnActiveAutomationSessionUiDoesNotDisplaceOtherTools() {
         val tools = (0 until 64).map { descriptor("optional.$it") } + descriptor("ui.snapshot")
-        assertEquals(tools.take(64), ModelToolExposureOrder.prioritize(tools).take(64))
+        assertEquals(tools, ModelToolExposureOrder.prioritize(tools))
     }
 
-    @Test fun defaultSurfaceLeavesRoomForBothSmallCatalogAndLoadedWindow() {
+    @Test fun defaultSurfacePreservesCompleteWorkflowAndLeavesOptionalToolsDiscoverable() {
         val names = ModelToolExposureOrder.defaultNames(preferred = uiNames)
-        assertTrue(names.size + 2 * com.helix.app.mcp.McpToolDiscovery.WINDOW <= ModelRequest.MAX_TOOLS)
         assertTrue(
             names.containsAll(
                 listOf(

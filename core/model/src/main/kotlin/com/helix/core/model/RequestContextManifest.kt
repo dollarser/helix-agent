@@ -128,7 +128,6 @@ object CompactManifestCodec {
         inputIds: List<String>,
         tools: List<ExposedToolBinding> = emptyList(),
     ): RequestContextManifest {
-        require(tools.size <= ModelRequest.MAX_TOOLS)
         require(tools.map { it.exposedName }.distinct().size == tools.size)
         var safeMessages = messages.take(RequestContextManifest.MAX_SAFE_MESSAGES)
         var safeInputs = inputIds.take(RequestContextManifest.MAX_SAFE_INPUT_IDS)

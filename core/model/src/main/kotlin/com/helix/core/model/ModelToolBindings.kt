@@ -5,7 +5,6 @@ class ModelToolBindings(
     tools: List<ModelToolSchema>,
 ) {
     init {
-        require(tools.size <= ModelRequest.MAX_TOOLS)
         require(tools.map { it.name }.distinct().size == tools.size) { "duplicate exposed tool name" }
     }
 

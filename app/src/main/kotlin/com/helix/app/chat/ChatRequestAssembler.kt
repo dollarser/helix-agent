@@ -358,8 +358,7 @@ internal class ChatRequestAssembler(
                     it,
                     preferred = preferred,
                 )
-            }.take(ModelRequest.MAX_TOOLS)
-            .map { descriptor ->
+            }.map { descriptor ->
                 FileToolArguments.modelSchema(descriptor).copy(
                     bindingRef = bindings.single { it.descriptor == descriptor }.ref,
                 )

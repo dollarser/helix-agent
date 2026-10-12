@@ -29,6 +29,33 @@ class ModelToolBindingsTest {
         assertThrows(IllegalArgumentException::class.java) { ModelToolBindings(listOf(schema, schema)) }
     }
 
+    @Test fun largeExposurePreservesLastBindingAndManifestByteBoundary() {
+        val tools =
+            (1..160).map { index ->
+                schema.copy(name = ToolName("tool$index"), bindingRef = ref.copy(name = ToolName("tool$index")))
+            }
+        val snapshot = ModelToolBindings(tools)
+        assertEquals(tools.last().bindingRef, snapshot.resolve("tool160"))
+        val manifest = CompactManifestCodec.bounded("call", 1, null, emptyList(), emptyList(), tools = snapshot.entries)
+        assertEquals(snapshot.entries, manifest.tools)
+        assertTrue(CompactManifestCodec.encodeCompact(manifest).contains("tool160"))
+        val oversized = snapshot.entries.map { it.copy(binding = it.binding.copy(owner = "é".repeat(512))) }
+        assertThrows(IllegalArgumentException::class.java) {
+            CompactManifestCodec.bounded(
+                "call",
+                1,
+                null,
+                emptyList(),
+                emptyList(),
+                tools =
+                    oversized +
+                        oversized.map {
+                            it.copy(exposedName = "extra_${it.exposedName}")
+                        },
+            )
+        }
+    }
+
     @Test fun compactManifestPreservesExactBindingAndEscapesControlCharacters() {
         val entry = ExposedToolBinding("read", ref.copy(owner = "owner\u0001\n\""))
         val manifest = CompactManifestCodec.bounded("call", 1, null, emptyList(), emptyList(), tools = listOf(entry))

@@ -4,7 +4,7 @@ import com.helix.app.goal.GoalLifecycleTools
 import com.helix.tools.framework.ToolDescriptor
 
 /**
- * Stable model-surface ordering before the hard 64-tool cap.
+ * Stable model-surface ordering. Request capacity is governed by context and provider constraints.
  *
  * This does not grant authority or bypass availability/policy. It only prevents essential built-in
  * contracts from disappearing because optional catalogs happened to register earlier.

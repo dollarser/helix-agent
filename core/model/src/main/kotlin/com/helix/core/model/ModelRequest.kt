@@ -215,7 +215,7 @@ data class ModelToolSchema(
  * - [model] is a non-blank model id without whitespace/control characters;
  * - [messages] is 1..[MAX_MESSAGES] and the **last** message is a [ModelRole.USER] or
  *   [ModelRole.TOOL] message (a request must never end on an assistant/system turn);
- * - [tools] is 0..[MAX_TOOLS] with unique names;
+ * - [tools] has unique names; provider and context capacity are checked at request admission;
  * - [temperature] (when set) is a finite value in 0.0..2.0;
  * - [maxOutputTokens] (when set) is at least 1;
  * - [stopSequences] is at most 4 bounded, control-character-free strings;
@@ -255,7 +255,6 @@ data class ModelRequest(
         require(lastRole == ModelRole.USER || lastRole == ModelRole.TOOL) {
             "the last message must be a user or tool message, was: $lastRole"
         }
-        require(tools.size <= MAX_TOOLS) { "at most $MAX_TOOLS tools per request" }
         val names = tools.map { it.name.value }
         require(names.toSet().size == names.size) { "duplicate tool name in request tools" }
         temperature?.let { t ->
@@ -279,7 +278,6 @@ data class ModelRequest(
     companion object {
         const val MAX_MODEL_LENGTH = 256
         const val MAX_MESSAGES = 512
-        const val MAX_TOOLS = 64
         const val MAX_STOP_SEQUENCES = 4
         const val MAX_STOP_SEQUENCE_LENGTH = 64
     }

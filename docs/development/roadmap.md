@@ -318,3 +318,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-277 | 主机、API36真实后端8/8、Browser32/32与双渠道应用20/20、19/19 passed；模型未调用 | 原生插件资源归属与停止释放契约 | [任务](tasks/HXA-277.md) |
 | HXA-278 | 主机、Developer内容6/6、consumer适用内容5/5 passed；Qwen三类各2轮基线/候选均6/6，成本混合 | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |
 | HXA-279 | 本地有界交付；主机/双渠道/六类Qwen已验，Gboard拼音失败与未测边界保留 | UI 观察反馈与 Browser 标签发现及有界等待 | [任务](tasks/HXA-279.md) |
+| HXA-280 | 实施中；去除全局数量截断，目录/工作集及设备验收pending | 工具发现与请求工作集优化 | [任务](tasks/HXA-280.md) |
