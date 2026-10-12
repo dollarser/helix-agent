@@ -71,6 +71,7 @@ class ProgressiveSkillModelDeviceTest {
             try {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                c.firstLaunch.markSeen()
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     repeat(2) { repetition ->
                         val session = c.chatService.createSession("Progressive $kind $repetition", provider, model)
@@ -222,6 +223,7 @@ class ProgressiveSkillModelDeviceTest {
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
                                     "calls=${calls.map { it.name to it.state }} usage=${models.map { it.usage }}",
                             )
+                            if (kind == "mobile" && success) verifyMobileBackgroundReturn(session, repetition)
                             outcomes.add(success)
                         } finally {
                             c.storage.turns
@@ -248,6 +250,53 @@ class ProgressiveSkillModelDeviceTest {
     private var previousServices: String? = null
     private var previousEnabled = 0
     private var backendChanged = false
+
+    /** Keep the original selected session and live Accessibility backend across actual HOME/return. */
+    private suspend fun verifyMobileBackgroundReturn(
+        session: String,
+        repetition: Int,
+    ) {
+        val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val homePackage = requireNotNull(app.packageManager.resolveActivity(home, 0)).activityInfo.packageName
+        repeat(2) { cycle ->
+            app.startActivity(home)
+            await { automation.rootInActiveWindow?.packageName?.toString() == homePackage }
+            app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            await { automation.rootInActiveWindow?.packageName?.toString() == app.packageName }
+            await { containsVisibleText(automation.rootInActiveWindow, "Progressive mobile $repetition") }
+            delay(500)
+            val pixels = requireNotNull(automation.takeScreenshot())
+            try {
+                val colors =
+                    (1..15)
+                        .flatMap { x ->
+                            (2..13).map { y -> pixels.getPixel(pixels.width * x / 16, pixels.height * y / 16) }
+                        }.toSet()
+                val name = "mobile-return-$repetition-$cycle.png"
+                app.filesDir.resolve(name).outputStream().use {
+                    pixels.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                }
+                assertTrue("Helix content rendered only ${colors.size} sampled colors", colors.size > 5)
+                assertEquals(session, c.chatService.screen.value.openSessionId)
+                assertEquals(AutomationServiceState.CONNECTED, AutomationPermissionCenter(app).serviceState())
+                println(
+                    "MOBILE_BACKGROUND_RETURN rep=$repetition cycle=$cycle colors=${colors.size} sessionRetained=true",
+                )
+            } finally {
+                pixels.recycle()
+            }
+        }
+    }
+
+    private fun containsVisibleText(
+        node: android.view.accessibility.AccessibilityNodeInfo?,
+        expected: String,
+    ): Boolean {
+        if (node == null) return false
+        val matches = node.isVisibleToUser && node.text?.toString() == expected
+        return matches || (0 until node.childCount).any { containsVisibleText(node.getChild(it), expected) }
+    }
 
     private suspend fun enableBackend() {
         val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
