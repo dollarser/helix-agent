@@ -148,6 +148,56 @@ class SoakRunnerTest(unittest.TestCase):
                 collector.wait.assert_called_once_with(timeout=15)
                 soak.finalize.assert_called_once()
 
+    def test_binary_log_preserves_valid_evidence_and_reports_corruption(self):
+        with tempfile.TemporaryDirectory() as directory:
+            soak = runner.Soak.__new__(runner.Soak)
+            soak.out = Path(directory)
+            (soak.out / 'logcat.log').write_bytes(
+                b'Other: invalid \xbe\nHelixSoak: pid=12 cycles=1 elapsedMs=900000 fd=4 threads=5 pssKb=6\n'
+                b'TestRunner: run finished: 1 tests, 0 failed, 0 ignored\n')
+            facts = soak.scan_logcat()
+            self.assertEqual(1, facts['invalidUtf8Lines'])
+            self.assertEqual(0, facts['invalidUtf8FixtureLines'])
+            self.assertEqual({12}, facts['fixturePids'])
+            self.assertTrue(facts['testRunnerFinished'])
+            (soak.out / 'logcat.log').write_bytes(b'TestRunner: invalid \xbe\n')
+            self.assertEqual(1, soak.scan_logcat()['invalidUtf8FixtureLines'])
+
+    def test_finalize_failure_is_persisted_without_claiming_device_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            soak = runner.Soak.__new__(runner.Soak)
+            soak.out = Path(directory)
+            soak.identity = {'runId': 'owned'}
+            soak._finalize = Mock(side_effect=ValueError('malformed evidence'))
+            self.assertEqual(1, soak.finalize(900, None, soak.out / 'instrumentation.log'))
+            result = json.loads((soak.out / 'result.json').read_text())
+            self.assertEqual('INCONCLUSIVE', result['state'])
+            self.assertEqual('report finalization', result['attribution'])
+            self.assertEqual('ValueError', result['finalizationError'])
+
+    def test_corrupt_fixture_evidence_cannot_pass_finalization(self):
+        with tempfile.TemporaryDirectory() as directory:
+            soak = runner.Soak.__new__(runner.Soak)
+            soak.out = Path(directory)
+            soak.identity = {}
+            soak.args = SimpleNamespace(workload='app', preset='pilot')
+            soak.wl = runner.workload_identity('app')
+            soak.seconds = 900
+            soak.cancelled = False
+            soak.samples = []
+            soak.host_pids = {12}
+            (soak.out / 'logcat.log').write_bytes(
+                b'HelixSoak: pid=12 cycles=1 elapsedMs=900000 fd=4 threads=5 pssKb=6\n'
+                b'TestRunner: run finished: 1 tests, 0 failed, 0 ignored \xbe\n')
+            path = soak.out / 'instrumentation.log'
+            path.write_text('OK (1 test)')
+            method = tuple(soak.wl['test'].split('#'))
+            with patch.object(runner, 'require_passed', return_value=[method]):
+                self.assertEqual(1, soak.finalize(905, None, path))
+            result = json.loads((soak.out / 'result.json').read_text())
+            self.assertEqual('INCONCLUSIVE', result['state'])
+            self.assertEqual(1, result['logDecoding']['invalidUtf8FixtureLines'])
+
 
 if __name__ == '__main__':
     unittest.main()

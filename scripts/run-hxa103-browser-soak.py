@@ -332,13 +332,21 @@ class Soak:
     def scan_logcat(self):
         res = {"fixturePids": set(), "cycles": None, "fixturePeakFd": None,
                "fixturePeakThreads": None, "fixturePeakPssKb": None, "nHelixSoak": 0,
-               "testRunnerFinished": False, "failureMsgs": [], "nestedCaseCounts": [], "fixtureElapsedMs": None}
+               "testRunnerFinished": False, "failureMsgs": [], "nestedCaseCounts": [], "fixtureElapsedMs": None,
+               "invalidUtf8Lines": 0, "invalidUtf8FixtureLines": 0}
         path = self.out / "logcat.log"
         if not path.exists():
             return res
         cycle_re = re.compile(r"pid=(\d+) cycles=(\d+) elapsedMs=(\d+) fd=(\d+) threads=(\d+) pssKb=(\d+)")
-        with path.open() as f:
-            for line in f:
+        with path.open('rb') as f:
+            for raw in f:
+                try:
+                    line = raw.decode('utf-8')
+                except UnicodeDecodeError:
+                    res['invalidUtf8Lines'] += 1
+                    if any(marker in raw for marker in (b'HelixSoak:', b'HelixSoakCases:', b'TestRunner:')):
+                        res['invalidUtf8FixtureLines'] += 1
+                    line = raw.decode('utf-8', errors='replace')
                 if "HelixSoak:" in line:
                     m = cycle_re.search(line)
                     if m:
@@ -427,6 +435,19 @@ class Soak:
 
     # ---- §5.4 forensics-first finalize -------------------------------------
     def finalize(self, elapsed, infra, inst_path):
+        try:
+            return self._finalize(elapsed, infra, inst_path)
+        except Exception as error:
+            # Report processing failure separately from a device resource/functional failure.
+            result = {**self.identity, 'state': 'INCONCLUSIVE', 'attribution': 'report finalization',
+                      'note': 'finalization failed; inspect preserved device evidence',
+                      'finalizationError': type(error).__name__, 'elapsedSeconds': round(elapsed, 1),
+                      'endUtc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+            (self.out / 'result.json').write_text(json.dumps(result, indent=2))
+            print(json.dumps(result))
+            return 1
+
+    def _finalize(self, elapsed, infra, inst_path):
         inst_stream = ""
         try:
             inst_stream = inst_path.read_text()
@@ -459,6 +480,9 @@ class Soak:
             "fixtureElapsedMs": lc.get("fixtureElapsedMs"),
         }
         state, note, attribution = classify(ev)
+        if lc.get('invalidUtf8FixtureLines', 0) and state == 'PASS':
+            state, note, attribution = ('INCONCLUSIVE', 'fixture log contains invalid UTF-8',
+                                        'fixture evidence corruption')
         eff_pids = lc["fixturePids"] or self.host_pids
         # Count only completed, observed app cycles; never estimate from a fixed suite size.
         # the independent browser loop does not run the app's nested JUnit suite.
@@ -486,6 +510,8 @@ class Soak:
             "testRunnerFinished": lc["testRunnerFinished"],
             "sampling": ev["sampling"],
             "failureMsgs": lc["failureMsgs"],
+            "logDecoding": {"invalidUtf8Lines": lc.get('invalidUtf8Lines', 0),
+                            "invalidUtf8FixtureLines": lc.get('invalidUtf8FixtureLines', 0)},
             "endUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         (self.out / "result.json").write_text(json.dumps(result, indent=2))
