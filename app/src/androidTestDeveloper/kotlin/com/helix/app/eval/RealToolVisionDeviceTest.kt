@@ -18,6 +18,8 @@ import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -27,6 +29,9 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 /** Opt-in synthetic pixels through the actual model, Dispatcher and persisted image feedback. */
 class RealToolVisionDeviceTest {
@@ -42,6 +47,8 @@ class RealToolVisionDeviceTest {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val container = app.appContainer
             val service = container.providerService
+            val port = (InstrumentationRegistry.getArguments().getString("visionPort") ?: "30008").toInt()
+            require(port in 1..65535)
             val existing = InstrumentationRegistry.getArguments().getString("visionProvider")
             val provider =
                 existing ?: service.create(
@@ -49,11 +56,11 @@ class RealToolVisionDeviceTest {
                         null,
                         "Synthetic vision acceptance",
                         ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                        NormalizedEndpoint.parse("http://10.0.2.2:30008/v1"),
+                        NormalizedEndpoint.parse("http://10.0.2.2:$port/v1"),
                         "Qwen3.8-27B",
                         "{}",
                         false,
-                        CleartextWarning("10.0.2.2", 30008),
+                        CleartextWarning("10.0.2.2", port),
                         emptyList(),
                     ),
                     null,
@@ -127,6 +134,135 @@ class RealToolVisionDeviceTest {
             delay(100)
         }
         verifyResult(app, session)
+        if (browserCase && InstrumentationRegistry.getArguments().getString("visionAction") == "true") {
+            exerciseVisualAction(app, session)
+        }
+    }
+
+    /** Runtime-only colors are absent from the URL, text, node tree and task prompt. */
+    private suspend fun exerciseVisualAction(
+        app: HelixApplication,
+        session: String,
+    ) {
+        val c = app.appContainer
+        val id = requireNotNull(tabId)
+        val side = InstrumentationRegistry.getArguments().getString("visionRedSide") ?: "random"
+        require(side in setOf("left", "right", "random"))
+        val leftRed = if (side == "random") Random.nextBoolean() else side == "left"
+        val expected = if (leftRed) "A" else "B"
+        val prepared = CompletableFuture<String>()
+        activity.scenario.onActivity {
+            val html =
+                "<body style='margin:0;display:flex;height:100vh'><button id='a' style='width:50%;" +
+                    "background:gray;font-size:48px' onclick=\"document.title='A:1'\">A</button>" +
+                    "<button id='b' style='width:50%;background:gray;font-size:48px' " +
+                    "onclick=\"document.title='B:1'\">B</button></body>"
+            c.browser.navigate(id, "data:text/html," + android.net.Uri.encode(html))
+        }
+        awaitBrowser(app)
+        activity.scenario.onActivity {
+            c.browser.hostView(id)!!.evaluateJavascript(
+                "document.title='Ready:0';document.getElementById('a').style.background=" +
+                    "'${if (leftRed) "red" else "lime"}';document.getElementById('b').style.background=" +
+                    "'${if (leftRed) "lime" else "red"}';document.title",
+                prepared::complete,
+            )
+        }
+        check(prepared.get(5, TimeUnit.SECONDS).contains("Ready:0"))
+        delay(500)
+        val before =
+            c.storage.turns
+                .listBySession(session)
+                .map { it.id }
+                .toSet()
+        c.chatService.sendTestMessage(
+            session,
+            "On synthetic browser tab $id, first take browser.screenshot and inspect its actual pixels. " +
+                "Click exactly once the RED button, not the green one. A/B text and DOM do not disclose colors. " +
+                "Use a fresh browser.snapshot only to obtain the token for the visually chosen button. " +
+                "After clicking take another screenshot, verify the result, and report the clicked letter. " +
+                "Only screenshot/snapshot/click/find on this tab and tool/skill discovery are permitted. " +
+                "Do not navigate, use phone tools, scripts, terminal or other tabs.",
+        )
+        awaitVisualTurn(app, session, before)
+        verifyVisualAction(app, session, before, expected)
+    }
+
+    private suspend fun awaitVisualTurn(
+        app: HelixApplication,
+        session: String,
+        before: Set<String>,
+    ) {
+        val c = app.appContainer
+        val deadline = android.os.SystemClock.elapsedRealtime() + 180_000
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            c.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                c.chatService.toolVisionConsent.respond(it.id, true)
+            }
+            val turns =
+                c.storage.turns
+                    .listBySession(session)
+                    .filter { it.id !in before }
+            turns.forEach { approveScreenshot(app, it.id) }
+            if (turns.isNotEmpty() && turns.all { TurnState.valueOf(it.state).isTerminal }) return
+            delay(100)
+        }
+        error("Visual action exceeded external fixture deadline")
+    }
+
+    private fun verifyVisualAction(
+        app: HelixApplication,
+        session: String,
+        before: Set<String>,
+        expected: String,
+    ) {
+        val c = app.appContainer
+        val turns =
+            c.storage.turns
+                .listBySession(session)
+                .filter { it.id !in before }
+        val calls = turns.flatMap { c.storage.toolCalls.listByTurn(it.id) }
+        val messages =
+            c.storage.messages
+                .listBySession(session)
+                .filter { it.turnId in turns.map { t -> t.id } }
+        val observations =
+            messages.flatMap { message ->
+                c.storage.messageAttachments
+                    .listByMessage(message.id)
+                    .filter { it.purpose == "TOOL_OBSERVATION" }
+            }
+        val images = observations.size
+        val actual = CompletableFuture<String>()
+        activity.scenario.onActivity {
+            c.browser.hostView(requireNotNull(tabId))!!.evaluateJavascript("document.title", actual::complete)
+        }
+        val observed = actual.get(5, TimeUnit.SECONDS)
+        turns.flatMap { c.storage.modelCalls.listByTurn(it.id) }.forEach {
+            println("REAL_VISUAL_REQUEST call=${it.id} usage=${it.usage}")
+        }
+        val result =
+            buildJsonObject {
+                put("expected", "$expected:1")
+                put("observed", observed)
+                put("imageCount", images)
+                put("imageSha256", JsonArray(observations.map { JsonPrimitive(it.boundSha256) }))
+                put("turnStates", turns.joinToString { it.state })
+                put("calls", calls.joinToString { "${it.name}:${it.state}" })
+            }
+        File(app.filesDir, "real-visual-action.json").writeText(result.toString())
+        println("REAL_VISUAL_ACTION=$result")
+        assertTrue(result.toString(), turns.isNotEmpty() && turns.all { it.state == "COMPLETED" })
+        assertTrue(result.toString(), observed == "\"$expected:1\"" && images >= 2)
+        assertTrue(result.toString(), calls.count { it.name == "browser.click" && it.state == "COMPLETED" } == 1)
+        val permitted = setOf("browser.screenshot", "browser.snapshot", "browser.click", "browser.find")
+        assertTrue(
+            result.toString(),
+            calls.all {
+                it.name in permitted || it.name.startsWith("tools.") ||
+                    it.name == "skills.read"
+            },
+        )
     }
 
     private suspend fun approveScreenshot(
@@ -140,7 +276,9 @@ class RealToolVisionDeviceTest {
                 kotlinx.serialization.json.Json
                     .parseToJsonElement(call.argsJson)
                     .jsonObject
-            if (approval != null && call.name == "browser.screenshot" &&
+            val visualAction = InstrumentationRegistry.getArguments().getString("visionAction") == "true"
+            val permitted = call.name == "browser.screenshot" || (visualAction && call.name == "browser.click")
+            if (approval != null && permitted &&
                 args["tabId"]?.jsonPrimitive?.content == tabId
             ) {
                 container.chatService.approveApproval(approval.id)
@@ -205,6 +343,11 @@ class RealToolVisionDeviceTest {
             controller.navigate(id, "data:text/html," + android.net.Uri.encode(html))
             owner.addContentView(requireNotNull(controller.hostView(id)), android.view.ViewGroup.LayoutParams(640, 320))
         }
+        awaitBrowser(app)
+    }
+
+    private suspend fun awaitBrowser(app: HelixApplication) {
+        val controller = app.appContainer.browser
         val deadline = android.os.SystemClock.elapsedRealtime() + 15000
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             val tab =

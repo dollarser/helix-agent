@@ -209,6 +209,14 @@ class ProgressiveSkillModelDeviceTest {
                                     }
                                 }
                             val success = turn.state == "COMPLETED" && verified && calls.isNotEmpty()
+                            calls.filter { it.state != "COMPLETED" }.forEach { call ->
+                                val result = c.storage.toolResults.byToolCall(call.id)
+                                println(
+                                    "PROGRESSIVE_FAILURE kind=$kind rep=$repetition name=${call.name} " +
+                                        "args=${call.argsJson} result=${result?.summary} " +
+                                        "body=${result?.let(c.storage.toolResults::readContent)?.take(1800)}",
+                                )
+                            }
                             println(
                                 "PROGRESSIVE kind=$kind rep=$repetition success=$success state=${turn.state} " +
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
