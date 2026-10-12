@@ -2,7 +2,9 @@
 
 核对日期：2026-09-29。范围：工具数量、MCP/Skills/Plugins 的组织、竞品机制，以及 Helix 当前源码与历史评测。本文补齐本轮对话分析，不重建一套工具架构。
 
-**结论：保留小而完整的默认工具组、统一按需发现和现有 64 个请求硬上限；优先改善检索、工具依赖可达性、动态窗口连续性和精确绑定。不是工具越少越好，也不是接入更多 MCP 就提高硬上限。**
+2026-10-12 Owner 要求结合 Codex、Claude Code、DSH 重新评估，当前源码复核和优化设计见 [§12](#12-2026-10-12-工具架构重新评估与优化设计)。§4–5 的日期化缺口不能作为今日待办：原子绑定、部分匹配排序、搜索提示与 Skill 渐进装载已有后续实现。
+
+**2026-09-29 阶段结论（历史快照）：保留小而完整的默认工具组、统一按需发现和当时的 64 个请求硬上限；优先改善检索、工具依赖可达性、动态窗口连续性和精确绑定。** 当前设计已根据 Owner 反馈调整为取消 Helix 自设的全局数量上限，见 §12.8；历史结论不作为新的实施要求。
 
 **状态与授权：**这是研究输入，不是已接受的新契约或实施记录。R1、上下文编译与插件安装的目标规范仍归 [Harness 方案](../../architecture/harness-refactor-plan.md)；当前实施顺序归 [status](../../development/status.md) 和 [HXA-231](../../completion-records/HXA-231.md)。本次只补文档，不修改生产代码、有效 ADR 决定、开发任务或设备验收结果。
 
@@ -359,3 +361,144 @@ C10 5d2fb0926256430781d98854d24f904de99743c6b431f0b4a54e645cfd28ecee
 | W10 | [Anthropic: Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) | 2025-11-04文章；接口按需读取和结果就地处理的方向 |
 
 最终取舍是让能力可发现、当前接口完整、工作集有界、执行绑定准确；数量减少只是可能的手段，不是验收目标。
+
+## 12. 2026-10-12 工具架构重新评估与优化设计
+
+**设计结论：保留统一原子注册表、独立工具契约、会话准入与 Dispatcher；优化本次请求的能力目录、检索、工作集连续性和 schema 成本。** 当前不需要全量 MCP 化、通用动作 JSON、第二套注册表或新的脚本执行域。竞品机制不能直接决定 Helix 的默认工具数、权限或 Android 资源容量。
+
+本节对应 Owner 本轮设计请求及随后取消 64 上限的需求反馈。Helix 核对基线为 `c31640a3be0f909cf52659e7122bf573e206ee1c` 加当前工作树；涉及实现未修改。当前目标需求见 §12.8；accepted ADR-MCP-001 及生产实现仍保持旧契约，实施时须同步修改有效正文和 Decision history。不重新打开 HXA-252、272～279 已交付切片。设备、真实模型和性能对照本轮未执行，收益尚待验证。
+
+### 12.1 三个参考项目的实际取舍
+
+| 参考 | 当前一手证据 | Helix 采用方向与边界 |
+| --- | --- | --- |
+| Codex 公开核心 | `build_tool_router` 合并内置、MCP、扩展和客户端动态工具；注册表与模型可见规格分离。MCP 暴露受模型搜索能力及配置控制；延迟工具经客户端 BM25 返回可加载定义，下一次模型调用可用 | 复用已有注册事实投影来源目录，按需提供真实 schema；不将公开 main 等同本机桌面部署，不复制代码或声称统一固定常驻数 |
+| Claude Code | 官方 MCP 文档描述默认延迟工具定义，启动提供工具名及服务器说明；`alwaysLoad` 可指定提前加载，`auto` 才是上下文比例阈值模式；代理和模型兼容性会改变行为 | 来源简介应让模型知道何时搜索；少量常用组提前提供。外部 `alwaysLoad` 仅可作提示，不获得 Helix 权限或强占上下文；不照搬 10% 或通用工具数量 |
+| DSH | ToolRuntime 合并作用域可见工具；默认 `native` 提供全部可见 schema。`ptc` 只提供 `run_code` 外层工具，另生成 SDK 提示，内部仍经工具执行链。MCP adapter 单独负责发现、注册与代际替换；工具变化可在请求边界重新组装 | 保留工具注册、呈现和执行分离及准确请求快照。PTC 是另一种呈现方式，不是已确认的通用按需搜索；外层函数少不等于 SDK/结果 token 少，不据此改造 Helix QuickJS |
+
+固定核验版本：Codex `0c7362d121d1c7f69540262425fd4e2209fd8e8d`；DSH `d743267388641bc76f17c45ce8b4c231aed1d32c`。Claude 使用 2026-10-12 在线官方文档，没有运行三者的真实任务。§12.7 提供精确来源。
+
+### 12.2 Helix 当前具备什么，缺口在哪里
+
+当前生产链为：贡献发布到 `ToolRegistry` 的原子 binding → 当前模式/会话/来源可用性过滤 → 默认工具及发现窗口 → 最终模型 schema 和 `bindingRef` → RequestContextManifest → Dispatcher 执行。MCP/A2A/native 的执行 adapter 不必相同。
+
+| 环节 | 当前事实 | 重新评估 |
+| --- | --- | --- |
+| 注册与调用身份 | `ToolRegistry` 使用 ToolBindingStore；请求 schema 绑定 owner、version、contractHash、implementationRevision、incarnation | 已交付，应保留。旧 §5.6 的分离表缺口不再是当前任务 |
+| 会话准入 | `PluginCatalog.sourceAvailable` 检查来源及会话选择；`PluginRegistry.selectedRuntimes` 过滤就绪和选择；发现、schema 与执行复用可用性规则 | 已有权限边界，不能描述成未选择插件也能靠搜索启用 |
+| 初始工具 | ModelToolExposureOrder 的共享默认候选为 18；无 preferred 时额外提供 JavaScript；Mobile Use preferred 14，Browser preferred 3 | 默认组有优化空间，但不能只为达到某个数量删除能力 |
+| 搜索 | tools.search 已覆盖统一目录，完整名称优先；组合词有部分匹配与相关性排序，名称/描述仍是主要字段 | 不再立项首次统一发现或首次支持 OR；补来源、能力类别、字段名和中英文可维护别名 |
+| 发现状态 | 默认返回 8、最多 16；命中替换窗口，未命中保留有效成员；最多缓存 128 个会话，进程内状态 | 搜索不同子任务会淘汰此前工具；是当前明确契约，是否改为有界保留需对照 |
+| 请求选择 | visible 初步排列发现结果，随后 prioritize 重排并 take(64) | 多个 preferred 组挤满容量时，发现结果可能仍被最终截断；需要最终集合级的完整性保证和诊断，不仅检查搜索返回 |
+| MCP 初始曝光 | 所有准入 MCP 合计不超过 16 时全部提供，超过则转发现 | 16/17 造成与任务用途及 schema 大小无关的行为突变；应评估统一按组/成本选择 |
+| 上下文估计 | ModelInputEstimate 已估计 tools，RequestBudgetDiagnostics 已区分 instructions/history/tools/images | 缺口是曝光选择尚未按工具成本分配，不是没有上下文预算；现有估计也不等于 Provider 精确 wire/tokenizer 计量 |
+| Skill 内容 | 名称/简介目录、requiredInstructions、按需正文、显式激活投影及参考资料已接线 | 保留 HXA-278；目录预算和检索可复用，不能重做整套内容装载 |
+
+默认候选数量的静态示例：无插件 preferred 为 19，Mobile Use 为 32，Browser 为 21，两者同时选择为 35；不含额外 MCP 和发现窗口。这些是集合计数，不是本轮真实请求或 token 测量，模式、注册、禁用和就绪会减少实际集合。ADR 中的 21/9/62 是旧快照，实施时应在原 ADR 对齐当前事实，并保留原决定历史，不添加这些计数的固定门禁。
+
+### 12.3 建议目标结构
+
+```text
+内置 / Native Plugin / MCP / A2A 工具贡献
+                    ↓
+已有原子 ToolRegistry 与精确 binding
+                    ↓
+会话选择、模式与当前可用性过滤
+                    ↓
+同一快照的只读来源目录和搜索索引
+                    ↓
+本次工具选择：必要控制 + 完整操作组 + 新发现 + 有效近期工具
+                    ↓
+最终 schema 成本、Provider 已知限制及完整性检查
+                    ↓
+ModelRequest + RequestContextManifest
+                    ↓
+原 Dispatcher / Policy / Approval / Execution / Audit
+```
+
+来源目录、搜索索引和工具选择是已有事实的投影，不新增可写权限或第二份执行注册表。模型负责从任务推导搜索词和选择调用；宿主决定允许发现的范围、初始组和最终集合，不先调用另一个模型给全部工具分类。
+
+### 12.4 具体候选策略
+
+**A. 让模型知道本会话有哪些能力。** 在现有环境提示中提供简短来源名、用途、可搜索类别及就绪事实，来源身份复用 PluginCatalog 和 binding owner。仅包含本会话可用能力；已选择但配置不足的原因复用 pluginReadiness，未选择插件不伪装可用。外部简介作为有长度限制的数据，不直接执行服务器 instructions。目录超出预算时保留简要来源名和单一 tools.search 入口，通过查询取得细节；不全量注入每个工具简介。
+
+**B. 搜索增强而不扩权限。** 在现有 tools.search 中逐步加入可选来源/能力类别过滤，索引名称、简短描述、可信来源显示名、参数字段和宿主维护的中英文别名。首先保留可解释的精确名称及关键词相关性，不引入向量模型或独立服务。外部名称和简介受限、不能自设优先级。零命中区分“无匹配”与本会话已有可公开的配置原因，不泄露其他会话、未授权来源或凭据。返回来源信息和下一请求生效说明；真正可调用的集合仍由下一请求 schema 决定。
+
+**C. 将默认规则写成能力组，而非注册顺序。** 工具继续保持独立名称和 schema，分组只影响选择。文件读写、目录/搜索、手机节点观察与动作、坐标截图与动作、异步任务启动与收取等保持工作流完整；宿主维护的组不能自动给予能力或启用来源。Goal 四个工具、JavaScript 默认回退及文件工具哪些条件常驻，需要独立任务对照，不一次全部隐藏。Browser 当前 open/snapshot/find 组先保留。
+
+Mobile Use 首个保守候选只将 ui.device 延迟；后续再单独比较 screenshot/gesture 的呈现。14→11 只是一个实验候选，不设为设计目标。视觉任务可能因截图额外发现反而更慢；坐标动作必须有合法观察帧，语义节点动作必须保留 snapshot/find，不能为了少函数破坏工具前置条件。
+
+**D. 用有界近期保留解决连续发现。** 比较现行“成功即替换”和“新结果 + 仍有效的近期工具”两种测试策略。候选窗口暂沿用 16，不无限累加；优先新发现、在途 Job 必需查询/收取及完整操作组，按实际使用与发现顺序淘汰可选成员。新查询所得完整操作组放不下时明确报告，不假装已加载。先继续同会话单次搜索约束，不因改窗口立即允许并行搜索。确定顺序、撤销、版本变化和请求绑定必须可回归；缓存依旧不是恢复事实，进程重启从当前授权目录重新发现，已有 UNKNOWN 不重放。
+
+**E. 取消 Helix 自设的全局数量上限，保证最终可调用。** 删除请求链中的固定 64 截断及联动校验，不换成另一固定数量。必要控制、当前发现结果及其操作前置契约在最终选择后仍应可达；新工具未进入最终集合需有机器可读原因和可执行的缩小查询路径。只有 Provider 已知的硬限制、上下文和序列化/存储资源边界能约束请求；受保护集合无法完整容纳时给出明确诊断，不能只截去末尾。具体需求与验收见 §12.8。
+
+复用 ModelInputEstimate、ContextCompiler 和 RequestBudgetDiagnostics 记录默认/发现/目录成本及选择原因，逐步核对 Provider 实际投影；准确 token、估计 token、字节分别记录。软预算只淘汰可选工具或目录详情，不剪掉 required、enum、前置条件或权限说明。先采样不同上下文大小、模型协议和渠道，再决定软预算；不照搬 Claude auto 的 10% 或 Codex 特定插件的字节上限。MCP 16/17 的全量阈值可在此阶段改为常用组/成本准入，其余统一发现。
+
+**F. 原生 deferred 协议作为 Provider 适配。** Helix 本地 tools.search → 下一请求普通 schema 的通用链先保持，确保 Qwen、自建兼容 API 和其他 Provider 可用。以后只有实际支持 native tool_search/tool_reference 的 Provider 才走专用编码；不以该适配为以上改进前置。DSH PTC 和 Codex Code Mode 可作为将来大量结果就地聚合的输入，本轮不添加通用特权脚本桥接。
+
+### 12.5 实施顺序与契约归属
+
+| 切片 | 内容 | 工作量与依赖 | 完成判据 |
+| --- | --- | --- | --- |
+| 0 | 取消固定 64 截断及请求/绑定/manifest 联动校验，补 Provider 与存储边界 | 中；先同步原 ADR，复用现有上下文预检；实施前核对所有消费者 | 超过 64 仍能完整编码、绑定、记录和调用；无静默丢失、无另设固定全局数量；存储越界有明确失败 |
+| 1 | 同源能力目录、来源字段与检索增强 | 小到中；复用现有注册及可用性。先补研究引用、当前数字事实和测试矩阵 | 中文/英文/来源查询可发现；禁用、模式、会话、替换与零命中正确；不重复已交付排序优化 |
+| 2 | 最终集合完整性、选择原因及定向边界测试 | 中；先处理实际可调用性，再优化减少数量 | 搜索结果、实际 schema 和 manifest 一致；拥挤时保持完整组或明确未装载，不静默丢工具 |
+| 3 | 有界近期窗口候选和工作流对照 | 中；依赖切片 2，改变替换语义须更新原 ADR | start→await、文件→网页→文件、交叉来源操作减少重新发现；取消/失效/恢复不退化 |
+| 4 | 默认组与 MCP 阈值按成本调整 | 中；依赖已有计量与前面完整性，对照后一项一项选择 | 成功率无已知退化；总 token、请求轮次、耗时和搜索重试有明确取舍；不以默认函数个数作为通过门禁 |
+| 条件性 | Provider 原生发现、PTC、向量检索 | 当前不启动 | 有具体兼容 Provider、大目录失败或结果聚合成本证据及 Owner 实现授权后再评审 |
+
+曝光、搜索和窗口决定写回 ADR-MCP-001 同一主题及 Decision history；工具输入 schema、绑定与外部提示边界归 ADR-TOOLS-001；Skill 内容仍归 ADR-SKILLS-001。当前先完成设计，不创建 accepted 新契约、重复 HXA 或一份脱离 status 的执行排期。
+
+### 12.6 验证方案
+
+主机测试围绕行为而非固定计数：名称精确查询、组合部分匹配、中英文别名、来源同名、空结果、工具增加/删除/换版、会话隔离、禁用/撤销、Plan/recovery-only、过期 binding、请求软预算、超过旧 64 阈值的完整绑定/manifest、Provider 已知数量边界、MCP 15/16/17，以及发现窗口压力。样本数量用于边界验证，不作为生产默认数或随着工具增加持续调整的门禁。现有测试按新接受契约补充，不能因结果不理想删除安全断言。
+
+合成大目录分别使用多来源、长 schema、相似描述和恶意元数据，记录检索耗时、Top-k 命中和下一请求实际可达性；注册数量与模型提供数量分开，不能从合成结果推导手机资源容量。
+
+真实任务对照采用相同模型、权限、输入、APK 基线及合成业务夹具，分别运行文件任务、异步 Job、Browser、Mobile Use 节点/视觉、文件与浏览器交叉、Skill 引导和 MCP 连接查询。每个切片仅改变一个策略，先每类两轮筛查，失败再扩大定向样本；这个起始样本不足以声明普遍收益。记录业务正确性、权限/UNKNOWN 结果、总输入输出、工具 schema 估计、模型轮次、搜索次数/空结果、重复加载、最终未装载及总耗时。无真实模型授权时只完成主机夹具，不把 mocked pass 当完成率。
+
+明确验收优先级：执行身份和权限正确 → 工作流可完成 → 没有静默缺失 → 总成本和延迟取舍。需要设备或付费模型时按当轮明确授权执行；本设计没有启动设备、模型或其他正在进行的测试。
+
+### 12.7 本轮证据入口
+
+Helix 当前事实：
+
+- [McpToolDiscovery](../../../app/src/main/kotlin/com/helix/app/mcp/McpToolDiscovery.kt)：来源准入、关键词排序、替换窗口、小 MCP 全量及搜索输出。
+- [ChatRequestAssembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[ModelToolExposureOrder](../../../app/src/main/kotlin/com/helix/app/chat/ModelToolExposureOrder.kt)：最终过滤、重排、hard cap 与 bindingRef。
+- [ToolRegistry](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolRegistry.kt)、[PluginCatalog](../../../app/src/main/kotlin/com/helix/app/plugin/PluginCatalog.kt)：原子贡献与会话来源。
+- [PluginExecutionContext](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginExecutionContext.kt)：目录、短规则、显式 Skill 内容与 preferred。
+- [MobileUsePlugin](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/MobileUsePlugin.kt)、[BrowserPlugin](../../../extensions/browser/src/main/kotlin/com/helix/extensions/browser/BrowserPlugin.kt)：当前默认组。
+- [ModelInputEstimate](../../../core/agent/src/main/kotlin/com/helix/core/agent/ModelInputEstimate.kt)、[RequestBudgetDiagnostics](../../../core/agent/src/main/kotlin/com/helix/core/agent/RequestBudgetDiagnostics.kt)：现有上下文工具成本估计。
+- [HXA-252 发现提示对照](../../evidence/development/discovery-guidance-2026-10-10.md)、[HXA-278 Skill 装载对照](../../evidence/development/hxa278-progressive-skills-2026-10-12.md)：历史有限证据，不是本节候选策略的新结果。
+
+外部当前核验：
+
+- Codex [工具组装](https://github.com/openai/codex/blob/0c7362d121d1c7f69540262425fd4e2209fd8e8d/codex-rs/core/src/tools/spec_plan.rs)、[工具搜索](https://github.com/openai/codex/blob/0c7362d121d1c7f69540262425fd4e2209fd8e8d/codex-rs/core/src/tools/handlers/tool_search.rs)、[搜索入口与来源简介](https://github.com/openai/codex/blob/0c7362d121d1c7f69540262425fd4e2209fd8e8d/codex-rs/core/src/tools/handlers/tool_search_spec.rs)。
+- Claude Code [MCP 工具搜索及配置](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search)。
+- DSH [ToolRuntime 与 Native/PTC](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/packages/core/tools/src/index.ts)、[请求工具贡献组装](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/packages/core/system-prompt/src/index.ts)、[MCP 工具 adapter](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/packages/mcp/mcp-client/src/tools.ts)。
+
+### 12.8 优化后的目标需求与验收条件
+
+**目标：让模型能够发现和完整调用当前会话允许的工具，以真实上下文及资源成本管理请求，不受 Helix 人为固定工具数量限制。** 本节是 Owner 要求完善的需求，不是实现完成声明。保留独立工具 schema、准确执行身份与原权限链；不增加全量常驻、通用执行引擎或用户必须配置的新预算项。
+
+| 需求 | 目标行为 | 验收条件 |
+| --- | --- | --- |
+| R1 取消全局固定数量限制 | 请求组装不再 take(64)；ModelRequest、ModelToolBindings、RequestContextManifest 不按 64 拒绝；不以 128/256 等新常量替代 | 在真实生产组装/编码/绑定链中，构造超过旧阈值的合法工具集合，名称、schema、binding、manifest 一致，最后一个工具可准确解析和调用；重复名称与无效契约仍拒绝 |
+| R2 Provider 限制归适配层 | 仅应用当前 Provider 明确支持或已验证的数量、协议及请求字节限制，缺少证据时不推定统一数量；不从错误文本自动猜出限制并循环重试 | 用有/无明确限制的 Provider 夹具核验；小于/等于/大于已知边界行为明确；服务方拒绝如实报告，不变更授权、不重放已执行动作 |
+| R3 上下文成本替代数量裁剪 | 基础组、发现工作集、来源目录、历史/Skill/图片共享已有上下文容量；成本基于最终 schema 投影，并区分估算与实测；不增加累计任务 token 阻断 | 同数量长短 schema、不同窗口及多模态夹具覆盖；压缩历史不能假装减少工具 schema；必需集合容纳不下时说明原因，可选工具可延迟，不剪参数契约 |
+| R4 持久记录不丢绑定 | 请求实际工具集合与持久化清单完整一致。当前 manifest 的 256 KiB 单行存储限制仍是独立字节约束，不能靠删除工具引用、仅保存前 N 个或 isTruncated 标志绕过 | 超过 64 可持久化并恢复解析；字节边界两侧回归。若现有存储不能承载完整绑定，先明确失败并阻止该模型请求，不发送一个无法完整记账的请求；必要的存储扩展在本切片设计中单独核对，不盲目放大限制 |
+| R5 能力可发现但不全量注入 | 本会话可用来源有简短说明，长尾工具通过单一 tools.search 发现，下一次模型请求提供真实 schema；安装与选择不自动变成所有工具常驻 | 不同来源、中文/英文、精确名称、同名与长描述回归；搜索结果与下一请求实际集合核对。未选择、已禁用或不准入的来源不能因目录或搜索变可调用 |
+| R6 连续工作流保持可达 | 默认组和近期发现按完整操作关系选择，避免只留下动作而丢观察、只留下启动而丢查询/收取；窗口仅是曝光缓存，不能代替 Room 恢复事实 | 文件→网页→文件、start→await、节点/坐标观察→动作回归；修改替换窗口前有严格对照；失效、取消和 UNKNOWN 不自动重放 |
+| R7 用户反馈与诊断分层 | 普通界面仅说明缺配置、需重新发现或当前服务无法容纳并给出下一步；内部保留选择/延迟原因、成本口径和准确请求身份 | 用户可完成修复入口操作；没有不必要的计数/技术诊断堆积；内部能核对“搜索到了但未发送”的原因，不把未装载称为权限拒绝 |
+
+**加载规则。** 每次请求从当前准入的原子快照选择必要控制、完整常用组、近期发现和当前流程需要的查询/收取工具；剩余能力继续可搜索。最终集合满足 Provider 和上下文条件后冻结 binding 并持久记录，再发送模型请求。来源、模式或契约变化重新验证；执行依旧独立检查当前权限和原调用身份。
+
+**数字的不同职责。** 64 是本轮明确取消的全局请求数量限制；搜索一次返回多少、缓存多少会话是局部检索/资源参数，不能自动视为同一种限制。现有 16 项曝光窗口与 MCP 16/17 阈值仍需按切片 3/4 评估，不能拿它们作为取消 64 后限制整个请求的替代品。后续工作集应优先受 schema 成本与完整工作流约束，必要的局部资源边界必须有真实理由和明确反馈。
+
+**实现顺序。** 切片 0 先完成无固定截断的请求与记录链；切片 1/2 完成目录、检索和最终集合诊断；切片 3/4 再用有界真实任务选择近期保留、默认组和成本策略。每项完成应更新原 ADR、当前任务状态与实际验证记录；不预先承诺 token 或耗时改善，不要求一次实现所有候选策略。
+
+### 12.9 本轮实施结算
+
+Owner随后授权完整实施与模拟器/真机/现有Qwen测试，HXA-280已实现无全局数量截断、同源能力目录、来源/类别/参数字段及中文检索、按schema成本的近期工作集和MCP提前加载。Mobile Use仅将设备信息延迟，坐标操作发现仍补齐观察契约；不是把所有插件工具全量常驻。近期64KiB与MCP16KiB为宿主局部估算启发式，当前匹配不会按前者裁掉，实际上下文和256KiB manifest继续独立约束；不将这些数字换成新全局工具上限。
+
+基线和首候选固定六轮业务均成功；请求数和输入成本在Workflow/Browser下降，Mobile混合，未证明普遍收益或消除未曝光工具误调用。真实Qwen在正常组装/持久化/Dispatcher链调用第70个无副作用夹具工具成功。组合复测还发现并修复显式目标被陈旧UI会话提前阻断的启动接缝，显式目标不存在仍拒绝且不回退。完整命令、失败尝试、最后制品身份和验证边界见[实施证据](../../evidence/development/tool-discovery-workset-2026-10-12.md)及[HXA-280](../../completion-records/HXA-280.md)。Provider原生发现/PTC、其他OEM和长期跨Provider比较仍是条件性后续，不从研究自动扩展范围。

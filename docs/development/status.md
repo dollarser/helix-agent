@@ -4,9 +4,11 @@
 
 ## 当前整合与验证边界
 
-- 2026-10-12 Owner要求先复核门禁再重测。资源预算保持原阈值，不把PSS峰值等同泄漏；管理器补实际方法/设备时长/PID一致性及meminfo分类，并支持独立后台session。217项host/source通过，同一OnePlus/API34原APK两小时复测18:26:58启动，已核实worker脱离Codex父进程，当前pending，未改库/权限。[评估与本轮状态](../evidence/development/resource-gate-review-2026-10-12.md)。
+- 2026-10-12 [HXA-280](../completion-records/HXA-280.md)工具架构优化有界交付：取消全局64截断，同源能力目录/中文与字段检索、成本约束近期工作集及完整操作组已接生产；修复显式目标被陈旧UI会话阻断的启动接缝。完整主机/双渠道Debug和Release制品及边界通过，自有API36 Developer6方法（6业务轮与70工具完整性）、Standard发现/实际拼音2方法、OnePlus/API34最终4方法通过。真机已保留数据更新，原8会话/10个Turn/5个Provider逐行一致；日常模拟器未覆盖，临时映射撤回。基线/首候选业务各6/6，成本混合，不预报普遍收益。[证据与失败尝试](../evidence/development/tool-discovery-workset-2026-10-12.md)。
 
-- 2026-10-12 HXA-271阶段11已实现隐藏确认组复用及原生取消/超时结算；OnePlus/API34实际AX/Root/Shizuku Qwen各2轮、Qwen截图/坐标两轮、后台返回8次、SDK9项、Root/Shizuku短按及两种实际进程死亡不重放恢复均通过。Shizuku本轮授权安装/ADB运行后撤销临时Helix授权，未重建数据库；两小时主机检查因Codex重启采样中断为INFRA_INTERRUPTED，手机随后约12分钟触发PSS增长约102 MiB超过96 MiB门禁而failed，清理UiAutomation又遇连接失效。是否独立于重启需对照，未自动重跑；其他OEM/24h/第三方账号不推导通过。[阶段证据](../evidence/development/mobile-backend-closeout-2026-10-12.md)。
+- 2026-10-12 Owner要求先复核门禁再重测。资源预算保持原阈值；同一OnePlus/API34原APK两小时precheck完成340轮、设备7,220,700毫秒、同PID，原FD/线程/PSS断言通过，host237/238采样且最大间隔30.7秒。设备结果passed；主机finalize因logcat非UTF-8字节失败，原result.json未生成，离线核对与原始证据分别保留；报告器已修复，新增回归及原日志独立离线重处理PASS，不覆盖原缺失报告。没有改库/权限，不代表24h或连续Mobile Use/Qwen通过。[完整结果与边界](../evidence/development/resource-gate-review-2026-10-12.md#完成后的离线核对)。
+
+- 2026-10-12 HXA-271阶段11已实现隐藏确认组复用及原生取消/超时结算；OnePlus/API34实际AX/Root/Shizuku Qwen各2轮、Qwen截图/坐标两轮、后台返回8次、SDK9项、Root/Shizuku短按及两种实际进程死亡不重放恢复均通过。Shizuku本轮授权安装/ADB运行后撤销临时Helix授权，未重建数据库；首轮两小时主机检查因Codex重启采样中断为INFRA_INTERRUPTED，手机随后触发PSS增长约102 MiB超过96 MiB门禁而failed，清理UiAutomation又遇连接失效。独立后台复测设备已通过，见上方；首轮根因尚未由此确定，历史失败保留，其他OEM/24h/第三方账号不推导通过。[阶段证据](../evidence/development/mobile-backend-closeout-2026-10-12.md)。
 
 - 2026-10-12 HXA-271阶段10减少浮窗显隐：纯观察保留浮窗且排除自有节点，截图/动作保留移除、两帧及View脱离确认，150毫秒合并显示恢复，审批/取消和实际物理租约不延后。全仓主机/双渠道制品通过，同一OnePlus/API34最终SDK9/9及实际Dispatcher中文输入/连续观察2/2通过；已更新真机、保留数据库并恢复临时权限。本轮无真实模型/日常模拟器/账号测试，首个像素失败及其他OEM边界如实保留。[本轮证据](../evidence/development/overlay-observation-retention-2026-10-12.md)。
 
@@ -74,6 +76,8 @@
 
 ## Completed
 
+- 2026-10-12 [HXA-280](../completion-records/HXA-280.md)：工具发现与请求工作集按授权范围交付；当前验收与独立边界见本页顶部。
+
 - 2026-10-10 旧版报告整理：9份客户端/Provider/旧发布报告有效内容汇为[客户端交互](../evidence/development/historical-client-ui-validation.md)与[Provider/发布经验](../evidence/development/historical-provider-and-release-validation.md)，原重复报告删除并修入链，206项host回归及源码门禁通过；历史结果不计当前设备通过。
 
 - 2026-10-10 [HXA-268](../completion-records/HXA-268.md)：按Owner追加授权删除62个历史版本脚本/日志/旧发布产物，必要结论与来源hash汇总文档；206项host回归与源码门禁通过。设备和真实模型not requested，当前回归/构建输入/未闭合故障与工作树恢复包保留。
@@ -112,9 +116,9 @@
 
 - 2026-10-12 Owner 授权继续收尾及 276→279。日常 API36 已保留数据更新到 HXA-275 验收 APK，自有 API36/Qwen 完整文件任务 1/1 通过，失败尝试与转换过程见[收尾证据](../evidence/development/plugin-closeout-2026-10-12.md)。HXA-276 单一 Browser 贡献已通过全仓主机、API36 双渠道各 9 项及共享浏览器引擎 29 项有界验收，见[276证据](../evidence/development/hxa276-browser-contribution-2026-10-12.md)；HXA-277 已完成在途资源引用与清理、主机和 API36 后端/应用组合有界验收，见[277证据](../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-278渐进装载、精确资源和有界就绪事实已通过主机、双渠道内容及固定Qwen对照，见[278证据](../evidence/development/hxa278-progressive-skills-2026-10-12.md)；模型成本为混合结果。HXA-279已完成浏览器发现、等待与本地有界交付，见[279证据](../evidence/development/hxa279-browser-observation-2026-10-12.md)：引擎28项、最终双渠道各9项及严格六类Qwen通过，先前模型失败/单轮边界保留；日常已更新到最终APK并核实原数据保留。测试AVD的Gboard中文拼音因原生崩溃仍failed，不作整体验收通过。
 
-- HXA-271阶段7授权/连接交互已实现，全仓主机/source、双渠道lint/制品及定向19/19通过；设备/模型not requested，保持日常及真机后端恢复、执行验证边界。结果见上述阶段7证据，阶段6历史设备通过不升级为本轮验收。
+- HXA-271阶段7授权/连接交互及后续恢复实现已交付；当轮设备/模型未请求是历史边界，随后同机AX/Root/Shizuku及现有Qwen补验已完成，当前结果见本页顶部阶段11。其他OEM和长期组合仍独立保留，不重新实施旧切片。
 
-- [HXA-271](tasks/HXA-271.md)：三阶段实现与主机、API36会话/浮窗/真实Qwen有界验证通过并分阶段提交；追加灰色默认收起/整行披露/紧邻指示符，主机与API36布局交互13/13通过。2026-10-11过程/最终答复分层先主机交付，随后Owner授权日常调试，配置与展示修复、主机和日常API36纯展示22/22及页面有界检查通过，已更新日常APK，本次模型not requested。Owner反馈中文测试正常；旧新AVD拼音夹具失败保留为独立未闭合证据，不把它推定为Helix输入缺陷。本次不重复语言包排查，不重新实现已交付功能；其他设备/OEM/完整页面矩阵仍开放。 追加Mobile Use开启前配置/屏幕后端检查及设置直达，主机/source与日常API36最终27/27、实际拒绝/跳转通过，已更新同哈希APK并保留用户记录；[本轮证据](../evidence/development/mobile-use-selection-readiness-2026-10-11.md)。模拟器无障碍仍未连接，恢复后的真实工具执行未验，本次模型/真机not requested。
+- [HXA-271](tasks/HXA-271.md)：会话导航/浮窗、上下文与工具时间线、灰色整行披露、过程/最终答复分层、配置就绪提示及隐藏确认优化均有本地主机与对应有界设备证据。日常更新和保留数据、后续同机后端/恢复/两小时资源补验见本页顶部；长稳报告器已修复。历史故障AVD中文资源损坏保留，新自有API36两渠道实际拼音已通过；不再将旧“后端未连接/未请求”列为当前阻塞。其他OEM、完整页面/账号组合与24h仍是独立验收边界，不能生成全面通过记录。
 
 - [HXA-270](tasks/HXA-270.md)：Owner追加悬浮审批要求，原任务只读诊断确认 launch/snapshot 成功、ui.click 待审批；实施可信原生单次批准/拒绝、完整详情展开、等待状态同步及查看会话不取消。主机source/全仓JVM/静态/双渠道lint与制品编译已通过，新增6项回归通过；[证据](../evidence/development/mobile-use-overlay-approval-2026-10-10.md)。Owner追加手机更新测试后，OnePlus/API35 的现有 Qwen 合成 Settings 原生批准/拒绝、详情滚动、查看会话和接管路径 passed；已修正实机布局，更新最终APK，未重试或批准真实微信操作，其他设备矩阵 pending。
 
@@ -137,13 +141,15 @@
 
 ## Next task
 
+HXA-280已完成本地有界交付，长稳报告器已修复；本轮明确的实施项无未完成阻塞。下一步优先处理新复现故障，再选择更长周期/其他OEM/真实Provider的独立验收；原生Provider发现与PTC等仍须具体需求及ADR，不自动扩展。历史队列保留为已有交付与依赖索引。
+
 ### 插件优化队列（2026-10-11）
 
 Owner 已要求将[调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md)和[优化建议](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)结合当前代码拆成任务，并明确**不兼容旧版，按单一目标实现设计**。HXA-272～279已登记；本轮Owner授权收尾交互并完成272～275，272统一内容实现的主机/source、Developer API36 11项含真实Qwen、Standard纯Skill 1项及作者样例解析均通过；迟到取消崩溃已修复并复验，其他OEM/长稳边界保留。273调用资格与可信输入已通过全仓主机/source、Developer API36含Qwen5项、storage17项和Standard窄屏/大字体2项；[273证据](../evidence/development/hxa273-skill-invocation-2026-10-11.md)保留失败尝试。274本轮同源就绪投影与恢复导航有界交付，含全仓主机/source、Developer组合20项、最终内容/Qwen4项与Standard窄屏11项；[274证据](../evidence/development/hxa274-plugin-readiness-2026-10-11.md)保留失败尝试。275组件诊断/作者样例已通过全仓主机、Developer API36含Qwen8项与Standard窄屏13项；[275证据](../evidence/development/hxa275-component-diagnostics-2026-10-11.md)保留失败尝试。276已完成单一贡献与双渠道有界验收，277资源契约已交付，278有界实现与验收已交付，279本地有界实现与验收已交付，Gboard输入环境失败及未测边界独立保留。当前代码复核与研究切片映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。
 
 2026-10-11 已按所有者要求同步四份现有主题 ADR 的有效正文与 Decision history，见 [HXA→ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。HXA-277 的通用原生资源规则归 ADR-CONNECTORS-003，Browser 具体生命周期归 ADR-PLATFORM-002；设计已接受，277已完成授权有界实现与验收，后续完整故障组合和长稳仍需独立证据。
 
-**调度规则。** 当前正在执行的 HXA-269/270/271 切片先按原范围结算；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。272～279本轮切片已交付；后续优先处理有实际复现的故障和已记录设备边界，不自动启动条件性新功能。2026-10-12已定位测试AVD的Gboard公共中文资源损坏，保留原数据并建立实际拼音通过的自有替代环境；真实Qwen浏览器像素识别、图片传输及操作核验和双渠道900秒pilot已补验。Root/Shizuku/OEM、整屏视觉及2h/24h长稳仍开放；实体黑屏问题按Owner新规则及当前补验关闭，详见补验证据。
+**调度规则。** 当前正在执行的 HXA-269/270/271 切片先按原范围结算；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。272～279本轮切片已交付；后续优先处理有实际复现的故障和已记录设备边界，不自动启动条件性新功能。2026-10-12已定位测试AVD的Gboard公共中文资源损坏，保留原数据并建立实际拼音通过的自有替代环境；真实Qwen浏览器像素识别、图片传输及操作核验和双渠道900秒pilot已补验。同一OnePlus/API34的Root/Shizuku定向任务及两小时应用资源precheck已补验，后者主机报告器编码/异常结算已修复并回归。其他OEM、未覆盖视觉场景、连续Mobile Use/Qwen及24h长稳独立保留；实体黑屏问题按Owner规则关闭，完整证据见本页顶部。
 
 本队列 P1 表示先解决内容/调用正确性和配置可理解性，P2 表示随后完成贡献归属、资源及交互/策略增量；这些是开发优先级，不是缺陷严重度。默认按表顺序推进，每次明确一个实现检查点；技术硬依赖与推荐顺序分开，避免因无关账号或设备输入阻塞本地工作。
 
@@ -225,7 +231,7 @@ QuickJS 默认 isolated UID，原生总开关对应共享应用 UID 私有进程
 | 范围 | 当前保留边界与证据 |
 | --- | --- |
 | SAF/模型偶发行为 | 已修复项不重开；其他 OEM 空列表、OUTPUT_TOKEN_LIMIT、探测偶发失败、skill-001/003 多余调用保留原轨迹，见[偶发记录](../evidence/development/intermittent-closeout-2026-09-28.md)与[最终收口](../evidence/development/final-closeout-2026-09-29.md) |
-| 系统与长稳 | HXA-265双渠道900秒原资源峰值门禁通过，不代表2h/24h或全部Runtime；JNI/Binder、goldfish FD/UID-proxy Binder 根因未全部关闭；[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器核验](../evidence/development/browser-controller-reference-verification.md)、[剩余调查](../evidence/development/main-optimization-todo.md) |
+| 系统与长稳 | HXA-265双渠道900秒及OnePlus/API34 Developer两小时应用资源precheck的设备门禁通过；[两小时原报告失败、修复与离线核对](../evidence/development/resource-gate-review-2026-10-12.md#完成后的离线核对)独立保留，24h、其他OEM及全部Runtime未由此验收。JNI/Binder、goldfish FD/UID-proxy Binder 根因未全部关闭；[释放调查](../evidence/development/native-reference-release-trace.md)、[浏览器核验](../evidence/development/browser-controller-reference-verification.md)、[剩余调查](../evidence/development/main-optimization-todo.md) |
 | 真机/OEM/资源 | OnePlus API35 Root 与[P0修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)是固定范围；其他 OEM、低内存、热压、Doze、Root grant/revoke/loss、16 KiB 另验；x86_64 静态制品不证明运行 |
 | 文件与 Runtime 恢复 | HXA-182 不承诺断电事务、字节续传、跨 Provider 原子性或自动后台队列；目标/备份变化需核查。订阅结果物化与资源压力的历史边界结合 HXA-232 后续切片判断，见[原记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md) |
 | 模型与附件 | 导入不等于理解；图片受视觉能力/预算约束；任意文档、音视频、OCR 未因管线存在而交付；真实 token 偏差与物理内存峰值仍须测量 |
