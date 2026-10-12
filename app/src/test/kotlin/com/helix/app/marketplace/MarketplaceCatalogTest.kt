@@ -10,7 +10,7 @@ class MarketplaceCatalogTest {
     @Test
     fun catalogItemsAreWellFormedAndUnique() {
         val items = MarketplaceCatalog.items()
-        assertTrue("Catalog should contain at least 9 curated items", items.size >= 9)
+        assertTrue("Catalog must provide reusable entries", items.isNotEmpty())
 
         val ids = items.map { it.id }
         org.junit.Assert.assertEquals("IDs must be unique", ids.distinct().size, ids.size)
@@ -31,6 +31,11 @@ class MarketplaceCatalogTest {
                     val bundle = reader.readJson(item.payload.toByteArray(Charsets.UTF_8))
                     assertNotNull("Bundle should be parsed", bundle)
                     assertTrue("Bundle should have endpoints", bundle.endpoints.isNotEmpty())
+                    bundle.endpoints.forEach { endpoint ->
+                        val host = java.net.URI(endpoint.url).host
+                        assertFalse("Curated endpoints must not be placeholders", host.endsWith(".local"))
+                        assertFalse("Curated endpoints must not be placeholders", host.endsWith(".invalid"))
+                    }
                     if (item.authRequirement == MarketplaceAuthRequirement.NONE) {
                         assertFalse(
                             "Public endpoint should not require credentials",

@@ -55,10 +55,7 @@ class PluginService(
     }
 
     fun preview(uri: Uri): PluginPackage {
-        val bytes =
-            context.contentResolver.openInputStream(uri).use { input ->
-                PluginPackageReader.readBounded(requireNotNull(input), PluginPackageReader.MAX_BYTES)
-            }
+        val bytes = captureImport(uri)
         if (bytes.firstOrNull() == 'P'.code.toByte() && bytes.getOrNull(1) == 'K'.code.toByte()) {
             val temporary = Files.createTempFile(context.cacheDir.toPath(), "connector-", ".zip")
             try {
@@ -70,6 +67,11 @@ class PluginService(
         }
         return reader.readJson(bytes)
     }
+
+    fun captureImport(uri: Uri): ByteArray =
+        context.contentResolver.openInputStream(uri).use { input ->
+            PluginPackageReader.readBounded(requireNotNull(input), PluginPackageReader.MAX_BYTES)
+        }
 
     @Synchronized
     fun install(

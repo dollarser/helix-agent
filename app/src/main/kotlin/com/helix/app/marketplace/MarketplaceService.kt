@@ -12,8 +12,11 @@ import java.security.MessageDigest
 class MarketplaceService(
     val pluginService: PluginService,
     val skillRepository: SkillRepository,
+    private val sourceStore: MarketplaceSourceStore? = null,
 ) {
-    fun items(): List<MarketplaceItem> = MarketplaceCatalog.items()
+    val imports = MarketplaceImportService(pluginService, sourceStore)
+
+    fun items(): List<MarketplaceItem> = MarketplaceCatalog.items() + imports.items()
 
     fun status(item: MarketplaceItem): MarketplaceItemStatus =
         when (item.type) {
@@ -34,26 +37,29 @@ class MarketplaceService(
             }
 
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
-                val matched =
-                    findInstalled(item)
-                when {
-                    matched == null -> MarketplaceItemStatus.NOT_INSTALLED
-
-                    matched.enabled &&
-                        matched.endpoints.any {
-                            pluginService.enabled(
-                                it,
-                            )
-                        }
-                    -> MarketplaceItemStatus.ACTIVE
-
-                    else -> MarketplaceItemStatus.INSTALLED_INACTIVE
-                }
+                pluginStatus(findInstalled(item))
             }
         }
 
-    fun install(item: MarketplaceItem): InstalledPlugin {
+    private fun pluginStatus(matched: InstalledPlugin?): MarketplaceItemStatus =
+        when {
+            matched == null -> MarketplaceItemStatus.NOT_INSTALLED
+            !matched.enabled -> MarketplaceItemStatus.INSTALLED_INACTIVE
+            matched.endpoints.isEmpty() && matched.skills.isNotEmpty() -> MarketplaceItemStatus.ACTIVE
+            matched.endpoints.any(pluginService::enabled) -> MarketplaceItemStatus.ACTIVE
+            else -> MarketplaceItemStatus.INSTALLED_INACTIVE
+        }
+
+    fun install(
+        item: MarketplaceItem,
+        cancelled: () -> Boolean = { false },
+    ): InstalledPlugin {
+        check(!cancelled()) { "IMPORT_CANCELLED" }
         val existing = findInstalled(item)
+        if (item.imported != null) {
+            val bundle = imports.previewItem(item)
+            return pluginService.install(bundle, item.installIdentity(), existing?.revision, cancelled)
+        }
         return when (item.type) {
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
                 val reader = PluginPackageReader()
@@ -62,6 +68,7 @@ class MarketplaceService(
                     bundle.copy(name = item.targetConnectorName ?: item.id, source = "MARKETPLACE"),
                     identity = "marketplace:${item.id}",
                     expectedRevision = existing?.revision,
+                    cancelled = cancelled,
                 )
             }
 
@@ -89,9 +96,11 @@ class MarketplaceService(
                         "marketplace:${item.id}",
                         existing?.revision,
                         sessionScoped = false,
+                        cancelled = cancelled,
                     )
                 val skillKey = installed.skills.firstOrNull()
                 if (skillKey != null) {
+                    check(!cancelled()) { "IMPORT_CANCELLED" }
                     pluginService.setSkillEnabled(skillKey, true)
                 }
                 installed
@@ -101,7 +110,7 @@ class MarketplaceService(
 
     fun findInstalled(item: MarketplaceItem): InstalledPlugin? =
         pluginService.list().firstOrNull {
-            it.identity == "marketplace:${item.id}"
+            it.identity == item.installIdentity()
         }
 
     fun uninstall(item: MarketplaceItem) {

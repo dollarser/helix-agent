@@ -50,8 +50,11 @@ import kotlinx.coroutines.withContext
 fun MarketplaceSection(
     service: MarketplaceService,
     onConfigureRequested: (() -> Unit)? = null,
+    onUseRequested: ((String?) -> Unit)? = null,
 ) {
-    val scope = rememberCoroutineScope()
+    val action =
+        com.helix.app.ui
+            .rememberImportActionState()
     var selectedFilter by remember { mutableStateOf<MarketplaceItemType?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var refreshTrigger by remember { mutableIntStateOf(0) }
@@ -60,11 +63,15 @@ fun MarketplaceSection(
     var isActionError by remember { mutableStateOf(false) }
     var installingId by remember { mutableStateOf<String?>(null) }
     var itemToUninstall by remember { mutableStateOf<MarketplaceItem?>(null) }
+    var allItems by remember { mutableStateOf<List<MarketplaceItem>>(emptyList()) }
+    var previewItem by remember { mutableStateOf<MarketplaceItem?>(null) }
+    var loadFailed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(refreshTrigger) {
-        withContext(Dispatchers.IO) {
-            val items = service.items()
-            statusMap = items.associate { it.id to service.status(it) }
+    MarketplaceRefresh(service, refreshTrigger) { loaded ->
+        loadFailed = loaded == null
+        if (loaded != null) {
+            allItems = loaded.first
+            statusMap = loaded.second
         }
     }
 
@@ -80,6 +87,8 @@ fun MarketplaceSection(
             text = stringResource(R.string.marketplace_subtitle),
             style = MaterialTheme.typography.bodyMedium,
         )
+        MarketplaceSourcesSection(service, refreshTrigger) { refreshTrigger++ }
+        MarketplaceLoadFailure(loadFailed || action.failed) { action.launch { refreshTrigger++ } }
 
         MarketplaceSearchBar(
             query = searchQuery,
@@ -100,11 +109,10 @@ fun MarketplaceSection(
             )
         }
 
-        val allItems = service.items()
         val itemLabels =
             allItems.associate { item ->
                 item.id to
-                    (stringResource(item.nameRes).lowercase() + " " + stringResource(item.summaryRes).lowercase())
+                    (itemName(item).lowercase() + " " + itemSummary(item).lowercase())
             }
 
         val query = searchQuery.trim().lowercase()
@@ -128,32 +136,32 @@ fun MarketplaceSection(
             val actions =
                 MarketplaceCardActions(
                     onInstall = {
-                        if (installingId != null) return@MarketplaceCardActions
-                        installingId = item.id
-                        scope.launch {
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    service.install(item)
-                                }
-                                actionMessage = successMsg
-                                isActionError = false
-                                refreshTrigger++
-                            } catch (_: Exception) {
+                        requestMarketplaceInstall(item, { previewItem = it }) {
+                            action.launch(onFailure = {
                                 actionMessage = failMsg
                                 isActionError = true
-                            } finally {
-                                installingId = null
+                            }) {
+                                installingId = item.id
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        val job = coroutineContext[kotlinx.coroutines.Job]
+                                        service.install(item) { job?.isActive == false }
+                                    }
+                                    actionMessage = successMsg
+                                    isActionError = false
+                                    refreshTrigger++
+                                } finally {
+                                    installingId = null
+                                }
                             }
                         }
                     },
                     onConfigure = onConfigureRequested,
-                    onDisable = {
-                        service.disable(item)
-                        refreshTrigger++
-                    },
-                    onEnableSkill = {
-                        service.enableSkill(item)
-                        refreshTrigger++
+                    onUse = {
+                        action.launch {
+                            val installed = withContext(Dispatchers.IO) { requireNotNull(service.findInstalled(item)) }
+                            onUseRequested?.invoke(installed.takeIf { it.sessionScoped }?.id)
+                        }
                     },
                     onUninstallRequested = { itemToUninstall = item },
                     onTagClick = { tag -> searchQuery = tag },
@@ -167,13 +175,20 @@ fun MarketplaceSection(
         }
     }
 
+    MarketplaceCandidatePresentation(service, previewItem, onDismiss = { previewItem = null }) {
+        previewItem = null
+        refreshTrigger++
+    }
+
     itemToUninstall?.let { item ->
         UninstallConfirmDialog(
             item = item,
             onConfirm = {
-                service.uninstall(item)
-                refreshTrigger++
-                itemToUninstall = null
+                action.launch {
+                    withContext(Dispatchers.IO) { service.uninstall(item) }
+                    refreshTrigger++
+                    itemToUninstall = null
+                }
             },
             onDismiss = { itemToUninstall = null },
         )
@@ -245,8 +260,7 @@ private fun MarketplaceFilterRow(
 private data class MarketplaceCardActions(
     val onInstall: () -> Unit,
     val onConfigure: (() -> Unit)? = null,
-    val onDisable: () -> Unit,
-    val onEnableSkill: () -> Unit,
+    val onUse: () -> Unit,
     val onUninstallRequested: () -> Unit,
     val onTagClick: (String) -> Unit,
 )
@@ -278,23 +292,29 @@ private fun MarketplaceItemCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(item.nameRes),
+                    text = itemName(item),
                     style = MaterialTheme.typography.titleSmall,
                 )
                 StatusBadge(status)
             }
 
             Text(
-                text = stringResource(item.summaryRes),
+                text = itemSummary(item),
                 style = MaterialTheme.typography.bodyMedium,
             )
+            item.imported?.entry?.version?.let { version ->
+                Text(
+                    stringResource(R.string.plugin_market_candidate_version, version),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TypeTag(item.type)
-                AuthTag(item.authRequirement)
+                if (item.imported == null) AuthTag(item.authRequirement)
                 Text(
                     text = "· ${item.author}",
                     style = MaterialTheme.typography.bodySmall,
@@ -308,8 +328,7 @@ private fun MarketplaceItemCard(
                     status = status,
                     isInstalling = isInstalling,
                     onInstall = actions.onInstall,
-                    onDisable = actions.onDisable,
-                    onEnableSkill = actions.onEnableSkill,
+                    onUse = actions.onUse,
                     onUninstall = actions.onUninstallRequested,
                     onTagClick = actions.onTagClick,
                 )
@@ -359,7 +378,7 @@ private fun MarketplaceItemActionsRow(
             MarketplaceItemStatus.NOT_INSTALLED -> {
                 Button(
                     onClick = actions.onInstall,
-                    enabled = !isInstalling,
+                    enabled = !isInstalling && canInstall(item),
                     modifier = Modifier.testTag("marketplace-install-${item.id}"),
                 ) {
                     Text(
@@ -391,7 +410,7 @@ private fun MarketplaceItemActionsRow(
 
             MarketplaceItemStatus.ACTIVE -> {
                 Text(
-                    text = stringResource(R.string.marketplace_status_active),
+                    text = stringResource(R.string.plugin_market_installed),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -408,16 +427,19 @@ private fun MarketplaceExpandedDetails(
     status: MarketplaceItemStatus,
     isInstalling: Boolean = false,
     onInstall: () -> Unit,
-    onDisable: () -> Unit,
-    onEnableSkill: () -> Unit,
+    onUse: () -> Unit,
     onUninstall: () -> Unit,
     onTagClick: (String) -> Unit,
 ) {
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
     Text(
-        text = stringResource(item.descriptionRes),
+        text = item.imported?.entry?.description ?: stringResource(item.descriptionRes),
         style = MaterialTheme.typography.bodySmall,
     )
+    item.imported?.entry?.bundle?.let { bundle ->
+        com.helix.app.plugin
+            .PluginCompatibilityDetails(bundle.componentDiagnostics)
+    }
     item.authHintRes?.let { hint ->
         Text(
             text = stringResource(hint),
@@ -451,11 +473,9 @@ private fun MarketplaceExpandedDetails(
     if (status != MarketplaceItemStatus.NOT_INSTALLED) {
         MarketplaceInstalledActionRow(
             item = item,
-            status = status,
             isInstalling = isInstalling,
             onInstall = onInstall,
-            onDisable = onDisable,
-            onEnableSkill = onEnableSkill,
+            onUse = onUse,
             onUninstall = onUninstall,
         )
     }
@@ -465,36 +485,22 @@ private fun MarketplaceExpandedDetails(
 @Suppress("FunctionName")
 private fun MarketplaceInstalledActionRow(
     item: MarketplaceItem,
-    status: MarketplaceItemStatus,
     isInstalling: Boolean = false,
     onInstall: () -> Unit,
-    onDisable: () -> Unit,
-    onEnableSkill: () -> Unit,
+    onUse: () -> Unit,
     onUninstall: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (status == MarketplaceItemStatus.ACTIVE) {
-            OutlinedButton(
-                onClick = onDisable,
-                modifier = Modifier.weight(1f).testTag("marketplace-disable-${item.id}"),
-            ) {
-                Text(stringResource(R.string.marketplace_action_disable))
-            }
-        } else if (item.type == MarketplaceItemType.SKILL) {
-            Button(
-                onClick = onEnableSkill,
-                modifier = Modifier.weight(1f).testTag("marketplace-enable-${item.id}"),
-            ) {
-                Text(stringResource(R.string.marketplace_action_enable))
-            }
+        TextButton(onClick = onUse, modifier = Modifier.testTag("marketplace-use-${item.id}")) {
+            Text(stringResource(R.string.plugin_market_use))
         }
 
         OutlinedButton(
             onClick = onInstall,
-            enabled = !isInstalling,
+            enabled = !isInstalling && canInstall(item),
             modifier = Modifier.weight(1f).testTag("marketplace-reinstall-${item.id}"),
         ) {
             Text(stringResource(R.string.marketplace_action_reinstall))
@@ -521,7 +527,7 @@ private fun UninstallConfirmDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.marketplace_uninstall_title)) },
         text = {
-            Text(stringResource(R.string.marketplace_uninstall_confirm, stringResource(item.nameRes)))
+            Text(stringResource(R.string.marketplace_uninstall_confirm, itemName(item)))
         },
         confirmButton = {
             Button(
@@ -566,7 +572,7 @@ private fun StatusBadge(status: MarketplaceItemStatus) {
 
             MarketplaceItemStatus.ACTIVE -> {
                 Triple(
-                    R.string.marketplace_status_active,
+                    R.string.plugin_market_installed,
                     MaterialTheme.colorScheme.primaryContainer,
                     MaterialTheme.colorScheme.onPrimaryContainer,
                 )

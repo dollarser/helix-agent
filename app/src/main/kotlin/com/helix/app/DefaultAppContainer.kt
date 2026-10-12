@@ -844,6 +844,8 @@ internal class DefaultAppContainer(
         com.helix.app.marketplace.MarketplaceService(
             pluginService,
             skillRepository,
+            com.helix.app.marketplace
+                .MarketplaceSourceStore(appContext.filesDir.toPath().resolve("marketplaces")),
         )
     }
 

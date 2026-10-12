@@ -1,6 +1,7 @@
 package com.helix.app.marketplace
 
 import androidx.annotation.StringRes
+import com.helix.extensions.plugin.MarketplacePluginEntry
 
 enum class MarketplaceItemType {
     CONNECTOR,
@@ -34,4 +35,15 @@ data class MarketplaceItem(
     val payload: String,
     val targetSkillName: String? = null,
     val targetConnectorName: String? = null,
+    val imported: ImportedMarketplaceItem? = null,
 )
+
+data class ImportedMarketplaceItem(
+    val sourceIdentity: String,
+    val sourceHash: String,
+    val sourceName: String,
+    val entry: MarketplacePluginEntry,
+)
+
+internal fun MarketplaceItem.installIdentity(): String =
+    imported?.let { "marketplace:${it.sourceIdentity}:${it.entry.name}" } ?: "marketplace:$id"

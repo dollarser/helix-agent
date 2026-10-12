@@ -39,8 +39,10 @@ data class PluginPackage(
 /** Reads a bounded archive without extracting any foreign paths or running setup code. */
 @Suppress("TooManyFunctions", "MagicNumber")
 class PluginPackageReader {
+    fun readZip(path: Path): PluginPackage = parse(readArchiveFiles(path))
+
     @Suppress("NestedBlockDepth") // archive/resource scopes enclose per-entry bounds
-    fun readZip(path: Path): PluginPackage {
+    fun readArchiveFiles(path: Path): Map<String, ByteArray> {
         require(
             java.nio.file.Files
                 .size(path) <= MAX_BYTES,
@@ -69,7 +71,7 @@ class PluginPackageReader {
                 }
             }
         }
-        return parse(unwrap(files))
+        return unwrap(files)
     }
 
     fun readJson(bytes: ByteArray): PluginPackage {
@@ -95,16 +97,11 @@ class PluginPackageReader {
 
     @Suppress("CyclomaticComplexMethod", "LongMethod") // explicit foreign-format branches, each independently diagnosed
     fun parse(files: Map<String, ByteArray>): PluginPackage {
-        require(files.size <= 1024 && files.values.sumOf { it.size.toLong() } <= MAX_BYTES) { "CONNECTOR_TOO_LARGE" }
-        files.forEach { (path, bytes) ->
-            safePath(path)
-            require(bytes.size <= MAX_FILE_BYTES) { "CONNECTOR_TOO_LARGE" }
-            val segments = path.split('/')
-            require((1 until segments.size).none { segments.take(it).joinToString("/") in files }) {
-                "CONNECTOR_FILE_DIRECTORY_COLLISION"
-            }
-        }
+        validateFiles(files)
         val manifests = MANIFESTS.filter { it in files }
+        require(manifests.isNotEmpty() || PluginMarketplaceReader.INDEX_PATHS.none { it in files }) {
+            "PLUGIN_MARKETPLACE_NOT_PLUGIN"
+        }
         // The standard root is authoritative; foreign overlays cannot replace it or grant behavior.
         if (AGENT_PLUGIN_MANIFEST in manifests) return portable(files)
         require(manifests.size <= 1) { "CONNECTOR_AMBIGUOUS_MANIFEST" }
@@ -128,24 +125,7 @@ class PluginPackageReader {
                     ('/' !in it && it.startsWith("qwenwork-mcp-") && it.endsWith(".json"))
             }
         defaults.forEach { configs[it] = json(files.getValue(it)) }
-        when (val reference = manifest["mcpServers"]) {
-            is JsonObject -> {
-                configs["inline"] = reference
-            }
-
-            is JsonPrimitive -> {
-                val path = safePath(reference.content.removePrefix("./"))
-                configs[path] = json(requireNotNull(files[path]) { "CONNECTOR_MISSING_MCP_CONFIG" })
-            }
-
-            null -> {
-                Unit
-            }
-
-            else -> {
-                diagnostics.add("UNSUPPORTED_MCP_CONFIG_REFERENCE")
-            }
-        }
+        ForeignPluginPaths.mcpConfigs(manifest["mcpServers"], files, configs, diagnostics, ::json)
         files.keys.filter { '/' !in it && it.endsWith(".json") && "mcp" in it.lowercase() && it !in configs }.forEach {
             diagnostics += "UNRECOGNIZED_MCP_CONFIG:$it"
         }
@@ -154,13 +134,17 @@ class PluginPackageReader {
             val wrapped = serverMap(config, diagnostics)
             wrapped.forEach { (id, value) ->
                 require(NAME.matches(id) && value is JsonObject) { "CONNECTOR_INVALID_SERVER" }
-                require(id !in servers || servers[id] == value) { "CONNECTOR_DUPLICATE_SERVER" }
+                // Claude/compatible manifests explicitly merge in order; later declarations win.
+                require(id !in servers || servers[id] == value || manifest["mcpServers"] != null) {
+                    "CONNECTOR_DUPLICATE_SERVER"
+                }
                 servers[id] = value
             }
         }
         require(servers.size <= 32) { "CONNECTOR_TOO_MANY_SERVERS" }
         val endpoints = servers.mapNotNull { (id, config) -> endpoint(id, config, diagnostics) }
-        val skills = skillFiles(files, manifest, diagnostics)
+        val credentialConfigs = configs.keys.intersect(files.keys) + manifests
+        val skills = skillFiles(files, manifest, diagnostics, credentialConfigs)
         require(endpoints.isNotEmpty() || skills.isNotEmpty() || diagnostics.isNotEmpty()) { "CONNECTOR_EMPTY" }
         return PluginPackage(
             name,
@@ -229,26 +213,29 @@ class PluginPackageReader {
         files: Map<String, ByteArray>,
         manifest: JsonObject,
         diagnostics: MutableList<String>,
+        credentialConfigs: Set<String>,
     ): List<PluginSkill> {
-        val declared = manifest["skills"]
-        val roots = mutableListOf("skills")
-        if (declared is JsonPrimitive) roots += safePath(declared.content.removePrefix("./").removeSuffix("/"))
-        if (declared != null && declared !is JsonPrimitive) diagnostics += "UNSUPPORTED_SKILL_REFERENCE"
+        val roots = ForeignPluginPaths.skillRoots(manifest["skills"], diagnostics)
         val skillRoots =
-            files.keys
-                .filter { it.endsWith("/SKILL.md") }
-                .map { it.removeSuffix("/SKILL.md") }
-                .filter { path -> roots.any { path == it || path.startsWith("$it/") } || manifest.isEmpty() }
+            (
+                files.keys
+                    .filter { it.endsWith("/SKILL.md") }
+                    .map { it.removeSuffix("/SKILL.md") }
+                    .filter { path ->
+                        roots.any { it.isEmpty() || path == it || path.startsWith("$it/") } ||
+                            manifest.isEmpty()
+                    } +
+                    if ("" in roots && "SKILL.md" in files) listOf("") else emptyList()
+            ).distinct()
         require(skillRoots.size <= 64) { "CONNECTOR_TOO_MANY_SKILLS" }
         val names = mutableSetOf<String>()
         return skillRoots.map { root ->
-            require(skillRoots.none { it != root && it.startsWith("$root/") }) { "CONNECTOR_NESTED_SKILL" }
-            val name = root.substringAfterLast('/')
+            require(skillRoots.none { it != root && (root.isEmpty() || it.startsWith("$root/")) }) {
+                "CONNECTOR_NESTED_SKILL"
+            }
+            val name = if (root.isEmpty()) manifest.string("name") ?: "skill" else root.substringAfterLast('/')
             val content =
-                files
-                    .filterKeys { it.startsWith("$root/") }
-                    .mapKeys { (path, _) -> path.removePrefix("$root/") }
-                    .mapValues { it.value.copyOf() }
+                ForeignPluginPaths.skillContent(files, root, credentialConfigs, diagnostics, name)
             val adapted = PluginSkillMetadataAdapter.adapt(content, diagnostics, name)
             val declaredName =
                 com.helix.extensions.skills
@@ -360,6 +347,7 @@ class PluginPackageReader {
                 ".codex-plugin/plugin.json",
                 ".claude-plugin/plugin.json",
                 ".codebuddy-plugin/plugin.json",
+                ".workbuddy-plugin/plugin.json",
                 "connector.json",
             )
         private const val AGENT_PLUGIN_MANIFEST = "plugin.json"
@@ -376,6 +364,20 @@ class PluginPackageReader {
             )
         private val SERVER_FIELDS =
             AUTH_FIELDS + setOf("url", "type", "transport", "disabled", "enabled", "timeout", "defer_loading")
+
+        internal fun validateFiles(files: Map<String, ByteArray>) {
+            require(
+                files.size <= 1024 && files.values.sumOf { it.size.toLong() } <= MAX_BYTES,
+            ) { "CONNECTOR_TOO_LARGE" }
+            files.forEach { (path, bytes) ->
+                safePath(path)
+                require(bytes.size <= MAX_FILE_BYTES) { "CONNECTOR_TOO_LARGE" }
+                val segments = path.split('/')
+                require((1 until segments.size).none { segments.take(it).joinToString("/") in files }) {
+                    "CONNECTOR_FILE_DIRECTORY_COLLISION"
+                }
+            }
+        }
 
         fun safePath(path: String): String {
             require(

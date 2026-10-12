@@ -12,7 +12,17 @@ internal object PluginComponentAudit {
         manifest: JsonObject,
         diagnostics: MutableList<String>,
     ) {
-        listOf("hooks", "agents", "commands", "rules", "workflows", "mcp", "lspServers", "monitors").forEach { field ->
+        listOf(
+            "hooks",
+            "agents",
+            "commands",
+            "rules",
+            "workflows",
+            "mcp",
+            "lspServers",
+            "monitors",
+            "ui",
+        ).forEach { field ->
             val defaultFilePresent = field == "lspServers" && ".lsp.json" in files
             val declared = field in manifest || defaultFilePresent
             val directoryPresent = files.keys.any { it == field || it.startsWith("$field/") }
@@ -20,8 +30,10 @@ internal object PluginComponentAudit {
                 diagnostics += "UNSUPPORTED_${field.uppercase()}"
             }
         }
-        if (".app.json" in files || "apps" in manifest) diagnostics += "HOST_APP_REQUIRES_NEW_CONNECTION"
-        listOf("userConfig", "user_config", "configSchema").filter { it in manifest }.forEach {
+        if (hasAppMapping(files, manifest)) {
+            diagnostics += "HOST_APP_REQUIRES_NEW_CONNECTION"
+        }
+        listOf("userConfig", "user_config", "configSchema", "authentication").filter { it in manifest }.forEach {
             diagnostics += "CONFIG_SCHEMA_NOT_APPLIED:$it"
         }
         if ("dependencies" in manifest) {
@@ -38,6 +50,15 @@ internal object PluginComponentAudit {
         }
         if ("package.json" in files) diagnostics += "DESKTOP_SETUP_NOT_EXECUTED:package.json"
         if ("scripts" in manifest) diagnostics += "DESKTOP_SETUP_NOT_EXECUTED:scripts"
+    }
+
+    private fun hasAppMapping(
+        files: Map<String, ByteArray>,
+        manifest: JsonObject,
+    ): Boolean {
+        val openai = (manifest["extensions"] as? JsonObject)?.get("com.openai") as? JsonObject
+        return ".app.json" in files || "apps" in manifest ||
+            openai?.keys?.any { it in setOf("apps", "mcpServers") } == true
     }
 
     fun skill(

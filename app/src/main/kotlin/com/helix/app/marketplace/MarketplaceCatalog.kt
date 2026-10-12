@@ -46,7 +46,7 @@ object MarketplaceCatalog {
                       "name": "github-connector",
                       "mcpServers": {
                         "github": {
-                          "url": "https://mcp.github.com/mcp",
+                          "url": "https://api.githubcopilot.com/mcp/",
                           "headers": {
                             "Authorization": "Bearer placeholder"
                           }
@@ -76,28 +76,6 @@ object MarketplaceCatalog {
                           "headers": {
                             "Authorization": "Bearer placeholder"
                           }
-                        }
-                      }
-                    }
-                    """.trimIndent(),
-            ),
-            MarketplaceItem(
-                id = "web-research",
-                nameRes = R.string.marketplace_item_web_research_name,
-                type = MarketplaceItemType.MCP,
-                summaryRes = R.string.marketplace_item_web_research_summary,
-                descriptionRes = R.string.marketplace_item_web_research_desc,
-                author = "Helix Community",
-                authRequirement = MarketplaceAuthRequirement.NONE,
-                tags = listOf("web", "fetch", "search", "http"),
-                targetConnectorName = "web-fetch-connector",
-                payload =
-                    """
-                    {
-                      "name": "web-fetch-connector",
-                      "mcpServers": {
-                        "web-fetch": {
-                          "url": "https://mcp.fetch.helix.local/mcp"
                         }
                       }
                     }

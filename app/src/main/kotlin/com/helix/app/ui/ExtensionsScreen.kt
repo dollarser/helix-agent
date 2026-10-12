@@ -145,6 +145,7 @@ fun ExtensionsScreen(
             MarketplaceSection(
                 service = marketplace,
                 onConfigureRequested = { selectedTab = 0 },
+                onUseRequested = onUsePlugin,
             )
         } else {
             OutlinedTextField(

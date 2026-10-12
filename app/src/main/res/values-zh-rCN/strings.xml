@@ -646,7 +646,7 @@
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions 不可用、已禁用或签名不匹配。</string>
     <string name="connector_title">插件</string>
     <string name="connector_intro">导入支持的插件包，分别配置技能和 MCP 组件；安装不会授予工具权限。</string>
-    <string name="connector_import">导入连接器</string>
+    <string name="connector_import">导入插件包</string>
     <string name="connector_install">安装可迁移部分</string>
     <string name="connector_failed">导入或保存失败。请检查 JSON、Skill 格式、包大小及存储空间。</string>
     <string name="connector_skill_review">Skill 含原始指令和配套文件，脚本不会在安装时执行。启用前请审阅源文件；平台专有工具名可能需要适配。</string>
@@ -1221,12 +1221,12 @@
     <string name="connector_oauth_local_cleared">本地凭据已清除，尚未确认服务端撤销。</string>
     <string name="connector_oauth_callback_success">扩展登录已完成。</string>
     <string name="connector_oauth_callback_failure">扩展登录失败，请返回扩展页面重试。</string>
-    <string name="marketplace_title">扩展市场</string>
-    <string name="marketplace_subtitle">浏览与安装精选连接器、MCP 工具及技能。</string>
+    <string name="marketplace_title">插件市场</string>
+    <string name="marketplace_subtitle">浏览精选插件或添加下载的市场目录，逐项安装并配置。</string>
     <string name="marketplace_tab_market">发现</string>
     <string name="marketplace_tab_manage">已添加</string>
     <string name="marketplace_filter_all">全部</string>
-    <string name="marketplace_filter_connector">连接器</string>
+    <string name="marketplace_filter_connector">插件</string>
     <string name="marketplace_filter_mcp">MCP</string>
     <string name="marketplace_filter_skill">技能</string>
     <string name="marketplace_status_not_installed">未安装</string>
@@ -1239,7 +1239,7 @@
     <string name="marketplace_auth_bearer">需要 Token</string>
     <string name="marketplace_auth_api_key">需要 API Key</string>
     <string name="marketplace_auth_local">本地安全运行</string>
-    <string name="marketplace_install_success">安装成功，请在下方配置凭据或启用工具。</string>
+    <string name="marketplace_install_success">安装完成。按需要配置后，在会话中使用。</string>
     <string name="marketplace_install_failed">安装失败，请检查格式及权限。</string>
     <string name="marketplace_item_cloudflare_docs_name">Cloudflare Docs</string>
     <string name="marketplace_item_cloudflare_docs_summary">通过 MCP 全文检索 Cloudflare 官方开发者文档。</string>
@@ -1965,4 +1965,21 @@
     <string name="plugin_dependency_required">声明为必要包依赖；Helix 不自动安装或启用</string>
     <string name="plugin_dependency_optional">声明为可选依赖；此扩展字段只作诊断，不自动解析</string>
     <string name="plugin_dependency_runtime">运行条件声明；不证明 Android 上已具备该依赖</string>
+    <string name="plugin_market_retry">重试</string>
+    <string name="plugin_market_add_source">添加市场目录</string>
+    <string name="plugin_market_source_remove">%1$s · 移除目录</string>
+    <string name="plugin_market_remove_hint">仅移除此发现目录。已安装插件、账号和会话选择保留。</string>
+    <string name="plugin_market_remove">移除目录</string>
+    <string name="plugin_market_source_hint">添加目录不会安装或启用插件。请逐项预览并安装插件包。</string>
+    <string name="plugin_market_package_needed">此目录未包含可用插件包。请下载对应插件 ZIP 后在此选择。</string>
+    <string name="plugin_market_portable">可复用的 Skill 与 HTTP MCP 插件包</string>
+    <string name="plugin_market_source">市场来源：%1$s</string>
+    <string name="plugin_market_installed_version">已安装版本：%1$s</string>
+    <string name="plugin_market_candidate_version">选中版本：%1$s</string>
+    <string name="plugin_market_install_hint">安装不会连接账号或为会话选择插件。请另行配置并在会话中选择，后续请求才使用可用组件。</string>
+    <string name="plugin_market_choose_package">选择插件包</string>
+    <string name="plugin_market_components">Skill：%1$d · MCP 端点：%2$d</string>
+    <string name="plugin_market_use">在会话中使用</string>
+    <string name="plugin_market_failed">操作未完成。请检查目录或插件包后重试；内容变化后需重新预览。</string>
+    <string name="plugin_market_installed">已安装</string>
 </resources>

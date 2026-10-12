@@ -647,7 +647,7 @@
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions is unavailable, disabled, or signed by a different key.</string>
     <string name="connector_title">Plugins</string>
     <string name="connector_intro">Import supported plugin packages and configure their Skills and MCP components. Installation does not grant tool permissions.</string>
-    <string name="connector_import">Import connector</string>
+    <string name="connector_import">Import plugin package</string>
     <string name="connector_install">Install portable components</string>
     <string name="connector_failed">Import or save failed. Check JSON, skill format, package size, and storage space.</string>
     <string name="connector_skill_review">Skills retain original instructions and files. Scripts do not run on installation. Review the source before enabling; host-specific tool names may need adaptation.</string>
@@ -1223,12 +1223,12 @@
     <string name="connector_oauth_local_cleared">Local credentials cleared. Service revocation was not confirmed.</string>
     <string name="connector_oauth_callback_success">Connector login completed.</string>
     <string name="connector_oauth_callback_failure">Connector login failed. Return to the connector and retry.</string>
-    <string name="marketplace_title">Marketplace</string>
-    <string name="marketplace_subtitle">Discover and install curated Connectors, MCP tools, and Skills.</string>
+    <string name="marketplace_title">Plugin marketplace</string>
+    <string name="marketplace_subtitle">Browse curated plugins or add a downloaded marketplace catalog. Install and configure each plugin separately.</string>
     <string name="marketplace_tab_market">Discover</string>
     <string name="marketplace_tab_manage">Added</string>
     <string name="marketplace_filter_all">All</string>
-    <string name="marketplace_filter_connector">Connectors</string>
+    <string name="marketplace_filter_connector">Plugins</string>
     <string name="marketplace_filter_mcp">MCP</string>
     <string name="marketplace_filter_skill">Skills</string>
     <string name="marketplace_status_not_installed">Not installed</string>
@@ -1241,7 +1241,7 @@
     <string name="marketplace_auth_bearer">Requires Bearer token</string>
     <string name="marketplace_auth_api_key">Requires API key</string>
     <string name="marketplace_auth_local">Local execution</string>
-    <string name="marketplace_install_success">Installed successfully. Configure credentials or enable tools below.</string>
+    <string name="marketplace_install_success">Installed. Configure if needed, then use in a conversation.</string>
     <string name="marketplace_install_failed">Installation failed. Check format and permissions.</string>
     <string name="marketplace_item_cloudflare_docs_name">Cloudflare Docs</string>
     <string name="marketplace_item_cloudflare_docs_summary">Search official Cloudflare developer documentation directly via MCP.</string>
@@ -1968,4 +1968,21 @@
     <string name="plugin_dependency_required">Declared required package; Helix does not install or enable it automatically</string>
     <string name="plugin_dependency_optional">Declared optional dependency; this extension field is diagnostic only</string>
     <string name="plugin_dependency_runtime">Declared runtime requirement; availability on Android is not confirmed</string>
+    <string name="plugin_market_retry">Retry</string>
+    <string name="plugin_market_add_source">Add marketplace catalog</string>
+    <string name="plugin_market_source_remove">%1$s · Remove catalog</string>
+    <string name="plugin_market_remove_hint">Only remove this discovery catalog. Installed plugins, accounts and session choices remain.</string>
+    <string name="plugin_market_remove">Remove catalog</string>
+    <string name="plugin_market_source_hint">Adding a catalog does not install or enable plugins. Review and install each package separately.</string>
+    <string name="plugin_market_package_needed">This catalog does not include a usable package. Download its plugin ZIP and choose it here.</string>
+    <string name="plugin_market_portable">Reusable Skill and HTTP MCP package</string>
+    <string name="plugin_market_source">Marketplace: %1$s</string>
+    <string name="plugin_market_installed_version">Installed version: %1$s</string>
+    <string name="plugin_market_candidate_version">Selected version: %1$s</string>
+    <string name="plugin_market_install_hint">Installation does not connect accounts or select this plugin for conversations. Configure and select it separately; later requests use the available components.</string>
+    <string name="plugin_market_choose_package">Choose plugin package</string>
+    <string name="plugin_market_components">Skills: %1$d · MCP endpoints: %2$d</string>
+    <string name="plugin_market_use">Use in conversation</string>
+    <string name="plugin_market_failed">Unable to complete. Check the catalog or package and retry; preview again if it changed.</string>
+    <string name="plugin_market_installed">Installed</string>
 </resources>
