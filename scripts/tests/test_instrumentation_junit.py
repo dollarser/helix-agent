@@ -50,6 +50,16 @@ class InstrumentationXmlTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse(raw + event(0) + 'INSTRUMENTATION_CODE: -1\n')
 
+    def test_physical_phase_is_bound_to_one_active_method_and_never_settles_it(self):
+        phase = 'INSTRUMENTATION_STATUS: helix.physical.phase=foreground_restored\nINSTRUMENTATION_STATUS_CODE: 2\n'
+        self.assertEqual(len(require_passed(event(1) + phase + event(0) + 'INSTRUMENTATION_CODE: -1\n')), 1)
+        for raw in [phase, event(1) + phase, event(1) + event(1, 'other') + phase,
+                    event(1) + phase.replace('foreground_restored', ''),
+                    event(1) + phase.replace('INSTRUMENTATION_STATUS_CODE:',
+                                            'INSTRUMENTATION_STATUS: class=Fixture\nINSTRUMENTATION_STATUS_CODE:')]:
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                require_passed(raw + 'INSTRUMENTATION_CODE: -1\n')
+
     def test_pass_requires_start_and_terminal(self):
         records = parse(event(1) + event(0) + 'INSTRUMENTATION_CODE: -1\n')
         self.assertIn('classname="Fixture"', to_xml(records))

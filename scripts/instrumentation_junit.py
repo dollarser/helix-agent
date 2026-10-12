@@ -17,6 +17,13 @@ def parse(raw):
             if code == 0 and set(bundle) == {'stream'}:
                 bundle = {}
                 continue
+            # PhysicalBackgroundRecoveryDeviceTest reports platform phases while
+            # its single method is active. These are evidence, never terminals.
+            if code == 2 and set(bundle) == {'helix.physical.phase'}:
+                if len(started) != 1 or not bundle['helix.physical.phase'].strip():
+                    raise ValueError('Unbound or empty physical phase diagnostic')
+                bundle = {}
+                continue
             key = (bundle.get('class'), bundle.get('test'))
             if not all(key):
                 raise ValueError('Missing test identity in status bundle')
