@@ -60,6 +60,17 @@ class InstrumentationXmlTest(unittest.TestCase):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 require_passed(raw + 'INSTRUMENTATION_CODE: -1\n')
 
+    def test_root_progress_stream_is_bound_and_cannot_hide_partial_identity(self):
+        diagnostic = 'INSTRUMENTATION_STATUS: stream=TOUCH_PRESS_RESULT=root\nINSTRUMENTATION_STATUS_CODE: 2\n'
+        self.assertEqual(len(require_passed(event(1) + diagnostic + event(0) + 'INSTRUMENTATION_CODE: -1\n')), 1)
+        for raw in [diagnostic, event(1) + diagnostic,
+                    event(1) + event(1, 'other') + diagnostic,
+                    event(1) + diagnostic.replace('TOUCH_PRESS_RESULT=root', ''),
+                    event(1) + diagnostic.replace('INSTRUMENTATION_STATUS_CODE:',
+                                                 'INSTRUMENTATION_STATUS: class=Fixture\nINSTRUMENTATION_STATUS_CODE:')]:
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                require_passed(raw + 'INSTRUMENTATION_CODE: -1\n')
+
     def test_pass_requires_start_and_terminal(self):
         records = parse(event(1) + event(0) + 'INSTRUMENTATION_CODE: -1\n')
         self.assertIn('classname="Fixture"', to_xml(records))

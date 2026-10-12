@@ -44,6 +44,7 @@ class RootMobileUseDeviceTest {
         val touchBackend = InstrumentationRegistry.getArguments().getString("helixTouchBackend")
         require(touchBackend == null || touchBackend in setOf("root", "shizuku"))
         val rootMode = touchBackend != "shizuku"
+        app.startActivity(Intent(app, com.helix.app.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         println("ROOT_WAITING_ACCESSIBILITY_REBIND")
         await { center.serviceState() == AutomationServiceState.CONNECTED }
         val oldProfile = container.profileStore.profile
@@ -64,6 +65,8 @@ class RootMobileUseDeviceTest {
             await { snapshot()?.packageName == app.packageName }
             if (rootMode) {
                 DeviceAccess.requestRootFromUser("mobile-use")
+                await { DeviceAccess.root("mobile-use")?.cachedAppGrant == true }
+                DeviceAccess.connectRoot("mobile-use")
                 await { DeviceAccess.root("mobile-use")?.connectedBinder() != null }
             }
             app.startActivity(
@@ -186,7 +189,7 @@ class RootMobileUseDeviceTest {
                     com.helix.extensions.mobileuse.automation.AutomationPrivilegedSelector(
                         target,
                         "android:id/button1",
-                        "FIXTURE CLICK",
+                        "Fixture click",
                     ),
                     { _, _, _ -> true },
                     {
@@ -229,12 +232,12 @@ class RootMobileUseDeviceTest {
 
     private fun dispatch(
         id: String,
-        text: String = "FIXTURE CLICK",
+        text: String = "Fixture click",
     ) = container.toolPipeline.dispatcher.dispatch(request(id, text))
 
     private fun request(
         id: String,
-        text: String = "FIXTURE CLICK",
+        text: String = "Fixture click",
     ) = ToolDispatchRequest(
         toolCallId = "$session-$id",
         turnId = turn,

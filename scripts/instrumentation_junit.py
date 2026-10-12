@@ -17,11 +17,11 @@ def parse(raw):
             if code == 0 and set(bundle) == {'stream'}:
                 bundle = {}
                 continue
-            # PhysicalBackgroundRecoveryDeviceTest reports platform phases while
-            # its single method is active. These are evidence, never terminals.
-            if code == 2 and set(bundle) == {'helix.physical.phase'}:
-                if len(started) != 1 or not bundle['helix.physical.phase'].strip():
-                    raise ValueError('Unbound or empty physical phase diagnostic')
+            # Platform phases and Root touch measurements are evidence emitted
+            # during one active method, never terminals or additional passes.
+            if code == 2 and set(bundle) in ({'helix.physical.phase'}, {'stream'}):
+                if len(started) != 1 or not next(iter(bundle.values())).strip():
+                    raise ValueError('Unbound or empty progress diagnostic')
                 bundle = {}
                 continue
             key = (bundle.get('class'), bundle.get('test'))

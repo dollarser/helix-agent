@@ -27,6 +27,7 @@ import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.extensions.mobileuse.automation.AutomationServiceState
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
+import com.helix.tools.deviceaccess.DeviceAccess
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -49,6 +50,9 @@ class ProgressiveSkillModelDeviceTest {
     private fun matrix(kind: String) =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
+            val backend = args.getString("pluginSkillBackend") ?: "accessibility"
+            require(backend in setOf("accessibility", "root"))
+            require(backend != "root" || kind == "mobile")
             val port = requireNotNull(args.getString("pluginSkillPort")).toInt()
             val model = requireNotNull(args.getString("pluginSkillModel"))
             val provider =
@@ -125,7 +129,14 @@ class ProgressiveSkillModelDeviceTest {
                                     }
 
                                     else -> {
-                                        enableBackend()
+                                        if (backend == "root") {
+                                            DeviceAccess.requestRootFromUser("mobile-use")
+                                            await { DeviceAccess.root("mobile-use")?.cachedAppGrant == true }
+                                            DeviceAccess.connectRoot("mobile-use")
+                                            await { DeviceAccess.root("mobile-use")?.connectedBinder() != null }
+                                        } else {
+                                            enableBackend()
+                                        }
                                         val packages = setOf(app.packageName, "${app.packageName}.test")
                                         check(selection.select(session, packages, false))
                                         app.startActivity(
@@ -210,7 +221,7 @@ class ProgressiveSkillModelDeviceTest {
                                     }
                                 }
                             val success = turn.state == "COMPLETED" && verified && calls.isNotEmpty()
-                            calls.filter { it.state != "COMPLETED" }.forEach { call ->
+                            calls.filter { !success || it.state != "COMPLETED" }.forEach { call ->
                                 val result = c.storage.toolResults.byToolCall(call.id)
                                 println(
                                     "PROGRESSIVE_FAILURE kind=$kind rep=$repetition name=${call.name} " +
@@ -223,7 +234,21 @@ class ProgressiveSkillModelDeviceTest {
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
                                     "calls=${calls.map { it.name to it.state }} usage=${models.map { it.usage }}",
                             )
-                            if (kind == "mobile" && success) verifyMobileBackgroundReturn(session, repetition)
+                            if (kind == "mobile" && success && backend == "accessibility") {
+                                verifyMobileBackgroundReturn(session, repetition)
+                            }
+                            if (backend == "root") {
+                                assertTrue(
+                                    "The real task must use the connected Root backend",
+                                    calls.any { call ->
+                                        c.storage.toolResults
+                                            .byToolCall(
+                                                call.id,
+                                            )?.let(c.storage.toolResults::readContent)
+                                            ?.contains("\"backend\":\"root\"") == true
+                                    },
+                                )
+                            }
                             outcomes.add(success)
                         } finally {
                             c.storage.turns
@@ -241,6 +266,7 @@ class ProgressiveSkillModelDeviceTest {
                 assertEquals("Fixed task repetitions", 2, outcomes.size)
                 assertTrue("Task results: $outcomes", outcomes.all { it })
             } finally {
+                if (backend == "root") DeviceAccess.disconnectRoot("mobile-use")
                 restoreBackend()
                 c.profileStore.switchTo(profile)
                 c.providerService.delete(provider)

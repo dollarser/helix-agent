@@ -53,14 +53,14 @@ class RootMobileUseProbeDeviceTest {
                 app.startActivity(
                     Intent()
                         .setComponent(ComponentName(target, AutomationEvaluationActivity::class.java.name))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         .putExtra("recordClicks", true),
                 )
                 SystemClock.sleep(1500)
                 val reply =
                     PrivilegedUiTransactions.click(
                         binder,
-                        ShizukuUiSelector(target, "android:id/button1", "FIXTURE CLICK"),
+                        ShizukuUiSelector(target, "android:id/button1", "Fixture click"),
                         { _, _, _ -> access.connectedBinder() === binder },
                         { access.connectedBinder() === binder },
                     )

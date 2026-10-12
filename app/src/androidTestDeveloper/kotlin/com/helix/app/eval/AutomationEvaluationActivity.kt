@@ -44,9 +44,9 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
             Button(this).apply {
                 id = android.R.id.button1
                 text = if (payment) "Confirm payment" else "Fixture click"
+                setAllCaps(false) // Keep the rendered and accessible exact fixture labels identical across APIs.
                 contentDescription = text
                 if (recordTouches) {
-                    setAllCaps(false)
                     setOnTouchListener { _, event ->
                         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                             downs++
