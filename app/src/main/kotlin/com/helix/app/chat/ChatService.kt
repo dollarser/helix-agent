@@ -4094,7 +4094,7 @@ class ChatService(
     private fun resolveTurnSession(requestedSessionId: String?): SessionEntity? =
         TurnSessionResolver.resolve(
             explicitSessionId = requestedSessionId,
-            openSession = currentSession(),
+            openSession = ::currentSession,
             resolveSession = { id -> runCatching { storage.sessions.resolve(id) }.getOrNull() },
         )
 

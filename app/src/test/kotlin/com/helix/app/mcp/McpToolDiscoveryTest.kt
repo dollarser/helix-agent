@@ -103,7 +103,7 @@ class McpToolDiscoveryTest {
         assertEquals(listOf("mcp.catalog.tool_499"), checked)
         checked.clear()
         assertEquals(listOf(remote(1)), filtered.search("session", "catalog", 1))
-        assertEquals(listOf("mcp.catalog.tool_0", "mcp.catalog.tool_1"), checked)
+        assertEquals(listOf("mcp.catalog.tool_0", "mcp.catalog.tool_1", "mcp.catalog.tool_499"), checked)
     }
 
     @Test fun exactNameAndNameMatchesRankAheadOfDescriptionMentions() {
@@ -211,14 +211,14 @@ class McpToolDiscoveryTest {
     }
 
     @Test
-    fun combinedCapabilitiesStayExposedTogetherButSeparateSearchesReplaceTheWindow() {
+    fun separateSearchesRetainRelatedValidCapabilitiesWithoutSharingAcrossSessions() {
         val start = search.copy(name = ToolName("code.job.start"), description = "Start a background job")
         val await = search.copy(name = ToolName("jobs.await"), description = "Await a background job")
         registerFixture(start)
         registerFixture(await)
         assertEquals(listOf(start), discovery.search("session", "code.job.start", 8))
         assertEquals(listOf(await), discovery.search("session", "jobs.await", 8))
-        assertEquals(setOf(search, await), discovery.visible("session", registry.all()).toSet())
+        assertEquals(setOf(search, start, await), discovery.visible("session", registry.all()).toSet())
         assertEquals(setOf(start, await), discovery.search("session", "job start await", 8).toSet())
         assertEquals(setOf(search, start, await), discovery.visible("session", registry.all()).toSet())
         assertEquals(listOf(search), discovery.visible("other-session", registry.all()))
@@ -256,14 +256,68 @@ class McpToolDiscoveryTest {
         assertTrue(filtered.search("session", "catalog", 8, category = "files").isEmpty())
     }
 
+    @Test fun recentWindowUsesSchemaCostRatherThanARequestToolCount() {
+        val tools = (1..24).map { search.copy(name = ToolName("files.fixture_$it"), description = "small contract") }
+        tools.forEach(::registerFixture)
+        tools.forEach { discovery.search("session", it.name.value, 1) }
+        assertTrue(discovery.visible("session", registry.all()).containsAll(tools))
+        val large =
+            (1..80).map {
+                search.copy(
+                    name = ToolName("files.large_$it"),
+                    description = "x".repeat(ToolDescriptor.MAX_DESCRIPTION_LENGTH),
+                )
+            }
+        large.forEach(::registerFixture)
+        discovery.visible("session", registry.all())
+        large.forEach { discovery.search("session", it.name.value, 1) }
+        val visible = discovery.visible("session", registry.all())
+        assertTrue(large.last() in visible)
+        assertFalse(large.first() in visible)
+        val beforeMiss = visible.toSet()
+        discovery.search("session", "no_matching_contract", 1)
+        assertEquals(beforeMiss, discovery.visible("session", registry.all()).toSet())
+    }
+
+    @Test fun gestureDiscoveryIncludesOnlyAvailableSameOriginObservationContracts() {
+        val origin = ToolOrigin.PluginOrigin("mobile-use", "1", "mobile-use")
+        val gesture = search.copy(name = ToolName("ui.gesture"), origin = origin)
+        val screenshot = search.copy(name = ToolName("ui.screenshot"), origin = origin)
+        val device = search.copy(name = ToolName("ui.device"), origin = origin)
+        listOf(gesture, screenshot, device).forEach(::registerFixture)
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != device }
+        assertEquals(listOf(gesture), filtered.search("session", "ui.gesture", 1))
+        val visible = filtered.visible("session", registry.all())
+        assertTrue(screenshot in visible)
+        assertFalse(device in visible)
+        assertFalse(screenshot in filtered.visible("other", registry.all()))
+    }
+
+    @Test fun cheapMcpSourcesDoNotHaveASixteenToolCliff() {
+        val tools =
+            (1..20).map {
+                remote(it).copy(description = "tiny", inputSchema = Json.parseToJsonElement("{}").jsonObject)
+            }
+        replaceCatalog("catalog", tools)
+        assertTrue(discovery.visible("session", registry.all()).containsAll(tools))
+        replaceCatalog(
+            "catalog",
+            tools.map { it.copy(description = "x".repeat(ToolDescriptor.MAX_DESCRIPTION_LENGTH)) },
+        )
+        assertEquals(listOf(search), discovery.visible("session", registry.all()))
+        assertTrue(discovery.search("session", tools.last().name.value, 1).isNotEmpty())
+    }
+
     @Test
-    fun newSearchReplacesWindowAndNeverGrowsBeyondSixteen() {
+    fun newSearchRetainsValidHistoryAndMissDoesNotDiscardTheWorkset() {
         catalog()
-        assertEquals(16, discovery.search("session", "catalog", 16).size)
+        val found = discovery.search("session", "catalog", 16)
+        assertEquals(16, found.size)
         val selected = discovery.search("session", "tool_499", 1)
-        assertEquals(2, discovery.visible("session", registry.all()).size)
+        assertTrue(discovery.visible("session", registry.all()).containsAll(found + selected))
+        val current = discovery.visible("session", registry.all())
         assertTrue(discovery.search("session", "no match", 8).isEmpty())
-        assertEquals(listOf(search) + selected, discovery.visible("session", registry.all()))
+        assertEquals(current, discovery.visible("session", registry.all()))
     }
 
     @Test

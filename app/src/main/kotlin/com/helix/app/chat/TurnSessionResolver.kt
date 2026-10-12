@@ -18,11 +18,11 @@ import com.helix.core.storage.entity.SessionEntity
 internal object TurnSessionResolver {
     fun resolve(
         explicitSessionId: String?,
-        openSession: SessionEntity?,
+        openSession: () -> SessionEntity?,
         resolveSession: (String) -> SessionEntity?,
     ): SessionEntity? =
         if (explicitSessionId == null) {
-            openSession
+            openSession()
         } else {
             // An explicit session that cannot be resolved is a refusal (null), never a fall-back to
             // [openSession] — the caller addressed a specific session and the turn must not run in

@@ -90,17 +90,28 @@ internal class McpToolDiscovery(
                 .filter { availability(sessionId, it) }
                 .take(limit)
                 .toList()
-        // Successful searches replace the bounded window. A miss must not erase useful work;
-        // prune stale/disabled/unadmitted entries even when no replacement was found.
-        loaded[sessionId] =
-            matches.ifEmpty {
-                val current = latest().toSet()
-                loaded[sessionId].orEmpty().filter {
-                    it in current && availability(sessionId, it) && admittedWindows[sessionId]?.contains(it) != false
-                }
-            }
+        updateWorkset(sessionId, matches)
         while (loaded.size > MAX_SESSIONS) loaded.remove(loaded.keys.first())
         return matches
+    }
+
+    private fun updateWorkset(
+        sessionId: String,
+        matches: List<ToolDescriptor>,
+    ) {
+        val current = latest()
+        val previous =
+            loaded[sessionId].orEmpty().filter {
+                it !in matches && it in current && admittedWindows[sessionId]?.contains(it) != false &&
+                    availability(sessionId, it)
+            }
+        val available =
+            ToolDiscoveryWorkset.complete(matches + previous, current).filter {
+                admittedWindows[sessionId]?.contains(it) != false &&
+                    (it in matches || it in previous || availability(sessionId, it))
+            }
+        loaded[sessionId] =
+            if (matches.isEmpty()) previous else ToolDiscoveryWorkset.retain(matches, previous, available)
     }
 
     private fun searchCatalog(query: String): List<ToolDescriptor> {
@@ -160,7 +171,7 @@ internal class McpToolDiscovery(
             }
         // A disable that landed while a tool was in the session window removes it here too —
         // the window replacement re-reads the same shared predicate (ADR section 1.1).
-        val mcp = available.filter { it.origin is ToolOrigin.McpOrigin }
+        val mcp = ToolDiscoveryWorkset.eagerMcp(available.filter { it.origin is ToolOrigin.McpOrigin })
         val local =
             available.filter {
                 it.origin !is ToolOrigin.McpOrigin &&
@@ -169,7 +180,7 @@ internal class McpToolDiscovery(
         val discovery = local.filter { it.name.value == "tools.search" }
         // ChatService truncates this list to the model limit. Keep discovery and its
         // current results reachable; optional local tools use the same bounded discovery window.
-        return (discovery + selected + local + if (mcp.size <= WINDOW) mcp else emptyList())
+        return (discovery + selected + local + mcp)
             .distinctBy { it.name }
     }
 
@@ -226,7 +237,7 @@ internal class McpToolDiscovery(
         val descriptor =
             ToolDescriptor(
                 name = ToolName("tools.search"),
-                version = ToolVersion(2),
+                version = ToolVersion(3),
                 description =
                     "Search user-enabled tools by name, description, source, fields or common Chinese aliases: " +
                         "files, browser, Android UI, Linux, Skills, " +
@@ -235,8 +246,9 @@ internal class McpToolDiscovery(
                         "Exact-name queries return only that tool. " +
                         "Use returned tools from the next request's schemas; " +
                         "do not guess arguments or repeat a successful search. " +
-                        "Matches REPLACE the bounded session discovery window, not accumulate. " +
-                        "Do not issue multiple searches in one response; later results can discard earlier ones. " +
+                        "Matches load a complete working set. Valid recent tools remain within a schema byte budget. " +
+                        "Older tools can be evicted; use the next request's schemas. " +
+                        "Do not issue multiple searches in one response. " +
                         "a miss preserves still-available tools. " +
                         "Discovery grants no execution permission.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,

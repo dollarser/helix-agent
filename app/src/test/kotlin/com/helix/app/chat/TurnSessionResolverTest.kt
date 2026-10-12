@@ -20,27 +20,34 @@ class TurnSessionResolverTest {
 
     @Test
     fun anExplicitSessionRunsInExactlyThatSession() {
-        assertEquals(explicit.id, TurnSessionResolver.resolve("explicit", open, resolver("explicit"))?.id)
+        assertEquals(explicit.id, TurnSessionResolver.resolve("explicit", { open }, resolver("explicit"))?.id)
     }
 
     @Test
     fun anExplicitSessionThatCannotResolveIsRefusedNotFallBackToOpen() {
         // The bug this exists to prevent: the caller addressed "explicit"; it must NOT run in "open".
-        assertNull(TurnSessionResolver.resolve("explicit", open, resolver()))
+        assertNull(TurnSessionResolver.resolve("explicit", { open }, resolver()))
     }
 
     @Test
     fun anExplicitSessionIsRefusedEvenWhenAOpenSessionIsLive() {
-        assertNull(TurnSessionResolver.resolve("explicit", open, resolver("open")))
+        assertNull(TurnSessionResolver.resolve("explicit", { open }, resolver("open")))
     }
 
     @Test
     fun aStartWithNoExplicitSessionFallsBackToTheOpenSession() {
-        assertEquals(open.id, TurnSessionResolver.resolve(null, open, resolver("open"))?.id)
+        assertEquals(open.id, TurnSessionResolver.resolve(null, { open }, resolver("open"))?.id)
     }
 
     @Test
     fun aStartWithNoExplicitSessionAndNoOpenSessionIsRefused() {
-        assertNull(TurnSessionResolver.resolve(null, null, resolver()))
+        assertNull(TurnSessionResolver.resolve(null, { null }, resolver()))
+    }
+
+    @Test
+    fun explicitTargetNeverReadsAnUnrelatedStaleOpenSession() {
+        val stale = { error("UI session was already deleted") }
+        assertEquals(explicit.id, TurnSessionResolver.resolve("explicit", stale, resolver("explicit"))?.id)
+        assertNull(TurnSessionResolver.resolve("deleted", stale, resolver("explicit")))
     }
 }

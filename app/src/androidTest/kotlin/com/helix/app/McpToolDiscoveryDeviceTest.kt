@@ -1,6 +1,7 @@
 package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
@@ -15,6 +16,15 @@ class McpToolDiscoveryDeviceTest {
     @Suppress("LongMethod") // One production dispatcher flow and guaranteed registry cleanup.
     fun searchExposesOnlyMatchingEnabledSchemasAndDisableDropsThem() {
         val container = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+        InstrumentationRegistry.getArguments().getString("discoveryPreviousFixture")?.let { previous ->
+            require(previous.startsWith("catalog-"))
+            val owned = requireNotNull(container.storage.sessions.find(previous))
+            require(owned.title == "Catalog test" && owned.providerId == null && owned.modelId == null)
+            val turns = container.storage.turns.listBySession(previous)
+            require(turns.all { it.state == "CREATED" })
+            require(turns.flatMap { container.storage.toolCalls.listByTurn(it.id) }.all { it.name == "tools.search" })
+            container.storage.deleteSessionPermanently(previous)
+        }
         val pipeline = container.toolPipeline
         val search = requireNotNull(pipeline.resolveLatest("tools.search"))
         val server = "discoveryfixture"
@@ -66,6 +76,7 @@ class McpToolDiscoveryDeviceTest {
             pipeline.registry.replaceMcpServer(server, emptyList())
             pipeline.endTurn(turn)
             chat.closeSession()
+            container.storage.deleteSessionPermanently(session)
         }
     }
 }
