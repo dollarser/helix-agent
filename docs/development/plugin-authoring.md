@@ -1,6 +1,6 @@
 # 插件作者指南与组件支持范围
 
-更新：2026-10-11。对应 [HXA-275](tasks/HXA-275.md) 和 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)。以下描述当前源码能力，不代表旧发布 APK 已支持。
+更新：2026-10-13。对应 [HXA-275](tasks/HXA-275.md)、[HXA-281](../completion-records/HXA-281.md) 和 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)。以下描述当前源码能力，不代表旧发布 APK 已支持。
 
 ## 格式与执行边界
 
@@ -28,6 +28,18 @@
 Claude Code 的[清单参考](https://code.claude.com/docs/en/plugins/manifest-reference)与[故障排查](https://code.claude.com/docs/en/plugins/troubleshooting)用于比较“声明、配置、加载”和组件失败的区分；Helix 保持 Android 宿主及原权限链。当前 Claude 的 dependencies 是必要依赖；某些外部对象中的 `optional:true` 只作为可选声明诊断，不宣称是 Claude 标准或已实现依赖求解。
 
 ## 诊断与安全
+
+### 直接复用外部包与市场目录
+
+“添加”中的插件导入选择原ZIP/JSON，不要求手改为Helix清单。根plugin.json的Agent Plugins 1.0.0仍权威；否则识别.codex-plugin/.claude-plugin/.codebuddy-plugin清单，也兼容同结构.workbuddy-plugin入口（不据此宣称厂商的官方路径）。外来skills支持路径数组及根路径，默认skills/仍扫描；mcpServers支持JSON路径、inline配置及其有序数组，后声明覆盖先声明。不运行MCP bundle下载、npm、setup或桌面脚本。
+
+“发现 → 添加市场目录”接受市场ZIP/JSON，识别上述宿主目录中的marketplace.json及根marketplace.json。目录添加只登记发现源，里面的插件不会变成已安装或已启用。ZIP中的相对source逐项预览、安装；只有索引、远程Git/archive/npm/command引用或缺少内容时，条目引导选择下载好的原插件包，校验manifest名称后再预览。恶意路径与歧义索引拒绝，损坏候选不隐藏其他有效条目。未打包的来源不被静默联网解析。
+
+目录更新与插件更新分开：再次添加相同来源可替换其发现快照，插件仍保留已安装版本；打开条目核对已安装/选中版本再确认安装。内容变化或并发版本变化要求重新预览。删除目录仅移除发现来源，已安装插件、账号及会话选择保留在“已添加”。不同市场的同名包不合并。
+
+安装之后按需要配置Helix自己的MCP连接/账号，再通过“在会话中使用”选择来源。Codex/Claude/WorkBuddy的认证时机、已连接账号、平台注册App ID及MCP App UI不会随包复制；识别不等于执行支持，详情有支持范围。插件工具名字可能使用桌面限定名：tools.search可把mcp__限定名作为动作检索线索，返回Helix当前名称，执行仍只允许本请求实际schema。包内参考资料用准确Skill身份的skills.read_resource读取，不猜桌面绝对路径。
+
+市场缓存只保存准备后的组件投影与原输入hash，不保存外部MCP认证头或Token。已知MCP配置/宿主清单也不作为Skill资源复制；其他资源按原快照读取契约处理。输入/展开沿原16MiB归档边界，发现数据保存有64MiB物理预算；需要完整大仓库时可导入索引JSON，再逐条选择原包，不能将大小限制绕成未授权下载器。checksum只用于损坏检测，不是来源签名或执行授权。
 
 预览、安装返回、组件就绪投影和模型结果共享 `PluginDiagnostics` 的结构化结果：`domain=PACKAGE_SUPPORT`、code、kind、逻辑组件/字段 path、state、action、omitted、requirement。path 是包内逻辑位置，不泄漏凭据值。`AVAILABLE` 仅表示包组件被支持，不等于已连接、已选中或获得执行批准；实时状态由 HXA-274 的同源 readiness 表达。支持范围默认折叠，展开仅查看。
 

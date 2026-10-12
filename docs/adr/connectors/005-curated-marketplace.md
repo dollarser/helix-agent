@@ -1,8 +1,8 @@
 # ADR-CONNECTORS-005: 内置精选扩展市场与端侧安装契约
 
 Status: accepted
-Date: 2026-09-22
-HXA: HXA-212
+Date: 2026-09-22; revised 2026-10-13
+HXA: HXA-212, HXA-281
 Deciders: project-owner
 
 ## Context
@@ -15,9 +15,19 @@ Deciders: project-owner
 
 接受在应用内实现本地静态内置精选扩展市场（Curated Marketplace），定义以下端侧架构与安装契约：
 
+### 用户导入的发现目录（HXA-281）
+
+Owner要求复用Codex、Claude Code和WorkBuddy插件市场，明确先支持导入、Skill和可运行MCP，不增加MCP App页面。增加用户选取的市场ZIP/JSON发现源，复用有界归档/目录及JSON校验；相对来源从同一快照解析，市场不能当作一个插件整体安装。添加、浏览、移除目录不安装/卸载插件，不自动联网、授权或连接服务。
+
+相对来源包含的实际插件可逐项预览与安装；远程Git/archive/npm/command等来源保留发现信息，用户下载原包后在条目内选择，校验名称及当前目录快照再安装。不提供后台抓取、账号克隆、自动更新或桌面运行时安装。市场名/格式与条目名组成稳定安装身份，不按同名或URL合并不同来源。目录更新与已安装版本分别反馈，安装/update仍走原PluginService及Room提交、revision、取消和归属规则；移除发现源保留已安装记录及会话选择。
+
+发现源以本机私有文件的准备后投影保存，原输入hash作来源事实，投影checksum只检测意外损坏，不证明可信来源。只保存解析后的端点/凭据需求/不可逆绑定指纹和Skill资源，不存原MCP认证头/Token或复制账号。候选发布用同卷原子替换，提交前取消或失败保留旧源，重开读取已发布投影；不声称断电持久性或Shared UID隔离。遵循原16MiB输入/展开及单文件、路径、深度等边界，本机发现数据有64MiB存储预算，非整个请求工具计数上限。
+
+市场不展示插件全局启停。安装不代表已连接/已选择/本请求已加载；“在会话中使用”走现有来源面板，组件配置/登录走原管理入口。所选版本与已安装版本如实展示，其他宿主App映射/MCP App UI/hook/stdio等限制可展开查看。固定精选项不保留未发布服务的占位入口；既有安装仍可在管理页处理。
+
 1. **编译期静态内嵌与零未授权网络外呼**：
    - 精选目录（`MarketplaceCatalog`）作为代码资源固化在应用内，用户在浏览市场、按类型过滤（All / Connector / MCP / Skill）以及查看说明时，不发起任何未授权的远程网络请求。
-   - 内置项目包含典型代表：免鉴权公共文档检索（Cloudflare Docs）、结构化网页提炼（Web Research）、受保护代码与任务协作（GitHub Operations、Linear Workspace）以及本地代码审查与数据库只读助手（Code Review、SQL Assistant）。
+   - 内置项目包含免鉴权公共文档检索（Cloudflare Docs）、受保护代码与任务协作（GitHub Operations、Linear Workspace）以及本地代码审查与数据库只读助手（Code Review、SQL Assistant）；不将没有发布服务的占位域名当作可用精选项。
 
 2. **严格遵循安装默认未激活与凭据隔离原则**：
    - 一键安装产物直接交由 `ConnectorService` 与 `SkillRepository` 管理，安装后端点一律保持默认未激活状态（`endpoints` 需用户在配置中显式启用）。
@@ -62,3 +72,7 @@ Deciders: project-owner
 - [开发路线](../../development/roadmap.md)
 - [ADR-CONNECTORS-001](001-portable-bundles.md)
 - [ADR-SKILLS-001](../skills/001-authoring-and-installation.md)
+
+## Decision history
+
+- 2026-10-13：Owner明确要求复用主流插件与市场，并选择先支持内容/可运行MCP、显示其他组件限制。接受用户主动导入的离线发现源和逐项原包安装，维持无静默网络、Room安装权威及原权限链；不引入在线签名市场、依赖执行器或MCP Apps宿主。源删除不卸载实际能力是Helix的保留数据选择，与参考宿主行为明确区分。

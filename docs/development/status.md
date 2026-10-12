@@ -4,6 +4,8 @@
 
 ## 当前整合与验证边界
 
+- 2026-10-13 [HXA-281](../completion-records/HXA-281.md)工具发现指导及外部插件市场复用主机交付：当前schema/执行权限分层，桌面MCP名称只作检索线索；主流包路径数组、有序MCP配置、离线市场发现源与逐项安装、配置/版本反馈。13项新增边界回归、两渠道WorkBuddy原样本、完整全仓主机门禁及两渠道AndroidTest编译通过；设备生命周期夹具已准备。设备/真实模型本轮not requested，未安装APK，不继承280验收或声称Qwen收益；[证据](../evidence/development/plugin-marketplace-reuse-2026-10-13.md)。
+
 - 2026-10-12 [HXA-280](../completion-records/HXA-280.md)工具架构优化有界交付：取消全局64截断，同源能力目录/中文与字段检索、成本约束近期工作集及完整操作组已接生产；修复显式目标被陈旧UI会话阻断的启动接缝。完整主机/双渠道Debug和Release制品及边界通过，自有API36 Developer6方法（6业务轮与70工具完整性）、Standard发现/实际拼音2方法、OnePlus/API34最终4方法通过。真机已保留数据更新，原8会话/10个Turn/5个Provider逐行一致；日常模拟器未覆盖，临时映射撤回。基线/首候选业务各6/6，成本混合，不预报普遍收益。[证据与失败尝试](../evidence/development/tool-discovery-workset-2026-10-12.md)。
 
 - 2026-10-12 Owner要求先复核门禁再重测。资源预算保持原阈值；同一OnePlus/API34原APK两小时precheck完成340轮、设备7,220,700毫秒、同PID，原FD/线程/PSS断言通过，host237/238采样且最大间隔30.7秒。设备结果passed；主机finalize因logcat非UTF-8字节失败，原result.json未生成，离线核对与原始证据分别保留；报告器已修复，新增回归及原日志独立离线重处理PASS，不覆盖原缺失报告。没有改库/权限，不代表24h或连续Mobile Use/Qwen通过。[完整结果与边界](../evidence/development/resource-gate-review-2026-10-12.md#完成后的离线核对)。
@@ -114,8 +116,6 @@
 
 ## In progress
 
-- 2026-10-13 [HXA-281](tasks/HXA-281.md)工具发现指导及外部插件市场复用已接入：当前schema/执行权限分层，桌面MCP名称只作检索线索；主流包路径数组、有序MCP配置、离线市场发现源与逐项安装、配置/版本反馈。13项新增边界回归、两渠道WorkBuddy原样本与整合JVM/静态及AndroidTest编译通过；完整最终主机门禁结算中。设备/真实模型本轮not requested，不继承280验收；[证据](../evidence/development/plugin-marketplace-reuse-2026-10-13.md)。
-
 - 2026-10-12 Owner 授权继续收尾及 276→279。日常 API36 已保留数据更新到 HXA-275 验收 APK，自有 API36/Qwen 完整文件任务 1/1 通过，失败尝试与转换过程见[收尾证据](../evidence/development/plugin-closeout-2026-10-12.md)。HXA-276 单一 Browser 贡献已通过全仓主机、API36 双渠道各 9 项及共享浏览器引擎 29 项有界验收，见[276证据](../evidence/development/hxa276-browser-contribution-2026-10-12.md)；HXA-277 已完成在途资源引用与清理、主机和 API36 后端/应用组合有界验收，见[277证据](../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-278渐进装载、精确资源和有界就绪事实已通过主机、双渠道内容及固定Qwen对照，见[278证据](../evidence/development/hxa278-progressive-skills-2026-10-12.md)；模型成本为混合结果。HXA-279已完成浏览器发现、等待与本地有界交付，见[279证据](../evidence/development/hxa279-browser-observation-2026-10-12.md)：引擎28项、最终双渠道各9项及严格六类Qwen通过，先前模型失败/单轮边界保留；日常已更新到最终APK并核实原数据保留。测试AVD的Gboard中文拼音因原生崩溃仍failed，不作整体验收通过。
 
 - HXA-271阶段7授权/连接交互及后续恢复实现已交付；当轮设备/模型未请求是历史边界，随后同机AX/Root/Shizuku及现有Qwen补验已完成，当前结果见本页顶部阶段11。其他OEM和长期组合仍独立保留，不重新实施旧切片。
@@ -143,7 +143,7 @@
 
 ## Next task
 
-HXA-280已完成本地有界交付，长稳报告器已修复；本轮明确的实施项无未完成阻塞。下一步优先处理新复现故障，再选择更长周期/其他OEM/真实Provider的独立验收；原生Provider发现与PTC等仍须具体需求及ADR，不自动扩展。历史队列保留为已有交付与依赖索引。
+HXA-281已完成授权的主机实现范围，HXA-280本地有界交付和长稳报告器修复保持；本轮明确的实施项无未完成阻塞。下一步可按Owner当轮授权做市场导入/安装/会话选择及真实HTTP MCP端到端验收，再处理新复现故障或其他OEM/Provider边界；原生Provider发现、PTC、App UI及桌面运行时仍须具体需求及ADR，不自动扩展。历史队列保留为已有交付与依赖索引。
 
 ### 插件优化队列（2026-10-11）
 
