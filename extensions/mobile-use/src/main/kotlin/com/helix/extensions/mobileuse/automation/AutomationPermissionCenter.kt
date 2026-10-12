@@ -34,7 +34,7 @@ class AutomationPermissionCenter(
         val backend = deviceBackend(AutomationDeviceOperation.SNAPSHOT)
         return if (backend == null) {
             AutomationServiceController.withPhysicalOperation { privilegedSemantic.invalidate() }
-            withConversation(call) { snapshot().copy(backend = "accessibility") }
+            withConversation(call) { snapshotForCall(call).copy(backend = "accessibility") }
                 ?: AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
         } else {
             AutomationServiceController.withPhysicalOperation {
@@ -338,6 +338,13 @@ class AutomationPermissionCenter(
     fun snapshot(): AutomationSnapshotResult =
         if (hasLiveSystemGrant()) {
             AutomationServiceController.snapshot()
+        } else {
+            AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
+        }
+
+    internal fun snapshotForCall(call: com.helix.tools.framework.ExecutableToolCall): AutomationSnapshotResult =
+        if (hasLiveSystemGrant()) {
+            AutomationServiceController.snapshot(call)
         } else {
             AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
         }

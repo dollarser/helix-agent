@@ -46,7 +46,13 @@ class PermissionCenterAutomationToolPort(
     private fun <T> bound(block: () -> T): T? = originalCall?.let { center.withConversation(it, block) }
 
     override fun snapshot() =
-        (if (forceAccessibility) bound { center.snapshot() } else originalCall?.let(center::semanticSnapshot))
+        (
+            if (forceAccessibility) {
+                originalCall?.let { call -> bound { center.snapshotForCall(call) } }
+            } else {
+                originalCall?.let(center::semanticSnapshot)
+            }
+        )
             ?: AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
 
     override fun nodeAction(request: AutomationNodeActionRequest) =

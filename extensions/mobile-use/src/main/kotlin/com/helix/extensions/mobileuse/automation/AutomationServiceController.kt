@@ -2,6 +2,7 @@ package com.helix.extensions.mobileuse.automation
 
 import android.content.Context
 import com.helix.core.model.SystemClock
+import com.helix.tools.framework.ExecutableToolCall
 import java.time.Duration
 
 /** The only process-level bridge to the live Accessibility service. */
@@ -222,7 +223,7 @@ object AutomationServiceController {
     }
 
     @Suppress("ReturnCount")
-    fun snapshot(): AutomationSnapshotResult =
+    fun snapshot(originalCall: ExecutableToolCall? = null): AutomationSnapshotResult =
         synchronized(deviceOperationLock) {
             val connectedService =
                 synchronized(this) { service }
@@ -237,7 +238,13 @@ object AutomationServiceController {
                 synchronized(this) {
                     if (service === connectedService) sessionManager.current() else null
                 } ?: return@synchronized AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
-            val result = connectedService.captureSnapshot(session)
+            val result =
+                readStableAccessibilitySnapshot(
+                    capture = { connectedService.captureSnapshot(session) },
+                    generation = connectedService::currentGeneration,
+                    admitted = { snapshotSessionStillAdmitted(connectedService, session, originalCall) },
+                    invalidate = connectedService::invalidateSnapshotTokens,
+                )
             synchronized(this) {
                 val current = sessionManager.current()
                 if (service !== connectedService || current?.id != session.id) {
@@ -259,6 +266,26 @@ object AutomationServiceController {
                 result.copy(pauseReason = sessionManager.pauseReason)
             }
         }
+
+    @Synchronized
+    private fun snapshotSessionStillAdmitted(
+        connected: HelixAccessibilityService,
+        session: ActiveAutomationSession,
+        call: ExecutableToolCall?,
+    ): Boolean {
+        if (connected.deviceLocked()) stop(AutomationStopReason.DEVICE_LOCKED)
+        val current = sessionManager.current()
+        return service === connected && current?.id == session.id &&
+            current.scope == session.scope && current.allowSystemSettings == session.allowSystemSettings &&
+            (call == null || snapshotCallStillAdmitted(call))
+    }
+
+    private fun snapshotCallStillAdmitted(call: ExecutableToolCall): Boolean =
+        !call.cancel.isCancelled() &&
+            java.time.Instant
+                .now()
+                .isBefore(call.deadline) &&
+            call.sessionId?.let { conversationGrant(it)?.scope?.toScopeRef() } == call.authorizationScopeRef
 
     fun performNodeAction(request: AutomationNodeActionRequest): AutomationActionResult =
         synchronized(deviceOperationLock) {

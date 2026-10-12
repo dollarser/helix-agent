@@ -276,6 +276,7 @@ class ProgressiveSkillModelDeviceTest {
     private var previousServices: String? = null
     private var previousEnabled = 0
     private var backendChanged = false
+    private val accessibilityEvents = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     /** Keep the original selected session and live Accessibility backend across actual HOME/return. */
     private suspend fun verifyMobileBackgroundReturn(
@@ -326,6 +327,12 @@ class ProgressiveSkillModelDeviceTest {
 
     private suspend fun enableBackend() {
         val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+        automation.setOnAccessibilityEventListener { event ->
+            val pkg = event.packageName?.toString()
+            if (pkg == app.packageName || pkg == "${app.packageName}.test") {
+                accessibilityEvents.merge("$pkg:${event.windowId}:${event.eventType}", 1, Int::plus)
+            }
+        }
         if (!backendChanged) {
             previousServices = Settings.Secure.getString(app.contentResolver, "enabled_accessibility_services")
             previousEnabled = Settings.Secure.getInt(app.contentResolver, "accessibility_enabled", 0)
@@ -349,6 +356,8 @@ class ProgressiveSkillModelDeviceTest {
     private fun restoreBackend() {
         if (!backendChanged) return
         val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+        println("MOBILE_ACCESSIBILITY_EVENTS=$accessibilityEvents")
+        automation.setOnAccessibilityEventListener(null)
         automation
             .executeShellCommand(
                 if (previousServices.isNullOrBlank()) {
