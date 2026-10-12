@@ -51,8 +51,10 @@ class ProgressiveSkillModelDeviceTest {
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
             val backend = args.getString("pluginSkillBackend") ?: "accessibility"
-            require(backend in setOf("accessibility", "root"))
-            require(backend != "root" || kind == "mobile")
+            require(backend in setOf("accessibility", "root", "shizuku"))
+            require(backend == "accessibility" || kind == "mobile")
+            val visual = args.getString("pluginSkillVisual") == "true"
+            require(!visual || kind == "mobile")
             val port = requireNotNull(args.getString("pluginSkillPort")).toInt()
             val model = requireNotNull(args.getString("pluginSkillModel"))
             val provider =
@@ -134,7 +136,7 @@ class ProgressiveSkillModelDeviceTest {
                                             await { DeviceAccess.root("mobile-use")?.cachedAppGrant == true }
                                             DeviceAccess.connectRoot("mobile-use")
                                             await { DeviceAccess.root("mobile-use")?.connectedBinder() != null }
-                                        } else {
+                                        } else if (backend == "accessibility") {
                                             enableBackend()
                                         }
                                         val packages = setOf(app.packageName, "${app.packageName}.test")
@@ -152,7 +154,14 @@ class ProgressiveSkillModelDeviceTest {
                                         )
                                         delay(800)
                                         "Operate only this test app and Helix. Fill 测试输入 with 你好 Helix, " +
-                                            "Scroll to 完成测试, click once; verify success. Stay there."
+                                            "Scroll to 完成测试, click once; verify success. Stay there." +
+                                            if (visual) {
+                                                " For the final click, use ui.device then ui.screenshot. " +
+                                                    "Locate 完成测试 from the attached pixels and click using " +
+                                                    "ui.gesture with that screenshot's frame. Do not guess coordinates."
+                                            } else {
+                                                ""
+                                            }
                                     }
                                 }
                             val start = SystemClock.elapsedRealtime()
@@ -221,6 +230,20 @@ class ProgressiveSkillModelDeviceTest {
                                     }
                                 }
                             val success = turn.state == "COMPLETED" && verified && calls.isNotEmpty()
+                            if (visual) {
+                                assertTrue(calls.any { it.name == "ui.gesture" && it.state == "COMPLETED" })
+                                assertTrue(
+                                    calls.any { call ->
+                                        call.name == "ui.screenshot" && call.state == "COMPLETED" &&
+                                            c.storage.toolResults.byToolCall(call.id)?.let {
+                                                c.storage.toolResults
+                                                    .readContent(
+                                                        it,
+                                                    )?.contains("\"pixelsAttached\":true")
+                                            } == true
+                                    },
+                                )
+                            }
                             calls.filter { !success || it.state != "COMPLETED" }.forEach { call ->
                                 val result = c.storage.toolResults.byToolCall(call.id)
                                 println(
@@ -237,15 +260,15 @@ class ProgressiveSkillModelDeviceTest {
                             if (kind == "mobile" && success && backend == "accessibility") {
                                 verifyMobileBackgroundReturn(session, repetition)
                             }
-                            if (backend == "root") {
+                            if (backend != "accessibility") {
                                 assertTrue(
-                                    "The real task must use the connected Root backend",
+                                    "The real task must use the requested privileged backend",
                                     calls.any { call ->
                                         c.storage.toolResults
                                             .byToolCall(
                                                 call.id,
                                             )?.let(c.storage.toolResults::readContent)
-                                            ?.contains("\"backend\":\"root\"") == true
+                                            ?.contains("\"backend\":\"$backend\"") == true
                                     },
                                 )
                             }
@@ -291,24 +314,26 @@ class ProgressiveSkillModelDeviceTest {
             await { automation.rootInActiveWindow?.packageName?.toString() == homePackage }
             app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             await { automation.rootInActiveWindow?.packageName?.toString() == app.packageName }
-            await { containsVisibleText(automation.rootInActiveWindow, "Progressive mobile $repetition") }
+            await { visibleTextBounds(automation.rootInActiveWindow, "Progressive mobile $repetition") != null }
             delay(500)
             val pixels = requireNotNull(automation.takeScreenshot())
             try {
-                val colors =
-                    (1..15)
-                        .flatMap { x ->
-                            (2..13).map { y -> pixels.getPixel(pixels.width * x / 16, pixels.height * y / 16) }
-                        }.toSet()
+                val titleBounds =
+                    requireNotNull(
+                        visibleTextBounds(automation.rootInActiveWindow, "Progressive mobile $repetition"),
+                    )
                 val name = "mobile-return-$repetition-$cycle.png"
                 app.filesDir.resolve(name).outputStream().use {
                     pixels.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
                 }
-                assertTrue("Helix content rendered only ${colors.size} sampled colors", colors.size > 5)
+                assertTrue(
+                    "Expected conversation title has no rendered contrast",
+                    titlePixelsRendered(pixels, titleBounds),
+                )
                 assertEquals(session, c.chatService.screen.value.openSessionId)
                 assertEquals(AutomationServiceState.CONNECTED, AutomationPermissionCenter(app).serviceState())
                 println(
-                    "MOBILE_BACKGROUND_RETURN rep=$repetition cycle=$cycle colors=${colors.size} sessionRetained=true",
+                    "MOBILE_BACKGROUND_RETURN rep=$repetition cycle=$cycle titlePixels=true sessionRetained=true",
                 )
             } finally {
                 pixels.recycle()
@@ -316,13 +341,27 @@ class ProgressiveSkillModelDeviceTest {
         }
     }
 
-    private fun containsVisibleText(
+    @Suppress("DEPRECATION", "ReturnCount") // Return the first visible match and recycle each owned child.
+    private fun visibleTextBounds(
         node: android.view.accessibility.AccessibilityNodeInfo?,
         expected: String,
-    ): Boolean {
-        if (node == null) return false
-        val matches = node.isVisibleToUser && node.text?.toString() == expected
-        return matches || (0 until node.childCount).any { containsVisibleText(node.getChild(it), expected) }
+    ): android.graphics.Rect? {
+        if (node == null) return null
+        if (node.isVisibleToUser && node.text?.toString() == expected) {
+            return android.graphics
+                .Rect()
+                .also(node::getBoundsInScreen)
+                .takeUnless { it.isEmpty }
+        }
+        return (0 until node.childCount).firstNotNullOfOrNull { index ->
+            node.getChild(index)?.let { child ->
+                try {
+                    visibleTextBounds(child, expected)
+                } finally {
+                    child.recycle()
+                }
+            }
+        }
     }
 
     private suspend fun enableBackend() {

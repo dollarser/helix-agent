@@ -131,8 +131,13 @@ internal class MobileUseOverlay(
         val hidden = CountDownLatch(1)
         val confirmed = AtomicBoolean()
         handler.post {
-            if (windows == null) {
+            if (state.reuseHiddenConfirmation() && windows?.attached != true) {
                 confirmed.set(true)
+                hidden.countDown()
+                return@post
+            }
+            if (windows == null) {
+                confirmed.set(state.confirmHidden(ticket))
                 hidden.countDown()
                 return@post
             }
@@ -144,7 +149,7 @@ internal class MobileUseOverlay(
             // Wait two frame boundaries so WindowManager/InputDispatcher observe the removal before capture/gesture.
             Choreographer.getInstance().postFrameCallback {
                 Choreographer.getInstance().postFrameCallback {
-                    confirmed.set(windows?.attached != true)
+                    confirmed.set(windows?.attached != true && state.confirmHidden(ticket))
                     hidden.countDown()
                 }
             }

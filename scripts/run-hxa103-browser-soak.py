@@ -84,6 +84,15 @@ def workload_identity(workload, flavor="consumer"):
     return identity
 
 
+def validate_device_serial(serial, physical=False):
+    emulator = re.fullmatch(r"emulator-\d+", serial) is not None
+    if physical:
+        if emulator or not re.fullmatch(r"[A-Za-z0-9_.:-]+", serial):
+            raise ValueError("--physical-device requires an explicit physical serial")
+    elif not emulator:
+        raise ValueError("physical validation requires explicit --physical-device")
+
+
 def classify(ev):
     """Pure forensics-first judgment. `ev` is a dict of EVIDENCE (see run()); returns
     (state, note, attribution). Device-independent: unit-testable without an emulator.
@@ -210,10 +219,14 @@ class Soak:
 
     def build_identity(self):
         api = self.shell("getprop", "ro.build.version.sdk").strip()
+        physical = getattr(self.args, "physical_device", False)
+        if physical and self.shell("getprop", "ro.kernel.qemu").strip() == "1":
+            raise ValueError("requested physical target reports an emulator")
         ident = {
             "preset": self.args.preset, "runId": self.args.run_id, "serial": self.args.serial,
             "workload": self.args.workload, "flavor": getattr(self.args, "flavor", "consumer"),
             "seconds": self.seconds,
+            "deviceKind": "physical" if physical else "emulator",
             "avd": self.shell_ok("getprop", "ro.boot.qemu.avd_name"),
             "api": api,
             "release": self.shell("getprop", "ro.build.version.release").strip(),
@@ -443,7 +456,9 @@ class Soak:
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("serial", help="dedicated emulator serial (emulator-NNNN)")
+    parser.add_argument("serial", help="explicit owned emulator or owner-authorized physical serial")
+    parser.add_argument("--physical-device", action="store_true",
+                        help="explicit current owner-authorized physical validation; never inferred from connectivity")
     parser.add_argument("--workload", choices=["app", "browser"], default="app")
     parser.add_argument("--flavor", choices=["consumer", "developer"], default="consumer")
     parser.add_argument("--preset", choices=list(PRESETS), default="pilot",
@@ -462,8 +477,10 @@ def main():
         / "platform-tools/adb"))
     args = parser.parse_args()
 
-    if not re.fullmatch(r"emulator-\d+", args.serial):
-        parser.error("requires an explicit dedicated emulator serial (emulator-NNNN)")
+    try:
+        validate_device_serial(args.serial, args.physical_device)
+    except ValueError as error:
+        parser.error(str(error))
     if args.observe_breaches and args.workload != "app":
         parser.error("--observe-breaches is available only for the app workload")
     if args.workload == "browser" and args.flavor != "consumer":

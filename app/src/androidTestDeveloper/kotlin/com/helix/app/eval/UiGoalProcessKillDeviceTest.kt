@@ -88,7 +88,7 @@ class UiGoalProcessKillDeviceTest {
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(3, 4, 100000, 512, 100000))
+        chat.setTurnBudgets(TurnBudgets(5, 4, 100000, 512, 100000))
         facts.setProperty("unsettled", unsettled.toString())
         if (unsettled) hold.install(container, "ui.click")
         chat.continueGoal(goal, "UI_GOAL_KILL Take a fresh ui.snapshot and click the Fixture click button once.")
@@ -103,6 +103,7 @@ class UiGoalProcessKillDeviceTest {
                 .pendingForRun(run.id)
                 .any { it.kind == if (unsettled) "TOOL" else "MODEL" }
         }
+        recordUiKillRequests(container.storage, facts)
         val pending = container.storage.goalUsageReservations.pendingForRun(run.id)
         val stored = container.storage.goals.resolve(goal)
         facts.setProperty("tokens", (stored.totalTokens + pending.sumOf { it.reservedTokens }).toString())
@@ -122,6 +123,8 @@ class UiGoalProcessKillDeviceTest {
         port: Int,
         facts: Properties,
     ) {
+        val host = InstrumentationRegistry.getArguments().getString("ui.goal.kill.host") ?: "10.0.2.2"
+        require(host in setOf("10.0.2.2", "127.0.0.1"))
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
         val provider =
             container.providerService.create(
@@ -129,11 +132,11 @@ class UiGoalProcessKillDeviceTest {
                     null,
                     "UI kill fixture",
                     ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                    NormalizedEndpoint.parse("http://10.0.2.2:$port/v1"),
+                    NormalizedEndpoint.parse("http://$host:$port/v1"),
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("10.0.2.2", port),
+                    CleartextWarning(host, port),
                     emptyList(),
                 ),
                 null,
@@ -240,7 +243,8 @@ class UiGoalProcessKillDeviceTest {
             } else {
                 call?.state == "COMPLETED" && container.storage.modelCalls
                     .listByTurn(turn.id)
-                    .size == 3
+                    .lastOrNull()
+                    ?.state == "RUNNING"
             }
         }
     }
@@ -256,7 +260,10 @@ class UiGoalProcessKillDeviceTest {
         val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
         val turn = storage.turns.resolve(facts.getProperty("turn"))
         val call = storage.toolCalls.listByTurn(turn.id).single { it.name == "ui.click" }
-        assertEquals(2, storage.toolCalls.listByTurn(turn.id).size)
+        assertEquals(
+            listOf("tools.search", "ui.snapshot", "tools.search", "ui.click"),
+            storage.toolCalls.listByTurn(turn.id).map { it.name },
+        )
         assertEquals(facts.getProperty("turn"), turn.id)
         assertEquals(facts.getProperty("call"), call.callId)
         assertEquals("INTERRUPTED", turn.state)
@@ -274,7 +281,7 @@ class UiGoalProcessKillDeviceTest {
         assertEquals(if (wasUnsettled) "BLOCKED(NEEDS_REVIEW)" else "INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals(!wasUnsettled, storage.toolResults.byToolCall(call.callId) != null)
-        assertEquals(if (wasUnsettled) 2 else 3, run.modelCalls)
+        assertEquals(facts.getProperty("modelCalls").toInt(), run.modelCalls)
         assertEquals(facts.getProperty("tokens").toLong(), run.tokens)
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
@@ -336,6 +343,19 @@ class UiGoalProcessKillDeviceTest {
 
 private fun fixtureClicked(automation: android.app.UiAutomation): Boolean =
     automation.rootInActiveWindow?.findAccessibilityNodeInfosByText("FIXTURE_CLICKED")?.isNotEmpty() == true
+
+private fun recordUiKillRequests(
+    storage: com.helix.core.storage.HelixStorage,
+    facts: Properties,
+) {
+    facts.setProperty(
+        "modelCalls",
+        storage.modelCalls
+            .listByTurn(facts.getProperty("turn"))
+            .size
+            .toString(),
+    )
+}
 
 private fun uiKillDiagnostic(
     marker: File,

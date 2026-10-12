@@ -41,18 +41,25 @@ class Fixture(ModelFixture):
             type(self).model_requests += 1
         results = [m for m in request.get('messages', []) if m.get('role') == 'tool']
         if not results:
+            tool, args = 'tools.search', {'query': 'ui.snapshot'}
+        elif results[-1].get('tool_call_id') == 'ui-goal-tools-search-snapshot':
             tool, args = 'ui.snapshot', {}
+        elif results[-1].get('tool_call_id') == 'ui-goal-ui-snapshot':
+            assert find_button(results[-1].get('content')) is not None, 'No synthetic button in actual snapshot'
+            tool, args = 'tools.search', {'query': 'ui.click'}
         else:
             self.result_path.write_text(json.dumps(results[-1], indent=2))
-            node = find_button(results[-1].get('content'))
             if results[-1].get('tool_call_id') == 'ui-goal-ui-click':
                 type(self).backfills += 1
                 self.backfill_seen.set()
                 self.release.wait(90)
                 return
+            snapshot = next(m for m in results if m.get('tool_call_id') == 'ui-goal-ui-snapshot')
+            node = find_button(snapshot.get('content'))
             assert node is not None, 'Snapshot did not contain the synthetic button'
             tool, args = 'ui.click', {'token': node['token']}
-        delta = {'tool_calls': [{'id': 'ui-goal-' + tool.replace('.', '-'), 'index': 0, 'type': 'function',
+        suffix = '-snapshot' if tool == 'tools.search' and args['query'] == 'ui.snapshot' else '-click' if tool == 'tools.search' else ''
+        delta = {'tool_calls': [{'id': 'ui-goal-' + tool.replace('.', '-') + suffix, 'index': 0, 'type': 'function',
                                 'function': {'name': tool, 'arguments': json.dumps(args)}}]}
         chunks = [{'id': 'fixture', 'object': 'chat.completion.chunk', 'choices': [
             {'index': 0, 'delta': d, 'finish_reason': finish}]} for d, finish in
@@ -91,6 +98,7 @@ def phase(base, boundary, name, output):
     cmd = base + ['shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                   'com.helix.app.eval.UiGoalProcessKillDeviceTest',
                   '-e', 'ui.goal.kill.phase', name, '-e', 'ui.goal.kill.port', str(boundary),
+                  '-e', 'ui.goal.kill.host', getattr(Fixture, 'host', '10.0.2.2'),
                   '-e', 'ui.goal.kill.boundary', 'unsettled' if Fixture.unsettled else 'backfill',
                   PACKAGE + '.test/com.helix.app.HelixAndroidJUnitRunner']
     with path.open('w') as log:

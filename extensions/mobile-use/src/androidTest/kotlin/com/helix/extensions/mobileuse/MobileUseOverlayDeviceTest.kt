@@ -296,7 +296,9 @@ class MobileUseOverlayDeviceTest {
         overlay: MobileUseOverlay,
         baseline: Bitmap,
     ) {
+        val started = android.os.SystemClock.elapsedRealtimeNanos()
         requireNotNull(overlay.hideForOperation(call())).use {
+            println("NESTED_HIDE_NANOS=${android.os.SystemClock.elapsedRealtimeNanos() - started}")
             val pixels = requireNotNull(automation.takeScreenshot())
             try {
                 assertFalse("Confirmed hide must exclude overlay pixels", hasBlendedPixel(baseline, pixels))

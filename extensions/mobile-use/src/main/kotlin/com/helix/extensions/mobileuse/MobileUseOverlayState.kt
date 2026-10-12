@@ -4,6 +4,7 @@ import com.helix.extensions.plugin.PluginTaskIdentity
 import com.helix.extensions.plugin.PluginTaskSnapshot
 
 /** Process-local display/control fence. Durable cancellation remains owned by the host. */
+@Suppress("TooManyFunctions") // One lifecycle owns display suppression and confirmation for the same leases.
 internal class MobileUseOverlayState(
     private val restoreDelayMillis: Long = 0,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
@@ -15,6 +16,7 @@ internal class MobileUseOverlayState(
     private val hidden = mutableSetOf<Any>()
     private var closed = false
     private var restoreAt: Long? = null
+    private var confirmedHidden = false
 
     @Synchronized
     fun bind(task: PluginTaskIdentity): Boolean {
@@ -59,8 +61,21 @@ internal class MobileUseOverlayState(
     fun suppress(): Any = Any().also { hidden.add(it) }
 
     @Synchronized
+    fun reuseHiddenConfirmation(): Boolean = !closed && hidden.isNotEmpty() && confirmedHidden
+
+    @Synchronized
+    fun confirmHidden(ticket: Any): Boolean {
+        if (closed || ticket !in hidden) return false
+        confirmedHidden = true
+        return true
+    }
+
+    @Synchronized
     fun release(ticket: Any) {
-        if (hidden.remove(ticket) && hidden.isEmpty()) restoreAt = now() + restoreDelayMillis
+        if (hidden.remove(ticket) && hidden.isEmpty()) {
+            confirmedHidden = false
+            restoreAt = now() + restoreDelayMillis
+        }
     }
 
     @Synchronized
@@ -73,6 +88,7 @@ internal class MobileUseOverlayState(
         closed = true
         owner = null
         hidden.clear()
+        confirmedHidden = false
         stopped.clear()
     }
 }

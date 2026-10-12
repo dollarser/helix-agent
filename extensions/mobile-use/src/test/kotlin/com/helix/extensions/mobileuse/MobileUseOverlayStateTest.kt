@@ -162,6 +162,40 @@ class MobileUseOverlayStateTest {
         assertFalse(state.visible(first, pending))
     }
 
+    @Test fun confirmedHidingIsReusedOnlyDuringTheSameContinuousSuppression() {
+        val state = MobileUseOverlayState()
+        val first = state.suppress()
+        assertFalse(state.reuseHiddenConfirmation())
+        assertTrue(state.confirmHidden(first))
+        val nested = state.suppress()
+        assertTrue(state.reuseHiddenConfirmation())
+        state.release(first)
+        assertTrue(state.reuseHiddenConfirmation())
+        state.release(nested)
+        assertFalse(state.reuseHiddenConfirmation())
+        val next = state.suppress()
+        assertFalse(state.confirmHidden(first))
+        assertFalse(state.reuseHiddenConfirmation())
+        assertTrue(state.confirmHidden(next))
+        state.close()
+        assertFalse(state.confirmHidden(next))
+        assertFalse(state.reuseHiddenConfirmation())
+    }
+
+    @Test fun lateConfirmationAfterTimeoutDoesNotAuthorizeTheNextHidePeriod() {
+        val state = MobileUseOverlayState()
+        val old = state.suppress()
+        state.release(old)
+        val next = state.suppress()
+        assertFalse(state.confirmHidden(old))
+        assertFalse(state.reuseHiddenConfirmation())
+        assertTrue(state.confirmHidden(next))
+        state.release(old)
+        assertTrue(state.reuseHiddenConfirmation())
+        state.release(next)
+        assertFalse(state.reuseHiddenConfirmation())
+    }
+
     @Test fun reviewAndInterruptedTasksDoNotShowAsRunning() {
         val state = MobileUseOverlayState()
         state.bind(first)

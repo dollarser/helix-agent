@@ -18,7 +18,7 @@ internal class MobileUsePresentedExecutor(
 ) : ToolExecutor {
     override fun execute(call: ExecutableToolCall): ToolExecutorResult =
         AutomationServiceController.withPhysicalOperation {
-            admissionError(call)?.let { return@withPhysicalOperation refused(it) }
+            preExecutionOutcome(call)?.let { return@withPhysicalOperation it }
             val reference =
                 borrowPresentation()
                     ?: return@withPhysicalOperation refused("MOBILE_USE_PRESENTATION_UNAVAILABLE")
@@ -43,7 +43,13 @@ internal class MobileUsePresentedExecutor(
                     },
             )
         if (retainOverlay) return executeBound(guarded, reference)
-        val hidden = presentation.hideForOperation(guarded) ?: return refused("OVERLAY_HIDE_NOT_CONFIRMED")
+        val hidden =
+            presentation.hideForOperation(guarded)
+                ?: return preExecutionOutcome(guarded) ?: refused(
+                    "OVERLAY_HIDE_NOT_CONFIRMED: Helix could not confirm overlay removal. " +
+                        "No action was dispatched. Retry only after observable recovery; " +
+                        "do not repeat unchanged requests or bypass overlay hiding.",
+                )
         return hidden.use { executeBound(guarded, reference) }
     }
 
@@ -51,11 +57,18 @@ internal class MobileUsePresentedExecutor(
         call: ExecutableToolCall,
         reference: NativeResource.Lease<AutomationRuntimePresentation>,
     ): ToolExecutorResult =
-        if (call.cancel.isCancelled()) {
-            refused("MOBILE_USE_TASK_STOPPED: The task was stopped or taken over; do not retry automatically.")
-        } else {
-            admissionError(call)?.let(::refused)
-                ?: AutomationRuntimePresentationFactory.withUsage(reference) { delegate.execute(call) }
+        preExecutionOutcome(call)
+            ?: AutomationRuntimePresentationFactory.withUsage(reference) { delegate.execute(call) }
+
+    private fun preExecutionOutcome(call: ExecutableToolCall): ToolExecutorResult? =
+        when {
+            call.cancel.isCancelled() -> ToolExecutorResult.Cancelled
+
+            !java.time.Instant
+                .now()
+                .isBefore(call.deadline) -> ToolExecutorResult.TimedOut
+
+            else -> admissionError(call)?.let(::refused)
         }
 
     private fun refused(detail: String) = ToolExecutorResult.Failed(detail, sideEffectFree = true)

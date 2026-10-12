@@ -70,9 +70,7 @@ class MobileUsePresentedExecutorTest {
 
     @Test fun takeoverAfterHideRefusesAndReleasesWindow() {
         surface.afterHide = { surface.allowed = false }
-        val failure = executor.execute(call) as ToolExecutorResult.Failed
-        assertTrue(failure.detail.startsWith("MOBILE_USE_TASK_STOPPED"))
-        assertTrue(failure.sideEffectFree)
+        assertEquals(ToolExecutorResult.Cancelled, executor.execute(call))
         assertFalse(surface.hidden)
         assertEquals(0, calls)
     }
@@ -148,7 +146,37 @@ class MobileUsePresentedExecutorTest {
                         override fun isCancelled() = true
                     },
             )
-        assertTrue(observing.execute(cancelled) is ToolExecutorResult.Failed)
+        assertEquals(ToolExecutorResult.Cancelled, observing.execute(cancelled))
+        assertEquals(0, calls)
+    }
+
+    @Test fun cancelledOrExpiredDuringHideNeverLooksLikeOverlayFailure() {
+        var cancelled = false
+        val cancellable =
+            call.copy(
+                cancel =
+                    object : com.helix.tools.framework.CancelSignal {
+                        override fun isCancelled() = cancelled
+                    },
+            )
+        surface.afterHide = { cancelled = true }
+        assertEquals(ToolExecutorResult.Cancelled, executor.execute(cancellable))
+        assertFalse(surface.hidden)
+        assertEquals(0, calls)
+        cancelled = false
+        surface.afterHide = { Thread.sleep(30) }
+        assertEquals(ToolExecutorResult.TimedOut, executor.execute(call.copy(deadline = Instant.now().plusMillis(10))))
+        assertFalse(surface.hidden)
+        assertEquals(0, calls)
+    }
+
+    @Test fun removalFailureReportsNoDispatchAndRefusesUnchangedRetry() {
+        surface.canHide = false
+        val result = executor.execute(call) as ToolExecutorResult.Failed
+        assertTrue(result.sideEffectFree)
+        assertTrue(result.detail.startsWith("OVERLAY_HIDE_NOT_CONFIRMED:"))
+        assertTrue(result.detail.contains("No action was dispatched"))
+        assertTrue(result.detail.contains("do not repeat unchanged requests"))
         assertEquals(0, calls)
     }
 

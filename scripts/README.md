@@ -28,6 +28,7 @@ Reusable entry points live directly in `scripts/`; logs and generated evidence b
 - `run-owned-acceptance-emulator.py`: acceptance runner with recovery/result collection support.
 - `run-acceptance-matrix.py`: product/terminal batches; task-specific fixture helpers remain under dated paths until separately promoted.
 - `run-hxa103-browser-soak.py SERIAL --workload app --flavor consumer|developer --preset pilot --output FRESH_PATH`: use only on the current task's owned emulator with matching App/Test already installed. The 900-second pilot preserves device-side FD/thread/PSS gates; `precheck` and `p24h` are separate duration requirements. `--workload browser` targets the independent library fixture, not a Developer app. Non-PASS results exit nonzero; a pilot never proves 24-hour stability.
+  A physical device requires current owner authorization and explicit `--physical-device` with its serial; connectivity alone grants nothing. The runner rejects emulator serials in physical mode, labels device kind, and preserves all duration/resource/failure gates. It never installs or resets packages; back up user data and inspect fixture scope first. CI remains host-only.
 
 Use `--help` for runner arguments. Retired dated shims are recovered through Git provenance; retained callers use stable paths. Do not borrow an existing emulator. Successful helper tests do not constitute device acceptance.
 

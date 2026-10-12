@@ -38,7 +38,8 @@ internal class ActionResultHold {
                     if (it.ref == originalBinding.ref) {
                         it.binding.copy(
                             executor = wrapped,
-                            implementationRevision = "test-result-hold",
+                            // The production implementation is unchanged; only test-only settlement is paused.
+                            // Preserve the native projection's revision so the owner remains ready and scoped.
                         )
                     } else {
                         it.binding

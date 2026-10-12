@@ -13,6 +13,13 @@ spec.loader.exec_module(runner)
 
 
 class SoakRunnerTest(unittest.TestCase):
+    def test_physical_device_is_explicit_and_never_an_emulator_alias(self):
+        runner.validate_device_serial('emulator-5668')
+        runner.validate_device_serial('owned-phone', physical=True)
+        for serial, physical in [('owned-phone', False), ('emulator-5668', True), ('', True), ('phone;cmd', True)]:
+            with self.subTest(serial=serial, physical=physical), self.assertRaises(ValueError):
+                runner.validate_device_serial(serial, physical)
+
     def test_default_channel_keeps_existing_app_identity(self):
         self.assertEqual(runner.workload_identity('app'), runner.WORKLOADS['app'])
 
