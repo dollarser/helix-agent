@@ -177,3 +177,13 @@ r16完整构建在双渠道Release D8并行合并阶段触发Java heap space（�
 ## 新版两小时 R4 运行身份
 
 指导与输出契约/原Turn归因修正提交 `c8f802fc` 后，只启动一轮 `build/hxa282/mobile-two-hours-r4`，冻结主/测试APK与上方最终复验一致。launcher53151/caffeinate53152、owned VM53201（emulator-5600）、匿名Qwen recorder53310（30009→30008）；已核对旧测试进程关闭及仅日常5554在线，不借用日常实例。实际拼音初始方法passed后，连续任务测量从2026-10-13 19:57:39.680 Asia/Shanghai（11:57:39 UTC）开始；main PID3908，基线FD166/线程60/PSS133977KiB。原7200秒、FD+8/线程+16/PSS+96MiB及所有业务独立断言保持，当前pending，预计21:57:39后结算。原始SSE、独立主机采样、原Turn/关联Turn状态和所有失败均保留，不重复启动或修改运行中制品；终态与关闭记录后续追加。
+
+## R4 终态及确定的修正
+
+R4于2026-10-13 20:12:06 Asia/Shanghai结算 **FAIL_FUNCTIONAL**，时长不足；最后资源记录811620ms/10测量cycle，同main PID3908，24个业务（含2热身）中23成功、rep23失败。基线166/60/133977KiB，采样峰值166/61/154847KiB，原资源门禁未触发，只能说明该短时段；不能计两小时资源通过。主机30/31采样成功、最大间隔30.3s，末条在方法退出后无进程。owned VM53201及recorder53310各exit0，launcher/caffeinate结束、30009无监听，临时转发随实例清理，日常未操作；无PROTOCOL复现。
+
+rep23是真实模型业务失败：初始快照canImeEnter未就绪，模型调用ui.set_text(submit=true)被ACTION_NOT_SUPPORTED拒绝；重新观察后只点击输入框并结束，没有填入文字/滚动/完成按钮，原用户Turn虽然COMPLETED，独立结果仍false。未将其归因额度或权限，未由宿主替模型输入。补工具描述、submit默认false的schema说明与短/参考Skill：普通填入不需要额外IME提交，只有观察到支持且任务请求键盘提交才用true；仅聚焦输入框不是完成。现有false默认执行及true合法能力保持，补对应默认false回归。
+
+随后测试自身在returnToHelix后立即查询RESUMED MainActivity并single()，系统START/转场日志尚在处理，列表暂为空导致NoSuchElementException。成功业务路径先做HOME/返回验证，通常已等待生命周期，失败路径更容易暴露这项夹具竞态。改为在原同一个5秒帧deadline内有界等待唯一RESUMED、附着且可见硬件窗口，再确认实际帧提交；保留固定1秒静置，不依据FD变化重试、不延长总确认期限，不跳过缺失/多窗口/软件渲染失败。新增6次合成目标→MainActivity实际帧旅程覆盖这条直接返回路径，独立于模型业务判断；未对R4补写通过。
+
+该修正完整主机r20/r21 exit0，双渠道AndroidTest编译通过。`r4-recovery-guidance-r1`初始实际拼音、Skill/resource、6次直接返回帧方法共3方法通过；随后明确offscreen/普通表单固定4个真实Qwen业务及2方法全部通过，8次HOME/返回核验、35条完整200响应，输入543052/输出4236 token。无失败工具/PROTOCOL，原用户Turn正常终态。主APK `13f91554090afdb440a3e3ba1b931c24f86bd9fb137d6353c2815593e350850e`、测试APK `2c4eca7784376c37bcaac4f6267e2686874befb0674c004acb2bd9a2687e0889`；VM71389/recorder71542 exit0，原无障碍设置恢复、转发删除，ADB仅日常5554。当前准备提交这项明确代码/指导修正，再用同一修正制品验证完整时长；不会以不改版本的重复试跑替代失败归因，R4业务与生命周期失败均保留。

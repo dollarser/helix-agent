@@ -492,7 +492,17 @@ class AutomationTools(
             mapOf(
                 "token" to str(32),
                 "text" to str(AUTOMATION_MAX_SET_TEXT),
-                "submit" to bool(),
+                "submit" to
+                    buildJsonObject {
+                        put("type", JsonPrimitive("boolean"))
+                        put("default", JsonPrimitive(false))
+                        put(
+                            "description",
+                            JsonPrimitive(
+                                "Omit for filling. True also invokes IME; requires observed canImeEnter=true.",
+                            ),
+                        )
+                    },
             ),
             listOf("token", "text"),
         )

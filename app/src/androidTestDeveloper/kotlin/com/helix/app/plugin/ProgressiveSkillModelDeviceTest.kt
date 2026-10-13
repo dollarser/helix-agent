@@ -51,6 +51,25 @@ class ProgressiveSkillModelDeviceTest {
 
     @Test fun mobileOffscreenFind() = matrix("mobile", findBeforeScroll = true)
 
+    @Test
+    fun returnedFrameWaitsForForegroundLifecycle() =
+        runBlocking {
+            c.firstLaunch.markSeen()
+            val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+            repeat(6) {
+                app.startActivity(
+                    Intent()
+                        .setComponent(
+                            ComponentName("${app.packageName}.test", AutomationEvaluationActivity::class.java.name),
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+                )
+                await { automation.rootInActiveWindow?.packageName?.toString() == "${app.packageName}.test" }
+                returnToHelix()
+                awaitMainFrame()
+                await { automation.rootInActiveWindow?.packageName?.toString() == app.packageName }
+            }
+        }
+
     /** Keep one provider and UI owner for a continuous workload; every pair still verifies actual business results. */
     fun mobileContinuous(afterPair: (Int) -> Boolean) = matrix("mobile", afterPair)
 
@@ -445,21 +464,31 @@ class ProgressiveSkillModelDeviceTest {
         val committed = java.util.concurrent.CompletableFuture<Unit>()
         val callback = Runnable { committed.complete(Unit) }
         var observer: android.view.ViewTreeObserver? = null
-        instrumentation.runOnMainSync {
-            val activity =
-                androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
-                    .getInstance()
-                    .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
-                    .filterIsInstance<MainActivity>()
-                    .single()
-            val decor = activity.window.decorView
-            assertTrue("Returned Helix window must use hardware rendering", decor.isHardwareAccelerated)
-            observer = decor.viewTreeObserver
-            observer!!.registerFrameCommitCallback(callback)
-            decor.invalidate()
-        }
+        val deadline = SystemClock.elapsedRealtime() + 5_000
         try {
-            committed.get(5, java.util.concurrent.TimeUnit.SECONDS)
+            while (observer == null && SystemClock.elapsedRealtime() < deadline) {
+                instrumentation.runOnMainSync {
+                    val activities =
+                        androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+                            .getInstance()
+                            .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
+                            .filterIsInstance<MainActivity>()
+                    assertTrue("Multiple resumed Helix activities", activities.size <= 1)
+                    activities.singleOrNull()?.let { activity ->
+                        val decor = activity.window.decorView
+                        if (decor.isAttachedToWindow && decor.isShown) {
+                            assertTrue("Returned Helix window must use hardware rendering", decor.isHardwareAccelerated)
+                            observer = decor.viewTreeObserver
+                            observer!!.registerFrameCommitCallback(callback)
+                            decor.invalidate()
+                        }
+                    }
+                }
+                if (observer == null) Thread.sleep(20)
+            }
+            val remaining = deadline - SystemClock.elapsedRealtime()
+            assertTrue("Helix did not resume and attach within the frame deadline", observer != null && remaining > 0)
+            committed.get(remaining, java.util.concurrent.TimeUnit.MILLISECONDS)
             // Resource snapshots must follow the same settled foreground lifecycle at every pair.
             // One fixed settling interval (as in the app resource fixture), never FD-based retry or GC.
             Thread.sleep(1_000)

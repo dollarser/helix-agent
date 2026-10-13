@@ -560,6 +560,7 @@ class AutomationToolsTest {
     @Test
     fun setTextAndScrollHaveTypedArgumentsAndNoBlindCoordinates() {
         execute(AutomationTools.SET_TEXT, args("token" to TOKEN, "text" to "hello"))
+        assertFalse(port.nodeRequests.last().submit)
         assertEquals("hello", port.nodeRequests.last().text)
         execute(
             AutomationTools.SET_TEXT,

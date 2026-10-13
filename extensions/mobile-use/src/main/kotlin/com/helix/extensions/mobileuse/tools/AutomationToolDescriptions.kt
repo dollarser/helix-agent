@@ -39,8 +39,9 @@ internal object AutomationToolDescriptions {
             AutomationTools.SET_TEXT -> {
                 "Replace text directly in a fresh editable node token; " +
                     "no preliminary click or keyboard opening is needed. " +
+                    "Omit submit for ordinary filling (default false); text insertion does not need IME submission. " +
                     "Set submit=true only when canImeEnter=true " +
-                    "to also submit through the keyboard action. Observe the result before the next action."
+                    "and the task requests a keyboard action. Observe the result before the next action."
             }
 
             AutomationTools.IME_ENTER -> {
