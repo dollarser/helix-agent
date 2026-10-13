@@ -11,5 +11,4 @@ python3 scripts/run-owned-emulator.py --raw-results --avd "Helix_M11_Test_API_$a
  --apk "app/build/outputs/apk/$variant/debug/app-$variant-debug.apk" \
  --test-apk "app/build/outputs/apk/androidTest/$variant/debug/app-$variant-debug-androidTest.apk" \
  --runner "com.helix.agent$suffix.test/com.helix.app.HelixAndroidJUnitRunner" \
- --classes "$classes" --grant-shared-storage --output "$output" --timeout 1500 \
- --after-script scripts/debug/2026-09-10/run-hxa183-proot.py
+ --classes "$classes" --grant-shared-storage --output "$output" --timeout 1500

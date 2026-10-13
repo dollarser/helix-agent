@@ -88,6 +88,8 @@ Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞�
 
 ## 插件市场与模型夹具生命周期
 
+订阅 Runtime 生产入口是 Developer 主 APK 内的 `:subscriptions` 私有进程，不再安装 `runtime/cli-app` 独立 APK。库 AndroidTest 宿主只用于组件自测试，其包、沙箱及登录记录与 Helix 产品不同；真实账号/模型验收使用 App 中的 Provider 与原生登录配置，不从宿主 CLI 导入凭据。测试前核对当前 module 类型、最终 manifest、APK hash 和 instrumentation target，而非根据残留文件名猜测架构。旧独立产物与脚本的删除清单见[退役记录](../evidence/development/runtime-artifact-retirement-2026-10-13.md)。
+
 市场列表从IO异步加载，Compose空闲不代表条目已经就绪；在操作前对真实条目做有界等待。本地化测试覆盖LocalContext时，要保留真实ActivityResultRegistryOwner，否则文件选择器不能注册。安装确认和详情展开是独立交互，不能在未展开时断言会话按钮存在。
 
 模型夹具必须区分插件安装、Skill内容启用、会话选择、MCP连接和执行审批；安装或选择不会自动完成所有前置条件。按渠道选择夹具：Developer可临时使用精确LAN授权的loopback MCP，Standard保持既有拒绝边界并使用独立内容/文件工作流，不借用Developer专属chat-reply。

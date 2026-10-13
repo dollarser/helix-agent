@@ -13,10 +13,39 @@ import socket
 import subprocess
 import time
 import sys
+import xml.etree.ElementTree as ET
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator_input import enable_hardware_keyboard, enable_onscreen_keyboard
+
+
+def verify_apk_target(sdk, app_apk, test_apk, runner):
+    """Check frozen manifests before launch; library self-tests are not product acceptance."""
+    analyzer = sdk / "cmdline-tools/latest/bin/apkanalyzer"
+    manifests = [ET.fromstring(subprocess.check_output(
+        [str(analyzer), "manifest", "print", str(apk)], timeout=60,
+    )) for apk in (app_apk, test_apk)]
+    app, test = manifests
+    package = app.get("package")
+    if not package or package in {
+        "com.helix.runtime.cli", "com.helix.runtime.proot",
+        "com.helix.runtime.cli.app.test", "com.helix.runtime.proot.app.test",
+    }:
+        raise ValueError("Runtime product acceptance requires the integrated Helix APK, not a retired Runtime or library test host")
+    runner_package, separator, runner_class = runner.partition("/")
+    if not separator or not runner_class or runner_package != test.get("package"):
+        raise ValueError("Runner package does not match the frozen test APK")
+    android = "{http://schemas.android.com/apk/res/android}"
+    def qualified(name):
+        if name.startswith("."):
+            return runner_package + name
+        return name if "." in name else runner_package + "." + name
+    entries = [entry for entry in test.findall("instrumentation")
+               if qualified(entry.get(android + "name", "")) == qualified(runner_class)]
+    if len(entries) != 1 or entries[0].get(android + "targetPackage") != package:
+        raise ValueError("Instrumentation does not target the frozen application APK")
+    return package
 
 
 def passed(output):
@@ -78,6 +107,7 @@ def run(args):
         shutil.copyfile(source, target)
         artifacts[label] = hashlib.sha256(target.read_bytes()).hexdigest()
     (output / "artifacts.json").write_text(json.dumps(artifacts, indent=2))
+    app_package = verify_apk_target(sdk, output / "app.apk", output / "test.apk", args.runner)
     enable_hardware_keyboard(args.avd)
     command = [str(sdk / "emulator/emulator"), "-avd", args.avd, "-port", str(args.port),
                "-read-only", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
@@ -130,7 +160,6 @@ def run(args):
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
             device("install", "-r", str(output / "app.apk"), timeout=120)
             device("install", "-r", str(output / "test.apk"), timeout=120)
-            app_package = args.runner.split("/", 1)[0].removesuffix(".test")
             if args.clear_app_data:
                 cleared = device("shell", "pm", "clear", app_package).strip()
                 if cleared != "Success":
@@ -153,7 +182,6 @@ def run(args):
                 (output / "recovery-setup.txt").write_text(setup)
                 if "process crashed" not in setup.lower():
                     raise RuntimeError("Recovery setup did not reach the expected process death")
-                app_package = args.runner.split("/", 1)[0].removesuffix(".test")
                 old_pid = device("shell", "run-as", app_package, "cat", "no_backup/recovery-device-pid").strip()
                 if not old_pid.isdigit():
                     raise RuntimeError("Missing durable setup process identity")

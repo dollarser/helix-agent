@@ -28,9 +28,8 @@ HXA-182 跨日继续。所有权约束和制品冻结复用前一日的 `run-own
 
 ## HXA-183 职责拆分
 
-- `run-hxa183-device.sh variant api port output`：独占 API29/36 上运行聊天、草稿、审批、Provider、文件与 Goal/压缩/后台回归；随后在同一独占实例执行 PRoot 验收，最后关闭实例。
-- `run-hxa183-proot.py serial output`：只由上述运行器调用；验证 owner，复用 `accept-hxa-086-lifecycle.sh` 的真实跨 APK 生命周期阶段，再运行 companion 和主 App 的归档/ACK/Tool 回归；冻结 APK SHA 并检查未漂移。脚本必须显式接收 serial，不自动选择 adb 中的设备。
-- `run-hxa183-runtime-device.sh api port output`：app 回归已通过后，仅在新建独占实例补跑 PRoot。
+- `run-hxa183-device.sh variant api port output`：保留归档 App 用例选择和独占实例归属；2026-10-13 已移除过时的独立 PRoot 后续安装流程，当前 Runtime 验收使用集成主 APK 与现行 App fixture。
+- 旧 `run-hxa183-proot.py`、`run-hxa183-runtime-device.sh` 及跨 APK 生命周期入口已删除；来源/hash及当前替代见[退役记录](../../../docs/evidence/development/runtime-artifact-retirement-2026-10-13.md)。历史结果只证明当时架构，不重新运行旧安装脚本。
 - `restore-locked-proot-assets.py source-checkout`：只读复用相同 lock 的被忽略构建资产，验证 RootFS 锁定哈希与 loader 一致性；不修改源工作树、lock 或版本。
 - `verify-hxa183-evidence.py app29 app36 runtime29 runtime36`：分别核对成功阶段、当前 APK 哈希和关闭记录；`close-hxa183.py` 通过这些检查后才生成完成记录与状态。
 - `split-responsibilities.py`、`split-runtime-and-chat.py`、`refine-extracted-owners.py`、`wire-draft-owner.py`、`refine-split-file-layout.py`、`clean-extracted-imports.py`：本轮一次性编辑来源记录，只适用于编辑当时的源码，不要在最终树重复执行。

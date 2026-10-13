@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Host-only precondition for the HXA-086 lifecycle script.
+ * Explicit library-host precondition; integrated product lifecycle tests use the App fixtures.
  *
  * Installing the APK and lifting Android's force-stopped package state do not install the
  * embedded RootFS. The lifecycle phases intentionally exercise only process/package state, so
@@ -26,7 +26,7 @@ class ProotLifecycleHostSetupDeviceTest {
     @Test
     fun activeRuntimeIsInstalledForHostPhases() {
         assumeTrue(
-            "host setup only: run via scripts/accept-hxa-086-lifecycle.sh",
+            "library host setup only: explicitly pass hxa086_host_setup=1; not product acceptance",
             InstrumentationRegistry.getArguments().getString("hxa086_host_setup") == "1",
         )
         val root = ProotRuntimeInstaller.runtimeRoot(context)

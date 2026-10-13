@@ -9,7 +9,7 @@
 | 编译与回归 | `check-all.sh --build`：Spotless、Detekt、JVM、库及双 flavor Debug/Release lint、四 App Debug/Release 构建、锁文件 |
 | APK 边界 | `check-all.sh --artifacts`：先构建 APK，再检查 variant 与 CLI Runtime 边界 |
 | 记录索引 | `python3 scripts/generate-completion-index.py`，文档门禁检查生成结果是否过期 |
-| 有外部依赖的发行门禁 | `check-cli-runtime-lock.sh` 会访问并下载锁定的远端制品；`assetGate` 需要指定待发行 runtime assets。二者不能用无资产的主机门禁代替，命令按对应 HXA 执行 |
+| 有外部依赖的发行验收 | `assetGate` 需要指定待发行 runtime assets；实际分发的第三方制品需核对锁定哈希与法律义务，不能用无资产的主机门禁代替。旧独立 CLI APK 下载门禁已退役，最终主 APK 使用现行 integrated Runtime 边界检查 |
 | 设备与长稳 | `run-*`、`accept-hxa-*` 保留稳定入口及既有 HXA 参数；不由 check-all 自动调用 |
 | 临时调试 | 一次性编辑器按日期放入 `scripts/debug/YYYY-MM-DD/local/`（忽略）；需维护的诊断/测试工具经审查后跟踪；产物写入 build |
 
@@ -24,7 +24,7 @@ Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可
 Reusable entry points live directly in `scripts/`; logs and generated evidence belong in ignored `build/` directories.
 
 - `with-host-slot.py -- COMMAND`: serialize heavy builds and owned device runs across worktrees.
-- `run-owned-emulator.py`: general exclusive emulator runner.
+- `run-owned-emulator.py`: general exclusive emulator runner; validates the frozen APK manifests and instrumentation target before launch. Retired standalone CLI/PRoot APKs and their library self-test hosts cannot serve as product targets.
 - `run-owned-acceptance-emulator.py`: acceptance runner with recovery/result collection support.
 - `run-acceptance-matrix.py`: product/terminal batches; task-specific fixture helpers remain under dated paths until separately promoted.
 - `run-hxa103-browser-soak.py SERIAL --workload app --flavor consumer|developer --preset pilot --output FRESH_PATH`: use only on the current task's owned emulator with matching App/Test already installed. The 900-second pilot preserves device-side FD/thread/PSS gates; `precheck` and `p24h` are separate duration requirements. `--workload browser` targets the independent library fixture, not a Developer app. Non-PASS results exit nonzero; a pilot never proves 24-hour stability.

@@ -31,6 +31,10 @@ python3 scripts/run-host-tests.py
 The runner freezes both APKs and hashes, checks nonempty JUnit results, and records
 process ownership and shutdown. It uses a read-only AVD instance without saved
 snapshots; retries create a new process and a new output directory.
+It also checks actual APK manifests before launch: the runner and instrumentation
+target must match the frozen pair. Subscription acceptance requires the integrated
+Developer App APK; the retired standalone CLI/PRoot Runtime and their library self-test hosts
+are rejected as product targets. See the [retirement record](../../docs/evidence/development/runtime-artifact-retirement-2026-10-13.md).
 
 For explicitly configured live fixtures, `--reverse-port PORT` forwards only on the
 owned emulator, and repeatable `--instrument-arg KEY=VALUE` supplies test arguments.

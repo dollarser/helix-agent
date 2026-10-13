@@ -11,6 +11,38 @@ spec.loader.exec_module(owned)
 
 
 class RunnerTest(unittest.TestCase):
+    def verify_target(self, package="com.helix.agent.developer", target=None,
+                      test_package="com.helix.agent.developer.test", runner=None):
+        manifest = '<manifest package="' + package + '" />'
+        test = ('<manifest xmlns:android="http://schemas.android.com/apk/res/android" '
+                'package="' + test_package + '"><instrumentation android:name=".Runner" '
+                'android:targetPackage="' + (target or package) + '" /></manifest>')
+        with patch.object(owned.subprocess, "check_output", side_effect=[manifest, test]):
+            return owned.verify_apk_target(Path("/fixture/sdk"), Path("app.apk"), Path("test.apk"),
+                                           runner or test_package + "/.Runner")
+
+    def test_integrated_product_target_matches(self):
+        self.assertEqual(self.verify_target(), "com.helix.agent.developer")
+
+    def test_retired_runtime_and_self_host_cannot_be_product_target(self):
+        for package in ("com.helix.runtime.cli", "com.helix.runtime.cli.app.test",
+                        "com.helix.runtime.proot", "com.helix.runtime.proot.app.test"):
+            with self.subTest(package=package), self.assertRaisesRegex(ValueError, "integrated Helix APK"):
+                self.verify_target(package=package)
+
+    def test_wrong_flavor_or_runner_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "does not target"):
+            self.verify_target(target="com.helix.agent")
+        with self.assertRaisesRegex(ValueError, "Runner package"):
+            self.verify_target(runner="other.test/.Runner")
+        with self.assertRaisesRegex(ValueError, "does not target"):
+            self.verify_target(runner="com.helix.agent.developer.test/.Missing")
+
+    def test_other_library_targets_remain_supported(self):
+        self.assertEqual(self.verify_target(package="com.helix.tools.browser.test",
+                                           test_package="com.helix.tools.browser.test"),
+                         "com.helix.tools.browser.test")
+
     def test_nonempty_junit_only(self):
         self.assertTrue(owned.passed("\nOK (2 tests)\n"))
         for output in ("BUILD SUCCESSFUL", "OK (0 tests)", "FAILURES!!!\nTests run: 1, Failures: 1",
