@@ -280,13 +280,16 @@ class ToolVisionFlowDeviceTest {
                     ) { id -> listOf(fixture.image(id)) }
                 }
             assertFalse(pending.isCompleted)
+            assertTrue(fixture.consent.hasPending("s", "turn"))
+            assertFalse(fixture.consent.hasPending("s", "other-turn"))
+            assertFalse(fixture.consent.hasPending("other-session", "turn"))
             fixture.consent.respond(
                 fixture.consent.pending.value
                     .single()
                     .id,
                 true,
             )
-            pending.await()
+            pending.await().also { assertFalse(fixture.consent.hasPending("s", "turn")) }
         }
 
     private fun assertPixelContent(base64: String) {

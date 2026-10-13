@@ -32,8 +32,10 @@ object ViewImageTool {
             version = ToolVersion(1),
             description =
                 "Open an image from the authorized workspace for visual analysis. " +
-                    "Use this for screenshots, photos and generated charts, not read/base64. " +
-                    "Pixels join the tool observation after image validation and data disclosure.",
+                    "Use this for saved images, photos and generated charts, not read/base64. " +
+                    "Pixels join the tool observation after validation and explicit content-bound data disclosure. " +
+                    "Do not assume file access grants image sharing. For the current Mobile Use screen, " +
+                    "prefer ui.screenshot with the conversation's screen grant rather than reopening its saved file.",
             inputSchema =
                 buildJsonObject {
                     put("type", "object")

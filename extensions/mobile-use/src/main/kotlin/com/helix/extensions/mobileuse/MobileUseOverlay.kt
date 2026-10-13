@@ -233,6 +233,7 @@ private fun overlayLabel(
     when {
         !allowed || snapshot?.state == TurnState.CANCELLING -> R.string.mobile_overlay_stopping
         snapshot?.awaitingApproval == true -> R.string.mobile_overlay_approval
+        snapshot?.awaitingDataDisclosure == true -> R.string.mobile_overlay_image_confirmation
         snapshot?.state in setOf(TurnState.WAITING_MODEL, TurnState.RECEIVING_MODEL) -> R.string.mobile_overlay_thinking
         else -> R.string.mobile_overlay_working
     }

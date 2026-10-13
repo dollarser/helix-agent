@@ -13,6 +13,7 @@ import com.helix.extensions.plugin.PluginTaskSnapshot
 /** Shared native-plugin task controls; no knowledge of Mobile Use, windows, or device actions. */
 internal class PluginTaskHostAdapter(
     private val context: Context,
+    private val awaitingDataDisclosure: (String, String) -> Boolean = { _, _ -> false },
     private val chat: () -> ChatService,
 ) : PluginTaskHost {
     private var displayedCards = emptyList<com.helix.app.approval.ApprovalCardUi>()
@@ -48,6 +49,7 @@ internal class PluginTaskHostAdapter(
                 it.state,
                 cards.isNotEmpty(),
                 display(cards),
+                it.running && awaitingDataDisclosure(task.conversationId, task.turnId),
             )
         }
 

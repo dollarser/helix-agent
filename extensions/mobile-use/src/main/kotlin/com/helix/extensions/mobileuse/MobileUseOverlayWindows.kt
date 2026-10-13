@@ -15,6 +15,7 @@ import android.widget.TextView
 import com.helix.extensions.plugin.PluginTaskApproval
 
 /** Two small trusted windows: the entire status surface passes touches through. Main-thread only. */
+@Suppress("TooManyFunctions") // Keep native window layout, lifecycle and approval controls under the same owner.
 internal class MobileUseOverlayWindows(
     private val service: Context,
     takeOver: () -> Unit,
@@ -39,11 +40,17 @@ internal class MobileUseOverlayWindows(
     private val takeOverButton =
         Button(service).apply {
             setText(R.string.mobile_overlay_take_over)
+            setSingleLine()
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            minimumHeight = dp(48)
             setOnClickListener { takeOver() }
         }
     private val returnButton =
         Button(service).apply {
             setText(R.string.mobile_overlay_view_chat)
+            setSingleLine()
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            minimumHeight = dp(48)
             setOnClickListener { returnToConversation() }
         }
     private var approval: PluginTaskApproval? = null
@@ -129,8 +136,8 @@ internal class MobileUseOverlayWindows(
         actions.addView(approveButton, LinearLayout.LayoutParams(0, dp(48), 1f))
         approvalPanel.addView(actions)
         controls.addView(approvalPanel, LinearLayout.LayoutParams(-1, -2))
-        controls.addView(takeOverButton, LinearLayout.LayoutParams(-1, dp(48)))
-        controls.addView(returnButton, LinearLayout.LayoutParams(-1, dp(48)))
+        controls.addView(takeOverButton, LinearLayout.LayoutParams(-1, -2))
+        controls.addView(returnButton, LinearLayout.LayoutParams(-1, -2))
     }
 
     // Remove a partially attached pair, then propagate the platform failure.
@@ -243,15 +250,16 @@ internal class MobileUseOverlayWindows(
     }
 
     internal fun parameters(statusLayer: Boolean): WindowManager.LayoutParams {
+        val compactWidth = compactControlsWidth()
         val width =
             if (statusLayer) {
-                (service.resources.configuration.screenWidthDp - 112).coerceAtLeast(80)
+                (service.resources.configuration.screenWidthDp - compactWidth - 32).coerceAtLeast(80)
             } else if (approval !=
                 null
             ) {
                 (service.resources.configuration.screenWidthDp - 16).coerceIn(160, 320)
             } else {
-                80
+                compactWidth
             }
         return WindowManager
             .LayoutParams(
@@ -273,6 +281,22 @@ internal class MobileUseOverlayWindows(
                 y = dp(if (approval != null && !statusLayer) 96 else 48)
                 setTitle(if (statusLayer) "Mobile Use status" else "Mobile Use controls")
             }
+    }
+
+    private fun compactControlsWidth(): Int {
+        // Measure both localized labels at the current user font scale, including native padding.
+        val pixels =
+            listOf(takeOverButton, returnButton).maxOf { button ->
+                val rendered = button.transformationMethod?.getTransformation(button.text, button) ?: button.text
+                maxOf(
+                    button.minimumWidth.toFloat(),
+                    button.paint.measureText(rendered.toString()) +
+                        button.compoundPaddingLeft + button.compoundPaddingRight,
+                )
+            }
+        val measured = kotlin.math.ceil(pixels / service.resources.displayMetrics.density).toInt()
+        val limit = (service.resources.configuration.screenWidthDp - 112).coerceAtLeast(80)
+        return measured.coerceIn(80, limit)
     }
 
     private fun dp(value: Int): Int = (value * service.resources.displayMetrics.density).toInt()

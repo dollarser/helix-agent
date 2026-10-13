@@ -30,6 +30,8 @@ class ToolVisionConsent(
         val id: String,
         val sessionId: String,
         val summary: EgressDisclosure.EgressSummary,
+        val turnId: String,
+        val expiresAt: Long,
     )
 
     private class Answer {
@@ -41,6 +43,16 @@ class ToolVisionConsent(
     private val answers = mutableMapOf<String, Answer>()
     private val _pending = MutableStateFlow<List<Pending>>(emptyList())
     val pending: StateFlow<List<Pending>> = _pending
+
+    /** Presentation only; a pending receipt never grants permission or changes the Turn state. */
+    fun hasPending(
+        sessionId: String,
+        turnId: String,
+    ): Boolean =
+        _pending.value.any { pending ->
+            pending.sessionId == sessionId && pending.turnId == turnId &&
+                clock.now().toEpochMilli() < pending.expiresAt
+        }
 
     suspend fun request(
         image: ImageReference,
@@ -62,6 +74,7 @@ class ToolVisionConsent(
     ): String? = mobileScreens.requestId(image, config)
 
     /** Ordinary images retain their existing content-bound disclosure workflow. */
+    @Suppress("LongMethod") // Keep receipt ownership, pending publication and cancellation under one await lifecycle.
     private suspend fun awaitDisclosure(
         id: String,
         binding: ImageBinding,
@@ -87,7 +100,14 @@ class ToolVisionConsent(
                             ),
                         )
                         answers[id] = it
-                        _pending.value = _pending.value + Pending(id, binding.sessionId, summary)
+                        _pending.value = _pending.value +
+                            Pending(
+                                id,
+                                binding.sessionId,
+                                summary,
+                                requireNotNull(binding.turnId),
+                                now + WAIT_MILLIS,
+                            )
                         owner = true
                     } else {
                         val receipt = receipts.find(id)

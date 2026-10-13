@@ -56,6 +56,47 @@ class MobileUseOverlayDeviceTest {
         java.util.concurrent.atomic
             .AtomicBoolean()
     private var activeRegistration: AutoCloseable? = null
+    private var imageDisclosurePending = false
+
+    @Test fun imageDisclosureWaitIsShownWithoutBecomingToolApprovalOrCancellation() {
+        imageDisclosurePending = true
+        try {
+            withOverlay { overlay, stopped ->
+                overlay.bind(call())
+                val statusLabel = context.getString(R.string.mobile_overlay_image_confirmation)
+                waitUntil {
+                    var shown = false
+                    instrumentation.runOnMainSync {
+                        fun matches(view: android.view.View): Boolean =
+                            (
+                                view is android.widget.TextView &&
+                                    view.text.toString() == statusLabel
+                            ) ||
+                                (
+                                    view is android.view.ViewGroup &&
+                                        (0 until view.childCount).any {
+                                            matches(view.getChildAt(it))
+                                        }
+                                )
+                        shown =
+                            android.view.inspector.WindowInspector
+                                .getGlobalWindowViews()
+                                .any(::matches)
+                    }
+                    shown
+                }
+                waitUntil { controlBounds(R.string.mobile_overlay_view_chat) != null }
+                val bounds = requireNotNull(controlBounds(R.string.mobile_overlay_view_chat))
+                shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                waitUntil { returned.get() != null }
+                assertEquals(identity, returned.get())
+                assertNull(stopped.get())
+                assertTrue(overlay.executionAllowed())
+            }
+        } finally {
+            imageDisclosurePending = false
+        }
+    }
 
     @Test fun stoppedWaitRetainsTheRealGestureAndPresentationUntilItsAndroidCallback() {
         withOverlay { overlay, _ ->
@@ -382,7 +423,11 @@ class MobileUseOverlayDeviceTest {
                         approve: Boolean,
                     ) = Unit
 
-                    override fun snapshot(task: PluginTaskIdentity) = PluginTaskSnapshot(TurnState.WAITING_MODEL)
+                    override fun snapshot(task: PluginTaskIdentity) =
+                        PluginTaskSnapshot(
+                            TurnState.WAITING_MODEL,
+                            awaitingDataDisclosure = imageDisclosurePending,
+                        )
 
                     override fun requestStop(task: PluginTaskIdentity) = Unit
 
@@ -463,7 +508,11 @@ class MobileUseOverlayDeviceTest {
                         approve: Boolean,
                     ) = Unit
 
-                    override fun snapshot(task: PluginTaskIdentity) = PluginTaskSnapshot(TurnState.WAITING_MODEL)
+                    override fun snapshot(task: PluginTaskIdentity) =
+                        PluginTaskSnapshot(
+                            TurnState.WAITING_MODEL,
+                            awaitingDataDisclosure = imageDisclosurePending,
+                        )
 
                     override fun requestStop(task: PluginTaskIdentity) {
                         stopped.set(task)

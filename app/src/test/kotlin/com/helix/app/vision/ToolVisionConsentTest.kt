@@ -91,6 +91,46 @@ class ToolVisionConsentTest {
             assertFalse(consent.granted(otherModel, config, id))
         }
 
+    @Test fun pendingProjectionRequiresExactLiveReceiptAndDisappearsOnCancellation() =
+        runBlocking {
+            val config = config()
+            val waiting = async(start = CoroutineStart.UNDISPATCHED) { consent.request(image, config, summary(config)) }
+            assertTrue(consent.hasPending("s", "turn"))
+            assertFalse(consent.hasPending("other", "turn"))
+            assertFalse(consent.hasPending("s", "other"))
+            assertFalse(
+                consent.granted(
+                    image,
+                    config,
+                    consent.pending.value
+                        .single()
+                        .id,
+                ),
+            )
+            waiting.cancel()
+            waiting.join()
+            assertFalse(consent.hasPending("s", "turn"))
+        }
+
+    @Test fun expiredReceiptCannotAppearAsAnActiveDisclosureOrGrant() =
+        runBlocking {
+            val config = config()
+            val waiting = async(start = CoroutineStart.UNDISPATCHED) { consent.request(image, config, summary(config)) }
+            now = Instant.ofEpochMilli(601000)
+            assertFalse(consent.hasPending("s", "turn"))
+            assertFalse(
+                consent.granted(
+                    image,
+                    config,
+                    consent.pending.value
+                        .single()
+                        .id,
+                ),
+            )
+            waiting.cancel()
+            waiting.join()
+        }
+
     @Test fun denialDoesNotUploadOrAutomaticallyPromptAgain() =
         runBlocking {
             val config = config()

@@ -35,8 +35,7 @@ class ShizukuUiUserService
                 try {
                     it.connect()
                 } catch (failure: Exception) {
-                    it.close()
-                    throw failure
+                    releaseFailedConnection(failure, it::close)
                 }
                 hierarchy = it
             }

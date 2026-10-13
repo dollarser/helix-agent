@@ -31,6 +31,10 @@ Leave the target screen visible when the user explicitly asked to open/show some
 
 ## Missing nodes and uncertain touches
 
+For the current phone screen, use ui.screenshot and its attached pixels with the existing conversation screen grant. Reopening a saved screenshot through view_image follows the ordinary workspace-image disclosure workflow and may wait for a separate user confirmation in Helix. It is not a workaround for missing or old screen pixels. If pixels were omitted, inspect the stated reason and use a fresh authorized screenshot; do not claim a picture was seen from its filename alone.
+
+clickTargetToken and suggestedClickToken are observation fields. To click the selected target, pass its value as ui.click's token argument; do not add clickTargetToken or suggestedClickToken as extra arguments. Discover and follow the current input schema, then re-observe after an action.
+
 A missing node has an unknown cause: custom drawing, incomplete semantics, loading, or system filtering. Do not label it sensitive merely because it is absent. For an otherwise permitted visible target without semantics, a screenshot-guided gesture remains valid. Android can also hide sensitive controls and reject Accessibility-injected touches; screenshots do not remove this restriction. A successful dispatch is not evidence that a button accepted the touch or that the task completed.
 
 Gesture coordinates are absolute physical screen pixels. ui.device.screenBounds describes the full display; windowBounds describes the active window and must not be subtracted from screen coordinates. Map attached image pixels using that screenshot's screenBounds and imageWidth/imageHeight, including any crop/scale.

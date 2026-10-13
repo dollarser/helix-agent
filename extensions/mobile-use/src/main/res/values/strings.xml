@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="mobile_overlay_image_confirmation">等待图片发送确认 · 查看会话</string>
     <string name="mobile_overlay_take_over">接管</string>
     <string name="mobile_overlay_return">回会话</string>
     <string name="mobile_overlay_stopping">正在停止；已发出的动作仍在结算</string>

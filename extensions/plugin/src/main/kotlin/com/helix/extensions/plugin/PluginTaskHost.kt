@@ -20,6 +20,7 @@ data class PluginTaskSnapshot(
     val state: TurnState,
     val awaitingApproval: Boolean = false,
     val approvals: List<PluginTaskApproval> = emptyList(),
+    val awaitingDataDisclosure: Boolean = false,
 ) {
     val active: Boolean
         get() = !state.isTerminal && state != TurnState.NEEDS_REVIEW && state != TurnState.INTERRUPTED

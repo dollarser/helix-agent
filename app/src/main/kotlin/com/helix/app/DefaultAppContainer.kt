@@ -591,7 +591,10 @@ internal class DefaultAppContainer(
             selectionId = { session -> pluginCatalog.selectionId(session, "mobile-use") },
             taskHost =
                 com.helix.app.plugin
-                    .PluginTaskHostAdapter(context) { chatService },
+                    .PluginTaskHostAdapter(
+                        context,
+                        { session, turn -> chatService.toolVisionConsent.hasPending(session, turn) },
+                    ) { chatService },
             conversationExists = { storage.sessions.find(it) != null },
         )
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same

@@ -4,7 +4,6 @@ import android.app.UiAutomation
 import android.content.ComponentName
 import android.content.Intent
 import android.os.SystemClock
-import android.provider.Settings
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
@@ -42,11 +41,16 @@ import org.junit.Test
 class ProgressiveSkillModelDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val c get() = app.appContainer
+    private val ownedBackend =
+        com.helix.app.eval
+            .OwnedAccessibilityBackend(app)
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     @Test fun workflowGuide() = matrix("workflow")
 
     @Test fun browserButton() = matrix("browser")
+
+    @Test fun fileSummary() = matrix("files")
 
     @Test fun mobileSyntheticForm() = matrix("mobile")
 
@@ -104,7 +108,7 @@ class ProgressiveSkillModelDeviceTest {
                 } else {
                     c.providerService.create(
                         ProviderDraft(
-                            null,
+                            "generic-openai",
                             "Progressive fixture",
                             ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
                             NormalizedEndpoint.parse("http://127.0.0.1:$port/v1"),
@@ -130,6 +134,8 @@ class ProgressiveSkillModelDeviceTest {
                     do {
                         val session = c.chatService.createSession("Progressive $kind $repetition", provider, model)
                         var tab: String? = null
+                        var fileInput: java.io.File? = null
+                        var fileOutput: java.io.File? = null
                         val selection = MobileUseEvaluationSelection(app)
                         try {
                             c.sessionPermissionEdit.saveSessionConfig(
@@ -144,6 +150,25 @@ class ProgressiveSkillModelDeviceTest {
                             )
                             val prompt =
                                 when (kind) {
+                                    "files" -> {
+                                        val binding = requireNotNull(c.storage.workspaces.binding(session))
+                                        val root =
+                                            c.storage.workspaces
+                                                .managedDirectory(binding.workspaceId)
+                                                .resolve(binding.relativePath)
+                                                .toFile()
+                                        fileInput =
+                                            java.io.File(root, "input/orders.csv").apply {
+                                                parentFile!!.mkdirs()
+                                                writeText(FILE_SOURCE)
+                                            }
+                                        fileOutput = java.io.File(root, "output/result.txt")
+                                        "读取本会话 input/orders.csv，按城市汇总状态为完成的金额，取消订单不计。" +
+                                            "将每个城市结果按北京、上海顺序写为恰好两行“城市,金额”，" +
+                                            "保存到 output/result.txt，不加表头、总计或说明，读回核验。" +
+                                            "不要修改原文件，不操作手机或其他应用。"
+                                    }
+
                                     "workflow" -> {
                                         c.pluginService.selectFromUser(session, "bundled-plugin:chat-reply", true)
                                         "Read chat-reply using skills.list then skills.read with its exact hash. " +
@@ -185,7 +210,7 @@ class ProgressiveSkillModelDeviceTest {
                                             DeviceAccess.connectRoot("mobile-use")
                                             await { DeviceAccess.root("mobile-use")?.connectedBinder() != null }
                                         } else if (backend == "accessibility") {
-                                            enableBackend()
+                                            ownedBackend.connect()
                                         }
                                         val packages = setOf(app.packageName, "${app.packageName}.test")
                                         check(selection.select(session, packages, false))
@@ -242,6 +267,16 @@ class ProgressiveSkillModelDeviceTest {
                             verifyCanonicalResponseProjection(session, repetition)
                             val verified =
                                 when (kind) {
+                                    "files" -> {
+                                        fileInput?.readText() == FILE_SOURCE &&
+                                            fileOutput
+                                                ?.takeIf { it.exists() }
+                                                ?.readLines()
+                                                ?.filter { it.isNotBlank() }
+                                                ?.map(String::trim) ==
+                                            listOf("北京,42", "上海,9")
+                                    }
+
                                     "workflow" -> {
                                         val reply =
                                             c.storage.messages
@@ -400,7 +435,7 @@ class ProgressiveSkillModelDeviceTest {
                 assertTrue("Task results: $outcomes", outcomes.all { it })
             } finally {
                 if (backend == "root") DeviceAccess.disconnectRoot("mobile-use")
-                restoreBackend()
+                ownedBackend.close()
                 c.profileStore.switchTo(profile)
                 if (providerProfile == "qwen") c.providerService.delete(provider)
                 c.runControlStore.setMode(controls.mode)
@@ -409,10 +444,9 @@ class ProgressiveSkillModelDeviceTest {
             }
         }
 
-    private var previousServices: String? = null
-    private var previousEnabled = 0
-    private var backendChanged = false
-    private val accessibilityEvents = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private companion object {
+        const val FILE_SOURCE = "城市,金额,状态\n北京,18,完成\n上海,9,完成\n北京,24,完成\n上海,17,取消\n"
+    }
 
     private fun verifyCanonicalResponseProjection(
         session: String,
@@ -562,83 +596,6 @@ class ProgressiveSkillModelDeviceTest {
                 }
             }
         }
-    }
-
-    private suspend fun enableBackend() {
-        val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
-        automation.setOnAccessibilityEventListener { event ->
-            val pkg = event.packageName?.toString()
-            if (pkg == app.packageName || pkg == "${app.packageName}.test") {
-                accessibilityEvents.merge("$pkg:${event.windowId}:${event.eventType}", 1, Int::plus)
-            }
-        }
-        if (!backendChanged) {
-            previousServices = Settings.Secure.getString(app.contentResolver, "enabled_accessibility_services")
-            previousEnabled = Settings.Secure.getInt(app.contentResolver, "accessibility_enabled", 0)
-            backendChanged = true
-        }
-        val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
-        if (component in previousServices.orEmpty().split(':') &&
-            AutomationPermissionCenter(app).serviceState() != AutomationServiceState.CONNECTED
-        ) {
-            // Instrumentation can force-stop the target while its enabled-service setting remains.
-            // Rewriting the same list does not clear the system's crashed-service state.
-            val others = previousServices.orEmpty().split(':').filter { it.isNotBlank() && it != component }
-            shellOutput(
-                automation,
-                if (others.isEmpty()) {
-                    "settings delete secure enabled_accessibility_services"
-                } else {
-                    "settings put secure enabled_accessibility_services ${others.joinToString(":")}"
-                },
-            )
-            await {
-                val states =
-                    shellOutput(automation, "dumpsys accessibility")
-                        .lineSequence()
-                        .map(String::trim)
-                        .filter {
-                            it.startsWith("Enabled services:") || it.startsWith("Crashed services:")
-                        }.toList()
-                states.size >= 2 && states.none { component in it }
-            }
-            println("MOBILE_BACKEND_REBIND acknowledged=true")
-        }
-        val services =
-            previousServices
-                .orEmpty()
-                .split(':')
-                .filter(String::isNotBlank)
-                .toSet() + component
-        val command = "settings put secure enabled_accessibility_services ${services.joinToString(":")}"
-        shellOutput(automation, command)
-        shellOutput(automation, "settings put secure accessibility_enabled 1")
-        await { AutomationPermissionCenter(app).serviceState() == AutomationServiceState.CONNECTED }
-    }
-
-    private fun shellOutput(
-        automation: UiAutomation,
-        command: String,
-    ): String =
-        android.os.ParcelFileDescriptor
-            .AutoCloseInputStream(automation.executeShellCommand(command))
-            .bufferedReader()
-            .use { it.readText() }
-
-    private fun restoreBackend() {
-        if (!backendChanged) return
-        val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
-        println("MOBILE_ACCESSIBILITY_EVENTS=$accessibilityEvents")
-        automation.setOnAccessibilityEventListener(null)
-        automation
-            .executeShellCommand(
-                if (previousServices.isNullOrBlank()) {
-                    "settings delete secure enabled_accessibility_services"
-                } else {
-                    "settings put secure enabled_accessibility_services $previousServices"
-                },
-            ).close()
-        automation.executeShellCommand("settings put secure accessibility_enabled $previousEnabled").close()
     }
 
     private suspend fun await(
