@@ -111,3 +111,11 @@ Owner确认重连后核对同一`561e3b15`（OnePlus6T/API34/Developer），先�
 `141739e0`提交上述连续夹具采样同步及opt-in内核元数据。`mobile-settled-precheck-r1`3方法通过（中文拼音、250次配置回归、180秒连续资源）；8个实际Qwen业务成功，含2 warm/6测量业务，测量约182443ms，原FD/线程/PSS断言未触发，实例PID34648 exit0。不能把这记为两小时通过。
 
 随后启动唯一`mobile-two-hours-r3`，launcher PID39727、owned emulator PID39768（API36 Developer）、recorder PID40656、主App PID3853；启动08:28:13 UTC，测量开始08:30:10 UTC。原7200秒、单PID、全业务与资源门禁/主机独立采样保留；当前运行中、pending，预计测量结束10:30:10 UTC后结算并关闭自己的实例/转发器。父/后续会话应检查这一既有目录与PID，不能另起重复长测。手机补验不重跑，日常模拟器不操作。只有长测结果待等时按Owner此前指示交接，不提前关闭HXA-282。
+
+## R3 运行中业务失败记录
+
+R3仍使用冻结的原APK/测试APK，未重启。rep30在08:50:35 UTC业务校验失败：Turn COMPLETED/error=null，但只执行skill read（空sessionId被原schema拒绝）、snapshot、set_text、find；find明确返回offscreen及滚动提示，模型最终文本为需要fresh scrollable container token，未继续snapshot/scroll/click。`000259`～`000262`原始200 SSE及请求已保存；结束前ui.snapshot/ui.scroll仍在加载的34工具内，所以不属于缺工具或PROTOCOL。独立校验正确保留失败，不能计作成功。当前all-results门禁不变，R3继续完整资源测量，整体将因已有业务失败而未通过。
+
+已准备小范围引导修正，尚未构建/安装到R3：明确Skill读取的当前会话由host绑定、模型省略可选sessionId；保留原minLength=1及caller-bound执行，增加空hint拒绝回归。Mobile Use required规则明确需要观察/滚动不是blocker，必须继续真实调用直至验证完成或具体外部阻塞，不盲目重放不确定效果。这只澄清原有行为，不新增权限或自动恢复执行。参考[Claude Skills渐进读取](https://code.claude.com/docs/en/skills)继续保留短必需规则和按需正文；不把一次Skill拒绝断言为提前结束的唯一根因。检查/定向模型验证须待当前长测结束后串行进行，当前数据不使用这些未验证修正。
+
+协调层容量中断后的存活复核：2026-10-13T09:52:00Z，原launcher39727/VM39768/recorder40656仍在，主App PID3853持续；测量4905779ms、业务118（失败1），FD峰值168、线程63、PSS161417KiB，均未触发原门禁；无读取/连接阻塞。`monitor.jsonl`每45秒保留只读检查，`live-status.json`为本次快照；原R3不重启。业务失败和仍在测量分别记录，不能因协调中断判断测试进程失败。
