@@ -94,4 +94,8 @@ Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞�
 
 模型夹具必须区分插件安装、Skill内容启用、会话选择、MCP连接和执行审批；安装或选择不会自动完成所有前置条件。按渠道选择夹具：Developer可临时使用精确LAN授权的loopback MCP，Standard保持既有拒绝边界并使用独立内容/文件工作流，不借用Developer专属chat-reply。
 
+真实模型必须分别记录业务结果与JUnit/清理结果：Turn.COMPLETED不能证明按钮已点击，token失效也不表示成功。读取持久assistant后有界等待UI投影，避免把用户提示误当模型回复。反复NEW_TASK启动以及对已被另一路由替换的ActivityScenario执行close会制造堆积/清理失败；实际Main UI dispatcher与SINGLE_TOP/CLEAR_TOP复用现有宿主，不吞掉close异常。
+
+Instrumentation force-stop可让enabled list残留而系统标记Helix无障碍服务crashed；重复写同一列表不会重连。授权的夹具只重新加入自己的服务，等待系统确认移除再启用，保存/恢复其他服务与原设置。资源idle断言先记录当前数值及新增FD，仍用原阈值；诊断GC不算接受依据。完整长测保留所有业务失败并在结束统一断言，不能删掉失败或靠重新试跑覆盖历史。当前案例见[HXA-282证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)。
+
 stopTurn只接受停止请求；删除测试会话前应等待AgentRuntime.observe结束、核对持久终态，避免后台结算仍引用已删除Turn。清理只处理本轮明确拥有的ID；进程崩溃留下的合成Provider按基线差集核对后，走原生产删除接口，不直接删除用户配置或吞掉异常。具体复现与失败证据见[HXA-281设备补验](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)。
