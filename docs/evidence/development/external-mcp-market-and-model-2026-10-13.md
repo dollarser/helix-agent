@@ -79,3 +79,21 @@ Luna失败是模型改写长节点token，两次`browser.click`返回`stale-toke
 OnePlus在最终核对时已断开；断开前无障碍设置before/after一致、30008反向端口已删除，model-r2自身合成Session/provider有finally清理。PUBLIC-r1后原schema/integrity及9个session/27个Turn/5个provider完整hash不变，随后matrix-before也有备份；最终matrix-after导出失败，不能把当前原记录保留核对记passed。需要原手机重连后完成核对与浏览器方法补验；不清数据/重建库，不安装旧Runtime。
 
 所有原始模型轨迹、SQLite/APK备份、截图、私密捕获在忽略的`build/hxa282/`，不提交。临时launcher在日期`local/`下；owned runner finally关闭自己的VM，recorder/反向端口须有关闭记录。HXA-282保持进行中；最终资源/业务结果与手机边界待结算。
+
+## OnePlus 重连补验
+
+Owner确认重连后核对同一`561e3b15`（OnePlus6T/API34/Developer），先备份当前库、确认无在途任务，再仅补验合成浏览器，不重跑已完成的市场/OAuth检查、不更新主APK或重建库。`phone/browser-final-r1`现有Helix Codex `gpt-6-astra`及匿名本机Qwen各1方法通过，各2个业务成功；Main UI dispatcher清理正常，原ActivityScenario方法失败仍保留。
+
+最终`phone/final-record-preservation.txt`核对schema identity、integrity和原9 session/27 Turn/5 provider完整hash与最初备份完全一致；activeTurns=0。before/after无障碍设置相同，30008反向端口移除。测试APK更新只用于夹具，未读取或导入宿主CLI凭据；本节关闭手机数据及浏览器清理pending，不关闭资源长测。
+
+## 配置投影与截图定向调查
+
+当前源码`ChatService.openSession`原先在`turnGate`外读取配置，再异步发布到`_runControl`，可能覆盖已经在同一gate内持久化/发布的新配置。现将读取与发布一起放入该gate，workspace准备仍在gate外；250次ACT/PLAN交替打开/提交回归通过。夹具保留原10000ms超时，并新增session/configuration阶段及当前mode/budgets诊断。此结果确认修复了代码竞态，不证明它是此前第104次任务超时的唯一原因。
+
+`mobile-window-precheck-r1`实验仅将返回Helix后的截图改成自有Window PixelCopy（[Android官方接口](https://developer.android.com/reference/android/view/PixelCopy)），像素对比、会话/后端确认和原FD+8/线程+16/PSS+96MiB断言保留；实际4个业务成功且8次后台返回像素检查成功，但第一测量pair即FD154→167资源失败，新增项主要sync_file。因此该方案未解决FD问题，源码实验只保留在忽略的本地patch，不纳入最终实现，默认全屏截图不变。实例PID88807已exit0。
+
+同期开独立baseline实例试图对照配置竞态，但应用启动前ANR（failed to complete startup），没有非空JUnit或250次结果，不能声称baseline成功/竞态已复现。其系统CPU pressure some avg10=93.16、avg60=84.77，与并行主机门禁/另一个AVD同期；这是负载影响的证据，不排除原包启动问题。baseline实例PID94278已exit0。后续设备诊断须避免同时跑重型主机构建和多AVD；此处不以负载为由删除资源失败。
+
+资源夹具已增加触发FD门禁时逐条描述符元数据，避免单行4KiB截断；不读取描述符内容，不改变采样值、物理边界或失败结论。此前PROTOCOL没有原始帧，仍未关闭。
+
+最终生产竞态/配置等待诊断/逐条FD诊断提交`60a10c4c`；当前源码`check-all.sh --all`新鲜r11 exit0、Developer AndroidTest APK新鲜r5编译通过。r9 LongMethod及r10格式门禁失败已通过提取诊断helper和定点格式修复，未关闭门禁；全部早期日志保留。手机数据/浏览器pending已关闭，真实FD漂移、历史PROTOCOL因果与完整7200秒仍未关闭，本次不启动尚缺资源前提的新两小时实例。

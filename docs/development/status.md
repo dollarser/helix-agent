@@ -118,7 +118,7 @@
 
 ## In progress
 
-- 2026-10-13 [HXA-282](tasks/HXA-282.md)：Remote Notes Site version 15最小原生回调补丁已发布，Developer真机及Standard API36合成OAuth/只读/刷新/回放拒绝/本地断开与市场更新通过，服务不支持厂商revoke。双渠道市场进程恢复及同设备Qwen基线/候选各六业务成功已有证据；gzip解压后协议/JSON/SSE大小修复和完整主机门禁通过。手机既有Helix Codex登录经`:subscriptions`原生聊天通过，当前模型六业务成功但浏览器夹具清理初轮失败；模拟器专项已修复复验。长测初轮约22分钟PROTOCOL失败，复测约32分钟idle FD失败；当前有界FD诊断，原资源/业务断言不变，两小时pending。OnePlus断开使最终数据及浏览器补验pending，断开前临时设置已恢复。[本轮证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)保留失败，不关闭HXA-282。
+- 2026-10-13 [HXA-282](tasks/HXA-282.md)：Remote Notes Site version 15最小原生回调补丁已发布，Developer真机及Standard API36合成OAuth/只读/刷新/回放拒绝/本地断开与市场更新通过，服务不支持厂商revoke。双渠道市场进程恢复及同设备Qwen基线/候选各六业务成功已有证据；gzip解压后协议/JSON/SSE大小修复和完整主机门禁通过。手机既有Helix Codex登录经`:subscriptions`原生聊天通过，当前模型六业务成功但浏览器夹具清理初轮失败；模拟器专项已修复复验。长测初轮约22分钟PROTOCOL失败，复测约32分钟idle FD失败；当前有界FD诊断，原资源/业务断言不变，两小时pending。OnePlus重连后Codex/Qwen浏览器专项与原9会话/27 Turn/5 provider完整hash核对通过，临时设置恢复、反向端口移除。[本轮证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)保留失败，不关闭HXA-282。
 
 - 2026-10-12 Owner 授权继续收尾及 276→279。日常 API36 已保留数据更新到 HXA-275 验收 APK，自有 API36/Qwen 完整文件任务 1/1 通过，失败尝试与转换过程见[收尾证据](../evidence/development/plugin-closeout-2026-10-12.md)。HXA-276 单一 Browser 贡献已通过全仓主机、API36 双渠道各 9 项及共享浏览器引擎 29 项有界验收，见[276证据](../evidence/development/hxa276-browser-contribution-2026-10-12.md)；HXA-277 已完成在途资源引用与清理、主机和 API36 后端/应用组合有界验收，见[277证据](../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-278渐进装载、精确资源和有界就绪事实已通过主机、双渠道内容及固定Qwen对照，见[278证据](../evidence/development/hxa278-progressive-skills-2026-10-12.md)；模型成本为混合结果。HXA-279已完成浏览器发现、等待与本地有界交付，见[279证据](../evidence/development/hxa279-browser-observation-2026-10-12.md)：引擎28项、最终双渠道各9项及严格六类Qwen通过，先前模型失败/单轮边界保留；日常已更新到最终APK并核实原数据保留。测试AVD的Gboard中文拼音因原生崩溃仍failed，不作整体验收通过。
 
@@ -147,7 +147,7 @@
 
 ## Next task
 
-当前收尾HXA-282：先定位真实Mobile Use任务idle FD漂移及第104次任务配置投影timeout，有界诊断已结束并关闭测试VM；保留原门禁，修复后完整7200秒重验。历史PROTOCOL原始帧缺失不假定已解决。OnePlus重连后核对原数据及浏览器夹具清理补验。已完成市场/协议检查不重复启动，HXA-281保持完成。其他OEM、24h、App Links/loopback通用OAuth、PTC/App UI及桌面运行时不自动加入本轮；需Owner明确范围与适用ADR。
+当前收尾HXA-282：会话配置异步发布竞态已修并完成250次回归，尚未证明是第104次配置timeout的根因。Window截图实验FD154→167失败，未采纳；有界诊断实例已关闭。下一步在不并行重型主机构建/多AVD的条件下定位真实Mobile Use FD漂移，触发时保留逐条描述符；保留原门禁，修复后完整7200秒重验。历史PROTOCOL原始帧缺失不假定已解决。OnePlus重连后的原数据核对和浏览器清理补验已通过。已完成市场/协议检查不重复启动，HXA-281保持完成。其他OEM、24h、App Links/loopback通用OAuth、PTC/App UI及桌面运行时不自动加入本轮；需Owner明确范围与适用ADR。
 
 ### 插件优化队列（2026-10-11）
 
