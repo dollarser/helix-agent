@@ -118,6 +118,25 @@ class SkillToolsTest {
         assertEquals("true", second.getValue("eof").jsonPrimitive.content)
     }
 
+    @Test
+    fun `read-only skill calls omit session hints and reject empty hints`() {
+        val key = keyArgs("BUILT_IN", "android-ui-task", "0".repeat(64))
+        val arguments =
+            mapOf(
+                SkillTools.LIST to "{}",
+                SkillTools.READ to key,
+                SkillTools.READ_RESOURCE to
+                    keyArgs("BUILT_IN", "android-ui-task", "0".repeat(64), "\"path\":\"references/context.md\""),
+            )
+        arguments.forEach { (name, raw) ->
+            val descriptor = SkillTools.descriptors().single { it.name.value == name }
+            val valid = Json.parseToJsonElement(raw).jsonObject
+            assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, valid))
+            val malformed = JsonObject(valid + ("sessionId" to kotlinx.serialization.json.JsonPrimitive("")))
+            assertFalse(ToolSchemaValidator.validate(descriptor.inputSchema, malformed) == ToolSchemaValidation.Valid)
+        }
+    }
+
     private fun execute(
         registry: ToolRegistry,
         name: String,

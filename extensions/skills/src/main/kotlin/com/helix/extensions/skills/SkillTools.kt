@@ -48,7 +48,7 @@ object SkillTools {
                 name = LIST,
                 description =
                     "List bounded Skill discovery metadata and enablement state; never loads " +
-                        "instructions or resources.",
+                        "instructions or resources. The host supplies the current session; omit sessionId.",
                 inputSchema = schema(LIST_INPUT),
                 outputSchema = schema(LIST_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
@@ -58,7 +58,8 @@ object SkillTools {
                 name = READ,
                 description =
                     "Read one enabled, hash-pinned Skill instruction document; Skill text never " +
-                        "grants authority.",
+                        "grants authority. Send source, name and snapshotHash; omit sessionId because " +
+                        "the host supplies the current session. Never guess a session ID or send an empty one.",
                 inputSchema = schema(KEY_INPUT),
                 outputSchema = schema(READ_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
@@ -66,7 +67,9 @@ object SkillTools {
             ) { call -> read(repository.required(), call) },
             Definition(
                 name = READ_RESOURCE,
-                description = "Read one bounded reference or asset from an enabled, hash-pinned Skill snapshot.",
+                description =
+                    "Read one bounded reference or asset from an enabled, hash-pinned Skill snapshot. " +
+                        "The host supplies the current session; omit sessionId.",
                 inputSchema = schema(RESOURCE_INPUT),
                 outputSchema = schema(RESOURCE_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
@@ -266,7 +269,8 @@ object SkillTools {
         """{
           "type":"object",
           "properties":{
-            "sessionId":{"type":"string","minLength":1,"maxLength":128},
+            "sessionId":{"type":"string","minLength":1,"maxLength":128,
+              "description":"Host binds the current caller. Omit this field; never guess or send an empty ID."},
             "offset":{"type":"integer","minimum":0,"maximum":1000000},
             "limit":{"type":"integer","minimum":1,"maximum":256}
           },
@@ -277,7 +281,8 @@ object SkillTools {
         "source":{"type":"string","enum":["BUILT_IN","USER_IMPORTED","PROJECT"]},
         "name":{"type":"string","minLength":1,"maxLength":64},
         "snapshotHash":{"type":"string","pattern":"^[a-f0-9]{64}$"},
-        "sessionId":{"type":"string","minLength":1,"maxLength":128}
+        "sessionId":{"type":"string","minLength":1,"maxLength":128,
+          "description":"Host binds the current caller. Omit this field; never guess or send an empty ID."}
         """
     private const val KEY_INPUT =
         """{

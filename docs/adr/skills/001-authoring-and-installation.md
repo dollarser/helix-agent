@@ -1,8 +1,8 @@
 # ADR-SKILLS-001: Skill 创作、安装与 MCP 配置闭环
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-11
-HXA: HXA-148, HXA-149, HXA-150, HXA-272, HXA-273, HXA-278
+Date: 2026-09-16; revised 2026-10-13
+HXA: HXA-148, HXA-149, HXA-150, HXA-272, HXA-273, HXA-278, HXA-282
 Deciders: Project owner（2026-10-11 要求将插件优化任务同步为 ADR，采用单一目标实现、不兼容旧版）
 
 ## Context
@@ -45,6 +45,8 @@ Mobile Use 的指南仍随所属插件交付，内容和资源接入上述统一
 在现有 ContextCompiler 中区分发现元数据、必要短指导、已激活正文、按需资源及历史引用。正文通过统一读取或可信用户激活装载；Mobile Use/Browser 的短操作规则保留，长例子和参考资料按需读取。同一任务同一快照避免无意义重复，不另建可写上下文库或 Skill 状态库。
 
 原生内容目录只携带可用的 source/name/hash/description；宿主短操作规则与可选 Skill 正文分离。内置参考资料使用与文件快照相同的路径/大小 framing 计算内容 hash，复用 `skills.read_resource` 的来源、调用资格和读取上限；更新参考资料也使旧快照失效。显式激活正文标记准确身份和用户参数，同一快照/参数只装载一次。缺失快照与停用分别报告，绝不退回同名最新正文。
+
+`skills.list/read/read_resource` 使用宿主绑定的调用会话与 Turn；模型无需提供 `sessionId`，参数不能替换真实调用身份。工具描述明确省略该可选字段，既有非空约束与跨会话拒绝仍保留。Mobile Use 的短操作规则明确：需要新观察或屏幕外滚动本身不是阻塞；模型应在原授权内继续观察、操作与核验，只有实际不可用能力、授权或用户输入缺失才需要停下。执行器不代模型滚动或盲目重放未知副作用。
 
 每次请求的插件就绪信息按组件 kind/state/requestState/saved/loaded 汇总真实数量，优先已选择来源并限制为8 KiB UTF-8；被省略的插件及其中已选择数量明确报告。完整组件路径、目标、账号引用与诊断仍在设置中保留，不随每个模型请求重复注入。该摘要不授予权限，工具发现和Dispatcher仍是执行事实的边界。
 
@@ -120,3 +122,7 @@ HXA-272已实现统一内容读取和零工具激活，有界验证见[272证据
 ## Decision history — 2026-10-12：渐进装载和请求事实大小
 
 Owner授权继续278并排查requestReadiness上下文风险。采用[Claude Code Skills](https://code.claude.com/docs/en/skills)的按需正文和支持文件思路；Helix保留每次UI操作必需的短规则、准确快照身份及既有权限路径，不采用参考项目的命令或子Agent执行扩展。原生参考资料复用现有快照 framing、资格和读取边界，不建立第二套内容存储。诊断正文留在设置，模型请求仅带有界的真实汇总及省略事实。是否带来策略收益由固定三类模型任务独立记录。
+
+## Decision history — 2026-10-13：明确调用身份和正常观察流程
+
+HXA-282 的真实 Qwen 长测出现空 `sessionId` 被 schema 拒绝，以及模型收到 offscreen 结果后提前结束。沿用当前宿主调用身份和渐进装载契约，仅澄清工具参数与每次操作所需的短规则；不删除约束、注入执行权限、扩大常驻 Skill 正文或硬编码模型动作。[Claude Code 官方 Skills 文档](https://code.claude.com/docs/en/skills)仍作为按需流程指导的参考，不推导其工具参数与 Helix 相同。修正效果及失败保留在[282证据](../../evidence/development/external-mcp-market-and-model-2026-10-13.md)，有界回归不覆盖历史协议根因或完整长稳验收。

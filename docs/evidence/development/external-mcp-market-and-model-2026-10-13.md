@@ -130,3 +130,24 @@ R3仍使用冻结的原APK/测试APK，未重启。rep30在08:50:35 UTC业务校
 R3 捕获 1454 条实际 `/chat/completions` 响应，均 HTTP200/完整结束；没有 `error=PROTOCOL` 或 `TEST_SESSION_CONTROL_TIMEOUT`。这只是当前有界不复现，不能归因或关闭 R1 缺原始帧的历史 PROTOCOL。原始流、模型请求与失败回复只留忽略目录。
 
 原测试 VM PID39768、recorder PID40656 各有 exit0 关闭记录；launcher/caffeinate 已退出，30009 不再监听。runner/recorder 的 finally 移除各自转发，read-only AVD 不保存临时权限或数据，未操作日常模拟器。本轮后续只做提示修正的定向回归，不重复整轮两小时。
+
+## Skill 参数与屏幕外目标定向收尾
+
+生产修正仅澄清当前契约：Skill 工具描述及可选 `sessionId` 字段说明要求模型省略会话提示，由宿主真实调用身份绑定；非空 schema、准确 source/name/hash、跨会话读取拒绝和审批边界不变。Mobile Use 短规则说明新观察/滚动本身不是阻塞，模型应继续原授权内观察→操作→核验，只有实际缺能力、授权或用户输入才结束等待；不改变 AgentLoop，不由执行器代做滚动，不重放未知副作用。按[Claude Code 官方 Skills 文档](https://code.claude.com/docs/en/skills)的按需流程指导思路，保留短关键规则和按需正文，未复制参考代码或推导其会话参数与 Helix 相同；当前设计已补同一 ADR-SKILLS-001 的 Decision history。
+
+新增主机 schema 回归覆盖 list/read/read_resource 省略会话参数可用、空参数仍拒绝；原 caller isolation 测试保留。新增 `ProgressiveSkillModelDeviceTest#mobileOffscreenFind`：提示模型先实际查找屏幕外按钮，随后由模型自主获取新观察、选择滚动容器并执行；验收同时要求真实 offscreen 结果、后续成功滚动、独立结果 `TEST_DONE:你好 Helix` 与点击次数恰为1。普通表单/热身/连续模式不追加该分支要求，未削弱既有断言或提供容器 token、坐标/点击答案。
+
+本轮最终实际模型为匿名本机 `localhost:30008` 的 Qwen3.8-27B，经保持真实传输字节的 loopback recorder 到 owned API36/Android16/arm64-v8a/Developer。使用两个先后启动并正常关闭的 read-only `Helix_Validation_API36_20261012` 实例（emulator-5600、4096MiB、2 cores），没有操作日常模拟器或再跑真机。
+
+| 固定回归 | 实际业务结果 | 真实执行与边界 |
+| --- | --- | --- |
+| `mobile-guidance-r1`：1组Skill流程及6组表单，各组2任务 | 14/14通过（2 Skill、12表单） | 12次成功滚动、24次实际HOME/返回像素/会话核验；无FAILED/DENIED工具调用 |
+| `mobile-guidance-offscreen-r1`：4组明确先find的表单，各组2任务 | 8/8通过 | 8个任务均实际offscreen后成功滚动；16次HOME/返回核验；4次中间滚动失败保留，1 TOKEN_UNKNOWN、3 ACTION_NOT_SUPPORTED，均新观察后恢复 |
+
+总计22/22业务，未按失败增加样本或重试到通过。两批分别116/81条模型请求，均完整HTTP200，无PROTOCOL；业务Turn用量分别输入1729287/1266749、输出16602/12240 token（不含目录与探测）。捕获的Skill调用均省略sessionId；第二批也有真实 `skills.read_resource` 成功。已核对实际发送请求包含新参数说明及Mobile Use指导。有限同布局样本只能证明本轮分支恢复，不能证明普遍完成率提升或替代新版完整两小时验收；中间工具错误不从轨迹删除。
+
+主APK SHA-256 `c526c36c0235f876c172253d016d3b11733cf5c4b2c38156cc4585f9a5054509`，两批相同；第二批AndroidTest APK `c4569b78dc27ca4183e93643ecab5665f4ae4d77518a8aba27ff49a967913894` 含明确offscreen分支。每批初始实际拼音/中文commit passed，第二批生产Skill导入/页读取/激活/resource/移除设备检查也passed。两批设置before/after完全一致（无障碍服务null、enabled0），30009映射删除后列表为空；VM83248/95982、recorder83712/96114各exit0，日志采集进程均结束。末次主机核对自有进程全部不存在、30009无监听，ADB只余日常5554。原始报告、每组JUnit、wire、APK身份、独立 `final-summary.json` 和清理核对只留忽略 `build/hxa282/`。
+
+`check-all-r13.txt`、最终源码与ADR的 `check-all-r14.txt` 均 exit0：全仓source/JVM/Spotless/Detekt/lint、双渠道Debug/Release制品及边界/锁检查通过；受影响Skill56项、Mobile Use255项无失败或跳过。新增分支的双渠道AndroidTest APK编译通过（`offscreen-build-r1.txt`），没有以编译替代模型验收。一次错误文档检查脚本路径及EOF空行已更正，实际 `check-docs.sh` 通过，原失败输出保留。
+
+当前收尾交付不关闭 HXA-282 整体验收：R3 的173/174与FAIL_FUNCTIONAL不改写；按本轮要求没有重跑修正后两小时，若要关闭连续任务检查点，仍需新版完整业务/资源验收。R1历史PROTOCOL原帧/服务端日志缺失，无法可靠归因；第104次历史配置timeout也未证明由已修的发布竞态引起。本轮与R3不复现只是有界事实。公网厂商revoke/其他OEM/24h仍为既有范围边界，不自动新增任务。

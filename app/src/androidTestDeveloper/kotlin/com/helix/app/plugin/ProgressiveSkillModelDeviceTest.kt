@@ -49,11 +49,17 @@ class ProgressiveSkillModelDeviceTest {
 
     @Test fun mobileSyntheticForm() = matrix("mobile")
 
+    @Test fun mobileOffscreenFind() = matrix("mobile", findBeforeScroll = true)
+
     /** Keep one provider and UI owner for a continuous workload; every pair still verifies actual business results. */
     fun mobileContinuous(afterPair: (Int) -> Boolean) = matrix("mobile", afterPair)
 
     @Suppress("LongMethod", "CyclomaticComplexMethod") // Fixed three tasks share owned setup and restoration.
-    private fun matrix(kind: String, afterPair: ((Int) -> Boolean)? = null) =
+    private fun matrix(
+        kind: String,
+        afterPair: ((Int) -> Boolean)? = null,
+        findBeforeScroll: Boolean = false,
+    ) =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
             val providerProfile = args.getString("progressiveProfile") ?: "qwen"
@@ -176,6 +182,13 @@ class ProgressiveSkillModelDeviceTest {
                                         )
                                         delay(800)
                                         "Operate only this test app and Helix. Fill 测试输入 with 你好 Helix, " +
+                                            (
+                                                if (findBeforeScroll) {
+                                                    "Locate 完成测试 using ui.find before scrolling. "
+                                                } else {
+                                                    ""
+                                                }
+                                            ) +
                                             "Scroll to 完成测试, click once; verify success. Stay there." +
                                             if (visual) {
                                                 " For the final click, use ui.device then ui.screenshot. " +
@@ -251,7 +264,24 @@ class ProgressiveSkillModelDeviceTest {
                                             }
                                     }
                                 }
-                            val success = turn.state == "COMPLETED" && verified && calls.isNotEmpty()
+                            val offscreenFind =
+                                calls.indexOfFirst { call ->
+                                    call.name == "ui.find" && call.state == "COMPLETED" &&
+                                        c.storage.toolResults.byToolCall(call.id)?.let {
+                                            c.storage.toolResults
+                                                .readContent(it)
+                                                ?.contains("\"offscreen\":true")
+                                        } == true
+                                }
+                            val offscreenRecovered =
+                                offscreenFind >= 0 &&
+                                    calls.drop(offscreenFind + 1).any {
+                                        it.name == "ui.scroll" &&
+                                            it.state == "COMPLETED"
+                                    }
+                            val success =
+                                turn.state == "COMPLETED" && verified && calls.isNotEmpty() &&
+                                    (!findBeforeScroll || offscreenRecovered)
                             if (visual) {
                                 assertTrue(calls.any { it.name == "ui.gesture" && it.state == "COMPLETED" })
                                 assertTrue(
@@ -277,6 +307,7 @@ class ProgressiveSkillModelDeviceTest {
                             println(
                                 "PROGRESSIVE profile=$providerProfile kind=$kind rep=$repetition success=$success " +
                                     "state=${turn.state} " +
+                                    "offscreenRequired=$findBeforeScroll offscreenRecovered=$offscreenRecovered " +
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
                                     "calls=${calls.map { it.name to it.state }} usage=${models.map { it.usage }}",
                             )
