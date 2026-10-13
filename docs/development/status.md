@@ -118,7 +118,7 @@
 
 ## In progress
 
-- 2026-10-13 [HXA-282](tasks/HXA-282.md)：Remote Notes Site version 15最小原生回调补丁已发布，Developer真机及Standard API36合成OAuth/只读/刷新/回放拒绝/本地断开与市场恢复通过，服务不支持厂商revoke。Qwen/Codex有界业务与gzip解压后协议门禁已验证，OnePlus浏览器补验及原9会话/27 Turn/5 provider完整hash保持通过。通用提示/内置描述/Skill修正c8f802fc、submit指导与返回帧夹具修正75b999f6已交付，最终r21完整主机、双渠道测试APK及固定真实Qwen4/4业务、6次直接返回帧通过。R3完整两小时173/174、R4提前结束的业务/夹具失败分别保留；修后R5于20:36 Asia/Shanghai开始，rep93模型只叙述点击未实际调用的业务失败已捕获。Owner选择后台继续、暂停前台等待，原测试不重启，整轮结果及清理pending。历史PROTOCOL缺原帧不宣称已修；[本轮证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)保留全部失败，HXA-282尚未整体验收。
+- 2026-10-13 [HXA-282](tasks/HXA-282.md)：Remote Notes version 15合成OAuth、市场恢复、Qwen/Codex有界业务及gzip协议门禁已验证；OnePlus原9会话/27 Turn/5 provider hash保持。提示/Skill修正c8f802fc、75b999f6已交付。原R5两小时已结算：7208066ms，180业务中178成功，rep93/140模型未调用；整体FAIL_FUNCTIONAL，原资源阈值满足，主机241/242采样，owned VM/recorder关闭。Owner随后要求优化，e67a6b3f保持同次响应文字/工具调用的canonical回填，全仓主机及双渠道测试APK通过；固定非执行模型对照原结构7/8续调用、修正8/8。自有API36实际拼音1方法及Qwen4方法/8业务通过，11个带文字步骤持久化与wire一致，8次后台返回通过，临时设置恢复、实例关闭，日常未覆盖。样本不证明普遍模型收益，新两小时未请求，历史PROTOCOL缺原帧不宣称根因关闭；[本轮证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)保留全部失败，HXA-282尚未整体验收。
 
 - 2026-10-12 Owner 授权继续收尾及 276→279。日常 API36 已保留数据更新到 HXA-275 验收 APK，自有 API36/Qwen 完整文件任务 1/1 通过，失败尝试与转换过程见[收尾证据](../evidence/development/plugin-closeout-2026-10-12.md)。HXA-276 单一 Browser 贡献已通过全仓主机、API36 双渠道各 9 项及共享浏览器引擎 29 项有界验收，见[276证据](../evidence/development/hxa276-browser-contribution-2026-10-12.md)；HXA-277 已完成在途资源引用与清理、主机和 API36 后端/应用组合有界验收，见[277证据](../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-278渐进装载、精确资源和有界就绪事实已通过主机、双渠道内容及固定Qwen对照，见[278证据](../evidence/development/hxa278-progressive-skills-2026-10-12.md)；模型成本为混合结果。HXA-279已完成浏览器发现、等待与本地有界交付，见[279证据](../evidence/development/hxa279-browser-observation-2026-10-12.md)：引擎28项、最终双渠道各9项及严格六类Qwen通过，先前模型失败/单轮边界保留；日常已更新到最终APK并核实原数据保留。测试AVD的Gboard中文拼音因原生崩溃仍failed，不作整体验收通过。
 
@@ -147,7 +147,7 @@
 
 ## Next task
 
-HXA-282继续验收：通用提示精简、Skill与offscreen/滚动容器指导已提交，输出提示schema超长与测试误读恢复Turn已修复。R4提前结束的模型submit误用和返回帧夹具生命周期竞态分别记录；修正提交75b999f6，最终完整主机r21与直接返回/真实Qwen短回归通过。同一冻结制品的R5已从2026-10-13 20:36 Asia/Shanghai启动，继续原两小时，不重启或筛选通过；rep93已发生模型只回复“现在点击”而未调用click的业务失败，须保留并等待整轮资源/业务结算。沿用自有API36及既有localhost:30008 Qwen合成任务，原业务/资源门禁不变。历史PROTOCOL缺原始帧，配置timeout也未能可靠归因，不宣称根因关闭。OnePlus数据/浏览器与市场/协议已通过，不重复实施；其他OEM、24h、通用OAuth与真实厂商撤销不扩展。
+HXA-282本轮消息回填优化切片已完成：e67a6b3f主机/双渠道制品及API36/Qwen固定8/8业务通过，设置与实例清理已核对；固定历史输入对照仅观测模型决策，不等于实际工具成功。原R5完整结算178/180，资源满足但整体FAIL_FUNCTIONAL，不再等待旧进程或自动重开两小时。后续优先补实际checkpoint/tokenizer、SGLang启动及有效采样配置，若Owner另行要求再验修后完整长稳；当前不具备提前EOS的唯一根因证明，历史PROTOCOL原帧仍缺失。OnePlus数据/浏览器与市场/协议不重复实施；其他OEM、24h、通用OAuth与真实厂商撤销不扩展。
 
 ### 插件优化队列（2026-10-11）
 

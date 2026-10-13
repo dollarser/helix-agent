@@ -248,3 +248,15 @@ owned VM76263和recorder76414各exit0，原launcher及绑定防休眠/monitor已
 主机新增正常混合响应、中文/引号换行、原调用顺序与失败/拒绝结果、损坏/重复绑定元数据、无显示副本时的完整回填、普通相邻消息不合并、压缩剩余请求及pending batch保护、显示取消保持回归。首次命令误用app:spotlessApply失败，改为原root任务；两次格式检查因新增长JSON字面量失败，改为多行测试数据，不豁免规则。实际主机与固定模型/设备结果后续追加，当前不预报完成率改善。
 
 最终主机`canonical-response-all-r3.txt`的`check-all.sh --all`退出0，两渠道AndroidTest编译`canonical-response-androidtest-r1.txt`退出0。相关三类当前JUnit每渠道22+2+7项、零失败/错误/skip，其中新增8项；不以计数作为门禁。早期all-r1因builder方法数触发Detekt，提取同次响应codec后修复；all-r2与format-r3因设备夹具新增长行失败，拆行后format-r4及all-r3通过，无规则豁免。API36及真实Qwen有界验收仍进行中。
+
+代码与回归提交e67a6b3f。固定四个历史合成失败输入（R3/262、R4/198、R5/779、R5/1158）每组两次共16请求；只按原始响应实际文字和call IDs证明的关联合并，其余payload相同，交错两组顺序，不重试/选样、不执行任何工具。`canonical-response-replay-r1/final-summary.json`记录全部16观察、零请求错误，原结构7/8续调用、1/8纯文字终态，canonical结构8/8续调用，两组均无未暴露工具。仅为当前服务默认采样的小样本决策对照，不能声称业务达成、显著收益或提前EOS已根治；实际checkpoint/tokenizer/SGLang有效配置仍缺输入。recorder已关闭，随后才启动设备验收，无两个模型实验并跑。
+
+### 修正后的 API36/Qwen 有界验收
+
+沿Owner本轮授权，使用自有只读`Helix_Validation_API36_20261012`、emulator-5600/API36 arm64-v8a、Developer主APK内生产路径及既有localhost:30008/Qwen3.8-27B；不使用真机/真实账号、不更新日常APK、不自动跑新两小时。`run-owned-emulator.py`原runner与现有prompt四方法各两业务固定执行，不重试筛选。实际PinyinComposerDeviceTest拼音候选/中文commit通过（1方法）；workflowGuide/browserButton/mobileOffscreenFind/mobileSyntheticForm各1方法通过，实际业务8/8成功，原用户Turn及业务独立核对。屏幕外目标实际发现/滚动恢复2次、完成scroll4次、Skill读取5次、8次实际HOME/返回像素及会话保留通过，零中间失败工具、零PROTOCOL。
+
+`canonical-response-device-r1/final-summary.json`及原JUnit/wire/logcat保留：55条实际模型响应完整HTTP200。8次持久化投影检查覆盖43个原工具步骤；11个带可见文字步骤的显示副本、canonical文字及调用顺序一致，下一请求中实际观察11个独立同条文字/调用响应，不是只有空文字分支通过。普通无文字调用与最终答复保持；压缩/损坏/拒绝/取消边界由本轮主机回归覆盖，不把设备正常路径当作全部故障验收。
+
+冻结APK SHA-256：main `41a035b11ecc899cb68945103fc0ee85fd780cb43a749d69220fbe7fec343646`，test `93e1e3bb5c9a281cd8e38a32204104d3a14bcd2286115de28bcec833d70c2a57`。无障碍before/after均null/0；30009映射撤回，owned VM78208/recorder78350 exit0，logcat78347由finally终止exit-15，全部有关闭记录。30008映射仅属于已关闭测试VM；结束ADB只剩日常emulator-5554，30009未监听，未操作其数据。当前优化有界验收passed，不改写R5 FAIL_FUNCTIONAL，不关闭HXA-282完整长稳与历史缺帧归因边界。
+
+状态/HXA/roadmap及调试经验已同步；最终`check-all.sh --source`退出0（`canonical-response-final-source.txt`），文档、ADR、i18n及秘密检查通过。设备验证后未改生产/测试源码，仅结算文档，不重复构建或将新的证据提交hash冒充冻结制品身份。
