@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import android.content.res.Configuration
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -55,9 +57,11 @@ class MarketplaceSectionUiTest {
         try {
             compose.setContent {
                 val density = LocalDensity.current
+                val registryOwner = requireNotNull(LocalActivityResultRegistryOwner.current)
                 CompositionLocalProvider(
                     LocalContext provides context,
                     LocalDensity provides Density(density.density, 2f),
+                    LocalActivityResultRegistryOwner provides registryOwner,
                 ) {
                     MaterialTheme {
                         Column(
@@ -69,12 +73,15 @@ class MarketplaceSectionUiTest {
                 }
             }
 
-            val expectedTitle = if (language == "zh-CN") "扩展市场" else "Marketplace"
+            val expectedTitle = if (language == "zh-CN") "插件市场" else "Plugin marketplace"
             val expectedSkillFilter = if (language == "zh-CN") "技能" else "Skills"
             compose.onNodeWithText(expectedTitle).assertIsDisplayed()
             compose.onNodeWithTag("marketplace-filter-skill").assertTextContains(expectedSkillFilter)
             compose.onNodeWithTag("marketplace-section").assertIsDisplayed()
             compose.onNodeWithTag("marketplace-search-input").assertIsDisplayed()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("marketplace-item-code-review").fetchSemanticsNodes().isNotEmpty()
+            }
 
             compose
                 .onNodeWithTag("marketplace-filter-skill")

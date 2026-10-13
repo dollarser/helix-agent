@@ -319,4 +319,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-278 | 主机、Developer内容6/6、consumer适用内容5/5 passed；Qwen三类各2轮基线/候选均6/6，成本混合 | Skill 渐进装载与上下文失效一致性 | [任务](tasks/HXA-278.md) |
 | HXA-279 | 本地有界交付；主机/双渠道/六类Qwen已验，Gboard拼音失败与未测边界保留 | UI 观察反馈与 Browser 标签发现及有界等待 | [任务](tasks/HXA-279.md) |
 | HXA-280 | 本地有界交付；完整主机、API36双渠道及OnePlus/Qwen通过，长期/OEM边界保留 | 工具发现与请求工作集优化 | [完成记录](../completion-records/HXA-280.md) |
-| HXA-281 | 主机实现完成；全仓门禁与双渠道制品通过，设备/真实模型not requested | 工具发现指导与外部插件市场复用 | [完成记录](../completion-records/HXA-281.md) |
+| HXA-281 | 有界交付；全仓主机、API36两渠道与OnePlus/Qwen补验passed，公网账号/其他OEM边界保留 | 工具发现指导与外部插件市场复用 | [完成记录](../completion-records/HXA-281.md) |

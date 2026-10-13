@@ -13,6 +13,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnBudgets
+import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.entity.ToolCallEntity
@@ -21,7 +22,9 @@ import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -43,6 +46,7 @@ class PluginFileWorkflowModelDeviceTest {
             val args = InstrumentationRegistry.getArguments()
             val port = requireNotNull(args.getString("pluginSkillPort")).toInt()
             val model = requireNotNull(args.getString("pluginSkillModel"))
+            val manifestPath = manifestPath(args.getString("pluginFileFormat"))
             val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
             val provider =
                 c.providerService.create(
@@ -63,7 +67,7 @@ class PluginFileWorkflowModelDeviceTest {
             val bundle =
                 PluginPackageReader().parse(
                     mapOf(
-                        "plugin.json" to
+                        manifestPath to
                             (
                                 "{\"\$schema\":\"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json\"," +
                                     "\"name\":\"$name\",\"version\":\"1.0.0\"," +
@@ -170,7 +174,11 @@ class PluginFileWorkflowModelDeviceTest {
                     c.storage.turns
                         .listBySession(id)
                         .lastOrNull()
-                        ?.let { c.chatService.stopTurn(it.id) }
+                        ?.let {
+                            c.chatService.stopTurn(it.id)
+                            withTimeout(20_000) { c.agentRuntime.observe(TurnId(it.id)).collect {} }
+                            assertTrue(TurnState.valueOf(requireNotNull(c.storage.turns.find(it.id)).state).isTerminal)
+                        }
                     c.chatService.closeSession()
                     c.storage.deleteSessionPermanently(id)
                 }
@@ -181,6 +189,13 @@ class PluginFileWorkflowModelDeviceTest {
                 directory?.deleteRecursively()
                 c.providerService.delete(provider)
             }
+        }
+
+    private fun manifestPath(format: String?): String =
+        when (format) {
+            null, "standard" -> "plugin.json"
+            "claude" -> ".claude-plugin/plugin.json"
+            else -> error("Invalid pluginFileFormat")
         }
 
     private fun verifyDiscoveryAndRecovery(

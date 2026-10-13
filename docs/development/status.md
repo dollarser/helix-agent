@@ -4,7 +4,9 @@
 
 ## 当前整合与验证边界
 
-- 2026-10-13 [HXA-281](../completion-records/HXA-281.md)工具发现指导及外部插件市场复用主机交付：当前schema/执行权限分层，桌面MCP名称只作检索线索；主流包路径数组、有序MCP配置、离线市场发现源与逐项安装、配置/版本反馈。13项新增边界回归、两渠道WorkBuddy原样本、完整全仓主机门禁及两渠道AndroidTest编译通过；设备生命周期夹具已准备。设备/真实模型本轮not requested，未安装APK，不继承280验收或声称Qwen收益；[证据](../evidence/development/plugin-marketplace-reuse-2026-10-13.md)。
+- 2026-10-13 Owner追加[HXA-281](../completion-records/HXA-281.md)设备/真实模型验收：OnePlus/API34最终5/5，Developer/API36业务7项及中英文UI2项定向复测通过，Standard/API36最终6/6，两渠道实际拼音通过。Qwen完成Codex格式导入Skill/HTTP MCP真实标记，以及Standard导入Claude格式文件Skill缺失恢复/保存读回；完整主机与测试APK通过。真机保留原8会话/10个Turn/5个Provider更新，自有实例关闭、日常未覆盖；原夹具渠道/异步/清理竞态失败与崩溃均保留，不宣称普遍模型收益或公网账号/OEM全通过。[补验证据](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)。
+
+- 2026-10-13 [HXA-281](../completion-records/HXA-281.md)原主机阶段交付：当前schema/执行权限分层，桌面MCP名称只作检索线索；主流包路径数组、有序MCP配置、离线市场发现源与逐项安装、配置/版本反馈。13项新增边界回归、两渠道WorkBuddy原样本、完整全仓主机门禁及两渠道AndroidTest编译通过。当时设备/真实模型not requested、未安装APK；随后Owner追加补验见上方，不继承280验收或声称普遍Qwen收益；[主机阶段证据](../evidence/development/plugin-marketplace-reuse-2026-10-13.md)。
 
 - 2026-10-12 [HXA-280](../completion-records/HXA-280.md)工具架构优化有界交付：取消全局64截断，同源能力目录/中文与字段检索、成本约束近期工作集及完整操作组已接生产；修复显式目标被陈旧UI会话阻断的启动接缝。完整主机/双渠道Debug和Release制品及边界通过，自有API36 Developer6方法（6业务轮与70工具完整性）、Standard发现/实际拼音2方法、OnePlus/API34最终4方法通过。真机已保留数据更新，原8会话/10个Turn/5个Provider逐行一致；日常模拟器未覆盖，临时映射撤回。基线/首候选业务各6/6，成本混合，不预报普遍收益。[证据与失败尝试](../evidence/development/tool-discovery-workset-2026-10-12.md)。
 
@@ -143,7 +145,7 @@
 
 ## Next task
 
-HXA-281已完成授权的主机实现范围，HXA-280本地有界交付和长稳报告器修复保持；本轮明确的实施项无未完成阻塞。下一步可按Owner当轮授权做市场导入/安装/会话选择及真实HTTP MCP端到端验收，再处理新复现故障或其他OEM/Provider边界；原生Provider发现、PTC、App UI及桌面运行时仍须具体需求及ADR，不自动扩展。历史队列保留为已有交付与依赖索引。
+HXA-281主机实现及Owner追加的模拟器/OnePlus/既有Qwen有界验收已完成，本轮实施项无未完成阻塞。下一步优先处理新复现故障；若需要第三方真实OAuth/公网MCP、其他OEM或长期验收，按具体输入及当轮授权单独执行。原生Provider发现、PTC、App UI及桌面运行时仍须具体需求及ADR，不自动扩展。历史队列保留为已有交付与依赖索引。
 
 ### 插件优化队列（2026-10-11）
 

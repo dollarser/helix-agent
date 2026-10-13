@@ -85,3 +85,11 @@ Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞�
 本次具体删除、迁移与验证见[HXA-267记录](../completion-records/HXA-267.md)及[清理证据](../evidence/development/test-script-maintenance-2026-10-10.md)。
 
 历史版本日志不必永久另存副本：经Owner明确授权，核对其归属及当前复现入口后，按“来源提交/版本与APK身份 → 当时成功和初轮失败机制 → 修正与验证边界 → 现行复现入口 → 删除路径/hash”汇总。删除后在原报告注明原始日志不可用；未经执行不填当前通过，不用hash冒充备份。示例见[历史版本整理](../evidence/development/historical-version-retirement-2026-10-10.md)。
+
+## 插件市场与模型夹具生命周期
+
+市场列表从IO异步加载，Compose空闲不代表条目已经就绪；在操作前对真实条目做有界等待。本地化测试覆盖LocalContext时，要保留真实ActivityResultRegistryOwner，否则文件选择器不能注册。安装确认和详情展开是独立交互，不能在未展开时断言会话按钮存在。
+
+模型夹具必须区分插件安装、Skill内容启用、会话选择、MCP连接和执行审批；安装或选择不会自动完成所有前置条件。按渠道选择夹具：Developer可临时使用精确LAN授权的loopback MCP，Standard保持既有拒绝边界并使用独立内容/文件工作流，不借用Developer专属chat-reply。
+
+stopTurn只接受停止请求；删除测试会话前应等待AgentRuntime.observe结束、核对持久终态，避免后台结算仍引用已删除Turn。清理只处理本轮明确拥有的ID；进程崩溃留下的合成Provider按基线差集核对后，走原生产删除接口，不直接删除用户配置或吞掉异常。具体复现与失败证据见[HXA-281设备补验](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)。
