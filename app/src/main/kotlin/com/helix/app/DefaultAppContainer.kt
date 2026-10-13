@@ -202,6 +202,12 @@ internal class DefaultAppContainer(
         com.helix.app.provider
             .ProviderContextSettingsStore(lineStore)
 
+    private val debugCustomApis =
+        com.helix.app.provider.DebugCustomApiStore(
+            lineStore,
+            appContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0,
+        )
+
     private val localModels =
         com.helix.app.localmodel
             .LocalModelService(appContext, storage) { config ->
@@ -218,8 +224,14 @@ internal class DefaultAppContainer(
                 localModels = localModels,
                 managedAccountsEnabled = SubscriptionProviderModule.providerIds.isNotEmpty(),
                 factory =
-                    productionProviderFactory(appContext, credentials, localModels) { visionImageSource },
+                    productionProviderFactory(
+                        appContext,
+                        credentials,
+                        localModels,
+                        debugCustomApis,
+                    ) { visionImageSource },
                 testStatus = ProviderTestStatusStore(lineStore),
+                debugCustomApis = debugCustomApis,
                 contextSettingsStore = providerContextSettings,
                 idGenerator = { idGenerator.next() },
                 managed =
@@ -1007,8 +1019,15 @@ private fun productionProviderFactory(
     context: Context,
     credentials: com.helix.provider.api.CredentialLookup,
     localModels: com.helix.app.localmodel.LocalModelService,
+    debugCustomApis: com.helix.app.provider.DebugCustomApiStore,
     images: () -> com.helix.app.provider.VisionImageSource,
-) = ProviderFactory(credentials, ProviderFactory.defaultWire(), images) { config ->
+) = ProviderFactory(
+    credentials,
+    ProviderFactory.defaultWire(),
+    images,
+    debuggable = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0,
+    customApiForDebug = debugCustomApis::enabled,
+) { config ->
     localModels.provider(config) ?: SubscriptionProviderModule.create(context, config, images)
 }
 

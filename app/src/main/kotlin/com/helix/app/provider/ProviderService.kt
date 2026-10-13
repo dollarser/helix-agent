@@ -64,6 +64,11 @@ class ProviderService(
         ),
     val localModels: com.helix.app.localmodel.LocalModelService? = null,
     private val managedAccountsEnabled: Boolean = true,
+    private val debugCustomApis: DebugCustomApiStore =
+        DebugCustomApiStore(
+            com.helix.app.internal
+                .InMemoryLineStore(),
+        ),
 ) {
     private val _contextRevision = MutableStateFlow(0L)
     private val accountSync = Mutex()
@@ -410,6 +415,7 @@ class ProviderService(
                 ),
             )
 
+            debugCustomApis.record(id, draft)
             testStatus.clear(id)
             // The model entered during API setup is an explicit initial choice, not the discovered directory.
             testStatus.selectedModels.write(id, listOf(draft.model))
@@ -443,6 +449,7 @@ class ProviderService(
                             updatedAlias
                         }
                     }
+                debugCustomApis.clear(providerId)
                 storage.providerConfigs.overwrite(
                     ProviderConfigSpec(
                         id = providerId,
@@ -456,6 +463,7 @@ class ProviderService(
                         capabilitySnapshot = if (requiresRetest) UNTESTED_SNAPSHOT else existing.capabilitySnapshot,
                     ),
                 )
+                debugCustomApis.record(providerId, draft)
                 if (requiresRetest) {
                     testStatus.clear(providerId)
                     testStatus.modelMetadata.write(providerId, existing.transportIdentity, emptyMap())
@@ -477,6 +485,7 @@ class ProviderService(
                 }
                 if (entity.provisioningKind == "ON_DEVICE_ASSET") localModels?.delete(entity.model)
                 storage.providerConfigs.delete(providerId)
+                debugCustomApis.clear(providerId)
                 testStatus.selectedModels.clear(providerId)
                 testStatus.clear(providerId)
                 refreshNow()

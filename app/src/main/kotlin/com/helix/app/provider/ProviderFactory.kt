@@ -34,6 +34,8 @@ class ProviderFactory(
      * fully initialized.
      */
     private val imageSource: () -> VisionImageSource,
+    private val debuggable: Boolean = false,
+    private val customApiForDebug: (ProviderConfig) -> Boolean = { false },
     private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
     /** Draft catalog requests use a transient credential, never a saved provider or key. */
@@ -45,12 +47,20 @@ class ProviderFactory(
             config.connection.provisioning != com.helix.core.model.ProviderProvisioningKind.MANAGED_ACCOUNT ||
                 managed != null,
         ) { "No managed subscription adapter in this channel" }
+        val apiWire =
+            if (managed == null && debuggable &&
+                debugModelCorrelationEnabled(debuggable, config, customApiForDebug(config))
+            ) {
+                DebugModelCorrelationWireClient(wire)
+            } else {
+                wire
+            }
         return managed ?: when (config.network.protocol) {
             ProviderProtocol.OPENAI_RESPONSES -> {
                 OpenAiResponsesProvider(
                     config,
                     credentials,
-                    wire,
+                    apiWire,
                     responsesImages(config),
                 )
             }
@@ -59,13 +69,13 @@ class ProviderFactory(
                 OpenAiChatProvider(
                     config,
                     credentials,
-                    wire,
+                    apiWire,
                     chatImages(config),
                 )
             }
 
             ProviderProtocol.ANTHROPIC_MESSAGES -> {
-                AnthropicProvider(config, credentials, wire, anthropicImages(config))
+                AnthropicProvider(config, credentials, apiWire, anthropicImages(config))
             }
         }
     }

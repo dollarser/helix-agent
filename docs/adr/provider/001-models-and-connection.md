@@ -11,6 +11,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+- 2026-10-14 Owner明确将服务端日志关联限定为Debug且自定义API后端：App HTTP层只在宿主FLAG_DEBUGGABLE与自定义表单的显式来源标记同时满足时，读取已有LocalModelCallContext原Turn/model-call身份并发送`x-helix-turn-id`、`x-helix-model-call-id`，覆盖三个网络协议。仅HTTP头、不进入模型JSON/提示词、不是认证或执行授权；Release、官方表单、订阅、设备内模型及无Turn身份的目录/连接探测不发送。既有LineStore保存开发诊断资格与实际transport绑定，旧记录无标记不回填，不依据域名猜测。用户headers不能伪造宿主保留头，没有用户设置入口、Room schema、核心循环或协议适配器修改。
+
 - 2026-10-09 HXA-249：Chat Completions 在 wire 编码时聚合连续前导 SYSTEM 文本为一条同角色消息，以兼容已复现拒绝多 system 的模型服务。保留文本顺序、原历史/来源与观察数据标记，不移动后置 system、不改权限或工具绑定，不做失败后的协议回退/自动重试。仅编码投影，其他协议沿用其原契约。
 
 - 会话输入区只保留一个模型入口；模型选择展开页内继续选择推理强度。切换提交完成前不暴露旧模型推理选项，可用强度仍来自实际所选模型能力。
@@ -75,6 +77,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号或设备验证按各自显式授权执行。
 
 ## Decision history
+
+- 2026-10-14：Owner服务端代理支持request/SSE response ID关联，要求纯Debug且自定义API、不猜域名、允许三个协议。来源入口目前只在草稿保存templateId，执行配置没有历史入口；在已有开发状态存储记录明确创建/保存自定义表单的资格，绑定精确transport，缺失/变更即不发送；编辑先清资格、提交成功再记录，删除清理。沿[OpenAI请求ID调试实践](https://developers.openai.com/api/reference/overview/#debugging-requests)使用独立传输元数据，不改权限或借模板授权，不替换服务端request ID。核心/ModelRequest/协议岛保持；旧请求不能追补，真实代理关联需当轮模型验收，主机回归不计外部服务通过。
 
 - **2026-10-04**：按所有者要求，选模弹窗独立于已有 Provider 提供 API、本地模型及渠道允许的订阅配置入口，直接进入对应分类；空列表与搜索无结果仍能配置。模型页默认 API，保留当前分类并使用常驻分类切换，移除重复 Provider 标题及“返回模型来源”。来源切换不触发登录、下载或探测，返回沿用应用导航栈。
 

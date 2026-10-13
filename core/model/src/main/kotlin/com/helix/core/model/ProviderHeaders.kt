@@ -22,6 +22,8 @@ object ProviderHeaders {
     const val MAX_NAME_LENGTH = 128
     const val MAX_VALUE_LENGTH = 512
     const val MAX_TOTAL_LENGTH = 4096
+    const val TURN_TRACE_HEADER = "x-helix-turn-id"
+    const val MODEL_CALL_TRACE_HEADER = "x-helix-model-call-id"
 
     /**
      * Case-insensitive substrings that mark a header as credential-bearing. Intentionally
@@ -53,6 +55,8 @@ object ProviderHeaders {
             "expect",
             "te",
             "trailer",
+            TURN_TRACE_HEADER,
+            MODEL_CALL_TRACE_HEADER,
         )
 
     /**

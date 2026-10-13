@@ -118,6 +118,8 @@
 
 ## In progress
 
+- 2026-10-14 HXA-282 Debug自定义API诊断关联已交付：App HTTP装饰复用已有context，三个协议均支持，不改核心循环/请求/协议岛；已有LineStore绑定明确表单来源，不猜域名，旧记录不回填。全仓主机/两渠道Debug与Release制品及测试APK编译通过，新增类每渠道6方法通过，实际manifest Debug为true/Release为false；设备/真实模型not requested。Owner提供旧rep93/140生成日志，直接机制为普通文字后im_end且无工具标记，未见解析丢失/长度截断；有效HF模板hash及诱因仍待证。[证据](../evidence/development/debug-model-correlation-2026-10-14.md)。
+
 - 2026-10-13 [HXA-282](tasks/HXA-282.md)：Remote Notes version 15合成OAuth、市场恢复、Qwen/Codex有界业务及gzip协议门禁已验证；OnePlus原9会话/27 Turn/5 provider hash保持。提示/Skill修正c8f802fc、75b999f6已交付。原R5两小时已结算：7208066ms，180业务中178成功，rep93/140模型未调用；整体FAIL_FUNCTIONAL，原资源阈值满足，主机241/242采样，owned VM/recorder关闭。Owner随后要求优化，e67a6b3f保持同次响应文字/工具调用的canonical回填，全仓主机及双渠道测试APK通过；固定非执行模型对照原结构7/8续调用、修正8/8。自有API36实际拼音1方法及Qwen4方法/8业务通过，11个带文字步骤持久化与wire一致，8次后台返回通过，临时设置恢复、实例关闭，日常未覆盖。样本不证明普遍模型收益，新两小时未请求，历史PROTOCOL缺原帧不宣称根因关闭；[本轮证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)保留全部失败，HXA-282尚未整体验收。
 
 - 2026-10-12 Owner 授权继续收尾及 276→279。日常 API36 已保留数据更新到 HXA-275 验收 APK，自有 API36/Qwen 完整文件任务 1/1 通过，失败尝试与转换过程见[收尾证据](../evidence/development/plugin-closeout-2026-10-12.md)。HXA-276 单一 Browser 贡献已通过全仓主机、API36 双渠道各 9 项及共享浏览器引擎 29 项有界验收，见[276证据](../evidence/development/hxa276-browser-contribution-2026-10-12.md)；HXA-277 已完成在途资源引用与清理、主机和 API36 后端/应用组合有界验收，见[277证据](../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-278渐进装载、精确资源和有界就绪事实已通过主机、双渠道内容及固定Qwen对照，见[278证据](../evidence/development/hxa278-progressive-skills-2026-10-12.md)；模型成本为混合结果。HXA-279已完成浏览器发现、等待与本地有界交付，见[279证据](../evidence/development/hxa279-browser-observation-2026-10-12.md)：引擎28项、最终双渠道各9项及严格六类Qwen通过，先前模型失败/单轮边界保留；日常已更新到最终APK并核实原数据保留。测试AVD的Gboard中文拼音因原生崩溃仍failed，不作整体验收通过。
@@ -147,7 +149,7 @@
 
 ## Next task
 
-HXA-282本轮消息回填优化切片已完成：e67a6b3f主机/双渠道制品及API36/Qwen固定8/8业务通过，设置与实例清理已核对；固定历史输入对照仅观测模型决策，不等于实际工具成功。原R5完整结算178/180，资源满足但整体FAIL_FUNCTIONAL，不再等待旧进程或自动重开两小时。后续优先补实际checkpoint/tokenizer、SGLang启动及有效采样配置，若Owner另行要求再验修后完整长稳；当前不具备提前EOS的唯一根因证明，历史PROTOCOL原帧仍缺失。OnePlus数据/浏览器与市场/协议不重复实施；其他OEM、24h、通用OAuth与真实厂商撤销不扩展。
+HXA-282消息回填优化已完成：e67a6b3f主机/双渠道制品及API36/Qwen固定8/8业务通过；原R5完整结算178/180、资源满足但FAIL_FUNCTIONAL，不自动重开两小时。Debug自定义API诊断关联已完成主机与制品验证，真实代理关联未请求。Owner提供模型/tokenizer、SGLang启动与采样信息及匹配生成日志，直接机制为模型输出im_end，无已生成调用被丢弃证据；后续优先确认运行进程有效HF模板hash和xhigh来源，按另行授权做单变量对照及修后长稳。提前EOS诱因、EAGLE因果和历史PROTOCOL仍未确认。OnePlus数据/浏览器与市场/协议不重复实施，其他OEM/24h/厂商撤销不扩展。
 
 ### 插件优化队列（2026-10-11）
 

@@ -4,6 +4,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProviderHeadersTest {
+    @Test fun correlationHeadersCannotBeConfiguredByUsers() {
+        listOf("X-Helix-Turn-Id", "X-Helix-Model-Call-Id").forEach { name ->
+            assertThrows<IllegalArgumentException>("caller must not replace execution identity") {
+                ProviderHeaders.parse("""{"$name":"another-call"}""")
+            }
+            assertThrows<IllegalArgumentException>("Release must not enable tracing through custom headers") {
+                ProviderHeaders.parse("""{"$name":"auto"}""")
+            }
+        }
+    }
+
     @Test
     fun emptyObjectParsesToEmptyMap() {
         assertEquals(emptyMap<String, String>(), ProviderHeaders.parse("{}"))
