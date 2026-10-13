@@ -118,6 +118,8 @@
 
 ## In progress
 
+- 2026-10-14 Owner追加日常安装：emulator-5554/Helix_API_36/API36的Developer已保留数据覆盖到f779a48f制品并打开MainActivity；原3会话/5 Turn/6 provider完整hash及schema/integrity不变，设备读回APK hash匹配。未运行模型/fixture或重建库，此项是安装核对，真实代理关联待Owner手测。[安装证据](../evidence/development/debug-model-correlation-2026-10-14.md#owner追加日常安装)。
+
 - 2026-10-14 HXA-282 Debug自定义API诊断关联已交付：App HTTP装饰复用已有context，三个协议均支持，不改核心循环/请求/协议岛；已有LineStore绑定明确表单来源，不猜域名，旧记录不回填。全仓主机/两渠道Debug与Release制品及测试APK编译通过，新增类每渠道6方法通过，实际manifest Debug为true/Release为false；设备/真实模型not requested。Owner提供旧rep93/140生成日志，直接机制为普通文字后im_end且无工具标记，未见解析丢失/长度截断；有效HF模板hash及诱因仍待证。[证据](../evidence/development/debug-model-correlation-2026-10-14.md)。
 
 - 2026-10-13 [HXA-282](tasks/HXA-282.md)：Remote Notes version 15合成OAuth、市场恢复、Qwen/Codex有界业务及gzip协议门禁已验证；OnePlus原9会话/27 Turn/5 provider hash保持。提示/Skill修正c8f802fc、75b999f6已交付。原R5两小时已结算：7208066ms，180业务中178成功，rep93/140模型未调用；整体FAIL_FUNCTIONAL，原资源阈值满足，主机241/242采样，owned VM/recorder关闭。Owner随后要求优化，e67a6b3f保持同次响应文字/工具调用的canonical回填，全仓主机及双渠道测试APK通过；固定非执行模型对照原结构7/8续调用、修正8/8。自有API36实际拼音1方法及Qwen4方法/8业务通过，11个带文字步骤持久化与wire一致，8次后台返回通过，临时设置恢复、实例关闭，日常未覆盖。样本不证明普遍模型收益，新两小时未请求，历史PROTOCOL缺原帧不宣称根因关闭；[本轮证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)保留全部失败，HXA-282尚未整体验收。

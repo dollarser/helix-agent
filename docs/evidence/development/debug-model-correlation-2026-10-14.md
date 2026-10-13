@@ -33,3 +33,9 @@ target-r3/r4因取消夹具新增object长行格式失败，拆为独立fixture�
 最终`debug-correlation-all-r2.txt`的`check-all.sh --all`退出0：source/JVM、Spotless/Detekt、两渠道Debug/Release lint与APK、锁及制品/Runtime边界均通过。`debug-correlation-androidtest-r1.txt`双渠道AndroidTest APK编译退出0。当前相关JUnit：两渠道新增类各6方法，core ProviderHeadersTest10方法（新增1），均零失败/错误/skip。以实际方法和门禁结果接受，不增加固定总数门禁。
 
 对实际APK执行apkanalyzer manifest debuggable：consumer/developer Debug均true，两个Release unsigned均false；首次误用不带unsigned的Release文件名不存在，改用实际输出后四项命令均退出0。源代码已冻结，后续仅结算文档；没有设备安装/测试或模型调用，真实代理关联not requested。旧配置没有来源标记，在新版Debug通过自定义表单保存一次后才启用；不自动把旧官方/未知来源认作自定义，也不要求普通用户配置调试头。
+
+## Owner追加日常安装
+
+提交f779a48f后，Owner明确要求更新日常模拟器供手测。核实emulator-5554/Helix_API_36/API36、Developer主包；旧版本仍v0.0.5，10月12日安装，不能靠versionName认定源码相同。原APK/DB/WAL私密备份在忽略目录daily-install-2026-10-14；原3会话/5 Turn/6 provider、无未完成Turn，实际Room identity与当前eb439f0c60ced11912eaac8b50dada5b相同。
+
+执行指定serial的adb install -r成功；MainActivity启动Status ok并取得窗口焦点。安装后DB完整性及上述三表完整逐行hash均与原值一致，未重建/清数据；从设备读回APK SHA-256为49e28d32c3d738a907fa747616d7fa6c869b820ddf8678342bab9d77ebcfda71，与本机Developer制品一致。未使用instrumentation、真实模型或账户，不启动/关闭原AVD，不把此次安装核对当作真实代理关联/业务测试通过。Owner可继续手测，旧自定义配置需明确保存一次以记录开发资格。
