@@ -314,6 +314,13 @@ class ProgressiveSkillModelDeviceTest {
                             c.chatService.closeSession()
                             c.storage.deleteSessionPermanently(session)
                             returnToHelix()
+                            com.helix.app.diagnostics
+                                .recordMobileDescriptors("task-$repetition-cleaned")
+                            if (afterPair != null) {
+                                awaitMainFrame()
+                                com.helix.app.diagnostics
+                                    .recordMobileDescriptors("task-$repetition-frame-committed")
+                            }
                         }
                         repetition++
                     } while (if (afterPair ==
@@ -354,14 +361,20 @@ class ProgressiveSkillModelDeviceTest {
         val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val homePackage = requireNotNull(app.packageManager.resolveActivity(home, 0)).activityInfo.packageName
         repeat(2) { cycle ->
+            com.helix.app.diagnostics
+                .recordMobileDescriptors("return-$repetition-$cycle-before-home")
             app.startActivity(home)
             await { automation.rootInActiveWindow?.packageName?.toString() == homePackage }
             returnToHelix()
             await { automation.rootInActiveWindow?.packageName?.toString() == app.packageName }
             await { visibleTextBounds(automation.rootInActiveWindow, "Progressive mobile $repetition") != null }
             delay(500)
+            com.helix.app.diagnostics
+                .recordMobileDescriptors("return-$repetition-$cycle-before-screenshot")
             val pixels = requireNotNull(automation.takeScreenshot())
             try {
+                com.helix.app.diagnostics
+                    .recordMobileDescriptors("return-$repetition-$cycle-after-screenshot")
                 val titleBounds =
                     requireNotNull(
                         visibleTextBounds(automation.rootInActiveWindow, "Progressive mobile $repetition"),
@@ -381,7 +394,36 @@ class ProgressiveSkillModelDeviceTest {
                 )
             } finally {
                 pixels.recycle()
+                com.helix.app.diagnostics
+                    .recordMobileDescriptors("return-$repetition-$cycle-after-recycle")
             }
+        }
+    }
+
+    private fun awaitMainFrame() {
+        val committed = java.util.concurrent.CompletableFuture<Unit>()
+        val callback = Runnable { committed.complete(Unit) }
+        var observer: android.view.ViewTreeObserver? = null
+        instrumentation.runOnMainSync {
+            val activity =
+                androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+                    .getInstance()
+                    .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
+                    .filterIsInstance<MainActivity>()
+                    .single()
+            val decor = activity.window.decorView
+            assertTrue("Returned Helix window must use hardware rendering", decor.isHardwareAccelerated)
+            observer = decor.viewTreeObserver
+            observer!!.registerFrameCommitCallback(callback)
+            decor.invalidate()
+        }
+        try {
+            committed.get(5, java.util.concurrent.TimeUnit.SECONDS)
+            // Resource snapshots must follow the same settled foreground lifecycle at every pair.
+            // One fixed settling interval (as in the app resource fixture), never FD-based retry or GC.
+            Thread.sleep(1_000)
+        } finally {
+            instrumentation.runOnMainSync { observer?.takeIf { it.isAlive }?.unregisterFrameCommitCallback(callback) }
         }
     }
 

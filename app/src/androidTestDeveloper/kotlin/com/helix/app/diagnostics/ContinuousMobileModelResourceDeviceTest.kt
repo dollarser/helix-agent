@@ -26,6 +26,11 @@ class ContinuousMobileModelResourceDeviceTest {
                 println("MOBILE_DIAGNOSTIC pair=$pair fd=${before[0]} threads=${before[1]} pss=${before[2]}")
                 val counts = descriptors().map { it.substringAfter(':') }.groupingBy { it }.eachCount()
                 println("MOBILE_DESCRIPTOR_COUNTS=$counts")
+                recordMobileDescriptors("pair-$pair-immediate")
+                Thread.sleep(1_000)
+                recordMobileDescriptors("pair-$pair-idle-1s")
+                Thread.sleep(4_000)
+                recordMobileDescriptors("pair-$pair-idle-5s")
                 pair < pairs
             }
         } finally {
