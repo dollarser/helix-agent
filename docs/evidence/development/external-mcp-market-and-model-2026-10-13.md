@@ -187,3 +187,7 @@ rep23是真实模型业务失败：初始快照canImeEnter未就绪，模型调�
 随后测试自身在returnToHelix后立即查询RESUMED MainActivity并single()，系统START/转场日志尚在处理，列表暂为空导致NoSuchElementException。成功业务路径先做HOME/返回验证，通常已等待生命周期，失败路径更容易暴露这项夹具竞态。改为在原同一个5秒帧deadline内有界等待唯一RESUMED、附着且可见硬件窗口，再确认实际帧提交；保留固定1秒静置，不依据FD变化重试、不延长总确认期限，不跳过缺失/多窗口/软件渲染失败。新增6次合成目标→MainActivity实际帧旅程覆盖这条直接返回路径，独立于模型业务判断；未对R4补写通过。
 
 该修正完整主机r20/r21 exit0，双渠道AndroidTest编译通过。`r4-recovery-guidance-r1`初始实际拼音、Skill/resource、6次直接返回帧方法共3方法通过；随后明确offscreen/普通表单固定4个真实Qwen业务及2方法全部通过，8次HOME/返回核验、35条完整200响应，输入543052/输出4236 token。无失败工具/PROTOCOL，原用户Turn正常终态。主APK `13f91554090afdb440a3e3ba1b931c24f86bd9fb137d6353c2815593e350850e`、测试APK `2c4eca7784376c37bcaac4f6267e2686874befb0674c004acb2bd9a2687e0889`；VM71389/recorder71542 exit0，原无障碍设置恢复、转发删除，ADB仅日常5554。当前准备提交这项明确代码/指导修正，再用同一修正制品验证完整时长；不会以不改版本的重复试跑替代失败归因，R4业务与生命周期失败均保留。
+
+## 修复后 R5 运行身份
+
+修正提交 `75b999f6` 后，用与上述短回归相同的冻结制品启动 `build/hxa282/mobile-two-hours-r5`；launcher76221、owned VM76263、匿名recorder76414，emulator-5600。初始拼音passed后于2026-10-13 20:36:14.697 Asia/Shanghai开始测量，main PID3945，基线FD166/线程59/PSS148592KiB；预计22:36后结算，当前pending。R4原实例/转发已关闭，不并行启动、不更改运行中制品；保留全部原始流、原Turn状态、独立主机采样和失败，不从未修改版本中筛选通过。
