@@ -173,3 +173,7 @@ r16完整构建在双渠道Release D8并行合并阶段触发Java heap space（�
 保留输出上限，缩短提示并为真实offscreen结果增加输出schema验证；同时夹具固定最初用户Turn身份，记录所有关联Turn的state/error，清理所有本轮Turn后才删除自有会话。没有扩大执行授权或使自动恢复重放动作。r2原始数据/关闭记录保留（VM37438、recorder37582 exit0），本轮两小时还未启动；先用修正的制品验证这项确定的输出契约缺陷，再启动唯一R4。
 
 修正后 `check-all-r19.txt`完整全仓exit0（同样单worker单次主机进程），双渠道AndroidTest编译与offscreen输出schema回归通过。`prompt-guidance-r3`最终主APK `074ace2bdee93aa16d3537dcff49b9c48e947477f4263ab15d47954b57647af6`、测试APK `59591c572557ee5fd31753bd1738bde69484b7f1541294b7fa3b1b2f7b05726c` 固定明确offscreen及普通表单各2任务，4/4业务、2方法通过，原用户Turn均COMPLETED/error=null，无恢复Turn、失败工具或PROTOCOL。35条真实Qwen完整200响应，输入521386/输出4029 token，8次HOME/返回核验通过；实际拼音与Skill/resource设备方法也通过。VM44209/recorder48054均exit0，原设置恢复、转发移除。r1通过、r2失败、r3修后通过分别保留，不合并成一个无失败成功率。
+
+## 新版两小时 R4 运行身份
+
+指导与输出契约/原Turn归因修正提交 `c8f802fc` 后，只启动一轮 `build/hxa282/mobile-two-hours-r4`，冻结主/测试APK与上方最终复验一致。launcher53151/caffeinate53152、owned VM53201（emulator-5600）、匿名Qwen recorder53310（30009→30008）；已核对旧测试进程关闭及仅日常5554在线，不借用日常实例。实际拼音初始方法passed后，连续任务测量从2026-10-13 19:57:39.680 Asia/Shanghai（11:57:39 UTC）开始；main PID3908，基线FD166/线程60/PSS133977KiB。原7200秒、FD+8/线程+16/PSS+96MiB及所有业务独立断言保持，当前pending，预计21:57:39后结算。原始SSE、独立主机采样、原Turn/关联Turn状态和所有失败均保留，不重复启动或修改运行中制品；终态与关闭记录后续追加。
