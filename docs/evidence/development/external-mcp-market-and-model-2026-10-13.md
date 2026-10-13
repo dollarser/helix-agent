@@ -97,3 +97,17 @@ Owner确认重连后核对同一`561e3b15`（OnePlus6T/API34/Developer），先�
 资源夹具已增加触发FD门禁时逐条描述符元数据，避免单行4KiB截断；不读取描述符内容，不改变采样值、物理边界或失败结论。此前PROTOCOL没有原始帧，仍未关闭。
 
 最终生产竞态/配置等待诊断/逐条FD诊断提交`60a10c4c`；当前源码`check-all.sh --all`新鲜r11 exit0、Developer AndroidTest APK新鲜r5编译通过。r9 LongMethod及r10格式门禁失败已通过提取诊断helper和定点格式修复，未关闭门禁；全部早期日志保留。手机数据/浏览器pending已关闭，真实FD漂移、历史PROTOCOL因果与完整7200秒仍未关闭，本次不启动尚缺资源前提的新两小时实例。
+
+## FD 分阶段因果对照与协议重放
+
+`mobile-fd-phases-r1`自有API36/Developer、PID3848完成6 pair/12业务，诊断方法通过（不是资源接受）；126个阶段记录独立保存。即时清理后FD160～164；所有6组1秒及5秒均FD166、sync_file23。第一次HOME/返回在截图前sync_file8→17，截图前后sync_file数量不变；模型任务/HOME阶段还会升高并回落。不能把全部增长归因于截图、传输socket或Java永久retention。
+
+`mobile-fd-frame-r1`另一个自有实例、PID3905，4 pair/8业务诊断通过；92阶段记录中1475次fence poll可读（已signal），4次pending。帧提交后FD162～166变化，全部4组1秒/5秒仍FD166、sync_file23。`gfxinfo`显示1个MainActivity ViewRootImpl及当前BLAST Consumer的3个1080×2400 buffer；描述符由主进程持有，与返回/绘制生命周期高度关联。关联到framework窗口图形资源是依据时序及graphics信息的推断，未取得fd→native分配栈；当前内核fdinfo仅有pos/flags/mnt_id/inode，不提供fence driver/timeline。两次owned VM与recorder均exit0，反向端口删除，日常模拟器未操作。
+
+实际发现夹具在清理/返回后立即取基线，未等同一渲染阶段，而idle样本在界面稳定后获取。修正仅作用连续测试：要求MainActivity处于RESUMED，确认一帧已提交（最大5秒，失败直接失败），再固定静置1秒，基线与每组测量均相同。采用[Android官方FrameCommit API](https://developer.android.com/reference/android/view/ViewTreeObserver#registerFrameCommitCallback(java.lang.Runnable))和既有app resource fixture的固定静置惯例；不按FD值重试、不GC、不改两warm任务及FD+8/线程+16/PSS+96MiB。帧提交本身不保证全部资源已稳定，故保留一致静置及后续idle门禁。`check-all.sh --all`新鲜r12 exit0、测试APK编译通过；当前资源短测仍进行中，不提前计资源通过。
+
+历史PROTOCOL实际只留下rep44 FAILED/PROTOCOL、0工具和usage=null；本地既无原响应帧、decoder violation detail，也无当轮SQLite归档。当前ModelEvent.Error不携带detail，ModelCallEntity不保存该错误细节；30008监听是现有VS Code转发，未提供远端服务日志访问，因此不能从现有证据还原具体违规类型/服务端请求。已将第二轮415条实际200 SSE完整字节用当前ChatCompletionsStreamDecoder按1/7/8192字节分块重放，1245次解析均唯一正常终结、无Error，单个离线JUnit通过；这证明这些已捕获流与分块健壮性，不能证明第一轮错误修复。临时重放JUnit与init script在忽略的local目录，编译产物已从普通测试输出移除，避免后续误用。下一轮recorder保留实际Accept-Encoding协商、原响应编码及字节，并维持失败记录；不将历史PROTOCOL归因于MCP gzip修复或会话竞态。
+
+`141739e0`提交上述连续夹具采样同步及opt-in内核元数据。`mobile-settled-precheck-r1`3方法通过（中文拼音、250次配置回归、180秒连续资源）；8个实际Qwen业务成功，含2 warm/6测量业务，测量约182443ms，原FD/线程/PSS断言未触发，实例PID34648 exit0。不能把这记为两小时通过。
+
+随后启动唯一`mobile-two-hours-r3`，launcher PID39727、owned emulator PID39768（API36 Developer）、recorder PID40656、主App PID3853；启动08:28:13 UTC，测量开始08:30:10 UTC。原7200秒、单PID、全业务与资源门禁/主机独立采样保留；当前运行中、pending，预计测量结束10:30:10 UTC后结算并关闭自己的实例/转发器。父/后续会话应检查这一既有目录与PID，不能另起重复长测。手机补验不重跑，日常模拟器不操作。只有长测结果待等时按Owner此前指示交接，不提前关闭HXA-282。
