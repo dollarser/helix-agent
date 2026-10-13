@@ -119,3 +119,14 @@ R3仍使用冻结的原APK/测试APK，未重启。rep30在08:50:35 UTC业务校
 已准备小范围引导修正，尚未构建/安装到R3：明确Skill读取的当前会话由host绑定、模型省略可选sessionId；保留原minLength=1及caller-bound执行，增加空hint拒绝回归。Mobile Use required规则明确需要观察/滚动不是blocker，必须继续真实调用直至验证完成或具体外部阻塞，不盲目重放不确定效果。这只澄清原有行为，不新增权限或自动恢复执行。参考[Claude Skills渐进读取](https://code.claude.com/docs/en/skills)继续保留短必需规则和按需正文；不把一次Skill拒绝断言为提前结束的唯一根因。检查/定向模型验证须待当前长测结束后串行进行，当前数据不使用这些未验证修正。
 
 协调层容量中断后的存活复核：2026-10-13T09:52:00Z，原launcher39727/VM39768/recorder40656仍在，主App PID3853持续；测量4905779ms、业务118（失败1），FD峰值168、线程63、PSS161417KiB，均未触发原门禁；无读取/连接阻塞。`monitor.jsonl`每45秒保留只读检查，`live-status.json`为本次快照；原R3不重启。业务失败和仍在测量分别记录，不能因协调中断判断测试进程失败。
+## R3 最终结算与测量覆盖
+
+同一自有 API36/Developer 实例的 R3 于 2026-10-13 10:30:36 UTC 完成设备测量，runner 10:30:49 UTC 结算为 **FAIL_FUNCTIONAL**。实际测量 7,226,281ms、86 个测量 pair；原轨迹共 174 个真实 Qwen 合成业务（2 热身、172 测量），173 成功、rep30 失败。失败为模型找到屏幕外按钮后结束，没有继续观察/滚动；不是工具缺失或 `PROTOCOL`。失败结果及最终 all-results 断言原样保留，不把“Turn COMPLETED”当业务成功。
+
+全程 main PID3853。基线 FD166/线程59/PSS141832KiB，设备采样峰值 FD168/线程63/PSS162684KiB，增量分别 +2/+4/+20852KiB，未触发原 FD+8、线程+16、PSS+96MiB 门禁。资源测量完整且原阈值满足，但业务断言失败使整轮不能记 passed。失败后的通用 result.json 没有成功标记，`baselineWarmupCycles=0`、`casesPerCycle=null`；实际热身和业务数由当前夹具与 rep0～173 原日志独立核对，不能把缺失成功元数据理解为没有热身。
+
+主机 242 条采样中 241 条成功，成功采样最大间隔 30.6s、PSS 峰值167620KiB。唯一失败在 hostSec7307.1（runner结算附近），原始 `meminfo/000241.txt` 为 `No process found for: com.helix.agent.developer`；方法终态 10:30:36.840 UTC 已在此前记录，最后一次成功主机采样距终态约18秒，设备侧终末资源读数仍完整。该终末采样不构成测量中断，不将 null PID/PSS 记作资源为零或重启。独立汇总在本机 `build/hxa282/mobile-two-hours-r3/final-reconciliation.json`，未覆盖原 result.json。
+
+R3 捕获 1454 条实际 `/chat/completions` 响应，均 HTTP200/完整结束；没有 `error=PROTOCOL` 或 `TEST_SESSION_CONTROL_TIMEOUT`。这只是当前有界不复现，不能归因或关闭 R1 缺原始帧的历史 PROTOCOL。原始流、模型请求与失败回复只留忽略目录。
+
+原测试 VM PID39768、recorder PID40656 各有 exit0 关闭记录；launcher/caffeinate 已退出，30009 不再监听。runner/recorder 的 finally 移除各自转发，read-only AVD 不保存临时权限或数据，未操作日常模拟器。本轮后续只做提示修正的定向回归，不重复整轮两小时。
