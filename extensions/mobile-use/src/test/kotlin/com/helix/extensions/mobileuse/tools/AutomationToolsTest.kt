@@ -241,7 +241,22 @@ class AutomationToolsTest {
         assertEquals("", automationClickTargetToken(child, mapOf(parent.token to parent, child.token to child)))
         port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = listOf(node)))
         val found = completed(execute(AutomationTools.FIND, args("text" to "Continue")))
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.FIND }
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, found))
         assertFalse(found.containsKey("suggestedClickToken"))
+        assertTrue(
+            found
+                .getValue("actionHint")
+                .jsonPrimitive.content
+                .contains("ui.snapshot"),
+        )
+        assertTrue(
+            found
+                .getValue("actionHint")
+                .jsonPrimitive.content
+                .contains("scrollable=true"),
+        )
+        assertTrue(port.nodeRequests.isEmpty())
         assertTrue(
             found
                 .getValue("actionHint")

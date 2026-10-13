@@ -126,3 +126,5 @@ Owner授权继续278并排查requestReadiness上下文风险。采用[Claude Cod
 ## Decision history — 2026-10-13：明确调用身份和正常观察流程
 
 HXA-282 的真实 Qwen 长测出现空 `sessionId` 被 schema 拒绝，以及模型收到 offscreen 结果后提前结束。沿用当前宿主调用身份和渐进装载契约，仅澄清工具参数与每次操作所需的短规则；不删除约束、注入执行权限、扩大常驻 Skill 正文或硬编码模型动作。[Claude Code 官方 Skills 文档](https://code.claude.com/docs/en/skills)仍作为按需流程指导的参考，不推导其工具参数与 Helix 相同。修正效果及失败保留在[282证据](../../evidence/development/external-mcp-market-and-model-2026-10-13.md)，有界回归不覆盖历史协议根因或完整长稳验收。
+
+Owner随后要求一并优化系统提示、内置工具描述与Skill，再完成新版两小时验收。采用[Codex工具发现模板](https://github.com/openai/codex/blob/main/codex-rs/core/templates/search_tool/tool_description.md)的下一次模型请求曝光契约，以及[Claude Code最佳实践](https://code.claude.com/docs/en/best-practices)的短通用指导、按需流程和可观察完成标准；保持Helix的当前schema、宿主绑定身份和权限边界。offscreen匹配结果、find/scroll/snapshot描述与Android参考Skill统一明确新观察、scrollable容器和token失效；浏览器短Skill说明陈旧/歧义目标恢复，安装Skill使用当前扩展配置入口。只改变指导与诊断提示，不由宿主选择动作或用户授权答案；验证结果见同一282证据。

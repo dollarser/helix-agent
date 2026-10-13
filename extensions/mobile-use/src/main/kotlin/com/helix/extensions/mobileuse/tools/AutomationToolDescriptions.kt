@@ -9,11 +9,7 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.FIND -> {
-                "Find controls in a fresh screen observation using observed labels or attributes. " +
-                    "Default text matching is exact; use match=contains for a substring. " +
-                    "An actionable unique match supplies suggestedClickToken for ui.click. " +
-                    "Offscreen matches are not clickable: scroll their container and observe again. " +
-                    "Does not click or wait."
+                FIND_DESCRIPTION
             }
 
             AutomationTools.WAIT -> {
@@ -56,8 +52,7 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.SCROLL -> {
-                "Scroll a fresh scrollable node token forward or backward, then observe newly visible controls. " +
-                    "For coordinate/canvas gestures use ui.device, ui.screenshot and ui.gesture instead."
+                SCROLL_DESCRIPTION
             }
 
             AutomationTools.BACK -> {
@@ -79,6 +74,22 @@ internal object AutomationToolDescriptions {
 private const val SNAPSHOT_DESCRIPTION =
     "Observe the current authorized Android screen without acting. Returns fresh node tokens, " +
         "labels, bounds and state; omitted flags mean false. " +
+        "This observation replaces earlier tokens. For scrolling choose a node with scrollable=true. " +
         "Offscreen nodes require scrolling before clicking. " +
         "Check truncated/recoveryHint before " +
         "concluding a control is absent. Observation chooses ready Root, then Shizuku, then Accessibility."
+
+private const val FIND_DESCRIPTION =
+    "Find controls in a fresh screen observation using observed labels or attributes. " +
+        "Default text matching is exact; use match=contains for a substring. " +
+        "An actionable unique match supplies suggestedClickToken for ui.click. " +
+        "This observation replaces all earlier node tokens. Offscreen matches are not clickable: " +
+        "call ui.snapshot, select a fresh node with scrollable=true, scroll it and observe again. " +
+        "scrollable is a returned node flag, not a ui.find argument. " +
+        "Does not click or wait."
+
+private const val SCROLL_DESCRIPTION =
+    "Scroll a fresh scrollable node token forward or backward, then observe newly visible controls. " +
+        "Use token from a current ui.snapshot node with scrollable=true, not the offscreen button's " +
+        "token or clickTargetToken. A later observation invalidates the earlier container token. " +
+        "For coordinate/canvas gestures use ui.device, ui.screenshot and ui.gesture instead."

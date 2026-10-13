@@ -379,9 +379,9 @@ class AutomationTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "Matches are offscreen. Scroll a fresh scrollable container token with ui.scroll, " +
-                            "then observe again. " +
-                            "Do not click these tokens or guess coordinates.",
+                        "Offscreen matches. Call ui.snapshot; select a fresh scrollable=true node and pass its " +
+                            "token to ui.scroll, then observe again. scrollable is a returned flag, not a ui.find " +
+                            "argument. Do not click offscreen tokens or guess coordinates.",
                     ),
                 )
             }

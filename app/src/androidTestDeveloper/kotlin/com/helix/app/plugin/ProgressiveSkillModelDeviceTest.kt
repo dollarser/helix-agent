@@ -201,15 +201,22 @@ class ProgressiveSkillModelDeviceTest {
                                 }
                             val start = SystemClock.elapsedRealtime()
                             c.chatService.sendTestMessage(session, prompt)
+                            await {
+                                c.storage.turns
+                                    .listBySession(session)
+                                    .isNotEmpty()
+                            }
+                            val requestedTurnId =
+                                c.storage.turns
+                                    .listBySession(session)
+                                    .first()
+                                    .id
                             await(240000) {
-                                c.storage.turns.listBySession(session).lastOrNull()?.let {
+                                c.storage.turns.find(requestedTurnId)?.let {
                                     TurnState.valueOf(it.state).isTerminal
                                 } == true
                             }
-                            val turn =
-                                c.storage.turns
-                                    .listBySession(session)
-                                    .last()
+                            val turn = requireNotNull(c.storage.turns.find(requestedTurnId))
                             val calls = c.storage.toolCalls.listByTurn(turn.id)
                             val models = c.storage.modelCalls.listByTurn(turn.id)
                             val verified =
@@ -311,6 +318,12 @@ class ProgressiveSkillModelDeviceTest {
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
                                     "calls=${calls.map { it.name to it.state }} usage=${models.map { it.usage }}",
                             )
+                            println(
+                                "PROGRESSIVE_RELATED_TURNS rep=$repetition requested=$requestedTurnId " +
+                                    "states=${c.storage.turns.listBySession(
+                                        session,
+                                    ).map { it.id to (it.state to it.errorCode) }}",
+                            )
                             if (kind == "mobile" && success && backend == "accessibility") {
                                 verifyMobileBackgroundReturn(session, repetition)
                             }
@@ -330,16 +343,13 @@ class ProgressiveSkillModelDeviceTest {
                             // Keep every business result authoritative, but complete the bounded resource
                             // measurement before the final all-results assertion; failures never become passes.
                         } finally {
-                            c.storage.turns
-                                .listBySession(session)
-                                .lastOrNull()
-                                ?.let {
-                                    c.chatService.stopTurn(it.id)
-                                    withTimeout(20_000) { c.agentRuntime.observe(TurnId(it.id)).collect {} }
-                                    assertTrue(
-                                        TurnState.valueOf(requireNotNull(c.storage.turns.find(it.id)).state).isTerminal,
-                                    )
-                                }
+                            c.storage.turns.listBySession(session).asReversed().forEach {
+                                c.chatService.stopTurn(it.id)
+                                withTimeout(20_000) { c.agentRuntime.observe(TurnId(it.id)).collect {} }
+                                assertTrue(
+                                    TurnState.valueOf(requireNotNull(c.storage.turns.find(it.id)).state).isTerminal,
+                                )
+                            }
                             selection.close()
                             tab?.let { id -> instrumentation.runOnMainSync { c.browser.closeTab(id) } }
                             c.chatService.closeSession()

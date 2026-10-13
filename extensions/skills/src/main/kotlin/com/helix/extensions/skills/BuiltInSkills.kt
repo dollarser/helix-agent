@@ -20,7 +20,8 @@ object BuiltInSkills {
                 Unsupported stdio or host-specific setup is a compatibility result, not a reason to run bash.
                 Call connectors.install with path and expectedHash through the normal exact approval flow.
                 Installation does not connect or enable the server. Record the actual returned id and hash.
-                Direct the user to Settings > Connectors to enter credentials, test connection and select tools.
+                Use the installed extension's configuration in Extensions to enter credentials in native fields,
+                test connection and choose it for the session. Report missing connection or authorization precisely.
                 Do not request secrets in chat or put credentials into JSON, model arguments, or generated scripts.
                 After an uncertain outcome, check installed Connectors by hash before retrying.
                 """,
@@ -37,6 +38,7 @@ object BuiltInSkills {
                 If content changed, preview again; do not substitute a new hash into an old approval.
                 Record source, name and snapshotHash from the actual installed result. New snapshots are disabled.
                 Offer explicit enablement using skills.enable and its actual SkillKey, then skills.read to verify use.
+                The host binds the calling session; omit sessionId on list/read/read_resource.
                 For an interrupted result, query skills.list for the exact hash before proposing any retry.
                 Do not download silently, run bundled scripts, import credentials, or change installed snapshot files.
                 """,
@@ -52,6 +54,8 @@ object BuiltInSkills {
                 Use scoped write/edit to create work/skills/<name>/SKILL.md in the current Workspace.
                 The frontmatter needs name and description; the directory name must match name.
                 Keep actionable instructions in SKILL.md. Add references/assets/scripts only when useful.
+                State concrete completion checks, recoverable prerequisites and genuine blockers.
+                Tool names are discovery hints; use only current exposed schemas. Never invent scope or session IDs.
                 Source scripts are data until executed through an available tool and its normal approval.
                 Use skills.preview with the exact scope path. Resolve validation errors and inspect the file manifest.
                 Preserve the returned hash for the installation review. Preview success does not mean installed.

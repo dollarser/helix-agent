@@ -151,3 +151,25 @@ R3 捕获 1454 条实际 `/chat/completions` 响应，均 HTTP200/完整结束�
 `check-all-r13.txt`、最终源码与ADR的 `check-all-r14.txt` 均 exit0：全仓source/JVM/Spotless/Detekt/lint、双渠道Debug/Release制品及边界/锁检查通过；受影响Skill56项、Mobile Use255项无失败或跳过。新增分支的双渠道AndroidTest APK编译通过（`offscreen-build-r1.txt`），没有以编译替代模型验收。一次错误文档检查脚本路径及EOF空行已更正，实际 `check-docs.sh` 通过，原失败输出保留。
 
 当前收尾交付不关闭 HXA-282 整体验收：R3 的173/174与FAIL_FUNCTIONAL不改写；按本轮要求没有重跑修正后两小时，若要关闭连续任务检查点，仍需新版完整业务/资源验收。R1历史PROTOCOL原帧/服务端日志缺失，无法可靠归因；第104次历史配置timeout也未证明由已修的发布竞态引起。本轮与R3不复现只是有界事实。公网厂商revoke/其他OEM/24h仍为既有范围边界，不自动新增任务。
+
+## Owner追加：通用指导与完整连续验收
+
+Owner随后明确要求完成剩余工作并优化系统提示、内置工具描述与Skill，当前沿用已授权自有API36、匿名localhost:30008 Qwen合成范围。通用base.md从4672缩至3899 UTF-8字节，合并重复发现/恢复说明，保留当前schema才可调用、下一次请求曝光、独立并发/依赖顺序、模式和权限、UNKNOWN不重放、Goal报告及实际完成核验；补简洁用户语言输出，不把内部token/hash作为普通答复内容。
+
+参考[Codex工具发现模板](https://github.com/openai/codex/blob/main/codex-rs/core/templates/search_tool/tool_description.md)的下一请求曝光、[Codex GPT-5.2仓库提示](https://github.com/openai/codex/blob/main/codex-rs/core/gpt_5_2_prompt.md)的任务完成和简洁沟通原则，以及[Claude Code官方最佳实践](https://code.claude.com/docs/en/best-practices)的短通用指导、按需领域流程和可核验结果。参考特定源文件，不将其称为所有Codex模型/桌面版统一提示；未复制第三方文本或改变Helix权限契约。
+
+find/scroll/snapshot描述、实际offscreen actionHint、Android短Skill及参考资料统一明确：find也替换旧token；先snapshot取得scrollable=true容器，再滚动该容器，不使用屏幕外按钮/点击token。提示不代模型滚动。Browser短Skill补陈旧/歧义目标与当前schema，内置Skill Creator补完成检查/阻塞分类，安装Skill补宿主会话身份并改为当前Extensions配置入口。原执行策略、schema、工具版本、审批/取消与资源阈值不变。
+
+首轮新增offscreen提示断言误放在歧义匹配case，导致NoSuchElementException；移到真正offscreen case，原歧义断言保持，并增加无节点动作断言。受影响主机测试r2通过。首个完整门禁r15因描述分派方法增加字符串后超过Detekt LongMethod失败，按原SNAPSHOT常量模式拆出FIND/SCROLL文本，不豁免规则；新鲜完整门禁、定向模型及一轮两小时验收结果继续在本节追加，不提前填passed。R3与所有失败记录保留，完整验收不自动重复到通过。
+
+r16完整构建在双渠道Release D8并行合并阶段触发Java heap space（既有4GiB主机JVM），不是Android资源门禁或模型失败。采用本轮 `GRADLE_OPTS='-Dorg.gradle.workers.max=1 -Dorg.gradle.daemon=false'` 使用单次新主机进程/单worker重跑全部门禁；不修改仓库堆配置、应用资源阈值或跳过Release任务。
+
+新鲜r17完整全仓门禁exit0，双渠道AndroidTest编译r2通过。`prompt-guidance-r1`在新主APK（SHA-256 `bbc6909f3cbe8d07ee174595a21d86e662ff8ae97169bf07b92bfd58c869bf76`）固定Skill、浏览器、明确offscreen-find、普通手机表单各2任务，8/8业务及4方法通过，另实际拼音与生产Skill/resource设备2方法通过；60条真实Qwen请求均完整200，无PROTOCOL，业务输入775252/输出9319 token。1次中间工具失败保留，未把业务成功说成所有工具一次成功。8次实际HOME/返回核验通过，设置before/after相同，VM26396和recorder26516均exit0，转发移除。两小时尚未启动，不依据这8个样本预报普遍策略收益。
+
+该中间错误为模型调用 `ui.find(scrollable="true")`，schema正确拒绝后模型恢复完成。进一步在find描述、offscreen返回提示与参考Skill明确scrollable是快照返回字段而非find参数，保留原schema不添加伪参数。对这处实际描述歧义用新制品固定复验offscreen及普通表单；完整两小时等待最终制品冻结后才启动一次。
+
+`prompt-guidance-r2`记录真实回归：明确offscreen方法2任务失败、普通表单2任务成功，方法1/2，整次failed；没有将恢复检查完成替代任务通过。原始wire显示用户任务完成输入后进入只读自动恢复，旧夹具取last Turn，打印的是恢复Turn的COMPLETED与只读调用，无法表示原用户任务错误码。查源码确认扩展后的offscreen actionHint292字符超过现有find输出schema256上限，Dispatcher必拒绝该输出；主机直接执行器测试原先未校验这一分支输出。
+
+保留输出上限，缩短提示并为真实offscreen结果增加输出schema验证；同时夹具固定最初用户Turn身份，记录所有关联Turn的state/error，清理所有本轮Turn后才删除自有会话。没有扩大执行授权或使自动恢复重放动作。r2原始数据/关闭记录保留（VM37438、recorder37582 exit0），本轮两小时还未启动；先用修正的制品验证这项确定的输出契约缺陷，再启动唯一R4。
+
+修正后 `check-all-r19.txt`完整全仓exit0（同样单worker单次主机进程），双渠道AndroidTest编译与offscreen输出schema回归通过。`prompt-guidance-r3`最终主APK `074ace2bdee93aa16d3537dcff49b9c48e947477f4263ab15d47954b57647af6`、测试APK `59591c572557ee5fd31753bd1738bde69484b7f1541294b7fa3b1b2f7b05726c` 固定明确offscreen及普通表单各2任务，4/4业务、2方法通过，原用户Turn均COMPLETED/error=null，无恢复Turn、失败工具或PROTOCOL。35条真实Qwen完整200响应，输入521386/输出4029 token，8次HOME/返回核验通过；实际拼音与Skill/resource设备方法也通过。VM44209/recorder48054均exit0，原设置恢复、转发移除。r1通过、r2失败、r3修后通过分别保留，不合并成一个无失败成功率。
