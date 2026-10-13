@@ -320,4 +320,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-279 | 本地有界交付；主机/双渠道/六类Qwen已验，Gboard拼音失败与未测边界保留 | UI 观察反馈与 Browser 标签发现及有界等待 | [任务](tasks/HXA-279.md) |
 | HXA-280 | 本地有界交付；完整主机、API36双渠道及OnePlus/Qwen通过，长期/OEM边界保留 | 工具发现与请求工作集优化 | [完成记录](../completion-records/HXA-280.md) |
 | HXA-281 | 有界交付；全仓主机、API36两渠道与OnePlus/Qwen补验passed，公网账号/其他OEM边界保留 | 工具发现指导与外部插件市场复用 | [完成记录](../completion-records/HXA-281.md) |
-| HXA-282 | 有界协议/市场/模型结果已交付；idle FD诊断与两小时、手机重连补验pending | 外部服务、市场恢复与连续 Agent 验收 | [任务](tasks/HXA-282.md) |
+| HXA-282 | 协议/市场/手机补验及提示/Skill修正已交付；R5后台继续，业务失败保留、终态pending | 外部服务、市场恢复与连续 Agent 验收 | [任务](tasks/HXA-282.md) |

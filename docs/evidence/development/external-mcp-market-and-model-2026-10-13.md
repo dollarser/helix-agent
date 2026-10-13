@@ -191,3 +191,7 @@ rep23是真实模型业务失败：初始快照canImeEnter未就绪，模型调�
 ## 修复后 R5 运行身份
 
 修正提交 `75b999f6` 后，用与上述短回归相同的冻结制品启动 `build/hxa282/mobile-two-hours-r5`；launcher76221、owned VM76263、匿名recorder76414，emulator-5600。初始拼音passed后于2026-10-13 20:36:14.697 Asia/Shanghai开始测量，main PID3945，基线FD166/线程59/PSS148592KiB；预计22:36后结算，当前pending。R4原实例/转发已关闭，不并行启动、不更改运行中制品；保留全部原始流、原Turn状态、独立主机采样和失败，不从未修改版本中筛选通过。
+
+R5的rep93于21:38:05记录业务false，原用户Turn为COMPLETED/error=null，只有该原Turn，没有自动恢复Turn。真实调用依次snapshot、set_text、snapshot、scroll、snapshot，均COMPLETED；最后观察中“完成测试”按钮enabled/clickable且在可见bounds内。最后请求实际曝光34个工具，包含ui.click与ui.scroll，不是工具未加载。wire774～779六条响应均完整HTTP200；末条输出“I can see the 完成测试 button now. Clicking it once.”但没有tool_calls，finish_reason=stop，输出35 token，并非OUTPUT_TOKEN_LIMIT或PROTOCOL。独立业务结果没有被这句话替代。当前测试继续原完整时长，失败保留，整轮最终状态须由all-results结算，不能以资源采样正常记业务passed。
+
+Owner于22:05再次明确使用自有API36/既有Qwen，并选择“后台继续，暂停前台等待”。暂停前核对原launcher76221、VM76263、recorder76414和只读monitor76346仍存活，未重启测试；22:04:44快照测量5290565ms、132任务131成功，FD/线程/PSS峰值168/60/163554KiB，main PID3945保持。原防休眠进程76222已退出，另起96386仅用-w绑定现有launcher生命周期，未停止其他防休眠进程；后台交接身份留在忽略目录background-handoff.json。前台停止等待后结果仍pending，最终须读取原result/JUnit、全部业务、主机采样及关闭记录；没有提前填两小时passed或创建完成记录。
