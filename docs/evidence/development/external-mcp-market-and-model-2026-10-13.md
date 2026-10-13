@@ -195,3 +195,40 @@ rep23是真实模型业务失败：初始快照canImeEnter未就绪，模型调�
 R5的rep93于21:38:05记录业务false，原用户Turn为COMPLETED/error=null，只有该原Turn，没有自动恢复Turn。真实调用依次snapshot、set_text、snapshot、scroll、snapshot，均COMPLETED；最后观察中“完成测试”按钮enabled/clickable且在可见bounds内。最后请求实际曝光34个工具，包含ui.click与ui.scroll，不是工具未加载。wire774～779六条响应均完整HTTP200；末条输出“I can see the 完成测试 button now. Clicking it once.”但没有tool_calls，finish_reason=stop，输出35 token，并非OUTPUT_TOKEN_LIMIT或PROTOCOL。独立业务结果没有被这句话替代。当前测试继续原完整时长，失败保留，整轮最终状态须由all-results结算，不能以资源采样正常记业务passed。
 
 Owner于22:05再次明确使用自有API36/既有Qwen，并选择“后台继续，暂停前台等待”。暂停前核对原launcher76221、VM76263、recorder76414和只读monitor76346仍存活，未重启测试；22:04:44快照测量5290565ms、132任务131成功，FD/线程/PSS峰值168/60/163554KiB，main PID3945保持。原防休眠进程76222已退出，另起96386仅用-w绑定现有launcher生命周期，未停止其他防休眠进程；后台交接身份留在忽略目录background-handoff.json。前台停止等待后结果仍pending，最终须读取原result/JUnit、全部业务、主机采样及关闭记录；没有提前填两小时passed或创建完成记录。
+
+## 提前结束的分层调查（Owner追加分析）
+
+本阶段只检查既有原始请求/SSE、当前源码及官方资料，没有额外调用模型、重启R5或更改运行中制品。R5后台继续期间rep140也失败：22:10:03原Turn为COMPLETED/error=null，snapshot、set_text、snapshot均成功，模型随后说需要滚动却没有调用scroll。该失败与rep93分别保留，不能沿用暂停前只有1失败的快照作为最新累计结果。
+
+| 已捕获失败 | 末次wire | 输入/输出token | 原始结束与未执行动作 |
+| --- | --- | --- | --- |
+| R3 rep30 | 262 | 14645/140 | stop，无调用；说明需要新容器但没有继续观察/滚动 |
+| R4 rep23 | 198 | 19007/47 | stop，无调用；说明将重新填入但未调用set_text |
+| R5 rep93 | 779 | 19108/35 | stop，无调用；说明将点击但未调用click |
+| R5 rep140 | 1158 | 16664/176 | stop，无调用；说明将滚动但未调用scroll |
+
+这些响应均完整HTTP200，原请求max_tokens=8192、曝光34个工具，没有显式stop/temperature/top_p/tool_choice字段；实际采样默认值仍由服务端决定。四条已逐帧核对matched_stop=248046；不是客户端达到8192上限、主动取消、TOOL_LOOP_NO_PROGRESS或未加载schema。raw content没有未解析的工具标记，tool_calls只有空/null字段，没有实际调用片段；不能将字段存在误算为调用。R4/R5请求已包含“承诺不等于完成、实际核验后结束”规则，说明追加这类提示尚不能保证全成功。历史10月6日Root计划式最终回复只保留旧报告，不把缺失原始流的案例推导为同一精确原因。
+
+结束分为两层：OpenAI Chat decoder接收服务端stop，生成Completed；ModelStreamState记录该原因；AgentLoop.runToolRound在finishedToolCalls为空时返回null，随后结束Turn。服务端结束的是一次模型响应；Harness结束的是整个Turn。此路径没有漏掉本来存在的调用，但也没有独立证明业务任务达成；COMPLETED不是业务成功证据。当前Wire decoder在缺少finish chunk、工具增量未闭合或流损坏时报告PROTOCOL，不能把本轮正常stop与历史R1缺原帧的PROTOCOL混为一因。
+
+Owner确认上游为SGLang并提供手写代理代码。该代码对开发者/系统消息和reasoning参数做请求兼容映射，只在特定400上下文溢出时减少max_tokens重发一次；响应通过aiter_raw逐字节转发，不解析/重写finish_reason、matched_stop或tool_calls。异常捕获可能掩盖连接中断，因此仍需关注截断，但不能解释上述完整终态里出现的具体matched_stop。仅按提供的代码核对，不把它当作已校验的部署版本hash或服务器日志。
+
+进一步核对四个失败请求：没有developer消息、reasoning_effort、output_config或chat_template_kwargs，代理的这些兼容分支不会改写它们；没有上游日志证明400重试是否发生，但即使发生，代理也只调整max_tokens，不制造stop或matched_stop。不能仅凭SGLang/代理程序名称断言服务端配置已正确。
+
+[SGLang官方停止实现](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/managers/schedule_batch.py)在生成token命中EOS/stop-token集合时产生type=stop及matched token ID；[官方OpenAI适配](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_chat.py)输出matched_stop并在识别工具调用后转换结束原因。[Qwen官方27B tokenizer](https://huggingface.co/Qwen/Qwen3.5-27B/blob/main/tokenizer_config.json)将248046映射为im_end。若实际部署沿用该tokenizer且代理与提供代码一致，这支持模型生成消息结束符，而非Helix截断；Qwen3.8-27B只是当前服务别名，实际checkpoint/tokenizer、SGLang版本与启动参数尚未提供，不能仅凭别名断定实际模型版本或唯一采样根因。
+
+同时发现确定的Helix回填结构变化：TurnCoordinator.commitModelToolStep将一次模型响应的非空文字和工具调用保存为两个相邻assistant记录，ChatHistoryBuilder逐记录投影，Chat Completions encoder分别发送。R5 wire779实际有8条assistant对应5个调用步骤，三条“我要操作”的纯文字各自独立于随后的工具调用消息；原始服务响应则在同一响应中同时携带文字/调用。[Qwen官方模板](https://huggingface.co/Qwen/Qwen3.5-27B/blob/main/chat_template.jinja)会对每条assistant分别添加im_end，因此拆分增加了独立叙述的消息结束边界。这是已证实的表示差异，可能影响模型的后续调用选择；没有相同输入的有界对照，不能证明它是提前EOS的唯一原因或修正即可100%消除。当前ModelMessage没有reasoning_content，模板支持该字段但也接受空值；遗漏推理不是本轮已证实的根因，不擅自扩大推理文本持久化。
+
+后续优先核对实际checkpoint、tokenizer、SGLang版本/启动参数、有效采样和parser，并用同一合成失败输入对照“原消息结构/保持单次响应文字与调用同条消息”的输出决策；如能直连上游，应同时对齐代理前后流与SGLang原始生成结束信息。之后再决定是否修正按原model-call身份的wire投影、以及是否需要保留权限/取消/UNKNOWN边界的有界完成检查。不能盲目合并不同模型步骤、全局强制tool_choice=required、忽略EOS、由宿主补点或不断重试；这些会改变正常回答/失败交接或副作用语义。当前阶段只分析，不新增执行域/完成判定机制，也不改写R3/R4/R5失败。
+
+### 开源Agent源码对照
+
+Owner追加要求参考开源Agent。2026-10-13只读核对DSH固定d743267388641bc76f17c45ce8b4c231aed1d32c、Codex公开核心044e74fef3d1af2b01f4375158ac1e7ad4ae17ea，以及LangGraph main读取快照（文件SHA-256 d3b98412c47daba13de4fca50fb7ab2e37f08705db6ab549f3ab8fab6600bc8d）。未运行这些产品或复制源码到生产；Codex公开核心不等同本机私有桌面服务。初次旧codex.rs/OpenCode路径404后从官方目录找到Codex当前session/turn.rs；DSH旧本地目录已无可读源码，实际比较用官方固定版本。没有依据失效路径猜测实现。
+
+| 参考实现 | 源码事实 | 对Helix的意义 |
+| --- | --- | --- |
+| [DSH agent.ts](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/packages/core/agent-loop/src/agent.ts) | 一次响应的blocks构成同一个assistant/message，包含文字与tool-call；没有tool-call返回completed。turn-stopping事件允许已装配逻辑提供后续输入，但无默认通用业务成功证明 | no-call结束不是Helix独有。可借鉴保持原模型步骤消息完整，不能宣称DSH会自动纠正每次计划式最终回复 |
+| [Codex turn.rs](https://github.com/openai/codex/blob/044e74fef3d1af2b01f4375158ac1e7ad4ae17ea/codex-rs/core/src/session/turn.rs) | follow-up综合工具后续与待投递输入；服务响应明确end_turn=false时继续；结束前可运行Stop hooks，将有界反馈转为续跑。Responses消息/函数调用按原生类型处理 | 显式继续信号与结束前检查优于从自然语言猜测。Qwen Chat Completions不提供相同契约，不能把文字“让我操作”直接当可信end_turn=false，也不能把Responses项目结构原样移入Chat协议 |
+| [LangGraph chat_agent_executor.py](https://github.com/langchain-ai/langgraph/blob/main/libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py) | AIMessage无tool_calls默认END；可配置post_model_hook或结构化答复。工具调用保存在同一AIMessage，正常工具结果进入下一轮 | 可提供显式验证入口，但该入口自身不证明任务成功，也不授权后续副作用 |
+
+本轮采用的分析方向为：先恢复协议对应的原始消息结构，核对服务配置并做固定失败输入对照；然后再评估有实际完成条件的有界检查。通用hooks框架、新执行域、强制工具调用或无限“再试一次”不由这次调研自动授权。消息拆分是已确认的Helix表示差异，其对提前EOS的因果贡献仍需对照；服务器采样、实际tokenizer/parser及模型本身的工具决策能力同样不能从一次stop完全归因。
