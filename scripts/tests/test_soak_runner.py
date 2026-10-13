@@ -13,6 +13,19 @@ spec.loader.exec_module(runner)
 
 
 class SoakRunnerTest(unittest.TestCase):
+    def test_live_mobile_workload_is_explicit_and_cannot_replace_resource_inputs(self):
+        identity = runner.workload_identity('mobile-model', 'developer')
+        self.assertEqual(identity['measure_pkg'], 'com.helix.agent.developer')
+        self.assertIn('ContinuousMobileModelResourceDeviceTest', identity['test'])
+        with self.assertRaises(ValueError):
+            runner.workload_identity('mobile-model', 'consumer')
+        self.assertEqual(runner.instrument_arguments(['pluginSkillPort=30008', 'pluginSkillModel=Qwen3.8-27B']),
+                         ['-e', 'pluginSkillPort', '30008', '-e', 'pluginSkillModel', 'Qwen3.8-27B'])
+        for args in (['helix.soak.observe=true'], ['class=other'], ['pluginSkillPort=0'],
+                     ['pluginSkillModel=bad;command'], ['pluginSkillModel=x', 'pluginSkillModel=y']):
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                runner.instrument_arguments(args)
+
     def green(self, **changes):
         facts = dict(instStream='OK (1 test)', instVerified=True, fixturePids={12}, hostPids={12},
                      testRunnerFinished=True, fixtureElapsedMs=7200000, seconds=7200,

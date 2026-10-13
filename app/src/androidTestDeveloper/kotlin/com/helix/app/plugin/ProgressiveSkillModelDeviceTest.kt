@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.content.Intent
 import android.os.SystemClock
 import android.provider.Settings
-import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
@@ -21,6 +20,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnBudgets
+import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
@@ -29,12 +29,15 @@ import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.deviceaccess.DeviceAccess
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Fixed two repetitions per task and independent outcome checks; frozen APKs supply each strategy. */
+@Suppress("TooManyFunctions") // Three task journeys share one owner and cleanup; helper count is not a behavior limit.
 class ProgressiveSkillModelDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val c get() = app.appContainer
@@ -46,40 +49,59 @@ class ProgressiveSkillModelDeviceTest {
 
     @Test fun mobileSyntheticForm() = matrix("mobile")
 
+    /** Keep one provider and UI owner for a continuous workload; every pair still verifies actual business results. */
+    fun mobileContinuous(afterPair: (Int) -> Boolean) = matrix("mobile", afterPair)
+
     @Suppress("LongMethod", "CyclomaticComplexMethod") // Fixed three tasks share owned setup and restoration.
-    private fun matrix(kind: String) =
+    private fun matrix(kind: String, afterPair: ((Int) -> Boolean)? = null) =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
+            val providerProfile = args.getString("progressiveProfile") ?: "qwen"
+            require(providerProfile in setOf("qwen", "codex"))
             val backend = args.getString("pluginSkillBackend") ?: "accessibility"
             require(backend in setOf("accessibility", "root", "shizuku"))
             require(backend == "accessibility" || kind == "mobile")
             val visual = args.getString("pluginSkillVisual") == "true"
             require(!visual || kind == "mobile")
-            val port = requireNotNull(args.getString("pluginSkillPort")).toInt()
+            val port =
+                if (providerProfile ==
+                    "qwen"
+                ) {
+                    requireNotNull(args.getString("pluginSkillPort")).toInt()
+                } else {
+                    null
+                }
             val model = requireNotNull(args.getString("pluginSkillModel"))
             val provider =
-                c.providerService.create(
-                    ProviderDraft(
+                if (providerProfile == "codex") {
+                    com.helix.app.provider.SubscriptionProviderModule.CODEX_ID
+                } else {
+                    c.providerService.create(
+                        ProviderDraft(
+                            null,
+                            "Progressive fixture",
+                            ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                            NormalizedEndpoint.parse("http://127.0.0.1:$port/v1"),
+                            model,
+                            "{}",
+                            false,
+                            CleartextWarning("127.0.0.1", requireNotNull(port)),
+                            emptyList(),
+                        ),
                         null,
-                        "Progressive fixture",
-                        ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                        NormalizedEndpoint.parse("http://127.0.0.1:$port/v1"),
-                        model,
-                        "{}",
-                        false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
-                    ),
-                    null,
-                )
+                    )
+                }
             val profile = c.profileStore.profile
+            val controls = c.runControlStore.current
             val outcomes = mutableListOf<Boolean>()
             try {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 c.profileStore.switchTo(SafetyProfile.ADVANCED)
                 c.firstLaunch.markSeen()
-                ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                    repeat(2) { repetition ->
+                try {
+                    returnToHelix()
+                    var repetition = 0
+                    do {
                         val session = c.chatService.createSession("Progressive $kind $repetition", provider, model)
                         var tab: String? = null
                         val selection = MobileUseEvaluationSelection(app)
@@ -105,7 +127,7 @@ class ProgressiveSkillModelDeviceTest {
                                     }
 
                                     "browser" -> {
-                                        scenario.onActivity {
+                                        instrumentation.runOnMainSync {
                                             tab =
                                                 c.browser
                                                     .openTab(
@@ -119,7 +141,7 @@ class ProgressiveSkillModelDeviceTest {
                                         }
                                         await {
                                             var loaded = false
-                                            scenario.onActivity {
+                                            instrumentation.runOnMainSync {
                                                 loaded =
                                                     c.browser.tab(requireNotNull(tab))?.isLoading == false
                                             }
@@ -196,7 +218,7 @@ class ProgressiveSkillModelDeviceTest {
 
                                     "browser" -> {
                                         val text = java.util.concurrent.CompletableFuture<String>()
-                                        scenario.onActivity {
+                                        instrumentation.runOnMainSync {
                                             checkNotNull(c.browser.hostView(requireNotNull(tab)))
                                                 .evaluateJavascript(
                                                     "document.querySelector('button').textContent+':'" +
@@ -253,7 +275,8 @@ class ProgressiveSkillModelDeviceTest {
                                 )
                             }
                             println(
-                                "PROGRESSIVE kind=$kind rep=$repetition success=$success state=${turn.state} " +
+                                "PROGRESSIVE profile=$providerProfile kind=$kind rep=$repetition success=$success " +
+                                    "state=${turn.state} " +
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
                                     "calls=${calls.map { it.name to it.state }} usage=${models.map { it.usage }}",
                             )
@@ -273,26 +296,47 @@ class ProgressiveSkillModelDeviceTest {
                                 )
                             }
                             outcomes.add(success)
+                            // Keep every business result authoritative, but complete the bounded resource
+                            // measurement before the final all-results assertion; failures never become passes.
                         } finally {
                             c.storage.turns
                                 .listBySession(session)
                                 .lastOrNull()
-                                ?.let { c.chatService.stopTurn(it.id) }
+                                ?.let {
+                                    c.chatService.stopTurn(it.id)
+                                    withTimeout(20_000) { c.agentRuntime.observe(TurnId(it.id)).collect {} }
+                                    assertTrue(
+                                        TurnState.valueOf(requireNotNull(c.storage.turns.find(it.id)).state).isTerminal,
+                                    )
+                                }
                             selection.close()
-                            tab?.let { id -> scenario.onActivity { c.browser.closeTab(id) } }
+                            tab?.let { id -> instrumentation.runOnMainSync { c.browser.closeTab(id) } }
                             c.chatService.closeSession()
                             c.storage.deleteSessionPermanently(session)
-                            scenario.onActivity { it.startActivity(Intent(it, MainActivity::class.java)) }
+                            returnToHelix()
                         }
-                    }
+                        repetition++
+                    } while (if (afterPair ==
+                            null
+                        ) {
+                            repetition < 2
+                        } else {
+                            repetition % 2 != 0 || afterPair(repetition / 2)
+                        }
+                    )
+                } finally {
+                    returnToHelix()
                 }
-                assertEquals("Fixed task repetitions", 2, outcomes.size)
+                if (afterPair == null) assertEquals("Fixed task repetitions", 2, outcomes.size)
                 assertTrue("Task results: $outcomes", outcomes.all { it })
             } finally {
                 if (backend == "root") DeviceAccess.disconnectRoot("mobile-use")
                 restoreBackend()
                 c.profileStore.switchTo(profile)
-                c.providerService.delete(provider)
+                if (providerProfile == "qwen") c.providerService.delete(provider)
+                c.runControlStore.setMode(controls.mode)
+                c.runControlStore.setReasoning(controls.reasoning)
+                c.runControlStore.setBudgets(controls.budgets)
             }
         }
 
@@ -312,7 +356,7 @@ class ProgressiveSkillModelDeviceTest {
         repeat(2) { cycle ->
             app.startActivity(home)
             await { automation.rootInActiveWindow?.packageName?.toString() == homePackage }
-            app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            returnToHelix()
             await { automation.rootInActiveWindow?.packageName?.toString() == app.packageName }
             await { visibleTextBounds(automation.rootInActiveWindow, "Progressive mobile $repetition") != null }
             delay(500)
@@ -339,6 +383,15 @@ class ProgressiveSkillModelDeviceTest {
                 pixels.recycle()
             }
         }
+    }
+
+    private fun returnToHelix() {
+        app.startActivity(
+            Intent(app, MainActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            ),
+        )
     }
 
     @Suppress("DEPRECATION", "ReturnCount") // Return the first visible match and recycle each owned child.
@@ -378,6 +431,32 @@ class ProgressiveSkillModelDeviceTest {
             backendChanged = true
         }
         val component = "${app.packageName}/com.helix.extensions.mobileuse.automation.HelixAccessibilityService"
+        if (component in previousServices.orEmpty().split(':') &&
+            AutomationPermissionCenter(app).serviceState() != AutomationServiceState.CONNECTED
+        ) {
+            // Instrumentation can force-stop the target while its enabled-service setting remains.
+            // Rewriting the same list does not clear the system's crashed-service state.
+            val others = previousServices.orEmpty().split(':').filter { it.isNotBlank() && it != component }
+            shellOutput(
+                automation,
+                if (others.isEmpty()) {
+                    "settings delete secure enabled_accessibility_services"
+                } else {
+                    "settings put secure enabled_accessibility_services ${others.joinToString(":")}"
+                },
+            )
+            await {
+                val states =
+                    shellOutput(automation, "dumpsys accessibility")
+                        .lineSequence()
+                        .map(String::trim)
+                        .filter {
+                            it.startsWith("Enabled services:") || it.startsWith("Crashed services:")
+                        }.toList()
+                states.size >= 2 && states.none { component in it }
+            }
+            println("MOBILE_BACKEND_REBIND acknowledged=true")
+        }
         val services =
             previousServices
                 .orEmpty()
@@ -385,12 +464,19 @@ class ProgressiveSkillModelDeviceTest {
                 .filter(String::isNotBlank)
                 .toSet() + component
         val command = "settings put secure enabled_accessibility_services ${services.joinToString(":")}"
-        automation
-            .executeShellCommand(command)
-            .close()
-        automation.executeShellCommand("settings put secure accessibility_enabled 1").close()
+        shellOutput(automation, command)
+        shellOutput(automation, "settings put secure accessibility_enabled 1")
         await { AutomationPermissionCenter(app).serviceState() == AutomationServiceState.CONNECTED }
     }
+
+    private fun shellOutput(
+        automation: UiAutomation,
+        command: String,
+    ): String =
+        android.os.ParcelFileDescriptor
+            .AutoCloseInputStream(automation.executeShellCommand(command))
+            .bufferedReader()
+            .use { it.readText() }
 
     private fun restoreBackend() {
         if (!backendChanged) return

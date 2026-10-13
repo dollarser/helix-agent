@@ -9,9 +9,12 @@ import com.helix.app.sendTestMessage
 import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.provider.api.ProbeOutcome
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -72,6 +75,12 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
 
                 assertCompletion(container, sessionId)
             } finally {
+                container.storage.turns.listBySession(sessionId).lastOrNull()?.let { turn ->
+                    container.chatService.stopTurn(turn.id)
+                    withTimeout(20_000) { container.agentRuntime.observe(TurnId(turn.id)).collect {} }
+                }
+                container.chatService.closeSession()
+                container.storage.deleteSessionPermanently(sessionId)
                 container.runControlStore.setMode(previous.mode)
                 container.runControlStore.setReasoning(previous.reasoning)
             }
@@ -79,7 +88,7 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
 
     /**
      * Verifies the CLI runtime for the real-account smoke, streams its state to the instrumentation
-     * output, and (opt-in via the runtimeForeground argument) brings the runtime app to the
+     * output, and (opt-in via the runtimeForeground argument) brings the integrated Runtime page to the
      * foreground for manual observation. Setup only — no assertions live here.
      */
     private suspend fun verifyAndReportRuntimeState(app: HelixApplication) {
@@ -101,7 +110,7 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
                     .Intent()
                     .setComponent(
                         android.content.ComponentName(
-                            "com.helix.runtime.cli",
+                            app.packageName,
                             "com.helix.runtime.cli.app.CliRuntimeHomeActivity",
                         ),
                     ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -140,10 +149,28 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
         )
         assertEquals(
             "HELIX_OK",
+            container.storage.messages
+                .listBySession(sessionId)
+                .lastOrNull { it.role == "ASSISTANT" && it.kind == "TEXT" }
+                ?.let(container.storage.messages::readContent)
+                ?.trim(),
+        )
+        await("completed assistant projects to conversation") {
+            container.chatService.screen.value.messages
+                .any { it.content.trim() == "HELIX_OK" }
+        }
+        assertEquals(
+            "HELIX_OK",
             container.chatService.screen.value.messages
                 .last()
                 .content
                 .trim(),
+        )
+        println(
+            "NATIVE_SUBSCRIPTION_SMOKE=PASS calls=1 usage=" +
+                container.storage.modelCalls
+                    .listByTurn(turn.id)
+                    .map { it.usage },
         )
     }
 

@@ -57,6 +57,11 @@ WORKLOADS = {
         "component": "com.helix.feature.browser.test/androidx.test.runner.AndroidJUnitRunner",
         "test": "com.helix.feature.browser.webview.WebViewResourceLifecycleDeviceTest#continuousResourceSoak",
     },
+    "mobile-model": {
+        "measure_pkg": "com.helix.agent.developer",
+        "component": "com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner",
+        "test": "com.helix.app.diagnostics.ContinuousMobileModelResourceDeviceTest#continuousMobileModelResourceSoak",
+    },
 }
 
 # master-plan:56 -- 15m pilot -> 2h precheck -> same-process 24h.
@@ -78,11 +83,30 @@ def workload_identity(workload, flavor="consumer"):
         raise ValueError("unknown app flavor")
     if workload == "browser" and flavor != "consumer":
         raise ValueError("browser is an independent library fixture, not a Developer app")
+    if workload == "mobile-model" and flavor != "developer":
+        raise ValueError("mobile-model is an explicit live Developer fixture")
     identity = dict(WORKLOADS[workload])
     if workload == "app" and flavor == "developer":
         identity["measure_pkg"] = "com.helix.agent.developer"
         identity["component"] = "com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner"
     return identity
+
+
+def instrument_arguments(values):
+    """Only live model profile inputs; never let caller arguments replace fixture or resource gates."""
+    allowed = {"pluginSkillPort", "pluginSkillModel"}
+    result, seen = [], set()
+    for value in values:
+        key, separator, item = value.partition("=")
+        if not separator or key not in allowed or key in seen or not item:
+            raise ValueError("invalid or duplicate live model instrumentation argument")
+        if key == "pluginSkillPort" and (not item.isdigit() or not 1 <= int(item) <= 65535):
+            raise ValueError("invalid live model port")
+        if key == "pluginSkillModel" and not re.fullmatch(r"[A-Za-z0-9._:/-]{1,128}", item):
+            raise ValueError("invalid live model identifier")
+        seen.add(key)
+        result.extend(["-e", key, item])
+    return result
 
 
 def validate_device_serial(serial, physical=False):
@@ -251,6 +275,7 @@ class Soak:
             "preset": self.args.preset, "runId": self.args.run_id, "serial": self.args.serial,
             "workload": self.args.workload, "flavor": getattr(self.args, "flavor", "consumer"),
             "seconds": self.seconds,
+            "liveModelArguments": getattr(self.args, "instrument_arg", []),
             "deviceKind": "physical" if physical else "emulator",
             "avd": self.shell_ok("getprop", "ro.boot.qemu.avd_name"),
             "api": api,
@@ -385,6 +410,7 @@ class Soak:
                          "-e", "class", self.wl["test"],
                          "-e", "helix.soak.seconds", str(self.seconds),
                          "-e", "helix.soak.observe", str(self.observe).lower(),
+                         *instrument_arguments(getattr(getattr(self, "args", None), "instrument_arg", [])),
                          self.wl["component"]],
             stdout=inst_fh, stderr=subprocess.STDOUT)
 
@@ -527,7 +553,8 @@ def main():
                         help="explicit current owner-authorized physical validation; never inferred from connectivity")
     parser.add_argument("--detach", action="store_true", help="start an independent background session")
     parser.add_argument("--detached-worker", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--workload", choices=["app", "browser"], default="app")
+    parser.add_argument("--workload", choices=list(WORKLOADS), default="app")
+    parser.add_argument("--instrument-arg", action="append", default=[])
     parser.add_argument("--flavor", choices=["consumer", "developer"], default="consumer")
     parser.add_argument("--preset", choices=list(PRESETS), default="pilot",
                         help="pilot=900s / precheck=7200s / p24h=86400s (default pilot)")
@@ -547,6 +574,8 @@ def main():
 
     try:
         validate_device_serial(args.serial, args.physical_device)
+        instrument_arguments(args.instrument_arg)
+        workload_identity(args.workload, args.flavor)
     except ValueError as error:
         parser.error(str(error))
     if args.observe_breaches and args.workload != "app":
@@ -554,6 +583,8 @@ def main():
     if args.workload == "browser" and args.flavor != "consumer":
         parser.error("browser is an independent library fixture, not a Developer app")
     seconds = args.seconds if args.seconds is not None else PRESETS[args.preset]
+    if args.workload == "mobile-model" and seconds > 7200:
+        parser.error("mobile-model is bounded to a maximum of two hours")
     if not 60 <= seconds <= 86400:
         parser.error("--seconds must be in 60..86400")
     if args.output.exists():
