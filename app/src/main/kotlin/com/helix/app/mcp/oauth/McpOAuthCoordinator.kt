@@ -198,7 +198,8 @@ class McpOAuthCoordinator(
         state: String,
     ): com.helix.extensions.mcp.oauth.McpDevicePollResult {
         val attempt = requireNotNull(attemptStore.peekAttempt(state)) { "OAUTH_DEVICE_EXPIRED" }
-        require(attempt.serverId == serverId && attempt.resource == NormalizedEndpoint.parse(resource).full)
+        NormalizedEndpoint.parse(resource)
+        require(attempt.serverId == serverId && attempt.resource == resource)
         require(credentials.isCurrent(attempt.binding()))
         val result =
             oauthClient.pollDeviceTokenOnce(
@@ -261,7 +262,7 @@ class McpOAuthCoordinator(
                     verifier,
                     now,
                     now + ttl,
-                    NormalizedEndpoint.parse(resource).full,
+                    resource.also { NormalizedEndpoint.parse(it) },
                     metadata.revocationEndpoint,
                     metadata.authorizationResponseIssParameterSupported,
                 )

@@ -82,6 +82,33 @@ class McpOAuthCoordinatorTest {
     }
 
     @Test
+    fun authorizationPreservesExactResourceIdentifierInsteadOfAddingDefaultPort() {
+        val metadata =
+            McpOAuthServerMetadata(mockServer.baseUrl, "${mockServer.baseUrl}/authorize", "${mockServer.baseUrl}/token")
+        listOf(
+            "https://example.com/api/mcp",
+            "https://example.com:443/api/mcp",
+            "https://example.com:8443/Mcp/",
+        ).forEach { resource ->
+            val prepared =
+                coordinator.prepareAuthorization(
+                    "resource-fixture",
+                    "client",
+                    metadata,
+                    "read",
+                    resource = resource,
+                )
+            val query =
+                java.net.URI(prepared.authUri).rawQuery.split('&').associate {
+                    val parts = it.split('=', limit = 2)
+                    parts[0] to java.net.URLDecoder.decode(parts[1], "UTF-8")
+                }
+            assertEquals(resource, query.getValue("resource"))
+            assertEquals(resource, requireNotNull(attemptStore.consumeAttempt(prepared.state)).resource)
+        }
+    }
+
+    @Test
     fun handleCallbackExchangesCodeAndSavesSecrets() =
         runBlocking {
             val metadata =

@@ -73,7 +73,13 @@ internal class McpOAuthCredentials(
         check(config.bearerSecretAlias == tokenAlias(id)) { "OAUTH_SERVER_BINDING_MISMATCH" }
         locks.getOrPut(id) { Mutex() }.withLock {
             val record = read(id)
-            check(record.binding.resource == config.endpoint.full) { "OAUTH_RESOURCE_CHANGED_RELOGIN_REQUIRED" }
+            check(
+                com.helix.core.model.NormalizedEndpoint
+                    .parse(record.binding.resource)
+                    .full == config.endpoint.full,
+            ) {
+                "OAUTH_RESOURCE_CHANGED_RELOGIN_REQUIRED"
+            }
             check(!record.refreshing) { "OAUTH_REFRESH_INTERRUPTED_RELOGIN_REQUIRED" }
             check(isCurrent(record.binding)) { "OAUTH_LOGIN_REPLACED" }
             if (record.tokens.isExpired()) {

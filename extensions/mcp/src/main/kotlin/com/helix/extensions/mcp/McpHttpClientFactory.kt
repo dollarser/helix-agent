@@ -24,8 +24,9 @@ internal fun newOkHttpClient(
                     com.helix.core.policy.network.NativeNetwork
                         .resolve(it)
                 }
-                addNetworkInterceptor(McpInitializeResponseGuard)
-                addNetworkInterceptor(McpOkHttpResponseLimit)
+                // Application interceptors see OkHttp's decoded response. Network interceptors see gzip bytes.
+                addInterceptor(McpInitializeResponseGuard)
+                addInterceptor(McpOkHttpResponseLimit)
                 followRedirects(false)
                 followSslRedirects(false)
                 if (networkPermit != null) {

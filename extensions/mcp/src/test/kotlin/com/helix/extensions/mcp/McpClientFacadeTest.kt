@@ -26,29 +26,35 @@ import java.util.concurrent.atomic.AtomicInteger
 class McpClientFacadeTest {
     @Test
     fun oversizedSseEventIsRejected() {
-        OversizedSseFixture().use { fixture ->
-            val client = OkHttpClient.Builder().addNetworkInterceptor(McpOkHttpResponseLimit).build()
-            val failure =
-                client.newCall(Request.Builder().url(fixture.endpoint).build()).execute().use { response ->
-                    runCatching { response.body.source().readAll(Buffer()) }.exceptionOrNull()
-                }
+        for (compressed in listOf(false, true)) {
+            OversizedSseFixture(compressed = compressed).use { fixture ->
+                val client = OkHttpClient.Builder().addInterceptor(McpOkHttpResponseLimit).build()
+                val failure =
+                    client.newCall(Request.Builder().url(fixture.endpoint).build()).execute().use { response ->
+                        runCatching { response.body.source().readAll(Buffer()) }.exceptionOrNull()
+                    }
 
-            assertTrue("oversized SSE event unexpectedly reached EOF", failure != null)
-            assertTrue(
-                "SSE event limit failure was not preserved: $failure",
-                generateSequence(failure) { it.cause }.any { "MCP SSE event exceeds" in it.message.orEmpty() },
-            )
+                assertTrue("oversized SSE event unexpectedly reached EOF", failure != null)
+                assertTrue(
+                    "SSE event limit failure was not preserved: $failure",
+                    generateSequence(failure) { it.cause }.any { "MCP SSE event exceeds" in it.message.orEmpty() },
+                )
+            }
         }
     }
 
     @Test
     fun healthySseEventsMayCumulativelyExceedPerEventLimit() {
-        OversizedSseFixture(eventCount = 17, dataBytesPerEvent = 1024 * 1024).use { fixture ->
-            val client = OkHttpClient.Builder().addNetworkInterceptor(McpOkHttpResponseLimit).build()
-            client.newCall(Request.Builder().url(fixture.endpoint).build()).execute().use { response ->
-                val sink = Buffer()
-                val source = response.body.source()
-                while (source.read(sink, 8 * 1024) >= 0) sink.clear()
+        for (compressed in listOf(false, true)) {
+            OversizedSseFixture(
+                eventCount = 17,
+                dataBytesPerEvent = 1024 * 1024,
+                compressed = compressed,
+            ).use { fixture ->
+                val client = OkHttpClient.Builder().addInterceptor(McpOkHttpResponseLimit).build()
+                client.newCall(Request.Builder().url(fixture.endpoint).build()).execute().use { response ->
+                    response.body.byteStream().transferTo(java.io.OutputStream.nullOutputStream())
+                }
             }
         }
     }
@@ -73,6 +79,52 @@ class McpClientFacadeTest {
                 } finally {
                     session.close()
                 }
+            }
+        }
+
+    @Test
+    fun compressedInitializeAndPingAreValidatedAfterDecoding() =
+        runBlocking {
+            McpFixture(compressed = true).use { fixture ->
+                val session = McpClients.sdk("helix-test", "1").connect(fixture.endpoint)
+                try {
+                    assertEquals("2025-03-26", session.server.negotiatedProtocolVersion)
+                    session.ping()
+                } finally {
+                    session.close()
+                }
+            }
+        }
+
+    @Test
+    fun compressedInitializeWithoutVersionStillFailsClosed() =
+        runBlocking {
+            McpFixture(compressed = true, omitInitializeProtocolVersion = true).use { fixture ->
+                val failure =
+                    runCatching {
+                        McpClients.sdk("helix-test", "1").connect(fixture.endpoint)
+                    }.exceptionOrNull()
+                val missing =
+                    generateSequence(failure) { it.cause }.any {
+                        "initialize protocolVersion missing" in it.message.orEmpty()
+                    }
+                assertTrue(missing)
+            }
+        }
+
+    @Test
+    fun compressedJsonCannotBypassDecodedResponseCeiling() =
+        runBlocking {
+            McpFixture(compressed = true, extraInitializeFieldBytes = 17 * 1024 * 1024).use { fixture ->
+                val failure =
+                    runCatching {
+                        McpClients.sdk("helix-test", "1").connect(fixture.endpoint)
+                    }.exceptionOrNull()
+                val oversized =
+                    generateSequence(failure) { it.cause }.any {
+                        "MCP HTTP response exceeds" in it.message.orEmpty()
+                    }
+                assertTrue(oversized)
             }
         }
 
@@ -310,6 +362,7 @@ class McpClientFacadeTest {
 private class OversizedSseFixture(
     private val eventCount: Int = 1,
     private val dataBytesPerEvent: Int = 17 * 1024 * 1024,
+    private val compressed: Boolean = false,
 ) : AutoCloseable {
     private val executor = Executors.newSingleThreadExecutor()
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -319,9 +372,12 @@ private class OversizedSseFixture(
         server.executor = executor
         server.createContext("/sse") { exchange ->
             exchange.responseHeaders.add("Content-Type", "text/event-stream")
+            if (compressed) exchange.responseHeaders.add("Content-Encoding", "gzip")
             exchange.sendResponseHeaders(200, 0)
             try {
-                exchange.responseBody.use { body ->
+                val output =
+                    if (compressed) java.util.zip.GZIPOutputStream(exchange.responseBody) else exchange.responseBody
+                output.use { body ->
                     val chunk = ByteArray(8 * 1024) { 'x'.code.toByte() }
                     repeat(eventCount) {
                         body.write("data: ".toByteArray(StandardCharsets.UTF_8))
@@ -343,6 +399,7 @@ private class OversizedSseFixture(
     }
 }
 
+@Suppress("LongParameterList") // Independent protocol fault flags stay explicit in the shared wire fixture.
 internal class McpFixture(
     private val holdToolStream: Boolean = false,
     private val initializeDelayMillis: Long = 0,
@@ -353,6 +410,7 @@ internal class McpFixture(
     private val chunkedInitializeResponse: Boolean = false,
     private val omitInitializeProtocolVersion: Boolean = false,
     private val initializePrefixPaddingBytes: Int = 0,
+    private val compressed: Boolean = false,
 ) : AutoCloseable {
     private val executor = Executors.newCachedThreadPool()
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -508,7 +566,18 @@ internal class McpFixture(
         body: String,
         chunked: Boolean = false,
     ) {
-        val bytes = body.toByteArray(StandardCharsets.UTF_8)
+        val plain = body.toByteArray(StandardCharsets.UTF_8)
+        val bytes =
+            if (compressed) {
+                val output = java.io.ByteArrayOutputStream()
+                java.util.zip
+                    .GZIPOutputStream(output)
+                    .use { it.write(plain) }
+                exchange.responseHeaders.add("Content-Encoding", "gzip")
+                output.toByteArray()
+            } else {
+                plain
+            }
         exchange.responseHeaders.add("Content-Type", "application/json")
         exchange.sendResponseHeaders(status, if (chunked) 0 else bytes.size.toLong())
         exchange.responseBody.use { it.write(bytes) }
