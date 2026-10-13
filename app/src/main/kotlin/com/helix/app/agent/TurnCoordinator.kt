@@ -222,6 +222,8 @@ internal class TurnCoordinator private constructor(
     fun commitModelToolStep(toolCallsJson: String) {
         val current = runtime.snapshot()
         require(current.phase == TurnState.RUNNING_TOOL)
+        val text = runtime.currentStream().text
+        val response = AssistantToolResponseContent.attachText(toolCallsJson, text)
         storage.withTransaction {
             requireNotCancelling()
             storage.modelCalls.update(
@@ -230,14 +232,13 @@ internal class TurnCoordinator private constructor(
                 runtime.currentStream().usageJson,
                 null,
             )
-            val text = runtime.currentStream().text
             if (text.isNotBlank()) {
                 storage.messages.append(
                     idGenerator(),
                     sessionId,
                     turnId,
                     ModelRole.ASSISTANT.name,
-                    ChatHistoryBuilder.KIND_TEXT,
+                    ChatHistoryBuilder.KIND_TOOL_PROGRESS,
                     text,
                 )
             }
@@ -247,7 +248,7 @@ internal class TurnCoordinator private constructor(
                 turnId,
                 ModelRole.ASSISTANT.name,
                 ChatHistoryBuilder.KIND_TOOL_CALLS,
-                toolCallsJson,
+                response,
             )
         }
         runtime.markModelCallClosed()

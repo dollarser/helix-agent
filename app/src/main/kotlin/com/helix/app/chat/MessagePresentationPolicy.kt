@@ -39,7 +39,8 @@ internal object MessagePresentationPolicy {
         questionTurns: Set<String>,
     ): Boolean =
         text.turnId != null && text.turnId == next.turnId && text.turnId !in questionTurns &&
-            text.role == "ASSISTANT" && text.kind == ChatHistoryBuilder.KIND_TEXT &&
+            text.role == "ASSISTANT" &&
+            text.kind in setOf(ChatHistoryBuilder.KIND_TEXT, ChatHistoryBuilder.KIND_TOOL_PROGRESS) &&
             next.role == "ASSISTANT" && next.kind == ChatHistoryBuilder.KIND_TOOL_CALLS &&
             text.supersededBy == null && next.supersededBy == null
 

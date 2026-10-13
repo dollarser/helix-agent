@@ -38,6 +38,9 @@ internal object ContextHistory {
             val page = storage.messages.pageAfter(sessionId, after, PAGE_SIZE)
             if (page.isEmpty()) break
             for (row in ContextCompaction.retained(page, checkpoint)) {
+                // Display copies have no independent model content or budget; the tool
+                // step owns the same response text and is materialized atomically.
+                if (row.kind == ChatHistoryBuilder.KIND_TOOL_PROGRESS && row.role == "ASSISTANT") continue
                 val size = row.contentRef?.let { ContentRef.parse(it).size } ?: 0
                 if (size > MAX_BODY_BYTES - bytes || retained.size >= MAX_RETAINED_ROWS) {
                     throw ContextCapacityException("CONTEXT_MATERIALIZATION_LIMIT")

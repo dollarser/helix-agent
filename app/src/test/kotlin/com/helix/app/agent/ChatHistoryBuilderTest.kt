@@ -9,6 +9,108 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatHistoryBuilderTest {
+    @Test fun oneResponseKeepsItsTextAndOrderedCallsTogether() {
+        val text = "观察完成。\n填入\"你好\"。"
+        val calls =
+            """
+            [
+                {"id":"c1","name":"ui.set_text","arguments":"{\"text\":\"你好\"}"},
+                {"id":"c2","name":"ui.snapshot","arguments":"{}"}
+            ]
+            """.trimIndent()
+        val step = AssistantToolResponseContent.attachText(calls, text)
+        val rows =
+            listOf(
+                textRow("t1", "USER", "开始"),
+                ChatHistoryBuilder.PersistedRow("t1", "ASSISTANT", ChatHistoryBuilder.KIND_TOOL_PROGRESS, text),
+                ChatHistoryBuilder.PersistedRow("t1", "ASSISTANT", ChatHistoryBuilder.KIND_TOOL_CALLS, step),
+                ChatHistoryBuilder.PersistedRow(
+                    "t1",
+                    "TOOL",
+                    ChatHistoryBuilder.KIND_TOOL_RESULT,
+                    """{"id":"c1","tool":"ui.set_text","status":"FAILED","summary":"not executed"}""",
+                ),
+                ChatHistoryBuilder.PersistedRow(
+                    "t1",
+                    "TOOL",
+                    ChatHistoryBuilder.KIND_TOOL_RESULT,
+                    """{"id":"c2","tool":"ui.snapshot","status":"DENIED","summary":"permission missing"}""",
+                ),
+            )
+        val messages = ChatHistoryBuilder.toModelMessagesStrict(rows)
+        assertEquals(
+            listOf(ModelRole.USER, ModelRole.ASSISTANT, ModelRole.TOOL, ModelRole.TOOL),
+            messages.map { it.role },
+        )
+        assertEquals(text, messages[1].text)
+        assertEquals(listOf("c1", "c2"), messages[1].toolCalls.map { it.id.value })
+        assertEquals("""{"text":"你好"}""", messages[1].toolCalls.first().argumentsJson)
+        assertEquals(listOf("[FAILED] not executed", "[DENIED] permission missing"), messages.drop(2).map { it.text })
+    }
+
+    @Test fun selectedToolStepRetainsTextWithoutItsDisplayCopy() {
+        val step =
+            AssistantToolResponseContent.attachText(
+                """[{"id":"c1","name":"ui.snapshot","arguments":"{}"}]""",
+                "正在观察",
+            )
+        val row = ChatHistoryBuilder.PersistedRow("t1", "ASSISTANT", ChatHistoryBuilder.KIND_TOOL_CALLS, step)
+        val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(row)).single()
+        assertEquals("正在观察", message.text)
+        assertEquals(
+            "c1",
+            message.toolCalls
+                .single()
+                .id.value,
+        )
+    }
+
+    @Test fun unboundAdjacentAssistantMessagesNeverMerge() {
+        val rows =
+            listOf(
+                textRow("older", "ASSISTANT", "独立答复"),
+                textRow("current", "ASSISTANT", "独立步骤"),
+                ChatHistoryBuilder.PersistedRow(
+                    "current",
+                    "ASSISTANT",
+                    ChatHistoryBuilder.KIND_TOOL_CALLS,
+                    """[{"id":"c1","name":"ui.snapshot","arguments":"{}"}]""",
+                ),
+            )
+        assertEquals(listOf("独立答复", "独立步骤", ""), ChatHistoryBuilder.toModelMessagesStrict(rows).map { it.text })
+    }
+
+    @Test fun malformedResponseTextFailsClosedWithoutChangingCallArguments() {
+        val payloads =
+            listOf(
+                """[{"id":"c1","name":"ui.snapshot","arguments":"{}","assistantText":12}]""",
+                """[{"id":"c1","name":"ui.snapshot","arguments":"{}","assistantText":null}]""",
+                """
+                [
+                    {"id":"c1","name":"ui.snapshot","arguments":"{}"},
+                    {"id":"c2","name":"ui.snapshot","arguments":"{}","assistantText":"wrong call"}
+                ]
+                """.trimIndent(),
+            )
+        payloads.forEach { payload ->
+            val row = ChatHistoryBuilder.PersistedRow("t1", "ASSISTANT", ChatHistoryBuilder.KIND_TOOL_CALLS, payload)
+            assertThrows(IllegalArgumentException::class.java) { ChatHistoryBuilder.toModelMessagesStrict(listOf(row)) }
+            assertTrue(ChatHistoryBuilder.toModelMessages(listOf(row)).isEmpty())
+        }
+        val wrongRole = ChatHistoryBuilder.PersistedRow("t1", "USER", ChatHistoryBuilder.KIND_TOOL_PROGRESS, "原始输入")
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { ChatHistoryBuilder.toModelMessagesStrict(listOf(wrongRole)) }
+    }
+
+    @Test fun responseCommitRejectsRebindingAndPreservesTextlessSteps() {
+        val calls = """[{"id":"c1","name":"ui.snapshot","arguments":"{}"}]"""
+        assertEquals(calls, AssistantToolResponseContent.attachText(calls, "  "))
+        val bound = AssistantToolResponseContent.attachText(calls, "原始步骤")
+        assertThrows(IllegalArgumentException::class.java) { AssistantToolResponseContent.attachText(bound, "其他步骤") }
+        assertThrows(IllegalArgumentException::class.java) { AssistantToolResponseContent.attachText("[]", "其他步骤") }
+    }
+
     @Test
     fun aNewUserTurnDoesNotInheritAnExhaustedLoopsControlInstruction() {
         val warning = ChatHistoryBuilder.PersistedRow("old", "SYSTEM", "loop_exhausted", "ignored")

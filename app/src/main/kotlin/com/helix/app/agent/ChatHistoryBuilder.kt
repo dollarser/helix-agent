@@ -23,7 +23,10 @@ import kotlinx.serialization.json.JsonPrimitive
  * - [KIND_TOOL_CALLS] (ASSISTANT): the model's tool-call step, persisted as a JSON
  *   array `[{"id","name","arguments"}]` where `arguments` is the model's raw
  *   argument JSON object string; mapped back to an assistant [ModelMessage] with
- *   [ModelMessage.toolCalls] in the ORIGINAL call sequence;
+ *   [ModelMessage.toolCalls] in the ORIGINAL call sequence. The first element may
+ *   carry assistantText from that same response; it is message text, never arguments;
+ * - [KIND_TOOL_PROGRESS]: a display copy of that response text, excluded from model
+ *   history because the canonical tool step already carries it;
  * - [KIND_TOOL_RESULT] (TOOL): one row per tool call, persisted as a JSON object
  *   `{"id","tool","status","summary"}`; mapped to a TOOL [ModelMessage] keyed by
  *   the call id (the vendor protocols key results by the call id — doc 02 5.3).
@@ -43,6 +46,9 @@ import kotlinx.serialization.json.JsonPrimitive
 object ChatHistoryBuilder {
     /** Plain text message (user or assistant). */
     const val KIND_TEXT = "TEXT"
+
+    /** Display copy of text already carried by the same response's canonical tool step. */
+    const val KIND_TOOL_PROGRESS = "TOOL_PROGRESS"
 
     /** An assistant step whose content is exactly its tool calls (JSON array). */
     const val KIND_TOOL_CALLS = "TOOL_CALLS"
@@ -80,6 +86,11 @@ object ChatHistoryBuilder {
         rows.mapNotNull { row ->
             when (row.kind) {
                 ContextCompaction.KIND -> {
+                    null
+                }
+
+                KIND_TOOL_PROGRESS -> {
+                    require(!strict || row.role == ModelRole.ASSISTANT.name) { "tool progress must be assistant text" }
                     null
                 }
 
@@ -158,7 +169,7 @@ object ChatHistoryBuilder {
             require(calls.isNotEmpty()) { "a tool-call step must carry at least one call" }
             ModelMessage(
                 role = ModelRole.ASSISTANT,
-                text = "",
+                text = AssistantToolResponseContent.text(array),
                 toolCalls = calls,
             )
         } catch (e: IllegalArgumentException) {

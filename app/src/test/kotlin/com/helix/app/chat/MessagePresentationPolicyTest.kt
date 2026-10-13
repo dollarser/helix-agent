@@ -6,6 +6,19 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class MessagePresentationPolicyTest {
+    @Test fun canonicalResponseDisplayCopyKeepsItsProgressPresentation() {
+        val updated = history.map { if (it.id == "progress") it.copy(kind = "TOOL_PROGRESS") else it }
+        assertEquals(
+            MessagePresentation.PROGRESS,
+            MessagePresentationPolicy.apply(updated, visible, mapOf("turn" to "RUNNING_TOOL"))[1].presentation,
+        )
+        assertEquals(
+            MessagePresentation.COMPLETED_PROGRESS,
+            MessagePresentationPolicy.apply(updated, visible, mapOf("turn" to "COMPLETED"))[1].presentation,
+        )
+        assertEquals(visible, MessagePresentationPolicy.apply(updated, visible, mapOf("turn" to "CANCELLED")))
+    }
+
     private val history =
         listOf(
             row("user", "USER", "TEXT", 0),

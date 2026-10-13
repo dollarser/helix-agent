@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
+import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.eval.AutomationEvaluationActivity
 import com.helix.app.eval.MobileUseEvaluationSelection
 import com.helix.app.openTestSessionControl
@@ -238,6 +239,7 @@ class ProgressiveSkillModelDeviceTest {
                             val turn = requireNotNull(c.storage.turns.find(requestedTurnId))
                             val calls = c.storage.toolCalls.listByTurn(turn.id)
                             val models = c.storage.modelCalls.listByTurn(turn.id)
+                            verifyCanonicalResponseProjection(session, repetition)
                             val verified =
                                 when (kind) {
                                     "workflow" -> {
@@ -411,6 +413,39 @@ class ProgressiveSkillModelDeviceTest {
     private var previousEnabled = 0
     private var backendChanged = false
     private val accessibilityEvents = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    private fun verifyCanonicalResponseProjection(
+        session: String,
+        repetition: Int,
+    ) {
+        val rows = c.storage.messages.listBySession(session)
+        val persisted =
+            rows.map { row ->
+                ChatHistoryBuilder.PersistedRow(
+                    row.turnId,
+                    row.role,
+                    row.kind,
+                    c.storage.messages.readContent(row),
+                    row.id,
+                )
+            }
+        val messages = ChatHistoryBuilder.toModelMessagesStrict(persisted)
+        val steps = rows.filter { it.kind == ChatHistoryBuilder.KIND_TOOL_CALLS }
+        val progress = rows.filter { it.kind == ChatHistoryBuilder.KIND_TOOL_PROGRESS }
+        org.junit.Assert.assertEquals(steps.size, messages.count { it.toolCalls.isNotEmpty() })
+        progress.forEach { display ->
+            val step = rows.getOrNull(rows.indexOf(display) + 1)
+            assertTrue(step?.kind == ChatHistoryBuilder.KIND_TOOL_CALLS && step.turnId == display.turnId)
+            val index = rows.indexOf(requireNotNull(step))
+            val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(persisted[index])).single()
+            org.junit.Assert.assertEquals(c.storage.messages.readContent(display), message.text)
+            assertTrue(message.toolCalls.isNotEmpty())
+        }
+        println(
+            "CANONICAL_RESPONSE_PROJECTION rep=$repetition responses=${steps.size}" +
+                " progress=${progress.size}",
+        )
+    }
 
     /** Keep the original selected session and live Accessibility backend across actual HOME/return. */
     private suspend fun verifyMobileBackgroundReturn(

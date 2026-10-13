@@ -232,3 +232,19 @@ Owner追加要求参考开源Agent。2026-10-13只读核对DSH固定d74326738864
 | [LangGraph chat_agent_executor.py](https://github.com/langchain-ai/langgraph/blob/main/libs/prebuilt/langgraph/prebuilt/chat_agent_executor.py) | AIMessage无tool_calls默认END；可配置post_model_hook或结构化答复。工具调用保存在同一AIMessage，正常工具结果进入下一轮 | 可提供显式验证入口，但该入口自身不证明任务成功，也不授权后续副作用 |
 
 本轮采用的分析方向为：先恢复协议对应的原始消息结构，核对服务配置并做固定失败输入对照；然后再评估有实际完成条件的有界检查。通用hooks框架、新执行域、强制工具调用或无限“再试一次”不由这次调研自动授权。消息拆分是已确认的Helix表示差异，其对提前EOS的因果贡献仍需对照；服务器采样、实际tokenizer/parser及模型本身的工具决策能力同样不能从一次stop完全归因。
+
+## 原 R5 最终结算
+
+原R5于2026-10-13 22:36:22.778 Asia/Shanghai方法结束，runner22:36:43结算FAIL_FUNCTIONAL。实际测量7208066ms、89测量pair；总180业务（2热身、178测量）中178成功，rep93/140失败，原用户Turn均COMPLETED/error=null，不能据此改写独立业务结果。另有2次中间工具失败，仍保留。失败时长完整，JUnit最终all-results断言失败；不算新版两小时功能通过。
+
+同PID3945，基线FD166/线程59/PSS148592KiB，峰值168/61/163554KiB，增量+2/+2/+14962KiB满足原资源门禁。主机241/242采样成功、最大间隔30.4s、PSS峰值188062KiB；末条7297.1s无PID，发生在方法终态后，原meminfo为No process found，失败样本仍保留。最后成功主机采样7267.0s，设备终末测量完整。1478条真实模型响应完整HTTP200，无PROTOCOL或配置timeout，356次实际HOME/返回核验通过。derived final-reconciliation.json和JUnit XML与原result.json分开，不改写原报告；通用报告中的无成功热身标记和testRunnerFinished=false不能冒充业务通过。
+
+owned VM76263和recorder76414各exit0，原launcher及绑定防休眠/monitor已结束，30009未监听；read-only实例不保存临时设置，日常实例未操作。原制品保持75b999f6及此前APK hash，不使用后续源码修正解释这轮结果。后续Owner授权的消息回填修正仅做有界验证，不重启R5或自动再跑两小时。
+
+## 同次模型响应回填修正（Owner授权实施）
+
+保留既有两个UI记录及原事务边界：模型侧canonical TOOL_CALLS记录首项增加assistantText，存同次响应的可见文字；原文字记录标为TOOL_PROGRESS，仅用于显示，模型历史/物理正文读取不重复消费。一个ModelMessage携带原文字和原顺序调用，参数/ID不改写；普通最终TEXT、已有未关联记录不猜测合并。仅actual工具批次commit产生该表示，不把没有调用的承诺重新标成实际执行，不改变stop、取消、权限或UNKNOWN控制。Room schema不变，也不引入推理文本持久化或通用hooks机制。
+
+主机新增正常混合响应、中文/引号换行、原调用顺序与失败/拒绝结果、损坏/重复绑定元数据、无显示副本时的完整回填、普通相邻消息不合并、压缩剩余请求及pending batch保护、显示取消保持回归。首次命令误用app:spotlessApply失败，改为原root任务；两次格式检查因新增长JSON字面量失败，改为多行测试数据，不豁免规则。实际主机与固定模型/设备结果后续追加，当前不预报完成率改善。
+
+最终主机`canonical-response-all-r3.txt`的`check-all.sh --all`退出0，两渠道AndroidTest编译`canonical-response-androidtest-r1.txt`退出0。相关三类当前JUnit每渠道22+2+7项、零失败/错误/skip，其中新增8项；不以计数作为门禁。早期all-r1因builder方法数触发Detekt，提取同次响应codec后修复；all-r2与format-r3因设备夹具新增长行失败，拆行后format-r4及all-r3通过，无规则豁免。API36及真实Qwen有界验收仍进行中。
