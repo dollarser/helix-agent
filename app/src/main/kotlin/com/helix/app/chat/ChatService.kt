@@ -1165,14 +1165,19 @@ class ChatService(
         clearSessionSearch()
         inputState.share(null) // a draft pre-fill belongs to the session it opened for (HXA-056)
         workScope.launch {
-            val control =
-                if (storage.sessions.find(id) != null) {
-                    ensureSessionWorkspace(id)
-                    sessionRunControls.ensure(id, clock.now().toEpochMilli())
-                } else {
-                    sessionRunControls.defaultSnapshot()
+            if (storage.sessions.find(id) != null) ensureSessionWorkspace(id)
+            synchronized(turnGate) {
+                if (openSessionId == id && sessionDraft == null) {
+                    // Configuration commands publish under this gate. Do not overwrite them with
+                    // a snapshot fetched before asynchronous workspace preparation completed.
+                    _runControl.value =
+                        if (storage.sessions.find(id) != null) {
+                            sessionRunControls.ensure(id, clock.now().toEpochMilli())
+                        } else {
+                            sessionRunControls.defaultSnapshot()
+                        }
                 }
-            if (openSessionId == id && sessionDraft == null) _runControl.value = control
+            }
             refreshScreen()
         }
     }

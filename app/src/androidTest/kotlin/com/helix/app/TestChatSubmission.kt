@@ -4,6 +4,7 @@ import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmission
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnBudgets
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import java.util.UUID
@@ -46,10 +47,20 @@ internal suspend fun ChatService.openTestSessionControl(
     budgets: TurnBudgets,
 ) {
     openSession(sessionId)
-    withTimeout(10_000) {
-        screen.first { it.openSessionId == sessionId }
-        setMode(mode)
-        setTurnBudgets(budgets)
-        runControl.first { it.mode == mode && it.budgets == budgets }
+    var phase = "session"
+    try {
+        withTimeout(10_000) {
+            screen.first { it.openSessionId == sessionId }
+            phase = "configuration"
+            setMode(mode)
+            setTurnBudgets(budgets)
+            runControl.first { it.mode == mode && it.budgets == budgets }
+        }
+    } catch (timeout: TimeoutCancellationException) {
+        println(
+            "TEST_SESSION_CONTROL_TIMEOUT phase=$phase sessionMatches=${screen.value.openSessionId == sessionId} " +
+                "mode=${runControl.value.mode} expectedMode=$mode budgetsMatch=${runControl.value.budgets == budgets}",
+        )
+        throw timeout
     }
 }

@@ -6,7 +6,10 @@ import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.AgentMode
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Rule
@@ -14,6 +17,33 @@ import org.junit.Test
 
 class SessionRunControlDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun asynchronousOpenCannotOverwriteANewerCommittedMode() =
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val chat = container.chatService
+            val session = requireNotNull(chat.screen.value.openSessionId)
+            assertEquals(session, chat.materializeDraftSession(session))
+            try {
+                repeat(250) { iteration ->
+                    val expected = if (iteration % 2 == 0) AgentMode.ACT else AgentMode.PLAN
+                    chat.openSession(session)
+                    org.junit.Assert.assertTrue(chat.setModeFromComposer(session, expected))
+                    withTimeout(5_000) { chat.runControl.first { it.mode == expected } }
+                    delay(50) // Let the independently launched open/load coroutine finish its publication.
+                    assertEquals(
+                        "Open publication replaced committed mode at $iteration",
+                        expected,
+                        chat.runControl.value.mode,
+                    )
+                }
+            } finally {
+                chat.closeSession()
+                container.storage.deleteSessionPermanently(session)
+            }
+        }
 
     @Test
     fun sessionRunControlIsolatedAndDefaultsOnlySeedNewSessions() =

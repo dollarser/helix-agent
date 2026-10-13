@@ -70,7 +70,7 @@ class ContinuousMobileModelResourceDeviceTest {
                 "resource pid=${Process.myPid()} fd=${current[0]} threads=${current[1]} pssKb=${current[2]}",
             )
             if (current[0] > bounds[0] + 8) {
-                println("MOBILE_FD_DELTA=" + (descriptors() - baselineDescriptors).joinToString())
+                reportDescriptors("MOBILE_FD", baselineDescriptors)
             }
             assertResourceBounds(bounds, current, "task")
             Log.i(
@@ -89,7 +89,7 @@ class ContinuousMobileModelResourceDeviceTest {
                         "fd=${idle[0]} threads=${idle[1]} pssKb=${idle[2]}",
                 )
                 if (idle[0] > bounds[0] + 8) {
-                    println("MOBILE_IDLE_FD_DELTA=" + (descriptors() - baselineDescriptors).joinToString())
+                    reportDescriptors("MOBILE_IDLE_FD", baselineDescriptors)
                 }
                 assertResourceBounds(bounds, idle, "idle")
             }
@@ -109,6 +109,15 @@ class ContinuousMobileModelResourceDeviceTest {
             "cumulative PSS drift: ${baseline[2]} -> ${current[2]} ($phase)",
             current[2] <= baseline[2] + 96 * 1024,
         )
+    }
+
+    private fun reportDescriptors(
+        prefix: String,
+        baseline: Set<String>,
+    ) {
+        val current = descriptors()
+        println("${prefix}_DELTA=" + (current - baseline).joinToString())
+        current.sorted().forEach { println("${prefix}_DESCRIPTOR=$it") }
     }
 
     private fun descriptors(): Set<String> =
