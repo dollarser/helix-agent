@@ -72,7 +72,9 @@ Luna失败是模型改写长节点token，两次`browser.click`返回`stale-toke
 
 `check-all.sh --all`新鲜r5及最新r7 exit 0；含Spotless、Detekt、所有JVM/lint、Debug/Release双渠道制品及锁/边界。MCP facade 18项无失败/跳过，含gzip正常/缺wire版本、17MiB解压后JSON拒绝、普通/gzip SSE单事件超限拒绝及多健康事件累计超过16MiB仍允许。双渠道AndroidTest APK编译通过。前次失败包括错误Gradle task、格式/Detekt、源夹具语法与报告tuple-key序列化；原始结果保留，均不以放宽门禁解决。
 
-生产修复提交`4cff8607`；有界设备/模型夹具与诊断提交`ee09789b`。FD诊断当前44/60 pair，观察163～168自行波动；完整`run-as /proc/PID/fd`元数据快照的差异集中在`anon_inode:sync_file`（11→8），其他分类保持。只说明与图形同步fence相关的候选，不据此断定根因或排除泄漏；[Android16 UiAutomation源码](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android16-release/core/java/android/app/UiAutomation.java)显示takeScreenshot显式关闭HardwareBuffer并回收中间bitmap，不能直接假定调用者忘记关闭该buffer。最终diagnostic GC/关闭结果与完整两小时仍待结算。
+生产修复提交`4cff8607`；有界设备/模型夹具与诊断提交`ee09789b`。FD诊断完成51/60 pair，另有第103个业务成功，随后在第104个任务配置阶段出现10000ms TimeoutCancellationException；方法failed，不记诊断通过。实际FD在163～169波动，diagnostic GC前后均169（线程62→61，PSS161062→156426KiB），GC未使该点FD下降；owned VM正常关闭，无剩余转发器/测试VM。
+
+完整`run-as /proc/PID/fd`元数据快照差异集中在`anon_inode:sync_file`（11→8），其他分类保持；另一次读取该类型已消失。只说明与图形同步fence相关的候选，不据此断定根因或排除泄漏；[Android16 UiAutomation源码](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android16-release/core/java/android/app/UiAutomation.java)显示takeScreenshot显式关闭HardwareBuffer并回收中间bitmap，不能直接假定调用者忘记关闭该buffer。后续需区分绘制fence、稳定基线与真实retention，并定位配置投影timeout的实际等待阶段；原资源门禁不降低，完整两小时仍pending。
 
 OnePlus在最终核对时已断开；断开前无障碍设置before/after一致、30008反向端口已删除，model-r2自身合成Session/provider有finally清理。PUBLIC-r1后原schema/integrity及9个session/27个Turn/5个provider完整hash不变，随后matrix-before也有备份；最终matrix-after导出失败，不能把当前原记录保留核对记passed。需要原手机重连后完成核对与浏览器方法补验；不清数据/重建库，不安装旧Runtime。
 

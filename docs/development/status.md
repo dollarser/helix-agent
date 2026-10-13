@@ -147,7 +147,7 @@
 
 ## Next task
 
-当前收尾HXA-282：先定位真实Mobile Use任务idle FD漂移，保留原门禁并修复后完整7200秒重验；历史PROTOCOL原始帧缺失不假定已解决。OnePlus重连后核对原数据及浏览器夹具清理补验。已完成市场/协议检查不重复启动，HXA-281保持完成。其他OEM、24h、App Links/loopback通用OAuth、PTC/App UI及桌面运行时不自动加入本轮；需Owner明确范围与适用ADR。
+当前收尾HXA-282：先定位真实Mobile Use任务idle FD漂移及第104次任务配置投影timeout，有界诊断已结束并关闭测试VM；保留原门禁，修复后完整7200秒重验。历史PROTOCOL原始帧缺失不假定已解决。OnePlus重连后核对原数据及浏览器夹具清理补验。已完成市场/协议检查不重复启动，HXA-281保持完成。其他OEM、24h、App Links/loopback通用OAuth、PTC/App UI及桌面运行时不自动加入本轮；需Owner明确范围与适用ADR。
 
 ### 插件优化队列（2026-10-11）
 
