@@ -28,6 +28,7 @@ class FileToolArgumentsTest {
                 "write",
                 "edit",
                 "view_image",
+                "files.read_pdf",
                 "files.list",
                 "files.stat",
                 "files.search",
@@ -69,6 +70,21 @@ class FileToolArgumentsTest {
                 ).jsonObject
         assertEquals("scope:ws:project/chart.png", resolved.getValue("path").jsonPrimitive.content)
         assertEquals(resolved, FileToolArguments.normalize(resolved, FileScopePath("elsewhere", "other")))
+    }
+
+    @Test fun pdfReadingFreezesTheOriginalDirectoryBeforeApprovalAndDispatch() {
+        val tool =
+            com.helix.tools.files.ReadPdfTool
+                .descriptor()
+        org.junit.Assert.assertTrue(FileToolArguments.handles(tool))
+        val bound = FileToolArguments.bindRequest("""{"path":"paper.pdf","page":2}""", FileScopePath("ws", "project"))
+        val args = Json.parseToJsonElement(bound).jsonObject
+        assertEquals("scope:ws:project/paper.pdf", args["path"]!!.jsonPrimitive.content)
+        assertEquals("2", args["page"]!!.jsonPrimitive.content)
+        assertEquals(args, FileToolArguments.normalize(args, FileScopePath("different", "directory")))
+        org.junit.Assert.assertTrue(
+            FileToolArguments.modelSchema(tool).inputSchemaJson.contains("current session working directory"),
+        )
     }
 
     @Test fun inFlightResponseAndStoredHistoryKeepTheRequestDirectory() {

@@ -11,4 +11,6 @@
 - accepted [ADR-WORKSPACE-004](004-workspace-binding.md)：独立会话工作目录与外部资源绑定
 - accepted [ADR-WORKSPACE-005](005-projects.md)：本机项目、成员关系与跨会话工作组织
 
+- accepted [ADR-WORKSPACE-006](006-pdf-reading.md)：有界 PDF 读取与总结
+
 accepted 只表示设计决定；交付与验收查实施状态和对应任务。跨主题修改同时核对[权限](../permissions/README.md)、[执行域](../runtime/README.md)与[工作目录](README.md)，不把一个主题的许可推导成另一个主题的授权。

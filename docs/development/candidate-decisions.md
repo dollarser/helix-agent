@@ -45,7 +45,7 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 | FUT-AUTO-003 | 独立脚本 Runtime | 独立应用/UID 与受控 IPC 方案；不借现有 QuickJS 开放特权桥 |
 | FUT-SYS-001 | Shizuku Provider | HXA-243/244 已接 Mobile Use 授权及观察/动作；[平台边界](../architecture/android-platform-capabilities.md)和 status 承接有限实测。完整撤权/Binder death/OEM 仍独立，不再列为完全未实现 |
 | FUT-SYS-002 | 无线 ADB | 用户配对、密钥与连接生命周期、供应链和断连恢复方案 |
-| FUT-MEDIA-001 | PDF/Office 对话读取 | 已有附件与视觉通道不等于文档解析；先界定格式、来源、截断、恶意输入、资源和许可证 |
+| FUT-MEDIA-001 | PDF/Office 对话读取 | Owner已接受PDF读取/总结切片，沿[HXA-283](tasks/HXA-283.md)/ADR-WORKSPACE-006实施；Office、编辑/生成仍为候选 |
 | FUT-MEDIA-002 | 视频理解 | 比较有界抽帧与原生 Provider 上传；确定时长/像素/音轨/成本/留存边界 |
 | FUT-A2A-001 | 前台局域网 A2A Server | 已有 A2A Client；新增入站服务须明确身份、端口、锁屏/后台/重启关闭边界 |
 | FUT-A2A-002 | 用户自备远程通道 | 明确 VPN/隧道/中继的身份和费用；通道在线不等于手机任务可执行 |

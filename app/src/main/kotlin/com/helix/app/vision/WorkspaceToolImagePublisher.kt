@@ -12,7 +12,7 @@ import com.helix.tools.framework.VisualPreparationException
 import java.time.Instant
 import java.util.UUID
 
-/** All trusted screen producers share the same file-first artifact registration and visual preparation. */
+/** All trusted screen/page image producers share the same file-first artifact registration and visual preparation. */
 internal class WorkspaceToolImagePublisher(
     private val workspace: WorkspaceArtifactStore,
     private val sink: WorkspaceArtifactStore.ArtifactSink,
@@ -44,7 +44,7 @@ internal class WorkspaceToolImagePublisher(
             throw VisualPreparationException("CANCELLED")
         }
         ensureOutputDirectory()
-        val destination = FileScopePath(scopeId, "output/mobile-screen-${UUID.randomUUID()}.png")
+        val destination = FileScopePath(scopeId, "output/tool-image-${UUID.randomUUID()}.png")
         val written =
             workspace.writeArtifact(
                 destination,
@@ -59,7 +59,7 @@ internal class WorkspaceToolImagePublisher(
             try {
                 preparation.prepare(call, destination.toModelReference(), written.record.sha256)
             } catch (failure: VisualPreparationException) {
-                note = "Screenshot saved; pixels not delivered: ${failure.code}."
+                note = "Image saved; pixels not delivered: ${failure.code}."
                 null
             }
         if (visual != null && acquisitionScopeRef != null) registerScreenImage(call, visual, acquisitionScopeRef)

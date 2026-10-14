@@ -17,6 +17,29 @@ import org.junit.Test
  * returned unchanged (no pure-text regression).
  */
 class AttachmentContextTest {
+    @Test fun pdfPreviewNeverClaimsCompletenessAndKeepsAnExplicitSourceForPageReading() {
+        for (truncated in listOf(false, true)) {
+            val text =
+                AttachmentMaterialization.Text(
+                    "paper.pdf",
+                    TextAttachmentKind.PDF,
+                    "preview",
+                    "a".repeat(64),
+                    truncated,
+                    900,
+                )
+            val block = AttachmentContextBlock.Text(text, "input/attachments/paper.pdf", "attachment-scope")
+            val out = AttachmentContext.buildUserMessageContent("总结这份PDF", listOf(block))
+            assertTrue(out.contains("scope:attachment-scope:input/attachments/paper.pdf"))
+            assertTrue(out.contains("files.read_pdf"))
+            assertTrue(out.contains("不代表完整文档"))
+            assertFalse(out.contains("全文内联"))
+            assertFalse(out.contains("可分块读取"))
+            assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
+            assertEquals(truncated, out.contains("PDF文本预览已截断"))
+        }
+    }
+
     @Test
     fun revisionRestoresAuthoredPrefixAndRejectsAmbiguousAttachmentMarkers() {
         val text = "Keep trailing space \n"

@@ -620,6 +620,12 @@ internal class DefaultAppContainer(
             toolVision.artifactSink,
         )
         toolVision.registerTools(toolRegistry)
+        com.helix.tools.files.ReadPdfTool.register(
+            toolRegistry,
+            com.helix.app.pdf
+                .AndroidPdfPageReader(context, workspaceStore),
+            toolVision.imagePublisher,
+        )
         pluginRegistry.register(
             com.helix.extensions.browser.BrowserPlugin(
                 context,

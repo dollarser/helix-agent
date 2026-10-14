@@ -14,6 +14,7 @@ internal object FileToolArguments {
         setOf(
             "read",
             "view_image",
+            "files.read_pdf",
             "write",
             "edit",
             "files.list",

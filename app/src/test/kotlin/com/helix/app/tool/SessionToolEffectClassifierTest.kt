@@ -69,6 +69,22 @@ class SessionToolEffectClassifierTest {
         )
     }
 
+    @Test fun pdfReadingUsesTheFrozenSourceAndNeverClaimsWorkspacePrivilegeForExternalFiles() {
+        val classifier = SessionToolEffectClassifier { "scope:ws:project" }
+        val tool =
+            com.helix.tools.files.ReadPdfTool
+                .descriptor()
+        assertEquals(ToolOperationClass.READ_ONLY, tool.operationClass)
+        assertEquals(
+            setOf(OperationEffect.FILE_READ_WORKSPACE),
+            classifier.classify(request("""{"path":"scope:ws:project/paper.pdf"}"""), tool).footprint.effects,
+        )
+        assertEquals(
+            setOf(OperationEffect.FILE_READ_EXTERNAL),
+            classifier.classify(request("""{"path":"scope:other:paper.pdf"}"""), tool).footprint.effects,
+        )
+    }
+
     @Test fun memoryNeverBorrowsWorkspaceOrMetadataPrivileges() {
         val classifier = SessionToolEffectClassifier { "scope:memory:global" }
         com.helix.app.memory.MemoryTools.reads.forEach { name ->

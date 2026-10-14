@@ -27,6 +27,7 @@ internal class SessionInputAttachments(
                         AttachmentContextBlock.Text(
                             value,
                             storage.artifacts.resolve(input.attachments[index].artifactId).relativePath,
+                            staging.workspaceScopeId,
                         )
                     }
 

@@ -2655,7 +2655,7 @@ class ChatService(
         materialized.mapIndexed { index, m ->
             when (m) {
                 is AttachmentMaterialization.Text -> {
-                    AttachmentContextBlock.Text(m, staged[index].relativePath)
+                    AttachmentContextBlock.Text(m, staged[index].relativePath, attachmentStaging.workspaceScopeId)
                 }
 
                 is AttachmentMaterialization.Image -> {

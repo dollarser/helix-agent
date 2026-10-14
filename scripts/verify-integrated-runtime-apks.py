@@ -56,6 +56,18 @@ def verify_http_network_config(app, config, resource_table=""):
         raise RuntimeError("HTTP unavailable or default TLS trust modified")
 
 
+def verify_pdf_reader(app, package):
+    """HXA-283: both channels parse untrusted PDF only in a private isolated UID."""
+    matches = [item for item in app.findall("service")
+               if item.get(A + "name") == "com.helix.app.pdf.PdfReaderService"]
+    if len(matches) != 1:
+        raise RuntimeError("Missing or duplicate PDF parser service")
+    service = matches[0]
+    if (service.get(A + "exported") != "false" or service.get(A + "isolatedProcess") != "true" or
+            service.get(A + "process") not in (":pdf_reader", package + ":pdf_reader")):
+        raise RuntimeError("PDF parser must remain private, isolated and outside the main process")
+
+
 def verify_mobile_app_visibility(manifest, developer):
     permissions = {item.get(A + "name") for item in manifest.findall("uses-permission")}
     if ("android.permission.QUERY_ALL_PACKAGES" in permissions) != developer:
@@ -180,6 +192,7 @@ def verify(flavor, build_type):
         ]))
     verify_mobile_use(app, developer, mobile_config, resources)
     verify_shizuku(app, developer)
+    verify_pdf_reader(app, package)
     assert package == "com.helix.agent" + (".developer" if developer else "")
     components = {element.get(A + "name"): element for element in app}
     # Network configuration belongs to global settings; the retired subscription entry must not return.

@@ -2,7 +2,7 @@ package com.helix.tools.framework
 
 import com.helix.core.model.VisualArtifact
 
-/** Trusted screenshot producers use the existing host-owned artifact and vision pipeline. */
+/** Trusted screen/page image producers use the existing host-owned artifact and vision pipeline. */
 fun interface ToolImagePublication {
     fun publish(
         call: ExecutableToolCall,

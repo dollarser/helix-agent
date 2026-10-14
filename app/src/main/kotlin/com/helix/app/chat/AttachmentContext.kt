@@ -34,6 +34,7 @@ sealed interface AttachmentContextBlock {
         constructor(
             text: AttachmentMaterialization.Text,
             relativePath: String,
+            sourceScopeId: String,
         ) : this(
             fileName = text.fileName,
             kind = text.kind,
@@ -41,7 +42,14 @@ sealed interface AttachmentContextBlock {
             sha256 = text.sha256,
             truncated = text.truncated,
             sizeBytes = text.sizeBytes,
-            relativePath = relativePath,
+            relativePath =
+                if (text.kind == TextAttachmentKind.PDF) {
+                    com.helix.core.workspace
+                        .FileScopePath(sourceScopeId, relativePath)
+                        .toModelReference()
+                } else {
+                    relativePath
+                },
         )
     }
 
@@ -132,18 +140,35 @@ object AttachmentContext {
         total: Int,
         block: AttachmentContextBlock.Text,
     ) {
+        val pdf = block.kind == TextAttachmentKind.PDF
         val bodyLabel =
-            if (block.truncated) {
-                "内容（截断：仅内联前 ${AttachmentMaterializer.MAX_INLINE_TEXT_BYTES} 字节，完整 ${block.sizeBytes} 字节）："
-            } else {
-                "内容（全文内联）："
+            when {
+                pdf -> {
+                    "PDF文本预览（尽力提取，可能缺少页面、文字或版式，不代表完整文档）："
+                }
+
+                block.truncated -> {
+                    "内容（截断：仅内联前 ${AttachmentMaterializer.MAX_INLINE_TEXT_BYTES} 字节，完整 ${block.sizeBytes} 字节）："
+                }
+
+                else -> {
+                    "内容（全文内联）："
+                }
             }
         append("$UNTRUSTED_MARKER\n")
         append("【附件 $index/$total · ${block.fileName}】\n")
-        append("SHA-256（完整内容）：${block.sha256}\n")
+        val hashLabel = if (pdf) "原始PDF文件" else "完整内容"
+        append("SHA-256（$hashLabel）：${block.sha256}\n")
         append("$bodyLabel\n")
         append(boundedPrefix(block.content))
-        append("\n完整内容路径（工作区相对路径，可分块读取）：${block.relativePath}")
+        if (pdf) {
+            append("\n原始PDF路径（已绑定来源）：${block.relativePath}")
+            append("\n使用 files.read_pdf 逐页读取后总结，引用页码并说明未读页和截断；图表/版式可用 mode=image。")
+            append("不要把 read 返回的PDF二进制/base64当作正文。")
+            if (block.truncated) append(" PDF文本预览已截断。")
+        } else {
+            append("\n完整内容路径（工作区相对路径，可分块读取）：${block.relativePath}")
+        }
     }
 
     /**
