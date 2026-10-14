@@ -12,13 +12,21 @@ Owner重新明确授权自有API36、既有30008 Qwen、临时Shizuku/无障碍/
 
 离线核对模型请求中的12条唯一动作回执（set_text/scroll/click各4），均为DISPATCHED、UNVERIFIED、observationRequired=true；外层[SUCCEEDED]仍只表示工具执行完成，业务由实际表单结果独立判定。36次原模型调用均HTTP200、完整SSE且Turn/model-call/代理request ID及单响应ID关联齐全；另2次无身份探测不混入业务调用。该样本只证明契约可用，不声称消除了全部模型提前结束。原无障碍null/0恢复，录制器退出0、VM退出0；日常模拟器未动。
 
-当前抖音使用新的自有实例及已授权临时Shizuku执行，完整旅程和两小时长稳pending。旧脚本中过期的绝对截止时间已改为必须提供且有效的新窗口，未修改生产权限、资源门禁或结果断言。所有生成物均留在上述忽略目录；复验用支持的`run-owned-emulator.py`冻结同一对APK、先拼音，再按上述三个方法分别instrument，真实方法传pluginSkillPort/pluginSkillModel，四模式显式传helixTouchReview=true和helixInstallerTouchProbe=true。
+抖音随后在新的自有实例及已授权临时Shizuku完成完整旅程，详情见后文；两小时长稳单独验收。旧脚本中过期的绝对截止时间已改为必须提供且有效的新窗口，未修改生产权限、资源门禁或结果断言。所有生成物均留在上述忽略目录；复验用支持的`run-owned-emulator.py`冻结同一对APK、先拼音，再按上述三个方法分别instrument，真实方法传pluginSkillPort/pluginSkillModel，四模式显式传helixTouchReview=true和helixInstallerTouchProbe=true。
+
+### 本轮抖音完整自主旅程通过
+
+`build/hxa282/real-tasks-receipt-shizuku-r1/`使用与上述回执短验相同的冻结APK，原Turn `2e0ff35288f1e8da1d5547637b4bd689`（UTC03:56:04–04:10:52）COMPLETED，独立安装/卸载包断言通过；没有追加上下文提示或宿主代下载、安装、观看、卸载。Helix从官方入口进入Chrome，下载360MB APK（实际359908938字节），自行打开安装器、安装、处理普通启动提示、播放公开视频，再经系统页面卸载并核对。无登录、注册或账号动作；本次无需登录，不能声称验证了必须登录分支。Shizuku实际Shell UID2000及Helix授权在启动模型前核实，工具轨迹含真实shizuku后端结果。
+
+原JUnit将播放review如实留pending，随后另存journey-review.json，没有覆盖原始结果：被动样本0304–0396期间包存在，最终0416包不存在；截图0335（UTC04:07:57）与0360（04:08:51）人工复核为同一公开视频，画面、字幕和播放进度变化，且应用归属的audio.track.16自设备本地12:07:21.513处于STATE_ACTIVE，后续观察至12:08:51未记录暂停/停止，综合证明观看超过10秒。media.codec服务不可用，不伪造解码帧计数，不单凭页面停留或模型文字判定播放。完整旅程本次passed，只限这一自有API36/Shizuku样本；模型仍有多次无效截图帧、NO_PAGE及等待/恢复，未删去过程错误，也未把它当作效率最优或普遍成功率。
+
+168次原模型调用全部完整HTTP200，Turn/model-call、代理request ID和单SSE响应ID关联齐全；另1探测不算业务调用。168条工具调用和完整轨迹归档，模型请求中33条唯一动作回执符合DISPATCHED/UNVERIFIED；无效截图等原始回复保留。普通AX设置null/0和浮窗AppOp default恢复，Shizuku自有PID终止且runningAfter为空，录制器与自有VM退出0；没有动日常实例。该旅程来自截图提示修正前制品，不据此证明新修正已完成设备验收。
 
 ### 本轮发现：截图帧参数恢复提示
 
 冻结旧制品的抖音轨迹中，模型多次把page/chk等自造文字作为ui.screenshot.frame，返回NO_ACTIVE_SESSION；随后才发现ui.device并使用真实帧恢复。原始模型错误保留，不把所有下载等待都归因于该问题。局部修正仅在截图描述、参数说明、失败actionHint及内置Skill短指导中明确先发现/调用ui.device、原样复制opaque frame；不改变底层错误状态，不自动创建授权、重试、发布假图片或重放动作。ui.screenshot版本2→3，其他版本不动；沿用本页已有execute/observe参考设计，不引入框架或复制竞品代码。
 
-新增回归覆盖无会话、旧帧、目标变化和范围拒绝时的原状态、无图片/引用、schema一致及没有暗中观察。Mobile Use Debug JVM264项零失败/跳过，完整`check-all.sh --all`退出0、两渠道及SDK AndroidTest编译通过；日志在忽略的receipt-frame-host-r4.txt、receipt-frame-all-r1.txt和receipt-frame-androidtest-r1.txt。最初误用子模块spotlessApply及两次长行格式失败保留，修正后完整重验。此刻修正后的视觉设备/Qwen补验pending，不能继承旧APK上的业务结果；抖音仍在原冻结APK中自主执行。
+新增回归覆盖无会话、旧帧、目标变化和范围拒绝时的原状态、无图片/引用、schema一致及没有暗中观察。Mobile Use Debug JVM264项零失败/跳过，完整`check-all.sh --all`退出0、两渠道及SDK AndroidTest编译通过；日志在忽略的receipt-frame-host-r4.txt、receipt-frame-all-r1.txt和receipt-frame-androidtest-r1.txt。最初误用子模块spotlessApply及两次长行格式失败保留，修正后完整重验。该主机检查完成时视觉设备/Qwen补验仍pending；后续新制品结果见下方，不继承旧APK上的业务结果。
 
 ## Owner追加：动作回执语义优化
 
@@ -138,3 +146,11 @@ Shizuku bootstrap原来在connect失败后直接close；close的InvocationTarget
 ### 主机与后续验收
 
 夹具阶段全仓`journey-host-all-r2/r3.txt`、双渠道AndroidTest及最终文件/夹具修正编译均通过；首组业务/安装准备失败完整保留。UI/披露修正完整主机、SDK及两渠道测试APK继续验证；此前布局检查触发函数数量静态门禁，保持同一个窗口owner并记录局部结构取舍，不删除行为测试。修后主APK真实表单及最长两小时长稳未执行，仍pending。运行中有效HF模板完整hash、关闭EAGLE对照仍需服务器侧测试端口/配置，公开服务信息只确认既有版本/解析器/EAGLE，不能确定实际模板内容。
+
+### 截图修正后的视觉补验与一次后台长稳
+
+`build/hxa282/layout-and-model-frame-r1/`冻结修正主APK SHA256 `6cca6be21c1b34af42227031dfd338426d8a726aa1a59a55a29a631a3e848010`及上述cb60cb7e测试APK，源码提交`252fea0b`。自有API36/Developer实际拼音1方法、ProgressiveSkillModelDeviceTest#mobileSyntheticForm（pluginSkillVisual=true）1方法通过，后者两业务/4次后台返回、两个实际附图及坐标手势均成功；业务依据独立表单结果，不是ToolCall完成状态。25次原模型调用及4次无身份能力探测分开，原调用全部完整200且四项身份关联齐全；6条动作新回执合法。原AX null/0恢复，录制器/自有VM退出0；原帧及所有请求保留，不将成功样本推导为普遍模型收益。
+
+短验全部通过后，仅启动一次新的两小时R6：自有只读API36端口5600、既有Qwen，启动UTC04:14:36，独立后台拥有者及caffeinate记录在忽略的`build/hxa282/mobile-two-hours-receipt-r6.launcher.json`。使用支持的run-owned-emulator.py冻结相同制品，实际拼音之后运行run-hxa103-browser-soak.py --workload mobile-model --flavor developer --preset precheck；连续实际业务、同PID/7200秒和原FD+8/线程+16/PSS+96MiB及主机采样要求保持。阶段预留完整测量及清理时间，剩余授权不足则拒绝启动，不自动再跑至通过。
+
+当前R6为running/pending，预计UTC06:20左右结束；尚无两小时通过结论，不能覆盖旧R5 FAIL_FUNCTIONAL。后台拥有者在正常/失败退出时收集报告、恢复AX、关闭录制器/反向映射及自有VM，Codex重启不应终止自有后台进程；以最终result.json、closed.json和恢复记录为准，不能提前宣称清理完成。按Owner既有“只剩长测等待则后台继续、暂停前台等待”的选择，不前台等待两小时。服务器有效模板运行时hash和EAGLE-off单变量端点未提供，仍属服务端外部依赖，不声称EOS诱因已经消除。
