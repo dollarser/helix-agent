@@ -2,6 +2,44 @@
 
 日期：2026-10-14；范围：[HXA-282](../../development/tasks/HXA-282.md)。Owner本轮明确授权自有API36、既有30008 Qwen、文件/浏览器/Mobile Use任务及最长两小时长稳。实际App为抖音官方下载、安装、观看和卸载，全部效果必须由Helix自主执行，可以提供上下文；不登录，必须登录才可观看时由Helix直接卸载。不会覆盖日常模拟器，不继承旧R5的结果。
 
+## Owner追加：安装触摸过滤定点复测
+
+Owner随后要求重新测试并查官方依据，判断坐标偏移还是触摸过滤，以及可用的输入接口。本次重新授权的范围是定点诊断，使用自有API36只读实例和自有小型`Helix Install Fixture`，不重新启动长稳、不调用真实模型、不操作抖音或账号。宿主对合成测试包的Shell点击是诊断对照，绝不计作Helix自主安装抖音。
+
+### 官方机制与接口边界
+
+[Android官方安全说明](https://developer.android.com/blog/posts/enhancing-android-security-stop-malware-from-snooping-on-your-app-data)明确：Android 16的敏感视图保护限制未声明为辅助功能工具的服务读取和交互；`setFilterTouchesWhenObscured(true)`也会使视图默认成为敏感视图。这与必须存在浮窗遮挡的过滤分支不同，不能把名称中的obscured理解为“隐藏浮窗后必然可点”。[AOSP View](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/core/java/android/view/View.java)的`onFilterTouchEventForSecurity`分别检查遮挡位，以及“来自无障碍服务、不是Accessibility Tool、目标敏感”的组合；[AOSP安装器](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/packages/PackageInstaller/src/com/android/packageinstaller/PackageInstallerActivity.java)对确认按钮启用该属性。分支原文及SHA256保存在忽略的`build/hxa282/touch-filter-retest/source-provenance.json`，不把参考分支冒充当前模拟器系统的精确构建源码。
+
+- `dispatchGesture`的完成回调只说明手势序列完成，不说明目标View接受事件。截图、重复点按、长按或修改图片大小不能改变输入来源。
+- 已明确授权的Shell/Root/Shizuku是不同权限与输入路径；当前Shell对照可判断此无障碍来源过滤，不代表所有OEM、安全窗口、锁屏或其他保护都可操作。现有Helix后端优先级与授权边界不变，不新增跨后端自动重放。
+- `UiAutomation.injectInputEvent`是测试/特权执行环境的接口，不是普通App拿到无障碍权限后就能自由使用的公开全局注入能力。当前Helix已有Shizuku后端，本次不新增输入引擎。
+- 普通App可用[PackageInstaller](https://developer.android.com/reference/android/content/pm/PackageInstaller)发起安装，但首次安装通常仍需系统用户确认；`setRequireUserAction(USER_ACTION_NOT_REQUIRED)`具有更新归属及权限等前提，不是通用静默安装开关。[官方参数约束](https://developer.android.com/reference/android/content/pm/PackageInstaller.SessionParams#setRequireUserAction(int))。
+- [isAccessibilityTool的官方定义](https://developer.android.com/reference/android/accessibilityservice/AccessibilityServiceInfo#isAccessibilityTool())是用于帮助残障用户的服务。Helix的通用Agent定位保持，不为此将声明改为true，也不修改系统安全开关或安装器。
+
+### 本次执行与保留失败
+
+新`InstallerTouchFilterDeviceTest`使用生产`PermissionCenterDevicePort`与实际会话授权，先通过只读特权观察获取确认按钮的真实屏幕矩形，核对其敏感标记；无障碍树独立核对节点缺失。原截图尺寸、屏幕尺寸、旋转及同坐标均记录，先调用Helix无障碍手势再被动查包，确认页面与按钮矩形未变后才发出合成包的Shell对照。没有依赖模型坐标，也没有把特权观察树当作普通无障碍树。另以恢复包装复用原`AccessibilityTouchReviewDeviceTest`四模式及全部原断言，不复制或放宽其用例。
+
+`device-r1`：实际拼音通过；安装按钮已观察为`sensitive=true`且普通AX树缺失，截图遇到`TARGET_OR_AUTHORIZATION_CHANGED`后失败，尚未发送触摸。夹具增加最多10次、每次300ms间隔的只读重观察/截图，仅允许失效目标类状态，不重放动作；原失败保留。首次构建误用不存在的App级Spotless任务及首轮完整主机的新增测试长行静态错误也保留，均已修正。
+
+`device-r2`：实际拼音1方法及安装页对照1方法通过（17.006秒）。Developer/API36 arm64，系统fingerprint为`google/sdk_gphone64_arm64/emu64a:16/BE2A.250530.026.F3/13894323:userdebug/dev-keys`。主APK SHA256 `576cf3723aea4a9e9ff8411e903e550d787a8f06131087e2f36753df14a86ee3`，测试APK `5c16d0760d12093db37348019129ba096c5f370f41d4d74cdc1a2b0335a8eb6d`。
+
+实际按钮矩形`(810,1301)-(978,1443)`、中心`(894,1372)`，原截图与物理屏幕均1080×2400、旋转0；服务`isAccessibilityTool=false`，按钮敏感，普通树缺少`android:id/button1`。无障碍手势`SUCCEEDED`后3秒合成包仍不存在，按钮位置不变；UID2000 Shell在完全相同坐标点击，包安装成功。因此这一对照排除了模型定位和图片缩放误差，结合敏感标记与平台源码，支持无障碍来源过滤归因；没有声称取得系统安装器进程内部过滤回调。
+
+上述实例已退出0，无障碍恢复`null/0`，测试来源安装AppOp恢复default，日常模拟器未使用。最终四模式复跑与完整主机结果继续在本节结算；不以历史通过代替当前结果。
+
+`device-final`两方法同进程尝试：安装页对照再次通过，旧合成用例在触摸前收到`OVERLAY_HIDE_NOT_CONFIRMED`；不能把未派发当系统过滤。恢复原合成用例所需的MainActivity初始化后，`device-r4`四模式实际通过：normal与no-semantics各点击1次、flags2048、accepted=true；显式sensitive与隐式obscured各0次、flags2048、accepted=false。没有遮挡位，证明合成按钮确实是无障碍来源/敏感视图过滤，不是坐标偏移或浮窗遮挡。该组随后同进程切换AX服务时安装页观察为空，整体仍failed；各方法改为单独instrumentation进程、独立连接/恢复，方法间等原设置恢复后再继续，保留全部初始尝试，不修改生产门禁或原断言。
+
+`device-r5`继续保留两项时序失败：安装框初始矩形在操作期间移动49px，严格“矩形不变”断言拒绝将其算有效同坐标对照；合成用例首次呈现发布使帧失效，动作被`STALE_TOKEN`拒绝。夹具在触摸前要求按钮矩形连续1秒稳定，原合成用例增加初次呈现发布的只读观察/主线程空闲屏障再取新帧；截图失效仍只允许有界只读重采，所有动作及实际计数断言不变，没有跨后端自动重放。这说明新弹窗确实需要防布局变化，但不推翻前面位置不变的有效过滤对照。
+
+最终`device-r6`：实际拼音1方法、安装页对照1方法（12.445秒）、原合成四模式1方法（11.173秒）均通过；两个诊断方法分别运行于自有instrumentation进程。主APK仍为上述576cf372，最终测试APK SHA256 `a604102573f96a60a404477760661665cfb220e818361a12f7ad7aea4ad01fe8`。安装按钮仍为敏感、普通服务仍非Accessibility Tool，稳定中心(894,1372)的无障碍手势完成但包不存在，Shell同坐标安装成功；四模式再次取得与r4一致的接受/拒绝计数及flags2048记录。原始轨迹、截图、完整日志、JUnit、制品hash及恢复信息保存在忽略的`build/hxa282/touch-filter-retest/`。
+
+最终VM退出0，原AX null/0与来源AppOp default恢复；所有实例均关闭、日常5554未操作，未新增Shizuku服务或真实模型调用。合成View直接观察到安全过滤拒绝；系统安装器归因来自敏感标记、同坐标对照及源码的共同支持，没有侵入安装器内部。本次不关闭抖音完整自主旅程或修后连续长稳，亦不推广其他API/OEM。生产代码、isAccessibilityTool声明、权限边界和隐藏确认门禁均未修改。
+
+完整`./scripts/check-all.sh --all`最终退出0（`host-all-closed.txt`），包括225项host脚本回归、JVM/格式/Detekt、四variant lint/APK及制品/Runtime边界；Developer AndroidTest最终另编译通过（`compile-last.txt`），文档检查通过。首次新增屏障使旧测试超过方法长度门禁，提取为`awaitInitialPresentation`后完整复验，调用顺序及断言未变；设备冻结APK来自提取前的同等序列，末次源码提取仅经主机/编译验证，未重复设备测试。失败的静态检查、初始化与坐标布局尝试均保留，没有删测或更改门禁换通过。
+
+复现前置：显式Owner授权的自有API36实例，Developer及匹配测试APK；自建或核实最小无代码`com.helix.validation.installfixture`包，暂存到测试APK的`cache/install-fixture.apk`，只为该测试来源临时允许安装。本轮合成APK SHA256 `e5200e015008af15cb2214f485df83456f76fa4dce42eae62a30e56edefa8c4d`。两个诊断方法使用`helixInstallerTouchProbe=true`、`helixTouchReview=true`分别执行，方法间核对恢复；缺少前置不得借用日常设备或第三方安装包。暂存、Shell控制、独立observer及原始日志均属诊断夹具，不属于Helix自主业务结果。
+
 ## 验收设计
 
 - 复用支持的`run-owned-emulator.py`、实际拼音夹具、连续Mobile Use资源夹具与原两小时报告器。冻结主/测试APK、记录所有者PID；只读AVD退出不保存快照。

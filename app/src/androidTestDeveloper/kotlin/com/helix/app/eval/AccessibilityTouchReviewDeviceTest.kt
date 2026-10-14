@@ -97,6 +97,7 @@ class AccessibilityTouchReviewDeviceTest {
         }
         val before = oracle()
         assertTrue(before.first > 0 && before.second > 0)
+        awaitInitialPresentation()
         val observation = dispatch("ui.device", buildJsonObject {})
         assertEquals("accessibility", observation["clickMatchBackend"]?.jsonPrimitive?.content)
         val frame = observation.getValue("frame").jsonPrimitive.content
@@ -135,6 +136,14 @@ class AccessibilityTouchReviewDeviceTest {
         val acceptsTouch = mode == "normal" || mode == "no-semantics"
         assertEquals(if (acceptsTouch) 1 else 0, after.third.first)
         assertTrue(after.third.second.contains("accepted=$acceptsTouch"))
+    }
+
+    private fun awaitInitialPresentation() {
+        // Drain initial asynchronous window publication before taking the coordinate frame.
+        // This is read-only preparation, never a retry of a dispatched gesture.
+        dispatch("ui.device", buildJsonObject {})
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        SystemClock.sleep(250)
     }
 
     private fun reviewInstaller() {
