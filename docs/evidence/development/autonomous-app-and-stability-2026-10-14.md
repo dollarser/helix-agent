@@ -2,6 +2,18 @@
 
 日期：2026-10-14；范围：[HXA-282](../../development/tasks/HXA-282.md)。Owner本轮明确授权自有API36、既有30008 Qwen、文件/浏览器/Mobile Use任务及最长两小时长稳。实际App为抖音官方下载、安装、观看和卸载，全部效果必须由Helix自主执行，可以提供上下文；不登录，必须登录才可观看时由Helix直接卸载。不会覆盖日常模拟器，不继承旧R5的结果。
 
+## Owner追加：新回执设备与真实模型验收
+
+Owner重新明确授权自有API36、既有30008 Qwen、临时Shizuku/无障碍/悬浮窗：先最多45分钟短验，短验通过后一次连续两小时，合计不超过三小时。不使用日常模拟器或账号；抖音下载安装、观看和卸载仍须Helix自主执行。此为新的独立窗口，不延长或改写前轮失败。
+
+本轮绝对窗口为UTC 03:51:27–06:51:27，短验截止04:36:27。当前源码`aca47a8f`；冻结Developer主APK SHA256 `53f49d1d0fbd1a22246b0fdedcf170ae272d6c3cc130f07351e54f82f7222d15`，测试APK `cb60cb7e91208931f6204b28a0ec0f1e906382e2af7e6e9d0d705cabaded30f0`。自有只读AVD、端口5600，先执行真实拼音，再分别运行原四模式触摸断言、Qwen离屏查找与中文表单。生成物与原始失败均留在忽略的`build/hxa282/layout-and-model-receipt-r1/`，不包含真实账号。
+
+短回归完成：真实拼音1方法、`InstallerTouchFilterDeviceTest#sensitiveAndOrdinaryButtonsKeepTheirOriginalFrameworkAssertions`四种模式1方法、`ProgressiveSkillModelDeviceTest#mobileOffscreenFind`及`#mobileSyntheticForm`各1方法均通过，后两者实际Qwen共4业务和8次后台返回通过。普通/自绘控件实际点击计数为1，显式/隐式敏感控件计数为0且accepted=false；四者均回DISPATCHED/UNVERIFIED，不把系统拒绝误当业务成功。原断言全部保留。
+
+离线核对模型请求中的12条唯一动作回执（set_text/scroll/click各4），均为DISPATCHED、UNVERIFIED、observationRequired=true；外层[SUCCEEDED]仍只表示工具执行完成，业务由实际表单结果独立判定。36次原模型调用均HTTP200、完整SSE且Turn/model-call/代理request ID及单响应ID关联齐全；另2次无身份探测不混入业务调用。该样本只证明契约可用，不声称消除了全部模型提前结束。原无障碍null/0恢复，录制器退出0、VM退出0；日常模拟器未动。
+
+当前抖音使用新的自有实例及已授权临时Shizuku执行，完整旅程和两小时长稳pending。旧脚本中过期的绝对截止时间已改为必须提供且有效的新窗口，未修改生产权限、资源门禁或结果断言。所有生成物均留在上述忽略目录；复验用支持的`run-owned-emulator.py`冻结同一对APK、先拼音，再按上述三个方法分别instrument，真实方法传pluginSkillPort/pluginSkillModel，四模式显式传helixTouchReview=true和helixInstallerTouchProbe=true。
+
 ## Owner追加：动作回执语义优化
 
 Owner在过滤诊断后要求优化“派发完成却返回success”的歧义。本阶段只改Mobile Use模型可见动作结果、输出schema、相关工具版本、描述和内置Skill；没有新的设备/模型授权，不启动模拟器、真机或Qwen，设备/真实模型均not requested。此前API36过滤复测证明的是原制品上的系统行为，不当作新工具契约的设备通过。

@@ -1,5 +1,7 @@
 # 当前实施状态
 
+2026-10-14 Owner重新授权动作回执设备/真实模型验收：自有API36/Developer实际拼音、四模式触摸及Qwen两方法均通过，4业务/8次后台返回、12条新回执和36次请求身份关联核对通过；临时AX及实例已恢复关闭。新的Shizuku抖音自主旅程正在进行，两小时仍pending，不继承前轮失败为通过。见[本轮追加](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加新回执设备与真实模型验收)。
+
 2026-10-14 动作回执语义优化完成：Mobile Use模型可见动作结果统一为DISPATCHED/UNVERIFIED，要求后续观察；本地SENSITIVE_UI明确派发前拒绝，不伪造系统过滤原因。共享严格schema及受影响动作版本同步更新，核心完成/取消/UNKNOWN、审批、Room和原生回调保持。Mobile Use Debug JVM263项、完整全仓主机及双渠道/SDK测试APK编译通过；本阶段设备/模型not requested、未安装APK，不继承上一阶段设备通过。见[本阶段证据](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加动作回执语义优化)。
 
 2026-10-14 Owner追加安装触摸定点复测：自有API36/Developer最终实际拼音及两项诊断通过；合成普通/自绘按钮接受AX触摸，显式/隐式敏感按钮记录安全过滤拒绝。系统安装按钮敏感、服务非Accessibility Tool；稳定同坐标AX完成但未安装，Shell对照安装合成包成功，支持来源过滤归因，未发现有效对照中的图片缩放错位。保留初始布局移动/帧失效与呈现未确认失败，夹具只补只读稳定屏障，不改生产门禁。实例关闭、临时设置恢复、日常未动，无模型/抖音操作；完整自主旅程及长稳仍开放。见[追加复测](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加安装触摸过滤定点复测)。
