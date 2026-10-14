@@ -4,7 +4,7 @@
 
 ## 当前实施
 
-Owner追加[HXA-126](tasks/HXA-126.md)真实Linear/Notion连接修复：46d10b13已解决不透明凭据；10月15日日常API36保留数据更新成功，原3会话/5个Turn保留，Linear实际连接和工具发现passed。随后Notion实际OAuth完成，定位并修复80,556字节Schema被旧64 KiB上限拒绝，以及2020-12日期format注解适配失败；同一实例实际连接/工具发现及notion-search/fetch只读工具激活passed。业务读取、拒绝/刷新/厂商撤销仍开放；没有新真机/模型/长稳结果，验证及制品见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)。 本轮补齐无CIMD文档时的显式兼容注册入口，默认拒绝/持久绑定等28项JVM及日常API36确认/取消3项通过，完整主机与双渠道测试APK通过；真实厂商注册未重复执行，业务对象待Owner提供，见[收尾记录](../evidence/development/mcp-oauth-client-setup-closeout-2026-10-15.md)。
+Owner追加[HXA-126](tasks/HXA-126.md)真实Linear/Notion连接修复：46d10b13已解决不透明凭据；10月15日日常API36保留数据更新成功，原3会话/5个Turn保留，Linear实际连接和工具发现passed。随后Notion实际OAuth完成，定位并修复80,556字节Schema被旧64 KiB上限拒绝，以及2020-12日期format注解适配失败；同一实例实际连接/工具发现及notion-search/fetch只读工具激活passed。Owner指定两家对象的真实Dispatcher读取及工具审批拒绝已通过；OAuth拒绝回调/自然刷新/旧Token厂商失效仍开放；没有新真机/模型/长稳结果，验证及制品见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)。 本轮补齐无CIMD文档时的显式兼容注册入口，默认拒绝/持久绑定等28项JVM及日常API36确认/取消3项通过，完整主机与双渠道测试APK通过；真实厂商注册未重复执行，业务对象已提供且完成读取/工具审批拒绝，见[收尾记录](../evidence/development/mcp-oauth-client-setup-closeout-2026-10-15.md)。两家正常重连及Notion只读工具恢复通过；Notion网页取消未回传错误，Token未到期，没有虚报拒绝回调/刷新，见[真实对象验收](../evidence/development/mcp-official-object-read-2026-10-15.md)。
 
 Owner要求先收尾；[HXA-285](tasks/HXA-285.md)引用/压缩一致性生产修复及主机切片已交付，19项相关JVM、完整全仓门禁及双渠道测试APK编译通过。三项Room夹具仅编译，设备/真实模型not requested；未启动提前结束排查或长稳，执行边界和上下文策略提案不随本次实施。
 
