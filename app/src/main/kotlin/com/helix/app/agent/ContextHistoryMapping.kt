@@ -10,9 +10,10 @@ internal object ContextHistoryMapping {
     fun rows(
         storage: HelixStorage,
         rows: List<MessageEntity>,
+        contentFor: (MessageEntity) -> String? = { ContextHistoryContent.read(storage, it) },
     ): List<ContextSourceRow> =
         rows.map { row ->
-            val content = ContextHistory.read(storage, row)
+            val content = contentFor(row)
             // Decode failure is a fact, not an empty successful history. Raise it only if the
             // same selection/recovery algorithm actually consumes this row; storage errors propagate.
             var failure: String? = null
@@ -48,7 +49,7 @@ internal object ContextHistoryMapping {
                 row.turnId,
                 row.role,
                 row.kind,
-                ContextHistory.read(storage, row),
+                ContextHistoryContent.read(storage, row),
                 row.id,
             ),
         ),

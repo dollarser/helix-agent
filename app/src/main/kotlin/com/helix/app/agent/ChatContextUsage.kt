@@ -157,12 +157,13 @@ internal object ChatContextProjection {
                     ?.firstOrNull()
                     ?.jsonPrimitive
                     ?.content ?: return@runCatching null
-            val retained = ContextHistory.load(storage, sessionId).rows
+            val snapshot = ContextHistory.load(storage, sessionId)
+            val retained = snapshot.rows
             val boundary = retained.indexOfFirst { it.id == lastId }
             if (boundary < 0) return@runCatching null
             val appended = retained.drop(boundary + 1).filter { it.kind != ContextCompaction.KIND }
             val messages =
-                ContextHistoryMapping.rows(storage, appended).flatMap { row ->
+                ContextHistoryMapping.rows(storage, appended) { snapshot.contents.getValue(it.id) }.flatMap { row ->
                     require(row.mappingFailure == null)
                     row.messages
                 }

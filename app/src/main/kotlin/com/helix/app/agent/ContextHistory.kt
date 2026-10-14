@@ -15,6 +15,7 @@ internal object ContextHistory {
     data class Snapshot(
         val rows: List<MessageEntity>,
         val checkpoint: ContextCheckpoint?,
+        val contents: Map<String, String?>,
     )
 
     fun checkpoint(
@@ -32,6 +33,7 @@ internal object ContextHistory {
     ): Snapshot {
         val checkpoint = checkpoint(storage, sessionId)
         val retained = mutableListOf<MessageEntity>()
+        val contents = linkedMapOf<String, String?>()
         var after = -1L
         var bytes = 0L
         while (true) {
@@ -45,12 +47,20 @@ internal object ContextHistory {
                 if (size > MAX_BODY_BYTES - bytes || retained.size >= MAX_RETAINED_ROWS) {
                     throw ContextCapacityException("CONTEXT_MATERIALIZATION_LIMIT")
                 }
-                bytes += size
+                val content = ContextHistoryContent.read(storage, row)
+                val materializedBytes =
+                    com.helix.core.agent.TokenEstimator
+                        .utf8Bytes(content.orEmpty())
+                if (materializedBytes > MAX_BODY_BYTES - bytes) {
+                    throw ContextCapacityException("CONTEXT_MATERIALIZATION_LIMIT")
+                }
+                bytes += materializedBytes
+                contents[row.id] = content
                 retained.add(row)
             }
             after = page.last().sequence
         }
-        return Snapshot(retained, checkpoint)
+        return Snapshot(retained.toList(), checkpoint, contents.toMap())
     }
 
     fun read(

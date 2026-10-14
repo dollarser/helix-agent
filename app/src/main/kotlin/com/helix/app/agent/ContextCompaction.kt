@@ -99,17 +99,25 @@ internal object ContextCompaction {
         ) {
             return null
         }
-        val history = ContextHistory.load(storage, sessionId)
         val turn = storage.turns.resolve(currentTurnId)
         require(turn.sessionId == sessionId) { "CONTEXT_TURN_SESSION_MISMATCH" }
         val snapshot =
-            com.helix.core.agent.ContextSourceSnapshot(
-                ContextHistoryMapping.rows(storage, history.rows),
-                history.checkpoint,
-                currentTurnId,
-                turn.recoveryFromTurnId,
-                floor,
-            )
+            request.historySnapshot
+                ?.also {
+                    require(it.currentTurnId == currentTurnId && it.predecessorTurnId == turn.recoveryFromTurnId)
+                    if (ContextHistory.checkpoint(storage, sessionId) != it.checkpoint) {
+                        throw com.helix.core.agent
+                            .ContextCapacityException("CONTEXT_CHECKPOINT_CHANGED")
+                    }
+                }?.copy(inputFloor = floor) ?: ContextHistory.load(storage, sessionId).let { history ->
+                com.helix.core.agent.ContextSourceSnapshot(
+                    ContextHistoryMapping.rows(storage, history.rows) { history.contents.getValue(it.id) },
+                    history.checkpoint,
+                    currentTurnId,
+                    turn.recoveryFromTurnId,
+                    floor,
+                )
+            }
         return compiler.plan(snapshot, request, control, settings, force, inputScale)
     }
 
@@ -124,6 +132,9 @@ internal object ContextCompaction {
     ) {
         require(summary.isNotBlank() && summary.length <= MAX_SUMMARY_CHARS)
         val previous = ContextHistory.checkpoint(storage, sessionId)
+        plan.retainedRequest.historySnapshot?.let {
+            require(previous == it.checkpoint) { "CONTEXT_CHECKPOINT_CHANGED" }
+        }
         require(
             previous == null || plan.coveredThrough > previous.coveredThrough ||
                 (

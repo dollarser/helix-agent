@@ -4,11 +4,11 @@
 
 ## 1. 当前范围
 
-近期保持一个 Android 本机产品、一条执行管线。R1 已由 [HXA-231](../completion-records/HXA-231.md) 交付，后续所有者授权的实施范围由 [status](status.md) 和对应 HXA 维护；本页不扩展其授权。重构以外继续推进内测、真实设备和发行准备。正式开放清单只由 [roadmap](roadmap.md) 维护，不在此复制编号。
+近期保持一个 Android 本机产品、一条执行管线。R1 已由 [HXA-231](../completion-records/HXA-231.md) 交付，后续所有者授权的实施范围由 [status](status.md) 和对应 HXA 维护；本页不扩展其授权。重构以外继续推进内测、真实设备和发行准备。[roadmap](roadmap.md) 仅作任务索引，不承担实时排期。
 
 模型下载配置、Memory/Workspace 增量设备验收、首次成功旅程、恢复 UI、脱敏诊断、分类空间与发布残留管理已有交付证据，不再列为从零开发任务。这里的“已有交付”不代表所有 OEM、真实账号或发行版本通过。
 
-2026-10-01 已完成当前回放/OAuth/R2-A/R3/基础 J1 候选的本地主机阶段复验和状态整理，见[收尾快照](../evidence/development/phase-closeout-2026-10-01.md)。源码/APK 指纹只定位未提交候选，不替代 clean commit、完整 J1、设备/真实服务、用户内测或签名发行。可执行的剩余本地工作只看 status 和原 HXA，不在本页再维护一份任务顺序。
+2026-10-01 的[收尾快照](../evidence/development/phase-closeout-2026-10-01.md)记录当时回放/OAuth/R2-A/R3/基础 J1 候选的本地主机复验及未提交边界，不代表当前源码状态。后续 J1/AUTO、Project Memory 和插件交付以 [status](status.md) 及原 HXA 为准，不继续把当时缺口列为当前待开发项。任何历史源码/APK 指纹均不能代替拟验候选自身的冻结、回归、独立内测或签名发行验收。
 
 ## 2. 就绪检查面
 
@@ -39,7 +39,8 @@
 - 设备内模型继续聚焦 **Qwen3 4B Instruct 2507 Q4_K_M**，复用现有 ModelScope/Hugging Face 精选入口及高级导入。0.6B/1.7B 只留历史对照，不重新投入主动验收。
 - 本地模型优化先测 load、prefill、decode、首响应、PSS/RSS 与 cancel-to-exit；模拟器固定任务不定义手机最低配置。KV/prefix、线程/batch、逐 token 输出及 GPU/NPU 仅在存在瓶颈证据后另行决定，不是本轮缺失功能。
 - Harness 回归使用既定 SGLang 固定任务；规范、身份和统计口径见[系统基线](harness-system-baseline.md)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
-- Global Memory 的既有持久化/权限/设备恢复按原证据验收；完整 Project Memory 生产接线尚未完成。真实任务效果、过时信息和跨会话污染仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
+- Global/Project Memory 的生产接线及 HXA-246 本地主机、API36 双渠道 UI/Memory 和项目记忆进程恢复已交付，范围见[原任务](tasks/HXA-246.md)。其他设备、真实任务效果、过时信息、跨会话污染与长稳仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
+- 统一 PDF/DOCX 阅读由 [HXA-284](tasks/HXA-284.md)交付主机切片，设备/真实模型 not requested；实际解析/渲染、资源释放和摘要质量仍需拟验版本自身的证据。其他格式、编辑/生成、OCR 与完整 Office 排版未随该切片交付。
 - Connector/订阅按实际选定供应商验收，不承诺任意服务兼容；未选或暂缓供应商不形成无限开发义务。
 
 ## 5. 需要外部输入的正式任务
@@ -58,7 +59,7 @@
 
 ## 6. 暂不扩展
 
-具体候选的设计状态和进入条件只维护在[候选索引](candidate-decisions.md)。本页不复制完整 Project Memory、Subagent、文档/视频或远程能力的 backlog，也不由发行条件自动启动工具/上下文/插件/Job 重构。
+具体候选的设计状态和进入条件只维护在[候选索引](candidate-decisions.md)。已交付的 Project Memory 和 PDF/DOCX 阅读不再列为未开发候选；其他格式、编辑/生成、视频、Subagent 与远程能力仍按各自范围决定。本页不复制功能 backlog，也不由发行条件自动启动工具/上下文/插件/Job 重构。
 
 ## 7. 状态维护
 

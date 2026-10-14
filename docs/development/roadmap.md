@@ -324,3 +324,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 
 | HXA-283 | 主机/双渠道制品交付；原生与模型设备验收not requested | 有界 PDF 读取与总结 | [任务](tasks/HXA-283.md) |
 | HXA-284 | 主机/双渠道制品交付；设备/模型not requested | 统一PDF/DOCX文档插件 | [任务](tasks/HXA-284.md) |
+| HXA-285 | 主机/双渠道制品及测试APK编译交付；设备/模型not requested | 引用历史与压缩快照一致性收尾 | [任务](tasks/HXA-285.md) |

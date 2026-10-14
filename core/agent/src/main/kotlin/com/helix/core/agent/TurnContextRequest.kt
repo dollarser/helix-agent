@@ -33,6 +33,8 @@ data class TurnContextRequest(
     val workspaceBinding: WorkspaceBindingSnapshot? = null,
     val jobObservationRefs: List<String> = emptyList(),
     val jobObservationMessage: ModelMessage? = null,
+    /** The same bounded canonical text used by replay and compaction; transient, never a second journal. */
+    val historySnapshot: ContextSourceSnapshot? = null,
 ) {
     fun modelRequest(): ModelRequest =
         ModelRequest(
