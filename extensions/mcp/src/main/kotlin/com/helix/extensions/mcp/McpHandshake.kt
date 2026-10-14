@@ -104,12 +104,16 @@ class McpHandshakeService(
     }
 }
 
+/** Safe to classify in UI; the rejected credential is never included in this exception. */
+class McpCredentialFormatException :
+    IllegalArgumentException("MCP bearer credential must be 1..4096 visible ASCII characters without whitespace")
+
 internal fun requireBearerCredential(value: String) {
-    val bytes = value.toByteArray(Charsets.UTF_8)
-    require(bytes.isNotEmpty()) { "MCP bearer credential must not be empty" }
-    require(bytes.size <= MAX_BEARER_BYTES) { "MCP bearer credential exceeds $MAX_BEARER_BYTES bytes" }
-    require(value.all { it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it in "-._~+/=" }) {
-        "MCP bearer credential contains invalid characters"
+    // Deployed OAuth services can issue opaque tokens outside RFC 6750's b64token alphabet
+    // (for example, colon-separated tokens). Preserve them exactly; enforce header safety,
+    // not a provider-specific token shape. For accepted ASCII, character and byte counts match.
+    if (value.isEmpty() || value.length > MAX_BEARER_BYTES || value.any { it !in '!'..'~' }) {
+        throw McpCredentialFormatException()
     }
 }
 

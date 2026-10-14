@@ -4,6 +4,8 @@
 
 ## 当前实施
 
+Owner追加[HXA-126](tasks/HXA-126.md)真实Linear连接修复：日常API36完成只读OAuth返回后，本地Bearer白名单拒绝冒号凭据；已改为有界、请求头安全的不透明凭据并区分授权/连接失败。20项定向回归、完整全仓门禁及双渠道测试APK编译通过。修复APK已准备；日常库缺表/列，保留数据转换仅在主机副本验证，实际更新待确认。Notion与实际工具读取、刷新/厂商撤销仍开放，见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)。
+
 Owner要求先收尾；[HXA-285](tasks/HXA-285.md)引用/压缩一致性生产修复及主机切片已交付，19项相关JVM、完整全仓门禁及双渠道测试APK编译通过。三项Room夹具仅编译，设备/真实模型not requested；未启动提前结束排查或长稳，执行边界和上下文策略提案不随本次实施。
 
 Owner已授权[HXA-284](tasks/HXA-284.md)：统一PDF/DOCX文档插件。主机切片已交付，完整全仓和双渠道制品/测试APK通过；设备/真实模型not requested；不继承HXA-283验收。

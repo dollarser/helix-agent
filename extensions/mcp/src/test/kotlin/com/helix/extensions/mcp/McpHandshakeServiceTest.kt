@@ -17,6 +17,27 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class McpHandshakeServiceTest {
     @Test
+    fun opaqueCredentialIsPreservedDuringHandshakeAndMetadataDiscovery() =
+        runBlocking {
+            MetadataFixture().use { fixture ->
+                val token = "synthetic-client:synthetic-access-token"
+                val snapshot =
+                    McpHandshakeService(
+                        credentials = McpCredentialLookup { token },
+                        endpointGate = ALLOW_ENDPOINT,
+                        clientName = "helix-test",
+                        clientVersion = "1",
+                    ).testConnection(
+                        McpServerConfig.disabled("opaque-handshake", fixture.endpoint, "fixture.oauth.token"),
+                    )
+                assertTrue(snapshot.metadata.tools.isNotEmpty())
+                assertTrue(fixture.authorizations.isNotEmpty())
+                assertTrue(fixture.authorizations.all { it == "Bearer $token" })
+                assertFalse(snapshot.toString().contains(token))
+            }
+        }
+
+    @Test
     fun configIsDisabledByDefaultAndSnapshotsBoundedMetadata() =
         runBlocking {
             MetadataFixture().use { fixture ->
@@ -65,7 +86,18 @@ class McpHandshakeServiceTest {
             }
             assertEquals(0, fixture.requestCount.get())
 
-            listOf("", "bad token", "bad\r\ntoken").forEach { invalid ->
+            val invalidCredentials =
+                listOf(
+                    "",
+                    "bad token",
+                    "bad\r\ntoken",
+                    "bad\ttoken",
+                    "bad\u0000token",
+                    "bad\u007ftoken",
+                    "bad中文",
+                    "x".repeat(4097),
+                )
+            invalidCredentials.forEach { invalid ->
                 val invalidService =
                     McpHandshakeService(
                         credentials = McpCredentialLookup { invalid },

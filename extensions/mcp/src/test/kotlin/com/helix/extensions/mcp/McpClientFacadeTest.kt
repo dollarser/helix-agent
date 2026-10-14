@@ -424,6 +424,7 @@ internal class McpFixture(
     val protocolVersions = CopyOnWriteArrayList<String?>()
     val toolRequestBodies = CopyOnWriteArrayList<String>()
     val initializeBodies = CopyOnWriteArrayList<String>()
+    val authorizations = CopyOnWriteArrayList<String?>()
     private val secondSseConnection = CountDownLatch(1)
     val endpoint: String
 
@@ -437,6 +438,7 @@ internal class McpFixture(
     @Suppress("LongMethod") // One request dispatcher keeps the wire fixture response matrix together.
     private fun handle(exchange: HttpExchange) {
         exchange.use {
+            authorizations += exchange.requestHeaders.getFirst("Authorization")
             if (exchange.requestMethod == "GET") {
                 handleSseGet(exchange)
                 return

@@ -21,6 +21,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 - attempt 保存 serverId、issuer、resource、clientId、精确 redirect、scope、截止时间及 authorization_response_iss_parameter_supported。声明为 true 时回调必须带 iss；任何存在的 iss（包括错误响应）都与已验证 issuer 作解码后精确字符串比较，不折叠大小写/端口/斜杠。新尝试使用包含该字段的新版本，旧短期尝试缺契约时重新登录，不按 false 降级。code verifier/token 进入 SecretStore，普通 journal 只存别名及非敏感状态。10 分钟 TTL，一次性消费，取消/失效清理临时 Secret。
 - 授权、换 token、刷新和 Device token 使用原 resource。refresh 为相同 issuer/resource/client 绑定上的 single-flight 操作，结果先安全落盘再切换引用。token 交换/刷新中崩溃且远端结果不明确时显示重新登录，不假设重放一定安全；禁用 HTTP 客户端透明 POST 重试。回调重放不得二次兑换 code。
 - access token 只发送给绑定的 MCP resource，refresh token 只发送给绑定的 token endpoint；不进入模型参数、日志、安装包、Skill 或 Connector 导出。撤销分别显示本地清除与厂商 revoke 是否成功，不能把删本地 token 冒充厂商撤销。
+- MCP 传输将凭据视为不透明值，接受1～4096字节无空白的可见ASCII并原样置于Authorization请求头；拒绝空值、超长、控制字符、空白及非ASCII。该兼容选择覆盖实际服务返回的冒号分隔token，是超出RFC6750 `b64token`字母表的部署兼容，不宣称冒号属于该ABNF，也不编码/截断/修饰凭据。长度、resource/issuer绑定、SSRF及拒绝跨源重定向保持。凭据格式失败用固定类别呈现，不把异常正文或凭据显示给用户；OAuth已授权与MCP连接就绪分开。
 - OAuth 成功仍不自动启用工具；回到原有 testConnection、用户工具选择、MCP bridge、Dispatcher/Approval。运行中遇到需要新 scope 的响应只呈现登录动作，不让远端响应替用户增加 scope 或重放有副作用调用。
 
 实现模块：extensions/mcp 的协议/状态机与 transport，app/mcp 的 SecretStore/attempt 协调与回调 Activity、原生 UI；不变更 CLI Runtime、核心 Tool Approval 或 Room schema。持久 attempt 使用 app-private 原子文件；若实现中证明需要跨库事务，须回到本记录补充设计。
@@ -50,6 +51,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 - 2026-09-21：所有者接受预注册 public-client OAuth 合并与缺陷修复，真实服务验收保持独立。
 - 2026-10-01：所有者授权依次完成剩余任务；接受 HXA-126 的 CIMD 优先/显式 DCR 后备与严格 issuer/resource 增量。设计接受不表示新增实现、设备或账号已通过。
+- 2026-10-14：Owner要求修复日常API36真实Linear授权后的连接失败。实际异常位于Bearer字符白名单，当前凭据含冒号；采用上述不透明、请求头安全的传输契约并补握手/实际工具调用及危险输入回归。参考[MCP Python SDK原样设置Authorization](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py)和[RFC6750 §2.1](https://www.rfc-editor.org/rfc/rfc6750.html#section-2.1)，未复制源码；真实服务修复后验收另记，不因主机通过推断账号流程全部通过。
 
 ## References
 

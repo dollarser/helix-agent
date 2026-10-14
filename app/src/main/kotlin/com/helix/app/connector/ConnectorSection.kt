@@ -314,8 +314,8 @@ fun ConnectorSection(
 private enum class EndpointAuthMode { BEARER, OAUTH }
 
 @Composable
-// Independent UI event callbacks preserve cancellation.
-@Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
+// UI boundary maps service failures to fixed, credential-free categories and preserves cancellation.
+@Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
 private fun EndpointRow(
     service: PluginService,
     endpoint: InstalledEndpoint,
@@ -333,7 +333,7 @@ private fun EndpointRow(
     var selection by remember(endpoint.id) { mutableStateOf(emptySet<String>()) }
     var active by remember(endpoint.id) { mutableStateOf(service.enabled(endpoint)) }
     var busy by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
+    var failureMessage by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(endpoint.id) {
         service.oauthCoordinator?.events?.collect { result ->
@@ -341,15 +341,15 @@ private fun EndpointRow(
                 hasOAuth = true
                 oauthError = null
                 busy = true
-                failed = false
+                failureMessage = null
                 snapshot = null
                 selection = emptySet()
                 try {
                     snapshot = withContext(Dispatchers.IO) { service.testOAuth(endpoint) }
                 } catch (cancel: CancellationException) {
                     throw cancel
-                } catch (_: Exception) {
-                    failed = true
+                } catch (error: Exception) {
+                    failureMessage = connectorConnectionFailureMessage(error, oauthAuthorized = true)
                 } finally {
                     active = service.enabled(endpoint)
                     busy = false
@@ -410,7 +410,7 @@ private fun EndpointRow(
             OutlinedButton(enabled = !busy, onClick = {
                 scope.launch {
                     busy = true
-                    failed = false
+                    failureMessage = null
                     snapshot = null
                     selection = emptySet()
                     val credential = bearer
@@ -419,8 +419,8 @@ private fun EndpointRow(
                         snapshot = withContext(Dispatchers.IO) { service.test(endpoint, credential) }
                     } catch (cancel: CancellationException) {
                         throw cancel
-                    } catch (_: Exception) {
-                        failed = true
+                    } catch (error: Exception) {
+                        failureMessage = connectorConnectionFailureMessage(error, oauthAuthorized = false)
                     } finally {
                         active = service.enabled(endpoint)
                         busy = false
@@ -437,15 +437,15 @@ private fun EndpointRow(
                 onTestOAuth = {
                     scope.launch {
                         busy = true
-                        failed = false
+                        failureMessage = null
                         snapshot = null
                         selection = emptySet()
                         try {
                             snapshot = withContext(Dispatchers.IO) { service.testOAuth(endpoint) }
                         } catch (cancel: CancellationException) {
                             throw cancel
-                        } catch (_: Exception) {
-                            failed = true
+                        } catch (error: Exception) {
+                            failureMessage = connectorConnectionFailureMessage(error, oauthAuthorized = true)
                         } finally {
                             active = service.enabled(endpoint)
                             busy = false
@@ -498,7 +498,7 @@ private fun EndpointRow(
                     } catch (cancel: CancellationException) {
                         throw cancel
                     } catch (_: Exception) {
-                        failed = true
+                        failureMessage = R.string.connector_connection_failed
                     } finally {
                         busy = false
                     }
@@ -515,13 +515,13 @@ private fun EndpointRow(
                     } catch (cancel: CancellationException) {
                         throw cancel
                     } catch (_: Exception) {
-                        failed = true
+                        failureMessage = R.string.connector_connection_failed
                     }
                 }
             }) { Text(stringResource(R.string.connector_disable)) }
         }
-        if (failed) {
-            Text(stringResource(R.string.connector_connection_failed), color = MaterialTheme.colorScheme.error)
+        failureMessage?.let { message ->
+            Text(stringResource(message), color = MaterialTheme.colorScheme.error)
         }
     }
 }
