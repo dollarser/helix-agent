@@ -58,3 +58,11 @@ v1 正式锚点为 clean `99b7bee7`：15/15 通过；前一 clean `b436247f` 为
 2026-09-29 整合后的当前绿色锚点为 clean `8c7a95b4`：完整 **15/15**、准备 smoke 1/1，单次完整运行无 case 重试。冻结源码、安装包、端到端统计和剩余边界见[最终收口](../evidence/development/final-closeout-2026-09-29.md)。本轮不是官方公开榜单，也不关闭模型偶发多余调用。
 
 2026-09-30 新的正式绿色锚点为 clean `92e93bf5`：完整 **15/15**、准备 smoke **1/1**，四组均通过，单次正式运行无 case 重试。独立干净检出重新构建制品，采用相同固定数据集与严格 oracle；模型管理 smoke 随当前 UI 契约更新。完整身份、先前定向失败及验证边界见[Runtime / Provider 设备收口](../evidence/development/runtime-provider-device-closeout-2026-09-30.md)。这是 Harness 固定系统基线，不是完整公开 benchmark 或真实账号验收。
+
+## 2026-10-14 主机基线准备
+
+本轮沿R2-B准备工作，未调整生产ContextCompiler或工具曝光策略。核对发现`run-agent-eval-host.py`的源码身份漏掉整个`extensions`及App构建配置：插件/Mobile Use改变后仍可能得到相同源码指纹。现复用已有`source_manifest`，纳入`extensions`与完整`app`，不另建索引；忽略的构建产物仍不参与指纹。新增回归验证App配置/扩展源码改变必须改变指纹，忽略产物不能改变指纹。
+
+去除manifest固定“8项”的易变数量门禁，仍要求非空、ID唯一、每个选择器对应真实方法；空suite/case、缺失、skip、failure及重复证据不能通过的断言保留。
+
+执行`python3 -m unittest discover -s scripts/tests -p test_agent_eval.py`，19方法通过；通过共享host slot执行`python3 scripts/run-agent-eval-host.py --output build/hxa282/context-host-baseline-2026-10-14-r1`，8个现有主机边界case全部通过，Gradle退出0且前后源码身份不变。原始XML、命令、环境与manifest在该忽略目录；源码指纹`cc40743e579f352361b1b84a9c581abcc1095898679ef6e2060c2421cda74fd9`。此为dirty工作树的主机准备证据，不替代上方clean真实模型锚点，也没有模型调用/token/设备成本数据，不据此声称R2-B收益。

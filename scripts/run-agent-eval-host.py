@@ -13,7 +13,7 @@ from agent_eval import (aggregate, artifact, digest, fingerprint, markdown, norm
                         read_json, source_manifest, write_json)
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ['app/src', 'core', 'provider', 'tools', 'runtime', 'feature', 'gradle', 'buildSrc',
+SOURCES = ['app', 'core', 'provider', 'tools', 'extensions', 'runtime', 'feature', 'gradle', 'buildSrc',
            'build.gradle.kts', 'settings.gradle.kts', 'gradle.properties', 'gradlew', 'scripts/agent_eval.py',
            'scripts/run-agent-eval.py', 'scripts/run-agent-eval-host.py', 'evals/trajectory']
 

@@ -93,8 +93,8 @@ class AgentEvalTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         for name in ('host-boundaries', 'core-device'):
             manifest = ev.read_json(root / 'evals/trajectory' / (name + '.json'))
-            self.assertEqual(len(manifest['cases']), 8)
-            self.assertEqual(len({c['id'] for c in manifest['cases']}), 8)
+            self.assertTrue(manifest['cases'], 'A boundary manifest must not be empty')
+            self.assertEqual(len({c['id'] for c in manifest['cases']}), len(manifest['cases']))
             source_set = 'test' if name == 'host-boundaries' else 'androidTest'
             for case in manifest['cases']:
                 for ref in case['tests']:
@@ -177,6 +177,30 @@ class AgentEvalTest(unittest.TestCase):
         r['schemaVersion'] = True
         with self.assertRaises(ev.EvidenceError):
             ev.validate(r, self.root)
+
+    def test_host_manifest_tracks_extension_and_app_build_changes_but_not_outputs(self):
+        runner_path = Path(__file__).resolve().parents[1] / 'run-agent-eval-host.py'
+        spec = importlib.util.spec_from_file_location('host_eval_runner', runner_path)
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
+        (self.root / '.gitignore').write_text('**/build/\n')
+        config = self.root / 'app/build.gradle.kts'
+        extension = self.root / 'extensions/mobile-use/src/main/Executor.kt'
+        for path in (config, extension):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('baseline')
+        before = ev.source_manifest(self.root, runner.SOURCES)
+        config.write_text('changed configuration')
+        config_changed = ev.source_manifest(self.root, runner.SOURCES)
+        self.assertNotEqual(before['sha256'], config_changed['sha256'])
+        extension.write_text('changed extension')
+        extension_changed = ev.source_manifest(self.root, runner.SOURCES)
+        self.assertNotEqual(config_changed['sha256'], extension_changed['sha256'])
+        artifact = self.root / 'extensions/mobile-use/build/generated.txt'
+        artifact.parent.mkdir(parents=True)
+        artifact.write_text('temporary output')
+        self.assertEqual(extension_changed, ev.source_manifest(self.root, runner.SOURCES))
 
     def test_manifest_includes_untracked_and_tracked_deletion(self):
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
