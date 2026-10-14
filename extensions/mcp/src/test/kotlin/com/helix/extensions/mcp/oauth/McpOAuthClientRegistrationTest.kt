@@ -23,6 +23,21 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @Suppress("MaxLineLength") // Exact protocol JSON fixtures are kept verbatim; production limits remain tested.
 class McpOAuthClientRegistrationTest {
+    @Test fun cimdCompatibilityRegistrationRequiresExplicitOptInAndStillChecksEndpointGate() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.body = document("compatibility-client")
+            val result = fixture.registration.register(metadata(true), REDIRECT, allowCimdFallback = true)
+            assertEquals("compatibility-client", result.clientId)
+            assertEquals("dynamic", result.source)
+            assertEquals(1, fixture.requests.size)
+            val denied = McpOAuthClientRegistration(McpEndpointGate { error("denied") }, fixture.http)
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { denied.register(metadata(true), REDIRECT, allowCimdFallback = true) }
+            }
+            assertEquals(1, fixture.requests.size)
+        }
+
     @Test fun validCimdRequiresExactIdentityAndRedirectWithoutCredentials() =
         runBlocking {
             val fixture = Fixture()

@@ -16,6 +16,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 - 登录仅由用户在 Connector 原生页面主动发起，打开外部系统浏览器，不使用内置 WebView 登录、不读取第三方 Cookie、CLI 或其他 App token。
 - 发现 resource metadata 和 authorization-server metadata，分别校验 endpoint/resource/issuer 绑定。元数据与重定向的网络请求复用现有 SSRF、响应大小、超时和重定向限制；发现不能扩大允许的网络域或工具权限。
 - 客户端身份优先使用已配置预注册 public client；否则服务器声明支持时使用用户/构建者已托管的 HTTPS client metadata document（CIMD），精确核对 client_id、redirect_uris 与 public-client 模式。DCR 仅为兼容的显式后备：展示 issuer/注册目标/redirect，用户确认才发送，声明 native application_type，禁用透明 POST 重试，结果按 issuer+redirect 持久绑定；未知交换不悄悄重注册。client secret 不编进 App；不虚构域名或自动发布元数据/App Link。
+- 服务同时声明CIMD与DCR、但用户没有自有元数据文档时，初始仍只显示CIMD；用户明确选择“使用兼容注册”后才显示注册入口，再次确认精确目标才发送POST。默认调用仍拒绝在CIMD可用时注册，只有本次显式后备选择可放行；读取文档失败不自动降级，不覆盖已有/未知注册、不改变现有账号授权或工具选择。
 - 服务明确支持时可使用 Device Authorization；设备码存 SecretStore，轮询受服务有效期、间隔和取消约束，token 仍绑定本地 server/resource/client。进程死亡不自动重放登录或恢复后台轮询。
 - 使用 PKCE S256 和每次新的高熵 state。回调 URI 与实际 applicationId/登录 attempt 精确绑定；优先使用发行方已验证 App Link，尚无域名时只在服务接受的场景使用包名派生的私有 scheme，本轮为 `${applicationId}://oauth/mcp/callback`（同包也可配置 `/callback`）；consumer/developer 不争抢同一个通用 scheme。拒绝缺 state、重复回调、错误 issuer/resource、回调 URI 不一致和过期 attempt。
 - attempt 保存 serverId、issuer、resource、clientId、精确 redirect、scope、截止时间及 authorization_response_iss_parameter_supported。声明为 true 时回调必须带 iss；任何存在的 iss（包括错误响应）都与已验证 issuer 作解码后精确字符串比较，不折叠大小写/端口/斜杠。新尝试使用包含该字段的新版本，旧短期尝试缺契约时重新登录，不按 false 降级。code verifier/token 进入 SecretStore，普通 journal 只存别名及非敏感状态。10 分钟 TTL，一次性消费，取消/失效清理临时 Secret。
@@ -51,6 +52,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 ## Decision history
 
+- 2026-10-15：Owner要求继续收尾。真实Notion/Linear均支持CIMD及DCR，但无自有HTTPS文档，旧UI/服务层没有可达的显式后备；本轮补齐双次用户动作的兼容入口及默认拒绝/持久化/取消回归。参考[当前MCP注册规范](https://modelcontextprotocol.io/specification/draft/basic/authorization/client-registration)及[Notion官方接入指南](https://developers.notion.com/guides/mcp/build-mcp-client)；DCR已弃用，保留为无文档时用户选择的兼容方式，不作为新接入首选。自有HTTPS文档、签名与App Link不随此虚构交付。
 - 2026-10-15：Owner继续Notion真实账号连接修复。原生OAuth已授权，实际tools/list后的80,556字节Schema被旧64 KiB本地上限拒绝；默认单Schema调整为128 KiB，保留总量、网络响应及授权边界。参考[MCP工具定义规范](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)，未复制实现，也不把本地大小预算描述为协议限制。
 - 2026-10-15：随后选择notion-search/fetch暴露2020-12日期format注解被工具子集拒绝。按[JSON Schema 2020-12 §7.2](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)仅处理默认方言注解，不移除强制约束或扩大校验引擎；超限与格式不兼容以固定类别提示。真实账号激活与读取仍按实际结果记录。
 - 2026-09-21：所有者接受预注册 public-client OAuth 合并与缺陷修复，真实服务验收保持独立。

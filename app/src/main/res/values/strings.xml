@@ -7,6 +7,7 @@
     <string name="connector_oauth_client_document">自有客户端元数据 HTTPS 地址</string>
     <string name="connector_oauth_client_use_document">验证并使用元数据文档</string>
     <string name="connector_oauth_client_register">注册公共客户端</string>
+    <string name="connector_oauth_client_fallback">没有元数据文档？使用兼容注册</string>
     <string name="connector_oauth_client_register_warning">将向下方服务注册 Helix 公共客户端，仅发送应用名称、回调地址及公共客户端协议配置。不提交账号凭据，不自动启用工具。</string>
     <string name="connector_oauth_client_forget">忘记本地客户端配置</string>
     <string name="connector_oauth_client_forget_warning">仅忘记本地注册记录，不撤销远端客户端或账号 token。上次结果不明时，再次注册可能创建另一个客户端。</string>

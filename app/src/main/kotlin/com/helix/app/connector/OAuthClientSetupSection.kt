@@ -101,7 +101,14 @@ internal fun OAuthClientSetupSection(
                         withContext(Dispatchers.IO) { setup.forget(reviewed) }
                         onClientId("")
                     } else {
-                        val identity = withContext(Dispatchers.IO) { setup.register(endpoint, reviewed) }
+                        val identity =
+                            withContext(Dispatchers.IO) {
+                                setup.register(
+                                    endpoint,
+                                    reviewed,
+                                    allowCimdFallback = reviewed.metadata.clientIdMetadataDocumentSupported,
+                                )
+                            }
                         onClientId(identity.clientId)
                     }
                 }
@@ -121,6 +128,7 @@ internal fun OAuthClientSetupOptions(
     register: () -> Unit,
     forget: () -> Unit,
 ) {
+    var fallbackSelected by remember(offer) { mutableStateOf(false) }
     Text(stringResource(R.string.connector_oauth_client_issuer, offer.metadata.issuer, offer.redirect))
     if (offer.metadata.clientIdMetadataDocumentSupported) {
         OutlinedTextField(
@@ -133,11 +141,21 @@ internal fun OAuthClientSetupOptions(
         OutlinedButton(enabled = enabled && url.startsWith("https://"), onClick = useDocument) {
             Text(stringResource(R.string.connector_oauth_client_use_document))
         }
-    } else if (offer.metadata.registrationEndpoint != null) {
+        if (offer.metadata.registrationEndpoint != null) {
+            TextButton(
+                enabled = enabled,
+                onClick = { fallbackSelected = !fallbackSelected },
+                modifier = Modifier.testTag("oauth-client-fallback"),
+            ) { Text(stringResource(R.string.connector_oauth_client_fallback)) }
+        }
+    }
+    if (offer.metadata.registrationEndpoint != null &&
+        (!offer.metadata.clientIdMetadataDocumentSupported || fallbackSelected)
+    ) {
         OutlinedButton(enabled = enabled, onClick = register, modifier = Modifier.testTag("oauth-client-register")) {
             Text(stringResource(R.string.connector_oauth_client_register))
         }
-    } else {
+    } else if (!offer.metadata.clientIdMetadataDocumentSupported) {
         Text(stringResource(R.string.connector_oauth_client_manual))
     }
     TextButton(enabled = enabled, onClick = forget) { Text(stringResource(R.string.connector_oauth_client_forget)) }

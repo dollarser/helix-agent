@@ -7,6 +7,7 @@
     <string name="connector_oauth_client_document">Your HTTPS client metadata URL</string>
     <string name="connector_oauth_client_use_document">Verify and use metadata document</string>
     <string name="connector_oauth_client_register">Register public client</string>
+    <string name="connector_oauth_client_fallback">No metadata document? Use compatibility registration</string>
     <string name="connector_oauth_client_register_warning">Register Helix with the service below, sending only the app name, redirect and public-client protocol settings. No account credentials are submitted and tools are not enabled.</string>
     <string name="connector_oauth_client_forget">Forget local client configuration</string>
     <string name="connector_oauth_client_forget_warning">Forget only local registration records. This does not revoke the remote client or account token. Retrying an unconfirmed registration may create another client.</string>

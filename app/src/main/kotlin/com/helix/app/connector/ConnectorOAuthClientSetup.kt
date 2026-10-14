@@ -41,9 +41,15 @@ class ConnectorOAuthClientSetup(
     suspend fun register(
         endpoint: InstalledEndpoint,
         offer: OAuthClientSetupOffer,
+        allowCimdFallback: Boolean = false,
     ): McpOAuthClientIdentity {
         validate(endpoint, offer)
-        return requireNotNull(service.oauthCoordinator).clients.register(endpoint.id, offer.metadata, offer.redirect)
+        return requireNotNull(service.oauthCoordinator).clients.register(
+            endpoint.id,
+            offer.metadata,
+            offer.redirect,
+            allowCimdFallback,
+        )
     }
 
     fun forget(offer: OAuthClientSetupOffer) {

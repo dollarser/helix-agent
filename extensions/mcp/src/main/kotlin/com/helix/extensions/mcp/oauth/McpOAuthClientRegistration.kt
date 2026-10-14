@@ -65,9 +65,10 @@ class McpOAuthClientRegistration(
     suspend fun register(
         metadata: McpOAuthServerMetadata,
         redirectUri: String,
+        allowCimdFallback: Boolean = false,
     ): McpOAuthClientIdentity =
         withContext(Dispatchers.IO) {
-            require(!metadata.clientIdMetadataDocumentSupported) { "OAUTH_CIMD_PREFERRED" }
+            require(!metadata.clientIdMetadataDocumentSupported || allowCimdFallback) { "OAUTH_CIMD_PREFERRED" }
             require(metadata.supportsS256()) { "OAUTH_S256_REQUIRED" }
             require(redirectUri.isNotBlank() && redirectUri.length <= 2048 && URI(redirectUri).scheme != null)
             val endpoint = requireNotNull(metadata.registrationEndpoint) { "OAUTH_REGISTRATION_NOT_SUPPORTED" }

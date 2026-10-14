@@ -56,6 +56,39 @@ class OAuthClientSetupDeviceTest {
         compose.runOnIdle { assertEquals(0, requests) }
     }
 
+    @Test fun cimdFallbackNeedsChoiceThenConfirmationAndCanBeCancelled() {
+        var registrations = 0
+        val reviewed = offer(true)
+        compose.setContent {
+            MaterialTheme {
+                var confirming by remember { mutableStateOf(false) }
+                Column {
+                    OAuthClientSetupOptions(reviewed, true, "", {}, {}, { confirming = true }, {})
+                    if (confirming) {
+                        OAuthClientSetupConfirmation(reviewed, false, { confirming = false }) {
+                            registrations++
+                            confirming = false
+                        }
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("oauth-client-register").assertDoesNotExist()
+        compose.onNodeWithTag("oauth-client-fallback").performClick()
+        compose.onNodeWithTag("oauth-client-register").performClick()
+        compose.runOnIdle { assertEquals(0, registrations) }
+        compose.onNodeWithText(reviewed.redirect).assertExists()
+        val cancel =
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getString(
+                com.helix.app.R.string.common_cancel,
+            )
+        compose.onNodeWithText(cancel).performClick()
+        compose.runOnIdle { assertEquals(0, registrations) }
+        compose.onNodeWithTag("oauth-client-register").performClick()
+        compose.onNodeWithTag("oauth-client-confirm").performClick()
+        compose.runOnIdle { assertEquals(1, registrations) }
+    }
+
     private fun offer(cimd: Boolean) =
         OAuthClientSetupOffer(
             "server",

@@ -18,6 +18,22 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Suppress("MaxLineLength") // Exact bounded JSON response fixtures, not runtime payload generation.
 class OAuthClientRegistrationsTest {
+    @Test fun cimdFallbackIsExplicitAndItsResultIsRememberedWithoutRepeatingPost() =
+        runBlocking {
+            val fixture = Fixture()
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { fixture.clients.register("server", metadata(true), REDIRECT) }
+            }
+            assertTrue(fixture.secrets.aliases().isEmpty())
+            assertEquals(0, fixture.requests.get())
+            val registered = fixture.clients.register("server", metadata(true), REDIRECT, allowCimdFallback = true)
+            assertEquals(registered, fixture.reopen().resolve("server", metadata(true), REDIRECT, ""))
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { fixture.reopen().register("server", metadata(true), REDIRECT, allowCimdFallback = true) }
+            }
+            assertEquals(1, fixture.requests.get())
+        }
+
     @Test fun explicitPreregisteredClientDoesNotRegisterAndCannotCrossIssuer() =
         runBlocking {
             val fixture = Fixture()

@@ -103,10 +103,12 @@ class OAuthClientRegistrations(
         serverId: String,
         metadata: McpOAuthServerMetadata,
         redirect: String,
+        allowCimdFallback: Boolean = false,
     ): McpOAuthClientIdentity {
         currentCoroutineContext().ensureActive()
         require(
-            !metadata.clientIdMetadataDocumentSupported && metadata.registrationEndpoint != null &&
+            (!metadata.clientIdMetadataDocumentSupported || allowCimdFallback) &&
+                metadata.registrationEndpoint != null &&
                 metadata.supportsS256(),
         )
         val alias = key(metadata.issuer, redirect)
@@ -117,7 +119,7 @@ class OAuthClientRegistrations(
                 write(alias, pending)
                 begin(serverId, metadata.issuer, redirect, replaceRegistry = true)
             }
-        val identity = transport.register(metadata, redirect)
+        val identity = transport.register(metadata, redirect, allowCimdFallback)
         currentCoroutineContext().ensureActive()
         synchronized(LOCK) {
             requireCurrent(publication)
