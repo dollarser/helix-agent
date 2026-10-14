@@ -17,10 +17,13 @@ import com.helix.core.model.ModelEvent
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -170,7 +173,13 @@ class LiveContextCompactionDeviceTest {
                 chat.setMode(previous.mode)
                 chat.setReasoning(previous.reasoning)
                 chat.setTurnBudgets(previous.budgets)
-                session?.let { storage.sessions.archive(it, System.currentTimeMillis()) }
+                session?.let { id ->
+                    storage.turns.listBySession(id).forEach {
+                        chat.stopTurn(it.id)
+                        withTimeout(20_000) { container.agentRuntime.observe(TurnId(it.id)).collect {} }
+                    }
+                    storage.deleteSessionPermanently(id)
+                }
                 service.delete(provider)
             }
         }
@@ -203,15 +212,18 @@ class LiveContextCompactionDeviceTest {
             } else {
                 "Routine notes without new constraints. "
             }
+        val referenceOnly =
+            includeConstraint &&
+                InstrumentationRegistry.getArguments().getString("contextReferenceFixture") == "true"
         val prompts =
             listOf(
-                constraint +
+                (if (referenceOnly) "Read the accepted conversation reference. " else constraint) +
                     "Routine obsolete progress log; no further constraints. ".repeat(150),
                 "The project is a local file manager. Preserve original files and conversation history. " +
                     "Routine obsolete progress log; no further constraints. ".repeat(150),
                 "We will discuss the next steps later. Do not perform any file operations now.",
             )
-        prompts.forEach { prompt ->
+        prompts.forEachIndexed { index, prompt ->
             val next = { UUID.randomUUID().toString() }
             val coordinator =
                 startFixtureTurn(
@@ -220,6 +232,26 @@ class LiveContextCompactionDeviceTest {
                     next,
                     TurnStartSpec(session, next(), next(), "{}", prompt),
                 )
+            if (referenceOnly && index == 0) {
+                val message = storage.messages.listBySession(session).last { it.role == "USER" }
+                assertTrue(storage.messages.readContent(message)?.contains("ORANGE-42") == false)
+                storage.withTransaction {
+                    storage.messageReferenceSnapshots.bind(
+                        message.id,
+                        listOf(
+                            com.helix.core.storage.repository.ConversationReferenceSnapshotInput(
+                                "synthetic-reference",
+                                "Accepted project constraints",
+                                com.helix.core.storage.repository.ConversationReferenceKind.RECENT_MESSAGES,
+                                emptyList(),
+                                constraint,
+                            ),
+                        ),
+                        System.currentTimeMillis(),
+                    )
+                }
+                println("LIVE_BOUND_REFERENCE=accepted originalBodyHasCode=false")
+            }
             val stream = coordinator.beginModelStream()
             stream.apply(ModelEvent.TextDelta("Understood."))
             stream.apply(ModelEvent.Completed("stop"))
