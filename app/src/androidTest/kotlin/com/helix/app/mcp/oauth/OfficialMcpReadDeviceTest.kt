@@ -23,6 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.net.URI
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
@@ -54,6 +55,14 @@ class OfficialMcpReadDeviceTest {
                     .filter { it.kind == "tool" && it.enabled }
                     .mapTo(linkedSetOf()) { it.name }
             val before = credential(endpoint.id)
+            val expiresAt =
+                before.tokens.expiresInSeconds?.let {
+                    Math.addExact(before.tokens.issuedAtMs, Math.multiplyExact(it, 1000L))
+                }
+            println(
+                "OFFICIAL_MCP_EXPIRY vendor=$vendor " +
+                    "clientExpiresAtUtc=${expiresAt?.let(Instant::ofEpochMilli)}",
+            )
             val offer = service.clientSetup.inspect(endpoint, service.oauthRedirectUri)
             val remembered = requireNotNull(service.clientSetup.remembered(offer))
             val reused =
@@ -69,7 +78,13 @@ class OfficialMcpReadDeviceTest {
             val snapshot = withTimeout(90_000) { service.testOAuth(endpoint) }
             val after = credential(endpoint.id)
             assertFalse(after.refreshing)
-            if (expiredBefore) {
+            assertEquals(
+                "Connection test must retain the original authorization binding",
+                before.binding,
+                after.binding,
+            )
+            val refreshed = after.tokens.issuedAtMs > before.tokens.issuedAtMs
+            if (expiredBefore || refreshed) {
                 check(before.tokens.refreshToken != null)
                 assertTrue(
                     "Natural refresh must publish a fresh record",
@@ -89,7 +104,7 @@ class OfficialMcpReadDeviceTest {
                 dispatch(record.id, descriptor, target, approve = true)
                 println(
                     "OFFICIAL_MCP_READ=PASS vendor=$vendor dispatcher=true approvalDenied=true objectMatched=true " +
-                        "naturalRefresh=${if (expiredBefore) "passed" else "not_due"} " +
+                        "naturalRefresh=${if (refreshed) "passed" else "not_due"} " +
                         "expiryKnown=${after.tokens.expiresInSeconds != null}",
                 )
             } finally {

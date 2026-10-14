@@ -95,6 +95,14 @@ class ProgressiveSkillModelDeviceTest {
             require(!visual || kind == "mobile")
             val postObservation = args.getString("pluginSkillPostObservation") == "true"
             require(!postObservation || kind == "mobile")
+            val observationHint =
+                args.getString("pluginSkillObservationHint")?.let {
+                    require(it in setOf("true", "false")) { "Invalid observation-hint fixture value" }
+                    require(
+                        kind == "mobile" && postObservation,
+                    ) { "Hint comparison requires the same observation verifier" }
+                    it == "true"
+                } ?: postObservation
             val port =
                 if (providerProfile ==
                     "qwen"
@@ -238,7 +246,7 @@ class ProgressiveSkillModelDeviceTest {
                                             ) +
                                             "Scroll to 完成测试, click once; verify success. Stay there." +
                                             (
-                                                if (postObservation) {
+                                                if (observationHint) {
                                                     " After ui.set_text/ui.scroll, read observation when " +
                                                         "observationStatus=ATTACHED. " +
                                                         "Use its fresh tokens for the next action; " +
@@ -392,6 +400,7 @@ class ProgressiveSkillModelDeviceTest {
                             }
                             println(
                                 "PROGRESSIVE profile=$providerProfile kind=$kind rep=$repetition success=$success " +
+                                    "observationHint=$observationHint " +
                                     "state=${turn.state} " +
                                     "offscreenRequired=$findBeforeScroll offscreenRecovered=$offscreenRecovered " +
                                     "error=${turn.errorCode} elapsed=${SystemClock.elapsedRealtime() - start} " +
