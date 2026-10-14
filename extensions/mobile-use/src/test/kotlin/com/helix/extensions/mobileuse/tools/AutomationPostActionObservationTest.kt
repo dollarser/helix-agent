@@ -43,7 +43,7 @@ class AutomationPostActionObservationTest {
         ExecutableToolCall(
             "call",
             name,
-            "5",
+            "6",
             Json
                 .parseToJsonElement(
                     if (name == AutomationTools.SET_TEXT) {
@@ -91,7 +91,7 @@ class AutomationPostActionObservationTest {
             assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, output))
         }
         assertEquals(2, port.actions)
-        assertEquals(2, port.observations)
+        assertTrue("Each attached state must have repeated stable observations", port.observations >= 4)
     }
 
     @Test fun failedAndUncertainActionsAreNeverReadOrReplayed() {

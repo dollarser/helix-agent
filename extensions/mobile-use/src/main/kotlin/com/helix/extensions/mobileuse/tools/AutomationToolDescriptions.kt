@@ -43,7 +43,7 @@ internal object AutomationToolDescriptions {
                     "Omit submit for ordinary filling (default false); text insertion does not need IME submission. " +
                     "Set submit=true only when canImeEnter=true " +
                     "and the task requests a keyboard action. Read the returned observation for fresh tokens; " +
-                    "request another observation only if it is unavailable, incomplete or still loading."
+                    "The host briefly checks stability; UNSETTLED supplies no tokens. Observe again if needed."
             }
 
             AutomationTools.IME_ENTER -> {
@@ -95,5 +95,5 @@ private const val SCROLL_DESCRIPTION =
         "read the returned observation for new controls/tokens. " +
         "Use a token from the latest observation or ui.find(scrollable=true), not the offscreen button's " +
         "token or clickTargetToken. A later observation invalidates the earlier container token. " +
-        "Query again if the attached observation is unavailable or incomplete. " +
+        "UNSETTLED supplies no tokens; query again if state is unavailable or incomplete. " +
         "For coordinate/canvas gestures use ui.device, ui.screenshot and ui.gesture instead."

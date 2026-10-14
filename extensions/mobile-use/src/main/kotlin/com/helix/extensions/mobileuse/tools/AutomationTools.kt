@@ -467,7 +467,7 @@ class AutomationTools(
             when (name) {
                 FIND, WAIT -> 10
                 CLICK_MATCH, SNAPSHOT -> 8
-                SET_TEXT, SCROLL -> 5
+                SET_TEXT, SCROLL -> 6
                 else -> 3
             },
         ),

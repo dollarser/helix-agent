@@ -594,7 +594,7 @@ class AutomationToolsTest {
 
     @Test fun scrollSchemaOnlyAdmitsDirectionsTheExecutorImplements() {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }
-        assertEquals(5, descriptor.version.value)
+        assertEquals(6, descriptor.version.value)
         val schema = descriptor.inputSchema
         listOf("forward", "backward").forEach {
             assertEquals(

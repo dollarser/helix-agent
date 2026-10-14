@@ -1,7 +1,12 @@
 package com.helix.extensions.mobileuse.tools
 
+import com.helix.core.model.Clock
+import com.helix.extensions.mobileuse.automation.AutomationFindQuery
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotResult
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
+import com.helix.extensions.mobileuse.automation.AutomationWaitCondition
+import com.helix.extensions.mobileuse.automation.AutomationWaitStatus
+import com.helix.extensions.mobileuse.automation.AutomationWaiter
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonArray
@@ -10,6 +15,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CancellationException
 
@@ -18,6 +24,7 @@ internal class AutomationPostActionObservation(
     private val capture: () -> AutomationSnapshotResult,
     private val encode: (AutomationSnapshotResult) -> JsonObject,
     private val now: () -> Instant = Instant::now,
+    private val sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
 ) {
     fun attach(
         result: ToolExecutorResult,
@@ -55,17 +62,48 @@ internal class AutomationPostActionObservation(
     private fun observe(call: ExecutableToolCall): ObservationRead {
         admission(call)?.let { return ObservationRead(it) }
         return try {
-            val fresh = capture()
+            val wait =
+                AutomationWaiter(
+                    object : Clock {
+                        override fun now() = now.invoke()
+                    },
+                    sleep,
+                ).waitFor(
+                    query = AutomationFindQuery(),
+                    timeout = minOf(Duration.ofSeconds(1), Duration.between(now(), call.deadline)),
+                    pollInterval = Duration.ofMillis(50),
+                    condition = AutomationWaitCondition.STABLE,
+                    stableFor = Duration.ofMillis(200),
+                    cancelled = { admission(call) != null },
+                    snapshotProvider = capture,
+                )
+            val fresh = wait.observation
             val stopped = admission(call)
             if (stopped != null) {
                 ObservationRead(stopped)
             } else {
                 when {
+                    wait.status == AutomationWaitStatus.CANCELLED -> {
+                        ObservationRead("SKIPPED_CANCELLED")
+                    }
+
+                    wait.status in setOf(AutomationWaitStatus.TIMED_OUT, AutomationWaitStatus.INCOMPLETE_SNAPSHOT) -> {
+                        ObservationRead("UNSETTLED")
+                    }
+
+                    fresh == null -> {
+                        ObservationRead("UNAVAILABLE")
+                    }
+
                     fresh.status != AutomationSnapshotStatus.SUCCESS -> {
                         ObservationRead("UNAVAILABLE", encode(fresh.copy(snapshot = null)))
                     }
 
-                    fresh.snapshot == null -> {
+                    fresh.pauseReason != null -> {
+                        ObservationRead("UNAVAILABLE", encode(fresh.copy(snapshot = null)))
+                    }
+
+                    fresh.snapshot == null || wait.status != AutomationWaitStatus.STABLE -> {
                         ObservationRead("UNAVAILABLE")
                     }
 
@@ -127,7 +165,7 @@ internal class AutomationPostActionObservation(
     }
 
     companion object {
-        val STATUSES = listOf("ATTACHED", "UNAVAILABLE", "SKIPPED_CANCELLED", "SKIPPED_DEADLINE")
+        val STATUSES = listOf("ATTACHED", "UNAVAILABLE", "UNSETTLED", "SKIPPED_CANCELLED", "SKIPPED_DEADLINE")
         private const val MAX_NODES = 32
         private const val MAX_NODE_BYTES = 12 * 1024
     }

@@ -269,6 +269,8 @@ Mobile Use输入动作的模型可见结果采用`status=DISPATCHED`、`effectSt
 
 ## Decision history
 
+- 2026-10-14：Owner授权新一轮20分钟定向验证。针对已证实的动作后过早采样，set_text/scroll的可选观察复用AutomationWaiter：在原deadline内最多1秒、50ms轮询，完整页面内容/几何连续200ms稳定才ATTACHED；持续变化/不完整为UNSETTLED且不发布节点，原派发事实仍UNVERIFIED。暂停、撤权、取消或超时不发布早先快照；无动作重放或目标保护放宽。该短稳定窗不保证后续不变、不验证业务目标，浮窗恢复影响及真实收益仍须定向设备证据。工具版本5→6。
+
 - 2026-10-14：Owner追加综合优化Mobile Use闭环。输入/滚动的已知DISPATCHED回执可携带原调用授权内的新语义观察，最多32节点/12KiB节点载荷；观察失败、取消或过期保留原派发事实并明确缺少新观察，不把它改写成动作失败、VERIFIED或UNKNOWN，不延长权限、跨后端重放或隐式发起后续动作。旧token仍失效；附带观察提供新token供模型读取与独立判断。其他动作保持原流程。窗口状态/层级变化及未知目标保持保守；可识别非目标窗口的普通控件事件不使目标generation变化。新查询scrollable及工具版本、描述、Skill同步；设备效果须另验，不继承旧R6。
 
 - 2026-10-14：Owner要求消除Mobile Use手势完成被误解为任务成功。采纳输入派发与业务核验分层，动作输出改为DISPATCHED/UNVERIFIED并升级受影响工具版本；明确本地SENSITIVE_UI拒绝与系统不可见过滤的证据边界。不以缺少业务核验触发UNKNOWN，不新增自动验证任务引擎或跨后端重放。
