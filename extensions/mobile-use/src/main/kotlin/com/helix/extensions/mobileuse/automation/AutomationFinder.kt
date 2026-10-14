@@ -37,7 +37,8 @@ object AutomationFinder {
                     className != null ||
                     clickable != null ||
                     checkable != null ||
-                    checked != null
+                    checked != null ||
+                    scrollable != null
             )
 
     private fun AutomationSnapshotNode.matches(query: AutomationFindQuery): Boolean =
@@ -47,7 +48,8 @@ object AutomationFinder {
             className.matches(query.className, query.match) &&
             (query.clickable == null || clickable == query.clickable) &&
             (query.checkable == null || checkable == query.checkable) &&
-            (query.checked == null || checked == query.checked)
+            (query.checked == null || checked == query.checked) &&
+            (query.scrollable == null || scrollable == query.scrollable)
 
     @Suppress("ReturnCount")
     private fun String?.matches(

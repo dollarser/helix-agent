@@ -90,12 +90,19 @@ class HelixAccessibilityService : AccessibilityService() {
             return
         }
         val activeWindow = targetObserver.activeWindow
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            generationTracker.contentChangedInWindow(event.windowId, activeWindow)
-        } else {
-            generationTracker.contentChanged()
-        }
-        targetObserver.request(event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+        val windowMayHaveChanged =
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_VIEW_CLICKED,
+                AccessibilityEvent.TYPE_VIEW_FOCUSED,
+                AccessibilityEvent.TYPE_VIEW_SCROLLED,
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                -> false
+
+                else -> true
+            }
+        generationTracker.eventReceived(event.windowId, activeWindow, windowMayHaveChanged)
+        targetObserver.request(windowMayHaveChanged)
     }
 
     override fun onInterrupt() {

@@ -1,5 +1,7 @@
 # 当前实施状态
 
+2026-10-14 Mobile Use观察闭环优化：输入/滚动回执附带有界新观察，find/wait可筛选scrollable，失效指引和普通其他窗口事件隔离同步；旧token、授权/取消/UNKNOWN不放宽。280项JVM、完整全仓及双渠道/SDK测试APK通过。另行授权自有API36/Qwen短验约267秒：拼音/四模式触摸、4业务/8次返回通过，临时设置及实例已清理；8条附带观察真实返回，但3次直接用新token均STALE_TOKEN，重新观察后完成。减少失效/调用的效果尚未证实，后续须定位观察时机而非放开校验；新代码未跑两小时，不继承旧R6。见[本阶段证据](../evidence/development/mobile-use-observation-loop-2026-10-14.md)。
+
 2026-10-14 Owner重新授权动作回执设备/真实模型验收：自有API36/Developer实际拼音、四模式触摸及Qwen两方法均通过，4业务/8次后台返回、12条新回执和36次请求身份关联核对通过；临时AX及实例已恢复关闭。Shizuku抖音已自主下载安装、观看超过10秒并卸载核实，零追加提示；截图帧恢复提示修正252fea0b及新视觉两业务/4次返回通过。R6已结算PASS：同PID7211655ms、172测量业务及2热身业务通过，原资源门禁满足，240/241主机采样（末条退出后无进程），临时设置/实例均恢复关闭；不覆盖旧R5失败，也不算随后新代码验收。见[本轮追加](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加新回执设备与真实模型验收)。
 
 2026-10-14 动作回执语义优化完成：Mobile Use模型可见动作结果统一为DISPATCHED/UNVERIFIED，要求后续观察；本地SENSITIVE_UI明确派发前拒绝，不伪造系统过滤原因。共享严格schema及受影响动作版本同步更新，核心完成/取消/UNKNOWN、审批、Room和原生回调保持。Mobile Use Debug JVM263项、完整全仓主机及双渠道/SDK测试APK编译通过；本阶段设备/模型not requested、未安装APK，不继承上一阶段设备通过。见[本阶段证据](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加动作回执语义优化)。

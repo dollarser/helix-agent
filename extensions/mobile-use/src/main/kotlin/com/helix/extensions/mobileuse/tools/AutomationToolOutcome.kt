@@ -39,6 +39,11 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
             if (status == AutomationActionStatus.SENSITIVE_UI) {
                 "${status.name}: Helix refused this sensitive target before dispatch. No action was executed. " +
                     "Screenshots do not grant permission or remove system restrictions."
+            } else if (status == AutomationActionStatus.TOKEN_UNKNOWN) {
+                "${status.name}: This token is not in the active observation; no action was dispatched. " +
+                    "Earlier actions and new observations invalidate old tokens. Read the attached post-action " +
+                    "observation if available, or obtain ui.snapshot/ui.find again. For a scroll container use " +
+                    "ui.find with scrollable=true. Copy the exact fresh token; never reconstruct or reuse the old one."
             } else if (status == AutomationActionStatus.ACTION_NOT_SUPPORTED) {
                 "${status.name}: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
                     "choose a target supporting the requested action (a scrollable container for ui.scroll). " +

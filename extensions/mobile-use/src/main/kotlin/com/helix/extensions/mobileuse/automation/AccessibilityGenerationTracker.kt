@@ -9,6 +9,12 @@ internal class AccessibilityGenerationTracker {
 
     fun contentChanged(): Long = generation.incrementAndGet()
 
+    fun eventReceived(
+        eventWindowId: Int,
+        activeWindowId: Int?,
+        windowMayHaveChanged: Boolean,
+    ): Long = if (windowMayHaveChanged) contentChanged() else contentChangedInWindow(eventWindowId, activeWindowId)
+
     fun contentChangedInWindow(
         eventWindowId: Int,
         activeWindowId: Int?,

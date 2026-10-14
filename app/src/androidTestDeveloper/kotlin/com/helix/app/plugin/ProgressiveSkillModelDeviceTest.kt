@@ -93,6 +93,8 @@ class ProgressiveSkillModelDeviceTest {
             require(backend == "accessibility" || kind == "mobile")
             val visual = args.getString("pluginSkillVisual") == "true"
             require(!visual || kind == "mobile")
+            val postObservation = args.getString("pluginSkillPostObservation") == "true"
+            require(!postObservation || kind == "mobile")
             val port =
                 if (providerProfile ==
                     "qwen"
@@ -235,6 +237,16 @@ class ProgressiveSkillModelDeviceTest {
                                                 }
                                             ) +
                                             "Scroll to 完成测试, click once; verify success. Stay there." +
+                                            (
+                                                if (postObservation) {
+                                                    " After ui.set_text/ui.scroll, read observation when " +
+                                                        "observationStatus=ATTACHED. " +
+                                                        "Use its fresh tokens for the next action; " +
+                                                        "query again only when needed."
+                                                } else {
+                                                    ""
+                                                }
+                                            ) +
                                             if (visual) {
                                                 " For the final click, use ui.device then ui.screenshot. " +
                                                     "Locate 完成测试 from the attached pixels and click using " +
@@ -345,6 +357,17 @@ class ProgressiveSkillModelDeviceTest {
                             val success =
                                 turn.state == "COMPLETED" && verified && calls.isNotEmpty() &&
                                     (!findBeforeScroll || offscreenRecovered)
+                            if (postObservation) {
+                                val attached =
+                                    calls.filter { it.name in setOf("ui.set_text", "ui.scroll") }.count { call ->
+                                        c.storage.toolResults
+                                            .byToolCall(call.id)
+                                            ?.let(c.storage.toolResults::readContent)
+                                            ?.contains("\"observationStatus\":\"ATTACHED\"") == true
+                                    }
+                                println("POST_ACTION_OBSERVATION rep=$repetition attached=$attached")
+                                assertTrue("No actual post-action observation returned", attached > 0)
+                            }
                             if (visual) {
                                 assertTrue(calls.any { it.name == "ui.gesture" && it.state == "COMPLETED" })
                                 assertTrue(

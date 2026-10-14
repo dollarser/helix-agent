@@ -15,6 +15,7 @@ data class AutomationFindQuery(
     val checked: Boolean? = null,
     val match: AutomationTextMatch = AutomationTextMatch.EXACT,
     val maxResults: Int = 20,
+    val scrollable: Boolean? = null,
 )
 
 enum class AutomationFindStatus {

@@ -38,6 +38,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
@@ -55,10 +57,10 @@ class AutomationTools(
             descriptor(CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
             descriptor(CLICK_MATCH, ToolOperationClass.EXTERNAL_ACTION, clickMatchInput(), actionOutput()),
             descriptor(LONG_CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
-            descriptor(SET_TEXT, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput()),
+            descriptor(SET_TEXT, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput(observeAfter = true)),
             descriptor(IME_ENTER, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
             descriptor(SET_PROGRESS, ToolOperationClass.EXTERNAL_ACTION, progressInput(), actionOutput()),
-            descriptor(SCROLL, ToolOperationClass.EXTERNAL_ACTION, scrollInput(), actionOutput()),
+            descriptor(SCROLL, ToolOperationClass.EXTERNAL_ACTION, scrollInput(), actionOutput(observeAfter = true)),
             descriptor(BACK, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
             descriptor(HOME, ToolOperationClass.EXTERNAL_ACTION, emptyObject(), actionOutput()),
             descriptor(WAIT, ToolOperationClass.READ_ONLY, waitInput(), findOutput()),
@@ -77,60 +79,66 @@ class AutomationTools(
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 val boundPort = port.forCall(call)
                 return try {
-                    when (name) {
-                        SNAPSHOT -> {
-                            ToolExecutorResult.Completed(snapshotJson(boundPort.snapshot()))
-                        }
+                    val result =
+                        when (name) {
+                            SNAPSHOT -> {
+                                ToolExecutorResult.Completed(snapshotJson(boundPort.snapshot()))
+                            }
 
-                        FIND -> {
-                            ToolExecutorResult.Completed(findJson(boundPort.snapshot(), query(call.args)))
-                        }
+                            FIND -> {
+                                ToolExecutorResult.Completed(findJson(boundPort.snapshot(), query(call.args)))
+                            }
 
-                        CLICK -> {
-                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
-                        }
+                            CLICK -> {
+                                action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.CLICK, call.args)))
+                            }
 
-                        CLICK_MATCH -> {
-                            clickMatch(boundPort, call)
-                        }
+                            CLICK_MATCH -> {
+                                clickMatch(boundPort, call)
+                            }
 
-                        LONG_CLICK -> {
-                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
-                        }
+                            LONG_CLICK -> {
+                                action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.LONG_CLICK, call.args)))
+                            }
 
-                        SET_TEXT -> {
-                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
-                        }
+                            SET_TEXT -> {
+                                action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_TEXT, call.args)))
+                            }
 
-                        IME_ENTER -> {
-                            action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.IME_ENTER, call.args)))
-                        }
+                            IME_ENTER -> {
+                                action(boundPort.nodeAction(nodeRequest(AutomationNodeAction.IME_ENTER, call.args)))
+                            }
 
-                        SET_PROGRESS -> {
-                            action(
-                                boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_PROGRESS, call.args)),
-                            )
-                        }
+                            SET_PROGRESS -> {
+                                action(
+                                    boundPort.nodeAction(nodeRequest(AutomationNodeAction.SET_PROGRESS, call.args)),
+                                )
+                            }
 
-                        SCROLL -> {
-                            action(boundPort.nodeAction(nodeRequest(scrollAction(call.args), call.args)))
-                        }
+                            SCROLL -> {
+                                action(boundPort.nodeAction(nodeRequest(scrollAction(call.args), call.args)))
+                            }
 
-                        BACK -> {
-                            action(boundPort.globalAction(AutomationGlobalAction.BACK))
-                        }
+                            BACK -> {
+                                action(boundPort.globalAction(AutomationGlobalAction.BACK))
+                            }
 
-                        HOME -> {
-                            action(boundPort.globalAction(AutomationGlobalAction.HOME))
-                        }
+                            HOME -> {
+                                action(boundPort.globalAction(AutomationGlobalAction.HOME))
+                            }
 
-                        WAIT -> {
-                            wait(call, boundPort)
-                        }
+                            WAIT -> {
+                                wait(call, boundPort)
+                            }
 
-                        else -> {
-                            ToolExecutorResult.Failed("AUTOMATION_TOOL_UNKNOWN", sideEffectFree = true)
+                            else -> {
+                                ToolExecutorResult.Failed("AUTOMATION_TOOL_UNKNOWN", sideEffectFree = true)
+                            }
                         }
+                    if (name in setOf(SET_TEXT, SCROLL)) {
+                        AutomationPostActionObservation(boundPort::snapshot, ::snapshotJson).attach(result, call)
+                    } else {
+                        result
                     }
                 } catch (error: IllegalArgumentException) {
                     ToolExecutorResult.Failed(error.message ?: "AUTOMATION_ARGUMENT_INVALID", sideEffectFree = true)
@@ -436,6 +444,7 @@ class AutomationTools(
             clickable = args["clickable"]?.jsonPrimitive?.booleanOrNull,
             checkable = args["checkable"]?.jsonPrimitive?.booleanOrNull,
             checked = args["checked"]?.jsonPrimitive?.booleanOrNull,
+            scrollable = args["scrollable"]?.jsonPrimitive?.booleanOrNull,
             match =
                 if (args["match"]?.jsonPrimitive?.contentOrNull ==
                     "contains"
@@ -455,20 +464,11 @@ class AutomationTools(
     ) = ToolDescriptor(
         ToolName(name),
         ToolVersion(
-            if (name in setOf(FIND, WAIT)) {
-                9
-            } else if (name == CLICK_MATCH) {
-                8
-            } else if (name == SNAPSHOT) {
-                8
-            } else if (name == SET_TEXT) {
-                4
-            } else if (name == SCROLL) {
-                4
-            } else if (name !in setOf(BACK, HOME)) {
-                3
-            } else {
-                2
+            when (name) {
+                FIND, WAIT -> 10
+                CLICK_MATCH, SNAPSHOT -> 8
+                SET_TEXT, SCROLL -> 5
+                else -> 3
             },
         ),
         AutomationToolDescriptions.description(name),
@@ -561,6 +561,7 @@ class AutomationTools(
                 "checked" to bool(),
                 "maxResults" to integer(1, 50),
             )
+        fields["scrollable"] = bool()
         if (includeWait) {
             fields["timeoutMillis"] = integer(1, 60_000)
             fields["stableMillis"] = integer(50, 60_000)
@@ -574,7 +575,29 @@ class AutomationTools(
         return obj(fields, emptyList())
     }
 
-    private fun actionOutput() = automationActionOutputSchema(includeBackend = true)
+    private fun actionOutput(observeAfter: Boolean = false): JsonObject {
+        val base = automationActionOutputSchema(includeBackend = true)
+        if (!observeAfter) return base
+        val status =
+            buildJsonObject {
+                put("type", JsonPrimitive("string"))
+                put("enum", JsonArray(AutomationPostActionObservation.STATUSES.map(::JsonPrimitive)))
+            }
+        return JsonObject(
+            base +
+                mapOf(
+                    "properties" to
+                        JsonObject(
+                            base.getValue("properties").jsonObject +
+                                mapOf(
+                                    "observationStatus" to status,
+                                    "observation" to snapshotOutput(),
+                                ),
+                        ),
+                    "required" to JsonArray(base.getValue("required").jsonArray + JsonPrimitive("observationStatus")),
+                ),
+        )
+    }
 
     private fun findOutput() =
         obj(

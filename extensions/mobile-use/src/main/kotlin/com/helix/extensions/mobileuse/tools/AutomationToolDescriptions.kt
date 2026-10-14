@@ -42,7 +42,8 @@ internal object AutomationToolDescriptions {
                     "no preliminary click or keyboard opening is needed. " +
                     "Omit submit for ordinary filling (default false); text insertion does not need IME submission. " +
                     "Set submit=true only when canImeEnter=true " +
-                    "and the task requests a keyboard action. Observe the result before the next action."
+                    "and the task requests a keyboard action. Read the returned observation for fresh tokens; " +
+                    "request another observation only if it is unavailable, incomplete or still loading."
             }
 
             AutomationTools.IME_ENTER -> {
@@ -58,12 +59,12 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.BACK -> {
-                "Navigate back once in the authorized Android session using Accessibility. " +
+                "Navigate back once in the authorized phone session using the host-selected ready backend. " +
                     "Observe where navigation ends."
             }
 
             AutomationTools.HOME -> {
-                "Go to Android Home using Accessibility within the authorized session. " +
+                "Go to Android Home in the authorized session using the host-selected ready backend. " +
                     "This does not finish the user's task."
             }
 
@@ -86,12 +87,13 @@ private const val FIND_DESCRIPTION =
         "Default text matching is exact; use match=contains for a substring. " +
         "An actionable unique match supplies suggestedClickToken for ui.click. " +
         "This observation replaces all earlier node tokens. Offscreen matches are not clickable: " +
-        "call ui.snapshot, select a fresh node with scrollable=true, scroll it and observe again. " +
-        "scrollable is a returned node flag, not a ui.find argument. " +
+        "find a fresh container with scrollable=true, scroll its token and read the returned observation. " +
         "Does not click or wait."
 
 private const val SCROLL_DESCRIPTION =
-    "Scroll a fresh scrollable node token forward or backward, then observe newly visible controls. " +
-        "Use token from a current ui.snapshot node with scrollable=true, not the offscreen button's " +
+    "Scroll a fresh scrollable node token forward or backward; " +
+        "read the returned observation for new controls/tokens. " +
+        "Use a token from the latest observation or ui.find(scrollable=true), not the offscreen button's " +
         "token or clickTargetToken. A later observation invalidates the earlier container token. " +
+        "Query again if the attached observation is unavailable or incomplete. " +
         "For coordinate/canvas gestures use ui.device, ui.screenshot and ui.gesture instead."
