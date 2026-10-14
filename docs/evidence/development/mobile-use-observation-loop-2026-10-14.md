@@ -46,3 +46,23 @@ UTC06:32:03结束，约267秒，远低于20分钟上限。实际拼音组合/候
 8条实际附带观察均ATTACHED；模型在3次后续动作中直接使用附带token，但这3次scroll均执行前STALE_TOKEN失败，重新观察后业务完成。另5次选择find/snapshot/wait。失败未自动重试/删日志，不能写成“新token直接执行成功”或“失效已解决”。ATTACHED仅证明采集到新观察，不保证随后generation/节点指纹仍相同；当前日志不足以把3次精确归因于IME、动画、浮窗或其他事件。观察时机/稳定性及区分真实目标变化和噪声仍需进一步定向证据；本轮没有第二组对照，也不证明比旧版节省调用/耗时或普遍减少TOKEN_UNKNOWN。语义/恢复链路检查passed，减少失效和往返的效果未证实。
 
 临时无障碍before/after均null/0，未启用Shizuku/Root或操作真实账号，浮窗未额外开启；recorder PID41027退出0、owned VM PID40365退出0、supervisor退出0，反向端口由owned清理。logcat采集进程由关闭流程SIGTERM结束（-15），不冒充自然退出0。最终ADB仅剩原日常5554；未借用或更新它。新优化未重跑两小时，R6旧制品PASS单独保持。
+
+## 三次新token失效的现有轨迹复核（不追加设备/模型）
+
+在aec4f2bb提交后仅离线读取原wire和当前源码，没有重新启动模拟器、连接设备或请求模型。当天debug/local/analyze-post-observation-staleness.py生成忽略的post-observation-staleness.json，原请求/响应/失败不改写。按原tool_call_id关联“附带观察→直接scroll→STALE_TOKEN→下一条成功快照”，不是用相邻同名工具猜测关联。完整请求ID保存在本地报告；下表只列足够复核的后缀。
+
+| 轨迹 | 附带观察原调用后缀 | 附带/恢复窗口及generation | 公开页面变化 | 结论边界 |
+| --- | --- | --- | --- | --- |
+| 表单rep0，输入后 | 864e406 | 同窗口76，12→13 | 附带28节点中尚无本次输入文本，恢复28节点才有；去token后仅索引1的text变 | 采样早于输入效果可观察，不能称“页面没变只多了事件”。 |
+| 表单rep1，输入后 | def4f6 | 同窗口88，62→63 | 同上，目标文字仅恢复时出现 | 同上；原平台动作true只是接受/派发回执。 |
+| 表单rep1，滚动后 | 1908 | 同窗口88，63→69 | 前后28节点，26个节点bounds/offscreen改变 | 页面滚动效果在采样后继续变化，不是仅新token抄错或纯无关窗口噪声。 |
+
+三次root可滚动节点公开的bounds/clickable/scrollable/enabled均未变，但不能据此推出整树或原生完整指纹没变：compact输出没有该节点的className/viewId/原路径/完整fingerprint，且同页子节点已真实变化。失败码还将“generation不等、路径找不到、fingerprint不等”合并为STALE_TOKEN；恢复时generation增大，不足以倒推出失败那一刻命中了哪一分支，缺少逐事件来源/单调时钟记录也不能排除其他事件叠加。
+
+模型生成后续动作的三个响应区间分别UTC06:30:38–43、06:31:26–32、06:31:37–44；动作执行在生成后，不能把proxy请求起点当原生派发时间。对应附带观察时间毫秒值为1791959438065、1791959485995、1791959497182。恢复快照比其晚约9.2/8.5/9.3秒；这包含模型生成和恢复请求，不能当作Android动画时长。
+
+当前源码时序：平台node.setText/performAction的布尔值经toToolOutcome成为DISPATCHED → helper立即snapshot → 控制器只检查采样期间generation一致并至多丢弃重读3次 → 附带结果返回 → 外层MobileUsePresentedExecutor退出hidden.use → MobileUseOverlay.release安排150ms后render，另有500ms tick。采样期间不变不等于动作后效果已经出现，亦不等于下一动作前不变。无障碍overlay可使用TYPE_ACCESSIBILITY_OVERLAY，不以SYSTEM_ALERT_WINDOW未另授就推断浮窗从未出现；当前记录没有浮窗实际重挂时间和事件归属，无法确认或排除它对后续generation的贡献。
+
+因此，现有证据足以定位“动作接受后立即观察可能过早”这一设计缺口，但不足以选定并验收某个等待时长、把generation事件排除，或承诺浮窗恢复不影响。未以固定sleep、延长token寿命、忽略generation、跨后端重试来掩盖失败；未把新优化标为有实际效率提升。后续实现优先复用已有AutomationWaiter的有界只读稳定条件，保留原deadline/取消/权限/物理容量及业务UNVERIFIED，稳定只表示短观察区间而非任务成功。是否应在浮窗恢复后采样，必须先有呈现时序证据，不能仅在隐藏内等待后仍忽略恢复影响。
+
+最小补证范围（pending，未执行）：自有API36同一合成表单，分别记录输入/滚动各两次，原始动作ACK、采样前后generation、拒绝分支、相关event类型/windowId及浮窗隐藏/恢复的单调时间，不记录正文/节点/凭据；原保护及断言不变。主机先覆盖延迟文字更新、滚动未稳定、持续变化、取消/超时及恢复浮窗事件，再用固定次数Qwen相同任务做新旧组调用/耗时/失败对照。当前轮不追加设备/模型测试，不擅自再启动长稳。
