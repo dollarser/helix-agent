@@ -122,7 +122,7 @@ private const val MAX_BEARER_BYTES = 4_096
 data class McpMetadataLimits(
     val maxItemsPerKind: Int = 128,
     val maxTextChars: Int = 4_096,
-    val maxSchemaBytes: Int = 65_536,
+    val maxSchemaBytes: Int = 131_072,
     val maxPromptArguments: Int = 64,
     val maxTotalMetadataBytes: Int = 524_288,
 ) {

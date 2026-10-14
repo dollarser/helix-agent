@@ -63,7 +63,7 @@ internal fun McpMetadataSnapshot.requireWithinTotalBytes(maxBytes: Int) {
     var total = 0L
     metadataStrings().forEach { value ->
         if (value != null) total += value.toByteArray(Charsets.UTF_8).size
-        require(total <= maxBytes) { "MCP metadata exceeds $maxBytes bytes" }
+        if (total > maxBytes) throw McpMetadataLimitException()
     }
 }
 

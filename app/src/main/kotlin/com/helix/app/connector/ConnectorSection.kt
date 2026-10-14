@@ -497,8 +497,13 @@ private fun EndpointRow(
                         snapshot = null
                     } catch (cancel: CancellationException) {
                         throw cancel
-                    } catch (_: Exception) {
-                        failureMessage = R.string.connector_connection_failed
+                    } catch (error: Exception) {
+                        failureMessage =
+                            connectorConnectionFailureMessage(
+                                error,
+                                oauthAuthorized =
+                                    authMode == EndpointAuthMode.OAUTH,
+                            )
                     } finally {
                         busy = false
                     }

@@ -43,3 +43,22 @@ Owner在备份、一次性补齐缺表/列并保留数据更新的问询后回�
 - Notion市场条目安装成功，无自动登录或工具启用。官方公开元数据GET在urllib返回403、curl返回200；只执行一次注册POST，201、无client secret、精确包名回调。Client ID、default scope和redirect在UI核对一致后发起登录，已到官方Notion账号登录页，等待Owner在浏览器操作。default不声称只读授权；仍要求测试工作区，后续业务动作限制为只读。
 
 本轮设备结果：保留数据更新/启动、Linear已有授权恢复和MCP连接/工具发现passed；Notion登录、两家实际业务读取及拒绝/刷新/厂商撤销pending。当前没有新长稳/模型结果。忽略的`build/oauth-acceptance-2026-10-15/`保存更新日志、保护中止、数据库副本、脱敏数据保留结果与UI证据；临时脚本在同日local目录。
+
+后续Owner报告“完成登录但是工具未激活”。现场核对Notion网页账号已登录并停在主页，Helix仍为“等待浏览器授权返回”，尚无Notion MCP授权成功证据；不能把网页登录当作OAuth完成。重新从原生配置发起新请求，核对Client ID/default scope/精确redirect后实际进入官方“连接Notion MCP”授权页，显示工作区选择、精确包名回调及“我认可并信任此URL”确认和继续按钮。留给Owner选择工作区并确认，尚未点击授权、启用工具或调用业务接口；最新边界为网页账号登录passed、MCP授权/工具激活pending。过期/未完成的旧尝试不回放，不重复注册客户端，不读取Cookie或账号凭据。
+
+## Notion授权完成后的连接与激活修复
+
+上述pending为当时状态。Owner离开约34分钟后返回的回调超过10分钟attempt期限；重新发起后由Owner完成工作区授权，原生UI实际显示“OAuth 2.0 已授权”。随后连接失败是另一问题，不再归因于网页登录或授权未完成。
+
+- 早期调试观察到可选GET/SSE返回405，以及SDK -32001超时；调试暂停可能影响超时，不能用其认定根因。Kotlin SDK 0.15.0对可选GET的405有明确处理，不将其误判为所有POST请求失败。
+- Owner停止操作后无调试暂停复测仍失败。仅在最终UI错误边界检查异常类别/栈，定位到`McpMetadataHash.toBoundedJson`；定向异常位置确认单个Schema为80,556字节，超过旧65,536上限。不是授权或tools/list网络失败。
+- 默认单Schema上限调整为131,072字节，整体元数据524,288字节、网络JSON/SSE响应16 MiB边界保持；不截断Schema。新增真实HTTP握手fixture覆盖超过旧上限的完整Schema，以及超过新上限仍拒绝、不执行tools/call。总量拒绝、取消、凭据和跨源保护保留。
+- 修后实际Notion连接和工具列表返回成功。选择notion-search/fetch又在`McpToolSchemaAdapter`拒绝，定向检查仅输出违例路径/关键字，发现搜索日期字段的`format`注解不在内置工具子集。
+- 对照[JSON Schema 2020-12 §7.2](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)，仅对精确默认方言的Schema在适配层归一化字符串format注解；不改内置工具校验器。只遍历properties/items/additionalProperties中的Schema位置，保留属性名和enum字面量、源哈希、required/type/minLength等约束。未知方言、嵌套声明、显式vocabulary/format-assertion及不支持约束继续拒绝，回归覆盖这些边界。未复制参考实现。
+- 元数据大小和Schema不兼容使用固定错误类别，工具启用失败也通过同一安全分类；不显示远端异常正文、不再误导重新登录。
+- 最终Developer APK SHA-256为`6375a203a922fed2ab1dd5ec5b07ad96d76b593b37a15fb44e7ed0edb6e89679`。两次相同schema更新均先停机备份，六张核心用户表逐行一致、完整性通过，通知监听组件恢复DEFAULT；本阶段没有改库、清数据、卸载、重复注册或重做OAuth。
+- 同一日常API36最终原生页面实际显示“工具已启用”，仅选择notion-search与notion-fetch；其余工具未启用。此项证明真实OAuth保留、MCP连接、metadata及指定只读工具激活passed，不证明业务tools/call、刷新、权限拒绝或厂商撤销通过。无模型用量、真机或长稳结果。
+
+本阶段日志/备份/UI位于忽略的`build/oauth-acceptance-2026-10-15/`，终态UI为`notion-tools-enabled.xml`。最初命令误用了模块不存在的spotlessApply任务而失败，改用已有根任务；第一次完整门禁因异常声明与文件名不匹配触发detekt，已拆为同名文件，未放宽门禁。
+
+最终`python3 scripts/with-host-slot.py -- ./scripts/check-all.sh --all`退出0，日志`notion-schema-all-v2.log`；全部源码/JVM、格式/静态检查、双渠道Debug/Release lint/制品、41份依赖锁与制品边界通过。受影响定向类包含握手10项、每渠道错误分类5项/方言适配3项，共26项通过，旧测试保留并增加负向边界。随后同一host slot运行双渠道AndroidTest APK编译退出0（`notion-schema-test-apks.log`），不冒充设备夹具执行。最终文档检查864 Markdown/268 HXA通过。调试器退出、ADB转发及设备临时XML清理；既有授权保留，留在工具已启用页面。实际业务读取需要已知测试对象及正常Dispatcher调用，仍与本轮连接修复分开。

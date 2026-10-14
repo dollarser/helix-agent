@@ -17,6 +17,37 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class McpHandshakeServiceTest {
     @Test
+    fun largeToolSchemaSurvivesHandshakeWithoutTruncation() =
+        runBlocking {
+            MetadataFixture(schemaPadding = 80_556).use { fixture ->
+                val snapshot =
+                    metadataService().testConnection(
+                        McpServerConfig.disabled("large-schema", fixture.endpoint),
+                    )
+                val schema =
+                    snapshot.metadata.tools
+                        .first()
+                        .inputSchema
+                        .canonicalJson()
+                assertTrue(schema.contains("x".repeat(80_556)))
+                assertTrue(schema.toByteArray().size > 65_536)
+                assertFalse(fixture.methods.contains("tools/call"))
+            }
+        }
+
+    @Test
+    fun schemaAboveDefaultLimitStillFailsClosed() {
+        MetadataFixture(schemaPadding = 131_072).use { fixture ->
+            assertThrows(McpMetadataLimitException::class.java) {
+                runBlocking {
+                    metadataService().testConnection(McpServerConfig.disabled("oversized-schema", fixture.endpoint))
+                }
+            }
+            assertFalse(fixture.methods.contains("tools/call"))
+        }
+    }
+
+    @Test
     fun opaqueCredentialIsPreservedDuringHandshakeAndMetadataDiscovery() =
         runBlocking {
             MetadataFixture().use { fixture ->
@@ -221,6 +252,14 @@ class McpHandshakeServiceTest {
         }
 }
 
+private fun metadataService() =
+    McpHandshakeService(
+        credentials = McpCredentialLookup { error("no credential expected") },
+        endpointGate = ALLOW_ENDPOINT,
+        clientName = "helix-test",
+        clientVersion = "1",
+    )
+
 private fun assertHandshakeSnapshot(
     snapshot: McpHandshakeSnapshot,
     fixture: MetadataFixture,
@@ -268,7 +307,11 @@ private fun assertHandshakeSnapshot(
     assertFalse(snapshot.toString().contains("fixture-secret"))
 }
 
-private class MetadataFixture : AutoCloseable {
+private class MetadataFixture(
+    private val schemaPadding: Int = 0,
+) : AutoCloseable {
+    private val schemaDescription =
+        if (schemaPadding > 0) ",\"description\":\"${"x".repeat(schemaPadding)}\"" else ""
     private val executor = Executors.newCachedThreadPool()
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     val requestCount = AtomicInteger(0)
@@ -346,7 +389,7 @@ private class MetadataFixture : AutoCloseable {
         {"jsonrpc":"2.0","id":$id,"result":{"tools":[
           {"name":"first-tool","description":"description-long",
            "inputSchema":{"type":"object","properties":{
-             "alpha":{"type":"string"},"beta":{"type":"integer"}},"required":["alpha"]}},
+             "alpha":{"type":"string"$schemaDescription},"beta":{"type":"integer"}},"required":["alpha"]}},
           {"name":"second-tool","inputSchema":{"required":["alpha"],
            "properties":{"beta":{"type":"integer"},"alpha":{"type":"string"}},
            "type":"object"}}],"nextCursor":"more-tools"}}

@@ -671,6 +671,8 @@
     <string name="connector_disable">停用工具</string>
     <string name="connector_credential_format_failed">凭据为空、过长或含有不支持的字符。请检查配置；OAuth 连接可能需要重新授权。</string>
     <string name="connector_oauth_connection_failed">授权已完成，但 MCP 连接失败。请重试连接，或检查网络与服务兼容性。</string>
+    <string name="connector_metadata_limit_failed">服务返回的工具定义过大，暂时无法连接。无需重新授权。</string>
+    <string name="connector_schema_unsupported">所选工具的参数格式暂不支持。请选择其他工具；无需重新授权。</string>
     <string name="connector_connection_failed">连接操作失败。检查网络、独立授权及服务协议；平台代持的登录态不能迁移。</string>
     <string name="common_save">保存</string>
     <string name="chat_mode_chat_explanation">聊天：默认不使用工具；开启后仅提供低风险只读工具。</string>

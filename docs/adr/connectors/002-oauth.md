@@ -23,6 +23,8 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 - access token 只发送给绑定的 MCP resource，refresh token 只发送给绑定的 token endpoint；不进入模型参数、日志、安装包、Skill 或 Connector 导出。撤销分别显示本地清除与厂商 revoke 是否成功，不能把删本地 token 冒充厂商撤销。
 - MCP 传输将凭据视为不透明值，接受1～4096字节无空白的可见ASCII并原样置于Authorization请求头；拒绝空值、超长、控制字符、空白及非ASCII。该兼容选择覆盖实际服务返回的冒号分隔token，是超出RFC6750 `b64token`字母表的部署兼容，不宣称冒号属于该ABNF，也不编码/截断/修饰凭据。长度、resource/issuer绑定、SSRF及拒绝跨源重定向保持。凭据格式失败用固定类别呈现，不把异常正文或凭据显示给用户；OAuth已授权与MCP连接就绪分开。
 - OAuth 成功仍不自动启用工具；回到原有 testConnection、用户工具选择、MCP bridge、Dispatcher/Approval。运行中遇到需要新 scope 的响应只呈现登录动作，不让远端响应替用户增加 scope 或重放有副作用调用。
+- 连接发现的单个工具Schema默认上限128 KiB，整体元数据仍为512 KiB；完整保留Schema，不截断或删除校验字段。超限单独提示为本地兼容限制，不误报需要重新授权；连接测试不调用业务工具。
+- MCP适配层对精确声明默认2020-12方言的Schema按其format-annotation语义归一化，仅在Schema位置移除字符串format注解；保留原始哈希和其他校验字段。属性名及enum字面量不作为Schema关键字遍历；未知方言、嵌套方言、显式$vocabulary/format-assertion和不支持约束继续拒绝。内置工具子集不扩大。
 
 实现模块：extensions/mcp 的协议/状态机与 transport，app/mcp 的 SecretStore/attempt 协调与回调 Activity、原生 UI；不变更 CLI Runtime、核心 Tool Approval 或 Room schema。持久 attempt 使用 app-private 原子文件；若实现中证明需要跨库事务，须回到本记录补充设计。
 
@@ -49,6 +51,8 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 ## Decision history
 
+- 2026-10-15：Owner继续Notion真实账号连接修复。原生OAuth已授权，实际tools/list后的80,556字节Schema被旧64 KiB本地上限拒绝；默认单Schema调整为128 KiB，保留总量、网络响应及授权边界。参考[MCP工具定义规范](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)，未复制实现，也不把本地大小预算描述为协议限制。
+- 2026-10-15：随后选择notion-search/fetch暴露2020-12日期format注解被工具子集拒绝。按[JSON Schema 2020-12 §7.2](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)仅处理默认方言注解，不移除强制约束或扩大校验引擎；超限与格式不兼容以固定类别提示。真实账号激活与读取仍按实际结果记录。
 - 2026-09-21：所有者接受预注册 public-client OAuth 合并与缺陷修复，真实服务验收保持独立。
 - 2026-10-01：所有者授权依次完成剩余任务；接受 HXA-126 的 CIMD 优先/显式 DCR 后备与严格 issuer/resource 增量。设计接受不表示新增实现、设备或账号已通过。
 - 2026-10-14：Owner要求修复日常API36真实Linear授权后的连接失败。实际异常位于Bearer字符白名单，当前凭据含冒号；采用上述不透明、请求头安全的传输契约并补握手/实际工具调用及危险输入回归。参考[MCP Python SDK原样设置Authorization](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py)和[RFC6750 §2.1](https://www.rfc-editor.org/rfc/rfc6750.html#section-2.1)，未复制源码；真实服务修复后验收另记，不因主机通过推断账号流程全部通过。

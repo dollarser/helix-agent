@@ -669,6 +669,8 @@
     <string name="connector_disable">Disable tools</string>
     <string name="connector_credential_format_failed">The credential is empty, too long, or contains unsupported characters. Check the configuration; OAuth connections may need a new authorization.</string>
     <string name="connector_oauth_connection_failed">Authorization completed, but the MCP connection failed. Retry the connection or check the network and service compatibility.</string>
+    <string name="connector_metadata_limit_failed">The server returned tool definitions that exceed the supported size. No new authorization is needed.</string>
+    <string name="connector_schema_unsupported">Selected tools use an unsupported parameter format. Choose other tools; no new authorization is needed.</string>
     <string name="connector_connection_failed">Connection operation failed. Check network, independent credentials, and server protocol; host-managed login state cannot be migrated.</string>
     <string name="common_save">Save</string>
     <string name="chat_mode_chat_explanation">Chat: no tools by default; opt in to low-risk read-only tools.</string>

@@ -4,7 +4,7 @@
 
 ## 当前实施
 
-Owner追加[HXA-126](tasks/HXA-126.md)真实Linear连接修复，46d10b13：支持有界、请求头安全的不透明凭据并区分授权/连接失败，20项定向回归、全仓及双渠道测试APK编译通过。2026-10-15日常API36备份后一次性保留数据转换/更新成功，原3会话/5个Turn及11张用户数据表不变，原OAuth授权保留，实际Linear MCP连接和工具发现passed。Notion注册201、官方登录页等待Owner；实际业务读取、拒绝/刷新/厂商撤销仍开放。没有新真机/模型/长稳结果，见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)。
+Owner追加[HXA-126](tasks/HXA-126.md)真实Linear/Notion连接修复：46d10b13已解决不透明凭据；10月15日日常API36保留数据更新成功，原3会话/5个Turn保留，Linear实际连接和工具发现passed。随后Notion实际OAuth完成，定位并修复80,556字节Schema被旧64 KiB上限拒绝，以及2020-12日期format注解适配失败；同一实例实际连接/工具发现及notion-search/fetch只读工具激活passed。业务读取、拒绝/刷新/厂商撤销仍开放；没有新真机/模型/长稳结果，验证及制品见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)。
 
 Owner要求先收尾；[HXA-285](tasks/HXA-285.md)引用/压缩一致性生产修复及主机切片已交付，19项相关JVM、完整全仓门禁及双渠道测试APK编译通过。三项Room夹具仅编译，设备/真实模型not requested；未启动提前结束排查或长稳，执行边界和上下文策略提案不随本次实施。
 

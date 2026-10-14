@@ -17,7 +17,7 @@ internal fun ToolSchema.toBoundedJson(maxBytes: Int): JsonObject {
     val json = McpJson.encodeToJsonElement(ToolSchema.serializer(), this) as JsonObject
     val canonical = json.canonicalJson()
     val bytes = canonical.toByteArray(Charsets.UTF_8)
-    require(bytes.size <= maxBytes) { "tool input schema exceeds $maxBytes bytes" }
+    if (bytes.size > maxBytes) throw McpMetadataLimitException()
     return json
 }
 
