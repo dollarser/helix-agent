@@ -14,7 +14,6 @@ internal object FileToolArguments {
         setOf(
             "read",
             "view_image",
-            "files.read_pdf",
             "write",
             "edit",
             "files.list",
@@ -35,7 +34,14 @@ internal object FileToolArguments {
             "Explicit scope:<id>:<relativePath> is also accepted. Never use Android absolute paths or ../ escapes."
 
     fun handles(descriptor: ToolDescriptor?): Boolean =
-        descriptor != null && descriptor.origin == ToolOrigin.BuiltInOrigin && descriptor.name.value in names
+        descriptor != null && (
+            (descriptor.origin == ToolOrigin.BuiltInOrigin && descriptor.name.value in names) ||
+                (
+                    com.helix.extensions.documents.DocumentTools
+                        .owns(descriptor) &&
+                        descriptor.name.value == "documents.inspect"
+                )
+        )
 
     fun directory(
         scopeId: String,

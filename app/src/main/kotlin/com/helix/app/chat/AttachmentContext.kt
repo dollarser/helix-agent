@@ -43,7 +43,7 @@ sealed interface AttachmentContextBlock {
             truncated = text.truncated,
             sizeBytes = text.sizeBytes,
             relativePath =
-                if (text.kind == TextAttachmentKind.PDF) {
+                if (text.kind == TextAttachmentKind.PDF || text.kind == TextAttachmentKind.DOCX) {
                     com.helix.core.workspace
                         .FileScopePath(sourceScopeId, relativePath)
                         .toModelReference()
@@ -141,10 +141,15 @@ object AttachmentContext {
         block: AttachmentContextBlock.Text,
     ) {
         val pdf = block.kind == TextAttachmentKind.PDF
+        val document = pdf || block.kind == TextAttachmentKind.DOCX
         val bodyLabel =
             when {
                 pdf -> {
                     "PDF文本预览（尽力提取，可能缺少页面、文字或版式，不代表完整文档）："
+                }
+
+                document -> {
+                    "DOCX正文预览（尽力提取，可能缺少表格、图片和结构，不代表完整文档）："
                 }
 
                 block.truncated -> {
@@ -157,15 +162,18 @@ object AttachmentContext {
             }
         append("$UNTRUSTED_MARKER\n")
         append("【附件 $index/$total · ${block.fileName}】\n")
-        val hashLabel = if (pdf) "原始PDF文件" else "完整内容"
+        val hashLabel = if (document) "原始文档文件" else "完整内容"
         append("SHA-256（$hashLabel）：${block.sha256}\n")
         append("$bodyLabel\n")
         append(boundedPrefix(block.content))
-        if (pdf) {
-            append("\n原始PDF路径（已绑定来源）：${block.relativePath}")
-            append("\n使用 files.read_pdf 逐页读取后总结，引用页码并说明未读页和截断；图表/版式可用 mode=image。")
-            append("不要把 read 返回的PDF二进制/base64当作正文。")
-            if (block.truncated) append(" PDF文本预览已截断。")
+        if (document) {
+            append("\n原始文档路径（已绑定来源）：${block.relativePath}")
+            append(
+                "\n选用“文档”插件后用 documents.inspect/read 按页或DOCX内容块读取，图表/扫描页用 documents.view；" +
+                    "未选用时请用户选用，不能假定工具已加载。引用页码或DOCX内容块并说明未读范围和截断。",
+            )
+            append("不要把 read 返回的PDF/DOCX二进制/base64当作正文。")
+            if (block.truncated) append(" 文档文本预览已截断。")
         } else {
             append("\n完整内容路径（工作区相对路径，可分块读取）：${block.relativePath}")
         }

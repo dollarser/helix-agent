@@ -69,11 +69,36 @@ class SessionToolEffectClassifierTest {
         )
     }
 
+    @Test fun documentReferencesResolveTheirOriginalSourceUnderTheCurrentSession() {
+        val resolver =
+            SessionToolEffectClassifier(
+                sessionWorkspace = { "scope:ws:project" },
+                documentSource = { session, ref ->
+                    if (session == "s" &&
+                        ref == "snapshot"
+                    ) {
+                        "scope:other:paper.docx"
+                    } else {
+                        null
+                    }
+                },
+                originalJobOutput = null,
+            )
+        val tool =
+            com.helix.extensions.documents.DocumentTools
+                .descriptor("read")
+        val bound = request("""{"documentRef":"snapshot"}""").copy(sessionId = "s")
+        assertEquals(setOf(OperationEffect.FILE_READ_EXTERNAL), resolver.classify(bound, tool).footprint.effects)
+        val expired = resolver.classify(bound.copy(sessionId = "other"), tool).footprint
+        assertEquals(setOf(OperationEffect.FILE_READ_EXTERNAL), expired.undeterminedEffects)
+        assertTrue(expired.effects.isEmpty())
+    }
+
     @Test fun pdfReadingUsesTheFrozenSourceAndNeverClaimsWorkspacePrivilegeForExternalFiles() {
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
         val tool =
-            com.helix.tools.files.ReadPdfTool
-                .descriptor()
+            com.helix.extensions.documents.DocumentTools
+                .descriptor("inspect")
         assertEquals(ToolOperationClass.READ_ONLY, tool.operationClass)
         assertEquals(
             setOf(OperationEffect.FILE_READ_WORKSPACE),

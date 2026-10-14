@@ -22,6 +22,7 @@ internal object ToolPurpose {
         mobileActions[name] ?: when {
             name == "write" -> R.string.tool_purpose_write
             name == "edit" -> R.string.tool_purpose_edit
+            name == "documents.view" -> R.string.tool_purpose_read
             isRead(name) -> R.string.tool_purpose_read
             isInspect(name) -> R.string.tool_purpose_inspect
             name.endsWith(".find") || name.endsWith(".search") -> R.string.tool_purpose_search
@@ -52,7 +53,7 @@ internal object ToolPurpose {
         name == "read" || name.endsWith(".read") || name.endsWith(".read_resource")
 
     private fun isInspect(name: String): Boolean =
-        name.endsWith(".list") || name.endsWith(".stat") || name.endsWith(".info") ||
+        name.endsWith(".inspect") || name.endsWith(".list") || name.endsWith(".stat") || name.endsWith(".info") ||
             name.endsWith(".status") || name.endsWith(".query")
 
     fun target(arguments: String): String? {

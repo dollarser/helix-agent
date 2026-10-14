@@ -334,4 +334,6 @@ data class ArtifactEntity(
      * produced it. NULL is valid for registrations without turn context (e.g. A2A task artifacts).
      */
     val turnId: String? = null,
+    /** Internal observations remain retained but are not user deliverables. */
+    @androidx.room.ColumnInfo(defaultValue = "'OUTPUT'") val purpose: String = "OUTPUT",
 )

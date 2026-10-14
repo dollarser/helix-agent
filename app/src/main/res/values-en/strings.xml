@@ -1990,4 +1990,9 @@
     <string name="marketplace_item_notion_summary">Find and read workspace pages through the official Notion MCP server.</string>
     <string name="marketplace_item_notion_desc">Install the connector, then choose OAuth in its connection settings and sign in to Notion. Installation does not grant access or select the plugin in a conversation.</string>
     <string name="marketplace_item_notion_auth_hint">Sign in with OAuth in connection settings</string>
+    <string name="document_sources_count">Document sources (%1$d)</string>
+    <string name="document_sources_title">Document sources</string>
+    <string name="document_source_preview_note">Opens the current source. Reading refers to the snapshot SHA-256 and page/block cited in the answer. Exact location jumping is unavailable; source changes are indicated.</string>
+    <string name="document_plugin_select">PDF/DOCX reading needs the Documents plugin · Select</string>
+    <string name="document_plugin_name">Documents</string>
 </resources>

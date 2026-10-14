@@ -53,6 +53,7 @@ internal class WorkspaceToolImagePublisher(
                 sessionId = session,
                 sink = sink,
                 turnId = call.turnId,
+                purpose = if (call.toolName == "documents.view") "INTERNAL_OBSERVATION" else "OUTPUT",
             )
         var note = ""
         val visual =

@@ -544,6 +544,6 @@ internal class ChatRequestAssembler(
 
     private companion object {
         val FILE_TOOL_NAMES =
-            setOf("read", "view_image", "files.read_pdf", "write", "edit", "files.list", "files.stat", "files.search")
+            setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "files.search")
     }
 }

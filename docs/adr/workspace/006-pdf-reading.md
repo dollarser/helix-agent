@@ -1,8 +1,8 @@
-# ADR-WORKSPACE-006: 有界 PDF 读取与总结
+# ADR-WORKSPACE-006: 有界文档读取与总结
 
 Status: accepted
 Date: 2026-10-14
-HXA: HXA-283
+HXA: HXA-283, HXA-284
 Deciders: project owner（功能范围：按优先级推进，PDF与插件/MCP回复“都要做”）；实现Agent（记录下述范围内的原生隔离选型）
 
 ## Context
@@ -13,29 +13,32 @@ Deciders: project owner（功能范围：按优先级推进，PDF与插件/MCP�
 
 ## Decision
 
-- 两渠道提供`files.read_pdf`，一次一页，1-based页码，默认auto（有可提取文字优先文字，否则页面图像），可显式image查看图表。返回总页数/下一页/源快照hash/截断事实。总结由当前模型依据已读取页生成；工具不伪造摘要、不把局部读取宣称全篇。
-- 原文件经既有目录冻结、Dispatcher文件读取分类和WorkspaceArtifactStore授权读取；单次源快照最多20MiB，临时私有缓冲不可由模型指定目标，绝不写回源文件。扫描件和API29–34需要现有视觉模型能力；不内置OCR、不上传原PDF、不新增Provider协议。
-- 原生解析仅在非导出、isolated UID的`:pdf_reader`服务中，服务只拿到只读源FD/单个衍生图像输出FD和页码/模式，不创建AppContainer、不读Room/凭据、无网络权限。每次使用合法字符的唯一isolated实例；服务拒绝在非隔离进程返回Binder，并有30秒自身寿命后备。一次物理解析，取消/超时通过终止自有隔离进程中止，不回收尚未退出的物理容量；进程死亡/解析失败均显式报告。
-- 每页文字至多20000字符，渲染长边至多1600、像素至多524288，PNG最多3MiB；异常页尺寸拒绝，页码越界/加密或损坏文件失败，无无界批量或自动重试。长文按页读取，超限要求用户拆分。既有附件纯JVM尽力文本预览保留，但PDF不得标为全文内联；模型上下文提供已绑定源scope的原始PDF引用，明确通过本工具读取和核查。
-- 页面图像复用既有Artifact/vision披露和最终接收方校验，不冒用Mobile Use屏幕许可；仅必要宿主临时/衍生观察产物属于既有只读工具缓冲，不提供模型任意写路径。原源文件权限不等于像素外发授权。
-- 生命周期、权限、tool禁用、取消、原call身份及审计仍走唯一现有管线。主机/编译完成不等于设备、真实模型或业务摘要正确性通过。
+- 两渠道提供一个随APK交付的原生`documents`插件，包含`documents.inspect/read/view`和按需加载的`document-reading` Skill。PDF、DOCX各自解析，共用选择、文件权限、Dispatcher、审计及视觉管线；删除等效`files.read_pdf`，不维护兼容别名，不新增AgentLoop、CLI或联网后端。
+- `inspect(path)`在冻结来源授权下复制最多20MiB原字节，hash针对实际快照。既有FileContentStore保存二进制，最小Room索引保存会话、原sourcePath、格式及ContentRef；生成documentRef不是Bearer授权。`read/view`先按索引将原sourcePath交回当前会话文件权限分类，再重新验证原来源后端可读和快照hash。跨会话/撤权/缺失缓存拒绝；源文件变化不替换旧快照，显式inspect才能取得新版本。复制不声称文件系统原子快照。
+- 索引与Session级联删除；既有publication锁和GC保护仍被引用的正文/二进制，会话删除只回收无剩余引用的内容。不保留跨调用renderer/XML对象作为权威状态。开发期Room v1基线增加一张表和Artifact目的字段；沿现有开发库重建规则，不新增历史迁移。本轮不安装设备APK。
+- 所有实际PDF/DOCX解析在非导出、isolated UID的`:document_reader`一次性作业实例中。只传只读源FD、宿主管理的写出FD和有界参数，不传目录、凭据或网络能力，不初始化AppContainer。物理容量为一个文档作业；取消/超时终止自有实例，确认Binder死亡后才释放，未退出不消费输出。工具20秒、进程寿命30秒后备；不引入全局文件执行锁。
+- PDF一次一页，1-based；inspect返回总页数，read提取API35+文字（旧API/扫描页明确不可提取），view观察实际页面/归一化区域。文字至多20000字符，直接按区域缩放平移渲染至长边1600、总像素524288以内、PNG3MiB以内，不先渲染无界高分辨率再裁剪。复杂表格/多栏须视觉核查，不内置OCR。
+- DOCX依据OPC关系和WordprocessingML实际主体结构读取段落、标题样式、表格行/列及内嵌图片关系，按真实内容块定位，不提供Word页码或高保真排版。每次最多32块/20000字符、大表按行继续，下一cursor指向第一个未返回块。单次返回至多256单元格、每块16图像引用，遗漏/截断显式标注；整个包图片关系至多2048、关系表8192项。
+- DOCX最多2048成员、单XML8MiB、实际累计解压64MiB。拒绝重复/穿越成员、关系越界、错误根命名空间、DTD/实体和过深XML；外链从不请求，宏/OLE不执行。PNG/JPEG先核验字节，再在隔离进程探测/有界解码（原图至多16777216像素），再走宿主统一图像归一化。WMF/EMF、图表/SmartArt/公式、嵌入对象及正文外headers/notes等明确partial或unsupported，建议需要时提供PDF。
+- 输出固定源hash、实际page/block/image及coverage、warnings、truncated和下一位置。`imagePrepared`只表示图像准备事实，不证明后续模型已接收；现有逐请求视觉窗口/能力/接收方/数据发送检查仍可拒绝或淘汰，不借用Mobile Use屏幕授权。文档内容是资料，不能授权后续操作。正文与图像不等于可任意外发。
+- 附件PDF/DOCX仅作预览，不再声称全文；附上文档不自动选插件。已有文件到会话入口保留，缺少插件时提供显式选用入口；会话另列文档来源/hash，当前预览只打开原文件并提示变化，不承诺精确跳页。文档观察Artifact标为INTERNAL_OBSERVATION，不默认列入成果，仍保留真实会话/Turn/视觉引用。保存总结沿普通write及读回，读取不会隐式创建交付文件或改原文。
 
 ## Alternatives considered
 
 - 在主进程调用PdfRenderer：实现短，但不可信输入的原生解析会影响宿主；不采用。
 - 新增PDF第三方库或独立OCR/PRoot流程：增加依赖、许可证与渠道差异；当前平台文本/视觉足以支撑首个读取任务，不采用。
 - 整文直接上传云模型：依赖Provider专有PDF协议且改变披露范围；当前复用本地分页和已有图片接收方校验。
-- 长期缓存打开的renderer：需要跨调用可变资源身份和额外回收；首版每次冻结源字节、单页解析后关闭自有实例，跨页hash变化明确告知。
+- 长期缓存打开的renderer：需要跨调用可变资源身份和额外回收；首次inspect冻结源字节、随后复用不可变内容，每作业关闭自有实例，跨页hash变化明确告知。
 
 ## Consequences
 
-两渠道共享工具与解析边界，没有新依赖、数据库迁移或永久授权。每次读取有源复制和隔离进程启动成本；旧Android/扫描件需要视觉能力，版式/小字可能受渲染像素上限影响，不保证OCR准确率。文本顺序沿平台提取，复杂表格/多栏需显式image核查。源hash标识本次实际解析的冻结字节，不声称原文件读取过程具有文件系统事务原子性。
+两渠道使用平台PDF和标准ZIP/SAX，无新增第三方解析依赖。跨调用快照增加私有内容存储及最小Room事实，避免同名文件变化造成混读；GC、会话删除和恢复继续沿原存储生命周期。导出/分叉后旧会话documentRef不自动取得新会话授权，缺失或外来引用要求重新inspect。
 
-隔离进程只持有两个有限用途FD；Java输出和宿主接收均有界，native请求完成后还须确认进程退出才消费图像。取消/超时不释放尚在执行的native容量。输入字节/页图/输出限制不等于原生解析内部有固定堆配额，设备资源行为须实际验收；不宣称能消除所有恶意PDF或OEM风险。
+DOCX是主体结构读取，不是Word分页/修订/浮动布局渲染器；复杂Office对象可能需要PDF导出。扫描PDF和API29–34需要视觉模型。预算约束输入/解压/输出与图像分配，不等于native或整个隔离进程有固定PSS；设备峰值、平台SAX和实际渲染/取消仍需当轮授权验收。
 
 ## Verification
 
-HXA-283要求源码、JVM、静态检查、双渠道lint与Debug/Release APK、AndroidTest编译及实际APK隔离声明。设备夹具用合成两页PDF验证实际文本/图像、越界/损坏输入和源文件不变；未获本轮设备/模型授权时仅编译、不填设备通过。
+HXA-284要求源码、JVM、静态检查、双渠道lint与Debug/Release APK、AndroidTest编译及实际APK隔离声明。设备夹具用合成两页PDF和中文DOCX验证实际文本/页面区域/内嵌图像、越界/损坏输入和源文件不变；未获本轮设备/模型授权时仅编译、不填设备通过。
 
 ## Reconsider when
 
@@ -51,3 +54,5 @@ HXA-283要求源码、JVM、静态检查、双渠道lint与Debug/Release APK、A
 ## Decision history
 
 - 2026-10-14：沿Owner已授权读取/总结范围采用原生隔离、逐页文本/视觉方案；排除编辑、生成、Office和云端PDF上传。
+
+- 2026-10-14：Owner明确授权统一PDF/DOCX插件；采用Claude插件的组件组织和按需Skill、WordprocessingML结构读取，延续Android原生PDF与隔离边界。参考 https://code.claude.com/docs/en/plugins 、https://learn.microsoft.com/en-us/office/open-xml/word/structure-of-a-wordprocessingml-document 。无参考源码复制或新依赖。

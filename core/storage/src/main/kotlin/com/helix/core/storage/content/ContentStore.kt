@@ -38,6 +38,7 @@ interface ContentStore {
  * `<root>/content/<first 2 hex chars>/<sha256>`. Pure JVM (no Android dependency) so it is
  * unit-testable; the app hands it a directory under `context.filesDir`.
  */
+@Suppress("TooManyFunctions") // The existing content facade has one method per text/binary lifecycle operation.
 class FileContentStore(
     val root: File,
 ) : ContentStore {
@@ -76,6 +77,72 @@ class FileContentStore(
         val ref = ContentRef(ContentRef.expectedPath(hash), bytes.size.toLong(), hash)
         require(exists(ref)) { "content reference not readable after write: $ref" }
         return ref
+    }
+
+    /** Bounded binary publication shares the existing hash layout, publication lock and GC. */
+    fun writeBinary(
+        source: java.io.InputStream,
+        maxBytes: Long,
+        checkActive: () -> Unit,
+    ): ContentRef =
+        withPublication {
+            require(maxBytes > 0)
+            val stagingRoot = File(root, "content")
+            check(stagingRoot.mkdirs() || stagingRoot.isDirectory)
+            val staging = File(stagingRoot, "binary.tmp-${UUID.randomUUID()}")
+            try {
+                val digest = MessageDigest.getInstance("SHA-256")
+                var size = 0L
+                staging.outputStream().use { output ->
+                    val buffer = ByteArray(CONTENT_BUFFER_SIZE)
+                    while (true) {
+                        checkActive()
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        require(count > 0 && count <= maxBytes - size) { "Binary content limit" }
+                        output.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                        size += count
+                    }
+                }
+                checkActive()
+                val hash = digest.digest().joinToString("") { "%02x".format(it) }
+                val ref = ContentRef(ContentRef.expectedPath(hash), size, hash)
+                val destination = fileFor(ref)
+                check(destination.parentFile!!.mkdirs() || destination.parentFile!!.isDirectory)
+                if (!destination.exists()) check(staging.renameTo(destination)) { "Cannot publish binary content" }
+                verifiedBinary(ref, maxBytes, checkActive)
+                ref
+            } finally {
+                staging.delete()
+            }
+        }
+
+    /** Only trusted composition receives a file; workers receive a duplicated read-only FD. */
+    fun verifiedBinary(
+        ref: ContentRef,
+        maxBytes: Long,
+        checkActive: () -> Unit,
+    ): File {
+        require(ref.size <= maxBytes)
+        val source = fileFor(ref)
+        require(source.isFile && source.length() == ref.size) { "Binary content expired" }
+        val digest = MessageDigest.getInstance("SHA-256")
+        var size = 0L
+        source.inputStream().use { input ->
+            val buffer = ByteArray(CONTENT_BUFFER_SIZE)
+            while (true) {
+                checkActive()
+                val count = input.read(buffer)
+                if (count < 0) break
+                require(count > 0 && count <= ref.size - size) { "Binary size changed" }
+                size += count
+                digest.update(buffer, 0, count)
+            }
+        }
+        require(size == ref.size) { "Binary size mismatch" }
+        require(digest.digest().joinToString("") { "%02x".format(it) } == ref.sha256) { "Binary hash mismatch" }
+        return source
     }
 
     override fun read(ref: ContentRef): String = readBounded(ref, Int.MAX_VALUE - 1)

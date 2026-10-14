@@ -43,7 +43,8 @@ object StorageGarbageCollector {
                 database.messageDao().countByContentRef(refString) > 0 ||
                     database.messageReferenceSnapshotDao().countByContentRef(refString) > 0 ||
                     database.toolResultDao().countByContentRef(refString) > 0 ||
-                    database.sessionInputDao().countByContentRef(refString) > 0
+                    database.sessionInputDao().countByContentRef(refString) > 0 ||
+                    database.documentSnapshotDao().countByContentRef(refString) > 0
             },
             gracePeriodMillis = gracePeriodMillis,
             now = now,

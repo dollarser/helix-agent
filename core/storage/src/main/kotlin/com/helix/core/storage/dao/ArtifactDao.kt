@@ -24,7 +24,7 @@ interface ArtifactDao {
      */
     @Query(
         "UPDATE artifacts SET mediaType = :mediaType, size = :size, " +
-            "sha256 = :sha256, turnId = :turnId " +
+            "sha256 = :sha256, turnId = :turnId, purpose = :purpose " +
             "WHERE sessionId = :sessionId AND relativePath = :relativePath",
     )
     fun refreshBySessionAndPath(
@@ -34,6 +34,7 @@ interface ArtifactDao {
         size: Long,
         sha256: String,
         turnId: String?,
+        purpose: String = "OUTPUT",
     ): Int
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -59,7 +60,7 @@ interface ArtifactDao {
      * keeps its position (upsert, not delete+insert), so the list orders by FIRST write of
      * a path, which is the honest reading of "when did this file appear".
      */
-    @Query("SELECT * FROM artifacts ORDER BY rowid DESC LIMIT :limit")
+    @Query("SELECT * FROM artifacts WHERE purpose = 'OUTPUT' ORDER BY rowid DESC LIMIT :limit")
     fun recent(limit: Int): List<ArtifactEntity>
 
     @Query("SELECT * FROM artifacts WHERE sessionId = :sessionId AND relativePath = :relativePath LIMIT 1")

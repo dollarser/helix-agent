@@ -40,6 +40,8 @@ internal fun ConversationArtifacts(
     if (fileManager == null || screen.isDraft) return
     val sessionId = screen.openSessionId ?: return
     var rows by remember(sessionId) { mutableStateOf(emptyList<ArtifactRowUi>()) }
+    var sources by remember(sessionId) { mutableStateOf(emptyList<ArtifactRowUi>()) }
+    var showingSources by remember(sessionId) { mutableStateOf(false) }
     var open by remember(sessionId) { mutableStateOf(false) }
     var selectedId by remember(sessionId) { mutableStateOf<String?>(null) }
     var revision by remember(sessionId) { mutableIntStateOf(0) }
@@ -48,20 +50,37 @@ internal fun ConversationArtifacts(
     // the panel. Streamed assistant tokens do not cause reads. Session changes cancel old reads.
     LaunchedEffect(sessionId, screen.toolTimeline, screen.isSending, open, revision) {
         rows = service.conversationArtifacts(sessionId)
+        sources = service.conversationDocumentSources(sessionId)
     }
     run {
         TextButton(
-            onClick = { open = true },
+            onClick = {
+                showingSources = false
+                open = true
+            },
             modifier = Modifier.fillMaxWidth().testTag("chat-artifacts-open"),
         ) {
             Text(stringResource(R.string.chat_artifacts_count, rows.size))
         }
     }
+    if (sources.isNotEmpty()) {
+        TextButton(onClick = {
+            showingSources = true
+            open = true
+        }, modifier = Modifier.fillMaxWidth().testTag("chat-document-sources")) {
+            Text(stringResource(R.string.document_sources_count, sources.size))
+        }
+    }
     if (open) {
+        val displayedRows = if (showingSources) sources else rows
         val listState = rememberLazyListState()
-        val selected = rows.firstOrNull { it.id == selectedId }
+        val selected = displayedRows.firstOrNull { it.id == selectedId }
         ConversationSheet(
-            title = selected?.fileName ?: stringResource(R.string.chat_artifacts_title),
+            title =
+                selected?.fileName
+                    ?: stringResource(
+                        if (showingSources) R.string.document_sources_title else R.string.chat_artifacts_title,
+                    ),
             tag = "chat-artifacts",
             onDismiss = {
                 open = false
@@ -70,13 +89,13 @@ internal fun ConversationArtifacts(
             scrollContent = false,
         ) {
             if (selected == null) {
-                if (rows.isEmpty()) Text(stringResource(R.string.tasks_artifacts_empty))
+                if (displayedRows.isEmpty()) Text(stringResource(R.string.tasks_artifacts_empty))
                 IndicatedLazyColumn(
                     Modifier.fillMaxWidth().heightIn(max = 440.dp).testTag("chat-artifacts-list"),
                     state = listState,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(rows, key = { it.id }) { row ->
+                    items(displayedRows, key = { it.id }) { row ->
                         ArtifactFileRowView(row, onOpen = { selectedId = row.id })
                     }
                 }
@@ -85,6 +104,16 @@ internal fun ConversationArtifacts(
                     onClick = { selectedId = null },
                     modifier = Modifier.testTag("chat-artifacts-back"),
                 ) { Text(stringResource(R.string.chat_artifacts_back)) }
+                if (showingSources) {
+                    Text(
+                        stringResource(R.string.document_source_preview_note),
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        "SHA-256: ${selected.sha256}",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    )
+                }
                 ConversationArtifactPreview(fileManager, selected, revision)
             }
         }

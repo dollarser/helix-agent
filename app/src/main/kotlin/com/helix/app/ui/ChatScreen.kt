@@ -507,6 +507,19 @@ fun ChatScreen(
                     )
                 },
                 composerFeedback = {
+                    if (connectors != null && sessionId != null &&
+                        screen.pendingAttachments.any {
+                            it.fileName.substringAfterLast('.', "").lowercase() in
+                                setOf("pdf", "docx")
+                        }
+                    ) {
+                        DocumentPluginPreparation(connectors, sessionId, connectorsOpen) {
+                            scope.launch {
+                                saveBuffer()
+                                if (chatService.materializeDraftSession(sessionId) == sessionId) connectorsOpen = true
+                            }
+                        }
+                    }
                     if (providerRows.firstOrNull { it.id == screen.badge?.providerId }?.isCleartext == true) {
                         Text(
                             stringResource(R.string.chat_cleartext_warning),

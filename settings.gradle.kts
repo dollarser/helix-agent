@@ -45,6 +45,7 @@ include(
     ":extensions:mobile-use",
     ":extensions:chat-reply",
     ":extensions:browser",
+    ":extensions:documents",
     ":extensions:skills",
     ":feature:browser",
     ":feature:files",

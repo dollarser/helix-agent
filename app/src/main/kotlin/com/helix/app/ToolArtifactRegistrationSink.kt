@@ -37,6 +37,7 @@ internal class ToolArtifactRegistrationSink(
                         record.sizeBytes,
                         record.sha256,
                         record.turnId,
+                        record.purpose,
                     ),
                 ) { open(scopePath) }
             }
@@ -53,6 +54,7 @@ internal class ToolArtifactRegistrationSink(
                 record.sha256,
                 record.turnId,
                 file,
+                record.purpose,
             )
         }
     }

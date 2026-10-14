@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "eb439f0c60ced11912eaac8b50dada5b",
+    "identityHash": "6ebb5a2fc8c369092fa96dd6c53a1e90",
     "entities": [
       {
         "tableName": "projects",
@@ -904,6 +904,81 @@
         ]
       },
       {
+        "tableName": "document_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `sourcePath` TEXT NOT NULL, `format` TEXT NOT NULL, `contentRef` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourcePath",
+            "columnName": "sourcePath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "format",
+            "columnName": "format",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRef",
+            "columnName": "contentRef",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_document_snapshots_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_document_snapshots_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_document_snapshots_contentRef",
+            "unique": false,
+            "columnNames": [
+              "contentRef"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_document_snapshots_contentRef` ON `${TABLE_NAME}` (`contentRef`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
         "tableName": "turns",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `state` TEXT NOT NULL, `stepCount` INTEGER NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `errorCode` TEXT, `resultCollectedAt` INTEGER, `pauseRequestedAt` INTEGER, `clientRequestId` TEXT, `inputFingerprint` TEXT, `recoveryFromTurnId` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
@@ -1491,7 +1566,7 @@
       },
       {
         "tableName": "artifacts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `relativePath` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `size` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `turnId` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `relativePath` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `size` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `turnId` TEXT, `purpose` TEXT NOT NULL DEFAULT 'OUTPUT', PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1533,6 +1608,13 @@
             "fieldPath": "turnId",
             "columnName": "turnId",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "purpose",
+            "columnName": "purpose",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'OUTPUT'"
           }
         ],
         "primaryKey": {
@@ -4026,7 +4108,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'eb439f0c60ced11912eaac8b50dada5b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6ebb5a2fc8c369092fa96dd6c53a1e90')"
     ]
   }
 }

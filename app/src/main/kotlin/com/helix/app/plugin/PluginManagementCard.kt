@@ -37,6 +37,7 @@ internal fun pluginDisplayName(record: InstalledPlugin): String =
     when (record.native?.pluginId) {
         "mobile-use" -> "Mobile Use"
         "browser" -> "Browser"
+        "documents" -> "Documents"
         else -> record.name
     }
 
@@ -60,7 +61,18 @@ internal fun PluginManagementCard(
                 Modifier.testTag(
                     record.native?.let { "bundled-plugin-${it.pluginId}" } ?: "extension-manage-${record.id}",
                 ),
-            ) { Text(pluginDisplayName(record), style = MaterialTheme.typography.titleMedium) }
+            ) {
+                Text(
+                    if (record.native?.pluginId ==
+                        "documents"
+                    ) {
+                        stringResource(R.string.document_plugin_name)
+                    } else {
+                        pluginDisplayName(record)
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             Text(
                 stringResource(
                     if (record.native != null) R.string.plugin_origin_bundled else R.string.plugin_origin_installed,

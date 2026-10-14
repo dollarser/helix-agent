@@ -1990,4 +1990,9 @@
     <string name="marketplace_item_notion_summary">Find and read workspace pages through the official Notion MCP server.</string>
     <string name="marketplace_item_notion_desc">Install the connector, then choose OAuth in its connection settings and sign in to Notion. Installation does not grant access or select the plugin in a conversation.</string>
     <string name="marketplace_item_notion_auth_hint">Sign in with OAuth in connection settings</string>
+    <string name="document_sources_count">文档来源（%1$d）</string>
+    <string name="document_sources_title">文档来源</string>
+    <string name="document_source_preview_note">下方打开当前原文件；实际阅读以回答中的快照 SHA-256 和页码/内容块为准。暂不支持精确跳转；原文变化会提示。</string>
+    <string name="document_plugin_select">图文阅读需选用“文档”插件 · 去选择</string>
+    <string name="document_plugin_name">文档</string>
 </resources>

@@ -51,7 +51,13 @@ internal class ArtifactQuery(
      */
     fun forTurn(turnId: String): List<ArtifactRowUi> {
         var snapshot = emptyList<ArtifactRowUi>()
-        storage.withTransaction { snapshot = storage.artifacts.listByTurn(turnId).map(::toRow) }
+        storage.withTransaction {
+            snapshot =
+                storage.artifacts
+                    .listByTurn(turnId)
+                    .filter { it.purpose == "OUTPUT" }
+                    .map(::toRow)
+        }
         return snapshot
     }
 
@@ -62,7 +68,7 @@ internal class ArtifactQuery(
             snapshot =
                 storage.artifacts
                     .listBySession(sessionId)
-                    .filter { it.turnId != null }
+                    .filter { it.turnId != null && it.purpose == "OUTPUT" }
                     .asReversed()
                     .map(::toRow)
         }
@@ -81,6 +87,7 @@ internal class ArtifactQuery(
             snapshot =
                 turnIds
                     .flatMap { storage.artifacts.listByTurn(it) }
+                    .filter { it.purpose == "OUTPUT" }
                     .distinctBy { it.id }
                     .map(::toRow)
         }

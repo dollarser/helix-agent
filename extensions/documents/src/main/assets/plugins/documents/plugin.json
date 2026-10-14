@@ -1,0 +1,1 @@
+{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"documents","version":"0.1.0","description":"Read PDF and DOCX text, tables and images locally with source locations and explicit coverage.","extensions":{"com.helix.agent":{"runtime":"documents"}}}

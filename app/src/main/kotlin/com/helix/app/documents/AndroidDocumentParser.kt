@@ -1,4 +1,4 @@
-package com.helix.app.pdf
+package com.helix.app.documents
 
 import android.content.ComponentName
 import android.content.Context
@@ -7,13 +7,28 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
-import com.helix.core.workspace.FileScopePath
-import com.helix.core.workspace.WorkspaceArtifactStore
-import com.helix.tools.files.PdfPage
-import com.helix.tools.files.PdfPageReader
-import com.helix.tools.files.PdfReadException
-import com.helix.tools.files.PdfSourceSnapshot
+import com.helix.extensions.documents.DocumentException
+import com.helix.extensions.documents.DocumentLimits
+import com.helix.extensions.documents.DocumentParser
+import com.helix.extensions.documents.DocumentResult
+import com.helix.extensions.documents.DocumentSnapshot
 import com.helix.tools.framework.ExecutableToolCall
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -25,11 +40,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /** The slot follows actual Binder completion/death, not the coroutine's cancellation. */
-internal class AndroidPdfPageReader(
+internal class AndroidDocumentParser(
     private val context: Context,
-    private val workspace: WorkspaceArtifactStore,
-) : PdfPageReader {
-    private val capacity = PdfParseCapacity()
+    private val sourceFile: (ExecutableToolCall, DocumentSnapshot) -> File,
+) : DocumentParser {
+    private val capacity = DocumentParseCapacity()
     private val watchdog =
         Executors.newSingleThreadScheduledExecutor { task ->
             Thread(task, "pdf-cancel").apply {
@@ -38,68 +53,73 @@ internal class AndroidPdfPageReader(
             }
         }
 
-    override fun read(
+    override fun parse(
         call: ExecutableToolCall,
-        path: String,
-        page: Int,
-        image: Boolean,
-    ): PdfPage {
+        snapshot: DocumentSnapshot,
+        operation: String,
+    ): DocumentResult {
         val lease = capacity.acquire(call)
         var folder: File? = null
         try {
-            PdfSourceSnapshot.checkActive(call)
-            folder = Files.createTempDirectory(context.cacheDir.toPath(), "pdf-").toFile()
-            val source = File(folder, "source.pdf")
-            val hash = snapshot(call, path, source)
-            val output = File(folder, "page.png")
-            val bundle = isolatedRead(call, source, output, page, image, lease)
-            PdfSourceSnapshot.checkActive(call)
-            bundle.getString("error")?.let { throw PdfReadException(it) }
-            val png = if (bundle.getBoolean("image")) readImage(call, output) else null
-            return PdfPage(
-                bundle.getInt("pageCount"),
-                hash,
-                bundle.getString("text").orEmpty(),
-                bundle.getBoolean("textTruncated"),
-                bundle.getBoolean("textExtractionSupported"),
-                png,
-            )
-        } catch (failure: PdfReadException) {
+            DocumentLimits.checkActive(call)
+            folder = Files.createTempDirectory(context.cacheDir.toPath(), "document-").toFile()
+            val output = File(folder, "image.png")
+            if (snapshot.format == "pdf") {
+                require("startBlock" !in call.args && "imageId" !in call.args)
+            } else {
+                require("page" !in call.args && "region" !in call.args)
+            }
+            val request =
+                android.os.Bundle().apply {
+                    putString("format", snapshot.format)
+                    putString("operation", operation)
+                    putInt("page", call.args["page"]?.jsonPrimitive?.intOrNull ?: 1)
+                    putInt("startBlock", call.args["startBlock"]?.jsonPrimitive?.intOrNull ?: 1)
+                    putString("imageId", call.args["imageId"]?.jsonPrimitive?.content)
+                    call.args["region"]?.jsonArray?.let { values ->
+                        putFloatArray("region", values.map { it.jsonPrimitive.float }.toFloatArray())
+                    }
+                }
+            val result = isolatedRead(call, sourceFile(call, snapshot), output, request, lease)
+            DocumentLimits.checkActive(call)
+            result.getString("error")?.let { throw DocumentException(it) }
+            val metadata =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(
+                        requireNotNull(result.getString("metadata")),
+                    ).jsonObject
+            return DocumentResult(metadata, if (result.getBoolean("image")) readImage(call, output) else null)
+        } catch (
+            failure: DocumentException,
+        ) {
             throw failure
-        } catch (_: IOException) {
-            throw PdfReadException("PDF_SOURCE_UNAVAILABLE")
-        } catch (_: SecurityException) {
-            throw PdfReadException("PDF_ACCESS_DENIED")
+        } catch (
+            _: IOException,
+        ) {
+            throw DocumentException("SOURCE_UNAVAILABLE")
+        } catch (
+            _: SecurityException,
+        ) {
+            throw DocumentException("SCOPE_DENIED")
         } finally {
-            // Native parser owns only duplicated FDs; unlinking private staging never edits the source.
             folder?.deleteRecursively()
-            // isolatedRead transfers this responsibility to Binder death if native work started.
             lease.finishHost()
         }
     }
-
-    private fun snapshot(
-        call: ExecutableToolCall,
-        path: String,
-        source: File,
-    ): String =
-        workspace.openRead(FileScopePath.fromModelReference(path)).use { input ->
-            source.outputStream().use { output -> PdfSourceSnapshot.copy(call, input, output) }
-        }
 
     private fun readImage(
         call: ExecutableToolCall,
         output: File,
     ): ByteArray {
-        if (output.length() !in 1..PdfSourceSnapshot.MAX_PNG_BYTES.toLong()) throw PdfReadException("IMAGE_LIMIT")
+        if (output.length() !in 1..DocumentLimits.IMAGE_BYTES.toLong()) throw DocumentException("IMAGE_LIMIT")
         return output.inputStream().use { input ->
             val bytes = java.io.ByteArrayOutputStream()
             val buffer = ByteArray(8192)
             while (true) {
-                PdfSourceSnapshot.checkActive(call)
+                DocumentLimits.checkActive(call)
                 val count = input.read(buffer)
                 if (count < 0) break
-                if (bytes.size() + count > PdfSourceSnapshot.MAX_PNG_BYTES) throw PdfReadException("IMAGE_LIMIT")
+                if (bytes.size() + count > DocumentLimits.IMAGE_BYTES) throw DocumentException("IMAGE_LIMIT")
                 bytes.write(buffer, 0, count)
             }
             bytes.toByteArray()
@@ -110,12 +130,11 @@ internal class AndroidPdfPageReader(
         call: ExecutableToolCall,
         source: File,
         output: File,
-        page: Int,
-        image: Boolean,
-        lease: PdfParseCapacity.Lease,
+        request: android.os.Bundle,
+        lease: DocumentParseCapacity.Lease,
     ): android.os.Bundle {
         val connected = CountDownLatch(1)
-        val remote = AtomicReference<IPdfPageReader?>()
+        val remote = AtomicReference<IDocumentReader?>()
         val retired = AtomicBoolean(false)
         val connection =
             object : ServiceConnection {
@@ -123,7 +142,7 @@ internal class AndroidPdfPageReader(
                     name: ComponentName,
                     binder: IBinder,
                 ) {
-                    val api = IPdfPageReader.Stub.asInterface(binder)
+                    val api = IDocumentReader.Stub.asInterface(binder)
                     try {
                         binder.linkToDeath({
                             lease.nativeExited()
@@ -150,7 +169,7 @@ internal class AndroidPdfPageReader(
             }
         val bound =
             context.bindIsolatedService(
-                Intent(context, PdfReaderService::class.java),
+                Intent(context, DocumentReaderService::class.java),
                 Context.BIND_AUTO_CREATE,
                 "pdf_" + UUID.randomUUID().toString().replace("-", ""),
                 context.mainExecutor,
@@ -160,8 +179,8 @@ internal class AndroidPdfPageReader(
         var timer: java.util.concurrent.ScheduledFuture<*>? = null
         val result =
             try {
-                while (!connected.await(25, TimeUnit.MILLISECONDS)) PdfSourceSnapshot.checkActive(call)
-                PdfSourceSnapshot.checkActive(call)
+                while (!connected.await(25, TimeUnit.MILLISECONDS)) DocumentLimits.checkActive(call)
+                DocumentLimits.checkActive(call)
                 val api = remote.get() ?: parserUnavailable()
                 lease.beginNative()
                 timer =
@@ -174,10 +193,10 @@ internal class AndroidPdfPageReader(
                             shutdown(api)
                         }
                     }, 0, 25, TimeUnit.MILLISECONDS)
-                nativeRead(api, source, output, page, image)
+                nativeRead(api, source, output, request)
             } catch (_: RemoteException) {
-                PdfSourceSnapshot.checkActive(call)
-                throw PdfReadException("PARSER_CONNECTION_FAILED")
+                DocumentLimits.checkActive(call)
+                throw DocumentException("PARSER_CONNECTION_FAILED")
             } finally {
                 retired.set(true)
                 timer?.cancel(false)
@@ -193,16 +212,15 @@ internal class AndroidPdfPageReader(
                 // If death is delayed, its callback retains and later releases capacity.
             }
         // Never consume output while its isolated writer may still be alive.
-        if (lease.awaitingExit) throw PdfReadException("PARSER_EXIT_UNCONFIRMED")
+        if (lease.awaitingExit) throw DocumentException("PARSER_EXIT_UNCONFIRMED")
         return result
     }
 
     private fun nativeRead(
-        api: IPdfPageReader,
+        api: IDocumentReader,
         source: File,
         output: File,
-        page: Int,
-        image: Boolean,
+        request: android.os.Bundle,
     ): android.os.Bundle =
         ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY).use { input ->
             ParcelFileDescriptor
@@ -211,13 +229,13 @@ internal class AndroidPdfPageReader(
                     ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE or
                         ParcelFileDescriptor.MODE_WRITE_ONLY,
                 ).use { destination ->
-                    api.read(input, destination, page, image)
+                    api.read(input, destination, request)
                 }
         }
 
-    private fun parserUnavailable(): Nothing = throw PdfReadException("PARSER_UNAVAILABLE")
+    private fun parserUnavailable(): Nothing = throw DocumentException("PARSER_UNAVAILABLE")
 
-    private fun shutdown(remote: IPdfPageReader) {
+    private fun shutdown(remote: IDocumentReader) {
         try {
             remote.shutdown()
         } catch (_: RemoteException) {

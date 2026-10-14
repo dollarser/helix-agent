@@ -113,6 +113,7 @@ dependencies {
     implementation(project(":extensions:mcp"))
     implementation(project(":extensions:plugin"))
     implementation(project(":extensions:browser"))
+    implementation(project(":extensions:documents"))
     // HXA-078: client-only A2A configuration and Agent Card discovery/snapshot. The transport
     // remains behind :extensions:a2a's Helix-owned facade; dynamic tools arrive in HXA-079.
     implementation(project(":extensions:a2a"))

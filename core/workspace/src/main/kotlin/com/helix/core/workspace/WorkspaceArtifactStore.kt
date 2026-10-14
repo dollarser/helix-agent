@@ -55,6 +55,7 @@ class WorkspaceArtifactStore(
         val sizeBytes: Long,
         val sha256: String,
         val turnId: String? = null,
+        val purpose: String = "OUTPUT",
     )
 
     /**
@@ -135,6 +136,7 @@ class WorkspaceArtifactStore(
         sessionId: String? = null,
         sink: ArtifactSink? = null,
         turnId: String? = null,
+        purpose: String = "OUTPUT",
     ): WriteOutcome {
         require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
         require(WorkspaceLayout.regionOf(path.relativePath) == region) {
@@ -142,7 +144,7 @@ class WorkspaceArtifactStore(
         }
         documents(path)?.let { backend ->
             val outcome = backend.write(path, bytes, expectedPreviousSha256, turnId)
-            if (sink != null && sessionId != null) sink.register(sessionId, outcome.record)
+            if (sink != null && sessionId != null) sink.register(sessionId, outcome.record.copy(purpose = purpose))
             return outcome
         }
         val root = privateMetadata(path) ?: resolve(path.scopeId)
@@ -173,6 +175,7 @@ class WorkspaceArtifactStore(
                 sizeBytes = probe.sizeBytes,
                 sha256 = writtenHash,
                 turnId = turnId,
+                purpose = purpose,
             )
         if (sink != null && sessionId != null) {
             sink.register(sessionId, record)

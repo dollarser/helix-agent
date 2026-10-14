@@ -296,6 +296,11 @@ internal class DefaultAppContainer(
         com.helix.app.plugin
             .PluginCatalog(storage) { plugin -> pluginRegistry.validateSelection(plugin) }
 
+    private val documentSnapshots by lazy {
+        com.helix.app.documents
+            .RoomDocumentSnapshots(storage, workspaceStore)
+    }
+
     override val pluginRegistry: com.helix.extensions.plugin.PluginRegistry =
         com.helix.extensions.plugin.PluginRegistry(
             toolRegistry,
@@ -620,11 +625,14 @@ internal class DefaultAppContainer(
             toolVision.artifactSink,
         )
         toolVision.registerTools(toolRegistry)
-        com.helix.tools.files.ReadPdfTool.register(
-            toolRegistry,
-            com.helix.app.pdf
-                .AndroidPdfPageReader(context, workspaceStore),
-            toolVision.imagePublisher,
+        pluginRegistry.register(
+            com.helix.extensions.documents.DocumentsPlugin(
+                context,
+                documentSnapshots,
+                com.helix.app.documents
+                    .AndroidDocumentParser(context, documentSnapshots::file),
+                toolVision.imagePublisher,
+            ),
         )
         pluginRegistry.register(
             com.helix.extensions.browser.BrowserPlugin(
@@ -709,7 +717,10 @@ internal class DefaultAppContainer(
                     pluginCatalog::sourceAvailable,
                 )
             val effectClassifier =
-                SessionToolEffectClassifier(sessionWorkspace) { sessionId, callId ->
+                SessionToolEffectClassifier(
+                    sessionWorkspace,
+                    documentSource = documentSnapshots::sourcePath,
+                ) { sessionId, callId ->
                     ProotToolModule.originalDetachedOutput(storage, sessionId, callId)
                 }
             val disabledToolFilter: (String, ToolDescriptor) -> Boolean = { sessionId, descriptor ->

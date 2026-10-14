@@ -323,3 +323,4 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-282 | 协议/市场/回填及诊断关联有界交付；R6旧制品两小时PASS，新稳定观察4业务/8返回通过；新版本长期资源及真实服务边界保留 | 外部服务、市场恢复与连续 Agent 验收 | [任务](tasks/HXA-282.md) |
 
 | HXA-283 | 主机/双渠道制品交付；原生与模型设备验收not requested | 有界 PDF 读取与总结 | [任务](tasks/HXA-283.md) |
+| HXA-284 | 主机/双渠道制品交付；设备/模型not requested | 统一PDF/DOCX文档插件 | [任务](tasks/HXA-284.md) |

@@ -2782,6 +2782,37 @@ class ChatService(
     internal suspend fun conversationArtifacts(sessionId: String): List<ArtifactRowUi> =
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forSession(sessionId) }
 
+    /** Source provenance is separate from user-created outputs; a changed original stays explicit. */
+    internal suspend fun conversationDocumentSources(sessionId: String): List<ArtifactRowUi> =
+        withContext(Dispatchers.IO) {
+            storage.documentSnapshots.listBySession(sessionId).map { source ->
+                val path =
+                    com.helix.core.workspace.FileScopePath
+                        .fromModelReference(source.sourcePath)
+                val ref =
+                    com.helix.core.storage.content.ContentRef
+                        .parse(source.contentRef)
+                ArtifactRowUi(
+                    source.id,
+                    sessionId,
+                    source.sourcePath,
+                    path.relativePath.substringAfterLast('/'),
+                    if (source.format ==
+                        "pdf"
+                    ) {
+                        "application/pdf"
+                    } else {
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    },
+                    ref.size,
+                    ref.sha256,
+                    null,
+                    null,
+                    path.scopeId.startsWith("saf-"),
+                )
+            }
+        }
+
     /** The goal's artifact file rows: the union of every turn bound to the goal (HXA-202). */
     internal suspend fun taskArtifactsForGoal(goalId: String): List<ArtifactRowUi> =
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forGoal(goalId) }

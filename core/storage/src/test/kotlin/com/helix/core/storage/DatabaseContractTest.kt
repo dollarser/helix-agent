@@ -25,6 +25,7 @@ class DatabaseContractTest {
             "messages",
             "message_attachments",
             "message_reference_snapshots",
+            "document_snapshots",
             "turns",
             "model_calls",
             "tool_calls",
@@ -100,7 +101,16 @@ class DatabaseContractTest {
         assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
-        assertEquals(52, tables.size)
+        assertEquals(expectedTables.size, tables.size)
+    }
+
+    @Test fun documentSnapshotsAndInternalObservationsAreDurableFacts() {
+        assertEquals(listOf("id", "sessionId", "sourcePath", "format", "contentRef"), columns("document_snapshots"))
+        assertTrue("purpose" in columns("artifacts"))
+        val entity = entities().single { (it.entries.getValue("tableName") as Value.Str).value == "document_snapshots" }
+        val sql = (entity.entries.getValue("createSql") as Value.Str).value
+        assertTrue(sql.contains("REFERENCES `sessions`(`id`)"))
+        assertTrue(sql.contains("ON DELETE CASCADE"))
     }
 
     @Test

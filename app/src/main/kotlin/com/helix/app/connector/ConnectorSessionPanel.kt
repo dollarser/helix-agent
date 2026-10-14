@@ -41,7 +41,7 @@ internal fun statusLabel(row: PluginSessionRow): Int =
 @Composable
 @Suppress("FunctionName")
 private fun PluginSessionState(row: PluginSessionRow) {
-    Text(row.name)
+    Text(if (row.name == "documents") stringResource(R.string.document_plugin_name) else row.name)
     if (row.hasSkippedComponents) {
         Text(stringResource(R.string.plugin_skipped_components))
     } else if (row.readyComponents > 0 && !row.ready) {

@@ -31,12 +31,12 @@ class AttachmentContextTest {
             val block = AttachmentContextBlock.Text(text, "input/attachments/paper.pdf", "attachment-scope")
             val out = AttachmentContext.buildUserMessageContent("总结这份PDF", listOf(block))
             assertTrue(out.contains("scope:attachment-scope:input/attachments/paper.pdf"))
-            assertTrue(out.contains("files.read_pdf"))
+            assertTrue(out.contains("documents.inspect"))
             assertTrue(out.contains("不代表完整文档"))
             assertFalse(out.contains("全文内联"))
             assertFalse(out.contains("可分块读取"))
             assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
-            assertEquals(truncated, out.contains("PDF文本预览已截断"))
+            assertEquals(truncated, out.contains("文档文本预览已截断"))
         }
     }
 

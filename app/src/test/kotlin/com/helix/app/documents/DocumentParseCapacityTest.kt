@@ -1,7 +1,7 @@
-package com.helix.app.pdf
+package com.helix.app.documents
 
 import com.helix.core.model.ExecutionTargetType
-import com.helix.tools.files.PdfReadException
+import com.helix.extensions.documents.DocumentException
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import kotlinx.serialization.json.JsonObject
@@ -12,11 +12,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
-class PdfParseCapacityTest {
+class DocumentParseCapacityTest {
     private fun call() =
         ExecutableToolCall(
             "c",
-            "files.read_pdf",
+            "documents.read",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,
@@ -25,7 +25,7 @@ class PdfParseCapacityTest {
         )
 
     @Test fun hostExitDoesNotReleaseAnActiveNativeParser() {
-        val capacity = PdfParseCapacity()
+        val capacity = DocumentParseCapacity()
         val lease = capacity.acquire(call())
         lease.beginNative()
         lease.finishHost()
@@ -33,7 +33,7 @@ class PdfParseCapacityTest {
         assertFalse(lease.awaitExit(1, java.util.concurrent.TimeUnit.MILLISECONDS))
         assertEquals(
             "TIMED_OUT",
-            assertThrows(PdfReadException::class.java) {
+            assertThrows(DocumentException::class.java) {
                 capacity.acquire(call().copy(deadline = Instant.now().plusMillis(40)))
             }.code,
         )
@@ -44,7 +44,7 @@ class PdfParseCapacityTest {
     }
 
     @Test fun repeatedDeathAndLateHostCleanupCannotReleaseAnotherParsersSlot() {
-        val capacity = PdfParseCapacity()
+        val capacity = DocumentParseCapacity()
         val old = capacity.acquire(call())
         old.beginNative()
         old.nativeExited()
@@ -54,7 +54,7 @@ class PdfParseCapacityTest {
         old.finishHost()
         assertEquals(
             "TIMED_OUT",
-            assertThrows(PdfReadException::class.java) {
+            assertThrows(DocumentException::class.java) {
                 capacity.acquire(call().copy(deadline = Instant.now().plusMillis(40)))
             }.code,
         )
@@ -63,10 +63,10 @@ class PdfParseCapacityTest {
     }
 
     @Test fun cancelledQueueAndFailedPreparationDoNotConsumeCapacity() {
-        val capacity = PdfParseCapacity()
+        val capacity = DocumentParseCapacity()
         assertEquals(
             "CANCELLED",
-            assertThrows(PdfReadException::class.java) {
+            assertThrows(DocumentException::class.java) {
                 capacity.acquire(
                     call().copy(
                         cancel =
@@ -82,6 +82,6 @@ class PdfParseCapacityTest {
         lease.finishHost()
         val next = capacity.acquire(call())
         next.finishHost()
-        assertEquals("PARSER_DIED", assertThrows(PdfReadException::class.java) { next.beginNative() }.code)
+        assertEquals("PARSER_DIED", assertThrows(DocumentException::class.java) { next.beginNative() }.code)
     }
 }

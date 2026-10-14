@@ -44,9 +44,10 @@ import kotlinx.serialization.json.jsonPrimitive
 class SessionToolEffectClassifier(
     /** The session's bound workspace scope id (`session.directoryRef ?: APP_SCOPE_ID`), or null. */
     private val sessionWorkspace: (sessionId: String) -> String?,
+    private val documentSource: ((sessionId: String, reference: String) -> String?)? = null,
     private val originalJobOutput: ((sessionId: String, callId: String) -> String?)?,
 ) : ToolEffectClassifier {
-    constructor(sessionWorkspace: (String) -> String?) : this(sessionWorkspace, null)
+    constructor(sessionWorkspace: (String) -> String?) : this(sessionWorkspace, null, null)
 
     fun isWorkspacePath(
         path: FileScopePath,
@@ -60,6 +61,11 @@ class SessionToolEffectClassifier(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
     ): CallEffectClassification {
+        if (com.helix.extensions.documents.DocumentTools
+                .owns(descriptor)
+        ) {
+            return documentFootprint(request, descriptor)
+        }
         val name = descriptor.name.value
         return when (name) {
             LINUX_RUN, LINUX_JOB_START -> {
@@ -137,6 +143,29 @@ class SessionToolEffectClassifier(
             else -> {
                 undetermined(OperationEffect.DEVICE_SYSTEM_MUTATION)
             }
+        }
+    }
+
+    private fun documentFootprint(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+    ): CallEffectClassification {
+        val name = descriptor.name.value
+        val source =
+            if (name == "documents.inspect") {
+                (request.args["path"] as? JsonPrimitive)?.content
+            } else {
+                (request.args["documentRef"] as? JsonPrimitive)?.content?.let {
+                    documentSource?.invoke(
+                        request.sessionId,
+                        it,
+                    )
+                }
+            }
+        return if (source == null || !source.startsWith("scope:")) {
+            undetermined(OperationEffect.FILE_READ_EXTERNAL)
+        } else {
+            fileFootprint(name, JsonObject(mapOf("path" to JsonPrimitive(source))), request.sessionId, readTool = true)
         }
     }
 
@@ -298,7 +327,7 @@ class SessionToolEffectClassifier(
         private const val FILES_MOVE: String = "files.move"
 
         private val FILE_READ_TOOLS: Set<String> =
-            setOf("read", "view_image", "files.read_pdf", "files.list", "files.stat", "files.search")
+            setOf("read", "view_image", "files.list", "files.stat", "files.search")
 
         private val FILE_MUTATION_TOOLS: Set<String> =
             setOf(

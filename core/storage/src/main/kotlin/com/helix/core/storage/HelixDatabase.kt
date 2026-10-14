@@ -104,6 +104,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             MessageEntity::class,
             MessageAttachmentEntity::class,
             MessageReferenceSnapshotEntity::class,
+            com.helix.core.storage.entity.DocumentSnapshotEntity::class,
             TurnEntity::class,
             ModelCallEntity::class,
             ToolCallEntity::class,
@@ -149,6 +150,8 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per persisted aggregate/feature table.
 abstract class HelixDatabase : RoomDatabase() {
+    abstract fun documentSnapshotDao(): com.helix.core.storage.dao.DocumentSnapshotDao
+
     abstract fun projectDao(): com.helix.core.storage.dao.ProjectDao
 
     abstract fun connectorDao(): com.helix.core.storage.dao.ConnectorDao

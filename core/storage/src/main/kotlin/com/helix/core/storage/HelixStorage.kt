@@ -203,6 +203,7 @@ class HelixStorage internal constructor(
         InteractionReceiptRepository(database.interactionReceiptDao())
     }
     val executions: ExecutionRepository by lazy { ExecutionRepository(database.executionDao()) }
+    val documentSnapshots by lazy { database.documentSnapshotDao() }
     val artifacts: ArtifactRepository by lazy {
         ArtifactRepository(database.artifactDao()) { reference, write ->
             database.runInTransaction {
@@ -285,6 +286,7 @@ class HelixStorage internal constructor(
             val referenceRefs = database.messageReferenceSnapshotDao().contentRefsByTargetSession(sessionId)
             val resultRefs = database.toolResultDao().contentRefsBySession(sessionId)
             val inputRefs = database.sessionInputDao().contentRefsBySession(sessionId)
+            val documentRefs = documentSnapshots.contentRefsBySession(sessionId)
             val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
             database.runInTransaction {
                 require(database.sessionDao().byId(sessionId) != null) { "session not found: $sessionId" }
@@ -300,12 +302,13 @@ class HelixStorage internal constructor(
                 check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
             }
             val deletedBodies =
-                (messageRefs + referenceRefs + resultRefs + inputRefs).distinct().mapNotNull { encoded ->
+                (messageRefs + referenceRefs + resultRefs + inputRefs + documentRefs).distinct().mapNotNull { encoded ->
                     val stillReferenced =
                         database.messageDao().countByContentRef(encoded) > 0 ||
                             database.messageReferenceSnapshotDao().countByContentRef(encoded) > 0 ||
                             database.toolResultDao().countByContentRef(encoded) > 0 ||
-                            database.sessionInputDao().countByContentRef(encoded) > 0
+                            database.sessionInputDao().countByContentRef(encoded) > 0 ||
+                            documentSnapshots.countByContentRef(encoded) > 0
                     if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null
                 }
             val unreferencedPaths =

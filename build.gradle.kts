@@ -122,6 +122,7 @@ val androidLibraries =
         ":extensions:mobile-use" to "com.helix.extensions.mobileuse",
         ":extensions:chat-reply" to "com.helix.extensions.chatreply",
         ":extensions:browser" to "com.helix.extensions.browser",
+        ":extensions:documents" to "com.helix.extensions.documents",
         ":spikes:a2a-sdk" to "com.helix.spikes.a2a.sdk",
         ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
         ":spikes:bounded-orchestration" to "com.helix.spikes.orchestration",
@@ -217,6 +218,15 @@ val projectDependencies =
                 ":tools:framework",
                 ":tools:browser",
             ),
+        ":extensions:documents" to
+            listOf(
+                ":core:model",
+                ":core:policy",
+                ":core:workspace",
+                ":extensions:plugin",
+                ":extensions:skills",
+                ":tools:framework",
+            ),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
@@ -274,7 +284,7 @@ subprojects {
             if (path == ":tools:browser") {
                 group = "com.helix.tools"
             }
-            if (path == ":extensions:browser") {
+            if (path in setOf(":extensions:browser", ":extensions:documents")) {
                 group = "com.helix.extensions"
             }
 

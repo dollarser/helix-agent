@@ -75,6 +75,10 @@ internal object ToolDiscoveryWorkset {
                         }
                     }
 
+                    "documents" -> {
+                        com.helix.extensions.documents.DocumentTools.names
+                    }
+
                     "browser" -> {
                         setOf("browser.snapshot", "browser.find")
                     }

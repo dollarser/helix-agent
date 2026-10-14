@@ -1987,4 +1987,9 @@
     <string name="marketplace_item_notion_summary">通过 Notion 官方 MCP 服务查找和读取工作区页面。</string>
     <string name="marketplace_item_notion_desc">安装后，在连接设置选择 OAuth 并登录 Notion。安装不会授予访问权限，也不会自动在会话中选中插件。</string>
     <string name="marketplace_item_notion_auth_hint">在连接设置中通过 OAuth 登录</string>
+    <string name="document_sources_count">文档来源（%1$d）</string>
+    <string name="document_sources_title">文档来源</string>
+    <string name="document_source_preview_note">下方打开当前原文件；实际阅读以回答中的快照 SHA-256 和页码/内容块为准。暂不支持精确跳转；原文变化会提示。</string>
+    <string name="document_plugin_select">图文阅读需选用“文档”插件 · 去选择</string>
+    <string name="document_plugin_name">文档</string>
 </resources>

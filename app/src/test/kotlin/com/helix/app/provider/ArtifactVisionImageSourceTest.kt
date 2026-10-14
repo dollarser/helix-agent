@@ -49,6 +49,7 @@ class ArtifactVisionImageSourceTest {
                 size: Long,
                 sha256: String,
                 turnId: String?,
+                purpose: String,
             ): Int {
                 val existing =
                     rows.values.singleOrNull {
@@ -63,6 +64,7 @@ class ArtifactVisionImageSourceTest {
                         size,
                         sha256,
                         turnId,
+                        purpose,
                     )
                 return 1
             }

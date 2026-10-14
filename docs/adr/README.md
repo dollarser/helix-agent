@@ -9,7 +9,7 @@
 | [Goal](goal/README.md) | 目标生命周期、连续执行、预算与完成 |
 | [Provider](provider/README.md) | 模型选择、元数据与连接验证、订阅适配、任务路由与流式结果 |
 | [权限与审批](permissions/README.md) | 会话授权预设、自定义权限与工具禁用、Chat/Plan 审阅与内置元数据操作、工具执行准入、精确审批与持久审计 |
-| [工作目录与文件](workspace/README.md) | 会话目录、相对路径与内容身份、独立文件管理与传输恢复、Git 仓库一致性与产品边界、独立会话工作目录与外部资源绑定、有界PDF读取 |
+| [工作目录与文件](workspace/README.md) | 会话目录、相对路径与内容身份、独立文件管理与传输恢复、Git 仓库一致性与产品边界、独立会话工作目录与外部资源绑定、有界PDF/DOCX文档读取 |
 | [Runtime 与终端](runtime/README.md) | 执行域、打包、生命周期与结果对账、命令日志、后台 Job 与手动终端、QuickJS 隔离执行底座、RootService 依赖与调用边界 |
 | [工具契约](tools/README.md) | 工具描述契约与审批绑定 |
 | [MCP](mcp/README.md) | MCP Client、传输与工具接入 |

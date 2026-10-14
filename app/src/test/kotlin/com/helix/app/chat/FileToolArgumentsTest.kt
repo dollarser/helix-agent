@@ -28,7 +28,6 @@ class FileToolArgumentsTest {
                 "write",
                 "edit",
                 "view_image",
-                "files.read_pdf",
                 "files.list",
                 "files.stat",
                 "files.search",
@@ -74,8 +73,8 @@ class FileToolArgumentsTest {
 
     @Test fun pdfReadingFreezesTheOriginalDirectoryBeforeApprovalAndDispatch() {
         val tool =
-            com.helix.tools.files.ReadPdfTool
-                .descriptor()
+            com.helix.extensions.documents.DocumentTools
+                .descriptor("inspect")
         org.junit.Assert.assertTrue(FileToolArguments.handles(tool))
         val bound = FileToolArguments.bindRequest("""{"path":"paper.pdf","page":2}""", FileScopePath("ws", "project"))
         val args = Json.parseToJsonElement(bound).jsonObject

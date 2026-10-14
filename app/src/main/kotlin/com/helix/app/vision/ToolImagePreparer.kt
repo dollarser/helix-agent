@@ -109,6 +109,7 @@ class ToolImagePreparer(
                 sessionId = session,
                 sink = sink,
                 turnId = call.turnId,
+                purpose = if (call.toolName == "documents.view") "INTERNAL_OBSERVATION" else "OUTPUT",
             )
         val artifact = requireNotNull(storage.artifacts.findBySessionAndPath(session, destination.toModelReference()))
         check(written.record.sha256 == normalized.sha256 && artifact.sha256 == normalized.sha256)
