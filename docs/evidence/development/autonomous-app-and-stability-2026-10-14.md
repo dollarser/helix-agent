@@ -153,4 +153,8 @@ Shizuku bootstrap原来在connect失败后直接close；close的InvocationTarget
 
 短验全部通过后，仅启动一次新的两小时R6：自有只读API36端口5600、既有Qwen，启动UTC04:14:36，独立后台拥有者及caffeinate记录在忽略的`build/hxa282/mobile-two-hours-receipt-r6.launcher.json`。使用支持的run-owned-emulator.py冻结相同制品，实际拼音之后运行run-hxa103-browser-soak.py --workload mobile-model --flavor developer --preset precheck；连续实际业务、同PID/7200秒和原FD+8/线程+16/PSS+96MiB及主机采样要求保持。阶段预留完整测量及清理时间，剩余授权不足则拒绝启动，不自动再跑至通过。
 
-当前R6为running/pending，预计UTC06:20左右结束；尚无两小时通过结论，不能覆盖旧R5 FAIL_FUNCTIONAL。后台拥有者在正常/失败退出时收集报告、恢复AX、关闭录制器/反向映射及自有VM，Codex重启不应终止自有后台进程；以最终result.json、closed.json和恢复记录为准，不能提前宣称清理完成。按Owner既有“只剩长测等待则后台继续、暂停前台等待”的选择，不前台等待两小时。服务器有效模板运行时hash和EAGLE-off单变量端点未提供，仍属服务端外部依赖，不声称EOS诱因已经消除。
+R6现已结算PASS，终态UTC06:16:47（北京时间14:16:47）。测量7211655ms、86个pair、同一应用PID4122，172个测量业务全部通过，另2个热身业务通过，共174个Turn；3次中间TOKEN_UNKNOWN拒绝后恢复，原失败记录保留。1444次原模型调用完整HTTP200、Turn/model-call/代理request ID及单SSE响应ID关联齐全，另1探测不混入业务调用；离线解析零错误。不因本轮通过改写旧R5 FAIL_FUNCTIONAL或推断EOS诱因已消除。
+
+资源基线FD164/线程60/PSS145409KiB，峰值168/61/165281，增量+4/+1/+19872KiB（约19.4MiB），原+8/+16/+96MiB门禁保持且通过。主机采样240/241成功、最大间隔30.9秒；末条在TestRunner完成后无进程、没有可解析PSS，原失败采样及No process found原文保留，不冒充241次全成功。报告器按原规则判PASS，不修改阈值或覆盖旧缺失报告。
+
+最终AX null/0恢复，录制器PID44534退出0、自有VM PID44398退出0，映射随清理撤回；日常实例未动。原result.json、closed.json、settings-restoration.json及原帧均在忽略的上述目录。本轮只证明这台API36/Developer、该Qwen与冻结APK的两小时连续Mobile Use通过，不代表24小时、其他OEM/后端或随后新观察闭环代码已验收。服务器有效模板运行时hash和EAGLE-off端点仍缺输入，保留为独立服务端边界。
