@@ -173,7 +173,7 @@ class AutomationDeviceToolsTest {
                 .toString()
                 .contains("ui.gesture"),
         )
-        assertEquals(2, descriptor("ui.screenshot").version.value)
+        assertEquals(3, descriptor("ui.screenshot").version.value)
         assertEquals(
             "1",
             result.output.jsonObject
@@ -212,6 +212,33 @@ class AutomationDeviceToolsTest {
         assertEquals(null, publishedCall)
         assertEquals(null, result.visualArtifact)
         assertFalse(result.output.jsonObject.containsKey("reference"))
+    }
+
+    @Test fun failedCapturePreservesStatusAndExplainsOpaqueFrameRecoveryWithoutPublishing() {
+        for (status in listOf("NO_ACTIVE_SESSION", "STALE_FRAME", "TARGET_CHANGED", "SCOPE_DENIED")) {
+            port.capture = AutomationScreenshot(status)
+            val result = execute("ui.screenshot", """{"frame":"page"}""") as ToolExecutorResult.Completed
+            assertEquals(
+                status,
+                result.output.jsonObject
+                    .getValue("status")
+                    .jsonPrimitive.content,
+            )
+            assertTrue(
+                result.output.jsonObject
+                    .getValue("actionHint")
+                    .jsonPrimitive.content
+                    .contains("ui.device"),
+            )
+            assertEquals(null, publishedCall)
+            assertEquals(null, result.visualArtifact)
+            assertFalse(result.output.jsonObject.containsKey("reference"))
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(descriptor("ui.screenshot").outputSchema, result.output),
+            )
+        }
+        assertEquals(0, port.observations)
     }
 
     @Test fun gesturesArePassedAsOnePhysicalBatchAndUnknownEffectsAreNotReplayable() {

@@ -104,9 +104,11 @@ class AutomationDeviceTools(
             descriptor(
                 SCREENSHOT,
                 ToolOperationClass.LOCAL_MUTATION,
-                obj(mapOf("frame" to str(64)), "frame"),
+                obj(mapOf("frame" to screenshotFrameInput()), "frame"),
                 screenshotOutput(),
-                "Capture a ui.device frame into a PNG artifact and the shared vision pipeline. " +
+                "Call ui.device first and copy its exact opaque frame value into frame; " +
+                    "if ui.device is not loaded, discover it with tools.search. " +
+                    "Capture that frame into a PNG artifact and the shared vision pipeline. " +
                     "Root/Shizuku capture needs whole-phone scope; scoped window capture needs Accessibility API34+. " +
                     "Protected surfaces can fail. " +
                     "Pixels require a vision-capable model and existing disclosure. " +
@@ -214,6 +216,17 @@ class AutomationDeviceTools(
             capture.png ?: return ToolExecutorResult.Completed(
                 buildJsonObject {
                     put("status", JsonPrimitive(capture.status))
+                    put(
+                        "actionHint",
+                        JsonPrimitive(
+                            "No image was captured. Discover ui.device if needed, call it and copy " +
+                                "its exact frame value " +
+                                "before a new screenshot. A node token, page label or invented frame is invalid. " +
+                                "Inspect the returned readiness/scope status; " +
+                                "fresh observation does not grant permission. " +
+                                "Do not infer pixels or replay an action from this failed capture.",
+                        ),
+                    )
                 },
             )
         beforeDispatch(call)?.let { return it }
@@ -305,8 +318,8 @@ class AutomationDeviceTools(
         ToolVersion(
             if (name == DEVICE) {
                 4
-            } else if (name == SCREENSHOT || name == APPS) {
-                2
+            } else if (name == SCREENSHOT) {
+                3
             } else {
                 2
             },
@@ -371,6 +384,16 @@ class AutomationDeviceTools(
             "apps",
         )
     }
+
+    private fun screenshotFrameInput() =
+        buildJsonObject {
+            put("type", JsonPrimitive("string"))
+            put("maxLength", JsonPrimitive(64))
+            put(
+                "description",
+                JsonPrimitive("Exact opaque frame returned by ui.device; not a node token or page label."),
+            )
+        }
 
     private fun screenshotOutput() =
         obj(

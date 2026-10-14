@@ -14,6 +14,12 @@ Owner重新明确授权自有API36、既有30008 Qwen、临时Shizuku/无障碍/
 
 当前抖音使用新的自有实例及已授权临时Shizuku执行，完整旅程和两小时长稳pending。旧脚本中过期的绝对截止时间已改为必须提供且有效的新窗口，未修改生产权限、资源门禁或结果断言。所有生成物均留在上述忽略目录；复验用支持的`run-owned-emulator.py`冻结同一对APK、先拼音，再按上述三个方法分别instrument，真实方法传pluginSkillPort/pluginSkillModel，四模式显式传helixTouchReview=true和helixInstallerTouchProbe=true。
 
+### 本轮发现：截图帧参数恢复提示
+
+冻结旧制品的抖音轨迹中，模型多次把page/chk等自造文字作为ui.screenshot.frame，返回NO_ACTIVE_SESSION；随后才发现ui.device并使用真实帧恢复。原始模型错误保留，不把所有下载等待都归因于该问题。局部修正仅在截图描述、参数说明、失败actionHint及内置Skill短指导中明确先发现/调用ui.device、原样复制opaque frame；不改变底层错误状态，不自动创建授权、重试、发布假图片或重放动作。ui.screenshot版本2→3，其他版本不动；沿用本页已有execute/observe参考设计，不引入框架或复制竞品代码。
+
+新增回归覆盖无会话、旧帧、目标变化和范围拒绝时的原状态、无图片/引用、schema一致及没有暗中观察。Mobile Use Debug JVM264项零失败/跳过，完整`check-all.sh --all`退出0、两渠道及SDK AndroidTest编译通过；日志在忽略的receipt-frame-host-r4.txt、receipt-frame-all-r1.txt和receipt-frame-androidtest-r1.txt。最初误用子模块spotlessApply及两次长行格式失败保留，修正后完整重验。此刻修正后的视觉设备/Qwen补验pending，不能继承旧APK上的业务结果；抖音仍在原冻结APK中自主执行。
+
 ## Owner追加：动作回执语义优化
 
 Owner在过滤诊断后要求优化“派发完成却返回success”的歧义。本阶段只改Mobile Use模型可见动作结果、输出schema、相关工具版本、描述和内置Skill；没有新的设备/模型授权，不启动模拟器、真机或Qwen，设备/真实模型均not requested。此前API36过滤复测证明的是原制品上的系统行为，不当作新工具契约的设备通过。
