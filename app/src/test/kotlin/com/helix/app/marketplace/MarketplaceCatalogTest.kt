@@ -42,7 +42,8 @@ class MarketplaceCatalogTest {
                             bundle.endpoints.single().needsCredential,
                         )
                     } else if (item.authRequirement == MarketplaceAuthRequirement.BEARER_TOKEN ||
-                        item.authRequirement == MarketplaceAuthRequirement.API_KEY
+                        item.authRequirement == MarketplaceAuthRequirement.API_KEY ||
+                        item.authRequirement == MarketplaceAuthRequirement.OAUTH
                     ) {
                         assertTrue(
                             "Protected endpoint must require credentials",
@@ -57,6 +58,25 @@ class MarketplaceCatalogTest {
                     assertTrue("Skill payload must have description", item.payload.contains("description:"))
                 }
             }
+        }
+    }
+
+    @Test fun officialOAuthEntriesRemainProtectedAndDoNotEmbedClientCredentials() {
+        val endpoints =
+            mapOf(
+                "notion-workspace" to "https://mcp.notion.com/mcp",
+                "linear-workspace" to "https://mcp.linear.app/mcp",
+            )
+        for ((id, url) in endpoints) {
+            val item = MarketplaceCatalog.items().single { it.id == id }
+            org.junit.Assert.assertEquals(MarketplaceAuthRequirement.OAUTH, item.authRequirement)
+            val bundle = PluginPackageReader().readJson(item.payload.toByteArray())
+            val endpoint = bundle.endpoints.single()
+            org.junit.Assert.assertEquals(url, endpoint.url)
+            assertTrue("Installation must still require authorization", endpoint.needsCredential)
+            assertFalse(item.payload.contains("client_secret"))
+            assertFalse(item.payload.contains("access_token"))
+            assertTrue(bundle.skills.isEmpty())
         }
     }
 }

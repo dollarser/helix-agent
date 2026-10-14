@@ -13,6 +13,7 @@ enum class MarketplaceAuthRequirement {
     NONE,
     BEARER_TOKEN,
     API_KEY,
+    OAUTH,
     LOCAL,
 }
 

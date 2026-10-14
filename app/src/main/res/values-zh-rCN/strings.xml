@@ -1250,8 +1250,8 @@
     <string name="marketplace_item_github_auth_hint">需要配置 GitHub 个人访问令牌（PAT）</string>
     <string name="marketplace_item_linear_name">Linear Workspace</string>
     <string name="marketplace_item_linear_summary">在 Linear 中搜索与管理项目 Issue、周期与任务工单。</string>
-    <string name="marketplace_item_linear_desc">连接到 Linear 官方 MCP 端点，跟踪任务与缺陷工单。需要配置 Linear 个人 API Key。</string>
-    <string name="marketplace_item_linear_auth_hint">需要配置 Linear 个人 API Key</string>
+    <string name="marketplace_item_linear_desc">连接 Linear 官方 MCP 服务。在连接设置选择 OAuth 登录，也可配置个人 API Key。安装不会授予访问权限。</string>
+    <string name="marketplace_item_linear_auth_hint">支持 OAuth 登录，也可使用 API Key</string>
     <string name="marketplace_item_web_research_name">Web Research &amp; Fetch</string>
     <string name="marketplace_item_web_research_summary">有界只读抓取、解析与结构化网页内容。</string>
     <string name="marketplace_item_web_research_desc">提供结构化网页阅读与事实核对工具，不执行页面恶意脚本。使用本地网络能力，无需额外鉴权凭据。</string>
@@ -1982,4 +1982,9 @@
     <string name="plugin_market_use">在会话中使用</string>
     <string name="plugin_market_failed">操作未完成。请检查目录或插件包后重试；内容变化后需重新预览。</string>
     <string name="plugin_market_installed">已安装</string>
+    <string name="marketplace_auth_oauth">需要登录</string>
+    <string name="marketplace_item_notion_name">Notion 工作区</string>
+    <string name="marketplace_item_notion_summary">通过 Notion 官方 MCP 服务查找和读取工作区页面。</string>
+    <string name="marketplace_item_notion_desc">安装后，在连接设置选择 OAuth 并登录 Notion。安装不会授予访问权限，也不会自动在会话中选中插件。</string>
+    <string name="marketplace_item_notion_auth_hint">在连接设置中通过 OAuth 登录</string>
 </resources>

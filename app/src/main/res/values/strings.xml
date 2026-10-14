@@ -1253,8 +1253,8 @@
     <string name="marketplace_item_github_auth_hint">Requires GitHub Personal Access Token (PAT)</string>
     <string name="marketplace_item_linear_name">Linear Workspace</string>
     <string name="marketplace_item_linear_summary">Search and manage project issues, cycles, and tasks in Linear.</string>
-    <string name="marketplace_item_linear_desc">Connects to Linear MCP endpoint to track tasks, view issue descriptions and manage project roadmaps. Requires Linear API Key.</string>
-    <string name="marketplace_item_linear_auth_hint">Requires Linear Personal API Key</string>
+    <string name="marketplace_item_linear_desc">Connect to the official Linear MCP server. Choose OAuth in connection settings to sign in, or configure a personal API key. Installation does not authorize access.</string>
+    <string name="marketplace_item_linear_auth_hint">OAuth sign-in; API key also supported</string>
     <string name="marketplace_item_web_research_name">Web Research &amp; Fetch</string>
     <string name="marketplace_item_web_research_summary">Fetch, parse, and structure web pages with bounded read-only requests.</string>
     <string name="marketplace_item_web_research_desc">Structured web reading and fact-checking tools without executing external scripts. Runs with local network capability, no credentials needed.</string>
@@ -1985,4 +1985,9 @@
     <string name="plugin_market_use">Use in conversation</string>
     <string name="plugin_market_failed">Unable to complete. Check the catalog or package and retry; preview again if it changed.</string>
     <string name="plugin_market_installed">Installed</string>
+    <string name="marketplace_auth_oauth">Sign-in required</string>
+    <string name="marketplace_item_notion_name">Notion Workspace</string>
+    <string name="marketplace_item_notion_summary">Find and read workspace pages through the official Notion MCP server.</string>
+    <string name="marketplace_item_notion_desc">Install the connector, then choose OAuth in its connection settings and sign in to Notion. Installation does not grant access or select the plugin in a conversation.</string>
+    <string name="marketplace_item_notion_auth_hint">Sign in with OAuth in connection settings</string>
 </resources>

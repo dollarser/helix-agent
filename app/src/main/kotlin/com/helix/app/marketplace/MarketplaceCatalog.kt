@@ -62,7 +62,7 @@ object MarketplaceCatalog {
                 summaryRes = R.string.marketplace_item_linear_summary,
                 descriptionRes = R.string.marketplace_item_linear_desc,
                 author = "Linear / MCP",
-                authRequirement = MarketplaceAuthRequirement.API_KEY,
+                authRequirement = MarketplaceAuthRequirement.OAUTH,
                 authHintRes = R.string.marketplace_item_linear_auth_hint,
                 tags = listOf("linear", "issues", "tasks", "management"),
                 targetConnectorName = "linear-connector",
@@ -76,6 +76,30 @@ object MarketplaceCatalog {
                           "headers": {
                             "Authorization": "Bearer placeholder"
                           }
+                        }
+                      }
+                    }
+                    """.trimIndent(),
+            ),
+            MarketplaceItem(
+                id = "notion-workspace",
+                nameRes = R.string.marketplace_item_notion_name,
+                type = MarketplaceItemType.CONNECTOR,
+                summaryRes = R.string.marketplace_item_notion_summary,
+                descriptionRes = R.string.marketplace_item_notion_desc,
+                author = "Notion",
+                authRequirement = MarketplaceAuthRequirement.OAUTH,
+                authHintRes = R.string.marketplace_item_notion_auth_hint,
+                tags = listOf("notion", "notes", "pages", "oauth", "mcp"),
+                targetConnectorName = "notion-connector",
+                payload =
+                    """
+                    {
+                      "name": "notion-connector",
+                      "mcpServers": {
+                        "notion": {
+                          "url": "https://mcp.notion.com/mcp",
+                          "headers": {"Authorization": "Bearer placeholder"}
                         }
                       }
                     }

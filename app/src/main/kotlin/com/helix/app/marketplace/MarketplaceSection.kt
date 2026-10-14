@@ -624,6 +624,7 @@ private fun AuthTag(auth: MarketplaceAuthRequirement) {
             MarketplaceAuthRequirement.NONE -> R.string.marketplace_auth_none
             MarketplaceAuthRequirement.BEARER_TOKEN -> R.string.marketplace_auth_bearer
             MarketplaceAuthRequirement.API_KEY -> R.string.marketplace_auth_api_key
+            MarketplaceAuthRequirement.OAUTH -> R.string.marketplace_auth_oauth
             MarketplaceAuthRequirement.LOCAL -> R.string.marketplace_auth_local
         }
     Box(
