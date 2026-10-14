@@ -31,6 +31,7 @@ import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -221,6 +222,18 @@ class AutomationDeviceToolsTest {
             ToolSchemaValidator.validate(descriptor("ui.gesture").inputSchema, json(args)),
         )
         val completed = execute("ui.gesture", args) as ToolExecutorResult.Completed
+        assertEquals(
+            "DISPATCHED",
+            completed.output.jsonObject
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "UNVERIFIED",
+            completed.output.jsonObject
+                .getValue("effectStatus")
+                .jsonPrimitive.content,
+        )
         assertEquals(1, port.strokes.size)
         assertTrue(
             completed.output.jsonObject
@@ -258,6 +271,26 @@ class AutomationDeviceToolsTest {
         assertTrue(result.sideEffectFree)
         assertFalse(result.requiresReview)
         assertEquals(0, port.observations)
+    }
+
+    @Test fun cancelledGestureNeverDispatchesOrClaimsAnEffect() {
+        val cancelled =
+            call(
+                "ui.gesture",
+                json(
+                    """{"frame":"frame","strokes":[
+                {"points":[{"x":100,"y":200}],"durationMillis":100}]}""",
+                ),
+            ).copy(
+                cancel =
+                    object : com.helix.tools.framework.CancelSignal {
+                        override fun isCancelled() = true
+                    },
+            )
+        val result = tools.executor("ui.gesture").execute(cancelled) as ToolExecutorResult.CancelledWithEffectTruth
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertTrue(port.strokes.isEmpty())
     }
 
     private fun descriptor(name: String) = tools.descriptors().single { it.name.value == name }

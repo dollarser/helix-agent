@@ -437,8 +437,8 @@ class AutomationToolsTest {
         assertEquals(TOKEN, port.nodeRequests.single().token)
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.CLICK_MATCH }
         assertTrue(descriptor.description.contains("system Install button"))
-        assertTrue(descriptor.description.contains("human click"))
-        assertEquals(7, descriptor.version.value)
+        assertTrue(descriptor.description.contains("manual confirmation"))
+        assertEquals(8, descriptor.version.value)
         assertTrue(descriptor.inputSchema.toString().contains("timeoutMillis"))
         assertEquals(65L, descriptor.timeout.inWholeSeconds)
     }
@@ -519,6 +519,8 @@ class AutomationToolsTest {
     @Test
     fun actionsForwardTokensAndStableRefusalsNeverBecomeSuccess() {
         val output = completed(execute(AutomationTools.CLICK, args("token" to TOKEN)))
+        assertEquals("DISPATCHED", output.getValue("status").jsonPrimitive.content)
+        assertEquals("UNVERIFIED", output.getValue("effectStatus").jsonPrimitive.content)
         assertEquals(AutomationNodeAction.CLICK, port.nodeRequests.single().action)
         assertEquals(TOKEN, port.nodeRequests.single().token)
         assertTrue(
@@ -592,7 +594,7 @@ class AutomationToolsTest {
 
     @Test fun scrollSchemaOnlyAdmitsDirectionsTheExecutorImplements() {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }
-        assertEquals(3, descriptor.version.value)
+        assertEquals(4, descriptor.version.value)
         val schema = descriptor.inputSchema
         listOf("forward", "backward").forEach {
             assertEquals(

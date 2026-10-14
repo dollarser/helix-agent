@@ -458,17 +458,17 @@ class AutomationTools(
             if (name in setOf(FIND, WAIT)) {
                 9
             } else if (name == CLICK_MATCH) {
-                7
+                8
             } else if (name == SNAPSHOT) {
                 8
             } else if (name == SET_TEXT) {
-                3
+                4
             } else if (name == SCROLL) {
-                3
+                4
             } else if (name !in setOf(BACK, HOME)) {
-                2
+                3
             } else {
-                1
+                2
             },
         ),
         AutomationToolDescriptions.description(name),
@@ -574,17 +574,7 @@ class AutomationTools(
         return obj(fields, emptyList())
     }
 
-    private fun actionOutput() =
-        obj(
-            mapOf(
-                "status" to str(64),
-                "observationRequired" to bool(),
-                "nextObservation" to str(128),
-                "actionHint" to str(384),
-                "backend" to str(16),
-            ),
-            listOf("status"),
-        )
+    private fun actionOutput() = automationActionOutputSchema(includeBackend = true)
 
     private fun findOutput() =
         obj(

@@ -1,5 +1,7 @@
 # 当前实施状态
 
+2026-10-14 动作回执语义优化完成：Mobile Use模型可见动作结果统一为DISPATCHED/UNVERIFIED，要求后续观察；本地SENSITIVE_UI明确派发前拒绝，不伪造系统过滤原因。共享严格schema及受影响动作版本同步更新，核心完成/取消/UNKNOWN、审批、Room和原生回调保持。Mobile Use Debug JVM263项、完整全仓主机及双渠道/SDK测试APK编译通过；本阶段设备/模型not requested、未安装APK，不继承上一阶段设备通过。见[本阶段证据](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加动作回执语义优化)。
+
 2026-10-14 Owner追加安装触摸定点复测：自有API36/Developer最终实际拼音及两项诊断通过；合成普通/自绘按钮接受AX触摸，显式/隐式敏感按钮记录安全过滤拒绝。系统安装按钮敏感、服务非Accessibility Tool；稳定同坐标AX完成但未安装，Shell对照安装合成包成功，支持来源过滤归因，未发现有效对照中的图片缩放错位。保留初始布局移动/帧失效与呈现未确认失败，夹具只补只读稳定屏障，不改生产门禁。实例关闭、临时设置恢复、日常未动，无模型/抖音操作；完整自主旅程及长稳仍开放。见[追加复测](../evidence/development/autonomous-app-and-stability-2026-10-14.md#owner追加安装触摸过滤定点复测)。
 
 2026-10-14追加验收结算：本轮自有API36/既有Qwen窗口UTC19:03:43–21:03:43已结束，不再追加设备/模型调用。固定业务最终14次通过，保留原文件两次总计行失败；按钮四种语言/字体组合、图片等待提示与只导航、六项实际图片管线及修后四次Qwen手机任务/八次返回通过。抖音由Helix自主完成一次官方下载，AX安装确认未推进；Shizuku夹具连接竞争导致UNKNOWN/只读恢复，修正为独占连接后实际73次请求仍未在期限内完成安装。全流程failed，观看/登录阻挡分支/卸载未执行，不宣称长稳passed或改写R5失败。测试实例、录制器、临时服务均关闭，AX/浮窗设置恢复，日常未覆盖；窗口结束后仅修正连接清理错误不覆盖原异常，三项主机回归及最终全仓all-r6通过、设备补验pending。见[本轮证据](../evidence/development/autonomous-app-and-stability-2026-10-14.md)。

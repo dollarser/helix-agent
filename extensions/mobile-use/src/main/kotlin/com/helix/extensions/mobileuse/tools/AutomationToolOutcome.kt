@@ -3,6 +3,8 @@ package com.helix.extensions.mobileuse.tools
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
 import com.helix.extensions.mobileuse.automation.AutomationActionStatus
 import com.helix.tools.framework.ToolExecutorResult
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
@@ -11,18 +13,17 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
     if (status == AutomationActionStatus.SUCCEEDED) {
         ToolExecutorResult.Completed(
             buildJsonObject {
-                put("status", JsonPrimitive(status.name))
+                put("status", JsonPrimitive("DISPATCHED"))
+                put("effectStatus", JsonPrimitive("UNVERIFIED"))
                 put("observationRequired", JsonPrimitive(true))
                 put("nextObservation", JsonPrimitive("ui.snapshot or ui.find; ui.device for coordinate actions"))
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "Action dispatched. All previous node tokens and coordinate frames are now invalid. " +
-                            "Before any further action, observe again using nextObservation. " +
-                            "Verify the actual result; dispatch success does not prove " +
-                            "touch acceptance or task completion. If there is no observed " +
-                            "progress, reassess before retrying. Do not automatically " +
-                            "replay an uncertain action on another backend.",
+                        "Input dispatch completed; effect is UNVERIFIED. Previous tokens/frames are invalid. " +
+                            "Before another action or reporting completion, observe using nextObservation. " +
+                            "An unchanged screen proves neither failure nor touch filtering. " +
+                            "Never blindly retry or replay an uncertain effect on another backend.",
                     ),
                 )
             },
@@ -35,7 +36,10 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                     AutomationActionStatus.ACTION_OUTCOME_UNKNOWN,
                 )
         val message =
-            if (status == AutomationActionStatus.ACTION_NOT_SUPPORTED) {
+            if (status == AutomationActionStatus.SENSITIVE_UI) {
+                "${status.name}: Helix refused this sensitive target before dispatch. No action was executed. " +
+                    "Screenshots do not grant permission or remove system restrictions."
+            } else if (status == AutomationActionStatus.ACTION_NOT_SUPPORTED) {
                 "${status.name}: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
                     "choose a target supporting the requested action (a scrollable container for ui.scroll). " +
                     "Do not repeat the same call or guess coordinates."
@@ -48,4 +52,47 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                 status.name
             }
         ToolExecutorResult.Failed(message, sideEffectFree = !uncertain, requiresReview = uncertain)
+    }
+
+/** A completed input operation is not evidence that the target accepted it or the task succeeded. */
+internal fun automationActionOutputSchema(includeBackend: Boolean = false): JsonObject =
+    buildJsonObject {
+        put("type", JsonPrimitive("object"))
+        put(
+            "properties",
+            buildJsonObject {
+                put("status", actionLiteral("DISPATCHED"))
+                put("effectStatus", actionLiteral("UNVERIFIED"))
+                put(
+                    "observationRequired",
+                    buildJsonObject {
+                        put("type", JsonPrimitive("boolean"))
+                        put("enum", JsonArray(listOf(JsonPrimitive(true))))
+                    },
+                )
+                put("nextObservation", actionText(128))
+                put("actionHint", actionText(384))
+                if (includeBackend) put("backend", actionText(16))
+            },
+        )
+        put(
+            "required",
+            JsonArray(
+                listOf("status", "effectStatus", "observationRequired", "nextObservation", "actionHint")
+                    .map(::JsonPrimitive),
+            ),
+        )
+        put("additionalProperties", JsonPrimitive(false))
+    }
+
+private fun actionLiteral(value: String) =
+    buildJsonObject {
+        put("type", JsonPrimitive("string"))
+        put("enum", JsonArray(listOf(JsonPrimitive(value))))
+    }
+
+private fun actionText(maximum: Int) =
+    buildJsonObject {
+        put("type", JsonPrimitive("string"))
+        put("maxLength", JsonPrimitive(maximum))
     }

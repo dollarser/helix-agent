@@ -190,7 +190,8 @@ class CurrentInstallVisualGestureDeviceTest {
                             ?.content
                     assertFalse("gesture before delivered screenshot", screenshotFrame.isNullOrBlank())
                     assertEquals("gesture used a different frame", screenshotFrame, frame)
-                    assertEquals("SUCCEEDED", resultContent(call)["status"]?.jsonPrimitive?.content)
+                    assertEquals("DISPATCHED", resultContent(call)["status"]?.jsonPrimitive?.content)
+                    assertEquals("UNVERIFIED", resultContent(call)["effectStatus"]?.jsonPrimitive?.content)
                     screenshotFrame = null
                     successfulGestures++
                 }

@@ -2,6 +2,21 @@
 
 日期：2026-10-14；范围：[HXA-282](../../development/tasks/HXA-282.md)。Owner本轮明确授权自有API36、既有30008 Qwen、文件/浏览器/Mobile Use任务及最长两小时长稳。实际App为抖音官方下载、安装、观看和卸载，全部效果必须由Helix自主执行，可以提供上下文；不登录，必须登录才可观看时由Helix直接卸载。不会覆盖日常模拟器，不继承旧R5的结果。
 
+## Owner追加：动作回执语义优化
+
+Owner在过滤诊断后要求优化“派发完成却返回success”的歧义。本阶段只改Mobile Use模型可见动作结果、输出schema、相关工具版本、描述和内置Skill；没有新的设备/模型授权，不启动模拟器、真机或Qwen，设备/真实模型均not requested。此前API36过滤复测证明的是原制品上的系统行为，不当作新工具契约的设备通过。
+
+参考[OpenAI Computer use](https://developers.openai.com/api/docs/guides/tools-computer-use)和[Claude Computer use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool)的动作执行、返回观察、模型继续评估流程；Claude对普通动作的短确认也不等于用户任务完成。采纳这种职责分离，结合Android无法给普通无障碍回传目标View过滤原因的限制，Helix明确返回`status=DISPATCHED`、`effectStatus=UNVERIFIED`及必须观察的提示，不声称竞品使用同名字段。没有复制参考代码或引入执行引擎。
+
+- 手势、节点动作、系统动作及启动共用同一回执schema。DISPATCHED仅确认当前输入/平台调用完成；schema拒绝SUCCEEDED、VERIFIED、缺失核验标记或不要求观察的假结果。受影响动作工具版本升级；device/apps/screenshot与snapshot/find/wait版本保持，历史结果不改写。
+- 原生`AutomationActionStatus.SUCCEEDED`及外层ToolCall完成仍是执行事实，未改core、Room、预算、审批、物理租约或Loop。正常的UNVERIFIED不触发UNKNOWN/NEEDS_REVIEW；原ACTION_FAILED/ACTION_OUTCOME_UNKNOWN的review事实、执行前拒绝及取消/超时保持。
+- SENSITIVE_UI明确为Helix自身的派发前拒绝，不冒充Android提供了过滤回执。缺少节点、页面未变化或截图中的按钮敏感都不能凭空生成`touchFiltered=true`等诊断。没有添加不可靠的自动结果判定、动作重试或跨后端重放。
+- 修正click_match原“无需人工点击”的绝对承诺，说明安装授权不排除平台要求人工确认。Skill明确新回执含义、动作后直接业务核验及无可见进展时不猜测原因。图片披露、返回会话及scope边界保持。
+
+回归保留原unsupported/uncertain两项测试，并增加正常回执、严格schema、全状态恢复事实、本地敏感拒绝四项；实际语义/手势executor测试增加新字段断言及派发前取消不得触达后端检查。旧设备用例只更新模型可见payload断言，实际点击计数、敏感拒绝、安装包状态及原生回调SUCCEEDED断言仍保持。完整主机及双渠道/SDK测试APK结果在本阶段结算；不把编译当设备验收。
+
+最终`./scripts/check-all.sh --all`退出0（`build/hxa282/action-acknowledgement/host-all-r1.txt`），source/host脚本、JVM、格式/Detekt、四variant lint/APK及制品/Runtime边界通过。Mobile Use Debug JVM263项零失败/跳过，其中共享结果类原2项及新增4项均通过；没有声明未配置执行的Release JVM通过。双渠道App及SDK AndroidTest最终编译退出0（`androidtest-final.txt`），定向早期日志保留；差异复核确认原测试方法完整保留，输出断言按新契约更新。设备/真实模型not requested，未安装、未启动新长稳，不预报模型遵循率收益或把未知过滤原因宣称已可检测。
+
 ## Owner追加：安装触摸过滤定点复测
 
 Owner随后要求重新测试并查官方依据，判断坐标偏移还是触摸过滤，以及可用的输入接口。本次重新授权的范围是定点诊断，使用自有API36只读实例和自有小型`Helix Install Fixture`，不重新启动长稳、不调用真实模型、不操作抖音或账号。宿主对合成测试包的Shell点击是诊断对照，绝不计作Helix自主安装抖音。

@@ -23,13 +23,14 @@ internal object AutomationToolDescriptions {
                 "Observe and click one unambiguous target using its observed label or attributes. " +
                     "Prefer ui.click when you already have suggestedClickToken. " +
                     "The runtime selects the available backend; do not supply a backend argument. " +
-                    "An authorized system Install button needs no separate human click. " +
+                    "An authorized system Install button is within task scope; " +
+                    "Android may still require manual confirmation. " +
                     "Zero or ambiguous targets do not click; unknown outcomes must not be replayed."
             }
 
             AutomationTools.CLICK -> {
                 "Click a fresh observed token; use clickTargetToken for a non-clickable child. " +
-                    "Verify the resulting screen."
+                    "DISPATCHED does not verify touch acceptance; observe the resulting screen."
             }
 
             AutomationTools.LONG_CLICK -> {

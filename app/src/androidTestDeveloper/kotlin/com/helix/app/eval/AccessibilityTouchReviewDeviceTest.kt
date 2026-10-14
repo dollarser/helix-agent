@@ -132,7 +132,8 @@ class AccessibilityTouchReviewDeviceTest {
         SystemClock.sleep(250)
         val after = oracle()
         println("TOUCH_REVIEW mode=$mode point=${before.first},${before.second} result=$gesture oracle=$after")
-        assertEquals("SUCCEEDED", gesture["status"]?.jsonPrimitive?.content)
+        assertEquals("DISPATCHED", gesture["status"]?.jsonPrimitive?.content)
+        assertEquals("UNVERIFIED", gesture["effectStatus"]?.jsonPrimitive?.content)
         val acceptsTouch = mode == "normal" || mode == "no-semantics"
         assertEquals(if (acceptsTouch) 1 else 0, after.third.first)
         assertTrue(after.third.second.contains("accepted=$acceptsTouch"))

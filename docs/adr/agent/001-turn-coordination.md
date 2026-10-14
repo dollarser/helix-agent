@@ -255,6 +255,8 @@ Dispatcher、MCP、Skill、effect classifier、approval binding 和 argsHash 只
 
 UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保留 Harness 状态与耗时；工具名称、完整 intent、请求参数、结果预览、调用标识和诊断入口收进详情。待审批卡保持可见。status、result、approval、UNKNOWN/NEEDS_REVIEW 始终来自 Harness；展开保留原参数、结果与 call identity。不增加 Activity grouping 或额外 LLM 结果总结。自然语言过滤是有界防护，不是语义真实性证明；通过过滤的文本仍不获得执行或授权权威。
 
+Mobile Use输入动作的模型可见结果采用`status=DISPATCHED`、`effectStatus=UNVERIFIED`，只确认派发/平台动作调用完成，不能证明目标接受触摸或用户任务完成；后续由模型通过新观察或直接业务事实核验。此处UNVERIFIED不是执行器丢失回执的UNKNOWN，不改变ToolCall完成、取消、NEEDS_REVIEW或恢复状态。平台未提供拒绝回执时，不从节点缺失/页面不变伪造敏感过滤原因；Helix自身明确的敏感目标拒绝仍是执行前失败。仅变更Mobile Use工具输出契约与版本，保留历史结果，不修改核心状态枚举、Room或自动重放策略。
+
 ### 16. 当前输入与静默会话缓存
 
 - 用户模式、预算、推理选项修改与后续发送按调用顺序进入应用层队列，再使用既有 submission gate。发送不能越过先前未完成的配置写入；调用方取消等待回执不取消服务已接受的动作。队列仅负责进程内顺序，正式输入与运行配置仍以 Room 为准，启动时继续重验证会话、活动 Turn、权限与配置，不能放宽绑定校验来掩盖竞争。
@@ -266,6 +268,8 @@ UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保�
 - 所有者于 2026-09-29 追加要求清理废弃表：当前开发期 Room v1 baseline 移除 `composer_drafts`、对应 DAO/Room Entity 与注册入口，不再保留结构兼容。文件输入使用独立 `ComposerInputSnapshot` / `ComposerInputCache`，不是 Room aggregate；不引入旧库/文件双写。所有者随后明确授权开发期覆盖升级遇到 schema identity 不兼容时直接删库重建，文件保留；不把更新源码说成设备数据已经清空。正式消息、队列、回执和仍在使用的 CUSTOM 权限编辑表保留。
 
 ## Decision history
+
+- 2026-10-14：Owner要求消除Mobile Use手势完成被误解为任务成功。采纳输入派发与业务核验分层，动作输出改为DISPATCHED/UNVERIFIED并升级受影响工具版本；明确本地SENSITIVE_UI拒绝与系统不可见过滤的证据边界。不以缺少业务核验触发UNKNOWN，不新增自动验证任务引擎或跨后端重放。
 
 - 2026-10-13：Owner授权修正模型响应回填。一次工具响应的可见文字随原调用序列保存在同一TOOL_CALLS记录中（首项assistantText为响应元数据，不是调用参数）；工具前进度另存为TOOL_PROGRESS显示投影，模型历史及模型正文容量不重复消费该投影。原model-call关闭与两记录发布仍在同一事务，UI顺序/调用身份/失败、取消和UNKNOWN结算不变；没有实际调用的普通最终文字仍为TEXT，不从相邻记录猜测关联，也不根据操作承诺自动续跑或补做副作用。已有未关联记录按原事实读取，不补写关联或迁移。接受协议对应的逻辑消息完整性方向；模型完成率及其他服务需实际验证，不由此关闭历史失败。
 

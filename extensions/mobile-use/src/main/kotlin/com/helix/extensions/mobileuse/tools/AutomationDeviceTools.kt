@@ -98,7 +98,8 @@ class AutomationDeviceTools(
                     "Root/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
                     "Map image pixels via that screenshot's screenBounds; never subtract windowBounds. " +
                     "Refresh frame after window/rotation changes. " +
-                    "Observe after uncertain outcomes; never blindly replay.",
+                    "DISPATCHED acknowledges input only; verify its effect with a fresh observation. " +
+                    "Never blindly replay.",
             ),
             descriptor(
                 SCREENSHOT,
@@ -307,7 +308,7 @@ class AutomationDeviceTools(
             } else if (name == SCREENSHOT || name == APPS) {
                 2
             } else {
-                1
+                2
             },
         ),
         help,
@@ -391,16 +392,7 @@ class AutomationDeviceTools(
             "status",
         )
 
-    private fun actionOutput() =
-        obj(
-            mapOf(
-                "status" to str(64),
-                "observationRequired" to bool(),
-                "nextObservation" to str(128),
-                "actionHint" to str(384),
-            ),
-            "status",
-        )
+    private fun actionOutput() = automationActionOutputSchema()
 
     private fun boundsSchema() =
         obj(
