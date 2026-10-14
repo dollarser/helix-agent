@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="connector_oauth_advanced">高级连接设置</string>
     <string name="app_name">Helix</string>
     <string name="chat_ledger_empty">本会话尚未生成任务清单。Helix 创建清单后会在这里显示进度。</string>
     <string name="connector_oauth_client_setup">发现客户端配置</string>
@@ -661,7 +662,7 @@
     <string name="connector_bearer">Bearer token（已有凭据可留空）</string>
     <string name="connector_auth_mode_bearer">Bearer Token</string>
     <string name="connector_auth_mode_oauth">OAuth 2.0 (PKCE)</string>
-    <string name="connector_oauth_connect">OAuth 登录</string>
+    <string name="connector_oauth_connect">连接账号</string>
     <string name="connector_oauth_disconnect">断开并撤销</string>
     <string name="connector_oauth_connected">OAuth 2.0 已授权</string>
     <string name="connector_oauth_client_id">Client ID</string>

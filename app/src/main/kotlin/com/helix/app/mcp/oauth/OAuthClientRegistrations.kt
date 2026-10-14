@@ -36,6 +36,20 @@ class OAuthClientRegistrations(
     private val secrets: SecretStore,
     private val transport: McpOAuthClientRegistration,
 ) {
+    /** A server's explicit selection takes precedence over a shared registration. */
+    fun remembered(
+        serverId: String,
+        metadata: McpOAuthServerMetadata,
+        redirect: String,
+    ): McpOAuthClientIdentity? =
+        synchronized(LOCK) {
+            val selected = read(selectionKey(serverId)) ?: return@synchronized remembered(metadata, redirect)
+            require(
+                selected.issuer == metadata.issuer && selected.redirect == redirect,
+            ) { "OAUTH_CLIENT_BINDING_CHANGED" }
+            selected.identity()
+        }
+
     fun remembered(
         metadata: McpOAuthServerMetadata,
         redirect: String,
@@ -54,13 +68,20 @@ class OAuthClientRegistrations(
         supplied: String,
     ): McpOAuthClientIdentity {
         val previous = synchronized(LOCK) { read(selectionKey(serverId)) }
-        if (previous?.clientId == supplied) {
+        if (previous != null && (supplied.isBlank() || previous.clientId == supplied)) {
             require(
                 previous.issuer == metadata.issuer && previous.redirect == redirect,
             ) { "OAUTH_CLIENT_BINDING_CHANGED" }
         }
         val stored = synchronized(LOCK) { read(key(metadata.issuer, redirect)) }
-        val saved = if (supplied.isBlank() || stored?.clientId == supplied) remembered(metadata, redirect) else null
+        val saved =
+            when {
+                supplied.isBlank() -> remembered(serverId, metadata, redirect)
+                previous?.clientId == supplied -> previous.identity()
+                stored?.clientId == supplied -> remembered(metadata, redirect)
+                else -> null
+            }
+        require(saved != null || supplied.isNotBlank()) { "OAUTH_CLIENT_SETUP_REQUIRED" }
         val identity =
             saved ?: if (previous?.clientId == supplied) {
                 previous.identity()

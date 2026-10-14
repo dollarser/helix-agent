@@ -25,7 +25,7 @@ class ConnectorOAuthClientSetup(
     }
 
     fun remembered(offer: OAuthClientSetupOffer): McpOAuthClientIdentity? =
-        requireNotNull(service.oauthCoordinator).clients.remembered(offer.metadata, offer.redirect)
+        requireNotNull(service.oauthCoordinator).clients.remembered(offer.endpointId, offer.metadata, offer.redirect)
 
     suspend fun useDocument(
         endpoint: InstalledEndpoint,

@@ -24,6 +24,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 - access token 只发送给绑定的 MCP resource，refresh token 只发送给绑定的 token endpoint；不进入模型参数、日志、安装包、Skill 或 Connector 导出。撤销分别显示本地清除与厂商 revoke 是否成功，不能把删本地 token 冒充厂商撤销。
 - MCP 传输将凭据视为不透明值，接受1～4096字节无空白的可见ASCII并原样置于Authorization请求头；拒绝空值、超长、控制字符、空白及非ASCII。该兼容选择覆盖实际服务返回的冒号分隔token，是超出RFC6750 `b64token`字母表的部署兼容，不宣称冒号属于该ABNF，也不编码/截断/修饰凭据。长度、resource/issuer绑定、SSRF及拒绝跨源重定向保持。凭据格式失败用固定类别呈现，不把异常正文或凭据显示给用户；OAuth已授权与MCP连接就绪分开。
 - OAuth 成功仍不自动启用工具；回到原有 testConnection、用户工具选择、MCP bridge、Dispatcher/Approval。运行中遇到需要新 scope 的响应只呈现登录动作，不让远端响应替用户增加 scope 或重放有副作用调用。
+- 常规入口为“连接账号”：用户点击后发现元数据并复用当前服务已保存的客户端身份，再打开系统浏览器。Client ID、scope与精确回调默认收于高级连接设置；无可复用身份时显示CIMD/显式兼容注册或手动配置指引，不自动创建客户端。手动身份与注册身份均独立于账号token保存，断开账号不删除客户端；复用必须匹配server、issuer与redirect，显式服务选择优先于共享注册记录。Linear官方主端点默认请求read；其他服务不通过枚举全部scope扩大权限。
 - 连接发现的单个工具Schema默认上限128 KiB，整体元数据仍为512 KiB；完整保留Schema，不截断或删除校验字段。超限单独提示为本地兼容限制，不误报需要重新授权；连接测试不调用业务工具。
 - MCP适配层对精确声明默认2020-12方言的Schema按其format-annotation语义归一化，仅在Schema位置移除字符串format注解；保留原始哈希和其他校验字段。属性名及enum字面量不作为Schema关键字遍历；未知方言、嵌套方言、显式$vocabulary/format-assertion和不支持约束继续拒绝。内置工具子集不扩大。
 
@@ -42,7 +43,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 ## Verification
 
-已核实当前实现、合并前文件删除复现及 Slack public-client PKCE 官方说明。测试数字与最终合并状态见 HXA-126 的任务及修复证据；没有两家真实服务的登录/刷新/撤销验收结果。
+已核实当前实现、合并前文件删除复现及Slack public-client PKCE官方说明。测试数字与状态见HXA-126及其证据。2026-10-15两家官方服务的真实登录、指定对象只读调用和Dispatcher审批拒绝已有独立证据；自然过期刷新、厂商旧凭据失效与拒绝回调仍按实际执行分别记录，不能视为全通过。
 
 实现与合并门禁：运行 `:extensions:mcp:test`、双 flavor App JVM/构建、spotless/detekt/lintDebug/lintRelease、i18n/docs/ADR/secrets 门禁；建立 `accept-hxa-126-oauth` 专项测试，API29/36 验证错误 state/issuer/resource、取消、过期、进程死亡、重复回调、刷新竞争和断网。至少两家真实独立服务完成登录、只读 tools/call、权限拒绝、过期刷新、厂商撤销及重连；无账号时保持 HXA-126 外部验收未完成。
 
@@ -52,6 +53,7 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 
 ## Decision history
 
+- 2026-10-15：Owner要求优化MCP连接并完成重构前收尾。参考[Codex MCP](https://developers.openai.com/codex/mcp)的独立登录、配置身份优先与客户端复用、[Claude Code MCP](https://code.claude.com/docs/en/mcp)的自动发现/特殊服务预注册入口和[OpenCode MCP](https://opencode.ai/docs/mcp-servers/)的常规低配置连接，采用连接账号为主、高级参数折叠、手动身份持久复用。Helix继续使用Android精确私有scheme及显式注册确认，不复制桌面loopback监听、ChatGPT托管身份或自动POST策略；参考只用于行为比较，未复制代码。
 - 2026-10-15：Owner要求继续收尾。真实Notion/Linear均支持CIMD及DCR，但无自有HTTPS文档，旧UI/服务层没有可达的显式后备；本轮补齐双次用户动作的兼容入口及默认拒绝/持久化/取消回归。参考[当前MCP注册规范](https://modelcontextprotocol.io/specification/draft/basic/authorization/client-registration)及[Notion官方接入指南](https://developers.notion.com/guides/mcp/build-mcp-client)；DCR已弃用，保留为无文档时用户选择的兼容方式，不作为新接入首选。自有HTTPS文档、签名与App Link不随此虚构交付。
 - 2026-10-15：Owner继续Notion真实账号连接修复。原生OAuth已授权，实际tools/list后的80,556字节Schema被旧64 KiB本地上限拒绝；默认单Schema调整为128 KiB，保留总量、网络响应及授权边界。参考[MCP工具定义规范](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)，未复制实现，也不把本地大小预算描述为协议限制。
 - 2026-10-15：随后选择notion-search/fetch暴露2020-12日期format注解被工具子集拒绝。按[JSON Schema 2020-12 §7.2](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)仅处理默认方言注解，不移除强制约束或扩大校验引擎；超限与格式不兼容以固定类别提示。真实账号激活与读取仍按实际结果记录。

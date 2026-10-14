@@ -54,6 +54,17 @@ class OfficialMcpReadDeviceTest {
                     .filter { it.kind == "tool" && it.enabled }
                     .mapTo(linkedSetOf()) { it.name }
             val before = credential(endpoint.id)
+            val offer = service.clientSetup.inspect(endpoint, service.oauthRedirectUri)
+            val remembered = requireNotNull(service.clientSetup.remembered(offer))
+            val reused =
+                requireNotNull(service.oauthCoordinator).clients.resolve(
+                    endpoint.id,
+                    offer.metadata,
+                    offer.redirect,
+                    "",
+                )
+            assertEquals(remembered, reused)
+            assertEquals(before.binding.clientId, reused.clientId)
             val expiredBefore = before.tokens.isExpired()
             val snapshot = withTimeout(90_000) { service.testOAuth(endpoint) }
             val after = credential(endpoint.id)

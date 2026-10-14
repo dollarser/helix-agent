@@ -18,6 +18,50 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Suppress("MaxLineLength") // Exact bounded JSON response fixtures, not runtime payload generation.
 class OAuthClientRegistrationsTest {
+    @Test fun manualSelectionSurvivesReopenAndTakesPrecedenceOverSharedRegistration() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.clients.register("other-server", metadata(), REDIRECT)
+            val selected = fixture.clients.resolve("server", metadata(), REDIRECT, "manual-id")
+            val reopened = fixture.reopen()
+            assertEquals(selected, reopened.remembered("server", metadata(), REDIRECT))
+            assertEquals(selected, reopened.resolve("server", metadata(), REDIRECT, ""))
+            assertEquals(1, fixture.requests.get())
+        }
+
+    @Test fun blankReconnectCannotReuseManualSelectionAcrossIssuerOrRedirect() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.clients.resolve("server", metadata(), REDIRECT, "manual-id")
+            for ((meta, redirect) in listOf(
+                metadata().copy(issuer = "$ISSUER/other") to REDIRECT,
+                metadata() to "helix://oauth/callback",
+            )) {
+                assertThrows(IllegalArgumentException::class.java) {
+                    fixture.reopen().remembered("server", meta, redirect)
+                }
+                assertThrows(IllegalArgumentException::class.java) {
+                    runBlocking { fixture.reopen().resolve("server", meta, redirect, "") }
+                }
+            }
+            assertEquals(0, fixture.requests.get())
+        }
+
+    @Test fun absentOrForgottenClientRequiresSetupInsteadOfPublishingBlankIdentity() {
+        val fixture = Fixture()
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { fixture.clients.resolve("server", metadata(), REDIRECT, "") }
+        }
+        assertTrue(fixture.secrets.aliases().isEmpty())
+        runBlocking { fixture.clients.resolve("server", metadata(), REDIRECT, "manual-id") }
+        fixture.clients.forget("server", ISSUER, REDIRECT)
+        assertNull(fixture.reopen().remembered("server", metadata(), REDIRECT))
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { fixture.reopen().resolve("server", metadata(), REDIRECT, "") }
+        }
+        assertEquals(0, fixture.requests.get())
+    }
+
     @Test fun cimdFallbackIsExplicitAndItsResultIsRememberedWithoutRepeatingPost() =
         runBlocking {
             val fixture = Fixture()

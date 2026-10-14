@@ -2,14 +2,19 @@ package com.helix.app.connector
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.helix.extensions.mcp.oauth.McpOAuthServerMetadata
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -17,6 +22,27 @@ import org.junit.Test
 
 class OAuthClientSetupDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun advancedFieldsStartHiddenAndRetainEditsAcrossCollapse() {
+        compose.setContent {
+            MaterialTheme {
+                var expanded by remember { mutableStateOf(false) }
+                var client by remember { mutableStateOf("") }
+                Column {
+                    OAuthAdvancedOptions(true, expanded, { expanded = it }) {
+                        OutlinedTextField(client, { client = it }, modifier = Modifier.testTag("manual-client"))
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("manual-client").assertDoesNotExist()
+        compose.onNodeWithTag("oauth-advanced").performClick()
+        compose.onNodeWithTag("manual-client").performTextInput("manual-fixture")
+        compose.onNodeWithTag("oauth-advanced").performClick()
+        compose.onNodeWithTag("manual-client").assertDoesNotExist()
+        compose.onNodeWithTag("oauth-advanced").performClick()
+        compose.onNodeWithTag("manual-client").assertTextEquals("manual-fixture")
+    }
 
     @Test fun registrationNeedsSeparateConfirmationShowingExactTargets() {
         var registrations = 0

@@ -7,6 +7,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +23,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@Composable
+@Suppress("FunctionName")
+internal fun OAuthAdvancedOptions(
+    enabled: Boolean,
+    expanded: Boolean,
+    onExpanded: (Boolean) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    TextButton(
+        enabled = enabled,
+        onClick = { onExpanded(!expanded) },
+        modifier = Modifier.testTag("oauth-advanced"),
+    ) { Text(stringResource(R.string.connector_oauth_advanced)) }
+    if (expanded) content()
+}
+
 /** Setup is user-driven and distinct from enabling tools or exchanging an account token. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
@@ -31,8 +48,8 @@ internal fun OAuthClientSetupSection(
     redirect: String,
     disabled: Boolean,
     onClientId: (String) -> Unit,
-    onBusy: (Boolean) -> Unit,
     onError: (String?) -> Unit,
+    connection: OAuthSetupConnection = OAuthSetupConnection(),
 ) {
     val scope = rememberCoroutineScope()
     var offer by remember { mutableStateOf<OAuthClientSetupOffer?>(null) }
@@ -44,7 +61,7 @@ internal fun OAuthClientSetupSection(
     fun perform(action: suspend () -> Unit) {
         if (working || disabled) return
         working = true
-        onBusy(true)
+        connection.onBusy(true)
         onError(null)
         scope.launch {
             try {
@@ -55,21 +72,34 @@ internal fun OAuthClientSetupSection(
                 onError(failure)
             } finally {
                 working = false
-                onBusy(false)
+                connection.onBusy(false)
             }
         }
     }
-    OutlinedButton(
-        enabled = !disabled && !working && redirect.isNotBlank(),
-        modifier = Modifier.testTag("oauth-client-inspect"),
-        onClick = {
-            perform {
-                val discovered = withContext(Dispatchers.IO) { setup.inspect(endpoint, redirect) }
-                offer = discovered
-                withContext(Dispatchers.IO) { setup.remembered(discovered) }?.let { onClientId(it.clientId) }
+    OAuthConnectEffect(connection.request) {
+        perform {
+            val discovered = withContext(Dispatchers.IO) { setup.inspect(endpoint, redirect) }
+            offer = discovered
+            val identity = withContext(Dispatchers.IO) { setup.remembered(discovered) }
+            if (identity != null) {
+                onClientId(identity.clientId)
+                connection.continueLogin(identity.clientId)
             }
-        },
-    ) { Text(stringResource(R.string.connector_oauth_client_setup)) }
+        }
+    }
+    if (connection.advanced) {
+        OutlinedButton(
+            enabled = !disabled && !working && redirect.isNotBlank(),
+            modifier = Modifier.testTag("oauth-client-inspect"),
+            onClick = {
+                perform {
+                    val discovered = withContext(Dispatchers.IO) { setup.inspect(endpoint, redirect) }
+                    offer = discovered
+                    withContext(Dispatchers.IO) { setup.remembered(discovered) }?.let { onClientId(it.clientId) }
+                }
+            },
+        ) { Text(stringResource(R.string.connector_oauth_client_setup)) }
+    }
     offer?.let { reviewed ->
         OAuthClientSetupOptions(
             reviewed,
@@ -81,6 +111,7 @@ internal fun OAuthClientSetupSection(
                 perform {
                     val identity = withContext(Dispatchers.IO) { setup.useDocument(endpoint, reviewed, url) }
                     onClientId(identity.clientId)
+                    connection.continueLogin(identity.clientId)
                 }
             },
             register = { confirmation = "register" },
@@ -89,31 +120,55 @@ internal fun OAuthClientSetupSection(
     }
     val reviewed = offer
     val operation = confirmation
-    if (reviewed != null && operation != null) {
-        OAuthClientSetupConfirmation(
-            offer = reviewed,
-            forget = operation == "forget",
-            dismiss = { confirmation = null },
-            confirm = {
-                confirmation = null
-                perform {
-                    if (operation == "forget") {
-                        withContext(Dispatchers.IO) { setup.forget(reviewed) }
-                        onClientId("")
-                    } else {
-                        val identity =
-                            withContext(Dispatchers.IO) {
-                                setup.register(
-                                    endpoint,
-                                    reviewed,
-                                    allowCimdFallback = reviewed.metadata.clientIdMetadataDocumentSupported,
-                                )
-                            }
-                        onClientId(identity.clientId)
-                    }
+    OAuthSetupReview(
+        offer = reviewed,
+        operation = operation,
+        dismiss = { confirmation = null },
+        confirm = {
+            val currentOffer = requireNotNull(reviewed)
+            confirmation = null
+            perform {
+                if (operation == "forget") {
+                    withContext(Dispatchers.IO) { setup.forget(currentOffer) }
+                    onClientId("")
+                } else {
+                    val identity =
+                        withContext(Dispatchers.IO) {
+                            setup.register(
+                                endpoint,
+                                currentOffer,
+                                allowCimdFallback = currentOffer.metadata.clientIdMetadataDocumentSupported,
+                            )
+                        }
+                    onClientId(identity.clientId)
+                    connection.continueLogin(identity.clientId)
                 }
-            },
-        )
+            }
+        },
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun OAuthConnectEffect(
+    request: Int,
+    discover: () -> Unit,
+) {
+    LaunchedEffect(request) {
+        if (request > 0) discover()
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun OAuthSetupReview(
+    offer: OAuthClientSetupOffer?,
+    operation: String?,
+    dismiss: () -> Unit,
+    confirm: () -> Unit,
+) {
+    if (offer != null && operation != null) {
+        OAuthClientSetupConfirmation(offer, operation == "forget", dismiss, confirm)
     }
 }
 

@@ -553,6 +553,7 @@ private fun OAuthAuthSection(
         when {
             isSlack -> "channels:read,users:read,chat:write"
             isGitHub -> "repo,read:user"
+            endpoint.endpoint.url == "https://mcp.linear.app/mcp" -> "read"
             else -> ""
         }
     val defaultRedirect = service.oauthRedirectUri
@@ -567,6 +568,34 @@ private fun OAuthAuthSection(
     var devicePolling by remember(endpoint.id) { mutableStateOf(false) }
     var pollingJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var preparationJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    var advanced by remember(endpoint.id, endpoint.endpoint.url) { mutableStateOf(false) }
+    var connectRequest by remember(endpoint.id, endpoint.endpoint.url) { mutableStateOf(0) }
+
+    fun connect(id: String) {
+        connectRequest = 0
+        connecting = true
+        preparationJob =
+            scope.launch {
+                onError(null)
+                try {
+                    val prepared =
+                        withContext(Dispatchers.IO) {
+                            service.prepareOAuth(endpoint, id, scopeText, redirectUri)
+                        }
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, prepared.authUri.toUri()).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        },
+                    )
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (e: Exception) {
+                    connecting = false
+                    onError(e.message)
+                }
+            }
+    }
 
     val revokedMessage = stringResource(R.string.connector_oauth_revoked)
     val localClearMessage = stringResource(R.string.connector_oauth_local_cleared)
@@ -619,28 +648,43 @@ private fun OAuthAuthSection(
             },
         )
     } else {
-        OutlinedTextField(
-            value = clientId,
-            onValueChange = { clientId = it },
+        OAuthAdvancedOptions(
             enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
-            singleLine = true,
-            label = { Text(stringResource(R.string.connector_oauth_client_id)) },
-        )
-        OutlinedTextField(
-            value = scopeText,
-            onValueChange = { scopeText = it },
-            enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
-            singleLine = true,
-            label = { Text(stringResource(R.string.connector_oauth_scope)) },
-        )
-        if (!isGitHub) {
+            expanded = advanced,
+            onExpanded = { advanced = it },
+        ) {
             OutlinedTextField(
-                value = redirectUri,
-                onValueChange = { redirectUri = it },
+                value = clientId,
+                onValueChange = {
+                    connectRequest = 0
+                    clientId = it
+                },
                 enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
                 singleLine = true,
-                label = { Text(stringResource(R.string.connector_oauth_redirect)) },
+                label = { Text(stringResource(R.string.connector_oauth_client_id)) },
             )
+            OutlinedTextField(
+                value = scopeText,
+                onValueChange = {
+                    connectRequest = 0
+                    scopeText = it
+                },
+                enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
+                singleLine = true,
+                label = { Text(stringResource(R.string.connector_oauth_scope)) },
+            )
+            if (!isGitHub) {
+                OutlinedTextField(
+                    value = redirectUri,
+                    onValueChange = {
+                        connectRequest = 0
+                        redirectUri = it
+                    },
+                    enabled = !busy && !connecting && !devicePolling && !clientSetupBusy,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.connector_oauth_redirect)) },
+                )
+            }
         }
         androidx.compose.runtime.key(endpoint.id, endpoint.endpoint.url, redirectUri) {
             OAuthClientSetupSection(
@@ -648,9 +692,12 @@ private fun OAuthAuthSection(
                 endpoint,
                 redirectUri,
                 busy || connecting || devicePolling,
-                onClientId = { clientId = it },
-                onBusy = { clientSetupBusy = it },
+                onClientId = {
+                    clientId = it
+                    if (it.isBlank()) connectRequest = 0
+                },
                 onError = onError,
+                connection = OAuthSetupConnection(connectRequest, advanced, { clientSetupBusy = it }) { connect(it) },
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -698,30 +745,10 @@ private fun OAuthAuthSection(
             }
             OutlinedButton(
                 enabled =
-                    !busy && !connecting && !devicePolling && !clientSetupBusy && clientId.isNotBlank() &&
+                    !busy && !connecting && !devicePolling && !clientSetupBusy &&
                         (isGitHub || redirectUri.isNotBlank()),
                 onClick = {
-                    connecting = true
-                    preparationJob =
-                        scope.launch {
-                            onError(null)
-                            try {
-                                val prepared =
-                                    withContext(Dispatchers.IO) {
-                                        service.prepareOAuth(endpoint, clientId, scopeText, redirectUri)
-                                    }
-                                val intent =
-                                    Intent(Intent.ACTION_VIEW, prepared.authUri.toUri()).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                context.startActivity(intent)
-                            } catch (cancel: CancellationException) {
-                                throw cancel
-                            } catch (e: Exception) {
-                                connecting = false
-                                onError(e.message)
-                            }
-                        }
+                    if (clientId.isBlank()) connectRequest++ else connect(clientId)
                 },
             ) {
                 Text(
@@ -742,6 +769,7 @@ private fun OAuthAuthSection(
                 preparationJob = null
                 devicePolling = false
                 connecting = false
+                connectRequest = 0
             }) { Text(stringResource(R.string.common_cancel)) }
             Text(
                 stringResource(R.string.connector_oauth_connecting),
