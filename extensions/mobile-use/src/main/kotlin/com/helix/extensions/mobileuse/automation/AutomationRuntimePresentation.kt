@@ -53,15 +53,22 @@ object AutomationRuntimePresentationFactory {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught") // Preserve the first failure and every cleanup failure, then rethrow.
     fun register(resource: com.helix.extensions.plugin.NativeResource<AutomationRuntimePresentation>): AutoCloseable {
         check(current.compareAndSet(null, resource)) { "MOBILE_USE_PRESENTATION_ALREADY_REGISTERED" }
         return AutoCloseable {
             current.compareAndSet(resource, null)
             try {
                 resource.value.hide()
-            } finally {
-                resource.close()
+            } catch (failure: Throwable) {
+                try {
+                    resource.close()
+                } catch (cleanup: Throwable) {
+                    if (cleanup !== failure) failure.addSuppressed(cleanup)
+                }
+                throw failure
             }
+            resource.close()
         }
     }
 }

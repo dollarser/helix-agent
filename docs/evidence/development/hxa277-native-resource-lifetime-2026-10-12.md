@@ -44,3 +44,21 @@ Mobile Use 使用真正开启的 Helix 无障碍服务，包括实际节点/系�
 初版编译的缩进后行长、测试注释行长及泛型清理异常记录的静态检查失败均保留于 `hxa277-build-1`～`5`、`hxa277-turn-build`；重排代码/缩短注释并明确记录后原样传播异常，未删除测试或吞异常报成功。第一次双渠道组合命令误写不存在的 `ActivityLifecycleDeviceTest`，各有一个 ClassNotFound 初始化失败，保留 `hxa277-*-cross-owner/`；改为实际 `BrowserActivityLifecycleDeviceTest` 后同冻结制品完整复跑通过。
 
 本次没有真实 Qwen 请求；三类内容策略的真实模型对照由 HXA-278 承接。未在真机、Root/Shizuku或其他OEM运行，也未以短跑关闭“平台永不回调”的长稳边界；缺少真实退出证据时保留物理占用及资源事实。旧DB/旧审批迁移、新hooks、子Agent引擎、LSP、每插件server均未加入。
+
+## 2026-10-14 优先级收尾：覆盖去重与清理双重失败
+
+Owner要求继续按优先级完成后续工作。本阶段复用HXA-235/277及现有权限/执行事实，不重做已交付框架，不启动设备、模型、长稳或服务器操作。
+
+| 风险 | 唯一主要回归入口 | 本次处理 |
+| --- | --- | --- |
+| 撤下准入但原回调尚在使用；共享消费者释放 | NativeResourceTest | 原用例保留，取消不冒充物理退出 |
+| 旧回调在替代实例已发布后再借用呈现 | AutomationPresentationRegistrationTest | 新增真实Factory.withUsage/borrow链路断言：仍指向旧实例且不恢复准入，不关闭替代实例 |
+| hide与cleanup同时失败 | AutomationPresentationRegistrationTest | 修复finally覆盖首个异常；首个失败原样传播，清理异常作为suppressed保留，NativeResource的CLEANUP_FAILED/failure仍真实记录 |
+| hide失败但cleanup成功，或二者抛同一异常对象 | 同上 | 新增清理仍完成/首个异常不丢、自抑制保护及fatal Error传播 |
+| 工具隐藏期间撤权/取消与执行失败 | MobileUsePresentedExecutorTest | 原前置拒绝、准确身份与释放断言保留，不另造重复fixture |
+| 执行取消/超时但executor未退出 | ExecutionOwnershipCancellationTest | 原物理容量断言保留，不以插件引用取代执行owner |
+| 安装/选择/凭据与持久恢复 | PluginLifecycleDeviceTest及NativePluginRepairDeviceTest | 复用原Room/生产安装链路；本阶段只编译，不声称重新执行设备矩阵 |
+
+修复位于AutomationRuntimePresentationFactory.register注销路径：先撤下当前实例，尝试hide；hide失败仍尝试资源close并保留双方失败，再抛原失败。未改准入/授权、回调身份、释放时机或NativeResource状态机。
+
+命令与结果：spotlessApply及Mobile Use Debug JVM293项、plugin JVM79项通过，零失败/错误/跳过；新增4项Factory边界回归。完整check-all.sh --all及双渠道App/SDK AndroidTest编译均通过，日志在忽略的build/hxa282/mobile-observation-optimization/lifecycle-*。本阶段设备和真实模型not requested，旧设备结果只证明原冻结制品；完整进程死亡/真实服务/OEM组合不由新增主机用例推导通过。
