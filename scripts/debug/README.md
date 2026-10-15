@@ -1,7 +1,7 @@
 # Dated debugging and test scripts
 
-Save temporary automation here **before running it**, under `YYYY-MM-DD/local/`
-(local date, ignored). Reviewed reproduction runners may remain tracked under dated paths.
+Save temporary automation **before running it**, under `scripts/local/debug/YYYY-MM-DD/`
+(local date, ignored). Reviewed reproduction runners may remain tracked here under dated paths.
 Keep reusable supported runners at their existing `scripts/` paths. Store logs, APKs,
 screenshots, UI dumps and user data only in ignored `build/` directories.
 
@@ -54,7 +54,7 @@ Failed runs additionally retain synthetic-device logcat and a UI hierarchy dump.
 ## Stable entry points
 
 Reusable runners now live under `scripts/`; see [supported tools](../README.md).
-Redundant dated shims and completed editors are retired with Git/path/hash provenance.
+Redundant dated shims and completed editors are retired with Git commit/path provenance.
 New references should use the stable paths. Retained historical runners remain available;
 ignored output directories are not a substitute for preserving reproduction tools.
 
@@ -68,13 +68,15 @@ Completed version-specific installers, frozen verifiers and local release logs m
 Maintained entry points now live in [device_baseline](../device_baseline/README.md),
 [fixtures](../fixtures/README.md) and [experiments/ffmpeg](../experiments/ffmpeg/README.md).
 Remaining dated files retain task-specific reproduction or unique experimental
-value. Date alone is not a deletion criterion. Original source hashes, replacements
+value. Date alone is not a deletion criterion. Original Git sources, replacements
 and retirement reasons are in the [curation inventory](archive/2026-10-15-script-curation.json).
 
-The 131 pre-existing untracked scripts in the [local inventory](archive/2026-10-15-worktree-inventory.json)
-remain at their original paths, preserving their internal calls and recovery bytes.
-Their exact paths are excluded in this checkout's `.git/info/exclude`; no wildcard
-hides future files and no tracked file is untracked. Seven references to the maintained
-baseline were updated and recorded by current hash. Historical source editors retain
-their original targets and must not be rerun on current code.
-New temporary scripts use dated `local/`, covered by the shared `.gitignore` rule.
+The pre-existing local historical scripts now live under `scripts/local/debug/YYYY-MM-DD/`,
+covered by the shared `/scripts/local/` ignore rule. Local recovery archives,
+migration details and checksums live under `scripts/local/debug/archive/`; tracked documents keep
+only stable sources and migration relationships. The former per-file exclusions
+in `.git/info/exclude` have been removed. Local calls follow the new paths; scripts
+that previously counted parent directories now locate the repository by project markers.
+Historical editors remain archived inputs and must not be rerun on current code.
+New temporary scripts use the same local layout; the former dated `local/` ignore rule
+remains for existing working copies.

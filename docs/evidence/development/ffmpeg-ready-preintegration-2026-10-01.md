@@ -231,4 +231,4 @@ python3 scripts/debug/2026-10-01/ffmpeg-ready/artifacts.py package --profile rea
 - [Android HDR/SDR](https://developer.android.com/media/media3/transformer/tone-mapping)：解释 HDR 为 SDR 与真正 tone mapping 的边界。
 
 
-2026-10-15 维护注：本页源文件链接已指向 `scripts/experiments/ffmpeg/`；原命令中的日期路径保留历史事实。17份迁移输入逐字节一致，包内旧路径和vendor制品未变，具体原路径/hash见[整理清单](../../../scripts/debug/archive/2026-10-15-script-curation.json)。本次仅重新运行主机合同及包检查，不继承或新增媒体/设备验收。
+2026-10-15 维护注：本页源文件链接已指向 `scripts/experiments/ffmpeg/`；原命令中的日期路径保留历史事实。17份迁移输入逐字节一致，包内旧路径和vendor制品未变，具体来源提交及原路径见[整理清单](../../../scripts/debug/archive/2026-10-15-script-curation.json)。本次仅重新运行主机合同及包检查，不继承或新增媒体/设备验收。

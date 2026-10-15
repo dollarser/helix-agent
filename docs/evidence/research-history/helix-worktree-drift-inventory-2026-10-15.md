@@ -14,7 +14,7 @@ This inventory records the pre-existing parallel documentation drift found while
 
 ## Dated debug-script archive
 
-There were 131 untracked scripts under `scripts/debug/`, dated 2026-09-30 through 2026-10-12. They are unrelated to this feature and their content/ownership was not assessed. Originals remain at their existing paths. For recoverability, a byte-for-byte duplicate archive was created at the ignored local path `build/debug-archive-2026-10-15/untracked-debug-scripts.tar.gz`; its SHA-256 is `0931c9265b5f4b8f1813628d8d4e2a2f076b7b3657e12625cd827634753a07d0`. The tracked inventory `scripts/debug/archive/2026-10-15-worktree-inventory.json` records each path, size, date directory, archive location and archive checksum. Nothing was permanently deleted.
+There were 131 untracked scripts under `scripts/debug/`, dated 2026-09-30 through 2026-10-12. They were unrelated to the preview feature and were archived locally for recovery. Subsequent owner-authorized curation moved them to `scripts/local/debug/YYYY-MM-DD/`. The recovery snapshot and detailed inventories are retained under ignored `scripts/local/debug/archive/2026-10-15/`; per-file hashes, sizes and the local inventory are no longer mirrored in Git documentation.
 
 ## Commit boundary
 
@@ -30,8 +30,9 @@ and current preview verification. Those previously pending document slices are c
 The separate active tool/plugin competitive-review document and its topic-index entry
 remain owned by their ongoing research task.
 
-The original 131-script archive remains unchanged and recoverable. Exact local Git
-exclusions preserve their paths; seven baseline caller paths were updated without
-retargeting historical source editors. Current hashes and handling are recorded in
-the existing local inventory. Tracked script curation and validation are described in
+The original 131-script archive remains unchanged and recoverable. Shared ignore
+rules now cover `scripts/local/` and `docs/local/`, replacing the earlier per-file
+exclusions for these scripts. Local calls and repository lookup follow the final
+script layout; local historical documents belong in `docs/local/`.
+Tracked script curation and validation are described in
 [the maintenance record](../development/debug-script-curation-2026-10-15.md).

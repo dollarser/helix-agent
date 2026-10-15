@@ -14,7 +14,11 @@ import subprocess
 from pathlib import Path
 
 root = Path(os.environ["HELIX_PROJECT_ROOT"]).resolve()
-markdown_files = sorted([*root.glob("*.md"), *(root / "docs").rglob("*.md")])
+local_docs = root / "docs" / "local"
+markdown_files = sorted(
+    path for path in [*root.glob("*.md"), *(root / "docs").rglob("*.md")]
+    if local_docs not in path.parents
+)
 link_pattern = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")
 errors: list[str] = []
 index_check = subprocess.run([sys.executable, str(root / "scripts/generate-completion-index.py"), "--check"], capture_output=True, text=True)

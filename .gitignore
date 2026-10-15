@@ -37,5 +37,9 @@ __pycache__/
 *.aab
 *.apks
 *.hprof
-# Optional local one-off scripts; reviewed runners elsewhere remain visible.
+# Retain the legacy local-script exclusion for existing working copies.
 /scripts/debug/*/local/
+# Local historical scripts and their recovery inventories.
+/scripts/local/
+# Local historical documents.
+/docs/local/
