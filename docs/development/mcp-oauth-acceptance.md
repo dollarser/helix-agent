@@ -58,3 +58,7 @@ Owner要求推荐两家可用个人账号接入的平台，也允许考虑自建
 现有两家记录均expiryKnown=true：Helix保存expiresInSeconds与本机issuedAtMs，能计算客户端到期时间。初轮只记录布尔，没有具体UTC；补安全日志并获得后续执行指示后，两家指定对象只读/工具审批拒绝各1方法再次passed，clientExpiresAtUtc已实际观察，均仍naturalRefresh=not_due。具体时间仅留本机忽略证据oauth-safe-times.log，不输出Token、消息或账号内容，不按常见TTL猜测。isExpired沿当前SDK提前60秒检查，最终刷新以生产prepare真实分支及新issuedAt落盘为证；元数据发现期间跨过期限的实际刷新也须识别，不能只凭较早布尔值记not_due。本轮没有改时间、伪造期限或等待数小时；真实自然刷新、OAuth拒绝回调及厂商撤销/重连仍未关闭。
 
 厂商撤销验证需先确认Owner方便重新授权，再由验收保留旧凭据于App内存、调用正常断开/撤销入口，记录厂商回执并核查旧授权实际不可用。本地清除、HTTP成功回执和旧授权失效是三个独立事实，不把网络错误当认证拒绝；服务是否即时失效旧access token须按实际政策/结果判断。Owner参与的是随后浏览器中的工作区确认和重新授权；若原生厂商接口无法撤销，才需Owner在该平台账号的连接/授权管理中移除此Helix授权。已有公共客户端继续复用，不用重新注册应用，不提供密码或密钥。本轮询问是否方便后未收到答复，现有授权保持，没有新增撤销操作。
+
+## 2026-10-15 Notion自然刷新补验
+
+Notion已在设备自然进入SDK提前60秒刷新窗口后完成正常prepare刷新、原授权绑定保持、新记录持久化，并通过不同App PID的重启复用及指定页面Dispatcher只读/审批拒绝复验。先前not_due记录是历史阶段，不再作为Notion当前缺口；Linear仍独立待自然期限，OAuth拒绝回调与厂商撤销/重连未关闭。主机与模拟器存在约6分钟偏差，必须以设备时间和实际isExpired/issuedAt分支为准，不能仅凭主机过期推断。详见[实际证据](../evidence/development/notion-natural-refresh-2026-10-15.md)。
