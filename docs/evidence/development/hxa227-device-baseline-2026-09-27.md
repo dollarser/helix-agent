@@ -2,6 +2,8 @@
 
 状态：本次受控模拟器轨迹与普通全量基线已完成；保留专用 runner、条件跳过及历史 SAF 间歇问题边界。所有者于 2026-09-27 明确要求按模拟器路线继续。使用 API29/API36 × consumer/developer 的受控 fixture，在独占 API36 consumer 模拟器执行当前类清单；不使用物理设备、真实 Provider/账号或付费额度。此前 HXA-227 完成记录证明的 host 范围不改写为历史设备通过。
 
+**本机产物清理（2026-10-12）：** `build/hxa227/` 中的旧 APK、逐轮设备输出及原始日志已退役删除。本文保留当时记录的测试范围、结果和哈希作为历史报告，不表示这些原始文件仍可在本机读取。
+
 ## 轨迹契约
 
 `evals/trajectory/core-device.json` 的八类 case 对应十个精确 `class#method` selector。Queue、Steer、Cancel/UNKNOWN、Review、Room reopen recovery、Goal、Compaction 与工具失败换路分别报告。Room reopen 不冒充 OS SIGKILL；Workspace 的实际进程杀死证据属于 HXA-210，不合并为本次轨迹数。

@@ -2,6 +2,8 @@
 
 所有者在本次对话明确授权模拟器验证。范围是 API29/API36 × consumer/developer 的 bounded Workspace 专项；未使用真机、真实 Provider/账号或完整 device baseline。
 
+**本机产物清理（2026-10-12）：** `build/hxa210/` 中的 APK、逐轮设备输出及原始日志已退役删除。本文保留当时记录的测试范围、结果和哈希作为历史报告，不表示这些原始文件仍可在本机读取。
+
 使用本次新建 `Helix_HXA210_API29` / `Helix_HXA210_API36`，arm64-v8a。runner 以 read-only、无 snapshot 方式启动，拒绝占用已有 serial，每次运行只终止自己的进程组，不清空其他模拟器或用户数据。应用和 test APK 独立复制到每次输出目录并记录 SHA-256。
 
 ## 最终扩展矩阵

@@ -4,6 +4,8 @@
 
 日期：2026-09-10。本地 main 从 a73cb8b 快进至 81d60e6，包含 22d2481 的基线修复、193de8e 的 HXA-161～184 实现和 81d60e6 的归档空白清理；未推送。
 
+**本机产物清理（2026-10-12）：** `build/emulator-verification/` 中对应的旧模拟器 APK、原始日志和 run-index 已退役删除。本文保留当时的审查结论，不表示这些原始文件仍可在本机读取。
+
 ## 合并保护与验证范围
 
 - main 的未提交文件先保存路径、SHA、二进制 diff 和文件副本。五个重叠的 tracked 文件另存 Git stash（标记 `main integration: preserve overlapping premerge edits`），没有删除 stash。

@@ -2,6 +2,8 @@
 
 日期：2026-09-27。基准 HEAD `7a2f47290f6f995f64847be6a203a0f83c6d5a3b`；dirty=true，包含前一阶段尚未提交的 HXA-227 工作。本记录仅证明 host 范围，完整本地验收见 HXA-210 完成记录。下文早期设备 not requested 是历史状态；所有者随后授权的本次运行见[模拟器证据](hxa210-emulator-verification-2026-09-27.md)。真实 Provider 仍 not requested。
 
+**本机产物清理（2026-10-12）：** `build/hxa210/` 与 `build/hxa227/` 中的旧 APK、运行目录及原始日志已退役删除。本文保留当时记录的命令、摘要结果和边界，不表示这些原始文件仍可在本机读取。
+
 ## 模拟器修复后的最终 host gate
 
 完成记录/status/roadmap/index 收口后的 `build/hxa210/final-source-gate.log` exit 0，文档、ADR、i18n 与 secret scan 通过；`git diff --check` exit 0。工作树保留未提交的 HXA-210/HXA-227 变更，不称为 clean checkout 或远端 CI。
