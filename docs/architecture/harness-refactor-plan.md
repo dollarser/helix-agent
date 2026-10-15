@@ -2,17 +2,19 @@
 
 # Helix 本机 Harness 详细重构方案：Agent Core、工具治理与 Execution Host
 
-初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30。本页维护目标结构、未实施阶段的技术卡片及验收。R1 已交付；后续 Core/上下文、插件、等待和策略变更不因本页存在而视作实现。历史证据与竞品来源见 §12，按原核验范围理解。
+初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30；执行边界提案：2026-10-14。本页保留 R/J 方案的设计依据与验收方法，并以 §23 维护新一轮提案。各轮增加和改变的原因见[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)；旧章节中的“当前/本轮/前置”须按其基线理解。
 
 **授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../development/tasks/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../development/tasks/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../development/tasks/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时优先级只看 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
-**2026-10-11 分层复核：**实际 Core Loop、Turn 生命周期、宿主适配、工具调度/准入与物理执行的职责见[当前架构](overview.md)，源码证据与建议归属见[执行引擎研究 §9](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)。HXA-274 追加结构化恢复目标及页面导航承载，HXA-277 追加 Turn/调度/执行/插件引用的原 owner 接线；其他已交付 Core/Engine/会话状态工作不重开。完整 Turn 宿主提取须有真实消费者和验证场景，当前不预建服务或新模块。新增决定见 ADR-AGENT-001 / CONNECTORS-003，单一目标实现且代码未实施；任务默认顺序仍由 [status](../development/status.md#系统分层优化承接2026-10-11)维护。
+**2026-10-11 分层复核的后续承接：**HXA-274 的恢复目标/页面导航与 HXA-277 的原生资源引用已按各自范围交付，见[当前架构](overview.md)与 [status](../development/status.md)。原判断保留在[研究 §9](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)；完整 Turn 宿主和模块重组的新建议见 §23，不再把早期“先不建模块”的迁移选择当作新设计限制。
 
-**阅读路径：**§1–3 是目标与规则分类；§4–7 仅作工作流导航，不重复定义底层契约；§8 是异步执行的规范正文；§9–12 是依赖、授权和证据；§13–17 分别定义接口/模块、绑定、上下文、插件；§18 只规定迁移步骤；§19–22 是验证、收益与完成检查。代码类型名是建议契约，不表示类已存在。
+**阅读路径：**新一轮重构先读 §23；§1–22 按需查设计理由和回归场景，不顺序重做旧卡片。§1–3 是原目标与起点；§4–9 是 R/J 分工与依赖；§10–12 是当时授权及证据；§13–17 是契约设计；§18 是原迁移卡片；§19–22 是测试与完成判据。章节内容已被接受的部分以对应主题 ADR 为有效正文，未接受部分仍是候选，类名和目录不冻结目标设计。
 
 **按任务读取：**职责与减法看 §13.6，结果反馈看 §15.6，Core/端口看 §13–14，上下文看 §16，插件生命周期看 §17，等待/后台化看 §8；卡片/测试看 §18–19，不要求每次全文加载。R1 的有效规范以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准，§15 只作衔接概要；其他提案与有效 ADR 不同时先裁决。
 
 **核心结论：模型主导任务策略，用户决定授权范围，Harness 忠实执行获准调用并回传真实结果。保留完整 Android 本机 Harness，默认本机模块化部署；不强制拆成多个服务，也不把业务路线和技术恢复写成第二个工作流大脑。**
+
+**2026-10-14 新设计入口：**Owner 要求重新核验主流 Agent 和当前源码，并明确不考虑旧方案/旧接口兼容。见 [§23](#23-2026-10-14-执行边界重构提案)；该节是本轮完整增量提案，§4–22 的既有交付不重复实施。源码和一手研究见[综合研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)。本轮只交付设计，未改变 accepted ADR 或 HXA-284 当前实现范围；“可替换接口”不代表已经建成独立执行服务。
 
 ## 1. 目标与取舍
 
@@ -56,7 +58,7 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 ## 2. 当前起点
 
-本次核对基于本地主目录源码，而非把研究中的问题列表直接当成待开发清单。
+本节是 2026-09-28～30 的源码起点，保留当时问题如何促成 R/J 方案；不是今天的缺陷或待开发清单。当前结构看 [overview](overview.md)，2026-10-14 接缝与新增目标看 §23。
 
 **2026-09-30 职责修订的时效校准：**本次读取 `main/7480141b` 加并行工作树。HXA-232 已在源码中取消 Mobile Use 每十次动作确认，并让已授权目标经新快照验证后自动恢复；仍保留 5 分钟/30 动作上限。相应执行分支见 [AutomationSessionManager](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt) 的 `resumeOnVerifiedTarget/completeAction`，不能仅因旧 CHECKPOINT 常量还在就断言周期确认仍生效。[自主恢复审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与 [Mobile Use 专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)保留历史发现；当前交付和验证以 HXA-232 的记录为准。本次只核对与职责有关的入口，不把先前 C02–C17 的全部行号、hash 或缺口重新声明为今日事实。
 
@@ -75,7 +77,7 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 原详细扩写的源码锚点为 `refactor/clean-slate-engine` / `49d3bd40d3f77319bfaf3429d9b6e90501fb63a7` 加工作树；本轮收敛修订读取的是本地 `main` / `70456eb576aa9a1fa92d25b44142800fc8294b5c` 加工作树。文档起始 SHA-256 为 `0d7321ab911e421eb124df84547a0612ea0a6506669899541d14777e16f0bfbc`。该历史核对时 R1 尚未实现；2026-09-30 后续迁移与 SAF 等其他工作以最新 status 为准，不因保留历史基线重新列为未修复。以下是源码阅读证据，不是本轮运行验证。
 
-新增确认的结构缺口：`AgentLoop` 仍接收字符串资源与 `refreshScreen` 回调；`TurnToolExecutor` 同时负责消息格式、Room 实体和执行；Scheduler 与 Dispatcher 曾各自解析 descriptor（R1 已改为相同 BindingRef）；现有短 Job 控制动作会占用 reconciliation permit，不能原样包成长等待。具体文件/行范围与 SHA 见 §12 和 §14。
+当时确认的结构缺口：`AgentLoop` 接收字符串资源与 `refreshScreen` 回调；`TurnToolExecutor` 混合消息格式、Room 实体和执行；Scheduler 与 Dispatcher 分别解析 descriptor；短 Job 控制动作占用 reconciliation permit。后续 R1/R2-A/J1 分别承接，不能将原描述重新当作未实现事实；具体历史文件/行范围与 SHA 见 §12 和 §14。
 
 ## 3. 目标架构与依赖
 
@@ -825,7 +827,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ## 18. 逐卡重构步骤与退出条件
 
-以下是**迁移卡片**，不是新 HXA 编号或新增授权。先按 §9 确认依赖及当前任务；契约只引用 §8、§13–17，卡片不重新定义行为。每卡保留改动位置、步骤、删除清单和退出证据。职责优化适用 §13.6、反馈适用 §15.6：交接列明保留的机制、删掉的重复流程、迁往配置/指导层的策略和仍待裁决项；没有需要迁移的策略时可记录“不适用”，不为完成清单强行改代码。R2-A1/A2 在本轮重新划清职责，接手者以本标题和内容为准，不按旧口头编号继续旧步骤。
+以下是 **2026-09-28～30 R/J 方案的迁移卡片**，用于追溯设计和选择回归，不是当前待办或新 HXA 授权。R1/R2-A/R3/J1/J2 的实现与余项分别查 231/234/235/236/248 及 status；下一轮采用 §23 的目标和切片。未实施候选也不因卡片完整而自动启动。原契约来源为 §8、§13–17，职责与反馈准则见 §13.6/§15.6；历史步骤、删除项和退出条件保留，适用时按当前源码与 ADR 重新核对，不要求重做已交付迁移。
 
 ### R0-1：建立可复核起点与行为清单
 
@@ -1155,3 +1157,195 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 - [ ] 主机、设备、模型、渠道与资源证据分别记录；没有把设计目标或 skipped 说成已验证提升。
 
 **最终目标不是“手机上更多层”或“更少几行代码”，而是在同样授权下，让模型能选择有效路线、执行获准动作并看见真实结果。Harness 保证身份、权限、反馈、停止和资源边界，不抢占业务决策；默认部署简单、适配可替换，达到有限目标后转向真实任务交付。**
+
+## 23. 2026-10-14 执行边界重构提案
+
+### 23.1 设计判断、范围和现有工作去重
+
+**建议采用：一个本机 Harness、单一工具治理入口、领域化执行实现、明确的持久和物理生命周期。默认进程内类型调用，保留已有必须隔离的 Runtime；Memory、上下文、插件目录不是通用执行器的子模块。**
+
+Owner 明确允许按单一最优目标替换旧方案和旧接口。本提案不维护旧内部 DTO、兼容别名、双注册、双写或永久过渡 adapter；迁移一个切片就删除被替换入口及其调用者。Android/Room、MCP、PRoot 等实现目标接口的 adapter 是必要基础设施，不属于旧接口兼容桥。这里的“最优”是当前单手机产品约束下的取舍，不是已实测的普遍性能最优。
+
+**目标架构决定改动范围。**本次审核采纳以完整职责和功能路径设计的建议：允许重组模块、合并服务、重写接口和调整数据结构，不以少动文件、保持类名或固定模块数量为目标。先共同审视工具应用服务、执行契约、Memory、产物及 Turn 持久边界，再按回归风险安排实施。已有实现是事实与验证基线，合理机制继续采用，错误依赖可以整体删除；允许大改不要求重写已经符合目标的部分。
+
+原建议需要四处校正：
+
+1. **执行接口已经存在。**ExecutableToolCall、ToolExecutorResult、AgentToolGateway、Dispatcher、Job observation 和 ExecutionOwnership 均已接线；第一步应收紧或替换它们，不在外面再包一个同义 ExecutionService。
+2. **AgentLoop 和 TurnEngine 不是一个职责。**Loop 编排模型/上下文/工具轮次；Engine 拥有整轮准入、持久取消、结算和恢复。模型任务策略不下沉到 Engine，工具后端不能提交 Turn 终态。
+3. **“同进程”只描述默认调用方式。**QuickJS isolated UID、PRoot/订阅私有进程、Root/Shizuku/无障碍的真实平台边界继续存在。不能将生成代码拉回主进程，也不能把共享 UID 描述为凭据隔离。
+4. **共同生命周期不等于共同任务形态。**文件读取不应变成长驻 Job；观察等待结束不等于 Shell Job 结束；手势调用返回不等于物理回调已退出。只统一公共语义，保留领域事实。
+
+本轮起点是 `dd36b673` 加工作区的只读复核，期间并行 HXA-284 提交为 `14824251` 并完成其主机切片；所记录的九个关键源码哈希复核一致。下面基于现有 documents 插件继续设计，不覆盖其交付或复用其测试作为本轮验收。HXA-220/223/234 的 Engine/Core、231 的绑定、236/248 的观察与后台、246 的 Memory、272～281 的插件治理与目录均复用已有成果。
+
+### 23.2 目标职责和调用方向
+
+```mermaid
+flowchart TD
+  UI[Compose / 通知 / 插件浮窗] --> App[应用命令与只读投影]
+  App --> Engine[TurnEngine：唯一 Turn owner]
+  Engine --> Loop[AgentLoop：模型与工具循环]
+  Engine --> Store[领域持久端口 / Room 实现]
+  Loop --> Model[ModelProvider]
+  Loop --> Context[上下文选择与编译]
+  Context --> Memory[Memory 查询端口 / Markdown Store]
+  Context --> Catalog[能力目录 / Skill 内容]
+  Loop --> Gateway[工具调用应用服务]
+  Gateway --> Scheduler[有界 Scheduler]
+  Scheduler --> Dispatcher[唯一 Dispatcher：绑定 / 策略 / 批准 / 校验]
+  Dispatcher --> Backend[可信注册的执行 Binding]
+  Backend --> Local[文件等本机实现]
+  Backend --> Plugins[Mobile Use / Browser / Documents / MCP]
+  Backend --> Runtime[现有 QuickJS / PRoot 等 Runtime]
+  Gateway --> Store
+  Backend --> Artifacts[产物发布与引用]
+  Store --> Projection[持久读模型 + 可丢进度]
+  Projection --> UI
+```
+
+这是依赖和事实归属图，不表示每个方框都新建类、Gradle module 或进程。AgentLoop 与 Turn 领域协调不依赖具体 Android/Room 实现；Android 装配及运行适配留在 app/基础设施，Room 仍是生产持久事实来源。下表类名和模块名用于定位现有职责，不冻结最终目录或接口。真实远程 Provider 调用也不等于 Agent 本身被部署到云端。
+
+| 责任 | 目标 owner / 接口 | 具体调整 |
+| --- | --- | --- |
+| 模型调用、上下文预算、结果按原顺序回填 | core:agent / 原 AgentLoop、AgentModelAccess、TurnContextAssembler | 继续唯一循环；prepareModelCalls 的绑定/参数准备归工具应用服务，loopProgress 的持久事实查询单独注入，消息物化保持独立 |
+| Turn 准入、停止、恢复、终态与 live driver | 唯一 TurnEngine；领域持久命令由 Room 实现 | 保留原幂等/事务边界；按阶段去掉具体 HelixStorage/Entity 泄漏，不把整个数据库包装成泛型 Repository |
+| 用户提交、审批意图、会话/Composer | 现有应用命令服务、SessionDirectory、ComposerInputState、SessionCatalog | UI/通知/浮窗消费最小接口；AppAgentRuntime 不再必须回调宽 ChatService，具体迁移以真实入口契约测试为准 |
+| 工具调用建档、RUNNING 屏障、批次结算 | 从 ChatToolCalls 提取的工具调用应用服务，实现收窄后的 AgentToolGateway | 不依赖 ChatScreenState、R、审批卡类型；经领域持久端口保留原准备/开始/结算事务语义，卡片/时间线由投影实现 |
+| Schema、原子 Binding、权限、期限、结果校验及审计 | tools:framework / 原 Registry、Scheduler、Dispatcher | 一个治理入口；内部实现可替换，不复制 Policy 或 ApprovalBroker |
+| 实际操作和退出事实 | 每个领域的 backend / Runtime | 各自负责路径/窗口/系统权限/IPC 约束和真实退出；不存模型历史、不决定重试业务动作 |
+| 长期记忆 | Memory 应用接口 + 纯上下文选择 + MarkdownMemoryStore | 引入最小读取/写入契约的理由是隔离具体存储和测试；不建后台记忆 agent、向量库或网络服务 |
+| 插件内容、工具贡献与资源 | 原 PluginRegistry / Skill 目录 / NativeResource | Mobile Use 自己拥有工具、后端适配、观察与浮窗；宿主提供授权和通用服务，不能搬回 app 的大 switch |
+| 产物与图片披露 | 原 WorkspaceArtifactStore / ArtifactRepository / 视觉准备接口 | 统一类型化用途及来源；字节保存、用户成果展示、发送给模型分别有事实，避免由 toolName 猜用途 |
+
+手动文件管理、Memory 编辑、模型设置和手动终端继续通过各自用户操作服务调用，不伪造 Agent Turn。共享底层文件/Runtime 实现不等于绕过其用户 scope 或执行边界，也不要求把所有 UI 动作塞进模型工具协议。
+
+设计评审以完整路径检验这些边界：用户提交 → 原子准入 → 上下文/Memory → 模型 → 工具绑定与授权 → 执行/产物 → 持久结算 → 模型回填/UI 投影，并贯穿停止和恢复。对每项跨边界数据明确唯一 owner、身份、授权、事务/物理生命周期和失败返回；据此决定哪些服务应合并、哪些依赖应反转，不能先为每个旧类增加接口后仍保留循环依赖。当前已有统一 AgentRuntime 入口，需要清除的是其对 ChatService 命令实现的耦合，不另造第二个入口。
+
+### 23.3 执行协议：复用事实，替换含混接口
+
+以下类型名是目标草案，不是新增一整套并存 API 的要求；现有类型能承担职责就直接改造并删除旧形态。模型继续看到 `read`、`write`、`ui.snapshot`、`ui.click` 等具名 schema 工具，绝不暴露一个万能 `execute(action,args)`。内部 Registry 根据精确 binding 分发 JSON 参数是正常实现；宿主编写的领域 handler 可以使用类型化参数，外部 MCP schema 仍需动态验证。
+
+**一份调用身份。**治理后的 `ExecutionContext` 至少包含下列事实；它由宿主创建，模型只能提供该工具 schema 内的业务参数。
+
+| 信息 | 产生位置与约束 |
+| --- | --- |
+| sessionId、turnId、toolCallId | 使用已持久化的原调用身份，Agent 工具入口不得为 null；attempt 只是同调用内获准技术尝试，不冒充新 ToolCall |
+| ToolBindingRef | 原目录快照的 owner/revision/contract/implementation identity；开始前验证撤销与替换，不因工具同名重新绑定 |
+| 执行目标 | 由可信注册及会话选择解析，携带所需 target identity/type；不能只用“在 Android”替代具体批准目标。Mobile Use 后端重选受插件既有规则和同一授权限制 |
+| 授权引用及实际约束 | 引用原会话 grant、scope、精确批准和必要披露绑定；不是模型可写 approved=true，也不是复制一份可自行更新的权限库 |
+| 期限与取消观察 | 既有执行额度及绝对 deadline，进程内等待用单调时钟；运行时另有的 lease/硬超时分别保留。恢复不能重置原额度 |
+| 项目/工作区/输入引用 | 从原持久关系解析；仅需该能力的 binding 携带，不强制所有工具拥有文件工作区；输入字节/摘要及截图凭据不随 UI 当前会话漂移 |
+
+`ExecutionContext` 是内部约束，不是跨进程安全凭据。现有 Binder/PFD 必须继续按 Runtime 协议验证调用方、原 Job/generation、输入和目标；不发送内存 grant 对象或把宿主“已批准”当成系统授权。未来若真正跨设备，认证和权限协议须独立设计。
+
+**一个 dispatch 完成入口，两种实际接线。**统一对 Scheduler 暴露有界、可等待的 dispatch 完成接口；同步 handler 由受限物理线程池承载，原生异步/Job 观察由 completion 接入。使用 `suspend` 或 Future 是语言层选择，不能改变物理容量语义。Dispatcher 不再用 `is JobObservationExecutor / JobLaunchWaitExecutor` 决定业务分支，而从**可信 Binding 构造**取得该调用的直接执行/观察续接能力。
+
+首版只表达已有 Direct、Observation、Launch-then-observe 三种实际形态；对最后一种，launch 返回类型化的原句柄和观察依据，再经原观察服务等候，删除从任意输出 JSON 反解 originalCallId 的接缝。不得让外部 descriptor 的 readOnlyHint 或模型参数声明自己是受信观察器、申请控制保留通道。观察/控制 factory 和原 Runtime 适配器是唯一构造者；不要求普通短工具实现 start/status/collect/cancel 全套空方法。
+
+**四类不同事实必须分别表达：**
+
+- **调用结果**：schema 拒绝、权限拒绝、完成、失败、取消、超时及副作用是否可确定；统一结果校验、审计和按原顺序持久回填。
+- **原 Job 状态**：仅长任务持有原 JobRef，查询/等待/停止/收取仍经原身份控制面；启动调用成功可以只代表 Job 已受理，不代表任务已完成。
+- **物理退出**：阻塞线程、Binder、实际子进程或手势回调的退出由原资源 owner 确认。不能从调用结果或 Job 状态单独推导全部资源已释放。
+- **产物状态**：已生成、已注册、可查看、已收取、已发送像素各有事实；产物引用不能反过来证明工具或业务任务成功。
+
+这些是现有状态的类型化表达，不新建四张平行账本。`ToolExecutorResult` 可改为封闭 outcome＋effect evidence，消除重复的 cancel/timeout 组合，至少保留 `未开始/已确认事实/未知`；进程断连后“没有消息”不能映射为零副作用。输出 schema 不合法可能发生在外部效果之后，返回失败时仍保留这一事实。
+
+`已确认事实` 必须区分已确认零副作用、已发生的部分效果和可验证的完整结果，不能压成一个 success 布尔值。只读观察调用本身可确定无修改，但它观察的原 Job 仍可能 UNKNOWN；两个 outcome 不互相覆盖。外部 MCP/插件返回的自称“无副作用”只是待核验输出，不自动成为技术重试许可；只有可信适配器掌握的原执行证据能提升确定性。
+
+### 23.4 权限、开始屏障与取消恢复
+
+原“agent 先检查、executor 再检查”的建议应收敛成：**一份授权来源、一个交互决策入口、多个实际强制检查点。**Core 可以过滤不允许暴露的工具，但它不授予能力；Dispatcher 仍负责 schema → capability/policy → 会话授权/精确批准 → 执行限额 → 验证/审计。后端负责真实路径、URI、前台窗口、系统权限、进程或网络约束。重复强制核验不等于重复询问用户。
+
+从模型请求到结果的顺序为：绑定曝光快照 → 创建原 PENDING 调用 → Scheduler 排队 → Dispatcher 校验/必要批准 → 开始前重验原绑定和当前授权 → 消费原批准并持久记录 RUNNING → 发往后端 → 校验结果及审计 → 原调用持久结算 → 模型与 UI 分别读取。
+
+RUNNING 是“可能跨越外部效果”的持久边界，不承诺动作已经发生；真正发出前失败并有证据才可记录未开始。数据库与外部效果没有共同事务，不引入 exactly-once 承诺。持久屏障失败时不得启动后端；UI 订阅失败不应变成执行启动的必要条件。审计或结算失败不得假报成功，沿原恢复路径保留不确定性。
+
+| 情况 | 必须发生的行为 |
+| --- | --- |
+| 排队/审批期间撤权或替换插件 | 开始前拒绝；不得复用旧 Binding 或让 approval 缓存覆盖新的 scope |
+| 普通调用超时，线程仍未退出 | 结算调用可先返回 TIMEOUT/UNKNOWN；原物理槽和必要资源引用继续持有，其他独立容量可工作 |
+| 等待 Shell Job 到期 | 只结束这次观察，仍返回原 Job 状态/句柄；不延长原 lease、不重发 shell |
+| 用户停止等待 / 停止 Turn / 停止 Job | 三个意图分别路由；原 Job 是否被停止由已有 lifetime/owner 决定，不能由一个 cancel boolean 隐式全部广播 |
+| Android 杀死主进程或 Binder 断开 | 按原 Runtime 身份查实、收取/ACK；查不到不代表未执行。旧 Turn 不复活，后续模型工作按已接受恢复/新 Turn 准入 |
+| 迟到结果或回调 | 仅影响原调用和原 generation；对已结算结果可按原对账规则补事实，不覆盖新 Turn、不再次执行动作、不重复导入 |
+| 插件撤销或页面销毁 | 撤销先停止新准入；NativeResource 排空真实使用引用。页面销毁只取消 UI 订阅，不释放其他消费者资源 |
+| Mobile Use 锁屏/失联/运行时重建 | 保留该 Helix 对话的用户授权，操作按当前平台状态暂停/失败；恢复获得新的观察和 node/gesture 凭据。授权持久性与运行时凭据寿命完全分开 |
+
+Mobile Use 授权不跨对话，只由用户手动撤销结束；选择插件、操作准入、系统能力和截图向模型披露仍分别核验。截图不为已覆盖的同一授权反复确认；切换接收模型/出网目标或 scope 不在原批准内时依现行披露契约处理。不得将持续授权解释为可以重放旧点击或复用旧节点。
+
+### 23.5 Memory、历史、插件和产物
+
+**Memory：三个职责，不是三个服务。**选择/检索/摘要装载是 Agent 上下文策略，用户设置与可信 Project scope 是 Memory 应用服务，Markdown 正文/索引/hash 冲突是 Store。把现有 `MemoryContext.render(store, scopes)` 替换为接收有界文档快照的纯编译输入，存储读取在应用适配完成；需要测试替身时引入最小 MemoryStore 接口，不拆新的进程或全功能 Repository 框架。
+
+模型维护记忆仍调用受治理的 memory.*；用户手动管理走 Memory 应用服务。Repo 中由文件工具读取的 MEMORY.md 与 app-private global/project Memory 必须有不同来源和 scope，不靠文件名或相似内容合并身份。通用文件底层可复用，但不能放开 app-private 根目录或把它伪装为用户工作区。继续保留默认关闭、自动维护独立开关、有界摘要、非可信内容、expectedHash 冲突和项目成员关系约束。此轮不改变摘要质量策略或增加后台抽取。
+
+**历史与上下文。**Room 消息、压缩 checkpoint、调用/结果配对和 PromptSnapshot 保持原事实来源；上下文编译器选择有界快照，Provider 负责协议编码。执行端仅回报输出/来源/错误/产物，不决定删哪些消息、压缩何时触发或什么应成为长期记忆。执行层也不直接调用用户模型，把工具失败后的业务下一步留给同一 AgentLoop。
+
+**插件与 Skills。**Plugin 是贡献与生命周期边界，不等于 MCP 进程。Mobile Use、Browser、Documents 保持各自 native 实现，MCP 适配按实际连接进入同一治理链；Skill 元数据/正文由现有目录和按需装载消费，不迁进执行器。宿主仅识别 PluginOrigin/贡献接口，不按 Mobile Use 工具名定制调度或赋予权限。插件需使用其他能力时，获准的用户效果再次进入正常治理路径；预装可信共享读写服务也不得扩大授予范围。
+
+Mobile Use 首要验收对象仍是 `观察 → 动作 → 新观察 → 模型判断`。插件回报 observationId/generation、目标窗口和成功/失败/未知事实；任何后端不能因返回了截图就替模型判定业务完成。浮窗由插件 UI 能力实现，经通用任务接口接管/返回，宿主不内置另一个手机规划器。
+
+**产物。**在原发布接口增加可信 `ArtifactPurpose` 和源引用，至少区分 INTERNAL_OBSERVATION、临时中间结果、用户 OUTPUT；由生产者指定并由宿主校验，删除 toolName 特判。引用携带 artifactId、hash、MIME、大小、原会话/调用及必要 source snapshot，底层路径不暴露为授权。现有 VisualArtifact 和 ImageBinding 继续承载像素准备/发送验证，不为重构再开图片通道。
+
+临时和内部观察受引用保护及已有 GC 策略约束；正在使用、结果仍被引用或原 Job 未完成收取时不能提前删除。内部截图默认不混入用户成果清单，但保留授权下的检查入口；用户明确导出/提升为成果才走对应操作。下载/落盘、artifact 注册和模型实际收到像素分别报告，不能把保存成功说成模型已看见。此部分以 HXA-284 已交付的产物目的/快照为起点做单一替换。
+
+### 23.6 目标模块与扩展方式
+
+| 现有承接位置（可重组） | 保留或替换的内容 | 新能力接入方式 |
+| --- | --- | --- |
+| core:agent | 唯一 Loop、上下文与窄端口、原日志/终态命令 | 模型 Provider、内容源和工具网关通过端口注入，不导入 Android 服务 |
+| app/engine 与应用服务 | Turn owner、用户命令、Room 适配、会话/权限投影 | Turn 领域协调经原子持久端口工作；现有统一应用入口脱离 ChatService，Android 装配与 Room 实现独立适配 |
+| tools:framework | 唯一绑定、Scheduler、Dispatcher、执行完成契约 | 新 handler 提供 schema＋可信实现＋真实执行能力；不修改全局业务分支 |
+| core:workspace 与 core:storage | Memory/Workspace 内容与 Room 各自事实 | 领域端口由现有存储实现；不全量 event sourcing 或双写 |
+| extensions/* | 插件工具、内容、设置、原生资源和领域 UI | 新 native 插件独立贡献；共享权限/任务/产物端口，不依赖 ChatService |
+| runtime/* | 原隔离执行、Job journal、IPC、退出及结果对账 | 仅真实异步 Runtime 提供可观察原句柄；无需给每个文件工具创建 Job |
+
+模块按依赖方向、领域归属及可独立验证性划分；可以增删、合并或重组现有 Gradle module，但每次变动须解决明确的依赖或测试边界问题。既不预设“首轮不新增模块”，也不因分层图有一个框就建一个模块。框架、进程和远程执行域仍需各自真实需求，移动目录不构成隔离保证。
+
+**完整 Turn 领域宿主抽离纳入本提案的完成目标。**当前 TurnEngine/TurnExecutionDriver 直接依赖 HelixStorage，AppAgentRuntime 的 submit/cancel 仍回调 ChatService；消除持久细节泄漏、让统一应用入口脱离页面服务、运行完整无页面契约测试，已构成本地价值，无需等待第二个产品消费者。抽离范围覆盖准入、执行驱动、停止、park/review、终态与恢复的领域协调；Android 生命周期、Room 和通知等实际适配留在基础设施。验收依据是依赖消除和完整行为可测，不是仅把代码搬进纯 JVM 目录。
+
+在 AgentTurnStore/AgentTurnJournal 已有领域契约上重组或扩展，把准入、cancel、park、终态/Goal 联动定义为**原子领域命令**，由 Room 适配提交。保留已验证的原子性和归属约束，不冻结原 DAO 布局；不得暴露通用 DAO 或让外部 `withTransaction` lambda 夹带跨层状态。Steer 与最终答复、首 ModelCall 与 step、GoalRun 与 Turn 的原事务不可拆散。内存测试实现只用于契约验证，不成为生产事实源；同一套领域断言还需检验真实 Room 适配。
+
+以后新增执行环境时，先证明某一具体工具/Runtime 的真实消费者，再实现对应 backend 和必要 transport；不预建 RemoteTarget、host 注册平台、权限同步或通用 RPC schema。同设备的本机函数、Binder、MCP 已是不同适配方式，足以验证接口是否合理。部署位置与工具名称分开，模型不会因为替换执行后端而获得新授权。
+
+### 23.7 分阶段单一路径替换
+
+这些是本提案的实施切片，不是新的 HXA 排程。范围接受后按既有 ADR 更新及单检查点方式登记；本轮未改 status 或将研究登记为已开始的实现。先在 A 共同确定全部目标边界，再按依赖迁移完整功能路径；字母不要求所有 E 工作都等 B～D 结束才开始。每个交付切片必须有可运行的生产路径和相应验证，直接迁移全部受影响调用者并移除旧入口，没有生产兼容开关。
+
+内部接口不兼容不等于授权清空用户数据。数据结构变更须明确当前数据、会话授权、原执行身份和在途/UNKNOWN 记录的迁移与失败处理，不能通过重建数据库掩盖恢复问题。代码可用 Git/制品回退；涉及持久格式时必须另行验证数据恢复或前向修复路径，不能声称回退 APK 就回滚了数据或外部效果。需要破坏性清理时按当次明确授权处理，不为回退保留两套生产 writer。
+
+| 阶段 / 规模 | 实施内容与主要位置 | 完成标准 |
+| --- | --- | --- |
+| A：整体契约与基线 | 共同确定工具、执行、Memory、产物和 Turn 的目标依赖、数据归属、删除项及完整路径；建立下节行为断言，清理 ExecutionTarget 的错误隔离说明；冻结 HXA-284 之后的基线 | 目标依赖图与事务/物理生命周期明确，包含完整 Turn 宿主验收；记录原路径和有界样本，不复制旧实现做快照测试 |
+| B：应用命令、工具应用与 UI 分离，中等 | ChatToolCalls/ChatToolTimeline/审批呈现拆成应用调用服务＋投影；现有 AgentRuntime 接应用命令，收窄 AgentToolGateway，复用原 broker/journal/结算 | 无 ChatService/Compose/ChatScreenState/R 的应用入口及工具批次宿主能运行；无 UI 订阅时审批可持久待处理、停止可结算；只有 UI 才做本地化 |
+| C：明确执行形态和事实，中等至较大 | ToolBinding/ToolExecution/Dispatcher 的内部契约；统一完成入口，类型化 launch 续接；先文件/观察，再 Mobile Use，最后已有 PRoot Job | 三类真实能力均接线，旧具体类分支/重复 DTO 删除；结果回填、权限、物理容量、未知效果和原句柄逐项等价或更严格，没有空 backend |
+| D：Memory/产物接缝，局部至中等 | MemoryContext 的快照输入，最小 Store 契约；HXA-284 完成后的 ToolImagePublication/WorkspaceToolImagePublisher 类型化用途 | Memory 开关/项目隔离与图像披露不变；生产者不靠 toolName 决定目的；临时/内部观察不冒充用户成果，引用和 GC 有测试 |
+| E：完整 Turn 领域宿主，较大、纳入完整目标 | Engine/Driver/Coordinator/Admission/Settlement/Recovery 经领域持久命令与运行端口工作；与 B 共同完成统一应用入口，删除具体存储/页面依赖 | 同一完整 Turn 合同可在无页面测试宿主和 Room 手机适配运行；同 requestId 幂等、Steer/停止竞态、Goal/恢复事务不变，无第二 writer；必要的数据迁移有验证 |
+
+推荐本轮重构提案以 A～E 收敛作为完整交付范围；中间切片可以单独验证和交付，但不能把 A～D 的完成等同整体目标完成。E 不必先于每项工具优化，却不能仅以“尚无第二个消费者”无限期推迟；若实施前证据证明某项边界已满足，按行为断言确认后去重。分阶段用于定位回归和控制交付风险，不降低终态要求。C 的复杂度来自取消、观察和物理退出，E 来自事务、入口与恢复，两者均不能按“改一个 interface”估算；A 后按真实影响和回归成本给工期。任何远程服务/独立 Agent 进程均不在 A～E 范围内。
+
+### 23.8 验证矩阵、收益与接受条件
+
+验收比较行为事实，不要求旧内部类型或序列化测试保持原样；删除已废弃接口的镜像测试可以用目标契约测试替换，不能丢掉原失败/权限/恢复场景。优先扩展现有 AgentLoopHeadlessTest、ToolDispatcherTest、ToolExecutionCapacityTest、ExecutionOwnershipCancellationTest、JobObservationDispatchTest、JobLaunchWaitDispatchTest、NativeResourceTest、MemoryToolsTest、MarkdownMemoryStoreTest，以及原 Engine/设备恢复测试。
+
+| 必测场景 | 通过断言与层级 |
+| --- | --- |
+| 完整 Turn 无页面运行及持久适配 | 纯 JVM 领域宿主覆盖提交、准入、模型/工具循环、批准/拒绝、停止、park/review、终态和重建后的恢复，且不加载 ChatService/Android/Room；同一组领域断言检验真实 Room 事务，内存通过不能代替数据库/设备验证 |
+| 目标依赖与应用入口 | 静态＋契约：Turn 领域与工具应用接口不泄漏 HelixStorage/Entity/页面；UI、通知、浮窗经同一应用命令路径；模块重组不产生第二入口、writer 或循环依赖 |
+| 持久格式变更（发生时） | 存储适配测试：当前会话/授权、ToolCall/Job 原身份、UNKNOWN/取消、Memory/产物引用可恢复；迁移中断不伪造成功或重放效果，回退/前向修复有明确限制 |
+| 曝光后替换 Binding、审批期间撤权、伪造 session/target、Plan 写入 | JVM：零实际启动，原拒绝事实和审计准确；不得把新权限/后端从模型参数带入 |
+| PENDING→RUNNING 前持久失败、开始后输出校验失败 | JVM＋Room：前者零启动，后者不宣称零副作用；只结算原 call |
+| 并行完成乱序、单槽抛错、结算失败、迟到成功与持久 Stop | JVM：所有调用按原模型顺序回填；失败不可抹掉兄弟结果；用户停止与原事务优先 |
+| watchdog 先返回、底层忽略中断、饱和、迟到退出 | JVM：物理容量仍占用、不会无限增线程/提前清插件资源；其他独立 lane 不被全局写锁挡住 |
+| Job launch 成功＋等待到期、停止等待、停止原 Job、重复 collect/ACK | JVM＋授权设备 Runtime：不重发、不换 executionId/generation、不扩 lease；收取幂等，原 Job 状态与观察结果分开 |
+| Mobile Use 会话隔离、锁屏、撤权、后端断连/重建、旧 token | JVM＋授权设备：grant 不被系统事件撤销、旧凭据拒绝、新观察可继续；未知动作不重放，实际回调前不释放手势 lane |
+| 插件移除/替换、两消费者、无 UI/旋转/晚订阅 | JVM＋授权设备 UI：新准入立即受限，最后真实引用释放才清理；无被动导航/新授权，原会话可恢复展示 |
+| Memory 关闭、Project 变化、hash 冲突、repo MEMORY.md 与 app Memory | JVM＋Room：正确 scope/可信身份，有界、不越权、不覆盖冲突，内容不变成指令或权限 |
+| 图片保存但发送拒绝、跨会话 artifact、陈旧 hash、GC 与活跃引用 | JVM＋授权设备/模型：明确像素未发送；不能引用错会话，内部观察不混为最终成果；GC 不破坏在途读取 |
+| 主进程死亡、Runtime 存活/死亡、恢复对账 | 授权设备：原事实/原身份，旧 Turn 不复活；只有经过原准入的 successor 才产生新模型工作 |
+
+每阶段运行适用 JVM/静态门禁，完成生产接线后运行 `./scripts/check-all.sh --all` 及双渠道 AndroidTest 编译；这些是未来实施的要求，本轮仅文档门禁。设备仅在 Owner 对该阶段明确授权时运行，CI 保持 host-only。真实 Provider 验证需要当次模型/账号输入，独立于合成模型和 APK 编译；PRoot 执行契约通过也不代替 FFmpeg/媒体端到端。
+
+接受指标：没有重复执行/跨会话授权/原始身份错配；取消后真实容量保留；一次调用一条明确的结算与审计路径；Core、Turn 领域宿主与工具应用服务不依赖页面/具体存储；完整 Turn 和 Room 适配分别通过契约；新增一种已有形态的工具无需改 Dispatcher 具体类分支；类型化数据取代所涉工具名/JSON 字段特判；完整路径只剩一套生产实现。性能与质量另用同设备、同模型、同授权及固定任务比较成功率、工具失败/重试、端到端延迟、线程/FD/PSS和上下文成本；无数据时不宣称改善，也不因接口更少就宣称更可靠。
+
+本提案需要在相应主题 ADR 接受新增契约后才实施：Agent 负责应用与 Turn 存储边界，Tools/Permissions 负责可信 Binding/授权/结果，Runtime 负责完成与退出/原 Job，Memory 负责正文与上下文，Plugin/Workspace 负责引用及产物。保持原主题的有效正文与 Decision history，不另建总引擎 ADR。研究日期、源码身份、本轮文档验证及未执行项统一记在[综合研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)。

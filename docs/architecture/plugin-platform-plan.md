@@ -1,6 +1,6 @@
 # Plugin Platform 专项设计：包格式与 Mobile Use
 
-初稿：2026-09-28；内容收敛：2026-09-30；实现状态校正：2026-10-11。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择与原生资源的设计决定归 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，[Harness §17](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护接线说明。
+初稿：2026-09-28；内容收敛：2026-09-30；实现状态校正：2026-10-14。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择与原生资源的设计决定归 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，[Harness §17](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护接线说明。
 
 **当前实现：**PluginOrigin、App 级 PluginRegistry、Mobile Use 已有实现，R1 原子绑定由 [HXA-231](../completion-records/HXA-231.md)交付，R3 安装、组件归属、选择、停用/更新/修复由 [HXA-235](../development/tasks/HXA-235.md)接入生产；[HXA-251](../development/tasks/HXA-251.md)补充有限 Room/设备旅程。完整在途引用/撤销/进程死亡交叉矩阵仍独立。本页保留的 MVP 示例是历史范围，不是现行能力上限，也不维护第二条 P0/P1/P2 排期。
 
@@ -22,9 +22,9 @@ plugin.json + skills/ + mcp.json + extensions.com.helix.agent
 
 ### 2026-10-11 任务化与目标实现
 
-所有者要求把插件研究转为现有开发任务，HXA-272～279 已登记；272已进入统一内容实现与有界验收，273～279尚未实施。具体范围见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前优先级与依赖只在 [status](../development/status.md#插件优化队列2026-10-11)维护。
+所有者于 2026-10-11 要求把插件研究转为 HXA-272～279；截至 2026-10-14 已按各自范围有界交付。具体承接见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前事实、未覆盖矩阵和下一步只在 [status](../development/status.md)维护；不从本页旧设计重建实现队列。跨轮变化见[演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)。
 
-采用单一目标实现：Skill 内容统一后删除原生正文专用注入；Browser 作为 APK 已知 native contribution，直接替换旧 built-in 发布；原生资源按实际 owner 和使用引用收尾。不做旧版本、旧数据库、旧会话或旧批准迁移，不留双写、双注册或兼容 adapter；当前外部包格式的明确支持范围独立维护。MCP 仍是可选 adapter，Mobile Use 不为对齐 CUA 改成 MCP。2026-10-11 已按所有者要求将新增契约同步到四份现有主题 ADR，并追加 Decision history，见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。272统一内容实现的实际结果见[证据](../evidence/development/hxa272-skill-content-2026-10-11.md)；其他已接受设计不代表代码或功能验收。
+当轮采用单一目标实现：Skill 内容统一后删除原生正文专用注入；Browser 作为 APK 已知 native contribution 替换旧 built-in 发布；原生资源按实际 owner 和使用引用收尾。当轮未安排旧版本、数据库、会话或批准迁移，不保留双写/双注册；此历史范围不授权后续清库，外部包格式支持独立维护。MCP 仍是可选 adapter，Mobile Use 不为对齐 CUA 改成 MCP。相关契约归四份主题 ADR 及 Decision history，见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。272首阶段结果见[证据](../evidence/development/hxa272-skill-content-2026-10-11.md)，后续各项验证由各 HXA 记录，不能从设计接受推导完整验收通过。
 
 ## 2. 当前问题
 

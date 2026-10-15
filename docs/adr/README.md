@@ -2,6 +2,8 @@
 
 这里只维护当前有效决定和仍有价值的候选方案。过时记录、旧编号、增量补丁说明和版本兼容规则不保留；需要追查决策演变时查看 `v0.0.1` 分支及 Git 历史。没有历史 ADR 目录或旧编号跳转层。
 
+跨主题演进可先查[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)，再读取相应 ADR 的有效正文与 Decision history。索引只串联原证据，不另存旧 ADR 全文或限制新重构。
+
 ## 按需求阅读
 
 | 主题 | 范围 |
@@ -28,7 +30,7 @@
 
 ## 插件优化任务的 ADR 归属（2026-10-11）
 
-所有者要求将 HXA-272～279 的规划同步为现有主题 ADR，并按单一目标实现设计、不兼容旧版。以下增量均为 **accepted，代码未实施**；当前顺序见 [status](../development/status.md#插件优化队列2026-10-11)，研究依据见[任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。
+所有者于 2026-10-11 要求将 HXA-272～279 规划同步到现有主题 ADR，按单一目标实现设计、不兼容旧版。以下决定均为 **accepted**；截至 2026-10-14，各任务已有界交付，具体实现与剩余验收见 [status](../development/status.md)，研究依据见[任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。本表仅维护决策归属，不复制实时任务状态。
 
 | HXA | 主决策归属 | 跨主题边界 |
 | --- | --- | --- |
@@ -42,7 +44,7 @@
 
 [本轮源码分析](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)沿用现有主题，无新 ADR 编号。ADR-AGENT-001 补应用命令/表现与执行资源边界；CONNECTORS-003 补 HXA-274 的恢复目标数据及 HXA-277 对原执行事实的复用，均追加 Decision history。原权限、工具和 Runtime 决策继续生效。
 
-Core/Engine 和 HXA-257/258 已交付范围不重开；完整 Turn 宿主提取仅接受[进入条件](../development/candidate-decisions.md#系统分层的条件性增量)，未排入实现。优先级与顺序归 [status](../development/status.md#系统分层优化承接2026-10-11)，ADR accepted 不代表本次增量已实施或验收。
+Core/Engine 和 HXA-257/258 的既有交付不重复实施。完整 Turn 宿主的现有接受范围见[进入条件](../development/candidate-decisions.md#系统分层的条件性增量)；2026-10-14 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)提出将其纳入 A～E 整体目标，该提案尚未改变主题 ADR 或排入实施。优先级归 [status](../development/status.md)，旧阶段收口不冻结新设计的接口/模块，较新的提案也不自动成为有效决定。
 
 ## 编写与更新
 

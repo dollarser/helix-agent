@@ -20,39 +20,38 @@
 
 后续业务扩展优先完善MCP/Connector/Skill接入与现有通用工具；新增原生工具必须有模型主动调用的具体需求。JSONL 已获所有者实施授权并独立立项 HXA-211，首版为用户主动导出；生产子Agent、通用hooks与新编排框架不因对标而自动进入批次B/C。同Turn转向归216，ADR-AGENT-001已接受且本地实现验收完成，不回填旧批次为已交付。此取舍不撤销已接受设计，也不关闭既有验收义务。
 
-工具按需曝光的候选优化见[建议文档](../research/modules/04-tools-browser-and-extensions.md)：先测量、再评审立项，不改变当前任务依赖或验收状态。
+工具发现与请求工作集已有 HXA-280/281 交付；新的策略比较见[工具研究](../research/modules/04-tools-browser-and-extensions.md)，按新增范围测量和评审，不重新立项已完成主体。
 ADR-PROVIDER-001 已接受本地模型作为一等 `ModelProvider`，可驱动完整 Agent loop；HXA-222 首版已完成本地交付，真实模型及资源验收边界见完成记录，当前顺序以 status 为准。
 
+2026-10-15 Owner另行授权的 `helix-docs` 内置帮助切片不新增HXA编号，复用Skills资源读取与工具发现；当前阶段及版本/设备边界见 [status](status.md) 和[设计实现记录](../research/topics/helix-docs-design-2026-10-14.md)。
 
-## 当前架构收敛任务（2026-09-26）
+
+## 架构收敛回顾（2026-09-26）
+
+本节保留当轮交付范围；跨阶段变化见[演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)。旧“冻结/不重启”表示不重复已完成工作，不限制新获授权的接口、模块或持久边界重构。
 
 HXA-220 已完成并见[交付证据](../completion-records/HXA-220.md)：TurnEngine durable/live owner、successor recovery、AgentLoop driver/observation 与 legacy serial state cleanup 已通过完整 host gate。
 
-HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前 Room 是唯一 v1 / 45-table clean-slate baseline，旧内部 migration/Connector/Provider/Criteria/Chat 兼容路径已删除；外部协议与 Android API 兼容继续保留。
+HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当轮建立唯一 v1 / 45-table clean-slate baseline，删除旧内部 migration/Connector/Provider/Criteria/Chat 兼容路径；外部协议与 Android API 支持范围独立。该表数量与清库决定按当时版本理解，不是当前 schema 或下一轮数据处理授权。
 
 HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 stale-state CAS、Engine terminal/review/recovery owner、Session next-work scheduler 与 SessionInput delivery application boundary 已收口，Core Engine clean-slate 重构进入冻结状态。设备内本地模型 [HXA-222](../completion-records/HXA-222.md) 已完成首版本地交付；ADR-WORKSPACE-004 已于 2026-09-27 获所有者接受，HXA-210 已完成本地验收。
 
-HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模拟器验证](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：Drawer/Settings/Conversation authority 已收敛。HXA-228 已冻结 [Conversation-first Session input/config contract](../completion-records/HXA-228.md)，HXA-229 已冻结 [model-authored Tool presentation contract](../completion-records/HXA-229.md)。HXA-227 已交付 [eval 框架](../completion-records/HXA-227.md)并完成后续 API29/API36 双渠道核心 trajectory 与 API36 consumer 当前类清单补验；HXA-210 已完成 [Workspace 本地交付](../completion-records/HXA-210.md)；HXA-230 已完成 [Global Memory 与 scope API 主机交付](../completion-records/HXA-230.md)；HXA-222 已完成 [本地模型首版](../completion-records/HXA-222.md)及 API36 定向真实模型验收。后续不重启 Core Engine 重构，优先按 [剩余工作计划](release-readiness.md) 收口产品闭环。完整 Project Memory、Subagent 不自动启动。HXA-225 已由所有者于 2026-09-29 明确接受并完成自主读图/工具视觉回填的主机交付，见[完成记录](../completion-records/HXA-225.md)；设备/真实模型未在该任务请求执行，不再作为未接受提案悬置。
+同阶段 UI、Conversation-first、活动展示、评测、Workspace、Memory 与本地模型的交付分别见下方 HXA-210/222/226～230；后续 Project Memory 由 HXA-246 承接。HXA-225 的自主读图/工具视觉回填已主机交付，其他层级验证按原记录。跨轮状态以 status 为准，不保留当时“Project 尚未启用”或“下一步只做发行”的限制。
 
 ## 执行顺序与依赖
 
-209 会话授权与192 Plan闭环已交付，保留回归，不再列为开发前置；统一禁网已撤下，不恢复该承诺。以下是产品优先级，不把可独立任务误写为技术依赖。单个执行者同一时间只推进一个 HXA。
+当前顺序只由 [status](status.md) 与当前 HXA 决定。下表仅保留已交付产品批次的溯源，不是待执行步骤；未闭合验收由各原任务继续记录。
 
-| 批次 | 默认顺序 | 用户可验收结果 |
+| 历史批次 | 当时承接任务 | 当时交付目标 |
 | --- | --- | --- |
 | A：看懂任务、拿到结果 | **202 → 194 → 203** | 会话进入对应任务，准确显示等待/取消/结束，打开命令详情及任务产物，并能返回来源；194交付时补验202入口 |
 | B：能恢复、能准备 | **204 → 205**；193已收尾 | 区分重连/对账/继续/重试，新用户完成准备，初始化失败可修复；193提供干净资产、升级及CI证据 |
 | C：过程可见、扩展可用 | **207 → 191（已全部交付）**（195已交付） | 长命令结束前可见真实输出；扩展完成添加到实际调用；会话搜索与深色主题可用 |
 | D：核心路径验收 | **206** | 汇总A～C、已交付192/209及自身验收项，不等待完整终端 |
 
-- **批次A（202→194→203）与批次B（204→205，193已收尾）已全部交付**：完整用户路径证据（会话→任务→命令详情/产物→来源）与恢复/首次准备证据见各完成记录；C批次的207、191、195均已交付，197单终端也已交付，211 也已交付，后续按 status 整理 198 与集成验收计划。
-- **提前设计206验收**：从A开始用206固定场景记录fixture、操作步骤、失败/跳过、设备与制品身份；各HXA实现时补相应证据。206仍是最终集成验收，不提前标完成，不以单项绿代替集成。
-- **独立任务的调整规则**：194技术上不等待202；205不等待193远端CI，但实际初始化故障必须修；195依赖194展示而不等待后台Job/PTY。191可在完整HXA边界提前穿插，不抢占进行中的任务。193的账号/远端条件缺失独立记账，不伪造通过或阻塞无依赖工作。
-- **后续执行环境链**：196后台Job、197手动PTY、198多会话、199专项验收；197不必等待196。193、194、195不因归属Runtime而一起后移；207不等待完整终端。
-- **条件队列（不是自动启动）**：190真实订阅、125受保护Connector按设备/账号条件收尾；126 保留真实服务验收，130 已交付，129 已本地交付，后续整合保留并行工作所有权。
-- **发行队列**：120渠道审计→122身份/签名与升级→121候选包验收→123准备与获准后的提交。可以复用206/199证据，不能用构建成功替代发行证明。
+批次 A～D 以及 HXA-196～199 的后台 Job/PTY/终端集成已有各自完成记录；不再执行旧“提前准备 206”或“后续整理 198”的指令。原阶段取舍见[09-16 复核](../evidence/development/open-hxa-review-2026-09-16.md)。真实订阅/OAuth 服务及 HXA-120～123 的发行条件继续由各任务和[发行就绪条件](release-readiness.md)维护；历史设备/账号授权不延续到新任务，构建成功不能代替实际服务或发行验收。
 
-各任务的前置条件、现有实现、移出范围和验收以任务文件为准；仅有外部证据缺口不应阻塞无依赖的本地开发。复核依据见[本轮记录](../evidence/development/open-hxa-review-2026-09-16.md)。
+## HXA 清单
 
 | 任务 | 分类 | 范围 | 规格或证据 |
 | --- | --- | --- | --- |

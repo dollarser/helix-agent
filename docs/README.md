@@ -12,6 +12,7 @@
 | 如何实施和交接？ | [实施指南](development/implementation-guide.md)、[开发控制面](development/README.md) |
 | 如何减少开发阅读量？ | [CodeGraph 与按需导航](development/context-navigation.md)；已知任务直达相关章节/源码，不默认重读全仓 |
 | 现有结构与目标结构有什么不同？ | [架构入口](architecture/README.md)、[当前总体架构](architecture/overview.md)、[Harness 重构方案](architecture/harness-refactor-plan.md) |
+| 多轮重构和功能增加如何演进？ | [架构与能力演进索引](evidence/research-history/architecture-evolution-2026-10-14.md)；按阶段查原决定/任务，历史顺序不作为下次重构计划 |
 | 为什么作出这个长期决定？ | [按主题组织的 ADR](adr/README.md) |
 | 产品能做什么、怎么使用？ | [产品入口](product/README.md)、[需求](product/requirements.md)、[操作体验](product/task-experience.md) |
 | 如何验证、内测和准备发行？ | [开发环境](development/environment.md)、[公共验收](development/verification-matrix.md)、[Agent Eval](development/agent-eval.md)、[发行就绪条件](development/release-readiness.md) |
