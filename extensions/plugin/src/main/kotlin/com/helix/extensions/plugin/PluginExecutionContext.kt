@@ -36,7 +36,19 @@ fun PluginRegistry.instructions(
             .map { it.key }
             .toSet()
     val directory =
-        skillDocuments(sessionId)
+        (
+            repository.list(sessionId).mapNotNull { item ->
+                if (!item.enabled || item.key !in eligible) return@mapNotNull null
+                val document = repository.inspect(item.key)
+                if (document.catalogEntry.source != com.helix.extensions.skills.SkillSource.BUILT_IN ||
+                    document.catalogEntry.name != "helix-docs"
+                ) {
+                    return@mapNotNull null
+                }
+                document
+            } + skillDocuments(sessionId)
+        ).groupBy { it.catalogEntry }
+            .map { (entry, docs) -> docs.first { it.catalogEntry == entry } }
             .filter { document ->
                 val entry = document.catalogEntry
                 com.helix.extensions.skills

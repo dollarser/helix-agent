@@ -211,7 +211,9 @@ class PluginRegistryTest {
         assertEquals(listOf(original), shown)
     }
 
-    @Test fun contextComesOnlyFromSelectedPublishedPlugins() {
+    @Suppress("LongMethod")
+    @Test
+    fun contextComesOnlyFromSelectedPublishedPlugins() {
         val catalog = MemoryNativePluginCatalog()
         val registry = PluginRegistry(ToolRegistry(), catalog)
         val base = plugin("fixture")
@@ -260,18 +262,22 @@ class PluginRegistryTest {
         val instructions = requireNotNull(registry.instructions(repository, "session"))
         assertTrue(instructions.startsWith("Mandatory operational rule"))
         assertTrue(!instructions.contains("Observe before acting"))
+        assertTrue(instructions.contains("\"name\":\"helix-docs\""))
         val key = repository.list("session").single { it.key.name == "guide" }.key
         repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
-        assertEquals("Mandatory operational rule", registry.instructions(repository, "session"))
+        val afterDisable = requireNotNull(registry.instructions(repository, "session"))
+        assertTrue(afterDisable.startsWith("Mandatory operational rule"))
+        assertTrue(!afterDisable.contains("Observe before acting"))
+        assertTrue(afterDisable.contains("\"name\":\"helix-docs\""))
         assertThrows(IllegalArgumentException::class.java) { repository.read(key, "session") }
         repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
         registry.setEnabled("fixture", false)
         assertEquals(null, registry.executionContext(descriptor, "session"))
-        assertEquals(null, registry.instructions(repository, "session"))
+        assertTrue(requireNotNull(registry.instructions(repository, "session")).contains("\"name\":\"helix-docs\""))
         assertEquals(emptySet<String>(), registry.preferredTools("session"))
         registry.setEnabled("fixture", true)
         catalog.selections.clear()
-        assertEquals(null, registry.instructions(repository, "session"))
+        assertTrue(requireNotNull(registry.instructions(repository, "session")).contains("\"name\":\"helix-docs\""))
         assertEquals(null, registry.executionContext(descriptor, "session"))
     }
 

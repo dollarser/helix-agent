@@ -33,6 +33,7 @@ internal object ModelToolExposureOrder {
                     "todo.write",
                     "skills.enable",
                     "skills.read",
+                    "skills.read_resource",
                 )
         return shared + preferred + if (preferred.isEmpty()) setOf("code.javascript.run") else emptySet()
     }

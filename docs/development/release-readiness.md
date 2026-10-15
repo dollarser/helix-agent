@@ -41,6 +41,7 @@
 - Harness 回归使用既定 SGLang 固定任务；规范、身份和统计口径见[系统基线](harness-system-baseline.md)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
 - Global/Project Memory 的生产接线及 HXA-246 本地主机、API36 双渠道 UI/Memory 和项目记忆进程恢复已交付，范围见[原任务](tasks/HXA-246.md)。其他设备、真实任务效果、过时信息、跨会话污染与长稳仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
 - 统一 PDF/DOCX 阅读由 [HXA-284](tasks/HXA-284.md)交付主机切片，设备/真实模型 not requested；实际解析/渲染、资源释放和摘要质量仍需拟验版本自身的证据。其他格式、编辑/生成、OCR 与完整 Office 排版未随该切片交付。
+- 2026-10-15 `helix-docs` 首阶段已接内置 Skill 与按需离线章节；目前内容为英文Kotlin资源，manifest不绑定构建commit/dirty状态或实际flavor，也没有静态帮助UI。可准备本地debug preview供审阅；这不等于稳定发布、HXA-120/122签名身份决定或同ID数据升级验收。
 - Connector/订阅按实际选定供应商验收，不承诺任意服务兼容；未选或暂缓供应商不形成无限开发义务。
 
 ## 5. 需要外部输入的正式任务

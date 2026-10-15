@@ -127,6 +127,7 @@ class ModelToolExposureOrderTest {
                     "ui.gesture",
                     "android.open_uri",
                     "skills.read",
+                    "skills.read_resource",
                     "skills.enable",
                 ),
             ),
@@ -141,7 +142,7 @@ class ModelToolExposureOrderTest {
         assertTrue("http.fetch" !in nonUi)
         assertTrue("skills.list" !in names)
         assertTrue("skills.disable" !in names)
-        assertTrue("skills.read_resource" !in names)
+        assertTrue("skills.read_resource" in names)
     }
 
     private fun descriptor(name: String) =
