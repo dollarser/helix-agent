@@ -194,11 +194,10 @@ internal class AutomationPrivilegedDeviceHost(
                     saved.backend.device(
                         AutomationDeviceRequest(operation, saved.frame.target, strokes, wholeDisplay(grant.scope)),
                     ) { center.liveDeviceGrant(call) == grant }
-                if (operation == AutomationDeviceOperation.SCREENSHOT && center.liveDeviceGrant(call) != grant) {
+                if (center.liveDeviceGrant(call) != grant && operation == AutomationDeviceOperation.SCREENSHOT) {
                     AutomationDeviceReply("AUTHORIZATION_CHANGED")
                 } else {
-                    val capture = reply.screenshot?.copy(acquisitionScopeRef = call.authorizationScopeRef)
-                    reply.copy(screenshot = capture)
+                    publishCapture(call, saved, reply)
                 }
             } finally {
                 if (operation == AutomationDeviceOperation.GESTURE) {
@@ -207,6 +206,18 @@ internal class AutomationPrivilegedDeviceHost(
                 AutomationServiceController.physicalInput.release(ticket)
             }
         }
+
+    private fun publishCapture(
+        call: ExecutableToolCall,
+        saved: BoundFrame,
+        reply: AutomationDeviceReply,
+    ): AutomationDeviceReply {
+        if (reply.screenshot?.png != null && !saved.frame.target.sameWindow(reply.target)) {
+            return AutomationDeviceReply("TARGET_CHANGED")
+        }
+        // A fresh read never refreshes the original coordinate frame's revision.
+        return reply.copy(screenshot = reply.screenshot?.copy(acquisitionScopeRef = call.authorizationScopeRef))
+    }
 
     private fun wholeDisplay(scope: com.helix.core.policy.AutomationSessionScope) =
         scope.allApplications && scope.deniedPackages.isEmpty()

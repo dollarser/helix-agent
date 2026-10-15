@@ -53,6 +53,8 @@ class ProviderContextDeviceTest {
                     val transportIdentity = service.storedConfig(id).transport.cacheKey
                     compose.navigateTo("models")
                     compose.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
+                    compose.onNodeWithTag("provider-context-$id").assertDoesNotExist()
+                    compose.onNodeWithTag("provider-options-$id").performScrollTo().performClick()
                     compose.onNodeWithTag("provider-context-$id").performScrollTo().performClick()
                     compose.waitUntil(10_000) {
                         compose

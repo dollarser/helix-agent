@@ -67,13 +67,15 @@ class ProviderHttpPolicyTest(unittest.TestCase):
                 with self.subTest(path=path, gate=gate):
                     self.assertNotIn(gate, text)
 
-    def test_warnings_are_localized_and_tls_downgrade_is_disabled(self):
+    def test_provider_warning_stays_localized_without_chat_banner_or_tls_downgrade(self):
         for locale in ('values', 'values-en', 'values-zh-rCN'):
             root = ET.parse(ROOT / f'app/src/main/res/{locale}/strings.xml').getroot()
             strings = {node.get('name'): node.text for node in root.findall('string')}
-            self.assertTrue(strings.get('chat_cleartext_warning'))
+            self.assertNotIn('chat_cleartext_warning', strings)
             self.assertTrue(strings.get('provider_cleartext_warning'))
             self.assertNotIn('provider_cleartext_confirm_required', strings)
+        chat = (ROOT / 'app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt').read_text()
+        self.assertNotIn('chat-cleartext-warning', chat)
         transport = (ROOT / 'provider/api/src/main/kotlin/com/helix/provider/api/wire/OkHttpWireClient.kt').read_text()
         self.assertIn('.followSslRedirects(false)', transport)
 

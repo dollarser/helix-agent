@@ -1,5 +1,6 @@
 package com.helix.extensions.mobileuse.tools
 
+import com.helix.extensions.mobileuse.AutomationTermination
 import com.helix.extensions.mobileuse.automation.AutomationFindQuery
 import com.helix.extensions.mobileuse.automation.AutomationFinder
 import com.helix.extensions.mobileuse.automation.AutomationNodeAction
@@ -72,7 +73,7 @@ internal class AutomationClickMatchExecutor(
     ): Preparation {
         val available = Duration.between(Instant.now(), call.deadline)
         if (available.isNegative || available.isZero) {
-            return Preparation(terminal = ToolExecutorResult.TimedOut)
+            return Preparation(terminal = AutomationTermination.observationTimedOut)
         }
         val waited =
             AutomationWaiter().waitFor(
@@ -92,7 +93,7 @@ internal class AutomationClickMatchExecutor(
     private fun waitFailure(waited: AutomationWaitResult): ToolExecutorResult? =
         when (waited.status) {
             AutomationWaitStatus.CANCELLED -> {
-                ToolExecutorResult.Cancelled
+                AutomationTermination.observationCancelled
             }
 
             AutomationWaitStatus.INVALID_ARGUMENT -> {

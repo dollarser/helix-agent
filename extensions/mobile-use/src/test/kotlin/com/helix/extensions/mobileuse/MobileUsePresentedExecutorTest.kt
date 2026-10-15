@@ -70,7 +70,7 @@ class MobileUsePresentedExecutorTest {
 
     @Test fun takeoverAfterHideRefusesAndReleasesWindow() {
         surface.afterHide = { surface.allowed = false }
-        assertEquals(ToolExecutorResult.Cancelled, executor.execute(call))
+        assertCleanCancellation(executor.execute(call))
         assertFalse(surface.hidden)
         assertEquals(0, calls)
     }
@@ -146,7 +146,7 @@ class MobileUsePresentedExecutorTest {
                         override fun isCancelled() = true
                     },
             )
-        assertEquals(ToolExecutorResult.Cancelled, observing.execute(cancelled))
+        assertCleanCancellation(observing.execute(cancelled))
         assertEquals(0, calls)
     }
 
@@ -160,12 +160,16 @@ class MobileUsePresentedExecutorTest {
                     },
             )
         surface.afterHide = { cancelled = true }
-        assertEquals(ToolExecutorResult.Cancelled, executor.execute(cancellable))
+        assertCleanCancellation(executor.execute(cancellable))
         assertFalse(surface.hidden)
         assertEquals(0, calls)
         cancelled = false
         surface.afterHide = { Thread.sleep(30) }
-        assertEquals(ToolExecutorResult.TimedOut, executor.execute(call.copy(deadline = Instant.now().plusMillis(10))))
+        val timeout =
+            executor.execute(call.copy(deadline = Instant.now().plusMillis(10))) as
+                ToolExecutorResult.TimedOutWithEffectTruth
+        assertTrue(timeout.sideEffectFree)
+        assertFalse(timeout.requiresReview)
         assertFalse(surface.hidden)
         assertEquals(0, calls)
     }
@@ -178,6 +182,30 @@ class MobileUsePresentedExecutorTest {
         assertTrue(result.detail.contains("No action was dispatched"))
         assertTrue(result.detail.contains("do not repeat unchanged requests"))
         assertEquals(0, calls)
+    }
+
+    @Test fun cancellationAfterDelegateEntryPreservesUnknownEffects() {
+        val unknown =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    calls++
+                    surface.allowed = false
+                    return ToolExecutorResult.Cancelled
+                }
+            }
+        assertEquals(
+            ToolExecutorResult.Cancelled,
+            MobileUsePresentedExecutor(unknown, { resource.borrow() }) { null }.execute(call),
+        )
+        assertEquals(1, calls)
+        assertFalse(surface.hidden)
+    }
+
+    private fun assertCleanCancellation(result: ToolExecutorResult) {
+        val cancelled = result as ToolExecutorResult.CancelledWithEffectTruth
+        assertTrue(cancelled.sideEffectFree)
+        assertFalse(cancelled.requiresReview)
+        assertEquals("AUTOMATION_CANCELLED_BEFORE_DISPATCH", cancelled.detail)
     }
 
     private class Surface : AutomationRuntimePresentation {

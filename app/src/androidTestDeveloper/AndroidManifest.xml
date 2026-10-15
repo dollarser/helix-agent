@@ -4,10 +4,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application>
         <provider android:name="com.helix.app.eval.CapabilityFixtureStateProvider"
-            android:authorities="com.helix.agent.developer.test.capability-state" android:exported="true" />
+            android:authorities="${applicationId}.capability-state" android:exported="true" />
         <activity android:name="com.helix.app.eval.TouchReviewActivity" android:exported="true" />
         <activity android:name="com.helix.app.eval.AutomationInstallSourceActivity" android:exported="true" />
-        <provider android:name="com.helix.app.eval.AutomationInstallFixtureProvider" android:authorities="com.helix.agent.developer.test.installfixture" android:exported="false" android:grantUriPermissions="true">
+        <provider android:name="com.helix.app.eval.AutomationInstallFixtureProvider" android:authorities="${applicationId}.installfixture" android:exported="false" android:grantUriPermissions="true">
         </provider>
         <!-- Synthetic UI in the test APK, launched from the different target-app UID. -->
         <activity android:name="com.helix.app.eval.AutomationEvaluationActivity" android:exported="true" />

@@ -6,12 +6,15 @@ import com.helix.tools.framework.ToolOrigin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 /** App-level proof that Mobile Use is a Plugin contribution, not a renamed built-in tool group. */
 class MobileUsePluginRegistrationDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
+
+    @Before fun requireBackend() = awaitMobileUseTestBackend()
 
     @Test
     fun nativeDisableRepairAndReenableUseTheProductionCatalog() {

@@ -5,6 +5,7 @@ import android.os.Build
 import com.helix.runtime.proot.core.InstallFacts
 import com.helix.runtime.proot.core.InstallRequest
 import com.helix.runtime.proot.core.ProotAssetSource
+import com.helix.runtime.proot.core.RootFsCompression
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.core.RuntimeAbi
 import com.helix.runtime.proot.core.RuntimeLock
@@ -14,7 +15,7 @@ import java.io.File
 
 /**
  * Android adapter for [RootFsInstaller] (HXA-082). Resolves the embedded runtime
- * assets (lock, raw-tar archive, PRoot binaries) from the APK assets, the
+ * assets (lock, XZ-encoded tar, PRoot binaries) from the APK assets, the
  * `filesDir/runtime` state root (architecture doc local-code-execution section
  * 6.3), and the platform precondition (device ABI).
  *
@@ -42,8 +43,8 @@ object ProotRuntimeInstaller {
 
     /**
      * Builds the [InstallRequest] over the embedded assets. The archive stream is
-     * the embedded RAW tar — the lock pins exactly these bytes (see the AGP
-     * expansion note in ALPINE-README.md). Streams are lazy: nothing is read
+     * the decoded raw tar — the lock continues to pin exactly these bytes.
+     * The XZ input, output and decoder memory are bounded. Nothing is read
      * until [RootFsInstaller.install] runs.
      */
     fun buildInstallRequest(
@@ -56,7 +57,12 @@ object ProotRuntimeInstaller {
         return InstallRequest(
             runtimeRoot = runtimeRoot(context),
             lock = lock,
-            rootfsArchiveStream = { context.assets.open("runtime/rootfs/$embeddedName") },
+            rootfsArchiveStream = {
+                RootFsCompression.open(
+                    { context.assets.open("runtime/rootfs/$embeddedName") },
+                    requireNotNull(lock.component("alpine-rootfs")).size,
+                )
+            },
             prootAssets =
                 listOf(
                     ProotAssetSource("proot", { context.assets.open("runtime/proot/proot") }),
@@ -71,15 +77,13 @@ object ProotRuntimeInstaller {
     }
 
     /**
-     * Embedded rootfs archive name: lock URL basename with the `.gz` suffix
-     * stripped — the AGP auto-expansion rule (HXA-081), unchanged by the HXA-082
-     * switch to a raw-tar asset (the rule is a no-op in that case).
+     * The source lock names raw tar bytes. The APK carries one XZ encoding of them.
      */
     fun embeddedArchiveName(lock: RuntimeLock): String {
         val rootfs =
             lock.component("alpine-rootfs") ?: error("lock has no alpine-rootfs component")
         val name = rootfs.url.substringAfterLast('/').substringBefore('?')
-        return if (name.endsWith(".gz")) name.removeSuffix(".gz") else name
+        return name.removeSuffix(".gz") + ".xz"
     }
 
     private fun requireDeviceAbi(abi: RuntimeAbi) {

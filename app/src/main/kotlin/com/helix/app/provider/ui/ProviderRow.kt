@@ -13,11 +13,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.provider.ConnectionTestMapping
@@ -38,6 +42,8 @@ internal fun ProviderRow(
     capabilityOutcome: com.helix.provider.api.ProbeOutcome? = null,
 ) {
     val visionEnabled = row.capabilities?.vision == true
+    var advanced by rememberSaveable(row.id) { mutableStateOf(false) }
+    val expansionLabel = stringResource(if (advanced) R.string.nav_expanded else R.string.nav_collapsed)
     Column(
         modifier =
             Modifier
@@ -130,32 +136,44 @@ internal fun ProviderRow(
             Text(stringResource(R.string.provider_models_manage))
         }
         if (!row.managedExternally) {
+            TextButton(
+                onClick = { advanced = !advanced },
+                modifier =
+                    Modifier
+                        .testTag(
+                            "provider-options-${row.id}",
+                        ).semantics { stateDescription = expansionLabel },
+            ) { Text(stringResource(R.string.provider_advanced_options)) }
+            // Explicit probe outcomes remain visible even when the optional controls are folded.
+            ProviderCapabilityResult(capabilityOutcome)
+        }
+        if (!row.managedExternally && advanced) {
             OutlinedButton(
                 onClick = actions.onContext,
                 modifier = Modifier.fillMaxWidth().testTag("provider-context-${row.id}"),
             ) {
                 Text(stringResource(R.string.chat_context_title))
             }
-            // HXA-059: the backend model list + the capability probe result (see the section helper).
-            ProviderCapabilityResult(capabilityOutcome)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!row.managedExternally) {
                 ProviderConnectionTestAction(row, testing, detectingCapabilities, actions.onTest)
-                OutlinedButton(
-                    onClick = actions.onDetectCapabilities,
-                    enabled = !testing && row.chatSelectable,
-                    modifier = Modifier.fillMaxWidth().testTag("provider-capabilities"),
-                ) {
-                    Text(
-                        stringResource(
-                            if (detectingCapabilities) {
-                                R.string.provider_capabilities_testing
-                            } else {
-                                R.string.provider_capabilities_test
-                            },
-                        ),
-                    )
+                if (advanced) {
+                    OutlinedButton(
+                        onClick = actions.onDetectCapabilities,
+                        enabled = !testing && row.chatSelectable,
+                        modifier = Modifier.fillMaxWidth().testTag("provider-capabilities"),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (detectingCapabilities) {
+                                    R.string.provider_capabilities_testing
+                                } else {
+                                    R.string.provider_capabilities_test
+                                },
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -164,19 +182,21 @@ internal fun ProviderRow(
                 TextButton(onClick = { actions.onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
                     Text(stringResource(R.string.provider_edit_button))
                 }
-                TextButton(
-                    onClick = { actions.onDeclareVision(!visionEnabled) },
-                    modifier = Modifier.testTag("provider-vision-declare"),
-                ) {
-                    Text(
-                        stringResource(
-                            if (visionEnabled) {
-                                R.string.provider_vision_declare_off
-                            } else {
-                                R.string.provider_vision_declare_on
-                            },
-                        ),
-                    )
+                if (advanced) {
+                    TextButton(
+                        onClick = { actions.onDeclareVision(!visionEnabled) },
+                        modifier = Modifier.testTag("provider-vision-declare"),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (visionEnabled) {
+                                    R.string.provider_vision_declare_off
+                                } else {
+                                    R.string.provider_vision_declare_on
+                                },
+                            ),
+                        )
+                    }
                 }
                 TextButton(
                     onClick = actions.onDelete,

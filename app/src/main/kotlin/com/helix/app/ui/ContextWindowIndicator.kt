@@ -28,7 +28,10 @@ import com.helix.app.agent.ChatContextUsage
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
-internal fun ContextWindowIndicator(usage: ChatContextUsage) {
+internal fun ContextWindowIndicator(
+    usage: ChatContextUsage,
+    expandedLabel: Boolean = false,
+) {
     var detailsOpen by remember { mutableStateOf(false) }
     val title = stringResource(R.string.chat_context_title)
     val label = usage.percentageLabel
@@ -36,66 +39,77 @@ internal fun ContextWindowIndicator(usage: ChatContextUsage) {
     val labelWidth = rememberTextMeasurer().measure(label, labelStyle, maxLines = 1).size.width
     val ringSize = with(LocalDensity.current) { (labelWidth.toDp() + 8.dp).coerceAtLeast(28.dp) }
     Box {
-        IconButton(
-            { detailsOpen = true },
-            Modifier.size(maxOf(48.dp, ringSize)).testTag("chat-context-window").semantics {
-                contentDescription = "$title: $label"
-            },
-        ) {
-            Box(Modifier.size(ringSize).testTag("chat-context-ring"), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(
-                    progress = { usage.fraction ?: 0f },
-                    modifier = Modifier.size(ringSize),
-                    strokeWidth = 2.dp,
-                    color =
-                        if ((usage.fraction ?: 0f) >=
-                            NEAR_FULL
-                        ) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                    trackColor = MaterialTheme.colorScheme.outlineVariant,
-                )
-                Text(
-                    label,
-                    style = labelStyle,
-                    maxLines = 1,
-                    softWrap = false,
-                )
+        if (expandedLabel) {
+            TextButton({ detailsOpen = true }, Modifier.testTag("chat-context-window")) {
+                Text(title)
+            }
+        } else {
+            IconButton(
+                { detailsOpen = true },
+                Modifier.size(maxOf(48.dp, ringSize)).testTag("chat-context-window").semantics {
+                    contentDescription = "$title: $label"
+                },
+            ) {
+                Box(Modifier.size(ringSize).testTag("chat-context-ring"), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { usage.fraction ?: 0f },
+                        modifier = Modifier.size(ringSize),
+                        strokeWidth = 2.dp,
+                        color =
+                            if ((usage.fraction ?: 0f) >=
+                                NEAR_FULL
+                            ) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                        trackColor = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    Text(
+                        label,
+                        style = labelStyle,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
             }
         }
     }
     if (detailsOpen) {
-        val unknown = stringResource(R.string.chat_context_unknown)
-        AlertDialog(
-            onDismissRequest = { detailsOpen = false },
-            title = { Text(title) },
-            text = {
-                val used = usage.usedTokens?.toString() ?: unknown
-                val usedLabel =
-                    when {
-                        usage.usedTokens == null -> unknown
-                        usage.estimatedAfterCompaction || usage.projectedTokens != null -> "≈$used"
-                        else -> "≥$used"
-                    }
-                val limit = usage.windowTokens?.toString() ?: unknown
-                Text(
-                    stringResource(
-                        R.string.chat_context_usage,
-                        usedLabel,
-                        if (usage.estimatedWindow && usage.windowTokens != null) "≈$limit" else limit,
-                    ),
-                    modifier = Modifier.testTag("chat-context-usage-details"),
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    { detailsOpen = false },
-                ) { Text(stringResource(R.string.chat_context_close)) }
-            },
-        )
+        ContextWindowDetails(usage) { detailsOpen = false }
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ContextWindowDetails(
+    usage: ChatContextUsage,
+    onDismiss: () -> Unit,
+) {
+    val unknown = stringResource(R.string.chat_context_unknown)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.chat_context_title)) },
+        text = {
+            val used = usage.usedTokens?.toString() ?: unknown
+            val usedLabel =
+                when {
+                    usage.usedTokens == null -> unknown
+                    usage.estimatedAfterCompaction || usage.projectedTokens != null -> "≈$used"
+                    else -> "≥$used"
+                }
+            val limit = usage.windowTokens?.toString() ?: unknown
+            Text(
+                stringResource(
+                    R.string.chat_context_usage,
+                    usedLabel,
+                    if (usage.estimatedWindow && usage.windowTokens != null) "≈$limit" else limit,
+                ),
+                modifier = Modifier.testTag("chat-context-usage-details"),
+            )
+        },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.chat_context_close)) } },
+    )
 }
 
 private const val NEAR_FULL = 0.85f

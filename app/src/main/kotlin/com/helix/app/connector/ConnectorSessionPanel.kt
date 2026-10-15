@@ -189,7 +189,15 @@ fun ConnectorSessionPanel(
                 }
                 state.rows.forEach { row ->
                     PluginSessionChoice(row, state.busy || state.loading, { update(row, it) }) {
-                        configure(row, row.setupReason)
+                        // This click already requests setup. Navigation neither selects nor authorizes the plugin.
+                        onDismiss()
+                        openPluginConfiguration(
+                            row,
+                            row.setupReason,
+                            onConfigure,
+                            onMobileUseConfiguration,
+                            onSystemPermissions,
+                        )
                     }
                 }
                 state.skills.forEach { skill -> SessionSkillChoice(service, sessionId, skill) }

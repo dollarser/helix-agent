@@ -1,9 +1,9 @@
 # ADR-AGENT-013: Markdown-native Agent Memory
 
 Status: accepted
-Date: 2026-09-27
-HXA: HXA-230
-Deciders: Project owner（明确要求开始 HXA-230，HXA-222 继续暂缓）
+Date: 2026-09-27; revised 2026-10-15
+HXA: HXA-230, HXA-293
+Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
 ## Context
 
@@ -21,6 +21,12 @@ Deciders: Project owner（明确要求开始 HXA-230，HXA-222 继续暂缓）
 - Context Builder 在用户启用且 session 允许外部读取时加载 summary，最多两个 scope、总计 8 KiB，不自动加载全部 topic。`MEMORY.md` 和相关 topic 由 list/search/read 渐进访问；来源标为 EXTERNAL_CONTENT/UNTRUSTED，现有 PromptSnapshot 保存内容 hash/fingerprint。缺失或读取失败的摘要不阻断普通聊天。
 - 管理入口为 `+ → Reference → Memory`，支持查看/编辑 Markdown、搜索、删除确认、启用与自动维护开关、单 Markdown 文档导入/导出。导入先进入可编辑草稿，保存才持久化；导出使用系统创建文档，不后台外传。编辑冲突保留用户草稿并提示重新加载。
 - 不实现 sidecar extraction、向量库、后台 consolidation、跨 checkout 自动共享、模型运行时或新执行域。
+
+### Memory Store 与上下文快照（HXA-293）
+
+Memory 归内容与上下文域，通过最小查询/修改契约隔离具体 Markdown 存储；调用修改仍经现有治理，读取输入由宿主形成有界来源快照交给唯一 ContextCompiler。该接缝不属于通用执行器，不建立 Memory Agent、向量正文或第二份可变历史。
+
+Markdown canonical、显式 Project identity、hash 冲突、开关、可信 scope 与外部不可信内容规则保持。成本/选择诊断只解释当前请求，改进召回或渐进加载需有界实验，不从接口提取推导任务成功率改善。
 
 ## Alternatives considered
 
@@ -40,6 +46,10 @@ Global 可独立使用；Project 依赖显式登记与会话关联，入口同�
 ## Reconsider when
 
 需要完整 Project registry、跨进程并发写、批量归档、自动提取/整理或向量检索时重新评估相关边界。
+
+## Decision history — 2026-10-15
+
+接受 HXA-293 的 Memory 最小存储接缝及内容快照；原 D 阶段的产物归 HXA-288，Memory 与执行结果分别归属，避免为一次重构混成同一服务。 本轮只更新设计与任务，代码和验收由对应 HXA 记录。
 
 ## References
 

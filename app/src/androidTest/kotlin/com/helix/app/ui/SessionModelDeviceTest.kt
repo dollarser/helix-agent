@@ -102,7 +102,7 @@ class SessionModelDeviceTest {
                         chat.screen.value.badge
                             ?.model == "fixture-model-c"
                     }
-                    compose.onNodeWithTag("chat-model-picker-close").performClick()
+                    compose.onNodeWithTag("chat-model-picker-close").assertDoesNotExist()
                     assertEquals(ReasoningEffort.OFF, chat.runControl.value.reasoning)
                     assertEquals(alternate, storage.sessions.resolve(id).providerId)
                     assertEquals(history, storage.messages.listBySession(id))

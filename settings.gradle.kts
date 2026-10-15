@@ -27,6 +27,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "Helix"
 
+// Host-only builds opt in to compile this independent black-box device driver.
+if (providers.gradleProperty("includeReleaseSmoke").orNull == "true") {
+    include(":tests:release-smoke")
+}
+
 include(
     ":app",
     ":core:model",

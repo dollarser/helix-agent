@@ -5,6 +5,7 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.extensions.mobileuse.AutomationTermination
 import com.helix.extensions.mobileuse.automation.AUTOMATION_MAX_SET_TEXT
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
 import com.helix.extensions.mobileuse.automation.AutomationFindQuery
@@ -76,7 +77,7 @@ class AutomationTools(
     fun executor(name: String): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                AutomationTermination.beforeDispatch(call)?.let { return it }
                 val boundPort = port.forCall(call)
                 return try {
                     val result =
@@ -196,7 +197,7 @@ class AutomationTools(
     private fun wait(call: ExecutableToolCall, boundPort: AutomationToolPort): ToolExecutorResult {
         val requested = java.time.Duration.ofMillis(optionalInt(call.args, "timeoutMillis", 2_000).toLong())
         val available = java.time.Duration.between(Instant.now(), call.deadline)
-        if (available.isNegative || available.isZero) return ToolExecutorResult.TimedOut
+        if (available.isNegative || available.isZero) return AutomationTermination.observationTimedOut
         val condition =
             AutomationWaitCondition.valueOf(
                 (call.args["condition"]?.jsonPrimitive?.contentOrNull ?: "present").uppercase(java.util.Locale.ROOT),
@@ -211,7 +212,7 @@ class AutomationTools(
                 cancelled = { call.cancel.isCancelled() },
                 snapshotProvider = boundPort::snapshot,
             )
-        if (result.status == AutomationWaitStatus.CANCELLED) return ToolExecutorResult.Cancelled
+        if (result.status == AutomationWaitStatus.CANCELLED) return AutomationTermination.observationCancelled
         return ToolExecutorResult.Completed(
             buildJsonObject {
                 val observation = result.observation

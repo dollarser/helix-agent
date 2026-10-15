@@ -111,8 +111,9 @@ def run(args):
     enable_hardware_keyboard(args.avd)
     command = [str(sdk / "emulator/emulator"), "-avd", args.avd, "-port", str(args.port),
                "-read-only", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
-               "-memory", str(args.memory_mb), "-cores", str(args.cores), "-gpu", "swiftshader_indirect"]
-    (output / "emulator-config.json").write_text(json.dumps({"memoryMb": args.memory_mb, "cores": args.cores}))
+               "-memory", str(args.memory_mb), "-cores", str(args.cores), "-gpu", args.gpu]
+    (output / "emulator-config.json").write_text(json.dumps({"memoryMb": args.memory_mb, "cores": args.cores,
+                                                          "gpu": args.gpu}))
     with (output / "emulator.log").open("w") as log:
         process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         (output / "owner.json").write_text(json.dumps({"pid": process.pid, "serial": serial,
@@ -273,6 +274,8 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--memory-mb", type=int, choices=(2048, 4096, 8192), default=2048)
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
+    parser.add_argument("--gpu", choices=("auto", "host", "software", "swiftshader", "swiftshader_indirect"),
+                        default="auto", help="Graphics backend; use an explicit mode for controlled rendering comparisons")
     parser.add_argument("--density-dpi", type=int, choices=(400, 420, 640), default=420)
     parser.add_argument("--font-scale", type=float, choices=(1.0, 1.3, 1.5), default=1.0)
     parser.add_argument("--reverse-port", type=int)

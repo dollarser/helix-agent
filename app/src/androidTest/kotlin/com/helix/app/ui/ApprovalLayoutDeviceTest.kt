@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
@@ -42,6 +44,43 @@ class ApprovalLayoutDeviceTest {
     @Test fun chineseLongApprovalKeepsBothActionsReachable() = verify(AppLanguage.ZH_CN)
 
     @Test fun collapsedToolStillShowsPendingApprovalActions() = verify(AppLanguage.ZH_CN, inTimeline = true)
+
+    @Test fun chineseSettledApprovalDoesNotAskAgainOrClaimExecution() = verifySettled(AppLanguage.ZH_CN)
+
+    @Test fun englishSettledApprovalDoesNotAskAgainOrClaimExecution() = verifySettled(AppLanguage.EN)
+
+    private fun verifySettled(language: AppLanguage) {
+        val context =
+            AppLanguageStore.wrapForLocale(
+                InstrumentationRegistry.getInstrumentation().targetContext,
+                AppLanguageStore.localeListFor(language),
+            )
+        val state = mutableStateOf(ApprovalCardState.PENDING)
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides context) {
+                MaterialTheme { ApprovalCard(layoutApproval().copy(state = state.value), {}, {}) }
+            }
+        }
+        compose.onNodeWithTag("approval-approve-layout").assertIsDisplayed()
+        val settledStates =
+            listOf(
+                ApprovalCardState.APPROVED,
+                ApprovalCardState.DENIED,
+                ApprovalCardState.SUCCEEDED,
+                ApprovalCardState.FAILED,
+            )
+        for (settled in settledStates) {
+            compose.runOnIdle { state.value = settled }
+            compose.onNodeWithTag("approval-approve-layout").assertDoesNotExist()
+            compose.onNodeWithTag("approval-deny-layout").assertDoesNotExist()
+            compose
+                .onNodeWithText(if (language == AppLanguage.EN) "Allow this action?" else "允许此操作？", substring = true)
+                .assertDoesNotExist()
+            if (settled == ApprovalCardState.APPROVED) {
+                compose.onNodeWithText(if (language == AppLanguage.EN) "Approved" else "已批准").assertIsDisplayed()
+            }
+        }
+    }
 
     private fun verify(
         language: AppLanguage,

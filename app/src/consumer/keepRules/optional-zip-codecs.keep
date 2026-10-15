@@ -1,0 +1,5 @@
+# Consumer has no PRoot/XZ dependency. XZ ZIP entries are explicitly rejected by
+# both import paths; these are Commons Compress's unshipped optional codecs.
+-dontwarn org.tukaani.xz.MemoryLimitException
+-dontwarn org.tukaani.xz.SingleXZInputStream
+-dontwarn org.tukaani.xz.XZInputStream

@@ -21,10 +21,53 @@ val prepareFfmpeg =
     }
 tasks.named("preBuild") { dependsOn(prepareFfmpeg) }
 
+val rootfsDirectory = layout.buildDirectory.dir("generated/rootfs-assets")
+val prepareRootfs =
+    tasks.register<Exec>("prepareRootfsPayload") {
+        inputs.file(layout.projectDirectory.file("src/main/assets/runtime/runtime-lock.json"))
+        inputs.dir(layout.projectDirectory.dir("src/main/assets/runtime/rootfs"))
+        inputs.file(rootProject.file("scripts/prepare-rootfs-payload.py"))
+        outputs.dir(rootfsDirectory)
+        commandLine(
+            "python3",
+            rootProject.file("scripts/prepare-rootfs-payload.py").absolutePath,
+            layout.projectDirectory
+                .dir("src/main/assets/runtime")
+                .asFile.absolutePath,
+            rootfsDirectory.get().asFile.absolutePath,
+        )
+    }
+tasks.named("preBuild") { dependsOn(prepareRootfs) }
+
+val runtimeAssetsDirectory = layout.buildDirectory.dir("generated/runtime-assets")
+val prepareRuntimeAssets =
+    tasks.register<Sync>("prepareRuntimeAssets") {
+        from(layout.projectDirectory.dir("src/main/assets")) {
+            exclude("runtime/rootfs/*.tar")
+        }
+        into(runtimeAssetsDirectory)
+    }
+tasks.named("preBuild") { dependsOn(prepareRuntimeAssets) }
+
 extensions.configure<LibraryExtension> {
     sourceSets.getByName("main") {
-        jniLibs.srcDir(ffmpegDirectory.get().dir("jniLibs").asFile)
-        assets.srcDir(ffmpegDirectory.get().dir("assets").asFile)
+        jniLibs.directories.add(
+            ffmpegDirectory
+                .get()
+                .dir("jniLibs")
+                .asFile.absolutePath,
+        )
+        assets.directories.clear()
+        assets.directories.addAll(
+            listOf(
+                runtimeAssetsDirectory.get().asFile.absolutePath,
+                ffmpegDirectory
+                    .get()
+                    .dir("assets")
+                    .asFile.absolutePath,
+                rootfsDirectory.get().asFile.absolutePath,
+            ),
+        )
     }
     packaging.jniLibs.keepDebugSymbols +=
         setOf("**/libav*.so", "**/libsw*.so", "**/libhelix_ffmpeg.so", "**/libhelix_ffprobe.so")

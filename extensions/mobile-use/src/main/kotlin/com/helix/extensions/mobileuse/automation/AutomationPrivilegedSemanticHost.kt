@@ -58,7 +58,7 @@ internal class AutomationPrivilegedSemanticHost(
                 },
             )
         val snapshot = result.snapshot ?: return result.copy(backend = backendName())
-        if (reply.target != target || snapshot.packageName != target.packageName ||
+        if (!target.sameWindow(reply.target) || snapshot.packageName != target.packageName ||
             snapshot.windowId != target.windowId
         ) {
             return refused(AutomationSnapshotStatus.TARGET_CHANGED)

@@ -8,7 +8,7 @@ Helix executes tasks on Android: interacting with supported apps, browsing the w
 
 [Download preview](https://github.com/dollarser/helix-agent/releases) · [Get started](#your-first-task) · [Documentation](docs/README.md) · [Issues](https://github.com/dollarser/helix-agent/issues) · [Contribute](CONTRIBUTING.md)
 
-> **Development preview. Android 10+ required.** Published APKs currently use debug signing. During development, an incompatible database upgrade clears conversations, configuration, and database records while retaining files outside the database. Export important content and back up files before upgrading. Features on `main` may not be in published APKs.
+> **Development preview. Android 10+ required; old data is not guaranteed to survive updates.** Published APKs currently use debug signing. An incompatible database upgrade clears conversations, configuration, and database records while retaining files outside the database. Save important content separately; diagnostic exports are not restorable app backups. Features on `main` may not be in published APKs.
 
 ## What you can do
 

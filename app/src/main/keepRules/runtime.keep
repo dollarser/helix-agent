@@ -1,0 +1,31 @@
+# OkHttp's JVM artifact probes optional TLS providers. Android uses platform TLS;
+# these exact optional classes are not shipped (same scope as the CLI R8 spike).
+-dontwarn org.bouncycastle.jsse.BCSSLParameters
+-dontwarn org.bouncycastle.jsse.BCSSLSocket
+-dontwarn org.bouncycastle.jsse.provider.BouncyCastleJsseProvider
+-dontwarn org.conscrypt.Conscrypt$Version
+-dontwarn org.conscrypt.Conscrypt
+-dontwarn org.conscrypt.ConscryptHostnameVerifier
+-dontwarn org.openjsse.javax.net.ssl.SSLParameters
+-dontwarn org.openjsse.javax.net.ssl.SSLSocket
+-dontwarn org.openjsse.net.ssl.OpenJSSE
+
+# JGit's optional desktop JMX publication is unavailable on Android. Helix never
+# enables it; make that platform boundary explicit so the desktop path is removed.
+-assumevalues class org.eclipse.jgit.storage.file.WindowCacheConfig {
+    public boolean getExposeStatsViaJmx() return false;
+}
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn javax.management.InstanceAlreadyExistsException
+-dontwarn javax.management.InstanceNotFoundException
+-dontwarn javax.management.JMException
+-dontwarn javax.management.MBeanRegistrationException
+-dontwarn javax.management.MBeanServer
+-dontwarn javax.management.MalformedObjectNameException
+-dontwarn javax.management.NotCompliantMBeanException
+-dontwarn javax.management.ObjectInstance
+-dontwarn javax.management.ObjectName
+
+# ZIP import rejects Zstandard entries before opening them. Its optional native
+# codec was never packaged; don't add a second native runtime for archive import.
+-dontwarn com.github.luben.zstd.ZstdInputStream

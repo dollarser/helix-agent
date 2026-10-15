@@ -313,6 +313,9 @@ internal class DefaultAppContainer(
             snapshotsRoot = skillsRoot.resolve("snapshots"),
             stateFile = skillsRoot.resolve("enablement.txt"),
             trashRoot = skillsRoot.resolve("trash"),
+            builtIns =
+                com.helix.app.skills
+                    .bundledSkills(context),
             sourceAvailable = { key, session ->
                 pluginCatalog.skillAvailable(key, session) && pluginRegistry.skillAvailable(key, session)
             },

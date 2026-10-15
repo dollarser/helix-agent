@@ -26,9 +26,12 @@ class HelixDocsLiveModelDeviceTest {
     private val c get() = app.appContainer
 
     @Test
+    @Suppress("LongMethod") // Keep the bounded live-model journey and its cleanup in one test.
     fun discoversReadsCitesVersionAndBoundsAnUnmatchedQuestion() =
         runBlocking {
-            val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
+            val args =
+                androidx.test.platform.app.InstrumentationRegistry
+                    .getArguments()
             val port = requireNotNull(args.getString("helixDocsPort")).toInt()
             val model = requireNotNull(args.getString("helixDocsModel"))
             require(model == "Qwen3.8-27B")
@@ -60,57 +63,128 @@ class HelixDocsLiveModelDeviceTest {
                         "index, then read the relevant section. State the documented preview version, " +
                         "distribution(s), exact section ID and heading, full guide revision hash, and " +
                         "whether the channel section says the preview is debug-signed or store-ready. " +
-                        "Also answer whether installing over a OnePlus can preserve existing app data. " +
+                        "Also state the measured maximum background survival time on OnePlus. " +
                         "If the guide does not document that, state that it is not documented; do not infer. " +
                         "Do not use the web, phone, other apps, or perform actions.",
                 )
                 val deadline = android.os.SystemClock.elapsedRealtime() + 300_000L
                 var turn: com.helix.core.storage.entity.TurnEntity? = null
                 while (android.os.SystemClock.elapsedRealtime() < deadline) {
-                    turn = c.storage.turns.listBySession(session).lastOrNull()
+                    turn =
+                        c.storage.turns
+                            .listBySession(session)
+                            .lastOrNull()
                     if (turn != null && TurnState.valueOf(turn.state).isTerminal) break
                     kotlinx.coroutines.delay(250)
                 }
                 val completedTurn = requireNotNull(turn) { "model did not create a turn" }
-                check(completedTurn.state == "COMPLETED") { "model turn ended ${completedTurn.state}: ${completedTurn.errorCode}" }
+                check(
+                    completedTurn.state == "COMPLETED",
+                ) { "model turn ended ${completedTurn.state}: ${completedTurn.errorCode}" }
                 val calls = c.storage.toolCalls.listByTurn(completedTurn.id)
-                assertTrue("model must use the catalog-discovered built-in guide; calls=${calls.map { it.name }}", calls.any { it.name == "skills.read" })
+                assertTrue(
+                    "model must use the catalog-discovered built-in guide; calls=${calls.map { it.name }}",
+                    calls.any {
+                        it.name ==
+                            "skills.read"
+                    },
+                )
                 val resourceCalls = calls.filter { it.name == "skills.read_resource" }
                 assertTrue("model must read the guide manifest and chapters", resourceCalls.size >= 3)
-                val paths = resourceCalls.mapNotNull { call ->
-                    runCatching { Json.parseToJsonElement(call.argsJson).jsonObject["path"]?.jsonPrimitive?.content }.getOrNull()
-                }
+                val paths =
+                    resourceCalls.mapNotNull { call ->
+                        runCatching {
+                            Json
+                                .parseToJsonElement(
+                                    call.argsJson,
+                                ).jsonObject["path"]
+                                ?.jsonPrimitive
+                                ?.content
+                        }.getOrNull()
+                    }
                 assertTrue("manifest was not read: $paths", "references/manifest.json" in paths)
                 assertTrue("index was not read: $paths", "references/index.md" in paths)
-                assertTrue("unexpected or unbounded resource read: $paths", paths.all { it in setOf(
-                    "references/manifest.json", "references/index.md",
-                    "references/sections/index.md", "references/sections/channels.md",
-                    "references/sections/getting-started.md", "sections/channels.md",
-                    "sections/getting-started.md",
-                ) })
-                assertTrue("manifest read did not settle", resourceCalls.any {
-                    Json.parseToJsonElement(it.argsJson).jsonObject["path"]?.jsonPrimitive?.content == "references/manifest.json" &&
-                        c.storage.toolResults.byToolCall(it.callId)?.status == "SUCCEEDED"
-                })
-                assertTrue("index read did not settle", resourceCalls.any {
-                    Json.parseToJsonElement(it.argsJson).jsonObject["path"]?.jsonPrimitive?.content == "references/index.md" &&
-                        c.storage.toolResults.byToolCall(it.callId)?.status == "SUCCEEDED"
-                })
-                assertTrue("channel section read did not settle", resourceCalls.any {
-                    Json.parseToJsonElement(it.argsJson).jsonObject["path"]?.jsonPrimitive?.content == "references/sections/channels.md" &&
-                        c.storage.toolResults.byToolCall(it.callId)?.status == "SUCCEEDED"
-                })
-                val response = c.storage.messages.listBySession(session)
-                    .filter { it.role == "ASSISTANT" && it.kind == "TEXT" && it.turnId == completedTurn.id }
-                    .mapNotNull { c.storage.messages.readContent(it) }
-                    .joinToString("\n")
+                assertTrue(
+                    "unexpected or unbounded resource read: $paths",
+                    paths.all {
+                        it in
+                            setOf(
+                                "references/manifest.json",
+                                "references/index.md",
+                                "references/sections/index.md",
+                                "references/sections/channels.md",
+                                "references/sections/getting-started.md",
+                                "sections/channels.md",
+                                "sections/getting-started.md",
+                            )
+                    },
+                )
+                assertTrue(
+                    "manifest read did not settle",
+                    resourceCalls.any {
+                        Json
+                            .parseToJsonElement(it.argsJson)
+                            .jsonObject["path"]
+                            ?.jsonPrimitive
+                            ?.content ==
+                            "references/manifest.json" &&
+                            c.storage.toolResults
+                                .byToolCall(it.callId)
+                                ?.status == "SUCCEEDED"
+                    },
+                )
+                assertTrue(
+                    "index read did not settle",
+                    resourceCalls.any {
+                        Json
+                            .parseToJsonElement(it.argsJson)
+                            .jsonObject["path"]
+                            ?.jsonPrimitive
+                            ?.content ==
+                            "references/index.md" &&
+                            c.storage.toolResults
+                                .byToolCall(it.callId)
+                                ?.status == "SUCCEEDED"
+                    },
+                )
+                assertTrue(
+                    "channel section read did not settle",
+                    resourceCalls.any {
+                        Json
+                            .parseToJsonElement(it.argsJson)
+                            .jsonObject["path"]
+                            ?.jsonPrimitive
+                            ?.content ==
+                            "references/sections/channels.md" &&
+                            c.storage.toolResults
+                                .byToolCall(it.callId)
+                                ?.status == "SUCCEEDED"
+                    },
+                )
+                val response =
+                    c.storage.messages
+                        .listBySession(session)
+                        .filter { it.role == "ASSISTANT" && it.kind == "TEXT" && it.turnId == completedTurn.id }
+                        .mapNotNull { c.storage.messages.readContent(it) }
+                        .joinToString("\n")
                 val normalized = response.lowercase()
-                assertTrue("answer must state version 0.0.5", "0.0.5" in response)
+                val installedVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName
+                assertTrue("answer must state installed version", requireNotNull(installedVersion) in response)
                 assertTrue("answer must cite channel section", "channels" in normalized)
-                assertTrue("answer must include the full revision hash", Regex("(?i)\\b[a-f0-9]{64}\\b").containsMatchIn(response))
-                assertTrue("undocumented install/data policy must be admitted", listOf(
-                    "not documented", "not specified", "not stated", "does not document", "cannot determine",
-                ).any { it in normalized })
+                assertTrue(
+                    "answer must include the full revision hash",
+                    Regex("(?i)\\b[a-f0-9]{64}\\b").containsMatchIn(response),
+                )
+                assertTrue(
+                    "undocumented OEM survival measurement must be admitted",
+                    listOf(
+                        "not documented",
+                        "not specified",
+                        "not stated",
+                        "does not document",
+                        "cannot determine",
+                    ).any { it in normalized },
+                )
                 println("HELIX_DOCS_LIVE_MODEL=PASS model=$model calls=${calls.map { it.name }} paths=$paths")
                 println("HELIX_DOCS_LIVE_ANSWER=$response")
             } finally {

@@ -77,22 +77,29 @@ tasks.register<JavaExec>("detekt") {
     mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
 
     val reportDirectory = layout.buildDirectory.dir("reports/detekt")
-    inputs.files(
+    val kotlinSources =
         fileTree(projectDir) {
-            include("**/src/**/*.kt")
-            exclude("**/build/**")
-        },
-    )
+            include("**/*.kt")
+            exclude("**/build/**", "**/.gradle/**")
+        }
+    inputs.files(kotlinSources)
     inputs.file(layout.projectDirectory.file("config/detekt/detekt.yml"))
     outputs.dir(reportDirectory)
 
     doFirst {
         reportDirectory.get().asFile.mkdirs()
+        // Detekt filters excluded paths after walking them. Do not traverse build
+        // outputs that concurrent lint/packaging tasks may atomically replace.
+        val sourceRoots =
+            kotlinSources.files
+                .map { source ->
+                    generateSequence(source.parentFile) { it.parentFile }.firstOrNull { it.name == "src" }
+                        ?: source.parentFile
+                }.distinct()
+        args("--input", sourceRoots.joinToString(",") { it.absolutePath })
     }
 
     args(
-        "--input",
-        projectDir.absolutePath,
         "--config",
         layout.projectDirectory
             .file("config/detekt/detekt.yml")
@@ -143,6 +150,7 @@ val mcpClientDependency = libs.mcp.client
 val ktorClientOkhttpDependency = libs.ktor.client.okhttp
 val snakeYamlEngineDependency = libs.snakeyaml.engine
 val commonsCompressDependency = libs.commons.compress
+val xzDependency = libs.xz
 val a2aClientDependency = libs.a2a.client
 val a2aClientRestDependency = libs.a2a.client.rest
 val a2aHttpAndroidDependency = libs.a2a.http.android
@@ -608,6 +616,7 @@ subprojects {
             // handshake consume the parsed types.
             if (path == ":runtime:proot-core") {
                 dependencies.add("api", kotlinxSerializationJsonDependency.get())
+                dependencies.add("implementation", xzDependency.get())
                 // HXA-081: the build-time asset gate (scripts/build-proot-assets.sh) runs the
                 // SAME ElfLoaderAlignChecker the on-device installer (HXA-082) and the 16 KiB
                 // compat decision (HXA-086) use, as a JavaExec over the module's runtime

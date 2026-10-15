@@ -520,13 +520,6 @@ fun ChatScreen(
                             }
                         }
                     }
-                    if (providerRows.firstOrNull { it.id == screen.badge?.providerId }?.isCleartext == true) {
-                        Text(
-                            stringResource(R.string.chat_cleartext_warning),
-                            Modifier.testTag("chat-cleartext-warning"),
-                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                        )
-                    }
                     if (buffer.failed) {
                         Text(stringResource(R.string.composer_cache_notice), Modifier.testTag("chat-cache-notice"))
                     }

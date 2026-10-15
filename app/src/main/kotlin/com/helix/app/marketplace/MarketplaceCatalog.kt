@@ -170,7 +170,7 @@ object MarketplaceCatalog {
                 summaryRes = R.string.marketplace_item_gitlab_summary,
                 descriptionRes = R.string.marketplace_item_gitlab_desc,
                 author = "GitLab / MCP",
-                authRequirement = MarketplaceAuthRequirement.BEARER_TOKEN,
+                authRequirement = MarketplaceAuthRequirement.OAUTH,
                 authHintRes = R.string.marketplace_item_gitlab_auth_hint,
                 tags = listOf("gitlab", "git", "issues", "code", "mcp"),
                 targetConnectorName = "gitlab-connector",

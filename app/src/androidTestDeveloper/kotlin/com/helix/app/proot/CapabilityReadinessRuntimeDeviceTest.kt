@@ -2,13 +2,17 @@ package com.helix.app.proot
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
+import com.helix.app.R
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.container
 import com.helix.app.ui.navigateTo
@@ -21,6 +25,8 @@ import com.helix.runtime.proot.client.VerifiedRuntimeStore
 import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -80,6 +86,35 @@ class CapabilityReadinessRuntimeDeviceTest {
         container.profileStore.switchTo(SafetyProfile.STANDARD)
     }
 
+    @Test
+    fun returningToRuntimeRefreshesStatusWithoutRestoringVerification() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        installRuntime(context)
+        compose.resetDeterministicUiState()
+        val store = compose.container().profileStore
+        store.switchTo(SafetyProfile.ADVANCED)
+        try {
+            val note = ProotToolModule.verifyNowNote()
+            assertFalse("A successful verification must not be presented as an error", note.isError)
+            compose.navigateTo("setup/runtime")
+            val ready = compose.activity.getString(R.string.settings_proot_verified)
+            waitForRuntimeStatus(ready)
+            compose.onNodeWithTag("settings-proot-status").assertTextContains(ready, substring = true)
+            compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+            VerifiedRuntimeStore(context).clear()
+            compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+            val unverified = compose.activity.getString(R.string.settings_proot_not_verified)
+            waitForRuntimeStatus(unverified)
+            compose.onNodeWithTag("settings-proot-status").assertTextContains(unverified, substring = true)
+            assertNull(
+                "Returning must refresh facts without verifying automatically",
+                VerifiedRuntimeStore(context).load(),
+            )
+        } finally {
+            store.switchTo(SafetyProfile.STANDARD)
+        }
+    }
+
     // ---------- helpers ----------
 
     private fun assertReadinessRuntimeReady() {
@@ -113,6 +148,12 @@ class CapabilityReadinessRuntimeDeviceTest {
                 .onAllNodesWithTag("capability-readiness-item-runtime")
                 .fetchSemanticsNodes()
                 .isNotEmpty()
+        }
+    }
+
+    private fun waitForRuntimeStatus(text: String) {
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
         }
     }
 

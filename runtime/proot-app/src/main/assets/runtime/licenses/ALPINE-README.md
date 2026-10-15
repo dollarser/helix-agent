@@ -22,12 +22,17 @@ PRoot 侧组件（proot/loader/libtalloc/libandroid-shmem）的许可证文本�
 - **最终存档**：构建产物经 `scripts/deterministic_tar.py` 重打包（条目按路径排序、
   uid/gid=0、固定 mtime=2026-01-01 UTC、GNU 格式），得到一个字节级可复现的 **原始
   tar**（`alpine-minirootfs-3.22.5-aarch64.tar`）。**锁定对象是这个原始 tar**：它的
-  SHA-256 与大小记录于 `runtime-lock.json`，设备端安装器（HXA-082）安装前对实际读到的
-  字节重算比对。之所以锁定原始 tar 而非 gzip 包，是因为 Android Gradle 在打包 APK 时
-  自动展开 `.gz` 资源，设备从 APK 资产读到的正是原始 tar 字节；锁定"设备真正读到的
-  字节"才能保证校验闭环。gzip -9 mtime=0 的 `.tar.gz` 仍作为可复现构建产物生成，其
-  SHA-256 仅记录于构建日志，不是锁定值。
+  SHA-256 与大小记录于 `runtime-lock.json`。APK 构建将其编码为单流 `.tar.xz`，不再
+  携带原始 tar；设备安装器有界解码后对原始字节重算比对，通过后才激活安装。
+  存储压缩不改变已锁定的软件包、文件内容或安装身份。构建端也验证压缩往返一致性；
+  gzip `.tar.gz` 仍可作为上游构建产物生成，但不是 APK 中的格式或锁定值。
 - 存档内含 `/lib/apk/db/installed`（apk 数据库，含每包签名校验和），供离线审计。
+
+## APK 解码器
+
+Android 安装器使用 [XZ for Java](https://tukaani.org/xz/java.html)（`org.tukaani:xz:1.12`，
+0BSD）读取压缩资产，版本与完整性校验由 Gradle 依赖锁定。它位于 Android Runtime
+模块中，不替换下表的 Alpine `xz-libs`，也不在主应用进程执行用户代码。
 
 ## 已安装包清单（53 个，版本 + 许可证）
 

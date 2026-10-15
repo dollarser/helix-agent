@@ -135,6 +135,12 @@ def run_health_probe(serial: str, runner: str, adb_path: str = "adb") -> bool:
     return parse_instrumentation_log(HEALTH_PROBE_CLASS, out, rc)[0] == "PASS"
 
 
+def stop_test_processes(serial: str, target_pkg: str, test_pkg: str, adb_path: str = "adb") -> None:
+    """Restart boundaries retain app data; individual fixtures own their synthetic state."""
+    for package in (target_pkg, test_pkg):
+        run_cmd([adb_path, "-s", serial, "shell", "am", "force-stop", package], timeout=10)
+
+
 def perform_recovery_probe(serial: str, target_pkg: str, test_pkg: str, runner: str, adb_path: str = "adb") -> bool:
     """Checks device state and test runner responsiveness. Attempts minimal recovery if needed."""
     print("  [Recovery] Checking device state...")
@@ -154,17 +160,15 @@ def perform_recovery_probe(serial: str, target_pkg: str, test_pkg: str, runner: 
         print("  [Recovery] Health probe PASSED. Runner is intact.")
         return True
 
-    print("  [Recovery] Health probe failed. Performing minimal package reset...")
-    run_cmd([adb_path, "-s", serial, "shell", "pm", "clear", target_pkg], timeout=15)
-    run_cmd([adb_path, "-s", serial, "shell", "am", "force-stop", target_pkg], timeout=10)
-    run_cmd([adb_path, "-s", serial, "shell", "am", "force-stop", test_pkg], timeout=10)
+    print("  [Recovery] Health probe failed. Restarting processes without clearing app data...")
+    stop_test_processes(serial, target_pkg, test_pkg, adb_path)
     time.sleep(2)
 
     if run_health_probe(serial, runner, adb_path):
-        print("  [Recovery] Health probe PASSED after package reset.")
+        print("  [Recovery] Health probe PASSED after process restart.")
         return True
 
-    print("  [Recovery] Health probe FAILED after package reset. Unrecoverable runner error.")
+    print("  [Recovery] Health probe FAILED after process restart. App data retained for diagnosis.")
     return False
 
 
@@ -208,15 +212,23 @@ def parse_instrumentation_log(cls_name: str, log_content: str, return_code: int)
     return ("PASS" if passed else "SKIP / ASSUMPTION"), details
 
 
+def summary_exit_code(summary):
+    results = summary.get("results", [])
+    return int(not results or summary.get("missing_count", 0) > 0 or any(item.get("verdict") != "PASS" for item in results))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Isolated AndroidTest Runner")
     parser.add_argument("classes_file", help="Path to classes file (.txt) or manifest (.json)")
     parser.add_argument("--out-dir", default=None, help="Output directory for logs and results")
     parser.add_argument("--flavor", choices=["consumer", "developer"], default="consumer", help="App flavor")
+    parser.add_argument("--application-id", help="Explicit target application ID for an isolated test installation")
     parser.add_argument("--serial", required=True, help="Explicitly authorized ADB device serial")
     parser.add_argument("--timeout", type=int, default=180, help="Per-class timeout in seconds")
     parser.add_argument("--manifest", default=None, help="Manifest path for aggregation validation")
     args = parser.parse_args()
+    if args.application_id and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", args.application_id):
+        parser.error("--application-id must be an Android package name")
 
     # Find adb
     adb_path = "adb"
@@ -233,6 +245,7 @@ def main():
         target_pkg = "com.helix.agent"
     else:
         target_pkg = "com.helix.agent.developer"
+    target_pkg = args.application_id or target_pkg
     test_pkg = f"{target_pkg}.test"
     runner = f"{test_pkg}/com.helix.app.HelixAndroidJUnitRunner"
 
@@ -342,10 +355,8 @@ def main():
             print(f"[{idx:3d}/{total_classes:3d}] {cls:<58s} -> {'PHASE_RUNNER_REQUIRED':<22s} (0.00s)")
             continue
 
-        # Step 1: Clean state before running class
-        run_cmd([adb_path, "-s", args.serial, "shell", "pm", "clear", target_pkg], timeout=15)
-        run_cmd([adb_path, "-s", args.serial, "shell", "am", "force-stop", target_pkg], timeout=10)
-        run_cmd([adb_path, "-s", args.serial, "shell", "am", "force-stop", test_pkg], timeout=10)
+        # Step 1: Stop old processes, retaining persisted state and failure evidence.
+        stop_test_processes(args.serial, target_pkg, test_pkg, adb_path)
         # Android's 1s remove-task destruction timeout can kill the NEXT instrumentation
         # process after force-stop returns. Match the existing recovery reset's isolation gap.
         time.sleep(2)
@@ -416,9 +427,10 @@ def main():
 
     # Run complete: invoke aggregator
     print("\nAll classes executed. Aggregating baseline...")
-    summarize(out_dir, manifest_path)
+    summary = summarize(out_dir, manifest_path)
 
     print(f"\nRun complete. Full summary written to:\n  {out_dir}/summary.tsv\n  {out_dir}/summary.json")
+    sys.exit(summary_exit_code(summary))
 
 
 if __name__ == "__main__":

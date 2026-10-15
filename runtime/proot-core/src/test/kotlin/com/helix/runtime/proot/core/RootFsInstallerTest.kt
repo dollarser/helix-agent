@@ -6,7 +6,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.tukaani.xz.LZMA2Options
+import org.tukaani.xz.XZOutputStream
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.channels.FileChannel
 import java.nio.file.Files
@@ -138,6 +141,50 @@ class RootFsInstallerTest {
             .sorted()
 
     // --- tests --------------------------------------------------------------------
+
+    private fun compressedArchive(): ByteArray =
+        ByteArrayOutputStream()
+            .also { output ->
+                XZOutputStream(output, LZMA2Options(1)).use { it.write(tarBytes()) }
+            }.toByteArray()
+
+    @Test
+    fun compressedInstallPreservesOriginalLockIdentity() {
+        val root = tmp.newFolder("compressed")
+        val original = request(root)
+        val outcome =
+            RootFsInstaller.install(
+                original.copy(
+                    rootfsArchiveStream = {
+                        RootFsCompression.open({ ByteArrayInputStream(compressedArchive()) }, tarBytes().size.toLong())
+                    },
+                ),
+            )
+        assertTrue("expected success, got $outcome", outcome is InstallOutcome.Success)
+        val success = outcome as InstallOutcome.Success
+        val manifest = RuntimeManifestCodec.parseManifest(File(root, "${success.installId}/manifest.json").readText())
+        assertEquals(RuntimeLockCodec.sha256Hex(original.lock), manifest.lockSha256)
+        assertTrue(File(root, "${success.installId}/rootfs/usr/bin/node").exists())
+    }
+
+    @Test
+    fun compressedFailureKeepsActiveVersionAndCleansPartialTree() {
+        val root = tmp.newFolder("compressed-failure")
+        val first = RootFsInstaller.install(request(root)) as InstallOutcome.Success
+        val encoded = compressedArchive().dropLast(3).toByteArray()
+        val outcome =
+            RootFsInstaller.install(
+                request(root).copy(
+                    rootfsArchiveStream = {
+                        RootFsCompression.open({ ByteArrayInputStream(encoded) }, tarBytes().size.toLong())
+                    },
+                ),
+            )
+        assertTrue(outcome is InstallOutcome.Failure)
+        assertEquals(first.installId, RootFsInstaller.currentActive(root)?.installId)
+        assertFalse(root.listFiles().orEmpty().any { it.name.startsWith(".partial-") })
+        assertTrue(File(root, "${first.installId}/rootfs/usr/bin/node").exists())
+    }
 
     @Test
     fun aFreshInstallPromotesVerifiesAndActivates() {

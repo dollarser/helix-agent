@@ -44,7 +44,18 @@
 
 [本轮源码分析](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)沿用现有主题，无新 ADR 编号。ADR-AGENT-001 补应用命令/表现与执行资源边界；CONNECTORS-003 补 HXA-274 的恢复目标数据及 HXA-277 对原执行事实的复用，均追加 Decision history。原权限、工具和 Runtime 决策继续生效。
 
-Core/Engine 和 HXA-257/258 的既有交付不重复实施。完整 Turn 宿主的现有接受范围见[进入条件](../development/candidate-decisions.md#系统分层的条件性增量)；2026-10-14 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)提出将其纳入 A～E 整体目标，该提案尚未改变主题 ADR 或排入实施。优先级归 [status](../development/status.md)，旧阶段收口不冻结新设计的接口/模块，较新的提案也不自动成为有效决定。
+Core/Engine 和 HXA-257/258 的既有交付不重复实施。2026-10-15 Owner 要求按评审优化文档与任务，完整 Turn 已纳入 HXA-287，不再等待第二消费者；B+E 合并目标，C+D 产物共同接线，Memory 归内容域。具体目标见 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，当前顺序归 [status](../development/status.md)。设计已接受与代码已交付分开，HXA-286～294 现均未实施。
+
+| 新任务 | 原主题决定的承接 |
+| --- | --- |
+| HXA-286 | [TOOLS-001](tools/001-descriptor-contract.md) 工具与身份/完成契约；[AGENT-001](agent/001-turn-coordination.md) 取消/恢复、[AGENT-002](agent/002-context-compaction.md) 上下文正确性、Runtime 原执行/长期资源归属共同前置；[CONNECTORS-003](connectors/003-ownership-and-installation.md) 贡献/引用清理；[MCP-001](mcp/001-client-and-discovery.md) 发现接线 |
+| HXA-287 | AGENT-001 应用入口、完整 Turn 最小纵切与原子持久端口；按 286 契约验证 crash/reload、call/result、无 UI 审批停止，再与 288 执行核心集成，真实 Room 另验 |
+| HXA-288 | TOOLS-001 的结果/产物；[RUNTIME-001](runtime/001-execution-domains.md) 与 [002](runtime/002-terminal-and-jobs.md) 的 Job/资源、退出/输出收尽；先核心、再共同集成、后领域适配，非进程工具不套完整 Job；现有 Workspace/视觉约束继续有效 |
+| HXA-289～292 | TOOLS-001 规范语义；MCP-001 Resources；具体文件/网络/Browser/Mobile Use 仍沿所属领域与权限，改变长期边界时同步原 ADR |
+| HXA-293 | [AGENT-002](agent/002-context-compaction.md) 内容快照/成本与策略分期；[AGENT-013](agent/013-markdown-memory.md) 最小 Memory Store |
+| HXA-294 | 验证以上已交付契约及旧路径删除，不新增架构或自动启动长稳/发行 |
+
+单一开发基线允许删除旧内部兼容接口与历史开发库迁移链；当前版本恢复、原执行身份、审批和未知效果保障仍须验证。当前外部协议/插件格式适配不是旧 Helix 兼容。
 
 ## 编写与更新
 

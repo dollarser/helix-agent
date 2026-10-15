@@ -132,6 +132,13 @@ class SglangUiSmokeTest {
             .assertIsDisplayed()
         Log.d(TAG, "sglang UI smoke: connection test PASSED against $endpoint")
         assertEquals(CapabilitySource.CONNECTION_ONLY, currentCapabilities().source)
+        val providerId =
+            composeRule
+                .container()
+                .providerService.rows.value
+                .single { it.displayName == NAME }
+                .id
+        composeRule.onNodeWithTag("provider-options-$providerId").performScrollTo().performClick()
         composeRule.onNode(editableProviderTag("provider-capabilities")).performScrollTo().performClick()
         awaitDetectedCapabilities()
         verifyModelSelection(models)

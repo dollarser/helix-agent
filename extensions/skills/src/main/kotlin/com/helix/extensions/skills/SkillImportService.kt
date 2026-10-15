@@ -168,6 +168,8 @@ class SkillImportService(
         target: Path,
         currentTotal: Long,
     ): Long {
+        // Zstandard/XZ ZIP codecs are outside the supported import dependency set.
+        if (planned.entry.method in setOf(20, 93, 95)) invalid("ZIP compression method is not supported")
         Files.createDirectories(target.parent)
         val compressedSize = planned.entry.compressedSize
         val declaredSize = planned.entry.size

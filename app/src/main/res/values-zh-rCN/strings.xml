@@ -204,7 +204,7 @@
     <string name="approval_source_plugin">插件：%1$s</string>
     <string name="approval_source_mcp">MCP 服务器：%1$s</string>
     <string name="approval_source_a2a">A2A Agent：%1$s</string>
-    <string name="approval_state_approved">已批准，执行中</string>
+    <string name="approval_state_approved">已批准</string>
     <string name="approval_state_denied">已拒绝</string>
     <string name="approval_state_failed">执行失败</string>
     <string name="approval_state_pending">等待批准</string>
@@ -249,7 +249,6 @@
     <string name="chat_back_to_sessions">会话列表</string>
     <string name="chat_blocked_attachments_changed">附件列表已变化，请重新发送</string>
     <string name="chat_blocked_cannot_read_file">无法读取文件信息，请重新选择文件</string>
-    <string name="chat_cleartext_warning">当前模型使用未加密 HTTP，消息、附件和 API Key 可能被网络中间方读取或篡改。可正常发送，建议使用 HTTPS。</string>
     <string name="chat_blocked_dismiss">知道了</string>
     <string name="chat_blocked_egress_target_changed">出网目标已变化，请重新发送</string>
     <string name="chat_blocked_egress_unconfirmed">附件出网策略无法确认，已阻止发送</string>
@@ -637,12 +636,12 @@
     <string name="settings_proot_repair">修复 Runtime</string>
     <string name="settings_proot_legal">许可证与来源</string>
     <string name="settings_proot_remove">删除 Runtime</string>
-    <string name="settings_proot_rebaseline">重定基线（我已知晓基线变更）</string>
+    <string name="settings_proot_rebaseline">确认运行环境更新</string>
     <string name="settings_proot_remove_title">删除 PRoot Runtime？</string>
-    <string name="settings_proot_remove_body">将完整删除 Runtime 状态（RootFS、Job 记录、激活指针）。不会删除任何 Workspace 数据。删除后“bash”Tool 需重新安装/验证才可用。</string>
-    <string name="settings_proot_remove_confirm">删除</string>
-    <string name="settings_proot_rebaseline_success">基线已重置（原锚点已删除）。请点“验证 Runtime”对新的内嵌基线重新验证。</string>
-    <string name="settings_proot_rebaseline_empty">无已验证锚点可重置。</string>
+    <string name="settings_proot_remove_body">继续后，请在运行环境管理页确认删除。删除范围包括运行环境软件和任务记录，不包含工作区文件；之后需重新安装并验证才能使用终端。</string>
+    <string name="settings_proot_remove_confirm">继续</string>
+    <string name="settings_proot_rebaseline_success">已确认更新，请重新验证运行环境。</string>
+    <string name="settings_proot_rebaseline_empty">尚未验证运行环境，请先验证。</string>
     <string name="provider_subscription_experimental_notice">非官方接入。请使用具有相应权限的账号登录；可用性受服务方限制。</string>
     <string name="provider_subscription_manage_account">管理订阅登录</string>
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions 不可用、已禁用或签名不匹配。</string>
@@ -1278,7 +1277,7 @@
     <string name="marketplace_item_gitlab_name">GitLab 项目协同</string>
     <string name="marketplace_item_gitlab_summary">GitLab 仓库、Issue 与合并请求操作支持。</string>
     <string name="marketplace_item_gitlab_desc">通过 MCP 协议连接 GitLab API，检索代码仓库、管理 Issue 并跟踪合并请求。</string>
-    <string name="marketplace_item_gitlab_auth_hint">需要具有 api 权限的 GitLab Personal Access Token</string>
+    <string name="marketplace_item_gitlab_auth_hint">使用 OAuth 连接账号。手动令牌须为具有 MCP Execute 权限的细粒度令牌；不支持旧式 api 权限令牌。</string>
     <string name="marketplace_item_system_assistant_name">系统与设备诊断助手</string>
     <string name="marketplace_item_system_assistant_summary">安全只读模式的系统环境、资源与设备状态诊断指南。</string>
     <string name="marketplace_item_system_assistant_desc">引导安全排查内存使用、存储余量、网络连通性及平台能力，不执行任何高危破坏性指令。</string>

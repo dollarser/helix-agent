@@ -1,0 +1,15 @@
+// Explicit, test-signed isolated Release candidate. Never used by normal distribution builds.
+allprojects { p ->
+    if (p.path == ':app') {
+        p.plugins.withId('com.android.application') {
+            p.extensions.getByName('androidComponents').finalizeDsl { dsl ->
+                def id = p.providers.gradleProperty('helix.smokeApplicationId').get()
+                if (!(id ==~ /com\.helix\.validation\.[a-z][a-z0-9]*/)) {
+                    throw new GradleException('Use an isolated com.helix.validation.<name> applicationId')
+                }
+                dsl.defaultConfig.applicationId = id
+                dsl.buildTypes.getByName('release').signingConfig = dsl.signingConfigs.getByName('debug')
+            }
+        }
+    }
+}

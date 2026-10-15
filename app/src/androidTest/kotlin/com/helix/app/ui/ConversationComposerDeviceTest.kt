@@ -262,6 +262,9 @@ class ConversationComposerDeviceTest {
                                     { _, _ -> },
                                 )
                             },
+                            contextUsage =
+                                com.helix.app.agent
+                                    .ChatContextUsage(8000, 10000),
                         )
                     }
                 }
@@ -316,6 +319,9 @@ class ConversationComposerDeviceTest {
                             false,
                             ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
                             headerStatus = { androidx.compose.material3.Text("Queued message") },
+                            contextUsage =
+                                com.helix.app.agent
+                                    .ChatContextUsage(8000, 10000),
                         )
                     }
                 }

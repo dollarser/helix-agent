@@ -26,6 +26,8 @@ analysis_checks() {
 test_build_checks() {
     ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
         :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} -PincludeReleaseSmoke=true \
+        :tests:release-smoke:assembleDebugAndroidTest :tests:release-smoke:lintDebug
     ./scripts/check-lockfiles.sh
 }
 

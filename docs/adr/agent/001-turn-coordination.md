@@ -1,8 +1,8 @@
 # ADR-AGENT-001: Turn 执行引擎、输入交付与恢复
 
 Status: accepted
-Date: 2026-10-11
-HXA: HXA-011, HXA-039, HXA-214, HXA-215, HXA-216, HXA-220, HXA-223, HXA-234, HXA-257, HXA-258, HXA-274, HXA-277
+Date: 2026-10-11; revised 2026-10-15
+HXA: HXA-011, HXA-039, HXA-214, HXA-215, HXA-216, HXA-220, HXA-223, HXA-234, HXA-257, HXA-258, HXA-274, HXA-277, HXA-286, HXA-287, HXA-288
 Deciders: Project owner
 
 ## Context
@@ -23,7 +23,7 @@ Android 进程死亡还要求区分两类事实：数据库可以原子提交的
 
 ### 1. TurnEngine 是唯一 durable lifecycle owner
 
-应用层使用一个 TurnEngine 作为 Turn 生命周期的唯一持久化 owner。TurnEngine 可以由多个协作者组成，但只有这一条生产路径能够决定：
+应用层由 TurnEngine 这一条生命周期实现持有每个 Turn 的持久化权威。它可由多个协作者组成，但只有这一条生产路径能够决定：
 
 - fresh Turn admission、requestId 幂等与 session blocker；
 - Turn/ModelCall 的持久推进；
@@ -40,6 +40,8 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 唯一模型/工具循环位于 `core:agent/AgentLoop`。`AgentLoopHost` 只装配 Provider、持久日志、输入交付、计时和显示端口；不运行另一条决策循环。Core 不依赖 App 资源、Room Entity 或 UI。工具执行网关接收中立的调用与归属，消息编码独立；原 Dispatcher、审批、UNKNOWN 与调用顺序不变。
 
+“唯一”约束实现和权威路径，不是全局单运行实例。HXA-287 要求各运行的状态、上下文、取消、模型配置和结果按显式 session/turn 身份隔离；不能以全局 activeTurn 或 UI 当前会话代替归属。原同会话准入、唯一活跃 ModelCall 和具体不可重入资源限制继续适用。未来子 Agent 复用同一实现，其父子拓扑、执行身份和取消/结果传播由协调层按独立任务设计，不借父 ToolCall 身份绕过准入；本轮用两个普通会话验证隔离，不接线子 Agent。
+
 终态通过 `AgentTurnStore` 的领域命令进入原 Room 事务。写入 assistant、Turn、ModelCall 与 GoalRun 前校验 session/Turn/ModelCall 归属、预期 phase/step 和唯一活跃 ModelCall；返回 Applied、AlreadyApplied、Conflict 或 Unavailable。重复提交返回原持久结果，冲突不追加正文；数据库错误传播，不能被包装为成功。用户持久取消优先于迟到成功。
 
 首个 ModelCall 与 step=1、后续 ModelCall 与递增 step 同事务发布，不能等下一次流开始才更新步骤。Steer 与最终回答仍在原父事务线性化。Core 仅持有进程内投影，持久状态、外部副作用和物理执行所有权不迁入另一份内存事实。
@@ -50,11 +52,19 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 应用服务提供业务命令、只读状态和结构化恢复目标，页面解释导航。HXA-274 直接替换所涉 `recoveryModelsNavigation` / `recoveryPermissionsNavigation` 服务回调：恢复原因、目标类型和必要归属以数据表达，用户点击后由当前 UI 导航；无订阅、旋转、重复订阅、切换会话不自动触发跳转或执行。保留 HXA-271 已交付的原因说明和显式设置行为，不以结构调整重做系统授权。就绪与恢复目标的内容归 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)，本节约束其应用/表现依赖。
 
-其他应用命令/读模型按实际消费者逐步收窄，复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog 及原门禁；不以 ChatService 变成空壳、类行数或模块数量验收。只有明确消费者及部署/验证需求后才评估完整 Turn 宿主提取，先定义存储、Goal 联动、观察等必要端口，再证明同一幂等身份、Room 事务、取消/恢复语义，最后决定物理模块。该条件项不授权预建 CLI、远程执行服务或第二个 Engine。
+2026-10-15 将应用命令收窄与完整 Turn 领域宿主合并为 HXA-287：当前 App/Room 解耦和完整无页面 Turn 验证就是明确需求，不再等待第二个产品消费者。复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog；统一入口不再回调宽 ChatService，领域协调不依赖 Android、Room Entity 或 UI 类型。应用/工具服务与持久/恢复共同设计，按完整路径切换，避免两次提取半个宿主。不以空壳化、类行数或模块数量验收，不预建 CLI、远程服务或第二个 Engine。
+
+[HXA-286](../../development/tasks/HXA-286.md#共同契约与退出条件) 先共同定义 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
+
+实施按 286 →（287-A 完整 Turn 最小纵切、288-A 执行核心）→ 共同集成推进。287-A 用 fake executor 和可重载事实夹具验证无 UI 提交/审批/停止、crash/reload、原 call/result 配对及上下文快照；288-A 独立实现执行核心。两片就绪后接真实文件/只读执行与最小 Room 适配，再扩展各自生命周期/领域切片；二者不以整任务完成互为启动条件。真实 Room/执行证据与纯夹具分别记账，294 不承担首次正确性验证。
 
 区分四类所有权：TurnEngine 管整轮 live driver 与持久生命周期；ToolScheduler 管调度/观察槽位；Executor/Runtime 管实际执行容量及原执行身份；插件/宿主管共享资源引用。完成观察等待可释放 worker，Turn 终态、UI detach 或取消信号都不能证明 executor 已退出。HXA-277 的原生资源句柄消费现有 ExecutionOwnership / Runtime 退出与对账事实，不复制执行状态或替代原取消协议。权限准入始终归原 Dispatcher；就绪投影和资源引用不授予执行能力。
 
-本节恢复导航与原生资源接线为 accepted，HXA-274/277 已完成各自有界实施与验收；具体边界见对应证据。按单一目标实现迁移当前调用者并删除被替换入口，不保留旧版 adapter、双写或双注册；保持仍有效的输入/执行/审批身份。完整宿主提取只登记[进入条件](../../development/candidate-decisions.md#系统分层的条件性增量)，不是本轮实施任务。
+本节恢复导航与原生资源接线为 accepted，HXA-274/277 已完成各自有界实施与验收；新目标 HXA-287/288 已排期、未实施。按单一目标迁移当前调用者并删除旧内部 adapter、双写和双注册；Android/Room/Runtime 的真实基础设施适配保留。领域持久端口表达原子命令，不透出通用 DAO 或事务 lambda；Steer/最终答复、首 ModelCall/step、GoalRun/Turn 事务不可拆散。Room 是唯一生产持久事实，内存宿主只做测试。同一组完整 Turn 断言分别验证纯 JVM 宿主和真实 Room，必须保留幂等、取消、UNKNOWN、原调用身份及重建恢复。
+
+HXA-287 同时保留参数准备、execution-start、持久结算和通知的阶段边界。持久提交是结果权威，后置通知失败不能撤销或重复提交终态；慢回调和外部代码不得在 Room 事务、准入锁内执行。未来 hooks 按 [工具契约](../tools/001-descriptor-contract.md)接入，不能直接拥有 Turn 状态或恢复调度权。
+
+本次接缝重组必须在最小纵切即区分开始屏障前中断、外部效果后落盘前中断和提交后通知失败。当前版本重启沿 §12 按原身份 reconcile，未知效果不盲重放，旧 Turn 不复活；cancel confirmed 不取代真实退出或改变 effect truth，迟到旧 generation 不覆盖新运行。来源/内容版本、授权投影、不可变模型输入和调用结果配对随首片验证，检索/摘要策略后置到 293。
 
 ### 2. 每个 Turn 保存 immutable execution snapshot
 
@@ -268,6 +278,12 @@ Mobile Use输入动作的模型可见结果采用`status=DISPATCHED`、`effectSt
 - 所有者于 2026-09-29 追加要求清理废弃表：当前开发期 Room v1 baseline 移除 `composer_drafts`、对应 DAO/Room Entity 与注册入口，不再保留结构兼容。文件输入使用独立 `ComposerInputSnapshot` / `ComposerInputCache`，不是 Room aggregate；不引入旧库/文件双写。所有者随后明确授权开发期覆盖升级遇到 schema identity 不兼容时直接删库重建，文件保留；不把更新源码说成设备数据已经清空。正式消息、队列、回执和仍在使用的 CUSTOM 权限编辑表保留。
 
 ## Decision history
+
+- 2026-10-15（顺序复核落地）：将身份、完成、取消与恢复契约前置到 286；287 以完整 Turn 最小纵切验证 crash/reload、call/result 和无页面审批停止，基于同契约与 288 执行核心集成后扩展 Room/领域适配，避免先提服务再反复固定存储。仅更新文档任务，保持既有恢复和设备授权边界。
+
+- 2026-10-15（扩展性补充）：Owner 要求防止重构限制后续持久终端/子 Agent/hooks/LSP。明确单一实现可承载隔离运行，保留同会话准入；补执行/提交/通知阶段责任，由 HXA-287 验证现有反例，不预建子任务调度器。
+
+- 2026-10-15：Owner 要求按本次评审调整文档与任务。接受应用命令与完整 Turn 合并目标（HXA-287）、执行/产物接缝（HXA-288），取消“等待第二消费者”前提；保留单一 Loop/Engine、原子持久命令和真实 Room 适配。本轮未实施，不重做 274/277 或扩展远程部署。
 
 - 2026-10-14：Owner授权新一轮20分钟定向验证。针对已证实的动作后过早采样，set_text/scroll的可选观察复用AutomationWaiter：在原deadline内最多1秒、50ms轮询，完整页面内容/几何连续200ms稳定才ATTACHED；持续变化/不完整为UNSETTLED且不发布节点，原派发事实仍UNVERIFIED。暂停、撤权、取消或超时不发布早先快照；无动作重放或目标保护放宽。该短稳定窗不保证后续不变、不验证业务目标，浮窗恢复影响及真实收益仍须定向设备证据。工具版本5→6。
 

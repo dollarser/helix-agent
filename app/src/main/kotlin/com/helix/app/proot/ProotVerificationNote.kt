@@ -4,4 +4,6 @@ package com.helix.app.proot
 internal data class ProotVerificationNote(
     val text: String,
     val needsRebaseline: Boolean = false,
+    val isError: Boolean = false,
+    val clearOnResume: Boolean = false,
 )

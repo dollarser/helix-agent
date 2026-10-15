@@ -26,6 +26,41 @@ runner = load_script("device_baseline_runner", "run.py")
 
 
 class DeviceBaselineClassificationTest(unittest.TestCase):
+    def test_exit_status_requires_actual_passes_not_just_completed_collection(self):
+        self.assertEqual(0, runner.summary_exit_code({"results": [{"verdict": "PASS"}], "missing_count": 0}))
+        for verdict in ("FAIL", "SKIP / ASSUMPTION", "PHASE_RUNNER_REQUIRED", "UNRESOLVED", "NO_VERDICT / PROCESS_CRASH"):
+            self.assertEqual(1, runner.summary_exit_code({"results": [{"verdict": "PASS"}, {"verdict": verdict}]}))
+        self.assertEqual(1, runner.summary_exit_code({"results": []}))
+        self.assertEqual(1, runner.summary_exit_code({"results": [{"verdict": "PASS"}], "missing_count": 1}))
+
+    def test_class_preparation_stops_only_the_two_selected_processes(self):
+        with patch.object(runner, "run_cmd", return_value=(0, "", "")) as commands:
+            runner.stop_test_processes("serial", "app.target", "app.target.test", "owned-adb")
+        self.assertEqual([
+            ["owned-adb", "-s", "serial", "shell", "am", "force-stop", "app.target"],
+            ["owned-adb", "-s", "serial", "shell", "am", "force-stop", "app.target.test"],
+        ], [call.args[0] for call in commands.call_args_list])
+
+    def test_recovery_never_clears_data_even_when_both_probes_fail(self):
+        with patch.object(runner, "check_device_online", return_value=True), \
+                patch.object(runner, "run_health_probe", side_effect=[False, False]), \
+                patch.object(runner, "run_cmd", return_value=(0, "1", "")) as commands, \
+                patch.object(runner.time, "sleep"):
+            self.assertFalse(runner.perform_recovery_probe("serial", "app.target", "app.target.test", "runner"))
+        calls = [call.args[0] for call in commands.call_args_list]
+        self.assertEqual([
+            ["adb", "-s", "serial", "shell", "getprop", "sys.boot_completed"],
+            ["adb", "-s", "serial", "shell", "am", "force-stop", "app.target"],
+            ["adb", "-s", "serial", "shell", "am", "force-stop", "app.target.test"],
+        ], calls)
+
+    def test_recovery_accepts_a_successful_probe_after_process_restart(self):
+        with patch.object(runner, "check_device_online", return_value=True), \
+                patch.object(runner, "run_health_probe", side_effect=[False, True]), \
+                patch.object(runner, "run_cmd", return_value=(0, "1", "")), \
+                patch.object(runner.time, "sleep"):
+            self.assertTrue(runner.perform_recovery_probe("serial", "app.target", "app.target.test", "runner"))
+
     def test_all_sweep_recovery_classes_require_their_host_driver(self):
         classes = (
             'chat.SessionInputProcessRecoveryDeviceTest', 'connector.ConnectorInstallRecoveryDeviceTest',

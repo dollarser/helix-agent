@@ -60,11 +60,13 @@ fun ApprovalCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            val purpose = ToolPurpose.text(card.toolName, card.arguments)
             Text(
-                stringResource(
-                    R.string.approval_review_action,
-                    ToolPurpose.text(card.toolName, card.arguments),
-                ),
+                if (card.state == ApprovalCardState.PENDING) {
+                    stringResource(R.string.approval_review_action, purpose)
+                } else {
+                    purpose
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
             if (expanded) {

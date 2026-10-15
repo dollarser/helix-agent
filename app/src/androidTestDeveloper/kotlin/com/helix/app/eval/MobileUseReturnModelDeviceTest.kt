@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.sendTestMessage
+import com.helix.app.ui.dismissFirstLaunchIfNeeded
 import com.helix.core.model.AgentMode
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
@@ -41,6 +42,8 @@ class MobileUseReturnModelDeviceTest {
             assumeTrue(args.getString("helixRealModel") == "true")
             val provider = requireNotNull(args.getString("helixProvider"))
             val model = requireNotNull(args.getString("helixModel"))
+            val requireScreenshot = args.getString("helixRequireScreenshot") == "true"
+            compose.dismissFirstLaunchIfNeeded()
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val c = app.appContainer
             require(
@@ -78,6 +81,7 @@ class MobileUseReturnModelDeviceTest {
                     "这是合成测试，只允许操作当前测试页面及发起本轮的 Helix（${app.packageName}），" +
                         "当前会话标题为 $title，不操作其他应用或账号。" +
                         "把“测试输入”填写为“你好 Helix”，向下找到“完成测试”并点击一次，核实实际成功结果。" +
+                        (if (requireScreenshot) "操作前先使用手机截图确认页面，读取实际图像后再操作。" else "") +
                         if (stay) "完成后请停留在测试结果页面，不要返回 Helix。" else ""
                 c.chatService.sendTestMessage(session, prompt)
                 await(240_000) {
@@ -104,6 +108,21 @@ class MobileUseReturnModelDeviceTest {
                     .filter { it.role == "ASSISTANT" && it.kind == "TEXT" }
                     .forEach { report("RETURN_REPLY ${c.storage.messages.readContent(it)}") }
                 assertEquals(turn.errorCode, "COMPLETED", turn.state)
+                if (requireScreenshot) {
+                    assertTrue("Frame observation missing", calls.any { it.name == "ui.device" })
+                    val captures = calls.filter { it.name == "ui.screenshot" && it.state == "COMPLETED" }
+                    assertTrue("Successful screenshot missing", captures.isNotEmpty())
+                    assertTrue(
+                        "Screenshot pixels were not attached for the model",
+                        captures.any {
+                            c.storage.toolResults.byToolCall(it.callId)?.let { result ->
+                                c.storage.toolResults
+                                    .readContent(result)
+                                    ?.contains("\"pixelsAttached\":true")
+                            } == true
+                        },
+                    )
+                }
                 val uri = android.net.Uri.parse("content://${app.packageName}.test.capability-state/result")
                 app.contentResolver.query(uri, null, null, null, null)!!.use {
                     assertTrue(it.moveToFirst())

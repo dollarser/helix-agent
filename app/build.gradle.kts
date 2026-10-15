@@ -7,6 +7,12 @@ plugins {
 
 apply(from = rootProject.file("config/jgit/reject-insecure-tls.gradle.kts"))
 
+// A device-specific distribution keeps the ordinary multi-ABI debug/test workflow intact.
+val distributionAbi = providers.gradleProperty("helix.abi").orNull
+require(distributionAbi == null || distributionAbi in setOf("arm64-v8a", "x86_64")) {
+    "helix.abi must be arm64-v8a or x86_64"
+}
+
 android {
     namespace = "com.helix.app"
     compileSdk = 37
@@ -20,10 +26,11 @@ android {
     defaultConfig {
         applicationId = "com.helix.agent"
         minSdk = 29
+        ndk { abiFilters += distributionAbi?.let(::listOf) ?: listOf("arm64-v8a", "x86_64") }
         externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.5"
+        versionName = "0.0.6"
         testInstrumentationRunner = "com.helix.app.HelixAndroidJUnitRunner"
     }
 
@@ -40,11 +47,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
+            optimization { enable = true }
         }
     }
 
@@ -69,6 +72,9 @@ android {
     packaging {
         resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
     }
+
+    // RootFS has its own bounded XZ stream; a second ZIP compression layer adds no value.
+    androidResources { noCompress += "xz" }
 
     bundle {
         // HXA-069: in-app language switching (AppLanguageStore) ships all locales in the base APK;

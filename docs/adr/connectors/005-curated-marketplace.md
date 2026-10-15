@@ -1,7 +1,7 @@
 # ADR-CONNECTORS-005: 内置精选扩展市场与端侧安装契约
 
 Status: accepted
-Date: 2026-09-22; revised 2026-10-13
+Date: 2026-09-22; revised 2026-10-15
 HXA: HXA-212, HXA-281
 Deciders: project-owner
 
@@ -32,6 +32,7 @@ Owner要求复用Codex、Claude Code和WorkBuddy插件市场，明确先支持�
 2. **严格遵循安装默认未激活与凭据隔离原则**：
    - 一键安装产物直接交由 `ConnectorService` 与 `SkillRepository` 管理，安装后端点一律保持默认未激活状态（`endpoints` 需用户在配置中显式启用）。
    - 受保护 Connector 仅内置结构与占位声明，不内嵌任何硬编码真实 Token；由用户在管理页面通过系统安全存储注入凭据。
+   - 精选服务的认证声明跟随实际官方契约维护。GitLab 使用 OAuth 连接，也可在高级配置使用具有 MCP Execute 权限的细粒度 PAT；不再引导用户提供旧式 `api` scope PAT。目录修正不证明真实账号连接通过，也不迁移既有用户凭据。
 
 3. **幂等安装与用户主动版本替换**：
    - 安装过程保证相同哈希幂等：相同版本重复触发时返回现有记录；
@@ -75,4 +76,5 @@ Owner要求复用Codex、Claude Code和WorkBuddy插件市场，明确先支持�
 
 ## Decision history
 
+- 2026-10-15：Owner 要求重构前收尾与内置/市场分层复核；按 [GitLab 官方认证要求](https://docs.gitlab.com/user/model_context_protocol/mcp_server/#authentication)纠正精选项的认证类型与三语言说明。其余分层建议记录在[插件评审 §6.2](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#62-直接内置与内置市场的重新划分)，不以本次评审接受新的原生下载机制或提前迁移插件。
 - 2026-10-13：Owner明确要求复用主流插件与市场，并选择先支持内容/可运行MCP、显示其他组件限制。接受用户主动导入的离线发现源和逐项原包安装，维持无静默网络、Room安装权威及原权限链；不引入在线签名市场、依赖执行器或MCP Apps宿主。源删除不卸载实际能力是Helix的保留数据选择，与参考宿主行为明确区分。

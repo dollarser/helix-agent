@@ -18,6 +18,42 @@ import java.util.zip.ZipOutputStream
 
 class SkillImportServiceTest {
     @Test
+    fun `optional ZIP codecs are rejected before decoder linkage`() {
+        for (method in listOf(20, 93, 95)) {
+            val roots = roots()
+            val path = zip(roots.source.resolve("unsupported.zip"), mapOf("SKILL.md" to manifest("unsupported")))
+            patchCompressionMethod(path, method)
+            val failure =
+                assertThrows(InvalidSkillImportException::class.java) {
+                    SkillImportService(roots.staging).stageZip(path)
+                }
+            assertTrue(failure.message.orEmpty().contains("compression method"))
+            Files.list(roots.staging).use { assertEquals(0L, it.count()) }
+        }
+    }
+
+    private fun patchCompressionMethod(
+        path: Path,
+        method: Int,
+    ) {
+        val bytes = Files.readAllBytes(path)
+        for (index in 0 until bytes.size - 10) {
+            if (bytes[index] != 0x50.toByte() || bytes[index + 1] != 0x4b.toByte()) continue
+            val offset =
+                when {
+                    bytes[index + 2] == 3.toByte() && bytes[index + 3] == 4.toByte() -> 8
+                    bytes[index + 2] == 1.toByte() && bytes[index + 3] == 2.toByte() -> 10
+                    else -> null
+                }
+            if (offset != null) {
+                bytes[index + offset] = method.toByte()
+                bytes[index + offset + 1] = 0
+            }
+        }
+        Files.write(path, bytes)
+    }
+
+    @Test
     fun `directory import previews inventory and commits immutable content-addressed snapshot`() {
         val roots = roots()
         val source = skillDirectory(roots.source, "review-skill", body = "first body")

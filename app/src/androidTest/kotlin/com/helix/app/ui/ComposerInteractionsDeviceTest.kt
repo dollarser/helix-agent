@@ -26,6 +26,30 @@ import org.junit.Test
 class ComposerInteractionsDeviceTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun unknownContextRemainsInspectableInOptionsWithoutAnIdleWarning() {
+        val usage =
+            mutableStateOf(
+                com.helix.app.agent
+                    .ChatContextUsage(),
+            )
+        compose.setContent {
+            MaterialTheme {
+                ConversationComposer(
+                    "",
+                    {},
+                    false,
+                    false,
+                    ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
+                    contextUsage = usage.value,
+                )
+            }
+        }
+        compose.onNodeWithTag("chat-context-window").assertDoesNotExist()
+        compose.onNodeWithTag("chat-composer-options").performClick()
+        compose.onNodeWithTag("chat-context-window").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("chat-context-usage-details").assertIsDisplayed()
+    }
+
     @Test fun slashCompletionPlacesCaretAfterCommandAndAcceptsFurtherTyping() {
         val input = mutableStateOf("")
         var sends = 0

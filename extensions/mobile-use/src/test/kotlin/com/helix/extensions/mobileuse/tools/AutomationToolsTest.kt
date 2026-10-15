@@ -15,6 +15,7 @@ import com.helix.extensions.mobileuse.automation.AutomationSnapshotNode
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotResult
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.AutomationToolPort
+import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
@@ -34,6 +35,25 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationToolsTest {
+    @Test
+    fun cancellationAfterObservationConfirmsWaitHasNoSideEffects() {
+        port.snapshotResult = successfulSnapshot()
+        val result =
+            execute(
+                AutomationTools.WAIT,
+                args("text" to "not on screen"),
+                object : CancelSignal {
+                    override fun isCancelled() = port.snapshots > 0
+                },
+            ) as ToolExecutorResult.CancelledWithEffectTruth
+        assertEquals(1, port.snapshots)
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertEquals("AUTOMATION_WAIT_CANCELLED", result.detail)
+        assertTrue(port.nodeRequests.isEmpty())
+        assertTrue(port.globalRequests.isEmpty())
+    }
+
     @Test
     fun timedOutWaitPreservesUncertainEffectAndValidOutput() {
         port.snapshotResult = successfulSnapshot()
@@ -633,6 +653,7 @@ class AutomationToolsTest {
     private fun execute(
         name: String,
         args: JsonObject,
+        cancel: CancelSignal = NoCancellation,
     ) = tools.executor(name).execute(
         ExecutableToolCall(
             "call",
@@ -641,7 +662,7 @@ class AutomationToolsTest {
             args,
             ExecutionTargetType.LOCAL_ANDROID,
             Instant.now().plusSeconds(15),
-            NoCancellation,
+            cancel,
         ),
     )
 

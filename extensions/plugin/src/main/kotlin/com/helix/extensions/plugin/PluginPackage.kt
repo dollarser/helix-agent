@@ -61,6 +61,9 @@ class PluginPackageReader {
                 val type = entry.unixMode and 0xF000
                 require(type == 0 || type == 0x8000 || type == 0x4000) { "CONNECTOR_SPECIAL_FILE" }
                 if (!entry.isDirectory) {
+                    // These optional codecs were never shipped for ZIP import. Reject their
+                    // entries before Commons Compress can resolve an unavailable class.
+                    require(entry.method !in setOf(20, 93, 95)) { "CONNECTOR_UNSUPPORTED_COMPRESSION" }
                     val bytes = zip.getInputStream(entry).use { readBounded(it, MAX_FILE_BYTES) }
                     total += bytes.size
                     require(total <= MAX_BYTES) { "CONNECTOR_TOO_LARGE" }

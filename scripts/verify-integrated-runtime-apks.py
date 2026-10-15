@@ -7,6 +7,9 @@ from pathlib import Path
 import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
+import hashlib
+import json
+import lzma
 
 ROOT = Path(__file__).resolve().parents[1]
 SDK = Path(os.environ.get("ANDROID_HOME", str(Path.home() / "Library/Android/sdk")))
@@ -133,7 +136,7 @@ def verify_mobile_use(app, developer, config=None, resource_table=""):
         raise RuntimeError("Missing required Accessibility flags: " + ",".join(sorted(missing_flags)))
 
 
-def verify_media_payload(archive, developer):
+def verify_media_payload(archive, developer, abis=None):
     import hashlib
     import json
     names = archive.namelist()
@@ -145,7 +148,9 @@ def verify_media_payload(archive, developer):
         if present or assets:
             raise RuntimeError('Standard APK contains Advanced FFmpeg payload')
         return
-    if present != {'lib/arm64-v8a/' + name for name in native_names}:
+    includes_arm64 = abis is None or 'arm64-v8a' in abis
+    expected_native = {'lib/arm64-v8a/' + name for name in native_names} if includes_arm64 else set()
+    if present != expected_native:
         raise RuntimeError('Missing, additional or duplicate-ABI FFmpeg payload')
     for name in ('candidate.json', 'NOTICE.txt', 'USAGE.md', 'sources.json', 'LICENSES/dav1d/COPYING'):
         if 'assets/runtime/media/' + name not in assets:
@@ -159,16 +164,66 @@ def verify_media_payload(archive, developer):
     for row in manifest['files']:
         original = row['name']
         name = original if original.endswith('.so') else 'libhelix_' + original + '.so'
-        content = archive.read('lib/arm64-v8a/' + name)
-        if len(content) != row['bytes'] or hashlib.sha256(content).hexdigest() != row['sha256']:
-            raise RuntimeError('APK altered pinned FFmpeg bytes: ' + name)
-        total += len(content)
+        if includes_arm64:
+            content = archive.read('lib/arm64-v8a/' + name)
+            if len(content) != row['bytes'] or hashlib.sha256(content).hexdigest() != row['sha256']:
+                raise RuntimeError('APK altered pinned FFmpeg bytes: ' + name)
+        total += row['bytes']
     if total != manifest['runtime_bytes'] or total >= 25_000_000:
         raise RuntimeError('FFmpeg runtime closure exceeds the agreed size boundary')
 
 
-def verify(flavor, build_type):
-    apks = list((ROOT / f"app/build/outputs/apk/{flavor}/{build_type}").glob(f"app-{flavor}-{build_type}*.apk"))
+def original_dex_identities(classes, mapping):
+    """Resolve retained class identities through R8; never keep code merely for a scanner."""
+    identities = set(classes)
+    for line in mapping.splitlines():
+        match = re.fullmatch(r'([^ #\s]+) -> ([^\s]+):', line)
+        if match:
+            original, renamed = match.groups()
+            if renamed in classes:
+                identities.add(original)
+    return b'\n'.join(('L' + name.replace('.', '/') + ';').encode() for name in sorted(identities))
+
+
+def defined_dex_classes(apk):
+    output = subprocess.check_output([str(ANALYZER), 'dex', 'packages', '--defined-only', str(apk)], text=True)
+    classes = {fields[-1] for line in output.splitlines()
+               if len(fields := line.split()) == 6 and fields[:2] == ['C', 'd']}
+    if not classes:
+        raise RuntimeError('APK analyzer returned no defined classes')
+    return classes
+
+
+def verify_rootfs_payload(archive):
+    lock = json.loads(archive.read("assets/runtime/runtime-lock.json"))
+    rootfs = next(component for component in lock["components"] if component["id"] == "alpine-rootfs")
+    payload = "assets/runtime/rootfs/" + rootfs["url"].rsplit("/", 1)[1].removesuffix(".gz") + ".xz"
+    if [n for n in archive.namelist() if n.startswith('assets/runtime/rootfs/')] != [payload]:
+        raise RuntimeError('RootFS must contain exactly one encoded payload, without the raw tar')
+    if not 0 < rootfs['size'] <= 256 * 1024 * 1024 or archive.getinfo(payload).file_size > 64 * 1024 * 1024:
+        raise RuntimeError('RootFS payload exceeds runtime limits')
+    decoder = lzma.LZMADecompressor(memlimit=16 * 1024 * 1024)
+    digest = hashlib.sha256()
+    count = 0
+    with archive.open(payload) as source:
+        while not decoder.eof:
+            chunk = source.read(64 * 1024) if decoder.needs_input else b''
+            if decoder.needs_input and not chunk:
+                raise RuntimeError('Truncated RootFS XZ stream')
+            decoded = decoder.decompress(chunk, max_length=64 * 1024)
+            count += len(decoded)
+            if count > rootfs['size']:
+                raise RuntimeError('RootFS decoded bytes exceed lock')
+            digest.update(decoded)
+        if decoder.unused_data or source.read(1):
+            raise RuntimeError('Trailing data after RootFS XZ stream')
+    if count != rootfs['size'] or digest.hexdigest() != rootfs['sha256']:
+        raise RuntimeError('RootFS decoded bytes differ from lock')
+
+
+def verify(flavor, build_type, artifact_root=None, expected_abi=None):
+    artifact_root = artifact_root or ROOT / "app/build/outputs"
+    apks = list((artifact_root / f"apk/{flavor}/{build_type}").glob(f"app-{flavor}-{build_type}*.apk"))
     assert len(apks) == 1, f"expected one {flavor} {build_type} APK: {apks}"
     apk = apks[0]
     manifest = ET.fromstring(subprocess.check_output([str(ANALYZER), "manifest", "print", str(apk)]))
@@ -234,9 +289,17 @@ def verify(flavor, build_type):
     assert len(launchers) == 1, f"{flavor} has extra launcher"
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
+        abis = {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')}
+        expected_abis = {expected_abi} if expected_abi else {'arm64-v8a', 'x86_64'}
+        if abis != expected_abis:
+            raise RuntimeError(f'Unexpected native ABIs: {abis}, expected {expected_abis}')
+        for abi in abis:
+            for library in ('libhelix_model.so', 'libquickjs.so', 'libworkspace_identity.so'):
+                if f'lib/{abi}/{library}' not in names:
+                    raise RuntimeError(f'Missing required native library: {abi}/{library}')
         if ("assets/plugins/mobile-use/plugin.json" in names) != developer:
             raise RuntimeError("Incorrect channel for Mobile Use plugin manifest")
-        verify_media_payload(archive, developer)
+        verify_media_payload(archive, developer, abis)
         for license_file in ('Shizuku-API-MIT.txt', 'Shizuku-API-NOTICE.txt'):
             assert ('assets/licenses/' + license_file in names) == developer
         assert ("assets/licenses/dsh-plugin-subscriptions.txt" in names) == developer
@@ -244,6 +307,11 @@ def verify(flavor, build_type):
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
+        if build_type == 'release':
+            mapping = artifact_root / f'mapping/{flavor}Release/mapping.txt'
+            if not mapping.is_file() or not mapping.stat().st_size:
+                raise RuntimeError('Optimized Release requires its own R8 mapping')
+            dex = original_dex_identities(defined_dex_classes(apk), mapping.read_text())
         for namespace in (b"Lrikka/shizuku/", b"Lcom/helix/extensions/mobileuse/automation/backend/"):
             assert (namespace in dex) == developer, f"wrong {flavor} Shizuku dex {namespace}"
         for namespace in (b"Lcom/topjohnwu/superuser/", b"Lcom/helix/extensions/mobileuse/automation/backend/RootAutomationService;"):
@@ -264,15 +332,10 @@ def verify(flavor, build_type):
             assert ("assets/terminal-licenses/" + asset in names) == developer
         assert any(name.endswith("/libjni_cb_term.so") for name in names) == developer
         native = [name for name in names if name.endswith("/libhelix_loader.so")]
-        assert bool(native) == developer, f"wrong {flavor} PRoot native payload"
+        assert bool(native) == (developer and 'arm64-v8a' in abis), f"wrong {flavor} PRoot native payload"
         if developer:
             assert app.get(A + "extractNativeLibs") == "true", "PRoot executable must be extracted at install"
-            import hashlib
-            import json
-            lock = json.loads(archive.read("assets/runtime/runtime-lock.json"))
-            rootfs = next(component for component in lock["components"] if component["id"] == "alpine-rootfs")
-            payload = "assets/runtime/rootfs/" + rootfs["url"].rsplit("/", 1)[1].removesuffix(".gz")
-            assert hashlib.sha256(archive.read(payload)).hexdigest() == rootfs["sha256"], "RootFS missing or mismatched"
+            verify_rootfs_payload(archive)
             for asset in ("proot", "loader", "lib/libtalloc.so.2", "lib/libandroid-shmem.so"):
                 assert "assets/runtime/proot/" + asset in names, f"missing runtime input {asset}"
     print(f"{flavor} {build_type}: Mobile Use service, scope channel and screenshot/gesture declarations verified")
@@ -282,6 +345,8 @@ def verify(flavor, build_type):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-type", choices=("debug", "release"), default="debug")
+    parser.add_argument("--artifact-root", type=Path, default=ROOT / "app/build/outputs")
+    parser.add_argument("--expected-abi", choices=("arm64-v8a", "x86_64"))
     args = parser.parse_args()
-    verify("consumer", args.build_type)
-    verify("developer", args.build_type)
+    verify("consumer", args.build_type, args.artifact_root, args.expected_abi)
+    verify("developer", args.build_type, args.artifact_root, args.expected_abi)

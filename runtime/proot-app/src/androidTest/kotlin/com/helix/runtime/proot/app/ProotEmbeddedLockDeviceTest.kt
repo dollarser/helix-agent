@@ -26,10 +26,8 @@ import org.junit.runner.RunWith
  *   runtime/rootfs/<archive>         the deterministic RootFS archive
  *   runtime/licenses/<file>          the license texts referenced by each component
  *
- * NOTE on the archive name: the build places `...alpine-minirootfs-3.22.5-aarch64.tar.gz`
- * into the assets source, but the Android Gradle asset pipeline auto-expands `.gz` assets
- * and stores them under the `.gz`-stripped name (verified in the built APK). The embedded
- * name is therefore `basename(url) minus ".gz"` — the same rule the HXA-082 installer uses.
+ * The build stores the locked raw tar as a single XZ asset. Resolve its name through
+ * the production installer; integrity of the decoded bytes is tested separately.
  */
 @RunWith(AndroidJUnit4::class)
 class ProotEmbeddedLockDeviceTest {
@@ -39,13 +37,6 @@ class ProotEmbeddedLockDeviceTest {
         get() = InstrumentationRegistry.getInstrumentation().targetContext.assets
 
     private fun readText(path: String): String = assets.open(path).bufferedReader().use { it.readText() }
-
-    /** Embedded rootfs archive name: lock URL basename, with the AGP .gz-expansion suffix rule. */
-    private fun embeddedArchiveName(lock: RuntimeLock): String {
-        val rootfs = lock.component("alpine-rootfs")!!
-        val name = rootfs.url.substringAfterLast('/').substringBefore('?')
-        return if (name.endsWith(".gz")) name.removeSuffix(".gz") else name
-    }
 
     @Test
     fun theEmbeddedLockParsesAndMeetsTheBaseline() {
@@ -86,7 +77,7 @@ class ProotEmbeddedLockDeviceTest {
     @Test
     fun theEmbeddedRootfsArchiveAndLicensesArePresent() {
         val lock = RuntimeLockCodec.parse(readText("runtime/runtime-lock.json"))
-        val archiveName = embeddedArchiveName(lock)
+        val archiveName = ProotRuntimeInstaller.embeddedArchiveName(lock)
         assertTrue(
             "rootfs archive missing from APK assets: runtime/rootfs/$archiveName",
             assets.open("runtime/rootfs/$archiveName").use { it.available() > 0 },

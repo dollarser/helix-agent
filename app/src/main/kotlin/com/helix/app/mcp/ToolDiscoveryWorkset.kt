@@ -68,10 +68,10 @@ internal object ToolDiscoveryWorkset {
             is ToolOrigin.PluginOrigin -> {
                 when (origin.pluginId) {
                     "mobile-use" -> {
-                        if (tool.name.value == "ui.gesture") {
-                            setOf("ui.screenshot", "ui.device")
-                        } else {
-                            setOf("ui.snapshot", "ui.find")
+                        when (tool.name.value) {
+                            "ui.gesture" -> setOf("ui.screenshot", "ui.device")
+                            "ui.screenshot" -> setOf("ui.device")
+                            else -> setOf("ui.snapshot", "ui.find")
                         }
                     }
 

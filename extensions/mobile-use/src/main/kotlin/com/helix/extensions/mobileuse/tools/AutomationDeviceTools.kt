@@ -5,6 +5,7 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.extensions.mobileuse.AutomationTermination
 import com.helix.extensions.mobileuse.automation.AutomationDeviceObservation
 import com.helix.extensions.mobileuse.automation.AutomationDevicePort
 import com.helix.extensions.mobileuse.automation.AutomationGlobalAction
@@ -28,7 +29,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
-import java.time.Instant
 import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
@@ -84,7 +84,8 @@ class AutomationDeviceTools(
                 actionOutput(),
                 "Run an action reported by ui.device. Back/home can leave a paused screen. " +
                     "Other system controls need system/whole-phone scope. " +
-                    "headset_hook can answer/end a call; lock_screen ends the automation grant.",
+                    "headset_hook can answer/end a call; lock_screen pauses execution without revoking " +
+                    "the conversation grant. After unlocking, obtain fresh observations before acting.",
             ),
             descriptor(
                 GESTURE,
@@ -124,7 +125,7 @@ class AutomationDeviceTools(
     fun executor(name: String): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                beforeDispatch(call)?.let { return it }
+                AutomationTermination.beforeDispatch(call)?.let { return it }
                 return try {
                     when (name) {
                         DEVICE -> {
@@ -167,29 +168,6 @@ class AutomationDeviceTools(
             }
         }
 
-    private fun beforeDispatch(call: ExecutableToolCall): ToolExecutorResult? =
-        when {
-            call.cancel.isCancelled() -> {
-                ToolExecutorResult.CancelledWithEffectTruth(
-                    "AUTOMATION_CANCELLED_BEFORE_DISPATCH",
-                    sideEffectFree = true,
-                    requiresReview = false,
-                )
-            }
-
-            !Instant.now().isBefore(call.deadline) -> {
-                ToolExecutorResult.TimedOutWithEffectTruth(
-                    "AUTOMATION_DEADLINE_BEFORE_DISPATCH",
-                    sideEffectFree = true,
-                    requiresReview = false,
-                )
-            }
-
-            else -> {
-                null
-            }
-        }
-
     private fun apps(call: ExecutableToolCall): ToolExecutorResult {
         val listing = port.forCall(call).apps(call.args["packageName"]?.jsonPrimitive?.content)
         val items =
@@ -212,24 +190,8 @@ class AutomationDeviceTools(
     @Suppress("ReturnCount") // Failed capture and cancelled pre-publication calls do not create artifacts.
     private fun screenshot(call: ExecutableToolCall): ToolExecutorResult {
         val capture = port.forCall(call).screenshot(text(call.args, "frame"), call)
-        val bytes =
-            capture.png ?: return ToolExecutorResult.Completed(
-                buildJsonObject {
-                    put("status", JsonPrimitive(capture.status))
-                    put(
-                        "actionHint",
-                        JsonPrimitive(
-                            "No image was captured. Discover ui.device if needed, call it and copy " +
-                                "its exact frame value " +
-                                "before a new screenshot. A node token, page label or invented frame is invalid. " +
-                                "Inspect the returned readiness/scope status; " +
-                                "fresh observation does not grant permission. " +
-                                "Do not infer pixels or replay an action from this failed capture.",
-                        ),
-                    )
-                },
-            )
-        beforeDispatch(call)?.let { return it }
+        val bytes = capture.png ?: return refusedCapture(capture.status)
+        AutomationTermination.beforeDispatch(call)?.let { return it }
         val published = images.publish(call, bytes, capture.acquisitionScopeRef)
         val output =
             buildJsonObject {
@@ -249,7 +211,9 @@ class AutomationDeviceTools(
                         if (published.visual != null) {
                             "Pixels are attached. If this screenshot was taken because semantic targeting failed " +
                                 "and the intended visual target is now clear, you may try ui.gesture with this same " +
-                                "frame and the mapped screen coordinates. Do not repeat equivalent semantic searches " +
+                                "frame and the mapped screen coordinates. Capture does not renew the frame: " +
+                                "changed content can still invalidate a coordinate action. " +
+                                "Do not repeat equivalent semantic searches " +
                                 "or end with a future-intent statement. Missing nodes have " +
                                 "unknown cause; pixels do not prove touch acceptance. If an" +
                                 " observed attempt has no effect, reassess instead of " +
@@ -266,6 +230,23 @@ class AutomationDeviceTools(
             }
         return ToolExecutorResult.Completed(output, visualArtifact = published.visual)
     }
+
+    private fun refusedCapture(status: String): ToolExecutorResult =
+        ToolExecutorResult.Completed(
+            buildJsonObject {
+                put("status", JsonPrimitive(status))
+                put(
+                    "actionHint",
+                    JsonPrimitive(
+                        "No image was captured. Discover ui.device if needed, call it and copy its exact frame " +
+                            "before a new screenshot. A node token, page label or invented frame is invalid. " +
+                            "Inspect readiness/scope; fresh observation does not grant permission. " +
+                            "TARGET_CHANGED does not establish FLAG_SECURE or a login requirement. " +
+                            "Do not infer pixels or replay an action from this failed capture.",
+                    ),
+                )
+            },
+        )
 
     private fun strokes(args: JsonObject): List<AutomationStroke> =
         args.getValue("strokes").jsonArray.map { value ->

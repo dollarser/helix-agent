@@ -15,7 +15,8 @@
 - Bash、`ripgrep`、`unzip`、`strings`，以及 `sha256sum` 或 `shasum`；仓库门禁会直接调用它们。
 - Android 真机至少一台 arm64。
 
-M0-M7 不要求 Docker、Node.js、Python 或 Rust。M8 构建 PRoot assets 需要 Python 3.11+。M11 的官方
+当前主机门禁及 Developer APK 的 RootFS 压缩打包需要 Python 3.11+（含标准库 `lzma`）；
+不要求为普通 Android 构建安装 Docker、Node.js 或 Rust。M11 的官方
 CLI/SDK Android 打包路线已停止；当前第三方订阅协议适配器 APK 是 Kotlin/Android 实现，不要求 Node.js
 或官方 CLI 工具链。脚本必须显式检查，不能依赖开发机偶然已有版本。
 
@@ -391,20 +392,33 @@ exclusiveContent {
 
 同时固定 `6.0.0`、启用 Gradle dependency verification 并保存 resolved artifact checksum。其他 JitPack、HTTP Maven 和 `flatDir` 仍禁止。
 
-### 6.4 Build variants 和独立 Runtime
+### 6.4 Build variants 与内置 Runtime
 
 ```text
 主 App：consumerDebug / consumerRelease
 主 App：developerDebug / developerRelease
-Runtime APK：:runtime:proot-app:assembleDebug / assembleRelease
-CLI Runtime APK：:runtime:cli-app:assembleDebug / assembleRelease
+PRoot library：:runtime:proot-app:assembleDebug / assembleRelease
+CLI Runtime library：:runtime:cli-app:assembleDebug / assembleRelease
 ```
 
 developer APK 内置 PRoot/RootFS 与订阅 Runtime 模块，通过非导出的 `:proot`、`:subscriptions` 私有进程按需运行；这些进程共享主 App UID、数据访问和网络权限，不是独立 APK，也不提供离线或凭据隔离保证。consumer 排除这些模块，QuickJS 仍使用 isolated UID。CI 验证最终 APK 的组件、进程及制品边界，契约见 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)。
 
 发布角色与 Gradle 名称分开：Standard 是 Google Play、国内 Android 应用商店与官网的完整产品；当前 consumer/developer 只用于开发和边界测试，不预设哪个等于最终商店包。开发、CI 和路径继续使用现有 flavor 名，未经 HXA-122 的 applicationId/签名/channel 决定不得机械重命名。`proot-app` / `cli-app` 是现有模块名称，不表示需要用户另外安装 Runtime APK。
 
-applicationId 基线：`consumer=com.helix.agent`、`developer=com.helix.agent.developer`、`runtime:proot-app=com.helix.runtime.proot`、`runtime:cli-app=com.helix.runtime.cli`。变体使用 `developerImplementation` + `src/developer` 隔离 `feature:files-allfiles`、`tools:automation`、`tools:root`、`runtime:proot-client`、`runtime:cli-client`，不仅依赖运行时 feature flag 隐藏 consumer 入口。
+applicationId 基线：`consumer=com.helix.agent`、`developer=com.helix.agent.developer`；Runtime library 没有独立 applicationId。变体使用 `developerImplementation` + `src/developer` 隔离 Advanced 模块，不仅依赖运行时 feature flag 隐藏 consumer 入口。
+
+Release 已启用 R8 代码与资源优化，Debug 保持可调试。默认 APK 含 arm64-v8a/x86_64；分别生成未签名分发候选并验证最终边界：
+
+```sh
+./scripts/build-release-apks.sh all
+# 只构建手机 ARM64 候选：
+./scripts/build-release-apks.sh arm64-v8a
+```
+
+产物、对应 mapping 和校验值保存在 `build/distributions/<abi>/`。单次 Gradle 构建也可传
+`-Phelix.abi=arm64-v8a` 或 `-Phelix.abi=x86_64`；普通验证不传此参数。构建成功不代表
+正式签名、发布或设备验收完成；x86_64 包不提供仅 ARM64 支持的 PRoot/FFmpeg 执行。
+RootFS 以 XZ 存储，安装后内容不变；详见[本轮验证](../evidence/development/apk-size-optimization-2026-10-15.md)。
 
 ## 7. 本地配置和 Secret
 

@@ -1,9 +1,9 @@
 # ADR-RUNTIME-002: 命令日志、后台 Job 与手动终端
 
 Status: accepted
-Date: 2026-09-16
-HXA: HXA-195, HXA-196, HXA-197, HXA-198
-Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
+Date: 2026-09-16; revised 2026-10-15
+HXA: HXA-195, HXA-196, HXA-197, HXA-198, HXA-286, HXA-288
+Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
 ## Context
 
@@ -40,6 +40,20 @@ PRoot 已有共享 UID、原 Job 进程组/取消/预算/日志/恢复语义保�
 
 Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变。编译组件、设备能力、输出文件完整性和媒体任务正确性分别反馈；未经过当前设备验证的 MediaCodec/Bionic-in-PRoot 路径不写成已验收。正式制品继续核对全部依赖、来源许可和 25 MB 增量门槛。
 
+### Job 操作面与类型化结果（HXA-288）
+
+启动、status/await、collect/ACK、cancel 原 Job 和停止等待按共同结果契约收敛，保留各自身份、effect 和生命周期。模型可发现的操作与 UI 观察共享原持久事实，不能凭 toolName/任意 JSON 猜 Job 已完成或已收取。
+
+这些语义先在 HXA-286 冻结，HXA-288 执行核心实现后再与 287 的完整 Turn 最小纵切集成。原 jobId/executionId 与长期 ExecutionResource/resourceId、实例 generation、当前控制 callId 分开；调用返回、进程退出、输出收尽和结果落盘分别记录。进程退出不是输出 drain/EOF 或 collect/ACK 的完成证明，截断/缺口明确；cancel requested/confirmed 不冒充实际退出。按原身份重启 reconcile，迟到旧实例不改新实例，未知效果不得重发命令，原输出/资源 owner 完成其清理责任。
+
+本任务整理既有 Job 能力，不启用模型写入手动 PTY、不新增持久 Shell 平台。原日志、租期、进程组、物理槽与未知效果保护继续适用；产物 publication 复用现有 Workspace 归属与幂等收取。
+
+### 模型持久终端的后续接入边界
+
+HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不将所有控制操作建成新 Job。未来模型终端需单独定义创建、输入、读取游标、关闭和人工接管，绑定原实例/generation、Workspace 及当前调用授权；复用 Runtime 能力不继承人工 USER 入口的免逐键审批资格。
+
+输入写者协调只针对具体终端，原资源容量仍有界，不引入全局 Agent/终端锁。当前手动终端和 Job 行为不变，模型输入仍未启用；进程死亡后身份可对账、内存不可假定恢复，后续产品另定租期与失效体验。
+
 ## Alternatives considered
 
 通用持久 shell 替代全部 Job 会破坏身份与结算；仅最终输出不足以支持交互；每个按键做 Tool Approval 无法形成可用终端。
@@ -55,6 +69,14 @@ Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变�
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
+
+## Decision history — 2026-10-15
+
+顺序复核落地：Job/长期资源身份及返回、退出、收尽、落盘的判据前置到 286，288 分核心/集成/适配验证取消迟到与恢复；不因此启用模型 PTY 或给普通工具附加 Job。本次仅更新文档任务。
+
+扩展性补充：澄清模型持久终端的未来接缝，人工权限、资源生命周期和每次控制调用分开；HXA-288 仅验证现有资源边界。 本次只更新目标约束，未实现四类后续能力。
+
+将现有 Job 的结果/控制整理纳入 HXA-288；与模型持久终端候选分开，不再把二者混为同一个远期任务。 本轮只更新设计与任务，代码和验收由对应 HXA 记录。
 
 ## References
 

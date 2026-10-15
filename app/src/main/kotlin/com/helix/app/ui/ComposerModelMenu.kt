@@ -93,7 +93,6 @@ internal fun ComposerModelMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var requestedModel by remember { mutableStateOf<Pair<String, String>?>(null) }
     val currentProvider = providers.firstOrNull { it.id == providerId }
     val visibleProviders = providers.filter { it.visibleInModelPicker }
     val currentLabel = model?.let { currentProvider?.modelLabel(it) ?: it }
@@ -105,14 +104,12 @@ internal fun ComposerModelMenu(
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
     LaunchedEffect(openRequest) {
         if (openRequest > 0 && enabled) {
-            requestedModel = null
             query = ""
             expanded = true
         }
     }
     Box {
         TextButton({
-            requestedModel = null
             query = ""
             expanded = true
         }, enabled = enabled, modifier = Modifier.testTag("chat-model-menu")) {
@@ -174,19 +171,15 @@ internal fun ComposerModelMenu(
                                     reasoning =
                                         if (current) {
                                             {
-                                                ModelReasoningOptions(
-                                                    providerId,
-                                                    model,
-                                                    requestedModel,
-                                                    reasoningContent,
-                                                )
+                                                androidx.compose.runtime.key(providerId, model) {
+                                                    reasoningContent?.invoke()
+                                                }
                                             }
                                         } else {
                                             null
                                         },
                                 ) {
-                                    requestedModel = row.id to candidate
-                                    if (reasoningContent == null) expanded = false
+                                    expanded = false
                                     if (!current) onSelect(row.id, candidate)
                                 }
                             }
@@ -216,18 +209,5 @@ internal fun ComposerModelMenu(
                 },
             )
         }
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-private fun ModelReasoningOptions(
-    provider: String?,
-    model: String?,
-    requested: Pair<String, String>?,
-    content: (@Composable () -> Unit)?,
-) {
-    if (model != null && (requested == null || requested == (provider to model))) {
-        androidx.compose.runtime.key(provider, model) { content?.invoke() }
     }
 }

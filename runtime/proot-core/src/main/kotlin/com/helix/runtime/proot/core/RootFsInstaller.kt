@@ -151,7 +151,7 @@ object RootFsInstaller {
                 ?: throw IOException("lock has no alpine-rootfs component")
         val digest = MessageDigest.getInstance("SHA-256")
         val feed = TeeDigestStream(request.rootfsArchiveStream(), digest)
-        val extraction = TarStream.extract(feed, dest)
+        val extraction = feed.use { TarStream.extract(it, dest) }
         val actualSha =
             digest
                 .digest()

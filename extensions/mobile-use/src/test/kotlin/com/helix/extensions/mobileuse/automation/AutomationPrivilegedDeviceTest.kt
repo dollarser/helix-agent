@@ -27,6 +27,43 @@ class AutomationPrivilegedDeviceTest {
         )
     private val stroke = AutomationStroke(listOf(AutomationPoint(10f, 10f), AutomationPoint(80f, 80f)), 0, 200)
 
+    @Test fun freshPixelsDoNotRefreshAnOlderCoordinateCredential() {
+        val authority = Authority()
+        val backend = Backend(target)
+        val host = AutomationPrivilegedDeviceHost(authority)
+        val frame = requireNotNull(host.observe(authority.call, backend).frame)
+        backend.captureTarget = target.copy(revision = "animated-content")
+        val captured = host.execute(authority.call, frame.token, AutomationDeviceOperation.SCREENSHOT)
+        assertEquals("SAVED", captured.status)
+        assertEquals(authority.call.authorizationScopeRef, captured.screenshot?.acquisitionScopeRef)
+        host.execute(authority.call, frame.token, AutomationDeviceOperation.GESTURE, listOf(stroke))
+        assertEquals(target, backend.lastRequest?.target)
+        assertFalse(
+            privilegedGesturePermitted(
+                requireNotNull(backend.lastRequest),
+                backend.captureTarget,
+                listOf(AutomationWindowRegion(7, 1, target.packageName, target.bounds)),
+            ),
+        )
+    }
+
+    @Test fun changedCaptureWindowNeverPublishesPixels() {
+        val authority = Authority()
+        val backend = Backend(target)
+        val host = AutomationPrivilegedDeviceHost(authority)
+        for (changed in listOf(
+            target.copy(windowId = 8),
+            target.copy(rotation = 1),
+            target.copy(packageName = "other"),
+        )) {
+            val frame = requireNotNull(host.observe(authority.call, backend).frame)
+            backend.captureTarget = changed
+            val result = host.execute(authority.call, frame.token, AutomationDeviceOperation.SCREENSHOT)
+            assertEquals("TARGET_CHANGED", result.status)
+            assertNull(result.screenshot)
+        }
+    }
+
     @Test fun semanticScrollAcceptsVisibleContainerAboveKeyboardButClickDoesNot() {
         val visible: (Int, Int) -> Boolean = { _, y -> y < 40 }
         assertTrue(
@@ -183,6 +220,8 @@ class AutomationPrivilegedDeviceTest {
     ) : AutomationPrivilegedBackend {
         override val deviceOperations = AutomationDeviceOperation.entries.toSet()
         val calls = mutableListOf<AutomationDeviceOperation>()
+        var captureTarget = target
+        var lastRequest: AutomationDeviceRequest? = null
         var after: () -> Unit = {}
 
         override fun state() = AutomationBackendState.READY
@@ -198,6 +237,7 @@ class AutomationPrivilegedDeviceTest {
             allowed: () -> Boolean,
         ): AutomationDeviceReply {
             assertTrue(allowed())
+            lastRequest = request
             calls.add(request.operation)
             after()
             return when (request.operation) {
@@ -208,7 +248,7 @@ class AutomationPrivilegedDeviceTest {
                 AutomationDeviceOperation.SCREENSHOT -> {
                     AutomationDeviceReply(
                         "SAVED",
-                        target,
+                        captureTarget,
                         AutomationScreenshot("SAVED", byteArrayOf(1)),
                     )
                 }

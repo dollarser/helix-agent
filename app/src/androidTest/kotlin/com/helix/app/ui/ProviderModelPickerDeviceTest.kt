@@ -1,11 +1,16 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
@@ -25,6 +30,38 @@ import org.junit.Test
 class ProviderModelPickerDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val caps = ProviderCapabilities(true, true, false, false, false, false, 8192, CapabilitySource.PROBED)
+
+    @Test fun optionalProviderControlsRequireExpansionAndNeverRunOnOpen() {
+        var probes = 0
+        var visionChanges = 0
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    ProviderRow(
+                        row("api", ProviderProvisioningKind.USER_CONFIGURED, "a"),
+                        false,
+                        ProviderRowActions({}, {}, {}, { visionChanges++ }, {}, onDetectCapabilities = { probes++ }),
+                        false,
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("provider-manage-models-api").assertIsDisplayed()
+        compose.onNodeWithTag("provider-test").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("provider-context-api").assertDoesNotExist()
+        compose.onNodeWithTag("provider-capabilities").assertDoesNotExist()
+        compose.onNodeWithTag("provider-vision-declare").assertDoesNotExist()
+        compose.onNodeWithTag("provider-options-api").performScrollTo().performClick()
+        compose.onNodeWithTag("provider-context-api").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("provider-capabilities").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("provider-vision-declare").performScrollTo().assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(0, probes)
+            assertEquals(0, visionChanges)
+        }
+        compose.onNodeWithTag("provider-options-api").performScrollTo().performClick()
+        compose.onNodeWithTag("provider-capabilities").assertDoesNotExist()
+    }
 
     @Test fun modelNameTogglesTheOnlySelectionControl() {
         val selected = androidx.compose.runtime.mutableStateOf(ProviderModelSelection())
@@ -174,13 +211,19 @@ class ProviderModelPickerDeviceTest {
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
         compose.onNodeWithTag("chat-model-api-b").performClick()
         compose.runOnIdle { assertEquals("b", requested) }
+        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         // A rejected or delayed switch can return to the actual model without reapplying it.
-        compose.onNodeWithTag("chat-model-api-a").performClick()
+        compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
+        compose.onNodeWithTag("chat-model-api-a").performClick()
+        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
         compose.runOnIdle { assertEquals("b", requested) }
+        compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-model-api-b").performClick()
         compose.runOnIdle { current.value = "b" }
+        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
+        compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed().performClick()
         compose.onNodeWithTag("chat-reasoning-medium").assertIsDisplayed()
     }

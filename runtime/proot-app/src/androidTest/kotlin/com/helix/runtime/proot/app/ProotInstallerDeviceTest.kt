@@ -8,6 +8,7 @@ import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.InstallRequest
 import com.helix.runtime.proot.core.ProotAssetSource
 import com.helix.runtime.proot.core.RollbackOutcome
+import com.helix.runtime.proot.core.RootFsCompression
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.core.RuntimeLock
 import com.helix.runtime.proot.core.RuntimeLockCodec
@@ -26,7 +27,7 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * HXA-082 device acceptance: the real embedded assets (lock + raw tar + PRoot
+ * HXA-082 device acceptance: the real embedded assets (lock + XZ-encoded tar + PRoot
  * binaries) drive the real installer on-device.
  *
  * The APP's assets are used (the main APK carries `runtime/`); the page size is
@@ -118,12 +119,11 @@ class ProotInstallerDeviceTest {
     ): InstallRequest {
         val base =
             ProotRuntimeInstaller.buildInstallRequest(context, lock, pageSize, System.currentTimeMillis())
-        val name = ProotRuntimeInstaller.embeddedArchiveName(lock)
         return InstallRequest(
             runtimeRoot = base.runtimeRoot,
             lock = base.lock,
             rootfsArchiveStream = {
-                CorruptingInputStream(context.assets.open("runtime/rootfs/$name"), atOffset)
+                CorruptingInputStream(base.rootfsArchiveStream(), atOffset)
             },
             prootAssets = base.prootAssets,
             facts =
@@ -152,7 +152,7 @@ class ProotInstallerDeviceTest {
         val digest = MessageDigest.getInstance("SHA-256")
         var total = 0L
         val buffer = ByteArray(65536)
-        context.assets.open("runtime/rootfs/$name").use { input ->
+        RootFsCompression.open({ context.assets.open("runtime/rootfs/$name") }, component.size).use { input ->
             while (true) {
                 val n = input.read(buffer)
                 if (n < 0) break
@@ -296,7 +296,12 @@ class ProotInstallerDeviceTest {
         // scan (types, paths, symlink targets) on-device before any install.
         val lock = installedLock()
         val name = ProotRuntimeInstaller.embeddedArchiveName(lock)
-        val members = context.assets.open("runtime/rootfs/$name").use { TarStream.scan(it) }
+        val members =
+            RootFsCompression
+                .open(
+                    { context.assets.open("runtime/rootfs/$name") },
+                    requireNotNull(lock.component("alpine-rootfs")).size,
+                ).use { TarStream.scan(it) }
         assertEquals(2692, members.size)
     }
 }

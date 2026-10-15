@@ -1,9 +1,9 @@
 # ADR-MCP-001: MCP Client、传输与工具接入
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-13
-HXA: HXA-070
-Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
+Date: 2026-09-16; revised 2026-10-15
+HXA: HXA-070, HXA-286, HXA-291
+Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
 ## Context
 
@@ -25,6 +25,14 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 依赖排除 ktor-server-websockets 必须由 Client fixture 和 Android/R8 检查证明可行；升级后若依赖链变化重新评估。仅对明确的可选 JVM TLS provider/日志 adapter 做定点 missing-class 处理，其他错误保持门禁。
 
+### 同源依赖与 Resources 消费（HXA-286/291）
+
+工具前置组从可信、经校验的贡献元数据取得，默认曝光与按需发现共用同一规则，取代所涉来源名/工具名分支。按当前会话资格过滤后才能加载；缺失、循环或撤销不能被补依赖绕过。保持下一请求 Schema 生效和原绑定校验，元数据不产生执行许可。
+
+[HXA-291](../../development/tasks/HXA-291.md) 补资源列举、模板发现和读取的模型工具入口，优先采用 list_mcp_resources/list_mcp_resource_templates/read_mcp_resource。复用现有 SDK facade、连接/认证和会话生命周期，处理分页、URI/模板参数、大小、类型与来源引用；不是服务端 tools/call 的伪装。
+
+资源正文与元数据区分，文本和二进制分别进入有界内容/产物路径，保持不可信来源。没有 Resources 能力的服务明确不支持；本增量不启用 Prompts 执行、sampling、elicitation、stdio 或 MCP Apps。Notion/Linear 已结案账号流程不作为新增资源验收前置。
+
 ## Alternatives considered
 
 直接实现最小 HTTP/JSON-RPC 可减少 SDK 依赖，但需要自行维护 session、SSE、取消和恢复，仅在 SDK 无法满足 Android 条件时评估。采用 Server/umbrella 依赖扩大无关能力，不采用。固定失配的旧依赖不是兼容方案；需要升级时同步整个实际依赖链并验证。
@@ -40,6 +48,10 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
+
+## Decision history — 2026-10-15
+
+接受 HXA-286 的依赖元数据接线及 HXA-291 Resources 消费闭环；工具总量仍无 Helix 固定全局上限，真实搜索/资源能力与已交付认证分开验收。 本轮只更新设计与任务，代码和验收由对应 HXA 记录。
 
 ## References
 

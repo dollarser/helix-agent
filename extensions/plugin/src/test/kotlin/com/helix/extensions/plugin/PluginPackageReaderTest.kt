@@ -12,10 +12,53 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
+import java.nio.file.Path
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 @Suppress("MaxLineLength") // verbatim single-line foreign JSON fixtures
 class PluginPackageReaderTest {
     private val reader = PluginPackageReader()
+
+    @Test
+    fun missingOptionalZipCodecsReturnAValidationFailure() {
+        for (method in listOf(20, 93, 95)) {
+            val path = Files.createTempFile("optional-codec", ".zip")
+            try {
+                ZipOutputStream(Files.newOutputStream(path)).use { zip ->
+                    zip.putNextEntry(ZipEntry("mcp.json"))
+                    zip.write("{}".toByteArray())
+                    zip.closeEntry()
+                }
+                patchCompressionMethod(path, method)
+                val failure = assertThrows(IllegalArgumentException::class.java) { reader.readZip(path) }
+                assertEquals("CONNECTOR_UNSUPPORTED_COMPRESSION", failure.message)
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
+    }
+
+    private fun patchCompressionMethod(
+        path: Path,
+        method: Int,
+    ) {
+        val bytes = Files.readAllBytes(path)
+        for (index in 0 until bytes.size - 10) {
+            if (bytes[index] != 0x50.toByte() || bytes[index + 1] != 0x4b.toByte()) continue
+            val offset =
+                when {
+                    bytes[index + 2] == 3.toByte() && bytes[index + 3] == 4.toByte() -> 8
+                    bytes[index + 2] == 1.toByte() && bytes[index + 3] == 2.toByte() -> 10
+                    else -> null
+                }
+            if (offset != null) {
+                bytes[index + offset] = method.toByte()
+                bytes[index + offset + 1] = 0
+            }
+        }
+        Files.write(path, bytes)
+    }
 
     @Test
     fun updateMetadataIsBoundedAndChangedForeignAuthCannotReuseTheSameBinding() {

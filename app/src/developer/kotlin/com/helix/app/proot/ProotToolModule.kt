@@ -426,6 +426,7 @@ internal object ProotToolModule {
             is RepairEntryResult.Unavailable -> {
                 ProotVerificationNote(
                     appContext.getString(R.string.runtime_entry_failed),
+                    isError = true,
                 )
             }
         }
@@ -452,6 +453,7 @@ internal object ProotToolModule {
                         ProotVerificationNote(
                             appContext.getString(R.string.settings_proot_verify_mismatch),
                             needsRebaseline = true,
+                            isError = true,
                         )
                     }
 
@@ -461,6 +463,7 @@ internal object ProotToolModule {
                                 R.string.settings_proot_verify_failure,
                                 availability.cause,
                             ),
+                            isError = true,
                         )
                     }
                 }
@@ -489,12 +492,13 @@ internal object ProotToolModule {
     fun removeRuntimeNote(): ProotVerificationNote =
         when (val result = removeRuntime()) {
             RepairEntryResult.Opened -> {
-                ProotVerificationNote(appContext.getString(R.string.settings_proot_remove_opened))
+                ProotVerificationNote(appContext.getString(R.string.settings_proot_remove_opened), clearOnResume = true)
             }
 
             is RepairEntryResult.Unavailable -> {
                 ProotVerificationNote(
                     appContext.getString(R.string.settings_proot_remove_unavailable, result.cause),
+                    isError = true,
                 )
             }
         }

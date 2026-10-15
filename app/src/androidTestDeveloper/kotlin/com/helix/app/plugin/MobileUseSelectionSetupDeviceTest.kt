@@ -3,7 +3,6 @@ package com.helix.app.plugin
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -16,12 +15,15 @@ import com.helix.app.connector.ConnectorSessionPanel
 import com.helix.app.internal.PrefsLineStore
 import com.helix.extensions.mobileuse.config.MobileUseGrantStore
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
 
 class MobileUseSelectionSetupDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Before fun requireBackend() = awaitMobileUseTestBackend()
 
     @Test fun missingScopeOffersConfigurationAndSavingDoesNotSelectAutomatically() {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
@@ -44,8 +46,14 @@ class MobileUseSelectionSetupDeviceTest {
             }
             val tag = "connector-session-${record.id}"
             compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag(tag).assertIsOff().assertIsNotEnabled()
-            compose.onNodeWithTag("plugin-session-configure-${record.id}").performScrollTo().performClick()
+            compose
+                .onNodeWithTag(tag)
+                .assertIsOff()
+                .assertIsEnabled()
+                .performScrollTo()
+                .performClick()
+            compose.onNodeWithTag("plugin-setup-continue").assertDoesNotExist()
+            org.junit.Assert.assertFalse(record.id in service.catalog.selected(session))
             assertEquals(1, configure)
             MobileUseGrantStore(lines::lines, lines::setLines, { null }).configureGlobal(setOf(app.packageName), false)
             compose.runOnIdle { revision.intValue++ }
@@ -87,6 +95,7 @@ class MobileUseSelectionSetupDeviceTest {
             compose.onNodeWithTag("plugin-use-${record.id}").performScrollTo().performClick()
             waitForTag("plugin-session-configure-${record.id}")
             compose.onNodeWithTag("plugin-session-configure-${record.id}").performScrollTo().performClick()
+            compose.onNodeWithTag("plugin-setup-continue").assertDoesNotExist()
             compose.waitUntil(5_000) {
                 compose
                     .onAllNodes(

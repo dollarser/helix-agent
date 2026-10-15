@@ -24,7 +24,7 @@ data class ProotAssetSource(
 data class InstallRequest(
     val runtimeRoot: File,
     val lock: RuntimeLock,
-    /** The embedded raw tar stream (already gunzipped — see the AGP `.gz`-strip rule). */
+    /** The decoded raw tar stream, authenticated against the original runtime lock. */
     val rootfsArchiveStream: () -> InputStream,
     val prootAssets: List<ProotAssetSource>,
     val facts: InstallFacts,
@@ -75,6 +75,8 @@ internal class TeeDigestStream(
     private val source: InputStream,
     private val digest: MessageDigest,
 ) : InputStream() {
+    override fun close() = source.close()
+
     var bytesRead = 0L
         private set
 

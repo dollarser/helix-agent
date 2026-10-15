@@ -27,7 +27,7 @@ internal class PrivilegedDeviceService(
         reply: Parcel,
     ) {
         check(allowed())
-        val target = if (request.operation == AutomationDeviceOperation.LAUNCH) null else screen.deviceTarget()
+        val target = targetFor(request.operation)
         var image: SharedMemory? = null
         var snapshot: com.helix.extensions.mobileuse.automation.AutomationSnapshotResult? = null
         val status =
@@ -55,7 +55,7 @@ internal class PrivilegedDeviceService(
                 }
 
                 AutomationDeviceOperation.SCREENSHOT -> {
-                    if (target == null || target != request.target) {
+                    if (target == null || request.target?.sameWindow(target) != true) {
                         "TARGET_CHANGED"
                     } else {
                         check(request.wholeDisplay && allowed())
@@ -90,16 +90,13 @@ internal class PrivilegedDeviceService(
         }
     }
 
-    @Suppress("ReturnCount") // Refuse changed frames and missing nodes before the first side effect.
+    @Suppress("ReturnCount") // Fresh reads bind the window; node effects additionally bind the observed fingerprint.
     private fun semantic(
         screen: ShizukuHierarchy,
         request: AutomationDeviceRequest,
         target: AutomationDisplayTarget?,
     ): Pair<String, com.helix.extensions.mobileuse.automation.AutomationSnapshotResult?> {
-        val nodeAction = request.operation == AutomationDeviceOperation.NODE_ACTION
-        if (target == null || !allowed() ||
-            (if (nodeAction) request.target?.sameWindow(target) != true else target != request.target)
-        ) {
+        if (target == null || !allowed() || request.target?.sameWindow(target) != true) {
             return "TARGET_CHANGED" to null
         }
         val engine =
@@ -111,8 +108,8 @@ internal class PrivilegedDeviceService(
                     systemPackageInstaller(packageManager),
                 )
         val snapshot = engine.capture(screen.freshRoot())
-        val after = screen.deviceTarget()
-        if (!allowed() || (if (nodeAction) !target.sameWindow(after) else after != target)) {
+        val after = screen.deviceTarget(includeRevision = false)
+        if (!allowed() || !target.sameWindow(after)) {
             return "TARGET_CHANGED" to null
         }
         if (request.operation == AutomationDeviceOperation.SNAPSHOT) return snapshot.status.name to snapshot
@@ -142,6 +139,16 @@ internal class PrivilegedDeviceService(
 
     private fun allowed(): Boolean = ShizukuExecutionGuard.check(guard)
 
+    private fun targetFor(operation: AutomationDeviceOperation): AutomationDisplayTarget? =
+        if (operation == AutomationDeviceOperation.LAUNCH) {
+            null
+        } else {
+            screen.deviceTarget(
+                includeRevision =
+                    operation in setOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.GESTURE),
+            )
+        }
+
     @Suppress("ReturnCount") // Each read-only instability exits without publishing pixels; finally owns the bitmap.
     private fun capture(
         screen: ShizukuHierarchy,
@@ -152,10 +159,18 @@ internal class PrivilegedDeviceService(
         val bitmap = checkNotNull(screen.screenshot()) { "SCREENSHOT_UNAVAILABLE" }
         return try {
             if (bitmap.width != target.width || bitmap.height != target.height) return null
-            if (screen.deviceTarget() != target || screen.windows() != windows || !allowed()) return null
+            if (!target.sameWindow(screen.deviceTarget(includeRevision = false)) || screen.windows() != windows ||
+                !allowed()
+            ) {
+                return null
+            }
             val output = java.io.ByteArrayOutputStream()
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, BoundedCaptureOutput(output)))
-            if (!allowed() || screen.deviceTarget() != target || screen.windows() != windows) return null
+            if (!allowed() || !target.sameWindow(screen.deviceTarget(includeRevision = false)) ||
+                screen.windows() != windows
+            ) {
+                return null
+            }
             readOnlyImage(output.toByteArray())
         } finally {
             bitmap.recycle()

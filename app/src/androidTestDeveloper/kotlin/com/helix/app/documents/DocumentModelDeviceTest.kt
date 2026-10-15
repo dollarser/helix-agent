@@ -2,6 +2,7 @@ package com.helix.app.documents
 
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
@@ -18,12 +19,17 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -104,6 +110,11 @@ class DocumentModelDeviceTest {
                             TurnState.valueOf(it.state).isTerminal
                         } != true
                     ) {
+                        // Owner opted into this model and these generated documents. A PDF on
+                        // API < 35 sends pixels, so acknowledge only this fixture's disclosure.
+                        c.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                            c.chatService.toolVisionConsent.respond(it.id, true)
+                        }
                         delay(100)
                     }
                 }
@@ -134,10 +145,7 @@ class DocumentModelDeviceTest {
                     "No real document inspection",
                     calls.any { it.name == "documents.inspect" && it.state == "COMPLETED" },
                 )
-                assertTrue(
-                    "No real document read",
-                    calls.any { it.name == "documents.read" && it.state == "COMPLETED" },
-                )
+                assertDocumentRead(format, calls)
                 assertTrue("Incorrect summary: $answer", answer.replace(" ", "").contains("ORANGE-42|42|9|PENDING"))
                 assertTrue("Source changed", original.contentEquals(source.readBytes()))
                 println("DOCUMENT_MODEL=PASS format=$format originalUnchanged=true independentAnswer=true")
@@ -158,6 +166,28 @@ class DocumentModelDeviceTest {
                 originalSession?.let(c.chatService::openSession)
             }
         }
+
+    private fun assertDocumentRead(
+        format: String,
+        calls: List<ToolCallEntity>,
+    ) {
+        if (format == "pdf" && Build.VERSION.SDK_INT < 35) {
+            val viewedPages =
+                calls.filter { it.name == "documents.view" && it.state == "COMPLETED" }.map {
+                    Json
+                        .parseToJsonElement(it.argsJson)
+                        .jsonObject
+                        .getValue("page")
+                        .jsonPrimitive.int
+                }
+            assertTrue("Both PDF pages must be viewed on API < 35: $viewedPages", viewedPages.containsAll(listOf(1, 2)))
+        } else {
+            assertTrue(
+                "No real document read",
+                calls.any { it.name == "documents.read" && it.state == "COMPLETED" },
+            )
+        }
+    }
 
     private fun writePdf(file: File) {
         val document = PdfDocument()

@@ -9,10 +9,10 @@
     <string name="allfiles_state_lost">System status: expired</string>
     <string name="allfiles_state_unavailable">System status: not available on this system/version (API below 30)</string>
     <string name="allfiles_title">All-files access</string>
-    <string name="settings_proot_verify_success">Verification passed (baseline matches)</string>
-    <string name="settings_proot_verify_mismatch">Update required: the Runtime baseline does not match the verified anchor (was the Runtime APK updated?). Update it under “Repair Runtime”, then select “Reset baseline” and verify again.</string>
+    <string name="settings_proot_verify_success">Runtime is ready</string>
+    <string name="settings_proot_verify_mismatch">The Runtime version has changed. Repair it, then accept the update and verify again.</string>
     <string name="settings_proot_verify_failure">Verification failed: %1$s</string>
-    <string name="settings_proot_remove_opened">This app’s anchor was cleared. Select “Remove Runtime” on the Runtime screen to finish.</string>
+    <string name="settings_proot_remove_opened">Confirm removal on the Runtime management screen.</string>
     <string name="settings_proot_remove_unavailable">Could not open Runtime (%1$s)</string>
     <string name="settings_proot_verified">Verified</string>
     <string name="settings_proot_not_installed">Not installed</string>

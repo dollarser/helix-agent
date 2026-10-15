@@ -5,12 +5,12 @@ import com.helix.app.HelixApplication
 import com.helix.app.chat.ModelToolExposureOrder
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
+import com.helix.extensions.skills.SkillTools
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
-import com.helix.extensions.skills.SkillTools
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -26,6 +26,7 @@ import java.time.Instant
 
 class HelixDocsDeviceTest {
     @Test
+    @Suppress("LongMethod") // One guide journey keeps resource and permission assertions together.
     fun packagedGuideIsDiscoverableReadableVersionedAndFailsClosedOnUnknownPage() {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val container = app.appContainer
@@ -38,9 +39,14 @@ class HelixDocsDeviceTest {
 
         val listing = invoke(SkillTools.LIST, buildJsonObject {})
         val entry =
-            listing.getValue("entries").jsonArray.single { item ->
-                item.jsonObject.getValue("name").jsonPrimitive.content == "helix-docs"
-            }.jsonObject
+            listing
+                .getValue("entries")
+                .jsonArray
+                .single { item ->
+                    item.jsonObject
+                        .getValue("name")
+                        .jsonPrimitive.content == "helix-docs"
+                }.jsonObject
         assertEquals("BUILT_IN", entry.getValue("source").jsonPrimitive.content)
         assertEquals("true", entry.getValue("enabled").jsonPrimitive.content)
         val source = entry.getValue("source").jsonPrimitive.content
@@ -61,11 +67,14 @@ class HelixDocsDeviceTest {
         val revision = manifestJson.getValue("revision").jsonPrimitive.content
         assertEquals(64, revision.length)
         assertTrue(instructions.contains(revision))
-        assertEquals("0.0.5", manifestJson.getValue("appVersion").jsonPrimitive.content)
+        val installed = app.packageManager.getPackageInfo(app.packageName, 0)
+        assertEquals(installed.versionName, manifestJson.getValue("appVersion").jsonPrimitive.content)
         assertEquals(
-            setOf("consumer", "developer"),
-            manifestJson.getValue("distributions").jsonArray.map { it.jsonPrimitive.content }.toSet(),
+            installed.longVersionCode.toString(),
+            manifestJson.getValue("appVersionCode").jsonPrimitive.content,
         )
+        assertEquals(app.packageName, manifestJson.getValue("applicationId").jsonPrimitive.content)
+        assertEquals("developer", manifestJson.getValue("distribution").jsonPrimitive.content)
 
         val sections = manifestJson.getValue("sections").jsonArray.map { it.jsonObject }
         val channels = sections.single { it.getValue("id").jsonPrimitive.content == "channels" }
@@ -75,6 +84,9 @@ class HelixDocsDeviceTest {
         val chapter = readResource(source, name, snapshotHash, "references/$sectionPath")
         assertTrue(chapter.startsWith("# Channels and preview status"))
         assertTrue(chapter.contains("development preview"))
+        val chinese = readResource(source, name, snapshotHash, "references/zh-CN/mobile-use.md")
+        assertTrue(chinese.contains("授权仅属于当前 Helix 对话"))
+        assertTrue(chinese.contains("只有手动撤销结束授权"))
 
         val unknown =
             invokeRaw(
@@ -132,7 +144,10 @@ class HelixDocsDeviceTest {
         name: String,
         args: JsonObject,
     ): ToolExecutorResult {
-        val registry = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer.toolPipeline.registry
+        val registry =
+            ApplicationProvider
+                .getApplicationContext<HelixApplication>()
+                .appContainer.toolPipeline.registry
         val descriptor = requireNotNull(registry.resolveLatest(ToolName(name)))
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, args))
         return registry.executor(descriptor.name, descriptor.version).execute(

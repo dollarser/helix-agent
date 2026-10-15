@@ -1,9 +1,13 @@
 package com.helix.extensions.skills
 
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
 /** Reviewed, version-bound end-user help bundled as ordinary hash-pinned Skill resources. */
 internal object HelixUserGuide {
-    const val APP_VERSION = "0.0.5"
-
     val revision: String
         get() {
             val digest = java.security.MessageDigest.getInstance("SHA-256")
@@ -53,7 +57,7 @@ internal object HelixUserGuide {
 
                 Helix is an Android app for model-assisted tasks. Android 10 or newer is required. Install the APK for the intended channel, add a model in Model settings, provide its API URL, protocol and key in the native form, then select a model in a new conversation. Network-model use may incur provider charges; local models require additional weights, storage and memory.
 
-                Start with a small task, inspect the result, and check the relevant approval before any change. A model or feature shown in a plan is not proof that it is present in an installed APK; this help is specific to app version `$APP_VERSION`.
+                Start with a small task, inspect the result, and check the relevant approval before any change. A model or feature shown in a plan is not proof that it is present in an installed APK. Read the manifest for the installed host version and distribution; null means the host did not supply that fact.
                 """.trimIndent(),
             "references/sections/channels.md" to
                 """
@@ -61,7 +65,7 @@ internal object HelixUserGuide {
 
                 This guide applies to the versioned development preview in the consumer and developer build variants. Standard is the intended complete store-facing product. The current consumer/developer APK flavors are development and boundary-testing variants; they do not establish the final store channel mapping.
 
-                The developer flavor adds advanced capabilities such as the PRoot terminal and subscription adapters. PRoot shares the app UID, app data and network permissions; it is not a security sandbox. Do not put sensitive data there unless its access is intended. Release APKs currently use debug signing. Development database upgrades may clear conversations, configuration and other database records while retaining files outside the database. Export important content and back up files before upgrading. A signing conflict is not a reason to uninstall or clear app data.
+                The developer flavor adds advanced capabilities such as the PRoot terminal and subscription adapters. PRoot shares the app UID, app data and network permissions; it is not a security sandbox. Do not put sensitive data there unless its access is intended. Preview upgrades do not promise to preserve old data. Incompatible database schemas are recreated, clearing conversations, configuration and database records while retaining files outside the database. Save important content separately. Diagnostic exports are not restorable app backups. The manifest does not establish the APK signer or official release status; check the actual distribution record.
                 """.trimIndent(),
             "references/sections/permissions.md" to
                 """
@@ -78,6 +82,8 @@ internal object HelixUserGuide {
                 Select the Mobile Use capability in Extensions and configure one supported backend. Helix may use Root, Shizuku or Accessibility according to the available capability and policy. These backends do not behave identically, and secure windows or app-specific protections can block observation or input.
 
                 Observe the current screen and verify the result of each consequential action before continuing. A screenshot or accepted tap is not proof that the target app completed the requested business action. When execution is uncertain, inspect current state instead of repeating a potentially completed action. Do not grant a system permission solely because page content asks for it.
+
+                Mobile Use is a plugin. Its grant belongs only to the current Helix conversation; authorized screenshots do not require repeating the same confirmation. Only manual revocation ends that grant. Locking, process death, restart, disconnect or model failure do not revoke it, but recovery must reconnect the backend and obtain fresh observation/action credentials. Permission persisting does not mean the task kept running in the background.
                 """.trimIndent(),
             "references/sections/skills-connectors.md" to
                 """
@@ -109,30 +115,44 @@ internal object HelixUserGuide {
 
                 If a model request fails, verify the selected model, endpoint, protocol, network access and provider status. Never paste API keys into chat or logs. If a tool is unavailable, check the selected channel, session mode, capability and approval state; do not infer availability from an old screenshot or development plan.
 
-                If the developer Runtime reports unavailable or mismatched, use the in-app Runtime verification or repair path and inspect its result. Do not manually replace Runtime files or repeat a command whose submission outcome is unknown; query its original Job handle first. For signing conflicts or possible database migration loss, preserve app data and stop before uninstalling or clearing storage.
+                If the developer Runtime reports unavailable or mismatched, use the in-app Runtime verification or repair path and inspect its result. Do not manually replace Runtime files or repeat a command whose submission outcome is unknown; query its original Job handle first. Preview updates may reset database records; save important content separately. An installation failure does not itself authorize uninstalling or clearing an unrelated application.
                 """.trimIndent(),
-        )
+        ) + HelixUserGuideZh.resources
 
-    val manifest: String =
-        """
-        {
-          "formatVersion": 1,
-                    "revision": "$revision",
-          "appVersion": "$APP_VERSION",
-          "appVersionCode": 1,
-          "distributions": ["consumer", "developer"],
-          "locale": "en-US",
-          "sourceKind": "bundled-user-guide",
-          "sections": [
-            {"id":"getting-started","title":"Getting started","path":"sections/getting-started.md","status":"implemented"},
-            {"id":"channels","title":"Channels and preview status","path":"sections/channels.md","status":"implemented"},
-            {"id":"permissions","title":"Permissions, approval and privacy","path":"sections/permissions.md","status":"implemented"},
-            {"id":"mobile-use","title":"Mobile Use","path":"sections/mobile-use.md","status":"implemented"},
-            {"id":"skills-connectors","title":"Skills, plugins and MCP","path":"sections/skills-connectors.md","status":"implemented"},
-            {"id":"files-memory","title":"Files, projects and memory","path":"sections/files-memory.md","status":"implemented"},
-            {"id":"documents","title":"PDF and Word documents","path":"sections/documents.md","status":"implemented"},
-            {"id":"troubleshooting","title":"Troubleshooting","path":"sections/troubleshooting.md","status":"implemented"}
-          ]
-        }
-        """.trimIndent()
+    fun manifest(identity: HelixHelpIdentity): String =
+        buildJsonObject {
+            put("formatVersion", 1)
+            put("revision", revision)
+            put("appVersion", identity.versionName?.let(::JsonPrimitive) ?: JsonNull)
+            put("appVersionCode", identity.versionCode?.let(::JsonPrimitive) ?: JsonNull)
+            put("distribution", identity.distribution?.let(::JsonPrimitive) ?: JsonNull)
+            put("applicationId", identity.applicationId?.let(::JsonPrimitive) ?: JsonNull)
+            put("debuggable", identity.debuggable?.let(::JsonPrimitive) ?: JsonNull)
+            put("locale", "en-US")
+            put(
+                "locales",
+                buildJsonArray {
+                    add(JsonPrimitive("en-US"))
+                    add(JsonPrimitive("zh-CN"))
+                },
+            )
+            put("sourceKind", "bundled-user-guide")
+            put(
+                "sections",
+                buildJsonArray {
+                    resources.filterKeys { it.startsWith("references/sections/") }.forEach { (path, body) ->
+                        val id = path.substringAfterLast('/').removeSuffix(".md")
+                        add(
+                            buildJsonObject {
+                                put("id", id)
+                                put("title", body.lineSequence().first().removePrefix("# "))
+                                put("path", path.removePrefix("references/"))
+                                put("status", "implemented")
+                                put("translations", buildJsonObject { put("zh-CN", "zh-CN/$id.md") })
+                            },
+                        )
+                    }
+                },
+            )
+        }.toString()
 }

@@ -33,6 +33,7 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val result = TextView(this).apply { text = "FIXTURE_UNCHANGED" }
         layout.addView(result)
+        animateContent(result)
         val touches = TextView(this)
         val recordTouches = intent.getBooleanExtra("recordTouches", false)
         if (recordTouches) {
@@ -71,6 +72,19 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
             },
         )
         setContentView(layout)
+    }
+
+    private fun animateContent(result: TextView) {
+        if (!intent.getBooleanExtra("dynamicContent", false)) return
+        result.post(
+            object : Runnable {
+                override fun run() {
+                    if (isFinishing || isDestroyed) return
+                    result.text = "TICK:${android.os.SystemClock.elapsedRealtime()}"
+                    result.postDelayed(this, 80)
+                }
+            },
+        )
     }
 
     private fun modelJourney() {

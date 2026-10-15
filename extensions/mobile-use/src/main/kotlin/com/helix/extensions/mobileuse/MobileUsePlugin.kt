@@ -134,6 +134,7 @@ class MobileUsePlugin(
             "ui.scroll",
             "ui.back",
             "ui.wait",
+            "ui.device",
             "ui.screenshot",
             "ui.gesture",
             "android.open_uri",

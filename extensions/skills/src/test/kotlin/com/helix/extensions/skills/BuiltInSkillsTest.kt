@@ -1,5 +1,10 @@
 package com.helix.extensions.skills
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,6 +14,40 @@ import org.junit.Test
 import java.nio.file.Files
 
 class BuiltInSkillsTest {
+    @Test
+    fun `help carries only supplied host facts and both language resources resolve`() {
+        val identity = HelixHelpIdentity("preview-quote\"", 42, "developer", "com.helix.validation.help", false)
+        val help = BuiltInSkills.documents(helpIdentity = identity).single { it.catalogEntry.name == "helix-docs" }
+        val manifest = Json.parseToJsonElement(help.resources.getValue("references/manifest.json")).jsonObject
+        assertEquals(identity.versionName, manifest.getValue("appVersion").jsonPrimitive.content)
+        assertEquals("42", manifest.getValue("appVersionCode").jsonPrimitive.content)
+        assertEquals("developer", manifest.getValue("distribution").jsonPrimitive.content)
+        assertEquals(identity.applicationId, manifest.getValue("applicationId").jsonPrimitive.content)
+        assertEquals("false", manifest.getValue("debuggable").jsonPrimitive.content)
+        manifest.getValue("sections").jsonArray.forEach { item ->
+            val section = item.jsonObject
+            assertTrue(help.resources.containsKey("references/" + section.getValue("path").jsonPrimitive.content))
+            val path =
+                section
+                    .getValue("translations")
+                    .jsonObject
+                    .getValue("zh-CN")
+                    .jsonPrimitive.content
+            val body = help.resources.getValue("references/$path")
+            assertTrue(body.startsWith("# "))
+            assertTrue(help.resources.getValue("references/index.zh-CN.md").contains(path))
+        }
+        val unknown = Json.parseToJsonElement(HelixUserGuide.manifest(HelixHelpIdentity())).jsonObject
+        assertEquals(JsonNull, unknown.getValue("appVersion"))
+        assertEquals(JsonNull, unknown.getValue("distribution"))
+        val other =
+            BuiltInSkills
+                .documents(helpIdentity = identity.copy(distribution = "consumer"))
+                .single { it.catalogEntry.name == "helix-docs" }
+        assertFalse(help.catalogEntry.contentHash == other.catalogEntry.contentHash)
+        assertEquals(HelixUserGuide.revision, helpRevision(manifest.toString()))
+    }
+
     @Test
     fun `ships standalone skills without plugin-owned UI guidance`() {
         val documents = BuiltInSkills.documents()

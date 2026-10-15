@@ -66,6 +66,7 @@ class MarketplaceCatalogTest {
             mapOf(
                 "notion-workspace" to "https://mcp.notion.com/mcp",
                 "linear-workspace" to "https://mcp.linear.app/mcp",
+                "gitlab-workspace" to "https://gitlab.com/api/v4/mcp",
             )
         for ((id, url) in endpoints) {
             val item = MarketplaceCatalog.items().single { it.id == id }

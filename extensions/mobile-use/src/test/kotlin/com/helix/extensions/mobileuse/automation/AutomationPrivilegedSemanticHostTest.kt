@@ -45,6 +45,35 @@ class AutomationPrivilegedSemanticHostTest {
         )
     private val backend = Backend()
 
+    @Test fun freshSnapshotAcceptsContentUpdatesWithinTheAuthorizedWindow() {
+        backend.publishedTarget = target.copy(revision = "updated-content")
+        val result = host.snapshot(call, backend)
+        assertEquals(AutomationSnapshotStatus.SUCCESS, result.status)
+        assertEquals(
+            "Install",
+            result.snapshot!!
+                .nodes
+                .single()
+                .text,
+        )
+    }
+
+    @Test fun freshSnapshotRejectsChangedWindowGeometryOrApplication() {
+        for (changed in listOf(
+            target.copy(windowId = 8),
+            target.copy(packageName = "other"),
+            target.copy(displayId = 1),
+            target.copy(rotation = 1),
+            target.copy(width = 101),
+            target.copy(bounds = target.bounds.copy(top = 1)),
+        )) {
+            backend.publishedTarget = changed
+            val result = host.snapshot(call, backend)
+            assertEquals(AutomationSnapshotStatus.TARGET_CHANGED, result.status)
+            assertNull(result.snapshot)
+        }
+    }
+
     @Test fun unrelatedPageChangesDoNotInvalidateAnUnchangedNodeButTargetChangesDo() {
         val node =
             host
@@ -163,6 +192,7 @@ class AutomationPrivilegedSemanticHostTest {
     private inner class Backend : AutomationPrivilegedBackend {
         override val deviceOperations = AutomationDeviceOperation.entries.toSet()
         var observed = target
+        var publishedTarget = target
         var ready = true
         var actions = 0
         var lastAction: AutomationNodeActionRequest? = null
@@ -190,7 +220,7 @@ class AutomationPrivilegedSemanticHostTest {
                     afterSnapshot()
                     AutomationDeviceReply(
                         "SUCCESS",
-                        target,
+                        publishedTarget,
                         snapshot =
                             AutomationSnapshotResult(
                                 AutomationSnapshotStatus.SUCCESS,

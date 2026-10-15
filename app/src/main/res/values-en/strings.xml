@@ -206,7 +206,7 @@
     <string name="approval_source_plugin">Plugin: %1$s</string>
     <string name="approval_source_mcp">MCP server: %1$s</string>
     <string name="approval_source_a2a">A2A Agent: %1$s</string>
-    <string name="approval_state_approved">Approved, executing</string>
+    <string name="approval_state_approved">Approved</string>
     <string name="approval_state_denied">Denied</string>
     <string name="approval_state_failed">Execution failed</string>
     <string name="approval_state_pending">Awaiting approval</string>
@@ -251,7 +251,6 @@
     <string name="chat_back_to_sessions">Session list</string>
     <string name="chat_blocked_attachments_changed">The attachment list has changed; please send again.</string>
     <string name="chat_blocked_cannot_read_file">Could not read the file; please select it again.</string>
-    <string name="chat_cleartext_warning">This model uses unencrypted HTTP. Messages, attachments and API keys may be read or changed in transit. Sending remains available; HTTPS is recommended.</string>
     <string name="chat_blocked_dismiss">Got it</string>
     <string name="chat_blocked_egress_target_changed">The egress target has changed; please send again.</string>
     <string name="chat_blocked_egress_unconfirmed">The attachment egress policy could not be confirmed; sending blocked.</string>
@@ -638,12 +637,12 @@
     <string name="settings_proot_repair">Repair Runtime</string>
     <string name="settings_proot_legal">Licenses and sources</string>
     <string name="settings_proot_remove">Remove Runtime</string>
-    <string name="settings_proot_rebaseline">Reset baseline (I acknowledge the change)</string>
+    <string name="settings_proot_rebaseline">Accept Runtime update</string>
     <string name="settings_proot_remove_title">Remove PRoot Runtime?</string>
-    <string name="settings_proot_remove_body">This completely removes Runtime state (RootFS, job records, and active pointers). No Workspace data is deleted. The “bash” tool must be installed and verified again afterward.</string>
-    <string name="settings_proot_remove_confirm">Remove</string>
-    <string name="settings_proot_rebaseline_success">The baseline was reset (the previous anchor was removed). Select “Verify Runtime” to verify the new embedded baseline.</string>
-    <string name="settings_proot_rebaseline_empty">There is no verified anchor to reset.</string>
+    <string name="settings_proot_remove_body">Continue to confirm removal on the Runtime management screen. Runtime software and task records will be removed; Workspace files are kept. Reinstall and verify to use the terminal again.</string>
+    <string name="settings_proot_remove_confirm">Continue</string>
+    <string name="settings_proot_rebaseline_success">Update accepted. Verify the Runtime again.</string>
+    <string name="settings_proot_rebaseline_empty">The Runtime has not been verified. Verify it first.</string>
     <string name="provider_subscription_experimental_notice">Unofficial integration. Sign in with an eligible account; availability depends on the provider.</string>
     <string name="provider_subscription_manage_account">Manage subscription login</string>
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions is unavailable, disabled, or signed by a different key.</string>
@@ -1280,7 +1279,7 @@
     <string name="marketplace_item_gitlab_name">GitLab Workspace</string>
     <string name="marketplace_item_gitlab_summary">GitLab project, repository, issues and merge request operations.</string>
     <string name="marketplace_item_gitlab_desc">Connect to GitLab API to inspect repositories, manage issues, and track merge requests using MCP protocol.</string>
-    <string name="marketplace_item_gitlab_auth_hint">Requires GitLab Personal Access Token with api scope</string>
+    <string name="marketplace_item_gitlab_auth_hint">Connect with OAuth. Manual tokens must be fine-grained with MCP Execute permission; legacy api-scope tokens are not supported.</string>
     <string name="marketplace_item_system_assistant_name">System Diagnostics</string>
     <string name="marketplace_item_system_assistant_summary">Safe read-only Android environment and device diagnostics guide.</string>
     <string name="marketplace_item_system_assistant_desc">Guide inspection of memory, storage, network status, and platform capabilities without executing destructive commands.</string>

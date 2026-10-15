@@ -14,6 +14,8 @@
 
 下列是所选版本需要满足的条件，不是一条自动串行的新任务链。是否执行及哪些范围已通过，由当前任务和证据决定。
 
+2026-10-15 Owner 已明确预览版不需要旧数据保留：本次预览不要求旧库迁移或无损升级验收，沿用不兼容开发库重建并在分发说明披露。签名、版本编号、安装成功和当前版本的会话/授权恢复仍须验证；不将“不承诺保留”解释为可清除无关日常数据。正式发行的长期升级承诺另按 HXA-122 决定。
+
 | 检查面 | 工作 | 可执行内容与退出条件 | 所需输入 |
 | --- | --- | --- | --- |
 | 本地收口 | 清理事实漂移与验证当前源码 | 文档指向同一状态；全部主机门禁及制品边界通过；已知问题有范围、复现入口和停止条件 | 不触碰并行 WIP，不因整理而再次开发已完成功能 |
@@ -40,8 +42,8 @@
 - 本地模型优化先测 load、prefill、decode、首响应、PSS/RSS 与 cancel-to-exit；模拟器固定任务不定义手机最低配置。KV/prefix、线程/batch、逐 token 输出及 GPU/NPU 仅在存在瓶颈证据后另行决定，不是本轮缺失功能。
 - Harness 回归使用既定 SGLang 固定任务；规范、身份和统计口径见[系统基线](harness-system-baseline.md)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
 - Global/Project Memory 的生产接线及 HXA-246 本地主机、API36 双渠道 UI/Memory 和项目记忆进程恢复已交付，范围见[原任务](tasks/HXA-246.md)。其他设备、真实任务效果、过时信息、跨会话污染与长稳仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
-- 统一 PDF/DOCX 阅读由 [HXA-284](tasks/HXA-284.md)交付主机切片，设备/真实模型 not requested；实际解析/渲染、资源释放和摘要质量仍需拟验版本自身的证据。其他格式、编辑/生成、OCR 与完整 Office 排版未随该切片交付。
-- 2026-10-15 `helix-docs` 首阶段已接内置 Skill 与按需离线章节；目前内容为英文Kotlin资源，manifest不绑定构建commit/dirty状态或实际flavor，也没有静态帮助UI。可准备本地debug preview供审阅；这不等于稳定发布、HXA-120/122签名身份决定或同ID数据升级验收。
+- 统一 PDF/DOCX 阅读由 [HXA-284](tasks/HXA-284.md)交付，已有 API36 及 OnePlus/API34 原生读取与真实模型切片，见[重构前收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)和[真机记录](../evidence/development/device-ui-model-validation-2026-10-15.md)。完整 R8 文档矩阵、大文档资源峰值、其他格式、编辑/生成、OCR 与完整 Office 排版不由这些切片推导通过。
+- `helix-docs` 使用内置 Skill 与按需离线章节。2026-10-15 后续优化补齐八章中文资源，版本/编号/applicationId/渠道/可调试状态由安装宿主提供；未知事实为 null，不再硬编码旧版本或声称通用 Release 签名。构建 commit/dirty、签名证书、静态帮助 UI 和源文档自动生成未包含，验证边界见[本轮记录](../evidence/development/preview-polish-2026-10-15.md)。
 - Connector/订阅按实际选定供应商验收，不承诺任意服务兼容；未选或暂缓供应商不形成无限开发义务。
 
 ## 5. 需要外部输入的正式任务

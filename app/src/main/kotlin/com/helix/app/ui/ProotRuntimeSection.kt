@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.proot.ProotVerificationNote
@@ -45,13 +47,18 @@ internal fun ProotRuntimeSection() {
     var verifyNote by remember { mutableStateOf<ProotVerificationNote?>(null) }
     var busy by remember { mutableStateOf(false) }
     var showRemoveConfirm by remember { mutableStateOf(false) }
+    var resumeRevision by remember { mutableStateOf(0) }
 
-    fun refresh() {
-        statusText = ProotToolModule.verifyStatusLabel()
+    suspend fun refresh() {
+        statusText = withContext(Dispatchers.IO) { ProotToolModule.verifyStatusLabel() }
     }
 
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) { refresh() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (verifyNote?.clearOnResume == true) verifyNote = null
+        resumeRevision++
+    }
+    LaunchedEffect(resumeRevision) {
+        statusText = withContext(Dispatchers.IO) { ProotToolModule.verifyStatusLabel() }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -66,7 +73,8 @@ internal fun ProotRuntimeSection() {
             Text(
                 note.text,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
+                color =
+                    if (note.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("settings-proot-verify-note"),
             )
         }
@@ -76,31 +84,36 @@ internal fun ProotRuntimeSection() {
                     if (busy) return@OutlinedButton
                     busy = true
                     scope.launch {
-                        withContext(Dispatchers.IO) {
-                            verifyNote = ProotToolModule.verifyNowNote()
+                        try {
+                            verifyNote = withContext(Dispatchers.IO) { ProotToolModule.verifyNowNote() }
                             refresh()
+                        } finally {
+                            busy = false
                         }
-                        busy = false
                     }
                 },
+                enabled = !busy,
                 modifier = Modifier.testTag("settings-proot-verify"),
             ) {
                 Text(stringResource(R.string.settings_proot_verify))
             }
             OutlinedButton(
                 onClick = { verifyNote = ProotToolModule.openRepairNote() },
+                enabled = !busy,
                 modifier = Modifier.testTag("settings-proot-repair"),
             ) {
                 Text(stringResource(R.string.settings_proot_repair))
             }
             OutlinedButton(
                 onClick = { verifyNote = ProotToolModule.openLegalNote() },
+                enabled = !busy,
                 modifier = Modifier.testTag("settings-proot-legal"),
             ) {
                 Text(stringResource(R.string.settings_proot_legal))
             }
             OutlinedButton(
                 onClick = { showRemoveConfirm = true },
+                enabled = !busy,
                 modifier = Modifier.testTag("settings-proot-remove"),
             ) {
                 Text(stringResource(R.string.settings_proot_remove))

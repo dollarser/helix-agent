@@ -122,8 +122,11 @@ internal fun ConversationComposer(
                 },
             )
         }
-        ComposerToolbar(mode, headerStatus, optionsContent) {
-            ContextWindowIndicator(contextUsage)
+        ComposerToolbar(mode, headerStatus, {
+            optionsContent()
+            if (contextUsage.usedTokens == null) ContextWindowIndicator(contextUsage, expandedLabel = true)
+        }) {
+            if (contextUsage.usedTokens != null) ContextWindowIndicator(contextUsage)
         }
         Column(
             Modifier

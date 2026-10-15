@@ -40,6 +40,8 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 
 ## 执行顺序与依赖
 
+2026-10-15 评审已登记 HXA-286～294，均为已排期、未实施；v0.0.6 发布先于生产重构，唯一当前顺序见 [status](status.md#next-task)。286 前置身份、四个完成条件、取消/reconcile/清理和上下文正确性契约；其后 287-A 完整 Turn 最小纵切与 288-A 执行核心分别推进、共同集成，再扩展持久宿主和领域适配，不设整任务循环依赖。293 策略后置，294 汇总各阶段已积累证据。范围与具体退出条件在各任务维护，不把原条件候选或历史完成记录直接改成新能力已交付。
+
 当前顺序只由 [status](status.md) 与当前 HXA 决定。下表仅保留已交付产品批次的溯源，不是待执行步骤；未闭合验收由各原任务继续记录。
 
 | 历史批次 | 当时承接任务 | 当时交付目标 |
@@ -320,7 +322,15 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-280 | 本地有界交付；完整主机、API36双渠道及OnePlus/Qwen通过，长期/OEM边界保留 | 工具发现与请求工作集优化 | [完成记录](../completion-records/HXA-280.md) |
 | HXA-281 | 有界交付；全仓主机、API36两渠道与OnePlus/Qwen补验passed，公网账号/其他OEM边界保留 | 工具发现指导与外部插件市场复用 | [完成记录](../completion-records/HXA-281.md) |
 | HXA-282 | 协议/市场/回填及诊断关联有界交付；R6旧制品两小时PASS，新稳定观察4业务/8返回通过；新版本长期资源及真实服务边界保留 | 外部服务、市场恢复与连续 Agent 验收 | [任务](tasks/HXA-282.md) |
-
 | HXA-283 | 主机/双渠道制品交付；原生与模型设备验收not requested | 有界 PDF 读取与总结 | [任务](tasks/HXA-283.md) |
-| HXA-284 | 主机/双渠道制品交付；设备/模型not requested | 统一PDF/DOCX文档插件 | [任务](tasks/HXA-284.md) |
-| HXA-285 | 主机/双渠道制品及测试APK编译交付；设备/模型not requested | 引用历史与压缩快照一致性收尾 | [任务](tasks/HXA-285.md) |
+| HXA-284 | 有界交付；API36原生文档及Qwen摘要补验通过，其他API/峰值边界保留 | 统一PDF/DOCX文档插件 | [任务](tasks/HXA-284.md) |
+| HXA-285 | 有界交付；API36 Room及保存引用的Qwen压缩/跟进通过 | 引用历史与压缩快照一致性收尾 | [任务](tasks/HXA-285.md) |
+| HXA-286 | 已排期，未实施 | 统一工具契约、插件贡献与发现前置依赖 | [任务](tasks/HXA-286.md) |
+| HXA-287 | 已排期，未实施 | 应用命令与完整 Turn 领域宿主 | [任务](tasks/HXA-287.md) |
+| HXA-288 | 已排期，未实施 | 执行结果、Job 生命周期与类型化产物 | [任务](tasks/HXA-288.md) |
+| HXA-289 | 已排期，未实施 | Workspace 路径匹配与文件内容搜索 | [任务](tasks/HXA-289.md) |
+| HXA-290 | 已排期，未实施 | 网页搜索与正文读取工作流 | [任务](tasks/HXA-290.md) |
+| HXA-291 | 已排期，未实施 | MCP Resources 发现、读取与引用 | [任务](tasks/HXA-291.md) |
+| HXA-292 | 已排期，未实施 | Browser 表单与 Mobile Use 动作契约 | [任务](tasks/HXA-292.md) |
+| HXA-293 | 已排期，未实施 | Memory 快照与上下文选择质量 | [任务](tasks/HXA-293.md) |
+| HXA-294 | 已排期，未实施 | 目标架构冻结后的集成与恢复验收 | [任务](tasks/HXA-294.md) |

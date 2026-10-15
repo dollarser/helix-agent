@@ -61,15 +61,7 @@ internal class MobileUsePresentedExecutor(
             ?: AutomationRuntimePresentationFactory.withUsage(reference) { delegate.execute(call) }
 
     private fun preExecutionOutcome(call: ExecutableToolCall): ToolExecutorResult? =
-        when {
-            call.cancel.isCancelled() -> ToolExecutorResult.Cancelled
-
-            !java.time.Instant
-                .now()
-                .isBefore(call.deadline) -> ToolExecutorResult.TimedOut
-
-            else -> admissionError(call)?.let(::refused)
-        }
+        AutomationTermination.beforeDispatch(call) ?: admissionError(call)?.let(::refused)
 
     private fun refused(detail: String) = ToolExecutorResult.Failed(detail, sideEffectFree = true)
 }

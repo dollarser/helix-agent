@@ -111,8 +111,7 @@ class AutomationPostActionObservationTest {
     }
 
     @Test fun cancellationBeforeExecutionDoesNotDispatchOrRead() {
-        assertEquals(
-            ToolExecutorResult.Cancelled,
+        val result =
             execute(
                 call(
                     cancel =
@@ -120,8 +119,9 @@ class AutomationPostActionObservationTest {
                             override fun isCancelled() = true
                         },
                 ),
-            ),
-        )
+            ) as ToolExecutorResult.CancelledWithEffectTruth
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
         assertEquals(0, port.actions)
         assertEquals(0, port.observations)
     }

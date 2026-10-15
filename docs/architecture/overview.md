@@ -1,6 +1,6 @@
 # Helix 总体架构
 
-本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，Owner 要求的单一目标重构提案见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，尚未实施。
+本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294，尚未实施。
 
 ## 职责与调用路径
 
@@ -60,7 +60,7 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 
 区分四类所有权：Engine 的 Turn live owner、Scheduler 的调用槽位、Executor/Runtime 的实际容量及原执行身份、插件/宿主的共享资源引用。完成等待可以释放观察 worker，取消或超时不能释放仍运行的 executor 容量；插件撤销也不能关闭其他消费者还在使用的后端。原执行结果/退出事实继续由原 Runtime 提供，HXA-277 只补原生贡献资源引用与释放。
 
-UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 ChatService，但 HXA-274 所涉恢复导航已经改成消费 RecoveryRepairDestination，由当前页面在用户操作后执行导航，不再把页面导航回调存入服务。2026-10-14 复核仍存在的具体接缝是 ChatToolCalls/ChatToolSettlement 对聊天时间线、字符串资源和屏幕状态的依赖；工具执行请求、取消、原 Job 身份与物理容量已存在，不应再建平行框架。其他命令/读模型继续复用 HXA-257/258 的状态 owner；完整 Turn 宿主提取及工具边界替换见上述提案，实施顺序仍由[当前状态](../development/status.md)决定。
+UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 ChatService，但 HXA-274 所涉恢复导航已经改成消费 RecoveryRepairDestination，由当前页面在用户操作后执行导航，不再把页面导航回调存入服务。2026-10-14 复核仍存在的具体接缝是 ChatToolCalls/ChatToolSettlement 对聊天时间线、字符串资源和屏幕状态的依赖；工具执行请求、取消、原 Job 身份与物理容量已存在，不应再建平行框架。其他命令/读模型继续复用 HXA-257/258 的状态 owner；完整 Turn 宿主提取已与应用命令合并为 HXA-287，执行结果/Job/产物为 HXA-288，不再等待第二消费者。此为目标边界，当前源码尚未迁移；实施顺序由[当前状态](../development/status.md)决定。
 
 ## 专项契约
 
