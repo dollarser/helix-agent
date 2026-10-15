@@ -44,7 +44,9 @@ class AutomationDeviceToolsTest {
     private val actions = FakeSystemPort()
     private val visual = VisualArtifact("artifact", "a".repeat(64), "image/png", 1, 1, 1)
     private var publishedCall: ExecutableToolCall? = null
-    private val tools =
+    private val tools = toolsFor("com.helix.agent.developer")
+
+    private fun toolsFor(hostPackage: String) =
         AutomationDeviceTools(
             port,
             actions,
@@ -53,6 +55,7 @@ class AutomationDeviceToolsTest {
                 PublishedToolImage("scope:workspace:output/phone.png", "a".repeat(64), 1, visual)
             },
             ToolOrigin.PluginOrigin("mobile-use", "0.2.0", "mobile-use"),
+            originatingHelixPackage = hostPackage,
         )
 
     @Test fun newPrimitivesRetainCapabilityAndEffectClassification() {
@@ -89,7 +92,7 @@ class AutomationDeviceToolsTest {
         val device = (execute("ui.device", "{}") as ToolExecutorResult.Completed).output.jsonObject
         assertEquals(json("""{"left":0,"top":0,"right":1080,"bottom":2400}"""), device["screenBounds"])
         assertEquals(json("""{"left":70,"top":1016,"right":1010,"bottom":1458}"""), device["windowBounds"])
-        assertEquals(4, descriptor("ui.device").version.value)
+        assertEquals(5, descriptor("ui.device").version.value)
         assertEquals(
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(descriptor("ui.device").outputSchema, device),
@@ -152,7 +155,53 @@ class AutomationDeviceToolsTest {
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(descriptor("ui.apps").outputSchema, result.output),
         )
-        assertEquals(2, descriptor("ui.apps").version.value)
+        assertEquals(3, descriptor("ui.apps").version.value)
+    }
+
+    @Test fun originIdentifiesEachHostIndependentlyOfAppLabelsForegroundAndQuery() {
+        for (host in listOf("com.helix.agent", "com.helix.agent.developer")) {
+            val hosted = toolsFor(host)
+            for ((name, args) in listOf(
+                "ui.device" to "{}",
+                "ui.apps" to "{}",
+                "ui.apps" to
+                    """{"packageName":"com.example.missing"}""",
+            )) {
+                val output =
+                    (hosted.executor(name).execute(call(name, json(args))) as ToolExecutorResult.Completed)
+                        .output.jsonObject
+                assertEquals(host, output.getValue("originatingHelixPackage").jsonPrimitive.content)
+                assertEquals(
+                    ToolSchemaValidation.Valid,
+                    ToolSchemaValidator.validate(
+                        hosted.descriptors().single { it.name.value == name }.outputSchema,
+                        output,
+                    ),
+                )
+                if (name == "ui.device") {
+                    assertEquals("com.example.app", output.getValue("packageName").jsonPrimitive.content)
+                }
+                assertTrue(
+                    ToolSchemaValidator.validate(
+                        hosted.descriptors().single { it.name.value == name }.inputSchema,
+                        json("""{"originatingHelixPackage":"spoofed.host"}"""),
+                    ) is ToolSchemaValidation.Invalid,
+                )
+            }
+        }
+    }
+
+    @Test fun unavailableObservationStillReportsHostWithoutInventingForegroundOrFrame() {
+        port.frameAvailable = false
+        val output = (execute("ui.device", "{}") as ToolExecutorResult.Completed).output.jsonObject
+        assertEquals("com.helix.agent.developer", output.getValue("originatingHelixPackage").jsonPrimitive.content)
+        assertEquals("UNAVAILABLE", output.getValue("status").jsonPrimitive.content)
+        assertFalse(output.containsKey("frame"))
+        assertFalse(output.containsKey("packageName"))
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(descriptor("ui.device").outputSchema, output),
+        )
     }
 
     @Test fun screenshotPublishesThroughOriginalCallAndVisionSidecar() {
@@ -346,6 +395,7 @@ class AutomationDeviceToolsTest {
 }
 
 private class FakeDevicePort : AutomationDevicePort {
+    var frameAvailable = true
     var windowBounds = AutomationNodeBounds(0, 0, 1080, 2400)
     var observations = 0
     var result = AutomationActionResult(AutomationActionStatus.SUCCEEDED)
@@ -355,7 +405,7 @@ private class FakeDevicePort : AutomationDevicePort {
     override fun observe(): AutomationDeviceObservation {
         observations++
         return AutomationDeviceObservation(
-            "READY",
+            if (frameAvailable) "READY" else "UNAVAILABLE",
             AutomationFrame(
                 "frame",
                 "grant",
@@ -368,7 +418,7 @@ private class FakeDevicePort : AutomationDevicePort {
                     0,
                     windowBounds,
                 ),
-            ),
+            ).takeIf { frameAvailable },
             setOf(AutomationGlobalAction.RECENTS),
             true,
             true,
@@ -381,7 +431,10 @@ private class FakeDevicePort : AutomationDevicePort {
     override fun apps(packageName: String?): AutomationAppListing {
         queriedPackage = packageName
         return if (packageName == null) {
-            AutomationAppListing("LISTED", listOf(AutomationApp("com.example.app", "App")))
+            AutomationAppListing(
+                "LISTED",
+                listOf(AutomationApp("com.helix.agent", "Helix"), AutomationApp("com.helix.agent.developer", "Helix")),
+            )
         } else {
             AutomationAppListing("NOT_INSTALLED", queriedPackage = packageName)
         }

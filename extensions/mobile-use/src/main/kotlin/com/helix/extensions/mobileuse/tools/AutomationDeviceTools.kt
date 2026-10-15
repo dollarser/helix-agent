@@ -39,6 +39,7 @@ class AutomationDeviceTools(
     private val actions: AutomationToolPort,
     private val images: ToolImagePublication,
     private val origin: ToolOrigin,
+    private val originatingHelixPackage: String,
 ) {
     @Suppress("LongMethod") // Keep the six public device contracts and their capability descriptions together.
     fun descriptors(): List<ToolDescriptor> =
@@ -51,7 +52,9 @@ class AutomationDeviceTools(
                 "Observe phone display/window and get a frame for screenshot or gesture. " +
                     "screenBounds is the full display; windowBounds is the active window, " +
                     "not a coordinate origin. A new observation replaces the old frame; " +
-                    "semantic node tokens are separate.",
+                    "semantic node tokens are separate. " +
+                    "originatingHelixPackage identifies the host of this conversation, " +
+                    "independently of the foreground packageName; it does not grant launch permission.",
             ),
             descriptor(
                 APPS,
@@ -62,7 +65,9 @@ class AutomationDeviceTools(
                     "for the current Android user. Use the target app package, " +
                     "not the installer or download source package. " +
                     "UNKNOWN is not proof of absence. " +
-                    "Without packageName, list visible launchable apps only; missing entries do not prove uninstall.",
+                    "Without packageName, list visible launchable apps only; missing entries do not prove uninstall. " +
+                    "originatingHelixPackage identifies this conversation's Helix host " +
+                    "even when channels share a label.",
             ),
             descriptor(
                 LAUNCH,
@@ -180,6 +185,7 @@ class AutomationDeviceTools(
         return ToolExecutorResult.Completed(
             buildJsonObject {
                 put("status", JsonPrimitive(listing.status))
+                put("originatingHelixPackage", JsonPrimitive(originatingHelixPackage))
                 put("truncated", JsonPrimitive(listing.truncated))
                 listing.queriedPackage?.let { put("packageName", JsonPrimitive(it)) }
                 put("apps", JsonArray(items))
@@ -266,6 +272,7 @@ class AutomationDeviceTools(
     private fun deviceJson(observation: AutomationDeviceObservation) =
         buildJsonObject {
             put("status", JsonPrimitive(observation.status))
+            put("originatingHelixPackage", JsonPrimitive(originatingHelixPackage))
             put("shizukuState", JsonPrimitive(observation.shizukuState.name))
             put("rootState", JsonPrimitive(observation.rootState.name))
             put("clickMatchBackend", JsonPrimitive(observation.clickMatchBackend.name.lowercase()))
@@ -298,8 +305,8 @@ class AutomationDeviceTools(
         ToolName(name),
         ToolVersion(
             if (name == DEVICE) {
-                4
-            } else if (name == SCREENSHOT) {
+                5
+            } else if (name == SCREENSHOT || name == APPS) {
                 3
             } else {
                 2
@@ -332,6 +339,7 @@ class AutomationDeviceTools(
         obj(
             mapOf(
                 "status" to str(128),
+                "originatingHelixPackage" to str(255),
                 "shizukuState" to str(32),
                 "rootState" to str(32),
                 "clickMatchBackend" to str(32),
@@ -350,6 +358,7 @@ class AutomationDeviceTools(
                 "windowBounds" to boundsSchema(),
             ),
             "status",
+            "originatingHelixPackage",
         )
 
     private fun appsOutput(): JsonObject {
@@ -358,11 +367,13 @@ class AutomationDeviceTools(
             mapOf(
                 "truncated" to bool(),
                 "status" to str(128),
+                "originatingHelixPackage" to str(255),
                 "packageName" to str(255),
                 "apps" to array(entry, 1_000),
             ),
             "status",
             "apps",
+            "originatingHelixPackage",
         )
     }
 

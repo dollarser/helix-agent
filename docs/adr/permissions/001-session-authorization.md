@@ -423,3 +423,8 @@ Owner 要求修复预览验收中视频画面上的观察拒绝并完成发布�
 参考 [Claude computer use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool) 的截图—执行—观察循环，采用新鲜观察与动作分离的思想，不复制实现，也不移植桌面环境的权限假设。模拟器渲染对照独立于插件安全策略；[Android 官方说明](https://developer.android.com/studio/run/emulator-acceleration)列出 GPU 模式及不兼容时画面异常的边界，当前运行器允许显式选择并记录模式，不以切换模式本身宣布视频通过。
 
 同日发布收尾在实际签名 R8 的持续 SurfaceView 夹具中复现控制窗残留。主线程移除 View 并经过两帧不等于 WindowManager 已提交 Surface 移除；Root/Shizuku 截图因此在既有 shell/root 平台桥内额外调用窗口事务同步，再检查授权并读取目标。依据 [Android UiAutomation](https://github.com/aosp-mirror/platform_frameworks_base/blob/android16-release/core/java/android/app/UiAutomation.java) 与 [WindowManagerService](https://github.com/aosp-mirror/platform_frameworks_base/blob/android16-release/services/core/java/com/android/server/wm/WindowManagerService.java) 的同步接口，等待窗口操作而非应用画面停止更新；不改变全局动画、不追加固定睡眠、不裁剪或涂抹产物。隐藏 API 仅留在既有特权边界，反射失败进入原工具失败路径，不跳过同步继续截图；同步不是新的授权或绝对成功证明，取消/deadline、目标、窗口集合及编码后复核仍有效。该修复的 API36 实测与未覆盖平台在[本轮证据](../../evidence/development/v0.0.6-release-2026-10-16.md)分别记录。
+
+
+## Decision history — 2026-10-16：插件报告对话宿主身份
+
+双渠道同名安装的实际模型回归暴露返回来源不可辨识。Mobile Use 的 `ui.device` 和 `ui.apps` 结果分别升至 v5/v3，增加由 Android 宿主 applicationContext 注入的 `originatingHelixPackage`，独立于前台或查询的 `packageName`，即使观察无 frame 也返回。该事实只支持既有返回提示，不接受模型指定、不授予包访问、不过滤或伪造应用列表、不强制跳转；返回仍由模型通过原 Dispatcher/会话授权发起，并实际观察确认原对话。

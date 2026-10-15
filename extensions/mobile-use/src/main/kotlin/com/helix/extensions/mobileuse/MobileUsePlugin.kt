@@ -67,6 +67,7 @@ class MobileUsePlugin(
             PermissionCenterAutomationToolPort(permissionCenter),
             images,
             origin,
+            originatingHelixPackage = context.applicationContext.packageName,
         )
 
     private val appContext = context.applicationContext
