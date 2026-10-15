@@ -18,7 +18,7 @@ Owner要求先收尾；[HXA-285](tasks/HXA-285.md)引用/压缩一致性生产�
 
 Owner已授权[HXA-284](tasks/HXA-284.md)：统一PDF/DOCX文档插件。完整主机和双渠道制品/测试APK通过，10月15日当前API36原生PDF/DOCX4项及Qwen真实文档读取/摘要2项通过；不继承HXA-283验收，不据小样本关闭API29视觉、大文档资源峰值或完整Word排版边界。
 
-2026-10-15 Owner授权的Helix自身帮助首阶段已接入内置 `helix-docs` Skill：随包英文离线章节、内容 revision/hash、按需资源读取和默认工具发现已通过定向Skills/Plugin/App JVM回归、API36隔离模拟器与本机Qwen真实模型验收。consumer/developer `0.0.5` debug preview已构建并记录校验和；这不是发布候选，不修改versionName/versionCode，不覆盖真机。“0.06”的映射、OnePlus保留数据更新行为和正式签名身份仍待决策；设备状态不据此宣称通过。
+2026-10-15 Owner授权的Helix自身帮助首阶段已接入内置 `helix-docs` Skill：随包英文离线章节、内容 revision/hash、按需资源读取和默认工具发现已通过定向Skills/Plugin/App JVM回归、API36隔离模拟器与本机Qwen真实模型验收。consumer/developer `0.0.5` debug preview已构建并记录校验和；这不是发布候选，不修改versionName/versionCode，不覆盖真机。“0.06”的映射、OnePlus保留数据更新行为和正式签名身份仍待决策；设备状态不据此宣称通过。 这是8个英文章节的首版MVP；中文帮助、独立静态帮助页、从文档源自动生成资源、准确构建/渠道身份绑定及全章节引用质量评测尚未完成。
 
 ## 当前结论
 
