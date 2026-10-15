@@ -48,8 +48,8 @@
 
 | 任务 | 剩余内容 | 最少输入 / 决策 |
 | --- | --- | --- |
-| [HXA-125](tasks/HXA-125.md) | 受保护服务认证、拒绝、厂商撤销、重连 | 指定服务、专用账号和独立来源样本；凭据不写入仓库或反馈表 |
-| [HXA-126](tasks/HXA-126.md) | 动态客户端注册及 client metadata 本地实现已交付；剩两家独立 OAuth 服务、新 UI 设备与自有 HTTPS/App Link 条件验证 | 服务、App 注册、精确 redirect 和支持的 public-client 流程；只为选定服务决定后续实现 |
+| [HXA-125](tasks/HXA-125.md) | Notion/Linear真实账号子范围已于2026-10-15按Owner决定结案，保留各自已通过结果及未执行边界；仅当另选Connector时按原任务定义新的范围 | 本轮不再需要Notion/Linear账号、授权、刷新或恢复输入；其他Connector需另行选定服务及授权 |
+| [HXA-126](tasks/HXA-126.md) | Notion/Linear真实服务测试已结案，不再追加账号或OAuth复测；本地OAuth实现已交付，自有HTTPS/App Link和正式签名属独立发行条件 | 不等待Notion/Linear的重新授权、自然刷新或恢复；后续发行按HXA-120/122另行确定redirect、渠道和签名身份 |
 | [HXA-190](tasks/HXA-190.md) | 所选订阅供应商目录、生成、刷新和失效恢复 | 供应商/账号/额度授权；暂缓 Claude/Grok 的决定不变 |
 | [HXA-120](tasks/HXA-120.md) | 最终渠道权限/能力/SDK/Runtime/披露矩阵 | 首发渠道；执行时核验当日官方政策，不在本计划预判合规 |
 | [HXA-122](tasks/HXA-122.md) | applicationId、签名、同 ID 升级及数据恢复承诺 | 发行身份、签名归属、何时停止开发期 Room v1 重建；现在仍仅承诺当前开发约定 |

@@ -8,15 +8,17 @@
 
 ## 当前实施
 
-2026-10-15 R2-B首个有界成本对照已完成：同一clean实现/制品、相同谓词、仅改变观察提示，Qwen A6/B6全部passed，单次255秒结束并恢复关闭自有实例。B输入略少但中位耗时更慢，未证明稳定收益，保持生产默认，不再把该实验列为等待授权。两家MCP安全到期UTC已实际观察，仍未到自然刷新条件，厂商撤销/重连当时仍为缺口；见[对照与收尾证据](../evidence/development/r2b-observation-hint-comparison-2026-10-15.md)。
+2026-10-15 R2-B首个有界成本对照已完成：同一clean实现/制品、相同谓词、仅改变观察提示，Qwen A6/B6全部passed，单次255秒结束并恢复关闭自有实例。B输入略少但中位耗时更慢，未证明稳定收益，保持生产默认，不再把该实验列为等待授权。该轮账号状态是历史快照；Notion/Linear后续测试范围已按Owner决定结案，当前结论及未执行边界见页首[最终结案记录](../evidence/development/mcp-revocation-and-browser-closeout-2026-10-15.md)。
 
-2026-10-15 Owner追加MCP连接体验优化与重构前收尾，明确允许设备/真实模型/真实MCP。默认“连接账号”、高级参数折叠及手动客户端身份复用已实现；API36 OAuth界面4项、原生文档4项、Room上下文6项及Qwen的PDF/DOCX两项真实摘要通过。引用仅来自保存快照的真实压缩与跟进也已通过；两家官方MCP指定对象读取/工具审批拒绝复测通过。完整主机门禁、最终数据恢复与阶段提交由[本轮收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)及[MCP体验](../evidence/development/mcp-connection-ux-2026-10-15.md)记录。当前只有模拟器，实体设备pending；自然OAuth刷新、厂商撤销及发行输入继续独立；按主会话要求，提前结束专项与长稳保持暂停，不自动启动。
+2026-10-15 Owner追加MCP连接体验优化与重构前收尾，明确允许设备/真实模型/真实MCP。默认“连接账号”、高级参数折叠及手动客户端身份复用已实现；API36 OAuth界面4项、原生文档4项、Room上下文6项及Qwen的PDF/DOCX两项真实摘要通过。引用仅来自保存快照的真实压缩与跟进也已通过；两家官方MCP指定对象读取/工具审批拒绝复测通过。完整主机门禁、最终数据恢复与阶段提交由[本轮收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)及[MCP体验](../evidence/development/mcp-connection-ux-2026-10-15.md)记录。实体设备是否验收、发行输入和长稳仍按各自范围处理；Notion/Linear账号测试随后已由Owner结案，不再追加刷新、撤销或恢复测试，见页首结案记录。按主会话要求，提前结束专项与长稳保持暂停，不自动启动。
 
-Owner追加[HXA-126](tasks/HXA-126.md)真实Linear/Notion连接修复：46d10b13已解决不透明凭据；10月15日日常API36保留数据更新成功，原3会话/5个Turn保留，Linear实际连接和工具发现passed。随后Notion实际OAuth完成，定位并修复80,556字节Schema被旧64 KiB上限拒绝，以及2020-12日期format注解适配失败；同一实例实际连接/工具发现及notion-search/fetch只读工具激活passed。Owner指定两家对象的真实Dispatcher读取及工具审批拒绝已通过；当时自然刷新/旧Token厂商失效仍开放；没有新真机/模型/长稳结果，验证及制品见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)。 本轮补齐无CIMD文档时的显式兼容注册入口，默认拒绝/持久绑定等28项JVM及日常API36确认/取消3项通过，完整主机与双渠道测试APK通过；真实厂商注册未重复执行，业务对象已提供且完成读取/工具审批拒绝，见[收尾记录](../evidence/development/mcp-oauth-client-setup-closeout-2026-10-15.md)。两家正常重连及Notion只读工具恢复通过；Notion网页取消未回传错误，Token未到期，没有虚报拒绝回调/刷新，见[真实对象验收](../evidence/development/mcp-official-object-read-2026-10-15.md)。
+阶段记录（结案前）：Owner追加[HXA-126](tasks/HXA-126.md)真实Linear/Notion连接修复：46d10b13已解决不透明凭据；10月15日日常API36保留数据更新成功，原3会话/5个Turn保留，Linear实际连接和工具发现passed。随后Notion实际OAuth完成，定位并修复80,556字节Schema被旧64 KiB上限拒绝，以及2020-12日期format注解适配失败；同一实例实际连接/工具发现及notion-search/fetch只读工具激活passed。Owner指定两家对象的真实Dispatcher读取及工具审批拒绝已通过；在该阶段自然刷新/旧Token厂商失效仍开放，后续于同日按Owner决定结案。完整过程和未执行边界见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)、[兼容注册收尾](../evidence/development/mcp-oauth-client-setup-closeout-2026-10-15.md)、[真实对象验收](../evidence/development/mcp-official-object-read-2026-10-15.md)及页首结案记录。
 
 Owner要求先收尾；[HXA-285](tasks/HXA-285.md)引用/压缩一致性生产修复及主机切片已交付，19项相关JVM及完整主机门禁通过。10月15日追加授权后，当前API36实际Room6项及保存引用的真实Qwen压缩/跟进通过；不再将三项新增Room夹具描述为仅编译。执行边界和上下文策略提案不随本次实施，提前结束专项与长稳仍暂停。
 
 Owner已授权[HXA-284](tasks/HXA-284.md)：统一PDF/DOCX文档插件。完整主机和双渠道制品/测试APK通过，10月15日当前API36原生PDF/DOCX4项及Qwen真实文档读取/摘要2项通过；不继承HXA-283验收，不据小样本关闭API29视觉、大文档资源峰值或完整Word排版边界。
+
+2026-10-15 Owner授权的Helix自身帮助首阶段已接入内置 `helix-docs` Skill：随包英文离线章节、内容 revision/hash、按需资源读取和默认工具发现已通过定向Skills/Plugin/App JVM回归、API36隔离模拟器与本机Qwen真实模型验收。consumer/developer `0.0.5` debug preview已构建并记录校验和；这不是发布候选，不修改versionName/versionCode，不覆盖真机。“0.06”的映射、OnePlus保留数据更新行为和正式签名身份仍待决策；设备状态不据此宣称通过。
 
 ## 当前结论
 
@@ -177,7 +179,7 @@ Owner已授权[HXA-284](tasks/HXA-284.md)：统一PDF/DOCX文档插件。完整�
 | [HXA-232 自主恢复](tasks/HXA-232.md) | 自动化授权内恢复、Goal 局部额度衔接、无进展收尾、Runtime 查询/收取、UNKNOWN 只读核查、原 Goal 账本、队列重验证、统一授权；QuickJS 原生总开关、结构化反问与提示词资源化已有实现及有界验证 | 真实模型恢复完成率、完整进程/订阅/PRoot 故障矩阵及 OEM；不把诊断完成或有限场景通过当作原任务成功 |
 | [历史正确性收口](../bug-fixes/2026-09-30-historical-correctness-audit.md) | Provider 探测发布/取消、压缩参数、Git、内容发布/删除并发和执行线程容量已有修复，纳入整合基线 | 仅按记录中遗留问题和新证据继续，不重新执行整个历史缺陷清单 |
 | [偶发问题](../evidence/development/intermittent-closeout-2026-09-28.md) | 可复现 SAF 撤销/异步投影和 Goal 仅规划问题已修 | 历史截断、探测偶发失败与额外只读调用仍保留调查边界；未复现不等于根因关闭 |
-| [HXA-126](tasks/HXA-126.md) | issuer/resource、准备取消、CIMD/显式 DCR、持久归属及配置修复已通过主机集成；[新增 24 项回归](../evidence/development/hxa126-client-registration-2026-10-01.md) | 新 UI 设备验证、两家真实服务、自有域名/App Link/签名仍需输入 |
+| [HXA-126](tasks/HXA-126.md) | issuer/resource、准备取消、CIMD/显式 DCR、持久归属及配置修复已通过主机集成；Notion/Linear真实服务子范围已结案，见页首结案记录 | 不再等待两家账号、自然刷新或重连验收；自有HTTPS/App Link、签名与渠道输入属于独立发行准备 |
 
 ## Next task
 

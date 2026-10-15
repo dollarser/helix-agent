@@ -181,8 +181,8 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)、[模�
 | HXA-122 | 发行队列 | 发行身份、签名与升级路径 | [任务规格](tasks/HXA-122.md) |
 | HXA-123 | 发行队列 | 选定渠道提交准备与审核证据 | [任务规格](tasks/HXA-123.md) |
 | HXA-124 | 已交付 | Connector 调研、插件导入与管理 | [交付证据](../completion-records/HXA-124.md) |
-| HXA-125 | 收尾验收 | Connector 受保护服务与来源验收 | [任务规格](tasks/HXA-125.md) |
-| HXA-126 | 收尾验收 | Connector OAuth 登录层 | [任务规格](tasks/HXA-126.md) |
+| HXA-125 | 条件性范围；Notion/Linear子范围已结案 | 其他Connector受保护服务与来源验收仅按另行选定范围推进 | [任务规格](tasks/HXA-125.md) |
+| HXA-126 | 本地实现已交付；Notion/Linear真实服务子范围已结案 | 自有HTTPS/App Link与正式签名为独立发行条件；不重开已关闭账号测试 | [任务规格](tasks/HXA-126.md) |
 | HXA-127 | 已交付 | 大 catalog 渐进工具发现 | [交付证据](../completion-records/HXA-127.md) |
 | HXA-128 | 已交付 | CLI/stdio Connector 可移植性 Spike | [交付证据](../completion-records/HXA-128.md) |
 | HXA-129 | 已交付 | Connector 安全替换、安装归属与会话启停 | [交付证据](../completion-records/HXA-129.md) |
