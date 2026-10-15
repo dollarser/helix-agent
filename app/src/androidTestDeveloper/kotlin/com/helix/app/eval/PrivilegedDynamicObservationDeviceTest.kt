@@ -38,10 +38,12 @@ class PrivilegedDynamicObservationDeviceTest {
         val optIn = InstrumentationRegistry.getArguments().getString("helixDynamicObservation")
         org.junit.Assume.assumeTrue("Requires explicitly prepared Shizuku", optIn != null)
         require(optIn == "true")
+        require(android.provider.Settings.canDrawOverlays(app)) { "Requires an explicitly prepared overlay grant" }
         val profile = c.profileStore.profile
         val selection = MobileUseEvaluationSelection(app)
         c.storage.sessions.create(session, "Dynamic observation fixture", null, null, System.currentTimeMillis())
         c.storage.turns.start(turn, session, System.currentTimeMillis())
+        c.chatService.refreshBackgroundTasksNow()
         try {
             c.profileStore.switchTo(SafetyProfile.ADVANCED)
             selection.select(session, emptySet(), true)
@@ -58,6 +60,17 @@ class PrivilegedDynamicObservationDeviceTest {
                     .putExtra("dynamicContent", true),
             )
             SystemClock.sleep(1200)
+            val projectionDeadline = SystemClock.elapsedRealtime() + 5000
+            while (c.chatService.backgroundTasks.value
+                    .none { it.id == turn } &&
+                SystemClock.elapsedRealtime() < projectionDeadline
+            ) {
+                SystemClock.sleep(50)
+            }
+            assertTrue(
+                c.chatService.backgroundTasks.value
+                    .any { it.id == turn },
+            )
             val ticks = mutableSetOf<String>()
             repeat(3) {
                 val snapshot = execute("ui.snapshot")
@@ -74,7 +87,8 @@ class PrivilegedDynamicObservationDeviceTest {
             }
             assertEquals(3, ticks.size)
             val frame = execute("ui.device").getValue("frame").jsonPrimitive.content
-            SystemClock.sleep(160)
+            println("OVERLAY_PROBE_READY")
+            SystemClock.sleep(2500)
             val image = execute("ui.screenshot", """{"frame":"$frame"}""")
             assertEquals("SAVED", image["status"]?.jsonPrimitive?.content)
             assertTrue(
@@ -83,6 +97,7 @@ class PrivilegedDynamicObservationDeviceTest {
                     .jsonPrimitive.content
                     .toLong() > 0,
             )
+            assertControlsAbsent(image)
             val action =
                 dispatch(
                     "ui.gesture",
@@ -97,7 +112,28 @@ class PrivilegedDynamicObservationDeviceTest {
         } finally {
             selection.close()
             c.storage.deleteSessionPermanently(session)
+            c.chatService.refreshBackgroundTasksNow()
             c.profileStore.switchTo(profile)
+        }
+    }
+
+    private fun assertControlsAbsent(image: JsonObject) {
+        val reference = image.getValue("reference").jsonPrimitive.content
+        require(reference.startsWith("scope:app:output/"))
+        val file = app.filesDir.resolve("workspaces/app/${reference.removePrefix("scope:app:")}")
+        val bitmap = requireNotNull(android.graphics.BitmapFactory.decodeFile(file.path))
+        try {
+            val density = app.resources.displayMetrics.density
+            val x = bitmap.width - (40 * density).toInt()
+            for (yDp in listOf(120, 180)) {
+                assertEquals(
+                    "Control footprint must contain fixture pixels",
+                    android.graphics.Color.rgb(25, 118, 108),
+                    bitmap.getPixel(x, (yDp * density).toInt()),
+                )
+            }
+        } finally {
+            bitmap.recycle()
         }
     }
 

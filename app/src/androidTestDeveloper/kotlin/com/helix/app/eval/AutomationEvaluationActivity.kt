@@ -33,7 +33,7 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val result = TextView(this).apply { text = "FIXTURE_UNCHANGED" }
         layout.addView(result)
-        animateContent(result)
+        animateContent(result, layout)
         val touches = TextView(this)
         val recordTouches = intent.getBooleanExtra("recordTouches", false)
         if (recordTouches) {
@@ -74,8 +74,12 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
         setContentView(layout)
     }
 
-    private fun animateContent(result: TextView) {
+    private fun animateContent(
+        result: TextView,
+        layout: LinearLayout,
+    ) {
         if (!intent.getBooleanExtra("dynamicContent", false)) return
+        layout.setBackgroundColor(android.graphics.Color.rgb(25, 118, 108))
         result.post(
             object : Runnable {
                 override fun run() {
