@@ -1,0 +1,495 @@
+{
+  "baseCommit": "9088ce086f5a4d6d81de67fa0e8479a8df7340a9",
+  "date": "2026-10-15",
+  "files": [
+    {
+      "path": "scripts/debug/2026-09-26/run-isolated.py",
+      "destination": "scripts/device_baseline/run.py",
+      "action": "replace",
+      "sha256": "b3b2944f992f165be692d327575103c529576c225fc6631cdd97b57d3bdfa8cf",
+      "bytes": 17773,
+      "reason": "Promoted into device_baseline; 28 host checks pass, both active callers updated; shell shim replaced by explicit --serial CLI."
+    },
+    {
+      "path": "scripts/debug/2026-09-26/summarize-current-device-baseline.py",
+      "destination": "scripts/device_baseline/summary.py",
+      "action": "replace",
+      "sha256": "a0b689c6c6378cc724753a9ec8214b125a00e2c3f5500f4225d0ec0ba36e25e6",
+      "bytes": 12479,
+      "reason": "Promoted into device_baseline; 28 host checks pass, both active callers updated; shell shim replaced by explicit --serial CLI."
+    },
+    {
+      "path": "scripts/debug/2026-09-26/generate-current-device-class-list.py",
+      "destination": "scripts/device_baseline/manifest.py",
+      "action": "replace",
+      "sha256": "f9fb189409ae68c68f5fc306aeb1c73b60b29cf7b676a1dbc9bd072533db4f97",
+      "bytes": 7224,
+      "reason": "Promoted into device_baseline; 28 host checks pass, both active callers updated; shell shim replaced by explicit --serial CLI."
+    },
+    {
+      "path": "scripts/debug/2026-09-26/run-isolated.sh",
+      "destination": "scripts/device_baseline/run.py",
+      "action": "replace",
+      "sha256": "6d827d0e36bd9979af648d9f4cdf00ebb673e3dda0a64d000075c5219b374c9e",
+      "bytes": 1098,
+      "reason": "Promoted into device_baseline; 28 host checks pass, both active callers updated; shell shim replaced by explicit --serial CLI."
+    },
+    {
+      "path": "scripts/debug/2026-09-22/composer-process-after.py",
+      "destination": "scripts/fixtures/conversation/composer-recovery.py",
+      "action": "merge",
+      "bytes": 7073,
+      "sha256": "eba49310e66a3eb009f256527def82358d2b8d699ee10d77982fe789e5f1cb6e",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-09-22/revision-process-after.py",
+      "destination": "scripts/fixtures/conversation/revision-recovery.py",
+      "action": "move",
+      "bytes": 7113,
+      "sha256": "7b8f6c02e3066d4d7de29f53fc48b1759882ffb02a40b8dbc5f0c35c1103b1d0",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-09-22/input-process-after.py",
+      "destination": "scripts/fixtures/conversation/input-recovery.py",
+      "action": "move",
+      "bytes": 18551,
+      "sha256": "b8285a0f7603233419bc940ffd8072fa3fabed5d25fc070c050e38c1bd255b4b",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-09-22/input-process-loopback.py",
+      "destination": "scripts/fixtures/conversation/input-server.py",
+      "action": "move",
+      "bytes": 6673,
+      "sha256": "ac900262a294d94f86938ce7da6203d680d1f3fc446ef6399d18bc8ee771770f",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-09-18/hxa207-restart-recover.py",
+      "destination": "scripts/fixtures/extensions/restart-recovery.py",
+      "action": "move",
+      "bytes": 3519,
+      "sha256": "47c5c1fa975b8e64fa837f516a99153219caa772742781fb4943ed84f733080b",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-09-21/collect-product-fixtures.py",
+      "destination": "scripts/fixtures/product/collect-artifacts.py",
+      "action": "move",
+      "bytes": 1980,
+      "sha256": "c63ef7512dfbdcdff7d3bd19b6ca51afd93d122179e2f2d488059f0f8d550bd8",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-10-10/projection-load-after.py",
+      "destination": "scripts/fixtures/performance/projection-load.py",
+      "action": "move",
+      "bytes": 3698,
+      "sha256": "39a1abf25d08bc51b4fc9fe94fe7f179f56ff968c6bcada407d16aad2acbe7ac",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-10-05/run-capability-eval.py",
+      "destination": "scripts/run-mobile-use-eval.py",
+      "action": "move",
+      "bytes": 7284,
+      "sha256": "370b0020b2cb3e1cedd5829b0e67c15a07bb66cd480583881f5580031600c220",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-09-29/merged-composer-process-after.py",
+      "destination": "scripts/fixtures/conversation/composer-recovery.py",
+      "action": "merge",
+      "bytes": 7531,
+      "sha256": "13570c7bffe326e3272747623027228c677d3cc63cb32ae8deb02897ce00ad94",
+      "reason": "Current source callers updated; all 234 host tests pass, including 3 bounded conversation lookup cases. Existing device assertions preserved."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/build-ffmpeg-plus.py",
+      "destination": "scripts/experiments/ffmpeg/build-ffmpeg-plus.py",
+      "action": "move",
+      "bytes": 12508,
+      "sha256": "b688d55f8341221d352f5bdbce499f259517f4ce6ed121a70847274cd29d14c1",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-lite-experiment.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-lite-experiment.py",
+      "action": "move",
+      "bytes": 8948,
+      "sha256": "bbd7cf94d86338d91a016293951a24b3467f173283906ebadad964cb3e953655",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-plus-sources.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-plus-sources.py",
+      "action": "move",
+      "bytes": 4554,
+      "sha256": "98889776f173ca81bfe32c5d43a5feb021d80db499901c307a47495d360636e7",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/measure-ffmpeg-lite.py",
+      "destination": "scripts/experiments/ffmpeg/measure-ffmpeg-lite.py",
+      "action": "move",
+      "bytes": 7250,
+      "sha256": "f835b9c35cf881dd0264a8941ac553e3279e5c1ed6ed43cb008e3e66ce0d82c7",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/measure-ffmpeg-plus.py",
+      "destination": "scripts/experiments/ffmpeg/measure-ffmpeg-plus.py",
+      "action": "move",
+      "bytes": 4778,
+      "sha256": "bbbd634a33c5f29db5b69a3438a97b56d02ccdab2e3b9339ee27e25e3f9ea934",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/package-ffmpeg-plus.py",
+      "destination": "scripts/experiments/ffmpeg/package-ffmpeg-plus.py",
+      "action": "move",
+      "bytes": 6823,
+      "sha256": "a120ed0c17fbbf9c4082126c920e2e78f5357869bfd3b7d3953e82934627621b",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/probe-ffmpeg-plus-android.py",
+      "destination": "scripts/experiments/ffmpeg/probe-ffmpeg-plus-android.py",
+      "action": "move",
+      "bytes": 17943,
+      "sha256": "164efb57d079d80ac7d9af4880cb05b4d79cf4c0093b6b8242b43b5711fbcfbf",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/probe-mediacodec-modes.py",
+      "destination": "scripts/experiments/ffmpeg/probe-mediacodec-modes.py",
+      "action": "move",
+      "bytes": 2170,
+      "sha256": "b0669fd0220e6c9b902ea3c997653621f4603da8c5daf7c068d55805c3de5776",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/smoke-ffmpeg-lite.py",
+      "destination": "scripts/experiments/ffmpeg/smoke-ffmpeg-lite.py",
+      "action": "move",
+      "bytes": 7736,
+      "sha256": "18aa67363872b52d8cf1a67170eac8f3aefdf61aa537258e381b338624049e94",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/NOTICE.txt",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/NOTICE.txt",
+      "action": "move",
+      "bytes": 3146,
+      "sha256": "ed3c25c760d7c09db6fe1ad87183dbcbab25c6030f46327bd903eca5bf20fd6b",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/artifacts.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/artifacts.py",
+      "action": "move",
+      "bytes": 11255,
+      "sha256": "539745a3d3338230d319658043e6a5d9a9dc51acaec8807d7f8026df182deb58",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/build.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/build.py",
+      "action": "move",
+      "bytes": 10891,
+      "sha256": "c1bab6cb96c3257740b52b031064fa81bef73a2c3b48787852503a4fdb4db872",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/contract.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/contract.py",
+      "action": "move",
+      "bytes": 8571,
+      "sha256": "b671e3c01357b1394b056554f2a6b0c8cd6c436580242cee8d9ef2ba8d9f1f2f",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/kit.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/kit.py",
+      "action": "move",
+      "bytes": 6488,
+      "sha256": "b04695f5d06cd46e081af90f34cd9254b28c73b03fbc1413b6ca6be2663757ef",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/recipe.json",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/recipe.json",
+      "action": "move",
+      "bytes": 4700,
+      "sha256": "eb90aa87dd3645e533691dcc501d11ebffaa5455cea462e92d56415f4c142339",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/test_contract.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/test_contract.py",
+      "action": "move",
+      "bytes": 10135,
+      "sha256": "1331e3711ab248323b1ddd526611f73a9418ade5fd7788ba63029cc1810695e9",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/ffmpeg-ready/test_media.py",
+      "destination": "scripts/experiments/ffmpeg/ffmpeg-ready/test_media.py",
+      "action": "move",
+      "bytes": 20492,
+      "sha256": "5f6f6c4877e1f745c2fa1356e743432ba8cbdc99aa471a49ae80dc2792361ce8",
+      "reason": "Byte-identical experimental source and license relocation; pinned builder/relative depth/archive member names preserved. 17 contract and 4 locked-package host tests passed."
+    },
+    {
+      "path": "scripts/debug/2026-09-10/format-dynamic-subscription.py",
+      "action": "retire",
+      "bytes": 4527,
+      "sha256": "783d42b8b2b93d8825f7abeb0656063aa85bc3ad3aa8e8fcf7c9d383c459e82d",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-10/format-subscription-dns.py",
+      "action": "retire",
+      "bytes": 778,
+      "sha256": "345c17cfa5d1f21943d93d2b97b504140fae938071ef232e5abb334d57f3b20a",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-b1/format-only-b1.init.gradle",
+      "action": "retire",
+      "bytes": 800,
+      "sha256": "9bb130ab4de6c8f7ab3a5aaff7c0da9382ebf95654d0ef15a13cdfe1ab5e5e72",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-b2/format-only-b2.init.gradle",
+      "action": "retire",
+      "bytes": 2274,
+      "sha256": "cc1aad919fc40c79fa12bfad087640986e18f11a6356bea4138f3a350e8dbfa2",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-b3/format-only-b3.init.gradle",
+      "action": "retire",
+      "bytes": 1851,
+      "sha256": "bc9f1375782e76ff6f8f1aaaee5888c6ea355137e4446cd2bcb9047734b8ae30",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-b3/print-detekt-cp.init.gradle",
+      "action": "retire",
+      "bytes": 357,
+      "sha256": "99c8111451ff7b91036f208ee8ac5b8526e6a4e5689933ceeb2df84d5d107bc5",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-b4/format-only-b4.init.gradle",
+      "action": "retire",
+      "bytes": 2261,
+      "sha256": "37de80fee55860ce54357d9aba62f28064275241f1c587d457ac0fcd42d37450",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-c/format-only-c.init.gradle",
+      "action": "retire",
+      "bytes": 1383,
+      "sha256": "20b70c04c6162cd1d00ce2c5f7f0deaac8cef61111aa4477b48e2ee91366bc6e",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-d/format-only-d.init.gradle",
+      "action": "retire",
+      "bytes": 3272,
+      "sha256": "928d26e34f8673fc58ec4f6fa9ac7d03872d24db17fd3e41fdbd6b38c0ea1887",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-16/hxa209-rm-rule/format-only-rm-rule.init.gradle",
+      "action": "retire",
+      "bytes": 693,
+      "sha256": "eb3a93f69a03bf67e6d15d7695116bfeb879663f2ae645a99ed855baad849bcf",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/format-context-budget.py",
+      "action": "retire",
+      "bytes": 592,
+      "sha256": "ba83e4c6d968c4fbe206022083d754c8ae65fc823beccf0c7409af7b421ef4df",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa192/format-only-192.init.gradle",
+      "action": "retire",
+      "bytes": 1106,
+      "sha256": "ef45fb6b90932f77dbe95fbed93182ab06b349098c28bdf311225eeb3be715e2",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa194/print-parse-inputs.init.gradle",
+      "action": "retire",
+      "bytes": 471,
+      "sha256": "8916f376aaa7d02248ced431ee54581b3a5660b09cac730855061ea8c73ffa45",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/dump-buildstate.init.gradle",
+      "action": "retire",
+      "bytes": 2382,
+      "sha256": "bd0a9739c4087a1005fc52189f8dbf0509d0bd74b12e0776a08f59beb10e5d37",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/dump-owner-states.init.gradle",
+      "action": "retire",
+      "bytes": 2369,
+      "sha256": "1553ac84e1a56124eea455492eb934c17ea32bebb7363fba25398272d7305636",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/dump-pathmap.init.gradle",
+      "action": "retire",
+      "bytes": 2196,
+      "sha256": "346310abd9d59acbbd84fb2dc3696ae84d4e40ca33cb2d74da6ddfebde10a17a",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/dump-pathmap2.init.gradle",
+      "action": "retire",
+      "bytes": 1950,
+      "sha256": "36fd7c3d520c0f1447e2a7556d8303eed3d2d795f9f83877e7b8201a4967862c",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/dump-registry.init.gradle",
+      "action": "retire",
+      "bytes": 613,
+      "sha256": "2b5579262deddb6abca8883f6fd1c0cd6cf2aa155ea648cdc737a9f7f7ad956c",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/dump-state-registry.init.gradle",
+      "action": "retire",
+      "bytes": 3146,
+      "sha256": "66bf267b083802df8e0e938946b19e1578ac7ab26a0434ff1cde9512315a7759",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/format-only-slice1.init.gradle",
+      "action": "retire",
+      "bytes": 834,
+      "sha256": "2afcbffcdd236eeef11466feecd79b49a091702094cb7e2793efed1cc06fafae",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/format-only-slice2.init.gradle",
+      "action": "retire",
+      "bytes": 1317,
+      "sha256": "a5733f40afa078a62440a73c604855f9e58b13df4c0b40751660ace54173f07c",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/format-only-slice3.init.gradle",
+      "action": "retire",
+      "bytes": 695,
+      "sha256": "5c275a7bc4120961f76045c20e450f78ee20d8464272277b3d586e7e07f546ec",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-17/hxa202/format-only-slice4.init.gradle",
+      "action": "retire",
+      "bytes": 560,
+      "sha256": "e4a582e68fa8db0d14cb44a2124a60b26315eac2dc3d8d84b339940937c10788",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-18/commit-review-repairs.py",
+      "action": "retire",
+      "bytes": 1731,
+      "sha256": "b4a6873a2a3d8a1bb3c0d472540f1c4cade96483cfd6dcb0f5c5e5c89362d676",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-18/resolve-batch-b-merge.py",
+      "action": "retire",
+      "bytes": 3701,
+      "sha256": "57d945b51b088e755c6b236d2ff3ac7231d9c283d7cc18d59b8c8efc60b1f3f2",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-22/add-session-input-queue-strings.py",
+      "action": "retire",
+      "bytes": 5373,
+      "sha256": "f62997544baee262180baeda02f9e16d996b1720c7c179be2f6b21987bd409b7",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-22/restore-convergence-wip.py",
+      "action": "retire",
+      "bytes": 3963,
+      "sha256": "1451ba0ae56be8c745857bcc5ae5df665d8c1671f3240ce50cc9cdb559fc654c",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-29/rebase-document-links.py",
+      "action": "retire",
+      "bytes": 7358,
+      "sha256": "02a2dee14a7c51e4a3e0715312ac40f2f6e5e0288ebf31bbc4aa40b59b7ca38f",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-29/report-convergence-ownership.py",
+      "action": "retire",
+      "bytes": 1383,
+      "sha256": "2f1869bfb49c0a262fbad117b17f46a6fc4763ed8a78d2b19b83ec8823c9670c",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-09-29/snapshot-convergence.py",
+      "action": "retire",
+      "bytes": 1564,
+      "sha256": "eb338b5746afab0a292e82051989c0962d8f6c14c6e718417fd9b3366043055b",
+      "reason": "Completed task-specific formatter, build diagnostic or snapshot-bound editor; no current scripts/development callers. Resulting code and Git source retained; no logs or worktree recovery data removed."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/validate-j1-host.sh",
+      "action": "retire",
+      "sha256": "78c3a9ccbd0327bd9a644f0058eb130bf44bca9784e034c811aab6d9ea8997ba",
+      "bytes": 639,
+      "reason": "Unused duplicate host wrapper; shared check-all gates and debugging-playbook host/AndroidTest commands retain the verification steps."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/validate-r3-host.sh",
+      "action": "retire",
+      "sha256": "3048c658cf2df57372e6992319fb518ea3b7620db1dad1c1c065d386a6212f7b",
+      "bytes": 589,
+      "reason": "Unused duplicate host wrapper; shared check-all gates and debugging-playbook host/AndroidTest commands retain the verification steps."
+    },
+    {
+      "path": "scripts/debug/2026-10-01/validate-hxa236-followup.sh",
+      "action": "retire",
+      "sha256": "86ce1e93cd0d2b22f370679224b7ff238a7d6f2389647390474ee083d6300805",
+      "bytes": 626,
+      "reason": "Unused duplicate host wrapper; shared check-all gates and debugging-playbook host/AndroidTest commands retain the verification steps."
+    },
+    {
+      "path": "scripts/debug/2026-09-26/current-consumer-device-classes.txt",
+      "action": "retire",
+      "sha256": "04b0a77a8ec25f068b14015ca6f043deafde6e01a6c2b99c3dd7cc0c4d5bc59a",
+      "bytes": 8489,
+      "reason": "Generated historical class snapshot; current discovery now writes build/device-baseline/."
+    },
+    {
+      "path": "scripts/debug/2026-09-26/current-device-manifest.json",
+      "action": "retire",
+      "sha256": "c7efc27037e4e6afe3ed18587e19c1028520593fd3902f2881b6f09c03b8a09d",
+      "bytes": 10065,
+      "reason": "Generated historical class snapshot; current discovery now writes build/device-baseline/."
+    }
+  ],
+  "oneOffBackup": {
+    "path": "build/documentation-curation-2026-10-15-xjtswz0f/retired-one-off-editors.tar.gz",
+    "sha256": "e5288fc639a9a16ca60ce4bd4c266d049ddee9c9d2db472c796eb6c72dca2435"
+  }
+}

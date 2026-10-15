@@ -12,7 +12,7 @@ import time
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[3]
-TARGET = ROOT / "scripts/debug/2026-09-22/input-process-after.py"
+TARGET = ROOT / "scripts/fixtures/conversation/input-recovery.py"
 
 
 class BlockingOutput:

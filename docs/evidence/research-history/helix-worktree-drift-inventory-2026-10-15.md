@@ -19,3 +19,19 @@ There were 131 untracked scripts under `scripts/debug/`, dated 2026-09-30 throug
 ## Commit boundary
 
 Only Helix Docs implementation and narrowly owned acceptance files belong in the feature commit. The inventory and archive manifest can be committed separately. Broad roadmap/status/research history, unrelated dated scripts, and the ignored archive payload stay out of those commits. The conflicting shared documentation files remain visibly dirty so their parallel owner can reconcile them later.
+
+
+## Subsequent owner-authorized curation
+
+The table above records the preview-stage boundary. The owner subsequently authorized
+reconciliation and commits: `d03cb29b` records retired local artifacts; `47d74c27`
+preserves architecture history and proposed boundaries; `9088ce08` records research
+and current preview verification. Those previously pending document slices are committed.
+The separate active tool/plugin competitive-review document and its topic-index entry
+remain owned by their ongoing research task.
+
+The original 131-script archive remains unchanged and recoverable. Exact local Git
+exclusions preserve their paths; seven baseline caller paths were updated without
+retargeting historical source editors. Current hashes and handling are recorded in
+the existing local inventory. Tracked script curation and validation are described in
+[the maintenance record](../development/debug-script-curation-2026-10-15.md).

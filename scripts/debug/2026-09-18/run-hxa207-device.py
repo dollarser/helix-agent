@@ -74,7 +74,7 @@ def run_case(flavor, api, phase, only):
         extra = [
             "--classes", CLASS + "#seedExtensionJourneyScope",
             "--instrument-arg", "extensionJourneyPhase=seed",
-            "--after-script", "scripts/debug/2026-09-18/hxa207-restart-recover.py",
+            "--after-script", "scripts/fixtures/extensions/restart-recovery.py",
         ]
         env["HXA207_RUNNER"] = f"{package}.test/com.helix.app.HelixAndroidJUnitRunner"
         env["HXA207_APP_PACKAGE"] = package

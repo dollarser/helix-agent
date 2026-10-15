@@ -53,7 +53,7 @@ Use existing CodeGraph (MCP when available, otherwise CLI) for code structure, c
 
 ## Repository and security hygiene
 
-- Put temporary debug/test scripts under `scripts/debug/YYYY-MM-DD/` before execution. Keep generated artifacts under ignored `build/` paths; archive only useful evidence with provenance.
+- Put temporary debug/test scripts under ignored `scripts/debug/YYYY-MM-DD/local/` before execution. Promote maintained runners into `scripts/`, fixtures into `scripts/fixtures/`, and self-contained experiments into `scripts/experiments/` after review. Keep generated artifacts under ignored `build/` paths; archive only useful evidence with provenance.
 - Never commit secrets, real user data, machine-specific absolute paths, downloaded RootFS contents, signing material, browser cookies or reusable credentials.
 - Keep logs, audit/evidence and completion records truthful: distinguish current execution from historical evidence, host results from device results, and skipped/not-requested checks from passes.
 - A task-specific completion record proves only its recorded scope; it does not imply the whole product, every device/OEM, real account or release channel passed.

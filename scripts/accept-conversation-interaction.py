@@ -95,13 +95,13 @@ RECOVERY = {
     "214": {
         "seed": "com.helix.app.chat.ComposerProcessRecoveryDeviceTest#seedComposerRecovery",
         "verify": "com.helix.app.chat.ComposerProcessRecoveryDeviceTest#verifyComposerRecovery",
-        "after": "scripts/debug/2026-09-22/composer-process-after.py",
+        "after": "scripts/fixtures/conversation/composer-recovery.py",
         "package_env": "HXA214_PACKAGE",
     },
     "215": {
         "seed": "com.helix.app.ui.MessageEditRecoveryDeviceTest#seedRevisionRecovery",
         "verify": "com.helix.app.ui.MessageEditRecoveryDeviceTest#verifyRevisionRecovery",
-        "after": "scripts/debug/2026-09-22/revision-process-after.py",
+        "after": "scripts/fixtures/conversation/revision-recovery.py",
         "package_env": "HXA215_PACKAGE",
     },
 }
@@ -120,7 +120,7 @@ for recovery_scope, (scenario, seed_method, verify_method) in PROCESS_RECOVERY_S
     RECOVERY[recovery_scope] = {
         "seed": "com.helix.app.chat.SessionInputProcessRecoveryDeviceTest#" + seed_method,
         "verify": "com.helix.app.chat.SessionInputProcessRecoveryDeviceTest#" + verify_method,
-        "after": "scripts/debug/2026-09-22/input-process-after.py",
+        "after": "scripts/fixtures/conversation/input-recovery.py",
         "package_env": "HXA216_PACKAGE",
         "scenario": scenario,
     }
@@ -176,7 +176,7 @@ def start_process_server(base_output, label):
     process = subprocess.Popen(
         [
             sys.executable,
-            "scripts/debug/2026-09-22/input-process-loopback.py",
+            "scripts/fixtures/conversation/input-server.py",
             "--ready-file",
             str(ready),
             "--events",

@@ -8,7 +8,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('capability_runner', Path(__file__).resolve().parents[1] / 'debug/2026-10-05/run-capability-eval.py')
+spec = importlib.util.spec_from_file_location('capability_runner', Path(__file__).resolve().parents[1] / 'run-mobile-use-eval.py')
 runner = importlib.util.module_from_spec(spec)
 with patch('subprocess.check_output', side_effect=AssertionError('Import must not touch a device')):
     spec.loader.exec_module(runner)

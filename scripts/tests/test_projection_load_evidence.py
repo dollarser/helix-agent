@@ -7,7 +7,7 @@ from unittest.mock import patch
 import tempfile
 import json
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / 'debug/2026-10-10/projection-load-after.py'
+MODULE_PATH = Path(__file__).resolve().parents[1] / 'fixtures/performance/projection-load.py'
 spec = importlib.util.spec_from_file_location('projection_load_evidence', MODULE_PATH)
 collector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(collector)

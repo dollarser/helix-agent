@@ -69,15 +69,15 @@ AV1 可选增量为 899,160 bytes，约 0.899 MB。两者均低于阈值。以�
 
 | 文件 | 具体职责 | 接手注意事项 |
 | --- | --- | --- |
-| [`recipe.json`](../../../scripts/debug/2026-10-01/ffmpeg-ready/recipe.json) | 来源版本/URL/SHA、组件白名单、目标工具链、两套配置 | 功能或来源变更后必须重建并重验，不能只修改文档中的支持列表 |
-| [`build.py`](../../../scripts/debug/2026-10-01/ffmpeg-ready/build.py) | 源码准备、独立源码快照、依赖和 FFmpeg 构建、缓存身份 | 当前入口支持 `host` / `arm64-v8a`，`ready` / `ready-av1`；不是全平台构建器 |
-| [`kit.py`](../../../scripts/debug/2026-10-01/ffmpeg-ready/kit.py) | 原子记录、进程组超时、文件清单、身份和实际组件核验 | 这些是构建/测试宿主保护，不是 Android Runtime 故障处理 |
-| [`contract.py`](../../../scripts/debug/2026-10-01/ffmpeg-ready/contract.py) | 参数、词法路径、时间范围、码率初值、色彩和基本结果检查 | 只是后续移植参考，不应原样当作完整权限或媒体引擎 |
-| [`test_contract.py`](../../../scripts/debug/2026-10-01/ffmpeg-ready/test_contract.py) | 非法输入、证据错绑、缓存、超时和打包失败反例 | 保留所有反例；`python3 -O` 仍应执行关键检查 |
-| [`test_media.py`](../../../scripts/debug/2026-10-01/ffmpeg-ready/test_media.py) | 合成媒体、像素/帧/样本/时间戳回归、AV1 对比 | 完整 FFmpeg 只生成部分输入；被验证的是独立 companion，不是 Android 执行 |
-| [`artifacts.py`](../../../scripts/debug/2026-10-01/ffmpeg-ready/artifacts.py) | 实际载荷闭包测量、ELF/ZIP 检查、证据绑定和候选打包 | 拒绝旧测试、变更后的配方和错绑的二进制；不要跳过校验强行打包 |
-| [`NOTICE.txt`](../../../scripts/debug/2026-10-01/ffmpeg-ready/NOTICE.txt) | 配置、平台、许可和未验收边界声明 | 继续随候选分发；不得删除未接入、未设备验收和无字体说明 |
-| [`build-ffmpeg-plus.py`](../../../scripts/debug/2026-10-01/build-ffmpeg-plus.py) | Ready 复用的外部依赖构建函数 | `build.py` 固定其 SHA；虽位于旧实验目录仍是必要依赖，不能当垃圾脚本删除 |
+| [`recipe.json`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/recipe.json) | 来源版本/URL/SHA、组件白名单、目标工具链、两套配置 | 功能或来源变更后必须重建并重验，不能只修改文档中的支持列表 |
+| [`build.py`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/build.py) | 源码准备、独立源码快照、依赖和 FFmpeg 构建、缓存身份 | 当前入口支持 `host` / `arm64-v8a`，`ready` / `ready-av1`；不是全平台构建器 |
+| [`kit.py`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/kit.py) | 原子记录、进程组超时、文件清单、身份和实际组件核验 | 这些是构建/测试宿主保护，不是 Android Runtime 故障处理 |
+| [`contract.py`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/contract.py) | 参数、词法路径、时间范围、码率初值、色彩和基本结果检查 | 只是后续移植参考，不应原样当作完整权限或媒体引擎 |
+| [`test_contract.py`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/test_contract.py) | 非法输入、证据错绑、缓存、超时和打包失败反例 | 保留所有反例；`python3 -O` 仍应执行关键检查 |
+| [`test_media.py`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/test_media.py) | 合成媒体、像素/帧/样本/时间戳回归、AV1 对比 | 完整 FFmpeg 只生成部分输入；被验证的是独立 companion，不是 Android 执行 |
+| [`artifacts.py`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/artifacts.py) | 实际载荷闭包测量、ELF/ZIP 检查、证据绑定和候选打包 | 拒绝旧测试、变更后的配方和错绑的二进制；不要跳过校验强行打包 |
+| [`NOTICE.txt`](../../../scripts/experiments/ffmpeg/ffmpeg-ready/NOTICE.txt) | 配置、平台、许可和未验收边界声明 | 继续随候选分发；不得删除未接入、未设备验收和无字体说明 |
+| [`build-ffmpeg-plus.py`](../../../scripts/experiments/ffmpeg/build-ffmpeg-plus.py) | Ready 复用的外部依赖构建函数 | `build.py` 固定其 SHA；已随实验组件迁入按用途组织的目录，仍是必要依赖，不能当垃圾脚本删除 |
 | [`with-host-slot.py`](../../../scripts/with-host-slot.py) | 与其他工作树/代理共用的重型构建互斥 | 重型构建和测试保留该入口，不并行抢占或终止他人的验证 |
 
 | 生成目录内的路径 | 作用 |
@@ -229,3 +229,6 @@ python3 scripts/debug/2026-10-01/ffmpeg-ready/artifacts.py package --profile rea
 - [Google WebP RIFF 规范](https://developers.google.com/speed/webp/docs/riff_container)：ANMF、时间、局部帧、混合与 disposal；测试使用自生成像素，不使用用户素材。
 - [VideoLAN dav1d](https://images.videolan.org/projects/dav1d.html) 与 [固定 1.5.4 源码目录](https://download.videolan.org/pub/videolan/dav1d/1.5.4/)：本轮只增加 AV1 解码，核验官方公开 SHA256。
 - [Android HDR/SDR](https://developer.android.com/media/media3/transformer/tone-mapping)：解释 HDR 为 SDR 与真正 tone mapping 的边界。
+
+
+2026-10-15 维护注：本页源文件链接已指向 `scripts/experiments/ffmpeg/`；原命令中的日期路径保留历史事实。17份迁移输入逐字节一致，包内旧路径和vendor制品未变，具体原路径/hash见[整理清单](../../../scripts/debug/archive/2026-10-15-script-curation.json)。本次仅重新运行主机合同及包检查，不继承或新增媒体/设备验收。

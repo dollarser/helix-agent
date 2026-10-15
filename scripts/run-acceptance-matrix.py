@@ -131,7 +131,7 @@ def main():
                 environment = dict(os.environ)
                 if name == "extensions-restart":
                     command.extend(["--instrument-arg", "extensionJourneyPhase=seed", "--after-script",
-                                    "scripts/debug/2026-09-18/hxa207-restart-recover.py"])
+                                    "scripts/fixtures/extensions/restart-recovery.py"])
                     environment.update(HXA207_RUNNER=f"com.helix.agent{suffix}.test/com.helix.app.HelixAndroidJUnitRunner",
                                        HXA207_APP_PACKAGE=f"com.helix.agent{suffix}")
                 if name.startswith("theme-"):
@@ -139,7 +139,7 @@ def main():
                     command.extend(["--night-mode", night, "--instrument-arg", f"expectedNight={night}"])
                     command.extend(["--recovery-pid-file", "no_backup/theme-recovery-pid"])
                 if name.startswith("theme-") or name == "export":
-                    command.extend(["--after-script", "scripts/debug/2026-09-21/collect-product-fixtures.py"])
+                    command.extend(["--after-script", "scripts/fixtures/product/collect-artifacts.py"])
                     environment.update(HELIX_FIXTURE_PACKAGE=f"com.helix.agent{suffix}", HELIX_FIXTURE_GROUP=name)
                 print(f"Starting {label}: {len(expected)} expected methods", flush=True)
                 with (args.output / f"{label}.log").open("w") as log:

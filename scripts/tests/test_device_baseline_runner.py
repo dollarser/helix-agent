@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEBUG_DIR = ROOT / "scripts" / "debug" / "2026-09-26"
+DEBUG_DIR = ROOT / "scripts" / "device_baseline"
 
 
 def load_script(name: str, filename: str):
@@ -21,8 +21,8 @@ def load_script(name: str, filename: str):
     return module
 
 
-summarizer = load_script("device_baseline_summarizer", "summarize-current-device-baseline.py")
-runner = load_script("device_baseline_runner", "run-isolated.py")
+summarizer = load_script("device_baseline_summarizer", "summary.py")
+runner = load_script("device_baseline_runner", "run.py")
 
 
 class DeviceBaselineClassificationTest(unittest.TestCase):
@@ -246,7 +246,7 @@ class DeviceBaselineLockTest(unittest.TestCase):
             child_code = f"""
 import importlib.util
 import sys
-spec = importlib.util.spec_from_file_location("child_runner", {str(DEBUG_DIR / "run-isolated.py")!r})
+spec = importlib.util.spec_from_file_location("child_runner", {str(DEBUG_DIR / "run.py")!r})
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 try:
@@ -281,6 +281,38 @@ raise SystemExit(1)
             )
             self.assertEqual(1, acquired.returncode, acquired.stderr)
 
+
+
+class DeviceBaselineEntryPointsTest(unittest.TestCase):
+    def test_cli_help_from_an_unrelated_working_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ('run.py', 'summary.py', 'manifest.py'):
+                result = subprocess.run([sys.executable, str(DEBUG_DIR / name), '--help'],
+                                        cwd=directory, capture_output=True, text=True, timeout=10)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertIn('usage:', result.stdout)
+            self.assertEqual([], list(Path(directory).iterdir()))
+
+    def test_runner_requires_explicit_serial_before_any_effect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, str(DEBUG_DIR / 'run.py'), 'missing.txt'],
+                                    cwd=directory, capture_output=True, text=True, timeout=10)
+            self.assertEqual(2, result.returncode)
+            self.assertIn('--serial', result.stderr)
+            self.assertEqual([], list(Path(directory).iterdir()))
+
+    def test_default_source_is_independent_of_working_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / 'manifest.json'
+            classes = Path(directory) / 'classes.txt'
+            result = subprocess.run([sys.executable, str(DEBUG_DIR / 'manifest.py'),
+                                     '--output-manifest', str(manifest), '--output-classes', str(classes)],
+                                    cwd=directory, capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            record = json.loads(manifest.read_text())
+            self.assertTrue(record['classes'])
+            self.assertEqual('app/src/androidTest/kotlin', record['source_root'])
+            self.assertEqual(classes.read_text().splitlines(), record['classes'])
 
 if __name__ == "__main__":
     unittest.main()

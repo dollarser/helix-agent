@@ -94,7 +94,7 @@ def suite(flavor, selected):
     manifest = directory/'classes.json'
     manifest.write_text(json.dumps({'classes':names}, indent=2)+'\n')
     print('RUN_DIRECTORY=' + str(directory.relative_to(ROOT)), flush=True)
-    command = [sys.executable, '-u', 'scripts/debug/2026-09-26/run-isolated.py', str(manifest),
+    command = [sys.executable, '-u', 'scripts/device_baseline/run.py', str(manifest),
                '--flavor',flavor,'--serial',SERIAL,'--timeout','300','--out-dir',str(directory)]
     run(command, timeout=3300, log=directory/'runner.log')
     summary = json.loads((directory/'summary.json').read_text())

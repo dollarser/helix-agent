@@ -61,3 +61,20 @@ ignored output directories are not a substitute for preserving reproduction tool
 See the [maintenance playbook](../../docs/development/debugging-playbook.md) and [retirement record](../../docs/evidence/development/test-script-maintenance-2026-10-10.md) for current alternatives and recovery provenance.
 
 Completed version-specific installers, frozen verifiers and local release logs may be retired after owner-authorized curation. Read the [historical version summary](../../docs/evidence/development/historical-version-retirement-2026-10-10.md); historical commands are provenance, not supported current entry points.
+
+
+## 2026-10-15 curation
+
+Maintained entry points now live in [device_baseline](../device_baseline/README.md),
+[fixtures](../fixtures/README.md) and [experiments/ffmpeg](../experiments/ffmpeg/README.md).
+Remaining dated files retain task-specific reproduction or unique experimental
+value. Date alone is not a deletion criterion. Original source hashes, replacements
+and retirement reasons are in the [curation inventory](archive/2026-10-15-script-curation.json).
+
+The 131 pre-existing untracked scripts in the [local inventory](archive/2026-10-15-worktree-inventory.json)
+remain at their original paths, preserving their internal calls and recovery bytes.
+Their exact paths are excluded in this checkout's `.git/info/exclude`; no wildcard
+hides future files and no tracked file is untracked. Seven references to the maintained
+baseline were updated and recorded by current hash. Historical source editors retain
+their original targets and must not be rerun on current code.
+New temporary scripts use dated `local/`, covered by the shared `.gitignore` rule.

@@ -17,7 +17,7 @@ assert package in ("com.helix.agent", "com.helix.agent.developer")
 adb = [str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb"), "-s", serial]
 runner = package + ".test/com.helix.app.HelixAndroidJUnitRunner"
 
-subprocess.run([sys.executable, str(ROOT / "scripts/debug/2026-09-29/merged-composer-process-after.py"),
+subprocess.run([sys.executable, str(ROOT / "scripts/fixtures/conversation/composer-recovery.py"),
                 serial, str(output)], check=True, cwd=ROOT)
 
 for width in (320, 360, 412):

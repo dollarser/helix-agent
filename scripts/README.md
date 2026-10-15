@@ -44,3 +44,17 @@ Spike sources and historical evidence remain tracked. This changes default proje
 ## 测试与调试维护
 
 [调试维护手册](../docs/development/debugging-playbook.md)集中说明动态结果门禁、主机/设备模板、常见误判与留存。`instrumentation_junit.py LOG`严格验证实际方法；`summarize-owned-runs.py DIR... --output FRESH_PATH`合并同一渠道的owned结果，校验原身份、退出和APK一致性。
+
+## Maintained components and dependencies
+
+- [Device baseline](device_baseline/README.md): source manifest generation, explicit-serial execution and strict result classification. Generated manifests live in `build/device-baseline/`.
+- [Acceptance fixtures](fixtures/README.md): private helpers called by the existing acceptance runners; grouped by conversation, extension recovery, product evidence and performance.
+- `run-mobile-use-eval.py`: opt-in model evaluation with its original evidence and restoration checks; imports the shared instrumentation parser from `scripts/`.
+- [FFmpeg experiments](experiments/ffmpeg/README.md): pinned Lite/Plus/Ready sources, licenses, host contracts and artifact preparation; frozen archive paths are documented there.
+
+The shared host gates remain `check-all.sh` and `run-host-tests.py`. Task-specific
+AndroidTest compilation and source-provenance checks use the explicit commands in
+[the maintenance playbook](../docs/development/debugging-playbook.md), rather than
+new copies of dated host wrappers. Current callers must use maintained paths;
+original historical commands are recoverable through the
+[curation inventory](debug/archive/2026-10-15-script-curation.json).

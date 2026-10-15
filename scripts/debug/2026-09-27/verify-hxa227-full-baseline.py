@@ -26,8 +26,9 @@ write_json(output / 'current-consumer-manifest.json', {
     'class_list_sha256': hashlib.sha256(classes.read_bytes()).hexdigest(),
 })
 provenance = {}
-for relative in ('scripts/debug/2026-09-26/run-isolated.py',
-                 'scripts/debug/2026-09-26/summarize-current-device-baseline.py',
+for relative in ('scripts/device_baseline/run.py',
+                 'scripts/device_baseline/summary.py',
+                 'scripts/device_baseline/expectations.py', 'scripts/device_baseline/__init__.py',
                  'scripts/debug/2026-09-27/verify-hxa227-full-baseline.py',
                  'scripts/run-owned-emulator.py', 'scripts/instrumentation_junit.py'):
     source = root / relative
@@ -36,7 +37,7 @@ for relative in ('scripts/debug/2026-09-26/run-isolated.py',
     shutil.copyfile(source, archived)
     provenance[relative] = hashlib.sha256(source.read_bytes()).hexdigest()
 write_json(output / 'runner-provenance.json', provenance)
-path = root / 'scripts/debug/2026-09-26/run-isolated.py'
+path = root / 'scripts/device_baseline/run.py'
 spec = importlib.util.spec_from_file_location('isolated_baseline', path)
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
