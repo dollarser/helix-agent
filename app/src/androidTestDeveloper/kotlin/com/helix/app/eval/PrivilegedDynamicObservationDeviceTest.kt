@@ -89,15 +89,18 @@ class PrivilegedDynamicObservationDeviceTest {
             val frame = execute("ui.device").getValue("frame").jsonPrimitive.content
             println("OVERLAY_PROBE_READY")
             SystemClock.sleep(2500)
-            val image = execute("ui.screenshot", """{"frame":"$frame"}""")
-            assertEquals("SAVED", image["status"]?.jsonPrimitive?.content)
-            assertTrue(
-                image
-                    .getValue("sizeBytes")
-                    .jsonPrimitive.content
-                    .toLong() > 0,
-            )
-            assertControlsAbsent(image)
+            repeat(12) {
+                val image = execute("ui.screenshot", """{"frame":"$frame"}""")
+                assertEquals("SAVED", image["status"]?.jsonPrimitive?.content)
+                assertTrue(
+                    image
+                        .getValue("sizeBytes")
+                        .jsonPrimitive.content
+                        .toLong() > 0,
+                )
+                assertControlsAbsent(image)
+                SystemClock.sleep(700)
+            }
             val action =
                 dispatch(
                     "ui.gesture",
@@ -108,7 +111,7 @@ class PrivilegedDynamicObservationDeviceTest {
             val refused = action as ToolDispatchOutcome.ExecutionFailed
             assertEquals("ACTION_NOT_DISPATCHED", refused.detail)
             assertTrue(refused.sideEffectFree)
-            println("DYNAMIC_OBSERVATION_PASSED:three fresh snapshots, pixels, stale gesture refused")
+            println("DYNAMIC_OBSERVATION_PASSED:three fresh snapshots, twelve clean captures, stale gesture refused")
         } finally {
             selection.close()
             c.storage.deleteSessionPermanently(session)

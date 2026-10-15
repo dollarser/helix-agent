@@ -80,6 +80,11 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
     ) {
         if (!intent.getBooleanExtra("dynamicContent", false)) return
         layout.setBackgroundColor(android.graphics.Color.rgb(25, 118, 108))
+        layout.addView(
+            AnimatedObservationSurface(this),
+            0,
+            LinearLayout.LayoutParams(-1, (260 * resources.displayMetrics.density).toInt()),
+        )
         result.post(
             object : Runnable {
                 override fun run() {

@@ -139,8 +139,12 @@ internal class PrivilegedDeviceService(
 
     private fun allowed(): Boolean = ShizukuExecutionGuard.check(guard)
 
-    private fun targetFor(operation: AutomationDeviceOperation): AutomationDisplayTarget? =
-        if (operation == AutomationDeviceOperation.LAUNCH) {
+    private fun targetFor(operation: AutomationDeviceOperation): AutomationDisplayTarget? {
+        if (operation == AutomationDeviceOperation.SCREENSHOT) {
+            screen.synchronizeWindowTransactions()
+            check(allowed())
+        }
+        return if (operation == AutomationDeviceOperation.LAUNCH) {
             null
         } else {
             screen.deviceTarget(
@@ -148,6 +152,7 @@ internal class PrivilegedDeviceService(
                     operation in setOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.GESTURE),
             )
         }
+    }
 
     @Suppress("ReturnCount") // Each read-only instability exits without publishing pixels; finally owns the bitmap.
     private fun capture(

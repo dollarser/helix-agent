@@ -192,6 +192,13 @@ internal class ShizukuHierarchy : AutoCloseable {
 
     fun screenshot(): android.graphics.Bitmap? = checkNotNull(automation).takeScreenshot()
 
+    @android.annotation.SuppressLint("PrivateApi")
+    fun synchronizeWindowTransactions() {
+        // View detachment and app Choreographer frames do not fence WindowManager's surface removal.
+        // This existing shell/root-only bridge waits for window operations, not app content to become idle.
+        UiAutomation::class.java.getMethod("syncInputTransactions").invoke(checkNotNull(automation))
+    }
+
     fun freshRoot(): AccessibilityNodeInfo? {
         val instance = checkNotNull(automation)
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
