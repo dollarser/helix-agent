@@ -1,0 +1,664 @@
+{
+  "created": "2026-10-15",
+  "purpose": "Recoverable duplicate archive of dated untracked scripts/debug files; originals intentionally retained in place.",
+  "archive": "build/debug-archive-2026-10-15/untracked-debug-scripts.tar.gz",
+  "archiveSha256": "0931c9265b5f4b8f1813628d8d4e2a2f076b7b3657e12625cd827634753a07d0",
+  "count": 131,
+  "entries": [
+    {
+      "path": "scripts/debug/2026-09-30/android-click-label.py",
+      "bytes": 707,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/cleanup-unpushed-oauth-history.py",
+      "bytes": 2700,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/format-antigravity-request.py",
+      "bytes": 793,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/format-provider-model-fixture.py",
+      "bytes": 903,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/hxa232-progress.py",
+      "bytes": 695,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/manual-antigravity-emulator.py",
+      "bytes": 2355,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/pull-composer-captures.py",
+      "bytes": 612,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/record-r1-results.py",
+      "bytes": 6096,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/repeat-continuity.py",
+      "bytes": 944,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/scrub-oauth-index.py",
+      "bytes": 772,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-09-30/verify-document-convergence-509ac5c9.py",
+      "bytes": 8750,
+      "category": "2026-09-30"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/inspect-file-replay.py",
+      "bytes": 1088,
+      "category": "2026-10-01"
+    },
+    {
+      "path": "scripts/debug/2026-10-01/verify-tool-collapse.sh",
+      "bytes": 484,
+      "category": "2026-10-01"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/commit-hxa241-postcheck.py",
+      "bytes": 2850,
+      "category": "2026-10-02"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/compile-hxa241-host.sh",
+      "bytes": 347,
+      "category": "2026-10-02"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/format-hxa240.py",
+      "bytes": 1596,
+      "category": "2026-10-02"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/format-hxa241.py",
+      "bytes": 1972,
+      "category": "2026-10-02"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/probe-hxa240-fds.py",
+      "bytes": 1379,
+      "category": "2026-10-02"
+    },
+    {
+      "path": "scripts/debug/2026-10-02/retire-hxa240-media-draft.py",
+      "bytes": 1673,
+      "category": "2026-10-02"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/format-hxa245.py",
+      "bytes": 7355,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/repeat-quickjs-crash.py",
+      "bytes": 1455,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/retest-app-failures.py",
+      "bytes": 3245,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/retest-remaining-and-kill.py",
+      "bytes": 2129,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-automation-force-stop.py",
+      "bytes": 2661,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-corrected-app-recovery.py",
+      "bytes": 2263,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-detached-extra-phases.py",
+      "bytes": 1485,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-detached-extra-phases2.py",
+      "bytes": 1486,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-detached-extra-phases3.py",
+      "bytes": 1508,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-final-background-phases.py",
+      "bytes": 1528,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-overlay-full-sweep.py",
+      "bytes": 2292,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-overlay-module-sweep.py",
+      "bytes": 2112,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-overlay-recovery-followup.py",
+      "bytes": 2961,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/run-runtime-kill-phases.py",
+      "bytes": 4327,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-03/verify-notifications.py",
+      "bytes": 1090,
+      "category": "2026-10-03"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/backend-ui-setup.py",
+      "bytes": 1797,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/configure-emulator-defaults.py",
+      "bytes": 1242,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/file-workflow-report.py",
+      "bytes": 621,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-conversation-interaction.py",
+      "bytes": 1575,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-douyin-fixture.py",
+      "bytes": 1571,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-file-workflow.py",
+      "bytes": 926,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-independent-mobile.py",
+      "bytes": 853,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-menu-navigation.py",
+      "bytes": 1237,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-mobile-use-enablement.py",
+      "bytes": 722,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-privileged-screen.py",
+      "bytes": 2052,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-projects.py",
+      "bytes": 2086,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/format-settings-navigation.py",
+      "bytes": 701,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/input-ui.py",
+      "bytes": 581,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/inspect-douyin-progress.py",
+      "bytes": 1678,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/mobile-use-capability.py",
+      "bytes": 5614,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/prepare-mobile-visual-host.py",
+      "bytes": 2232,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/probe-guest-media.py",
+      "bytes": 1842,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/restore-touch-device-app.py",
+      "bytes": 1643,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/run-root-mobile-use.py",
+      "bytes": 2498,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/run-shizuku-fixture.py",
+      "bytes": 2327,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/run-shizuku-production.py",
+      "bytes": 1974,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/run-touch-press-device.py",
+      "bytes": 2531,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/start-touch-root-emulator.py",
+      "bytes": 868,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/update-media-emulator.py",
+      "bytes": 1251,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/verify-bundled-plugin.py",
+      "bytes": 540,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/verify-files-home.py",
+      "bytes": 856,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/verify-session-work.py",
+      "bytes": 900,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-04/verify-touch-restoration.py",
+      "bytes": 803,
+      "category": "2026-10-04"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/analyze-install-traces.py",
+      "bytes": 1702,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/build-mobile-install-fixture.py",
+      "bytes": 1253,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/cleanup-capability-selections.py",
+      "bytes": 1065,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/compare-architecture-device-db.py",
+      "bytes": 699,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/consolidate-mobile.py",
+      "bytes": 4230,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/device-ui.py",
+      "bytes": 682,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/format-capability-eval.py",
+      "bytes": 1058,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/format-global-dns.py",
+      "bytes": 534,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/format-permission-layout.sh",
+      "bytes": 814,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/format-plugin-unify.py",
+      "bytes": 769,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/global-dns-device-backup.sh",
+      "bytes": 505,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/harden-capability-runner.py",
+      "bytes": 1518,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/inspect-capability-config.py",
+      "bytes": 310,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/inspect-eval-config.py",
+      "bytes": 611,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/inspect-latest-conversation.py",
+      "bytes": 664,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/inspect-live-keyboard.py",
+      "bytes": 602,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/inspect-model-eval.py",
+      "bytes": 452,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/inspect-provider-xml.py",
+      "bytes": 222,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-device-driver.py",
+      "bytes": 2439,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-final-ownership.py",
+      "bytes": 5019,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-host-boundary.py",
+      "bytes": 6422,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-namespace.py",
+      "bytes": 1106,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-repair-owned-content.py",
+      "bytes": 747,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-session-source.py",
+      "bytes": 500,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/mobile-stage-fixture.py",
+      "bytes": 562,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/read-capability-trace.py",
+      "bytes": 526,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/read-conversation-errors.py",
+      "bytes": 459,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/read-error-bodies.py",
+      "bytes": 535,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/run-coolapk-install.py",
+      "bytes": 998,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/run-install-continuation.py",
+      "bytes": 1162,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/show-global-dns-settings.py",
+      "bytes": 1118,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/start-mobile-daily-validation.py",
+      "bytes": 778,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/start-mobile-root-validation.py",
+      "bytes": 816,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/verify-coolapk-in-helix.py",
+      "bytes": 944,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/verify-final-permission-targets.py",
+      "bytes": 554,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-05/verify-provider-install.py",
+      "bytes": 710,
+      "category": "2026-10-05"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/continue-main-final.py",
+      "bytes": 1376,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/continue-main-recovery-retry.py",
+      "bytes": 908,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/continue-main-root-retry.py",
+      "bytes": 928,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/continue-main-root.py",
+      "bytes": 945,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/continue-main-validation.py",
+      "bytes": 1035,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/format-overlay.py",
+      "bytes": 870,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/inspect-backend-runs.py",
+      "bytes": 1713,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/inspect-douyin.py",
+      "bytes": 937,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/inspect-optimization-all.py",
+      "bytes": 1718,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/inspect-optimization.py",
+      "bytes": 1693,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/list-main-skips.py",
+      "bytes": 313,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-backend-install.py",
+      "bytes": 2883,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-backend-optimization.py",
+      "bytes": 2888,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-browser-resources.py",
+      "bytes": 1425,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-extra-phases.py",
+      "bytes": 1298,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-final-followup.py",
+      "bytes": 1309,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-final-model.py",
+      "bytes": 1989,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-final-validation.py",
+      "bytes": 2206,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-input-ascii.py",
+      "bytes": 754,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-input-final.py",
+      "bytes": 754,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-lifecycle-final.py",
+      "bytes": 1799,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-mobile-force-stop.py",
+      "bytes": 2696,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-model.py",
+      "bytes": 2899,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-module-sweep.py",
+      "bytes": 2117,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-recovery-retry.py",
+      "bytes": 1150,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-retests.py",
+      "bytes": 3646,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-main-root-followup.py",
+      "bytes": 3562,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/run-storage-final.py",
+      "bytes": 651,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-06/start-backend-root.py",
+      "bytes": 746,
+      "category": "2026-10-06"
+    },
+    {
+      "path": "scripts/debug/2026-10-08/dsh-followup-matrix.py",
+      "bytes": 2387,
+      "category": "2026-10-08"
+    },
+    {
+      "path": "scripts/debug/2026-10-08/dsh-kill-followup.py",
+      "bytes": 1114,
+      "category": "2026-10-08"
+    },
+    {
+      "path": "scripts/debug/2026-10-09/stage-budget-checkpoint.py",
+      "bytes": 3016,
+      "category": "2026-10-09"
+    },
+    {
+      "path": "scripts/debug/2026-10-12/analyze-completed-soak.py",
+      "bytes": 5653,
+      "category": "2026-10-12"
+    }
+  ]
+}
