@@ -293,6 +293,8 @@ Chat Reply 等领域插件复用 `AutomationPermissionCenter` 和设备服务，
 
 调研确认了本机 CUA 使用 MCP，也确认了多款 Agent 存在原生注册和 MCP adapter 并存的路径，详见[Computer Use 分析](agent-plugin-architecture-research-2026-10-11.md#26-computer-use-使用-mcp-的机制与设计收益)与[跨产品比较](agent-plugin-architecture-research-2026-10-11.md#27-主流-agent-是否优先用-mcp-接入内置能力)。Helix 应统一工具契约、身份、执行准入和结果治理，传输方式由实际需求决定。
 
+本机具体调用图、插件 JS 入口与直接 MCP server 的区分见[Computer Use 调用链参考](computer-use-call-path-2026-10-12.md)。
+
 **当前建议：保留 Mobile Use 的 native `ToolBinding` 路径，Browser 继续按原计划收敛为 native contribution。** 两者都需要紧密复用 Android 生命周期、目标绑定、权限和视觉产物。当前注册路径见[调研 §4.5](agent-plugin-architecture-research-2026-10-11.md#45-mobile-use-的原生注册路径)。增加一层 MCP 会带来协议适配、连接恢复及版本兼容工作；当前尚无跨宿主消费者等具体需求证明这项迁移能解决已有缺口，本次也未测量其延迟或内存影响。
 
 | 执行需求 | 建议接入方式 | 保留的责任 |

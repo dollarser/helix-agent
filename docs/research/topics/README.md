@@ -6,6 +6,9 @@
 
 | 专题 | 保留内容 | 设计与实施承接 |
 | --- | --- | --- |
+| [helix-docs 官方帮助查询设计与实现记录（2026-10-14）](helix-docs-design-2026-10-14.md) | Skill/工具复用设计、版本/来源契约、随包英文帮助章节及未覆盖边界 | [工具与扩展综合研究 §4](../modules/04-tools-browser-and-extensions.md#4-extensionmcp--skill--connector--a2a)；窄实现已落在内置 Skills，不扩展 documents 插件 |
+| [上下文优化建议复核与设计补充（2026-10-14）](context-optimization-2026-10-14.md) | 引用／压缩一致性缺口及 JVM 探针、预算协调、Memory／事实／视觉选择、诊断和验收边界 | [上下文综合研究 §5](../modules/02-context-input-and-session.md#5-compaction--memory)、[Harness §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)；设计输入，不独立调整当前任务或宣称生产已修复 |
+| [Computer Use 调用链与 Helix 开发参考（2026-10-12）](computer-use-call-path-2026-10-12.md) | 本机插件包、`cua_repl` MCP/JS 入口、Sky API、桌面服务、direct MCP 路径和 Mobile Use 工具粒度对照 | 固定本机版本的架构快照；设计取舍见下方两份插件专题，不独立授权实现 |
 | [Agent 插件架构调研（2026-10-11）](agent-plugin-architecture-research-2026-10-11.md) | 八类 Codex 插件及 Codex 公开核心、Claude Code、Gemini CLI、OpenCode、DSH 与 Helix 对照；Computer Use 的 MCP 接入、原生与 MCP 混合路径、权限与证据边界 | [Helix 优化方案](helix-plugin-architecture-optimization-2026-10-11.md)；事实输入，不独立授权实现 |
 | [Helix 插件架构优化方案（2026-10-11）](helix-plugin-architecture-optimization-2026-10-11.md) | Helix 差距、Skill 激活/调用规则、配置生效、兼容诊断、Browser 归属、共享资源；原生/IPC/CLI/MCP 选择、导入与导出边界及验收条件 | [Plugin 专项](../../architecture/plugin-platform-plan.md)、[Harness 方案](../../architecture/harness-refactor-plan.md)；HXA-272～279 已登记，范围映射见方案 §7，优先级由 status 维护；F/G 保留进入条件 |
 | [架构及测试维护审查（2026-10-10）](architecture-and-test-maintenance-audit-2026-10-10.md) | 全系统模块/文件边界、应用层职责、测试入口与历史材料留存；桌面和移动参考 | [开发原则](../../development/feature-refactor-strategy.md)、[留存规则](../../development/README.md#git-跟踪与留存)；分切片建议，不独立授权新重构 |

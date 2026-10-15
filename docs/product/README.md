@@ -9,6 +9,8 @@
 - [projects.md](projects.md)：本机项目、共享上下文、成员生命周期与文件/任务/成果的关系。
 - [task-experience.md](task-experience.md)：用户任务、工作区、产物与恢复体验。
 - [image-reading.md](image-reading.md)：附件、自主图片读取与浏览器截图的使用和支持边界。
+- [document-processing-plugin.md](document-processing-plugin.md)：统一PDF/DOCX阅读插件，图文读取、解析隔离、来源和验收；HXA-284已完成主机、API36原生文档及Qwen合成文件验收；范围见[收尾证据](../evidence/development/pre-refactor-closeout-2026-10-15.md)。
+- Helix 自身功能查询：consumer/developer debug 预览随内置 `helix-docs` Skill 提供英文离线主题，模型按需读取；不是静态帮助页面，内容/引用语义和安装渠道识别仍有限，见[实现与设计记录](../research/topics/helix-docs-design-2026-10-14.md#11-审查与实现记录)。
 - [memory.md](memory.md)：长期记忆使用与作用域；完整 Project 能力与 Global 首版分开。
 - [local-models.md](local-models.md)：设备内模型的准备、使用与验证边界。
 - [market-users-and-commercialization.md](market-users-and-commercialization.md)：用户、渠道、商业化假设与实验。

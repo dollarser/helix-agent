@@ -1,6 +1,6 @@
 # 上下文、输入与会话交互
 
-> 更新：2026-09-25。当前综合研究，不替代 ADR-AGENT-001/002/005。
+> 综合研究：2026-09-25；2026-10-14 增补 §5 当前实现复核。不替代 ADR-AGENT-001/002/005。
 
 ## 1. 会话是长期容器，Turn 是一次执行
 
@@ -74,6 +74,8 @@ Helix 推荐继续：
 - summary 不能删除 unresolved error/review/tool facts；
 - request manifest 记录“这次模型实际看到了什么”，但不复制全 request；
 - memory/summary 不拥有授权。
+
+2026-10-14 对当前实现的复核见[上下文优化专题](../topics/context-optimization-2026-10-14.md)：研究基线中引用快照在发送与压缩物化中不一致，已有编译器层复现；随后HXA-285统一规范正文，10月15日完成Room及真实模型有界验收，见[收尾记录](../../evidence/development/pre-refactor-closeout-2026-10-15.md)。Memory 渐进读取、总输入估算和 Job 事实投影已有基础，后续补充预算协调、来源与选择诊断。该专题是研究输入，不改变当前 HXA 或 [Harness 目标方案 §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 的排期和授权。
 
 ## 6. Crash continuation
 

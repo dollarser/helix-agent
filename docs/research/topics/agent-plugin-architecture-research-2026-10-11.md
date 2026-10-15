@@ -94,6 +94,8 @@ Skill 的 model-facing consumer 会将目录更新记录为替换消息，空目
 
 ### 2.6 Computer Use 使用 MCP 的机制与设计收益
 
+2026-10-12 本机包结构、`cua_repl`/Sky API/桌面服务的详细调用链，以及 direct MCP disabled 的边界见[Computer Use 调用链参考](computer-use-call-path-2026-10-12.md)。以下仍保留本专题的架构判断与设计收益分析。
+
 **可以确认的实现。** 本机 `unified-computer-use/26.1007.21159` 的 `.mcp.json` 将 `cua_repl` 配置为由宿主捆绑 Node 运行的服务，启用 `js`、`js_reset`、`turn_ended` 三个入口。环境配置同时启用 `browser,computer`，登记 `@oai/browser-desktop/service` 和 `@oai/sky/service`；manifest 的 Stop、Interrupt、SubagentStop 调用 `turn_ended`。文件身份见 §6.2 和 §6.4。
 
 逻辑调用关系如下。箭头表达职责和调用关系，不表示每一层都是独立 OS 进程：

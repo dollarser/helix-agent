@@ -62,6 +62,8 @@ Android Chrome 没有同等扩展控制模型；Helix 也明确不应抽取其�
 
 插件/Mobile Use 与异步执行的原比较分别见[专题目录](../topics/README.md)；通用 binding、安装生命周期、ContextCompiler 和等待的目标规范汇总于[Harness 方案](../../architecture/harness-refactor-plan.md)，不在多个研究模块复制完整实施步骤。
 
+2026-10-14 的 [helix-docs 专题](../topics/helix-docs-design-2026-10-14.md)设计 Helix 官方功能／配置／排障查询：复用 Skill 与资源读取，优先随安装版本打包的用户文档，在线官方资料作为补充；明确引用、渠道、离线与当前状态诊断的边界。首版无需新 MCP 服务、向量库或文档子 Agent；PDF／Word 处理仍归 documents 插件。专题是设计输入，不授予实现或改变当前排期。
+
 ## 5. Marketplace / Workflow
 
 Operit 已经验证统一 marketplace + ToolPkg/Skill/workflow 在移动端有产品价值，但 Helix 不应先复制“市场规模”，而应优先：
