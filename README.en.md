@@ -19,7 +19,7 @@ Helix executes tasks on Android: interacting with supported apps, browsing the w
 | **Web and tools** | Browse pages, collect information, and call tools; Developer builds also include an advanced terminal and execution environment |
 | **Conversations and projects** | Organize conversations, files, instructions, and memory around projects; queue messages, adjust tasks, or stop execution |
 | **Model choice** | Connect APIs, compatible self-hosted services, or on-device models; Developer adds experimental third-party subscription integrations |
-| **Extensions** | Organize capabilities through plugins, skills, and connectors, including MCP; select extensions per conversation |
+| **Plugins** | Organize capabilities through plugins, skills, and connectors, including MCP; select plugins per conversation |
 
 Task quality depends on the model, device, permissions, and target app. Helix is not an OEM system image and does not promise compatibility with every app, website, or file format. See [current status](docs/development/status.md) for implementation and verification boundaries.
 
@@ -42,7 +42,7 @@ Remote services may charge for model usage. On-device models require downloaded 
 
 ### Operating Android apps
 
-Configure **Mobile Use** in Extensions, connect at least one usable screen backend, then select it in the conversation. If setup or connection is missing, clicking the checkbox opens the relevant settings; select it again after setup. Helix manages system authorization and connections for Accessibility, Shizuku, and Root; the plugin uses capabilities granted to the host. All permissions are not required at once, while each action still needs its specific capabilities.
+Configure **Mobile Use** in Plugins, connect at least one usable screen backend, then select it in the conversation. If setup or connection is missing, clicking the checkbox opens the relevant settings; select it again after setup. Helix manages system authorization and connections for Accessibility, Shizuku, and Root; the plugin uses capabilities granted to the host. All permissions are not required at once, while each action still needs its specific capabilities.
 
 Supported operations prefer available **Root → Shizuku → Accessibility** backends. Backend coverage differs, and elevated permissions do not guarantee access to every secure window. Verify uncertain outcomes before repeating an action that may already have taken effect.
 

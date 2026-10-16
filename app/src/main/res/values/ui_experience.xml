@@ -16,4 +16,8 @@
     <string name="work_tasks_empty_body">在会话里描述你要完成的事，例如整理文档或操作手机应用。执行进度会出现在这里。</string>
     <string name="work_artifacts_empty_title">让任务留下成果</string>
     <string name="work_artifacts_empty_body">让 Helix 写一份文档、整理表格或保存任务结果。生成的文件和已完成的回答会集中显示在这里。</string>
+    <string name="chat_image_preview">查看图片</string>
+    <string name="chat_image_unavailable">图片不可用</string>
+    <string name="plugins_import_skill">导入独立技能</string>
+    <string name="plugins_import_skill_summary">选择 Skill ZIP 或工作区目录</string>
 </resources>

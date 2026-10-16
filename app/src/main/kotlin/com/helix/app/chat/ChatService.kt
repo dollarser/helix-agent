@@ -1583,6 +1583,7 @@ class ChatService(
                     uri,
                     reported.displayName.orEmpty(),
                     reported.sizeBytes,
+                    isImage = reported.mimeType?.startsWith("image/") == true,
                 ),
             )
             refreshScreen()
@@ -1661,6 +1662,40 @@ class ChatService(
             ImportRefusal.INVALID_TARGET -> str(R.string.chat_import_scope_unavailable)
             ImportRefusal.IO_FAILURE -> str(R.string.chat_import_io_failure)
             null -> str(R.string.chat_import_io_failure)
+        }
+
+    /** Preview the currently visible attachment without staging, sending, or changing authorization. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // Unavailable is a read failure, never success.
+    suspend fun previewImage(reference: ChatImageRef): ByteArray? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            if (openSessionId != reference.sessionId) return@withContext null
+            val preview = ChatImagePreview(storage, attachmentStaging)
+            val draft =
+                sessionDraft
+                    ?.takeIf { it.session.id == reference.sessionId }
+                    ?.attachments
+                    ?.find { it.id == reference.attachmentId }
+            val staged =
+                stagedAttachments.find {
+                    it.sessionId == reference.sessionId && it.artifactId == reference.attachmentId
+                }
+            try {
+                val bytes =
+                    when {
+                        reference.messageId != null -> preview.history(reference)
+                        draft != null -> preview.draft(draft)
+                        staged != null -> preview.staged(staged)
+                        else -> null
+                    }
+                val stillPresent =
+                    reference.messageId != null ||
+                        sessionDraft?.attachments?.contains(draft) == true || stagedAttachments.contains(staged)
+                bytes.takeIf { openSessionId == reference.sessionId && stillPresent }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
         }
 
     /** Removes one staged attachment addressed by its [PendingAttachmentUi.id] (the artifact id). */
@@ -4336,7 +4371,10 @@ class ChatService(
                     isDraft = true,
                     preparingDraft = preparingDraft,
                     directoryRef = draft.session.directoryRef,
-                    pendingAttachments = draft.attachments.map { PendingAttachmentUi(it.id, it.name, it.size, true) },
+                    pendingAttachments =
+                        draft.attachments.map {
+                            PendingAttachmentUi(it.id, it.name, it.size, !it.isImage, it.isImage)
+                        },
                 )
             _screen.update { if (openSessionId == draft.session.id) refreshed else it }
             return
@@ -4480,7 +4518,8 @@ class ChatService(
                 id = entry.artifactId,
                 fileName = entry.fileName,
                 sizeBytes = entry.sizeBytes,
-                isText = true,
+                isText = entry.normalizedArtifactId == null && entry.imageSendError == null,
+                isImage = entry.normalizedArtifactId != null || entry.imageSendError != null,
             )
         }
 

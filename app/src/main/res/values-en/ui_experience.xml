@@ -16,4 +16,8 @@
     <string name="work_tasks_empty_body">Describe what you need in a conversation, such as organizing documents or using an app. Track its progress here.</string>
     <string name="work_artifacts_empty_title">Keep the results of your work</string>
     <string name="work_artifacts_empty_body">Ask Helix to write a document, organize a table, or save a result. Generated files and completed responses appear here.</string>
+    <string name="chat_image_preview">Preview image</string>
+    <string name="chat_image_unavailable">Image unavailable</string>
+    <string name="plugins_import_skill">Import a standalone skill</string>
+    <string name="plugins_import_skill_summary">Choose a Skill ZIP or a workspace directory</string>
 </resources>

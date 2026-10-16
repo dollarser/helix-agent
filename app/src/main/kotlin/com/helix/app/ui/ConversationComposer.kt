@@ -70,6 +70,7 @@ internal fun ConversationComposer(
     canCompact: Boolean = false,
     headerStatus: @Composable () -> Unit = {},
     optionsContent: @Composable () -> Unit = {},
+    attachmentsContent: @Composable () -> Unit = {},
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
@@ -133,6 +134,7 @@ internal fun ConversationComposer(
                 .fillMaxWidth()
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
         ) {
+            attachmentsContent()
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,

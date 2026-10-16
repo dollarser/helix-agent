@@ -69,7 +69,7 @@ internal fun verifyCompactChatSettings(compose: AndroidComposeTestRule<*, *>) {
 }
 
 /** Window-dismiss animations can outlive Compose semantics; capture only consecutive stable frames. */
-private fun stableChatLayoutScreenshot(): Bitmap {
+internal fun stableChatLayoutScreenshot(): Bitmap {
     var previous: Bitmap? = null
     repeat(10) {
         val current = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())

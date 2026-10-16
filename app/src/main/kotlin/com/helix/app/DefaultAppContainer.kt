@@ -918,6 +918,7 @@ internal class DefaultAppContainer(
             workspaceScopeId = APP_SCOPE_ID,
             sourceMetadata = featureFiles.metadataReader::metadata,
             resolveWorkspacePath = { scopePath -> resolveFileScopePath(scopePath, scopeRoots) },
+            openPreviewSource = featureFiles.sourceOpener::openStream,
         )
 
     override val chatService: ChatService =

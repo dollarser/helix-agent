@@ -1766,7 +1766,7 @@
     <string name="extensions_tool_details">Review or customize tools</string>
     <string name="extensions_component_status">Available components: %1$d / %2$d</string>
     <string name="extensions_search">Search installed plugins</string>
-    <string name="mobile_use_global_help">These settings apply to every conversation using Mobile Use. Saving does not enable it in any conversation. Select the plugin in conversation extensions. Scope changes invalidate previous observations and approvals.</string>
+    <string name="mobile_use_global_help">These settings apply to every conversation using Mobile Use. Saving does not enable it in any conversation. Select the plugin in conversation plugins. Scope changes invalidate previous observations and approvals.</string>
     <string name="mobile_use_save_settings">Save plugin settings</string>
     <string name="mobile_use_permissions_heading">1. Grant Helix system access</string>
     <string name="mobile_use_permissions_help">Manage Accessibility, Root or Shizuku in System permissions. Choose an available method for your device; you do not need all three. System access provides the capability; the scope below determines which apps Mobile Use may operate.</string>
@@ -1781,7 +1781,7 @@
     <string name="plugin_contents_tools">Tools (%1$d)</string>
     <string name="plugin_contents_skills">Skills (%1$d)</string>
     <string name="plugin_contents_skill_hint">Selecting the plugin exposes the skill catalog. Bodies load on demand or after an explicit user invocation. Built-in skills need no separate switch.</string>
-    <string name="mobile_use_configuration_required">Save the allowed application scope in Extensions → Mobile Use → Plugin settings first.</string>
+    <string name="mobile_use_configuration_required">Save the allowed application scope in Plugins → Mobile Use → Plugin settings first.</string>
     <string name="permissions_file_locations">Files and granted folders</string>
     <string name="plugin_contents_expand">View tools and skills ▾</string>
     <string name="plugin_contents_collapse">Collapse tools and skills ▴</string>
@@ -1840,7 +1840,7 @@
     <string name="phone_task_permissions">Check system permissions</string>
     <string name="phone_task_try">Try a phone-task prompt</string>
     <string name="phone_task_example">Lower the screen brightness a little and check the result.</string>
-    <string name="phone_task_check_failed">Could not determine the phone-control plugin status. Check Extensions.</string>
+    <string name="phone_task_check_failed">Could not determine the phone-control plugin status. Check Plugins.</string>
     <string name="phone_task_needs_configuration">The phone-control plugin is disabled or its registration needs attention. Check plugin settings.</string>
     <string name="phone_task_needs_selection">The phone-control plugin is enabled but not selected for this conversation.</string>
     <string name="phone_task_selected">Phone tools are selected for this conversation. Each action still depends on system permissions and the configured scope.</string>
@@ -1942,7 +1942,7 @@
     <string name="plugin_setup_title">Plugin setup required</string>
     <string name="plugin_setup_mobile_scope">Mobile Use has no saved phone access scope. Choose the whole phone or specific apps in Mobile Use settings, save, then return and enable it.</string>
     <string name="plugin_setup_mobile_backend">Mobile Use has no available screen backend. In system permissions, authorize and connect Accessibility, Shizuku or Root. Confirm one is available, then return and enable the plugin.</string>
-    <string name="plugin_setup_generic">This plugin needs more setup. Complete the required settings in Extensions, then return and enable it.</string>
+    <string name="plugin_setup_generic">This plugin needs more setup. Complete the required settings in Plugins, then return and enable it.</string>
     <string name="plugin_setup_continue">Go to settings</string>
     <string name="plugin_setup_later">Not now</string>
     <string name="skill_invocation_arguments">Arguments for this input (optional)</string>
@@ -1961,10 +1961,10 @@
     <string name="plugin_saved_loaded">Configuration saved: %1$s; loaded: %2$s</string>
     <string name="plugin_fact_yes">Yes</string>
     <string name="plugin_fact_no">No</string>
-    <string name="plugin_setup_connection">This component is not connected. Complete its configuration and connect in Extensions, then return to select it.</string>
-    <string name="plugin_setup_host">The required host capability is unavailable. Check Extensions and its runtime requirements, then return to select it.</string>
-    <string name="plugin_setup_unsupported">This package contains components that cannot execute here. Review support in Extensions or choose a supported package.</string>
-    <string name="plugin_setup_reload">Configuration is saved but not loaded. Reconnect or repair in Extensions, then return to select it.</string>
+    <string name="plugin_setup_connection">This component is not connected. Complete its configuration and connect in Plugins, then return to select it.</string>
+    <string name="plugin_setup_host">The required host capability is unavailable. Check Plugins and its runtime requirements, then return to select it.</string>
+    <string name="plugin_setup_unsupported">This package contains components that cannot execute here. Review support in Plugins or choose a supported package.</string>
+    <string name="plugin_setup_reload">Configuration is saved but not loaded. Reconnect or repair in Plugins, then return to select it.</string>
     <string name="plugin_state_request_unavailable">Unavailable to this request</string>
     <string name="plugin_compatibility">Component support</string>
     <string name="plugin_compat_supported">Supported; connection and conversation selection are separate</string>

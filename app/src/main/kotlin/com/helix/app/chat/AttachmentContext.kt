@@ -193,7 +193,11 @@ object AttachmentContext {
         append("$UNTRUSTED_MARKER\n")
         append("【附件 $index/$total · ${block.fileName}】\n")
         append("类型：图片（${block.mediaType}）\n")
-        append("归一化尺寸：${block.width}x${block.height} · ${block.sizeBytes} 字节\n")
+        if (block.width > 0 && block.height > 0) {
+            append("归一化尺寸：${block.width}x${block.height} · ${block.sizeBytes} 字节\n")
+        } else {
+            append("归一化文件：${block.sizeBytes} 字节\n")
+        }
         append("SHA-256（归一化内容）：${block.sha256}\n")
         append("图片像素作为本条消息的图片输入随文发送（端上已归一化并剥离 EXIF 元数据）。")
     }

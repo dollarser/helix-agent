@@ -21,6 +21,7 @@ data class ConversationIntents(
     val onDenyApproval: (String) -> Unit,
     val onStageAttachment: (String) -> Unit,
     val onRemoveAttachment: (String) -> Unit,
+    val onPreviewImage: suspend (com.helix.app.chat.ChatImageRef) -> ByteArray? = { null },
     val onSetMode: (AgentMode) -> Unit,
     val onCommandMode: suspend (AgentMode) -> Boolean = {
         onSetMode(it)

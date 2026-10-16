@@ -700,6 +700,89 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     @Test
+    fun localImagePreviewChecksBindingHashSessionAndRemovalWithoutSending() {
+        val fixture = newFixture(vision = true)
+        try {
+            stageImageAttachment(fixture)
+            val pending =
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+            assertTrue(pending.isImage)
+            val reference = ChatImageRef(SESSION_ID, null, pending.id)
+            val before = runBlocking { fixture.service.previewImage(reference) }
+            assertTrue(before != null)
+            assertEquals(0, fixture.wire.callCount)
+            fixture.wire.script(sseResponse(textAnswerStream("收到图片。")))
+            sendToDisclosure(fixture)
+            fixture.service.confirmSend()
+            await(fixture, "image completes") { turnIsTerminal(fixture) }
+            await(fixture, "history exposes bound image") {
+                fixture.service.screen.value.messages
+                    .any { it.images.isNotEmpty() }
+            }
+            val history =
+                fixture.service.screen.value.messages
+                    .first { it.images.isNotEmpty() }
+                    .images
+                    .single()
+            val after = runBlocking { fixture.service.previewImage(history.reference) }
+            org.junit.Assert.assertArrayEquals(before, after)
+            org.junit.Assert.assertNull(runBlocking { fixture.service.previewImage(reference) })
+            org.junit.Assert.assertNull(
+                runBlocking {
+                    fixture.service.previewImage(history.reference.copy(sessionId = "other"))
+                },
+            )
+            org.junit.Assert.assertNull(
+                runBlocking {
+                    fixture.service.previewImage(history.reference.copy(attachmentId = "unbound"))
+                },
+            )
+            val artifact = fixture.storage.artifacts.resolve(history.reference.attachmentId)
+            val file =
+                fixture.workspaceRoot.resolve(
+                    FileScopePath.fromModelReference(artifact.relativePath).relativePath,
+                )
+            file.appendText("tampered")
+            org.junit.Assert.assertNull(runBlocking { fixture.service.previewImage(history.reference) })
+            assertEquals(1, fixture.wire.callCount)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun ephemeralDraftImageCanPreviewAndRemoveWithoutPersistingASession() {
+        val fixture = newFixture(vision = true)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val draftId = requireNotNull(fixture.service.newSessionDraft())
+            stageImageAttachment(fixture)
+            val pending =
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+            assertTrue(pending.isImage)
+            val reference = ChatImageRef(draftId, null, pending.id)
+            assertTrue(runBlocking { fixture.service.previewImage(reference) } != null)
+            assertEquals(0, fixture.wire.callCount)
+            assertEquals(
+                1,
+                fixture.storage.sessions
+                    .list()
+                    .size,
+            )
+            fixture.service.removePendingAttachment(pending.id)
+            await(fixture, "draft image removed") {
+                fixture.service.screen.value.pendingAttachments
+                    .isEmpty()
+            }
+            org.junit.Assert.assertNull(runBlocking { fixture.service.previewImage(reference) })
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
     fun imageAttachmentCarriesTheNormalizedPayloadAndHistoryReResolves() {
         val fixture = newFixture(vision = true)
         try {
@@ -1946,6 +2029,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 SafSourceMetadata(file.length(), mime, file.name)
             },
             resolveWorkspacePath = { scopePath -> workspaceRoot.toPath().resolve(scopePath.relativePath) },
+            openPreviewSource = { uri -> requireNotNull(sourceFiles[uri]).inputStream() },
         )
 
     /** The service only observes the profile flow; the tests pin STANDARD. */

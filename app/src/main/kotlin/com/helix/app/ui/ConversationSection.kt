@@ -338,6 +338,7 @@ internal fun ConversationSection(
                             val message = content.value
                             MessageRow(
                                 message = message,
+                                imageContent = { ChatMessageImages(message.images, intents.onPreviewImage) },
                                 onFork = intents.onFork?.takeIf { message.id == forkMessageId },
                                 onEdit =
                                     intents.onEditLatest?.takeIf {
@@ -451,7 +452,6 @@ internal fun ConversationSection(
                 }
             }
         }
-        PendingAttachmentStrip(screen.pendingAttachments, intents.onRemoveAttachment)
         inputNotice?.let { notice ->
             Text(
                 notice,
@@ -466,6 +466,14 @@ internal fun ConversationSection(
         composerFeedback()
         composerStatus()
         ConversationComposer(
+            attachmentsContent = {
+                PendingAttachmentStrip(
+                    screen.pendingAttachments,
+                    intents.onRemoveAttachment,
+                    screen.openSessionId,
+                    intents.onPreviewImage,
+                )
+            },
             editorKey = screen.openSessionId,
             onChooseModel = { modelPickerRequest++ },
             optionsContent = {

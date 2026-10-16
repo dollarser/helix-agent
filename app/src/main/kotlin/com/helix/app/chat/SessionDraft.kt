@@ -14,6 +14,7 @@ internal data class DraftAttachment(
     val uri: String,
     val name: String,
     val size: Long,
+    val isImage: Boolean = false,
 )
 
 internal fun automaticSessionTitle(text: String): String {

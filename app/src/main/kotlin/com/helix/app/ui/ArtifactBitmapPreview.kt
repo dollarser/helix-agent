@@ -1,6 +1,6 @@
 package com.helix.app.ui
 
-import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.key
@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.nio.ByteBuffer
 
 /** Preview-only sampling off the main thread; it never changes the saved artifact. */
 @Composable
@@ -18,17 +20,30 @@ internal fun rememberArtifactBitmap(imageBytes: ByteArray): State<ImageBitmap?> 
         produceState<ImageBitmap?>(null, imageBytes) {
             value =
                 withContext(Dispatchers.Default) {
-                    imageBytes.takeIf { it.isNotEmpty() }?.let { bytes ->
-                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-                        val options = BitmapFactory.Options().apply { inSampleSize = 1 }
-                        while (bounds.outWidth / options.inSampleSize > 1024 ||
-                            bounds.outHeight / options.inSampleSize > 1024
-                        ) {
-                            options.inSampleSize *= 2
-                        }
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
-                    }
+                    decodePreviewBitmap(imageBytes, 1024)
                 }
         }
+    }
+
+/** ImageDecoder honors camera orientation while bounding the decoded allocation, including draft images. */
+@Suppress("SwallowedException") // Malformed/unreadable images show the unavailable state.
+internal fun decodePreviewBitmap(bytes: ByteArray, maxEdge: Int): ImageBitmap? =
+    try {
+        if (bytes.isEmpty()) {
+            null
+        } else {
+            ImageDecoder
+                .decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                    val ratio = minOf(1.0, maxEdge.toDouble() / maxOf(info.size.width, info.size.height))
+                    decoder.setTargetSize(
+                        (info.size.width * ratio).toInt().coerceAtLeast(1),
+                        (info.size.height * ratio).toInt().coerceAtLeast(1),
+                    )
+                }.asImageBitmap()
+        }
+    } catch (_: IOException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
     }

@@ -644,6 +644,7 @@ fun ChatScreen(
                             }
                         },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
+                        onPreviewImage = chatService::previewImage,
                         onSelectPermission = { selected ->
                             val id = sessionId
                             val edit = sessionPermissionEdit

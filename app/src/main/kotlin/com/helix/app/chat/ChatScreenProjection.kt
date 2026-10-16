@@ -165,7 +165,14 @@ internal class ChatScreenProjection(
                     if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
                         null
                     } else {
-                        MessageUi(entity.id, entity.role.lowercase(), content.orEmpty(), entity.turnId, entity.sequence)
+                        MessageUi(
+                            entity.id,
+                            entity.role.lowercase(),
+                            content.orEmpty(),
+                            entity.turnId,
+                            entity.sequence,
+                            images = messageImages(storage, sessionId, entity.id),
+                        )
                     }
                 }
         return MessagePresentationPolicy.apply(

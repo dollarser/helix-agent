@@ -66,6 +66,7 @@ data class MessageUi(
     val turnId: String? = null,
     val sequence: Long? = null,
     val presentation: MessagePresentation = MessagePresentation.NORMAL,
+    val images: List<ChatImageUi> = emptyList(),
 )
 
 enum class MessagePresentation { NORMAL, PROGRESS, COMPLETED_PROGRESS }
@@ -97,6 +98,7 @@ data class PendingAttachmentUi(
     val fileName: String,
     val sizeBytes: Long,
     val isText: Boolean,
+    val isImage: Boolean = false,
 )
 
 /**

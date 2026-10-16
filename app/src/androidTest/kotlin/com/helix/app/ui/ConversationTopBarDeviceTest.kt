@@ -93,6 +93,7 @@ class ConversationTopBarDeviceTest {
         compose.onNodeWithTag("skill-creator-open").performScrollTo().performClick()
         compose.onNodeWithTag("skill-creator-name").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("skill-creator-open").performScrollTo().performClick()
+        compose.onNodeWithTag("plugins-skill-import").performScrollTo().performClick()
         compose.onNodeWithTag("skill-installer-path").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("connector-paste").performScrollTo().performClick()
         compose.onNodeWithTag("connector-json").performScrollTo().assertIsDisplayed()

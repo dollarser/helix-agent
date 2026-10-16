@@ -54,6 +54,7 @@ fun ConnectorSection(
     service: PluginService,
     showImport: Boolean = true,
     showInstalled: Boolean = true,
+    showIntroduction: Boolean = true,
     onUse: ((String?) -> Unit)? = null,
     query: String = "",
     configurePluginId: String? = null,
@@ -111,9 +112,14 @@ fun ConnectorSection(
             }
         }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.connector_title), style = MaterialTheme.typography.titleMedium)
+        if (showIntroduction) {
+            Text(
+                stringResource(R.string.connector_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
         if (showImport) {
-            Text(stringResource(R.string.connector_intro))
+            if (showIntroduction) Text(stringResource(R.string.connector_intro))
             OutlinedButton(
                 onClick = {
                     replaceTarget = null

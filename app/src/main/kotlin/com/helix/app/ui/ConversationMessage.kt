@@ -113,6 +113,7 @@ internal fun MessageRow(
     onRegenerate: ((String) -> Unit)? = null,
     searchQuery: String? = null,
     isCurrentMatch: Boolean = false,
+    imageContent: @Composable () -> Unit = {},
 ) {
     val isUser = message.role == "user"
     var actionsVisible by remember(message.id) { mutableStateOf(false) }
@@ -147,6 +148,7 @@ internal fun MessageRow(
                         .testTag("chat-message-toggle-${message.id}"),
             ) {
                 Column {
+                    imageContent()
                     val bodyModifier =
                         Modifier
                             .testTag("chat-message-body-${message.id}")

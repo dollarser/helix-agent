@@ -130,6 +130,7 @@ fun ExtensionsScreen(
             ConnectorSection(
                 connectors,
                 showInstalled = false,
+                showIntroduction = false,
                 onUse = onUsePlugin,
                 onInstalled = { catalogRevision++ },
                 onConfigureImported = { id ->
@@ -138,7 +139,11 @@ fun ExtensionsScreen(
                 },
             )
             if (authoring != null && installation != null) {
-                SkillInstallationSection(authoring, installation, onUse, onInstalled = { catalogRevision++ })
+                SettingsDisclosure(
+                    stringResource(R.string.plugins_import_skill),
+                    "plugins-skill-import",
+                    stringResource(R.string.plugins_import_skill_summary),
+                ) { SkillInstallationSection(authoring, installation, onUse, onInstalled = { catalogRevision++ }) }
                 SettingsDisclosure(
                     stringResource(R.string.plugins_authoring),
                     "plugins-authoring",
@@ -167,6 +172,7 @@ fun ExtensionsScreen(
                 ConnectorSection(
                     connectors,
                     showImport = false,
+                    showIntroduction = false,
                     onUse = onUsePlugin,
                     query = query,
                     configurePluginId = configurePluginId,

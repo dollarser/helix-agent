@@ -154,6 +154,18 @@ class AttachmentContextTest {
     }
 
     @Test
+    fun unknownImageDimensionsDoNotBecomeZeroSizedImageClaims() {
+        for ((width, height) in listOf(0 to 0, 1024 to 0, 0 to 768, -1 to 768)) {
+            val image = imageBlock(width = width, height = height)
+            val out = AttachmentContext.buildUserMessageContent("Inspect", listOf(image))
+            assertFalse(out.contains("归一化尺寸"))
+            assertTrue(out.contains("归一化文件：${image.sizeBytes} 字节"))
+            assertTrue(out.contains(sha))
+            assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
+        }
+    }
+
+    @Test
     fun textAndImageBlocksCoexistInStagedOrder() {
         val out =
             AttachmentContext.buildUserMessageContent(

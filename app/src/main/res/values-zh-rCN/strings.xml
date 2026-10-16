@@ -1960,8 +1960,8 @@
     <string name="plugin_fact_no">否</string>
     <string name="plugin_setup_connection">组件尚未连接。请在插件设置中补全连接配置并连接，再返回选择。</string>
     <string name="plugin_setup_host">此组件需要的宿主能力当前不可用。请检查插件设置和运行条件，再返回选择。</string>
-    <string name="plugin_setup_unsupported">此包包含当前不能执行的组件。请在扩展详情查看支持范围，或选择支持的包。</string>
-    <string name="plugin_setup_reload">配置已保存但尚未加载。请在扩展设置中重新连接或修复，再返回选择。</string>
+    <string name="plugin_setup_unsupported">此包包含当前不能执行的组件。请在插件详情查看支持范围，或选择支持的包。</string>
+    <string name="plugin_setup_reload">配置已保存但尚未加载。请在插件设置中重新连接或修复，再返回选择。</string>
     <string name="plugin_state_request_unavailable">本次请求不能调用</string>
     <string name="plugin_compatibility">组件支持范围</string>
     <string name="plugin_compat_supported">支持；连接和会话选择需另行确认</string>
