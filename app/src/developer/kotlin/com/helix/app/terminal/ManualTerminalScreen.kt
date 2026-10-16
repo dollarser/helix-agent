@@ -67,13 +67,14 @@ internal fun ManualTerminalScreen(
                 .testTag("manual-terminal-screen"),
         ) {
             TerminalTopBar(
+                state = state,
+                model = model,
                 onBack = onBack,
                 onHelp = {
                     keyboard = false
                     help = true
                 },
                 keyboardVisible = imeVisible || keyboard,
-                keyboardEnabled = state.connection != null && state.isWriter,
                 onToggleKeyboard = { keyboard = !(imeVisible || keyboard) },
                 onRuntimeSettings = onRuntimeSettings,
             )
@@ -137,37 +138,6 @@ private fun TerminalEmptyState(hasSession: Boolean) {
 
 @Composable
 @Suppress("FunctionName")
-private fun TerminalTopBar(
-    onBack: () -> Unit,
-    onHelp: () -> Unit,
-    keyboardVisible: Boolean,
-    keyboardEnabled: Boolean,
-    onToggleKeyboard: () -> Unit,
-    onRuntimeSettings: () -> Unit,
-) {
-    Row(Modifier.fillMaxWidth()) {
-        TextButton(onClick = onBack) { Text(stringResource(R.string.files_back)) }
-        Row(Modifier.weight(1f).indicatedHorizontalScroll(rememberScrollState())) {
-            TextButton(onClick = onHelp, modifier = Modifier.testTag("terminal-help")) {
-                Text(stringResource(R.string.terminal_help))
-            }
-            TextButton(onClick = onRuntimeSettings, modifier = Modifier.testTag("terminal-runtime-settings")) {
-                Text(stringResource(R.string.setup_runtime_title))
-            }
-        }
-        TextButton(
-            onClick = onToggleKeyboard,
-            enabled = keyboardEnabled,
-            modifier = Modifier.testTag("terminal-keyboard"),
-        ) {
-            val label = if (keyboardVisible) R.string.terminal_hide_keyboard else R.string.terminal_show_keyboard
-            Text(stringResource(label))
-        }
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
 private fun TerminalTabBar(
     sessions: List<ManualTerminal.State>,
     activeSessionId: String?,
@@ -185,7 +155,7 @@ private fun TerminalTabBar(
                 modifier = Modifier.testTag("terminal-tab-$index"),
             ) {
                 Text(
-                    text = "${stringResource(R.string.terminal_tab_title, index + 1)} [${sess.phase}]",
+                    text = stringResource(R.string.terminal_tab_title, index + 1),
                     style = if (active) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
                     color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
@@ -247,14 +217,18 @@ private fun TerminalSessionDetails(
             ?.ifBlank { "." } ?: directory
     Text(
         stringResource(R.string.terminal_directory, initialDirectory),
-        Modifier.testTag("terminal-workspace"),
+        Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("terminal-workspace"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
     session?.let {
         Text(
-            "${it.phase} · ${it.stopReason.orEmpty()} · ${it.exitStatus ?: "—"}",
-            Modifier.testTag("terminal-state"),
+            listOfNotNull(it.phase, it.stopReason, it.exitStatus?.toString()).joinToString(" · "),
+            Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("terminal-state"),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
     if (session?.canSettle == true) {
@@ -279,35 +253,18 @@ private fun TerminalActionControls(
             ) {
                 Text(stringResource(R.string.terminal_start))
             }
-        } else {
-            TextButton(
-                onClick = { model.open(directoryToStart = null) },
-                enabled = !state.busy && state.connection == null,
-                modifier = Modifier.testTag("terminal-connect"),
-            ) {
-                Text(stringResource(R.string.terminal_connect))
-            }
-            TextButton(
-                onClick = { model.stop() },
-                enabled = !state.busy,
-                modifier = Modifier.testTag("terminal-stop"),
-            ) {
-                Text(stringResource(R.string.terminal_stop))
-            }
+        } else if (state.session?.canSettle == true) {
             TextButton(
                 onClick = { model.settle() },
-                enabled = !state.busy && state.session?.canSettle == true,
+                enabled = !state.busy,
                 modifier = Modifier.testTag("terminal-settle"),
-            ) {
-                Text(stringResource(R.string.terminal_settle))
-            }
-        }
-        TextButton(
-            onClick = { model.refresh() },
-            enabled = !state.busy,
-            modifier = Modifier.testTag("terminal-refresh"),
-        ) {
-            Text(stringResource(R.string.terminal_refresh))
+            ) { Text(stringResource(R.string.terminal_settle)) }
+        } else if (state.connection == null) {
+            TextButton(
+                onClick = { model.open(directoryToStart = null) },
+                enabled = !state.busy,
+                modifier = Modifier.testTag("terminal-connect"),
+            ) { Text(stringResource(R.string.terminal_connect)) }
         }
     }
 }

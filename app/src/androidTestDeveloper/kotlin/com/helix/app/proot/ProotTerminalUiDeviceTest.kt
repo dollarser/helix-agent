@@ -54,6 +54,7 @@ class ProotTerminalUiDeviceTest {
         val language = if (locale == "zh") AppLanguage.ZH_CN else AppLanguage.EN
         AppLanguageStore.applyChoice(context, language)
         val terminal = checkNotNull(container.manualTerminal)
+        runBlocking { check(!terminal.hasSession()) { "Retained user terminal must not be replaced by this fixture" } }
         val relative = "terminal-ui-${UUID.randomUUID()}"
         val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
@@ -64,12 +65,11 @@ class ProotTerminalUiDeviceTest {
             ).putExtra(ManualTerminalActivity.DIRECTORY, relative)
         try {
             ActivityScenario.launch<ManualTerminalActivity>(intent).use { scenario ->
-                awaitNode("terminal-start")
-                compose.onNodeWithTag("terminal-start").performClick()
                 awaitNode("terminal-viewport")
                 awaitPhase("RUNNING")
                 compose.onNodeWithTag("terminal-workspace").assertTextContains(relative, substring = true)
                 compose.onNodeWithTag("terminal-help-content").assertDoesNotExist()
+                compose.onNodeWithTag("terminal-menu").performClick()
                 compose.onNodeWithTag("terminal-help").performClick()
                 compose.onNodeWithTag("terminal-help-content").assertExists()
                 compose.onNodeWithTag("terminal-help-close").performClick()
@@ -117,6 +117,7 @@ class ProotTerminalUiDeviceTest {
                 send(scenario, "printf \"%s\" \"\$KEEP\" > rotated.txt; printf '\\033[32mROTATED_保留\\033[0m\\n'\n")
                 awaitFile(workspace, "rotated.txt", "preserved")
                 visibleGlyphs("terminal-rotated.png")
+                compose.onNodeWithTag("terminal-menu").performClick()
                 compose.onNodeWithTag("terminal-stop").performClick()
                 runBlocking {
                     withTimeout(15_000) { while (!terminal.query().canSettle) delay(50) }
@@ -146,6 +147,7 @@ class ProotTerminalUiDeviceTest {
         ensureInstalledRuntime(context)
         val previous = container.profileStore.profile
         val terminal = checkNotNull(container.manualTerminal)
+        runBlocking { check(!terminal.hasSession()) { "Retained user terminal must not be replaced by this fixture" } }
         val relative = "terminal-pressure-${UUID.randomUUID()}"
         val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
         container.profileStore.switchTo(SafetyProfile.ADVANCED)
@@ -155,8 +157,6 @@ class ProotTerminalUiDeviceTest {
         try {
             var original = ""
             ActivityScenario.launch<ManualTerminalActivity>(intent).use { first ->
-                awaitNode("terminal-start")
-                compose.onNodeWithTag("terminal-start").performClick()
                 awaitNode("terminal-viewport")
                 awaitPhase("RUNNING")
                 original = runBlocking { terminal.query().sessionId }
@@ -174,8 +174,6 @@ class ProotTerminalUiDeviceTest {
             awaitFile(workspace, "finished", "yes")
             assertEquals(original, runBlocking { terminal.query().sessionId })
             ActivityScenario.launch<ManualTerminalActivity>(intent).use { second ->
-                awaitNode("terminal-connect")
-                compose.onNodeWithTag("terminal-connect").performClick()
                 awaitNode("terminal-viewport")
                 awaitNode("terminal-output-gap")
                 visibleGlyphs("terminal-overflow.png")
@@ -195,6 +193,7 @@ class ProotTerminalUiDeviceTest {
                 send(second, "printf '%s' \"$?\" > interrupted.txt\n")
                 awaitFile(workspace, "interrupted.txt", "130")
                 compose.waitUntil(5000) { !File("/proc/$pid").exists() }
+                compose.onNodeWithTag("terminal-menu").performClick()
                 compose.onNodeWithTag("terminal-stop").performClick()
                 awaitPhase("STOPPED")
                 compose.onNodeWithTag("terminal-settle").performClick()

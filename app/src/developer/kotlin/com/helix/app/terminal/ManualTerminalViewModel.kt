@@ -27,6 +27,7 @@ internal data class TerminalPageState(
 )
 
 /** Owns the connection across rotation; finishing the page never stops the shell. */
+@Suppress("TooManyFunctions") // One owner serializes page entry, explicit controls and lifecycle cleanup.
 internal class ManualTerminalViewModel(
     private val terminal: ManualTerminal,
 ) : ViewModel() {
@@ -34,6 +35,7 @@ internal class ManualTerminalViewModel(
     val state = mutable.asStateFlow()
     private val mutex = Mutex()
     private val cleanup = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var initialEntryAttempted = false
 
     init {
         action {
@@ -49,6 +51,28 @@ internal class ManualTerminalViewModel(
         }
     }
 
+    /** Enter the user-operated page. Never repeat an ambiguous automatic start on resume. */
+    fun enter(directory: String) =
+        action {
+            if (mutable.value.connection != null) return@action
+            val mayStart = !initialEntryAttempted
+            initialEntryAttempted = true
+            val all = terminal.sessions()
+            val active = all.find { it.sessionId == mutable.value.activeSessionId } ?: all.firstOrNull()
+            mutable.value =
+                mutable.value.copy(
+                    hasSession = all.isNotEmpty(),
+                    sessions = all,
+                    activeSessionId = active?.sessionId,
+                    session = active,
+                )
+            if (active != null) {
+                if (active.phase != "UNKNOWN" && !active.canSettle) connect(active.sessionId)
+            } else if (mayStart) {
+                connect(startSession(terminal, mutable, directory))
+            }
+        }
+
     /** A null directory attaches the retained session; only an explicit directory starts one. */
     fun open(directoryToStart: String?) =
         action {
@@ -58,18 +82,7 @@ internal class ManualTerminalViewModel(
                     mutable.value = mutable.value.copy(errorMessage = "CAPACITY_FULL")
                     return@action
                 }
-                val newSession = terminal.start(directoryToStart)
-                detachConnection(mutable)
-                val all = terminal.sessions()
-                mutable.value =
-                    mutable.value.copy(
-                        hasSession = true,
-                        sessions = all,
-                        activeSessionId = newSession.sessionId,
-                        session = newSession,
-                        errorMessage = null,
-                    )
-                connect(newSession.sessionId)
+                connect(startSession(terminal, mutable, directoryToStart))
             } else {
                 val activeId = mutable.value.activeSessionId ?: terminal.sessions().firstOrNull()?.sessionId
                 if (activeId != null) {
@@ -236,4 +249,23 @@ private suspend fun detachConnection(mutable: MutableStateFlow<TerminalPageState
     val connection = mutable.value.connection
     mutable.value = mutable.value.copy(connection = null)
     connection?.detach()
+}
+
+private suspend fun startSession(
+    terminal: ManualTerminal,
+    mutable: MutableStateFlow<TerminalPageState>,
+    directory: String,
+): String {
+    val newSession = terminal.start(directory)
+    detachConnection(mutable)
+    val all = terminal.sessions()
+    mutable.value =
+        mutable.value.copy(
+            hasSession = true,
+            sessions = all,
+            activeSessionId = newSession.sessionId,
+            session = newSession,
+            errorMessage = null,
+        )
+    return newSession.sessionId
 }

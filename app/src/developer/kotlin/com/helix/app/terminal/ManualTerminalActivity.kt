@@ -51,6 +51,11 @@ class ManualTerminalActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        model.enter(intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." })
+    }
+
     override fun onStop() {
         super.onStop()
         if (!isChangingConfigurations) model.disconnect()
