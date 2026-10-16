@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -47,14 +48,9 @@ class LiveImagePreviewDeviceTest {
 
     @Test
     @Suppress("LongMethod", "TooGenericExceptionCaught") // Owned journey; failure capture always rethrows.
-    fun previewAndPersistedHistoryUseTheImageSeenByTheRealModel() =
+    fun previewHistoryAndRealModelRecognitionAreVerifiedSeparately() =
         runBlocking {
-            val args = InstrumentationRegistry.getArguments()
-            val rawPort = args.getString("imagePort")
-            val rawModel = args.getString("imageModel")
-            assumeTrue("Explicit model profile required", rawPort != null || rawModel != null)
-            val port = requireNotNull(rawPort).toInt().also { require(it in 1..65535) }
-            val model = requireNotNull(rawModel).also { require(it.isNotBlank()) }
+            val (port, model, scale) = readProfile()
             val c = compose.container()
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val chat = c.chatService
@@ -86,9 +82,9 @@ class LiveImagePreviewDeviceTest {
                 compose.navigateTo("sessions")
                 chat.setMode(AgentMode.CHAT)
                 chat.setChatToolsEnabled(false)
-                chat.setReasoning(ReasoningEffort.OFF)
+                chat.setReasoning(ReasoningEffort.OFF) // Omits effort; does not disable server-default thinking.
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == id }
-                writeImage(source)
+                writeImage(source, scale)
                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", source)
                 chat.stageAttachment(uri.toString())
                 compose.waitUntil(10_000) { chat.screen.value.pendingAttachments.size == 1 }
@@ -96,6 +92,11 @@ class LiveImagePreviewDeviceTest {
                     chat.screen.value.pendingAttachments
                         .single()
                 val staged = requireNotNull(chat.previewImage(ChatImageRef(id, null, pending.id)))
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(staged, 0, staged.size, bounds)
+                assertEquals(640 * scale, bounds.outWidth)
+                assertEquals(360 * scale, bounds.outHeight)
+                println("LIVE_IMAGE_INPUT scale=$scale width=${bounds.outWidth} height=${bounds.outHeight}")
                 val digest =
                     java.security.MessageDigest
                         .getInstance("SHA-256")
@@ -144,6 +145,8 @@ class LiveImagePreviewDeviceTest {
                         .mapNotNull(c.storage.messages::readContent)
                         .joinToString("\n")
                 println("LIVE_IMAGE_REPLY=${reply.replace('\n', ' ').take(500)}")
+                val recognized = reply.contains("482") && reply.uppercase().contains("BLUE")
+                println("LIVE_IMAGE_MODEL_ACCURACY=${if (recognized) "PASS" else "FAIL"}")
                 chat.closeSession()
                 chat.openSession(id)
                 compose.waitUntil(10_000) {
@@ -179,7 +182,7 @@ class LiveImagePreviewDeviceTest {
                 println("LIVE_IMAGE_PREVIEW_PATH=PASS model=$model turns=1")
                 assertTrue(
                     "Image code/color was not recognized: $reply",
-                    reply.contains("482") && reply.uppercase().contains("BLUE"),
+                    recognized,
                 )
                 println("LIVE_IMAGE_PREVIEW=PASS model=$model turns=1")
             } catch (failure: Throwable) {
@@ -210,7 +213,28 @@ class LiveImagePreviewDeviceTest {
             }
         }
 
-    private fun writeImage(file: File) {
+    private data class Profile(
+        val port: Int,
+        val model: String,
+        val scale: Int,
+    )
+
+    private fun readProfile(): Profile {
+        val args = InstrumentationRegistry.getArguments()
+        val rawPort = args.getString("imagePort")
+        val rawModel = args.getString("imageModel")
+        val rawScale = args.getString("imageScale")
+        assumeTrue("Explicit model profile required", rawPort != null || rawModel != null || rawScale != null)
+        val port = requireNotNull(rawPort).toInt().also { require(it in 1..65535) }
+        val model = requireNotNull(rawModel).also { require(it.isNotBlank()) }
+        val scale = (rawScale?.toInt() ?: 1).also { require(it in 1..2) }
+        return Profile(port, model, scale)
+    }
+
+    private fun writeImage(
+        file: File,
+        scale: Int,
+    ) {
         check(file.parentFile!!.isDirectory || file.parentFile!!.mkdirs())
         val bitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -223,7 +247,13 @@ class LiveImagePreviewDeviceTest {
         canvas.drawText("482", 50f, 160f, paint)
         paint.color = Color.BLUE
         canvas.drawCircle(470f, 170f, 85f, paint)
-        file.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
-        bitmap.recycle()
+        // Keep the original fixture and assertion. Enlarging is an explicit diagnostic arm only.
+        val output = if (scale == 1) bitmap else Bitmap.createScaledBitmap(bitmap, 640 * scale, 360 * scale, true)
+        try {
+            file.outputStream().use { check(output.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        } finally {
+            if (output !== bitmap) output.recycle()
+            bitmap.recycle()
+        }
     }
 }
