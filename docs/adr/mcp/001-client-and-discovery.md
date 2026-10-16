@@ -1,7 +1,7 @@
 # ADR-MCP-001: MCP Client、传输与工具接入
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-15
+Date: 2026-09-16; revised 2026-10-16
 HXA: HXA-070, HXA-286, HXA-291
 Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
@@ -33,6 +33,12 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 资源正文与元数据区分，文本和二进制分别进入有界内容/产物路径，保持不可信来源。没有 Resources 能力的服务明确不支持；本增量不启用 Prompts 执行、sampling、elicitation、stdio 或 MCP Apps。Notion/Linear 已结案账号流程不作为新增资源验收前置。
 
+### 本地 stdio 的现状与候选边界
+
+当前存在有界 JSONL 帧和 Developer `McpStdioJobBridge` 基础，不是导入插件可用的常驻 MCP 会话；包内 command/stdio 仍明确诊断为需要 Runtime。HXA-291 只补 Resources，不由此启用本地进程。
+
+未来常驻接入需先确定真实目标 server、安装依赖、隔离/凭据 owner 和资源期限；复用原 Registry/Dispatcher 与 Runtime，不按每请求重启 Job 代替双向流。原安装 revision/command identity、实例 generation、连接/requestId 及取消/超时/真实退出分别绑定；stdout 协议、stderr 诊断、背压和有界关闭须按实际协议验证。只协商已实现能力；HTTP OAuth 凭据不会自动导入进程 env，外部服务请求和消息不能获得本地权限。具体进入条件归 [Harness §23.12](../../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续)，本节不授权新增 Runtime 产品。
+
 ## Alternatives considered
 
 直接实现最小 HTTP/JSON-RPC 可减少 SDK 依赖，但需要自行维护 session、SSE、取消和恢复，仅在 SDK 无法满足 Android 条件时评估。采用 Server/umbrella 依赖扩大无关能力，不采用。固定失配的旧依赖不是兼容方案；需要升级时同步整个实际依赖链并验证。
@@ -60,6 +66,8 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-16（现状与运行资格）：Owner 要求收敛后续文档。区分 Resources 元数据与正文消费、有限 stdio Job 基础与常驻协议服务；保持 291 独立范围。依据 [MCP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) 和 [lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle) 明确未来双向流/协商/关闭及凭据前置，不宣称本次已经实现常驻 stdio。
 
 - 2026-10-13：Owner要求优化工具发现误调用并直接复用外部插件。工具描述/Skill/历史中的名称仅是发现线索，调用以本次实际schema为准；tools.search版本4明确schemaAvailability=next_request，仍重验撤销/版本，不在同批或旧请求开放。其他宿主的mcp__限定名可按远端动作部分检索，返回Helix当前名称；不注册执行别名、不自动调度或重放。Browser观察描述就近提醒动作需先发现。实际模型收益与设备验证另计，主机契约不冒充遵循率。
 

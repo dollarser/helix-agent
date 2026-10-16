@@ -1,5 +1,7 @@
 # 内置工具与插件：桌面及移动端 Agent 对照与优化建议
 
+2026-10-16 当前复核见 [§10](#10-2026-10-16-预览后重构与能力复核)。前文保留研究脉络，实施状态由最新 HXA/证据覆盖；这份研究不另建执行顺序，目标方案仍归 Harness §23。
+
 > 调研日期：2026-10-15。Helix 基线为 `main` / `1e918cc7` 及本轮读取的工作区源码。本文整理本轮竞品分析，区分源码事实、产品文档声明和建议；未运行竞品，也未新增设备或真实模型测试。外部默认分支和在线文档会变化，本文不构成跨版本能力保证。
 >
 > **性质：日期化研究输入。** 2026-10-15 Owner 要求按本次评审优化文档和任务，已采用部分登记为 HXA-286～294，均未实施；其余仍为候选。当前顺序只看 [status](../../development/status.md)，任务范围看 HXA，目标契约看 [ADR](../../adr/README.md)；本文不另建开发计划。
@@ -12,7 +14,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 
 建议先补齐高频任务链，再按真实需求扩充能力：
 
-1. 修正 Mobile Use 前置工具配套，统一工具描述与真实回执语义。
+1. 迁移并保留已修正的 Mobile Use 前置工具配套，继续统一工具描述与真实回执语义。
 2. 增加文件路径匹配、文件内容搜索，以及真正的网页搜索和正文读取。
 3. 改善工具来源目录、发现排序与插件兼容状态，补 MCP Resources 消费路径。
 4. 根据任务补浏览器表单、文档生成编辑、媒体处理和通用 Job 操作。
@@ -47,7 +49,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 | 文件 | 有读写、精确编辑、列举、属性、复制移动、删除、目录、归档及图片查看；`files.search` 仅按文件名子串匹配 | 补路径模式匹配与正文搜索；澄清名称搜索和内容搜索的区别 |
 | 网页研究 | `http.fetch` 提供有界 GET／HEAD；Browser 能打开和操作网页 | 补独立搜索服务入口与正文提取，支持来源引用；HTTP 请求工具不能充当搜索引擎 |
 | 浏览器 | 注册导航、标签页、snapshot／find、点击、输入、滚动、等待、截图、下载等工具 | 后续补键盘提交、选择控件与授权文件上传；明确输入是替换、追加还是提交 |
-| Mobile Use | 已有语义节点与设备／像素动作，覆盖 snapshot、find、点击、输入、滚动、启动、截图及手势 | 优先修正截图依赖配套；用更简单的动作参数降低模型出错，保留当前观察和执行回执边界 |
+| Mobile Use | 已有语义节点与设备／像素动作，覆盖 snapshot、find、点击、输入、滚动、启动、截图及手势；默认及单独截图发现配套已在后续收尾修复 | 286 迁移并保留配套回归；292 再验证参数、单位与观察来源改进，不重复规划已修缺口 |
 | Documents | `documents.inspect/read/view` 读取 PDF／DOCX，使用快照、来源身份及页／块引用 | 先补长文定位与表格阅读体验，再按任务增加生成／编辑、XLSX、OCR；目前不能声称支持文档编辑 |
 | 代码与长任务 | Developer 有 `code.linux.run` 及后台 Job；QuickJS 是另一条隔离执行路径 | 已有终端 UI／PTY 不等于模型拥有通用持久交互终端工具；先统一可发现的 Job 控制和结果收取 |
 | 计划与协作 | 已有 plan、todo、Goal、`ask_user`、Memory | 评估 Goal 状态报告重叠，避免多个入口含义近似；不以此重建执行引擎 |
@@ -281,4 +283,47 @@ Documents 生成/编辑、XLSX/OCR、媒体深化、模型持久终端、hooks/L
 
 2026-10-15 已完成的 R2-B 有界观察提示对照没有证明稳定收益，不能作为新检索方案已经有效的证据。Notion／Linear 验收已由 Owner 结案；本建议不重新开启账号授权、拒绝回调或自然刷新测试。具体事实与验证边界统一查看 [status](../../development/status.md)。
 
-本次已采用范围由 §7 对应任务及原主题 ADR 承接；实现时记录最终取舍与证据，再回链本文。尚未采用部分仍为研究候选，不因任务编号、设计接受或旧测试通过就宣称新实现交付。按 Owner 要求，本轮只更新文档/任务，不运行文档门禁或设备/模型测试。
+已采用范围由 §7 对应任务及原主题 ADR 承接；实现时记录最终取舍与证据，再回链本文。尚未采用部分仍为研究候选，不因任务编号、设计接受或旧测试通过就宣称新实现交付。2026-10-15 文档批次未运行门禁；下方 2026-10-16 复核另跑文档/秘密扫描，不新增设备或模型运行。
+
+## 10. 2026-10-16 预览后重构与能力复核
+
+Owner 要求在 ARM64 预览本地收尾后，按竞品与当前实现更新既有计划。本次源码起点 `4b09357c`（生产候选仍为 `89e8ffe7`）；CodeGraph 仅作导航，关键入口另读当前源码。未复制竞品实现、引入依赖或执行第三方账号业务；官方页面读取日期为 2026-10-16，动态文档的行为不外推到全部版本。执行顺序仍只由 status 决定，设计集中在 [Harness §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
+
+### 10.1 官方证据与采用边界
+
+| 一手证据 | 本次核实的事实 | 对 Helix 的设计判断 |
+| --- | --- | --- |
+| [Codex App Server](https://developers.openai.com/codex/app-server/) | thread、turn 和事件有不同操作；`turn/steer` 要求匹配 `expectedTurnId`；interrupt 是请求取消 | 保留 295 的身份、CAS 与分阶段回执；协议是参考，不因桌面存在 app-server 就拆本机服务 |
+| [Codex 压缩源码](https://github.com/openai/codex/blob/main/codex-rs/core/src/compact.rs) | 压缩构建区分用户消息、摘要及重新注入的初始上下文 | 285 的统一物化已修；293 优化选择预算，模型摘要不升级为授权或执行事实 |
+| [Claude Code MCP](https://code.claude.com/docs/en/mcp) | 当前文档默认延迟工具定义并按需搜索，支持情况与模型/代理有关；`auto` 是阈值模式 | 继续现有发现机制，不照搬旧“10% 默认阈值”或供应方私有引用协议；用 Helix 当前 Provider 请求实测预算 |
+| [Claude 插件清单](https://code.claude.com/docs/en/plugins-reference)与[Skills](https://code.claude.com/docs/en/skills) | 插件区分内容、可执行组件、依赖和用户配置；Skill 可有按需材料及脚本引用 | 包结构可参考，依赖声明不在 Helix 自动安装/授权；指导、执行程序与账号凭据分别归属 |
+| [OpenHands SDK](https://github.com/OpenHands/software-agent-sdk)与[Context Condenser](https://docs.openhands.dev/sdk/guides/context-condenser) | SDK/Agent Server、工具、Workspace 和客户端有职责区分；压缩保留指定开头事件并摘要其他历史 | 借鉴可独立验证的完整会话和选择策略；不搬入其远程部署、事件数量阈值或额外持久账本 |
+| [MCP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)与[lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle) | stdio 是子进程双向消息流，stdout 只承载协议、stderr 独立；需协商、请求超时和有界关闭 | 一次性 stdin 快照 Job 不等于常驻 MCP 会话；取消等待、取消请求、真实进程退出分别记录 |
+| [Termux](https://github.com/termux/termux-app) | 应用/终端仿真与包仓库分离，文档明确 Android 对进程和 CPU 的限制 | 手动终端既有能力保留；长期服务不能承诺永不被杀，R8/进程退出要独立验收 |
+| [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM) | 公开动作包含输入、点击、滑动、等待及人工接管回调 | 参考动作清晰度与交接；不照搬业务敏感词、固定任务脚本或把动作受理当任务成功 |
+| [Operit](https://github.com/AAswordman/Operit) | 官方声明统一市场、ToolPkg/MCP/Skills、本地/远程 MCP 和移动端操作 | 证明移动产品有这些需求；未测试其隔离、可靠性或账号兼容，不以功能清单推定 Helix 应全量照搬 |
+
+### 10.2 当前源码与缺口分类
+
+| 领域 | 当前证据与分类 | 不能据此推出的结论 |
+| --- | --- | --- |
+| 完整 Turn 宿主 | `AppAgentRuntime` 仍以 start/cancel lambda 接入 Chat；`TurnEngine` 和 driver 仍直接依赖 `HelixStorage`。287 结构工作未实施 | 已有 Engine/Core 不等于已完成脱离页面和数据库细节的完整宿主 |
+| 会话 | `SessionToolDescriptors.names` 已有 status/history/search/read/rename，295 A 已交付；301 补了 Standard R8/Qwen 首版旅程 | 任意会话目录、持久目标授权、create/Queue/Steer 的模型入口仍是 295 B/C；UI 有功能不等于模型获权 |
+| 存储/上下文 | 297 活动/搜索投影、窗口、调用来源、GC 与 JSONL v2；285 的 `ContextHistoryContent` 已统一引用正文；299 有分段成本/省略诊断 | 不重新规划 JSONL 实时双写、引用压缩修复或诊断首版；293 的全局预算和任务相关 Memory 选择仍未实现 |
+| MCP Resources | `SdkMcpClientSession.snapshotMetadata` 读取部分 resources/prompts 元数据；`McpClientSession` 尚无正文/模板/分页消费端口 | 有元数据不等于模型读过资源；291 是真实未实现的闭环 |
+| 本地 stdio | `McpStdioProtocol` 与 Developer `McpStdioJobBridge` 已有有界 Job/帧处理，调用点为设备夹具；包导入 `endpoint` 遇 command/stdio 明确不生成端点 | 不能说完全没有 stdio 基础，也不能说任意导入包已能常驻运行；新运输/安装/凭据/进程 owner 尚未接线 |
+| 插件/Skills | 298～302 已统一配置、内容查看、诊断、精确选用、更新目标及已安装/市场/导入；`PluginComponentAudit` 标记脚本/setup 未执行 | 包内账号服务、CLI 二进制、hooks/LSP/agent runner 仍需实际宿主；导入不替代安装程序或账号授权 |
+| 终端/执行 | Job 与手动 PTY 已存在；302 的最终 R8 输入、页面重连、停止及身份读取修复已验 | 模型交互 PTY 未开放；进程死亡不能恢复 shell 内存；288 迁契约而不重做终端 UI |
+| Mobile Use | 插件、会话持久授权、应用范围、浮窗、后端重建、截图来源/返回已有实现及分项实测 | 尚未覆盖的系统/OEM/任务组合属于验证边界；特定 Qwen 数字误读已由 Owner 归属模型，不另列客户端待修 |
+
+源码入口：[应用适配](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt)、[TurnEngine](../../../app/src/main/kotlin/com/helix/app/engine/TurnEngine.kt)、[会话工具](../../../app/src/main/kotlin/com/helix/app/chat/SessionToolDescriptors.kt)、[引用物化](../../../app/src/main/kotlin/com/helix/app/agent/ContextHistoryContent.kt)、[Memory 当前策略](../../../core/workspace/src/main/kotlin/com/helix/core/workspace/memory/MemoryContext.kt)、[MCP facade](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/McpClientFacade.kt)、[stdio Job](../../../app/src/developer/kotlin/com/helix/app/mcp/McpStdioJobBridge.kt)、[包导入](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginPackage.kt)、[组件审计](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginComponentAudit.kt)。运行边界以实际构建和 ADR-RUNTIME-001 为准，旧源码注释中的独立签名说法不改变当前同 UID 私有进程事实。
+
+### 10.3 本次裁决
+
+1. **先固定共同语义，立即用完整路径证明。** 286 的身份/四个完成条件/取消/恢复和存储命令是 287/288 前置；不先造万能执行 API。287-A 与 288-A 可分别验收，联合接线必须包含持久读取和可控制外部效果，单纯只读路径不足以验证 UNKNOWN 崩溃窗口。
+2. **近期能力与结构迁移分开记账。** 289 检索、291 Resources、292 Mobile Use/Browser、293 预算可沿稳定接缝交付，不必等全部插件迁完；不得为抢先交付复制 ChatService、Registry 或持久 writer。各片优先级、完成标准和不确定项写回原任务。
+3. **插件运行补齐按依赖逐步推进。** 先复用远程 MCP/Skill 的现有闭环，再按明确目标包评估本地 CLI，常驻 stdio 需流式 IPC、进程生命周期和账号归属，不能用重复启动 Job 模拟。自动 npm/pip 安装、全包脚本执行和通用账号代理不是导入的隐含功能。
+4. **共享存储契约防止返工。** 身份和原子写入条件在 286 固定；287/288 的最小真实 Room 同时验证，再按领域替换。Room/ContentStore 唯一权威，页面搜索、JSONL 和内存进度都不是恢复账本；不保旧内部接口，但保当前版本 crash/reconcile。
+5. **保持浅 harness。** 模型决定业务路线，客户端保证获权执行、真实结果、资源和审计；不按竞品工具名称生成同名空能力，不引入远程平台、固定多 Agent 分工或新的手机任务规划器。
+
+以上是基于证据的设计选择，不是新功能完成声明。没有重新打开账号结案、OCR 归因、完整长稳或远程发布；本次文档变更及检查归各 HXA/ADR 的本次更新记录。

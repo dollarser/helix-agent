@@ -56,7 +56,7 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 [HXA-286](../../development/tasks/HXA-286.md#共同契约与退出条件) 先共同定义 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
 
-实施按 286 →（287-A 完整 Turn 最小纵切、288-A 执行核心）→ 共同集成推进。287-A 用 fake executor 和可重载事实夹具验证无 UI 提交/审批/停止、crash/reload、原 call/result 配对及上下文快照；288-A 独立实现执行核心。两片就绪后接真实文件/只读执行与最小 Room 适配，再扩展各自生命周期/领域切片；二者不以整任务完成互为启动条件。真实 Room/执行证据与纯夹具分别记账，294 不承担首次正确性验证。
+实施按 286 →（287-A 完整 Turn 最小纵切、288-A 执行核心）→ 共同集成推进。287-A 用 fake executor 和可重载事实夹具验证无 UI 提交/审批/停止、crash/reload、原 call/result 配对及上下文快照；288-A 独立实现执行核心。两片就绪后接真实文件读取、受控副作用路径与最小 Room，验证开始前、效果后提交前和提交后通知前三个窗口，再扩展各自生命周期/领域切片；二者不以整任务完成互为启动条件。只读或纯夹具通过不替代真实 Room/执行证据，294 不承担首次正确性验证。
 
 区分四类所有权：TurnEngine 管整轮 live driver 与持久生命周期；ToolScheduler 管调度/观察槽位；Executor/Runtime 管实际执行容量及原执行身份；插件/宿主管共享资源引用。完成观察等待可释放 worker，Turn 终态、UI detach 或取消信号都不能证明 executor 已退出。HXA-277 的原生资源句柄消费现有 ExecutionOwnership / Runtime 退出与对账事实，不复制执行状态或替代原取消协议。权限准入始终归原 Dispatcher；就绪投影和资源引用不授予执行能力。
 
@@ -304,6 +304,8 @@ ModelCall 和 ToolCall 在原 Turn 内各有事务分配的 ordinal 与 createdA
 GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复核与删除持有正文发布协调锁，不能把整个目录遍历放入该锁。搜索投影不是额外的内容保留引用；会话删除时随消息删除，仍保留原隐私清理边界。
 
 ## Decision history
+
+- 2026-10-16（预览后共同接线）：Owner 要求优化既有重构/能力补齐文档。286 先固定原子领域命令需要的身份、幂等键和可恢复事实；287-A/288-A 分别通过后共同接最小真实 Room，包含读取及受控外部效果，覆盖开始前、效果后提交前、提交后通知前三个窗口。数据库事务不跨外部执行，Runtime journal 与 Room 按原身份分阶段对账；通知/查询投影不是第二账本。297 的来源/搜索/窗口、295 A 与 301 的运行证据作为现有基线，295 B/C 依赖相关命令切片而非整个宿主重构完成。仅明确现有目标的验收，不新增跨会话授权或实施结论。
 
 - 2026-10-16（存储查询与来源）：Owner 要求结合竞品直接优化且不兼容旧内部方案。HXA-297 接受活动排序、事务搜索投影、页面历史窗口、持久调用序号/来源及 GC 查询边界；仍以 Room/ContentStore 为权威，JSONL 归 ADR-AGENT-005。宿主重组继续由 287/288 接续，不借查询优化新增跨会话授权。
 
