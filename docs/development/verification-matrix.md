@@ -94,6 +94,8 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 
 ## 设备、恢复与发布
 
+日常设备完成测试后，移除本轮使用且已确认身份的 instrumentation/test APK，保留主应用及用户数据；清理前记录包名和是否仍被其他任务使用。Helix 的测试包含语音识别 Activity 与文档 Provider 夹具，长期留在日常设备会出现在系统选择器中。遇到此类残留，应查询具体 Intent 的处理包，卸载已确认的测试包后复查，不按 `test` 字样批量删除未知应用。
+
 - 默认由用户手动运行模拟器与真机验收；代理只有取得所有者对当前任务、相应设备类型与范围的明确授权后才执行。每次使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，不借已有实例，只关闭自己启动的进程。未获当次设备授权时，代理仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 scripts/debug 日期目录，运行输出放忽略的 build。
 - API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，由用户按任务适用范围手动运行并回填；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过或推送 main。
 - 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
