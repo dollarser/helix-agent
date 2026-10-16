@@ -21,6 +21,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -59,7 +60,9 @@ object ReadTool {
             version = ToolVersion(VERSION),
             description =
                 "Read a bounded window of a workspace file by model reference, with offset/maxBytes paging. " +
-                    "Read a known file path directly; use files.list to locate alternatives if it is missing.",
+                    "Read a known file path directly; use files.list to locate alternatives if it is missing. " +
+                    "Before editing, set includeSha256=true for a full-file hash from the same read stream " +
+                    "(up to 32 MiB, including bytes outside this window). Ordinary previews do not hash the file.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,
@@ -88,6 +91,19 @@ object ReadTool {
                             put("minimum", JsonPrimitive(0))
                             put("default", JsonPrimitive(0))
                             put("description", JsonPrimitive("Byte offset to start the window at"))
+                        },
+                    )
+                    put(
+                        "includeSha256",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("boolean"))
+                            put("default", JsonPrimitive(false))
+                            put(
+                                "description",
+                                JsonPrimitive(
+                                    "Return the full-file SHA-256 for a guarded edit/write; scans up to 32 MiB",
+                                ),
+                            )
                         },
                     )
                     put(
@@ -120,6 +136,13 @@ object ReadTool {
                     put("consumedBytes", integerSchema())
                     put("nextOffset", integerSchema())
                     put("eof", booleanSchema())
+                    put(
+                        "sha256",
+                        stringSchema(
+                            64,
+                            "Full-file hash of the stream supplying this window; present only when requested",
+                        ),
+                    )
                 },
             )
             put(
@@ -160,8 +183,24 @@ object ReadTool {
             ): ToolExecutorResult {
                 val parsed = parseArgs(call.args) ?: return ToolExecutorResult.Failed("invalid 'read' arguments")
                 return try {
-                    val window = store.readWindow(parsed.path, parsed.offset, parsed.maxBytes)
+                    val window =
+                        store.readWindow(parsed.path, parsed.offset, parsed.maxBytes, parsed.includeSha256) {
+                            if (call.cancel.isCancelled() ||
+                                !java.time.Instant
+                                    .now()
+                                    .isBefore(call.deadline)
+                            ) {
+                                throw ReadStopped()
+                            }
+                        }
                     ToolExecutorResult.Completed(output(window, parsed.path))
+                } catch (_: ReadStopped) {
+                    if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else ToolExecutorResult.TimedOut
+                } catch (_: IllegalArgumentException) {
+                    ToolExecutorResult.Failed(
+                        "read refused: invalid range or full-file hash exceeds 32 MiB",
+                        sideEffectFree = true,
+                    )
                 } catch (e: FileNotFoundException) {
                     ToolExecutorResult.Failed("file not found or not a regular file: ${parsed.path.toModelReference()}")
                 } catch (e: SymlinkInPath) {
@@ -194,7 +233,10 @@ object ReadTool {
         val path: FileScopePath,
         val offset: Long,
         val maxBytes: Long,
+        val includeSha256: Boolean,
     )
+
+    private class ReadStopped : java.util.concurrent.CancellationException()
 
     /**
      * Extracts [Parsed] from the (already schema-validated) arguments. A malformed model reference
@@ -208,7 +250,9 @@ object ReadTool {
         return if (ref == null || path == null) {
             null
         } else {
-            Parsed(path, longValue(args["offset"]) ?: 0L, longValue(args["maxBytes"]) ?: DEFAULT_MAX_BYTES)
+            val hash = args["includeSha256"]
+            val includeHash = if (hash == null) false else (hash as? JsonPrimitive)?.booleanOrNull ?: return null
+            Parsed(path, longValue(args["offset"]) ?: 0L, longValue(args["maxBytes"]) ?: DEFAULT_MAX_BYTES, includeHash)
         }
     }
 
@@ -231,6 +275,7 @@ object ReadTool {
             put("consumedBytes", JsonPrimitive(window.consumedBytes))
             put("nextOffset", JsonPrimitive(window.nextOffset))
             put("eof", JsonPrimitive(window.eof))
+            window.sha256?.let { put("sha256", JsonPrimitive(it)) }
             window.text?.let { put("text", JsonPrimitive(it)) }
             window.base64?.let { put("base64", JsonPrimitive(it)) }
         }

@@ -300,14 +300,16 @@ class WorkspaceArtifactStore(
         path: FileScopePath,
         offset: Long,
         maxBytes: Long,
+        includeSha256: Boolean = false,
+        checkpoint: () -> Unit = {},
     ): ReadWindow {
-        documents(path)?.let { return it.readWindow(path, offset, maxBytes) }
+        documents(path)?.let { return it.readWindow(path, offset, maxBytes, includeSha256, checkpoint) }
         val root = privateMetadata(path) ?: resolve(path.scopeId)
         val target = resolveContained(path, root)
         if (!Files.exists(target) || !Files.isRegularFile(target)) {
             throw java.io.FileNotFoundException("not a regular file: ${path.toModelReference()}")
         }
-        return ReadWindow.read(target, offset, maxBytes)
+        return ReadWindow.read(target, offset, maxBytes, includeSha256, checkpoint)
     }
 
     /**

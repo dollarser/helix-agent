@@ -32,10 +32,14 @@ internal class DocumentWorkspaceOperations(
         path: FileScopePath,
         offset: Long,
         maxBytes: Long,
+        includeSha256: Boolean = false,
+        checkpoint: () -> Unit = {},
     ): ReadWindow {
         val info = backend.stat(path.relativePath) ?: throw java.io.FileNotFoundException("Document unavailable")
         require(!info.directory && info.size >= 0) { "Provider does not expose a readable file size" }
-        return backend.read(path.relativePath).use { ReadWindow.read(it, info.size, offset, maxBytes) }
+        return backend.read(path.relativePath).use {
+            ReadWindow.read(it, info.size, offset, maxBytes, includeSha256, checkpoint)
+        }
     }
 
     fun probe(path: FileScopePath): ContentProbe.Result {

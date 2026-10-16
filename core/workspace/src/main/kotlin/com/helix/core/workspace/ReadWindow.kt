@@ -3,6 +3,7 @@ package com.helix.core.workspace
 import java.io.EOFException
 import java.io.IOException
 import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.nio.file.Files
@@ -19,7 +20,9 @@ import java.util.Base64
  *   [MAX_WINDOW_BYTES] at a time never re-reads or skips a byte;
  * - for a UTF-8 [encoding], [text] decodes WITHOUT a trailing partial character: a multi-byte
  *   sequence straddling the window end is dropped from [text] and [nextOffset] stops at the
- *   sequence start (the encoding boundary), so the next read resumes at a clean boundary;
+ *   sequence start (the encoding boundary), so the next read resumes at a clean boundary.
+ *   A window too small to hold one complete character, or an incomplete sequence at EOF,
+ *   is returned as opaque bytes so paging always advances without losing data;
  * - [eof] means "the file is fully consumed from [offset]", not "[text] is non-empty".
  */
 data class ReadWindow(
@@ -32,16 +35,20 @@ data class ReadWindow(
     val consumedBytes: Long,
     val nextOffset: Long,
     val eof: Boolean,
+    val sha256: String? = null,
 ) {
     companion object {
         /** The chunk unit a `read` tool caps at; the 10 MiB file is exactly this many chunks. */
         const val MAX_WINDOW_BYTES: Long = 1024L * 1024L
 
+        /** Full-file identity is opt-in and shares the existing whole-file operation bound. */
+        const val MAX_HASH_BYTES: Long = 32L * 1024L * 1024L
+
         private val utf8 = Charset.forName("UTF-8")
 
         /**
          * Bounded read of [file]: at most [maxBytes] bytes starting at [offset]. Never reads the
-         * whole file; memory is bounded by [maxBytes].
+         * whole file unless [includeSha256] is requested; memory is bounded by [maxBytes].
          * @throws IllegalArgumentException on an invalid offset/maxBytes.
          * @throws IOException when the file cannot be read.
          */
@@ -50,19 +57,46 @@ data class ReadWindow(
             file: Path,
             offset: Long,
             maxBytes: Long,
-        ): ReadWindow = Files.newInputStream(file).use { read(it, Files.size(file), offset, maxBytes) }
+            includeSha256: Boolean = false,
+            checkpoint: () -> Unit = {},
+        ): ReadWindow =
+            Files.newInputStream(file).use {
+                read(it, Files.size(file), offset, maxBytes, includeSha256, checkpoint)
+            }
 
         /** Streams the same bounded window from document providers; no local development copy. */
-        @Suppress("ThrowsCount") // Truncation and zero-progress reads are distinct failures in both loops.
         fun read(
             input: java.io.InputStream,
             size: Long,
             offset: Long,
             maxBytes: Long,
+            includeSha256: Boolean = false,
+            checkpoint: () -> Unit = {},
         ): ReadWindow {
             require(size >= 0) { "File size is unavailable" }
             require(offset >= 0) { "offset must be >= 0 (got $offset)" }
             require(maxBytes in 1..MAX_WINDOW_BYTES) { "maxBytes must be 1..$MAX_WINDOW_BYTES (got $maxBytes)" }
+            checkpoint()
+            return if (includeSha256) {
+                require(size <= MAX_HASH_BYTES) { "File exceeds the bounded hash limit" }
+                val stream = FileReadHash(input, size, checkpoint)
+                val window = readUnhashedWindow(stream, size, offset, maxBytes, checkpoint)
+                val hash = stream.finish()
+                checkpoint()
+                window.copy(sha256 = hash)
+            } else {
+                readUnhashedWindow(input, size, offset, maxBytes, checkpoint)
+            }
+        }
+
+        @Suppress("ThrowsCount") // Truncation and zero-progress reads are distinct failures in both loops.
+        private fun readUnhashedWindow(
+            input: java.io.InputStream,
+            size: Long,
+            offset: Long,
+            maxBytes: Long,
+            checkpoint: () -> Unit,
+        ): ReadWindow {
             if (offset >= size) {
                 // Stable EOF: at or past the end is the terminal window (no bytes, not an error).
                 return ReadWindow(offset, 0, size, ContentProbe.Encoding.EMPTY, "", null, 0L, offset, true)
@@ -76,6 +110,7 @@ data class ReadWindow(
                 var remaining = offset
                 val skipBuffer = ByteArray(8192)
                 while (remaining > 0) {
+                    checkpoint()
                     val skipped = input.read(skipBuffer, 0, minOf(skipBuffer.size.toLong(), remaining).toInt())
                     if (skipped < 0) throw EOFException("file truncated below offset $offset")
                     if (skipped == 0) throw IOException("Read made no progress")
@@ -83,13 +118,15 @@ data class ReadWindow(
                 }
                 var total = 0
                 while (total < length) {
+                    checkpoint()
                     val n = input.read(window, total, length - total)
                     if (n < 0) break
                     if (n == 0) throw IOException("Read made no progress")
                     total += n
                 }
-                require(total == length) { "short read at offset $offset" }
+                if (total != length) throw EOFException("short read at offset $offset")
             }
+            checkpoint()
             return decodeWindow(window, size, offset)
         }
 
@@ -100,9 +137,9 @@ data class ReadWindow(
          *
          * Classification is prefix-aware (unlike [ContentProbe.probeBytes], which is all-or-nothing):
          * a window whose leading bytes are valid UTF-8 but whose FINAL sequence is cut by the
-         * [maxBytes] boundary is still text — the partial tail is dropped and [nextOffset] lands on
-         * the sequence start. Only a NUL byte, a UTF-16 BOM, or a genuinely invalid byte (not a cut
-         * sequence) yields BINARY, because those mean the content is not text at all.
+         * window boundary is still text when a complete prefix exists and EOF has not been reached.
+         * The partial tail is dropped and [nextOffset] lands on the sequence start. Other windows
+         * are returned as opaque bytes, preserving invalid or incomplete content and paging progress.
          */
         @Suppress("ReturnCount") // one return per distinct window classification (empty / binary / text / opaque)
         private fun decodeWindow(
@@ -122,25 +159,28 @@ data class ReadWindow(
             }
             val prefixEnd = utf8PrefixEnd(window)
             // Whole window valid, or a valid prefix whose only tail is a cut sequence → text.
-            if (prefixEnd == window.size || isCutTail(window, prefixEnd)) {
+            val cutAfterText = !eof && prefixEnd > 0 && isCutTail(window, prefixEnd)
+            if (prefixEnd == window.size || cutAfterText) {
                 val text =
                     if (prefixEnd == window.size) {
                         decodeUtf8(window)
                     } else {
                         decodeUtf8(window.copyOfRange(0, prefixEnd))
                     }
-                val consumed = prefixEnd.toLong()
-                return ReadWindow(
-                    offset,
-                    window.size,
-                    size,
-                    ContentProbe.Encoding.UTF8,
-                    text,
-                    null,
-                    consumed,
-                    offset + consumed,
-                    eof,
-                )
+                if (text != null) {
+                    val consumed = prefixEnd.toLong()
+                    return ReadWindow(
+                        offset,
+                        window.size,
+                        size,
+                        ContentProbe.Encoding.UTF8,
+                        text,
+                        null,
+                        consumed,
+                        offset + consumed,
+                        eof,
+                    )
+                }
             }
             // A real invalid byte (not a cut tail): opaque.
             return ReadWindow(
@@ -162,13 +202,18 @@ data class ReadWindow(
 
         private fun base64(b: ByteArray): String = Base64.getEncoder().encodeToString(b)
 
-        private fun decodeUtf8(b: ByteArray): String =
-            utf8
-                .newDecoder()
-                .onMalformedInput(CodingErrorAction.REPLACE)
-                .onUnmappableCharacter(CodingErrorAction.REPLACE)
-                .decode(ByteBuffer.wrap(b))
-                .toString()
+        @Suppress("SwallowedException") // Malformed text is returned as its original opaque bytes.
+        private fun decodeUtf8(b: ByteArray): String? =
+            try {
+                utf8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(b))
+                    .toString()
+            } catch (_: CharacterCodingException) {
+                null
+            }
 
         /**
          * The number of leading bytes of [w] that form complete, valid UTF-8 sequences — a

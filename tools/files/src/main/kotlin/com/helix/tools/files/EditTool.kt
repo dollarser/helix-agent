@@ -69,7 +69,7 @@ object EditTool {
      * replaced copy), so an unbounded file would OOM the process — the 1 GiB quota is not an
      * in-memory bound. Larger files are refused with a stable message, not decoded.
      */
-    const val MAX_EDITABLE_BYTES: Long = 50L * 1024L * 1024L
+    const val MAX_EDITABLE_BYTES: Long = com.helix.core.workspace.ReadWindow.MAX_HASH_BYTES
 
     private val SHA256_HEX = Regex("[0-9a-f]{64}")
 
@@ -83,7 +83,7 @@ object EditTool {
             version = ToolVersion(VERSION),
             description =
                 "Replace an exact text span in a workspace file; requires the file's current SHA-256 and an " +
-                    "unambiguous match.",
+                    "unambiguous match. Read with includeSha256=true to obtain the content and hash together.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
@@ -199,6 +199,7 @@ object EditTool {
             ): ToolExecutorResult {
                 val parsed = parseArgs(call.args) ?: return ToolExecutorResult.Failed("invalid 'edit' arguments")
                 val ref = parsed.path.toModelReference()
+                var publishStarted = false
                 return try {
                     val region = WorkspaceLayout.regionOf(parsed.path.relativePath)
                     if (region == null || !WorkspaceLayout.isRegion(region)) {
@@ -208,7 +209,7 @@ object EditTool {
                     }
                     val probe = store.probe(parsed.path)
                     probeRefusal(probe, ref)?.let { return it }
-                    val loaded = loadCurrentContent(store, parsed.path, ref)
+                    val loaded = loadCurrentContent(store, parsed.path, ref, parsed.expectedSha256)
                     val current =
                         when (loaded) {
                             is CurrentContent.Refusal -> return loaded.result
@@ -229,6 +230,8 @@ object EditTool {
                         } else {
                             current.replaceFirst(parsed.oldText, parsed.newText)
                         }
+                    stoppedBeforePublish(call)?.let { return it }
+                    publishStarted = true
                     val outcome = publish(store, parsed, region, updated, call)
                     ToolExecutorResult.Completed(output(parsed.path, count, outcome))
                 } catch (e: PreconditionHashMismatch) {
@@ -237,7 +240,7 @@ object EditTool {
                             "re-read it and retry with a fresh expectedSha256",
                     )
                 } catch (e: FileNotFoundException) {
-                    ToolExecutorResult.Failed("file not found: $ref")
+                    ioFailure(publishStarted)
                 } catch (e: WorkspaceQuota.QuotaExceeded) {
                     ToolExecutorResult.Failed("workspace quota exceeded; the edit was not performed")
                 } catch (e: SymlinkInPath) {
@@ -247,9 +250,7 @@ object EditTool {
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
                 } catch (e: IOException) {
-                    // I/O failure inside the atomic publish (disk error, unsupported atomic move):
-                    // sanitized — the raw message may carry real paths (doc 10).
-                    ToolExecutorResult.Failed("workspace I/O failure; the edit was not performed")
+                    ioFailure(publishStarted)
                 }
             }
 
@@ -275,6 +276,28 @@ object EditTool {
                     turnId = call.turnId,
                 )
         }
+
+    private fun stoppedBeforePublish(call: ExecutableToolCall): ToolExecutorResult? =
+        when {
+            call.cancel.isCancelled() -> ToolExecutorResult.Cancelled
+
+            !java.time.Instant
+                .now()
+                .isBefore(call.deadline) -> ToolExecutorResult.TimedOut
+
+            else -> null
+        }
+
+    private fun ioFailure(publishStarted: Boolean) =
+        ToolExecutorResult.Failed(
+            if (publishStarted) {
+                "workspace I/O failure; verify the target file before retrying"
+            } else {
+                "file read failed before editing; no edit was attempted"
+            },
+            sideEffectFree = !publishStarted,
+            requiresReview = publishStarted,
+        )
 
     /** Registers both the contract and the implementation in the given registries. */
     fun register(
@@ -419,6 +442,7 @@ object EditTool {
         store: WorkspaceArtifactStore,
         path: FileScopePath,
         ref: String,
+        expectedSha256: String,
     ): CurrentContent {
         val fresh = store.stat(path)
         val sizeRefusal =
@@ -430,7 +454,15 @@ object EditTool {
         if (sizeRefusal != null) {
             return CurrentContent.Refusal(ToolExecutorResult.Failed(sizeRefusal))
         }
-        val text = decodeStrictUtf8Text(store.readAll(path))
+        val bytes = store.readAll(path)
+        val hash =
+            java.security.MessageDigest
+                .getInstance(
+                    "SHA-256",
+                ).digest(bytes)
+                .joinToString("") { "%02x".format(it) }
+        if (hash != expectedSha256) throw PreconditionHashMismatch(expectedSha256, hash)
+        val text = decodeStrictUtf8Text(bytes)
         return if (text == null) {
             CurrentContent.Refusal(
                 ToolExecutorResult.Failed("file is not UTF-8 text; use write to replace it whole: $ref"),

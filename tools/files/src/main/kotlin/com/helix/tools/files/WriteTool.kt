@@ -119,8 +119,9 @@ object WriteTool {
                         stringSchema(
                             maxLength = 64,
                             description =
-                                "Optional: omit or leave empty for a new file. A nonempty value must be the " +
-                                    "64-hex hash returned by read; missing or changed files fail. Never invent it.",
+                                "Optional: omit for a new file. For guarded replacement, read with " +
+                                    "includeSha256=true and use its 64-hex full-file SHA-256. " +
+                                    "Missing or changed files fail; an empty value disables the version check.",
                         ),
                     )
                 },
@@ -193,7 +194,7 @@ object WriteTool {
                 val suppliedHash = (call.args["expectedSha256"] as? JsonPrimitive)?.content
                 if (!suppliedHash.isNullOrBlank() && !SHA256_HEX.matches(suppliedHash)) {
                     return ToolExecutorResult.Failed(
-                        "invalid expectedSha256: use the 64-hex hash returned by read; omit it for a new file. " +
+                        "invalid expectedSha256: use a verified 64-hex full-file hash; omit it for a new file. " +
                             "Never invent a hash.",
                         sideEffectFree = true,
                     )
