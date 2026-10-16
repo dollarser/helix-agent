@@ -8,6 +8,8 @@
 
 ## 当前实施
 
+2026-10-17 Owner 再明确重构总原则：以当前最合理、未来扩展成本最低为基准，不承担旧设计/实现兼容；现有结构仅在符合目标时复用。已同步[开发原则](feature-refactor-strategy.md)、Harness §23 及目录 ADR，澄清“近期不改默认模式”只是补丁范围，不约束重构终态；本次仅修订规划。
+
 2026-10-17 目录与执行环境研究追加完成：已核对 Codex、Claude Code、OpenHands、SWE-ReX/SWE-agent、VS Code、E2B、Modal 的一手资料及当前源码，区分原生文件/SAF、手动终端 live mount 与 Job snapshot。[研究 §11](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#11-2026-10-17-目录工作副本与执行环境)、[Harness §23.3.1](../architecture/harness-refactor-plan.md#2331-目录资源与执行环境) 和原主题 ADR/HXA 已补责任与迁移验收；这是文档规划，没有改变 Job 默认快照、实现远程平台或启动整体重构。
 
 2026-10-17 HXA-302 路径与连接文案追加完成：模型文件引用按捕获目录投影，持久参数、审计和压缩源保持完整身份；文件工具标题只显示操作与文件名，目录/完整信息放详情，连接标签移除数据驻留/已授权断言。新增 9 项 JVM 回归，完整主机通过；API36 ARM64 定向双渠道各 20/20、零跳过，最终 R8 上真实 Qwen 各 3 个 Turn（Standard 7、Advanced 9 次文件调用）通过同名文件、目录切换、单次批准和重启读取。日常既有数据/配置保留，临时配置/测试包/代理已清理；旧候选不改，新包与验收文件留在日常模拟器。竞品依据、修复、失败过程与范围见[本轮记录](../evidence/development/path-presentation-2026-10-17.md)。目录选择器大量来源的搜索/辨认列后续计划；导航返回仅只读咨询，不推送发布。
