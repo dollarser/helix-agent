@@ -1,8 +1,8 @@
 # ADR-AGENT-005: 会话执行追踪与 JSONL 导出
 
 Status: accepted
-Date: 2026-09-25
-HXA: HXA-211, HXA-217
+Date: 2026-09-25; revised 2026-10-16
+HXA: HXA-211, HXA-217, HXA-297
 Deciders: Project owner
 
 ## Context
@@ -12,7 +12,7 @@ Helix 需要两类互相关联但职责不同的可追踪事实：
 1. 用户主动导出的单会话 JSONL，用于调试、历史检索与评测；
 2. 每次 ModelCall 的轻量 request context manifest，用于解释“这次请求实际看到了哪些已持久消息/来源”。
 
-历史上两者分别记录为 ADR-AGENT-005 与 ADR-AGENT-005，但它们属于同一个“会话执行追踪”功能：Room/ContentStore 仍是运行事实源，manifest 是请求级元数据，JSONL 是用户触发的只读投影。二者都不能成为第二套执行状态机或 replay 入口。
+历史上两者分别记录为 ADR-AGENT-005 与原 Agent 010，但它们属于同一个“会话执行追踪”功能：Room/ContentStore 仍是运行事实源，manifest 是请求级元数据，JSONL 是用户触发的只读投影。二者都不能成为第二套执行状态机或 replay 入口。
 
 ## Decision
 
@@ -43,7 +43,7 @@ HXA-231 增量在同一 manifest 的 `tools` 中记录实际曝光名称及绑�
 
 ### 3. 用户主动导出单会话 JSONL
 
-首版格式为 `helix.session-export` / `formatVersion=1`，UTF-8、LF、一行一个 JSON object。导出只覆盖用户选择 session 的 durable facts，并有显式 header/complete footer。
+当前格式为 `helix.session-export` / `formatVersion=2`，UTF-8、LF、一行一个 JSON object。导出只覆盖用户选择 session 的 durable facts，并有显式 header/complete footer。
 
 至少可以表达：
 
@@ -56,6 +56,8 @@ HXA-231 增量在同一 manifest 的 `tools` 中记录实际曝光名称及绑�
 - request context manifest；
 - 已记录 usage、finish/error/review state；
 - content identity/reference metadata。
+
+v2 增加会话活动时间、消息时间、模型/工具序号和时间、ModelCall→工具批次消息、ToolCall→ModelCall/callIndex 的显式关联。无模型来源的调用明确标为 non_model_call；引用闭包包含工具批次消息与跨会话引用快照。导出文件顺序仍按固定分组，重建执行顺序须读取持久 ordinal/callIndex。不兼容旧内部格式；v1 夹具仅作历史证据，不声称当前读取器支持导入或旧版转换。
 
 JSONL 是关系快照，不是 event-sourcing 日志。导出 sequence 是导出文件顺序，不冒充执行先后。
 
@@ -79,7 +81,7 @@ reference_only、missing、changed、redacted、omitted_limit 等状态必须可
 
 取消、空间不足、目标撤权、正文变化、进程死亡或输出关闭失败不能显示成功。只有规定记录与 footer 全部完成才标记成功。
 
-首版 JSONL 不是完整备份：reference_only 可能只在原设备可解析；不包含导入、执行回放、跨设备恢复或自动上传。
+当前 JSONL 不是完整备份：reference_only 可能只在原设备可解析；不包含导入、执行回放、跨设备恢复或自动上传。
 
 ### 7. UI 与工具边界
 
@@ -88,6 +90,8 @@ reference_only、missing、changed、redacted、omitted_limit 等状态必须可
 request manifest 的详情 UI 可以后续增加，但持久字段存在不等于必须建立独立诊断页面。
 
 ## Decision history
+
+- **2026-10-16**：HXA-297 更新当前导出到 v2 并同步独立校验器，采用持久来源和顺序字段；保留 Room/ContentStore 单一权威，不增加实时 JSONL 双写或恢复/导入能力。
 
 - **2026-09-17/18**：接受用户主动单会话 JSONL 导出，HXA-211 交付。
 - **2026-09-23**：接受轻量 ModelCall request context manifest，HXA-217 交付；当时单独记录为 Agent 010，现并入本功能 ADR。

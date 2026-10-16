@@ -1,6 +1,6 @@
-# 会话 JSONL 格式 v1
+# 会话 JSONL 格式 v2
 
-格式名 `helix.session-export`，主版本 `1`。这是 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md) 的外部投影格式；实现与验收证据见 [HXA-211](../completion-records/HXA-211.md)。本文定义格式，具体交付边界以完成记录为准。
+格式名 `helix.session-export`，主版本 `2`。这是 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md) 的外部投影格式；初版证据见 [HXA-211](../completion-records/HXA-211.md)，当前 v2 实施见 [HXA-297](../development/tasks/HXA-297.md)。本文定义格式，具体交付边界以完成记录为准。
 
 ## 文件与信封
 
@@ -9,7 +9,7 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 | 字段 | 类型与语义 |
 | --- | --- |
 | `format` | 固定字符串 `helix.session-export` |
-| `formatVersion` | 整数 `1`；消费者拒绝不支持的主版本 |
+| `formatVersion` | 整数 `2`；消费者拒绝不支持的主版本 |
 | `exportId` | 本次快照 UUID，所有行一致；不同导出不能按源 ID 无条件覆盖 |
 | `sequence` | 从 0 开始的连续整数，仅表示导出顺序 |
 | `type` | 下表列出的类型 |
@@ -26,16 +26,17 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 | 类型 / ID 前缀 | 组内顺序 | 字段与缺失语义 |
 | --- | --- | --- |
 | `header` | 唯一 | `snapshotId`、`capturedAt`、`appVersion`、快照/引用/排序/内容策略及固定上限 |
-| `session` | 唯一 | `id,title,providerId,modelId,createdAt,archivedAt`；Provider/模型标识是身份，不导出配置对象 |
+| `session` | 唯一 | `id,title,providerId,modelId,createdAt,archivedAt,lastActivityAt`；Provider/模型标识是身份，不导出配置对象 |
 | `turn` | `startedAt,id` | `id,sessionId,state,stepCount,startedAt,endedAt,errorCode,clientRequestId`；终止原因仅来自持久状态/错误码，不猜测活动 Turn 的未来结局 |
-| `message` | 原 `sequence,id` | `id,sessionId,turnId,role,kind,contentId,sequence,supersededBy`；保留压缩前原历史、被修订的旧版本和 checkpoint 消息；非空 `supersededBy` 指向替代请求的 `turn.clientRequestId`，该消息不属于当前有效上下文 |
-| `model_call` | `id` | `id,turnId,state,requestId,promptFingerprint,promptSections,provider,usage`；Provider 只含已保存的 `displayName/model`，无 endpoint；未保存时间/finishReason 明确 unknown |
-| `tool_call` | `id` | `id,turnId,callId,name,version,argsJson,argsHash,state`；当前存储没有模型 FK/调用顺序，`modelCallId=null`，关联与顺序标记 `not_persisted` |
+| `message` | 原 `sequence,id` | `id,sessionId,turnId,role,kind,contentId,sequence,supersededBy,createdAt`；保留压缩前原历史、被修订的旧版本和 checkpoint 消息；非空 `supersededBy` 指向替代请求的 `turn.clientRequestId`，该消息不属于当前有效上下文 |
+| `model_call` | `id` | `id,turnId,state,requestId,promptFingerprint,promptSections,requestManifest,provider,usage,ordinal,createdAt,settledAt,toolMessageId`；Provider 只含已保存的 `displayName/model`，无 endpoint；createdAt 是创建记录的时间，settledAt 是本地结算时间，不冒充网络开始/完成时间；未保存 finishReason 明确 unknown |
+| `tool_call` | `id` | `id,turnId,callId,name,version,argsJson,argsHash,state,modelIntent,modelCallId,callIndex,ordinal,createdAt`；来源关联标为 persisted，无模型来源为 non_model_call/null；ordinal 是 Turn 内工具顺序，callIndex 是模型响应内位置 |
 | `tool_result` | `id` | `id,toolCallId,status,summary,contentId,verified`；不把未结算/UNKNOWN 改成成功 |
 | `execution` | `id` | `id,toolCallId,runtime,limitsJson,exitCode,signal` |
 | `approval` | `id` | `id,toolCallId,decision,decidedAt,consumedAt,expiresAt`；不导出 bindingHash 或授权证明 |
 | `artifact` | `id` | `id,sessionId,mediaType,size,sha256,turnId`；仅引用，未读取校验，不导出路径 |
 | `attachment` | `messageId,ordinal,rowId` | `rowId,messageId,artifactId,ordinal,purpose,boundSha256` |
+| `conversation_reference` | `messageId,ordinal,rowId` | `rowId,messageId,ordinal,sourceSessionId,sourceSessionTitle,selectionKind,sourceMessageIdsJson,contentId,contentSha256,createdAtEpoch`；共享的是固定快照，不授予源会话访问权限 |
 | `goal_run` | `startedAt,id` | 本会话 Turn 绑定的 run 身份、wakeReason/outcome、时间、已有累计用量 |
 | `goal_binding` | `turnId` | `turnId,runId`；确定性派生 ID `goal_binding:<turnId>`，标记 `derived=true` |
 | `usage` / `usage:goal` | `id` | 本会话关联 Goal 的状态、预算及已有累计值，不包含其他会话消息 |
@@ -44,13 +45,13 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 | `content` | SHA-256 字符串 | `content:<sha256>`；同一 ContentStore 身份只输出一次 |
 | `complete` | 唯一 | 完成标志、含自身的 `recordCount`、全部类型的 `counts`、内容统计 |
 
-`header:<sessionId>`、`session:<sessionId>`、`complete:<sessionId>` 是固定身份。其余表记录使用 `<type>:<源 id>`；attachment 使用原 `rowId`。Goal 用量与审计用量通过额外前缀隔开。
+`header:<sessionId>`、`session:<sessionId>`、`complete:<sessionId>` 是固定身份。其余表记录使用 `<type>:<源 id>`；attachment/conversation_reference 使用原 `rowId`。Goal 用量与审计用量通过额外前缀隔开。
 
 模型 usage 的未知 input/output/total 为 null，不补零；已有 usage 无法区分报告与估算时明确说明。Turn 未存用量也是 unknown。ModelCall、GoalRun、Goal 与审计诊断重叠，不得跨层相加作为账单。
 
 ## 引用
 
-关系记录的 `data.references` 是数组，每项包含 `field`、`targetRecordId` 和 `status`。`field` 对应原字段；保留消息数组使用 `preservedMessageIds[0]` 等路径。允许前向引用，读取完整文件后检查闭合。
+关系记录的 `data.references` 是数组，每项包含 `field`、`targetRecordId` 和 `status`。`field` 对应原字段；保留消息数组使用 `preservedMessageIds[0]` 等路径；跨会话快照使用 `sourceMessageIds[0]`，模型批次消息使用 `toolMessageId`。允许前向引用，读取完整文件后检查闭合。
 
 | status | 含义与消费者行为 |
 | --- | --- |
@@ -77,12 +78,12 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 
 ## 独立消费
 
-[独立 Python 校验器](../../scripts/validate-session-export.py) 只依赖 Python 标准库，不调用 Android 或 Kotlin 导出代码，不解析原设备路径、不下载正文、不执行记录中的工具。[合成样例](../../scripts/fixtures/session-export-v1.jsonl) 来自真实 Android 存储导出器的测试数据，包含原消息、压缩摘要、工具结果与审批，不包含用户数据。
+[独立 Python 校验器](../../scripts/validate-session-export.py) 只依赖 Python 标准库，不调用 Android 或 Kotlin 导出代码，不解析原设备路径、不下载正文、不执行记录中的工具。[v2 合成样例](../../scripts/fixtures/session-export-v2.jsonl) 在主机上按当前契约从原 v1 测试样例派生，不包含用户数据；它不是当前版本的设备导出实测。[历史 v1 样例](../../scripts/fixtures/session-export-v1.jsonl) 保留原 Android 导出证据，当前校验器拒绝旧主版本。
 
 ```sh
-python3 scripts/validate-session-export.py scripts/fixtures/session-export-v1.jsonl
+python3 scripts/validate-session-export.py scripts/fixtures/session-export-v2.jsonl
 python3 scripts/validate-session-export.py exported.jsonl --messages messages.jsonl --calls calls.jsonl
 python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
 ```
 
-首条命令校验信封、稳定身份、连续序号、分组、正文 hash、引用及尾统计。`--messages` 按原消息 sequence 重建正文；`--calls` 输出工具调用及其结果、执行、审批关联，仍保留未知模型关联。派生文件不得覆盖已有文件。`valid=true` 与 `materialsComplete=false` 可以同时出现；合成样例正是如此。校验器不把结构正确推论成历史事实完整或评测适用。
+首条命令校验信封、稳定身份、连续序号、分组、正文 hash、引用及尾统计。`--messages` 按原消息 sequence 重建正文；`--calls` 输出工具调用及其结果、执行、审批关联，保留显式模型来源和非模型调用区别。派生文件不得覆盖已有文件。`valid=true` 与 `materialsComplete=false` 可以同时出现；合成样例正是如此。校验器不把结构正确推论成历史事实完整或评测适用。

@@ -1,8 +1,8 @@
 # ADR-SKILLS-001: Skill 创作、安装与 MCP 配置闭环
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-13
-HXA: HXA-148, HXA-149, HXA-150, HXA-272, HXA-273, HXA-278, HXA-282
+Date: 2026-09-16; revised 2026-10-16
+HXA: HXA-148, HXA-149, HXA-150, HXA-272, HXA-273, HXA-278, HXA-282, HXA-298
 Deciders: Project owner（2026-10-11 要求将插件优化任务同步为 ADR，采用单一目标实现、不兼容旧版）
 
 ## Context
@@ -45,6 +45,8 @@ Mobile Use 的指南仍随所属插件交付，内容和资源接入上述统一
 在现有 ContextCompiler 中区分发现元数据、必要短指导、已激活正文、按需资源及历史引用。正文通过统一读取或可信用户激活装载；Mobile Use/Browser 的短操作规则保留，长例子和参考资料按需读取。同一任务同一快照避免无意义重复，不另建可写上下文库或 Skill 状态库。
 
 原生内容目录只携带可用的 source/name/hash/description；宿主短操作规则与可选 Skill 正文分离。内置参考资料使用与文件快照相同的路径/大小 framing 计算内容 hash，复用 `skills.read_resource` 的来源、调用资格和读取上限；更新参考资料也使旧快照失效。显式激活正文标记准确身份和用户参数，同一快照/参数只装载一次。缺失快照与停用分别报告，绝不退回同名最新正文。
+
+管理 UI 如实区分上述层次：必要指导、Skill 正文和原生参考资料可只读查看，不把“选用插件”描述为全文自动加载。原生必要指导与工作流保存在所属插件资源中，查看不产生选择、调用、注册或授权；零工具指导插件明确其他能力依赖，不从指导文字启动或授权依赖。
 
 `skills.list/read/read_resource` 使用宿主绑定的调用会话与 Turn；模型无需提供 `sessionId`，参数不能替换真实调用身份。工具描述明确省略该可选字段，既有非空约束与跨会话拒绝仍保留。Mobile Use 的短操作规则明确：需要新观察或屏幕外滚动本身不是阻塞；模型应在原授权内继续观察、操作与核验，只有实际不可用能力、授权或用户输入缺失才需要停下。执行器不代模型滚动或盲目重放未知副作用。
 
@@ -128,3 +130,7 @@ Owner授权继续278并排查requestReadiness上下文风险。采用[Claude Cod
 HXA-282 的真实 Qwen 长测出现空 `sessionId` 被 schema 拒绝，以及模型收到 offscreen 结果后提前结束。沿用当前宿主调用身份和渐进装载契约，仅澄清工具参数与每次操作所需的短规则；不删除约束、注入执行权限、扩大常驻 Skill 正文或硬编码模型动作。[Claude Code 官方 Skills 文档](https://code.claude.com/docs/en/skills)仍作为按需流程指导的参考，不推导其工具参数与 Helix 相同。修正效果及失败保留在[282证据](../../evidence/development/external-mcp-market-and-model-2026-10-13.md)，有界回归不覆盖历史协议根因或完整长稳验收。
 
 Owner随后要求一并优化系统提示、内置工具描述与Skill，再完成新版两小时验收。采用[Codex工具发现模板](https://github.com/openai/codex/blob/main/codex-rs/core/templates/search_tool/tool_description.md)的下一次模型请求曝光契约，以及[Claude Code最佳实践](https://code.claude.com/docs/en/best-practices)的短通用指导、按需流程和可观察完成标准；保持Helix的当前schema、宿主绑定身份和权限边界。offscreen匹配结果、find/scroll/snapshot描述与Android参考Skill统一明确新观察、scrollable容器和token失效；浏览器短Skill说明陈旧/歧义目标恢复，安装Skill使用当前扩展配置入口。只改变指导与诊断提示，不由宿主选择动作或用户授权答案；验证结果见同一282证据。
+
+## Decision history — 2026-10-16：提示分层可审查
+
+Owner 要求审查 Mobile Use 等插件提示的提供方式和内容。[HXA-298](../../development/tasks/HXA-298.md) 保留现有渐进装载，管理页增加必要指导和原生参考资料预览，并纠正全文自动加载的误述；Documents 必要指导归入自身资源，Chat Reply 明确独立能力依赖。参考 [Codex Skills](https://developers.openai.com/codex/skills) 和 [Claude Skills](https://code.claude.com/docs/en/skills)，不将这些指导变成审批或新执行能力；成本与模型遵循率需要独立真实模型对照，不能由 UI/主机验收推导。

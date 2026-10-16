@@ -6,6 +6,9 @@
 
 | 专题 | 保留内容 | 设计与实施承接 |
 | --- | --- | --- |
+| [插件提示与管理体验（2026-10-16）](plugin-guidance-and-management-2026-10-16.md) | 工具/必要指导/Skill/参考资料加载，竞品取舍，统一管理入口 | [HXA-298](../../development/tasks/HXA-298.md)；当前实现与验证独立记账，保留插件及授权边界 |
+| [数据库与会话存储审查（2026-10-16）](session-storage-review-2026-10-16.md) | 53 张表职责、正文/执行/上下文边界，Codex/Claude Code/OpenCode/OpenHands 对照；搜索及 GC 查询证据 | 会话查询改进候选、HXA-287/288/294 设计输入；只读审查，不改变当前实施顺序 |
+| [会话管理：竞品核对、首版与重构承接（2026-10-16）](session-management-2026-10-16.md) | Codex/Claude Code/OpenHands，现有 UI 与模型工具的差距；历史/引用、授权与投递回执 | [HXA-295](../../development/tasks/HXA-295.md)、[Harness §23.10](../../architecture/harness-refactor-plan.md#2310-会话管理与受控任务投递)；首版与后续跨会话扩展分别验收 |
 | [内置工具与插件：桌面及移动端 Agent 对照（2026-10-15）](tool-and-plugin-competitive-review-2026-10-15.md) | 工具名与能力差距、发现／前置依赖、插件边界；§6.2 逐项区分随包插件、基础 Skill 与市场工作流 | [工具与扩展综合研究 §2](../modules/04-tools-browser-and-extensions.md#2-tool-exposure)；研究建议不替代当前任务与 ADR |
 | [helix-docs 官方帮助查询设计与实现记录（2026-10-14）](helix-docs-design-2026-10-14.md) | Skill/工具复用设计、版本/来源契约、随包英文帮助章节及未覆盖边界 | [工具与扩展综合研究 §4](../modules/04-tools-browser-and-extensions.md#4-extensionmcp--skill--connector--a2a)；窄实现已落在内置 Skills，不扩展 documents 插件 |
 | [上下文优化建议复核与设计补充（2026-10-14）](context-optimization-2026-10-14.md) | 引用／压缩一致性缺口及 JVM 探针、预算协调、Memory／事实／视觉选择、诊断和验收边界 | [上下文综合研究 §5](../modules/02-context-input-and-session.md#5-compaction--memory)、[Harness §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)；设计输入，不独立调整当前任务或宣称生产已修复 |

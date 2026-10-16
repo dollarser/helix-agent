@@ -54,6 +54,8 @@ Core/Engine 和 HXA-257/258 的既有交付不重复实施。2026-10-15 Owner �
 | HXA-289～292 | TOOLS-001 规范语义；MCP-001 Resources；具体文件/网络/Browser/Mobile Use 仍沿所属领域与权限，改变长期边界时同步原 ADR |
 | HXA-293 | [AGENT-002](agent/002-context-compaction.md) 内容快照/成本与策略分期；[AGENT-013](agent/013-markdown-memory.md) 最小 Memory Store |
 | HXA-294 | 验证以上已交付契约及旧路径删除，不新增架构或自动启动长稳/发行 |
+| HXA-295 | [AGENT-001 §17](agent/001-turn-coordination.md#17-会话查询与管理) 会话查询/创建/投递；[PERMISSIONS-001](permissions/001-session-authorization.md) 目标/操作范围；A 首版与 B/C 后续扩展分开，不复制 Mobile Use 授权 |
+| HXA-296 | [AGENT-001](agent/001-turn-coordination.md) 提示/历史与执行事实；[WORKSPACE-001](workspace/001-session-paths.md) 同流读取身份与编辑版本边界 |
 
 单一开发基线允许删除旧内部兼容接口与历史开发库迁移链；当前版本恢复、原执行身份、审批和未知效果保障仍须验证。当前外部协议/插件格式适配不是旧 Helix 兼容。
 

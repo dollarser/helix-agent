@@ -1,13 +1,19 @@
 # ADR-PERMISSIONS-001: 会话授权预设、自定义权限与工具禁用
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-11
-HXA: HXA-020, HXA-028, HXA-033, HXA-066, HXA-093, HXA-094, HXA-209, HXA-228, HXA-239
+Date: 2026-09-16; revised 2026-10-16
+HXA: HXA-020, HXA-028, HXA-033, HXA-066, HXA-093, HXA-094, HXA-209, HXA-228, HXA-239, HXA-295
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
 
 HXA-228 重新校正会话权限名称与实际 ALLOW/ASK/DENY 语义。旧 `READ_ONLY` 实际允许用户逐次批准写入，与“只读”名称冲突；旧 `WORKSPACE` 又自动放行远端业务写，与“只信任工作区”心智不一致。项目尚未发布，因此直接采用 clean-slate v2，不保留旧枚举名、旧字符串解析或迁移别名。工具可用性与操作授权继续分开，统一 resolver 负责判定。
+
+## Decision history — 2026-10-16：会话查询与跨会话边界
+
+HXA-295 首版查询只读取原会话有效历史和用户已分享的快照，不复用全库 UI 查询作为模型权限。原 session/Turn/call 从可信派发上下文解析；模型参数、项目成员、来源 ID 和历史文本均不能授权回源读取或控制。标题变更按普通 LOCAL_MUTATION / DEVICE_SYSTEM_MUTATION 处理，沿已有预设 ASK/ALLOW/DENY，Chat/Plan 无新增豁免；不借改标题更新目录、模式或能力。
+
+后续跨会话能力须保存用户授予的目标、操作和版本，区分读取、整理和投递范围，并在发布/实际调用时复检。模型发送权不授予接收方无限执行权；目标自身授权与用户指定委托范围共同约束。新建、分支或继续会话不复制其他会话 Mobile Use grant/审批/旧 frame。完整执行契约归 [AGENT-001 §17](../agent/001-turn-coordination.md#17-会话查询与管理)；B/C 尚未实施，不将 accepted 误记为已开放权限。
 
 ## Decision history — 2026-10-03：Mobile Use 显式全机许可
 

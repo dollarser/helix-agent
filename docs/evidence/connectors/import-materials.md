@@ -1,8 +1,8 @@
 # Connector 导入材料与复跑方法
 
-仅保存输入材料位置、hash 清单和复跑方式；缺材料不构成功能成功。账号/来源剩余验收归 HXA-125，不重做已经完成的 HXA-124/127/128。旧设备 serial 不可复用。
+本页保留历史交接来源；当前可复用入口为[外部样本说明](../../../scripts/fixtures/connectors/README.md)。2026-10-16 的 [HXA-299](../../development/tasks/HXA-299.md) 已将 QwenWork 原包、WorkBuddy 两个市场包与六份固定公开配置集中到忽略的 `scripts/local/fixtures/connectors/`，由本地 manifest 校验，不受 `gradlew clean` 影响。原件与旧证据保留，不提交第三方内容或凭据；真实账号验收不由导入通过推导。
 
-## 材料
+## 历史交接材料
 
 main worktree 的 `app/build/outputs/connector-handoff-672dc5a/` 是本次复制的独立快照；未覆盖 main 已有 build 产物。150 个文件，109,591,173 bytes（不含清单自身），逐文件复制后 SHA-256 比对通过。`manifest.json` 给出相对路径、大小与 hash，可据此校验。
 
@@ -16,16 +16,15 @@ main worktree 的 `app/build/outputs/connector-handoff-672dc5a/` 是本次复制
 
 这些文件受 `**/build/` 忽略规则保护，不提交第三方样本、用户原件或 APK。`gradlew clean` 可删除交接目录，清理 build 前应另行备份。源 worktree 与 Downloads 原件保留；没有复制 Gradle 缓存、签名材料、local.properties 或凭据。
 
-## 复跑参考
+## 当前复跑入口
 
-以下在 main 仓库根执行；原件不用再依赖旧 worktree 路径：
+以下在仓库根执行。先按样本说明 prepare；每轮使用新的输出目录，错误/改变的输入或跳过不能成为 pass：
 
 ```bash
-HELIX_CONNECTOR_SAMPLE_ZIP="$PWD/app/build/outputs/connector-handoff-672dc5a/inputs/connector-参考包.zip" ./gradlew :app:testConsumerDebugUnitTest --tests 'com.helix.app.connector.ConnectorSuppliedArchiveTest' --rerun --no-configuration-cache
-python3 scripts/fetch-hxa-125-samples.py
-HELIX_CONNECTOR_ACCEPTANCE_DIR="$PWD/app/build/outputs/hxa-125-samples" ./gradlew :app:testConsumerDebugUnitTest --tests 'com.helix.app.connector.ConnectorExternalAcceptanceTest' --rerun --no-configuration-cache
+python3 scripts/connector-samples.py test offline --output build/connector-samples-offline
+python3 scripts/connector-samples.py test public-mcp --output build/connector-samples-public
 ```
 
-第二、三条涉及已记录的公开来源和匿名文档服务，不代替账号验收。设备测试先构建 main APK，再按脚本显式指定独占设备 serial：`accept-hxa-124-connectors.sh`、`accept-hxa-125-connectors.sh`、`accept-hxa-125-sample.sh`，参数见各脚本。不能盲用历史 5580/5582；本任务原专用 AVD 已关闭删除，其他 worktree 的设备不可复用安装。
+第二条是独立显式联网的匿名文档 MCP 服务验收，不需要样本路径、账号或真实模型。直接 Gradle 执行时，`HELIX_CONNECTOR_ACCEPTANCE_DIR` 现在只启用离线解析；联网另需 `HELIX_PUBLIC_MCP_ACCEPTANCE=true`。设备入口与实际参数见样本说明，不能盲用历史 serial/包名；只有当轮指定设备授权才执行。
 
 复制材料不是重新测试。`672dc5a` 集成树验证为 708 JVM 项（702 通过、6 项预期跳过）、2 Python 通过、双 flavor debug 和 consumer AndroidTest 构建及质量门禁通过；设备证据来自此前版本，本次集成未重新运行模拟器。
