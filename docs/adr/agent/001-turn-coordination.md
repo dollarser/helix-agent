@@ -79,7 +79,7 @@ HXA-287 同时保留参数准备、execution-start、持久结算和通知的阶
 
 **进程死亡后不使用这些 checkpoint 复活旧 Turn。** 旧 Turn 的 runtime record 保留为审计、诊断和用量事实；successor Turn 重新经过 admission，创建新的 runtime snapshot 和新的 Turn budget。Goal 的累计预算/用量继续跨 Run 计算，不因 crash 或新 Turn 退款。
 
-历史 v29 及更早 Turn 没有 runtime record 时仍可显示、核查和作为 RecoverySummary 来源；successor Turn 使用自己新建的 snapshot，不从当前 Settings 猜造旧 Turn 的执行配置。迁移期间已有 review-resume receipt/checkpoint 字段可保留到调用图证明无用后再删，不能作为继续 same-Turn 的理由。
+当前开发库按单一基线设计，不要求读取 v29 等旧开发版本，也不为旧 review-resume 入口保留 receipt/checkpoint 兼容字段。当前版本若缺少必要 runtime record，按损坏/不完整事实处理，不从当前 Settings 猜造原执行配置；successor Turn 必须创建自己的 snapshot。仍服务当前原子命令、去重和恢复的字段按真实调用保留，与旧版本兼容无关。
 ### Decision history — 2026-10-02：执行稳定性与业务结果验收分离
 
 所有者明确取消以业务结果冲突为依据的全局执行互斥。终端/后台任务保留原身份与未知副作用记录，但不据此阻挡无关调用；同文件、同网络 origin、写/代码类别均不自动构成调度屏障。权限、原调用身份、短事务一致性、引擎和物理容量仍归 Harness；业务产物最终是否正确由用户和 LLM 验收。生产接线与测试归 [HXA-238](../../development/tasks/HXA-238.md)，不将这次裁决当成设备验证。
@@ -304,6 +304,8 @@ ModelCall 和 ToolCall 在原 Turn 内各有事务分配的 ordinal 与 createdA
 GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复核与删除持有正文发布协调锁，不能把整个目录遍历放入该锁。搜索投影不是额外的内容保留引用；会话删除时随消息删除，仍保留原隐私清理边界。
 
 ## Decision history
+
+- 2026-10-16（发布前恢复审查）：Owner 再确认架构取舍以当前合理性、未来能力集成及主流实践为准，不为旧开发库/旧内部接口留兼容约束；删除本 ADR 的旧 v29/review-resume 兼容要求。三个崩溃窗口是当前正确性与未来迁移均须验证的时点，不是自动延期的缺陷清单；当前故障注入及修复见[审查记录](../../evidence/development/crash-window-review-2026-10-16.md)。取消、授权、原调用事实和同版本恢复不作为兼容负担删除。
 
 - 2026-10-16（预览后共同接线）：Owner 要求优化既有重构/能力补齐文档。286 先固定原子领域命令需要的身份、幂等键和可恢复事实；287-A/288-A 分别通过后共同接最小真实 Room，包含读取及受控外部效果，覆盖开始前、效果后提交前、提交后通知前三个窗口。数据库事务不跨外部执行，Runtime journal 与 Room 按原身份分阶段对账；通知/查询投影不是第二账本。297 的来源/搜索/窗口、295 A 与 301 的运行证据作为现有基线，295 B/C 依赖相关命令切片而非整个宿主重构完成。仅明确现有目标的验收，不新增跨会话授权或实施结论。
 

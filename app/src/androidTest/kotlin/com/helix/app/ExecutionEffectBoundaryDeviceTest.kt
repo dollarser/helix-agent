@@ -100,6 +100,28 @@ class ExecutionEffectBoundaryDeviceTest {
     }
 
     @Test
+    fun directCallPreservesExecutorReportedUncertainty() {
+        val executions = AtomicInteger()
+        registerReadOnlyTool(executions, ToolExecutorResult.TimedOut)
+        val callId = "be-uncertain-$run"
+        val outcome = dispatch(callId, "be-uncertain-turn-$run", READ_ONLY_TOOL_NAME, "{}")
+        assertTrue(outcome is ToolDispatchOutcome.ExecutionFailed && outcome.requiresReview)
+        assertEquals(1, executions.get())
+        assertEquals(
+            "NEEDS_REVIEW",
+            container.storage.toolCalls
+                .resolve(callId)
+                .state,
+        )
+        assertEquals(
+            "NEEDS_REVIEW",
+            container.storage.toolResults
+                .byToolCall(callId)
+                ?.status,
+        )
+    }
+
+    @Test
     fun aRefusedShellWriteNeverReachesTheRealBackendAndReadsStillProceed() {
         val sentinel = appContext.noBackupFilesDir.resolve("be-write-sentinel-$run")
         sentinel.delete()
@@ -162,7 +184,10 @@ class ExecutionEffectBoundaryDeviceTest {
      * classifier gives it an EMPTY footprint (no gated effect), so under any config the resolver
      * AutoProceeds it card-free. The per-test counter proves it actually executed.
      */
-    private fun registerReadOnlyTool(executions: AtomicInteger) {
+    private fun registerReadOnlyTool(
+        executions: AtomicInteger,
+        result: ToolExecutorResult = ToolExecutorResult.Completed(buildJsonObject { put("ok", true) }),
+    ) {
         val nextVersion =
             (
                 container.toolPipeline.registry
@@ -191,7 +216,7 @@ class ExecutionEffectBoundaryDeviceTest {
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     executions.incrementAndGet()
-                    return ToolExecutorResult.Completed(buildJsonObject { put("ok", true) })
+                    return result
                 }
             },
         )

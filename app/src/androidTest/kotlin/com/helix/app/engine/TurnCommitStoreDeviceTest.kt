@@ -137,7 +137,7 @@ class TurnCommitStoreDeviceTest {
     @Test fun nextStepPrecedesStream() =
         fixture { storage, turn, store ->
             turn.beginToolBatch(listOf("call"))
-            turn.commitModelToolStep("[]")
+            turn.commitModelToolStep("""[{"id":"call","name":"time.now","arguments":"{}"}]""")
             turn.settleBatchCall("call", false)
             turn.openNextModelCall(emptyList(), "next")
             assertEquals(turn.snapshot().modelStep, storage.turns.resolve("t").stepCount)

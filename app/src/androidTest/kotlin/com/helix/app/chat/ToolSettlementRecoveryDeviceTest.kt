@@ -4,15 +4,20 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.HelixApplication
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnRecovery
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
+import com.helix.core.model.Sha256
 import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -25,6 +30,160 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ToolSettlementRecoveryDeviceTest {
+    @Test
+    fun failedCommitStillPropagatesBeforeAnyProjection() =
+        Fixture().use { f ->
+            val call = f.call("failed-commit")
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            var notifications = 0
+            val strings: (Int, Array<out Any>) -> String = { _, _ ->
+                notifications++
+                "projection"
+            }
+            val settlement =
+                ChatToolSettlement(
+                    f.storage,
+                    app.toolPipeline,
+                    f.clock,
+                    { UUID.randomUUID().toString() },
+                    strings,
+                    ChatToolTimeline(MutableStateFlow(app.chatService.screen.value), strings),
+                    { null },
+                )
+            val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("payload", Sha256("a".repeat(64)), false, 1))
+            f.sql(
+                "CREATE TRIGGER fail_settle BEFORE INSERT ON tool_results " +
+                    "BEGIN SELECT RAISE(ABORT, 'fixture failure'); END",
+            )
+            assertThrows(RuntimeException::class.java) {
+                settlement.settleToolCall(call, call.callId, call.name, outcome)
+            }
+            assertEquals(0, notifications)
+            assertEquals(
+                "RUNNING",
+                f.storage.toolCalls
+                    .resolve(call.id)
+                    .state,
+            )
+            assertNull(f.storage.toolResults.byToolCall(call.id))
+            assertEquals(
+                0,
+                f.storage.goals
+                    .resolve(f.goalId)
+                    .toolCalls,
+            )
+        }
+
+    @Test
+    fun committedResultSurvivesProjectionFailureAndRepeatedRecovery() =
+        Fixture().use { f ->
+            val call = f.call("committed")
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            val screen = MutableStateFlow(app.chatService.screen.value)
+            var notifications = 0
+            val strings: (Int, Array<out Any>) -> String = { _, _ ->
+                notifications++
+                error("injected projection failure after commit")
+            }
+            val settlement =
+                ChatToolSettlement(
+                    f.storage,
+                    app.toolPipeline,
+                    f.clock,
+                    { UUID.randomUUID().toString() },
+                    strings,
+                    ChatToolTimeline(screen, strings),
+                    { null },
+                )
+            val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("payload", Sha256("a".repeat(64)), false, 1))
+            settlement.settleToolCall(call, call.callId, call.name, outcome)
+            assertEquals(1, notifications)
+            val saved = f.storage.toolResults.byToolCall(call.id)
+            assertNotNull(saved)
+            f.reopen()
+            repeat(2) { TurnRecovery(f.storage, f.clock).recover() }
+            assertEquals(
+                "COMPLETED",
+                f.storage.toolCalls
+                    .resolve(call.id)
+                    .state,
+            )
+            assertEquals(saved, f.storage.toolResults.byToolCall(call.id))
+            assertEquals(
+                1,
+                f.storage.goals
+                    .resolve(f.goalId)
+                    .toolCalls,
+            )
+        }
+
+    @Test
+    fun effectBeforeFailedCommitRemainsUncertainAfterRepeatedRecovery() =
+        Fixture().use { f ->
+            f.call("effect")
+            val effect = File(f.context.cacheDir, "${f.name}-effect")
+            try {
+                effect.appendText("executed once\n")
+                f.sql(
+                    "CREATE TRIGGER fail_settle BEFORE INSERT ON tool_results " +
+                        "BEGIN SELECT RAISE(ABORT, 'fixture failure'); END",
+                )
+                assertThrows(RuntimeException::class.java) { f.persist("effect") }
+                f.sql("DROP TRIGGER fail_settle")
+                f.reopen()
+                repeat(2) { TurnRecovery(f.storage, f.clock).recover() }
+                assertEquals(
+                    "INTERRUPTED",
+                    f.storage.toolCalls
+                        .resolve("effect")
+                        .state,
+                )
+                assertNull(f.storage.toolResults.byToolCall("effect"))
+                assertEquals(listOf("executed once"), effect.readLines())
+                assertEquals(
+                    "INTERRUPTED",
+                    f.storage.turns
+                        .resolve("turn")
+                        .state,
+                )
+            } finally {
+                effect.delete()
+            }
+        }
+
+    @Test
+    fun failedStartCommitLeavesPendingCallCancelledAfterRecovery() =
+        Fixture().use { f ->
+            val call = f.call("not-started")
+            f.storage.toolCalls.updateState(call, ToolCallState.PENDING)
+            f.sql(
+                "CREATE TRIGGER fail_start BEFORE UPDATE OF state ON tool_calls " +
+                    "BEGIN SELECT RAISE(ABORT, 'fixture failure'); END",
+            )
+            assertThrows(RuntimeException::class.java) { f.storage.toolCalls.updateState(call, ToolCallState.RUNNING) }
+            f.sql("DROP TRIGGER fail_start")
+            f.reopen()
+            repeat(2) { TurnRecovery(f.storage, f.clock).recover() }
+            assertEquals(
+                "CANCELLED",
+                f.storage.toolCalls
+                    .resolve(call.id)
+                    .state,
+            )
+            assertEquals(
+                "CANCELLED",
+                f.storage.toolResults
+                    .byToolCall(call.id)
+                    ?.status,
+            )
+            assertEquals(
+                1,
+                f.storage.goals
+                    .resolve(f.goalId)
+                    .toolCalls,
+            )
+        }
+
     @Test
     fun bodyWriteFailureLeavesCallAndBudgetUnsettled() =
         Fixture().use { f ->

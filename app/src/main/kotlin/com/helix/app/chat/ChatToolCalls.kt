@@ -342,10 +342,9 @@ internal class ChatToolCalls(
                             durationMs,
                         )
                     }
-                    nativeCards.finishCall(p.callId)
-                    approvalChanged()
                     observer.settled(p.callId, sideEffectUnknown = unknown)
                     if (unknown) reviewCallIds += p.callId
+                    publishFinishedCall(p.callId)
                 } catch (failure: Exception) {
                     val first = settlementFailure
                     if (first == null) settlementFailure = failure else first.addSuppressed(failure)
@@ -408,6 +407,12 @@ internal class ChatToolCalls(
                     as? ToolDispatchOutcome.ExecutionFailed
             )?.requiresReview == true
     }
+
+    private fun publishFinishedCall(callId: String) =
+        publishToolProjection(callId) {
+            nativeCards.finishCall(callId)
+            approvalChanged()
+        }
 
     /** One prepared tool call: the persisted row + dispatch request, or a pre-settled rejection. */
     private class PreparedToolCall(
@@ -618,16 +623,18 @@ internal class ChatToolCalls(
         {
             executionStartTimes[toolCallId] = clock.now().toEpochMilli()
             storage.toolCalls.updateState(row, ToolCallState.RUNNING)
-            approvalChanged()
-            timeline.publishToolRow(
-                turnId,
-                toolCallId,
-                toolNameRaw,
-                canonical,
-                str(R.string.tool_state_running),
-                null,
-                null,
-            )
+            publishToolProjection(toolCallId) {
+                approvalChanged()
+                timeline.publishToolRow(
+                    turnId,
+                    toolCallId,
+                    toolNameRaw,
+                    canonical,
+                    str(R.string.tool_state_running),
+                    null,
+                    null,
+                )
+            }
         }
 
     private fun recoveryEffectRejection(
@@ -793,8 +800,7 @@ internal class ChatToolCalls(
         prepared.preSettled?.let { return it }
         val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
         val settlement = batch.settlements.single()
-        val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
-        val unknown = thrown != null && thrown !is ApprovalCancelledException
+        val unknown = requiresSettlementReview(settlement)
         val outcome =
             when (settlement) {
                 is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome

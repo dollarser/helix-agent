@@ -359,7 +359,7 @@ class ProcessRecoveryTest {
     }
 
     @Test
-    fun budgetBoundaryParksAtomicallyWithTheUsageAudit() {
+    fun usageCheckpointDoesNotReintroduceRemovedResourceLimits() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val storage = isolatedStorage(context, "usage-budget")
         storage.goals.save(
@@ -376,19 +376,23 @@ class ProcessRecoveryTest {
             1_100L,
         )
         val goal = storage.goals.resolve("goal-budget")
-        assertEquals(GoalState.BLOCKED.name, goal.state)
-        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", goal.finishReason)
+        // ADR-GOAL-001 (2026-10-07): resource totals are accounting; Goal rounds limit continuation.
+        assertEquals(GoalState.RUNNING.name, goal.state)
+        assertNull(goal.finishReason)
         val run = storage.goalRuns.resolve("run-budget")
         assertEquals(1, run.modelCalls)
-        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", run.outcome)
-        assertEquals(1_100L, run.endedAt)
-        assertTrue(storage.goalRuns.listOpenByGoal(goal.id).isEmpty())
+        assertEquals(10L, run.tokens)
+        assertEquals(100L, run.wakeDurationMillis)
+        assertNull(run.outcome)
+        assertNull(run.endedAt)
+        assertEquals(listOf(run), storage.goalRuns.listOpenByGoal(goal.id))
         val audit = storage.auditEvents.listByCorrelation(goal.correlationId).single()
-        assertTrue(audit.redactedPayload.contains("\"exhausted\":\"maxModelCalls\""))
+        assertTrue(audit.redactedPayload.contains("\"exhausted\":null"))
+        assertTrue(audit.redactedPayload.contains("\"modelCalls\":1"))
     }
 
     @Test
-    fun exhaustedRunSurvivesReopenWithoutRecoveryRewritingItsOutcome() {
+    fun usageBeyondRemovedLimitSurvivesReopenAndRecoveryOnlyClosesOnce() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val storage = isolatedStorage(context, "exhausted-reopen")
         val seeded = goal("exhausted", GoalState.RUNNING.name)
@@ -404,23 +408,28 @@ class ProcessRecoveryTest {
         storage.close()
         val reopened = isolatedStorage(context, "exhausted-reopen")
         val before = reopened.goalRuns.resolve("exhausted-run")
+        assertNull(before.outcome)
+        val first = TurnRecovery(reopened, FixedClock(999_999L)).recover()
+        assertEquals(listOf("exhausted-run"), first.closedRuns)
+        val recovered = reopened.goalRuns.resolve("exhausted-run")
         val auditCount = reopened.auditEvents.listByCorrelation(seeded.correlationId).size
         repeat(2) {
             val report = TurnRecovery(reopened, FixedClock(999_999L)).recover()
             assertTrue(report.closedRuns.isEmpty())
             assertTrue(report.parkedGoals.isEmpty())
         }
-        assertEquals(before, reopened.goalRuns.resolve("exhausted-run"))
-        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", before.outcome)
-        assertEquals(1_000L, before.endedAt)
-        assertEquals(100L, before.wakeDurationMillis)
-        assertEquals(7L, before.tokens)
+        assertEquals(recovered, reopened.goalRuns.resolve("exhausted-run"))
+        assertEquals("INTERRUPTED", recovered.outcome)
+        assertEquals(999_999L, recovered.endedAt)
+        assertEquals(100L, recovered.wakeDurationMillis)
+        assertEquals(7L, recovered.tokens)
+        assertEquals(before.modelCalls, recovered.modelCalls)
         assertEquals(auditCount, reopened.auditEvents.listByCorrelation(seeded.correlationId).size)
-        assertEquals(GoalState.BLOCKED.name, reopened.goals.resolve(seeded.id).state)
+        assertEquals(GoalState.PAUSED.name, reopened.goals.resolve(seeded.id).state)
     }
 
     @Test
-    fun simultaneousDurationLimitsUseAdrWakeBeforeLifetimeOrder() {
+    fun removedDurationLimitsDoNotStopGoalButUsageIsPersisted() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val storage = isolatedStorage(context, "duration-priority")
         val seeded = goal("duration", GoalState.RUNNING.name)
@@ -435,9 +444,11 @@ class ProcessRecoveryTest {
             GoalDurableUsageLedger.Delta(durationMillis = 100),
             1_100L,
         )
-        assertEquals("BUDGET_EXHAUSTED(maxWakeDurationMillis)", storage.goalRuns.resolve("duration-run").outcome)
-        assertEquals("BUDGET_EXHAUSTED(maxWakeDurationMillis)", storage.goals.resolve(seeded.id).finishReason)
+        assertNull(storage.goalRuns.resolve("duration-run").outcome)
+        assertNull(storage.goals.resolve(seeded.id).finishReason)
+        assertEquals(GoalState.RUNNING.name, storage.goals.resolve(seeded.id).state)
         assertEquals(100L, storage.goals.resolve(seeded.id).runTimeMillis)
+        assertEquals(100L, storage.goalRuns.resolve("duration-run").wakeDurationMillis)
     }
 
     @Test

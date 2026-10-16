@@ -8,6 +8,8 @@
 
 ## 当前实施
 
+2026-10-16 发布前恢复追加审查：Owner 要求解释三个崩溃窗口并修复当前问题。已复现并修复单调用入口丢失 `requiresReview` 与提交后界面异常传播，双渠道 API36 ARM64 定向恢复各 35/35；同时校正 4 项过时夹具。完整主机、新同源 ARM64 候选与受影响 R8 复验进行中，见[本轮记录](../evidence/development/crash-window-review-2026-10-16.md)。下方前批候选的验收只证明其原版本，不覆盖新修复；远端发布仍暂缓。
+
 2026-10-16 预览后文档复核：已按当前源码与 Codex、Claude Code、OpenHands、MCP 规范及移动/终端一手资料更新 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)、HXA-286～295 与原主题 ADR。已实现能力去重、287/288 联合副作用/Room 检查点、存储命令边界及插件本地运行条件已明确；研究事实和取舍见[竞品复核](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#10-2026-10-16-预览后重构与能力复核)。本轮没有实施重构、新增功能或账号测试。
 
 本版 v0.0.6 预览按 Owner 最新决定只分发和验收双渠道 ARM64；已完成候选/证书/哈希/清理复核，复用下述最终 R8 实测。x86_64 暂不验证，不列本版缺口，既有构建资产和全局 ABI 支持保留。分发清单见[ARM64 范围确认](../evidence/development/ui-r8-closeout-2026-10-16.md#arm64-预览范围确认)；尚未推送或发布。
@@ -220,6 +222,8 @@ Owner已授权[HXA-284](tasks/HXA-284.md)：统一PDF/DOCX文档插件。完整�
 | [HXA-126](tasks/HXA-126.md) | issuer/resource、准备取消、CIMD/显式 DCR、持久归属及配置修复已通过主机集成；Notion/Linear真实服务子范围已结案，见页首结案记录 | 不再等待两家账号、自然刷新或重连验收；自有HTTPS/App Link、签名与渠道输入属于独立发行准备 |
 
 ## Next task
+
+当前先完成 Owner 追加的[发布前崩溃窗口审查](../evidence/development/crash-window-review-2026-10-16.md)：两个当前缺陷已修复并通过双渠道定向恢复，继续完整主机、新 ARM64 同源候选和受影响 R8 验收。该追加收尾不启动下方整体重构，也不恢复推送/发布授权。
 
 本轮 ARM64 范围整理与后续文档优化已完成。生产重构和候选能力未自动启动；Owner 暂不推送发布的决定保持。后续实施需由 Owner 选择开始的范围；搜索 provider/费用、本地插件目标包及账号/Runtime 输入只影响对应能力，不构成本轮收尾阻塞。
 

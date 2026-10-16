@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import android.util.Log
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
@@ -16,6 +17,19 @@ import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchAuditEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+
+/** Only disposable presentation work belongs here; persistence failures must still propagate. */
+@Suppress("TooGenericExceptionCaught")
+internal fun publishToolProjection(
+    callId: String,
+    publish: () -> Unit,
+) {
+    try {
+        publish()
+    } catch (failure: Exception) {
+        Log.e("HelixChatTools", "Tool projection failed for $callId; durable outcome is unchanged", failure)
+    }
+}
 
 internal enum class PreDispatchDenialKind(
     val state: ToolCallState,
@@ -85,19 +99,21 @@ internal class ChatToolSettlement(
             outcome.result.payload,
             verified = true,
         )
-        timeline.setCardStateForCall(toolCallId, ApprovalCardState.SUCCEEDED, null)
-        timeline.publishToolRow(
-            row.turnId,
-            toolCallId,
-            toolName,
-            row.argsJson,
-            str(R.string.tool_state_completed),
-            summary,
-            null,
-            durationMs,
-            modelIntent = row.modelIntent,
-        )
-        publishLedgerForTodoWrite(row)
+        publishToolProjection(toolCallId) {
+            timeline.setCardStateForCall(toolCallId, ApprovalCardState.SUCCEEDED, null)
+            timeline.publishToolRow(
+                row.turnId,
+                toolCallId,
+                toolName,
+                row.argsJson,
+                str(R.string.tool_state_completed),
+                summary,
+                null,
+                durationMs,
+                modelIntent = row.modelIntent,
+            )
+            publishLedgerForTodoWrite(row)
+        }
     }
 
     /**
@@ -121,30 +137,32 @@ internal class ChatToolSettlement(
         outcome: ToolDispatchOutcome.Denied,
         durationMs: Long? = null,
     ) {
-        val userDetail = str(ApprovalUiMapper.codeLabel(outcome.code))
         ToolSettlementWriter(storage, clock, idGenerator).persist(
             row,
             ToolCallState.DENIED,
             "DENIED",
             outcome.detail,
         )
-        timeline.setCardStateForCall(
-            toolCallId,
-            ApprovalCardState.FAILED,
-            userDetail,
-            keepDenied = true,
-        )
-        timeline.publishToolRow(
-            row.turnId,
-            toolCallId,
-            toolName,
-            row.argsJson,
-            str(ApprovalUiMapper.codeLabel(outcome.code)),
-            userDetail,
-            null,
-            durationMs,
-            modelIntent = row.modelIntent,
-        )
+        publishToolProjection(toolCallId) {
+            val userDetail = str(ApprovalUiMapper.codeLabel(outcome.code))
+            timeline.setCardStateForCall(
+                toolCallId,
+                ApprovalCardState.FAILED,
+                userDetail,
+                keepDenied = true,
+            )
+            timeline.publishToolRow(
+                row.turnId,
+                toolCallId,
+                toolName,
+                row.argsJson,
+                str(ApprovalUiMapper.codeLabel(outcome.code)),
+                userDetail,
+                null,
+                durationMs,
+                modelIntent = row.modelIntent,
+            )
+        }
     }
 
     private fun settleCancelled(
@@ -159,18 +177,20 @@ internal class ChatToolSettlement(
             "CANCELLED",
             str(R.string.tool_summary_cancelled_before_start),
         )
-        timeline.setCardStateForCall(toolCallId, ApprovalCardState.FAILED, str(R.string.turn_stopped))
-        timeline.publishToolRow(
-            row.turnId,
-            toolCallId,
-            toolName,
-            row.argsJson,
-            str(R.string.tool_state_cancelled),
-            str(R.string.tool_summary_cancelled_before_start),
-            null,
-            durationMs,
-            modelIntent = row.modelIntent,
-        )
+        publishToolProjection(toolCallId) {
+            timeline.setCardStateForCall(toolCallId, ApprovalCardState.FAILED, str(R.string.turn_stopped))
+            timeline.publishToolRow(
+                row.turnId,
+                toolCallId,
+                toolName,
+                row.argsJson,
+                str(R.string.tool_state_cancelled),
+                str(R.string.tool_summary_cancelled_before_start),
+                null,
+                durationMs,
+                modelIntent = row.modelIntent,
+            )
+        }
     }
 
     private fun settleExecutionFailed(
@@ -182,36 +202,38 @@ internal class ChatToolSettlement(
         durationMs: Long? = null,
     ) {
         val state = if (sideEffectUnknown) ToolCallState.NEEDS_REVIEW else ToolCallState.FAILED
-        val userDetail =
-            str(
-                ApprovalUiMapper.executionFailureLabel(
-                    originFor(toolCallId),
-                    requiresReview = sideEffectUnknown,
-                ),
-            )
         ToolSettlementWriter(storage, clock, idGenerator).persist(row, state, state.name, outcome.detail)
-        timeline.setCardStateForCall(
-            toolCallId,
-            ApprovalCardState.FAILED,
-            userDetail,
-        )
-        val label =
-            if (sideEffectUnknown) {
-                str(R.string.tool_state_side_effect_pending)
-            } else {
-                str(R.string.tool_state_failed)
-            }
-        timeline.publishToolRow(
-            row.turnId,
-            toolCallId,
-            toolName,
-            row.argsJson,
-            label,
-            userDetail,
-            null,
-            durationMs,
-            row.modelIntent,
-        )
+        publishToolProjection(toolCallId) {
+            val userDetail =
+                str(
+                    ApprovalUiMapper.executionFailureLabel(
+                        originFor(toolCallId),
+                        requiresReview = sideEffectUnknown,
+                    ),
+                )
+            timeline.setCardStateForCall(
+                toolCallId,
+                ApprovalCardState.FAILED,
+                userDetail,
+            )
+            val label =
+                if (sideEffectUnknown) {
+                    str(R.string.tool_state_side_effect_pending)
+                } else {
+                    str(R.string.tool_state_failed)
+                }
+            timeline.publishToolRow(
+                row.turnId,
+                toolCallId,
+                toolName,
+                row.argsJson,
+                label,
+                userDetail,
+                null,
+                durationMs,
+                row.modelIntent,
+            )
+        }
     }
 
     /**
@@ -282,16 +304,18 @@ internal class ChatToolSettlement(
             )
             GoalToolCallBudget(storage, clock).finish(toolCallId)
         }
-        timeline.publishToolRow(
-            turn.id,
-            toolCallId,
-            toolNameRaw,
-            rawArgs,
-            str(kind.stateLabel),
-            detail,
-            null,
-            modelIntent = modelIntent,
-        )
+        publishToolProjection(toolCallId) {
+            timeline.publishToolRow(
+                turn.id,
+                toolCallId,
+                toolNameRaw,
+                rawArgs,
+                str(kind.stateLabel),
+                detail,
+                null,
+                modelIntent = modelIntent,
+            )
+        }
         return ToolDispatchOutcome.Denied(code, detail)
     }
 
