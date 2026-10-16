@@ -21,7 +21,6 @@ class MobileUseReleaseTest {
         openMobileUse()
         ui.scrollTo("插件设置", "Plugin settings")
         ui.activate("插件设置", "Plugin settings")
-        ui.await("选择应用（已选 0 个）", "Choose apps (0 selected)")
         ui.scrollTo("选择应用（已选 0 个）", "Choose apps (0 selected)")
         val wholePhone = ui.nodes().single { it.isCheckable }
         assertTrue("The initial draft uses the whole-phone option", wholePhone.isChecked)
@@ -56,7 +55,6 @@ class MobileUseReleaseTest {
         ui.back()
         ui.scrollTo("插件设置", "Plugin settings")
         ui.activate("插件设置", "Plugin settings")
-        ui.await("选择应用（已选 1 个）", "Choose apps (1 selected)")
         ui.scrollTo("选择应用（已选 1 个）", "Choose apps (1 selected)")
         ui.activate("选择应用（已选 1 个）", "Choose apps (1 selected)")
         ui.enterText(ui.context.packageName)

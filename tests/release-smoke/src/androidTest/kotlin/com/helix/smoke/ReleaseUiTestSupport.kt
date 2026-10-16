@@ -39,6 +39,8 @@ internal class ReleaseUiTestSupport {
         } ?: automation.rootInActiveWindow?.let { find(it, labels.toSet()) }
 
     fun nodes(): List<AccessibilityNodeInfo> {
+        if (Build.VERSION.SDK_INT >= 33) automation.clearCache()
+
         fun flatten(node: AccessibilityNodeInfo): List<AccessibilityNodeInfo> =
             listOf(node) + (0 until node.childCount).flatMap { index -> node.getChild(index)?.let(::flatten).orEmpty() }
         return automation.rootInActiveWindow
