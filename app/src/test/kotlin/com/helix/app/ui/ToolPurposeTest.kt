@@ -24,4 +24,22 @@ class ToolPurposeTest {
         assertNull(ToolPurpose.target("""{"command":"long command","content":"body"}"""))
         assertNull(ToolPurpose.target("invalid"))
     }
+
+    @Test fun fileTitlesShowOnlyTheFilenameAndLeaveOtherTargetsIntact() {
+        assertEquals("报告.txt", ToolPurpose.target("""{"path":"scope:ws-123:docs/报告.txt"}"""))
+        assertEquals("报告.txt", ToolPurpose.target("""{"path":"docs/报告.txt"}"""))
+        assertEquals("报告.txt", ToolPurpose.target("""{"source":"a/报告.txt","destination":"b/报告.txt"}"""))
+        assertEquals(".", ToolPurpose.target("""{"path":"scope:ws-123:."}"""))
+        val long = "scope:ws-123:" + "directory/".repeat(20) + "报告.txt"
+        assertEquals("报告.txt", ToolPurpose.target("""{"path":"$long"}"""))
+        assertEquals(
+            "https://example.com/docs/report",
+            ToolPurpose.target("""{"url":"https://example.com/docs/report"}"""),
+        )
+        assertEquals("docs/report", ToolPurpose.target("""{"query":"docs/report"}"""))
+        val title = requireNotNull(ToolPurpose.target("""{"path":"docs/${"long-name".repeat(30)}.txt"}"""))
+        org.junit.Assert.assertTrue(title.length <= 120)
+        org.junit.Assert.assertTrue(title.endsWith(".txt"))
+        org.junit.Assert.assertFalse(title.contains("docs/"))
+    }
 }

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
+import com.helix.app.ui.ScopedPathText
 import com.helix.app.ui.SessionDirectoryDialog
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.storage.entity.ProjectEntity
@@ -70,17 +71,12 @@ internal fun ProjectEditor(
                     )
                 }, modifier = Modifier.testTag("project-instructions"), maxLines = 6)
                 Text(stringResource(R.string.project_instructions_hint))
-                val selectedPath = directory?.let { FileScopePath.fromModelReference(it).relativePath }
-                Text(
-                    selectedPath?.takeIf { it.isNotBlank() }
-                        ?: stringResource(
-                            if (directory == null) {
-                                R.string.project_managed_directory
-                            } else {
-                                R.string.project_directory_selected
-                            },
-                        ),
-                )
+                val selectedDirectory = directory
+                if (selectedDirectory == null) {
+                    Text(stringResource(R.string.project_managed_directory))
+                } else {
+                    ScopedPathText(selectedDirectory)
+                }
                 TextButton(
                     { selecting = true },
                     enabled = !actions.busy,

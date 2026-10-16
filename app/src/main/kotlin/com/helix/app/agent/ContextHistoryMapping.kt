@@ -10,6 +10,7 @@ internal object ContextHistoryMapping {
     fun rows(
         storage: HelixStorage,
         rows: List<MessageEntity>,
+        directory: com.helix.core.workspace.FileScopePath? = null,
         contentFor: (MessageEntity) -> String? = { ContextHistoryContent.read(storage, it) },
     ): List<ContextSourceRow> =
         rows.map { row ->
@@ -21,6 +22,7 @@ internal object ContextHistoryMapping {
                 try {
                     ChatHistoryBuilder.toModelMessagesStrict(
                         listOf(ChatHistoryBuilder.PersistedRow(row.turnId, row.role, row.kind, content, row.id)),
+                        directory,
                     )
                 } catch (invalid: IllegalArgumentException) {
                     failure = invalid.message ?: "CONTEXT_HISTORY_INVALID"

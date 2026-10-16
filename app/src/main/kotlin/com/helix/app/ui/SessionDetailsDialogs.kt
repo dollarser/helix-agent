@@ -118,7 +118,10 @@ internal fun SessionDirectoryDialog(
                         ) { Text(source.displayName) }
                     }
                 } else {
-                    Text(current.relativePath.ifEmpty { current.scopeId })
+                    ScopedPathText(
+                        current.toModelReference(),
+                        sources.firstOrNull { it.scopeId == current.scopeId }?.displayName,
+                    )
                     TextButton({
                         path =
                             if (current.relativePath.isEmpty()) {

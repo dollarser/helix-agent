@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,6 +19,8 @@ import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.helix.app.chat.ToolTimelineRow
@@ -28,6 +31,33 @@ import org.junit.Test
 
 class ToolTimelineLayoutDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun longScopedPathKeepsFilenameAndExpandedOriginalArguments() {
+        val path = "scope:fixture-workspace:" + "directory/".repeat(20) + "报告.txt"
+        val args = """{"path":"$path"}"""
+        val intent = "Read $path to verify its content"
+        render(ToolTimelineRow("turn", "call", "read", args, "已执行成功", "content", null, modelIntent = intent))
+        compose
+            .onNodeWithTag("tool-row-intent-call", useUnmergedTree = true)
+            .assertTextContains("报告.txt", substring = true)
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose
+            .onNodeWithTag("tool-row-intent-call", useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val layout = layouts.single()
+        assertTrue("Directory leaked into the collapsed title", "directory/" !in layout.layoutInput.text.text)
+        assertTrue("Scope leaked into the collapsed title", "scope:" !in layout.layoutInput.text.text)
+        val filenameEnd =
+            layout.layoutInput.text.text
+                .indexOf("报告.txt") + "报告.txt".length
+        assertTrue(
+            "Filename is hidden by the collapsed title ellipsis",
+            filenameEnd <= layout.getLineEnd(layout.lineCount - 1, true),
+        )
+        compose.onNodeWithTag("tool-details-call").performClick()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)
+        verifyExpansion("tool-row-args-call", args)
+    }
 
     @Test fun longToolNameKeepsItsStateVisibleOnANarrowScreen() {
         render(

@@ -111,7 +111,11 @@ internal object ContextCompaction {
                     }
                 }?.copy(inputFloor = floor) ?: ContextHistory.load(storage, sessionId).let { history ->
                 com.helix.core.agent.ContextSourceSnapshot(
-                    ContextHistoryMapping.rows(storage, history.rows) { history.contents.getValue(it.id) },
+                    ContextHistoryMapping.rows(
+                        storage,
+                        history.rows,
+                        request.directory,
+                    ) { history.contents.getValue(it.id) },
                     history.checkpoint,
                     currentTurnId,
                     turn.recoveryFromTurnId,

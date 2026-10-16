@@ -11,6 +11,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+- Endpoint 分类只描述首跳连接地址，不能证明下游数据驻留或此前已按 host:port 授权。回环可能是转发器；UI 使用本机/局域网/公网/自定义地址等连接标签，不宣称数据不会离开设备。`ON_DEVICE_LOCAL` 仍表示直接设备内推理，连接标签不改变网络、工具或会话授权。
+
 - 2026-10-14 Owner明确将服务端日志关联限定为Debug且自定义API后端：App HTTP层只在宿主FLAG_DEBUGGABLE与自定义表单的显式来源标记同时满足时，读取已有LocalModelCallContext原Turn/model-call身份并发送`x-helix-turn-id`、`x-helix-model-call-id`，覆盖三个网络协议。仅HTTP头、不进入模型JSON/提示词、不是认证或执行授权；Release、官方表单、订阅、设备内模型及无Turn身份的目录/连接探测不发送。既有LineStore保存开发诊断资格与实际transport绑定，旧记录无标记不回填，不依据域名猜测。用户headers不能伪造宿主保留头，没有用户设置入口、Room schema、核心循环或协议适配器修改。
 
 - 2026-10-09 HXA-249：Chat Completions 在 wire 编码时聚合连续前导 SYSTEM 文本为一条同角色消息，以兼容已复现拒绝多 system 的模型服务。保留文本顺序、原历史/来源与观察数据标记，不移动后置 system、不改权限或工具绑定，不做失败后的协议回退/自动重试。仅编码投影，其他协议沿用其原契约。
@@ -165,3 +167,7 @@ Owner 明确要求删除会话中重复出现的 HTTP 提醒。移除 Composer �
 ## Decision history — 2026-10-09：前导 system 编码兼容
 
 所有者授权按实际模型瓶颈继续优化并参考竞品。同一 Qwen 配置最小对照确认单 system 完成、双 system PROTOCOL；采用上述 Chat 编码聚合，固定 OpenCode 来源与边界见 HXA-249。接受实现方向不等于完整模型旅程通过，不从一次请求成功推导成本/质量收益。
+
+## Decision history — 2026-10-17：连接地址与数据驻留分开
+
+Owner 要求不再强调数据不出设备。移除回环和 LAN 标签中的驻留/已授权断言，只说明首跳地址类型；转发器的下游目的地不能由本机地址推断。UI 不追加常驻警告，认证、网络与工具策略维持明确边界。实现与验证见[路径与连接说明](../../evidence/development/path-presentation-2026-10-17.md)。

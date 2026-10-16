@@ -46,7 +46,15 @@ internal fun FilesWorkspaces(state: FilesScreenState) {
             items(matches, key = { it.scopeId }) { source ->
                 FileLocationCard(
                     source.displayName,
-                    source.scopeId + " · " +
+                    (
+                        if (source.displayName == source.scopeId ||
+                            state.workspaces.count { it.displayName == source.displayName } > 1
+                        ) {
+                            source.scopeId + " · "
+                        } else {
+                            ""
+                        }
+                    ) +
                         stringResource(
                             if (source.available) R.string.files_workspace_files else R.string.workspace_unavailable,
                         ),

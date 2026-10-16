@@ -46,10 +46,10 @@
     <string name="language_system">跟随系统</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
-    <string name="ui_residence_on_device_loopback">本机回环（数据不出设备）</string>
-    <string name="ui_residence_user_authorized_lan">局域网（已按 host:port 授权）</string>
-    <string name="ui_residence_public_cloud">公共云</string>
-    <string name="ui_residence_custom_remote_unknown">未知远程目的地</string>
+    <string name="ui_residence_on_device_loopback">本机地址</string>
+    <string name="ui_residence_user_authorized_lan">局域网地址</string>
+    <string name="ui_residence_public_cloud">公网地址</string>
+    <string name="ui_residence_custom_remote_unknown">自定义地址</string>
     <string name="disclosure_title">数据外发审批</string>
     <string name="disclosure_provider">Provider：%1$s（%2$s）</string>
     <string name="disclosure_destination">目的地：%1$s</string>
@@ -2001,4 +2001,6 @@
     <string name="chat_load_older_messages">查看更早的消息</string>
     <string name="chat_show_latest_messages">回到最新消息</string>
     <string name="chat_search_history_navigation">查找历史</string>
+    <string name="workspace_location_details">位置详情</string>
+    <string name="workspace_copy_location">复制完整路径</string>
 </resources>

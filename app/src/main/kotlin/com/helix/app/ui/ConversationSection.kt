@@ -203,7 +203,7 @@ internal fun ConversationSection(
                     Text(stringResource(R.string.nav_git))
                 }
             }
-            screen.directoryRef?.let { Text(it) }
+            screen.directoryRef?.let { ScopedPathText(it) }
         }
         if (searchActive) {
             ConversationSearchBar(

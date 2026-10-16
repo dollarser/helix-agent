@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -44,6 +45,18 @@ class SessionSettingsDeviceTest {
             compose.onAllNodesWithTag("chat-permission-menu").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("chat-permission-menu").assertIsDisplayed()
+        val reference = requireNotNull(chat.screen.value.directoryRef)
+        compose.onNodeWithTag("chat-conversation-details").performClick()
+        compose.onNodeWithText(reference).assertDoesNotExist()
+        compose
+            .onNodeWithText(
+                compose.activity.getString(com.helix.app.R.string.workspace_location_details),
+            ).performClick()
+        compose.onNodeWithText(reference).assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                compose.activity.getString(com.helix.app.R.string.workspace_copy_location),
+            ).assertExists()
     }
 
     @Test fun composerPresetChangesOnlyThisSessionAndNotTheNextSessionDefault() {

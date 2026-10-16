@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.core.workspace.FileScopePath
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,10 +14,17 @@ internal object ToolPurpose {
     fun text(
         name: String,
         arguments: String,
+        modelIntent: String? = null,
     ): String {
+        val target = target(arguments)
+        if (modelIntent != null && !(isFileOperation(name) && target != null)) return modelIntent
         val label = stringResource(actionRes(name))
-        return target(arguments)?.let { "$label · $it" } ?: label
+        return target?.let { "$label · $it" } ?: label
     }
+
+    private fun isFileOperation(name: String): Boolean =
+        name in setOf("read", "write", "edit", "view_image", "documents.inspect", "documents.view") ||
+            name.startsWith("files.")
 
     fun actionRes(name: String): Int =
         mobileActions[name] ?: when {
@@ -73,9 +81,29 @@ internal object ToolPurpose {
             "tabId",
             "name",
         ).firstNotNullOfOrNull { key ->
-            (fields[key] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
-        }?.replace('\n', ' ')
-            ?.replace('\r', ' ')
-            ?.take(120)
+            (fields[key] as? JsonPrimitive)
+                ?.takeIf { it.isString }
+                ?.content
+                ?.takeIf { it.isNotBlank() }
+                ?.let { displayTarget(it, key in setOf("destination", "path", "source")) }
+        }
     }
+
+    /** File titles show only the name; directories and exact references remain in details. */
+    private fun displayTarget(
+        raw: String,
+        filePath: Boolean,
+    ): String {
+        val label =
+            if (filePath) {
+                runCatching { FileScopePath.fromModelReference(raw).name }.getOrNull()
+                    ?: raw.trimEnd('/').substringAfterLast('/').ifEmpty { raw }
+            } else {
+                raw
+            }
+        val text = label.replace('\n', ' ').replace('\r', ' ')
+        return if (text.length <= TARGET_LIMIT) text else text.take(40) + "…" + text.takeLast(TARGET_LIMIT - 41)
+    }
+
+    private const val TARGET_LIMIT = 120
 }

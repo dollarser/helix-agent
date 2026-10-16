@@ -45,10 +45,10 @@
     <string name="language_system">Follow system</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>
-    <string name="ui_residence_on_device_loopback">On-device loopback (data stays on the device)</string>
-    <string name="ui_residence_user_authorized_lan">LAN (authorized by host:port)</string>
-    <string name="ui_residence_public_cloud">Public cloud</string>
-    <string name="ui_residence_custom_remote_unknown">Unknown remote destination</string>
+    <string name="ui_residence_on_device_loopback">Loopback address</string>
+    <string name="ui_residence_user_authorized_lan">LAN address</string>
+    <string name="ui_residence_public_cloud">Public endpoint</string>
+    <string name="ui_residence_custom_remote_unknown">Custom endpoint</string>
     <string name="disclosure_title">Data transfer approval</string>
     <string name="disclosure_provider">Provider: %1$s (%2$s)</string>
     <string name="disclosure_destination">Destination: %1$s</string>
@@ -2001,4 +2001,6 @@
     <string name="chat_load_older_messages">Load earlier messages</string>
     <string name="chat_show_latest_messages">Latest messages</string>
     <string name="chat_search_history_navigation">Search history</string>
+    <string name="workspace_location_details">Location details</string>
+    <string name="workspace_copy_location">Copy full path</string>
 </resources>

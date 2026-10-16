@@ -9,8 +9,8 @@ import java.nio.file.Path
  *
  * [scopeId] is the opaque scope identifier the model sees (doc 10: 模型只看到 scopeId);
  * [relativePath] is the canonical relative path inside that scope, validated by [PathSyntax].
- * The pair is the only form in which a tool argument or model context may reference a file: no
- * adapter, log or error may hand a raw real path to the model.
+ * The pair is the durable identity. Model-facing paths may be relative to a captured directory;
+ * they are bound back to this identity before authorization. Never expose raw Android paths.
  */
 class FileScopePath(
     scopeIdRaw: String,
@@ -51,14 +51,42 @@ class FileScopePath(
         get() = if (relativePath.isEmpty()) "." else relativePath.substringAfterLast('/')
 
     /**
-     * The stable, bounded, model-safe string form: `scope:<scopeId>:<relativePath>`. This — and
-     * only this — is what adapters render into model context or tool arguments (doc 10: 不同
-     * scope adapter 不泄漏真实路径给模型).
+     * The stable, bounded, model-safe string form: `scope:<scopeId>:<relativePath>`.
+     * Persistence, authorization and cross-directory references use this anchored form.
      *
      * Total on every constructed instance: [init] guarantees the reference length bound, so
      * rendering (including [toString]) can never throw.
      */
     fun toModelReference(): String = "scope:$scopeId:${relativePath.ifEmpty { "." }}"
+
+    /** Short executable reference only when it resolves to this exact identity in [directory]. */
+    fun referenceRelativeTo(directory: FileScopePath): String {
+        val relative =
+            when {
+                scopeId != directory.scopeId -> null
+
+                relativePath == directory.relativePath -> ""
+
+                directory.isRoot -> relativePath
+
+                relativePath.startsWith(
+                    "${directory.relativePath}/",
+                ) -> relativePath.removePrefix("${directory.relativePath}/")
+
+                else -> null
+            } ?: return toModelReference()
+        // A nested filename can start with scope:, a backslash or a drive-like segment.
+        // Keep it a relative filename when it is presented at a new directory root.
+        return when {
+            relative.isEmpty() -> "."
+
+            relative.startsWith(
+                "scope:",
+            ) || runCatching { PathSyntax.normalizeRelative(relative) }.isFailure -> "./$relative"
+
+            else -> relative
+        }
+    }
 
     override fun toString(): String = toModelReference()
 

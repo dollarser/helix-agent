@@ -45,7 +45,11 @@ internal fun SessionWorkspaceSection(
     }
     SettingsGroup {
         Text(stringResource(R.string.chat_directory))
-        Text(reference ?: stringResource(R.string.chat_directory_none))
+        if (reference == null) {
+            Text(stringResource(R.string.chat_directory_none))
+        } else {
+            ScopedPathText(reference, source?.displayName)
+        }
         val backend = source?.workspaceBackend
         if (backend != null) {
             Text(

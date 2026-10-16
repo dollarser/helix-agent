@@ -49,7 +49,7 @@ internal fun ToolTimelineItem(
     isCurrentMatch: Boolean = false,
 ) {
     var details by rememberSaveable(row.turnId, row.callId) { mutableStateOf(false) }
-    val displayIntent = row.modelIntent ?: ToolPurpose.text(row.toolName, row.requestSummary)
+    val displayIntent = ToolPurpose.text(row.toolName, row.requestSummary, row.modelIntent)
     val borderModifier =
         if (isCurrentMatch) {
             Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
@@ -85,7 +85,7 @@ private fun ToolTimelineDetails(
     displayIntent: String,
 ) {
     Text(
-        stringResource(R.string.tool_intent_detail, displayIntent),
+        stringResource(R.string.tool_intent_detail, row.modelIntent ?: displayIntent),
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.testTag("tool-row-intent-detail-${row.callId}"),
     )

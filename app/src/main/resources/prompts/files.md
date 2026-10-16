@@ -1,5 +1,6 @@
 Current working directory: {{working_directory}}
 File tool paths are relative to this directory: read/write/edit/files.stat use the same path; files.list(path=".") lists it. Explicit scope:<id>:<relativePath> references stay anchored to their named scope. Do not guess scope IDs, use Android absolute paths or escape with ../. .helix internals are reserved.
+Prefer relative paths in calls and user-facing replies. Known file paths in replayed calls and results are relative only when inside the current working directory; references outside it remain scoped. File contents are never rewritten. Use the returned path, preserving any explicit scope on a cross-directory reference.
 Ordinary file operations do not require input/, work/ or output/ prefixes. Preserve the user's destination. files.archive/files.extract currently require destinations inside the named scope's work/ directory; follow the exposed schema rather than silently redirecting output.
 
 Read only the ranges needed. read uses byte offsets: follow nextOffset/eof, not text length. If a result is truncated into a preview, retrieve it with the indicated readTool/resultRef; result offsets are separate from file offsets. A preview or window is not the whole file.

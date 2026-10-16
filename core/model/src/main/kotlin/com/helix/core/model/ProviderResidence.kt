@@ -1,10 +1,10 @@
 package com.helix.core.model
 
 /**
- * Where provider request data goes, derived from the normalized actual endpoint only
+ * The first-hop provider connection, derived from the normalized actual endpoint only
  * (architecture doc section 6.2, provider doc section 2.5).
  *
- * Residence describes the data destination, not the trustworthiness of the service: a
+ * The endpoint cannot establish downstream routing or data residency. A
  * `USER_AUTHORIZED_LAN` endpoint is no more trusted than a `PUBLIC_CLOUD` one, and none of
  * these values lower input/output/auth/prompt-injection protections. The same Ollama/SGLang
  * template can land in any of these classes depending on its actual endpoint; template
@@ -15,7 +15,7 @@ enum class ProviderResidence {
     /** Direct app-owned inference runtime; no network endpoint. */
     ON_DEVICE_LOCAL,
 
-    /** Loopback address (127.0.0.0/8, ::1, localhost): data stays on the device. */
+    /** Loopback address (127.0.0.0/8, ::1, localhost); it may forward requests elsewhere. */
     ON_DEVICE_LOOPBACK,
 
     /**
@@ -25,7 +25,7 @@ enum class ProviderResidence {
      */
     USER_AUTHORIZED_LAN,
 
-    /** Ordinary public web origin (hostname with a public TLD): data leaves the device to a public service. */
+    /** Ordinary public web origin (hostname with a public TLD); downstream routing is unknown. */
     PUBLIC_CLOUD,
 
     /**

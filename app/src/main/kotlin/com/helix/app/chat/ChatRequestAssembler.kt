@@ -133,7 +133,7 @@ internal class ChatRequestAssembler(
         val request =
             TurnContextRequest(
                 model,
-                persistedHistory(sessionId, null, null, system).messages,
+                persistedHistory(sessionId, null, null, system, directory).messages,
                 tools,
                 control.budgets.maxOutputTokens,
                 com.helix.core.model.ReasoningEffort.OFF,
@@ -194,7 +194,7 @@ internal class ChatRequestAssembler(
                 directory,
                 pluginInstructions = pluginInstructions(sessionId, turnId),
             )
-        val history = persistedHistory(sessionId, turnId, retryTurnId, system)
+        val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
@@ -262,7 +262,7 @@ internal class ChatRequestAssembler(
                 directory,
                 pluginInstructions = pluginInstructions(sessionId, turnId),
             )
-        val history = persistedHistory(sessionId, turnId, null, system)
+        val history = persistedHistory(sessionId, turnId, null, system, directory)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
             "a continuation must end with settled tool results or a user input"
         }
@@ -398,6 +398,7 @@ internal class ChatRequestAssembler(
         currentTurnId: String?,
         retryTurnId: String?,
         system: PromptSnapshot,
+        directory: com.helix.core.workspace.FileScopePath,
     ): History {
         val snapshot =
             com.helix.app.agent.ContextHistory
@@ -419,7 +420,7 @@ internal class ChatRequestAssembler(
                 ChatHistoryBuilder.rowsForTurn(rows, retryTurnId),
                 predecessorId,
             )
-        val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows)
+        val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows, directory)
         // USER rows that produce a message: non-blank content (the builder's own rule) — the
         // count must match the history's USER messages exactly, or the pairing would attach an
         // image to the wrong message and we fail closed instead.
@@ -450,7 +451,7 @@ internal class ChatRequestAssembler(
             messageIds = userRows.mapNotNull { it.messageId }.toSet(),
             messageRefs = toMessageRefs(historyRows),
             checkpoint = checkpoint?.coveredThrough,
-            snapshot = canonicalSnapshot(snapshot, currentTurnId, predecessorId),
+            snapshot = canonicalSnapshot(snapshot, currentTurnId, predecessorId, directory),
         )
     }
 
@@ -458,10 +459,11 @@ internal class ChatRequestAssembler(
         snapshot: com.helix.app.agent.ContextHistory.Snapshot,
         currentTurnId: String?,
         predecessorId: String?,
+        directory: com.helix.core.workspace.FileScopePath,
     ): com.helix.core.agent.ContextSourceSnapshot? =
         currentTurnId?.let {
             com.helix.core.agent.ContextSourceSnapshot(
-                com.helix.app.agent.ContextHistoryMapping.rows(storage, snapshot.rows) {
+                com.helix.app.agent.ContextHistoryMapping.rows(storage, snapshot.rows, directory) {
                     snapshot.contents.getValue(it.id)
                 },
                 snapshot.checkpoint,

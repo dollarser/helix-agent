@@ -6,6 +6,7 @@ import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
+import com.helix.core.workspace.FileScopePath
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -76,12 +77,15 @@ object ChatHistoryBuilder {
      * The chat service uses this for model-bound request building (a corrupted
      * model-visible row must fail the turn closed, never truncate the context).
      */
-    fun toModelMessagesStrict(rows: List<PersistedRow>): List<ModelMessage> =
-        toModelMessagesInternal(rows, strict = true)
+    fun toModelMessagesStrict(
+        rows: List<PersistedRow>,
+        directory: FileScopePath? = null,
+    ): List<ModelMessage> = toModelMessagesInternal(rows, strict = true, directory = directory)
 
     private fun toModelMessagesInternal(
         rows: List<PersistedRow>,
         strict: Boolean,
+        directory: FileScopePath? = null,
     ): List<ModelMessage> =
         rows.mapNotNull { row ->
             when (row.kind) {
@@ -95,11 +99,11 @@ object ChatHistoryBuilder {
                 }
 
                 KIND_TOOL_CALLS -> {
-                    assistantToolCallMessage(row, strict)
+                    assistantToolCallMessage(row, strict, directory)
                 }
 
                 KIND_TOOL_RESULT -> {
-                    toolResultMessage(row, strict)
+                    toolResultMessage(row, strict, directory)
                 }
 
                 "user_question", "user_question_dismissed", "user_question_history" -> {
@@ -150,9 +154,10 @@ object ChatHistoryBuilder {
     private fun assistantToolCallMessage(
         row: PersistedRow,
         strict: Boolean,
+        directory: FileScopePath?,
     ): ModelMessage? {
         if (row.role != ModelRole.ASSISTANT.name) return null
-        return row.content?.let { content -> parseToolCallsStep(content, strict) } ?: null
+        return row.content?.let { content -> parseToolCallsStep(content, strict, directory) }
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -161,11 +166,16 @@ object ChatHistoryBuilder {
     private fun parseToolCallsStep(
         content: String,
         strict: Boolean,
+        directory: FileScopePath?,
     ): ModelMessage? =
         try {
             val parsed = Json.parseToJsonElement(content)
             val array = parsed as? JsonArray ?: failStrict("a tool-call step row must be an array")
-            val calls = array.map { parseToolCallElement(it) }
+            val calls =
+                array.map {
+                    val call = parseToolCallElement(it)
+                    call.copy(argumentsJson = FileHistoryPaths.project(call.name.value, call.argumentsJson, directory))
+                }
             require(calls.isNotEmpty()) { "a tool-call step must carry at least one call" }
             ModelMessage(
                 role = ModelRole.ASSISTANT,
@@ -210,9 +220,10 @@ object ChatHistoryBuilder {
     private fun toolResultMessage(
         row: PersistedRow,
         strict: Boolean,
+        directory: FileScopePath?,
     ): ModelMessage? {
         if (row.role != ModelRole.TOOL.name) return null
-        return row.content?.let { content -> parseToolResult(content, strict) } ?: null
+        return row.content?.let { content -> parseToolResult(content, strict, directory) }
     }
 }
 
@@ -244,6 +255,7 @@ private fun failStrict(
 private fun parseToolResult(
     content: String,
     strict: Boolean,
+    directory: FileScopePath?,
 ): ModelMessage? =
     try {
         val parsed = Json.parseToJsonElement(content)
@@ -251,7 +263,9 @@ private fun parseToolResult(
         val id = obj.requiredField("id")
         val tool = obj.requiredField("tool")
         val status = obj.requiredField("status")
-        val summary = obj.requiredField("summary")
+        val original = obj.requiredField("summary")
+        val summary =
+            if (status == "SUCCEEDED") FileHistoryPaths.project(tool, original, directory, result = true) else original
         // The persisted envelope carries the settled outcome and the Dispatcher-bounded summary.
         val text = "[$status] $summary".trim()
         require(text.isNotBlank()) { "a tool result row needs a status or summary" }
