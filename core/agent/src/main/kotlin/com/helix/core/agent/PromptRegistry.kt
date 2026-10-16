@@ -97,6 +97,7 @@ data class PromptSection(
     val order: Int,
     val scope: PromptScope,
     val source: PromptSource,
+    val emptyReason: PromptOmissionReason = PromptOmissionReason.EMPTY,
     val provider: () -> String,
 ) {
     init {
@@ -113,6 +114,14 @@ data class PromptSection(
     }
 }
 
+/** Host-defined diagnostics only. These reasons do not grant or change any capability. */
+enum class PromptOmissionReason {
+    EMPTY,
+    FILE_TOOLS_UNAVAILABLE,
+    NOT_PLAN_MODE,
+    NO_PLUGIN_CONTEXT,
+}
+
 /**
  * A [PromptSection]'s resolved form for one assembly (research doc section 4.4 "consistent
  * snapshot"): the exact content shipped for this step, its provenance, its trust, and a
@@ -127,6 +136,7 @@ data class ResolvedPromptSection(
     val trust: TrustLevel,
     val content: String,
     val contentHash: String,
+    val omissionReason: PromptOmissionReason? = null,
 )
 
 /**
@@ -142,6 +152,7 @@ data class PromptSnapshot(
     val sections: List<ResolvedPromptSection>,
     val content: String,
     val fingerprint: String,
+    val omittedSections: List<ResolvedPromptSection> = emptyList(),
 ) {
     /**
      * The system prompt as model messages: one SYSTEM message carrying [content], or none when
@@ -186,22 +197,21 @@ class PromptRegistry {
      * fingerprint of its exact content — the request's consistent, auditable snapshot (research
      * doc section 4.4). Blank providers are omitted, exactly as [assemble] omits them.
      */
-    fun resolve(): List<ResolvedPromptSection> =
-        orderedSections().mapNotNull { section ->
+    fun resolve(): List<ResolvedPromptSection> = resolveAll().filter { it.omissionReason == null }
+
+    private fun resolveAll(): List<ResolvedPromptSection> =
+        orderedSections().map { section ->
             val content = section.provider().trim()
-            if (content.isEmpty()) {
-                null
-            } else {
-                ResolvedPromptSection(
-                    name = section.name,
-                    order = section.order,
-                    scope = section.scope,
-                    source = section.source,
-                    trust = section.trust,
-                    content = content,
-                    contentHash = sha256Hex(content),
-                )
-            }
+            ResolvedPromptSection(
+                name = section.name,
+                order = section.order,
+                scope = section.scope,
+                source = section.source,
+                trust = section.trust,
+                content = content,
+                contentHash = sha256Hex(content),
+                omissionReason = section.emptyReason.takeIf { content.isEmpty() },
+            )
         }
 
     /**
@@ -212,9 +222,9 @@ class PromptRegistry {
      * request persist alongside the request (research doc section 4.4).
      */
     fun resolveAndAssemble(): PromptSnapshot {
-        val resolved = resolve()
+        val (resolved, omitted) = resolveAll().partition { it.omissionReason == null }
         val content = resolved.joinToString(separator = "\n\n") { it.content }
-        return PromptSnapshot(resolved, content, sha256Hex(content))
+        return PromptSnapshot(resolved, content, sha256Hex(content), omitted)
     }
 
     /**

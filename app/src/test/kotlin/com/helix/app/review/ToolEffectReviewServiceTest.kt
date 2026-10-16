@@ -39,7 +39,7 @@ class ToolEffectReviewServiceTest {
         reviews.toolCallLookup = toolCalls::byId
         service =
             ToolEffectReviewService(
-                ToolCallRepository(toolCalls),
+                ToolCallRepository(toolCalls, { it() }),
                 ToolCallReviewRepository(reviews, toolCalls, turns),
                 clock = clock,
             )
@@ -166,6 +166,15 @@ class ToolEffectReviewServiceTest {
         private val rows = linkedMapOf<String, ToolCallEntity>()
 
         override fun unsettledUnderTerminalTurns(): List<ToolCallEntity> = emptyList()
+
+        override fun maxOrdinal(turnId: String): Long = listByTurn(turnId).maxOfOrNull { it.ordinal } ?: -1
+
+        override fun recentBySession(
+            sessionId: String,
+            fromSequence: Long,
+            throughSequence: Long,
+            limit: Int,
+        ): List<ToolCallEntity> = error("unused")
 
         override fun insert(call: ToolCallEntity) {
             rows[call.id] = call

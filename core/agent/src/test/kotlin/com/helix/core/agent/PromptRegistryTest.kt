@@ -7,6 +7,40 @@ import org.junit.Test
 import java.security.MessageDigest
 
 class PromptRegistryTest {
+    @Test
+    fun diagnosticsResolveProvidersOnceAndKeepOmissionsOutOfModelContent() {
+        var reads = 0
+        val snapshot =
+            PromptRegistry()
+                .register(
+                    PromptSection("selected", 0, PromptScope.SKILL, PromptSource.EXTERNAL_CONTENT) {
+                        reads++
+                        "  中文😀  "
+                    },
+                ).register(
+                    PromptSection("omitted", 1, PromptScope.MODE, PromptSource.BUILTIN_TEMPLATE) {
+                        reads++
+                        " \n "
+                    },
+                ).resolveAndAssemble()
+        assertEquals(2, reads)
+        assertEquals("中文😀", snapshot.content)
+        assertEquals(listOf("selected"), snapshot.sections.map { it.name })
+        assertEquals(PromptOmissionReason.EMPTY, snapshot.omittedSections.single().omissionReason)
+        assertEquals("", snapshot.omittedSections.single().content)
+        assertEquals(sha256Hex("中文😀"), snapshot.fingerprint)
+    }
+
+    @Test
+    fun providerFailureIsNotReportedAsOmittedOrSuccessfulAssembly() {
+        val failure = IllegalStateException("fixture")
+        val registry =
+            PromptRegistry().register(
+                PromptSection("failing", 0, PromptScope.RUNTIME, PromptSource.BUILTIN_TEMPLATE) { throw failure },
+            )
+        assertEquals(failure, assertThrows(IllegalStateException::class.java) { registry.resolveAndAssemble() })
+    }
+
     private fun section(
         name: String,
         order: Int,

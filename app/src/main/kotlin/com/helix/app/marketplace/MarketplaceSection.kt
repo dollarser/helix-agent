@@ -49,7 +49,7 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName", "LongMethod")
 fun MarketplaceSection(
     service: MarketplaceService,
-    onConfigureRequested: (() -> Unit)? = null,
+    onConfigureRequested: ((String?) -> Unit)? = null,
     onUseRequested: ((String?) -> Unit)? = null,
 ) {
     val action =
@@ -65,6 +65,7 @@ fun MarketplaceSection(
     var itemToUninstall by remember { mutableStateOf<MarketplaceItem?>(null) }
     var allItems by remember { mutableStateOf<List<MarketplaceItem>>(emptyList()) }
     var previewItem by remember { mutableStateOf<MarketplaceItem?>(null) }
+    var importedResult by remember { mutableStateOf<com.helix.app.plugin.InstalledPlugin?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
 
     MarketplaceRefresh(service, refreshTrigger) { loaded ->
@@ -89,6 +90,7 @@ fun MarketplaceSection(
         )
         MarketplaceSourcesSection(service, refreshTrigger) { refreshTrigger++ }
         MarketplaceLoadFailure(loadFailed || action.failed) { action.launch { refreshTrigger++ } }
+        MarketplaceImportResult(importedResult, onUseRequested, onConfigureRequested)
 
         MarketplaceSearchBar(
             query = searchQuery,
@@ -156,7 +158,16 @@ fun MarketplaceSection(
                             }
                         }
                     },
-                    onConfigure = onConfigureRequested,
+                    onConfigure =
+                        onConfigureRequested?.let { configure ->
+                            {
+                                action.launch {
+                                    val installed =
+                                        withContext(Dispatchers.IO) { requireNotNull(service.findInstalled(item)) }
+                                    configure(installed.id)
+                                }
+                            }
+                        },
                     onUse = {
                         action.launch {
                             val installed = withContext(Dispatchers.IO) { requireNotNull(service.findInstalled(item)) }
@@ -175,7 +186,8 @@ fun MarketplaceSection(
         }
     }
 
-    MarketplaceCandidatePresentation(service, previewItem, onDismiss = { previewItem = null }) {
+    MarketplaceCandidatePresentation(service, previewItem, onDismiss = { previewItem = null }) { installed ->
+        importedResult = installed
         previewItem = null
         refreshTrigger++
     }

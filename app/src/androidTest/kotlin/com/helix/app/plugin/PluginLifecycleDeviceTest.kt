@@ -14,6 +14,14 @@ import java.util.UUID
 
 /** Production Room/import/selection path; no network or model invocation. */
 class PluginLifecycleDeviceTest {
+    @Test fun skillReadsAndCleanupShareTheInstallationMetadataGate() {
+        container.skillRepository.withSnapshotReferences {
+            assertTrue(Thread.holdsLock(container.storage.connectorMutationLock))
+            container.skillRepository.list()
+            service.cleanupRetired()
+        }
+    }
+
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
     private val service get() = container.pluginService

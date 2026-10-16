@@ -8,6 +8,31 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SessionExportReferencesTest {
+    @Test fun modelStepReferencesThePersistedToolMessage() {
+        val data = Json.parseToJsonElement("""{"turnId":"turn","toolMessageId":"batch"}""").jsonObject
+        val references =
+            SessionExportReferences { it in setOf("turn:turn", "message:batch") }
+                .describe(SessionExportType.MODEL_CALL, data)
+                .getValue("references")
+                .jsonArray
+        assertEquals(
+            "message:batch",
+            references
+                .last()
+                .jsonObject
+                .getValue("targetRecordId")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "included",
+            references
+                .last()
+                .jsonObject
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+    }
+
     @Test fun omittedContentReferenceIsNotReportedAsAbsentHistory() {
         val data =
             Json

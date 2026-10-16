@@ -1,139 +1,75 @@
 package com.helix.core.storage.repository
 
-import com.helix.core.storage.content.ContentRef
-import com.helix.core.storage.content.ContentStore
-import com.helix.core.storage.dao.MessageDao
-import com.helix.core.storage.dao.SessionDao
+import com.helix.core.storage.SearchText
+import com.helix.core.storage.dao.SessionSearchDao
 
-/** The facet of a session that a search query matched. */
 enum class SessionSearchMatchKind { TITLE, MESSAGE }
 
-/**
- * One session hit of [SessionSearchRepository.search]. [messageSnippet] is a bounded
- * window around the first (most recent in scan order) matched message body; null when
- * only the title matched.
- */
 data class SessionSearchHit(
     val sessionId: String,
     val sessionTitle: String,
     val isArchived: Boolean,
     val createdAt: Long,
+    val lastActivityAt: Long,
     val matchedKinds: Set<SessionSearchMatchKind>,
     val messageSnippet: String?,
 )
 
-/**
- * The bounded outcome of one search pass (HXA-191). [scannedMessages] is how many
- * message bodies were actually read, [skippedMessages] how many could not be read
- * (missing body or over the byte bound), and [truncated] is true when the candidate cap
- * was reached so the caller can state that older messages were not searched.
- */
+/** All effective visible text is searchable; truncated means additional matching sessions exist. */
 data class SessionSearchResult(
     val query: String,
     val hits: List<SessionSearchHit>,
-    val scannedMessages: Int,
-    val skippedMessages: Int,
     val truncated: Boolean,
 )
 
-/**
- * Read-only session/history search (HXA-191 slice). Titles are matched against the
- * existing session rows; message bodies are matched by reading at most
- * [maxMessageCandidates] of the most recent content-addressed bodies (newest session
- * first, newest message within a session) from [contentStore]. Pure JVM — the caller
- * runs this off the UI thread. No writes and no second session-state source: both
- * inputs are the existing Room DAOs plus the content store.
- */
 class SessionSearchRepository(
-    private val sessionDao: SessionDao,
-    private val messageDao: MessageDao,
-    private val contentStore: ContentStore,
+    private val dao: SessionSearchDao,
 ) {
+    fun locateMessage(
+        sessionId: String,
+        query: String,
+        before: Long?,
+        after: Long?,
+    ): com.helix.core.storage.dao.MessageSearchLocation? {
+        require(before == null || after == null)
+        if (query.isBlank()) return null
+        val folded = SearchText.fold(query.trim())
+        val match = dao.locateMessage(sessionId, folded, before, after, after != null)
+        return if (match != null || (before == null && after == null)) {
+            match
+        } else {
+            dao.locateMessage(sessionId, folded, null, null, after != null)
+        }
+    }
+
     fun search(
         rawQuery: String,
-        maxMessageCandidates: Int = DEFAULT_MAX_MESSAGE_CANDIDATES,
-        maxContentBytes: Int = DEFAULT_MAX_CONTENT_BYTES,
-        maxHits: Int = DEFAULT_MAX_HITS,
+        maxHits: Int = 50,
         checkActive: () -> Unit = {},
     ): SessionSearchResult {
-        require(maxMessageCandidates in 0..MAX_MESSAGE_CANDIDATES) { "maxMessageCandidates out of bounds" }
-        require(maxContentBytes > 0) { "maxContentBytes must be positive" }
-        require(maxHits > 0) { "maxHits must be positive" }
+        require(maxHits in 1..200) { "maxHits out of bounds" }
         val query = rawQuery.trim()
-        if (query.isEmpty()) return SessionSearchResult("", emptyList(), 0, 0, false)
+        if (query.isEmpty()) return SessionSearchResult("", emptyList(), false)
         checkActive()
-        val sessions = sessionDao.list().associateBy { it.id }
-        val candidates = messageDao.contentSearchCandidates(maxMessageCandidates)
-        var scanned = 0
-        var skipped = 0
-        val snippets = HashMap<String, String>()
-        for (message in candidates) {
-            checkActive()
-            val ref = message.contentRef?.let { encoded -> runCatching { ContentRef.parse(encoded) }.getOrNull() }
-            val body = ref?.let { runCatching { contentStore.readBounded(it, maxContentBytes) }.getOrNull() }
-            if (body == null) {
-                skipped++
-                continue
-            }
-            scanned++
-            if (body.contains(query, ignoreCase = true)) {
-                snippets.putIfAbsent(message.sessionId, snippetAround(body, query))
-            }
-        }
+        val rows = dao.search(SearchText.fold(query), maxHits + 1)
+        checkActive()
         val hits =
-            sessions
-                .values
-                .map { session ->
-                    checkActive()
-                    val titleHit = session.title.contains(query, ignoreCase = true)
-                    val snippet = snippets[session.id]
-                    if (!titleHit && snippet == null) {
-                        null
-                    } else {
-                        SessionSearchHit(
-                            sessionId = session.id,
-                            sessionTitle = session.title,
-                            isArchived = session.archivedAt != null,
-                            createdAt = session.createdAt,
-                            matchedKinds =
-                                buildSet {
-                                    if (titleHit) add(SessionSearchMatchKind.TITLE)
-                                    if (snippet != null) add(SessionSearchMatchKind.MESSAGE)
-                                },
-                            messageSnippet = snippet,
-                        )
-                    }
-                }.filterNotNull()
-                .sortedWith(compareByDescending<SessionSearchHit> { it.createdAt }.thenBy { it.sessionId })
-                .toList()
-        return SessionSearchResult(
-            query = query,
-            hits = hits.take(maxHits),
-            scannedMessages = scanned,
-            skippedMessages = skipped,
-            truncated = hits.size > maxHits || (maxMessageCandidates > 0 && candidates.size >= maxMessageCandidates),
-        )
-    }
-
-    private fun snippetAround(
-        body: String,
-        query: String,
-    ): String {
-        val index = body.indexOf(query, ignoreCase = true)
-        require(index >= 0) { "snippet requested for a non-matching body" }
-        val start = (index - SNIPPET_CONTEXT_CHARS).coerceAtLeast(0)
-        val end = (index + query.length + SNIPPET_CONTEXT_CHARS).coerceAtMost(body.length)
-        val prefix = if (start > 0) ELLIPSIS else ""
-        val suffix = if (end < body.length) ELLIPSIS else ""
-        return prefix + body.substring(start, end) + suffix
-    }
-
-    private companion object {
-        const val DEFAULT_MAX_MESSAGE_CANDIDATES = 500
-        const val DEFAULT_MAX_CONTENT_BYTES = 256 * 1024
-        const val DEFAULT_MAX_HITS = 50
-        const val MAX_MESSAGE_CANDIDATES = 5000
-        const val SNIPPET_CONTEXT_CHARS = 60
-        const val ELLIPSIS = "…"
+            rows.take(maxHits).map { row ->
+                checkActive()
+                SessionSearchHit(
+                    sessionId = row.id,
+                    sessionTitle = row.title,
+                    isArchived = row.archivedAt != null,
+                    createdAt = row.createdAt,
+                    lastActivityAt = row.lastActivityAt,
+                    matchedKinds =
+                        buildSet {
+                            if (row.titleMatch) add(SessionSearchMatchKind.TITLE)
+                            if (row.messageSnippet != null) add(SessionSearchMatchKind.MESSAGE)
+                        },
+                    messageSnippet = row.messageSnippet,
+                )
+            }
+        return SessionSearchResult(query, hits, rows.size > maxHits)
     }
 }

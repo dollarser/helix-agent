@@ -41,7 +41,7 @@ class ContextSummaryFormat(
         val messages =
             mutableListOf(
                 ModelMessage(
-                    ModelRole.USER,
+                    ModelRole.SYSTEM,
                     instruction + "\nSummary output budget: $outputBudget tokens.\nHISTORY DATA:\n",
                 ),
             )

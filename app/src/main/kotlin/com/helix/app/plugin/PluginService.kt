@@ -145,6 +145,11 @@ class PluginService(
 
     fun bundledToolDescriptions(pluginId: String) = nativeRegistry?.contents(pluginId)?.tools.orEmpty()
 
+    fun bundledRequiredInstructions(pluginId: String) =
+        nativeRegistry?.contents(pluginId)?.requiredInstructions.orEmpty()
+
+    fun bundledDescription(pluginId: String) = nativeRegistry?.find(pluginId)?.description.orEmpty()
+
     fun sessionRows(
         sessionId: String,
         pluginId: String? = null,

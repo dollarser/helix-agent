@@ -85,8 +85,9 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
  * baseline; no migration chain for earlier internal development schemas is supported.
  *
  * Foreign keys and indexes are declared by the current entities and enforced by Room. The
- * committed schema export is the current baseline contract, not an upgrade fixture. Secrets never
- * enter the schema: provider/MCP rows store aliases only and large bodies live in the content store.
+ * committed schema export is the current baseline contract, not an upgrade fixture. Managed credentials
+ * stay in SecretStore: provider/MCP rows store aliases. User content and search projections may
+ * contain user-provided sensitive text; content files are not an encryption boundary.
  */
 @Database(
     entities =
@@ -102,6 +103,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             com.helix.core.storage.entity.SessionConnectorEntity::class,
             com.helix.core.storage.entity.ConnectorEndpointEntity::class,
             MessageEntity::class,
+            com.helix.core.storage.entity.MessageSearchEntity::class,
             MessageAttachmentEntity::class,
             MessageReferenceSnapshotEntity::class,
             com.helix.core.storage.entity.DocumentSnapshotEntity::class,
@@ -165,6 +167,10 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
     abstract fun messageDao(): MessageDao
+
+    abstract fun sessionSearchDao(): com.helix.core.storage.dao.SessionSearchDao
+
+    abstract fun sessionHistoryDao(): com.helix.core.storage.dao.SessionHistoryDao
 
     abstract fun messageAttachmentDao(): MessageAttachmentDao
 

@@ -59,7 +59,8 @@ internal class SessionDirectoryService(
                 val result = searchRows(query) { context.ensureActive() }
                 synchronized(this@SessionDirectoryService) {
                     context.ensureActive()
-                    searchState.value = result
+                    // Query normalization belongs to matching, never to the user's editable input.
+                    searchState.value = result.copy(query = query)
                 }
             }
     }
@@ -97,8 +98,6 @@ internal class SessionDirectoryService(
                                 messageSnippet = hit.messageSnippet,
                             )
                         },
-                    scannedMessages = result.scannedMessages,
-                    skippedMessages = result.skippedMessages,
                     truncated = result.truncated,
                 )
             },

@@ -1,7 +1,4 @@
----
-name: android-ui-task
-description: Operate authorized Android apps with Mobile Use.
----
+# Android UI reference
 
 [MOBILE_USE]
 Use the exposed Android tools for phone UI tasks. Linux/PRoot is not an Android ADB/root shell. A tool being listed does not grant permission; obey the current mode, scope and live tool result.

@@ -9,9 +9,10 @@ data class ToolBatchRequest(
     val turnId: String,
     val calls: List<BufferedModelToolCall>,
     val control: RunControlConfig,
+    val modelCallId: String,
 ) {
     init {
-        require(sessionId.isNotBlank() && turnId.isNotBlank())
+        require(sessionId.isNotBlank() && turnId.isNotBlank() && modelCallId.isNotBlank())
         require(calls.isNotEmpty() && calls.map { it.callId }.distinct().size == calls.size)
     }
 }

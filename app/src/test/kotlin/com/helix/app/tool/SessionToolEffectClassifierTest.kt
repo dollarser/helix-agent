@@ -28,6 +28,28 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun sessionRenameIsARealMutationWhileHistoryRemainsReadOnly() {
+        val classifier = SessionToolEffectClassifier { "scope:ws:project" }
+        val rename =
+            com.helix.app.chat.SessionToolDescriptors
+                .descriptor("session.rename")
+        assertEquals(
+            setOf(OperationEffect.DEVICE_SYSTEM_MUTATION),
+            classifier.classify(request("{}"), rename).footprint.effects,
+        )
+        assertFalse(rename.operationClass.isReviewModeAdmitted)
+        val read =
+            com.helix.app.chat.SessionToolDescriptors
+                .descriptor("session.read")
+        assertTrue(
+            classifier
+                .classify(request("{}"), read)
+                .footprint.effects
+                .isEmpty(),
+        )
+        assertTrue(read.operationClass.isReviewModeAdmitted)
+    }
+
     @Test fun settingsMutationCannotBorrowMetadataOrReadOnlyAdmission() {
         val tool =
             com.helix.app.settings.HelixSettingsApplyTool

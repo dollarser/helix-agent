@@ -100,6 +100,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1155,6 +1156,14 @@ class ChatService(
 
     /** Opens a session: loads its persisted messages and the provider badge. */
     fun openSession(id: String) {
+        val openingSearchQuery =
+            sessionSearch.value
+                .takeIf { state ->
+                    state.hits.any {
+                        it.sessionId == id &&
+                            it.matchesMessage
+                    }
+                }?.query
         dismissGoalReminder()
         if (preparingDraft) return
         cancelPendingSend()
@@ -1179,6 +1188,7 @@ class ChatService(
                 }
             }
             refreshScreen()
+            if (openingSearchQuery != null && openSessionId == id) findHistoryMessage(openingSearchQuery, null, null)
         }
     }
 
@@ -2096,6 +2106,7 @@ class ChatService(
         val snapshot = request.copy(attachmentIds = request.attachmentIds.toList())
         return sessionActions.submit {
             submissionGate.withLock {
+                if (openSessionId == snapshot.sessionId) showLatestMessages()
                 val outcome = submissionAttempt { admitSubmission(snapshot) }
                 val receipt = ChatSubmissionReceipt(snapshot, outcome)
                 if (outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued) {
@@ -2767,7 +2778,7 @@ class ChatService(
         withContext(Dispatchers.IO) {
             val turn = storage.turns.resolve(turnId)
             check(TurnState.valueOf(turn.state).isTerminal || turn.state == "INTERRUPTED")
-            projection.messagesFor(turn.sessionId, EMPTY_SCREEN).filter { it.turnId == turnId }
+            projection.messagesFor(turn.sessionId, EMPTY_SCREEN, storage.messages.byTurn(turnId))
         }
 
     /**
@@ -4334,6 +4345,67 @@ class ChatService(
         recovery.collectAutomatically()
     }
 
+    private var historySearchJob: kotlinx.coroutines.Job? = null
+    private val historySearchRevision =
+        java.util.concurrent.atomic
+            .AtomicLong()
+
+    fun findHistoryMessage(
+        query: String,
+        before: Long?,
+        after: Long?,
+    ) {
+        val revision = historySearchRevision.incrementAndGet()
+        historySearchJob?.cancel()
+        val sessionId = openSessionId ?: return
+        historySearchJob =
+            workScope.launch {
+                val match = storage.sessionSearch.locateMessage(sessionId, query, before, after) ?: return@launch
+                kotlin.coroutines.coroutineContext.ensureActive()
+                val following = storage.messages.pageAfter(sessionId, match.sequence, 50)
+                val through = if (following.size < 50) Long.MAX_VALUE else following.last().sequence
+                _screen.update { current ->
+                    if (openSessionId == sessionId && current.openSessionId == sessionId &&
+                        historySearchRevision.get() == revision
+                    ) {
+                        current.copy(
+                            historyLimit = 100,
+                            historyThrough = through,
+                            focusedHistoryMessage = match.id,
+                            historyFocusRevision = revision,
+                        )
+                    } else {
+                        current
+                    }
+                }
+                refreshPersistedScreen()
+            }
+    }
+
+    fun showLatestMessages() {
+        historySearchRevision.incrementAndGet()
+        historySearchJob?.cancel()
+        _screen.update { it.copy(historyLimit = 100, historyThrough = Long.MAX_VALUE, focusedHistoryMessage = null) }
+        workScope.launch { refreshPersistedScreen() }
+    }
+
+    fun loadOlderMessages() {
+        historySearchRevision.incrementAndGet()
+        historySearchJob?.cancel()
+        val expected = _screen.value
+        if (!expected.hasOlderMessages) return
+        workScope.launch {
+            _screen.update { current ->
+                if (current.openSessionId == expected.openSessionId && current.historyLimit == expected.historyLimit) {
+                    current.copy(historyLimit = Math.addExact(current.historyLimit, 100))
+                } else {
+                    current
+                }
+            }
+            refreshPersistedScreen()
+        }
+    }
+
     private fun refreshPersistedScreen() {
         // Session deletion can race terminal publication. Keep existence and all
         // dependent projections in one Room snapshot, not separate check/read calls.
@@ -4352,7 +4424,7 @@ class ChatService(
             _screen.update { current ->
                 val retryTarget = projection.retryTargetFor(sessionId)
                 val refreshed =
-                    ChatScreenState(
+                    projection.historyFor(sessionId, current).copy(
                         sessions = sessions.value,
                         openSessionId = sessionId,
                         preparingDraft = preparingDraft,
@@ -4361,9 +4433,7 @@ class ChatService(
                         workspaceRecovered = sessionId?.let(workspaceRecovery::hasNotice) == true,
                         // A null badge is authoritative for an unbound session, not a missing refresh.
                         badge = sessionId?.let { projection.badgeFor(it) },
-                        messages = projection.messagesFor(sessionId, current),
                         contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
-                        toolTimeline = projection.toolTimelineFor(sessionId, current.toolTimeline),
                         subscriptionRecoveries =
                             subscriptionRecoveriesFor(
                                 storage,

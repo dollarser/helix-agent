@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Helix v1 exports independently of Kotlin; optionally stream reconstructed messages.
+"""Validate Helix v2 exports independently of Kotlin; optionally stream reconstructed messages.
 
 Only consumes the selected file. Never follows content references or executes exported tools.
 """
@@ -13,23 +13,25 @@ import sqlite3
 import tempfile
 
 FORMAT = "helix.session-export"
+FORMAT_VERSION = 2
 LINE_BYTES = 256 * 1024
 FILE_BYTES = 128 * 1024 * 1024
 TYPES = ("header session turn message model_call tool_call tool_result execution approval "
-         "attachment artifact compaction usage goal_run goal_binding content complete").split()
+         "attachment conversation_reference artifact compaction usage goal_run goal_binding content complete").split()
 GROUPS = ("header session turn message model_call tool_call tool_result execution approval "
-          "artifact attachment goal_run goal_binding usage:goal usage:audit compaction content complete").split()
+          "artifact attachment conversation_reference goal_run goal_binding usage:goal usage:audit compaction content complete").split()
 AVAILABILITY = "inline reference_only missing changed redacted omitted_limit".split()
 FIELDS = {
     "turn": {"sessionId": "session:"},
     "message": {"sessionId": "session:", "turnId": "turn:", "contentId": ""},
-    "model_call": {"turnId": "turn:"},
+    "model_call": {"turnId": "turn:", "toolMessageId": "message:"},
     "tool_call": {"turnId": "turn:", "modelCallId": "model_call:"},
     "tool_result": {"toolCallId": "tool_call:", "contentId": ""},
     "execution": {"toolCallId": "tool_call:"},
     "approval": {"toolCallId": "tool_call:"},
     "artifact": {"sessionId": "session:", "turnId": "turn:"},
     "attachment": {"messageId": "message:", "artifactId": "artifact:"},
+    "conversation_reference": {"messageId": "message:", "sourceSessionId": "session:", "contentId": ""},
     "goal_run": {"goalId": "usage:goal:"},
     "goal_binding": {"turnId": "turn:", "runId": "goal_run:"},
     "compaction": {"messageId": "message:", "contentId": "", "sourceCallId": "model_call:"},
@@ -83,6 +85,12 @@ def expected_edges(kind, data):
         for index, identity in enumerate(data.get("preservedMessageIds") or []):
             require(isinstance(identity, str), "Invalid preserved message identity")
             result[f"preservedMessageIds[{index}]"] = "message:" + identity
+    if kind == "conversation_reference" and data.get("sourceMessageIdsJson") is not None:
+        identities = json.loads(data["sourceMessageIdsJson"])
+        require(isinstance(identities, list), "Invalid source message identities")
+        for index, identity in enumerate(identities):
+            require(isinstance(identity, str), "Invalid source message identity")
+            result[f"sourceMessageIds[{index}]"] = "message:" + identity
     return result
 
 
@@ -127,7 +135,7 @@ def validate(path, messages=None, calls=None):
                     require(not raw.startswith(b"\xef\xbb\xbf"), "BOM is not allowed")
                     row = parse(raw)
                     require(isinstance(row, dict), "Record must be an object")
-                    require(row["format"] == FORMAT and type(row["formatVersion"]) is int and row["formatVersion"] == 1,
+                    require(row["format"] == FORMAT and type(row["formatVersion"]) is int and row["formatVersion"] == FORMAT_VERSION,
                             "Unsupported format/version")
                     require(type(row["sequence"]) is int and row["sequence"] == number, "Sequence gap")
                     kind, identity, data = row["type"], row["recordId"], row["data"]
@@ -149,7 +157,7 @@ def validate(path, messages=None, calls=None):
                         expected_id = "content:" + data["sourceSha256"]
                     else:
                         prefix = ":".join(identity.split(":")[:2]) if kind == "usage" else kind
-                        expected_id = prefix + ":" + str(data["rowId" if kind == "attachment" else "id"])
+                        expected_id = prefix + ":" + str(data["rowId" if kind in ("attachment", "conversation_reference") else "id"])
                     require(identity == expected_id, "Unstable source identity")
                     if kind == "session":
                         require(data["id"] == session, "Session record mismatch")
@@ -178,7 +186,7 @@ def validate(path, messages=None, calls=None):
                 reconstruct(database, messages)
             if calls is not None:
                 reconstruct_calls(database, calls)
-            return {"valid": True, "formatVersion": 1, "recordCount": number, "counts": dict(counts),
+            return {"valid": True, "formatVersion": FORMAT_VERSION, "recordCount": number, "counts": dict(counts),
                     "contentStatistics": dict(statistics), "unresolvedReferences": missing,
                     "unrecordedOrOmittedAssociations": unknown,
                     "materialsComplete": missing == 0 and unknown == 0 and all(

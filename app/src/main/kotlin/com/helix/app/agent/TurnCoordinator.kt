@@ -242,14 +242,15 @@ internal class TurnCoordinator private constructor(
                     text,
                 )
             }
-            storage.messages.append(
-                idGenerator(),
-                sessionId,
-                turnId,
-                ModelRole.ASSISTANT.name,
-                ChatHistoryBuilder.KIND_TOOL_CALLS,
-                response,
-            )
+            storage.messages
+                .append(
+                    idGenerator(),
+                    sessionId,
+                    turnId,
+                    ModelRole.ASSISTANT.name,
+                    ChatHistoryBuilder.KIND_TOOL_CALLS,
+                    response,
+                ).also { storage.modelCalls.bindToolMessage(current.modelCallId, it.id) }
         }
         runtime.markModelCallClosed()
     }

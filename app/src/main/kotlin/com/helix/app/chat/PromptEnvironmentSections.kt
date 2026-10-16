@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.core.agent.PromptOmissionReason
 import com.helix.core.agent.PromptRegistry
 import com.helix.core.agent.PromptScope
 import com.helix.core.agent.PromptSection
@@ -61,27 +62,37 @@ internal object PromptEnvironmentSections {
                 source.text("base").replace(PLACEHOLDER, workingDirectory)
             },
         )
-        if (fileToolsAvailable) {
-            registry.register(
-                PromptSection(FILES_NAME, ORDER_FILES, PromptScope.WORKSPACE, PromptSource.BUILTIN_TEMPLATE) {
-                    source.text("files").replace(PLACEHOLDER, workingDirectory)
-                },
-            )
-        }
-        if (mode == AgentMode.PLAN) {
-            registry.register(
-                PromptSection(PLAN_NAME, ORDER_PLAN, PromptScope.MODE, PromptSource.BUILTIN_TEMPLATE) {
-                    source.text("plan").replace(PLACEHOLDER, workingDirectory)
-                },
-            )
-        }
-        if (!pluginInstructions.isNullOrBlank()) {
-            registry.register(
-                PromptSection(PLUGIN_NAME, -1_750, PromptScope.SKILL, PromptSource.EXTERNAL_CONTENT) {
-                    pluginInstructions
-                },
-            )
-        }
+        registry.register(
+            PromptSection(
+                FILES_NAME,
+                ORDER_FILES,
+                PromptScope.WORKSPACE,
+                PromptSource.BUILTIN_TEMPLATE,
+                PromptOmissionReason.FILE_TOOLS_UNAVAILABLE,
+            ) {
+                if (fileToolsAvailable) source.text("files").replace(PLACEHOLDER, workingDirectory) else ""
+            },
+        )
+        registry.register(
+            PromptSection(
+                PLAN_NAME,
+                ORDER_PLAN,
+                PromptScope.MODE,
+                PromptSource.BUILTIN_TEMPLATE,
+                PromptOmissionReason.NOT_PLAN_MODE,
+            ) {
+                if (mode == AgentMode.PLAN) source.text("plan").replace(PLACEHOLDER, workingDirectory) else ""
+            },
+        )
+        registry.register(
+            PromptSection(
+                PLUGIN_NAME,
+                -1_750,
+                PromptScope.SKILL,
+                PromptSource.EXTERNAL_CONTENT,
+                PromptOmissionReason.NO_PLUGIN_CONTEXT,
+            ) { pluginInstructions.orEmpty() },
+        )
     }
 
     private const val PLACEHOLDER = "{{working_directory}}"

@@ -13,6 +13,41 @@ import org.junit.Test
 class SessionExportProjectionTest {
     private val projection = SessionExportProjection { text, _ -> text.replace("synthetic-secret", "[redacted]") }
 
+    @Test fun toolProvenanceAndOrderComeFromPersistedFields() {
+        val data =
+            buildJsonObject {
+                put("turnId", "turn")
+                put("modelCallId", "model")
+                put("callIndex", 2)
+                put("ordinal", 7)
+                put("createdAt", 42)
+            }
+        val row =
+            buildJsonObject {
+                put("data", data)
+                put("omittedFields", buildJsonObject {})
+            }
+        val result = projection.project(SessionExportType.TOOL_CALL, row)
+        data.forEach { (key, value) -> assertEquals(value, result[key]) }
+        assertEquals("persisted", result.getValue("modelAssociation").jsonPrimitive.content)
+        assertEquals("persisted_turn_ordinal_and_model_call_index", result.getValue("callOrder").jsonPrimitive.content)
+        val directRow =
+            buildJsonObject {
+                put(
+                    "data",
+                    buildJsonObject {
+                        put("modelCallId", JsonNull)
+                        put("callIndex", JsonNull)
+                    },
+                )
+                put("omittedFields", buildJsonObject {})
+            }
+        val direct = projection.project(SessionExportType.TOOL_CALL, directRow)
+        assertEquals(JsonNull, direct["modelCallId"])
+        assertEquals("non_model_call", direct.getValue("modelAssociation").jsonPrimitive.content)
+        assertEquals(2, SessionExportFormat.VERSION)
+    }
+
     @Test fun providerConfigurationAndHistoricalUnknownsCannotLeakOrBecomeInventedFacts() {
         val row =
             buildJsonObject {

@@ -47,16 +47,12 @@ data class SessionSearchHitUi(
 
 /**
  * The observable outcome of the service-owned session search (HXA-191 slice). [query] is
- * the exact typed query being shown ("" = not searching); [scannedMessages] and
- * [skippedMessages] state the explicit scope of the bounded message-body scan, and
- * [truncated] marks that older messages were not searched — never an implicit "this page
- * only".
+ * the exact typed query being shown ("" = not searching); [truncated] means more matching
+ * sessions exist. Search covers all effective visible text, including older sessions.
  */
 data class SessionSearchUiState(
     val query: String = "",
     val hits: List<SessionSearchHitUi> = emptyList(),
-    val scannedMessages: Int = 0,
-    val skippedMessages: Int = 0,
     val truncated: Boolean = false,
 ) {
     val isSearching: Boolean get() = query.isNotEmpty()
@@ -152,6 +148,12 @@ data class ChatScreenState(
     val taskLedger: List<LedgerItemUi> = emptyList(),
     val hasGoals: Boolean = false,
     val isFork: Boolean = false,
+    val historyLimit: Int = 100,
+    val hasOlderMessages: Boolean = false,
+    val historyThrough: Long = Long.MAX_VALUE,
+    val hasNewerMessages: Boolean = false,
+    val focusedHistoryMessage: String? = null,
+    val historyFocusRevision: Long = 0,
 ) {
     val isSending: Boolean
         get() =

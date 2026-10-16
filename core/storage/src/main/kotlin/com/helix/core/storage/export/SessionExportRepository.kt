@@ -138,7 +138,7 @@ class SessionExportRepository internal constructor(
             put("snapshotBoundary", "single_room_transaction_persisted_relations_content_verified_afterwards")
             put(
                 "ordering",
-                "v1_fixed_groups_forward_references_allowed_not_execution_order",
+                "fixed_groups_forward_references_allowed_not_execution_order",
             )
             put(
                 "groupOrder",

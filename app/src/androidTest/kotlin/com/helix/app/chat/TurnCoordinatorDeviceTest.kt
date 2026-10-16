@@ -82,12 +82,19 @@ class TurnCoordinatorDeviceTest {
             assertEquals(TurnState.FAILED.name, storage.turns.resolve("turn-1").state)
             assertEquals("COMPLETED", storage.modelCalls.resolve("model-1").state)
             assertEquals("FAILED", storage.modelCalls.resolve("model-2").state)
+            val modelCalls = storage.modelCalls.listByTurn("turn-1")
+            assertEquals(listOf(0L, 1L), modelCalls.map { it.ordinal })
+            assertTrue(modelCalls.all { it.createdAt > 0 && it.settledAt != null })
+            val toolMessage = storage.messages.resolve(requireNotNull(modelCalls.first().toolMessageId))
+            assertEquals("turn-1", toolMessage.turnId)
+            assertEquals(ChatHistoryBuilder.KIND_TOOL_CALLS, toolMessage.kind)
             val assistantTexts =
                 storage.messages
                     .listBySession("session-1")
                     .filter { it.role == ModelRole.ASSISTANT.name && it.kind == ChatHistoryBuilder.KIND_TEXT }
                     .mapNotNull(storage.messages::readContent)
-            assertEquals(listOf("checking the time", "partial-second"), assistantTexts)
+            assertEquals(listOf("partial-second"), assistantTexts)
+            assertOriginalProgress(storage, requireNotNull(storage.messages.readContent(toolMessage)))
             assertTrue(
                 storage.messages.listBySession("session-1").any { it.kind == ChatHistoryBuilder.KIND_TOOL_RESULT },
             )
@@ -101,6 +108,25 @@ class TurnCoordinatorDeviceTest {
 
     @Test
     fun unknownEffectWinsOverDurableCancellationWithoutReplay() = verifyUnknownSibling(cancelling = true)
+
+    private fun assertOriginalProgress(
+        storage: HelixStorage,
+        toolResponse: String,
+    ) {
+        val progress =
+            storage.messages.listBySession("session-1").single {
+                it.role == ModelRole.ASSISTANT.name && it.kind == ChatHistoryBuilder.KIND_TOOL_PROGRESS
+            }
+        assertEquals("checking the time", storage.messages.readContent(progress))
+        assertEquals(
+            "checking the time",
+            com.helix.app.agent.AssistantToolResponseContent.text(
+                kotlinx.serialization.json.Json.parseToJsonElement(
+                    toolResponse,
+                ) as kotlinx.serialization.json.JsonArray,
+            ),
+        )
+    }
 
     private fun verifyUnknownSibling(cancelling: Boolean) {
         val storage = isolatedStorage()

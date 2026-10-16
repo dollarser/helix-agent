@@ -1,7 +1,3 @@
----
-name: browser
-description: Read and interact with authorized webpages in the Helix browser
----
 # Browser workflow
 
 Use browser tools only for the user's authorized websites and task. Selecting this plugin does not grant website access. Discover tools with tools.search when needed.

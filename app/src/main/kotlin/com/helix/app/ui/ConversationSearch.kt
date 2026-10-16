@@ -66,6 +66,13 @@ internal class ConversationSearchController {
         return matches[currentMatchIndex]
     }
 
+    fun selectTarget(id: String): SearchMatch? {
+        val index = matches.indexOfFirst { it.targetId == id }
+        if (index < 0) return null
+        currentMatchIndex = index
+        return currentMatch
+    }
+
     fun clear() {
         query = ""
         matches = emptyList()
@@ -85,7 +92,7 @@ internal fun findMatches(
                 .all { it.isEmpty() }
     if (emptyConversation) return emptyList()
 
-    var currentIndex = 0
+    var currentIndex = (if (screen.hasOlderMessages) 1 else 0) + (if (screen.hasNewerMessages) 1 else 0)
     for (entry in entries) {
         currentIndex = scanEntryMatches(entry, screen, query, currentIndex, results)
     }

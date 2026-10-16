@@ -20,6 +20,23 @@ import org.junit.Test
 import java.time.Instant
 
 class McpToolDiscoveryTest {
+    @Test fun sessionHistoryCanBeDiscoveredInChineseWithoutDefaultOrCrossSessionExposure() {
+        com.helix.app.chat.SessionToolDescriptors.names.forEach {
+            registerFixture(
+                com.helix.app.chat.SessionToolDescriptors
+                    .descriptor(it),
+            )
+        }
+        val defaults =
+            com.helix.app.chat.ModelToolExposureOrder
+                .defaultNames(emptySet())
+        assertFalse(discovery.visible("s", registry.all(), defaults).any { it.name.value.startsWith("session.") })
+        val matches = discovery.search("s", "会话 历史", 8)
+        assertTrue(matches.any { it.name.value == "session.history" })
+        assertTrue(discovery.visible("s", registry.all(), defaults).any { it.name.value == "session.history" })
+        assertFalse(discovery.visible("other", registry.all(), defaults).any { it.name.value.startsWith("session.") })
+    }
+
     private val registry = ToolRegistry()
 
     private val discovery = McpToolDiscovery(registry).also { it.register(registry) }

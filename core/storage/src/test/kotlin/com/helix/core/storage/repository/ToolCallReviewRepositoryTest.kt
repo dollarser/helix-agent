@@ -342,6 +342,15 @@ class ToolCallReviewRepositoryTest {
 
         override fun unsettledUnderTerminalTurns(): List<ToolCallEntity> = emptyList()
 
+        override fun maxOrdinal(turnId: String): Long = listByTurn(turnId).maxOfOrNull { it.ordinal } ?: -1
+
+        override fun recentBySession(
+            sessionId: String,
+            fromSequence: Long,
+            throughSequence: Long,
+            limit: Int,
+        ): List<ToolCallEntity> = error("unused")
+
         override fun insert(call: ToolCallEntity) {
             calls[call.id] = call
         }

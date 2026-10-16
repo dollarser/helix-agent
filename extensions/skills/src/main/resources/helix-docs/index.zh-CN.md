@@ -4,7 +4,7 @@
 
 | 章节 | 问题与关键词 | 资源 |
 |---|---|---|
-| getting-started | 入门、模型配置、第一次任务、API | zh-CN/getting-started.md |
+| getting-started | 入门、模型配置、第一次任务、API、会话、历史、标题、归档 | zh-CN/getting-started.md |
 | channels | 预览版、Standard、Developer、升级、数据 | zh-CN/channels.md |
 | permissions | 权限、审批、计划模式、停止、隐私 | zh-CN/permissions.md |
 | mobile-use | 手机操作、悬浮窗、后台、无障碍、Shizuku、Root | zh-CN/mobile-use.md |

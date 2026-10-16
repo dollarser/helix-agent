@@ -17,13 +17,44 @@ class MessageRepositoryTest {
     private lateinit var contentStore: FileContentStore
     private lateinit var dao: InMemoryMessageDao
     private lateinit var repository: MessageRepository
+    private lateinit var search: SearchProjectionFixture
 
     @Before
     fun setUp() {
         tempDir = Files.createTempDirectory("msg-repo-test").toFile()
         contentStore = FileContentStore(tempDir)
         dao = InMemoryMessageDao()
-        repository = MessageRepository(dao, contentStore)
+        search = SearchProjectionFixture()
+        repository = MessageRepository(dao, contentStore, search, { it() }, { 42L })
+    }
+
+    @Test fun visibleTextPublishesSearchAndActivityButProtocolDoesNot() {
+        val message = repository.append("visible", "s", "t", "USER", "TEXT", "中文 Needle")
+        repository.append("protocol", "s", "t", "ASSISTANT", "TOOL_CALLS", "private protocol")
+        repository.append("blank", "other", null, "USER", "TEXT", "")
+        assertEquals(42L, message.createdAt)
+        assertEquals(setOf("visible"), search.bodies.keys)
+        assertEquals(message.contentRef, search.bodies.getValue("visible").contentRef)
+        assertEquals("中文 needle", search.bodies.getValue("visible").folded)
+        assertEquals(mapOf("s" to 42L, "other" to 42L), search.activity)
+    }
+
+    @Test fun copiedHistoryKeepsOriginalTimeAndSearchBodyWithoutReusingExecutionOrBumpingActivity() {
+        val source = repository.append("source", "original", "turn", "ASSISTANT", "TEXT", "Branch evidence")
+        val copied = repository.copyHistory(source, "copy", "branch")
+        assertEquals(source.createdAt, copied.createdAt)
+        assertEquals(source.contentRef, copied.contentRef)
+        assertNull(copied.turnId)
+        assertEquals("branch", search.bodies.getValue("copy").sessionId)
+        assertNull(search.activity["branch"])
+    }
+
+    @Test fun pagingKeepsEffectiveOrderWhileTurnLookupCanReadAnOldResult() {
+        repeat(150) { repository.append("m$it", "s", "t$it", "ASSISTANT", "TEXT", "Answer $it") }
+        repository.supersedeFrom("s", 148, "revision")
+        assertEquals(listOf(145L, 146L, 147L), repository.recentBySession("s", 3).map { it.sequence })
+        assertEquals(listOf(9L, 10L), repository.recentBySession("s", 2, 10).map { it.sequence })
+        assertEquals("Answer 1", repository.readContent(repository.byTurn("t1").single()))
     }
 
     @Test
@@ -182,10 +213,21 @@ class MessageRepositoryTest {
 
         override fun countByContentRef(contentRef: String): Int = rows.count { it.contentRef == contentRef }
 
-        override fun contentSearchCandidates(limit: Int): List<MessageEntity> =
+        override fun recentBySession(
+            sessionId: String,
+            limit: Int,
+            through: Long,
+        ) = listBySession(sessionId)
+            .filter {
+                it.sequence <=
+                    through
+            }.takeLast(limit)
+            .reversed()
+
+        override fun byTurn(turnId: String) =
             rows
-                .filter { it.contentRef != null && it.supersededBy == null }
-                .sortedByDescending { it.sequence }
-                .take(limit)
+                .filter {
+                    it.turnId == turnId && it.supersededBy == null
+                }.sortedBy { it.sequence }
     }
 }

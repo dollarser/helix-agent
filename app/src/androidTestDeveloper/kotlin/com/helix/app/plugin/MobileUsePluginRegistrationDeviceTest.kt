@@ -2,7 +2,10 @@ package com.helix.app.plugin
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.app.eval.OwnedAccessibilityBackend
 import com.helix.tools.framework.ToolOrigin
+import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -14,7 +17,11 @@ class MobileUsePluginRegistrationDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
 
-    @Before fun requireBackend() = awaitMobileUseTestBackend()
+    private val backend = OwnedAccessibilityBackend(app)
+
+    @Before fun requireBackend() = runBlocking { backend.connect() }
+
+    @After fun restoreBackend() = backend.close()
 
     @Test
     fun nativeDisableRepairAndReenableUseTheProductionCatalog() {
@@ -37,7 +44,7 @@ class MobileUsePluginRegistrationDeviceTest {
         grants.configureGlobal(setOf(app.packageName), false)
         try {
             service.setEnabled(record.id, true)
-            val old = tools.snapshot().first { it.descriptor.origin is ToolOrigin.PluginOrigin }.ref
+            val old = mobileUseBinding()
             service.catalog.select(session, record.id, false)
             val source = requireNotNull(tools.resolveBinding(old)).descriptor.origin.canonicalOf()
             assertEquals(false, service.catalog.sourceAvailable(source, session))
@@ -77,6 +84,13 @@ class MobileUsePluginRegistrationDeviceTest {
     }
 
     private fun globalKey() = com.helix.extensions.mobileuse.config.MobileUseGrantStore.CONFIG_KEY
+
+    private fun mobileUseBinding() =
+        container.toolPipeline.registry
+            .snapshot()
+            .first {
+                (it.descriptor.origin as? ToolOrigin.PluginOrigin)?.pluginId == "mobile-use"
+            }.ref
 
     @Test
     fun mobileUseRegistersOnceWithPluginProvenance() {

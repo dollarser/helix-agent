@@ -112,13 +112,15 @@ private fun ConversationSearchCounter(
     currentMatchIndex: Int,
 ) {
     val counterText =
-        if (matchCount > 0) {
+        if (matchCount < 0) {
+            stringResource(R.string.chat_search_history_navigation)
+        } else if (matchCount > 0) {
             stringResource(R.string.chat_search_count, currentMatchIndex + 1, matchCount)
         } else {
             stringResource(R.string.chat_search_no_matches)
         }
     val textColor =
-        if (matchCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        if (matchCount != 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     Text(
         text = counterText,
         style = MaterialTheme.typography.labelSmall,
@@ -137,7 +139,7 @@ private fun ConversationSearchActions(
 ) {
     IconButton(
         onClick = onPrevMatch,
-        enabled = matchCount > 0,
+        enabled = matchCount != 0,
         modifier = Modifier.size(36.dp).testTag("chat-search-prev"),
     ) {
         Icon(
@@ -145,7 +147,7 @@ private fun ConversationSearchActions(
             contentDescription = stringResource(R.string.chat_search_prev),
             modifier = Modifier.size(18.dp).rotate(180f),
             tint =
-                if (matchCount > 0) {
+                if (matchCount != 0) {
                     MaterialTheme.colorScheme.onSurface
                 } else {
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -154,7 +156,7 @@ private fun ConversationSearchActions(
     }
     IconButton(
         onClick = onNextMatch,
-        enabled = matchCount > 0,
+        enabled = matchCount != 0,
         modifier = Modifier.size(36.dp).testTag("chat-search-next"),
     ) {
         Icon(
@@ -162,7 +164,7 @@ private fun ConversationSearchActions(
             contentDescription = stringResource(R.string.chat_search_next),
             modifier = Modifier.size(18.dp),
             tint =
-                if (matchCount > 0) {
+                if (matchCount != 0) {
                     MaterialTheme.colorScheme.onSurface
                 } else {
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)

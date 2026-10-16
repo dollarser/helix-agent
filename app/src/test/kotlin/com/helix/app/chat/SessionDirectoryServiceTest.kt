@@ -46,7 +46,7 @@ class SessionDirectoryServiceTest {
         withDirectory({ query, check ->
             check()
             searched.add(query)
-            SessionSearchUiState(query, scannedMessages = 12, skippedMessages = 3, truncated = true)
+            SessionSearchUiState(query.trim(), truncated = true)
         }) { directory, _ ->
             directory.refreshNow()
             assertEquals(
@@ -63,8 +63,8 @@ class SessionDirectoryServiceTest {
             )
             val result = runBlocking { withTimeout(5000) { directory.search.first { it.truncated } } }
             assertEquals(listOf("  exact input  "), searched)
-            assertEquals(12, result.scannedMessages)
-            assertEquals(3, result.skippedMessages)
+            assertEquals("  exact input  ", result.query)
+            assertTrue(result.truncated)
             directory.search(" \n ")
             assertEquals(SessionSearchUiState(), directory.search.value)
         }
@@ -80,7 +80,7 @@ class SessionDirectoryServiceTest {
                 assertTrue(release.await(5, TimeUnit.SECONDS))
                 exited.countDown()
             }
-            SessionSearchUiState(query, scannedMessages = 1)
+            SessionSearchUiState(query, truncated = true)
         }) { directory, scope ->
             try {
                 directory.search("old")
@@ -89,7 +89,7 @@ class SessionDirectoryServiceTest {
                 runBlocking {
                     withTimeout(
                         5000,
-                    ) { directory.search.first { it.query == "new" && it.scannedMessages == 1 } }
+                    ) { directory.search.first { it.query == "new" && it.truncated } }
                 }
                 release.countDown()
                 assertTrue(exited.await(5, TimeUnit.SECONDS))
@@ -108,7 +108,7 @@ class SessionDirectoryServiceTest {
             entered.countDown()
             assertTrue(release.await(5, TimeUnit.SECONDS))
             check()
-            SessionSearchUiState(query, scannedMessages = 1)
+            SessionSearchUiState(query, truncated = true)
         }) { directory, scope ->
             try {
                 directory.refreshNow()

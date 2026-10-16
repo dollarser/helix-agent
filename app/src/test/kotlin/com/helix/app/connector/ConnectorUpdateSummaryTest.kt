@@ -1,113 +1,123 @@
 package com.helix.app.connector
 
+import com.helix.app.plugin.InstalledEndpoint
+import com.helix.app.plugin.InstalledPlugin
 import com.helix.app.plugin.PluginUpdateDiffEvaluator
+import com.helix.extensions.plugin.PluginEndpoint
+import com.helix.extensions.plugin.PluginPackage
+import com.helix.extensions.plugin.PluginSkill
+import com.helix.extensions.skills.SkillKey
+import com.helix.extensions.skills.SkillSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectorUpdateSummaryTest {
-    @Test
-    fun `evaluate preserves credentials when endpoint bindings are identical`() {
-        val current =
-            PluginUpdateDiffEvaluator.PackageSnapshot(
-                version = "1.0.0",
-                changelog = "Initial release",
-                skillKeys = setOf("skill:git-ops"),
-                endpoints =
-                    listOf(
-                        PluginUpdateDiffEvaluator.EndpointBinding(
-                            endpointId = "ep-main",
-                            originUrl = "https://gitlab.example.com",
-                            authType = "bearer",
-                        ),
-                    ),
-            )
+    private val endpoint = PluginEndpoint("main", "https://example.com/mcp", true, "auth-a")
 
-        val incoming =
-            PluginUpdateDiffEvaluator.PackageSnapshot(
-                version = "1.1.0",
-                changelog = "Bug fixes and added skills",
-                skillKeys = setOf("skill:git-ops", "skill:mr-review"),
-                endpoints =
-                    listOf(
-                        PluginUpdateDiffEvaluator.EndpointBinding(
-                            endpointId = "ep-main",
-                            originUrl = "https://gitlab.example.com",
-                            authType = "bearer",
-                        ),
-                    ),
-            )
+    private fun current(endpoints: List<PluginEndpoint> = listOf(endpoint)) =
+        InstalledPlugin(
+            "conn-1",
+            "sample",
+            "CLAUDE",
+            "old",
+            endpoints.map { InstalledEndpoint("saved-${it.name}", it) },
+            listOf(SkillKey(SkillSource.USER_IMPORTED, "git-ops", "a".repeat(64))),
+            emptyList(),
+            "local:sample",
+            2,
+            true,
+            "1.0",
+        )
 
-        val report = PluginUpdateDiffEvaluator.evaluate("conn-1", current, incoming)
+    private fun incoming(endpoints: List<PluginEndpoint> = listOf(endpoint)) =
+        PluginPackage(
+            "sample",
+            "CLAUDE",
+            "new",
+            endpoints,
+            listOf("git-ops", "mr-review").map { name ->
+                val body = "---\nname: $name\ndescription: Test instructions\n---\nRead only"
+                PluginSkill(name, mapOf("SKILL.md" to body.toByteArray()))
+            },
+            emptyList(),
+            "1.1",
+        )
 
-        assertEquals("1.0.0", report.oldVersion)
-        assertEquals("1.1.0", report.newVersion)
-        assertEquals(listOf("skill:mr-review"), report.addedSkills)
+    @Test fun identicalBindingsPreserveConnectionAndReportAddedSkills() {
+        val report = PluginUpdateDiffEvaluator.evaluate(current(), incoming())
+        assertEquals("1.0", report.oldVersion)
+        assertEquals("1.1", report.newVersion)
+        assertEquals(listOf("mr-review"), report.addedSkills)
         assertTrue(report.removedSkills.isEmpty())
         assertTrue(report.changedEndpoints.isEmpty())
-        assertFalse("Same endpoint URL and auth must preserve credentials", report.requiresCredentialReconfiguration)
+        assertFalse(report.requiresReconnection)
     }
 
-    @Test
-    fun `evaluate marks credential reconfiguration when origin url changes`() {
-        val current =
-            PluginUpdateDiffEvaluator.PackageSnapshot(
-                version = "1.0.0",
-                endpoints =
-                    listOf(
-                        PluginUpdateDiffEvaluator.EndpointBinding(
-                            endpointId = "ep-main",
-                            originUrl = "https://gitlab.old.com",
-                            authType = "bearer",
-                        ),
-                    ),
+    @Test fun changingOnlyUrlPathRequiresReconnection() {
+        val report =
+            PluginUpdateDiffEvaluator.evaluate(
+                current(),
+                incoming(listOf(endpoint.copy(url = "https://example.com/other"))),
             )
-
-        val incoming =
-            PluginUpdateDiffEvaluator.PackageSnapshot(
-                version = "2.0.0",
-                endpoints =
-                    listOf(
-                        PluginUpdateDiffEvaluator.EndpointBinding(
-                            endpointId = "ep-main",
-                            originUrl = "https://gitlab.new.com",
-                            authType = "bearer",
-                        ),
-                    ),
-            )
-
-        val report = PluginUpdateDiffEvaluator.evaluate("conn-1", current, incoming)
-
-        assertTrue(report.requiresCredentialReconfiguration)
-        assertEquals(listOf("ep-main"), report.changedEndpoints)
+        assertEquals(listOf("main"), report.changedEndpoints)
+        assertTrue(report.requiresReconnection)
     }
 
-    @Test
-    fun `evaluate marks credential reconfiguration when new endpoint is added`() {
-        val current =
-            PluginUpdateDiffEvaluator.PackageSnapshot(
-                version = "1.0.0",
-                endpoints = emptyList(),
-            )
-
-        val incoming =
-            PluginUpdateDiffEvaluator.PackageSnapshot(
-                version = "1.1.0",
-                endpoints =
-                    listOf(
-                        PluginUpdateDiffEvaluator.EndpointBinding(
-                            endpointId = "ep-auth",
-                            originUrl = "https://auth.example.com",
-                            authType = "oauth2",
-                            oauthIssuer = "https://auth.example.com/issuer",
-                        ),
-                    ),
-            )
-
-        val report = PluginUpdateDiffEvaluator.evaluate("conn-1", current, incoming)
-
-        assertTrue(report.requiresCredentialReconfiguration)
-        assertEquals(listOf("ep-auth"), report.changedEndpoints)
+    @Test fun newEndpointRequiresConnection() {
+        val report = PluginUpdateDiffEvaluator.evaluate(current(emptyList()), incoming())
+        assertEquals(listOf("main"), report.addedEndpoints)
+        assertTrue(report.requiresReconnection)
     }
+
+    @Test fun authFingerprintAndCredentialRequirementFollowInstallerEquality() {
+        listOf(endpoint.copy(authBindingHash = "auth-b"), endpoint.copy(needsCredential = false)).forEach { changed ->
+            val report = PluginUpdateDiffEvaluator.evaluate(current(), incoming(listOf(changed)))
+            assertEquals(listOf("main"), report.changedEndpoints)
+            assertTrue(report.requiresReconnection)
+        }
+    }
+
+    @Test fun removalsDoNotAskToReconnectUnaffectedEndpoints() {
+        val report = PluginUpdateDiffEvaluator.evaluate(current(), incoming(emptyList()).copy(skills = emptyList()))
+        assertEquals(listOf("main"), report.removedEndpoints)
+        assertEquals(listOf("git-ops"), report.removedSkills)
+        assertFalse(report.requiresReconnection)
+    }
+
+    @Test fun endpointNameIsPartOfBindingAndMissingVersionsStayUnknown() {
+        val report =
+            PluginUpdateDiffEvaluator.evaluate(
+                current().copy(versionLabel = null),
+                incoming(listOf(endpoint.copy(name = "renamed"))).copy(versionLabel = null),
+            )
+        assertEquals(listOf("main"), report.removedEndpoints)
+        assertEquals(listOf("renamed"), report.addedEndpoints)
+        assertEquals(null, report.oldVersion)
+        assertEquals(null, report.newVersion)
+    }
+}
+
+/** Exercised by the opt-in original-package tests without executing any package scripts. */
+internal fun assertImportedUpdateSummary(
+    bundle: PluginPackage,
+    expectedSkills: Set<String>,
+) {
+    val previous =
+        InstalledPlugin(
+            "fixture",
+            bundle.name,
+            bundle.source,
+            "old",
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            "local:fixture",
+            1,
+            true,
+        )
+    val report = PluginUpdateDiffEvaluator.evaluate(previous, bundle)
+    assertEquals(expectedSkills, report.addedSkills.toSet())
+    assertEquals(bundle.endpoints.map { it.name }.sorted(), report.addedEndpoints)
 }

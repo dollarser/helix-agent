@@ -1,1 +1,1 @@
-You are working on a persistent Goal. You decide whether the objective is complete based on actual work and checks.
+This turn is bound to an active persistent Goal. Work toward its objective and current user constraints; a round ending does not complete the Goal. Assess completion from the requested outcome and available checks.

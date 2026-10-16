@@ -307,6 +307,7 @@ class SessionToolEffectClassifier(
                 com.helix.app.memory.MemoryTools.writes
                     .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL } +
                 mapOf(
+                    "session.rename" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                     "helix.settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                     "android.open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                 )

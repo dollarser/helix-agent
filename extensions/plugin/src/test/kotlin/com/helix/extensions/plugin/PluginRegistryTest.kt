@@ -19,6 +19,54 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun unselectedContextDoesNotProbeNativeRuntimeAndSelectionStillRechecksReadiness() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        var probes = 0
+        var unavailable = false
+        registry.register(
+            object : HelixPlugin by base {
+                override fun registrationError(): String? {
+                    probes++
+                    return "UNAVAILABLE".takeIf { unavailable }
+                }
+            },
+        )
+        repeat(5) { assertTrue(registry.selectedRuntimes("session").isEmpty()) }
+        assertEquals(0, probes)
+        catalog.selections["session" to "fixture"] = "selection"
+        assertEquals(1, registry.selectedRuntimes("session").size)
+        unavailable = true
+        assertTrue(registry.selectedRuntimes("session").isEmpty())
+        assertEquals(2, probes)
+        catalog.selections.remove("session" to "fixture")
+        assertTrue(registry.selectedRuntimes("session").isEmpty())
+        assertEquals(2, probes)
+    }
+
+    @Test fun managementPreviewKeepsRulesAndResourcesWithoutSelectionOrPublication() {
+        val catalog = MemoryNativePluginCatalog()
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, catalog)
+        val base = plugin("preview")
+        val guide = skill("guide").copy(resources = mapOf("references/workflow.md" to "Detailed workflow"))
+        registry.register(
+            object : HelixPlugin by base {
+                override val skills = listOf(guide)
+                override val requiredInstructions = "Required rule"
+            },
+        )
+        registry.setEnabled("preview", false)
+        val before = tools.snapshot()
+        val contents = registry.contents("preview")
+        assertEquals("Required rule", contents.requiredInstructions)
+        assertEquals("Detailed workflow", contents.skills.single().resources["references/workflow.md"])
+        assertTrue(registry.selectedRuntimes("session").isEmpty())
+        assertEquals(before, tools.snapshot())
+        assertEquals("", registry.contents("missing").requiredInstructions)
+    }
+
     @Test fun bodiesLoadOnlyFromExactDurableActivationsAndRetainMandatoryRules() {
         val catalog = MemoryNativePluginCatalog()
         val registry = PluginRegistry(ToolRegistry(), catalog)

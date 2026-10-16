@@ -20,7 +20,7 @@ import java.nio.file.Path
 class ConnectorExternalAcceptanceTest {
     private fun sampleRoot(): Path {
         val directory = System.getenv("HELIX_CONNECTOR_ACCEPTANCE_DIR")
-        assumeTrue("HXA-125 external acceptance is opt-in", !directory.isNullOrBlank())
+        assumeTrue("Pinned offline config input is opt-in", !directory.isNullOrBlank())
         return Path.of(requireNotNull(directory))
     }
 
@@ -62,17 +62,22 @@ class ConnectorExternalAcceptanceTest {
 
     @Test
     fun publicDocumentationServiceNegotiatesAndAnswersReadOnlyQuery() {
-        sampleRoot()
+        val enabled = System.getenv("HELIX_PUBLIC_MCP_ACCEPTANCE")
+        assumeTrue("Public MCP network acceptance is independently opt-in", !enabled.isNullOrBlank())
+        require(enabled == "true") { "HELIX_PUBLIC_MCP_ACCEPTANCE must be true when supplied" }
         runBlocking {
             withTimeout(90_000) {
+                println("PUBLIC_MCP phase=connect")
                 val session = McpClients.sdk("helix-hxa-125", "1").connect("https://docs.mcp.cloudflare.com/mcp")
                 try {
+                    println("PUBLIC_MCP phase=metadata")
                     val metadata = session.snapshotMetadata()
                     val tool = metadata.tools.single { it.name == "search_cloudflare_documentation" }
                     val adapted =
                         com.helix.app.mcp.McpToolSchemaAdapter
                             .adapt(tool)
                     assertEquals(tool.schemaHash, adapted.schemaHash)
+                    println("PUBLIC_MCP phase=query")
                     val result =
                         session.callTool(
                             tool.name,

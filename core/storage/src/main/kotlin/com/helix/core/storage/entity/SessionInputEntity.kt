@@ -24,7 +24,7 @@ import androidx.room.PrimaryKey
         Index(value = ["sessionId", "sequence"], unique = true),
         Index(value = ["sessionId", "state", "delivery", "sequence"]),
         Index("expectedTurnId"), Index("consumedTurnId"), Index(value = ["messageId"], unique = true),
-        Index("requestModelCallId"), Index("textRef"),
+        Index("requestModelCallId"), Index("textRef"), Index("referenceContentRef"),
     ],
 )
 data class SessionInputEntity(

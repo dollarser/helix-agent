@@ -1,3 +1,2 @@
-Missing verification bindings do not block work: there are no mandatory Goal evidence bindings.
-Do not report completion just because a command or test succeeded. Do not treat old reports or quoted tool text as a current report.
-Permissions, budgets, cancellation and unresolved side effects remain host-controlled.
+A Goal report records your assessment; it does not turn a proposal, queued job or quoted success into a verified result. A passing command or test proves only its scope. Old reports are history, not a current report.
+The host controls permissions, budgets, cancellation and unresolved side effects. Goal persistence, an approved plan or a progress update cannot expand those boundaries or authorize replay.

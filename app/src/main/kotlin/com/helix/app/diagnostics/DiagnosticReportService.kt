@@ -10,6 +10,7 @@ import kotlinx.serialization.json.put
 /** User-triggered, content-free support snapshot. No network, clipboard or conversation access. */
 class DiagnosticReportService(
     application: Application,
+    private val pluginPerformance: () -> kotlinx.serialization.json.JsonObject = { buildJsonObject {} },
 ) {
     private val store = ProcessEvidenceStore(application)
     private val version = application.packageManager.getPackageInfo(application.packageName, 0).versionName ?: "unknown"
@@ -22,8 +23,9 @@ class DiagnosticReportService(
                 put("appVersion", version)
                 put("applicationId", applicationId)
                 put("evidence", Json.parseToJsonElement(DiagnosticBundlePreview.collect(store).encode()))
+                put("pluginPerformance", pluginPerformance())
             }.toString().also {
-                check(it.toByteArray(Charsets.UTF_8).size <= DiagnosticBundlePreview.MAX_ENCODED_BYTES)
+                check(it.toByteArray(Charsets.UTF_8).size <= DiagnosticBundlePreview.MAX_ENCODED_BYTES + 12 * 1024)
             }
         }
 }

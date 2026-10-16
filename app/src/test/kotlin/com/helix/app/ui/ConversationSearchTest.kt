@@ -10,6 +10,18 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ConversationSearchTest {
+    @Test fun historyNavigationRowsAreIncludedInSearchPositions() {
+        val screen =
+            createScreen(messages = listOf(MessageUi("hit", "user", "needle", "turn-1", 42)))
+                .copy(hasOlderMessages = true, hasNewerMessages = true)
+        assertEquals(2, findMatches("needle", screen).single().listIndex)
+        val controller = ConversationSearchController()
+        controller.onQueryChange("needle", screen)
+        assertEquals("hit", controller.selectTarget("hit")?.targetId)
+        assertNull(controller.selectTarget("gone"))
+        assertEquals("hit", controller.currentMatch?.targetId)
+    }
+
     @Test fun searchFollowsInterleavedConversationOrder() {
         val screen =
             createScreen(

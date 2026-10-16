@@ -42,6 +42,7 @@ interface HelixPlugin {
 data class PluginContents(
     val tools: List<Pair<String, String>>,
     val skills: List<SkillDocument>,
+    val requiredInstructions: String,
 )
 
 /** Trusted native factories only. Installation, enabled state and revision belong to the host catalog. */
@@ -50,6 +51,7 @@ class PluginRegistry(
     private val toolRegistry: ToolRegistry,
     private val catalog: NativePluginCatalog,
 ) {
+    val performance = PluginPerformanceDiagnostics()
     private val factories = LinkedHashMap<String, HelixPlugin>()
     private val registrations = LinkedHashMap<String, AutoCloseable>()
 
@@ -57,7 +59,7 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             factories
                 .filter { (id, _) ->
-                    ready(id) && catalog.selectionId(sessionId, id) != null
+                    catalog.selectionId(sessionId, id) != null && ready(id)
                 }.values
                 .toList()
         }
@@ -107,6 +109,7 @@ class PluginRegistry(
             PluginContents(
                 plugin?.tools().orEmpty().map { it.descriptor.name.value to it.descriptor.description },
                 plugin?.skills.orEmpty(),
+                plugin?.requiredInstructions.orEmpty(),
             )
         }
 
@@ -145,13 +148,15 @@ class PluginRegistry(
         }
 
     fun register(plugin: HelixPlugin): PluginManifest =
-        synchronized(catalog.mutationLock) {
-            val manifest = plugin.manifest
-            require(manifest.name !in factories) { "duplicate plugin id: ${manifest.name}" }
-            publish(plugin, catalog.find(manifest.name)?.enabled ?: true)
-            if (catalog.find(manifest.name)?.enabled == true) openRegistration(plugin)
-            factories[manifest.name] = plugin
-            manifest
+        performance.measure(plugin.manifest.name, PluginMeasurement.REGISTRATION) {
+            synchronized(catalog.mutationLock) {
+                val manifest = plugin.manifest
+                require(manifest.name !in factories) { "duplicate plugin id: ${manifest.name}" }
+                publish(plugin, catalog.find(manifest.name)?.enabled ?: true)
+                if (catalog.find(manifest.name)?.enabled == true) openRegistration(plugin)
+                factories[manifest.name] = plugin
+                manifest
+            }
         }
 
     fun setEnabled(
@@ -180,11 +185,13 @@ class PluginRegistry(
         }
 
     fun ready(pluginId: String): Boolean =
-        synchronized(catalog.mutationLock) {
-            val current = catalog.find(pluginId)
-            val factory = factories[pluginId]
-            current?.enabled == true && factory != null && factory.registrationError() == null &&
-                projectionMatches(current, factory)
+        performance.measure(pluginId, PluginMeasurement.READINESS) {
+            synchronized(catalog.mutationLock) {
+                val current = catalog.find(pluginId)
+                val factory = factories[pluginId]
+                current?.enabled == true && factory != null && factory.registrationError() == null &&
+                    projectionMatches(current, factory)
+            }
         }
 
     fun configurationSaved(pluginId: String): Boolean = factories[pluginId]?.configurationSaved() == true
@@ -288,24 +295,26 @@ class PluginRegistry(
         plugin: HelixPlugin,
         bindings: List<ToolBinding>,
     ): String =
-        MessageDigest
-            .getInstance("SHA-256")
-            .digest(
-                (
-                    listOf(
-                        plugin.manifest.name,
-                        plugin.manifest.version,
-                        plugin.manifest.helixRuntimeId,
-                        plugin.requiredInstructions,
-                    ) +
-                        bindings.map { it.descriptor.contractHash.hex }.sorted() +
-                        plugin.skills
-                            .sortedBy {
-                                it.catalogEntry.name
-                            }.map { "${it.catalogEntry}:${it.rawContent}" }
-                ).joinToString("\n")
-                    .toByteArray(Charsets.UTF_8),
-            ).joinToString("") { "%02x".format(it) }
+        performance.measure(plugin.manifest.name, PluginMeasurement.FINGERPRINT) {
+            MessageDigest
+                .getInstance("SHA-256")
+                .digest(
+                    (
+                        listOf(
+                            plugin.manifest.name,
+                            plugin.manifest.version,
+                            plugin.manifest.helixRuntimeId,
+                            plugin.requiredInstructions,
+                        ) +
+                            bindings.map { it.descriptor.contractHash.hex }.sorted() +
+                            plugin.skills
+                                .sortedBy {
+                                    it.catalogEntry.name
+                                }.map { "${it.catalogEntry}:${it.rawContent}" }
+                    ).joinToString("\n")
+                        .toByteArray(Charsets.UTF_8),
+                ).joinToString("") { "%02x".format(it) }
+        }
 
     fun all(): List<PluginManifest> =
         synchronized(catalog.mutationLock) {

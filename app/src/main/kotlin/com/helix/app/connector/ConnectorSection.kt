@@ -31,12 +31,17 @@ import com.helix.app.R
 import com.helix.app.mcp.oauth.McpOAuthResult
 import com.helix.app.plugin.InstalledEndpoint
 import com.helix.app.plugin.InstalledPlugin
+import com.helix.app.plugin.PluginImportError
+import com.helix.app.plugin.PluginImportFailure
+import com.helix.app.plugin.PluginImportResult
+import com.helix.app.plugin.PluginImportReview
+import com.helix.app.plugin.PluginImportTargetPicker
+import com.helix.app.plugin.PluginPackagePreview
 import com.helix.app.plugin.PluginService
 import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.mcp.oauth.McpOAuthVendor
 import com.helix.extensions.mcp.oauth.mcpOAuthVendor
-import com.helix.extensions.plugin.PluginPackage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,7 +56,10 @@ fun ConnectorSection(
     showInstalled: Boolean = true,
     onUse: ((String?) -> Unit)? = null,
     query: String = "",
+    configurePluginId: String? = null,
+    onConfigurationShown: () -> Unit = {},
     onInstalled: () -> Unit = {},
+    onConfigureImported: ((String) -> Unit)? = null,
     onPluginSettings: () -> Unit = {},
     onSystemPermissions: () -> Unit = onPluginSettings,
 ) {
@@ -59,13 +67,14 @@ fun ConnectorSection(
     var jsonDraft by remember { mutableStateOf("") }
     var showPaste by remember { mutableStateOf(false) }
     var replaceTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
-    var preview by remember { mutableStateOf<PluginPackage?>(null) }
+    var preview by remember { mutableStateOf<PluginImportReview?>(null) }
+    var importFailure by remember { mutableStateOf<PluginImportFailure?>(null) }
     var records by remember { mutableStateOf<List<InstalledPlugin>>(emptyList()) }
     var loadFailed by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
     var searchContents by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     var revision by remember { mutableStateOf(0) }
-    var installed by remember { mutableStateOf(false) }
+    var installed by remember { mutableStateOf<InstalledPlugin?>(null) }
     LaunchedEffect(service, revision) {
         loadFailed = false
         try {
@@ -91,9 +100,13 @@ fun ConnectorSection(
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
-                action.launch {
+                action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
                     preview = null
-                    preview = withContext(Dispatchers.IO) { service.preview(uri) }
+                    installed = null
+                    preview =
+                        withContext(Dispatchers.IO) {
+                            PluginImportReview.capture(service.preview(uri), service.list(), replaceTarget)
+                        }
                 }
             }
         }
@@ -137,90 +150,71 @@ fun ConnectorSection(
                 enabled = !action.busy && jsonDraft.isNotBlank(),
                 modifier = Modifier.testTag("connector-json-preview"),
                 onClick = {
-                    action.launch {
-                        preview = withContext(Dispatchers.IO) { service.previewJson(jsonDraft) }
+                    action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
+                        preview = null
+                        installed = null
+                        preview =
+                            withContext(Dispatchers.IO) {
+                                PluginImportReview.capture(service.previewJson(jsonDraft), service.list())
+                            }
                     }
                 },
             ) { Text(stringResource(R.string.skill_creator_preview)) }
         }
-        if (loadFailed || action.failed) {
-            Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
-        }
+        if (loadFailed) Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
+        if (action.failed) PluginImportError(importFailure)
         if (service.cleanupPending) {
             Text(stringResource(R.string.connector_cleanup_pending))
             OutlinedButton(onClick = {
-                action.launch {
+                action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
                     withContext(Dispatchers.IO) { service.cleanupRetired() }
                     revision++
                 }
             }, enabled = !action.busy) { Text(stringResource(R.string.connector_cleanup_retry)) }
         }
-        preview?.let { bundle ->
-            replaceTarget?.let { old ->
-                Text(stringResource(R.string.connector_update_target, old.name))
-                Text("${old.hash.take(12)} → ${bundle.contentHash.take(12)}")
-                Text(
-                    stringResource(
-                        R.string.connector_update_changes,
-                        old.skills.size,
-                        bundle.skills.size,
-                        old.endpoints.size,
-                        bundle.endpoints.size,
-                    ),
-                )
-            }
-            bundle.versionLabel?.let { Text(stringResource(R.string.connector_update_version, it)) }
-            Text(bundle.releaseNotes ?: stringResource(R.string.connector_update_notes_missing))
-            Text(stringResource(R.string.connector_update_components, bundle.skills.size, bundle.endpoints.size))
-            Text("${bundle.name} · ${bundle.source}")
-            Text(bundle.contentHash, style = MaterialTheme.typography.bodySmall)
-            bundle.endpoints.forEach { Text("${it.name}: ${it.url}") }
-            bundle.skills.forEach { skill ->
-                var expanded by remember(bundle.contentHash, skill.directory) { mutableStateOf(false) }
-                OutlinedButton(onClick = { expanded = !expanded }) {
-                    Text("Skill: ${skill.directory} (${skill.files.size})")
-                }
-                if (expanded) {
-                    skill.files.toSortedMap().forEach { (path, bytes) ->
-                        Text("$path · ${bytes.size} B", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text(
-                        skill.files["SKILL.md"]
-                            ?.toString(Charsets.UTF_8)
-                            .orEmpty()
-                            .take(8192),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-            if (bundle.skills.isNotEmpty()) Text(stringResource(R.string.connector_skill_review))
-            com.helix.app.plugin
-                .PluginCompatibilityDetails(bundle.componentDiagnostics)
+        preview?.let { review ->
+            PluginImportTargetPicker(review, action.busy) { preview = it }
+            PluginPackagePreview(review.bundle, review.update)
             OutlinedButton(
-                enabled = !action.busy && (bundle.endpoints.isNotEmpty() || bundle.skills.isNotEmpty()),
+                enabled =
+                    !action.busy && !review.needsChoice &&
+                        (review.bundle.endpoints.isNotEmpty() || review.bundle.skills.isNotEmpty()),
                 onClick = {
-                    action.launch {
-                        withContext(Dispatchers.IO) {
-                            val old = replaceTarget
-                            val installationContext = kotlin.coroutines.coroutineContext
-                            service.install(
-                                bundle,
-                                old?.identity ?: "local:${bundle.source}:${bundle.contentHash}",
-                                old?.revision,
-                                cancelled = { !installationContext[kotlinx.coroutines.Job]!!.isActive },
-                            )
-                        }
+                    action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
+                        installed =
+                            withContext(Dispatchers.IO) {
+                                val job = coroutineContext[kotlinx.coroutines.Job]
+                                service.install(
+                                    review.bundle,
+                                    review.identity,
+                                    review.target?.revision,
+                                    cancelled = { job?.isActive == false },
+                                )
+                            }
                         replaceTarget = null
                         preview = null
                         jsonDraft = ""
                         showPaste = false
                         revision++
-                        installed = true
                         onInstalled()
                     }
                 },
                 modifier = Modifier.testTag("connector-install"),
-            ) { Text(stringResource(R.string.connector_install)) }
+            ) {
+                Text(
+                    stringResource(
+                        if (review.alreadyInstalled) {
+                            R.string.plugin_import_reuse
+                        } else {
+                            if (review.target != null) {
+                                R.string.plugin_import_update
+                            } else {
+                                R.string.connector_install
+                            }
+                        },
+                    ),
+                )
+            }
             OutlinedButton(
                 onClick = {
                     preview = null
@@ -229,9 +223,7 @@ fun ConnectorSection(
                 enabled = !action.busy,
             ) { Text(stringResource(R.string.common_cancel)) }
         }
-        if (installed && onUse != null) {
-            OutlinedButton(onClick = { onUse(null) }) { Text(stringResource(R.string.extensions_use)) }
-        }
+        installed?.let { PluginImportResult(it, onUse, onConfigureImported) }
         val visible =
             records.filter {
                 showInstalled &&
@@ -247,15 +239,69 @@ fun ConnectorSection(
             androidx.compose.runtime.key(record.id) {
                 val usePlugin =
                     onUse?.let { use ->
-                        { use(record.id.takeIf { record.native?.pluginId == "mobile-use" }) }
+                        { use(record.id) }
                     }
                 com.helix.app.plugin.PluginManagementCard(
                     record,
                     service,
-                    usePlugin,
-                    onPluginSettings,
-                    { revision++ },
-                    onSystemPermissions = onSystemPermissions,
+                    com.helix.app.plugin.PluginManagementActions(
+                        usePlugin,
+                        onPluginSettings,
+                        { revision++ },
+                        onSystemPermissions,
+                        onConfigurationShown,
+                    ),
+                    configurationRequested = configurePluginId == record.id,
+                    configuration = {
+                        record.endpoints.forEach { endpoint ->
+                            androidx.compose.runtime.key(record.enabled) {
+                                EndpointRow(service, endpoint) { revision++ }
+                            }
+                        }
+                    },
+                    details = {
+                        if (record.native == null) {
+                            OutlinedButton(enabled = !action.busy, onClick = {
+                                replaceTarget = record
+                                picker.launch(
+                                    arrayOf("application/zip", "application/json", "application/octet-stream"),
+                                )
+                            }, modifier = Modifier.testTag("connector-update-${record.id}")) {
+                                Text(stringResource(R.string.connector_update_target, record.name))
+                            }
+                            var confirmRemoval by remember(record.id) { mutableStateOf(false) }
+                            OutlinedButton(
+                                enabled = !action.busy,
+                                onClick = { confirmRemoval = true },
+                                modifier = Modifier.testTag("plugin-remove-${record.id}"),
+                            ) { Text(stringResource(R.string.connector_remove)) }
+                            if (confirmRemoval) {
+                                androidx.compose.material3.AlertDialog(
+                                    onDismissRequest = { confirmRemoval = false },
+                                    title = { Text(stringResource(R.string.plugin_remove_title, record.name)) },
+                                    text = { Text(stringResource(R.string.connector_remove_note)) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            confirmRemoval = false
+                                            action.launch(
+                                                onFailure = { importFailure = PluginImportFailure.from(it) },
+                                            ) {
+                                                withContext(Dispatchers.IO) { service.remove(record) }
+                                                revision++
+                                            }
+                                        }, modifier = Modifier.testTag("plugin-remove-confirm-${record.id}")) {
+                                            Text(stringResource(R.string.connector_remove))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { confirmRemoval = false }) {
+                                            Text(stringResource(R.string.common_cancel))
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    },
                 ) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->
@@ -265,7 +311,7 @@ fun ConnectorSection(
                         }
                         Row {
                             Checkbox(checked = enabled, enabled = !action.busy, onCheckedChange = { value ->
-                                action.launch {
+                                action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
                                     withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
                                     enabled = value
                                 }
@@ -278,33 +324,6 @@ fun ConnectorSection(
                         }
                     }
                     record.endpoints.forEach { endpoint -> KnownEndpointTools(service, endpoint) }
-                    var technical by remember(record.id) { mutableStateOf(false) }
-                    TextButton({ technical = !technical }) { Text(stringResource(R.string.plugin_connection_details)) }
-                    if (technical) {
-                        Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
-                        com.helix.app.plugin
-                            .PluginCompatibilityDetails(record.componentDiagnostics)
-                        record.endpoints.forEach { endpoint ->
-                            androidx.compose.runtime.key(record.enabled) { EndpointRow(service, endpoint) }
-                        }
-                    }
-                    if (record.native == null) {
-                        OutlinedButton(enabled = !action.busy, onClick = {
-                            replaceTarget = record
-                            picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
-                        }, modifier = Modifier.testTag("connector-update-${record.id}")) {
-                            Text(stringResource(R.string.connector_update_target, record.name))
-                        }
-                    }
-                    if (record.native == null) {
-                        Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(enabled = !action.busy, onClick = {
-                            action.launch {
-                                withContext(Dispatchers.IO) { service.remove(record) }
-                                revision++
-                            }
-                        }) { Text(stringResource(R.string.connector_remove)) }
-                    }
                 }
             }
         }
@@ -319,6 +338,7 @@ private enum class EndpointAuthMode { BEARER, OAUTH }
 private fun EndpointRow(
     service: PluginService,
     endpoint: InstalledEndpoint,
+    onChanged: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var authMode by remember(endpoint.id) {
@@ -360,7 +380,7 @@ private fun EndpointRow(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.testTag("plugin-connection-${endpoint.id}"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("${endpoint.endpoint.name}: ${endpoint.endpoint.url}")
         Text(stringResource(if (active) R.string.connector_active else R.string.connector_inactive))
 
@@ -495,6 +515,7 @@ private fun EndpointRow(
                         withContext(Dispatchers.IO) { service.enable(endpoint, result, selection) }
                         active = service.enabled(endpoint)
                         snapshot = null
+                        onChanged()
                     } catch (cancel: CancellationException) {
                         throw cancel
                     } catch (error: Exception) {
@@ -517,6 +538,7 @@ private fun EndpointRow(
                         withContext(Dispatchers.IO) { service.disable(endpoint) }
                         active = false
                         snapshot = null
+                        onChanged()
                     } catch (cancel: CancellationException) {
                         throw cancel
                     } catch (_: Exception) {

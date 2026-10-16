@@ -19,7 +19,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index(value = ["messageId", "ordinal"], unique = true)],
+    indices = [Index(value = ["messageId", "ordinal"], unique = true), Index("contentRef")],
 )
 data class MessageReferenceSnapshotEntity(
     @PrimaryKey(autoGenerate = true) val rowId: Long = 0,

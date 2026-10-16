@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "6ebb5a2fc8c369092fa96dd6c53a1e90",
+    "identityHash": "c61b85687c836592b313daafeceaa950",
     "entities": [
       {
         "tableName": "projects",
@@ -160,7 +160,7 @@
       },
       {
         "tableName": "sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `providerId` TEXT, `modelId` TEXT, `createdAt` INTEGER NOT NULL, `archivedAt` INTEGER, `directoryRef` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`providerId`) REFERENCES `provider_configs`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `providerId` TEXT, `modelId` TEXT, `createdAt` INTEGER NOT NULL, `archivedAt` INTEGER, `directoryRef` TEXT, `lastActivityAt` INTEGER NOT NULL, `searchTitle` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`providerId`) REFERENCES `provider_configs`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -199,6 +199,18 @@
             "fieldPath": "directoryRef",
             "columnName": "directoryRef",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastActivityAt",
+            "columnName": "lastActivityAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "searchTitle",
+            "columnName": "searchTitle",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -216,6 +228,16 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_sessions_providerId` ON `${TABLE_NAME}` (`providerId`)"
+          },
+          {
+            "name": "index_sessions_lastActivityAt_id",
+            "unique": false,
+            "columnNames": [
+              "lastActivityAt",
+              "id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sessions_lastActivityAt_id` ON `${TABLE_NAME}` (`lastActivityAt`, `id`)"
           }
         ],
         "foreignKeys": [
@@ -613,7 +635,7 @@
       },
       {
         "tableName": "messages",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `turnId` TEXT, `role` TEXT NOT NULL, `kind` TEXT NOT NULL, `contentRef` TEXT, `sequence` INTEGER NOT NULL, `supersededBy` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `turnId` TEXT, `role` TEXT NOT NULL, `kind` TEXT NOT NULL, `contentRef` TEXT, `sequence` INTEGER NOT NULL, `supersededBy` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -659,6 +681,12 @@
             "fieldPath": "supersededBy",
             "columnName": "supersededBy",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -686,6 +714,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_turnId` ON `${TABLE_NAME}` (`turnId`)"
+          },
+          {
+            "name": "index_messages_contentRef",
+            "unique": false,
+            "columnNames": [
+              "contentRef"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_contentRef` ON `${TABLE_NAME}` (`contentRef`)"
           }
         ],
         "foreignKeys": [
@@ -706,6 +743,72 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "turnId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "message_search",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`messageId` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `contentRef` TEXT NOT NULL, `body` TEXT NOT NULL, `folded` TEXT NOT NULL, PRIMARY KEY(`messageId`), FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "messageId",
+            "columnName": "messageId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRef",
+            "columnName": "contentRef",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "folded",
+            "columnName": "folded",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "messageId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_message_search_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_search_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "messages",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "messageId"
             ],
             "referencedColumns": [
               "id"
@@ -887,6 +990,15 @@
             ],
             "orders": [],
             "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_message_reference_snapshots_messageId_ordinal` ON `${TABLE_NAME}` (`messageId`, `ordinal`)"
+          },
+          {
+            "name": "index_message_reference_snapshots_contentRef",
+            "unique": false,
+            "columnNames": [
+              "contentRef"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_reference_snapshots_contentRef` ON `${TABLE_NAME}` (`contentRef`)"
           }
         ],
         "foreignKeys": [
@@ -1099,7 +1211,7 @@
       },
       {
         "tableName": "model_calls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `turnId` TEXT NOT NULL, `providerSnapshot` TEXT NOT NULL, `state` TEXT NOT NULL, `usage` TEXT, `requestId` TEXT, `promptFingerprint` TEXT, `promptSections` TEXT, `requestManifest` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `turnId` TEXT NOT NULL, `providerSnapshot` TEXT NOT NULL, `state` TEXT NOT NULL, `usage` TEXT, `requestId` TEXT, `promptFingerprint` TEXT, `promptSections` TEXT, `requestManifest` TEXT, `ordinal` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `settledAt` INTEGER, `toolMessageId` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`toolMessageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1149,6 +1261,28 @@
             "fieldPath": "requestManifest",
             "columnName": "requestManifest",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ordinal",
+            "columnName": "ordinal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "settledAt",
+            "columnName": "settledAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "toolMessageId",
+            "columnName": "toolMessageId",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -1159,13 +1293,33 @@
         },
         "indices": [
           {
-            "name": "index_model_calls_turnId",
-            "unique": false,
+            "name": "index_model_calls_turnId_ordinal",
+            "unique": true,
             "columnNames": [
+              "turnId",
+              "ordinal"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_model_calls_turnId_ordinal` ON `${TABLE_NAME}` (`turnId`, `ordinal`)"
+          },
+          {
+            "name": "index_model_calls_id_turnId",
+            "unique": true,
+            "columnNames": [
+              "id",
               "turnId"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_model_calls_turnId` ON `${TABLE_NAME}` (`turnId`)"
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_model_calls_id_turnId` ON `${TABLE_NAME}` (`id`, `turnId`)"
+          },
+          {
+            "name": "index_model_calls_toolMessageId",
+            "unique": false,
+            "columnNames": [
+              "toolMessageId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_model_calls_toolMessageId` ON `${TABLE_NAME}` (`toolMessageId`)"
           }
         ],
         "foreignKeys": [
@@ -1179,12 +1333,23 @@
             "referencedColumns": [
               "id"
             ]
+          },
+          {
+            "table": "messages",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "toolMessageId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
           }
         ]
       },
       {
         "tableName": "tool_calls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `turnId` TEXT NOT NULL, `callId` TEXT NOT NULL, `name` TEXT NOT NULL, `version` TEXT NOT NULL, `argsJson` TEXT NOT NULL, `argsHash` TEXT NOT NULL, `state` TEXT NOT NULL, `modelIntent` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `turnId` TEXT NOT NULL, `callId` TEXT NOT NULL, `name` TEXT NOT NULL, `version` TEXT NOT NULL, `argsJson` TEXT NOT NULL, `argsHash` TEXT NOT NULL, `state` TEXT NOT NULL, `modelIntent` TEXT, `modelCallId` TEXT, `callIndex` INTEGER, `ordinal` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`modelCallId`, `turnId`) REFERENCES `model_calls`(`id`, `turnId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1238,6 +1403,28 @@
             "fieldPath": "modelIntent",
             "columnName": "modelIntent",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "modelCallId",
+            "columnName": "modelCallId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "callIndex",
+            "columnName": "callIndex",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "ordinal",
+            "columnName": "ordinal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1256,6 +1443,36 @@
             ],
             "orders": [],
             "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tool_calls_turnId_callId` ON `${TABLE_NAME}` (`turnId`, `callId`)"
+          },
+          {
+            "name": "index_tool_calls_turnId_ordinal",
+            "unique": true,
+            "columnNames": [
+              "turnId",
+              "ordinal"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tool_calls_turnId_ordinal` ON `${TABLE_NAME}` (`turnId`, `ordinal`)"
+          },
+          {
+            "name": "index_tool_calls_modelCallId_turnId",
+            "unique": false,
+            "columnNames": [
+              "modelCallId",
+              "turnId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tool_calls_modelCallId_turnId` ON `${TABLE_NAME}` (`modelCallId`, `turnId`)"
+          },
+          {
+            "name": "index_tool_calls_modelCallId_callIndex",
+            "unique": true,
+            "columnNames": [
+              "modelCallId",
+              "callIndex"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tool_calls_modelCallId_callIndex` ON `${TABLE_NAME}` (`modelCallId`, `callIndex`)"
           }
         ],
         "foreignKeys": [
@@ -1268,6 +1485,19 @@
             ],
             "referencedColumns": [
               "id"
+            ]
+          },
+          {
+            "table": "model_calls",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "modelCallId",
+              "turnId"
+            ],
+            "referencedColumns": [
+              "id",
+              "turnId"
             ]
           }
         ]
@@ -1327,6 +1557,15 @@
             ],
             "orders": [],
             "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tool_results_toolCallId` ON `${TABLE_NAME}` (`toolCallId`)"
+          },
+          {
+            "name": "index_tool_results_contentRef",
+            "unique": false,
+            "columnNames": [
+              "contentRef"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tool_results_contentRef` ON `${TABLE_NAME}` (`contentRef`)"
           }
         ],
         "foreignKeys": [
@@ -3769,6 +4008,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_session_inputs_textRef` ON `${TABLE_NAME}` (`textRef`)"
+          },
+          {
+            "name": "index_session_inputs_referenceContentRef",
+            "unique": false,
+            "columnNames": [
+              "referenceContentRef"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_session_inputs_referenceContentRef` ON `${TABLE_NAME}` (`referenceContentRef`)"
           }
         ],
         "foreignKeys": [
@@ -4108,7 +4356,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6ebb5a2fc8c369092fa96dd6c53a1e90')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c61b85687c836592b313daafeceaa950')"
     ]
   }
 }

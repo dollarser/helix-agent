@@ -36,16 +36,12 @@ class ConnectorSessionPanelDeviceTest {
         val service = c.pluginService
         val session = "connector-ui-${UUID.randomUUID()}"
         val next = "$session-next"
-        val record =
-            service.install(
-                PluginPackageReader().readJson(
-                    """{"mcp_servers":{"fixture":{"url":"https://example.com/ui"}}}""".toByteArray(),
-                ),
-                identity = session,
-            )
+        val record = service.install(selectionPackage(session), identity = session)
         c.storage.sessions.create(session, "UI", null, null, 0)
         val initiallySelected = service.catalog.selected(session)
         try {
+            service.setSkillEnabled(record.skills.single(), true)
+            assertEquals(1, service.sessionRows(session).single { it.id == record.id }.readyComponents)
             compose.setContent {
                 MaterialTheme {
                     ConnectorSessionPanel(service, session, {}, pluginId = record.id.takeIf { scoped }, onDismiss = {})
@@ -88,4 +84,14 @@ class ConnectorSessionPanelDeviceTest {
             }
         }
     }
+
+    private fun selectionPackage(name: String) =
+        PluginPackageReader().parse(
+            mapOf(
+                ".claude-plugin/plugin.json" to """{"name":"$name"}""".toByteArray(),
+                ".mcp.json" to """{"mcpServers":{"fixture":{"url":"https://example.invalid/ui"}}}""".toByteArray(),
+                "skills/$name/SKILL.md" to
+                    "---\nname: $name\ndescription: Selection fixture\n---\nDraft only".toByteArray(),
+            ),
+        )
 }

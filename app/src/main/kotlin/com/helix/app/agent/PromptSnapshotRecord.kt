@@ -1,6 +1,7 @@
 package com.helix.app.agent
 
 import com.helix.core.agent.PromptSnapshot
+import com.helix.core.agent.TokenEstimator
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -22,18 +23,21 @@ internal data class PromptSnapshotRecord(
 )
 
 /**
- * Builds the redacted record for [snapshot]. Null when the assembly had no non-blank sections
- * (nothing sent, nothing to record).
+ * Builds the redacted record for [snapshot]. Null only when no section was considered.
  */
 internal fun promptSnapshotRecord(
     snapshot: PromptSnapshot,
     modelCallId: String,
     turnId: String,
 ): PromptSnapshotRecord? {
-    if (snapshot.sections.isEmpty()) return null
+    if (snapshot.sections.isEmpty() && snapshot.omittedSections.isEmpty()) return null
     val sections =
         buildJsonArray {
-            snapshot.sections.forEach { section ->
+            val considered =
+                (snapshot.sections + snapshot.omittedSections).sortedWith(
+                    compareBy({ it.order }, { it.name }),
+                )
+            considered.forEach { section ->
                 add(
                     buildJsonObject {
                         put("name", section.name)
@@ -42,6 +46,11 @@ internal fun promptSnapshotRecord(
                         put("source", section.source.name)
                         put("trust", section.trust.name)
                         put("contentHash", section.contentHash)
+                        put("included", section.omissionReason == null)
+                        put("reason", section.omissionReason?.name ?: "NON_EMPTY")
+                        val bytes = TokenEstimator.utf8Bytes(section.content)
+                        put("utf8Bytes", bytes)
+                        put("estimatedTextTokens", TokenEstimator.estimateTokens(bytes))
                     },
                 )
             }
@@ -53,6 +62,13 @@ internal fun promptSnapshotRecord(
         sectionsJson = sections.toString(),
         auditPayload =
             buildJsonObject {
+                put("version", 2)
+                put("estimateMethod", "utf8_bytes_ceil_div_4")
+                put("promptUtf8Bytes", TokenEstimator.utf8Bytes(snapshot.content))
+                put(
+                    "promptEstimatedTextTokens",
+                    TokenEstimator.estimateTokens(TokenEstimator.utf8Bytes(snapshot.content)),
+                )
                 put("modelCallId", modelCallId)
                 put("turnId", turnId)
                 put("fingerprint", snapshot.fingerprint)

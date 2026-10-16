@@ -2,6 +2,7 @@
 """Fetch pinned public config evidence into ignored build output; never run plugin code."""
 import hashlib
 import json
+import argparse
 from pathlib import Path
 import urllib.request
 
@@ -20,7 +21,10 @@ SOURCES = {
 EXPECTED_SHA256 = {'anthropic-linear.json': '60bc954e5c2018171f5efa358ddbfa6062a63b456f8d7fa567fd926910030e9f', 'anthropic-github.json': 'b536ea03380d2f2f93f31c87a158e21e74cce5f664d20f7bdb81c6710418e06d', 'anthropic-playwright.json': 'b6fd7e9ccee1682af353854195516826da6970026b68c86ad800ff4d931d3250', 'cloudflare-mcp.json': '6608aeaa3ce8be52077c96271b9da647683f12f42c51035d1107e5915194b690', 'cloudflare-codex.json': '0bad09fc15347fc5e9e918e734ce12b2a149584eb61826a1e068f3cb9526379f', 'cloudflare-claude.json': '43ed8be9f2942a7fba98501bc47e37fcf337cf57707b0912d593d8e85fcbafcf'}
 
 def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', type=Path, default=OUTPUT)
+    output = parser.parse_args().output
+    output.mkdir(parents=True, exist_ok=True)
     evidence = []
     for name, (repo, commit, path) in SOURCES.items():
         url = f'https://raw.githubusercontent.com/{repo}/{commit}/{path}'
@@ -31,9 +35,9 @@ def main():
         if hashlib.sha256(data).hexdigest() != EXPECTED_SHA256[name]:
             raise ValueError(f"public sample hash mismatch: {name}")
         json.loads(data)
-        (OUTPUT / name).write_bytes(data)
+        (output / name).write_bytes(data)
         evidence.append(dict(file=name, url=url, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data)))
-    (OUTPUT / 'manifest.json').write_text(json.dumps(evidence, indent=2) + '\n')
+    (output / 'manifest.json').write_text(json.dumps(evidence, indent=2) + '\n')
     print(json.dumps(evidence, indent=2))
 
 

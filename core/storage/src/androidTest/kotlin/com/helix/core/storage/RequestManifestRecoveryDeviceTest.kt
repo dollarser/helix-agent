@@ -49,7 +49,7 @@ class RequestManifestRecoveryDeviceTest {
             )
 
             // Run reconciliation
-            val interruptedCount = database.modelCallDao().interruptForInterruptedTurns()
+            val interruptedCount = database.modelCallDao().interruptForInterruptedTurns(42L)
             assertEquals(1, interruptedCount)
 
             val recovered = database.modelCallDao().byId("c-rec")

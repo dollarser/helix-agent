@@ -24,6 +24,7 @@ class ConnectorSuppliedArchiveTest {
                 }.toSet(),
         )
         assertEquals(2, bundle.endpoints.size)
+        assertImportedUpdateSummary(bundle, setOf("dingtalk-doc", "dingtalk-shared", "mcp-installer", "wecom-unified"))
         println(
             "sample: skills=${bundle.skills.size}, endpoints=${bundle.endpoints.size}, " +
                 "diagnostics=${bundle.diagnostics}",

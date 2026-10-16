@@ -31,6 +31,19 @@ interface MessageDao {
 
     @Query(
         "SELECT * FROM messages WHERE sessionId = :sessionId AND supersededBy IS NULL " +
+            "AND sequence <= :through ORDER BY sequence DESC LIMIT :limit",
+    )
+    fun recentBySession(
+        sessionId: String,
+        limit: Int,
+        through: Long,
+    ): List<MessageEntity>
+
+    @Query("SELECT * FROM messages WHERE turnId = :turnId AND supersededBy IS NULL ORDER BY sequence ASC")
+    fun byTurn(turnId: String): List<MessageEntity>
+
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND supersededBy IS NULL " +
             "AND sequence > :after ORDER BY sequence ASC LIMIT :limit",
     )
     fun pageAfter(
@@ -91,18 +104,4 @@ interface MessageDao {
 
     @Query("SELECT COUNT(*) FROM messages WHERE contentRef = :contentRef")
     fun countByContentRef(contentRef: String): Int
-
-    /**
-     * Read-only search candidates (HXA-191): the [limit] most recent stored bodies,
-     * newest session first and newest message within a session. Consumed by the
-     * bounded message-text search; never writes.
-     */
-    @Query(
-        "SELECT m.* FROM messages m " +
-            "INNER JOIN sessions s ON s.id = m.sessionId " +
-            "WHERE m.contentRef IS NOT NULL AND m.supersededBy IS NULL " +
-            "ORDER BY s.createdAt DESC, m.sequence DESC " +
-            "LIMIT :limit",
-    )
-    fun contentSearchCandidates(limit: Int): List<MessageEntity>
 }

@@ -19,8 +19,11 @@ import com.helix.extensions.plugin.PluginDiagnostic
 /** Package support is separate from a connection's current readiness and grants no permission. */
 @Composable
 @Suppress("FunctionName")
-internal fun PluginCompatibilityDetails(diagnostics: List<PluginDiagnostic>) {
-    var expanded by remember(diagnostics) { mutableStateOf(false) }
+internal fun PluginCompatibilityDetails(
+    diagnostics: List<PluginDiagnostic>,
+    initiallyExpanded: Boolean = false,
+) {
+    var expanded by remember(diagnostics) { mutableStateOf(initiallyExpanded) }
     TextButton({ expanded = !expanded }, Modifier.testTag("plugin-compatibility-toggle")) {
         Text(stringResource(R.string.plugin_compatibility))
     }
@@ -34,6 +37,8 @@ internal fun PluginCompatibilityDetails(diagnostics: List<PluginDiagnostic>) {
                     else -> R.string.plugin_state_unsupported
                 }
             Text("${diagnostic.path} · ${stringResource(label)}", style = MaterialTheme.typography.bodySmall)
+            val reason = importSupportReason(diagnostic.code)
+            reason?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall) }
             if (diagnostic.requirement != PluginDependencyRequirement.NONE) {
                 Text(
                     stringResource(
@@ -49,3 +54,11 @@ internal fun PluginCompatibilityDetails(diagnostics: List<PluginDiagnostic>) {
         }
     }
 }
+
+private fun importSupportReason(code: String): Int? =
+    when (code) {
+        "STDIO_REQUIRES_ANDROID_RUNTIME" -> R.string.plugin_import_stdio_hint
+        "SKILL_REQUIRES_BINARY" -> R.string.plugin_import_binary_hint
+        "DESKTOP_SETUP_NOT_EXECUTED" -> R.string.plugin_import_setup_hint
+        else -> null
+    }

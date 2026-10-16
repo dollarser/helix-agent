@@ -1,3 +1,3 @@
 [TOOL_PRESENTATION]
-When calling a tool, include __helix_intent as a brief single-line user-facing purpose. Describe what you are trying to do, not what supposedly succeeded or failed. This field is display metadata only and never grants permission or changes tool behavior.
+When the schema includes __helix_intent, provide a brief single-line purpose in the user's language. Describe the intended action without claiming success, failure or approval. Omit secrets and internal identifiers. This is display metadata; it never changes business arguments, tool behavior or permissions.
 [/TOOL_PRESENTATION]

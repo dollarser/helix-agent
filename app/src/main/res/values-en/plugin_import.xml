@@ -1,0 +1,32 @@
+<resources>
+    <string name="plugin_import_invalid">The package, configuration, skill or referenced file is invalid. Choose a complete ZIP or MCP configuration and try again.</string>
+    <string name="plugin_import_marketplace">This is a marketplace catalog. Add it from the marketplace page, then choose a plugin to install.</string>
+    <string name="plugin_import_conflict">The installation or source changed. Select the file and review it again before updating.</string>
+    <string name="plugin_import_limit">The package exceeds import or storage limits. Choose a smaller, complete package.</string>
+    <string name="plugin_import_unsupported">No supported skills or connections were found, or the compression format is unsupported. Choose a supported package.</string>
+    <string name="plugin_import_unsafe_archive">The archive contains unsafe or duplicate file paths. Obtain a valid package.</string>
+    <string name="plugin_import_access">The selected file cannot be accessed. Choose it again and allow read access.</string>
+    <string name="plugin_import_storage">A file could not be read or written. Check file access and available storage, then try again.</string>
+    <string name="plugin_import_failed">Import could not be completed. Select and review the file again. If it still fails, export diagnostics.</string>
+    <string name="plugin_import_connection_hint">Connections must be checked or signed in separately. Installation does not connect accounts.</string>
+    <string name="plugin_import_limited">%1$d components or dependencies cannot be used automatically. See support details.</string>
+    <string name="plugin_import_version_unknown">Version unspecified</string>
+    <string name="plugin_import_versions">Update: %1$s → %2$s</string>
+    <string name="plugin_import_added_skills">Added skills: %1$s</string>
+    <string name="plugin_import_removed_skills">Removed skills: %1$s</string>
+    <string name="plugin_import_added_connections">Added connections: %1$s</string>
+    <string name="plugin_import_removed_connections">Removed connections: %1$s</string>
+    <string name="plugin_import_changed_connections">Connection target or authentication changed: %1$s</string>
+    <string name="plugin_import_reconnect">New or changed connections need reconnection and may require authorization. Other connections are retained.</string>
+    <string name="plugin_import_choose_target">An existing local installation was found. Choose an update target or install separately. Matching names do not prove the same origin.</string>
+    <string name="plugin_import_separate">Install separately</string>
+    <string name="plugin_import_already_installed">This package is already installed. The existing installation will be used.</string>
+    <string name="plugin_import_done">Added: %1$s</string>
+    <string name="plugin_import_reuse">Use existing installation</string>
+    <string name="plugin_import_update">Update</string>
+    <string name="plugin_import_stdio_hint">This import path does not start local MCP processes.</string>
+    <string name="plugin_import_binary_hint">An external command-line tool is required. Import does not install dependencies.</string>
+    <string name="plugin_import_setup_hint">Package setup or initialization scripts are not run automatically.</string>
+    <string name="plugin_import_skill_names">Skills: %1$s</string>
+    <string name="plugin_import_connection_names">Connections: %1$s</string>
+</resources>

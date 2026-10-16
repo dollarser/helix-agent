@@ -1,19 +1,25 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.storage.SearchText
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.dao.MessageDao
+import com.helix.core.storage.dao.SessionSearchDao
 import com.helix.core.storage.entity.MessageEntity
+import com.helix.core.storage.entity.MessageSearchEntity
 
 @Suppress("TooManyFunctions") // Effective-history and retained-evidence operations share one repository.
 class MessageRepository(
     private val dao: MessageDao,
     private val contentStore: ContentStore,
+    private val search: SessionSearchDao,
+    private val transaction: (() -> Unit) -> Unit,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /**
-     * Appends a message; [content] (when non-blank) is stored in [contentStore] and only the
-     * reference is kept in Room (doc 9.2). Sequence allocation must run inside
-     * [com.helix.core.storage.HelixStorage.withTransaction] when concurrent.
+     * Publishes canonical content, then atomically records the message and its search/activity projection.
+     * The ContentStore publication lock serializes sequence allocation against other repository writers;
+     * callers may include this operation in a larger storage transaction.
      */
     fun append(
         id: String,
@@ -44,8 +50,17 @@ class MessageRepository(
                     contentRef,
                     sequence,
                     supersededBy = turnId?.let { dao.supersededRequest(it) },
+                    createdAt = clock(),
                 )
-            dao.insert(entity)
+            transaction {
+                dao.insert(entity)
+                if (role in setOf("USER", "ASSISTANT") && kind in setOf("TEXT", "TOOL_PROGRESS")) {
+                    if (contentRef != null) {
+                        search.insert(MessageSearchEntity(id, sessionId, contentRef, content, SearchText.fold(content)))
+                    }
+                    if (entity.supersededBy == null) search.touch(sessionId, entity.createdAt)
+                }
+            }
             entity
         }
 
@@ -79,7 +94,10 @@ class MessageRepository(
                     sequence =
                         dao.maxSequence(sessionId) + 1,
                 )
-            dao.insert(copied)
+            transaction {
+                dao.insert(copied)
+                search.copy(source.id, id, sessionId)
+            }
             copied
         }
 
@@ -126,6 +144,17 @@ class MessageRepository(
     }
 
     fun listBySession(sessionId: String): List<MessageEntity> = dao.listBySession(sessionId)
+
+    fun recentBySession(
+        sessionId: String,
+        limit: Int,
+        through: Long = Long.MAX_VALUE,
+    ): List<MessageEntity> {
+        require(limit > 0)
+        return dao.recentBySession(sessionId, limit, through).reversed()
+    }
+
+    fun byTurn(turnId: String): List<MessageEntity> = dao.byTurn(turnId)
 
     fun pageAfter(
         sessionId: String,

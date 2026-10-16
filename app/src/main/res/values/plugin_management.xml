@@ -6,5 +6,15 @@
     <string name="plugins_empty">尚未添加插件</string>
     <string name="plugins_no_matches">没有匹配的插件</string>
     <string name="plugin_components_summary">%1$d 个技能 · %2$d 个连接</string>
-    <string name="plugin_connection_details">连接与诊断</string>
+    <string name="plugin_configuration">配置</string>
+    <string name="plugin_browser_description">读取和操作网页。浏览会话中的标签，按当前授权访问网站。</string>
+    <string name="plugin_documents_description">读取 PDF 和 Word 文档，保留页码、段落与图像来源。</string>
+    <string name="plugin_chat_reply_description">理解聊天内容并起草回复。读取手机聊天时还需选用 Mobile Use；不会自动发送。</string>
+    <string name="plugin_guidance_tools">提示与工具</string>
+    <string name="plugin_details">详情</string>
+    <string name="plugin_no_configuration">无需额外配置。在会话中选用后即可使用，操作仍遵循该会话的权限。</string>
+    <string name="plugin_guidance_loading">必要指导随所选插件提供；技能正文与参考资料按需读取。工具参数随发现提供。查看这里的内容不会启用插件。</string>
+    <string name="plugin_required_guidance">必要指导</string>
+    <string name="plugin_version">版本：%1$s</string>
+    <string name="plugin_remove_title">移除“%1$s”？</string>
 </resources>

@@ -63,7 +63,16 @@ class SessionRepository(
         require(directoryRef == null || directoryRef.length <= 4096)
         val directory = directoryForSession(id, directoryRef)
         transaction {
-            require(dao.updateDetails(id, title.trim(), directory) == 1)
+            require(
+                dao.updateDetails(
+                    id,
+                    title.trim(),
+                    directory,
+                    com.helix.core.storage.SearchText
+                        .fold(title.trim()),
+                ) ==
+                    1,
+            )
             directory?.let { bindWorkspace(id, it) }
         }
     }
@@ -118,8 +127,5 @@ class SessionRepository(
         return dao.selectFutureModel(id, providerId, modelId, turnId, toolCallId) == 1
     }
 
-    // No delete: sessions are archived, never deleted (doc 9.1 / entity contract). A hard
-    // delete would cascade the session's approvals/executions audit rows, which must be
-    // durable (AGENTS.md: every tool call goes through audit). A retention wipe, if ever
-    // authorized, is a future HXA decision with its own review.
+    // Explicit privacy erasure is coordinated by HelixStorage with shared-content reference checks.
 }

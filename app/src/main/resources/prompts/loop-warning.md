@@ -1,1 +1,1 @@
-Harness observation: recent tool calls repeat the same arguments and results without progress. Use the existing evidence, change the approach, or explain the blocker. Do not repeat the unchanged sequence.
+Harness observation: recent calls repeat the same arguments and results without progress. Review the existing evidence and choose a concrete change that can resolve the missing fact or action. Do not repeat the unchanged sequence or restart an uncertain side effect. If sufficient evidence is already available, answer; otherwise identify the specific blocker.

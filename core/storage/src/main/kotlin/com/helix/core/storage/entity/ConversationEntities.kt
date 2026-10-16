@@ -6,9 +6,9 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * architecture doc 9.1: `sessions` — conversation root; archive, do not delete.
+ * Conversation root; normal removal archives, explicit privacy erasure deletes.
  * `providerId` is a foreign key (SET NULL): deleting a provider config (M2, HXA-020) must not
- * orphan sessions, which are archived, never deleted.
+ * orphan sessions, which remain available until explicitly erased.
  */
 @Entity(
     tableName = "sessions",
@@ -21,7 +21,7 @@ import androidx.room.PrimaryKey
                 onDelete = ForeignKey.SET_NULL,
             ),
         ],
-    indices = [Index("providerId")],
+    indices = [Index("providerId"), Index(value = ["lastActivityAt", "id"])],
 )
 data class SessionEntity(
     @PrimaryKey val id: String,
@@ -31,6 +31,10 @@ data class SessionEntity(
     val createdAt: Long,
     val archivedAt: Long?,
     val directoryRef: String? = null,
+    val lastActivityAt: Long = createdAt,
+    val searchTitle: String =
+        com.helix.core.storage.SearchText
+            .fold(title),
 )
 
 /** architecture doc 9.1: `messages` — timeline row; large content in files via `contentRef`. */
@@ -51,7 +55,7 @@ data class SessionEntity(
                 onDelete = ForeignKey.SET_NULL,
             ),
         ],
-    indices = [Index(value = ["sessionId", "sequence"], unique = true), Index("turnId")],
+    indices = [Index(value = ["sessionId", "sequence"], unique = true), Index("turnId"), Index("contentRef")],
 )
 data class MessageEntity(
     @PrimaryKey val id: String,
@@ -62,6 +66,7 @@ data class MessageEntity(
     val contentRef: String?,
     val sequence: Long,
     val supersededBy: String? = null,
+    val createdAt: Long = 0,
 )
 
 /**
@@ -141,7 +146,7 @@ data class TurnEntity(
     val recoveryFromTurnId: String? = null,
 )
 
-/** architecture doc 9.1: `model_calls` — provider snapshot, state, usage, requestId. */
+/** Model attempt identity, durable order, provider snapshot and accounting. */
 @Entity(
     tableName = "model_calls",
     foreignKeys =
@@ -152,8 +157,17 @@ data class TurnEntity(
                 childColumns = ["turnId"],
                 onDelete = ForeignKey.CASCADE,
             ),
+            ForeignKey(
+                entity = MessageEntity::class,
+                parentColumns = ["id"],
+                childColumns = ["toolMessageId"],
+                onDelete = ForeignKey.SET_NULL,
+            ),
         ],
-    indices = [Index("turnId")],
+    indices = [
+        Index(value = ["turnId", "ordinal"], unique = true), Index(value = ["id", "turnId"], unique = true),
+        Index("toolMessageId"),
+    ],
 )
 data class ModelCallEntity(
     @PrimaryKey val id: String,
@@ -170,6 +184,10 @@ data class ModelCallEntity(
     // HXA-217 / ADR-AGENT-005: compact request context manifest JSON recording input messages,
     // input IDs, and compaction boundary. Null for calls predating v28 or compaction summary calls.
     val requestManifest: String? = null,
+    val ordinal: Long = 0,
+    val createdAt: Long = 0,
+    val settledAt: Long? = null,
+    val toolMessageId: String? = null,
 )
 
 /** architecture doc 9.1: `tool_calls` — canonical argsJson + immutable argsHash. */
@@ -183,8 +201,18 @@ data class ModelCallEntity(
                 childColumns = ["turnId"],
                 onDelete = ForeignKey.CASCADE,
             ),
+            ForeignKey(
+                entity = ModelCallEntity::class,
+                parentColumns = ["id", "turnId"],
+                childColumns = ["modelCallId", "turnId"],
+                onDelete = ForeignKey.CASCADE,
+            ),
         ],
-    indices = [Index(value = ["turnId", "callId"], unique = true)],
+    indices = [
+        Index(value = ["turnId", "callId"], unique = true),
+        Index(value = ["turnId", "ordinal"], unique = true),
+        Index(value = ["modelCallId", "turnId"]), Index(value = ["modelCallId", "callIndex"], unique = true),
+    ],
 )
 data class ToolCallEntity(
     @PrimaryKey val id: String,
@@ -196,6 +224,10 @@ data class ToolCallEntity(
     val argsHash: String,
     val state: String,
     val modelIntent: String? = null,
+    val modelCallId: String? = null,
+    val callIndex: Int? = null,
+    val ordinal: Long = 0,
+    val createdAt: Long = 0,
 )
 
 /** architecture doc 9.1: `tool_results` — one result per tool call, verified flag. */
@@ -210,7 +242,7 @@ data class ToolCallEntity(
                 onDelete = ForeignKey.CASCADE,
             ),
         ],
-    indices = [Index("toolCallId", unique = true)],
+    indices = [Index("toolCallId", unique = true), Index("contentRef")],
 )
 data class ToolResultEntity(
     @PrimaryKey val id: String,

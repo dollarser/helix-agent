@@ -119,6 +119,7 @@ class SessionBindProviderTest {
             id: String,
             title: String,
             directoryRef: String?,
+            searchTitle: String,
         ): Int = error("not used")
 
         val rows = HashMap<String, SessionEntity>()

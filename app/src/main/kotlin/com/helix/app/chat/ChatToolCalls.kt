@@ -26,6 +26,7 @@ import com.helix.core.model.ToolName
 import com.helix.core.policy.DataOrigin
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
+import com.helix.core.storage.repository.ToolCallOrigin
 import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.ToolDescriptor
@@ -304,7 +305,8 @@ internal class ChatToolCalls(
         require(turn.sessionId == request.sessionId) { "TOOL_BATCH_SESSION_MISMATCH" }
         val calls = request.calls
         val control = request.control
-        val prepareds = prepareBatchCalls(turn, calls, control)
+        require(storage.modelCalls.resolve(request.modelCallId).turnId == turn.id) { "MODEL_CALL_TURN_MISMATCH" }
+        val prepareds = prepareBatchCalls(turn, calls, control, request.modelCallId)
         val requests = prepareds.mapNotNull { it.request }
         val batch =
             if (requests.isEmpty()) {
@@ -362,8 +364,9 @@ internal class ChatToolCalls(
         turn: com.helix.core.storage.entity.TurnEntity,
         calls: List<BufferedModelToolCall>,
         control: RunControlConfig,
+        modelCallId: String,
     ): List<PreparedToolCall> =
-        calls.map { call ->
+        calls.mapIndexed { index, call ->
             prepareToolCall(
                 turn,
                 call.callId,
@@ -374,6 +377,7 @@ internal class ChatToolCalls(
                 control.chatToolsEnabled,
                 call.bindingRef,
                 call.bindingRequired,
+                ToolCallOrigin(modelCallId, index),
             )
         }
 
@@ -433,6 +437,7 @@ internal class ChatToolCalls(
         chatToolsEnabled: Boolean,
         bindingRef: com.helix.core.model.ToolBindingRef? = null,
         bindingRequired: Boolean = false,
+        origin: ToolCallOrigin? = null,
     ): PreparedToolCall {
         val businessArgs = rawArgsJson
         return if (GoalToolCallBudget(storage, clock).reserve(turn.id, toolCallId)) {
@@ -446,6 +451,7 @@ internal class ChatToolCalls(
                 chatToolsEnabled,
                 bindingRef,
                 bindingRequired,
+                origin,
             )
         } else {
             PreparedToolCall(
@@ -463,6 +469,7 @@ internal class ChatToolCalls(
                     str(R.string.model_error_goal_budget_limit),
                     PreDispatchDenialKind.FRAMEWORK_REJECTED,
                     modelIntent,
+                    origin,
                 ),
             )
         }
@@ -478,6 +485,7 @@ internal class ChatToolCalls(
         chatToolsEnabled: Boolean,
         bindingRef: com.helix.core.model.ToolBindingRef? = null,
         bindingRequired: Boolean = false,
+        origin: ToolCallOrigin? = null,
     ): PreparedToolCall {
         val selectedRef =
             bindingRef ?: if (!bindingRequired) {
@@ -500,6 +508,7 @@ internal class ChatToolCalls(
             toolName,
             args,
             descriptor,
+            origin,
         )
             ?: prepareValidatedToolCall(
                 turn,
@@ -512,6 +521,7 @@ internal class ChatToolCalls(
                 mode,
                 chatToolsEnabled,
                 selectedRef,
+                origin,
             )
     }
 
@@ -527,9 +537,18 @@ internal class ChatToolCalls(
         mode: AgentMode,
         chatToolsEnabled: Boolean,
         bindingRef: com.helix.core.model.ToolBindingRef? = null,
+        origin: ToolCallOrigin? = null,
     ): PreparedToolCall {
         val canonical = CanonicalArgs.canonicalize(args)
-        recoveryEffectRejection(turn, toolCallId, toolNameRaw, canonical, descriptor, modelIntent)?.let { return it }
+        recoveryEffectRejection(
+            turn,
+            toolCallId,
+            toolNameRaw,
+            canonical,
+            descriptor,
+            modelIntent,
+            origin,
+        )?.let { return it }
         val row =
             storage.toolCalls.append(
                 id = toolCallId,
@@ -540,19 +559,10 @@ internal class ChatToolCalls(
                 argsJson = canonical,
                 state = ToolCallState.PENDING.name,
                 modelIntent = modelIntent,
+                origin = origin,
             )
         val currentProfile = profile.value
-        timeline.publishToolRow(
-            turn.id,
-            toolCallId,
-            toolNameRaw,
-            canonical,
-            str(R.string.tool_state_processing),
-            null,
-            null,
-            modelIntent = modelIntent,
-            position = ChatTimelineOrder.positions(storage, turn.sessionId)[toolCallId],
-        )
+        publishPreparedTool(row, turn.sessionId)
         val request =
             requests
                 .build(
@@ -579,6 +589,23 @@ internal class ChatToolCalls(
                 request.egress,
             )
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
+    }
+
+    private fun publishPreparedTool(
+        row: com.helix.core.storage.entity.ToolCallEntity,
+        sessionId: String,
+    ) {
+        timeline.publishToolRow(
+            row.turnId,
+            row.callId,
+            row.name,
+            row.argsJson,
+            str(R.string.tool_state_processing),
+            null,
+            null,
+            modelIntent = row.modelIntent,
+            position = ChatTimelineOrder.positions(storage, sessionId)[row.callId],
+        )
     }
 
     private fun executionStarting(
@@ -610,6 +637,7 @@ internal class ChatToolCalls(
         canonicalArgs: String,
         descriptor: ToolDescriptor?,
         modelIntent: String?,
+        origin: ToolCallOrigin?,
     ): PreparedToolCall? {
         val inspection =
             com.helix.app.engine.AutomaticRecoveryPolicy
@@ -630,6 +658,7 @@ internal class ChatToolCalls(
                 detail = str(R.string.tool_failure_requires_review),
                 kind = PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED,
                 modelIntent = modelIntent,
+                origin = origin,
             )
         return PreparedToolCall(toolCallId, toolNameRaw, null, null, denied)
     }
@@ -677,6 +706,7 @@ internal class ChatToolCalls(
         toolName: ToolName?,
         args: JsonObject?,
         descriptor: ToolDescriptor?,
+        origin: ToolCallOrigin?,
     ): PreparedToolCall? =
         when {
             toolName == null -> {
@@ -695,6 +725,7 @@ internal class ChatToolCalls(
                         str(R.string.tool_rejected_binding_unavailable),
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
+                        origin,
                     ),
                 )
             }
@@ -715,6 +746,7 @@ internal class ChatToolCalls(
                         str(R.string.tool_rejected_bad_args),
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
+                        origin,
                     ),
                 )
             }

@@ -16,6 +16,33 @@ import org.junit.Test
  */
 class PromptEnvironmentSectionsTest {
     @Test
+    fun omittedEnvironmentReasonsDoNotLoadUnavailableTemplates() {
+        val loaded = mutableListOf<String>()
+        val registry = PromptRegistry()
+        PromptEnvironmentSections.register(
+            registry,
+            directory,
+            AgentMode.ACT,
+            false,
+            PromptTemplateSource {
+                loaded += it
+                "BASE"
+            },
+        )
+        val snapshot = registry.resolveAndAssemble()
+        assertEquals(listOf("base"), loaded)
+        assertEquals("BASE", snapshot.content)
+        assertEquals(
+            mapOf(
+                "env.files" to "FILE_TOOLS_UNAVAILABLE",
+                "env.plan" to "NOT_PLAN_MODE",
+                "env.plugins" to "NO_PLUGIN_CONTEXT",
+            ),
+            snapshot.omittedSections.associate { it.name to it.omissionReason!!.name },
+        )
+    }
+
+    @Test
     fun mobileGuidanceIsConditionalAndDoesNotOverridePlanMode() {
         for (mode in listOf(AgentMode.CHAT, AgentMode.PLAN)) {
             val registry = PromptRegistry()

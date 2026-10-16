@@ -1,80 +1,42 @@
 package com.helix.app.plugin
 
-/**
- * Summary of differences between current and updated Connector packages.
- * Enforces ADR-CONNECTORS-003 §3: concise updates without code diffs.
- */
+import com.helix.extensions.plugin.PluginPackage
+import com.helix.extensions.skills.SkillLoader
+
+/** Uses the same complete endpoint equality as installation, never guessed OAuth metadata. */
 data class PluginUpdateReport(
-    val connectorId: String,
-    val oldVersion: String,
-    val newVersion: String,
-    val changelog: String? = null,
-    val addedSkills: List<String> = emptyList(),
-    val removedSkills: List<String> = emptyList(),
-    val changedEndpoints: List<String> = emptyList(),
-    val requiresCredentialReconfiguration: Boolean = false,
-)
+    val oldVersion: String?,
+    val newVersion: String?,
+    val addedSkills: List<String>,
+    val removedSkills: List<String>,
+    val addedEndpoints: List<String>,
+    val removedEndpoints: List<String>,
+    val changedEndpoints: List<String>,
+) {
+    val requiresReconnection: Boolean get() = addedEndpoints.isNotEmpty() || changedEndpoints.isNotEmpty()
+}
 
-/**
- * Pure evaluator of package update differences and credential preservation boundaries.
- */
 object PluginUpdateDiffEvaluator {
-    data class EndpointBinding(
-        val endpointId: String,
-        val originUrl: String,
-        val authType: String,
-        val oauthIssuer: String? = null,
-        val oauthResource: String? = null,
-    )
-
-    data class PackageSnapshot(
-        val version: String,
-        val changelog: String? = null,
-        val skillKeys: Set<String> = emptySet(),
-        val endpoints: List<EndpointBinding> = emptyList(),
-    )
-
-    /**
-     * Compares an existing installed package with an incoming update target.
-     */
-    @Suppress("ComplexCondition")
     fun evaluate(
-        connectorId: String,
-        current: PackageSnapshot,
-        incoming: PackageSnapshot,
+        current: InstalledPlugin,
+        incoming: PluginPackage,
     ): PluginUpdateReport {
-        val addedSkills = (incoming.skillKeys - current.skillKeys).sorted()
-        val removedSkills = (current.skillKeys - incoming.skillKeys).sorted()
-
-        val changedEndpoints = mutableListOf<String>()
-        var requiresReconfiguration = false
-
-        val currentMap = current.endpoints.associateBy { it.endpointId }
-        for (newEp in incoming.endpoints) {
-            val oldEp = currentMap[newEp.endpointId]
-            if (oldEp == null) {
-                changedEndpoints += newEp.endpointId
-                requiresReconfiguration = true
-            } else if (oldEp.originUrl != newEp.originUrl ||
-                oldEp.authType != newEp.authType ||
-                oldEp.oauthIssuer != newEp.oauthIssuer ||
-                oldEp.oauthResource != newEp.oauthResource
-            ) {
-                // Endpoint binding changed — token must not be blindly copied (ADR-CONNECTORS-003 §3)
-                changedEndpoints += newEp.endpointId
-                requiresReconfiguration = true
-            }
-        }
-
+        val skills =
+            incoming.skills
+                .map {
+                    SkillLoader().validatePackageMember(it.files.getValue("SKILL.md"), it.directory).catalogEntry.name
+                }.toSet()
+        val oldSkills = current.skills.map { it.name }.toSet()
+        val previous = current.endpoints.associate { it.endpoint.name to it.endpoint }
+        val next = incoming.endpoints.associateBy { it.name }
         return PluginUpdateReport(
-            connectorId = connectorId,
-            oldVersion = current.version,
-            newVersion = incoming.version,
-            changelog = incoming.changelog,
-            addedSkills = addedSkills,
-            removedSkills = removedSkills,
-            changedEndpoints = changedEndpoints,
-            requiresCredentialReconfiguration = requiresReconfiguration,
+            current.versionLabel,
+            incoming.versionLabel,
+            (skills - oldSkills).sorted(),
+            (oldSkills - skills).sorted(),
+            (next.keys - previous.keys).sorted(),
+            (previous.keys - next.keys).sorted(),
+            (next.keys intersect previous.keys).filter { next[it] != previous[it] }.sorted(),
         )
     }
 }

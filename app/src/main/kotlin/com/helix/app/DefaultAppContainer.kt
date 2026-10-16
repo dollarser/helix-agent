@@ -95,7 +95,9 @@ internal class DefaultAppContainer(
     private val appContext: Context = context.applicationContext
     private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
     override val storageUsage = StorageUsageService(appContext)
-    override val diagnosticReport = DiagnosticReportService(appContext as Application)
+    override val diagnosticReport by lazy {
+        DiagnosticReportService(appContext as Application) { pluginRegistry.performance.json() }
+    }
 
     override val storage: HelixStorage = HelixStorage.create(context)
 
@@ -320,6 +322,7 @@ internal class DefaultAppContainer(
                 pluginCatalog.skillAvailable(key, session) && pluginRegistry.skillAvailable(key, session)
             },
             contributedDocuments = pluginRegistry::skillDocuments,
+            metadataLock = pluginCatalog.mutationLock,
             userActivations = { session, turn ->
                 storage.sessionInputs.skillActivations(session, turn).map { activation ->
                     com.helix.extensions.skills.UserSkillActivation(
@@ -567,6 +570,8 @@ internal class DefaultAppContainer(
             .register(toolRegistry, memory)
         com.helix.app.chat.ToolResultReadTool
             .register(toolRegistry, storage)
+        com.helix.app.chat.SessionTools
+            .register(toolRegistry, storage.sessionHistory) { chatService.refreshSessions() }
         com.helix.app.goal.GoalLifecycleTools
             .register(
                 toolRegistry,

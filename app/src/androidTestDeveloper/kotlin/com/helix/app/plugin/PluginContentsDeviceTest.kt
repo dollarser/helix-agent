@@ -42,6 +42,7 @@ class PluginContentsDeviceTest {
         val mobileId = service.list().single { it.native?.pluginId == "mobile-use" }.id
         compose.onNodeWithTag("plugin-enabled-$mobileId").assertDoesNotExist()
         compose.onNodeWithTag("connector-default-$mobileId").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("plugin-tab-1-$mobileId").performScrollTo().performClick()
         compose.waitUntil(5_000) {
             compose
                 .onAllNodes(
@@ -52,6 +53,9 @@ class PluginContentsDeviceTest {
         }
         compose.onNodeWithText("android-ui-task").assertDoesNotExist()
         compose.onNodeWithText("ui.snapshot").assertDoesNotExist()
+        compose.onNodeWithTag("plugin-required-heading-mobile-use").performScrollTo().performClick()
+        compose.onNodeWithTag("plugin-required-content-mobile-use").assertExists()
+        compose.onNodeWithTag("plugin-required-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-skills-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-tools-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithText("ui.snapshot").performScrollTo().performClick()
@@ -68,19 +72,31 @@ class PluginContentsDeviceTest {
                 useUnmergedTree = true,
             ).performScrollTo()
             .assertIsDisplayed()
+        verifyReferencePreview()
         verifyIndependentSections()
         assertEquals(before, service.list().single { it.native?.pluginId == "mobile-use" }.enabled)
+    }
+
+    private fun verifyReferencePreview() {
+        val tag = "plugin-resource-android-ui-task-references/android-ui-reference.md"
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+        compose
+            .onNodeWithTag(
+                "plugin-resource-content-android-ui-task-references/android-ui-reference.md",
+            ).assertExists()
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
     }
 
     private fun verifyIndependentSections() {
         compose.onNodeWithTag("plugin-tools-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithText("ui.snapshot").assertDoesNotExist()
         compose.onNodeWithText("android-ui-task").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("mobile-use-plugin-settings").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("mobile-use-plugin-settings").assertDoesNotExist()
         compose.onNodeWithTag("plugin-tools-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-skills-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithText("android-ui-task").assertDoesNotExist()
         compose.onNodeWithText("ui.snapshot").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("plugin-tab-0-bundled-plugin:mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("mobile-use-plugin-settings").performScrollTo().assertIsDisplayed()
     }
 }

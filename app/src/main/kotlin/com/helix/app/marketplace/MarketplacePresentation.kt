@@ -76,9 +76,22 @@ internal fun MarketplaceCandidatePresentation(
     service: MarketplaceService,
     item: MarketplaceItem?,
     onDismiss: () -> Unit,
-    onInstalled: () -> Unit,
+    onInstalled: (com.helix.app.plugin.InstalledPlugin) -> Unit,
 ) {
     item?.let { MarketplaceCandidateDialog(service, it, onDismiss, onInstalled) }
+}
+
+@Composable
+@Suppress("FunctionName")
+internal fun MarketplaceImportResult(
+    result: com.helix.app.plugin.InstalledPlugin?,
+    onUse: ((String?) -> Unit)?,
+    onConfigure: ((String?) -> Unit)?,
+) {
+    result?.let {
+        com.helix.app.plugin
+            .PluginImportResult(it, onUse, onConfigure)
+    }
 }
 
 internal fun requestMarketplaceInstall(

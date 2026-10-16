@@ -50,9 +50,17 @@ internal class SessionExportProjection(
             }
 
             SessionExportType.TOOL_CALL -> {
-                data["modelCallId"] = JsonNull
-                data["modelAssociation"] = JsonPrimitive("not_persisted")
-                data["callOrder"] = JsonPrimitive("not_persisted")
+                data["modelAssociation"] =
+                    JsonPrimitive(
+                        if (source["modelCallId"] != null &&
+                            source["modelCallId"] != JsonNull
+                        ) {
+                            "persisted"
+                        } else {
+                            "non_model_call"
+                        },
+                    )
+                data["callOrder"] = JsonPrimitive("persisted_turn_ordinal_and_model_call_index")
             }
 
             SessionExportType.TURN -> {
@@ -145,7 +153,6 @@ internal class SessionExportProjection(
             }
         } ?: unknown("provider_snapshot_unavailable")
         data["finishReason"] = unknown("not_persisted")
-        data["timestamps"] = unknown("not_persisted")
         val usage = source["usage"]?.jsonPrimitive?.contentOrNull?.let(SessionExportJson::objectOrNull)
         data["usage"] =
             buildJsonObject {

@@ -558,6 +558,9 @@ fun ChatScreen(
                 },
                 intents =
                     ConversationIntents(
+                        onLoadOlderMessages = chatService::loadOlderMessages,
+                        onShowLatestMessages = chatService::showLatestMessages,
+                        onFindHistoryMessage = chatService::findHistoryMessage,
                         onNavigation = { navigateAfterSave(onNavigation) },
                         onSettings = { navigateAfterSave(onSessionSettings) },
                         onGit = { navigateAfterSave(onGit) },

@@ -22,7 +22,13 @@ internal object UserQuestionTool {
         ToolDescriptor(
             name = ToolName("ask_user"),
             version = ToolVersion(1),
-            description = packagedPromptTemplates.text("ask-user").trim(),
+            description =
+                packagedPromptTemplates
+                    .text("ask-user")
+                    .lineSequence()
+                    .map(String::trim)
+                    .filter(String::isNotEmpty)
+                    .joinToString(" "),
             inputSchema =
                 Json
                     .parseToJsonElement(

@@ -152,7 +152,21 @@ internal fun ConversationSection(
     val timelineListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val searchController = remember { ConversationSearchController() }
+    var focusedRevision by remember(screen.openSessionId) { mutableStateOf(-1L) }
     var searchActive by remember { mutableStateOf(false) }
+    LaunchedEffect(screen.historyFocusRevision, screen.messages) {
+        val id = screen.focusedHistoryMessage
+        if (id != null && focusedRevision != screen.historyFocusRevision && screen.messages.any { it.id == id }) {
+            // Empty substring enumerates the displayed items using the same timeline-index mapping.
+            val target = findMatches("", screen).firstOrNull { it.targetId == id }
+            if (target != null) {
+                searchController.updateMatches(screen)
+                searchController.selectTarget(id)
+                timelineListState.scrollToItem(target.listIndex)
+                focusedRevision = screen.historyFocusRevision
+            }
+        }
+    }
     var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
 
     LaunchedEffect(screen, searchActive) {
@@ -194,20 +208,40 @@ internal fun ConversationSection(
         if (searchActive) {
             ConversationSearchBar(
                 query = searchController.query,
-                matchCount = searchController.matches.size,
+                matchCount =
+                    if (screen.hasOlderMessages ||
+                        screen.hasNewerMessages
+                    ) {
+                        -1
+                    } else {
+                        searchController.matches.size
+                    },
                 currentMatchIndex = searchController.currentMatchIndex,
                 onQueryChange = { q ->
                     searchController.onQueryChange(q, screen)
+                    intents.onFindHistoryMessage(if (searchController.matches.isEmpty()) q else "", null, null)
                     searchController.currentMatch?.let { match ->
                         coroutineScope.launch { timelineListState.animateScrollToItem(match.listIndex) }
                     }
                 },
                 onPrevMatch = {
+                    if (searchController.currentMatchIndex == 0) {
+                        val sequence =
+                            screen.messages.find { it.id == searchController.currentMatch?.targetId }?.sequence
+                                ?: screen.messages.firstOrNull()?.sequence
+                        intents.onFindHistoryMessage(searchController.query, sequence, null)
+                    }
                     searchController.prevMatch()?.let { match ->
                         coroutineScope.launch { timelineListState.animateScrollToItem(match.listIndex) }
                     }
                 },
                 onNextMatch = {
+                    if (searchController.currentMatchIndex >= searchController.matches.lastIndex) {
+                        val sequence =
+                            screen.messages.find { it.id == searchController.currentMatch?.targetId }?.sequence
+                                ?: screen.messages.lastOrNull()?.sequence
+                        intents.onFindHistoryMessage(searchController.query, null, sequence)
+                    }
                     searchController.nextMatch()?.let { match ->
                         coroutineScope.launch { timelineListState.animateScrollToItem(match.listIndex) }
                     }
@@ -215,6 +249,7 @@ internal fun ConversationSection(
                 onClose = {
                     searchActive = false
                     searchController.clear()
+                    intents.onFindHistoryMessage("", null, null)
                 },
             )
         }
@@ -248,7 +283,8 @@ internal fun ConversationSection(
                     .all { it.isEmpty() }
         ConversationTimeline(
             sessionId = screen.openSessionId,
-            followContent = !emptyConversation && !searchActive,
+            followContent =
+                !emptyConversation && !searchActive && screen.focusedHistoryMessage == null && !screen.hasNewerMessages,
             contentVersion =
                 listOf(
                     screen.messages,
@@ -259,6 +295,26 @@ internal fun ConversationSection(
             state = timelineListState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
+            if (screen.hasOlderMessages) {
+                item(key = "older-messages") {
+                    TextButton(
+                        onClick = intents.onLoadOlderMessages,
+                        modifier = Modifier.testTag("chat-load-older"),
+                    ) {
+                        Text(stringResource(R.string.chat_load_older_messages))
+                    }
+                }
+            }
+            if (screen.hasNewerMessages) {
+                item(key = "latest-messages") {
+                    TextButton(
+                        onClick = intents.onShowLatestMessages,
+                        modifier = Modifier.testTag("chat-show-latest"),
+                    ) {
+                        Text(stringResource(R.string.chat_show_latest_messages))
+                    }
+                }
+            }
             if (emptyConversation) {
                 item(key = "empty-conversation") {
                     EmptyConversationHint(
@@ -270,7 +326,8 @@ internal fun ConversationSection(
                     )
                 }
             }
-            val currentTargetId = searchController.currentMatch?.targetId.takeIf { searchActive }
+            val currentTargetId =
+                searchController.currentMatch?.targetId.takeIf { searchActive } ?: screen.focusedHistoryMessage
             val activeSearchQuery = searchController.query.takeIf { searchActive && it.isNotBlank() }
 
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->

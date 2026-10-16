@@ -23,6 +23,27 @@ import java.security.MessageDigest
  */
 class PromptSnapshotRecordTest {
     @Test
+    fun multibyteCostAndOmissionPersistWithoutContentsOrModelUsageClaims() {
+        val snapshot =
+            PromptRegistry()
+                .register(PromptSection("plugin", 0, PromptScope.SKILL, PromptSource.EXTERNAL_CONTENT) { "中文😀" })
+                .register(PromptSection("empty", 1, PromptScope.MODE, PromptSource.BUILTIN_TEMPLATE) { " " })
+                .resolveAndAssemble()
+        val record = requireNotNull(promptSnapshotRecord(snapshot, "mc", "turn"))
+        val sections = Json.parseToJsonElement(record.sectionsJson).jsonArray.map { it.jsonObject }
+        assertEquals("10", sections[0]["utf8Bytes"]!!.jsonPrimitive.content)
+        assertEquals("3", sections[0]["estimatedTextTokens"]!!.jsonPrimitive.content)
+        assertEquals("true", sections[0]["included"]!!.jsonPrimitive.content)
+        assertEquals("NON_EMPTY", sections[0]["reason"]!!.jsonPrimitive.content)
+        assertEquals("false", sections[1]["included"]!!.jsonPrimitive.content)
+        assertEquals("EMPTY", sections[1]["reason"]!!.jsonPrimitive.content)
+        assertEquals("0", sections[1]["estimatedTextTokens"]!!.jsonPrimitive.content)
+        assertTrue("中文" !in record.auditPayload)
+        assertTrue("utf8_bytes_ceil_div_4" in record.auditPayload)
+        assertTrue("actualTokens" !in record.auditPayload)
+    }
+
+    @Test
     fun anEmptyAssemblyRecordsNothing() {
         assertNull(promptSnapshotRecord(PromptRegistry().resolveAndAssemble(), "mc-1", "t-1"))
     }

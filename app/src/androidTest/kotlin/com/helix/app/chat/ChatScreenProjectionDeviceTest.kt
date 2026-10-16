@@ -13,6 +13,38 @@ import java.io.File
 import java.util.UUID
 
 class ChatScreenProjectionDeviceTest {
+    @Test fun changingHistoryWindowDoesNotReintroduceCompletedLiveRows() {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        val name = "chat-window-${UUID.randomUUID()}.db"
+        val files = File(app.filesDir, name)
+        val storage = HelixStorage.open(app, name, files)
+        try {
+            storage.sessions.create("s", "Window", null, null, 1)
+            for (i in 0..2) {
+                storage.turns.start("t$i", "s", i.toLong())
+                storage.messages.append("m$i", "s", "t$i", "USER", "TEXT", "Message $i")
+                storage.toolCalls.append("c$i", "t$i", "c$i", "read", "1", "{}", "COMPLETED")
+                storage.turns.updateState(
+                    storage.turns.resolve("t$i"),
+                    com.helix.core.model.TurnState.INTERRUPTED,
+                    0,
+                    3,
+                    null,
+                )
+            }
+            val projection =
+                ChatScreenProjection(storage, app.appContainer.providerService, { _, _ -> "unused" }, { 0 })
+            val latest = projection.toolTimelineFor("s", emptyList())
+            assertEquals(3, latest.size)
+            val older = projection.toolTimelineFor("s", latest, listOf(storage.messages.resolve("m0")), 0)
+            assertEquals(listOf("c0"), older.map { it.callId })
+        } finally {
+            storage.close()
+            app.deleteDatabase(name)
+            files.deleteRecursively()
+        }
+    }
+
     @Suppress("LongMethod") // One reopen round trip proves UI filtering and retained model protocol together.
     @Test
     fun toolProtocolStaysInModelHistoryButNeverBecomesAConversationBubbleAfterReopen() {

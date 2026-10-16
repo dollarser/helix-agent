@@ -83,7 +83,7 @@ internal class SessionExportReferences(
             mapOf(
                 SessionExportType.TURN to listOf("sessionId" to "session:"),
                 SessionExportType.MESSAGE to listOf("sessionId" to "session:", "turnId" to "turn:", "contentId" to ""),
-                SessionExportType.MODEL_CALL to listOf("turnId" to "turn:"),
+                SessionExportType.MODEL_CALL to listOf("turnId" to "turn:", "toolMessageId" to "message:"),
                 SessionExportType.TOOL_CALL to listOf("turnId" to "turn:", "modelCallId" to "model_call:"),
                 SessionExportType.TOOL_RESULT to listOf("toolCallId" to "tool_call:", "contentId" to ""),
                 SessionExportType.EXECUTION to listOf("toolCallId" to "tool_call:"),

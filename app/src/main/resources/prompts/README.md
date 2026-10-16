@@ -19,3 +19,9 @@ This directory is only part of the assembled prompt: Goal reporting, tool presen
 Use `PromptEnvironmentSectionsTest` for selection/trust/substitution checks and the relevant fixed device evals for behavior. Preserve prompt/fixture identities and historical failures; cross-fixture pass rates are not prompt-only A/B evidence.
 
 `automatic-recovery.md` supplies the bounded read-only recovery inspection instruction. It grants no capability, does not reset Goal accounting, and cannot settle original executor facts.
+
+Shared behavior belongs in `base.md`: task completion, current-schema discovery, dependency ordering, clarification versus approval, and truthful reporting. Mode, Goal, recovery and compaction templates add only their applicable constraints. Plugin workflows remain plugin-owned; do not copy Mobile Use/Browser instructions into the base prompt.
+
+The compaction request uses a SYSTEM instruction followed by USER-role historical data. Its returned summary remains untrusted history. A summary retains user constraints and attribution, but cannot mint authorization or turn an assistant claim into executor evidence. Tool-exhausted finalization must not demand an unavailable Goal-report call.
+
+`files.md` follows the implemented read/edit contract: `read(includeSha256=true)` scans a bounded stream once and returns the full-file hash with its window; ordinary reads avoid that scan. Prompt text must describe actual inputs and outcomes, never compensate for missing execution behavior. The 2026-10-16 consistency review and host evidence are recorded in `docs/evidence/development/prompt-alignment-2026-10-16.md`.

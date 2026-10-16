@@ -42,7 +42,7 @@ internal object HelixUserGuide {
 
                 | Section | Topic and aliases | Resource |
                 |---|---|---|
-                | getting-started | install, first task, model setup, API key | sections/getting-started.md |
+                | getting-started | install, first task, model setup, API key, sessions, history, rename, archive | sections/getting-started.md |
                 | channels | Standard, Advanced, consumer, developer, terminal, PRoot | sections/channels.md |
                 | permissions | approval, permissions, plan, stop, privacy | sections/permissions.md |
                 | mobile-use | phone control, accessibility, Shizuku, Root | sections/mobile-use.md |
@@ -58,6 +58,8 @@ internal object HelixUserGuide {
                 Helix is an Android app for model-assisted tasks. Android 10 or newer is required. Install the APK for the intended channel, add a model in Model settings, provide its API URL, protocol and key in the native form, then select a model in a new conversation. Network-model use may incur provider charges; local models require additional weights, storage and memory.
 
                 Start with a small task, inspect the result, and check the relevant approval before any change. A model or feature shown in a plan is not proof that it is present in an installed APK. Read the manifest for the installed host version and distribution; null means the host did not supply that fact.
+
+                Use the conversation list to search, rename, archive or restore conversations, or branch from a completed answer. You can also ask "Find the constraints I gave earlier in this conversation" or "Rename this conversation to Travel plan". The model can retrieve saved text in this conversation and reference snapshots you shared. Missing or oversized content is reported. A shared reference does not grant live access to its source conversation or control over it. Renaming follows the current mode and permissions.
                 """.trimIndent(),
             "references/sections/channels.md" to
                 """

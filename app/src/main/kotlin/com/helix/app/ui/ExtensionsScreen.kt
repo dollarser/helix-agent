@@ -69,6 +69,7 @@ fun ExtensionsScreen(
     var adding by rememberSaveable { mutableStateOf(false) }
     var useSession by rememberSaveable { mutableStateOf<String?>(null) }
     var usePluginId by rememberSaveable { mutableStateOf<String?>(null) }
+    var configurePluginId by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var catalogRevision by rememberSaveable { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -88,6 +89,7 @@ fun ExtensionsScreen(
                     mobileSettings = true
                 } else {
                     selectedTab = 0
+                    configurePluginId = usePluginId
                 }
             }, pluginId = usePluginId, onSystemPermissions = onPermissions, onMobileUseConfiguration = {
                 returnSession = id
@@ -135,6 +137,11 @@ fun ExtensionsScreen(
                 showInstalled = false,
                 onUse = onUsePlugin,
                 onInstalled = { catalogRevision++ },
+                onConfigureImported = { id ->
+                    adding = false
+                    selectedTab = 0
+                    configurePluginId = id
+                },
             )
             if (authoring != null && installation != null) {
                 SkillInstallationSection(authoring, installation, onUse, onInstalled = { catalogRevision++ })
@@ -144,7 +151,10 @@ fun ExtensionsScreen(
         if (marketplace != null && selectedTab == 1) {
             MarketplaceSection(
                 service = marketplace,
-                onConfigureRequested = { selectedTab = 0 },
+                onConfigureRequested = { id ->
+                    selectedTab = 0
+                    configurePluginId = id
+                },
                 onUseRequested = onUsePlugin,
             )
         } else {
@@ -162,6 +172,9 @@ fun ExtensionsScreen(
                     showImport = false,
                     onUse = onUsePlugin,
                     query = query,
+                    configurePluginId = configurePluginId,
+                    onConfigurationShown = { configurePluginId = null },
+                    onConfigureImported = { configurePluginId = it },
                     onPluginSettings = { mobileSettings = true },
                     onSystemPermissions = onPermissions,
                 )

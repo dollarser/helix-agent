@@ -5,8 +5,19 @@ import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.dao.ToolCallDao
 import com.helix.core.storage.entity.ToolCallEntity
 
+data class ToolCallOrigin(
+    val modelCallId: String,
+    val callIndex: Int,
+) {
+    init {
+        require(modelCallId.isNotBlank() && callIndex >= 0)
+    }
+}
+
 class ToolCallRepository(
     private val dao: ToolCallDao,
+    private val transaction: (() -> Unit) -> Unit,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /**
      * Registers a tool call. `argsJson` must already be canonical (doc 9.2); [argsHash] is
@@ -22,24 +33,32 @@ class ToolCallRepository(
         argsJson: String,
         state: String,
         modelIntent: String? = null,
+        origin: ToolCallOrigin? = null,
     ): ToolCallEntity {
         require(callId.isNotBlank()) { "callId must not be blank" }
         require(name.isNotBlank()) { "tool name must not be blank" }
         require(version.isNotBlank()) { "tool version must not be blank" }
         require(state.isNotBlank()) { "state must not be blank" }
-        val entity =
-            ToolCallEntity(
-                id = id,
-                turnId = turnId,
-                callId = callId,
-                name = name,
-                version = version,
-                argsJson = argsJson,
-                argsHash = FileContentStore.sha256Hex(argsJson.toByteArray(Charsets.UTF_8)),
-                modelIntent = modelIntent,
-                state = state,
-            )
-        dao.insert(entity)
+        lateinit var entity: ToolCallEntity
+        transaction {
+            entity =
+                ToolCallEntity(
+                    id = id,
+                    turnId = turnId,
+                    callId = callId,
+                    name = name,
+                    version = version,
+                    argsJson = argsJson,
+                    argsHash = FileContentStore.sha256Hex(argsJson.toByteArray(Charsets.UTF_8)),
+                    modelIntent = modelIntent,
+                    state = state,
+                    modelCallId = origin?.modelCallId,
+                    callIndex = origin?.callIndex,
+                    ordinal = dao.maxOrdinal(turnId) + 1,
+                    createdAt = clock(),
+                )
+            dao.insert(entity)
+        }
         return entity
     }
 
@@ -50,6 +69,16 @@ class ToolCallRepository(
     }
 
     fun listByTurn(turnId: String): List<ToolCallEntity> = dao.listByTurn(turnId)
+
+    fun recentBySession(
+        sessionId: String,
+        fromSequence: Long,
+        throughSequence: Long,
+        limit: Int,
+    ): List<ToolCallEntity> {
+        require(limit in 1..1000)
+        return dao.recentBySession(sessionId, fromSequence, throughSequence, limit).reversed()
+    }
 
     fun recentByTurn(
         turnId: String,

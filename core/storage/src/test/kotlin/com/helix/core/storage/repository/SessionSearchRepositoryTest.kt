@@ -1,445 +1,89 @@
 package com.helix.core.storage.repository
 
-import com.helix.core.storage.assertThrows
-import com.helix.core.storage.content.ContentRef
-import com.helix.core.storage.content.FileContentStore
-import com.helix.core.storage.dao.MessageDao
-import com.helix.core.storage.dao.SessionDao
-import com.helix.core.storage.entity.MessageEntity
-import com.helix.core.storage.entity.SessionEntity
+import com.helix.core.storage.SearchText
+import com.helix.core.storage.dao.SessionSearchRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
+import java.util.concurrent.CancellationException
 
-/**
- * HXA-191 search slice: [SessionSearchRepository] — bounded read-only title + message-body
- * search over the existing rows and content store: case-insensitive matching, snippet
- * window, archived flag, explicit scope (scanned/skipped/truncated) and fail-soft
- * handling of unreadable bodies.
- */
+/** Query semantics run against the actual SQL/schema in host SQLite and the Room device fixture. */
 class SessionSearchRepositoryTest {
-    @Test
-    fun `unicode matching uses original string offsets`() {
-        withFixture { fixture ->
-            fixture.session("s-1", "untitled")
-            fixture.body("s-1", "\u0131")
-            assertTrue(
-                fixture
-                    .search("I")
-                    .hits
-                    .single()
-                    .messageSnippet!!
-                    .contains("\u0131"),
-            )
-        }
+    private val dao = SearchProjectionFixture()
+    private val repository = SessionSearchRepository(dao)
+
+    private fun row(
+        id: String = "s",
+        title: Boolean = false,
+        body: String? = "原文 Needle",
+    ) = SessionSearchRow(id, "Title", 5, 1, 10, title, body)
+
+    @Test fun literalUnicodeCaseFoldingPreservesOffsets() {
+        assertEquals("i", SearchText.fold("ı"))
+        assertEquals(SearchText.fold("I"), SearchText.fold("İ"))
+        assertEquals("中文%_needle", SearchText.fold("中文%_Needle"))
+        assertEquals("😀中文".length, SearchText.fold("😀中文").length)
     }
 
-    @Test
-    fun `title hit limit is reported even without message candidates`() {
-        withFixture { fixture ->
-            repeat(3) { fixture.session("s-$it", "needle") }
-            val result = fixture.search("needle", maxHits = 1)
-            assertEquals(1, result.hits.size)
-            assertTrue(result.truncated)
-        }
+    @Test fun blankQueryDoesNotReadTheDatabase() {
+        assertEquals(SessionSearchResult("", emptyList(), false), repository.search("  "))
+        assertNull(dao.query)
     }
 
-    @Test
-    fun `cancelled scan stops before reading further bodies`() {
-        withFixture { fixture ->
-            fixture.session("s-1", "untitled")
-            repeat(3) { fixture.body("s-1", "needle") }
-            var checks = 0
-            org.junit.Assert.assertThrows(java.util.concurrent.CancellationException::class.java) {
-                fixture.repo.search("needle", checkActive = {
-                    checks++
-                    if (checks == 3) throw java.util.concurrent.CancellationException()
-                })
-            }
-            assertEquals(3, checks)
-        }
+    @Test fun matchKindsArchiveActivityAndOriginalSnippetArePreserved() {
+        dao.results = listOf(row("both", true), row("title", true, null), row("body"))
+        val result = repository.search("  NEEDLE  ")
+        assertEquals("needle" to 51, dao.query)
+        assertEquals("NEEDLE", result.query)
+        assertEquals(setOf(SessionSearchMatchKind.TITLE, SessionSearchMatchKind.MESSAGE), result.hits[0].matchedKinds)
+        assertEquals(setOf(SessionSearchMatchKind.TITLE), result.hits[1].matchedKinds)
+        assertEquals(setOf(SessionSearchMatchKind.MESSAGE), result.hits[2].matchedKinds)
+        assertEquals("原文 Needle", result.hits[0].messageSnippet)
+        assertTrue(result.hits.all { it.isArchived && it.lastActivityAt == 10L })
+        assertFalse(result.truncated)
     }
 
-    @Test
-    fun `title match is case-insensitive and flags title only`() {
-        withFixture { fixture ->
-            fixture.session("s-1", "Sunrise Planning")
-            val result = fixture.search("sUnrISE")
-            val hit = result.hits.single()
-            assertEquals("s-1", hit.sessionId)
-            assertEquals(setOf(SessionSearchMatchKind.TITLE), hit.matchedKinds)
-            assertNull("a title-only hit carries no snippet", hit.messageSnippet)
-        }
+    @Test fun noMatchIsNotMistakenForTruncation() {
+        assertEquals(SessionSearchResult("absent", emptyList(), false), repository.search("absent"))
     }
 
-    @Test
-    fun `message body match yields a bounded snippet around the match`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "untitled")
-            fixture.body(session.id, "prefix padding " + "x".repeat(80) + " needle " + "y".repeat(80) + " suffix")
-            val result = fixture.search("needle")
-            val hit = result.hits.single()
-            assertEquals(setOf(SessionSearchMatchKind.MESSAGE), hit.matchedKinds)
-            val snippet = hit.messageSnippet
-            assertTrue("snippet must contain the match", snippet != null && snippet.contains("needle"))
-            assertTrue("overlong context must be elided", snippet!!.startsWith("…") && snippet.endsWith("…"))
-        }
+    @Test fun lookaheadDistinguishesExactLimitFromAdditionalMatches() {
+        dao.results = listOf(row("one"), row("two"))
+        assertTrue(repository.search("x", maxHits = 1).truncated)
+        assertEquals(1, repository.search("x", maxHits = 1).hits.size)
+        assertFalse(repository.search("x", maxHits = 2).truncated)
     }
 
-    @Test
-    fun `title and body match report both kinds`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "needle title")
-            fixture.body(session.id, "needle body")
-            val hit = fixture.search("needle").hits.single()
-            assertEquals(setOf(SessionSearchMatchKind.TITLE, SessionSearchMatchKind.MESSAGE), hit.matchedKinds)
+    @Test fun cancellationBeforeQueryDoesNotReadOrPublish() {
+        assertThrows(CancellationException::class.java) {
+            repository.search("x", checkActive = { throw CancellationException() })
         }
+        assertNull(dao.query)
     }
 
-    @Test
-    fun `archived session is reported as archived`() {
-        withFixture { fixture ->
-            fixture.session("s-1", "archived title", archivedAt = 9000L)
-            val hit = fixture.search("archived").hits.single()
-            assertTrue(hit.isArchived)
+    @Test fun cancellationAfterQueryDoesNotPublishStaleHits() {
+        dao.results = listOf(row())
+        var checks = 0
+        assertThrows(CancellationException::class.java) {
+            repository.search("x", checkActive = { if (++checks == 2) throw CancellationException() })
         }
+        assertEquals("x" to 51, dao.query)
     }
 
-    @Test
-    fun `no match yields empty hits but still counts the scan`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "one")
-            fixture.body(session.id, "alpha")
-            val result = fixture.search("zzz")
-            assertTrue(result.hits.isEmpty())
-            assertEquals(1, result.scannedMessages)
-            assertEquals(0, result.skippedMessages)
-            assertFalse(result.truncated)
-        }
+    @Test fun databaseFailurePropagatesInsteadOfReportingNoMatches() {
+        val failure = IllegalStateException("query failed")
+        dao.failure = failure
+        assertSame(failure, assertThrows(IllegalStateException::class.java) { repository.search("x") })
     }
 
-    @Test
-    fun `blank query returns empty without reading anything`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "one")
-            fixture.body(session.id, "alpha")
-            val result = fixture.search("   ")
-            assertEquals("", result.query)
-            assertTrue(result.hits.isEmpty())
-            assertEquals(0, result.scannedMessages)
-            assertFalse(result.truncated)
+    @Test fun invalidBoundsFailBeforeQuery() {
+        listOf(0, -1, 201).forEach { bound ->
+            assertThrows(IllegalArgumentException::class.java) { repository.search("x", maxHits = bound) }
         }
-    }
-
-    @Test
-    fun `candidate cap bounds the scan and sets truncated`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "untitled")
-            fixture.body(session.id, "needle one")
-            fixture.body(session.id, "needle two")
-            fixture.body(session.id, "needle three")
-            val result = fixture.search("needle", maxCandidates = 2)
-            assertTrue("the cap was reached, so the scope must be stated", result.truncated)
-            assertEquals(2, result.scannedMessages)
-            assertEquals("hits deduplicate per session", 1, result.hits.size)
-        }
-    }
-
-    @Test
-    fun `scan prefers newer sessions and the newest message first`() {
-        withFixture { fixture ->
-            val older = fixture.session("s-old", "untitled", createdAt = 1000L)
-            val newer = fixture.session("s-new", "untitled", createdAt = 2000L)
-            fixture.body(older.id, "needle older body")
-            fixture.body(newer.id, "needle new one")
-            fixture.body(newer.id, "needle new two")
-            val result = fixture.search("needle")
-            val hit = result.hits.single { it.sessionId == newer.id }
-            assertTrue(
-                "the snippet must come from the newest message",
-                hit.messageSnippet != null && hit.messageSnippet.contains("new two"),
-            )
-            assertEquals(2, result.hits.size)
-        }
-    }
-
-    @Test
-    fun `oversized body is skipped and the search continues`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "untitled")
-            fixture.body(session.id, "needle " + "z".repeat(4096))
-            fixture.body(session.id, "needle small")
-            val result = fixture.search("needle", maxContentBytes = 1024)
-            assertEquals(1, result.skippedMessages)
-            assertEquals(1, result.scannedMessages)
-            val hit = result.hits.single()
-            assertTrue(hit.messageSnippet != null && hit.messageSnippet.contains("small"))
-        }
-    }
-
-    @Test
-    fun `unreadable body is skipped without failing the search`() {
-        withFixture { fixture ->
-            val session = fixture.session("s-1", "untitled")
-            fixture.orphanBody(session.id)
-            fixture.body(session.id, "needle readable")
-            val result = fixture.search("needle")
-            assertEquals(1, result.skippedMessages)
-            assertEquals(1, result.scannedMessages)
-            assertTrue(result.hits.single().messageSnippet != null)
-        }
-    }
-
-    @Test
-    fun `maxHits bounds the hit list to the newest sessions`() {
-        withFixture { fixture ->
-            repeat(3) { index -> fixture.session("s-$index", "common-$index", createdAt = index.toLong() * 1000L) }
-            val result = fixture.search("common", maxHits = 2)
-            assertEquals(2, result.hits.size)
-            assertEquals("s-2", result.hits.first().sessionId)
-        }
-    }
-
-    @Test
-    fun `out-of-bounds parameters fail closed`() {
-        withFixture { fixture ->
-            assertThrows("negative candidates") { fixture.search("x", maxCandidates = -1) }
-            assertThrows("zero byte bound") { fixture.search("x", maxContentBytes = 0) }
-            assertThrows("zero hits") { fixture.search("x", maxHits = 0) }
-        }
-    }
-
-    // --- fixture ---------------------------------------------------------------
-
-    private inline fun withFixture(block: (Fixture) -> Unit) {
-        val root = File.createTempFile("helix-search-test", "root")
-        assertTrue(root.delete())
-        assertTrue(root.mkdirs())
-        try {
-            block(Fixture(root))
-        } finally {
-            root.deleteRecursively()
-        }
-    }
-
-    private class Fixture(
-        root: File,
-    ) {
-        val sessions = FakeSessionDao()
-        val messages = FakeMessageDao(sessions)
-        val store = FileContentStore(root)
-        val repo = SessionSearchRepository(sessions, messages, store)
-
-        fun session(
-            id: String,
-            title: String,
-            createdAt: Long = 1000L,
-            archivedAt: Long? = null,
-        ): SessionEntity {
-            val entity = SessionEntity(id, title, null, null, createdAt, archivedAt)
-            sessions.insert(entity)
-            return entity
-        }
-
-        fun body(
-            sessionId: String,
-            content: String,
-        ) {
-            val ref = store.write(content)
-            messages.add(sessionId, ref.toStorageString())
-        }
-
-        /** A content reference whose body file was never written (missing or corrupted content). */
-        fun orphanBody(sessionId: String) {
-            val bytes = "orphan needle body".toByteArray()
-            val hash = FileContentStore.sha256Hex(bytes)
-            val ref = ContentRef(ContentRef.expectedPath(hash), bytes.size.toLong(), hash)
-            messages.add(sessionId, ref.toStorageString())
-        }
-
-        fun search(
-            query: String,
-            maxCandidates: Int = 500,
-            maxContentBytes: Int = 256 * 1024,
-            maxHits: Int = 50,
-        ): SessionSearchResult = repo.search(query, maxCandidates, maxContentBytes, maxHits)
-    }
-
-    /** Mirrors the DAO's list ordering: newest session first. */
-    private class FakeSessionDao : SessionDao {
-        // Search-only fixture has no authorized active tool calls.
-        override fun selectFutureModel(
-            id: String,
-            providerId: String,
-            modelId: String,
-            turnId: String,
-            toolCallId: String,
-        ): Int = 0
-
-        private val rows = HashMap<String, SessionEntity>()
-
-        override fun insert(session: SessionEntity) {
-            rows[session.id] = session
-        }
-
-        override fun byId(id: String): SessionEntity? = rows[id]
-
-        override fun pageIds(
-            afterId: String?,
-            limit: Int,
-        ): List<String> =
-            rows.keys
-                .sorted()
-                .filter { afterId == null || it > afterId }
-                .take(limit)
-
-        override fun list(): List<SessionEntity> = rows.values.sortedByDescending { it.createdAt }
-
-        // Search tests use a fixed list snapshot; real invalidation is exercised by the project device suite.
-        override fun observeSummaries() =
-            kotlinx.coroutines.flow.flow {
-                emit(
-                    list().map {
-                        com.helix.core.storage
-                            .SessionSummary(it.id, it.title, it.archivedAt != null)
-                    },
-                )
-            }
-
-        override fun archive(
-            id: String,
-            archivedAt: Long,
-        ): Int =
-            if (rows.containsKey(id)) {
-                rows[id] = rows.getValue(id).copy(archivedAt = archivedAt)
-                1
-            } else {
-                0
-            }
-
-        override fun restore(id: String): Int =
-            if (rows.containsKey(id)) {
-                rows[id] = rows.getValue(id).copy(archivedAt = null)
-                1
-            } else {
-                0
-            }
-
-        override fun bindProvider(
-            id: String,
-            providerId: String,
-            modelId: String,
-        ): Int = error("not used")
-
-        override fun selectModel(
-            id: String,
-            providerId: String,
-            modelId: String,
-        ): Int = error("not used")
-
-        override fun updateDetails(
-            id: String,
-            title: String,
-            directoryRef: String?,
-        ): Int = error("not used")
-
-        override fun deletePermanently(id: String): Int = if (rows.remove(id) != null) 1 else 0
-    }
-
-    /** Mirrors the DAO's join + ordering: newest session first, newest message first. */
-    private class FakeMessageDao(
-        private val sessions: FakeSessionDao,
-    ) : MessageDao {
-        private val rows = mutableListOf<MessageEntity>()
-        private var nextSequence = 0L
-
-        fun add(
-            sessionId: String,
-            contentRef: String,
-        ) {
-            rows += MessageEntity("m-$nextSequence", sessionId, null, "user", "TEXT", contentRef, nextSequence++)
-        }
-
-        override fun insert(message: MessageEntity) {
-            rows += message
-        }
-
-        override fun supersededRequest(turnId: String): String? =
-            rows.firstOrNull { it.turnId == turnId && it.supersededBy != null }?.supersededBy
-
-        override fun latestUser(sessionId: String): MessageEntity? =
-            listBySession(sessionId).lastOrNull { it.role == "USER" && it.supersededBy == null }
-
-        override fun latestAssistant(sessionId: String): MessageEntity? =
-            listBySession(sessionId).lastOrNull { it.role == "ASSISTANT" && it.supersededBy == null }
-
-        override fun supersedeFrom(
-            sessionId: String,
-            from: Long,
-            requestId: String,
-        ) {
-            rows.replaceAll {
-                if (it.sessionId == sessionId && it.sequence >= from && it.supersededBy == null) {
-                    it.copy(supersededBy = requestId)
-                } else {
-                    it
-                }
-            }
-        }
-
-        override fun allRevisions(sessionId: String): List<MessageEntity> = rows.filter { it.sessionId == sessionId }
-
-        override fun supersededTurns(sessionId: String): List<String> =
-            rows.filter { it.sessionId == sessionId && it.supersededBy != null }.mapNotNull { it.turnId }.distinct()
-
-        override fun retainedByKindAfter(
-            kind: String,
-            afterId: String?,
-            limit: Int,
-        ): List<MessageEntity> =
-            rows
-                .filter {
-                    it.kind == kind && (afterId == null || it.id > afterId)
-                }.sortedBy { it.id }
-                .take(limit)
-
-        override fun byId(id: String): MessageEntity? = rows.firstOrNull { it.id == id }
-
-        override fun listBySession(sessionId: String): List<MessageEntity> =
-            rows.filter { it.sessionId == sessionId }.sortedBy { it.sequence }
-
-        override fun pageAfter(
-            sessionId: String,
-            after: Long,
-            limit: Int,
-        ): List<MessageEntity> = listBySession(sessionId).filter { it.sequence > after }.take(limit)
-
-        override fun latestOfKind(
-            sessionId: String,
-            kind: String,
-            includeSuperseded: Boolean,
-        ): MessageEntity? =
-            rows.lastOrNull {
-                it.sessionId == sessionId && it.kind == kind && (includeSuperseded || it.supersededBy == null)
-            }
-
-        override fun maxSequence(sessionId: String): Long =
-            rows.filter { it.sessionId == sessionId }.maxOfOrNull { it.sequence } ?: -1L
-
-        override fun contentRefsBySession(sessionId: String): List<String> =
-            rows.filter { it.sessionId == sessionId && it.contentRef != null }.mapNotNull { it.contentRef }
-
-        override fun countByContentRef(contentRef: String): Int = rows.count { it.contentRef == contentRef }
-
-        override fun contentSearchCandidates(limit: Int): List<MessageEntity> =
-            rows
-                .filter { it.contentRef != null && it.supersededBy == null }
-                .sortedWith(
-                    compareByDescending<MessageEntity> { sessions.byId(it.sessionId)?.createdAt ?: 0L }
-                        .thenByDescending { it.sequence },
-                ).take(limit)
+        assertNull(dao.query)
     }
 }

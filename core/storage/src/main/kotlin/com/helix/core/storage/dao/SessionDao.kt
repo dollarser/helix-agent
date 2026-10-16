@@ -23,10 +23,10 @@ interface SessionDao {
         limit: Int,
     ): List<String>
 
-    @Query("SELECT * FROM sessions ORDER BY createdAt DESC")
+    @Query("SELECT * FROM sessions ORDER BY lastActivityAt DESC, id ASC")
     fun list(): List<SessionEntity>
 
-    @Query("SELECT id, title, archivedAt IS NOT NULL AS archived FROM sessions ORDER BY createdAt DESC")
+    @Query("SELECT id, title, archivedAt IS NOT NULL AS archived FROM sessions ORDER BY lastActivityAt DESC, id ASC")
     fun observeSummaries(): Flow<List<SessionSummary>>
 
     /** Affected row count is 0 when the session is missing or already archived. */
@@ -81,11 +81,14 @@ interface SessionDao {
         toolCallId: String,
     ): Int
 
-    @Query("UPDATE sessions SET title = :title, directoryRef = :directoryRef WHERE id = :id")
+    @Query(
+        "UPDATE sessions SET title = :title, searchTitle = :searchTitle, directoryRef = :directoryRef WHERE id = :id",
+    )
     fun updateDetails(
         id: String,
         title: String,
         directoryRef: String?,
+        searchTitle: String,
     ): Int
 
     /** Explicit privacy erase; normal UI removal continues to use [archive]. */

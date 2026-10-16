@@ -1,0 +1,32 @@
+<resources>
+    <string name="plugin_import_invalid">无法识别插件包，或其中的配置、技能、引用文件无效。请选择完整的 ZIP 或 MCP 配置后重试。</string>
+    <string name="plugin_import_marketplace">这是市场目录。请从市场页的“添加来源”导入，再选择插件安装。</string>
+    <string name="plugin_import_conflict">安装或来源已变化。请重新选择文件并预览，再确认更新。</string>
+    <string name="plugin_import_limit">文件、组件数量或存储超过导入限制。请使用较小的完整插件包。</string>
+    <string name="plugin_import_unsupported">没有可导入的技能或连接，或压缩格式不受支持。请使用受支持的插件包。</string>
+    <string name="plugin_import_unsafe_archive">压缩包包含不安全或重复的文件路径。请重新获取有效插件包。</string>
+    <string name="plugin_import_access">无法访问所选文件。请重新选择文件并允许读取。</string>
+    <string name="plugin_import_storage">文件读取或写入失败。请检查文件是否可读及可用存储，然后重试。</string>
+    <string name="plugin_import_failed">未能完成导入。请重新选择文件并预览；若仍失败，可导出诊断。</string>
+    <string name="plugin_import_connection_hint">连接需单独检查或登录；安装不会连接账号。</string>
+    <string name="plugin_import_limited">%1$d 项组件或依赖无法自动使用，详见支持情况。</string>
+    <string name="plugin_import_version_unknown">未注明版本</string>
+    <string name="plugin_import_versions">更新：%1$s → %2$s</string>
+    <string name="plugin_import_added_skills">新增技能：%1$s</string>
+    <string name="plugin_import_removed_skills">移除技能：%1$s</string>
+    <string name="plugin_import_added_connections">新增连接：%1$s</string>
+    <string name="plugin_import_removed_connections">移除连接：%1$s</string>
+    <string name="plugin_import_changed_connections">连接目标或认证配置变化：%1$s</string>
+    <string name="plugin_import_reconnect">新增或变化的连接需重新连接，可能需要重新授权；其他连接保持现状。</string>
+    <string name="plugin_import_choose_target">发现已有本地安装。选择要更新的插件，或单独安装；同名不代表同一来源。</string>
+    <string name="plugin_import_separate">单独安装</string>
+    <string name="plugin_import_already_installed">此包已安装，将使用已有安装。</string>
+    <string name="plugin_import_done">已添加：%1$s</string>
+    <string name="plugin_import_reuse">使用已有安装</string>
+    <string name="plugin_import_update">确认更新</string>
+    <string name="plugin_import_stdio_hint">当前导入路径不启动本地 MCP 进程。</string>
+    <string name="plugin_import_binary_hint">需要外部命令行工具，导入不会自动安装依赖。</string>
+    <string name="plugin_import_setup_hint">包内安装或初始化脚本不会自动执行。</string>
+    <string name="plugin_import_skill_names">技能：%1$s</string>
+    <string name="plugin_import_connection_names">连接：%1$s</string>
+</resources>

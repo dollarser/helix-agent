@@ -52,8 +52,11 @@ class SkillRepository(
     private val beforeRemove: (SkillKey) -> Unit = {},
     private val contributedDocuments: (String?) -> List<SkillDocument> = { emptyList() },
     private val userActivations: (String, String) -> List<UserSkillActivation> = { _, _ -> emptyList() },
+    metadataLock: Any = Any(),
 ) {
-    private val lock = Any()
+    // Hosts with compound plugin publication must share its metadata gate. A separate lock
+    // would invert contribution reads (skills -> plugin) and cleanup (plugin -> skills).
+    private val lock = metadataLock
     private val inspector = SkillSnapshotInspector(SkillImportLimits(), SkillLoader())
     private val records = linkedMapOf<SkillKey, SkillRecord>()
     private val globalOverrides = linkedMapOf<SkillKey, Boolean>()

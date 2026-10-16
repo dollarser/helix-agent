@@ -233,6 +233,7 @@ internal class ChatToolSettlement(
         detail: String,
         kind: PreDispatchDenialKind,
         modelIntent: String? = null,
+        origin: com.helix.core.storage.repository.ToolCallOrigin? = null,
     ): ToolDispatchOutcome.Denied {
         val state = kind.state
         val resultStatus = state.name
@@ -249,6 +250,7 @@ internal class ChatToolSettlement(
                 argsJson = rawArgs,
                 state = state.name,
                 modelIntent = modelIntent,
+                origin = origin,
             )
             storage.toolResults.append(
                 id = idGenerator(),

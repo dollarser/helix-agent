@@ -146,6 +146,7 @@ internal class HeadlessLoopFixture(
                 observer: ToolBatchObserver,
             ): SettledBatch {
                 check(journal.snapshot().modelCallClosed) { "execution preceded assistant commit" }
+                check(request.modelCallId == journal.snapshot().modelCallId) { "batch lost its original model call" }
                 beforeTools()
                 dispatched += request
                 val outcomes =

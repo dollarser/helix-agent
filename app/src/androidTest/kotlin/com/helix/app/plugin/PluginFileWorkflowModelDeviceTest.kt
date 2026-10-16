@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -168,6 +169,7 @@ class PluginFileWorkflowModelDeviceTest {
                 assertEquals("140", result.getValue("East").jsonPrimitive.content)
                 assertEquals("100", result.getValue("West").jsonPrimitive.content)
                 assertEquals("240", result.getValue("total").jsonPrimitive.content)
+                verifyPromptDiagnostics(c.storage.modelCalls.listByTurn(turn.id))
                 println("PLUGIN_FILE_WORKFLOW=PASS calls=${calls.size} missingInputRecovered=true outputVerified=true")
             } finally {
                 session?.let { id ->
@@ -197,6 +199,17 @@ class PluginFileWorkflowModelDeviceTest {
             "claude" -> ".claude-plugin/plugin.json"
             else -> error("Invalid pluginFileFormat")
         }
+
+    private fun verifyPromptDiagnostics(calls: List<com.helix.core.storage.entity.ModelCallEntity>) {
+        assertTrue("No real model request records", calls.isNotEmpty())
+        calls.forEach { call ->
+            val sections = Json.parseToJsonElement(requireNotNull(call.promptSections)).jsonArray.map { it.jsonObject }
+            assertTrue(sections.any { it["name"]?.jsonPrimitive?.content == "env.plugins" })
+            assertTrue(sections.all { it["estimatedTextTokens"]!!.jsonPrimitive.content.toLong() >= 0 })
+            assertTrue(sections.any { it["reason"]?.jsonPrimitive?.content == "NOT_PLAN_MODE" })
+            println("PLUGIN_PROMPT_COST call=${call.ordinal} sections=${call.promptSections} usage=${call.usage}")
+        }
+    }
 
     private fun verifyDiscoveryAndRecovery(
         calls: List<ToolCallEntity>,

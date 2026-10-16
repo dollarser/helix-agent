@@ -13,9 +13,13 @@ internal object ChatTimelineOrder {
     fun positions(
         storage: HelixStorage,
         sessionId: String,
+    ): Map<String, ToolTimelinePosition> = positions(storage, storage.messages.recentBySession(sessionId, 256))
+
+    fun positions(
+        storage: HelixStorage,
+        history: List<com.helix.core.storage.entity.MessageEntity>,
     ): Map<String, ToolTimelinePosition> =
-        storage.messages
-            .listBySession(sessionId)
+        history
             .filter { it.kind == ChatHistoryBuilder.KIND_TOOL_CALLS && it.role == "ASSISTANT" }
             .flatMap { row ->
                 val content =

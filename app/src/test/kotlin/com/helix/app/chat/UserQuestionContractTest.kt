@@ -9,6 +9,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UserQuestionContractTest {
+    @Test fun packagedQuestionGuidancePassesTheActualModelSchemaAndPresentationPath() {
+        val descriptor = UserQuestionTool.descriptor()
+        val schema = ToolPresentationMetadata.augment(FileToolArguments.modelSchema(descriptor))
+        assertEquals("ask_user", schema.name.value)
+        assertTrue(schema.description.contains("AWAITING_ANSWER"))
+        assertTrue(schema.description.contains("Answers do not grant tool permissions"))
+        assertTrue(schema.description.none { it.code in 0x00..0x1F || it.code in 0x7F..0x9F })
+    }
+
     @Test fun packagedQuestionToolPassesProductionRegistrationValidation() {
         val descriptor = UserQuestionTool.descriptor()
         val registry =

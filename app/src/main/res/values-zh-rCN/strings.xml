@@ -852,8 +852,7 @@
     <string name="chat_session_search_hint">搜索会话与消息</string>
     <string name="chat_session_search_clear">清除</string>
     <string name="chat_session_search_empty">没有匹配的会话</string>
-    <string name="chat_session_search_scoped">已检索最近 %1$d 条消息正文</string>
-    <string name="chat_session_search_truncated">检索范围或结果数量受限，部分历史或匹配未显示</string>
+    <string name="chat_session_search_truncated">还有更多匹配会话，可输入更具体的内容查找。</string>
     <string name="chat_session_search_group_active">进行中</string>
     <string name="chat_session_search_group_archived">已归档</string>
     <string name="files_shared">手机存储</string>
@@ -1174,7 +1173,6 @@
     <string name="budget_continue">从已有结果继续</string>
     <string name="budget_continue_prompt">请依据当前对话和已结算的工具结果继续未完成的任务。先核对已完成的工作，再决定剩余步骤；不要仅因上一轮停止就重复已完成的操作。工具执行成功本身不代表任务结果已验证正确。</string>
     <string name="budget_request_detail">压缩前任务上下文估算：输入 %1$d / %2$d token。指令 %3$d，工具定义 %4$d，历史与结果 %5$d，图片 %6$d。当时累计已用 %7$d / %8$d token。用量校准后准入输入 %9$d，上下文窗口 %10$d。</string>
-    <string name="chat_session_search_skipped">跳过 %1$d 条不可读或超出大小限制的正文</string>
     <string name="command_detail_running_note">实时输出为有界预览；最终结果以命令结束后的记录为准。</string>
     <string name="command_log_unavailable">实时输出暂不可用；已有预览保留，命令状态与最终结果单独更新。</string>
     <string name="recovery_reason_unknown">执行已中断，结果未知：只对账，不重放</string>
@@ -1777,9 +1775,9 @@
     <string name="mobile_use_saved">已保存，对启用此插件的会话生效</string>
     <string name="mobile_use_accessibility">无障碍服务</string>
     <string name="permissions_root_diagnostics">Root 只读诊断</string>
-    <string name="plugin_contents_tools">内置工具（%1$d）</string>
-    <string name="plugin_contents_skills">内置 Skills（%1$d）</string>
-    <string name="plugin_contents_skill_hint">随插件在会话中启用而自动加载，无需单独开启。点击名称查看详情。</string>
+    <string name="plugin_contents_tools">工具（%1$d）</string>
+    <string name="plugin_contents_skills">技能（%1$d）</string>
+    <string name="plugin_contents_skill_hint">选用插件后提供技能目录，正文按需读取或由明确的用户调用加载。无需单独开启内置技能。</string>
     <string name="mobile_use_configuration_required">请先在扩展 → Mobile Use → 插件设置中保存可操作的应用范围。</string>
     <string name="permissions_file_locations">文件与已授权目录</string>
     <string name="plugin_contents_expand">查看工具与技能 ▾</string>
@@ -1997,4 +1995,7 @@
     <string name="document_source_preview_note">下方打开当前原文件；实际阅读以回答中的快照 SHA-256 和页码/内容块为准。暂不支持精确跳转；原文变化会提示。</string>
     <string name="document_plugin_select">图文阅读需选用“文档”插件 · 去选择</string>
     <string name="document_plugin_name">文档</string>
+    <string name="chat_load_older_messages">查看更早的消息</string>
+    <string name="chat_show_latest_messages">回到最新消息</string>
+    <string name="chat_search_history_navigation">查找历史</string>
 </resources>

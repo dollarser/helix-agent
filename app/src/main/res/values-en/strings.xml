@@ -853,8 +853,7 @@
     <string name="chat_session_search_hint">Search sessions and messages</string>
     <string name="chat_session_search_clear">Clear</string>
     <string name="chat_session_search_empty">No matching sessions</string>
-    <string name="chat_session_search_scoped">Searched %1$d of the most recent message bodies</string>
-    <string name="chat_session_search_truncated">Search or results limited; some history or matches may be omitted</string>
+    <string name="chat_session_search_truncated">More matching conversations exist. Refine your search.</string>
     <string name="chat_session_search_group_active">Active</string>
     <string name="chat_session_search_group_archived">Archived</string>
     <string name="files_shared">Device storage</string>
@@ -1176,7 +1175,6 @@
     <string name="budget_continue">Continue from saved results</string>
     <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
     <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
-    <string name="chat_session_search_skipped">Unavailable or oversized messages skipped: %1$d</string>
     <string name="command_detail_running_note">Live output is a bounded preview. The completed command record is authoritative.</string>
     <string name="command_log_unavailable">Live output is unavailable. The preview is retained; command status and final results update separately.</string>
     <string name="recovery_reason_unknown">Execution was interrupted; the result is unknown. Reconcile only — it is never replayed.</string>
@@ -1780,9 +1778,9 @@
     <string name="mobile_use_saved">Saved for conversations using this plugin</string>
     <string name="mobile_use_accessibility">Accessibility service</string>
     <string name="permissions_root_diagnostics">Root read-only diagnostics</string>
-    <string name="plugin_contents_tools">Bundled tools (%1$d)</string>
-    <string name="plugin_contents_skills">Bundled skills (%1$d)</string>
-    <string name="plugin_contents_skill_hint">Loaded automatically with the plugin in each conversation. No separate switch. Select a name for details.</string>
+    <string name="plugin_contents_tools">Tools (%1$d)</string>
+    <string name="plugin_contents_skills">Skills (%1$d)</string>
+    <string name="plugin_contents_skill_hint">Selecting the plugin exposes the skill catalog. Bodies load on demand or after an explicit user invocation. Built-in skills need no separate switch.</string>
     <string name="mobile_use_configuration_required">Save the allowed application scope in Extensions → Mobile Use → Plugin settings first.</string>
     <string name="permissions_file_locations">Files and granted folders</string>
     <string name="plugin_contents_expand">View tools and skills ▾</string>
@@ -2000,4 +1998,7 @@
     <string name="document_source_preview_note">Opens the current source. Reading refers to the snapshot SHA-256 and page/block cited in the answer. Exact location jumping is unavailable; source changes are indicated.</string>
     <string name="document_plugin_select">PDF/DOCX reading needs the Documents plugin · Select</string>
     <string name="document_plugin_name">Documents</string>
+    <string name="chat_load_older_messages">Load earlier messages</string>
+    <string name="chat_show_latest_messages">Latest messages</string>
+    <string name="chat_search_history_navigation">Search history</string>
 </resources>

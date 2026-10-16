@@ -101,6 +101,7 @@ class SessionSearchDeviceTest {
         uiFixture()
         val service = compose.container().chatService
         typeQuery("sunrise ")
+        waitHit(SEARCH_ALPHA)
         compose.runOnIdle { assertEquals("sunrise ", service.sessionSearch.value.query) }
         typeQuery("sunrise planning")
         compose.runOnIdle { assertEquals("sunrise planning", service.sessionSearch.value.query) }
@@ -146,14 +147,10 @@ class SessionSearchDeviceTest {
         val snippet = betaHit.messageSnippet
         assertNotNull("the body hit carries a context snippet", snippet)
         assertTrue("the snippet contains the needle", snippet!!.contains("alpha-needle-77", ignoreCase = true))
-        assertTrue("the scope states at least one body was searched", bodySearch.scannedMessages >= 1)
-        // The scope line is shown in the UI: the search result is bound to the committed
-        // query, not "this page only". The snippet itself is proven above from the
-        // process-level service state — the source of truth the hit row renders — because
-        // collectAsStateWithLifecycle pauses collection while the v2 rule's trampoline
-        // backgrounds the activity, which can leave the snippet row uncomposed on a
-        // backgrounded frame even though the state (and the re-foregrounded row) carry it.
-        assertPresent("chat-session-search-scope")
+        assertTrue("indexed body matched", bodySearch.hits.isNotEmpty())
+        // The indexed search is complete here; only truncated results show the scope notice.
+        assertTrue(!bodySearch.truncated)
+        compose.onNodeWithTag("chat-session-search-scope").assertDoesNotExist()
     }
 
     @Test
@@ -260,7 +257,7 @@ class SessionSearchDeviceTest {
                 .performTextReplacement(text)
             val settled =
                 try {
-                    compose.waitUntil(TYPE_SETTLE_MILLIS) { searchUiActive() }
+                    compose.waitUntil(TYPE_SETTLE_MILLIS) { searchUiActive(text) }
                     true
                 } catch (_: ComposeTimeoutException) {
                     false
@@ -292,11 +289,14 @@ class SessionSearchDeviceTest {
     }
 
     /** True once the service holds a non-blank query: the explicit-scope line is visible. */
-    private fun searchUiActive(): Boolean =
+    private fun searchUiActive(expectedQuery: String): Boolean =
         compose
-            .onAllNodesWithTag("chat-session-search-scope")
-            .fetchSemanticsNodes()
-            .isNotEmpty()
+            .container()
+            .chatService.sessionSearch.value.query == expectedQuery &&
+            compose
+                .onAllNodesWithTag("chat-session-search-clear")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
 
     /** Waits until the node with [tag] is composed into the tree (immune to backgrounding). */
     private fun assertPresent(tag: String) {

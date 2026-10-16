@@ -85,15 +85,18 @@ class OwnedAccessibilityBackend(
         val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
         println("MOBILE_ACCESSIBILITY_EVENTS=$accessibilityEvents")
         automation.setOnAccessibilityEventListener(null)
-        automation
-            .executeShellCommand(
-                if (previousServices.isNullOrBlank()) {
-                    "settings delete secure enabled_accessibility_services"
-                } else {
-                    "settings put secure enabled_accessibility_services $previousServices"
-                },
-            ).close()
-        automation.executeShellCommand("settings put secure accessibility_enabled $previousEnabled").close()
+        // Drain both commands before another fixture captures the original settings.
+        // Closing the descriptor immediately can race the next connect/restore cycle.
+        shellOutput(
+            automation,
+            if (previousServices.isNullOrBlank()) {
+                "settings delete secure enabled_accessibility_services"
+            } else {
+                "settings put secure enabled_accessibility_services $previousServices"
+            },
+        )
+        shellOutput(automation, "settings put secure accessibility_enabled $previousEnabled")
+        backendChanged = false
     }
 
     private suspend fun await(

@@ -424,7 +424,7 @@ class AgentLoop(
         val settled =
             toolExecutor.executeBatch(
                 com.helix.core.agent
-                    .ToolBatchRequest(sessionId, turnId, localBatch.calls, control),
+                    .ToolBatchRequest(sessionId, turnId, localBatch.calls, control, coordinator.snapshot().modelCallId),
                 com.helix.core.agent
                     .ToolBatchObserver(coordinator::settleBatchCall),
             )

@@ -23,15 +23,42 @@ internal class ChatScreenProjection(
     private val strings: (Int, Array<out Any>) -> String,
     private val modelTerminalCodeRes: (String) -> Int,
 ) {
-    /**
-     * The open session's tool timeline: the PERSISTED rows (tool_calls + tool_results,
-     * every turn, newest session order) with the LIVE in-memory rows overlaid (the approval
-     * card is a live display; its persisted identity is the approvals row). Bounded to the
-     * newest [TOOL_TIMELINE_CAP] rows (doc 07 section 10: no unbounded list loads).
-     */
+    /** Load a display window independently of the model's effective history. */
+    fun historyFor(
+        sessionId: String?,
+        current: ChatScreenState,
+    ): ChatScreenState {
+        val sameSession = current.openSessionId == sessionId
+        val limit = if (sameSession) current.historyLimit else HISTORY_PAGE_SIZE
+        val through = if (sameSession) current.historyThrough else Long.MAX_VALUE
+        val page = sessionId?.let { storage.messages.recentBySession(it, limit + 1, through) }.orEmpty()
+        val history = page.takeLast(limit)
+        return ChatScreenState(
+            sessions = current.sessions,
+            openSessionId = sessionId,
+            badge = null,
+            activeTurn = null,
+            pendingDisclosure = current.pendingDisclosure,
+            blockedReason = current.blockedReason,
+            retryTargetTurnId = null,
+            messages = messagesFor(sessionId, current, history),
+            historyLimit = limit,
+            hasOlderMessages = page.size > limit,
+            historyThrough = through,
+            hasNewerMessages = through != Long.MAX_VALUE,
+            focusedHistoryMessage = current.focusedHistoryMessage.takeIf { sameSession },
+            historyFocusRevision = current.historyFocusRevision,
+            toolTimeline = toolTimelineFor(sessionId, current.toolTimeline, history, through),
+        )
+    }
+
+    /** Bounded persisted timeline with active approvals and recovery controls overlaid. */
     fun toolTimelineFor(
         sessionId: String?,
         liveRows: List<ToolTimelineRow>,
+        history: List<com.helix.core.storage.entity.MessageEntity> =
+            sessionId?.let { storage.messages.recentBySession(it, HISTORY_PAGE_SIZE) }.orEmpty(),
+        throughSequence: Long = Long.MAX_VALUE,
     ): List<ToolTimelineRow> {
         // No open session: KEEP the live rows as-is. A pending approval card lives ONLY
         // here (the dispatcher is still blocked in the broker while the user navigates
@@ -42,11 +69,16 @@ internal class ChatScreenProjection(
         if (sessionId == null) return liveRows
         val superseded = storage.messages.supersededTurns(sessionId)
         val sessionTurns = storage.turns.listBySession(sessionId).filterNot { it.id in superseded }
-        val persisted = persistedToolTimeline(sessionTurns, ChatTimelineOrder.positions(storage, sessionId))
+        val persisted =
+            persistedToolTimeline(
+                sessionId,
+                history.firstOrNull()?.sequence ?: Long.MAX_VALUE,
+                throughSequence,
+                ChatTimelineOrder.positions(storage, history),
+            )
         // Scope the overlay to THIS session's turns: a live row from another session
         // (e.g. a pending card left open when the user switched) must not appear here.
-        val turnsInSession = sessionTurns.map { it.id }.toSet()
-        val scoped = liveRows.filter { it.turnId in turnsInSession }
+        val scoped = scopedLiveRows(sessionTurns, persisted, liveRows)
         return if (scoped.isEmpty()) {
             persisted
         } else {
@@ -70,56 +102,50 @@ internal class ChatScreenProjection(
     }
 
     private fun persistedToolTimeline(
-        sessionTurns: List<TurnEntity>,
+        sessionId: String,
+        fromSequence: Long,
+        throughSequence: Long,
         positions: Map<String, ToolTimelinePosition>,
     ): List<ToolTimelineRow> =
-        sessionTurns
-            .flatMap { turn ->
-                storage.toolCalls
-                    .listByTurn(turn.id)
-                    .map { call ->
-                        val result = storage.toolResults.byToolCall(call.callId)
-                        val interruptedProot =
-                            com.helix.app.proot
-                                .prootRecoveryEligible(turn.state, call.state) &&
-                                call.name in setOf("bash", "code.linux.run")
-                        ToolTimelineRow(
-                            turnId = turn.id,
-                            callId = call.callId,
-                            toolName = call.name,
-                            modelIntent = call.modelIntent,
-                            requestSummary = call.argsJson,
-                            stateLabel = persistedStateLabel(persistedCallState(turn, call.state)),
-                            resultSummary = result?.summary,
-                            card = null,
-                            position = positions[call.callId],
-                            prootRecoveryAvailable = ProotToolModule.AVAILABLE && interruptedProot,
-                        )
-                    }
-            }.takeLast(TOOL_TIMELINE_CAP)
-
-    /** A persisted tool_call state as its user label (corrupt values fail closed). */
-    private fun persistedStateLabel(state: String): String =
-        when (runCatching { ToolCallState.valueOf(state) }.getOrNull()) {
-            ToolCallState.PENDING -> str(R.string.tool_state_processing)
-            ToolCallState.AWAITING_APPROVAL -> str(R.string.tool_state_awaiting_approval)
-            ToolCallState.RUNNING -> str(R.string.tool_state_running)
-            ToolCallState.NEEDS_REVIEW -> str(R.string.tool_state_needs_review)
-            ToolCallState.INTERRUPTED -> str(R.string.tool_state_interrupted)
-            ToolCallState.COMPLETED -> str(R.string.tool_state_completed)
-            ToolCallState.FAILED -> str(R.string.tool_state_failed)
-            ToolCallState.CANCELLED -> str(R.string.tool_state_cancelled)
-            ToolCallState.DENIED -> str(R.string.tool_state_denied)
-            null -> str(R.string.tool_state_unknown)
-        }
+        storage.toolCalls
+            .recentBySession(sessionId, fromSequence, throughSequence, TOOL_TIMELINE_CAP)
+            .map { call ->
+                val turn = storage.turns.resolve(call.turnId)
+                val result = storage.toolResults.byToolCall(call.callId)
+                val interruptedProot =
+                    com.helix.app.proot
+                        .prootRecoveryEligible(turn.state, call.state) &&
+                        call.name in setOf("bash", "code.linux.run")
+                ToolTimelineRow(
+                    turnId = turn.id,
+                    callId = call.callId,
+                    toolName = call.name,
+                    modelIntent = call.modelIntent,
+                    requestSummary = call.argsJson,
+                    stateLabel = str(persistedStateLabelRes(persistedCallState(turn, call.state))),
+                    resultSummary = result?.summary,
+                    card = null,
+                    position =
+                        call.modelCallId?.let { modelId ->
+                            storage.modelCalls.find(modelId)?.toolMessageId?.let { messageId ->
+                                ToolTimelinePosition(
+                                    storage.messages.resolve(messageId).sequence,
+                                    requireNotNull(call.callIndex),
+                                )
+                            }
+                        } ?: positions[call.callId],
+                    prootRecoveryAvailable = ProotToolModule.AVAILABLE && interruptedProot,
+                )
+            }
 
     /** Conversation text only; tool protocol rows are shown through the collapsed tool timeline. */
     fun messagesFor(
         sessionId: String?,
         screen: ChatScreenState,
+        history: List<com.helix.core.storage.entity.MessageEntity> =
+            sessionId?.let { storage.messages.recentBySession(it, HISTORY_PAGE_SIZE) }.orEmpty(),
     ): List<MessageUi> {
         if (sessionId == null) return screen.messages
-        val history = storage.messages.listBySession(sessionId)
         val messages =
             history
                 .filter {
@@ -259,6 +285,7 @@ internal class ChatScreenProjection(
 
     private companion object {
         const val TOOL_TIMELINE_CAP = 200
+        const val HISTORY_PAGE_SIZE = 100
     }
 }
 
@@ -270,4 +297,34 @@ private fun persistedCallState(
         ToolCallState.INTERRUPTED.name
     } else {
         callState
+    }
+
+internal fun scopedLiveRows(
+    turns: List<TurnEntity>,
+    persisted: List<ToolTimelineRow>,
+    live: List<ToolTimelineRow>,
+): List<ToolTimelineRow> {
+    val owned = turns.map { it.id }.toSet()
+    val active = turns.filterNot { TurnState.valueOf(it.state).isTerminal }.map { it.id }.toSet()
+    val selected = persisted.map { it.callId }.toSet()
+    // Do not reintroduce completed rows from a previously displayed history window.
+    return live.filter {
+        it.turnId in owned &&
+            (it.callId in selected || it.turnId in active || it.card != null || it.prootRecoveryBusy)
+    }
+}
+
+/** A persisted tool_call state as its user label (corrupt values fail closed). */
+private fun persistedStateLabelRes(state: String): Int =
+    when (runCatching { ToolCallState.valueOf(state) }.getOrNull()) {
+        ToolCallState.PENDING -> R.string.tool_state_processing
+        ToolCallState.AWAITING_APPROVAL -> R.string.tool_state_awaiting_approval
+        ToolCallState.RUNNING -> R.string.tool_state_running
+        ToolCallState.NEEDS_REVIEW -> R.string.tool_state_needs_review
+        ToolCallState.INTERRUPTED -> R.string.tool_state_interrupted
+        ToolCallState.COMPLETED -> R.string.tool_state_completed
+        ToolCallState.FAILED -> R.string.tool_state_failed
+        ToolCallState.CANCELLED -> R.string.tool_state_cancelled
+        ToolCallState.DENIED -> R.string.tool_state_denied
+        null -> R.string.tool_state_unknown
     }

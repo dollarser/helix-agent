@@ -7,7 +7,7 @@ import java.io.OutputStream
 
 object SessionExportFormat {
     const val NAME = "helix.session-export"
-    const val VERSION = 1
+    const val VERSION = 2
     const val INLINE_BYTES = 32 * 1024
     const val LINE_BYTES = 256 * 1024
     const val FILE_BYTES = 128L * 1024 * 1024

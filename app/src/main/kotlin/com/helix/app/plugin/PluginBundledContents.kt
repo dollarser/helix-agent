@@ -30,16 +30,15 @@ internal fun PluginBundledContents(
 ) {
     var tools by remember(pluginId) { mutableStateOf(emptyList<Pair<String, String>>()) }
     var skills by remember(pluginId) { mutableStateOf(emptyList<SkillDocument>()) }
+    var required by remember(pluginId) { mutableStateOf("") }
+    var requiredExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
     var loaded by remember(pluginId) { mutableStateOf(false) }
     var failed by remember(pluginId) { mutableStateOf(false) }
-    var skillsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
-    var toolsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
-    val expandedLabel = stringResource(R.string.nav_expanded)
-    val collapsedLabel = stringResource(R.string.nav_collapsed)
     LaunchedEffect(service, pluginId) {
         try {
             tools = withContext(Dispatchers.IO) { service.bundledToolDescriptions(pluginId) }
             skills = withContext(Dispatchers.IO) { service.bundledSkillContents(pluginId) }
+            required = withContext(Dispatchers.IO) { service.bundledRequiredInstructions(pluginId) }
             loaded = true
         } catch (cancel: CancellationException) {
             throw cancel
@@ -56,6 +55,28 @@ internal fun PluginBundledContents(
             androidx.compose.material3.CircularProgressIndicator()
             return@Column
         }
+        if (required.isNotBlank()) {
+            TextButton(
+                { requiredExpanded = !requiredExpanded },
+                Modifier.testTag("plugin-required-heading-$pluginId"),
+            ) { Text(stringResource(R.string.plugin_required_guidance)) }
+            if (requiredExpanded) Text(required, Modifier.testTag("plugin-required-content-$pluginId"))
+        }
+        BundledSkillContents(pluginId, skills)
+        BundledToolContents(pluginId, tools)
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun BundledSkillContents(
+    pluginId: String,
+    skills: List<SkillDocument>,
+) {
+    var skillsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
+    val expandedLabel = stringResource(R.string.nav_expanded)
+    val collapsedLabel = stringResource(R.string.nav_collapsed)
+    Column {
         TextButton(
             { skillsExpanded = !skillsExpanded },
             Modifier.testTag("plugin-skills-heading-$pluginId").semantics {
@@ -68,9 +89,34 @@ internal fun PluginBundledContents(
                 var open by remember(skill.catalogEntry) { mutableStateOf(false) }
                 TextButton({ open = !open }) { Text(skill.catalogEntry.name) }
                 Text(skill.catalogEntry.description)
-                if (open) Text(skill.rawContent, Modifier.testTag("plugin-skill-content-${skill.catalogEntry.name}"))
+                if (open) {
+                    Text(skill.rawContent, Modifier.testTag("plugin-skill-content-${skill.catalogEntry.name}"))
+                    skill.resources.toSortedMap().forEach { (path, content) ->
+                        var resourceOpen by remember(skill.catalogEntry, path) { mutableStateOf(false) }
+                        TextButton(
+                            { resourceOpen = !resourceOpen },
+                            Modifier.testTag("plugin-resource-${skill.catalogEntry.name}-$path"),
+                        ) { Text(path) }
+                        if (resourceOpen) {
+                            Text(content, Modifier.testTag("plugin-resource-content-${skill.catalogEntry.name}-$path"))
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun BundledToolContents(
+    pluginId: String,
+    tools: List<Pair<String, String>>,
+) {
+    var toolsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
+    val expandedLabel = stringResource(R.string.nav_expanded)
+    val collapsedLabel = stringResource(R.string.nav_collapsed)
+    Column {
         TextButton(
             { toolsExpanded = !toolsExpanded },
             Modifier.testTag("plugin-tools-heading-$pluginId").semantics {

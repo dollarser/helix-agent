@@ -55,10 +55,7 @@ object StorageGarbageCollector {
         referenceChecker: ContentReferenceChecker,
         gracePeriodMillis: Long = DEFAULT_GRACE_PERIOD_MS,
         now: Long = System.currentTimeMillis(),
-    ): StorageGcResult =
-        ContentLifecycle.coordinate(contentRoot) {
-            collectCoordinated(contentRoot, referenceChecker, gracePeriodMillis, now)
-        }
+    ): StorageGcResult = collectCoordinated(contentRoot, referenceChecker, gracePeriodMillis, now)
 
     private fun collectCoordinated(
         contentRoot: File,
@@ -80,24 +77,31 @@ object StorageGarbageCollector {
 
         val contentDir = File(contentRoot, "content").let { if (it.exists()) it else contentRoot }
         val allFiles =
-            runCatching {
-                contentDir
-                    .walkTopDown()
-                    .onEnter {
-                        !java.nio.file.Files
-                            .isSymbolicLink(it.toPath())
-                    }.filter {
-                        java.nio.file.Files
-                            .isRegularFile(it.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
-                    }.toList()
-            }.getOrDefault(emptyList())
+            contentDir
+                .walkTopDown()
+                .onEnter {
+                    !java.nio.file.Files
+                        .isSymbolicLink(it.toPath())
+                }.filter {
+                    java.nio.file.Files
+                        .isRegularFile(it.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                }
 
         for (file in allFiles) {
             scanned++
             val lastModified = runCatching { file.lastModified() }.getOrDefault(now)
             if (now - lastModified < gracePeriodMillis) continue
 
-            val outcome = processCandidate(file, contentRoot, referenceChecker)
+            // Only the reference check and deletion are atomic with publication. Directory walking
+            // and other candidates must not hold up unrelated messages for the entire collection.
+            val outcome =
+                ContentLifecycle.coordinate(contentRoot) {
+                    if (now - file.lastModified() < gracePeriodMillis) {
+                        FileGcOutcome()
+                    } else {
+                        processCandidate(file, contentRoot, referenceChecker)
+                    }
+                }
             if (outcome.deletedTemp) {
                 deletedTemp++
                 freedBytes += outcome.freedBytes

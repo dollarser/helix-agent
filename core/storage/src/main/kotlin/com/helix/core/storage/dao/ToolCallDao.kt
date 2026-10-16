@@ -25,10 +25,31 @@ interface ToolCallDao {
     @Query("SELECT * FROM tool_calls WHERE id = :id")
     fun byId(id: String): ToolCallEntity?
 
-    @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY rowid ASC")
+    @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY ordinal ASC")
     fun listByTurn(turnId: String): List<ToolCallEntity>
 
-    @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY rowid DESC LIMIT :limit")
+    @Query("SELECT COALESCE(MAX(ordinal), -1) FROM tool_calls WHERE turnId = :turnId")
+    fun maxOrdinal(turnId: String): Long
+
+    @Query(
+        "SELECT c.* FROM tool_calls c JOIN turns t ON t.id = c.turnId WHERE t.sessionId = :sessionId " +
+            "AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.turnId = t.id AND m.supersededBy IS NOT NULL) " +
+            "AND ((:throughSequence = 9223372036854775807 AND " +
+            "(t.state NOT IN ('COMPLETED','FAILED','CANCELLED','INTERRUPTED') OR c.modelCallId IS NULL)) OR EXISTS " +
+            "(SELECT 1 FROM model_calls mc JOIN messages m ON m.id = mc.toolMessageId " +
+            "WHERE mc.id = c.modelCallId AND m.sequence BETWEEN :fromSequence AND :throughSequence) OR " +
+            "(c.modelCallId IS NULL AND EXISTS (SELECT 1 FROM messages m WHERE m.turnId = t.id " +
+            "AND m.sequence BETWEEN :fromSequence AND :throughSequence))) " +
+            "ORDER BY t.startedAt DESC, t.id DESC, c.ordinal DESC LIMIT :limit",
+    )
+    fun recentBySession(
+        sessionId: String,
+        fromSequence: Long,
+        throughSequence: Long,
+        limit: Int,
+    ): List<ToolCallEntity>
+
+    @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY ordinal DESC LIMIT :limit")
     fun recentByTurn(
         turnId: String,
         limit: Int,

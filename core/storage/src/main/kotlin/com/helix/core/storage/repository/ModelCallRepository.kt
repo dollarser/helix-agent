@@ -5,6 +5,8 @@ import com.helix.core.storage.entity.ModelCallEntity
 
 class ModelCallRepository(
     private val dao: ModelCallDao,
+    private val transaction: (() -> Unit) -> Unit,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     fun append(
         id: String,
@@ -15,8 +17,24 @@ class ModelCallRepository(
     ): ModelCallEntity {
         require(providerSnapshot.isNotBlank()) { "providerSnapshot must not be blank" }
         require(state.isNotBlank()) { "state must not be blank" }
-        val entity = ModelCallEntity(id, turnId, providerSnapshot, state, null, null, null, null, requestManifest)
-        dao.insert(entity)
+        lateinit var entity: ModelCallEntity
+        transaction {
+            entity =
+                ModelCallEntity(
+                    id,
+                    turnId,
+                    providerSnapshot,
+                    state,
+                    null,
+                    null,
+                    null,
+                    null,
+                    requestManifest,
+                    ordinal = dao.maxOrdinal(turnId) + 1,
+                    createdAt = clock(),
+                )
+            dao.insert(entity)
+        }
         return entity
     }
 
@@ -35,8 +53,15 @@ class ModelCallRepository(
 
     fun listByTurn(turnId: String): List<ModelCallEntity> = dao.listByTurn(turnId)
 
+    fun bindToolMessage(
+        id: String,
+        messageId: String,
+    ) {
+        check(dao.bindToolMessage(id, messageId) == 1) { "MODEL_TOOL_MESSAGE_CONFLICT" }
+    }
+
     /** Reconcile abandoned calls, including rows left by older recovery versions; keep known metadata. */
-    fun interruptForInterruptedTurns(): Int = dao.interruptForInterruptedTurns()
+    fun interruptForInterruptedTurns(): Int = dao.interruptForInterruptedTurns(clock())
 
     fun update(
         call: ModelCallEntity,
@@ -45,7 +70,7 @@ class ModelCallRepository(
         requestId: String?,
     ) {
         require(state.isNotBlank()) { "state must not be blank" }
-        dao.update(call.id, state, usage, requestId)
+        dao.update(call.id, state, usage, requestId, if (state == "RUNNING") null else clock())
     }
 
     /**

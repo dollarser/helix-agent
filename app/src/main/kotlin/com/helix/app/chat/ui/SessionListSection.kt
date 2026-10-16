@@ -122,23 +122,15 @@ internal fun SessionListSection(
             )
         }
         if (search.isSearching) {
-            item(key = "search-scope") {
-                Text(
-                    buildString {
-                        append(stringResource(R.string.chat_session_search_scoped, search.scannedMessages))
-                        if (search.skippedMessages > 0) {
-                            append(" ")
-                            append(stringResource(R.string.chat_session_search_skipped, search.skippedMessages))
-                        }
-                        if (search.truncated) {
-                            append(" ")
-                            append(stringResource(R.string.chat_session_search_truncated))
-                        }
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("chat-session-search-scope"),
-                )
+            if (search.truncated) {
+                item(key = "search-scope") {
+                    Text(
+                        stringResource(R.string.chat_session_search_truncated),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("chat-session-search-scope"),
+                    )
+                }
             }
             if (search.hits.isEmpty()) {
                 item(key = "search-empty") {

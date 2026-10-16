@@ -151,6 +151,7 @@ class SessionExportResourceDeviceTest {
                         arguments,
                         "fixture",
                         "COMPLETED",
+                        ordinal = index.toLong(),
                     ),
                 )
             }

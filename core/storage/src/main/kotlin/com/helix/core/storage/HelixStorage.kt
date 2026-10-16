@@ -128,7 +128,13 @@ class HelixStorage internal constructor(
         )
     }
 
-    val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
+    val messages: MessageRepository by lazy {
+        MessageRepository(database.messageDao(), contentStore, database.sessionSearchDao(), ::withTransaction)
+    }
+    val sessionHistory by lazy {
+        com.helix.core.storage.repository
+            .SessionHistoryRepository(database.sessionHistoryDao(), contentStore)
+    }
     val sessionInputs by lazy {
         com.helix.core.storage.repository
             .SessionInputRepository(database, contentStore)
@@ -136,11 +142,11 @@ class HelixStorage internal constructor(
     val sessionExports: SessionExportRepository by lazy { SessionExportRepository(database, contentStore) }
 
     /**
-     * Read-only session/history search (HXA-191 slice): bounded title + message-body
-     * matching over the existing rows and content store; the caller runs it off the UI thread.
+     * Read-only search over the transactionally published text projection. Returned hits are bounded;
+     * the source history is not truncated. The caller runs it off the UI thread.
      */
     val sessionSearch: SessionSearchRepository by lazy {
-        SessionSearchRepository(database.sessionDao(), database.messageDao(), contentStore)
+        SessionSearchRepository(database.sessionSearchDao())
     }
     val messageAttachments: MessageAttachmentRepository by lazy {
         MessageAttachmentRepository(database.messageAttachmentDao())
@@ -155,8 +161,8 @@ class HelixStorage internal constructor(
     val turnReviewReceipts: TurnReviewReceiptRepository by lazy {
         TurnReviewReceiptRepository(database.turnReviewReceiptDao())
     }
-    val modelCalls: ModelCallRepository by lazy { ModelCallRepository(database.modelCallDao()) }
-    val toolCalls: ToolCallRepository by lazy { ToolCallRepository(database.toolCallDao()) }
+    val modelCalls: ModelCallRepository by lazy { ModelCallRepository(database.modelCallDao(), ::withTransaction) }
+    val toolCalls: ToolCallRepository by lazy { ToolCallRepository(database.toolCallDao(), ::withTransaction) }
     val toolResults: ToolResultRepository by lazy { ToolResultRepository(database.toolResultDao(), contentStore) }
     val toolCallReviews: ToolCallReviewRepository by lazy {
         ToolCallReviewRepository(

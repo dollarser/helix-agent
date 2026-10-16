@@ -47,6 +47,7 @@ class WorkBuddySuppliedArchiveTest {
                             snapshot.name
                         }.toSet()
                 assertEquals(names, imported)
+                assertImportedUpdateSummary(bundle, names)
                 println("WorkBuddy $name: ${bundle.skills.size} skills, ${bundle.endpoints.size} endpoint")
             }
         } finally {

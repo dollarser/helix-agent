@@ -23,6 +23,7 @@ class DatabaseContractTest {
             "session_connectors",
             "connector_endpoints",
             "messages",
+            "message_search",
             "message_attachments",
             "message_reference_snapshots",
             "document_snapshots",
@@ -130,7 +131,21 @@ class DatabaseContractTest {
     fun `current turn recovery and review facts are first-class baseline columns`() {
         assertTrue("recoveryFromTurnId" in columns("turns"))
         assertEquals(
-            listOf("id", "turnId", "callId", "name", "version", "argsJson", "argsHash", "state", "modelIntent"),
+            listOf(
+                "id",
+                "turnId",
+                "callId",
+                "name",
+                "version",
+                "argsJson",
+                "argsHash",
+                "state",
+                "modelIntent",
+                "modelCallId",
+                "callIndex",
+                "ordinal",
+                "createdAt",
+            ),
             columns("tool_calls"),
         )
         assertEquals(

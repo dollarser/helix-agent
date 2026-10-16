@@ -103,12 +103,12 @@ class SessionProjectionLoadDeviceTest {
                 chat.openSession(HEAVY)
                 compose.waitUntil(30_000) {
                     chat.screen.value.openSessionId == HEAVY &&
-                        chat.screen.value.messages.size == 1000
+                        chat.screen.value.messages.size == 100 && chat.screen.value.hasOlderMessages
                 }
                 compose.waitForIdle()
             }
         assertEquals(
-            "projection-message-0",
+            "projection-message-900",
             chat.screen.value.messages
                 .first()
                 .id,
@@ -119,6 +119,20 @@ class SessionProjectionLoadDeviceTest {
                 .last()
                 .id,
         )
+        repeat(9) { page ->
+            chat.loadOlderMessages()
+            compose.waitUntil(30_000) { chat.screen.value.messages.size == (page + 2) * 100 }
+        }
+        assertEquals(
+            "projection-message-0",
+            chat.screen.value.messages
+                .first()
+                .id,
+        )
+        assertFalse(chat.screen.value.hasOlderMessages)
+        chat.showLatestMessages()
+        compose.waitUntil(30_000) { chat.screen.value.messages.size == 100 }
+        assertTrue(chat.screen.value.hasOlderMessages)
         return elapsed
     }
 
@@ -132,7 +146,10 @@ class SessionProjectionLoadDeviceTest {
                     state.query == "load-needle-$i" && state.hits.any { it.sessionId == HEAVY && it.matchesMessage }
                 }
             }
-        assertTrue(chat.sessionSearch.value.scannedMessages > 0)
+        assertTrue(
+            chat.sessionSearch.value.hits
+                .isNotEmpty(),
+        )
         assertFalse(
             chat.sessionSearch.value.hits
                 .any { it.sessionId != HEAVY },
