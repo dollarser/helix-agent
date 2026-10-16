@@ -165,13 +165,7 @@ private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
         return
     }
     val destinationTag = "navigation-$route"
-    val groupTag =
-        when (route) {
-            "tasks", "artifacts", "git", SETTINGS_STORAGE_ROUTE, SETTINGS_AUDIT_ROUTE -> "navigation-group-work"
-            "files", "browser", "terminal" -> "navigation-group-tools"
-            SETUP_RUNTIME_ROUTE -> "navigation-group-settings"
-            else -> if (route == "settings" || route.startsWith("settings/")) "navigation-group-settings" else null
-        }
+    val groupTag = drawerGroupForRoute(route)
     if (groupTag != null && onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty()) {
         onNodeWithTag(groupTag).performScrollTo().performClick()
         waitForIdle()
@@ -182,6 +176,14 @@ private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
             !onNodeWithTag(destinationTag).isDisplayed()
     }
 }
+
+private fun drawerGroupForRoute(route: String): String? =
+    when (route) {
+        "tasks", "artifacts", "git" -> "navigation-group-work"
+        SETTINGS_STORAGE_ROUTE, SETTINGS_AUDIT_ROUTE, SETUP_RUNTIME_ROUTE -> "navigation-group-settings"
+        "files", "browser", "terminal" -> "navigation-group-tools"
+        else -> if (route == "settings" || route.startsWith("settings/")) "navigation-group-settings" else null
+    }
 
 /**
  * HXA-069: a zh-CN [Context] for the locale-deterministic UI fixtures. The headless

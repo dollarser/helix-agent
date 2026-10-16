@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -28,11 +29,25 @@ class UnifiedExtensionsDeviceTest {
         }
         compose.onNodeWithTag("marketplace-section").assertDoesNotExist()
         compose.onNodeWithTag("connector-import").assertDoesNotExist()
-        compose.onNodeWithTag("extensions-add").performScrollTo().performClick()
+        compose
+            .onNodeWithTag("extensions-add")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
         compose.onNodeWithTag("connector-import").assertExists()
-        compose.onNodeWithTag("extensions-add").performScrollTo().performClick()
+        compose.onNodeWithTag("extensions-search").assertDoesNotExist()
+        compose
+            .onNodeWithTag("extensions-tab-manage")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
         compose.onNodeWithTag("connector-import").assertDoesNotExist()
-        compose.onNodeWithTag("extensions-tab-market").performScrollTo().performClick()
+        compose
+            .onNodeWithTag("extensions-tab-market")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
         compose.onNodeWithTag("marketplace-section").assertExists()
+        compose.onNodeWithTag("connector-import").assertDoesNotExist()
     }
 }

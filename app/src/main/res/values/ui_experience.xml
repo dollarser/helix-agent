@@ -1,0 +1,19 @@
+<resources>
+    <string name="plugins_tab_add">导入</string>
+    <string name="plugins_manage_intro">管理已安装插件，在需要的会话中选用。</string>
+    <string name="plugins_discover_intro">查找适合任务的插件，查看内容后安装。</string>
+    <string name="plugins_add_intro">导入插件包或粘贴 MCP 配置，预览后确认安装。</string>
+    <string name="plugins_authoring">创建技能</string>
+    <string name="plugins_authoring_summary">编写并校验自己的任务指导</string>
+    <string name="plugins_manage_action">管理</string>
+    <string name="nav_tasks_description">查看进度、处理等待与中断</string>
+    <string name="nav_artifacts_description">查看结果、预览和分享文件</string>
+    <string name="nav_storage_description">查看占用与清理入口</string>
+    <string name="nav_diagnostics_description">排查失败、查看调用记录</string>
+    <string name="work_tasks_intro">会话中的任务会汇总到这里。先处理“需要你”的项目，或打开任务回到原会话。</string>
+    <string name="work_artifacts_intro">这里收集任务的回答和生成文件。点开可预览、分享，或回到生成它的会话。</string>
+    <string name="work_tasks_empty_title">开始一个任务</string>
+    <string name="work_tasks_empty_body">在会话里描述你要完成的事，例如整理文档或操作手机应用。执行进度会出现在这里。</string>
+    <string name="work_artifacts_empty_title">让任务留下成果</string>
+    <string name="work_artifacts_empty_body">让 Helix 写一份文档、整理表格或保存任务结果。生成的文件和已完成的回答会集中显示在这里。</string>
+</resources>

@@ -2,15 +2,14 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +65,6 @@ fun ExtensionsScreen(
     var mobileSettings by rememberSaveable { mutableStateOf(false) }
     var returnSession by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var adding by rememberSaveable { mutableStateOf(false) }
     var useSession by rememberSaveable { mutableStateOf<String?>(null) }
     var usePluginId by rememberSaveable { mutableStateOf<String?>(null) }
     var configurePluginId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -120,35 +118,34 @@ fun ExtensionsScreen(
             .testTag("screen-extensions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (marketplace != null) {
-            ExtensionTabBar(
-                selectedTab = selectedTab,
-                onSelectTab = { selectedTab = it },
-            )
-            HorizontalDivider()
-        }
-
-        OutlinedButton(onClick = { adding = !adding }, modifier = Modifier.testTag("extensions-add")) {
-            Text(stringResource(R.string.extensions_add))
-        }
-        if (adding) {
+        ExtensionTabBar(selectedTab, marketplace != null) { selectedTab = it }
+        Text(
+            stringResource(
+                extensionTabIntroduction(selectedTab),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (selectedTab == 2) {
             ConnectorSection(
                 connectors,
                 showInstalled = false,
                 onUse = onUsePlugin,
                 onInstalled = { catalogRevision++ },
                 onConfigureImported = { id ->
-                    adding = false
                     selectedTab = 0
                     configurePluginId = id
                 },
             )
             if (authoring != null && installation != null) {
                 SkillInstallationSection(authoring, installation, onUse, onInstalled = { catalogRevision++ })
-                SkillAuthoringSection(authoring)
+                SettingsDisclosure(
+                    stringResource(R.string.plugins_authoring),
+                    "plugins-authoring",
+                    stringResource(R.string.plugins_authoring_summary),
+                ) { SkillAuthoringSection(authoring) }
             }
-        }
-        if (marketplace != null && selectedTab == 1) {
+        } else if (marketplace != null && selectedTab == 1) {
             MarketplaceSection(
                 service = marketplace,
                 onConfigureRequested = { id ->
@@ -184,46 +181,31 @@ fun ExtensionsScreen(
     }
 }
 
+private fun extensionTabIntroduction(selectedTab: Int): Int =
+    when (selectedTab) {
+        1 -> R.string.plugins_discover_intro
+        2 -> R.string.plugins_add_intro
+        else -> R.string.plugins_manage_intro
+    }
+
 @Composable
 @Suppress("FunctionName")
 private fun ExtensionTabBar(
     selectedTab: Int,
+    showDiscover: Boolean,
     onSelectTab: (Int) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (selectedTab == 0) {
-            Button(
-                onClick = { onSelectTab(0) },
-                modifier = Modifier.weight(1f).testTag("extensions-tab-manage"),
-            ) {
-                Text(stringResource(R.string.marketplace_tab_manage))
-            }
-        } else {
-            OutlinedButton(
-                onClick = { onSelectTab(0) },
-                modifier = Modifier.weight(1f).testTag("extensions-tab-manage"),
-            ) {
-                Text(stringResource(R.string.marketplace_tab_manage))
-            }
-        }
-
-        if (selectedTab == 1) {
-            Button(
-                onClick = { onSelectTab(1) },
-                modifier = Modifier.weight(1f).testTag("extensions-tab-market"),
-            ) {
-                Text(stringResource(R.string.marketplace_tab_market))
-            }
-        } else {
-            OutlinedButton(
-                onClick = { onSelectTab(1) },
-                modifier = Modifier.weight(1f).testTag("extensions-tab-market"),
-            ) {
-                Text(stringResource(R.string.marketplace_tab_market))
-            }
+    val tabs = if (showDiscover) listOf(0, 1, 2) else listOf(0, 2)
+    val labels = listOf(R.string.marketplace_tab_manage, R.string.marketplace_tab_market, R.string.plugins_tab_add)
+    val tags = listOf("extensions-tab-manage", "extensions-tab-market", "extensions-add")
+    PrimaryTabRow(selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)) {
+        tabs.forEach { tab ->
+            Tab(
+                selected = selectedTab == tab,
+                onClick = { onSelectTab(tab) },
+                text = { Text(stringResource(labels[tab])) },
+                modifier = Modifier.testTag(tags[tab]),
+            )
         }
     }
 }

@@ -6,6 +6,7 @@ import com.helix.app.ShellDestination
 internal data class DrawerEntry(
     val route: String,
     val titleRes: Int,
+    val descriptionRes: Int? = null,
 ) {
     fun matches(currentRoute: String): Boolean =
         currentRoute == route ||
@@ -22,10 +23,6 @@ internal val settingsDrawerEntries =
         DrawerEntry(SETTINGS_DEFAULTS_ROUTE, R.string.settings_defaults_title),
         DrawerEntry(SETTINGS_PERMISSIONS_ROUTE, R.string.settings_permissions_safety_title),
         DrawerEntry(SETUP_RUNTIME_ROUTE, R.string.setup_runtime_title),
-    )
-
-internal val workUtilityDrawerEntries =
-    listOf(
-        DrawerEntry(SETTINGS_STORAGE_ROUTE, R.string.settings_storage_title),
-        DrawerEntry(SETTINGS_AUDIT_ROUTE, R.string.settings_diagnostics_title),
+        DrawerEntry(SETTINGS_STORAGE_ROUTE, R.string.settings_storage_title, R.string.nav_storage_description),
+        DrawerEntry(SETTINGS_AUDIT_ROUTE, R.string.settings_diagnostics_title, R.string.nav_diagnostics_description),
     )

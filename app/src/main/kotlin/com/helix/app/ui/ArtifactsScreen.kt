@@ -103,8 +103,8 @@ internal fun ArtifactsScreenDestination(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (fileRows.isEmpty() && taskRows.isEmpty()) {
-                item(key = "empty") { Text(stringResource(R.string.empty_artifacts)) }
+            item(key = "introduction") {
+                ArtifactsIntroduction(fileRows.isEmpty() && taskRows.isEmpty())
             }
             if (fileRows.isNotEmpty()) {
                 item(key = "files-header") {

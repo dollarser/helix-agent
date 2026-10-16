@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -222,8 +224,10 @@ private fun TasksRowList(
     onOpenCommandDetail: (String, String) -> Unit,
 ) {
     if (rows.isEmpty()) {
-        Column(Modifier.fillMaxSize().testTag("screen-tasks")) {
-            Text(stringResource(R.string.tasks_empty), Modifier.padding(24.dp).testTag("tasks-empty"))
+        Column(Modifier.fillMaxSize().padding(16.dp).testTag("screen-tasks")) {
+            Column(Modifier.testTag("tasks-empty")) {
+                WorkPageIntroduction(R.string.work_tasks_empty_title, R.string.work_tasks_empty_body)
+            }
         }
     } else {
         IndicatedLazyColumn(
@@ -231,6 +235,9 @@ private fun TasksRowList(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item(key = "introduction") {
+                Text(stringResource(R.string.work_tasks_intro), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             TasksBucket.values().forEach { bucket ->
                 val bucketRows = rows.filter { it.bucket == bucket }
                 if (bucketRows.isEmpty()) return@forEach
@@ -270,67 +277,78 @@ private fun TasksRowView(
     onShowArtifacts: (TaskArtifactsQuery) -> Unit,
     onOpenCommandDetail: (String, String) -> Unit,
 ) {
-    Column(Modifier.testTag(row.testTag)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(row.title)
-            Text(stringResource(row.kindRes), style = MaterialTheme.typography.labelSmall)
-        }
-        Text(stringResource(row.statusRes), style = MaterialTheme.typography.bodySmall)
-        if (row is BackgroundJobRow) {
-            JobRowControls(row, service)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (row) {
-                is BackgroundJobRow -> {
-                    TextButton(
-                        { onOpenSession(row.job.sessionId) },
-                        Modifier.testTag("tasks-job-open-${row.job.callId}"),
-                    ) { Text(stringResource(R.string.background_task_open)) }
-                    TextButton(
-                        { onOpenCommandDetail(row.job.turnId, row.job.callId) },
-                        Modifier.testTag("tasks-job-detail-${row.job.callId}"),
-                    ) { Text(stringResource(R.string.chat_tool_command_detail)) }
-                }
+    Card(
+        Modifier.fillMaxWidth().testTag(row.testTag),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TaskRowHeading(row)
+            Text(stringResource(row.statusRes), style = MaterialTheme.typography.bodySmall)
+            if (row is BackgroundJobRow) {
+                JobRowControls(row, service)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (row) {
+                    is BackgroundJobRow -> {
+                        TextButton(
+                            { onOpenSession(row.job.sessionId) },
+                            Modifier.testTag("tasks-job-open-${row.job.callId}"),
+                        ) { Text(stringResource(R.string.background_task_open)) }
+                        TextButton(
+                            { onOpenCommandDetail(row.job.turnId, row.job.callId) },
+                            Modifier.testTag("tasks-job-detail-${row.job.callId}"),
+                        ) { Text(stringResource(R.string.chat_tool_command_detail)) }
+                    }
 
-                is TasksRow.Turn -> {
-                    TurnRowActions(
-                        row,
-                        service,
-                        onOpenSession,
-                        onShowResult,
-                        onShowCommands,
-                        onShowArtifacts,
-                    )
-                }
+                    is TasksRow.Turn -> {
+                        TurnRowActions(
+                            row,
+                            service,
+                            onOpenSession,
+                            onShowResult,
+                            onShowCommands,
+                            onShowArtifacts,
+                        )
+                    }
 
-                is TasksRow.Goal -> {
-                    // The Goal entry selects its owning session AND switches to the chat
-                    // page (HXA-202 slice 2): the reminder stays an observation, never a
-                    // Continued, and the navigation goes to the session the goal owns.
-                    TextButton(
-                        {
-                            service.openGoalReminder(row.goal.id)
-                            row.goal.sessionId?.let(onOpenSession)
-                        },
-                        Modifier.testTag("tasks-goal-open-${row.goal.id}"),
-                    ) { Text(stringResource(R.string.background_task_open)) }
-                    TextButton(
-                        { onShowArtifacts(TaskArtifactsQuery(turnId = null, goalId = row.goal.id)) },
-                        Modifier.testTag("tasks-goal-artifacts-${row.goal.id}"),
-                    ) { Text(stringResource(R.string.tasks_artifacts)) }
-                }
+                    is TasksRow.Goal -> {
+                        // The Goal entry selects its owning session AND switches to the chat
+                        // page (HXA-202 slice 2): the reminder stays an observation, never a
+                        // Continued, and the navigation goes to the session the goal owns.
+                        TextButton(
+                            {
+                                service.openGoalReminder(row.goal.id)
+                                row.goal.sessionId?.let(onOpenSession)
+                            },
+                            Modifier.testTag("tasks-goal-open-${row.goal.id}"),
+                        ) { Text(stringResource(R.string.background_task_open)) }
+                        TextButton(
+                            { onShowArtifacts(TaskArtifactsQuery(turnId = null, goalId = row.goal.id)) },
+                            Modifier.testTag("tasks-goal-artifacts-${row.goal.id}"),
+                        ) { Text(stringResource(R.string.tasks_artifacts)) }
+                    }
 
-                is TasksRow.Plan -> {
-                    TextButton(
-                        { onReviewPlan(row.plan.id) },
-                        Modifier.testTag("tasks-plan-review-${row.plan.id}"),
-                    ) { Text(stringResource(R.string.plan_review)) }
+                    is TasksRow.Plan -> {
+                        TextButton(
+                            { onReviewPlan(row.plan.id) },
+                            Modifier.testTag("tasks-plan-review-${row.plan.id}"),
+                        ) { Text(stringResource(R.string.plan_review)) }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun TaskRowHeading(row: TasksRow) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(row.title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(row.kindRes), style = MaterialTheme.typography.labelSmall)
     }
 }
 

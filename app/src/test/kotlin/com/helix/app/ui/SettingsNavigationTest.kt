@@ -14,9 +14,11 @@ class SettingsNavigationTest {
         assertFalse(entry.matches("sessions"))
     }
 
-    @Test fun workUtilitiesAreNotDuplicatedInSettings() {
-        assertEquals(listOf(SETTINGS_STORAGE_ROUTE, SETTINGS_AUDIT_ROUTE), workUtilityDrawerEntries.map { it.route })
-        assertTrue(settingsDrawerEntries.none { entry -> workUtilityDrawerEntries.any { it.route == entry.route } })
+    @Test fun storageAndDiagnosticsAreExplainedSettingsEntries() {
+        listOf(SETTINGS_STORAGE_ROUTE, SETTINGS_AUDIT_ROUTE).forEach { route ->
+            val entry = settingsDrawerEntries.single { it.route == route }
+            assertTrue(entry.descriptionRes != null)
+        }
     }
 
     @Test fun eachSettingsPageHasExactlyOneDrawerEntry() {
@@ -28,6 +30,8 @@ class SettingsNavigationTest {
                 "settings/defaults",
                 "settings/permissions",
                 "setup/runtime",
+                SETTINGS_STORAGE_ROUTE,
+                SETTINGS_AUDIT_ROUTE,
             ),
             routes,
         )
@@ -48,7 +52,7 @@ class SettingsNavigationTest {
         listOf("setup", SETUP_READINESS_ROUTE, SETUP_CAPABILITIES_ROUTE).forEach { child ->
             assertEquals(
                 listOf(SETTINGS_AUDIT_ROUTE),
-                workUtilityDrawerEntries.filter { it.matches(child) }.map { it.route },
+                settingsDrawerEntries.filter { it.matches(child) }.map { it.route },
             )
         }
         assertEquals(

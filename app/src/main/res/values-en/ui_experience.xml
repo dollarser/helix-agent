@@ -1,0 +1,19 @@
+<resources>
+    <string name="plugins_tab_add">Import</string>
+    <string name="plugins_manage_intro">Manage installed plugins and choose which to use in each conversation.</string>
+    <string name="plugins_discover_intro">Find plugins for your tasks and review their contents before installing.</string>
+    <string name="plugins_add_intro">Import a plugin package or paste MCP configuration, then review and install.</string>
+    <string name="plugins_authoring">Create a skill</string>
+    <string name="plugins_authoring_summary">Write and validate your own task instructions</string>
+    <string name="plugins_manage_action">Manage</string>
+    <string name="nav_tasks_description">Track progress and resolve waiting or interrupted work</string>
+    <string name="nav_artifacts_description">Review results, preview and share files</string>
+    <string name="nav_storage_description">Review storage usage and cleanup options</string>
+    <string name="nav_diagnostics_description">Investigate failures and inspect activity</string>
+    <string name="work_tasks_intro">Tasks from your conversations appear here. Check items that need you, or open a task to return to its conversation.</string>
+    <string name="work_artifacts_intro">Find task responses and generated files here. Open an item to preview, share, or return to its conversation.</string>
+    <string name="work_tasks_empty_title">Start a task</string>
+    <string name="work_tasks_empty_body">Describe what you need in a conversation, such as organizing documents or using an app. Track its progress here.</string>
+    <string name="work_artifacts_empty_title">Keep the results of your work</string>
+    <string name="work_artifacts_empty_body">Ask Helix to write a document, organize a table, or save a result. Generated files and completed responses appear here.</string>
+</resources>

@@ -2,6 +2,7 @@ package com.helix.app.plugin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -17,9 +18,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import kotlinx.coroutines.Dispatchers
@@ -82,14 +86,20 @@ internal fun PluginManagementCard(
     }
     Card(Modifier.fillMaxWidth().testTag("plugin-card-${record.id}")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            PluginManagementHeader(record, nativeDescription) { expanded = !expanded }
-            if (expanded) {
+            PluginManagementHeader(record, nativeDescription, expanded) { expanded = !expanded }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    { expanded = !expanded },
+                    Modifier.testTag("plugin-manage-${record.id}"),
+                ) { Text(stringResource(R.string.plugins_manage_action)) }
                 actions.use?.let {
                     TextButton(
                         it,
                         Modifier.testTag("plugin-use-${record.id}"),
                     ) { Text(stringResource(R.string.extensions_use)) }
                 }
+            }
+            if (expanded) {
                 PluginManagementTabs(record.id, section) { section = it }
                 when (section) {
                     0 -> {
@@ -142,22 +152,31 @@ private fun PluginManagementTabs(
 private fun PluginManagementHeader(
     record: InstalledPlugin,
     nativeDescription: String,
+    expanded: Boolean,
     onClick: () -> Unit,
 ) {
+    val expansion = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
     TextButton(
         onClick,
-        Modifier.testTag(record.native?.let { "bundled-plugin-${it.pluginId}" } ?: "extension-manage-${record.id}"),
+        Modifier
+            .fillMaxWidth()
+            .semantics { stateDescription = expansion }
+            .testTag(record.native?.let { "bundled-plugin-${it.pluginId}" } ?: "extension-manage-${record.id}"),
     ) {
-        Text(
-            if (record.native?.pluginId ==
-                "documents"
-            ) {
-                stringResource(R.string.document_plugin_name)
-            } else {
-                pluginDisplayName(record)
-            },
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (record.native?.pluginId ==
+                    "documents"
+                ) {
+                    stringResource(R.string.document_plugin_name)
+                } else {
+                    pluginDisplayName(record)
+                },
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(if (expanded) "▴" else "▾")
+        }
     }
     Text(
         stringResource(
@@ -169,6 +188,8 @@ private fun PluginManagementHeader(
                 R.string.plugin_origin_installed
             },
         ),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Text(
         when (record.native?.pluginId) {

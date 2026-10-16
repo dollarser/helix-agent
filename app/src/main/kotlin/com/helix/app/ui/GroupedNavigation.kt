@@ -60,7 +60,7 @@ internal fun GroupedNavigation(
                 }
 
                 R.string.nav_group_work -> {
-                    entries.map { DrawerEntry(it.route, it.titleRes) } + workUtilityDrawerEntries
+                    entries.map { it.workDrawerEntry() }
                 }
 
                 R.string.nav_group_tools -> {
@@ -155,7 +155,7 @@ internal fun GroupedNavigation(
                     if (isExpanded) {
                         entries.forEach { destination ->
                             NavigationDrawerItem(
-                                label = { Text(stringResource(destination.titleRes)) },
+                                label = { DrawerEntryLabel(destination) },
                                 selected = destination.matches(currentRoute),
                                 onClick = { onNavigate(destination.route) },
                                 modifier =
@@ -170,6 +170,28 @@ internal fun GroupedNavigation(
         }
         HorizontalDivider()
         footer()
+    }
+}
+
+private fun ShellDestination.workDrawerEntry() =
+    DrawerEntry(
+        route,
+        titleRes,
+        if (this == ShellDestination.Tasks) R.string.nav_tasks_description else R.string.nav_artifacts_description,
+    )
+
+@Composable
+@Suppress("FunctionName")
+private fun DrawerEntryLabel(entry: DrawerEntry) {
+    Column {
+        Text(stringResource(entry.titleRes))
+        entry.descriptionRes?.let {
+            Text(
+                stringResource(it),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

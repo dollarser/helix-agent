@@ -89,6 +89,7 @@ class ConversationTopBarDeviceTest {
         compose.navigateTo("extensions")
         compose.onNodeWithTag("extensions-tab-manage").performScrollTo().performClick()
         compose.onNodeWithTag("extensions-add").performScrollTo().performClick()
+        compose.onNodeWithTag("plugins-authoring").performScrollTo().performClick()
         compose.onNodeWithTag("skill-creator-open").performScrollTo().performClick()
         compose.onNodeWithTag("skill-creator-name").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("skill-creator-open").performScrollTo().performClick()
