@@ -43,3 +43,6 @@ __pycache__/
 /scripts/local/
 # Local historical documents.
 /docs/local/
+
+# GitNexus generated index
+.gitnexus/
