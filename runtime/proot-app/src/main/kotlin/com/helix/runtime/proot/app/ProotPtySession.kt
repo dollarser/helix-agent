@@ -3,7 +3,6 @@ package com.helix.runtime.proot.app
 import android.os.SystemClock
 import com.helix.runtime.proot.core.PtyInputConnection
 import com.helix.runtime.proot.core.PtyOutputBuffer
-import com.helix.runtime.proot.core.PtyProcessIdentity
 import com.helix.runtime.proot.core.PtySessionRecord
 import com.helix.runtime.proot.core.PtySessionStore
 import java.io.File
@@ -87,7 +86,7 @@ internal class ProotPtySession(
                 }
             }
             process = launch()
-            val identity = processIdentity(process.pid)
+            val identity = awaitPtyProcessIdentity(process.pid, exitObserved = { process.pollExit() != null })
             synchronized(lock) { update(record.started(identity)) }
             pump(process)
         } catch (failure: Exception) {
@@ -163,13 +162,6 @@ internal class ProotPtySession(
     companion object {
         private const val CLOSE_TIMEOUT_MS = 5000L
     }
-}
-
-private fun processIdentity(pid: Int): PtyProcessIdentity {
-    val stat = File("/proc/$pid/stat").readText()
-    check(stat.length <= 4096 && stat.startsWith("$pid ("))
-    val fields = stat.substringAfterLast(") ").trim().split(' ')
-    return PtyProcessIdentity(pid, fields[19].toLong())
 }
 
 /** The native child clears inherited handlers; SIGQUIT may be sent only after PRoot installs its own. */
