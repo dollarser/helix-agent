@@ -327,3 +327,53 @@ Owner 要求在 ARM64 预览本地收尾后，按竞品与当前实现更新既�
 5. **保持浅 harness。** 模型决定业务路线，客户端保证获权执行、真实结果、资源和审计；不按竞品工具名称生成同名空能力，不引入远程平台、固定多 Agent 分工或新的手机任务规划器。
 
 以上是基于证据的设计选择，不是新功能完成声明。没有重新打开账号结案、OCR 归因、完整长稳或远程发布；本次文档变更及检查归各 HXA/ADR 的本次更新记录。
+
+## 11. 2026-10-17 目录、工作副本与执行环境
+
+Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当前优化和后续重构方案，不承担旧内部接口兼容。此次以 Helix `374ccbc0` 为源码基线，CodeGraph 定位后复核当前文件；官方资料读取于 2026-10-17，源码采用下列固定提交。只研究与更新计划，不把远程执行列为当前产品能力，不复制参考实现。已交付的标题/路径优化及设备证据仍归[原记录](../../evidence/development/path-presentation-2026-10-17.md)。
+
+### 11.1 一手资料与可借鉴范围
+
+| 产品/参考 | 核实的目录与执行行为 | Helix 采用与取舍 |
+| --- | --- | --- |
+| Codex | 固定源码的 [exec_command](https://github.com/openai/codex/blob/96eb400d1231f0199e96f640c740096087cf3e9b/codex-rs/core/src/tools/handlers/unified_exec/exec_command.rs) 从所选 environment 解析 workdir；[apply_patch](https://github.com/openai/codex/blob/96eb400d1231f0199e96f640c740096087cf3e9b/codex-rs/core/src/tools/handlers/apply_patch.rs) 同样使用对应环境的文件面、cwd 和权限上下文 | 借鉴文件和命令共享明确环境绑定；这是该源码版本的内部实现，不是稳定公开 API，也不表示 Helix 需复制桌面沙箱或 environment 注册平台 |
+| Claude Code | [Remote Control](https://code.claude.com/docs/en/remote-control) 由原电脑上的进程执行，浏览器/手机控制同一会话；[Web](https://code.claude.com/docs/en/claude-code-on-the-web) 使用独立云环境，拉取/上传仓库与将任务带回本地是明确流程，后续本地修改不自动回同步云端 | 远程交互、远程执行、文件传输是三件事；连接恢复不等于搬迁文件。可借鉴 Git 分支/worktree 与 diff 审阅，但不能为模拟其交接流程 reset/stash 用户脏工作区 |
+| OpenHands SDK | [RemoteWorkspace](https://github.com/OpenHands/software-agent-sdk/blob/6530325e9dd0ea1b6b4f1994d7dab52764cfc3f1/openhands-sdk/openhands/sdk/workspace/remote/base.py) 明确 host、working_dir、command_id 与上传/下载源目标；[API workspace](https://github.com/OpenHands/software-agent-sdk/blob/6530325e9dd0ea1b6b4f1994d7dab52764cfc3f1/openhands-workspace/openhands/workspace/remote_api/workspace.py) 还管理 session/runtime 及暂停恢复 | 借鉴运行实例和传输身份。其 Agent Server 是部署架构选择，不能描述成所有工具都被透明 Workspace RPC 转发；Helix 先维持一个 Turn owner 和本机适配 |
+| SWE-ReX / SWE-agent | [SWE-ReX 请求类型](https://github.com/SWE-agent/SWE-ReX/blob/5c995c365dfb1fd5bc56fda688be5d8538f9931f/src/swerex/runtime/abstract.py) 区分 shell session、命令和传输路径；[仓库准备](https://github.com/SWE-agent/SWE-agent/blob/3ea751c087f32b16e039a2233dd6eefecef325d5/sweagent/environment/repo.py) 明确 clone/upload 与基线准备 | 保留持久 shell 和单次命令的不同 cwd 语义；可控评测仓库的 reset/清理策略不适用于用户共享目录 |
+| VS Code / Dev Containers | [虚拟工作区](https://code.visualstudio.com/api/extension-guides/virtual-workspaces) 以 URI/provider 表达资源，不保证本机文件路径；[挂载配置](https://code.visualstudio.com/remote/advancedcontainers/change-default-source-mount) 区分 workspaceMount 和 workspaceFolder；[远程 Docker](https://code.visualstudio.com/remote/advancedcontainers/develop-remote-host) 不能直接挂载客户端本地文件 | 文件可访问与可作为 POSIX cwd 分开。SAF 不能靠替换前缀变成终端目录，远程文件必须显式传输或由真实共享存储提供 |
+| E2B | [文件 API](https://docs.e2b.dev/filesystem/read-write) 操作指定 Sandbox 内的路径；[持久化](https://docs.e2b.dev/sandbox/persistence) 使用 sandbox 身份恢复，文件系统与内存恢复模式有区别 | 用原实例身份辨认恢复，不把 create、resume 和重发命令混为一谈；Android PRoot 不据此承诺恢复 shell 内存 |
+| Modal | [快照](https://modal.com/docs/guide/sandbox-snapshots) 有不同种类、身份和保留期，文件系统快照用于创建新 Sandbox；[Volumes](https://modal.com/docs/guide/volumes) 的 commit/reload 决定变更可见性，同文件并发写并不提供分布式文件锁 | 区分执行实例、快照和共享存储生命周期；不把 rootfs、工作副本、Volume 与成果压成一种“目录”。不引入透明同步或假定快照永久存在 |
+
+共同点是明确“哪个环境、哪份文件、哪个执行实例”，不是统一用一种路径字符串。上述研究没有对竞品执行可靠性、安全边界或账号功能做实测。
+
+### 11.2 当前 Helix 的真实路径
+
+| 当前入口 | 实际目录/数据面 | 当前边界与待改进处 |
+| --- | --- | --- |
+| 原生文件工具 | 请求捕获的 Workspace 与子目录；相对参数在哈希、策略和批准前变为完整 scoped 身份 | 已有请求绑定及显示投影；不应为“重构”再建第二解析器。路径可读不等于所有 Runtime 都能访问 |
+| SAF 文档树 | ContentResolver/Document Provider 下的直接文档操作，执行前重查系统 grant 和能力 | Provider URI 不是 POSIX cwd；授权撤销、Provider 不在线与不支持操作须区分 |
+| 手动 PRoot 终端 | App/managed 中实际目录挂载为 `/workspace`，以其为初始 cwd；抽屉入口使用自身目录 | 是 live mount，但当前不是任意外部 Path/SAF，且不自动等于聊天目录；终端内 `cd` 不改会话绑定 |
+| Linux Job | 输入经有界复制/归档进入 Job 独立 workspace，再挂载 `/workspace` | 是 snapshot，非聊天目录 live mount。输入被压平成 basename，第二项起每项都追加序号，即使不重名；cwd 只接受单层目录名。输出收取/产物发布不等于回写源文件 |
+| Room 与模型历史 | WorkspaceEntity 保存资源身份，SessionWorkspaceEntity 保存绑定及 revision，ModelCallWorkspaceEntity 保存原请求目录快照 | 这组职责有价值，应扩展原契约而非废弃重写；显示名/相对路径不能代替持久身份 |
+
+核对入口：[文件参数](../../../app/src/main/kotlin/com/helix/app/chat/FileToolArguments.kt)、[Workspace 持久身份](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/WorkspaceEntity.kt)、[会话目录服务](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkspaceService.kt)、[输入快照](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxInputSnapshot.kt)、[Job 参数](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt)、[Job 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt)、[PTY 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotTerminalLaunch.kt)、[抽屉终端装配](../../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt)、[文件来源展示](../../../app/src/main/kotlin/com/helix/app/files/WorkspaceFileSources.kt)。RootFS 提供程序运行环境，工作目录提供任务文件，产物库保存已发布结果；三个位置不能互相替代。
+
+### 11.3 设计结论与分工
+
+目标是**同一绑定的文件、命令与终端访问同一工作副本；显式快照任务是可见的例外**。普通 cwd 只说明相对路径的起点，不是授权根或安全沙箱。资源身份、环境路径、内容版本和展示文本分别表达，具名工具继续存在；类型是职责，不要求每个名词都新建表、模块或服务。完整责任表、流程与失败矩阵集中在 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)，不在各研究文档复制第二份方案。
+
+- 资源/Workspace 层负责真实资源、版本、能力和可用性；执行适配层负责工作副本物化、guest 路径与实例 generation；会话/Turn 层负责绑定、请求快照、原调用及持久结算；产物层负责发布与引用。Memory 仍属内容域，不因落盘而并入执行器。
+- 输入采用有界的“来源引用＋可确认版本 → guest 相对目标”manifest，保留层级并拒绝冲突/越界。复制中的内容变化需报告或拒绝，不能声称拿到了全目录原子快照。运行前能发现真实映射，不让模型猜后缀。
+- 产物注册、展示、模型实际读取、回写原文件分别留事实。回写单独按当下授权和源版本处理；Provider 真支持条件写才提供该保证，先 hash 后写不等于原子 CAS。
+- SAF 原生读写继续直连 Provider。需要 Shell 时显式物化，相关任务工具绑定副本，之后明确导回/发布；不能让 read 留在源目录而 bash 悄悄写副本，也不强迫所有 SAF Provider 实现完整 POSIX。
+- 若未来选定远程真实旅程，再定义 endpoint 认证、环境身份核验、传输授权、lease、去重 receipt 和断线对账。保持一个 Turn owner，不提前建 Host/Node/Device 目录、同步平台或通用 transport；同名路径不代表同一资源。
+
+### 11.4 近期优化与重构承接
+
+**近期仍是计划，未借本次文档工作实施。** 优先补实际环境/cwd、live/snapshot、输入映射、产物位置和准确失败反馈；现有 Job 默认快照保持。目录选择器补搜索及来源辨认：项目/会话名称、相对子目录和可用状态用于区分重名，完整引用放详情，不清理用户已有目录。此次日常模拟器上的大量来源已证明可发现性成本，尚未做选择器改造。
+
+输入 manifest、跨工具同副本、嵌套 cwd 和显式导回属于 286～288 的共同契约与完整路径替换；不为了短期显示而修补成第二套映射。既有身份、授权及存储边界保留，废弃的内部 DTO/别名直接删除。Git 可在明确任务中选 worktree/diff；非 Git 使用明确副本和导出，不要求 Git 化所有目录，也不添加文件冲突全局执行锁。
+
+可执行切片、退出条件和 HXA 归属见 [§23.7.3](../../architecture/harness-refactor-plan.md#2373-目录优化与工作副本迁移检查点)，失败矩阵见 [§23.8](../../architecture/harness-refactor-plan.md#238-验证矩阵收益与接受条件)。顺序仍为 286 → 287-A/288-A → 最小真实 Room 联合路径；本次研究不自动启动重构、远程平台或新增设备/账号验收。
+
+本次文档检查：`./scripts/check-docs.sh`、`./scripts/verify-adr.sh`（含当前状态断言）、`./scripts/check-secrets.sh` 和 `git diff --check` 通过。研究/计划/原主题 ADR 及 HXA 接续之外未改生产源码；没有为本次规划重新运行设备或模型。原路径 UI 的主机、模拟器和真实模型结果仅见其独立记录。

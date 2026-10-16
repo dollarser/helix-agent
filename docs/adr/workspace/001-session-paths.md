@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-16; revised 2026-10-17
-HXA: HXA-163, HXA-190, HXA-191, HXA-289, HXA-293, HXA-296
+HXA: HXA-163, HXA-190, HXA-191, HXA-286, HXA-288, HXA-289, HXA-293, HXA-296
 Deciders: Project owner（2026-10-15 接受内容版本与后续扩展边界；未启用 LSP）
 
 ## Context
@@ -29,6 +29,12 @@ HXA-289/293 分别保留资源身份、内容版本/已验证指纹、定位范�
 宿主 Workspace 引用与 Runtime 内路径/URI 由可信适配器映射，保留原根/实例身份，不能靠模型参数更换目录或读写范围。行号/字符/字节位置及其单位明确；未来 LSP 位置编码、未保存缓冲版本与协议同步留在其适配器，不能把服务端文档版本、mtime 和内容 hash 当同一事实。
 
 当前只用已有文件、快照和 Runtime 映射验证陈旧结果与跨 scope 反例，不安装语言服务器或新增通用编辑器。以后 LSP 返回的修改建议仍走文件治理与冲突检查，诊断/编辑建议不授予写权限。
+
+### 资源引用与执行路径（2026-10-17 目标契约）
+
+资源引用表达 provider、稳定身份及可确认版本；执行路径表达 environment/实例 generation 中的路径与规则；展示文本只供阅读。相同 basename、URI 或 `/workspace` 不能证明同一资源。来源到 guest 相对目标的映射保留层级、版本和物化模式，拒绝目标冲突/越界；不可确认版本明确未知，输入复制不冒充全目录原子快照。
+
+同一绑定的文件、exec、终端访问同一工作副本，显式 snapshot 例外可见；cwd 是起点，不是授权根。当前 Job 仍使用快照，后续由 HXA-286/288 完整替换，不为显示简化加入第二解析器或路径别名表。产物引用与回写源文件分别留事实；版本检查不承诺 Provider 未提供的原子 CAS。责任、流程和边界见 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)。
 
 ## Alternatives considered
 
@@ -57,6 +63,8 @@ Owner 要求系统提示审查发现的局部问题当前解决。HXA-296 将读
 ## Decision history — 2026-10-17
 
 Owner 要求优化内部路径及显示，并以当前合理架构和扩展性为目标，不承担旧内部设计兼容。采用请求目录内的可执行相对引用，保持 Project、Session、Workspace、执行 cwd 和文件身份分开；原始压缩源保留 scope，避免摘要丢失目录来源。Owner 进一步明确文件工具标题只显示文件名，目录与完整信息放详情；该要求同样适用于带模型意图的文件调用。与竞品的对应关系、当前落地边界和验收见[路径与连接说明](../../evidence/development/path-presentation-2026-10-17.md)。不引入第二套存储/路径解析器、全局 cwd 或提前实现远程 Workspace。
+
+同日追加决定：按 Owner 目录研究要求补资源/执行路径、显式工作副本和输入映射边界，由 286～289/293 接续；[竞品与源码依据](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#11-2026-10-17-目录工作副本与执行环境)。规划不代表新映射实现；已交付的标题/投影验收保持原范围。
 
 ## References
 

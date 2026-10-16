@@ -1,8 +1,8 @@
 # ADR-WORKSPACE-005: 本机项目与跨会话工作组织
 
 Status: accepted
-Date: 2026-10-04
-HXA: HXA-246
+Date: 2026-10-04; revised 2026-10-17
+HXA: HXA-246, HXA-286, HXA-287, HXA-295
 Deciders: project owner（本轮要求完整项目设计与重构）
 
 ## Context
@@ -40,7 +40,11 @@ Deciders: project owner（本轮要求完整项目设计与重构）
 
 两渠道支持本机项目完整管理、成员生命周期、共享主目录、指令、显式项目记忆、会话/文件/任务/成果导航。模型和扩展仍由既有入口管理，项目不建立第二套开关。云同步、团队协作、多主目录、自动 Git 分支/worktree、文件修改快照与回退不属于本轮项目生命周期，不能用只读 Git 冒充版本恢复。
 
+后续目录重构区分项目/材料来源与实际执行工作副本；多个副本可明确关联同一项目，但不同副本不自动同步文件，不复制 grant、审批或终端控制权。现有 projectId/Workspace 身份继续使用，不为未来远程预建 Host/Node/Device 目录；Git worktree/diff 与非 Git 副本/导出是实际任务选择，不改变项目成员关系的权限含义。责任与接续见 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)。
+
 ## Decision history
+
+- 2026-10-17：按 Owner 目录架构研究追加项目来源与执行副本边界，由 286/287/295 接续；不启用云同步、自动 worktree 或远程会话，不更改既有项目能力完成范围。
 
 - 2026-10-10：HXA-254 将项目会话列表改为 ProjectService 提供的窄读模型（ID、标题、归档标记），通过 Room invalidation 与页面生命周期订阅刷新。加载、读取失败及成功空列表分别呈现，失败允许重新订阅；取消与致命错误继续传播。页面不持有 SessionEntity，不另建持久状态或授权 owner；切换项目及项目归档重置临时加入状态，成员转移与在途保护沿用既有事务。
 

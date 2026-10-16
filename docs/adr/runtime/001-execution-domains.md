@@ -1,7 +1,7 @@
 # ADR-RUNTIME-001: 执行域、打包、生命周期与结果对账
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-15
+Date: 2026-09-16; revised 2026-10-17
 HXA: HXA-083, HXA-084, HXA-085, HXA-086, HXA-103, HXA-110, HXA-111, HXA-112, HXA-113, HXA-117, HXA-190, HXA-193, HXA-286, HXA-288
 Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
@@ -41,6 +41,12 @@ HXA-286 定义、288 实现的公共接缝分别表达 turnId/toolCallId、jobId
 
 当前版本重启 reconcile 由既有主应用恢复入口协调，Runtime 提供原实例查询/输出/ACK；查不到或结果未落盘不证明零副作用，UNKNOWN 不盲重放。资源 owner 在真实使用结束且最后有效引用释放后清理，产物库按原持久引用/GC 回收；清理失败保留诊断，不误删其他消费者或复活旧 Turn。
 
+### 目录与环境适配（2026-10-17 目标契约）
+
+Runtime 环境、RootFS、Workspace 工作副本和产物分别归属；适配报告实际 environment/generation、cwd、live/snapshot 模式及输入映射。PRoot 快照是文件准备方式，不提供额外 UID/凭据隔离，不能称为恶意代码沙箱。当前 Job 快照不在本次文档工作改为原位写入；同绑定跨工具使用同一副本、显式快照例外和 SAF 物化由 286/288 接线验收。
+
+未来新增远端后端须先有具体执行旅程，再验证 endpoint 认证、环境身份核验、传输授权、租期、去重回执和原实例对账；断连不证明未执行，不自动换实例重跑。保持一个 Turn 持久 owner，不预建远程服务/节点注册平台。共享契约见 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)，不能用远程产品 VM 恢复能力推断本机 shell 内存可恢复。
+
 ## Alternatives considered
 
 多个独立 Runtime APK 增加安装与升级成本，不作为当前形态；把 PRoot 改成 isolatedProcess 不能自动提供可用 RootFS/文件访问；把生成代码放主进程不符合执行边界。官方 CLI 原生/PRoot 候选不单独保留为当前必做要求。
@@ -67,11 +73,15 @@ HXA-286 定义、288 实现的公共接缝分别表达 turnId/toolCallId、jobId
 
 ## References
 
+- [目录与执行环境研究](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#11-2026-10-17-目录工作副本与执行环境)
+
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-17：按 Owner 追加研究明确 Runtime 环境/工作副本/产物与安全边界，接受有真实消费者后的远程协议条件，当前只更新 286/288 目标，不改变同 UID 事实、不新增执行域。
 
 - 2026-10-01：HXA-236/J1 按已接受 Harness 观察契约实施：观察与原执行 owner 分开，完整原句柄绑定后经唯一 Dispatcher 的 completion 面等待；只读查询不得取得 reconciliation permit，未退出 Binder 继续占用其物理查询槽。内部等待到期、外层超时、停止等待、停止原执行和结果收取分别结算；不重启原命令、不重置原额度。具体上限及实施/验证状态由 HXA-236 记账，accepted 不表示等待工具已上线。
 
