@@ -16,6 +16,13 @@ Source, checksum, modification and build details: [local correction](config/jgit
 
 ## Required process
 
+The locked Termux PRoot/talloc/libandroid-shmem packages, corresponding sources,
+build scripts and copyright/license notices are available together in the
+[runtime asset release](https://github.com/dollarser/helix-agent/releases/tag/runtime-assets-20260917).
+See the bundled [source and notice index](runtime/proot-app/src/main/assets/runtime/licenses/TERMUX-README.md)
+for exact scope, download links and verification boundaries. This component
+archive does not replace the full application distribution checks below.
+
 1. Every shipped third-party artifact must be pinned in the version catalog,
    runtime lock, or another reviewed lock file.
 2. Before a release, resolved artifacts must be reconciled with Gradle

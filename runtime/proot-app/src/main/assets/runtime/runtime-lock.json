@@ -6,7 +6,7 @@
       "id": "proot",
       "version": "5.1.107.92",
       "abi": "arm64-v8a",
-      "url": "https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.92_aarch64.deb",
+      "url": "https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/proot_5.1.107.92_aarch64.deb",
       "size": 97440,
       "sha256": "1f1c983509701f6826f568482c70673ee453a9ba38c9f5fa445a472d6b7524e9",
       "license": {
@@ -15,8 +15,8 @@
         "textRef": "licenses/GPL-2.0-or-later.txt"
       },
       "source": {
-        "repository": "https://packages.termux.dev/apt/termux-main",
-        "ref": "pool/main/p/proot/proot_5.1.107.92_aarch64.deb",
+        "repository": "https://github.com/termux/proot",
+        "ref": "7266fb3e8516535682f5a9c8f3a7e70f6506eddb",
         "patches": []
       },
       "packages": []
@@ -25,7 +25,7 @@
       "id": "proot-loader",
       "version": "5.1.107.92",
       "abi": "arm64-v8a",
-      "url": "https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.92_aarch64.deb",
+      "url": "https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/proot_5.1.107.92_aarch64.deb",
       "size": 97440,
       "sha256": "1f1c983509701f6826f568482c70673ee453a9ba38c9f5fa445a472d6b7524e9",
       "license": {
@@ -34,8 +34,8 @@
         "textRef": "licenses/GPL-2.0-or-later.txt"
       },
       "source": {
-        "repository": "https://packages.termux.dev/apt/termux-main",
-        "ref": "pool/main/p/proot/proot_5.1.107.92_aarch64.deb",
+        "repository": "https://github.com/termux/proot",
+        "ref": "7266fb3e8516535682f5a9c8f3a7e70f6506eddb",
         "patches": []
       },
       "packages": []
@@ -44,7 +44,7 @@
       "id": "libtalloc",
       "version": "2.4.3",
       "abi": "arm64-v8a",
-      "url": "https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/libtalloc_2.4.3_aarch64.deb",
+      "url": "https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/libtalloc_2.4.3_aarch64.deb",
       "size": 33128,
       "sha256": "ac81ad623d74c209718b9f3acb2dd702cc8a88c431e820d212229910b4db29da",
       "license": {
@@ -53,8 +53,8 @@
         "textRef": "licenses/LGPL-3.0-or-later.txt"
       },
       "source": {
-        "repository": "https://packages.termux.dev/apt/termux-main",
-        "ref": "pool/main/libt/libtalloc/libtalloc_2.4.3_aarch64.deb",
+        "repository": "https://www.samba.org/ftp/talloc",
+        "ref": "talloc-2.4.3.tar.gz",
         "patches": []
       },
       "packages": []
@@ -63,7 +63,7 @@
       "id": "libandroid-shmem",
       "version": "0.7",
       "abi": "arm64-v8a",
-      "url": "https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb",
+      "url": "https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/libandroid-shmem_0.7_aarch64.deb",
       "size": 7216,
       "sha256": "0da3a24d558b93c92bcf8d611e0826a99ff96e396b148e6cdf33b47c47c57ff6",
       "license": {
@@ -72,8 +72,8 @@
         "textRef": "licenses/BSD-3-Clause.txt"
       },
       "source": {
-        "repository": "https://packages.termux.dev/apt/termux-main",
-        "ref": "pool/main/liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb",
+        "repository": "https://github.com/termux/libandroid-shmem",
+        "ref": "7f0bd7e25dbdd146265aff7c6a890029e374622d",
         "patches": []
       },
       "packages": []

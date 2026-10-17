@@ -55,3 +55,20 @@ class AssetCacheTest(unittest.TestCase):
                                ('https://fixture.invalid', 'a' * 64, 0)]:
             with self.assertRaises(ValueError):
                 fetch.fetch(url, Path('unused'), sha, size)
+
+    def test_relocated_asset_still_requires_exact_content_and_preserves_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = b'locked package'
+            destination = root / 'package.deb'
+            destination.write_bytes(original)
+            sha = hashlib.sha256(original).hexdigest()
+            # A mirror can return a successful HTTP response with same-sized wrong bytes.
+            def wrong_download(command, **_):
+                Path(command[command.index('--output') + 1]).write_bytes(b'x' * len(original))
+            with patch.object(fetch.subprocess, 'run', side_effect=wrong_download):
+                with self.assertRaises(ValueError):
+                    fetch.fetch('https://mirror.invalid/locked/package.deb', destination,
+                                sha, len(original), root / 'cache')
+            self.assertEqual(original, destination.read_bytes())
+            self.assertFalse((root / 'cache' / sha).exists())
