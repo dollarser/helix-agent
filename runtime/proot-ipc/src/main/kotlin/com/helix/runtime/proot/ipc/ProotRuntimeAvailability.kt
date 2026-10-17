@@ -6,7 +6,7 @@ package com.helix.runtime.proot.ipc
  * Every failure path funnels into [Unavailable] with a closed [UnavailableCause] —
  * there is NO fallback to the main-app shell, QuickJS or any other executor, and no
  * reason string ever carries a path, UID or raw peer data. [Verified] carries the
- * persisted execution-target anchor; whether the process happens to be alive is
+ * checked execution-target descriptor; whether the process happens to be alive is
  * deliberately NOT a field: the next use re-binds and re-handshakes.
  */
 sealed interface ProotRuntimeAvailability {
@@ -34,6 +34,9 @@ enum class UnavailableCause(
     /** Companion package not present on the device. */
     NOT_INSTALLED("runtime_not_installed"),
 
+    /** Bundled resources exist, but the active Linux installation is missing or damaged. */
+    INSTALLATION_NOT_READY("runtime_installation_not_ready"),
+
     /** Package installed but disabled by the user/developer options. */
     PACKAGE_DISABLED("runtime_disabled"),
 
@@ -55,7 +58,7 @@ enum class UnavailableCause(
     /** The reported runtime ABI is not the baseline ABI of this device set. */
     ABI_MISMATCH("runtime_abi_mismatch"),
 
-    /** The reported lock fingerprint differs from the persisted verified anchor. */
+    /** The installed copy or reported lock differs from the current bundled version. */
     LOCK_MISMATCH("runtime_lock_mismatch"),
 
     /** The handshake manifest was malformed or exceeded the size cap. */

@@ -43,7 +43,7 @@ class JobLogSpool(
 
     init {
         // Only this ephemeral log directory, never the job journal or result archives.
-        check(!root.exists() || root.deleteRecursively()) { "Cannot clear expired log spool" }
+        check(RuntimeTreeDeletion.remove(root)) { "Cannot clear expired log spool" }
         check(root.mkdirs()) { "Cannot create log spool" }
     }
 

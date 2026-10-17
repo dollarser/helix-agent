@@ -21,96 +21,83 @@ import com.helix.core.model.SafetyProfile
 import com.helix.runtime.proot.app.ProotNative
 import com.helix.runtime.proot.app.ProotRuntimeInstaller
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
-import com.helix.runtime.proot.client.VerifiedRuntimeStore
 import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * HXA-205 slice 3 (developer flavor) — the Runtime-specific readiness journey. Developer-only:
- * the runtime APIs are only on the developer test classpath, so this cannot be a shared test.
- *
- * Two facets, both reusing the HXA-193 verification entry (the supervisor's zero-Job
- * [ProotRuntimeSupervisor.verify] + a real cold bind), never a blind resume:
- *  - actual initialization installs the embedded RootFS and confirms a Verified runtime, with
- *    the readiness view reporting the LINUX goal READY;
- *  - a corrupted (removed) verification anchor is NOT_VERIFIED, and the explicit zero-Job
- *    verify re-establishes it and returns the runtime to READY.
- */
+/** Installed files drive readiness; entering settings or returning never repairs them. */
 @RunWith(AndroidJUnit4::class)
 @Suppress("TooManyFunctions")
 class CapabilityReadinessRuntimeDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    /** The actual embedded-Runtime initialization reuses the HXA-193 verification entry: the
-     *  supervisor's zero-Job verify confirms a Verified runtime and the readiness view reports
-     *  the LINUX goal READY. */
+    /** Actual installation and an explicit diagnostic handshake agree with the readiness projection. */
     @Test
-    fun actualRuntimeInitializationReusesNineteenThirteenVerifyEntry() {
+    fun actualRuntimeInitializationMakesTheEnvironmentReady() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         installRuntime(context)
         assertTrue(
-            "the 193 verification entry must confirm a Verified runtime",
+            "the installed environment must pass the diagnostic handshake",
             ProotRuntimeSupervisor(context).verify(System.currentTimeMillis())
                 is ProotRuntimeAvailability.Verified,
         )
         assertReadinessRuntimeReady()
     }
 
-    /** A corrupted (removed) verification anchor is NOT_VERIFIED; the explicit zero-Job verify
-     *  re-establishes it and returns the runtime to READY — a structured repair, never a resume. */
-    @Test
-    fun corruptedRuntimeAnchorRecoversToReady() {
+    @Test fun damagedInstallationOffersMaintenanceWithoutStartingRepair() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         installRuntime(context)
-        VerifiedRuntimeStore(context).clear()
-        val container = compose.container()
-        compose.resetDeterministicUiState()
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
-        compose.navigateTo("setup/readiness")
-        compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
-        waitRuntimeItem()
-        compose.onNodeWithTag("capability-readiness-action-verify-runtime").assertIsDisplayed()
-        compose.onNodeWithTag("capability-readiness-action-verify-runtime").performClick()
-        compose.onNodeWithTag("screen-setup-runtime").assertIsDisplayed()
-        compose.onNodeWithTag("settings-proot-verify").performClick()
-        compose.navigateTo("setup/readiness")
-        compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
-        waitForRuntimeReady()
-        container.profileStore.switchTo(SafetyProfile.STANDARD)
+        val root = ProotRuntimeInstaller.runtimeRoot(context)
+        val active = requireNotNull(RootFsInstaller.currentActive(root))
+        val manifest = java.io.File(root, "${active.installId}/manifest.json")
+        val original = manifest.readText()
+        val store = compose.container().profileStore
+        try {
+            manifest.writeText("damaged")
+            compose.resetDeterministicUiState()
+            store.switchTo(SafetyProfile.ADVANCED)
+            compose.navigateTo("setup/readiness")
+            compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
+            waitRuntimeItem()
+            compose.onNodeWithTag("capability-readiness-action-manage-runtime").performClick()
+            compose.onNodeWithTag("screen-setup-runtime").assertIsDisplayed()
+            compose.onNodeWithTag("settings-proot-manage").assertIsDisplayed()
+            org.junit.Assert.assertEquals("damaged", manifest.readText())
+        } finally {
+            manifest.writeText(original)
+            store.switchTo(SafetyProfile.STANDARD)
+        }
     }
 
-    @Test
-    fun returningToRuntimeRefreshesStatusWithoutRestoringVerification() {
+    @Test fun returningToRuntimeRefreshesActualInstallationStatus() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         installRuntime(context)
+        val root = ProotRuntimeInstaller.runtimeRoot(context)
+        val active = requireNotNull(RootFsInstaller.currentActive(root))
+        val manifest = java.io.File(root, "${active.installId}/manifest.json")
+        val original = manifest.readText()
         compose.resetDeterministicUiState()
         val store = compose.container().profileStore
         store.switchTo(SafetyProfile.ADVANCED)
         try {
-            val note = ProotToolModule.verifyNowNote()
-            assertFalse("A successful verification must not be presented as an error", note.isError)
             compose.navigateTo("setup/runtime")
             val ready = compose.activity.getString(R.string.settings_proot_verified)
             waitForRuntimeStatus(ready)
-            compose.onNodeWithTag("settings-proot-status").assertTextContains(ready, substring = true)
+            compose.onNodeWithTag("settings-proot-verify").assertDoesNotExist()
             compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
-            VerifiedRuntimeStore(context).clear()
+            manifest.writeText("damaged")
             compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
-            val unverified = compose.activity.getString(R.string.settings_proot_not_verified)
-            waitForRuntimeStatus(unverified)
-            compose.onNodeWithTag("settings-proot-status").assertTextContains(unverified, substring = true)
-            assertNull(
-                "Returning must refresh facts without verifying automatically",
-                VerifiedRuntimeStore(context).load(),
-            )
+            val damaged = compose.activity.getString(R.string.settings_proot_damaged)
+            waitForRuntimeStatus(damaged)
+            compose.onNodeWithTag("settings-proot-status").assertTextContains(damaged, substring = true)
+            org.junit.Assert.assertEquals("damaged", manifest.readText())
         } finally {
+            manifest.writeText(original)
             store.switchTo(SafetyProfile.STANDARD)
         }
     }
@@ -125,7 +112,7 @@ class CapabilityReadinessRuntimeDeviceTest {
         compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
         waitRuntimeItem()
         compose.onNodeWithTag("capability-readiness-item-runtime").assertIsDisplayed()
-        compose.onNodeWithTag("capability-readiness-action-verify-runtime").assertDoesNotExist()
+        compose.onNodeWithTag("capability-readiness-action-manage-runtime").assertDoesNotExist()
         container.profileStore.switchTo(SafetyProfile.STANDARD)
     }
 
@@ -155,24 +142,5 @@ class CapabilityReadinessRuntimeDeviceTest {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
         }
-    }
-
-    private fun waitForRuntimeReady() {
-        // The zero-Job verify is a real cold bind (process start + handshake); allow a generous
-        // window. Ready = the verify next action is gone (the projection re-reads READY).
-        compose.waitUntil(RUNTIME_VERIFY_TIMEOUT_MILLIS) {
-            compose
-                .onAllNodesWithTag("capability-readiness-action-verify-runtime")
-                .fetchSemanticsNodes()
-                .isEmpty() &&
-                compose
-                    .onAllNodesWithTag("capability-readiness-item-runtime")
-                    .fetchSemanticsNodes()
-                    .isNotEmpty()
-        }
-    }
-
-    private companion object {
-        const val RUNTIME_VERIFY_TIMEOUT_MILLIS = 90_000L
     }
 }

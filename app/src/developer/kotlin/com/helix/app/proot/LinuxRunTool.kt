@@ -27,35 +27,17 @@ import java.io.File
 import java.security.MessageDigest
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * The stable availability gate of the `code.linux.run` tool (HXA-085, roadmap §12):
- *
- * - `READY`: the companion is installed AND enabled AND the user has ALREADY completed
- *   the zero-Job signature/protocol/ABI verification (the persisted anchor exists).
- *   A pre-alive process or a manually opened repair activity is NOT a condition
- *   (ADR-0007: no liveness-based admission).
- * - `NOT_INSTALLED` / `DISABLED_OR_FORCED_STOPPED` / `NOT_VERIFIED`: the stable refusal
- *   lines the UI distinguishes (未安装 / 被禁用或强制停止 / 未验证). "需更新" (the installed
- *   companion's lock no longer matches the persisted anchor) surfaces at execution time
- *   as `LOCK_MISMATCH` → the stable `NEEDS_UPDATE` failure; the passive Registry refresh
- *   never re-binds, so there is no silent background re-verification.
- *
- * The gate is evaluated PER EXECUTION by the executor (cheap PackageManager lookups +
- * one file read; NO bind). Registration is static per build flavor (developer only):
- * the tool is in the model tool table because it is registered, and the FIRST execution
- * after approval re-handshakes through the supervisor — the approval binds the exact
- * argv/script/arguments, never a live process.
- */
+/** Passive installation admission; actual execution still checks scope, permission and physical capacity. */
 enum class LinuxRuntimeGate {
     READY,
     NOT_INSTALLED,
     DISABLED_OR_FORCED_STOPPED,
-    NOT_VERIFIED,
+    NEEDS_MAINTENANCE,
 }
 
 /**
  * The `code.linux.run` built-in tool (roadmap HXA-085): runs an Agent-proposed Linux
- * command in the separately signed, OFFLINE PRoot Runtime (doc local-code-execution §6.5–6.7).
+ * command in the bundled private PRoot process.
  *
  * Contract:
  * - [ToolOperationClass.CODE_EXECUTION]: current session effect rules determine approval.

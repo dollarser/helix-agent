@@ -24,6 +24,28 @@ import java.io.File
  * state live" for a concrete Android context.
  */
 object ProotRuntimeInstaller {
+    private val preparation =
+        com.helix.runtime.proot.core
+            .RuntimePreparation()
+
+    /** Called only by an admitted new execution while its runtime capacity is held. */
+    fun prepareForUse(context: Context): String {
+        val lock = loadEmbeddedLock(context)
+        val installed =
+            preparation.ensurePrepared(
+                inspect = {
+                    com.helix.runtime.proot.core.RuntimeInstallation
+                        .inspect(runtimeRoot(context), lock)
+                },
+                install = {
+                    RootFsInstaller.install(
+                        buildInstallRequest(context, lock, ProotNative.pageSizeBytes(), System.currentTimeMillis()),
+                    )
+                },
+            )
+        return requireNotNull(installed.manifest).installId
+    }
+
     /** All runtime state lives under `filesDir/runtime` (version dirs + `state/`). */
     fun runtimeRoot(context: Context): File = File(context.filesDir, "runtime")
 

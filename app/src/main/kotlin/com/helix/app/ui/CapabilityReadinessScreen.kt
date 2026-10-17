@@ -186,8 +186,7 @@ internal fun CapabilityReadinessScreen(
                                 when (action) {
                                     ReadinessActionKind.ADD_MODEL -> onOpenModels()
 
-                                    ReadinessActionKind.VERIFY_RUNTIME,
-                                    ReadinessActionKind.REPAIR_RUNTIME,
+                                    ReadinessActionKind.MANAGE_RUNTIME,
                                     -> onOpenRuntime()
                                 }
                             },
@@ -250,8 +249,7 @@ private fun ReadinessGoal.route(): String =
 private fun ReadinessActionKind.route(): String =
     when (this) {
         ReadinessActionKind.ADD_MODEL -> "add-model"
-        ReadinessActionKind.VERIFY_RUNTIME -> "verify-runtime"
-        ReadinessActionKind.REPAIR_RUNTIME -> "repair-runtime"
+        ReadinessActionKind.MANAGE_RUNTIME -> "manage-runtime"
     }
 
 /** Stable locale-independent key for an item kind (used in testTags). */
@@ -293,6 +291,5 @@ private fun ReadinessState.labelRes(): Int =
 private fun ReadinessActionKind.labelRes(): Int =
     when (this) {
         ReadinessActionKind.ADD_MODEL -> R.string.readiness_action_add_model
-        ReadinessActionKind.VERIFY_RUNTIME -> R.string.readiness_action_verify_runtime
-        ReadinessActionKind.REPAIR_RUNTIME -> R.string.readiness_action_repair_runtime
+        ReadinessActionKind.MANAGE_RUNTIME -> R.string.readiness_action_manage_runtime
     }

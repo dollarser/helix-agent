@@ -6,35 +6,23 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import com.helix.runtime.proot.core.RuntimeInstallation
+import com.helix.runtime.proot.core.RuntimeInstallationState
+import com.helix.runtime.proot.core.RuntimeLockCodec
 import com.helix.runtime.proot.ipc.ProotHandshakeClient
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import com.helix.runtime.proot.ipc.UnavailableCause
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * The main app's ONLY path to the PRoot companion (HXA-083; ADR-0007).
- *
- * Guarantees implemented here:
- * - The companion process is started ONLY by [verify] (the user's zero-Job
- *   "验证 Runtime" click) or by the real-job binding HXA-084 will add on top of
- *   [withConnection]. Nothing in the main app starts it at startup, when the user
- *   switches Advanced, or during a passive Registry refresh.
- * - Every use is a cold bind: explicit [ComponentName], signature permission,
- *   `BIND_AUTO_CREATE`; the binding is closed as soon as the use completes, so an
- *   idle companion process is reclaimable by the system.
- * - Availability is a STABLE state ([ProotRuntimeAvailability]) — no caller may
- *   fall back to the main app shell on any failure.
- * - All methods block with a deadline; callers must invoke them off the main
- *   thread. A single active binding at a time (jobs are serialized in HXA-084).
- */
-@Suppress("TooManyFunctions") // HXA-083 bind/verify/repair + HXA-087 legal/removal/re-baseline
+/** User-initiated connections to the bundled private process. Passive installation queries never bind. */
+@Suppress("TooManyFunctions") // Installation queries and bounded private-process connection lifecycle.
 class ProotRuntimeSupervisor(
     context: Context,
     private val probe: ProotRuntimeProbe = PackageManagerProotRuntimeProbe(context.applicationContext),
-    private val store: VerifiedRuntimeStore = VerifiedRuntimeStore(context.applicationContext),
 ) {
     companion object {
         /** The baseline asset ABI; the companion ships arm64-v8a only (the schema allows x86_64 later). */
@@ -52,14 +40,18 @@ class ProotRuntimeSupervisor(
      */
     fun checkLocalState(): UnavailableCause? = localState.check()
 
-    /**
-     * Whether the user has EVER completed the zero-Job verification (the persisted
-     * anchor exists). NO bind, NO process start: the anchor file is written by [verify]
-     * after a successful handshake. HXA-085 gates the `code.linux.run` tool table on
-     * this (安装 + 启用 + 用户完成过零 Job 验证 = 工具表准入条件); it never replaces the
-     * per-execution re-handshake that [verify] / the job client perform after approval.
-     */
-    fun anchorPresent(): Boolean = store.load() != null
+    /** The active installation is authoritative; an old verification receipt cannot make it ready. */
+    fun installation(): RuntimeInstallation =
+        runCatching {
+            val bundled =
+                context.assets
+                    .open("runtime/runtime-lock.json")
+                    .bufferedReader()
+                    .use { it.readText() }
+            RuntimeInstallation.inspect(File(context.filesDir, "runtime"), RuntimeLockCodec.parse(bundled))
+        }.getOrElse { RuntimeInstallation(RuntimeInstallationState.DAMAGED, diagnostic = it.message) }
+
+    fun installationReady(): Boolean = installation().state == RuntimeInstallationState.PREPARED
 
     /**
      * Cold-binds the companion with a deadline. On success the binding stays open
@@ -173,14 +165,19 @@ class ProotRuntimeSupervisor(
             }
         }
 
-    /**
-     * The zero-Job user verification (ADR-0007 decision 1). Binds, handshakes,
-     * validates the descriptor against the persisted anchor (first verification:
-     * structural only), persists a newly verified descriptor as the anchor, and
-     * unbinds. The result is a stable [ProotRuntimeAvailability].
-     */
+    /** Explicit connection check, bound to the actual installed copy and the current bundled version. */
     fun verify(nowEpochMs: Long): ProotRuntimeAvailability {
-        val anchor = store.load()?.descriptor
+        val installed = installation()
+        if (installed.state != RuntimeInstallationState.PREPARED) {
+            val cause =
+                if (installed.state == RuntimeInstallationState.UPDATE_REQUIRED) {
+                    UnavailableCause.LOCK_MISMATCH
+                } else {
+                    UnavailableCause.INSTALLATION_NOT_READY
+                }
+            return ProotRuntimeAvailability.Unavailable(cause)
+        }
+        val manifest = requireNotNull(installed.manifest)
         val result =
             withConnection(ProotRuntimeProtocol.HANDSHAKE_DEADLINE_MS) { binder ->
                 when (val outcome = ProotHandshakeClient.handshake(binder)) {
@@ -190,7 +187,7 @@ class ProotRuntimeSupervisor(
                                 outcome.descriptor,
                                 ProotRuntimeProtocol.PROTOCOL_VERSION,
                                 EXPECTED_RUNTIME_ABI,
-                                anchor?.lockSha256,
+                                manifest.lockSha256,
                             )
                         if (cause != null) {
                             ProotRuntimeAvailability.Unavailable(cause)
@@ -206,11 +203,7 @@ class ProotRuntimeSupervisor(
             }
         return when (result) {
             is ProotConnectionResult.Success -> {
-                val availability = result.value
-                if (availability is ProotRuntimeAvailability.Verified) {
-                    persistAnchor(availability)
-                }
-                availability
+                result.value
             }
 
             is ProotConnectionResult.Refused -> {
@@ -219,59 +212,16 @@ class ProotRuntimeSupervisor(
         }
     }
 
-    /**
-     * The user-click "修复 Runtime" action. [removeRuntime] carries the main app's
-     * user consent for a COMPLETE REMOVAL (HXA-087 完整删除) across the uid boundary
-     * as the repair-activity extra; the companion still requires its own in-surface
-     * button click. This method is only ever invoked from a user click — the main
-     * app wires no automatic caller — and it also lifts a force-stopped state
-     * (the ONLY recovery path for that state, section 6.7.6).
-     */
-    @Suppress("SwallowedException")
-    fun openRepairActivity(removeRuntime: Boolean = false): RepairEntryResult =
-        openCompanionActivity(
-            ProotRuntimeProtocol.REPAIR_ACTIVITY_CLASS,
-            ProotRuntimeProtocol.EXTRA_REMOVE_RUNTIME,
-            removeRuntime,
-        )
+    /** Open maintenance without mutating installation or readiness. */
+    fun openRepairActivity(): RepairEntryResult = openCompanionActivity(ProotRuntimeProtocol.REPAIR_ACTIVITY_CLASS)
 
-    /**
-     * The user-click "许可证与来源" action (HXA-087 法律页): opens the companion's
-     * offline legal/build-manifest page. Same user-gated shape and stable refusal
-     * mapping as the repair entry; no extras — the page reads its own assets.
-     */
-    @Suppress("SwallowedException")
     fun openLegalActivity(): RepairEntryResult = openCompanionActivity(ProotRuntimeProtocol.LEGAL_ACTIVITY_CLASS)
-
-    /**
-     * The explicit RE-BASELINE action (HXA-087 更新): the user saw the stable
-     * "需更新（基线不匹配）" state after a companion APK update and, in a SECOND
-     * explicit click, accepts re-verification against the NEW embedded lock.
-     * Deletes the persisted anchor (the "user completed verification" claim is void
-     * once the runtime baseline moved); the NEXT user-click "验证 Runtime"
-     * re-establishes it against the new lock. Returns true when an anchor existed.
-     * Never throws; never binds. A failed anchor clear leaves the OLD anchor in
-     * place (conservative: the user simply repeats the explicit action) — hence
-     * the suppressed swallow.
-     */
-    @Suppress("SwallowedException")
-    fun clearAnchorForRebaseline(): Boolean {
-        if (store.load() == null) {
-            return false
-        }
-        runCatching { store.clear() }
-        return store.load() == null
-    }
 
     // @Suppress("SwallowedException") — launch failures are MAPPED to stable typed
     // refusal results (the HXA-083 contract: a user click must never crash); the
     // exception itself carries no user-safe detail.
     @Suppress("SwallowedException")
-    private fun openCompanionActivity(
-        activityClass: String,
-        extraName: String? = null,
-        extraValue: Boolean = false,
-    ): RepairEntryResult {
+    private fun openCompanionActivity(activityClass: String): RepairEntryResult {
         if (!probe.isInstalled()) {
             return RepairEntryResult.Unavailable(UnavailableCause.NOT_INSTALLED)
         }
@@ -280,9 +230,6 @@ class ProotRuntimeSupervisor(
                 .setComponent(
                     ComponentName(context.packageName, activityClass),
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (extraName != null && extraValue) {
-            intent.putExtra(extraName, true)
-        }
         return try {
             context.startActivity(intent)
             RepairEntryResult.Opened
@@ -290,16 +237,6 @@ class ProotRuntimeSupervisor(
             RepairEntryResult.Unavailable(UnavailableCause.NOT_INSTALLED)
         } catch (e: SecurityException) {
             RepairEntryResult.Unavailable(UnavailableCause.SIGNATURE_MISMATCH)
-        }
-    }
-
-    // @Suppress("SwallowedException") — a failed anchor write degrades to "first
-    // verification again" on the next verify(); the wire verification itself
-    // already succeeded, so availability must not be downgraded for a store error.
-    @Suppress("SwallowedException")
-    private fun persistAnchor(availability: ProotRuntimeAvailability.Verified) {
-        runCatching {
-            store.save(VerifiedRuntimeStore.Entry(availability.descriptor, availability.verifiedAtEpochMs))
         }
     }
 

@@ -1,82 +1,56 @@
 package com.helix.runtime.proot.app
 
 import android.app.Activity
-import android.graphics.Typeface
+import android.app.AlertDialog
+import android.content.Intent
 import android.os.Bundle
-import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.helix.runtime.proot.core.InstallFacts
 import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.RollbackOutcome
 import com.helix.runtime.proot.core.RootFsInstaller
-import com.helix.runtime.proot.core.RuntimeInstallQueries
-import com.helix.runtime.proot.core.RuntimeLockCodec
-import com.helix.runtime.proot.core.RuntimeUpdateState
-import com.helix.runtime.proot.core.updateStateFor
-import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
-import java.io.File
+import com.helix.runtime.proot.core.RuntimeInstallation
+import com.helix.runtime.proot.core.RuntimeInstallationState
+import com.helix.runtime.proot.core.SmokeStatus
 
-/**
- * The minimal user-gated settings/repair entry (ADR-0007 decision 1, section 6.7):
- * the ONLY way into the companion. It is exported behind the set's signature
- * permission and has NO launcher icon — the platform (or an OEM) force-stopped /
- * disabled state is recovered only when the user, from the main app, explicitly
- * clicks "修复 Runtime", which starts this activity via an explicit intent.
- *
- * HXA-087 更新/回滚/完整删除: the primary button now distinguishes INSTALL (no
- * active install), UPDATE (the APK's embedded lock is newer than the active
- * install's lock — 同签名 APK 更新; the install path is the SAME atomic HXA-082
- * one, and a failed update leaves the old runtime usable) and REPAIR (same
- * version; reinstall). A rollback button appears when a kept rollback version
- * exists (`RootFsInstaller.activateRollback` — no files move). When the main app
- * opens the activity with the [ProotRuntimeProtocol.EXTRA_REMOVE_RUNTIME] extra
- * (the user clicked "删除 Runtime" there), a second explicit in-surface remove
- * button appears: the click is the consent carried across the uid boundary
- * AND the in-surface confirmation. Removal deletes ONLY `filesDir/runtime`
- * (never the Workspace — see [ProotRuntimeRemoval]).
- *
- * Deliberately plain views (no UI framework dependency): one status block, the
- * action buttons, one close action. Long operations run on a worker thread; the
- * activity is a progress surface, not a second app.
- */
-@Suppress("TooManyFunctions") // Activity lifecycle plus the three explicit maintenance actions and rendering.
+/** User maintenance of the bundled Linux environment, entirely within the private :proot process. */
+@Suppress("TooManyFunctions")
 class ProotRepairActivity : Activity() {
     private lateinit var statusView: TextView
-    private lateinit var installButton: Button
+    private lateinit var primaryButton: Button
+    private lateinit var reinstallButton: Button
     private lateinit var rollbackButton: Button
     private lateinit var removeButton: Button
-    private val busy: Boolean get() = ProotMaintenancePresentation.busy()
     private lateinit var detailsView: TextView
-    private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val actions = mutableListOf<Button>()
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var lastReceipt: String? = null
     private val refreshTask =
         object : Runnable {
             override fun run() {
-                val receipt = ProotMaintenancePresentation.message(this@ProotRepairActivity) + busy
+                val receipt =
+                    ProotMaintenancePresentation.message(this@ProotRepairActivity) +
+                        ProotMaintenancePresentation.busy()
                 if (lastReceipt != receipt) {
                     refreshState()
                     lastReceipt = receipt
                 }
-                refreshHandler.postDelayed(this, 1_000)
+                handler.postDelayed(this, 1_000)
             }
         }
 
     override fun onResume() {
         super.onResume()
         lastReceipt = null
-        refreshHandler.post(refreshTask)
+        handler.post(refreshTask)
     }
 
     override fun onPause() {
-        refreshHandler.removeCallbacks(refreshTask)
+        handler.removeCallbacks(refreshTask)
         super.onPause()
-    }
-
-    /** The main app's user consent for a complete removal (HXA-087 完整删除). */
-    private val removeRequested: Boolean by lazy {
-        intent?.getBooleanExtra(ProotRuntimeProtocol.EXTRA_REMOVE_RUNTIME, false) ?: false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,87 +64,252 @@ class ProotRepairActivity : Activity() {
             TextView(this).apply {
                 setText(R.string.proot_repair_title)
                 textSize = 20f
-                setTypeface(typeface, Typeface.BOLD)
-                setPadding(0, 0, 0, dp(16))
             }
-        statusView =
-            TextView(this).apply {
-                textSize = 14f
-                setPadding(0, 0, 0, dp(16))
-            }
-        installButton =
-            Button(this).apply {
-                setOnClickListener {
-                    runInstall()
-                }
-            }
-        rollbackButton =
-            Button(this).apply {
-                setText(R.string.proot_repair_rollback)
-                visibility = View.GONE
-                setOnClickListener {
-                    runRollback()
-                }
-            }
-        removeButton =
-            Button(this).apply {
-                setText(R.string.proot_repair_remove)
-                visibility = if (removeRequested) View.VISIBLE else View.GONE
-                setOnClickListener {
-                    runRemove()
-                }
-            }
-        val closeButton =
-            Button(this).apply {
-                setText(R.string.proot_repair_done)
-                setOnClickListener { finish() }
-            }
+        statusView = TextView(this).apply { textSize = 16f }
         root.addView(title)
         root.addView(statusView)
-        addDetails(root)
-        root.addView(installButton)
-        root.addView(rollbackButton)
-        root.addView(removeButton)
-        root.addView(closeButton)
-        showRepairSurface(root, title, closeButton)
-        refreshState()
-    }
-
-    private fun addDetails(root: LinearLayout) {
+        root.addView(TextView(this).apply { setText(R.string.proot_environment_description) })
+        primaryButton = button(root, R.string.proot_repair_install) { primaryAction() }
+        val maintenance =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+            }
+        button(root, R.string.proot_environment_more) {
+            maintenance.visibility = if (maintenance.visibility == View.GONE) View.VISIBLE else View.GONE
+        }
+        root.addView(maintenance)
+        reinstallButton = button(maintenance, R.string.proot_environment_reinstall) { confirmInstall() }
+        rollbackButton =
+            button(maintenance, R.string.proot_repair_rollback) {
+                confirm(R.string.proot_repair_rollback, R.string.proot_rollback_confirm_body) { runRollback() }
+            }
+        removeButton =
+            button(maintenance, R.string.proot_repair_remove) {
+                confirm(R.string.proot_repair_remove, R.string.proot_remove_confirm_body) { runRemove() }
+            }
+        button(maintenance, R.string.proot_legal_title) {
+            startActivity(Intent(this, ProotLegalActivity::class.java))
+        }
         detailsView =
             TextView(this).apply {
                 textSize = 12f
-                visibility = View.GONE
+                setTextIsSelectable(true)
             }
-        val detailsButton =
-            Button(this).apply {
-                setText(R.string.proot_repair_details)
-                setOnClickListener {
-                    detailsView.visibility =
-                        if (detailsView.visibility == View.GONE) View.VISIBLE else View.GONE
-                }
-            }
-        root.addView(detailsButton)
-        root.addView(detailsView)
+        maintenance.addView(detailsView)
+        button(root, R.string.proot_repair_done) { finish() }
+        showSurface(root)
+        refreshState()
     }
 
-    private fun showRepairSurface(
-        root: LinearLayout,
-        title: TextView,
-        closeButton: Button,
+    private fun button(
+        parent: LinearLayout,
+        label: Int,
+        action: () -> Unit,
+    ): Button =
+        Button(this).apply {
+            setText(label)
+            isAllCaps = false
+            minHeight = dp(48)
+            setOnClickListener { if (!ProotMaintenancePresentation.busy()) action() }
+            parent.addView(this)
+            actions += this
+        }
+
+    private fun installation(): RuntimeInstallation =
+        runCatching {
+            RuntimeInstallation.inspect(
+                ProotRuntimeInstaller.runtimeRoot(this),
+                ProotRuntimeInstaller.loadEmbeddedLock(this),
+            )
+        }.getOrElse { RuntimeInstallation(RuntimeInstallationState.DAMAGED, diagnostic = it.message) }
+
+    private fun refreshState() {
+        val installed = installation()
+        val summary = summaryLabel(installed.state)
+        statusView.text =
+            listOf(getString(summary), ProotMaintenancePresentation.message(this))
+                .filter { it.isNotBlank() }
+                .joinToString("\n")
+        primaryButton.setText(
+            when (installed.state) {
+                RuntimeInstallationState.NOT_PREPARED -> R.string.proot_repair_install
+                RuntimeInstallationState.PREPARED -> R.string.proot_environment_check
+                RuntimeInstallationState.UPDATE_REQUIRED -> R.string.proot_repair_update
+                RuntimeInstallationState.DAMAGED -> R.string.proot_environment_repair
+                RuntimeInstallationState.RESET_REQUIRED -> R.string.proot_environment_reset
+            },
+        )
+        val runtimeRoot = ProotRuntimeInstaller.runtimeRoot(this)
+        reinstallButton.visibility =
+            if (installed.state == RuntimeInstallationState.PREPARED) View.VISIBLE else View.GONE
+        rollbackButton.visibility =
+            if (runCatching { RootFsInstaller.currentRollback(runtimeRoot) }.getOrNull() != null) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+        removeButton.visibility = if (runtimeRoot.exists()) View.VISIBLE else View.GONE
+        detailsView.text =
+            listOfNotNull(
+                getString(R.string.proot_environment_boundary),
+                installed.manifest?.let { getString(R.string.proot_install_state_active, it.installId) },
+                installed.diagnostic,
+                ProotMaintenancePresentation.details(this).takeIf { it.isNotBlank() },
+            ).joinToString("\n\n")
+        actions.forEach { it.isEnabled = !ProotMaintenancePresentation.busy() }
+    }
+
+    private fun summaryLabel(state: RuntimeInstallationState): Int =
+        when (state) {
+            RuntimeInstallationState.NOT_PREPARED -> R.string.proot_install_state_none
+            RuntimeInstallationState.PREPARED -> R.string.proot_runtime_installed
+            RuntimeInstallationState.UPDATE_REQUIRED -> R.string.proot_environment_update_required
+            RuntimeInstallationState.DAMAGED -> R.string.proot_environment_damaged
+            RuntimeInstallationState.RESET_REQUIRED -> R.string.proot_environment_reset_required
+        }
+
+    private fun primaryAction() {
+        when (installation().state) {
+            RuntimeInstallationState.NOT_PREPARED -> {
+                runInstall()
+            }
+
+            RuntimeInstallationState.PREPARED -> {
+                runCheck()
+            }
+
+            RuntimeInstallationState.RESET_REQUIRED -> {
+                confirm(
+                    R.string.proot_environment_reset,
+                    R.string.proot_remove_confirm_body,
+                ) { runReset() }
+            }
+
+            else -> {
+                confirmInstall()
+            }
+        }
+    }
+
+    private fun confirmInstall() =
+        confirm(R.string.proot_environment_reinstall, R.string.proot_reinstall_confirm_body) { runInstall() }
+
+    private fun confirm(
+        title: Int,
+        body: Int,
+        action: () -> Unit,
     ) {
+        AlertDialog
+            .Builder(this)
+            .setTitle(title)
+            .setMessage(body)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.proot_environment_confirm) { _, _ -> action() }
+            .show()
+    }
+
+    private fun runInstall() = operation(R.string.proot_install_progress) { installNow() }
+
+    private fun installNow(): String {
+        check(installation().state != RuntimeInstallationState.RESET_REQUIRED) {
+            getString(R.string.proot_environment_reset_required)
+        }
+        val lock = ProotRuntimeInstaller.loadEmbeddedLock(this)
+        val request =
+            ProotRuntimeInstaller.buildInstallRequest(
+                this,
+                lock,
+                ProotNative.pageSizeBytes(),
+                System.currentTimeMillis(),
+            )
+        return when (val result = RootFsInstaller.install(request)) {
+            is InstallOutcome.Success -> getString(R.string.proot_install_success)
+            is InstallOutcome.Failure -> error("${result.stage}: ${result.reason}")
+        }
+    }
+
+    private fun runReset() =
+        operation(R.string.proot_install_progress) {
+            check(ProotRuntimeRemoval.remove(ProotRuntimeInstaller.runtimeRoot(this)).removed) {
+                getString(R.string.proot_remove_failure)
+            }
+            installNow()
+        }
+
+    private fun runCheck() =
+        operation(R.string.proot_environment_checking) {
+            val result =
+                RuntimeInstallation.check(
+                    ProotRuntimeInstaller.runtimeRoot(this),
+                    ProotRuntimeInstaller.loadEmbeddedLock(this),
+                    InstallFacts(ProotNative.pageSizeBytes(), System.currentTimeMillis()),
+                )
+            check(result.status == SmokeStatus.PASSED) { result.failures.joinToString("; ") }
+            getString(R.string.proot_environment_check_passed)
+        }
+
+    private fun runRollback() =
+        operation(R.string.proot_rollback_progress) {
+            when (
+                val result =
+                    RootFsInstaller.activateRollback(
+                        ProotRuntimeInstaller.runtimeRoot(this),
+                        System.currentTimeMillis(),
+                    )
+            ) {
+                is RollbackOutcome.Done -> getString(R.string.proot_rollback_success)
+                is RollbackOutcome.Failed -> error(result.reason)
+                else -> error(getString(R.string.proot_rollback_no_saved))
+            }
+        }
+
+    private fun runRemove() =
+        operation(R.string.proot_remove_progress) {
+            check(ProotRuntimeRemoval.remove(ProotRuntimeInstaller.runtimeRoot(this)).removed) {
+                getString(R.string.proot_remove_failure)
+            }
+            getString(R.string.proot_remove_success)
+        }
+
+    private fun operation(
+        progress: Int,
+        action: () -> String,
+    ) {
+        if (!ProotMaintenancePresentation.begin(this, getString(progress))) return
+        refreshState()
+        Thread {
+            val outcome = runCatching { ProotRuntimeMaintenance.run(this, action) }
+            ProotMaintenancePresentation.finish(
+                this,
+                outcome.getOrElse {
+                    val message =
+                        if (it is ProotEnvironmentInUse) {
+                            R.string.proot_environment_in_use
+                        } else {
+                            R.string.proot_environment_action_failed
+                        }
+                    getString(message)
+                },
+                outcome.exceptionOrNull()?.message.orEmpty(),
+            )
+        }.start()
+    }
+
+    private fun showSurface(root: LinearLayout) {
         val dark =
             resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
         val foreground = android.graphics.Color.parseColor(if (dark) "#E6E0E9" else "#1D1B20")
         val surface = android.graphics.Color.parseColor(if (dark) "#141218" else "#FFFBFE")
         val accent = android.graphics.Color.parseColor(if (dark) "#D0BCFF" else "#6750A4")
-        title.setTextColor(foreground)
-        statusView.setTextColor(foreground)
-        detailsView.setTextColor(foreground)
-        listOf(installButton, rollbackButton, removeButton, closeButton).forEach { button ->
-            button.isAllCaps = false
-            button.minHeight = dp(48)
+
+        fun style(view: View) {
+            if (view is TextView) view.setTextColor(foreground)
+            if (view is android.view.ViewGroup) for (i in 0 until view.childCount) style(view.getChildAt(i))
+        }
+        style(root)
+        actions.forEach { button ->
             button.setTextColor(accent)
             button.background =
                 android.graphics.drawable.GradientDrawable().apply {
@@ -206,192 +345,4 @@ class ProotRepairActivity : Activity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-
-    /** The update state against the embedded lock; null = the embedded lock is unusable. */
-    private fun currentUpdateState(): Pair<RuntimeUpdateState, String>? {
-        val embedded =
-            runCatching { ProotRuntimeInstaller.loadEmbeddedLock(this) }.getOrNull() ?: return null
-        val embeddedSha = RuntimeLockCodec.sha256Hex(embedded)
-        val activeSha =
-            runCatching { RuntimeInstallQueries.activeLockSha256(ProotRuntimeInstaller.runtimeRoot(this)) }
-                .getOrNull()
-        return updateStateFor(embeddedSha, activeSha) to embeddedSha
-    }
-
-    private fun refreshState() {
-        val lines = mutableListOf<String>()
-        val lock =
-            runCatching { ProotRuntimeInstaller.loadEmbeddedLock(this) }
-                .fold(
-                    onSuccess = {
-                        getString(
-                            R.string.proot_embedded_lock_valid,
-                            it.abi.wire,
-                            RuntimeLockCodec.sha256Hex(it).take(12),
-                        )
-                    },
-                    onFailure = { getString(R.string.proot_embedded_lock_invalid, it.message?.take(80)) },
-                )
-        lines += lock
-        val runtimeRoot = ProotRuntimeInstaller.runtimeRoot(this)
-        val active =
-            runCatching { RootFsInstaller.currentActive(runtimeRoot) }
-                .getOrNull()
-        val rollback =
-            runCatching { RootFsInstaller.currentRollback(runtimeRoot) }
-                .getOrNull()
-        if (active == null) {
-            lines += getString(R.string.proot_install_state_none)
-        } else {
-            lines += getString(R.string.proot_install_state_active, active.installId)
-            if (rollback != null) {
-                lines += getString(R.string.proot_install_state_rollback, rollback.installId)
-            }
-        }
-        when (currentUpdateState()?.first) {
-            null -> Unit
-            RuntimeUpdateState.INSTALL -> lines += getString(R.string.proot_embedded_state_install)
-            RuntimeUpdateState.UPDATE -> lines += getString(R.string.proot_embedded_state_update)
-            RuntimeUpdateState.REPAIR -> lines += getString(R.string.proot_embedded_state_match)
-        }
-        detailsView.text = lines.joinToString("\n")
-        val summary = if (active == null) R.string.proot_install_state_none else R.string.proot_runtime_installed
-        val receipt = ProotMaintenancePresentation.message(this)
-        statusView.text = listOf(getString(summary), receipt).filter { it.isNotBlank() }.joinToString("\n")
-        installButton.visibility = if (removeRequested) View.GONE else View.VISIBLE
-        removeButton.isEnabled = !busy
-        installButton.isEnabled = !busy
-        installButton.setText(
-            when (currentUpdateState()?.first) {
-                RuntimeUpdateState.UPDATE -> R.string.proot_repair_update
-                else -> R.string.proot_repair_install
-            },
-        )
-        rollbackButton.visibility =
-            if (!removeRequested && rollback != null && active != null) View.VISIBLE else View.GONE
-        rollbackButton.isEnabled = !busy
-    }
-
-    private fun runInstall() {
-        val verb =
-            when (currentUpdateState()?.first) {
-                RuntimeUpdateState.UPDATE -> getString(R.string.proot_action_update)
-                else -> getString(R.string.proot_action_install_repair)
-            }
-        if (!ProotMaintenancePresentation.begin(this, getString(R.string.proot_install_progress, verb))) return
-        refreshState()
-        Thread {
-            val outcome =
-                runCatching {
-                    val lock = ProotRuntimeInstaller.loadEmbeddedLock(this)
-                    val request =
-                        ProotRuntimeInstaller.buildInstallRequest(
-                            this,
-                            lock,
-                            ProotNative.pageSizeBytes(),
-                            System.currentTimeMillis(),
-                        )
-                    ProotRuntimeMaintenance.run(this) { RootFsInstaller.install(request) }
-                }
-            ProotMaintenancePresentation.finish(this, formatOutcome(outcome))
-        }.start()
-    }
-
-    /**
-     * The user-click rollback (HXA-087): swaps active and the kept rollback
-     * atomically (no files move, HXA-082 `activateRollback`). After a rollback the
-     * active install's lock may differ from the main app's verified anchor — the
-     * next user-click "验证 Runtime" surfaces that as 需更新 and the user
-     * re-baselines explicitly; nothing is accepted silently.
-     */
-    private fun runRollback() {
-        if (!ProotMaintenancePresentation.begin(this, getString(R.string.proot_rollback_progress))) return
-        refreshState()
-        Thread {
-            val outcome: RollbackOutcome =
-                runCatching {
-                    ProotRuntimeMaintenance.run(this) {
-                        RootFsInstaller.activateRollback(
-                            ProotRuntimeInstaller.runtimeRoot(this),
-                            System.currentTimeMillis(),
-                        )
-                    }
-                }.fold(
-                    onSuccess = { it },
-                    onFailure = { RollbackOutcome.Failed(it.message ?: getString(R.string.proot_unknown_error)) },
-                )
-            ProotMaintenancePresentation.finish(this, formatRollback(outcome))
-        }.start()
-    }
-
-    private fun formatRollback(outcome: RollbackOutcome): String =
-        when (outcome) {
-            is RollbackOutcome.Done -> {
-                getString(R.string.proot_rollback_success, outcome.newActiveId, outcome.newRollbackId)
-            }
-
-            RollbackOutcome.NoActive -> {
-                getString(R.string.proot_rollback_no_active)
-            }
-
-            RollbackOutcome.NoRollback -> {
-                getString(R.string.proot_rollback_no_saved)
-            }
-
-            is RollbackOutcome.Failed -> {
-                getString(R.string.proot_rollback_failure, outcome.reason)
-            }
-        }
-
-    /**
-     * The user-click complete removal (HXA-087 完整删除): deletes ONLY the
-     * `filesDir/runtime` state tree (all version dirs + state pointers; job
-     * journals/evidence live under it). The main app's Workspace is in another
-     * package and is never touched — see [ProotRuntimeRemoval] for the scoping.
-     */
-    private fun runRemove() {
-        if (!ProotMaintenancePresentation.begin(this, getString(R.string.proot_remove_progress))) return
-        refreshState()
-        Thread {
-            val result =
-                runCatching {
-                    ProotRuntimeMaintenance.run(this) { ProotRuntimeRemoval.remove(File(filesDir, "runtime")) }
-                }.fold(
-                    onSuccess = { it },
-                    onFailure = { ProotRuntimeRemoval.Result(false, false, null) },
-                )
-            val message =
-                if (result.removed) {
-                    getString(R.string.proot_remove_success, result.activeInstallId ?: getString(R.string.proot_none))
-                } else {
-                    getString(R.string.proot_remove_failure)
-                }
-            ProotMaintenancePresentation.finish(this, message)
-        }.start()
-    }
-
-    private fun formatOutcome(outcome: Result<InstallOutcome>): String =
-        when {
-            outcome.isFailure -> {
-                getString(
-                    R.string.proot_install_failure,
-                    outcome.exceptionOrNull()?.message ?: getString(R.string.proot_unknown_error),
-                )
-            }
-
-            else -> {
-                val result = outcome.getOrThrow()
-                if (result is InstallOutcome.Success) {
-                    getString(
-                        R.string.proot_install_success,
-                        result.installId,
-                        result.members,
-                        result.extractedBytes,
-                    )
-                } else {
-                    val failure = result as InstallOutcome.Failure
-                    getString(R.string.proot_install_stage_failure, failure.stage, failure.reason)
-                }
-            }
-        }
 }

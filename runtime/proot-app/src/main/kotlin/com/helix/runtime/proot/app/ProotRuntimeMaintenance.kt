@@ -12,10 +12,10 @@ internal object ProotRuntimeMaintenance {
         action: () -> T,
     ): T {
         val sessions = PtySessionStore(File(context.filesDir, "terminal-sessions"))
-        check(sessions.records().none { it.stopProof == null }) { "Stop and reconcile the manual terminal first" }
+        if (sessions.records().any { it.stopProof == null }) throw ProotEnvironmentInUse()
         val runner = ProotJobRunner.get(context)
         val ticket = "maintenance-${UUID.randomUUID()}"
-        check(runner.reserveMaintenance(ticket)) { "Runtime environment is in use; stop its processes before repair" }
+        if (!runner.reserveMaintenance(ticket)) throw ProotEnvironmentInUse()
         return try {
             action()
         } finally {
@@ -23,3 +23,5 @@ internal object ProotRuntimeMaintenance {
         }
     }
 }
+
+internal class ProotEnvironmentInUse : IllegalStateException()

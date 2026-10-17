@@ -79,7 +79,7 @@ python3 scripts/verify-integrated-runtimes.py --avd Helix_API_36 --port 5620 --o
 python3 scripts/run-owned-emulator.py --help
 ```
 
-前两行执行既有 Runtime 回归（2026-09-20 当前 47 项，以脚本 CASES 和实际非零用例结果为准），不包含各 HXA 全部新增测试，不能充作新增功能验收。模型按 help 的实际参数为本 HXA 新类准备启动脚本到 `scripts/debug/YYYY-MM-DD/`，交付 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner` 的人工步骤。用户手动运行时使用新 output、未占用端口和自有独占模拟器进程；不借现存 serial，只清理自己启动的进程。AVD 名/端口不适用时按本机状态显式替换并记录。
+前两行执行既有 Runtime 回归，以脚本 CASES 和实际非零方法结果为准，不包含各 HXA 全部新增测试，不能充作新增功能验收。模型按 help 的实际参数为本 HXA 新类准备启动脚本到 `scripts/local/debug/YYYY-MM-DD/`，交付 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner` 的人工步骤。用户手动运行时使用新 output、未占用端口和自有独占模拟器进程；默认不借现存 serial，只关闭自己启动的进程。所有者指定已有设备时明确记录使用边界，不套用 owned runner 的自动关闭流程。AVD 名/端口不适用时按本机状态显式替换并记录。
 
 **G4：集成/产物**
 
@@ -90,15 +90,17 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 ./scripts/check-all.sh
 ```
 
-正式 consumer 边界需扩展最终 APK/dex/native 检查到新增终端组件；不能只隐藏按钮。不得删除测试或放宽 detekt/lint 使门禁变绿；兼容性升级可以更新资产 lock，但必须重新核验来源、哈希、许可证和设备兼容性。RootFS 资产来源遵循 [HXA-193 记录](../evidence/development/integrated-developer-runtimes.md)。
+正式 consumer 边界需扩展最终 APK/dex/native 检查到新增终端组件；不能只隐藏按钮。不得仅为门禁变绿删除测试或放宽 detekt/lint；已接受的新契约可以替换旧实现专属断言，同时保留有效能力及权限、取消、恢复等正确性覆盖。兼容性升级可以更新资产 lock，但必须重新核验来源、哈希、许可证和设备兼容性。RootFS 资产来源遵循 [HXA-193 记录](../evidence/development/integrated-developer-runtimes.md)。
 
 ## 设备、恢复与发布
 
 日常设备完成测试后，移除本轮使用且已确认身份的 instrumentation/test APK，保留主应用及用户数据；清理前记录包名和是否仍被其他任务使用。Helix 的测试包含语音识别 Activity 与文档 Provider 夹具，长期留在日常设备会出现在系统选择器中。遇到此类残留，应查询具体 Intent 的处理包，卸载已确认的测试包后复查，不按 `test` 字样批量删除未知应用。
 
-- 默认由用户手动运行模拟器与真机验收；代理只有取得所有者对当前任务、相应设备类型与范围的明确授权后才执行。每次使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，不借已有实例，只关闭自己启动的进程。未获当次设备授权时，代理仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 scripts/debug 日期目录，运行输出放忽略的 build。
-- API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，由用户按任务适用范围手动运行并回填；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过或推送 main。
+- 默认由用户手动运行模拟器与真机验收；代理只有取得所有者对当前任务、相应设备类型与范围的明确授权后才执行。默认使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，只关闭自己启动的进程；所有者明确指定日常实例时按指定范围使用并保留既有数据。未获当次设备授权时，代理仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 `scripts/local/debug/YYYY-MM-DD/`，运行输出放忽略的 `build/`。
+- API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，由用户按任务适用范围手动运行并回填；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过；推送另按当前授权和已接受的交付条件判断，未要求的设备矩阵不自动成为所有主机切片的前置条件。
 - 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
 - 取消、拒绝、未知副作用、数据迁移、损坏、低空间与并发竞态按任务要求测试。未知结果只对账，不靠重放验证成功。
 - 新测试类尚未实现时写明待实现；0 tests 或跳过不能完成验收。构建成功不等于功能、账户或安全验收。
 - Release 追加签名、升级/回退、制品排除、SBOM/notice、权限申报与真实渠道证据，见[安全与发布](../security/testing-and-release.md)。
+
+最终候选须对应成功构建、源码输入与实际安装对象；失败构建遗留 APK 的运行只能保留为旧包证据或 INVALID，不能算本次修改通过。需要真实模型验收时，分别核对工具执行、独立效果、持久结果与实际模型消费；只有统计汇总通过不能关闭业务失败。具体做法见[调试手册](debugging-playbook.md#成功构建与最终候选)。

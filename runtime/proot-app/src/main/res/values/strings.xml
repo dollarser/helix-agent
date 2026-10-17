@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- HXA-083: the minimal repair activity's user-visible strings (SetTextI18n). -->
 <resources>
-    <string name="proot_repair_title">Helix PRoot Runtime</string>
-    <string name="proot_repair_install">安装 / 修复 Runtime</string>
+    <string name="proot_repair_title">Linux 运行环境</string>
+    <string name="proot_repair_install">准备环境</string>
     <string name="proot_repair_done">完成</string>
     <!-- HXA-086: the running-job notification (通知停止). -->
     <string name="proot_job_channel_name">Runtime 任务</string>
     <string name="proot_job_running_title">Linux 运行时任务正在执行</string>
     <string name="proot_job_stop">停止</string>
     <!-- HXA-087: update / rollback / removal / legal page. -->
-    <string name="proot_repair_update">更新 Runtime（APK 内嵌版本较新）</string>
-    <string name="proot_repair_rollback">回滚到上一版本</string>
-    <string name="proot_repair_remove">删除 Runtime（完整删除，不影响 Workspace）</string>
-    <string name="proot_legal_title">PRoot Runtime 许可证与来源</string>
+    <string name="proot_repair_update">更新环境</string>
+    <string name="proot_repair_rollback">恢复上次环境</string>
+    <string name="proot_repair_remove">删除环境</string>
+    <string name="proot_legal_title">开源许可与来源</string>
     <string name="proot_legal_done">完成</string>
     <string name="proot_embedded_lock_valid">内嵌 lock：基线通过（%1$s，指纹 %2$s…）</string>
     <string name="proot_embedded_lock_invalid">内嵌 lock：基线校验失败（%1$s）</string>
-    <string name="proot_install_state_none">安装状态：未安装</string>
+    <string name="proot_install_state_none">尚未准备</string>
     <string name="proot_install_state_active">安装状态：活动版本 %1$s</string>
     <string name="proot_install_state_rollback">回滚版本：%1$s</string>
     <string name="proot_embedded_state_install">与内嵌版本：未安装（首次安装）</string>
@@ -24,22 +24,22 @@
     <string name="proot_embedded_state_match">与内嵌版本：一致</string>
     <string name="proot_action_update">更新</string>
     <string name="proot_action_install_repair">安装 / 修复</string>
-    <string name="proot_install_progress">正在%1$s（解压约 131 MiB，需要数分钟）…</string>
-    <string name="proot_rollback_progress">正在回滚（原子交换激活指针，秒级）…</string>
+    <string name="proot_install_progress">正在准备环境…</string>
+    <string name="proot_rollback_progress">正在恢复上次环境…</string>
     <string name="proot_unknown_error">未知错误</string>
-    <string name="proot_rollback_success">回滚成功：活动版本 %1$s（回滚位 %2$s）</string>
+    <string name="proot_rollback_success">已恢复上次环境，请查看当前状态。</string>
     <string name="proot_rollback_no_active">无活动版本可回滚</string>
     <string name="proot_rollback_no_saved">无保留的回滚版本</string>
     <string name="proot_rollback_failure">回滚失败：%1$s</string>
-    <string name="proot_remove_progress">正在完整删除 Runtime 状态目录…</string>
-    <string name="proot_remove_success">已完整删除（原活动版本：%1$s）</string>
+    <string name="proot_remove_progress">正在删除环境…</string>
+    <string name="proot_remove_success">环境已删除，工作区文件保留。</string>
     <string name="proot_none">无</string>
     <string name="proot_remove_failure">删除未完成（部分文件仍残留，状态已不一致，请重装）</string>
     <string name="proot_install_failure">安装失败：%1$s</string>
-    <string name="proot_install_success">安装成功：%1$s（%2$d 成员，%3$d 字节）</string>
+    <string name="proot_install_success">环境已准备，可以使用。</string>
     <string name="proot_install_stage_failure">安装失败（%1$s）：%2$s</string>
     <string name="proot_legal_unavailable">法律页内容不可用（内嵌资产读取失败）：%1$s</string>
-    <string name="proot_legal_page_title">PRoot Runtime — 许可证与来源</string>
+    <string name="proot_legal_page_title">Linux 运行环境 — 开源许可与来源</string>
     <string name="proot_legal_page_subtitle">（离线页面；内容全部来自 APK 内嵌资产）</string>
     <string-array name="proot_legal_offline_notice">
         <item>内置运行环境：</item>
@@ -60,7 +60,25 @@
     <string name="proot_terminal_title">手动终端</string>
     <string name="proot_terminal_running">终端正在运行，结束后请关闭</string>
     <string name="proot_repair_details">技术详情</string>
-    <string name="proot_runtime_installed">运行时已安装，请在设置中验证后使用。</string>
+    <string name="proot_runtime_installed">已准备</string>
     <string name="proot_maintenance_interrupted">上次操作中断。请核查当前安装状态，再决定是否重试。</string>
     <string name="proot_maintenance_unsaved">无法保存操作状态，请检查可用空间和运行时当前状态。</string>
+    <string name="proot_environment_update_required">需要更新到当前 Helix 内置版本</string>
+    <string name="proot_environment_damaged">安装异常，需要修复</string>
+    <string name="proot_environment_description">为 Linux 命令和终端提供支持。首次使用时自动准备，也可在这里提前准备。</string>
+    <string name="proot_environment_more">维护与详情</string>
+    <string name="proot_environment_reinstall">重新安装</string>
+    <string name="proot_environment_repair">修复环境</string>
+    <string name="proot_environment_check">检查安装</string>
+    <string name="proot_environment_checking">正在检查安装文件…</string>
+    <string name="proot_environment_check_passed">安装文件检查通过。实际命令的执行结果以任务记录为准。</string>
+    <string name="proot_environment_boundary">使用 PRoot 运行内置 Linux 环境。与 Helix 共享文件和网络权限；请只执行信任的命令。</string>
+    <string name="proot_environment_confirm">继续</string>
+    <string name="proot_remove_confirm_body">删除已展开的环境、环境内自行添加的软件和文件，以及尚未收取的作业结果。会话和工作区中已保存的文件保留。下次获准使用时会从内置资源重新准备环境。</string>
+    <string name="proot_reinstall_confirm_body">使用当前 Helix 内置版本替换环境；环境内自行安装的软件和文件不会合并。当前版本保留为一次恢复副本，工作区文件和作业结果保留。</string>
+    <string name="proot_rollback_confirm_body">切换到保留的上次环境。工作区文件保留；若该版本与当前 Helix 不匹配，需要更新后才能执行。</string>
+    <string name="proot_environment_action_failed">操作未完成，请展开维护与详情查看原因。</string>
+    <string name="proot_environment_in_use">环境正在使用中，请先停止相关任务和终端，再重试。</string>
+    <string name="proot_environment_reset">删除并重新准备</string>
+    <string name="proot_environment_reset_required">安装记录损坏，需要重新准备</string>
 </resources>

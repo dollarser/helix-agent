@@ -24,7 +24,7 @@ ORG_GRADLE_PROJECT_includeSpikes=true python3 scripts/with-host-slot.py -- \
 
 ## 有授权的设备测试模板
 
-每个当前任务先明确设备与模型授权，选择未运行的AVD、自有serial和新输出目录；不借日常实例，不清数据，不用快照恢复冒充当前数据库。设备授权不含真实账号或模型额度授权。
+每个当前任务先明确设备与模型授权，默认选择未运行的AVD、自有serial和新输出目录。所有者明确指定日常实例时按该授权范围使用，保留既有数据并记录实际安装/清理边界，不擅自改用其他设备。不因设备验收授权而清数据，不用快照恢复冒充当前数据库；设备授权不含真实账号或模型额度授权。
 
 ```sh
 python3 scripts/with-host-slot.py -- python3 scripts/run-owned-emulator.py \
@@ -36,7 +36,7 @@ python3 scripts/with-host-slot.py -- python3 scripts/run-owned-emulator.py \
   --classes YOUR_CURRENT_CLASSES --output build/debug/YOUR_FRESH_ATTEMPT
 ```
 
-runner负责冻结APK及SHA、自有进程检查、键盘默认值、连续TestRunner/System.out日志和finally关闭。中文输入应执行实际拼音预编辑/候选/中文commit验证。允许真实模型时才加 `--reverse-port YOUR_PORT` 和明确的 `--instrument-arg KEY=VALUE`，只用本轮指定服务和合成会话。
+runner负责冻结APK及SHA、自有进程检查、键盘默认值、连续TestRunner/System.out日志和finally关闭。仅当任务覆盖输入/IME或所有者要求准备手动中文输入时，才执行实际拼音预编辑/候选/中文commit验证；无关设备测试不新增该阻塞条件。允许真实模型时才加 `--reverse-port YOUR_PORT` 和明确的 `--instrument-arg KEY=VALUE`，只用本轮指定服务和合成会话。
 
 after-script必须在读取合成结果或执行切点前核对 `owner.json` 的PID仍活着、serial及AVD一致。只导出本轮自己创建的fixture及最小逐调用字段；不读取既有用户会话/凭据。进程死亡的setup本来会崩溃，它不是通过；必须记录新PID、持久状态以及原执行未重放的verify结果。
 
@@ -56,6 +56,12 @@ python3 scripts/summarize-android-tests.py YOUR_EXPLICIT_XML \
 
 owned汇总严格检查实际方法结果、owner与closed PID一致、正常退出、同一组APK hash一致；不同渠道分组。多阶段可重复 `--log RELATIVE_LOG_NAME`。颜色模式、HTTP请求次数、文件原子发布或工具业务结果等领域断言仍由专门fixture/after-script核实，通用汇总不替代它们。旧summary-only日志不能伪造逐方法结果，历史证据从Git恢复或按当时报告阅读。
 
+### 成功构建与最终候选
+
+先确认构建命令的终态和退出码，再冻结实际 APK/测试 APK 及构建输入，最后核对安装对象。构建失败时即使输出文件存在，也不能用它证明本次修改；误跑旧候选应保留原输出并标为 INVALID。后续修改只使受影响的证据失效：字节相同的未变渠道可以明确复用，改变了实现或依赖的候选需要对应补验。指纹及详细清单保存在 `build/<task>/`，指导文档不重复维护。
+
+真实模型旅程同时核对原 Turn/Call/Job 身份、工具终态、实际文件或目标状态，以及需要时的下一次模型请求内容。归档中有 stdout、返回图片标志、Turn.COMPLETED 或模型自然语言结论都不能单独证明模型消费或业务结果。前一次失败与后一次通过分别保留，Provider/模型/渠道不能交叉冒领结果。[HXA-304](../evidence/development/preview-upgrade-confirmation-2026-10-17.md)包含旧候选 INVALID 和 collect 输出未进入模型的实际案例。
+
 ## 常见误判与定位顺序
 
 | 现象 | 首先核对 | 保留的方法 |
@@ -67,16 +73,28 @@ owned汇总严格检查实际方法结果、owner与closed PID一致、正常退
 | 黑屏/卡顿 | 设备/API/渠道/安装版本、焦点窗口、Activity生命周期、主线程/ANR/崩溃、悬浮层 | 区分整屏和Helix页面；模拟器不能证明实体手机问题解决 |
 | FD/PSS漂移 | 同PID、实际完整时长、fixture峰值与host采样、周期结束后是否已退进程 | 终末无PID/PSS记null；强制GC仅诊断，不能代替资源验收；15分钟pilot不等于2h/24h |
 | 停止/恢复结果不一致 | Room原身份、UNKNOWN事实、真实executor退出、请求阶段 | 保留headers/body/执行已完成但尚未结算等切点；只读恢复新请求与原副作用重放分开 |
+| 运行环境显示就绪但不能执行 | 当前安装记录、实际文件/版本、连接握手、命令启动与结果消费分别检查 | 不以旧验证回执或握手替代安装事实，不将显式检查变成自动重装；已有损坏内容按维护契约处理 |
+| 文件看似改过但后续读不到 | 原资源、请求绑定目录、直接编辑或输入快照、运行目录映射、产物发布与显式导入 | UI名称不当身份；快照输出不自动覆盖源文件，不能把成功产物登记当作源目录已更新 |
+| 模型表示已修改但看不到 diff | 本次工具参数/结果、是否有前后版本、Git仓库及当前选定比较区间 | 区分逐调用差异与Git累计差异；仓库无差异不证明未写文件，原始参数也不等于可复核差异 |
 
-## 何时删除或晋升脚本
+### 删除与维护的诊断边界
 
-### 中文输入和视觉补验
+1. 核对实际删除对象、所有者和仍在使用的 Job/终端；安装目录、用户工作区及未收取结果分别判断。
+2. 核对确认前后状态：取消不清状态，过期或目标身份变化的确认不能继续删除；失败后保留实际已发生的部分效果。
+3. 对涉及目录清理的实现，用合成数据检查普通子目录、内部目录链接、根链接、悬空链接及相邻保留文件。遍历不跟随链接，删除链接本身；验证不靠 `exists()` 对悬空链接返回 false 来冒充已删除。
+4. 只有本任务明确拥有且获准清理的资源进入清理范围。运行环境修复不顺带清除用户工作区，删库遵循当前存储 ADR；“不兼容旧设计”不提供数据删除权限。
+
+这些是诊断与用例选择依据，不要求每个文档或无关功能任务执行全套测试。[HXA-305 主机记录](../evidence/development/bundled-linux-environment-2026-10-17.md)保留链接越界删除的反例与修复边界，未执行设备/模型验收。
+
+## 中文输入和视觉补验
 
 Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞争同一个系统服务。高权限后端测试使用外部ADB完成已授权的临时设置，在自有MainActivity可见之后启用服务，退出恢复原值；避免一边保留测试UiAutomation、一边声称验证了另一Root连接。授予App Root后仍须明确connect。合成目标的视觉ALL_CAPS与实际节点文字应保持一致，精确选择器按实际文字/ID验证，不能因测试不匹配而放宽生产匹配规则。单独的shell UID0不证明App RootService或任务可执行。[真机对照与失败记录](../evidence/development/physical-followup-2026-10-12.md#批准后的升级后端与模型补验)保留当前案例。
 
 语言已勾选、键盘可见或UTF-8注入成功不能证明拼音可用。运行实际预编辑→中文候选→点击提交夹具，并在Helix未运行的系统输入框对照原生崩溃。Gboard公开词包缺失/0字节与解码器故障应保留大小、哈希、版本及健康对照；root读取须单独授权，只检查公共资源，不读个人词库、账号或凭据。不要清日常数据；可在新空白自有AVD等下载完成、普通重启输入法后复验，再冷启动确认。原故障证据与替代环境通过分别记录。
 
 真实视觉用运行时像素决定且提示/初始DOM未披露答案的合成目标，独立核验操作结果。fake Provider编码、请求manifest输入ID、准备图片标志都不能证明模型收到图片；实际请求图片字节的哈希应与持久附件对应。截图前后相同仍可能有DOM状态变化，要明确效果核验来源。后台返回还须检查实际会话可见内容及截图；非单色首次使用须知并非成功返回会话。当前案例及失败尝试见[2026-10-12补验](../evidence/development/device-vision-stability-followup-2026-10-12.md)。
+
+## 何时删除或晋升脚本
 
 一次性源码/文档改写器完成后，以当前源码、稳定回归和Git历史承接，不继续当迁移入口。重复launcher/解析器合并到现有稳定入口并更新调用方；只有Mock/Pure host测试进入自动发现，设备/真实服务测试仍显式opt-in。依赖锁、vendor输入、许可证、唯一协议或未关闭问题的诊断不能按日期删除。
 

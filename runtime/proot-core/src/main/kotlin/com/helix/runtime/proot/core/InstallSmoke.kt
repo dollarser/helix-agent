@@ -25,9 +25,7 @@ class InstallSmoke(
     private val facts: InstallFacts,
 ) {
     fun run(installDir: File): RuntimeSmokeResult {
-        val failures = mutableListOf<String>()
-        checkRequiredRootfsPaths(installDir, failures)
-        checkExecBits(installDir, failures)
+        val failures = checkRequiredFiles(installDir).toMutableList()
         checkElfs(installDir, failures)
         checkLockFingerprint(failures)
         return RuntimeSmokeResult(
@@ -36,6 +34,13 @@ class InstallSmoke(
             failures = failures,
         )
     }
+
+    /** Cheap passive check; the full ELF scan is reserved for installation and explicit diagnostics. */
+    fun checkRequiredFiles(installDir: File): List<String> =
+        mutableListOf<String>().also {
+            checkRequiredRootfsPaths(installDir, it)
+            checkExecBits(installDir, it)
+        }
 
     private fun checkRequiredRootfsPaths(
         installDir: File,

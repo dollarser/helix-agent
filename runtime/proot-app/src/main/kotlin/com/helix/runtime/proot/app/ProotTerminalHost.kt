@@ -44,10 +44,13 @@ internal class ProotTerminalHost(
             return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
         }
         pruneReconciledRecords(store, records)
+        if (!runner.reserveManualTerminal(key.sessionId)) return PtySessionReply(null, outcome = "START_REFUSED")
         val launch =
             prepareLaunch(context, workspace, key.sessionId)
-                ?: return PtySessionReply(null, outcome = "START_REFUSED")
-        if (!runner.reserveManualTerminal(key.sessionId)) return PtySessionReply(null, outcome = "START_REFUSED")
+                ?: run {
+                    runner.releaseManualTerminal(key.sessionId)
+                    return PtySessionReply(null, outcome = "START_REFUSED")
+                }
         val now = SystemClock.elapsedRealtime()
         val initial =
             PtySessionRecord(

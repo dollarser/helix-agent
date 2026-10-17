@@ -18,6 +18,7 @@ internal object ProotMaintenancePresentation {
                 .edit()
                 .putBoolean("running", true)
                 .putString("message", message)
+                .remove("details")
                 .commit()
         active = !persistenceFailed
         return active
@@ -27,10 +28,12 @@ internal object ProotMaintenancePresentation {
     fun finish(
         context: Context,
         message: String,
+        details: String = "",
     ) {
         persistenceFailed =
             !store(context)
                 .edit()
+                .putString("details", details)
                 .putBoolean("running", false)
                 .putString("message", message)
                 .commit()
@@ -51,6 +54,8 @@ internal object ProotMaintenancePresentation {
             stored.getString("message", "").orEmpty()
         }
     }
+
+    fun details(context: Context): String = store(context).getString("details", "").orEmpty()
 
     private fun store(context: Context) = context.getSharedPreferences("proot-maintenance-ui", Context.MODE_PRIVATE)
 }

@@ -5,6 +5,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.channels.FileChannel
 import java.nio.channels.OverlappingFileLockException
+import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.security.SecureRandom
 
@@ -73,12 +74,11 @@ internal object InstallState {
     ): List<String> {
         val deleted = mutableListOf<String>()
         for (child in root.listFiles().orEmpty().sortedBy { it.name }) {
-            if (!child.isDirectory) continue
+            if (!child.isDirectory && !Files.isSymbolicLink(child.toPath())) continue
             val stalePartial = child.name.startsWith(PARTIAL_PREFIX)
             val orphanVersion =
                 child.name.startsWith("inst_") && child.name != activeId && child.name != rollbackId
-            if (stalePartial || orphanVersion) {
-                deleteRecursivelyQuietly(child)
+            if ((stalePartial || orphanVersion) && RuntimeTreeDeletion.remove(child)) {
                 deleted += child.name
             }
         }
@@ -95,11 +95,7 @@ internal object InstallState {
     ) {
         if (previousRollback == null) return
         val dir = File(root, previousRollback.installId)
-        if (dir.isDirectory) deleteRecursivelyQuietly(dir)
-    }
-
-    fun deleteRecursivelyQuietly(dir: File) {
-        runCatching { dir.deleteRecursively() }
+        RuntimeTreeDeletion.remove(dir)
     }
 
     /** Atomic text write: same-directory tmp, fsync, rename, directory fsync. */

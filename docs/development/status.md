@@ -8,6 +8,10 @@
 
 ## 当前实施
 
+2026-10-17 Owner 追加 [HXA-305](tasks/HXA-305.md) 本地候选收尾：独立 ARM64 模拟器、真实 Qwen 和最终 R8 验收实施中；7 份指导文档按已有修改审查整合，竞品补充沿原研究/ADR/任务落地。允许分阶段本地提交与冻结双渠道候选，不推送发布、不动日常模拟器/真机数据、不启动整体重构。当前设备/模型验收 pending，原主机阶段 not requested 和 HXA-304 旧包证据不替代本轮结果。
+
+[HXA-305](tasks/HXA-305.md) 已完成本轮主机交付：Advanced 内置 Linux 环境首次获准使用时自动准备，安装事实驱动状态，维护入口收敛，移除手动验证/重定基线和重复删除确认；另修复环境/结果清理跟随目录链接误删外部文件。14 项新增 JVM 回归、完整主机门禁及双渠道 Debug/Release/R8 构建通过，详见[验收记录](../evidence/development/bundled-linux-environment-2026-10-17.md)。设备/真实模型 not requested，未安装新包、不提交推送发布；后续 HXA-288 已承接契约，未启动整体重构。
+
 [HXA-304](tasks/HXA-304.md) 已完成：旧预览库清空前确认、旧提醒清理、预算可靠落盘及实测发现的 PRoot collect 标准输出缺口。全仓主机门禁、独立 ARM64 双渠道 R8 与指定真实 Qwen 任务通过，详见[验收记录](../evidence/development/preview-upgrade-confirmation-2026-10-17.md)。HXA-303 已本地提交为 `9e9b6912`，8 项样本/公开 MCP 补验全通过；本轮仅本地提交，日常设备数据不变，未推送或发布。
 
 [HXA-303](tasks/HXA-303.md) 已完成 Owner 授权的独立优化：有效预算/预览存储基线、声明式发现配套及后续任务收敛。全仓主机门禁、双渠道 Debug/Release/R8 构建及测试 APK 编译通过，详见[本轮证据](../evidence/development/pre-refactor-contract-cleanup-2026-10-17.md)；原实施阶段设备/真实服务 not requested；后续追加范围见上，不自动启动完整架构队列。

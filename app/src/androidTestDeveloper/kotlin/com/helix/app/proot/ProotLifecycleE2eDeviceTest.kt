@@ -457,12 +457,12 @@ class ProotLifecycleE2eDeviceTest {
                 }
             }
 
-            supervisor.anchorPresent() -> {
+            supervisor.installationReady() -> {
                 LinuxRuntimeGate.READY
             }
 
             else -> {
-                LinuxRuntimeGate.NOT_VERIFIED
+                LinuxRuntimeGate.NEEDS_MAINTENANCE
             }
         }
     }

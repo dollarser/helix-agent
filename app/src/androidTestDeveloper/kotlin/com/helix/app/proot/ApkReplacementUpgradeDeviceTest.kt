@@ -16,8 +16,8 @@ import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliModelJobRecordCodec
 import com.helix.runtime.cli.client.CliModelJobState
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
-import com.helix.runtime.proot.client.VerifiedRuntimeStore
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -90,7 +90,6 @@ class ApkReplacementUpgradeDeviceTest {
             ),
         )
         File(pendingDir, "request.json").writeText("incomplete old-version fixture")
-        VerifiedRuntimeStore(app).clear()
         val descriptor =
             com.helix.runtime.proot.ipc.RuntimeTargetDescriptorCodec.parse(
                 com.helix.runtime.proot.app.ProotHandshakeManifest
@@ -98,7 +97,11 @@ class ApkReplacementUpgradeDeviceTest {
                     .decodeToString(),
             )
         val legacy = File(app.filesDir, "proot-runtime/verified-runtime.json")
-        VerifiedRuntimeStore(legacy).save(VerifiedRuntimeStore.Entry(descriptor, 1234L))
+        legacy.parentFile!!.mkdirs()
+        legacy.writeText(
+            com.helix.runtime.proot.ipc.RuntimeTargetDescriptorCodec
+                .encode(descriptor),
+        )
         File(marker, "legacy-anchor.json").writeText(legacy.readText())
         File(marker, "provider.txt").writeText(storage.providerConfigs.resolve(original.id).toString())
         File(marker, "pid").writeText(Process.myPid().toString())
@@ -122,7 +125,12 @@ class ApkReplacementUpgradeDeviceTest {
             storage.providerConfigs.resolve(SubscriptionProviderModule.CODEX_ID).toString(),
         )
         assertEquals("preserve exact artifact bytes", File(app.filesDir, "upgrade-user-artifact.txt").readText())
-        assertNull("legacy anchor must not activate integrated runtime", VerifiedRuntimeStore(app).load())
+        assertFalse(
+            "old receipts cannot create an installation",
+            com.helix.runtime.proot.client
+                .ProotRuntimeSupervisor(app)
+                .installationReady(),
+        )
         assertEquals(
             File(marker, "legacy-anchor.json").readText(),
             File(app.filesDir, "proot-runtime/verified-runtime.json").readText(),

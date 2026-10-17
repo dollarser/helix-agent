@@ -84,8 +84,8 @@ internal class LinuxJobExecution(
     private fun unavailableDetail(cause: com.helix.runtime.proot.ipc.UnavailableCause): String =
         when (cause) {
             com.helix.runtime.proot.ipc.UnavailableCause.LOCK_MISMATCH -> {
-                "the installed Runtime no longer matches the verified version — " +
-                    "verify or repair Runtime after a manual user action; " +
+                "the installed Linux environment no longer matches the bundled version — " +
+                    "ask the user to update or repair it in Environment details; " +
                     "the next retry creates a new ToolCall/approval/jobId."
             }
 
@@ -449,6 +449,6 @@ internal class LinuxJobExecution(
                 LinuxRuntimeGate.READY -> "ready"
                 LinuxRuntimeGate.NOT_INSTALLED -> "not installed"
                 LinuxRuntimeGate.DISABLED_OR_FORCED_STOPPED -> "disabled or force-stopped"
-                LinuxRuntimeGate.NOT_VERIFIED -> "never zero-Job verified"
+                LinuxRuntimeGate.NEEDS_MAINTENANCE -> "Linux installation missing, outdated or damaged"
             }
 }

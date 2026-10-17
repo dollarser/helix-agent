@@ -265,7 +265,8 @@ private fun buildCapabilityRows(
     val root = center.check(Capability.ROOT_SHELL).state
     val mcpCount = connector.list().sumOf { c -> c.endpoints.count { connector.enabled(it) } }
     val prootAvailable = ProotToolModule.AVAILABLE
-    val prootLabel = if (prootAvailable) ProotToolModule.verifyStatusLabel() else null
+    val prootStatus =
+        if (prootAvailable) ProotToolModule.installationStatusResource() else R.string.cap_status_unavailable
     val prootGrant = if (prootAvailable) GrantState.GRANTED else GrantState.UNAVAILABLE
     val mcpGrant = if (mcpCount > 0) GrantState.GRANTED else GrantState.UNAVAILABLE
     return listOf(
@@ -274,7 +275,7 @@ private fun buildCapabilityRows(
         standardRow("notifications", notifications),
         standardRow("calendar", calendar),
         standardRow("accessibility", accessibility, accessibility = true),
-        customRow("runtime", prootGrant, prootLabel, null, R.string.cap_status_ready),
+        customRow("runtime", prootGrant, null, null, prootStatus),
         standardRow("root", root),
         // mcpCount is non-null, so the row always shows the "N connected" plural; statusRes is
         // only a defensive fallback for the (impossible) null-count case.

@@ -11,35 +11,51 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ProotRepairLayoutDeviceTest : com.helix.app.test.ForegroundDeviceTestHost() {
-    @Test fun deleteEntryNeverOffersInstallAndKeepsTheResultAfterReopen() {
+    @Test fun deletingRequiresConfirmationAndCancellationKeepsInstallation() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val intent =
-            Intent(context, ProotRepairActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                .putExtra(com.helix.runtime.proot.ipc.ProotRuntimeProtocol.EXTRA_REMOVE_RUNTIME, true)
-        val install = context.getString(com.helix.runtime.proot.app.R.string.proot_repair_install)
-        val remove = context.getString(com.helix.runtime.proot.app.R.string.proot_repair_remove)
-        val success =
-            context.getString(
-                com.helix.runtime.proot.app.R.string.proot_remove_success,
-                context.getString(com.helix.runtime.proot.app.R.string.proot_none),
-            )
-        context.startActivity(intent)
+        ensureInstalledRuntime(context)
+        val original =
+            com.helix.runtime.proot.client
+                .ProotRuntimeSupervisor(context)
+                .installation()
+                .manifest
+        val marker = createExternalMarker(context)
+
+        fun text(id: Int) = context.getString(id)
+
+        fun click(label: String) {
+            waitForText(label)
+            val node =
+                instrumentation.uiAutomation.rootInActiveWindow
+                    .findAccessibilityNodeInfosByText(label)
+                    .first { it.isClickable }
+            assertTrue(node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
+        }
+        context.startActivity(Intent(context, ProotRepairActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         try {
-            waitForText(remove)
-            assertTrue(
-                instrumentation.uiAutomation.rootInActiveWindow
-                    .findAccessibilityNodeInfosByText(install)
-                    .isEmpty(),
+            val more = text(com.helix.runtime.proot.app.R.string.proot_environment_more)
+            val remove = text(com.helix.runtime.proot.app.R.string.proot_repair_remove)
+            click(more)
+            click(remove)
+            click(text(android.R.string.cancel))
+            org.junit.Assert.assertEquals(
+                original,
+                com.helix.runtime.proot.client
+                    .ProotRuntimeSupervisor(context)
+                    .installation()
+                    .manifest,
             )
-            val button =
-                instrumentation.uiAutomation.rootInActiveWindow
-                    .findAccessibilityNodeInfosByText(
-                        remove,
-                    ).first()
-            assertTrue(button.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
+            click(remove)
+            click(text(com.helix.runtime.proot.app.R.string.proot_environment_confirm))
+            val success = text(com.helix.runtime.proot.app.R.string.proot_remove_success)
             waitForText(success)
+            org.junit.Assert.assertEquals("HXA305_KEEP", marker.readText())
+            assertTrue(
+                !com.helix.runtime.proot.client
+                    .ProotRuntimeSupervisor(context)
+                    .installationReady(),
+            )
             instrumentation.uiAutomation.performGlobalAction(
                 android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK,
             )
@@ -49,11 +65,30 @@ class ProotRepairLayoutDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
             )
             waitForText(success)
         } finally {
+            marker.parentFile!!.deleteRecursively()
             instrumentation.uiAutomation.performGlobalAction(
                 android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK,
             )
             instrumentation.uiAutomation.waitForIdle(500, 5_000)
         }
+    }
+
+    private fun createExternalMarker(context: android.content.Context): java.io.File {
+        val external =
+            java.nio.file.Files
+                .createTempDirectory(context.cacheDir.toPath(), "environment-delete-")
+                .toFile()
+        val marker = java.io.File(external, "keep.txt").apply { writeText("HXA305_KEEP") }
+        java.nio.file.Files.createSymbolicLink(
+            java.io
+                .File(
+                    com.helix.runtime.proot.app.ProotRuntimeInstaller
+                        .runtimeRoot(context),
+                    "external-link",
+                ).toPath(),
+            external.toPath(),
+        )
+        return marker
     }
 
     @Test fun legalPageKeepsTitleAndCloseInsideSystemBars() {

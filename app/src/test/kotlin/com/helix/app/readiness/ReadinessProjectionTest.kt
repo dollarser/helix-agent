@@ -96,18 +96,18 @@ class ReadinessProjectionTest {
 
     @Test
     fun linuxNotVerifiedOffersVerifyAction() {
-        val p = CapabilityReadiness.project(ReadinessGoal.LINUX, true, neverCap(), RuntimeReadiness.NOT_VERIFIED)
+        val p = CapabilityReadiness.project(ReadinessGoal.LINUX, true, neverCap(), RuntimeReadiness.NEEDS_MAINTENANCE)
         assertFalse(p.ready)
         assertEquals(ReadinessItemKind.RUNTIME, p.items.single().kind)
         assertEquals(ReadinessState.MISSING, p.items.single().state)
-        assertEquals(ReadinessActionKind.VERIFY_RUNTIME, p.nextAction)
+        assertEquals(ReadinessActionKind.MANAGE_RUNTIME, p.nextAction)
     }
 
     @Test
     fun linuxNotInstalledOffersRepairNotASeparateInstallFlow() {
         val p = CapabilityReadiness.project(ReadinessGoal.LINUX, true, neverCap(), RuntimeReadiness.NOT_INSTALLED)
         assertFalse(p.ready)
-        assertEquals(ReadinessActionKind.REPAIR_RUNTIME, p.nextAction)
+        assertEquals(ReadinessActionKind.MANAGE_RUNTIME, p.nextAction)
     }
 
     @Test
@@ -121,7 +121,7 @@ class ReadinessProjectionTest {
             )
         assertFalse(p.ready)
         assertEquals(ReadinessState.MISSING, p.items.single().state)
-        assertEquals(ReadinessActionKind.REPAIR_RUNTIME, p.nextAction)
+        assertEquals(ReadinessActionKind.MANAGE_RUNTIME, p.nextAction)
     }
 
     @Test

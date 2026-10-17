@@ -3,6 +3,7 @@ package com.helix.runtime.proot.app
 import android.content.Context
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.core.RuntimeActivation
+import com.helix.runtime.proot.core.RuntimeTreeDeletion
 import java.io.File
 
 /**
@@ -12,9 +13,9 @@ import java.io.File
  * Scoping is the security property: only the runtime state root (`filesDir/runtime`
  * — version dirs + `state/`, per architecture doc section 6.3) may be deleted. The
  * path name is re-checked before ANY deletion (fail closed) and the deletion never
- * touches anything outside it: the main app's Workspace lives in a different package
- * entirely, and the companion holds no other user data. Job journals, evidence and
- * temp dirs live under the runtime root and are removed with it.
+ * follows symlinks outside it. Workspace files live outside this subtree in the
+ * same app package. Job journals, evidence and temp dirs under the runtime root
+ * are removed with it.
  */
 object ProotRuntimeRemoval {
     /** The only directory name this routine may ever delete (defense against a wrong root). */
@@ -39,21 +40,11 @@ object ProotRuntimeRemoval {
         }
         val active: RuntimeActivation? =
             runCatching { RootFsInstaller.currentActive(runtimeRoot) }.getOrNull()
-        val existed = runtimeRoot.exists()
-        if (existed) {
-            runtimeRoot.deleteRecursively()
-        }
-        // A leftover pointer without a tree is corrupt state: clear it so the next
-        // operation starts from a clean slate (the tree itself is already gone).
-        if (!runtimeRoot.exists()) {
-            return Result(
-                removed = true,
-                hadActive = active != null,
-                activeInstallId = active?.installId,
-            )
-        }
-        // deleteRecursively failed on something: report honestly, do not pretend.
-        return Result(removed = false, hadActive = active != null, activeInstallId = active?.installId)
+        return Result(
+            removed = RuntimeTreeDeletion.remove(runtimeRoot),
+            hadActive = active != null,
+            activeInstallId = active?.installId,
+        )
     }
 
     /** The Android adapter root: the companion's `filesDir/runtime` (section 6.3). */

@@ -94,14 +94,14 @@
     <string name="empty_audit">Tool-execution audit records land in M3.</string>
     <string name="empty_not_enabled">%1$s feature not yet enabled</string>
     <string name="nav_readiness">Readiness</string>
-    <string name="setup_runtime_title">Runtime</string>
+    <string name="setup_runtime_title">Execution environments</string>
     <string name="settings_defaults_title">Agent defaults</string>
     <string name="settings_permissions_safety_title">Permissions &amp; safety</string>
     <string name="settings_diagnostics_title">Diagnostics &amp; audit</string>
     <string name="settings_system_permissions_title">Permissions center</string>
     <string name="setup_landing_readiness_desc">Check what your current task still needs before it can run.</string>
     <string name="setup_landing_capabilities_desc">Inspect capability state and follow its single management entry.</string>
-    <string name="setup_landing_runtime_desc">Verify, repair or manage the local execution environment.</string>
+    <string name="setup_landing_runtime_desc">View environment status and access diagnostics and maintenance.</string>
     <string name="empty_readiness">The readiness page summarizes the model, Workspace, system capabilities and Runtime state per goal, and gives the next action.</string>
     <string name="readiness_lead">Check readiness for your goal and finish setup or repair. Entering this page does not start the Runtime or log in.</string>
     <string name="readiness_goal_label">Current goal</string>
@@ -112,14 +112,12 @@
     <string name="readiness_item_model">Model connection</string>
     <string name="readiness_item_workspace">Workspace</string>
     <string name="readiness_item_web">Web browsing</string>
-    <string name="readiness_item_runtime">PRoot Runtime</string>
+    <string name="readiness_item_runtime">Linux environment</string>
     <string name="readiness_state_ready">Ready</string>
     <string name="readiness_state_missing">Needs setup</string>
     <string name="readiness_state_unavailable">Not available</string>
     <string name="readiness_next_action">Next step</string>
     <string name="readiness_action_add_model">Configure a model</string>
-    <string name="readiness_action_verify_runtime">Verify Runtime</string>
-    <string name="readiness_action_repair_runtime">Repair Runtime</string>
     <string name="settings_title">Settings</string>
     <string name="settings_safety_section">Safety profile</string>
     <string name="settings_current_advanced">Current: Advanced</string>
@@ -130,7 +128,7 @@
     <string name="settings_consumer_standard_only">This build uses Standard and has no Advanced switch. Available capabilities are listed in its settings.</string>
     <string name="settings_advanced_confirm_title">Switch to Advanced — risk notice</string>
     <string name="settings_advanced_confirm_ok">I understand, confirm switch</string>
-    <string name="profile_advanced_risk_summary">Switching to Advanced itself grants no capability: it requests no system permission, installs no Runtime, requests no Root, connects to no new network endpoint, and widens no available tools.\n\nAdvanced opens controlled advanced capabilities (All-files, Accessibility, built-in PRoot, Root, precise LAN origin, and so on). Each capability remains off by default, must be enabled and scoped by the user, and can be revoked immediately.\n\nThe shared security core is unchanged: the model cannot self-authorize; schema validation, Policy, per-use approval, audit and revocation rules are never disabled or downgraded under Advanced.</string>
+    <string name="profile_advanced_risk_summary">Advanced provides additional capabilities. The built-in Linux environment is available by default and prepared when you first open a terminal or run an authorized Linux task.\n\nSwitching mode does not request system permissions or Root access, connect new network endpoints, or expand file authorization. Other capabilities still need their own setup and authorization.\n\nThe model cannot grant itself permission. Tool execution still follows policy, approval, execution limits, and audit rules.</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">Empty message: type something or select at least one sendable attachment.</string>
@@ -214,7 +212,7 @@
     <string name="approval_target">Target</string>
     <string name="approval_target_local_android">This device (main app process)</string>
     <string name="approval_target_local_cli">This device (Helix Subscriptions app)</string>
-    <string name="approval_target_local_proot">This device (PRoot Runtime app)</string>
+    <string name="approval_target_local_proot">Local Linux environment</string>
     <string name="approval_target_local_quickjs">This device (isolated QuickJS process)</string>
     <string name="approval_target_local_root">This device (short-lived RootService process)</string>
     <string name="approval_terminal_op_failed">Approval operation failed: the record no longer exists or is already decided.</string>
@@ -630,18 +628,7 @@
     <string name="provider_models_no_match">No matching models</string>
     <string name="provider_models_shown_summary">Showing first %2$d of %1$d</string>
     <string name="provider_models_unsupported_hint">Backend did not provide a model list; enter one manually</string>
-    <string name="settings_proot_title">PRoot Runtime</string>
-    <string name="settings_proot_status">Status: %1$s (built into Developer and updated with Helix; shares app data and network permissions, not a security sandbox)</string>
-    <string name="settings_proot_verify">Verify Runtime</string>
-    <string name="settings_proot_repair">Repair Runtime</string>
-    <string name="settings_proot_legal">Licenses and sources</string>
-    <string name="settings_proot_remove">Remove Runtime</string>
-    <string name="settings_proot_rebaseline">Accept Runtime update</string>
-    <string name="settings_proot_remove_title">Remove PRoot Runtime?</string>
-    <string name="settings_proot_remove_body">Continue to confirm removal on the Runtime management screen. Runtime software and task records will be removed; Workspace files are kept. Reinstall and verify to use the terminal again.</string>
-    <string name="settings_proot_remove_confirm">Continue</string>
-    <string name="settings_proot_rebaseline_success">Update accepted. Verify the Runtime again.</string>
-    <string name="settings_proot_rebaseline_empty">The Runtime has not been verified. Verify it first.</string>
+    <string name="settings_proot_title">Linux environment</string>
     <string name="provider_subscription_experimental_notice">Unofficial integration. Sign in with an eligible account; availability depends on the provider.</string>
     <string name="provider_subscription_manage_account">Manage subscription login</string>
     <string name="provider_subscription_runtime_unavailable">Helix Subscriptions is unavailable, disabled, or signed by a different key.</string>
@@ -1020,9 +1007,9 @@
     <string name="cap_accessibility_what">Automate the interface of other apps.</string>
     <string name="cap_accessibility_why">Cross-app automation needs the system accessibility channel.</string>
     <string name="cap_accessibility_scope">Enable it manually in system settings; only the developer build declares the service.</string>
-    <string name="cap_runtime_what">Run command-line tools inside a Linux sandbox.</string>
+    <string name="cap_runtime_what">Run command-line tools in a Linux environment.</string>
     <string name="cap_runtime_why">Run tasks that require a Linux environment.</string>
-    <string name="cap_runtime_scope">Built into Developer; initialize and verify before use. Shares app permissions. Excluded from consumer.</string>
+    <string name="cap_runtime_scope">Built into Advanced and prepared on first authorized use; shares Helix permissions.</string>
     <string name="cap_root_what">Perform controlled operations with system privileges.</string>
     <string name="cap_root_why">A few device-level operations require root.</string>
     <string name="cap_root_scope">Requires a rooted device and on-the-spot user consent; unavailable in the consumer build.</string>
@@ -1556,8 +1543,8 @@
     <string name="chat_command_compact_unavailable">Compaction is unavailable. Finish the current request or handle attachments first.</string>
     <string name="chat_command_help">/chat read-only chat · /plan planning · /act execution · /goal ongoing goal · /compact: shorten context · /clear: reset input. Select, then send to execute.</string>
     <string name="chat_command_mode_hint">In the conversation, enter /chat, /plan, /act or /goal and send to switch modes.</string>
-    <string name="runtime_advanced_required">PRoot requires Advanced. Switch to install, repair and verify it. Switching does not install anything or authorize execution.</string>
-    <string name="runtime_developer_required">This edition does not include PRoot. Use the developer edition with Advanced enabled.</string>
+    <string name="runtime_advanced_required">The Linux environment requires Advanced mode. It is prepared on first use; execution still requires authorization.</string>
+    <string name="runtime_developer_required">This build does not include the Linux environment. Use the Advanced build.</string>
     <string name="runtime_switch_advanced">Switch to Advanced</string>
     <string name="chat_command_chat_desc">Switch to read-only Chat mode</string>
     <string name="chat_current_mode">Mode: %1$s</string>
@@ -2008,4 +1995,7 @@
     <string name="preview_reset_cancel">Exit and keep data</string>
     <string name="preview_start_exit">Exit</string>
     <string name="budget_save_failed">Could not save settings. Check available storage and try again.</string>
+    <string name="settings_proot_description">Available by default; prepared automatically on first use. Environment versions ship with Helix.</string>
+    <string name="settings_proot_manage">Environment details</string>
+    <string name="readiness_action_manage_runtime">Manage environment</string>
 </resources>

@@ -16,8 +16,8 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.client.RepairEntryResult
+import com.helix.runtime.proot.core.RuntimeInstallationState
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
-import com.helix.runtime.proot.ipc.UnavailableCause
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
@@ -30,17 +30,11 @@ import java.io.File
  * Owns the cold-bind [ProotRuntimeSupervisor] + [ProotJobClient] and registers the
  * `code.linux.run` tool (L2 CODE_EXECUTION, per-call approval, shared host UID and network permissions under ADR-0049).
  *
- * ADR-0007 guarantees kept here:
- * - `registerTools` does NO bind and starts NO process: it wires registries only.
- *   App startup, switching Advanced and passive Registry refresh never bind.
- * - The tool table admission (roadmap HXA-085) is the availability GATE evaluated per
- *   EXECUTION (installed + enabled + the user has ALREADY completed the zero-Job
- *   verification = the persisted anchor). A pre-alive process is not a condition.
- * - "验证 Runtime" (user click) is the ONLY zero-Job bind path; "修复 Runtime" (user
- *   click) is the ONLY repair-activity path. After either, a retry creates a NEW
- *   ToolCall/approval/jobId (nothing is replayed).
+ * Registration and passive inspection never bind. A missing environment is prepared on the
+ * first authorized execution; an existing damaged or outdated copy requires user maintenance.
+ * Execution authorization, original identity and physical capacity remain independent.
  */
-@Suppress("TooManyFunctions") // HXA-085 wiring + HXA-087 legal/removal/re-baseline surfaces
+@Suppress("TooManyFunctions") // Tool wiring, execution observation and environment management.
 internal object ProotToolModule {
     const val AVAILABLE: Boolean = true
 
@@ -60,11 +54,9 @@ internal object ProotToolModule {
             .AtomicLong(0)
 
     /**
-     * Standalone supervisor wiring (HXA-087): the user-click surfaces
-     * ([openLegalPage]/[removeRuntime]/[rebaseline]/[verifyNow]) only need the
-     * supervisor. The container's init path uses [registerTools] (full tool
-     * wiring); the instrumented E2E process — which has no container init — uses
-     * this to exercise the SAME module surfaces a user click would reach.
+     * Wires passive installation queries and explicit environment/diagnostic entry points.
+     * The container uses [registerTools] for full tool wiring; device fixtures can
+     * exercise the same application surfaces without initializing a model session.
      */
     fun wireForTest(context: Context) {
         appContext = context.applicationContext
@@ -214,10 +206,8 @@ internal object ProotToolModule {
     }
 
     /**
-     * The per-execution availability gate (the roadmap's 未安装 / 未验证 / 需更新 /
-     * 被禁用/强制停止 distinction). Cheap PackageManager lookups + one anchor file
-     * read; NO bind. `READY` additionally requires the persisted anchor (the user has
-     * completed the zero-Job verification at least once).
+     * Inspect the retained original job. Recovery never prepares an environment or
+     * authorizes a replacement execution.
      */
     fun inspectInterruptedJob(
         storage: HelixStorage,
@@ -381,12 +371,17 @@ internal object ProotToolModule {
                 }
             }
 
-            supervisor.anchorPresent() -> {
+            supervisor.installation().state in
+                setOf(
+                    RuntimeInstallationState.PREPARED,
+                    RuntimeInstallationState.NOT_PREPARED,
+                )
+            -> {
                 LinuxRuntimeGate.READY
             }
 
             else -> {
-                LinuxRuntimeGate.NOT_VERIFIED
+                LinuxRuntimeGate.NEEDS_MAINTENANCE
             }
         }
     }
@@ -394,130 +389,29 @@ internal object ProotToolModule {
     /**
      * The flavor-neutral runtime readiness (HXA-205 readiness view): the LIVE [availabilityGate]
      * mapped to the flavor-neutral [RuntimeReadiness] enum. Bind-free, exactly like
-     * [verifyStatusLabel] — passive entry of the readiness view reads it without a cold bind.
+     * [installationStatusResource] — passive entry of the readiness view reads it without a cold bind.
      */
     fun runtimeReadiness(): RuntimeReadiness =
         when (availabilityGate()) {
             LinuxRuntimeGate.READY -> RuntimeReadiness.READY
             LinuxRuntimeGate.NOT_INSTALLED -> RuntimeReadiness.NOT_INSTALLED
-            LinuxRuntimeGate.NOT_VERIFIED -> RuntimeReadiness.NOT_VERIFIED
+            LinuxRuntimeGate.NEEDS_MAINTENANCE -> RuntimeReadiness.NEEDS_MAINTENANCE
             LinuxRuntimeGate.DISABLED_OR_FORCED_STOPPED -> RuntimeReadiness.DISABLED_OR_FORCED_STOPPED
         }
 
-    /**
-     * The user-click "验证 Runtime" action (the ONLY zero-Job bind): a fresh cold bind +
-     * handshake; on success the anchor is persisted (tool table admission from then on).
-     * Blocking — call off the main thread.
-     */
+    /** Explicit installed-copy and connection check, used by diagnostics; never grants task authorization. */
     fun verifyNow(nowEpochMs: Long = System.currentTimeMillis()): ProotRuntimeAvailability =
         supervisor.verify(nowEpochMs)
 
-    /** The user-click "修复 Runtime" action (the ONLY repair-activity path). Never throws. */
-    fun openRepairNote(): ProotVerificationNote? = entryNote(openRepair())
-
-    fun openLegalNote(): ProotVerificationNote? = entryNote(openLegalPage())
-
-    private fun entryNote(result: RepairEntryResult): ProotVerificationNote? =
-        when (result) {
-            RepairEntryResult.Opened -> {
-                null
-            }
-
-            is RepairEntryResult.Unavailable -> {
-                ProotVerificationNote(
-                    appContext.getString(R.string.runtime_entry_failed),
-                    isError = true,
-                )
-            }
+    fun openEnvironmentNote(): ProotEntryNote? =
+        when (openEnvironment()) {
+            RepairEntryResult.Opened -> null
+            is RepairEntryResult.Unavailable -> ProotEntryNote(appContext.getString(R.string.runtime_entry_failed))
         }
 
-    fun openRepair(): RepairEntryResult = supervisor.openRepairActivity()
+    fun openEnvironment(): RepairEntryResult = supervisor.openRepairActivity()
 
-    /**
-     * The user-click "验证 Runtime" result note (HXA-087 需更新 detection): runs the
-     * zero-Job verification and maps the result to the user-visible note. The
-     * `LOCK_MISMATCH` cause is the stable "需更新" state — the companion APK's
-     * embedded lock moved away from the persisted anchor (a companion update
-     * happened); the UI then offers the explicit "重定基线" action. Blocking —
-     * call off the main thread.
-     */
-    fun verifyNowNote(): ProotVerificationNote =
-        when (val availability = verifyNow()) {
-            is ProotRuntimeAvailability.Verified -> {
-                ProotVerificationNote(appContext.getString(R.string.settings_proot_verify_success))
-            }
-
-            is ProotRuntimeAvailability.Unavailable -> {
-                when (availability.cause) {
-                    UnavailableCause.LOCK_MISMATCH -> {
-                        ProotVerificationNote(
-                            appContext.getString(R.string.settings_proot_verify_mismatch),
-                            needsRebaseline = true,
-                            isError = true,
-                        )
-                    }
-
-                    else -> {
-                        ProotVerificationNote(
-                            appContext.getString(
-                                R.string.settings_proot_verify_failure,
-                                availability.cause,
-                            ),
-                            isError = true,
-                        )
-                    }
-                }
-            }
-        }
-
-    /**
-     * The user-click "删除 Runtime" action (HXA-087 完整删除): clears THIS app's
-     * persisted anchor (its own file — the verification claim is void once the
-     * runtime is being removed) and opens the companion repair activity carrying
-     * the removal consent extra; the companion then shows its own explicit remove
-     * button (the in-surface confirmation). The Workspace is in this package's
-     * other directories and is never touched — the companion's removal is scoped
-     * to its `filesDir/runtime` (ProotRuntimeRemoval). Never throws.
-     */
-    fun removeRuntime(): RepairEntryResult {
-        supervisor.clearAnchorForRebaseline()
-        return supervisor.openRepairActivity(removeRuntime = true)
-    }
-
-    /**
-     * The user-click "删除 Runtime" result note (the [removeRuntime] outcome as
-     * user-visible text; the UI never touches the typed result — flavor-neutral
-     * settings screen). Blocking — call off the main thread.
-     */
-    fun removeRuntimeNote(): ProotVerificationNote =
-        when (val result = removeRuntime()) {
-            RepairEntryResult.Opened -> {
-                ProotVerificationNote(appContext.getString(R.string.settings_proot_remove_opened), clearOnResume = true)
-            }
-
-            is RepairEntryResult.Unavailable -> {
-                ProotVerificationNote(
-                    appContext.getString(R.string.settings_proot_remove_unavailable, result.cause),
-                    isError = true,
-                )
-            }
-        }
-
-    /**
-     * The user-click "许可证与来源" action (HXA-087 法律页): opens the companion's
-     * offline legal/build-manifest page. User-gated, never throws.
-     */
     fun openLegalPage(): RepairEntryResult = supervisor.openLegalActivity()
-
-    /**
-     * The EXPLICIT re-baseline action (HXA-087 更新): only reachable from the UI
-     * AFTER it has shown the stable "需更新（基线不匹配）" state (a companion APK
-     * update moved the embedded lock away from the verified anchor). Clears the
-     * anchor so the NEXT user-click "验证 Runtime" re-establishes it against the
-     * new lock. Two explicit user actions, never automatic — the anchor's
-     * "no silent acceptance of a moved baseline" property is preserved.
-     */
-    fun rebaseline(): Boolean = supervisor.clearAnchorForRebaseline()
 
     /** The wire-validated job id: `job_` + 12 lowercase hex (nanoTime + sequence + random mix). */
     private fun nextJobId(): String {
@@ -525,32 +419,19 @@ internal object ProotToolModule {
         return "job_" + mixed.toString(16).padStart(6, '0').takeLast(6) + idGenerator.next().take(6)
     }
 
-    /**
-     * The user-click "需更新" detection: an anchor exists but the INSTALLED companion's
-     * lock no longer matches it (a companion update happened). Requires a bind — this is
-     * only ever invoked from a user-visible surface, never passively.
-     */
-    fun verifyStatusLabel(): String =
-        when (availabilityGate()) {
-            LinuxRuntimeGate.READY -> {
-                appContext.getString(R.string.settings_proot_verified)
-            }
+    /** Passive, current installation facts. No process is started by opening settings. */
+    fun installationStatusResource(): Int =
+        when (supervisor.installation().state) {
+            RuntimeInstallationState.NOT_PREPARED -> R.string.settings_proot_not_installed
 
-            LinuxRuntimeGate.NOT_INSTALLED -> {
-                appContext.getString(R.string.settings_proot_not_installed)
-            }
+            RuntimeInstallationState.UPDATE_REQUIRED -> R.string.settings_proot_update_required
 
-            LinuxRuntimeGate.NOT_VERIFIED -> {
-                appContext.getString(R.string.settings_proot_not_verified)
-            }
+            RuntimeInstallationState.DAMAGED,
+            RuntimeInstallationState.RESET_REQUIRED,
+            -> R.string.settings_proot_damaged
 
-            LinuxRuntimeGate.DISABLED_OR_FORCED_STOPPED -> {
-                appContext.getString(R.string.settings_proot_disabled)
-            }
+            RuntimeInstallationState.PREPARED -> R.string.settings_proot_verified
         }
-
-    /** The profile the Advanced section of the settings UI is rendered under (never binds). */
-    fun advancedActive(profile: SafetyProfile): Boolean = profile == SafetyProfile.ADVANCED
 }
 
 private lateinit var appContext: Context

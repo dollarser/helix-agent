@@ -6,7 +6,6 @@ import android.os.SystemClock
 import com.helix.runtime.proot.core.JobArchiveException
 import com.helix.runtime.proot.core.JobExecutionWindow
 import com.helix.runtime.proot.core.JobZipWriter
-import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.core.ZipJobExtractor
 import com.helix.runtime.proot.ipc.ProotJobCommand
 import com.helix.runtime.proot.ipc.ProotJobHandler
@@ -386,13 +385,9 @@ class ProotJobRunner private constructor(
 
             if (stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow)) return
 
-            // 2) The runtime must be active (installed + activated, HXA-082).
-            val installId =
-                RootFsInstaller.currentActive(ProotRuntimeInstaller.runtimeRoot(context))?.installId
-            if (installId == null) {
-                terminalFailed(pending, outputPfd, null, "no active runtime install")
-                return
-            }
+            // First approved use may extract bundled resources. Existing copies are never silently replaced.
+            val installId = ProotRuntimeInstaller.prepareForUse(context)
+            if (stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow)) return
             store.put(pending.copy(state = ProotJobState.RUNNING))
 
             // 3) Launch under the host setsid (new session => pgid == pid => the

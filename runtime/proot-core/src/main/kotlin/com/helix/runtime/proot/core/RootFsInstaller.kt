@@ -128,7 +128,7 @@ object RootFsInstaller {
                     extractedBytes = extraction.extractedBytes,
                 )
             } finally {
-                InstallState.deleteRecursivelyQuietly(partial)
+                RuntimeTreeDeletion.remove(partial)
             }
         } catch (e: Exception) {
             return InstallOutcome.Failure(stage, e.message ?: e::class.java.simpleName)
@@ -228,7 +228,7 @@ object RootFsInstaller {
         val target = File(root, installId)
         if (target.exists()) throw IOException("version directory already exists: $installId")
         if (!staging.renameTo(target)) throw IOException("cannot promote version directory: $installId")
-        InstallState.deleteRecursivelyQuietly(partial)
+        RuntimeTreeDeletion.remove(partial)
     }
 }
 

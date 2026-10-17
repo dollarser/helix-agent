@@ -152,13 +152,13 @@ class CapabilityReadinessDeviceTest {
         compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
         waitItems("capability-readiness-item-runtime")
         if (compose
-                .onAllNodesWithTag("capability-readiness-action-repair-runtime")
+                .onAllNodesWithTag("capability-readiness-action-manage-runtime")
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         ) {
-            compose.onNodeWithTag("capability-readiness-action-repair-runtime").performClick()
+            compose.onNodeWithTag("capability-readiness-action-manage-runtime").performClick()
             compose.onNodeWithTag("screen-setup-runtime").assertIsDisplayed()
-            compose.onNodeWithTag("settings-proot-repair").assertIsDisplayed()
+            compose.onNodeWithTag("settings-proot-manage").assertIsDisplayed()
             compose.onNodeWithTag("navigate-back").performClick()
             compose.waitForIdle()
         }

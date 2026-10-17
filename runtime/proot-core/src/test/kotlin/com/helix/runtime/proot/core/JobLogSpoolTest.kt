@@ -10,12 +10,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
 class JobLogSpoolTest {
     @get:Rule val temporary = TemporaryFolder()
     private val workers = mutableListOf<Runnable>()
+
+    @Test fun clearingAnOldSpoolPreservesLinkedFilesOutsideIt() {
+        val root = temporary.newFolder("logs")
+        val workspace = temporary.newFolder("workspace")
+        val saved = File(workspace, "saved.txt").apply { writeText("keep") }
+        Files.createSymbolicLink(File(root, "link").toPath(), workspace.toPath())
+        JobLogSpool(root, Executor { workers.add(it) })
+        assertEquals("keep", saved.readText())
+        assertTrue(root.isDirectory)
+        assertTrue(root.listFiles()!!.isEmpty())
+    }
 
     @Test fun aLongLivedSpoolDoesNotStarveTheOtherThreeJobs() {
         val logs = JobLogSpool(temporary.newFolder()) { Long.MAX_VALUE }

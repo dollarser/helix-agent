@@ -1,5 +1,6 @@
 package com.helix.runtime.proot.app
 
+import com.helix.runtime.proot.core.RuntimeTreeDeletion
 import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotJobRecordCodec
 import com.helix.runtime.proot.ipc.ProotJobState
@@ -130,7 +131,7 @@ class ProotJobStore(
             val files = requireNotNull(jobDir(jobId).listFiles())
             files.filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }.forEach {
                 check(
-                    it.deleteRecursively(),
+                    RuntimeTreeDeletion.remove(it),
                 ) { "payload cleanup failed" }
             }
             put(current.copy(reconciledAtEpochMs = reconciledAtEpochMs))
@@ -143,7 +144,7 @@ class ProotJobStore(
         jobDir(jobId)
             .listFiles()
             ?.filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }
-            ?.forEach { it.deleteRecursively() }
+            ?.forEach { RuntimeTreeDeletion.remove(it) }
     }
 
     /**
@@ -170,7 +171,7 @@ class ProotJobStore(
             val reconciledAt = record.reconciledAtEpochMs
             if (reconciledAt != null) {
                 if (nowMs - reconciledAt > RECONCILED_TOMBSTONE_TTL_MS) {
-                    jobDir(jobId).deleteRecursively()
+                    RuntimeTreeDeletion.remove(jobDir(jobId))
                 }
             } else {
                 val terminalAt = record.terminalAtEpochMs

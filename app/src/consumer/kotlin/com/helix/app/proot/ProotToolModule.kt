@@ -90,37 +90,10 @@ internal object ProotToolModule {
     fun verifyNow(nowEpochMs: Long = System.currentTimeMillis()): Nothing =
         error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
 
-    /** Unreachable in the consumer build. */
-    fun openRepairNote(): Nothing = openRepair()
+    fun openEnvironmentNote(): ProotEntryNote? = error("Linux environment is unavailable in this distribution")
 
-    fun openLegalNote(): Nothing = openLegalPage()
+    fun installationStatusResource(): Int = error("Linux environment is unavailable in this distribution")
 
-    fun openRepair(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
-
-    /** Unreachable in the consumer build. */
-    fun verifyNowNote(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
-
-    /** Unreachable in the consumer build. */
-    fun removeRuntimeNote(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
-
-    /** Unreachable in the consumer build. */
-    fun openLegalPage(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
-
-    /** Unreachable in the consumer build. */
-    fun removeRuntime(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
-
-    /** Unreachable in the consumer build. */
-    fun rebaseline(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
-
-    /** Unreachable in the consumer build. */
-    @Suppress("FunctionOnlyReturningConstant")
-    fun verifyStatusLabel(): String = "unavailable"
-
-    /**
-     * Flavor-neutral runtime readiness (HXA-205): the consumer build ships no PRoot capability,
-     * so the readiness view reports it honestly unavailable (and never offers a LINUX goal).
-     */
-    @Suppress("FunctionOnlyReturningConstant")
     fun runtimeReadiness(): RuntimeReadiness = RuntimeReadiness.NOT_AVAILABLE
 
     /** The profile the Advanced section of the settings UI is rendered under (never binds). */

@@ -117,7 +117,7 @@ internal object HelixUserGuide {
 
                 If a model request fails, verify the selected model, endpoint, protocol, network access and provider status. Never paste API keys into chat or logs. If a tool is unavailable, check the selected channel, session mode, capability and approval state; do not infer availability from an old screenshot or development plan.
 
-                If the developer Runtime reports unavailable or mismatched, use the in-app Runtime verification or repair path and inspect its result. Do not manually replace Runtime files or repeat a command whose submission outcome is unknown; query its original Job handle first. Preview updates may reset database records; save important content separately. An installation failure does not itself authorize uninstalling or clearing an unrelated application.
+                Advanced includes a Linux environment that is prepared on the first authorized Linux task or manual terminal start. No separate verification is required. If an existing installation needs an update or repair, open Settings → Execution environments → Environment details and inspect the result. Do not manually replace its files or repeat a command whose submission outcome is unknown; query its original Job handle first. Preview updates may require confirmation before resetting incompatible database records; save important content separately. An installation failure does not itself authorize uninstalling or clearing an unrelated application.
                 """.trimIndent(),
         ) + HelixUserGuideZh.resources
 

@@ -164,7 +164,7 @@ internal fun PermissionsSafetyScreen(
     )
 }
 
-/** Runtime installation and verification have a dedicated Settings entry. */
+/** Execution environment status and maintenance have a dedicated Settings entry. */
 @Composable
 @Suppress("FunctionName")
 internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {

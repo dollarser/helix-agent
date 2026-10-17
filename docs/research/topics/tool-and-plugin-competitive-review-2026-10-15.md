@@ -379,3 +379,11 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 可执行切片、退出条件和 HXA 归属见 [§23.7.3](../../architecture/harness-refactor-plan.md#2373-目录优化与工作副本迁移检查点)，失败矩阵见 [§23.8](../../architecture/harness-refactor-plan.md#238-验证矩阵收益与接受条件)。顺序仍为 286 → 287-A/288-A → 最小真实 Room 联合路径；本次研究不自动启动重构、远程平台或新增设备/账号验收。
 
 本次文档检查：`./scripts/check-docs.sh`、`./scripts/verify-adr.sh`（含当前状态断言）、`./scripts/check-secrets.sh` 和 `git diff --check` 通过。研究/计划/原主题 ADR 及 HXA 接续之外未改生产源码；没有为本次规划重新运行设备或模型。原路径 UI 的主机、模拟器和真实模型结果仅见其独立记录。
+
+### 11.5 同日收尾：持续工作区与差异审阅
+
+2026-10-17 追加核对官方文档：[Codex worktrees](https://learn.chatgpt.com/docs/environments/git-worktrees)将聊天关联到工作树，Local/Worktree 之间通过明确的 Git handoff 交接；[Claude Code worktrees](https://code.claude.com/docs/en/worktrees)在独立 checkout 持续工作，恢复时核验目录，清理不跟随符号链接；[VS Code review](https://code.visualstudio.com/docs/agents/run/review-code-edits)区分 harness，但本地编辑均已落盘，pending 的 Keep 是确认、Undo 是撤销，不是首次写入。以上是产品文档声明，不是对其实现完整审计。
+
+当前 Helix 已有 [GitWorkspaceReader](../../../app/src/main/kotlin/com/helix/app/git/GitWorkspaceReader.kt)与 [GitStatusScreen](../../../app/src/main/kotlin/com/helix/app/ui/GitStatusScreen.kt)，提供 JGit 的 staged/unstaged 只读状态和差异；不能写成“完全没有 diff”。缺口是按原调用关联的有界变更记录、非 Git 文件差异，以及明确区分写前审批预览和写后效果的工具卡片。Git 累积差异不能自动归因给某次工具调用，也不能证明所有写入均可撤销。
+
+目标取舍：交互式任务持续使用同一 binding 的工作区，文件/exec/终端共享实际文件面；批处理或受限后端保留显式快照及目录/版本映射。Git 并行任务可选择 worktree，普通非 Git 目录不必复制或 Git 化。产物发布与源文件写回分开，源变更冲突保留结果，SAF 如实声明条件写能力。变更记录/卡片 diff 列入原 286/288 接缝验收，本次收尾不实现该功能或整体执行重构。

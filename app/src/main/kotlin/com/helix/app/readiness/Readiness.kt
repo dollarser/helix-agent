@@ -8,8 +8,7 @@ import com.helix.core.policy.CapabilityGrant
  * is the lens the projection aggregates through: each goal declares the model / workspace /
  * system-capability / runtime prerequisites that matter for IT and reports the next action for
  * that goal. The goals are DISTINCT operations, never one generic "resume" (the cross-execution-
- * domain recovery invariant, HXA-204): configuring a model, verifying the Runtime and repairing
- * the Runtime are different facts with different next actions.
+ * domain recovery invariant, HXA-204): configuring a model and maintaining the Linux environment are distinct actions.
  */
 enum class ReadinessGoal {
     /** Talk to a model — needs a configured provider. */
@@ -27,14 +26,14 @@ enum class ReadinessGoal {
 
 /**
  * Flavor-neutral runtime readiness. The developer flavor resolves the LIVE PRoot gate (installed +
- * verified + enabled); the consumer flavor is always [NOT_AVAILABLE] because that build ships no
+ * prepared or automatically preparable + enabled). The consumer flavor is [NOT_AVAILABLE]: it ships no
  * PRoot capability (ADR-0005/0013) — the readiness view must never offer a Runtime item it cannot
  * fulfil, so consumer has no LINUX goal to begin with.
  */
 enum class RuntimeReadiness {
     READY,
     NOT_INSTALLED,
-    NOT_VERIFIED,
+    NEEDS_MAINTENANCE,
     DISABLED_OR_FORCED_STOPPED,
     NOT_AVAILABLE,
 }
@@ -64,12 +63,8 @@ enum class ReadinessActionKind {
     /** Open the provider configuration (the model connection is missing). */
     ADD_MODEL,
 
-    /** The developer-only zero-Job cold-bind verification ("验证 Runtime"). */
-    VERIFY_RUNTIME,
-
-    /** The developer-only repair-activity entry ("修复 Runtime"); also the install path — no
-     * separate APK install flow is shown (HXA-205). */
-    REPAIR_RUNTIME,
+    /** Open the bundled environment state and contextual maintenance actions. */
+    MANAGE_RUNTIME,
 }
 
 /** One aggregated readiness item — a single prerequisite of the goal. */
@@ -98,7 +93,7 @@ data class ReadinessProjection(
  * action. It starts no service, logs in, or installs — the caller reads the facts with the
  * existing read-only services and hands them in. Passive entry of the readiness view therefore
  * never cold-binds the Runtime or opens a login (HXA-205: 被动进入页面不拉起Runtime或登录); only an
- * explicit user click on a next action performs a cold bind / repair.
+ * explicit user action can open maintenance; authorized execution prepares a missing environment.
  */
 internal object CapabilityReadiness {
     fun project(
@@ -155,8 +150,7 @@ internal object CapabilityReadiness {
         return ReadinessProjection(ReadinessGoal.BROWSER, state == ReadinessState.READY, listOf(item))
     }
 
-    // The PRoot Runtime is developer-only. NOT_VERIFIED maps to the zero-Job verify; the install /
-    // disabled states map to the SAME existing repair-activity entry (no separate APK install flow).
+    // Preparation is automatic for an absent environment; damaged copies require explicit maintenance.
     private fun linux(runtime: RuntimeReadiness): ReadinessProjection {
         val (state, action) =
             when (runtime) {
@@ -164,14 +158,14 @@ internal object CapabilityReadiness {
                     ReadinessState.READY to null
                 }
 
-                RuntimeReadiness.NOT_VERIFIED -> {
-                    ReadinessState.MISSING to ReadinessActionKind.VERIFY_RUNTIME
+                RuntimeReadiness.NEEDS_MAINTENANCE -> {
+                    ReadinessState.MISSING to ReadinessActionKind.MANAGE_RUNTIME
                 }
 
                 RuntimeReadiness.NOT_INSTALLED,
                 RuntimeReadiness.DISABLED_OR_FORCED_STOPPED,
                 -> {
-                    ReadinessState.MISSING to ReadinessActionKind.REPAIR_RUNTIME
+                    ReadinessState.MISSING to ReadinessActionKind.MANAGE_RUNTIME
                 }
 
                 RuntimeReadiness.NOT_AVAILABLE -> {

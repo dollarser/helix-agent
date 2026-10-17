@@ -13,7 +13,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.runtime.proot.client.ProotConnection
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.client.RepairEntryResult
-import com.helix.runtime.proot.client.VerifiedRuntimeStore
 import com.helix.runtime.proot.core.RuntimeLockCodec
 import com.helix.runtime.proot.ipc.ProotHandshakeClient
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
@@ -80,6 +79,7 @@ class ProotRuntimeBindingE2eDeviceTest {
     @Test
     fun coldBindHandshakeVerifiesTheLockConsistentDescriptor() {
         requireWarmCompanion()
+        if (!supervisor.installationReady()) ensureInstalledRuntime(context)
         val availability =
             runOnWorker { supervisor.verify(System.currentTimeMillis()) } as ProotRuntimeAvailability.Verified
         val descriptor = availability.descriptor
@@ -97,18 +97,16 @@ class ProotRuntimeBindingE2eDeviceTest {
         val versionName =
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         assertEquals(versionName, descriptor.runtimeVersion)
-        // The verified descriptor is persisted as the anchor.
-        val anchor = VerifiedRuntimeStore(context).load()
-        assertEquals(descriptor, anchor?.descriptor)
+        assertEquals(descriptor.lockSha256, supervisor.installation().manifest?.lockSha256)
     }
 
     @Test
-    fun aSecondVerificationChecksAgainstThePersistedAnchor() {
+    fun aSecondVerificationChecksTheCurrentInstalledCopy() {
         requireWarmCompanion()
+        if (!supervisor.installationReady()) ensureInstalledRuntime(context)
         val first = runOnWorker { supervisor.verify(System.currentTimeMillis()) }
         assertTrue("first verification must pass: $first", first is ProotRuntimeAvailability.Verified)
-        val anchor = VerifiedRuntimeStore(context).load()
-        assertTrue("anchor must be persisted after verification", anchor != null)
+        assertTrue(supervisor.installationReady())
         val second = runOnWorker { supervisor.verify(System.currentTimeMillis()) }
         assertTrue(
             "second verification against the anchor must pass: $second",
@@ -124,6 +122,7 @@ class ProotRuntimeBindingE2eDeviceTest {
     @Suppress("SwallowedException")
     fun aProcessDeathIsDeadObjectAndTheColdRebindRecovers() {
         requireWarmCompanion()
+        if (!supervisor.installationReady()) ensureInstalledRuntime(context)
         runOnWorker {
             val connection = supervisor.openConnection()
             val opened = connection as ProotConnection.Opened
@@ -161,6 +160,7 @@ class ProotRuntimeBindingE2eDeviceTest {
     @Test
     fun theUserGatedRepairEntryOpensAndTheCompanionVerifies() {
         requireWarmCompanion()
+        if (!supervisor.installationReady()) ensureInstalledRuntime(context)
         val opened = supervisor.openRepairActivity()
         assertTrue("repair entry must open the minimal activity: $opened", opened is RepairEntryResult.Opened)
         Thread.sleep(2_000)
@@ -172,6 +172,7 @@ class ProotRuntimeBindingE2eDeviceTest {
     @Test
     fun aNullOnBindIsAnImmediateBindRefusedNotATimeout() {
         requireWarmCompanion()
+        if (!supervisor.installationReady()) ensureInstalledRuntime(context)
         runOnWorker<Unit>(timeoutMs = 30_000L) {
             val intent =
                 Intent()
@@ -232,6 +233,7 @@ class ProotRuntimeBindingE2eDeviceTest {
     @Test
     fun phaseAppStartupNeverStartsTheCompanionProcess() {
         requireWarmCompanion()
+        if (!supervisor.installationReady()) ensureInstalledRuntime(context)
         // The instrumentation process IS the main app process: the app has fully
         // started here. The strong assertion (companion process ABSENT) is the
         // host-side pidof check the script performs around this run; in-app we

@@ -21,6 +21,128 @@ class RootFsInstallerTest {
     @JvmField
     var tmp = TemporaryFolder()
 
+    @Test fun readinessUsesInstalledFilesWithoutAManualVerificationRecord() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        assertEquals(RuntimeInstallationState.NOT_PREPARED, RuntimeInstallation.inspect(root, req.lock).state)
+        val success = RootFsInstaller.install(req) as InstallOutcome.Success
+        assertEquals(RuntimeInstallationState.PREPARED, RuntimeInstallation.inspect(root, req.lock).state)
+        File(root, "${success.installId}/bin/loader").delete()
+        assertEquals(RuntimeInstallationState.DAMAGED, RuntimeInstallation.inspect(root, req.lock).state)
+    }
+
+    @Test fun changedBundledVersionRequiresUpdateInsteadOfAcceptingAnOldReceipt() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        RootFsInstaller.install(req)
+        val changed = req.lock.copy(components = req.lock.components.map { it.copy(version = it.version + "-new") })
+        assertEquals(RuntimeInstallationState.UPDATE_REQUIRED, RuntimeInstallation.inspect(root, changed).state)
+    }
+
+    @Test fun missingOrCorruptManifestCannotClaimPrepared() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        val installed = RootFsInstaller.install(req) as InstallOutcome.Success
+        val manifest = File(root, "${installed.installId}/manifest.json")
+        val original = manifest.readText()
+        manifest.writeText("broken")
+        assertEquals(RuntimeInstallationState.DAMAGED, RuntimeInstallation.inspect(root, req.lock).state)
+        manifest.delete()
+        assertEquals(RuntimeInstallationState.DAMAGED, RuntimeInstallation.inspect(root, req.lock).state)
+        manifest.writeText(original)
+        assertEquals(RuntimeInstallationState.PREPARED, RuntimeInstallation.inspect(root, req.lock).state)
+    }
+
+    @Test fun missingActivationOfAnExistingEnvironmentRequiresExplicitRepair() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        RootFsInstaller.install(req)
+        File(root, "state/active.json").delete()
+        assertEquals(RuntimeInstallationState.RESET_REQUIRED, RuntimeInstallation.inspect(root, req.lock).state)
+    }
+
+    @Test fun installedIdentityAndActivationMustMatch() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        val installed = RootFsInstaller.install(req) as InstallOutcome.Success
+        val file = File(root, "${installed.installId}/manifest.json")
+        val original = RuntimeManifestCodec.parseManifest(file.readText())
+        file.writeText(RuntimeManifestCodec.encodeManifest(original.copy(installId = "inst_000000000000")))
+        assertEquals(RuntimeInstallationState.DAMAGED, RuntimeInstallation.inspect(root, req.lock).state)
+    }
+
+    @Test fun explicitCheckPersistsFailureAndReinstallRestoresReadiness() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        val installed = RootFsInstaller.install(req) as InstallOutcome.Success
+        val file = File(root, "${installed.installId}/rootfs/usr/bin/node")
+        val bytes = file.readBytes()
+        bytes[18] = 0 // Wrong ELF machine while all required files still exist.
+        file.writeBytes(bytes)
+        val checked = RuntimeInstallation.check(root, req.lock, req.facts)
+        assertEquals(SmokeStatus.FAILED, checked.status)
+        assertEquals(RuntimeInstallationState.DAMAGED, RuntimeInstallation.inspect(root, req.lock).state)
+        assertTrue(RootFsInstaller.install(request(root)) is InstallOutcome.Success)
+        assertEquals(RuntimeInstallationState.PREPARED, RuntimeInstallation.inspect(root, req.lock).state)
+    }
+
+    @Test fun explicitCheckKeepsOriginalInstallationIdentity() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        val installed = RootFsInstaller.install(req) as InstallOutcome.Success
+        assertEquals(SmokeStatus.PASSED, RuntimeInstallation.check(root, req.lock, req.facts).status)
+        assertEquals(installed.installId, RootFsInstaller.currentActive(root)?.installId)
+    }
+
+    @Test fun concurrentFirstUseInstallsOnlyOnceAndNeverReplacesExistingEnvironment() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        val preparation = RuntimePreparation()
+        val installs =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        val pool =
+            java.util.concurrent.Executors
+                .newFixedThreadPool(4)
+        try {
+            val futures =
+                (1..4).map {
+                    pool.submit<RuntimeInstallation> {
+                        preparation.ensurePrepared(
+                            { RuntimeInstallation.inspect(root, req.lock) },
+                            {
+                                installs.incrementAndGet()
+                                RootFsInstaller.install(req)
+                            },
+                        )
+                    }
+                }
+            futures.forEach { assertEquals(RuntimeInstallationState.PREPARED, it.get().state) }
+            assertEquals(1, installs.get())
+        } finally {
+            pool.shutdownNow()
+        }
+        val manifest = RuntimeInstallation.inspect(root, req.lock).manifest!!
+        File(root, "${manifest.installId}/bin/loader").delete()
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+            preparation.ensurePrepared({ RuntimeInstallation.inspect(root, req.lock) }) {
+                error("Must not silently repair")
+            }
+        }
+        assertEquals(1, installs.get())
+    }
+
+    @Test fun failedFirstPreparationIsNeverReportedAsPrepared() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root, pageSize = 65536)
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+            RuntimePreparation().ensurePrepared({ RuntimeInstallation.inspect(root, req.lock) }) {
+                RootFsInstaller.install(req)
+            }
+        }
+        assertEquals(RuntimeInstallationState.NOT_PREPARED, RuntimeInstallation.inspect(root, req.lock).state)
+    }
+
     // --- fakes ------------------------------------------------------------------
 
     private val elf = SyntheticElf.elf64Le()
@@ -262,6 +384,9 @@ class RootFsInstallerTest {
         val b = "inst_" + "bb".repeat(6)
         val c = "inst_" + "cc".repeat(6)
         assertTrue(RootFsInstaller.install(request(root, installId = a)) is InstallOutcome.Success)
+        val workspace = tmp.newFolder("workspace")
+        val saved = File(workspace, "saved.txt").apply { writeText("keep") }
+        Files.createSymbolicLink(File(root, "$a/workspace").toPath(), workspace.toPath())
         assertTrue(RootFsInstaller.install(request(root, installId = b)) is InstallOutcome.Success)
         val outcomeC = RootFsInstaller.install(request(root, installId = c))
         assertTrue(outcomeC is InstallOutcome.Success)
@@ -279,6 +404,7 @@ class RootFsInstallerTest {
         // a stays until AFTER the activation writes, then is deleted by the old-rollback
         // cleanup (it is still referenced by rollback.json at sweep time, so not "swept").
         assertEquals(emptyList<String>(), (outcomeC as InstallOutcome.Success).swept)
+        assertEquals("keep", saved.readText())
     }
 
     @Test
@@ -468,12 +594,17 @@ class RootFsInstallerTest {
         val root = tmp.newFolder("runtime")
         File(root, "inst_" + "dd".repeat(6)).mkdirs() // orphan version
         File(root, ".partial-junk").mkdirs() // crashed install remnant
+        val workspace = tmp.newFolder("workspace")
+        val saved = File(workspace, "saved.txt").apply { writeText("keep") }
+        Files.createSymbolicLink(File(root, ".partial-junk/workspace").toPath(), workspace.toPath())
+        Files.createSymbolicLink(File(root, ".partial-link").toPath(), workspace.toPath())
         val id = "inst_" + "ee".repeat(6)
         val outcome = RootFsInstaller.install(request(root, installId = id))
         assertTrue(outcome is InstallOutcome.Success)
         val swept = (outcome as InstallOutcome.Success).swept.sorted()
-        assertEquals(listOf(".partial-junk", "inst_" + "dd".repeat(6)), swept)
+        assertEquals(listOf(".partial-junk", ".partial-link", "inst_" + "dd".repeat(6)), swept)
         assertEquals(listOf(id, "state"), rootChildren(root))
+        assertEquals("keep", saved.readText())
     }
 
     @Test

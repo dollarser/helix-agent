@@ -1,11 +1,10 @@
 package com.helix.runtime.proot.app
 
 import android.content.Context
-import com.helix.runtime.proot.core.RootFsInstaller
 import java.io.File
 import java.security.MessageDigest
 
-/** Fixed installed PRoot command. Real directory binding, no import copy, shell script or auto-install. */
+/** Explicit new terminal launch: prepare bundled resources if missing, then bind the actual workspace. */
 internal class ProotTerminalLaunch(
     context: Context,
     workspacePath: String,
@@ -22,8 +21,7 @@ internal class ProotTerminalLaunch(
         require(allowed.any { workspace == it || workspace.toPath().startsWith(it.toPath()) })
         require(':' !in workspace.path && workspace.path.none(Char::isISOControl))
         val root = ProotRuntimeInstaller.runtimeRoot(context)
-        val active = checkNotNull(RootFsInstaller.currentActive(root)) { "Runtime requires preparation" }
-        val install = File(root, active.installId)
+        val install = File(root, ProotRuntimeInstaller.prepareForUse(context))
         val loader = File(context.applicationInfo.nativeLibraryDir, "libhelix_loader.so")
         val digest = MessageDigest.getInstance("SHA-256")
         check(digest.digest(loader.readBytes()).contentEquals(digest.digest(File(install, "bin/loader").readBytes())))

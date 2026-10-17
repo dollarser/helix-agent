@@ -14,7 +14,6 @@ import com.helix.runtime.proot.app.ProotNative
 import com.helix.runtime.proot.app.ProotRuntimeInstaller
 import com.helix.runtime.proot.client.ProotConnection
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
-import com.helix.runtime.proot.client.VerifiedRuntimeStore
 import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
@@ -22,7 +21,6 @@ import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -41,12 +39,8 @@ class IntegratedRuntimeDeviceTest {
         )
         val legacy = File(context.filesDir, "proot-runtime/verified-runtime.json")
         assertFalse("Use an owned fresh emulator", legacy.exists())
-        val verified = VerifiedRuntimeStore(context)
-        val previous = verified.load()
-        verified.clear()
         val legacyContent = writeValidLegacyAnchor(context, legacy)
         try {
-            assertNull(VerifiedRuntimeStore(context).load())
             for ((service, suffix) in listOf(
                 CliRuntimeProtocol.SERVICE_CLASS to ":subscriptions",
                 ProotRuntimeProtocol.SERVICE_CLASS to ":proot",
@@ -85,7 +79,6 @@ class IntegratedRuntimeDeviceTest {
             assertEquals(legacyContent, legacy.readText())
         } finally {
             legacy.delete()
-            if (previous != null) verified.save(previous)
         }
     }
 
@@ -112,9 +105,11 @@ class IntegratedRuntimeDeviceTest {
                     .build(context)
                     .decodeToString(),
             )
-        val legacy = VerifiedRuntimeStore(file)
-        legacy.save(VerifiedRuntimeStore.Entry(descriptor, System.currentTimeMillis()))
-        assertEquals(descriptor, legacy.load()!!.descriptor)
+        file.parentFile!!.mkdirs()
+        file.writeText(
+            com.helix.runtime.proot.ipc.RuntimeTargetDescriptorCodec
+                .encode(descriptor),
+        )
         return file.readText()
     }
 }
