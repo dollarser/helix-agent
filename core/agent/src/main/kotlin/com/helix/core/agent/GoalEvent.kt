@@ -67,15 +67,8 @@ sealed interface GoalEvent {
         }
     }
 
-    /**
-     * The wake's run failed. Retryable failures consume [com.helix.core.model.GoalBudgets.maxRetries]
-     * and the goal stays RUNNING (a new wake of the same run); otherwise the goal fails.
-     *
-     * Documented choice (matches [GoalReducer.afterProcessDeath]): a failed wake carries no
-     * duration — `currentWakeMillis` is reset without crediting `runTimeMillis`, so a
-     * repeatedly failing wake loop cannot exhaust the goal-lifetime duration budget. The
-     * usage of a wake that *did* run is reported by [WakeUsageReported] before the terminal
-     * event.
+    /** The wake failed. Retryability is reported, never an instruction to replay or auto-continue.
+     * Usage already reported through [WakeUsageReported] remains accounted independently.
      */
     data class WakeFailed(
         val error: HelixError,

@@ -11,6 +11,7 @@ internal fun ToolDescriptor.snapshot(): ToolDescriptor =
         inputSchema = inputSchema.snapshotJson() as JsonObject,
         outputSchema = outputSchema.snapshotJson() as JsonObject,
         requiredCapabilities = Collections.unmodifiableSet(requiredCapabilities.toMutableSet()),
+        discoveryCompanions = Collections.unmodifiableSet(discoveryCompanions.toMutableSet()),
         origin =
             (origin as? ToolOrigin.McpOrigin)?.let {
                 it.copy(serverProvidedHints = Collections.unmodifiableMap(it.serverProvidedHints.toMutableMap()))

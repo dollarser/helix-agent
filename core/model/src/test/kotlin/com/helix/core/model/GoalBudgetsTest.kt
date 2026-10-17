@@ -4,101 +4,48 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class GoalBudgetsTest {
-    private fun budgets(): GoalBudgets =
-        GoalBudgets(
-            maxModelCalls = 10,
-            maxToolCalls = 20,
-            maxTotalTokens = 100_000,
-            maxDurationMillis = 3_600_000,
-            maxWakeDurationMillis = 600_000,
-            maxRetries = 3,
-        )
-
-    @Test
-    fun storageStringMatchesKnownVector() {
-        val expected =
-            "{\"maxModelCalls\":10,\"maxToolCalls\":20,\"maxTotalTokens\":100000," +
-                "\"maxDurationMillis\":3600000,\"maxWakeDurationMillis\":600000,\"maxRetries\":3,\"maxGoalRounds\":256}"
-        assertEquals(expected, budgets().toStorageString())
+    @Test fun storageEncodingIsStableAndRoundTrips() {
+        val value = GoalBudgets(7)
+        assertEquals("""{"maxGoalRounds":7}""", value.toStorageString())
+        assertEquals(value, GoalBudgets.parse(value.toStorageString()))
+        assertEquals(value.toStorageString(), value.toStorageString())
     }
 
-    @Test
-    fun legacySnapshotReceivesRoundDefaultAndCustomRoundCountSurvives() {
-        val legacy = budgets().toStorageString().replace(",\"maxGoalRounds\":256", "")
-        assertEquals(256, GoalBudgets.parse(legacy).maxGoalRounds)
-        val custom = budgets().copy(maxGoalRounds = 7)
-        assertEquals(custom, GoalBudgets.parse(custom.toStorageString()))
+    @Test fun stricterAllowanceNeverRaisesEitherInput() {
+        assertEquals(GoalBudgets(3), GoalBudgets(8).stricterWith(GoalBudgets(3)))
+        assertEquals(GoalBudgets(3), GoalBudgets(3).stricterWith(GoalBudgets(8)))
     }
 
-    @Test
-    fun roundTripPreservesValues() {
-        val parsed = GoalBudgets.parse(budgets().toStorageString())
-        assertEquals(budgets(), parsed)
+    @Test fun boundaryValuesRoundTrip() {
+        for (value in listOf(1, Int.MAX_VALUE)) {
+            val budget = GoalBudgets(value)
+            assertEquals(budget, GoalBudgets.parse(budget.toStorageString()))
+        }
     }
 
-    @Test
-    fun stricterWithTakesElementWiseMin() {
-        val other =
-            GoalBudgets(
-                maxModelCalls = 5,
-                maxToolCalls = 20,
-                maxTotalTokens = 100_000,
-                maxDurationMillis = 1_800_000,
-                maxWakeDurationMillis = 999_999,
-                maxRetries = 3,
-            )
-        val stricter = budgets().stricterWith(other)
-        assertEquals(5, stricter.maxModelCalls)
-        assertEquals(20, stricter.maxToolCalls)
-        assertEquals(1_800_000, stricter.maxDurationMillis)
+    @Test fun rejectsInvalidDomainValue() {
+        assertThrows<IllegalArgumentException> { GoalBudgets(-1) }
+        assertThrows<IllegalArgumentException> { GoalBudgets(0) }
     }
 
-    @Test
-    fun rejectsInvalidBudgets() {
-        assertThrows<IllegalArgumentException> { budgets().copy(maxModelCalls = 0) }
-        assertThrows<IllegalArgumentException> { budgets().copy(maxToolCalls = -1) }
-        assertThrows<IllegalArgumentException> { budgets().copy(maxTotalTokens = -1) }
-        assertThrows<IllegalArgumentException> { budgets().copy(maxDurationMillis = -1) }
-        assertThrows<IllegalArgumentException> { budgets().copy(maxWakeDurationMillis = -1) }
-        assertThrows<IllegalArgumentException> { budgets().copy(maxRetries = -1) }
-        assertThrows<IllegalArgumentException> { budgets().copy(maxGoalRounds = 0) }
-    }
-
-    @Test
-    fun parseRejectsMalformedInput() {
-        // ADR-0001 gate: a canonical encoding may serve as a recovery source only with
-        // known-vector, round-trip AND malformed-input coverage (mirrors TurnBudgetsTest).
-        val valid = budgets().toStorageString()
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse("") }
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse("not json") }
-        // Missing a field (the known encoding with maxRetries stripped).
-        val missingField =
+    @Test fun malformedAndObsoleteShapesAreRejected() {
+        for (input in listOf(
+            """""",
+            """not json""",
+            """{}""",
+            """[]""",
+            """{"maxGoalRounds":"7"}""",
+            """{"maxGoalRounds":7.0}""",
+            """{"maxGoalRounds":-1}""",
+            """{"maxGoalRounds":7,"extra":1}""",
+            """{"maxGoalRounds":1,"maxGoalRounds":2}""",
+            """{"maxGoalRounds":9223372036854775808}""",
+            """{"maxGoalRounds":0}""",
+            """{"maxGoalRounds":2147483648}""",
             """{"maxModelCalls":10,"maxToolCalls":20,"maxTotalTokens":100000,""" +
-                """"maxDurationMillis":3600000,"maxWakeDurationMillis":600000}"""
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(missingField) }
-        // Unknown field.
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(valid.replace("}", ",\"bogus\":1}")) }
-        // Wrong type.
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(valid.replace("3600000", "\"3600000\"")) }
-        // Float where a number is expected.
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(valid.replace("100000", "100000.0")) }
-        // Out of int range for a call limit.
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(valid.replace("10", "99999999999")) }
-        // Truncated input.
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(valid.dropLast(1)) }
-        // Below-domain floor (maxModelCalls must be >= 1).
-        assertThrows<IllegalArgumentException> { GoalBudgets.parse(valid.replace("10", "0")) }
-    }
-
-    @Test
-    fun zeroDurationsAndRetriesAreLegal() {
-        val degenerate =
-            budgets().copy(
-                maxTotalTokens = 0,
-                maxDurationMillis = 0,
-                maxWakeDurationMillis = 0,
-                maxRetries = 0,
-            )
-        assertEquals(0, degenerate.maxRetries)
+                """"maxDurationMillis":3600000,"maxWakeDurationMillis":600000,"maxRetries":3,"maxGoalRounds":7}""",
+        )) {
+            assertThrows<IllegalArgumentException> { GoalBudgets.parse(input) }
+        }
     }
 }

@@ -215,10 +215,10 @@ class RecoveryJourneyDeviceTest {
                 try {
                     chat.openSession(session)
                     chat.setMode(AgentMode.CHAT)
-                    chat.setTurnBudgets(TurnBudgets(3, 4, 65536, 128, 65664))
+                    chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 128))
                     settle {
                         container.storage.sessionRunControls.forSession(session)?.let {
-                            it.mode == AgentMode.CHAT && it.budgets == TurnBudgets(3, 4, 65536, 128, 65664)
+                            it.mode == AgentMode.CHAT && it.budgets == TurnBudgets(maxOutputTokens = 128)
                         } == true && chat.screen.value.openSessionId == session
                     }
                     server.holdChatStreams.set(true)

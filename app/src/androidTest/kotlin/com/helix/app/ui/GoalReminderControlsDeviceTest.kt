@@ -292,7 +292,7 @@ class GoalReminderControlsDeviceTest {
             coordinator.create(
                 "Reminder UI fixture",
                 listOf("Verified result"),
-                GoalBudgets(2, 4, 1000, 60000, 10000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         val started =
             requireNotNull(
@@ -301,7 +301,7 @@ class GoalReminderControlsDeviceTest {
                         id,
                         GoalWakeReason.USER_OPEN,
                         TurnStartSpec(sessionId, "turn-$sessionId", "model-$sessionId", "snapshot", "run"),
-                        TurnBudgets(2, 4, 500, 500, 10000),
+                        TurnBudgets(maxOutputTokens = 500),
                     ),
                 ),
             )

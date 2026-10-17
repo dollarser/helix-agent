@@ -381,7 +381,7 @@ class TaskJourneyDeviceTest {
                         id = GOAL_DRAFT,
                         objective = "HXA202 journey draft goal",
                         criteria = listOf(StoredCriterion("criterion-1", "Journey draft criterion", null)),
-                        budgets = GoalBudgets(2, 4, 1000, 60_000, 10_000, 0),
+                        budgets = GoalBudgets(maxGoalRounds = 256),
                         state = "DRAFT",
                         planId = null,
                         planHash = null,

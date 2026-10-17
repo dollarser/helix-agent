@@ -16,7 +16,12 @@ class MobileUseToolDiscoveryTest {
     private val discovery = McpToolDiscovery(registry).also { it.register(registry) }
     private val search = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
     private val origin = ToolOrigin.PluginOrigin("mobile-use", "0.2.0", "mobile-use")
-    private val screenshot = search.copy(name = ToolName("ui.screenshot"), origin = origin)
+    private val screenshot =
+        search.copy(
+            name = ToolName("ui.screenshot"),
+            origin = origin,
+            discoveryCompanions = setOf(ToolName("ui.device")),
+        )
     private val device = search.copy(name = ToolName("ui.device"), origin = origin)
 
     init {

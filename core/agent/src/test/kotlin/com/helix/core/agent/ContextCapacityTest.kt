@@ -72,7 +72,7 @@ class ContextCapacityTest {
             )
         val budgets =
             com.helix.core.model
-                .TurnBudgets(10, 10, 10000, 256, 20000)
+                .TurnBudgets(maxOutputTokens = 256)
         val estimate = ModelInputEstimate.of(request).total
         assertNull(ContextCapacity.forSummary(request, estimate, estimate, budgets, 1024))
         assertNull(
@@ -80,7 +80,7 @@ class ContextCapacityTest {
                 request,
                 estimate,
                 estimate,
-                budgets.copy(maxInputTokens = 1, maxTotalTokens = 1),
+                budgets.copy(maxOutputTokens = 1),
                 1024,
             ),
         )

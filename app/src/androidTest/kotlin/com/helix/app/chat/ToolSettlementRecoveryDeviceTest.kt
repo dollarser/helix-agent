@@ -336,14 +336,14 @@ class ToolSettlementRecoveryDeviceTest {
         init {
             storage.sessions.create("session", "Settlement", null, null, 1_000)
             val goals = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
-            goalId = goals.create("Check settlement", listOf("Saved"), GoalBudgets(10, 20, 100_000, 600_000, 60_000, 0))
+            goalId = goals.create("Check settlement", listOf("Saved"), GoalBudgets(maxGoalRounds = 256))
             requireNotNull(
                 goals.start(
                     GoalTurnStart(
                         goalId,
                         GoalWakeReason.USER_OPEN,
                         TurnStartSpec("session", "turn", "model", "snapshot", "run"),
-                        TurnBudgets(5, 10, 800, 800, 5_000),
+                        TurnBudgets(maxOutputTokens = 800),
                     ),
                 ),
             )

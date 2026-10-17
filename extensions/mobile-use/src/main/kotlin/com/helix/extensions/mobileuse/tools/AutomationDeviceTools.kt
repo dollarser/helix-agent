@@ -322,6 +322,13 @@ class AutomationDeviceTools(
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
+        discoveryCompanions =
+            when (name) {
+                DEVICE -> emptySet()
+                SCREENSHOT -> setOf(ToolName(DEVICE))
+                GESTURE -> setOf(ToolName(SCREENSHOT), ToolName(DEVICE))
+                else -> setOf(ToolName(AutomationTools.SNAPSHOT), ToolName(AutomationTools.FIND))
+            },
     )
 
     private fun gestureInput(): JsonObject {

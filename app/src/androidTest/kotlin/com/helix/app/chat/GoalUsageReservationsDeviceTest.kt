@@ -56,7 +56,7 @@ class GoalUsageReservationsDeviceTest {
                 f.coordinator().create(
                     "New goal",
                     listOf("Checked"),
-                    GoalBudgets(2, 4, 1_000, 60_000, 10_000, 0),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             val draft = query.forSession("session").single { it.id == ready }
             assertTrue(draft.canContinue)
@@ -384,7 +384,7 @@ class GoalUsageReservationsDeviceTest {
                 coordinator().create(
                     "Check output",
                     listOf("Verified output exists"),
-                    GoalBudgets(2, 4, 1_000, 60_000, 10_000, 0),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             started = requireNotNull(coordinator().start(request("first")))
         }
@@ -396,7 +396,7 @@ class GoalUsageReservationsDeviceTest {
                 goalId,
                 GoalWakeReason.USER_OPEN,
                 TurnStartSpec("session", turnId, "model-$turnId", "snapshot", "run"),
-                TurnBudgets(5, 10, 800, 800, 5_000),
+                TurnBudgets(maxOutputTokens = 800),
             )
 
         fun reservation(

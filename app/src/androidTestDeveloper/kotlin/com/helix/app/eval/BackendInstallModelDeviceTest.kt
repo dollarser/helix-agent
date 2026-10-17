@@ -81,7 +81,7 @@ class BackendInstallModelDeviceTest {
                 assertEquals("Fixture precondition", operation == "uninstall", installed())
                 c.chatService.openSession(session)
                 c.chatService.setMode(AgentMode.ACT)
-                c.chatService.setTurnBudgets(TurnBudgets(40, 30, 262144, 8192, 524288))
+                c.chatService.setTurnBudgets(TurnBudgets(maxOutputTokens = 8192))
                 await(10_000) { c.chatService.screen.value.openSessionId == session }
                 if (operation == "install") {
                     val uri = Uri.parse("content://${app.packageName}.test.capability-state/install-ready")

@@ -169,7 +169,6 @@
     <string name="approval_code_operation_denied_domain">会话权限拒绝:可能涉及禁止的领域</string>
     <string name="approval_code_no_implementation">无已注册实现</string>
     <string name="approval_code_policy_denied">策略拒绝</string>
-    <string name="approval_code_preference_denied">用户禁止了该工具</string>
     <string name="approval_code_same_turn_denied">本回合已拒绝该动作</string>
     <string name="approval_code_sha256">代码摘要 SHA-256</string>
     <string name="approval_code_success">成功</string>

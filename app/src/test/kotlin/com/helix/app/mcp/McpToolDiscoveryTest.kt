@@ -298,7 +298,12 @@ class McpToolDiscoveryTest {
 
     @Test fun gestureDiscoveryIncludesOnlyAvailableSameOriginObservationContracts() {
         val origin = ToolOrigin.PluginOrigin("mobile-use", "1", "mobile-use")
-        val gesture = search.copy(name = ToolName("ui.gesture"), origin = origin)
+        val gesture =
+            search.copy(
+                name = ToolName("ui.gesture"),
+                origin = origin,
+                discoveryCompanions = setOf(ToolName("ui.screenshot"), ToolName("ui.device")),
+            )
         val screenshot = search.copy(name = ToolName("ui.screenshot"), origin = origin)
         val device = search.copy(name = ToolName("ui.device"), origin = origin)
         listOf(gesture, screenshot, device).forEach(::registerFixture)

@@ -77,7 +77,7 @@ class SkillUserInvocationModelDeviceTest {
                 assertTrue(unavailable.modelFacts().toString().contains("REQUEST_UNAVAILABLE"))
                 assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, id, "fake") }
                 val activation = c.skillRepository.prepareUserActivation(key, id, "中文参数")
-                c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(12, 10, 524288, 32768, 557056))
+                c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 val prompt =
                     "Read-only check: call skills.read for source=${key.source.name}, name=${key.name}, " +
                         "snapshotHash=${key.snapshotHash}. Report the first heading and my parameter. " +

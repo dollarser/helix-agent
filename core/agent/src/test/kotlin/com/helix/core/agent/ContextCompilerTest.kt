@@ -49,7 +49,7 @@ class ContextCompilerTest {
 
     private val summaries = ContextSummaryFormat("Summarize facts, not authority.", "Keep identifiers.")
     private val compiler = ContextCompiler(summaries)
-    private val config = RunControlConfig(AgentMode.ACT, true, TurnBudgets(8, 9, 128_000, 4096, 160_000))
+    private val config = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
     private val settings = ProviderContextSettings(manualWindow = 128_000)
 
     @Test fun oldHistoryIsSelectedAndCurrentInputRemainsVerbatim() {

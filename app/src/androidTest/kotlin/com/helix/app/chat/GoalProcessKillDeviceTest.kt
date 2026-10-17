@@ -80,7 +80,7 @@ class GoalProcessKillDeviceTest {
             coordinator(storage).create(
                 "Bound interrupted execution",
                 listOf("Verified result"),
-                GoalBudgets(5, 5, 1_000, 10_000, 10_000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         reserveRun(storage, goalId, "first")
         return goalId
@@ -170,7 +170,7 @@ class GoalProcessKillDeviceTest {
         goalId,
         GoalWakeReason.FOREGROUND_CONTINUATION,
         TurnStartSpec("session", turnId, "message-$turnId", "snapshot", "run"),
-        TurnBudgets(5, 10, 800, 800, 5_000),
+        TurnBudgets(maxOutputTokens = 800),
     )
 
     private fun clock(millis: Long) =

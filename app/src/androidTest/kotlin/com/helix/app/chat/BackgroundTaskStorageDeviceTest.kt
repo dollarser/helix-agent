@@ -175,7 +175,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             reader.start()
             start.countDown()
             repeat(30) { index ->
-                val goal = coordinator.create("Goal $index", emptyList(), GoalBudgets(5, 5, 10000, 60000, 10000, 0))
+                val goal = coordinator.create("Goal $index", emptyList(), GoalBudgets(maxGoalRounds = 256))
                 val turn = requireNotNull(coordinator.start(request(goal, "race-$index")))
                 turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
                 storage.withTransaction { storage.goals.delete(goal) }
@@ -192,7 +192,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
         goal,
         GoalWakeReason.USER_OPEN,
         TurnStartSpec("s", turn, "m-$turn", "snapshot", "input"),
-        TurnBudgets(5, 10, 800, 800, 5000),
+        TurnBudgets(maxOutputTokens = 800),
     )
 
     private fun fixture(block: (HelixStorage, FixtureGoalRunCoordinator, String) -> Unit) {
@@ -202,7 +202,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             HelixStorage.open(context, name, java.io.File(context.cacheDir, name)).withClose { storage ->
                 storage.sessions.create("s", "Fixture", null, null, 1000)
                 val coordinator = FixtureGoalRunCoordinator(storage, clock, ::id)
-                val goal = coordinator.create("Fixture", listOf("Evidence"), GoalBudgets(5, 5, 10000, 60000, 10000, 0))
+                val goal = coordinator.create("Fixture", listOf("Evidence"), GoalBudgets(maxGoalRounds = 256))
                 block(storage, coordinator, goal)
             }
         } finally {

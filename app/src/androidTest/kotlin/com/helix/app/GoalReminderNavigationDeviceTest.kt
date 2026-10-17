@@ -64,7 +64,7 @@ class GoalReminderNavigationDeviceTest {
             coordinator.create(
                 "Reminder navigation $suffix",
                 listOf("Verified result"),
-                GoalBudgets(2, 4, 1000, 60000, 10000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         try {
             parkGoal(coordinator, id, sessionId, suffix)
@@ -110,7 +110,7 @@ class GoalReminderNavigationDeviceTest {
                         id,
                         GoalWakeReason.USER_OPEN,
                         TurnStartSpec(sessionId, "turn-$suffix", "model-$suffix", "snapshot", "run"),
-                        TurnBudgets(2, 4, 500, 500, 10000),
+                        TurnBudgets(maxOutputTokens = 500),
                     ),
                 ),
             )

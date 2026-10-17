@@ -54,13 +54,13 @@ class ChatStopProgressDeviceTest {
                 chat.createGoal(
                     "UI stop progress",
                     listOf("Verified output"),
-                    GoalBudgets(3, 4, 100000, 60000, 30000, 0),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             try {
                 chat.openSession(session)
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 chat.setMode(if (retry && !goalRetry) AgentMode.CHAT else AgentMode.GOAL)
-                chat.setTurnBudgets(TurnBudgets(3, 4, 65536, 128, 65664))
+                chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 128))
                 awaitConfiguration(session, if (retry && !goalRetry) AgentMode.CHAT else AgentMode.GOAL)
                 compose.navigateTo("sessions")
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
@@ -106,7 +106,7 @@ class ChatStopProgressDeviceTest {
         val container = compose.container()
         compose.waitUntil(10_000) {
             container.storage.sessionRunControls.forSession(session)?.let {
-                it.mode == mode && it.budgets == TurnBudgets(3, 4, 65536, 128, 65664)
+                it.mode == mode && it.budgets == TurnBudgets(maxOutputTokens = 128)
             } == true && container.chatService.runControl.value.mode == mode
         }
     }

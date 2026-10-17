@@ -364,7 +364,7 @@ class ProcessRecoveryTest {
         val storage = isolatedStorage(context, "usage-budget")
         storage.goals.save(
             goal("goal-budget", GoalState.RUNNING.name).copy(
-                budgets = goal("unused", GoalState.RUNNING.name).budgets.copy(maxModelCalls = 1),
+                budgets = goal("unused", GoalState.RUNNING.name).budgets.copy(maxGoalRounds = 1),
             ),
         )
         storage.goalRuns.open("run-budget", "goal-budget", GoalWakeReason.USER_OPEN.name, 1_000L)
@@ -396,7 +396,7 @@ class ProcessRecoveryTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val storage = isolatedStorage(context, "exhausted-reopen")
         val seeded = goal("exhausted", GoalState.RUNNING.name)
-        storage.goals.save(seeded.copy(budgets = seeded.budgets.copy(maxModelCalls = 1)))
+        storage.goals.save(seeded.copy(budgets = seeded.budgets.copy(maxGoalRounds = 1)))
         storage.goalRuns.open("exhausted-run", seeded.id, GoalWakeReason.USER_OPEN.name, 1_000L)
         GoalDurableUsageLedger(storage).checkpoint(
             seeded.id,
@@ -434,7 +434,7 @@ class ProcessRecoveryTest {
         val storage = isolatedStorage(context, "duration-priority")
         val seeded = goal("duration", GoalState.RUNNING.name)
         storage.goals.save(
-            seeded.copy(budgets = seeded.budgets.copy(maxDurationMillis = 100, maxWakeDurationMillis = 100)),
+            seeded.copy(budgets = seeded.budgets.copy(maxGoalRounds = 1)),
         )
         storage.goalRuns.open("duration-run", seeded.id, GoalWakeReason.USER_OPEN.name, 1_000L)
         GoalDurableUsageLedger(storage).checkpoint(
@@ -520,14 +520,7 @@ class ProcessRecoveryTest {
         objective = "Persisted goal $id",
         criteria = emptyList(),
         budgets =
-            GoalBudgets(
-                maxModelCalls = 10,
-                maxToolCalls = 20,
-                maxTotalTokens = 100_000L,
-                maxDurationMillis = 3_600_000L,
-                maxWakeDurationMillis = 600_000L,
-                maxRetries = 2,
-            ),
+            GoalBudgets(maxGoalRounds = 256),
         state = state,
         planId = null,
         planHash = null,

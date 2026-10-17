@@ -116,14 +116,14 @@ class CliGoalProcessKillDeviceTest {
             chat.createGoal(
                 "CLI interrupted",
                 listOf("Verified response"),
-                GoalBudgets(3, 4, 100000, 120000, 60000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         facts.setProperty("goal", goal)
         save(facts)
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
+        chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
         if (successful) holdSuccessfulProviderResult(container, resultHeld)
         chat.continueGoal(goal, "Wait for the synthetic Runtime fixture.")
         await {

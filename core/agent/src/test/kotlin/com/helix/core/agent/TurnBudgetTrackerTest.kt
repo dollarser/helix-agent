@@ -38,7 +38,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun historicalModelCallLimitDoesNotBlockAnotherProviderCall() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 200))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 100))
         val request = request()
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
@@ -46,7 +46,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun unknownUsageUsesNonZeroByteEstimateAndAccumulates() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 2, 100, 100, 18))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 100))
         val request = request("1234")
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
         val stream = ModelStreamState().also { it.apply(ModelEvent.TextDelta("1234")) }
@@ -56,7 +56,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun outputIsIndependentOfAccumulatedInputUsage() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 3, 100, 100, 50))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 100))
         val first = requireNotNull(tracker.prepareCall(request("1234").copy(maxOutputTokens = 100)).request)
         assertEquals(100L, first.maxOutputTokens)
         val stream = ModelStreamState().also { it.apply(ModelEvent.Usage(1, 10)) }
@@ -67,13 +67,13 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun smallerExplicitOutputLimitIsPreserved() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 2, 100, 10, 100))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 10))
         assertEquals(3L, tracker.prepareCall(request().copy(maxOutputTokens = 3)).request?.maxOutputTokens)
     }
 
     @Test
     fun historicalTotalLimitDoesNotRejectNewRequest() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 18))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 100))
         val refused = tracker.prepareCall(request("12345678"))
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, refused.decision)
         assertEquals(100L, refused.request?.maxOutputTokens)
@@ -82,7 +82,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun providerUsageAboveTheBoundRequestStillFails() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 100))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 100))
         val bound = requireNotNull(tracker.prepareCall(request().copy(maxOutputTokens = 3)).request)
         val stream = ModelStreamState().also { it.apply(ModelEvent.Usage(1, 4)) }
         assertFalse(tracker.finishCall("call", bound, stream))
@@ -90,7 +90,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun restoredTrackerDoesNotRefundModelCallsOrTokens() {
-        val budgets = TurnBudgets(4, 3, 100, 100, 50)
+        val budgets = TurnBudgets(maxOutputTokens = 100)
         val tracker = TurnBudgetTracker.restore(budgets, consumedModelCalls = 2, consumedTokens = 10)
 
         assertEquals(2, tracker.consumedCalls)
@@ -106,7 +106,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun restoredTrackerAcceptsUsageBeyondHistoricalLimitsAndRejectsNegativeUsage() {
-        val budgets = TurnBudgets(4, 3, 100, 100, 50)
+        val budgets = TurnBudgets(maxOutputTokens = 100)
 
         assertEquals(4, TurnBudgetTracker.restore(budgets, 4, 51).consumedCalls)
         assertEquals(51L, TurnBudgetTracker.restore(budgets, 4, 51).consumedTokens)
@@ -116,13 +116,13 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun reportedUsageCannotOverflowOrBypassOutputAndTotalLimits() {
-        val outputTracker = TurnBudgetTracker(TurnBudgets(2, 1, 1_000, 5, 1_000))
+        val outputTracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 5))
         val request = request()
         outputTracker.prepareCall(request).decision
         val output = ModelStreamState().also { it.apply(ModelEvent.Usage(1, 6)) }
         assertFalse(outputTracker.finishCall("call-1", request, output))
 
-        val totalTracker = TurnBudgetTracker(TurnBudgets(2, 1, 1_000, 1_000, 10))
+        val totalTracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 1_000))
         totalTracker.prepareCall(request).decision
         val huge = ModelStreamState().also { it.apply(ModelEvent.Usage(Long.MAX_VALUE, Long.MAX_VALUE)) }
         assertFalse(totalTracker.finishCall("call-2", request, huge))

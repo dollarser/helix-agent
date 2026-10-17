@@ -1,7 +1,7 @@
 package com.helix.app.mcp
 
+import com.helix.core.model.ToolName
 import com.helix.tools.framework.ToolDescriptor
-import com.helix.tools.framework.ToolOrigin
 
 /** Exposure-only byte budgets. New discoveries remain complete; context admission is authoritative. */
 internal object ToolDiscoveryWorkset {
@@ -51,54 +51,23 @@ internal object ToolDiscoveryWorkset {
         return selected
     }
 
+    /** Expand only the admitted snapshot. A declaration neither enables nor executes its companions. */
     fun complete(
         matches: List<ToolDescriptor>,
         available: List<ToolDescriptor>,
-    ): List<ToolDescriptor> =
-        (
-            matches +
-                matches.flatMap { tool ->
-                    val names = prerequisites(tool)
-                    available.filter { it.name.value in names && it.origin == tool.origin }
-                }
-        ).distinctBy { it.name }
-
-    private fun prerequisites(tool: ToolDescriptor): Set<String> =
-        when (val origin = tool.origin) {
-            is ToolOrigin.PluginOrigin -> {
-                when (origin.pluginId) {
-                    "mobile-use" -> {
-                        when (tool.name.value) {
-                            "ui.gesture" -> setOf("ui.screenshot", "ui.device")
-                            "ui.screenshot" -> setOf("ui.device")
-                            else -> setOf("ui.snapshot", "ui.find")
-                        }
-                    }
-
-                    "documents" -> {
-                        com.helix.extensions.documents.DocumentTools.names
-                    }
-
-                    "browser" -> {
-                        setOf("browser.snapshot", "browser.find")
-                    }
-
-                    else -> {
-                        emptySet()
-                    }
-                }
-            }
-
-            ToolOrigin.BuiltInOrigin -> {
-                if (tool.name.value.startsWith("code.linux.job.")) {
-                    setOf("code.linux.job.status", "code.linux.job.collect", "code.linux.job.cancel", "jobs.await")
-                } else {
-                    emptySet()
-                }
-            }
-
-            else -> {
-                emptySet()
-            }
+    ): List<ToolDescriptor> {
+        val selected = linkedMapOf<ToolName, ToolDescriptor>()
+        val pending = ArrayDeque(matches.filter { it in available })
+        while (pending.isNotEmpty()) {
+            val tool = pending.removeFirst()
+            if (selected.putIfAbsent(tool.name, tool) != null) continue
+            pending.addAll(
+                available.filter { candidate ->
+                    candidate.origin == tool.origin && candidate.name in tool.discoveryCompanions &&
+                        candidate.name !in selected
+                },
+            )
         }
+        return selected.values.toList()
+    }
 }

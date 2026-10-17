@@ -32,7 +32,7 @@ internal class HeadlessLoopFixture(
     val requests = mutableListOf<ModelRequest>()
     val events = mutableListOf<AgentLoopEvent>()
     val dispatched = mutableListOf<ToolBatchRequest>()
-    val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(8, 9, 128_000, 4096, 160_000))
+    val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
     var cancelled = false
     var cancelAfterEvent: Int? = null
     var unknown = false

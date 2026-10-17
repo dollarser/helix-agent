@@ -35,7 +35,7 @@ class ModelStreamStateTest {
                 action,
                 TurnBudgetTracker(
                     com.helix.core.model
-                        .TurnBudgets(2, 2, 100, 100, 200),
+                        .TurnBudgets(maxOutputTokens = 100),
                 ),
             )
         assertTrue(diagnostic.contains("\"finishReason\":\"tool_calls\""))

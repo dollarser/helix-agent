@@ -25,6 +25,16 @@ import java.time.Instant
  * impl (:feature:browser), so this exercises the model-facing contract in isolation.
  */
 class BrowserToolsMappingTest {
+    @Test fun publishedActionsDeclareTheirObservationTools() {
+        val origin =
+            com.helix.tools.framework.ToolOrigin
+                .PluginOrigin("browser", "0.1.0", "browser")
+        val descriptors = BrowserTools.bindings(bridge, origin).map { it.descriptor }
+        val click = descriptors.single { it.name.value == "browser.click" }
+        assertEquals(setOf("browser.snapshot", "browser.find"), click.discoveryCompanions.map { it.value }.toSet())
+        assertTrue(descriptors.all { it.origin == origin })
+    }
+
     @Test
     fun longSnapshotMetadataFitsItsSchemaWithoutChangingPageIdentity() {
         val original =

@@ -156,7 +156,7 @@ class ProgressiveSkillModelDeviceTest {
                             c.chatService.openTestSessionControl(
                                 session,
                                 AgentMode.ACT,
-                                TurnBudgets(24, 24, 524288, 8192, 557056),
+                                TurnBudgets(maxOutputTokens = 8192),
                             )
                             val prompt =
                                 when (kind) {

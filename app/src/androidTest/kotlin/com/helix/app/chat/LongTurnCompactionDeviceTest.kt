@@ -46,7 +46,7 @@ class LongTurnCompactionDeviceTest {
         object : Clock {
             override fun now() = Instant.now()
         }
-    private val control = RunControlConfig(AgentMode.GOAL, false, TurnBudgets(20, 20, 65536, 4096, 200000))
+    private val control = RunControlConfig(AgentMode.GOAL, false, TurnBudgets(maxOutputTokens = 4096))
     private val settings = ProviderContextSettings(manualWindow = 8192, triggerPercent = 30)
 
     private fun next() = UUID.randomUUID().toString()
@@ -60,7 +60,7 @@ class LongTurnCompactionDeviceTest {
                 goals.create(
                     "Keep ORANGE-42 and finish verification",
                     listOf("Verified result"),
-                    GoalBudgets(40, 40, 400000, 600000, 300000, 1),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             val first =
                 requireNotNull(

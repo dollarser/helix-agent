@@ -18,7 +18,7 @@ class TurnRuntimeRecordCodecTest {
             RunControlConfig(
                 mode = AgentMode.ACT,
                 chatToolsEnabled = true,
-                budgets = TurnBudgets(7, 9, 50_000, 4_000, 60_000),
+                budgets = TurnBudgets(maxOutputTokens = 4_000),
                 reasoning = ReasoningEffort.MEDIUM,
                 goalBudgets = GoalBudgetDefaults.VALUE,
             )
@@ -90,7 +90,7 @@ class TurnRuntimeRecordCodecTest {
             providerSnapshot = """{"model":"model-1"}""",
             mode = AgentMode.ACT.name,
             chatToolsEnabled = true,
-            budgetsJson = TurnBudgets(7, 9, 50_000, 4_000, 60_000).toStorageString(),
+            budgetsJson = TurnBudgets(maxOutputTokens = 4_000).toStorageString(),
             reasoning = ReasoningEffort.LOW.name,
             goalBudgetsJson = GoalBudgetDefaults.VALUE.toStorageString(),
             consumedModelCalls = 1,

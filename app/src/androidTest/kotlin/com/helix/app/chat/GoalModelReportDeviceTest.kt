@@ -222,7 +222,7 @@ class GoalModelReportDeviceTest {
                             g,
                             GoalWakeReason.USER_OPEN,
                             TurnStartSpec("s", "next", "next-message", "snapshot", "continue"),
-                            TurnBudgets(5, 10, 800, 800, 5000),
+                            TurnBudgets(maxOutputTokens = 800),
                         ),
                     ),
                 )
@@ -248,7 +248,7 @@ class GoalModelReportDeviceTest {
                             g,
                             GoalWakeReason.USER_OPEN,
                             TurnStartSpec("s", "next", "next-message", "snapshot", "continue"),
-                            TurnBudgets(5, 10, 800, 800, 5000),
+                            TurnBudgets(maxOutputTokens = 800),
                         ),
                     ),
                 )
@@ -394,7 +394,7 @@ class GoalModelReportDeviceTest {
                 coordinator.create(
                     "Explain clearly",
                     listOf("Helpful answer"),
-                    GoalBudgets(10, 10, 100000, 60000, 10000, 0),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             val start =
                 requireNotNull(
@@ -403,7 +403,7 @@ class GoalModelReportDeviceTest {
                             goal,
                             GoalWakeReason.USER_OPEN,
                             TurnStartSpec("s", "t", "m", "snapshot", "input"),
-                            TurnBudgets(5, 10, 800, 800, 5000),
+                            TurnBudgets(maxOutputTokens = 800),
                         ),
                     ),
                 )

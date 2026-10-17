@@ -84,7 +84,7 @@ class MessageEditRecoveryDeviceTest {
                             ),
                         revisedMessageId = "accepted-target",
                     ),
-                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(4, 4, 8_000, 2_000, 16_000)),
+                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 2_000)),
                     GoalWakeReason.USER_OPEN,
                     providerId = "fixture-provider",
                     modelId = "fixture-model",

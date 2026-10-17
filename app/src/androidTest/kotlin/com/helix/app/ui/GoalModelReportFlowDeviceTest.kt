@@ -93,7 +93,7 @@ private suspend fun runGoalReportFlow(
             chat.createGoal(
                 "Answer what 2 + 2 is",
                 emptyList(),
-                GoalBudgets(10, 10, 100000, 300000, 240000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         container.agentRuntime.submit(
             com.helix.core.agent.SubmitTurnCommand(
@@ -107,7 +107,7 @@ private suspend fun runGoalReportFlow(
                 text = "Answer 2 + 2. Report your Goal status using goal.report, then answer briefly.",
                 budgets =
                     com.helix.core.model
-                        .TurnBudgets(16, 16, 65536, 4096, 100000),
+                        .TurnBudgets(maxOutputTokens = 4096),
                 goalId =
                     com.helix.core.model
                         .GoalId(goal),

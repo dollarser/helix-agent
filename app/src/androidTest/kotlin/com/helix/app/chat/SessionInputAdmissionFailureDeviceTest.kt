@@ -27,13 +27,13 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/** No injected admission result: the first real Goal spends its last model call and becomes BLOCKED. */
+/** No injected admission result: a human Turn plus one automatic round exhaust the real Goal round allowance. */
 class SessionInputAdmissionFailureDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun exhaustedGoalEndsRejectedInputAfterOneRecoveryWithoutCallingTheModelAgain() =
         runBlocking {
-            fixture(maxCalls = 1, holdFirst = false) { scenario ->
+            fixture(maxRounds = 1, holdFirst = false) { scenario ->
                 val chat = scenario.chat
                 val storage = compose.container().storage
                 val first = chat.sendSubmission(submission(scenario.session, "Complete one fixture goal round")).await()
@@ -46,7 +46,12 @@ class SessionInputAdmissionFailureDeviceTest {
                 }
                 // Explicitly revoke the finished round's activation before submitting another Goal-mode
                 // request; this avoids depending on whether the asynchronous drain already disarmed it.
-                chat.stopTurn(firstTurn)
+                chat.stopTurn(
+                    storage.turns
+                        .listBySession(scenario.session)
+                        .last()
+                        .id,
+                )
                 val rejectedStart = submission(scenario.session, "Try another round of the same exhausted goal")
                 val receipt = chat.sendSubmission(rejectedStart).await()
                 assertTrue(receipt.outcome is ChatSubmissionOutcome.Enqueued)
@@ -72,20 +77,20 @@ class SessionInputAdmissionFailureDeviceTest {
                 assertNull(parked.consumedTurnId)
                 assertNull(parked.messageId)
                 assertNull(parked.requestModelCallId)
-                assertEquals(1, storage.turns.listBySession(scenario.session).size)
-                assertEquals(1, scenario.requests.get())
+                assertEquals(2, storage.turns.listBySession(scenario.session).size)
+                assertEquals(2, scenario.requests.get())
 
                 assertTrue(chat.sendSubmission(rejectedStart).await().outcome is ChatSubmissionOutcome.Enqueued)
                 assertEquals(parked, storage.sessionInputs.get(parked.inputId))
                 assertEquals(rejectedStart.text, chat.readSessionInput(parked.inputId).await())
                 assertFalse(scenario.extraRequest.await(500, TimeUnit.MILLISECONDS))
-                assertEquals(1, storage.turns.listBySession(scenario.session).size)
+                assertEquals(2, storage.turns.listBySession(scenario.session).size)
             }
         }
 
     @Test fun stopParkedInputKeepsItsReasonAndRevisionWhenOldSubmissionIsRedelivered() =
         runBlocking {
-            fixture(maxCalls = 4, holdFirst = true) { scenario ->
+            fixture(maxRounds = 4, holdFirst = true) { scenario ->
                 val chat = scenario.chat
                 val storage = compose.container().storage
                 val first = chat.sendSubmission(submission(scenario.session, "Hold the active fixture goal")).await()
@@ -113,7 +118,7 @@ class SessionInputAdmissionFailureDeviceTest {
 
     @Test fun oldSubmissionCannotReplaceEditedUserParkedInput() =
         runBlocking {
-            fixture(maxCalls = 4, holdFirst = true) { scenario ->
+            fixture(maxRounds = 4, holdFirst = true) { scenario ->
                 val chat = scenario.chat
                 val storage = compose.container().storage
                 val first = chat.sendSubmission(submission(scenario.session, "Hold for editing")).await()
@@ -152,6 +157,7 @@ class SessionInputAdmissionFailureDeviceTest {
     private class Scenario(
         val chat: ChatService,
         val session: String,
+        private val expectedRequests: Int,
     ) {
         val requests = AtomicInteger()
         val entered = CountDownLatch(1)
@@ -159,22 +165,22 @@ class SessionInputAdmissionFailureDeviceTest {
         val extraRequest = CountDownLatch(1)
 
         fun answer(holdFirst: Boolean): String {
-            if (requests.incrementAndGet() == 1) {
+            val requestNumber = requests.incrementAndGet()
+            if (requestNumber == 1) {
                 entered.countDown()
                 if (holdFirst) {
                     check(release.await(30, TimeUnit.SECONDS)) {
                         "Input admission fixture did not release its response"
                     }
                 }
-            } else {
-                extraRequest.countDown()
             }
+            if (requestNumber > expectedRequests) extraRequest.countDown()
             return textAnswerStream("One completed fixture round")
         }
     }
 
     private suspend fun fixture(
-        maxCalls: Int,
+        maxRounds: Int,
         holdFirst: Boolean,
         block: suspend (Scenario) -> Unit,
     ) {
@@ -201,13 +207,13 @@ class SessionInputAdmissionFailureDeviceTest {
                 )
             check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
             val session = chat.createSession("Input admission fixture", provider, "fixture-model-a")
-            val scenario = Scenario(chat, session)
+            val scenario = Scenario(chat, session, expectedRequests = if (holdFirst) 1 else maxRounds + 1)
             try {
                 server.scriptedChat = { scenario.answer(holdFirst) }
                 chat.openSession(session)
                 chat.setMode(AgentMode.GOAL)
-                chat.setTurnBudgets(TurnBudgets(4, 6, 64_000, 128, 100_000))
-                configureGoalBudget(session, maxCalls)
+                chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 128))
+                configureGoalBudget(session, maxRounds)
                 block(scenario)
             } finally {
                 chat.stop()
@@ -228,12 +234,12 @@ class SessionInputAdmissionFailureDeviceTest {
 
     private fun configureGoalBudget(
         session: String,
-        maxCalls: Int,
+        maxRounds: Int,
     ) {
         val container = compose.container()
         compose.waitUntil(15_000) {
             container.storage.sessionRunControls.forSession(session)?.let {
-                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(4, 6, 64_000, 128, 100_000)
+                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(maxOutputTokens = 128)
             } == true
         }
         val controls =
@@ -241,7 +247,7 @@ class SessionInputAdmissionFailureDeviceTest {
                 .SessionRunControlStore(container.storage, container.runControlStore)
         controls.set(
             session,
-            controls.ensure(session, 1).copy(goalBudgets = GoalBudgets(maxCalls, 8, 300_000, 120_000, 60_000, 0)),
+            controls.ensure(session, 1).copy(goalBudgets = GoalBudgets(maxGoalRounds = maxRounds)),
             System.currentTimeMillis(),
         )
     }

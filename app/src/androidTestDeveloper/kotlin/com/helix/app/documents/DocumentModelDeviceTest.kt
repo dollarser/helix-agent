@@ -96,7 +96,7 @@ class DocumentModelDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     System.currentTimeMillis(),
                 )
-                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(24, 24, 524288, 8192, 557056))
+                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(maxOutputTokens = 8192))
                 c.chatService.sendTestMessage(
                     session,
                     "Use the documents plugin to read every page/block of input/fixture.$format. " +

@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GoalReducerBudgetTest {
-    @Test fun usageAcrossAllHistoricalLimitsRemainsObservedWithoutStopping() {
+    @Test fun cumulativeUsageRemainsObservedWithoutStopping() {
         var goal = runningGoal()
         repeat(3) {
             goal = reduceGoal(goal, GoalEvent.WakeUsageReported(30, 60, 1000, 5000)).state
@@ -38,22 +38,26 @@ class GoalReducerBudgetTest {
         assertTrue(changed.effects.isEmpty())
     }
 
-    @Test fun historicalZeroResourceAllowanceDoesNotBlockExplicitContinuation() {
+    @Test fun explicitContinuationKeepsUsageAndRoundConfiguration() {
         val paused = reduceGoal(runningGoal(), GoalEvent.RunFinished).state
-        val historical =
+        val configured =
             paused.copy(
-                budgets = paused.budgets.copy(maxTotalTokens = 0, maxDurationMillis = 0, maxWakeDurationMillis = 0),
+                budgets = paused.budgets.copy(maxGoalRounds = 1),
+                totalTokens = 100_000,
             )
+        val continued = reduceGoal(configured, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).state
         assertEquals(
             GoalState.RUNNING,
-            reduceGoal(historical, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).state.state,
+            continued.state,
         )
+        assertEquals(configured.budgets, continued.budgets)
+        assertEquals(configured.totalTokens, continued.totalTokens)
     }
 
-    @Test fun abnormalFailuresNeverAutoRetryRegardlessOfOldRetryAllowance() {
+    @Test fun abnormalFailuresNeverAutoRetryEvenForRetryableErrors() {
         for (retryable in listOf(true, false)) {
             val error = GoalFixtures.error("provider failure", retryable)
-            val failed = reduceGoal(runningGoal(GoalFixtures.budgets(maxRetries = 99)), GoalEvent.WakeFailed(error))
+            val failed = reduceGoal(runningGoal(), GoalEvent.WakeFailed(error))
             assertEquals(GoalState.FAILED, failed.state.state)
             assertEquals(error, failed.state.error)
             assertEquals(0, failed.state.retries)

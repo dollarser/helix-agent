@@ -56,7 +56,7 @@ class HelixDocsLiveModelDeviceTest {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 session = c.chatService.createSession("Helix docs acceptance", provider, model)
                 c.profileStore.switchTo(SafetyProfile.ADVANCED)
-                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(12, 10, 131072, 4096, 139264))
+                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(maxOutputTokens = 4096))
                 c.chatService.sendTestMessage(
                     session,
                     "Use Helix's built-in versioned user guide only. Discover it, read its manifest and " +

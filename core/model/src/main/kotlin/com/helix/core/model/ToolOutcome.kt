@@ -14,13 +14,6 @@ enum class DispatchOutcomeCode {
     BUDGET_EXHAUSTED,
     POLICY_DENIED,
 
-    /**
-     * A user DENY preference blocked the tool (HXA-200, ADR-0052). The legacy three-state
-     * preference chain is removed (HXA-209 B4): this code is KEPT so that historical audit
-     * rows keep their stable identifier — no new dispatch can produce it.
-     */
-    PREFERENCE_DENIED,
-
     /** The user's two-state tool availability disabled the tool (HXA-209, ADR-PERMISSIONS-001 section 1.1). */
     TOOL_DISABLED,
 

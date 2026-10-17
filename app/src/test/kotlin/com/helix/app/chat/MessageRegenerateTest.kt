@@ -62,7 +62,7 @@ class MessageRegenerateTest {
 
     @Test
     fun `SubmitTurnCommand rejects both revise and regenerate`() {
-        val budgets = TurnBudgets(4, 4, 1000, 100, 2000)
+        val budgets = TurnBudgets(maxOutputTokens = 100)
         assertThrows(IllegalArgumentException::class.java) {
             SubmitTurnCommand(
                 session = SessionId("s1"),
@@ -80,7 +80,7 @@ class MessageRegenerateTest {
 
     @Test
     fun `SubmitTurnCommand rejects regenerate with user text`() {
-        val budgets = TurnBudgets(4, 4, 1000, 100, 2000)
+        val budgets = TurnBudgets(maxOutputTokens = 100)
         assertThrows(IllegalArgumentException::class.java) {
             SubmitTurnCommand(
                 session = SessionId("s1"),
@@ -97,7 +97,7 @@ class MessageRegenerateTest {
 
     @Test
     fun `SubmitTurnCommand accepts regenerate with retryTurnId and null text`() {
-        val budgets = TurnBudgets(4, 4, 1000, 100, 2000)
+        val budgets = TurnBudgets(maxOutputTokens = 100)
         val command =
             SubmitTurnCommand(
                 session = SessionId("s1"),

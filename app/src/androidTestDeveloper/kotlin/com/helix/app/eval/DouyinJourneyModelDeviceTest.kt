@@ -107,7 +107,7 @@ class DouyinJourneyModelDeviceTest {
                     c.chatService.openTestSessionControl(
                         session,
                         AgentMode.ACT,
-                        TurnBudgets(256, 256, 524288, 8192, 557056),
+                        TurnBudgets(maxOutputTokens = 8192),
                     )
                     val prompts =
                         listOf(

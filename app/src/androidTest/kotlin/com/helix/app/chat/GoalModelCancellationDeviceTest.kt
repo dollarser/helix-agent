@@ -48,14 +48,14 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
                 chat.createGoal(
                     "Bound model cancellation",
                     listOf("Verified output"),
-                    GoalBudgets(3, 4, 100000, 60000, if (crossOldLimit) 2000 else 30000, 0),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             try {
                 chat.openSession(session)
                 await { chat.screen.value.openSessionId == session }
                 chat.setMode(AgentMode.GOAL)
                 // This fixture tests socket cancellation, not the size of the developer tool catalog.
-                chat.setTurnBudgets(TurnBudgets(3, 4, 32000, 128, 100000))
+                chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 128))
                 awaitGoalConfiguration(container, session)
                 server.holdChatStreams.set(true)
                 chat.continueGoal(goal, "Reply with a short plain text result.")
@@ -112,7 +112,7 @@ class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestH
     ) {
         await {
             container.storage.sessionRunControls.forSession(session)?.let {
-                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(3, 4, 32000, 128, 100000)
+                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(maxOutputTokens = 128)
             } == true
         }
     }

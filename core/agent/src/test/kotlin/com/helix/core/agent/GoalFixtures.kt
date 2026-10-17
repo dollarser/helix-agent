@@ -11,22 +11,7 @@ internal object GoalFixtures {
     val goal = GoalId("goal-1")
     val correlation = CorrelationId("corr-1")
 
-    fun budgets(
-        maxModelCalls: Int = 2,
-        maxToolCalls: Int = 5,
-        maxTotalTokens: Long = 100,
-        maxDurationMillis: Long = 10_000,
-        maxWakeDurationMillis: Long = 4_000,
-        maxRetries: Int = 1,
-    ): GoalBudgets =
-        GoalBudgets(
-            maxModelCalls,
-            maxToolCalls,
-            maxTotalTokens,
-            maxDurationMillis,
-            maxWakeDurationMillis,
-            maxRetries,
-        )
+    fun budgets(maxGoalRounds: Int = 256): GoalBudgets = GoalBudgets(maxGoalRounds = maxGoalRounds)
 
     fun criterion(
         id: String = "c1",

@@ -226,7 +226,7 @@ class GoalTimeLeaseDeviceTest {
                 coordinator.create(
                     "Check result",
                     listOf("Result received"),
-                    GoalBudgets(5, 5, 1_000, 60_000, 10_000, 0),
+                    GoalBudgets(maxGoalRounds = 256),
                 )
             started =
                 requireNotNull(
@@ -235,7 +235,7 @@ class GoalTimeLeaseDeviceTest {
                             goalId,
                             GoalWakeReason.USER_OPEN,
                             TurnStartSpec("session", "turn", "model", "snapshot", "run"),
-                            TurnBudgets(5, 5, 800, 800, 5_000),
+                            TurnBudgets(maxOutputTokens = 800),
                         ),
                     ),
                 )

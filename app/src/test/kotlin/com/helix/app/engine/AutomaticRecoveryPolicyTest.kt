@@ -53,7 +53,7 @@ class AutomaticRecoveryPolicyTest {
             RunControlConfig(
                 AgentMode.ACT,
                 true,
-                TurnBudgets(10, 10, 800, 200, 1000),
+                TurnBudgets(maxOutputTokens = 200),
                 ReasoningEffort.OFF,
                 GoalBudgetDefaults.VALUE,
             ),

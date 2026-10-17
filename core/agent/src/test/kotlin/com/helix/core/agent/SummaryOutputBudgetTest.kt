@@ -17,7 +17,7 @@ class SummaryOutputBudgetTest {
         val summary = SummaryOutputBudget.forRequest(17058, 4096, 128000)
         assertEquals(2132L, summary.target)
         assertEquals(4096L, summary.allowance)
-        val tracker = TurnBudgetTracker(TurnBudgets(32, 33, 128000, 4096, 160000))
+        val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 4096))
         val request =
             ModelRequest("model", listOf(ModelMessage(ModelRole.USER, "summary")), maxOutputTokens = summary.allowance)
         val admitted = requireNotNull(tracker.prepareCall(request).request)

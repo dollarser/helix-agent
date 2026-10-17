@@ -22,15 +22,11 @@ data class GoalStep(
  *
  * Design decisions (recorded in the HXA-013 completion record; the ADR-0039/0040 evolution is
  * noted inline):
- * - A run (created by an admitted `Continued`) contains wakes. A wake ends by: normal Turn
- *   completion (`RunFinished` -> PAUSED, then ADR-0053 may admit an activated successor), budget exhaustion
- *   (`WakeUsageReported` -> BLOCKED with `BudgetExhausted(limit)`; ADR-0039: a missing budget
- *   is a blocker that must be resolved, not a plain park), input need (-> INPUT_REQUIRED), or
- *   failure (`WakeFailed`: retry within budget stays RUNNING, otherwise FAILED).
- * - `WakeFailed`: a retryable failure consumes one of `maxRetries` and keeps the goal RUNNING
- *   with a `RetryWake` effect; a non-retryable failure, or retry exhaustion, fails the goal.
- *   (The `GoalState` machine has no RUNNING -> RUNNING edge, so retries are wake-level: the
- *   goal state stays RUNNING while the coordinator re-tries the wake.)
+ * - A run (created by an admitted `Continued`) contains wakes. Normal Turn completion parks
+ *   the Goal (`RunFinished` -> PAUSED); the coordinator may admit another automatic round.
+ *   Usage reports only update accounting. Round admission is owned by the coordinator.
+ * - `WakeFailed` fails the Goal without scheduling an automatic retry, even if the underlying
+ *   error is retryable. Input requests and unresolved dependencies remain explicit states.
  * - BLOCKED (ADR-0039) is a durable state that cannot be Continued directly: the recorded
  *   dependency is resolved first (`BlockerResolved` -> PAUSED, then an admitted `Continued`
  *   starts the run).
@@ -152,8 +148,7 @@ object GoalReducer {
         event: GoalEvent.Continued,
         recovery: Boolean = false,
     ): GoalStep {
-        // A parked goal whose lifetime budget is exhausted stays parked: continuing it is
-        // ignored (not failed) until the user extends the budget with BudgetsUpdated.
+        // A blocked Goal needs explicit blocker resolution; recovery inspection may still enter it.
         val resumable =
             (
                 state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED) ||
@@ -329,11 +324,7 @@ object GoalReducer {
         return step(state, next, listOf(GoalEffect.GoalCancelled, GoalEffect.ReminderCancelled))
     }
 
-    /**
-     * A new run can start only while the remaining goal budget can be materialized as a
-     * legal [com.helix.core.model.TurnBudgets] by the coordinator (ADR-0004 item 1). Delegates
-     * to [Goal.hasRunBudgetHeadroom] so the reducer and the [GoalDriver] share one rule.
-     */
+    /** Share the reducer's terminal gate; the host separately admits durable automatic rounds. */
     private fun Goal.canStartRun(): Boolean = hasRunBudgetHeadroom()
 
     /** Records the step, enforcing the GoalState transition rules and state invariants. */

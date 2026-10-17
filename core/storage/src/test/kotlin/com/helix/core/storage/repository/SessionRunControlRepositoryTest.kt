@@ -62,9 +62,9 @@ class SessionRunControlRepositoryTest {
     ) = SessionRunControlRecord(
         mode = mode,
         chatToolsEnabled = true,
-        budgets = TurnBudgets(8, 9, 64_000, 4_096, 80_000),
+        budgets = TurnBudgets(maxOutputTokens = 4_096),
         reasoning = reasoning,
-        goalBudgets = GoalBudgets(16, 32, 200_000, 60_000, 20_000, 1),
+        goalBudgets = GoalBudgets(maxGoalRounds = 256),
     )
 }
 

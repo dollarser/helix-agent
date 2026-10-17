@@ -122,7 +122,7 @@ class FirstSuccessJourneyDeviceTest {
             while (storage.sessionRunControls.forSession(sessionId)?.mode != AgentMode.ACT) delay(20)
         }
         chat.setReasoning(ReasoningEffort.OFF)
-        chat.setTurnBudgets(TurnBudgets(4, 4, 8_000, 512, 60_000))
+        chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
 
         val relative =
             listOf(binding.relativePath.takeIf { it.isNotEmpty() }, TARGET_NAME)

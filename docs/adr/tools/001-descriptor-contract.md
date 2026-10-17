@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-16; revised 2026-10-17
-HXA: HXA-042, HXA-231, HXA-276, HXA-277, HXA-279, HXA-286, HXA-288, HXA-289, HXA-290, HXA-292
+HXA: HXA-042, HXA-231, HXA-276, HXA-277, HXA-279, HXA-286, HXA-288, HXA-289, HXA-290, HXA-292, HXA-303
 Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
 ## Context
@@ -20,6 +20,12 @@ Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务�
 5. `ToolDispatcher.buildBinding` 在批准时从**本次请求绑定且仍有效的** descriptor 取 `contractHash` 写入 binding（与 `schemaHash` 同源、同点）。
 6. 机械门禁：`ContractHashGateTest`（`tools/framework`）逐字段证明每个安全字段单独变化都保持 `schemaHash` 不变而改变 `contractHash`，进而改变 `ApprovalBinding.hash`（旧凭证不匹配）；`ToolDispatcherTest` 证明 dispatcher 实际把当前 descriptor 的 `contractHash` 绑进呈现给 broker 的 binding。二者是"拒绝"的证据，不是 KDoc 约定。
 
+
+### 发现配套与执行权限（HXA-303）
+
+ToolDescriptor.discoveryCompanions 是能力提供方声明的同来源曝光配套，允许有限图中互相引用；宿主在当前已准入/可用的描述快照内展开并去重，不按插件名称补规则。集合随原子发布深复制并冻结，撤销/替换/跨来源描述不能补入。它不是运行强制依赖、能力开关或批准，不能自动安装、选用、执行或扩大访问；缺失配套仍保持缺失。
+
+该字段不进入执行安全 contractHash：它不修改参数、工具语义、执行目标、能力、限额或副作用。运行依赖/readiness 的完整表达仍由 286 接续，不能将发现提示直接升级为执行权限或启动条件。验证覆盖未知插件、传递环、缺失/撤销/替换、来源隔离、预算和发布不可变性。
 
 ### 原子绑定与请求身份（HXA-231 R1）
 
@@ -125,6 +131,8 @@ HXA-276/277已交付有界验收；279观察增量已实现，实际结果见[27
 - [主题入口](README.md)
 
 ## Decision history — 2026-10-17
+
+Owner 授权当前独立优化与后续任务收敛：303 将配套发现从宿主名称分支移到贡献描述，采用当前快照内的有限闭包，排除安全 hash 并冻结集合。已删除 PREFERENCE_DENIED 旧审计兼容枚举及对应展示；新预览存储基线不承诺读取旧审计行。286 的完整贡献协议及 288 的类型化执行/产物仍待实施，验收归 [303](../../development/tasks/HXA-303.md)。
 
 按 Owner 目录架构研究补可信环境/映射和工具结果分类，产物发布与源回写独立，模型与 UI 使用同一原事实的不同投影。接受目标设计而非提前交付远程/新映射，现有 R1 绑定、具名工具和权限链不重建；实现按原任务完整替换。
 

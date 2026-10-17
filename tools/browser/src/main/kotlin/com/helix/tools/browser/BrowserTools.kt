@@ -1,5 +1,6 @@
 package com.helix.tools.browser
 
+import com.helix.core.model.ToolName
 import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolVisualPreparation
@@ -29,5 +30,15 @@ object BrowserTools {
                 BrowserScreenshotTool.executor(bridge, visualPreparation),
             ),
             ToolBinding(BrowserDownloadTool.descriptor(origin), BrowserDownloadTool.executor(bridge)),
-        )
+        ).map { binding ->
+            val descriptor =
+                binding.descriptor.copy(
+                    discoveryCompanions =
+                        setOf("browser.snapshot", "browser.find")
+                            .filter { it != binding.descriptor.name.value }
+                            .map(::ToolName)
+                            .toSet(),
+                )
+            binding.copy(descriptor = descriptor)
+        }
 }

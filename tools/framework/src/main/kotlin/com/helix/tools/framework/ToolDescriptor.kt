@@ -56,6 +56,8 @@ data class ToolDescriptor(
     val idempotency: Idempotency,
     val executionTarget: ExecutionTargetType,
     val origin: ToolOrigin,
+    /** Same-origin tools to expose together when available. Discovery only; never authority or execution. */
+    val discoveryCompanions: Set<ToolName> = emptySet(),
 ) {
     init {
         require(description.isNotBlank()) { "tool description must not be blank" }
@@ -109,7 +111,7 @@ data class ToolDescriptor(
 
     /**
      * The full security-descriptor contract hash (ADR-0011, HXA-042): SHA-256 over a
-     * canonical form of EVERY descriptor field — the identity [schemaHash] already carries,
+     * canonical form of the execution contract — the identity [schemaHash] already carries,
      * plus the security contract the schema hash cannot see (operation class,
      * hard timeout, output cap, required capabilities, idempotency, execution target, and
      * origin).
@@ -122,6 +124,7 @@ data class ToolDescriptor(
      * contract is rejected (roadmap HXA-042 gate). [schemaHash] stays on the descriptor (and
      * on the binding) on its own: it names the schema contract for the model table and audit
      * independently of the security set.
+     * [discoveryCompanions] only controls catalog exposure and is excluded from this security hash.
      */
     val contractHash: Sha256 = contractHashOf(this)
 

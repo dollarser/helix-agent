@@ -228,7 +228,7 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                     chat.setReasoning(com.helix.core.model.ReasoningEffort.OFF)
                     chat.setTurnBudgets(
                         com.helix.core.model
-                            .TurnBudgets(12, 12, 32000, 2048, 200000),
+                            .TurnBudgets(maxOutputTokens = 2048),
                     )
                     delay(500)
                     val receipt =

@@ -81,14 +81,14 @@ class UiGoalProcessKillDeviceTest {
             chat.createGoal(
                 "Interrupted UI action",
                 listOf("Verified remote result"),
-                GoalBudgets(4, 4, 100000, 120000, 60000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         facts.setProperty("goal", goal)
         save(facts)
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(5, 4, 100000, 512, 100000))
+        chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
         facts.setProperty("unsettled", unsettled.toString())
         if (unsettled) hold.install(container, "ui.click")
         chat.continueGoal(goal, "UI_GOAL_KILL Take a fresh ui.snapshot and click the Fixture click button once.")

@@ -78,7 +78,7 @@ internal class DetachedGoalFixture(
             container.chatService.createGoal(
                 "Produce the original Job result",
                 emptyList(),
-                GoalBudgets(10, 10, 100000, 120000, 60000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         server.arm(
             listOf(
@@ -102,7 +102,7 @@ internal class DetachedGoalFixture(
                         providerId = ProviderId(requireNotNull(provider)),
                         mode = AgentMode.GOAL,
                         text = "Run the detached command, collect its original result, then report completion.",
-                        budgets = TurnBudgets(12, 12, 65536, 4096, 100000),
+                        budgets = TurnBudgets(maxOutputTokens = 4096),
                         goalId = GoalId(goal),
                         clientRequestId = UUID.randomUUID().toString(),
                         continuousGoal = false,
@@ -174,7 +174,7 @@ internal class DetachedGoalFixture(
                         providerId = ProviderId(requireNotNull(provider)),
                         mode = AgentMode.ACT,
                         text = "Start the task, read the time, await the original job and collect its result.",
-                        budgets = TurnBudgets(12, 12, 65536, 4096, 100000),
+                        budgets = TurnBudgets(maxOutputTokens = 4096),
                         clientRequestId = UUID.randomUUID().toString(),
                     ),
                 ).value

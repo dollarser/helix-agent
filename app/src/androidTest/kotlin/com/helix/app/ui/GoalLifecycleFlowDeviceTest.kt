@@ -112,13 +112,13 @@ class GoalLifecycleFlowDeviceTest {
                 // may intentionally persist a tiny token limit.
                 chat.setTurnBudgets(
                     com.helix.core.model
-                        .TurnBudgets(16, 16, 65536, 4096, 100000),
+                        .TurnBudgets(maxOutputTokens = 4096),
                 )
                 await {
                     container.storage.sessionRunControls.forSession(session)?.let {
                         it.mode == mode && it.budgets ==
                             com.helix.core.model
-                                .TurnBudgets(16, 16, 65536, 4096, 100000)
+                                .TurnBudgets(maxOutputTokens = 4096)
                     } == true
                 }
                 chat.sendTestMessage("Please create a goal and answer 2 + 2.")

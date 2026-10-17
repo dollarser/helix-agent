@@ -15,20 +15,11 @@ data class RunControlConfig(
     val immediateMessages: Boolean = false,
 )
 
-/**
- * Request output bounds and historical snapshot templates shared by both channels.
- * Legacy cumulative fields/constants are storage compatibility values, not execution limits.
- */
+/** Request output bounds shared by both channels. */
 object TurnBudgetBounds {
-    const val MAX_STEPS = 10_000
-    const val MAX_MODEL_CALLS = 20_000
-    const val MAX_INPUT_TOKENS = 1_000_000L
     const val MAX_OUTPUT_TOKENS = 128_000L
-    const val MAX_TOTAL_TOKENS = 1_000_000_000L
 
-    val DEFAULT = TurnBudgets(512, 1_024, 1_000_000, 16_384, 32_000_000)
-    val PREVIOUS_DEFAULT = TurnBudgets(32, 33, 128_000, 4_096, 160_000)
-    val LEGACY_DEFAULT = TurnBudgets(8, 9, 128_000, 4_096, 160_000)
+    val DEFAULT = TurnBudgets(maxOutputTokens = 16_384)
 
     fun validate(value: TurnBudgets): TurnBudgets =
         value.also {

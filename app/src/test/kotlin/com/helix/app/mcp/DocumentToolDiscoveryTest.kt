@@ -32,7 +32,7 @@ class DocumentToolDiscoveryTest {
                 ).copy(origin = ToolOrigin.PluginOrigin("other", "0.1.0", "other"))
         assertEquals(
             listOf(foreign),
-            ToolDiscoveryWorkset.complete(listOf(foreign), listOf(DocumentTools.descriptor("read"))),
+            ToolDiscoveryWorkset.complete(listOf(foreign), listOf(foreign, DocumentTools.descriptor("read"))),
         )
     }
 }

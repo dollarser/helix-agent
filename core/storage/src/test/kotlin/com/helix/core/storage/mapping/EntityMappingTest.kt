@@ -90,7 +90,7 @@ class EntityMappingTest {
                         ),
                     ),
                 ),
-            budgets = GoalBudgets(10, 20, 100_000L, 600_000L, 120_000L, 3),
+            budgets = GoalBudgets(maxGoalRounds = 256),
             state = GoalState.READY.name,
             planId = "plan-abc123",
             planHash = "f".repeat(64),
@@ -113,7 +113,7 @@ class EntityMappingTest {
         val stored = goal()
         val entity = stored.toGoalEntity()
         assertEquals(stored.id, entity.id)
-        assertEquals(GoalBudgets(10, 20, 100_000L, 600_000L, 120_000L, 3).toStorageString(), entity.budgets)
+        assertEquals(GoalBudgets(maxGoalRounds = 256).toStorageString(), entity.budgets)
         val recovered = entity.toStoredGoal()
         assertEquals(stored, recovered)
 

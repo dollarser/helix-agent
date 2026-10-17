@@ -33,7 +33,7 @@ class PlanReviewServiceTest {
             risks = emptyList(),
             version = 1,
         )
-    private val budgets = GoalBudgets(3, 10, 128_000L, 3_600_000L, 600_000L, 2)
+    private val budgets = GoalBudgets(maxGoalRounds = 256)
 
     private fun entity(
         state: PlanLifecycleState,

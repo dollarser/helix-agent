@@ -99,7 +99,7 @@ class GoalTurnBindingDeviceTest {
                 id = "goal",
                 objective = "Verify durable association",
                 criteria = emptyList(),
-                budgets = GoalBudgets(10, 20, 100_000, 600_000, 60_000, 0),
+                budgets = GoalBudgets(maxGoalRounds = 256),
                 state = GoalState.RUNNING.name,
                 planId = null,
                 planHash = null,

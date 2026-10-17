@@ -118,7 +118,7 @@ class PluginFileWorkflowModelDeviceTest {
                 )
                 c.pluginService.setSkillEnabled(installed.skills.single(), true)
                 c.pluginService.selectFromUser(id, installed.id, true)
-                c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(24, 20, 524288, 32768, 557056))
+                c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 val relativePrefix =
                     ref.relativePath
                         .takeIf { it.isNotEmpty() }

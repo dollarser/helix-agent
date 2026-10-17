@@ -142,7 +142,7 @@ class LiveJobAwaitDeviceTest {
                                 providerId = ProviderId(provider),
                                 mode = AgentMode.ACT,
                                 text = instruction,
-                                budgets = TurnBudgets(12, 12, 65536, 2048, 100000),
+                                budgets = TurnBudgets(maxOutputTokens = 2048),
                                 clientRequestId = UUID.randomUUID().toString(),
                             ),
                         ).value

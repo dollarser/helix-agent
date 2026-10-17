@@ -131,7 +131,7 @@ class AccessibilityInputObservationDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     System.currentTimeMillis(),
                 )
-                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(24, 24, 524288, 8192, 557056))
+                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(maxOutputTokens = 8192))
                 server.forceTextResponses = true
                 server.holdChatStreams.set(true)
                 c.chatService.sendTestMessage(session, "Hold the synthetic input fixture")

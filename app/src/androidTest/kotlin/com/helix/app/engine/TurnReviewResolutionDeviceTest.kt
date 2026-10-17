@@ -180,13 +180,13 @@ class TurnReviewResolutionDeviceTest {
             ),
         )
         storage.sessions.create(SESSION, "Review", PROVIDER, MODEL, 1_000L)
-        val goalBudgets = GoalBudgets(20, 20, 100_000, 100_000, 100_000, 1)
+        val goalBudgets = GoalBudgets(maxGoalRounds = 256)
         val goalId = FixtureGoalRunCoordinator(storage, clock, ids).create("finish safely", emptyList(), goalBudgets)
         val control =
             RunControlConfig(
                 AgentMode.GOAL,
                 true,
-                TurnBudgets(8, 10, 20_000, 4_000, 40_000),
+                TurnBudgets(maxOutputTokens = 4_000),
                 ReasoningEffort.LOW,
                 goalBudgets,
             )

@@ -66,7 +66,7 @@ class MobileUseReturnModelDeviceTest {
                 )
                 c.chatService.openSession(session)
                 c.chatService.setMode(AgentMode.ACT)
-                c.chatService.setTurnBudgets(TurnBudgets(24, 24, 65536, 2048, 100000))
+                c.chatService.setTurnBudgets(TurnBudgets(maxOutputTokens = 2048))
                 compose.waitUntil(10_000) { c.chatService.screen.value.openSessionId == session }
                 compose.onNodeWithTag("chat-title").assertIsDisplayed().assertTextContains(title)
                 app.startActivity(

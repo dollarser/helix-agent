@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-22
-HXA: HXA-013, HXA-102, HXA-177, HXA-178, HXA-208, HXA-216, HXA-232
+HXA: HXA-013, HXA-102, HXA-177, HXA-178, HXA-208, HXA-216, HXA-232, HXA-303
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -35,7 +35,7 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 
 参考 DSH 固定版本 `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720`：默认最多 256 个自动 Goal round，人工消息和恢复核查不消耗自动轮数。一个 round 是一个持久化准入的自动提示 Turn，不是一次模型调用或工具调用。既有 `goal_runs` 与 Turn 绑定是计数事实；重启、取消和重复通知不清零或重复记轮。
 
-普通 Turn 和 Goal 不再由累计 token、模型/工具调用数或累计/单轮运行时间停泊。旧资源字段仅供存储兼容，用量仍准确记账；已保存 Goal 缺少轮数配置时采用 256，已有自动轮记录计入，不重置历史。轮数耗尽记录 `BLOCKED(round-limit)`，最后已准入轮可以完整结算；用户调整轮数并明确解决阻塞/继续后才恢复。完成结果优先，不将最后一轮的成功改成失败。
+普通 Turn 和 Goal 不再由累计 token、模型/工具调用数或累计/单轮运行时间停泊。持久配置只保存自动续跑轮数，用量仍独立准确记账；新 Goal 默认 256，当前版本重载保留已保存轮数与自动轮记录。不接受缺少轮数或含旧资源字段的内部存储 shape，旧预览库按当前基线重建，不做兼容解码。轮数耗尽记录 `BLOCKED(round-limit)`，最后已准入轮可以完整结算；用户调整轮数并明确解决阻塞/继续后才恢复。完成结果优先，不将最后一轮的成功改成失败。
 
 异常、截断、取消、进程死亡和未知副作用不自动开始下一轮；恢复保持原权限和未知事实。模型窗口、单次输出、工具执行期限、物理容量、后台 Job 租期及 crash heartbeat 窗口是独立边界，不因移除累计预算取消。Room 继续保存用量与身份，不引入第二套日志引擎。
 
@@ -66,6 +66,8 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 交付证据看 [HXA-208](../../completion-records/HXA-208.md)、[HXA-232](../../development/tasks/HXA-232.md) 与[实施状态](../../development/status.md)。回归覆盖模型 CRUD、revision 冲突、跨轮预算、双 flavor/API29/36、真实进程死亡、后台衔接和未知副作用；已有证据不代表定时/Channel 自动激活或长稳完成。
 
 ## Decision history
+
+- 2026-10-17：Owner 要求落实可独立优化并无旧实现兼容负担；303 删除不再执行的预算/重试字段及默认迁移。仅配置契约与预览基线变化，累计记账、自动轮门禁、输出/物理限制及同版本恢复不变。验证见 [303](../../development/tasks/HXA-303.md)。
 
 - 2026-10-07：所有者要求预算实现参考 DSH，采用默认 256 自动轮的独立 allowance；撤销历史 Goal 资源总额和异常自动重试契约，保留用量事实与权限/恢复边界。
 

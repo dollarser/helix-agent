@@ -117,7 +117,7 @@ class MarketplaceReuseModelDeviceTest {
                     val id = c.chatService.createSession("Imported market model fixture", provider, model)
                     session = id
                     c.pluginService.selectFromUser(id, installed.id, true)
-                    c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(20, 10, 524288, 32768, 557056))
+                    c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                     c.chatService.sendTestMessage(
                         id,
                         "Read the selected $name Skill using skills.list and skills.read with exact identity. " +

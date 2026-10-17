@@ -78,6 +78,7 @@ internal object DetachedJobTools {
             inputSchema = JsonObject(base.inputSchema + ("properties" to JsonObject(properties))),
             outputSchema = resultSchema,
             maxOutputBytes = 4_096,
+            discoveryCompanions = setOf(STATUS, CANCEL, COLLECT, AWAIT).map(::ToolName).toSet(),
         )
     }
 
@@ -115,11 +116,13 @@ internal object DetachedJobTools {
             timeout = 30.seconds,
             maxOutputBytes = 4_096,
             idempotency = Idempotency.IDEMPOTENT,
+            discoveryCompanions = setOf(STATUS, CANCEL, COLLECT, AWAIT).map(::ToolName).toSet(),
         )
 
     fun await(): ToolDescriptor =
         control(false).copy(
             name = ToolName(AWAIT),
+            discoveryCompanions = emptySet(),
             description =
                 "Wait up to 15 seconds for ANY or ALL original job handles in this session. " +
                     "Waiting does not restart, cancel, renew or collect jobs. Check reason and settlementPending.",

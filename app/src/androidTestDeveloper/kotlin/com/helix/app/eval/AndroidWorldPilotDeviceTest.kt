@@ -99,13 +99,7 @@ class AndroidWorldPilotDeviceTest {
                 container.chatService.setMode(AgentMode.ACT)
                 container.chatService.setTurnBudgets(
                     com.helix.core.agent.TurnBudgetBounds.validate(
-                        TurnBudgets(
-                            maxSteps = com.helix.core.agent.TurnBudgetBounds.DEFAULT.maxSteps,
-                            maxModelCalls = com.helix.core.agent.TurnBudgetBounds.DEFAULT.maxModelCalls,
-                            maxInputTokens = 131072,
-                            maxOutputTokens = 4096,
-                            maxTotalTokens = com.helix.core.agent.TurnBudgetBounds.DEFAULT.maxTotalTokens,
-                        ),
+                        TurnBudgets(maxOutputTokens = 4096),
                     ),
                 )
                 exposed = exposedEvaluationTools(container, AgentMode.ACT)

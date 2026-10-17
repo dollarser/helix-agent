@@ -80,7 +80,7 @@ class ModelStreamProcessKillDeviceTest {
             chat.createGoal(
                 "Interrupted HTTP model",
                 listOf("Verified output"),
-                GoalBudgets(3, 4, 100000, 120000, 60000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         val facts =
             Properties().apply {
@@ -94,7 +94,7 @@ class ModelStreamProcessKillDeviceTest {
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 128, 10000))
+        chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 128))
         chat.continueGoal(goal, "GOAL_MODEL_KILL_HOLD: reply with a short result.")
         awaitModelBoundary(app, goal, boundary)
         container.storage.withTransaction {

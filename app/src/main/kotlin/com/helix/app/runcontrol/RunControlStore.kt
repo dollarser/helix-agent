@@ -57,7 +57,6 @@ class PersistedRunControlStore(
                 next.chatToolsEnabled.toString(),
                 next.budgets.toStorageString(),
                 next.reasoning.name,
-                "budgets_v3",
             ),
         )
         state.value = next
@@ -67,28 +66,13 @@ class PersistedRunControlStore(
     private fun readStored(): RunControlConfig =
         try {
             val lines = store.lines(KEY)
-            require(lines.size in 3..5)
-            require(lines.size < 5 || lines[4] in setOf("budgets_v2", "budgets_v3"))
+            require(lines.size == 4)
             val enabled = lines[1].toBooleanStrict()
             RunControlConfig(
                 AgentMode.valueOf(lines[0]),
                 enabled,
-                TurnBudgetBounds.validate(TurnBudgets.parse(lines[2])).let {
-                    when {
-                        lines.size < 5 && it == TurnBudgetBounds.LEGACY_DEFAULT -> {
-                            TurnBudgetBounds.DEFAULT
-                        }
-
-                        lines.getOrNull(4) != "budgets_v3" && it == TurnBudgetBounds.PREVIOUS_DEFAULT -> {
-                            TurnBudgetBounds.DEFAULT
-                        }
-
-                        else -> {
-                            it
-                        }
-                    }
-                },
-                lines.getOrNull(3)?.let(ReasoningEffort::valueOf) ?: ReasoningEffort.OFF,
+                TurnBudgetBounds.validate(TurnBudgets.parse(lines[2])),
+                ReasoningEffort.valueOf(lines[3]),
                 readGoalBudgets(),
             )
         } catch (_: IllegalArgumentException) {

@@ -150,10 +150,6 @@ object ApprovalUiMapper {
                 R.string.approval_code_policy_denied
             }
 
-            DispatchOutcomeCode.PREFERENCE_DENIED -> {
-                R.string.approval_code_preference_denied
-            }
-
             DispatchOutcomeCode.SAME_TURN_DENIED -> {
                 R.string.approval_code_same_turn_denied
             }

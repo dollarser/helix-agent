@@ -265,7 +265,7 @@ class GoalDetachedBudgetDeviceTest {
         init {
             storage.sessions.create("session", "Detached goal", null, null, 1_000)
             val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
-            goalId = coordinator.create("Result", listOf("Verified"), GoalBudgets(5, 5, 1_000, 60_000, 10_000, 0))
+            goalId = coordinator.create("Result", listOf("Verified"), GoalBudgets(maxGoalRounds = 256))
             runId =
                 requireNotNull(
                     coordinator.start(
@@ -273,7 +273,7 @@ class GoalDetachedBudgetDeviceTest {
                             goalId,
                             GoalWakeReason.USER_OPEN,
                             TurnStartSpec("session", "turn", "model", "snapshot", "run"),
-                            TurnBudgets(5, 5, 800, 800, 5_000),
+                            TurnBudgets(maxOutputTokens = 800),
                         ),
                     ),
                 ).runId

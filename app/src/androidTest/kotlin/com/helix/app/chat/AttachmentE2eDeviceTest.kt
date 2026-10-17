@@ -203,7 +203,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
-            val goalId = fixtureGoal(fixture, maxModelCalls = 1, maxGoalRounds = 1)
+            val goalId = fixtureGoal(fixture, maxGoalRounds = 1)
             stageTextAttachment(fixture, "Synthetic Goal input")
             fixture.wire.script(
                 sseResponse(textAnswerStream("checked")),
@@ -292,7 +292,6 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
     private fun fixtureGoal(
         fixture: Fixture,
-        maxModelCalls: Int = 2,
         maxGoalRounds: Int = 256,
     ): String =
         kotlinx.coroutines.runBlocking {
@@ -300,7 +299,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 "Check synthetic output",
                 listOf("Verified output"),
                 com.helix.core.model
-                    .GoalBudgets(maxModelCalls, 4, 100_000, 60_000, 10_000, 0, maxGoalRounds = maxGoalRounds),
+                    .GoalBudgets(maxGoalRounds = maxGoalRounds),
             )
         }
 
@@ -315,7 +314,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         "One call",
                         listOf("Checked"),
                         com.helix.core.model
-                            .GoalBudgets(1, 4, 100_000, 60_000, 10_000, 0, maxGoalRounds = 1),
+                            .GoalBudgets(maxGoalRounds = 1),
                     )
                 }
             fixture.wire.script(
@@ -340,7 +339,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 1,
                 fixture.storage.goals
                     .resolve(goalId)
-                    .budgets.maxModelCalls,
+                    .budgets.maxGoalRounds,
             )
             assertEquals(3, fixture.wire.callCount)
         } finally {
@@ -378,7 +377,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         "Bound tools",
                         listOf("Checked"),
                         com.helix.core.model
-                            .GoalBudgets(3, 1, 100_000, 60_000, 10_000, 0, maxGoalRounds = 1),
+                            .GoalBudgets(maxGoalRounds = 1),
                     )
                 }
             fixture.wire.script(
@@ -415,7 +414,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 1,
                 fixture.storage.goals
                     .resolve(goalId)
-                    .budgets.maxToolCalls,
+                    .budgets.maxGoalRounds,
             )
             assertEquals(3, fixture.wire.callCount)
             assertNull(turn.errorCode)
@@ -435,7 +434,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                         "Bound duration",
                         listOf("Checked"),
                         com.helix.core.model
-                            .GoalBudgets(3, 4, 100_000, 60_000, 2_000, 0),
+                            .GoalBudgets(maxGoalRounds = 256),
                     )
                 }
             fixture.wire.script(
@@ -530,13 +529,13 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             fixture.service.setChatToolsEnabled(false)
             fixture.service.setTurnBudgets(
                 com.helix.core.model
-                    .TurnBudgets(2, 1, 20_000, 20_000, 20_000),
+                    .TurnBudgets(maxOutputTokens = 20_000),
             )
             fixture.wire.script(sseResponse(textAnswerStream("done")))
             awaitBudget(
                 fixture,
                 com.helix.core.model
-                    .TurnBudgets(2, 1, 20_000, 20_000, 20_000),
+                    .TurnBudgets(maxOutputTokens = 20_000),
             )
             fixture.service.sendTestMessage("1234")
             await(fixture, "bounded request completes") { turnIsTerminal(fixture) }
@@ -580,12 +579,12 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             fixture.service.setChatToolsEnabled(false)
             fixture.service.setTurnBudgets(
                 com.helix.core.model
-                    .TurnBudgets(2, 1, 100, 1, 1),
+                    .TurnBudgets(maxOutputTokens = 1),
             )
             awaitBudget(
                 fixture,
                 com.helix.core.model
-                    .TurnBudgets(2, 1, 100, 1, 1),
+                    .TurnBudgets(maxOutputTokens = 1),
             )
             fixture.wire.script(sseResponse(textAnswerStream("done")))
             fixture.service.sendTestMessage("1234")

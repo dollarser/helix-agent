@@ -75,7 +75,7 @@ class GoalReducerLifecycleTest {
         var goal = runningGoal()
         goal = reduceGoal(goal, GoalEvent.Blocked).state
         assertEquals(GoalState.BLOCKED, goal.state)
-        goal = reduceGoal(goal, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 5))).state
+        goal = reduceGoal(goal, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxGoalRounds = 512))).state
         goal = reduceGoal(goal, GoalEvent.BlockerResolved).state
         val fromPaused = reduceGoal(goal, GoalEvent.Continued(GoalWakeReason.NOTIFICATION_ACTION))
         assertEquals(GoalState.RUNNING, fromPaused.state.state)

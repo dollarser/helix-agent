@@ -161,7 +161,7 @@ class FileHistoryPathsTest {
                 compiler.plan(
                     ContextSourceSnapshot(source, null, "turn", null, 0),
                     request,
-                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(8, 9, 128_000, 4096, 160_000)),
+                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096)),
                     ProviderContextSettings(manualWindow = 128_000),
                     true,
                 ),

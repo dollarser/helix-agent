@@ -110,14 +110,14 @@ class ProotGoalProcessKillDeviceTest {
             chat.createGoal(
                 "Interrupted PRoot",
                 listOf("Verified remote result"),
-                GoalBudgets(3, 4, 100000, 120000, 60000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         facts.setProperty("goal", goal)
         saveProotFacts(marker, facts)
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
+        chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
         com.helix.app.test
             .discoverFixtureTool(container.toolPipeline, session, facts.getProperty("tool"))
         chat.continueGoal(goal, "PROOT_GOAL_KILL_TOOL=${facts.getProperty("tool")} Run the exact synthetic loop once.")

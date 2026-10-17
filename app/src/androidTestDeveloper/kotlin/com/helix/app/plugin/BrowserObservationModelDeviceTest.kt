@@ -88,7 +88,7 @@ class BrowserObservationModelDeviceTest {
                             c.chatService.openTestSessionControl(
                                 session,
                                 AgentMode.ACT,
-                                TurnBudgets(16, 16, 524288, 8192, 557056),
+                                TurnBudgets(maxOutputTokens = 8192),
                             )
                             val page =
                                 when (kind) {

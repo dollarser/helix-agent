@@ -12,7 +12,7 @@ import org.junit.Test
 class GoalDefaultsTest {
     @Test fun savedExplicitLimitsAreNotRaisedWhenDefaultsIncrease() {
         val lines = InMemoryLineStore()
-        val chosen = GoalBudgets(128, 256, 4_000_000, 7_200_000, 1_800_000, 0)
+        val chosen = GoalBudgets(maxGoalRounds = 128)
         PersistedRunControlStore(lines).setGoalBudgets(chosen)
         assertEquals(chosen, PersistedRunControlStore(lines).current.goalBudgets)
     }
@@ -20,7 +20,7 @@ class GoalDefaultsTest {
     @Test fun defaultsWorkWithoutAnySavedTurnSettings() {
         val lines = InMemoryLineStore()
         val first = PersistedRunControlStore(lines)
-        val custom = GoalBudgetDefaults.VALUE.copy(maxTotalTokens = 7_000_000)
+        val custom = GoalBudgetDefaults.VALUE.copy(maxGoalRounds = 7)
         first.setGoalBudgets(custom)
         assertEquals(custom, PersistedRunControlStore(lines).current.goalBudgets)
         first.setMode(AgentMode.GOAL)
@@ -31,7 +31,7 @@ class GoalDefaultsTest {
         val lines = InMemoryLineStore()
         val first = PersistedRunControlStore(lines)
         first.setMode(AgentMode.ACT)
-        val custom = first.current.budgets.copy(maxSteps = 12)
+        val custom = first.current.budgets.copy(maxOutputTokens = 2048)
         first.setBudgets(custom)
         lines.setLines("goal_defaults_v1", listOf("invalid"))
         val restored = PersistedRunControlStore(lines).current
@@ -43,7 +43,7 @@ class GoalDefaultsTest {
     @Test fun invalidNewGoalDefaultsDoNotOverwritePreviousValues() {
         val lines = InMemoryLineStore()
         val first = PersistedRunControlStore(lines)
-        val custom = GoalBudgetDefaults.VALUE.copy(maxModelCalls = 80)
+        val custom = GoalBudgetDefaults.VALUE.copy(maxGoalRounds = 80)
         first.setGoalBudgets(custom)
         for (invalid in listOf(0, -1)) {
             assertThrows(
@@ -56,7 +56,7 @@ class GoalDefaultsTest {
     @Test fun resetDoesNotAffectTurnSettingsOrMode() {
         val first = PersistedRunControlStore(InMemoryLineStore())
         first.setMode(AgentMode.GOAL)
-        first.setGoalBudgets(GoalBudgetDefaults.VALUE.copy(maxModelCalls = 80))
+        first.setGoalBudgets(GoalBudgetDefaults.VALUE.copy(maxGoalRounds = 80))
         first.setGoalBudgets(GoalBudgetDefaults.VALUE)
         assertEquals(AgentMode.GOAL, first.current.mode)
         assertEquals(TurnBudgetBounds.DEFAULT, first.current.budgets)

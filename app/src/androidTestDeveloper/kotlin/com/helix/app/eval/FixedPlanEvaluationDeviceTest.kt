@@ -126,7 +126,7 @@ class FixedPlanEvaluationDeviceTest {
         try {
             container.chatService.openSession(session)
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
-            container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
+            container.chatService.setTurnBudgets(TurnBudgets(maxOutputTokens = 4096))
             container.chatService.sendTestMessage(session, cells[4])
             awaitTurn(session, cells[0])
             saveResult(cells, session, context)

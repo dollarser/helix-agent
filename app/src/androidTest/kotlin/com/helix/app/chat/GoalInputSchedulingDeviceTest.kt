@@ -52,7 +52,7 @@ import java.util.concurrent.TimeUnit
 /** Real service + Room + loopback transport; the fixture only gates the three HTTP responses. */
 class GoalInputSchedulingDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    private val goalBudget = GoalBudgets(6, 12, 300_000, 120_000, 60_000, 0)
+    private val goalBudget = GoalBudgets(maxGoalRounds = 256)
 
     @Test fun queueDoesNotInterruptGoalAndRunsBeforeTheOriginalGoalContinues() =
         runBlocking {
@@ -121,7 +121,7 @@ class GoalInputSchedulingDeviceTest {
         val container = compose.container()
         compose.waitUntil(15_000) {
             container.storage.sessionRunControls.forSession(session)?.let {
-                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(4, 6, 64_000, 128, 100_000)
+                it.mode == AgentMode.GOAL && it.budgets == TurnBudgets(maxOutputTokens = 128)
             } == true
         }
         val controls =
@@ -450,7 +450,7 @@ class GoalInputSchedulingDeviceTest {
                 server.scriptedChat = wire::answer
                 chat.openSession(session)
                 chat.setMode(AgentMode.GOAL)
-                chat.setTurnBudgets(TurnBudgets(4, 6, 64_000, 128, 100_000))
+                chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 128))
                 configureGoalBudget(session)
                 block(chat, session, wire)
             } finally {

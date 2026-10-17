@@ -33,13 +33,11 @@ enum class GoalWakeReason {
  * Reducer state of a persistent Goal (modes doc section 6.1/6.2). Mirrors the documented
  * `Goal` value (id/objective/acceptanceCriteria/state/planId/budgets/nextCheckpoint) and adds
  * the lifetime accounting the reducer needs: runs, model/tool calls, tokens, durations,
- * retries. Consumed usage accumulates across wakes; the per-turn limits are derived from the
- * remaining goal budget by [GoalEffect.StartRun].
+ * retries. Consumed usage accumulates across wakes independently of request output limits.
  *
- * Process death parks a RUNNING goal in [GoalState.PAUSED] (durable park; resume requires an
- * explicit user continue with a real [GoalWakeReason]). The model reports semantic completion;
- * the host checks execution state. Budget exhaustion parks the goal in
- * BLOCKED (never COMPLETED); a wake failure exhausts [GoalBudgets.maxRetries] into FAILED.
+ * Process death parks a RUNNING goal in [GoalState.PAUSED]; continuing requires fresh admission.
+ * The model reports semantic completion and the host checks execution state. The host's durable
+ * automatic-round allowance can block continuation; abnormal wake failure never auto-retries.
  */
 data class Goal(
     val id: GoalId,

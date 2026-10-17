@@ -127,15 +127,15 @@ class FixedGoalEvaluationDeviceTest {
             container.chatService.createGoal(
                 cells[4],
                 listOf("The requested bounded result is verified"),
-                GoalBudgets(if (cells[0] == "goal-002") 2 else 4, 8, 131072, 300_000, 180_000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         check(!target.exists()) { "Goal fixture output already exists; refusing to overwrite it" }
         try {
             container.chatService.openSession(session)
             container.chatService.setMode(AgentMode.GOAL)
-            container.chatService.setTurnBudgets(TurnBudgets(8, 4, 131072, 4096, 131072))
+            container.chatService.setTurnBudgets(TurnBudgets(maxOutputTokens = 4096))
             if (cells[0] == "goal-002") {
-                prepareBudgetContinuation(session, goal)
+                prepareUsageContinuation(session, goal)
             }
             val beforeCalls =
                 container.storage.goals
@@ -152,7 +152,7 @@ class FixedGoalEvaluationDeviceTest {
         }
     }
 
-    private suspend fun prepareBudgetContinuation(
+    private suspend fun prepareUsageContinuation(
         session: String,
         goal: String,
     ) {
@@ -160,17 +160,7 @@ class FixedGoalEvaluationDeviceTest {
         check(awaitBoundary(session, false, turnId)) { "Goal prelude did not finish" }
         val prelude = container.storage.goals.resolve(goal)
         check(prelude.modelCalls > 0) { "Goal prelude must spend at least one real model call" }
-        check(
-            container.chatService.updateGoalBudgets(
-                goal,
-                prelude.budgets.copy(maxModelCalls = prelude.modelCalls + 1),
-            ),
-        ) { "Goal prelude budget could not be frozen to one remaining model call" }
-        if (prelude.state == "BLOCKED") {
-            check(container.chatService.recheckGoalBlocker(goal)) {
-                "Extended Goal budget must explicitly resolve the budget blocker before Continue"
-            }
-        }
+        check(prelude.state == "PAUSED") { "Goal prelude must settle without a resource-limit blocker" }
     }
 
     private suspend fun submitSingleRun(
@@ -194,7 +184,7 @@ class FixedGoalEvaluationDeviceTest {
                         ),
                     mode = AgentMode.GOAL,
                     text = text,
-                    budgets = TurnBudgets(8, 4, 131072, 4096, 131072),
+                    budgets = TurnBudgets(maxOutputTokens = 4096),
                     goalId =
                         com.helix.core.model
                             .GoalId(goal),
@@ -313,12 +303,13 @@ class FixedGoalEvaluationDeviceTest {
             }
 
             "goal-002" -> {
-                beforeCalls > 0 && goal.modelCalls == beforeCalls + 1 && goal.state == "BLOCKED" &&
+                beforeCalls > 0 && goal.modelCalls == beforeCalls + 1 && goal.state == "PAUSED" &&
+                    turn.state == "COMPLETED" && turn.errorCode == null && calls.isEmpty() &&
                     container.storage.goalRuns
                         .listByGoal(
                             goal.id,
                         ).last()
-                        .outcome == "BUDGET_EXHAUSTED(maxModelCalls)" &&
+                        .outcome == "RUN_FINISHED" &&
                     container.storage.modelCalls
                         .listByTurn(turn.id)
                         .size == 1 &&
@@ -387,6 +378,7 @@ class FixedGoalEvaluationDeviceTest {
             put("id", cells[0])
             put("protocol", evaluationProviderProtocol(ProviderProtocol.valueOf(cells[3])).name)
             put("datasetProtocol", cells[3])
+            put("verifierVersion", "goal-usage-continuation-v2")
             put("result", if (passed) "PASS" else "FAIL")
             put("api", android.os.Build.VERSION.SDK_INT)
             put("device", evaluationDevice())
@@ -430,8 +422,9 @@ private fun goalFixtureContext(
 
         "goal-002" -> {
             "This goal is to produce a brief documentation audit checklist. When " +
-                "asked to continue, only one model call remains. " +
-                "Give a concise final checklist within that call; do not request " +
+                "asked to continue, answer with a concise final checklist in this response. " +
+                "A request for one model call means finishing in one response; cumulative usage " +
+                "is recorded without a call-count quota. Do not request " +
                 "additional tools or claim the Goal is verified complete."
         }
 

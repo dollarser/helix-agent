@@ -47,7 +47,7 @@ class SessionInputStorageDeviceTest {
                     "Read guide",
                     emptyList(),
                     com.helix.core.model
-                        .GoalBudgets(4, 8, 1000, 60000, 10000, 1),
+                        .GoalBudgets(maxGoalRounds = 256),
                     "RUNNING",
                     null,
                     null,

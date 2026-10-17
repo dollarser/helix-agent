@@ -68,14 +68,14 @@ class McpProcessKillDeviceTest {
             chat.createGoal(
                 "Interrupted MCP",
                 listOf("Verified remote result"),
-                GoalBudgets(3, 4, 100000, 120000, 60000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         facts.setProperty("goal", goal)
         save(facts)
         chat.openSession(session)
         await { chat.screen.value.openSessionId == session }
         chat.setMode(AgentMode.GOAL)
-        chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 512, 10000))
+        chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
         chat.continueGoal(goal, "MCP_KILL_TOOL=${facts.getProperty("tool")} Invoke this tool once with case=kill.")
         awaitRunning(facts)
         val run =

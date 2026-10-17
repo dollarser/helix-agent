@@ -320,7 +320,7 @@ class MainAppCombinedSoakDeviceTest {
                     }
                 chat.openSession(session)
                 chat.setMode(if (cls == "goal") AgentMode.GOAL else AgentMode.CHAT)
-                chat.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
+                chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 4096))
                 status = runBlocking { driveTask(cls, block, session) }
                 note = "ok"
             }
@@ -535,7 +535,7 @@ class MainAppCombinedSoakDeviceTest {
             chat.createGoal(
                 "EV04 goal block $block",
                 listOf("EV04 criterion $block"),
-                GoalBudgets(6, 4, 131072, 300000, 300000, 0),
+                GoalBudgets(maxGoalRounds = 256),
             )
         try {
             if (success) {

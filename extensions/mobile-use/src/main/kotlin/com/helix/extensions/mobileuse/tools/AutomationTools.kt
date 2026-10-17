@@ -482,6 +482,7 @@ class AutomationTools(
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
+        discoveryCompanions = setOf(SNAPSHOT, FIND).filter { it != name }.map(::ToolName).toSet(),
     )
 
     private fun emptyObject() = obj(emptyMap(), emptyList())
@@ -745,19 +746,6 @@ class AutomationTools(
         put("maxItems", JsonPrimitive(max))
     }
 
-    private fun requiredString(
-        args: JsonObject,
-        key: String,
-    ) = requireNotNull(args[key]?.jsonPrimitive?.contentOrNull) {
-        "AUTOMATION_ARGUMENT_MISSING_$key"
-    }
-
-    private fun optionalInt(
-        args: JsonObject,
-        key: String,
-        default: Int,
-    ) = args[key]?.jsonPrimitive?.intOrNull ?: default
-
     companion object {
         private const val PROTECTED_HINT =
             "Protected fields are redacted. Use only exposed non-redacted controls. " +
@@ -780,3 +768,16 @@ class AutomationTools(
         const val MAX_OUTPUT_BYTES = 512L * 1024L
     }
 }
+
+private fun requiredString(
+    args: JsonObject,
+    key: String,
+) = requireNotNull(args[key]?.jsonPrimitive?.contentOrNull) {
+    "AUTOMATION_ARGUMENT_MISSING_$key"
+}
+
+private fun optionalInt(
+    args: JsonObject,
+    key: String,
+    default: Int,
+) = args[key]?.jsonPrimitive?.intOrNull ?: default

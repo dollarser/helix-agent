@@ -144,7 +144,7 @@ class FixedA2aEvaluationDeviceTest {
         try {
             container.chatService.openSession(session)
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
-            container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
+            container.chatService.setTurnBudgets(TurnBudgets(maxOutputTokens = 4096))
             if (cells[0] in setOf("a2a-003", "a2a-004")) prepareExistingTask(session, cells[0])
             sendNewTurn(session, cells[4])
             awaitTurn(session, cells[0])

@@ -301,14 +301,7 @@ class TasksDashboardProjectionTest {
             status = GoalStatusUi(state = state, outcome = null),
             criteria = emptyList(),
             budgets =
-                GoalBudgets(
-                    maxModelCalls = 1,
-                    maxToolCalls = 1,
-                    maxTotalTokens = 0,
-                    maxDurationMillis = 0,
-                    maxWakeDurationMillis = 0,
-                    maxRetries = 0,
-                ),
+                GoalBudgets(maxGoalRounds = 256),
             usage = GoalUsageUi(0, 0, 0, 0),
             canContinue = false,
             hasUnresolvedCalls = hasUnresolvedCalls,

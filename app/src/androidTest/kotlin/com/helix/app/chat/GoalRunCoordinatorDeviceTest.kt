@@ -34,8 +34,8 @@ class GoalRunCoordinatorDeviceTest {
         object : Clock {
             override fun now(): Instant = Instant.ofEpochMilli(2_000)
         }
-    private val budgets = GoalBudgets(2, 4, 1_000, 60_000, 10_000, 0)
-    private val limits = TurnBudgets(5, 10, 800, 800, 5_000)
+    private val budgets = GoalBudgets(maxGoalRounds = 256)
+    private val limits = TurnBudgets(maxOutputTokens = 800)
 
     @Test
     fun explicitContinueStartsExactlyOneBoundRun() =
@@ -82,11 +82,11 @@ class GoalRunCoordinatorDeviceTest {
             val coordinator = coordinator(storage)
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
             val started = requireNotNull(coordinator.start(request(id, "first")))
-            assertFalse(coordinator.updateBudgets(id, budgets.copy(maxModelCalls = 9)))
+            assertFalse(coordinator.updateBudgets(id, budgets.copy(maxGoalRounds = 512)))
             TurnRecovery(storage, clock).recover()
-            assertTrue(coordinator.updateBudgets(id, budgets.copy(maxModelCalls = 9)))
+            assertTrue(coordinator.updateBudgets(id, budgets.copy(maxGoalRounds = 512)))
             val persisted = storage.goals.resolve(id)
-            assertEquals(9, persisted.budgets.maxModelCalls)
+            assertEquals(512, persisted.budgets.maxGoalRounds)
             assertEquals(GoalState.PAUSED.name, persisted.state)
             assertEquals(1, storage.goalRuns.listByGoal(id).size)
             assertNotNull(storage.goalRuns.resolve(started.runId).endedAt)

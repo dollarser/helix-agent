@@ -37,7 +37,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class GoalDeletionDeviceTest : ForegroundDeviceTestHost() {
     private val clock = SystemClock()
-    private val budgets = GoalBudgets(2, 4, 1000, 60000, 10000, 0)
+    private val budgets = GoalBudgets(maxGoalRounds = 256)
 
     @Test
     fun productionDeletionRemovesQueuedAndPostedReminders() {
@@ -105,7 +105,7 @@ class GoalDeletionDeviceTest : ForegroundDeviceTestHost() {
                             id,
                             GoalWakeReason.USER_OPEN,
                             TurnStartSpec("session", "turn", "model", "snapshot", "run"),
-                            TurnBudgets(2, 4, 500, 500, 10000),
+                            TurnBudgets(maxOutputTokens = 500),
                         ),
                     ),
                 )

@@ -112,13 +112,7 @@ class MobileUseWechatPilotDeviceTest {
                 container.chatService.setMode(AgentMode.ACT)
                 container.chatService.setTurnBudgets(
                     TurnBudgetBounds.validate(
-                        TurnBudgets(
-                            maxSteps = TurnBudgetBounds.DEFAULT.maxSteps,
-                            maxModelCalls = TurnBudgetBounds.DEFAULT.maxModelCalls,
-                            maxInputTokens = 131_072,
-                            maxOutputTokens = TurnBudgetBounds.DEFAULT.maxOutputTokens,
-                            maxTotalTokens = TurnBudgetBounds.DEFAULT.maxTotalTokens,
-                        ),
+                        TurnBudgets(maxOutputTokens = TurnBudgetBounds.DEFAULT.maxOutputTokens),
                     ),
                 )
                 awaitMobileUseProjection(session)

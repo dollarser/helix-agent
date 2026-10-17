@@ -133,7 +133,7 @@ class LiveToolExposureDeviceTest {
                                     "Call ${tools.last().name.value} exactly once with {}. " +
                                         "It is a synthetic no-effect fixture. " +
                                         "Do not use any other tools. Reply DONE afterwards.",
-                                budgets = TurnBudgets(8, 8, 65536, 2048, 100000),
+                                budgets = TurnBudgets(maxOutputTokens = 2048),
                                 clientRequestId = UUID.randomUUID().toString(),
                             ),
                         ).value

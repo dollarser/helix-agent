@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "c61b85687c836592b313daafeceaa950",
+    "identityHash": "ab454c6b1c05bbf6e563968860be52aa",
     "entities": [
       {
         "tableName": "projects",
@@ -3678,7 +3678,7 @@
       },
       {
         "tableName": "session_run_controls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `turnBudgetsJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalBudgetsJson` TEXT NOT NULL, `configVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `createdAtEpoch` INTEGER NOT NULL, `updatedAtEpoch` INTEGER NOT NULL, `immediateMessages` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `turnOutputBudgetJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalContinuationBudgetJson` TEXT NOT NULL, `configVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `createdAtEpoch` INTEGER NOT NULL, `updatedAtEpoch` INTEGER NOT NULL, `immediateMessages` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "sessionId",
@@ -3699,8 +3699,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "turnBudgetsJson",
-            "columnName": "turnBudgetsJson",
+            "fieldPath": "turnOutputBudgetJson",
+            "columnName": "turnOutputBudgetJson",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -3711,8 +3711,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "goalBudgetsJson",
-            "columnName": "goalBudgetsJson",
+            "fieldPath": "goalContinuationBudgetJson",
+            "columnName": "goalContinuationBudgetJson",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -4356,7 +4356,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c61b85687c836592b313daafeceaa950')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ab454c6b1c05bbf6e563968860be52aa')"
     ]
   }
 }

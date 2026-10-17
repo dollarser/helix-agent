@@ -85,7 +85,7 @@ class PhysicalBackgroundRecoveryDeviceTest {
                             chat.createGoal(
                                 "Physical recovery",
                                 listOf("Evidence"),
-                                GoalBudgets(10, 10, 100000, 600000, 300000, 0),
+                                GoalBudgets(maxGoalRounds = 256),
                             )
                         } else {
                             null

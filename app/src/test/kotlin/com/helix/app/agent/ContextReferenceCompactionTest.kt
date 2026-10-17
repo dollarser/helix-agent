@@ -27,7 +27,7 @@ class ContextReferenceCompactionTest {
             "用户原文：保留中文约束，不能删除文件。",
             "fixture-hash",
         )
-    private val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(8, 9, 128_000, 4096, 160_000))
+    private val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
 
     @Test fun emptyAndUnreferencedBodiesKeepExistingSemantics() {
         assertNull(ContextHistoryContent.materialize(null, emptyList()))

@@ -196,6 +196,7 @@ object DocumentTools {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discoveryCompanions = names.filter { it != "documents.$operation" }.map(::ToolName).toSet(),
         )
 
     private fun outputSchema() =

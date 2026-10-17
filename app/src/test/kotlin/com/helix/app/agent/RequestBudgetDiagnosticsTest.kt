@@ -38,7 +38,7 @@ class RequestBudgetDiagnosticsTest {
         val estimate = ModelInputEstimate.of(request)
         assertEquals(context.inputTokens(), estimate.total)
         assertTrue(estimate.instructions > 0 && estimate.history > 0)
-        val exact = TurnBudgets(1, 1, estimate.total, 10, estimate.total + 10)
+        val exact = TurnBudgets(maxOutputTokens = 10)
         val tracker = TurnBudgetTracker(exact)
         assertEquals(10L, tracker.prepareCall(request).request?.maxOutputTokens)
         val json = RequestBudgetDiagnostics.request(context, exact, 200_000, tracker)
@@ -52,7 +52,7 @@ class RequestBudgetDiagnosticsTest {
                 .getValue("input")
                 .jsonPrimitive.long,
         )
-        val smaller = TurnBudgetTracker(exact.copy(maxInputTokens = estimate.total - 1))
+        val smaller = TurnBudgetTracker(exact.copy(maxOutputTokens = 1))
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, smaller.prepareCall(request).decision)
         assertEquals(1, smaller.consumedCalls)
     }
@@ -64,7 +64,7 @@ class RequestBudgetDiagnosticsTest {
             (1L to 11L) to "OUTPUT_TOKEN_LIMIT",
             (Long.MAX_VALUE to 1L) to null,
         )) {
-            val tracker = TurnBudgetTracker(TurnBudgets(1, 1, 80, 10, 1000))
+            val tracker = TurnBudgetTracker(TurnBudgets(maxOutputTokens = 10))
             val stream =
                 ModelStreamState().also {
                     it.apply(

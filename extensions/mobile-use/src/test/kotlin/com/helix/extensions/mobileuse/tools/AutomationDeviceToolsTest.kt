@@ -46,6 +46,20 @@ class AutomationDeviceToolsTest {
     private var publishedCall: ExecutableToolCall? = null
     private val tools = toolsFor("com.helix.agent.developer")
 
+    @Test fun gestureDiscoveryDeclaresItsFrameAndCapabilityTools() {
+        val descriptors = tools.descriptors().associateBy { it.name.value }
+
+        fun companions(name: String) =
+            descriptors
+                .getValue(name)
+                .discoveryCompanions
+                .map { it.value }
+                .toSet()
+        assertEquals(setOf("ui.screenshot", "ui.device"), companions("ui.gesture"))
+        assertEquals(setOf("ui.device"), companions("ui.screenshot"))
+        assertTrue(companions("ui.device").isEmpty())
+    }
+
     private fun toolsFor(hostPackage: String) =
         AutomationDeviceTools(
             port,

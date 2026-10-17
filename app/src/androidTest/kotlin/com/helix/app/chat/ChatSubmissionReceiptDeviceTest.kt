@@ -59,7 +59,7 @@ class ChatSubmissionReceiptDeviceTest {
                             chat.openSession(session)
                             val budgets =
                                 com.helix.core.model
-                                    .TurnBudgets(8, 6, 131072, 4096, 131072)
+                                    .TurnBudgets(maxOutputTokens = 4096)
                             chat.setMode(com.helix.core.model.AgentMode.PLAN)
                             chat.setTurnBudgets(budgets)
                             val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "Echo probe.")

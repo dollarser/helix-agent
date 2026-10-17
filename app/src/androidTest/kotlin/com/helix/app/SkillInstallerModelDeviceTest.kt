@@ -55,7 +55,7 @@ class SkillInstallerModelDeviceTest {
             try {
                 check(container.providerService.runConnectionTest(provider) is com.helix.provider.api.ProbeOutcome.Ok)
                 val session = chat.createSession("Skill Creator evaluation", provider, model)
-                val budgets = TurnBudgets(12, 10, 524288, 32768, 557056)
+                val budgets = TurnBudgets(maxOutputTokens = 32768)
                 chat.openTestSessionControl(session, AgentMode.ACT, budgets)
                 chat.sendTestMessage(
                     session,

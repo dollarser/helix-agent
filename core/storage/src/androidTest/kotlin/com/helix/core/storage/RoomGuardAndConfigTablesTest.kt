@@ -198,7 +198,7 @@ class RoomGuardAndConfigTablesTest {
                 id = "goal-protected-1",
                 objective = "protected goal",
                 criteria = emptyList(),
-                budgets = GoalBudgets(4, 8, 1000L, 60_000L, 10_000L, 1),
+                budgets = GoalBudgets(maxGoalRounds = 256),
                 state = "DRAFT",
                 planId = plan.id,
                 planHash = "f".repeat(64),
@@ -386,7 +386,7 @@ class RoomGuardAndConfigTablesTest {
                 id = "goal-guards-1",
                 objective = "guards goal",
                 criteria = emptyList(),
-                budgets = GoalBudgets(4, 8, 1000L, 60_000L, 10_000L, 1),
+                budgets = GoalBudgets(maxGoalRounds = 256),
                 state = "RUNNING",
                 planId = null,
                 planHash = null,
@@ -414,7 +414,7 @@ class RoomGuardAndConfigTablesTest {
             id = "goal-orphan-plan",
             objective = "orphan plan ref",
             criteria = emptyList(),
-            budgets = GoalBudgets(4, 8, 1000L, 60_000L, 10_000L, 1),
+            budgets = GoalBudgets(maxGoalRounds = 256),
             state = "DRAFT",
             // StoredGoal requires planId and planHash together; the hash value is irrelevant
             // to the FK probe (the FK is on planId -> plans.id).

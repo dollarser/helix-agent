@@ -29,7 +29,7 @@ class AgentRuntimeContractTest {
     private val providerId = ProviderId("p1")
     private val turnId = TurnId("t1")
     private val goalId = GoalId("g1")
-    private val budgets = TurnBudgets(8, 9, 128_000, 4_096, 160_000)
+    private val budgets = TurnBudgets(maxOutputTokens = 4_096)
 
     // --- SubmitTurnCommand is a data carrier over the turn-start intent ---
 

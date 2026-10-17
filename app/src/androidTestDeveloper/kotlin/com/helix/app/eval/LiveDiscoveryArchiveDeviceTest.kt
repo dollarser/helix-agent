@@ -65,7 +65,7 @@ class LiveDiscoveryArchiveDeviceTest {
                                         "scope:app:work/$marker/source to scope:app:work/$marker/result.zip. " +
                                         "Only use tools.search and files.archive; reply DONE after success. " +
                                         "Do not modify the source or repeat the archive operation.",
-                                budgets = TurnBudgets(12, 12, 65536, 2048, 100000),
+                                budgets = TurnBudgets(maxOutputTokens = 2048),
                                 clientRequestId = UUID.randomUUID().toString(),
                             ),
                         ).value

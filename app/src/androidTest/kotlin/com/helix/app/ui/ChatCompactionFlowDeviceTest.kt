@@ -43,12 +43,11 @@ class ChatCompactionFlowDeviceTest {
 
     @Test fun cancelledSummaryKeepsThePreviousHistory() = exercise(manual = true, cancel = true)
 
-    @Test fun summaryAndContinuationIgnoreTheLegacyModelCallLimit() = exercise(manual = false, calls = 1)
+    @Test fun summaryAndContinuationKeepTheConfiguredOutputLimit() = exercise(manual = false, outputTokens = 1024)
 
-    @Test fun goalSummaryRecordsUsageAndCompletesBeyondTheLegacySharedLimit() = exercise(manual = false, goal = true)
+    @Test fun goalSummaryRecordsUsageAcrossModelCalls() = exercise(manual = false, goal = true)
 
-    @Test fun nearWindowSummaryIgnoresLegacyInputAndCumulativeTokenLimits() =
-        exercise(manual = false, legacyTokenLimits = true)
+    @Test fun nearWindowSummaryContinuesWithHighCumulativeUsage() = exercise(manual = false, highCumulativeUsage = true)
 
     @Test fun failedSummaryRetriesOnceThroughTheRealProviderAndKeepsAccounting() =
         exercise(manual = false, failSummary = true)
@@ -57,10 +56,10 @@ class ChatCompactionFlowDeviceTest {
     private fun exercise(
         manual: Boolean,
         cancel: Boolean = false,
-        calls: Int = 4,
+        outputTokens: Long = 4096,
         goal: Boolean = false,
         failSummary: Boolean = false,
-        legacyTokenLimits: Boolean = false,
+        highCumulativeUsage: Boolean = false,
     ) = runBlocking {
         compose.resetDeterministicUiState()
         val container = compose.container()
@@ -95,7 +94,7 @@ class ChatCompactionFlowDeviceTest {
                         manualWindow = if (goal) 65536 else 8192,
                         autoCompact = !manual,
                         triggerPercent =
-                            if (legacyTokenLimits) {
+                            if (highCumulativeUsage) {
                                 80
                             } else if (goal) {
                                 10
@@ -104,7 +103,7 @@ class ChatCompactionFlowDeviceTest {
                             },
                     ),
                 )
-                seed(session, if (legacyTokenLimits) 1200 else 600)
+                seed(session, if (highCumulativeUsage) 1200 else 600)
                 val originals =
                     storage.messages.listBySession(session).associate {
                         it.id to storage.messages.readContent(it)
@@ -112,13 +111,7 @@ class ChatCompactionFlowDeviceTest {
                 chat.openSession(session)
                 chat.setMode(if (goal) AgentMode.GOAL else AgentMode.CHAT)
                 val budgets =
-                    TurnBudgets(
-                        4,
-                        calls,
-                        if (legacyTokenLimits) 1 else 65536,
-                        4096,
-                        if (legacyTokenLimits) 1 else 100000,
-                    )
+                    TurnBudgets(maxOutputTokens = outputTokens)
                 chat.setTurnBudgets(budgets)
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 compose.waitUntil(10_000) {
@@ -137,7 +130,7 @@ class ChatCompactionFlowDeviceTest {
                             "Keep constraints and verify",
                             listOf("Verified result"),
                             com.helix.core.model
-                                .GoalBudgets(2, 20, 200000, 600000, 300000, 1),
+                                .GoalBudgets(maxGoalRounds = 256),
                         )
                     } else {
                         null
@@ -197,7 +190,7 @@ class ChatCompactionFlowDeviceTest {
                     assertEquals(
                         if (manual) {
                             1
-                        } else if (failSummary || goal || legacyTokenLimits) {
+                        } else if (failSummary || goal || highCumulativeUsage) {
                             3
                         } else {
                             2
@@ -213,9 +206,10 @@ class ChatCompactionFlowDeviceTest {
                     }
                 }
                 if (!cancel) assertNull(turn.errorCode)
-                if (legacyTokenLimits) {
+                assertEquals(budgets, TurnBudgets.parse(storage.turnRuntimeRecords.resolve(turn.id).budgetsJson))
+                if (highCumulativeUsage) {
                     assertTrue(
-                        storage.turnRuntimeRecords.resolve(turn.id).consumedTokens > budgets.maxTotalTokens,
+                        storage.turnRuntimeRecords.resolve(turn.id).consumedTokens > 1L,
                     )
                 }
             } finally {

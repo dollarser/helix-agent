@@ -36,7 +36,7 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class PlanExecutionRecoveryDeviceTest {
-    private val budgets = GoalBudgets(3, 10, 128_000L, 3_600_000L, 600_000L, 2)
+    private val budgets = GoalBudgets(maxGoalRounds = 256)
 
     /**
      * FIXED id (not per-run): the setup and verify phases are separate `am instrument` runs, so both

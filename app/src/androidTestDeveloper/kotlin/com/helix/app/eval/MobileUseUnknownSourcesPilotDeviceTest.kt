@@ -99,13 +99,7 @@ class MobileUseUnknownSourcesPilotDeviceTest {
                 container.chatService.setMode(AgentMode.ACT)
                 container.chatService.setTurnBudgets(
                     TurnBudgetBounds.validate(
-                        TurnBudgets(
-                            maxSteps = TurnBudgetBounds.DEFAULT.maxSteps,
-                            maxModelCalls = TurnBudgetBounds.DEFAULT.maxModelCalls,
-                            maxInputTokens = 131_072,
-                            maxOutputTokens = 4_096,
-                            maxTotalTokens = TurnBudgetBounds.DEFAULT.maxTotalTokens,
-                        ),
+                        TurnBudgets(maxOutputTokens = 4_096),
                     ),
                 )
                 awaitMobileUseProjection(session)

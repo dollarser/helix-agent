@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-16
-HXA: HXA-010
+HXA: HXA-010, HXA-303
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -34,6 +34,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
+
+## Decision history — 2026-10-17
+
+[HXA-303](../../development/tasks/HXA-303.md) 将 TurnBudgets 规范存储收敛为 maxOutputTokens，GoalBudgets 收敛为 maxGoalRounds；删除旧内部字段与旧 shape decoder，不保默认迁移。会话配置的输出/续跑列与当前 Room v1 schema 同步变化，使不兼容旧预览库沿既有开发基线规则重建，而非留到某个任务恢复时才解析失败。数据库外文件不由此删除；配置偏好格式损坏/过时回落受限默认，合法当前显式值重载不自动抬高。同版本 Room 事务、原调用来源和恢复事实仍须验证；源码与 AndroidTest 编译不代替设备执行。
 
 ## References
 

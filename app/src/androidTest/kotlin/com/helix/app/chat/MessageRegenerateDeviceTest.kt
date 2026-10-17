@@ -240,9 +240,9 @@ class MessageRegenerateDeviceTest {
         RunControlConfig(
             mode = AgentMode.CHAT,
             chatToolsEnabled = true,
-            budgets = TurnBudgets(4, 4, 8_000, 2_000, 16_000),
+            budgets = TurnBudgets(maxOutputTokens = 2_000),
             reasoning = ReasoningEffort.LOW,
-            goalBudgets = GoalBudgets(8, 8, 16_000, 16_000, 32_000, 1),
+            goalBudgets = GoalBudgets(maxGoalRounds = 256),
         )
 
     private val testClock =

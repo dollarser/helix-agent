@@ -55,7 +55,7 @@ class PluginSkillModelDeviceTest {
                 val id = c.chatService.createSession("Native guide model fixture", provider, model)
                 session = id
                 c.pluginService.selectFromUser(id, "bundled-plugin:chat-reply", true)
-                c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(12, 10, 524288, 32768, 557056))
+                c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 c.chatService.sendTestMessage(
                     id,
                     "This is a read-only plugin documentation check. Call skills.list, find chat-reply, " +

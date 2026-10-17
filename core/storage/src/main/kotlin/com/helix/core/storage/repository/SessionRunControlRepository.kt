@@ -40,9 +40,9 @@ class SessionRunControlRepository(
                 sessionId = sessionId,
                 mode = record.mode.name,
                 chatToolsEnabled = record.chatToolsEnabled,
-                turnBudgetsJson = record.budgets.toStorageString(),
+                turnOutputBudgetJson = record.budgets.toStorageString(),
                 reasoning = record.reasoning.name,
-                goalBudgetsJson = record.goalBudgets.toStorageString(),
+                goalContinuationBudgetJson = record.goalBudgets.toStorageString(),
                 configVersion = record.configVersion,
                 revision = revision,
                 createdAtEpoch = existing?.createdAtEpoch ?: nowEpochMillis,
@@ -67,9 +67,9 @@ class SessionRunControlRepository(
         return SessionRunControlRecord(
             mode = AgentMode.valueOf(mode),
             chatToolsEnabled = chatToolsEnabled,
-            budgets = TurnBudgets.parse(turnBudgetsJson),
+            budgets = TurnBudgets.parse(turnOutputBudgetJson),
             reasoning = ReasoningEffort.valueOf(reasoning),
-            goalBudgets = GoalBudgets.parse(goalBudgetsJson),
+            goalBudgets = GoalBudgets.parse(goalContinuationBudgetJson),
             configVersion = configVersion,
             immediateMessages = immediateMessages,
         )

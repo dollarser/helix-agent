@@ -34,7 +34,7 @@ class SubscriptionChatBoundaryDeviceTest {
 
     @Test fun exhaustedBudgetNeverStartsSubscriptionJob() =
         forEachPlatform { provider ->
-            val session = start(provider, "helix-fixture", TurnBudgets(2, 1, 1, 1, 1))
+            val session = start(provider, "helix-fixture", TurnBudgets(maxOutputTokens = 1))
             val turn = terminal(session)
             // The assembled system context exhausts this one-token budget before dispatch.
             assertEquals("INPUT_TOKEN_LIMIT", turn.errorCode)
@@ -193,7 +193,7 @@ class SubscriptionChatBoundaryDeviceTest {
     private suspend fun start(
         provider: String,
         model: String,
-        budgets: TurnBudgets = TurnBudgets(3, 2, 10000, 128, 10000),
+        budgets: TurnBudgets = TurnBudgets(maxOutputTokens = 128),
     ): String {
         val session = chat.createSession("Subscription boundary fixture", provider, model)
         sessions.add(session)

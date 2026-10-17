@@ -105,7 +105,7 @@ class PathHistoryDeviceTest {
                 ContextCompiler(ContextSummaryFormat("Summarize", "Preserve sources")).plan(
                     snapshot,
                     request,
-                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(8, 9, 128000, 4096, 160000)),
+                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096)),
                     ProviderContextSettings(manualWindow = 128000),
                     true,
                 ),

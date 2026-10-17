@@ -1463,6 +1463,14 @@ P0 表示结构正确性前置，P1 表示面向真实任务的近期增量，P2
 
 不为“便于扩展”预建 Host/Node/Device 层级、CRDT 或双向同步。未来远程执行须先选择具体任务及文件进入/退出方式，再验证 transport 和授权；同一代码实现可支持多环境，但每个 Turn 仍只有一个持久 owner。
 
+#### 23.7.4 当前清理基线与替换验收
+
+Owner 于 2026-10-17 授权先做可独立优化部分并细化后续任务。[HXA-303](../development/tasks/HXA-303.md) 交付有效预算契约与声明式发现配套；它不提前启动完整宿主、执行结果和目录工作副本重构，不将 286 标记为完成。后续类型名、字段和模块仍可按目标替换。
+
+具体清单只在任务维护：[286](../development/tasks/HXA-286.md#已交付基线与本任务替换清单) 管贡献/提示装配；[287](../development/tasks/HXA-287.md#替换对象与删除责任) 管应用入口、完整宿主、原子持久命令与 UI 投影；[288](../development/tasks/HXA-288.md#替换对象与领域验收) 管执行类/JSON 推断、产物用途和工作副本；[293](../development/tasks/HXA-293.md#具体优化对象与收益验证) 管可选预算和策略对照；[294](../development/tasks/HXA-294.md#结构与行为双重退出检查) 汇总结构与行为证据。切片替换同时删除旧入口，不把删除集中到最终阶段。
+
+286 的最小契约以实际消费者和反例为界，不提前冻结完整框架。287-A / 288-A 的最小真实 Room 联合集成之后优先接 Mobile Use 完整插件旅程，再扩 PRoot 等后端；完整 Task 不互相等待结束。验收同时证明新增插件无需修改宿主名称分支、无页面 Turn、同副本文件/执行一致、取消与实际退出分离和已发生效果不重放。主机、设备、真实 Provider 和业务结果分别结算。
+
 ### 23.8 验证矩阵、收益与接受条件
 
 验收比较行为事实，不要求旧内部类型或序列化测试保持原样；删除已废弃接口的镜像测试可以用目标契约测试替换，不能丢掉原失败/权限/恢复场景。优先扩展现有 AgentLoopHeadlessTest、ToolDispatcherTest、ToolExecutionCapacityTest、ExecutionOwnershipCancellationTest、JobObservationDispatchTest、JobLaunchWaitDispatchTest、NativeResourceTest、MemoryToolsTest、MarkdownMemoryStoreTest，以及原 Engine/设备恢复测试。

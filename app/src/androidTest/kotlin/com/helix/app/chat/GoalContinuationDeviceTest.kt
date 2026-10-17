@@ -42,8 +42,8 @@ class GoalContinuationDeviceTest {
         object : Clock {
             override fun now(): Instant = Instant.ofEpochMilli(2_000)
         }
-    private val budgets = GoalBudgets(8, 12, 10_000, 60_000, 10_000, 0)
-    private val limits = TurnBudgets(5, 10, 800, 800, 5_000)
+    private val budgets = GoalBudgets(maxGoalRounds = 256)
+    private val limits = TurnBudgets(maxOutputTokens = 800)
     private val ids = { UUID.randomUUID().toString() }
 
     @Test fun localBudgetLimitRetainsGoalIdentityAndRevalidatesTheClaim() =
@@ -301,8 +301,8 @@ class GoalContinuationDeviceTest {
             val coordinator = FixtureGoalRunCoordinator(storage, clock, ids)
             val goal = coordinator.create("Original", emptyList(), budgets)
             service(storage).bind(goal, "session")
-            assertTrue(coordinator.updateBudgets(goal, budgets.copy(maxModelCalls = 10), 0))
-            assertFalse(coordinator.updateBudgets(goal, budgets.copy(maxModelCalls = 20), 0))
+            assertTrue(coordinator.updateBudgets(goal, budgets.copy(maxGoalRounds = 512), 0))
+            assertFalse(coordinator.updateBudgets(goal, budgets.copy(maxGoalRounds = 1024), 0))
             turn(storage, "edit")
             val result =
                 service(storage).execute(
