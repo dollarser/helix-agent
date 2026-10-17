@@ -94,13 +94,15 @@ Android 安装器使用 [XZ for Java](https://tukaani.org/xz/java.html)（`org.t
 
 ## 许可证义务
 
-- 上述二进制包均为 **Alpine 官方仓库的未修改再分发**（`.apk` 原样安装，未重编译、未改包）。
-  对应源码按 Alpine 惯例在 aports 仓库可得：
-  <https://gitlab.alpinelinux.org/alpine/aports>（`main/<包名>` 或 `community/<包名>`）。
-- GPL 家族包（bash、readline、git、busybox、apk-tools、gdbm、musl-utils、xz-libs、libgcc、
-  libstdc++ 等）随本存档分发时附带本说明与上表（许可证对应关系）；应要求提供对应源码时，
-  指向 aports 对应包目录（含上游 tarball 与 Alpine 补丁）即满足 GPL 第 6 条的源码提供义务。
-  本产品不修改这些包，故不产生"衍生作品"的额外义务。
+- 上述二进制包为 **Alpine 官方仓库的未修改再分发**（`.apk` 原样安装，未重编译、未改包）。
+  未修改不免除源码和许可证的再分发要求，也不能仅用可变的仓库首页代替精确对应源码。
+- [Helix v0.0.6 发布页](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)
+  同时提供 `alpine-corresponding-source.tar.gz` 与 `alpine-source-manifest.json`：根据存档内
+  apk 数据库的包名、版本、origin 和 commit，保存 53 个包对应的 38 组 aports 配方、
+  本地补丁/构建材料和上游源码；外部输入逐项与原 APKBUILD 的 SHA-512 校验值比对。
+  `alpine-release` 仅由已归档配方生成文本，无外部源码压缩包。归档不执行配方，也不声称重编译得到相同二进制。
+- GPL/LGPL/MPL 等组件保留各自许可及对应源码；下载位置、校验值与精确 aports 路径见该清单，
+  并在发布页提供许可证材料。该源码附件补齐应用分发材料，不覆盖既有 runtime 资产 Release。
 - `blessing`（sqlite-libs）：SQLite 处于公共领域，"blessing" 为其官方许可标记。
 - `ICU`（icu-libs/icu-data-en）：ICU 许可证（MIT 变体），文本见 ICU 官方
   <https://www.unicode.org/copyright.html>。

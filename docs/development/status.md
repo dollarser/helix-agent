@@ -8,6 +8,8 @@
 
 ## 当前实施
 
+2026-10-18 Owner 在 HXA-306 本地验收后明确授权 v0.0.6 ARM64 双渠道预览发布，包括提交、正常推送 main、最终 host-only CI、tag/prerelease 和附件读回。最新手势/过程说明补丁已提交 `0a6e1a10`；补齐双语发行材料和 Alpine 精确源码/许可附件，沿用 code 1 与既有开发证书，日常设备保数据，既有 runtime Release 不变。发布身份、验证范围和公开结果入口统一见[发行记录](../evidence/development/v0.0.6-publication-2026-10-18.md)与 [v0.0.6 Release](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)；以下“未推送/发布”仅为先前阶段事实，不再限制本次授权。
+
 2026-10-18 [HXA-306](tasks/HXA-306.md) 通知栏与过程说明修复完成：旧 R8/Qwen 的单次下拉复现 UNKNOWN，新实现区分起始 frame 和执行中的授权/显示映射，允许合法窗口变化；过程说明按有效正文折叠，短文本直接显示、空内容不生成入口。完整主机门禁通过（JVM 6093 通过/8 条件跳过、Mobile Use 311/311），日常 API36 会话 UI 9/9；新双渠道 ARM64/R8 保数据安装，Developer/Shizuku/真实 Qwen 的同一手势与 ui.system 通知栏入口各 1/1 通过，有独立窗口、截图和后续模型消费证据。来源、失败及未测边界见[本轮修复](../evidence/development/daily-interaction-closeout-2026-10-17.md#通知栏与过程说明修复)。仅本地，未提交、推送、发布或启动整体重构。
 
 2026-10-18 [HXA-306](tasks/HXA-306.md) 追加收尾完成：此前 8 项外部验收、原生 WebView 创建/销毁 100 次、工具发现及曝光顺序两渠道 78 项均重新执行通过；独立 Browser 测试宿主 15 分钟/122 循环资源门禁通过。最终 R8/Qwen 抖音首次安装尝试卡在下载后导航并进入只读复核；补充已下载事实和菜单入口后，安装、独立采样 66 秒播放、卸载与返回原会话通过，按辅助任务记录。悬浮窗缺失由 Developer 系统权限未开启导致，开启后可见，工具截图隐藏正常。Owner 只授权删除抖音及其数据；Helix/其他应用数据保留，测试资源与临时设置已清理/恢复，悬浮权限留给手测。未改生产源码，最终候选身份保持；失败与边界见[追加记录](../evidence/development/daily-interaction-closeout-2026-10-17.md#2026-10-18-追加收尾)。继续仅本地，不推送、发布或启动整体重构。

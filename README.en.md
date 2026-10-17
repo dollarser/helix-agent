@@ -65,16 +65,18 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-**The v0.0.6 development preview is being prepared; no GitHub Release has been created.** The candidates are ARM64, R8-optimized, non-debuggable APKs. They use version `0.0.6`, retain internal `versionCode` `1`, and keep the existing development signing certificate:
+The **[v0.0.6 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)** targets ARM64 with R8-optimized, non-debuggable APKs. It retains internal `versionCode` `1` and the existing development signing certificate:
 
-| Edition | Candidate file |
+| Edition | Package |
 | --- | --- |
 | Standard | `helix-v0.0.6-consumer-arm64-v8a.apk` |
 | Advanced | `helix-v0.0.6-developer-arm64-v8a.apk` |
 
 This version focuses on plugin and conversation UX, file-path presentation, task results and recovery reliability, and on-demand Linux preparation in Advanced. The first authorized Linux task or manually opened terminal prepares bundled resources automatically, without requiring a verification step in Settings. Execution remains subject to the current mode and authorization scope.
 
-See the [v0.0.6 notes and validation boundaries](docs/product/releases/v0.0.6.en.md). The published version remains **[v0.0.5](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**; download only artifacts actually available in Releases. Check the version's build information and SHA-256 before installation. Preserve data when a signing conflict or incompatible database is detected; do not immediately uninstall or clear data. Source pushes, host CI, and release publication are tracked separately.
+This version also fixes browser page layout and snapshots, notification gestures cancelled by valid window transitions, empty progress disclosures and automatic conversation titles, while retaining the compact inline composer.
+
+See the [v0.0.6 notes and validation boundaries](docs/product/releases/v0.0.6.en.md). Download only assets available on the Release page and check `BUILDINFO.json` and `SHA256SUMS`. Validation primarily uses the API36 ARM64 emulator, without physical-phone/OEM acceptance. Browser resource testing lasted 15 minutes; the Douyin task passed after supplying download facts and a menu entry, and the model can still search or act redundantly. Preserve existing data when signatures conflict, the installed versionCode exceeds 1, or the database is incompatible; do not immediately uninstall or clear data.
 
 ## Privacy and control
 

@@ -35,14 +35,17 @@ archive does not replace the full application distribution checks below.
    artifacts, and model files require a separate source-and-license manifest
    before they can be bundled.
 
-This file is a notice policy and a partial attribution inventory, not a complete
-release SBOM. Current debug APKs include Maven dependencies and QuickJS/Zipline
-native libraries; optional PRoot/RootFS/CLI assets have separate lock and license
-gates. Before M12 distribution, the exact resolved release artifacts (including
-transitive dependencies and native assets) need a generated SBOM, upstream license
-texts and required notices reconciled against the shipped APKs. A Compose BOM is
-a dependency constraint, not a shipped binary. Passing dependency hash checks or
-building an unminified release APK does not close this distribution gate.
+This file is a notice policy and a partial attribution inventory. The v0.0.6
+preview Release supplies a resolved dependency inventory and retained upstream
+license/notice materials in `THIRD_PARTY_NOTICES.zip`, alongside exact APK build
+information. A resolved dependency is a build input, not proof that all of its
+classes survive R8. A Compose BOM is a constraint, not a shipped binary.
+Alpine package versions/origins/commits, aports recipes and checksum-verified
+source inputs are distributed in `alpine-corresponding-source.tar.gz` and
+`alpine-source-manifest.json` on the same application Release. Termux materials
+remain in the fixed resource release above. Native/runtime locks and original
+upstream licenses remain authoritative; Helix's Apache-2.0 license does not
+replace them. Passing hash checks alone is not a distribution-license review.
 
 ## topjohnwu/libsu 6.0.0
 
