@@ -40,10 +40,12 @@ internal fun AssistantMessageBody(
     isCurrentMatch: Boolean,
 ) {
     val parsed = remember(message.content) { ThinkingParser.parse(message.content) }
+    // Provider padding is not content and must not turn a short update into an empty disclosure.
+    val body = remember(parsed.text) { parsed.text.trim() }
     val muted = message.presentation != MessagePresentation.NORMAL
     val foldable =
         message.presentation == MessagePresentation.COMPLETED_PROGRESS &&
-            (parsed.text.length > 240 || parsed.text.count { it == '\n' } >= 4)
+            body.isNotEmpty() && (body.length > 240 || body.count { it == '\n' } >= 4)
     var expanded by rememberSaveable(message.id) { mutableStateOf(false) }
     val searchReveal =
         isCurrentMatch ||
@@ -60,12 +62,12 @@ internal fun AssistantMessageBody(
                     Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                 )
             }
-            if (parsed.text.isNotBlank()) {
-                MarkdownText(parsed.text, modifier, searchQuery, muted = muted)
+            if (body.isNotEmpty()) {
+                MarkdownText(body, modifier, searchQuery, muted = muted)
             }
         } else {
             Text(
-                remember(parsed.text) { markdownInline(parsed.text) },
+                remember(body) { markdownInline(body) },
                 modifier,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

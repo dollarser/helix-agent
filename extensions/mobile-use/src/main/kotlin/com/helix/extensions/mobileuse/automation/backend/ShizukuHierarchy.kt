@@ -108,6 +108,12 @@ internal class ShizukuHierarchy : AutoCloseable {
 
     private fun rotation(): Int = display().rotation
 
+    fun gestureDisplay(): GestureDisplay {
+        val display = display()
+        val size = android.graphics.Point().also { display.getRealSize(it) }
+        return GestureDisplay(display.displayId, size.x, size.y, display.rotation)
+    }
+
     @android.annotation.SuppressLint("PrivateApi") // Same shell/root-only platform bridge as connect().
     private fun display(): android.view.Display {
         val type = Class.forName("android.hardware.display.DisplayManagerGlobal")

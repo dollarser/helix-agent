@@ -110,6 +110,62 @@ class MessagePresentationDeviceTest {
         compose.onNodeWithText("Verified result").assertExists()
     }
 
+    @Test fun providerPaddingDoesNotFoldAShortProgressUpdate() {
+        compose.setContent {
+            MaterialTheme {
+                MessageRow(
+                    MessageUi(
+                        "padded",
+                        "assistant",
+                        "\n\n\nDownload complete.\n\n",
+                        presentation = MessagePresentation.COMPLETED_PROGRESS,
+                    ),
+                )
+            }
+        }
+        compose.onNodeWithTag("message-progress-toggle-padded").assertDoesNotExist()
+        compose.onNodeWithText("Download complete.").assertExists()
+    }
+
+    @Test fun whitespaceOnlyProgressHasNeitherDisclosureNorEmptyBody() {
+        compose.setContent {
+            MaterialTheme {
+                MessageRow(
+                    MessageUi(
+                        "blank",
+                        "assistant",
+                        "\n\n \n\n\n",
+                        presentation = MessagePresentation.COMPLETED_PROGRESS,
+                    ),
+                )
+            }
+        }
+        compose.onNodeWithTag("message-progress-toggle-blank").assertDoesNotExist()
+        compose.onNodeWithTag("chat-message-body-blank").assertDoesNotExist()
+    }
+
+    @Test fun paddedLongProgressShowsTextInPreviewAndWhenExpanded() {
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.width(240.dp)) {
+                    MessageRow(
+                        MessageUi(
+                            "long",
+                            "assistant",
+                            "\n\n\n$text\n\n",
+                            presentation = MessagePresentation.COMPLETED_PROGRESS,
+                        ),
+                    )
+                }
+            }
+        }
+        assertTrue(layout().lineCount <= 3)
+        assertEquals(0, layout().getLineStart(0))
+        compose.onNodeWithTag("message-progress-toggle-long").performClick()
+        assertTrue(layout().lineCount > 3)
+        compose.onNodeWithText(text).assertTextContains(text)
+    }
+
     private fun render(presentation: MessagePresentation) {
         compose.setContent { MaterialTheme { Column(Modifier.width(240.dp)) { Body(presentation) } } }
     }

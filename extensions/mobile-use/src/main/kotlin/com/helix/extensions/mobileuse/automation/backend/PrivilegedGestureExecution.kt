@@ -4,7 +4,6 @@ import android.os.SystemClock
 import android.view.InputDevice
 import android.view.MotionEvent
 import com.helix.extensions.mobileuse.automation.AutomationDeviceRequest
-import com.helix.extensions.mobileuse.automation.privilegedGesturePermitted
 
 /** Keep physical ownership through cleanup; cancellation never releases a still-held touch. */
 internal class PrivilegedGestureExecution(
@@ -16,10 +15,12 @@ internal class PrivilegedGestureExecution(
             now = SystemClock::uptimeMillis,
             sleep = SystemClock::sleep,
             allowed = allowed,
-            ready = { entered ->
-                val expected = if (entered) request.copy(target = request.target?.copy(revision = "")) else request
-                privilegedGesturePermitted(expected, screen.deviceTarget(includeRevision = !entered), screen.windows())
-            },
+            ready = PrivilegedGestureGuard(
+                request,
+                screen::deviceTarget,
+                screen::gestureDisplay,
+                screen::windows,
+            )::ready,
             inject = { step, downTime -> inject(step.action, step.touches, downTime) },
         ).execute(privilegedGesturePlan(request.strokes))
 
