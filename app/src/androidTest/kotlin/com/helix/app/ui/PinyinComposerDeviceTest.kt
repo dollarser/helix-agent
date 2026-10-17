@@ -163,7 +163,7 @@ class PinyinComposerDeviceTest {
             .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
             .firstNotNullOfOrNull { window -> window.root?.let { findCandidate(it, label) } }
 
-    private fun clickKeyboard(label: String) {
+    private fun awaitKeyboardNode(label: String): AccessibilityNodeInfo {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val metrics =
             InstrumentationRegistry
@@ -195,12 +195,18 @@ class PinyinComposerDeviceTest {
             capturePreedit("pinyin-failure.png")
             throw failure
         }
+        return requireNotNull(candidate)
+    }
+
+    private fun clickKeyboard(label: String) {
+        val candidate = awaitKeyboardNode(label)
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         if (label == "你好") capturePreedit("pinyin-preedit.png")
         val bounds = Rect()
-        requireNotNull(candidate).getBoundsInScreen(bounds)
+        candidate.getBoundsInScreen(bounds)
         val detail =
-            "PINYIN_TOUCH label=$label text=${candidate?.text} " +
-                "description=${candidate?.contentDescription} bounds=$bounds\n"
+            "PINYIN_TOUCH label=$label text=${candidate.text} " +
+                "description=${candidate.contentDescription} bounds=$bounds\n"
         InstrumentationRegistry.getInstrumentation().sendStatus(
             0,
             android.os.Bundle().apply { putString("stream", detail) },
