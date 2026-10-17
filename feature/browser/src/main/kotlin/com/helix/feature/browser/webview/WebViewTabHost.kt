@@ -39,9 +39,9 @@ import java.io.ByteArrayInputStream
  * Hard rules this class enforces:
  * - `loadUrl` is reachable ONLY through [load], which the [com.helix.feature.browser.BrowserController]
  *   calls to apply a policy-allowed [com.helix.feature.browser.BrowserTabController.TabCommand.Load].
- * - EVERY page-initiated navigation is re-admitted through [BrowserTabListener.onNavigationAttempt]
- *   (the policy choke point) — links and forms via [WebViewClient.shouldOverrideUrlLoading],
- *   redirects / `location` changes via [WebViewClient.doUpdateVisitedHistory].
+ * - Page navigation uses the same [BrowserUrlPolicy] as explicit navigation. Allowed requests
+ *   continue in their original frame; denied requests are cancelled without replacing the page.
+ *   The committed-URL check also rejects targets that bypass the navigation callback.
  * - There is NO `addJavascriptInterface` call in this class (or anywhere in the browser
  *   feature): untrusted web content never gets a privileged permanent JS bridge (AGENTS.md).
  * - TLS errors cancel (never proceed); Safe Browsing is left to the system interstitial
@@ -112,11 +112,10 @@ internal class WebViewTabHost(
             view: WebView,
             request: WebResourceRequest,
         ): Boolean {
-            // Consume the navigation and re-admit it through the controller's policy choke
-            // point: allowed → a fresh Load command reaches [load]; denied → the tab shows
-            // its policy error page and the WebView is never asked to load the URL.
-            listener.onNavigationAttempt(request.url.toString())
-            return true
+            // Returning false preserves redirects, request semantics and the target frame.
+            // Calling loadUrl here would cancel/restart main-frame loads and promote iframe
+            // navigation to the whole tab. Refusing an app link must not poison its source page.
+            return destroyed || BrowserUrlPolicy.evaluate(request.url.toString()) is BrowserUrlDecision.Denied
         }
 
         override fun doUpdateVisitedHistory(
@@ -124,11 +123,11 @@ internal class WebViewTabHost(
             url: String,
             isReload: Boolean,
         ) {
-            // Server redirects and `location` changes do NOT pass through
-            // shouldOverrideUrlLoading; fail closed on the committed URL too.
+            // Some navigations (including POST) bypass shouldOverrideUrlLoading. A denied
+            // committed document is unusable, unlike a request cancelled before navigation.
             if (BrowserUrlPolicy.evaluate(url) is BrowserUrlDecision.Denied) {
                 view.stopLoading()
-                listener.onNavigationAttempt(url)
+                listener.onBlockedNavigationCommitted(url)
             }
         }
 

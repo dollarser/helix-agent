@@ -5,10 +5,9 @@ package com.helix.feature.browser
  * emits these events; the [BrowserController] binds each one to a tab id and applies it to the
  * pure [BrowserTabController]. Every callback arrives on the main thread.
  *
- * [onNavigationAttempt] is how the WebView's own navigations (links, form submits, `location`
- * changes, redirects) are re-routed through the policy choke point: the controller calls
- * [BrowserTabController.navigate] again, so a page can never load a URL the user did not
- * admit through the same gate (doc 09 §3.4).
+ * Page requests use the shared URL policy before continuing in their original frame.
+ * [onBlockedNavigationCommitted] invalidates a forbidden document if a platform navigation
+ * bypassed that request callback; it never replays an allowed request.
  */
 internal interface BrowserTabListener {
     fun onPageStarted(url: String)
@@ -49,8 +48,8 @@ internal interface BrowserTabListener {
     /** TLS failure: the host already cancelled the error handler (it never proceeds). */
     fun onSslError(failingUrl: String)
 
-    /** The WebView attempted to navigate to [url]; the controller re-admits it through policy. */
-    fun onNavigationAttempt(url: String)
+    /** A forbidden URL reached the committed-document callback; the host already stopped it. */
+    fun onBlockedNavigationCommitted(url: String)
 
     /** A page-initiated download request (androidx.webkit download seam). */
     fun onDownloadRequest(request: DownloadRequest)

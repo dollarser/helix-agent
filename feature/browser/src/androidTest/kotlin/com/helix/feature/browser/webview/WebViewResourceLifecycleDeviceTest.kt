@@ -241,7 +241,7 @@ class WebViewResourceLifecycleDeviceTest : BrowserResourceTestHost() {
 
         override fun onSslError(failingUrl: String) = Unit
 
-        override fun onNavigationAttempt(url: String) = Unit
+        override fun onBlockedNavigationCommitted(url: String) = Unit
 
         override fun onDownloadRequest(request: DownloadRequest) = Unit
     }

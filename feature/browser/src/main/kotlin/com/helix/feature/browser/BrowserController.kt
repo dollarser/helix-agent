@@ -346,8 +346,8 @@ class BrowserController(
      * [onResult] on the main thread (doc 09 §3.3 `browser.snapshot`; §3.4: only Helix's own
      * versioned script fragment is ever evaluated, the model cannot submit a script).
      *
-     * A tab without a settled page (still loading, on its error page, or never navigated so
-     * it has no WebView) fails closed with [SnapshotFailure.NO_PAGE].
+     * Loading, failed documents and unavailable hosts remain distinct failures; a refused
+     * page-initiated app link does not make the existing document unavailable.
      */
     @Suppress("ComplexCondition")
     fun snapshot(
@@ -357,17 +357,19 @@ class BrowserController(
     ) {
         val tab = tabs.state().tabs.firstOrNull { it.id == id }
         val host = hosts[id]
-        if (tab == null || host == null || tab.isLoading || tab.error != null || tab.navigationGeneration < 1) {
-            onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
+        val unavailable = BrowserObservationFacts.snapshotFailure(tab, host != null)
+        if (unavailable != null || tab == null || host == null) {
+            onResult(SnapshotResult.Failed(unavailable ?: SnapshotFailure.NO_PAGE))
             return
         }
         val owner = ownerBinding.get()
         host.evaluateFixed(BrowserSnapshotScript.EXTRACT) { raw ->
             val liveTab = tab(id)
             if (!stillRequested() || ownerBinding.get() !== owner || hosts[id] !== host ||
-                liveTab == null || liveTab.navigationGeneration != tab.navigationGeneration || liveTab.isLoading
+                liveTab == null || liveTab.navigationGeneration != tab.navigationGeneration || liveTab.isLoading ||
+                liveTab.error != null
             ) {
-                onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
+                onResult(SnapshotResult.Failed(SnapshotFailure.PAGE_CHANGED))
                 return@evaluateFixed
             }
             val result = SnapshotBinder.bind(raw, liveTab, clockMillis())
@@ -857,12 +859,12 @@ class BrowserController(
                             publish()
                         }
 
-                        override fun onNavigationAttempt(url: String) {
+                        override fun onBlockedNavigationCommitted(url: String) {
                             if (!live()) return
-                            // The re-admission path: page-initiated navigations are admitted by the
-                            // SAME choke point as user-typed URLs.
-                            val command = tabs.navigate(id, BrowserTabController.normalizeInput(url))
-                            if (command is BrowserTabController.TabCommand.Load) host(id).load(command.url)
+                            // This is a committed forbidden document, not a cancelled request.
+                            if (BrowserUrlPolicy.evaluate(url) !is BrowserUrlDecision.Denied) return
+                            tabs.navigate(id, url)
+                            snapshots.remove(id)
                             publish()
                         }
 

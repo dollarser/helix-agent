@@ -14,9 +14,9 @@ import java.net.URISyntaxException
  * (INVALID) rather than passed to the platform parser, and a `data:` document whose
  * media type is not exactly `text/html` is denied.
  *
- * The policy is pure and JVM-tested; the WebView layer applies it in exactly ONE
- * place (the navigation choke point in [BrowserTabController.navigate] plus the
- * download path), so no WebView call site can bypass it.
+ * This pure, JVM-tested policy is shared by explicit navigation, page-initiated requests,
+ * committed-URL validation and downloads. Checking a page request does not replay it or
+ * turn a subframe into a top-level navigation.
  */
 sealed interface BrowserUrlDecision {
     /** The URL may be loaded in a Helix tab; [url] is the exact string to load. */

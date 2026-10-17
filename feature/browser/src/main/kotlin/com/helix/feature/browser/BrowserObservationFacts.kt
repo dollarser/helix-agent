@@ -2,6 +2,7 @@ package com.helix.feature.browser
 
 import com.helix.core.policy.BrowserTabScope
 import com.helix.feature.browser.snapshot.BrowserSnapshot
+import com.helix.feature.browser.snapshot.SnapshotFailure
 import com.helix.feature.browser.webview.WebViewTabHost
 import com.helix.tools.browser.BrowserFindMatch
 import com.helix.tools.browser.BrowserObservationContext
@@ -9,6 +10,18 @@ import com.helix.tools.browser.BrowserWaitStatus
 import com.helix.tools.browser.FindOutcome
 
 internal object BrowserObservationFacts {
+    fun snapshotFailure(
+        tab: BrowserTab?,
+        hostAvailable: Boolean,
+    ): SnapshotFailure? =
+        when {
+            tab == null || tab.url == BrowserTabController.ABOUT_BLANK -> SnapshotFailure.NO_PAGE
+            !hostAvailable -> SnapshotFailure.HOST_UNAVAILABLE
+            tab.error != null -> SnapshotFailure.PAGE_ERROR
+            tab.isLoading || tab.navigationGeneration < 1 -> SnapshotFailure.PAGE_LOADING
+            else -> null
+        }
+
     fun prefix(
         value: String,
         limit: Int,

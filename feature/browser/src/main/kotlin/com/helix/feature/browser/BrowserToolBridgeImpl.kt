@@ -7,6 +7,7 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.WorkspaceLayout
 import com.helix.feature.browser.snapshot.BrowserActionScript
 import com.helix.feature.browser.snapshot.BrowserOrigin
+import com.helix.feature.browser.snapshot.SnapshotFailure
 import com.helix.feature.browser.snapshot.SnapshotResult
 import com.helix.feature.browser.snapshot.SnapshotToken
 import com.helix.feature.browser.snapshot.TokenVerdict
@@ -165,7 +166,27 @@ class BrowserToolBridgeImpl(
                 is SnapshotResult.Failed -> {
                     BrowserToolResultMapper.failedSnapshot(
                         tabId,
-                        result.failure.name.lowercase(),
+                        when (result.failure) {
+                            SnapshotFailure.PAGE_LOADING -> {
+                                "page_loading: navigation has not settled; check browser.tabs before another snapshot"
+                            }
+
+                            SnapshotFailure.PAGE_ERROR -> {
+                                "page_error: the tab has a load or policy error; inspect the page before retrying"
+                            }
+
+                            SnapshotFailure.HOST_UNAVAILABLE -> {
+                                "host_unavailable: the page has no live browser host"
+                            }
+
+                            SnapshotFailure.PAGE_CHANGED -> {
+                                "page_changed: the original observation expired; inspect the current tab again"
+                            }
+
+                            else -> {
+                                result.failure.name.lowercase()
+                            }
+                        },
                     )
                 }
             }

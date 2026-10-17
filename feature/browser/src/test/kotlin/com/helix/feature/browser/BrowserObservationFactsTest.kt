@@ -2,6 +2,7 @@ package com.helix.feature.browser
 
 import com.helix.core.policy.BrowserTabScope
 import com.helix.feature.browser.snapshot.BrowserSnapshot
+import com.helix.feature.browser.snapshot.SnapshotFailure
 import com.helix.feature.browser.snapshot.SnapshotNode
 import com.helix.feature.browser.snapshot.UntrustedWebContent
 import com.helix.tools.browser.BrowserObservationContext
@@ -11,6 +12,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserObservationFactsTest {
+    @Test fun snapshotReadinessDistinguishesLoadingErrorAndLostHost() {
+        val page = BrowserTab("tab", "https://example.com", navigationGeneration = 1)
+        assertEquals(null, BrowserObservationFacts.snapshotFailure(page, true))
+        assertEquals(SnapshotFailure.NO_PAGE, BrowserObservationFacts.snapshotFailure(null, true))
+        assertEquals(SnapshotFailure.NO_PAGE, BrowserObservationFacts.snapshotFailure(BrowserTab("blank"), false))
+        assertEquals(SnapshotFailure.HOST_UNAVAILABLE, BrowserObservationFacts.snapshotFailure(page, false))
+        assertEquals(
+            SnapshotFailure.PAGE_LOADING,
+            BrowserObservationFacts.snapshotFailure(page.copy(isLoading = true), true),
+        )
+        assertEquals(
+            SnapshotFailure.PAGE_LOADING,
+            BrowserObservationFacts.snapshotFailure(page.copy(navigationGeneration = 0), true),
+        )
+        assertEquals(
+            SnapshotFailure.PAGE_ERROR,
+            BrowserObservationFacts.snapshotFailure(
+                page.copy(error = PolicyBlockedError("file:///secret", DenialReason.UNSUPPORTED_SCHEME)),
+                true,
+            ),
+        )
+    }
+
     @Test fun metadataPrefixKeepsUnicodePairsWhole() {
         assertEquals("abc", BrowserObservationFacts.prefix("abc😀", 4))
         assertEquals("abc😀", BrowserObservationFacts.prefix("abc😀", 5))

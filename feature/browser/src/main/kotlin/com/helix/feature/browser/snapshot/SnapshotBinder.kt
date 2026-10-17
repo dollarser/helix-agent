@@ -269,6 +269,18 @@ enum class SnapshotFailure {
     /** The tab has no committed page / no live WebView to evaluate. */
     NO_PAGE,
 
+    /** A logical page exists but its Activity-owned WebView is unavailable. */
+    HOST_UNAVAILABLE,
+
+    /** A navigation has not yet produced a settled document. */
+    PAGE_LOADING,
+
+    /** The tab is showing a load or policy error, not usable page content. */
+    PAGE_ERROR,
+
+    /** The original document or host changed before the observation completed. */
+    PAGE_CHANGED,
+
     /** No result came back (the evaluate was cancelled or produced nothing). */
     NO_RESULT,
 

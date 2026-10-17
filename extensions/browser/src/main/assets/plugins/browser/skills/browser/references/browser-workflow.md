@@ -2,7 +2,7 @@
 
 Use browser tools only for the user's authorized websites and task. Selecting this plugin does not grant website access. Discover tools with tools.search when needed.
 
-Open or navigate to the requested page, then observe with browser.snapshot or browser.find. Use current tab IDs and element tokens; observe again after navigation or when tokens expire. If a match is ambiguous, inspect and identify the intended target before acting.
+Open or navigate to the requested page, then observe with browser.snapshot or browser.find. Opening starts navigation; it does not prove the page has finished loading. On page_loading, inspect browser.tabs before taking another snapshot; reloading restarts the load. Distinguish page errors and unavailable hosts from loading. Use current tab IDs and element tokens; observe again after navigation or when tokens expire. If a match is ambiguous, inspect and identify the intended target before acting.
 
 Check the actual result after each action. A requested navigation does not prove that loading succeeded. A screenshot path alone does not mean its pixels were supplied to the model. Do not replay an action whose outcome is unknown; inspect the current page first. Report host unavailability, denial and unsupported actions truthfully.
 

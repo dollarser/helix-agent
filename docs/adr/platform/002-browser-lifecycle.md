@@ -1,7 +1,7 @@
 # ADR-PLATFORM-002: 浏览器 View 与逻辑标签生命周期
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-12
+Date: 2026-09-16; revised 2026-10-17
 HXA: HXA-160, HXA-276, HXA-277, HXA-279
 Deciders: Project owner（2026-10-11 要求同步 Browser 插件贡献、资源与交互优化 ADR；不兼容旧版）
 
@@ -20,6 +20,8 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 后台切换不销毁 View；pause/resume 作用于匹配 owner，不把 onPause 当作 JS 全局暂停。仅当前活动标签、可用前台窗口显示 JS 对话框；切后台、导航、关闭、解绑或取消时终结结果一次。保留平台 Autofill 能力并以真实服务 fixture 验证。
 
 无宿主时非空 open 返回明确失败且不新建标签，navigate 返回稳定宿主不可用原因；历史/重载缺少真实页面时不假报执行成功。空标签仍可独立存在。页面销毁清理 loading/history 可用性与 DOM token，保留 URL/标题供显式导航；不自动加载 URL、重放 POST、表单或工具。恢复后由原任务正常继续路径决定下一步，不自动拉起 Activity、不改变 Goal 预算或批准契约。
+
+页面发起的导航和显式导航共用 URL 策略。允许的页面请求由 WebView 在原 frame 中继续，不能通过 `loadUrl` 重放或把 iframe 提升为主页面；被拒绝的应用协议/本地文件请求只取消该次跳转，不把仍可用的来源页面改成错误页，也不启动外部应用。若禁止地址已经进入主文档提交回调，则停止并明确失效。快照区分加载中、页面错误、宿主不可用和观察期间页面变化，不能统一误报无页面。
 
 ### 原生插件贡献与手动浏览（HXA-276）
 
@@ -98,3 +100,7 @@ HXA-277 保留 Activity 的 View 所有权和手动浏览；独立观察回调�
 Owner要求完成279。采用[Playwright Pages](https://playwright.dev/docs/pages)的上下文隔离和[Actionability](https://playwright.dev/docs/actionability)的有界观察思路，保留Android现有Activity/page身份与权限路径；不复制参考代码或引入完整locator/任意JS。原会话来源仅为逻辑资源事实；原调用的精确scope、owner/generation和取消/deadline限定披露及等待，未知动作不重放。手动标签无原会话来源时需要明确目标scope，这是首版范围限制，不能通过共享Controller自动扩权。固定合成旅程与像素编码、真实SDK失效分别验收。
 
 实测长data URL导致原快照输出schema拒绝，按上限提供显式前缀/截断而保留完整执行身份；实测模型仅列标签结束读取任务，澄清元数据与当前正文证据。测试汇总原始及恢复全部Turn，像素自述使用明确二值答复和实际artifact事实，结果与遗留边界见279证据。
+
+## Decision history — 2026-10-17：页面跳转拒绝不破坏来源文档
+
+Owner 日常模拟器抖音手测暴露：应用协议跳转被正确拒绝，但旧回调把原 HTTPS 页面标成策略错误，后续快照只返回 `no_page`。按 [Android WebViewClient 官方契约](https://developer.android.com/reference/android/webkit/WebViewClient#shouldOverrideUrlLoading(android.webkit.WebView,%20android.webkit.WebResourceRequest)) 修正为同一 URL 策略决定原请求继续或取消；保留显式导航与禁止文档提交的失败边界，不增加外部应用启动或任意脚本权限。合成页面已在旧实现复现，修复和当前验证范围见 [v0.0.6 交付记录](../../evidence/development/v0.0.6-handoff-2026-10-17.md)。
