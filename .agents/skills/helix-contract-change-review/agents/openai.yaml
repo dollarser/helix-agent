@@ -1,0 +1,4 @@
+interface:
+  display_name: "Helix 契约变更审查"
+  short_description: "审查 Helix 身份、授权、恢复与结果契约的跨模块变更"
+  default_prompt: "使用 $helix-contract-change-review 审查当前 Helix 契约变更及其调用方与验证缺口。"

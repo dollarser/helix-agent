@@ -1,0 +1,4 @@
+interface:
+  display_name: "Helix 验收收尾"
+  short_description: "核对 Helix 候选身份、验证范围、实际效果和交付证据"
+  default_prompt: "使用 $helix-acceptance-closeout 完成当前 Helix 候选的授权验收与收尾。"

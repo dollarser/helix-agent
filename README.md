@@ -50,13 +50,20 @@ Helix 在 Android 本机执行任务：操作支持的应用界面、浏览网�
 | 构建渠道 | 包含的能力 |
 | --- | --- |
 | **Standard / consumer** | 完整基础产品：会话、API/本地模型及渠道允许的工具；不包含第三方订阅 Runtime 和 PRoot 终端 |
-| **Advanced / developer** | 在基础产品上增加平台或渠道允许的进阶能力，包括订阅适配和 PRoot 终端；适合开发与进阶体验 |
+| **Advanced / developer** | 在基础产品上增加平台或渠道允许的进阶能力，包括订阅适配、终端和内置 Linux 运行环境；适合开发与进阶体验 |
 
 安装包渠道与会话权限模式是不同概念。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
 
-当前版本为 **[v0.0.5 开发预览版](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**。推荐进阶体验下载 `helix-v0.0.5-developer-debug.apk`；只需基础渠道可下载 `helix-v0.0.5-consumer-debug.apk`。发布页附 SHA-256 校验值和构建信息。遇到签名冲突，请先保留数据，不要直接卸载或清除应用数据。
+**v0.0.6 开发预览版正在准备，尚未创建 GitHub Release。** 已准备 ARM64、R8 优化、不可调试的候选包，版本为 `0.0.6`，内部 `versionCode` 保持 `1`，沿用开发签名：
 
-本版整合 Mobile Use 与宿主授权、模型与订阅配置、会话和扩展交互，并统一原生网络客户端的 hosts 解析。发布回归修复密集请求触发前台通知限流、旧开发数据库版本导致启动失败的问题；新增 API29/API36 双渠道回归、API34 Root 专项与真实模型安装/卸载验证。精确来源、CI 和跳过项目见[发布记录](docs/evidence/development/v0.0.5-release-2026-10-06.md)及发布页 `BUILDINFO.json`，不代表所有 OEM、真实账号或长期运行均已验收。
+| 渠道 | 候选文件 |
+| --- | --- |
+| Standard | `helix-v0.0.6-consumer-arm64-v8a.apk` |
+| Advanced | `helix-v0.0.6-developer-arm64-v8a.apk` |
+
+本版重点是插件与会话交互、文件路径展示、任务结果与恢复可靠性，以及 Advanced 的 Linux 环境按需准备：首次获准的 Linux 任务或手动终端自动准备内置资源，正常使用无需先到设置中验证。实际执行仍遵守当前模式和授权范围。
+
+详见 [v0.0.6 版本说明与验证边界](docs/product/releases/v0.0.6.md)。已发布版本仍为 **[v0.0.5](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**；下载以 Releases 中实际存在的文件为准。安装前核对对应版本的构建信息与 SHA-256；签名冲突或旧库不兼容时，先保留数据，不直接卸载或清空。源码推送、主机 CI 和正式发布分别记录。
 
 ## 隐私与控制
 
@@ -83,6 +90,7 @@ APK 位于 `app/build/outputs/apk/`。主机源码门禁为 `./scripts/check-all
 
 - [当前进展与已知限制](docs/development/status.md) · [路线索引](docs/development/roadmap.md)
 - [架构](docs/architecture/overview.md) · [设计决策](docs/adr/README.md) · [完整文档](docs/README.md)
+- [开发 Agent Skills](docs/development/implementation-guide.md#开发-agent-skills)：仓库内的验收收尾与契约审查流程，与手机内的插件 Skill 分开。
 - [报告问题或提出建议](https://github.com/dollarser/helix-agent/issues)：附版本、构建渠道、Android/设备信息、模型和复现步骤；请先移除密钥、凭据与私人内容。
 - 作者：[dollarser](https://github.com/dollarser)，欢迎社区参与改进。
 

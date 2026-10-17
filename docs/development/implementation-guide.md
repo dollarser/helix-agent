@@ -46,16 +46,16 @@ GitHub CI 始终 host-only。模拟器、真机和真实服务各需当前明确
 
 涉及制品的收尾先确认成功构建及实际安装对象，再核对被要求的用户旅程。结果按“执行事实、独立效果、持久记录、实际消费”分开；模型声称完成或工具返回成功不能代替文件内容、目标应用状态或下一请求结果。复用证据时说明哪些输入与制品仍相同；失败构建遗留 APK 不计作新候选通过。具体诊断与现有汇总工具见[调试手册](debugging-playbook.md)。
 
-## 按需复用的工作流与 Skill 候选
+## 开发 Agent Skills
 
-以下是可提炼的两个入口，当前由本指南和既有脚本承接；本轮没有新建 `.agents/skills/`。它们不增加任务、验收矩阵或操作权限。只有重复使用证明独立 Skill 能减少漏项时，才将短入口提炼到项目技能目录，并链接此处的权威流程。
+仓库 `.agents/skills/` 提供以下两个开发入口，可显式使用 `$helix-acceptance-closeout` 或 `$helix-contract-change-review`。它们服务于开发此仓库的 Agent，与 `extensions/` 中随 APK 提供的产品插件 Skill 分开，不会安装进手机。`SKILL.md` 提供流程，`agents/openai.yaml` 提供发现元数据；当前 status、HXA 和 ADR 仍是范围与契约的权威来源。
 
-| 候选 | 触发与最小输入 | 执行步骤 | 停止条件与输出 |
-| --- | --- | --- | --- |
-| `helix-acceptance-closeout` | 用户要求候选收尾或检查证据是否充分；输入当前 HXA/请求、改动归属、候选与适用验证授权 | 核对成功构建和来源 → 确认实际候选 → 复用已有 runner/解析器处理获准验证 → 核对实际效果与消费 → 清理本任务资源 | 来源不明或构建失败时停止候选验收并保留 INVALID；条件不足按 not requested/pending/failed 区分。输出写入既有 evidence 与 `build/<task>/`，列出实际范围和剩余边界 |
-| `helix-contract-change-review` | 身份、授权、生命周期、路径、结果或插件贡献契约发生变化；输入目标、适用 ADR、差异和生产入口 | 找事实 owner → 查询现有代码图/源码 → 追踪持久化、恢复、控制、UI、模型结果及 fixture 的共同假设 → 明确替换/删除对象 → 选择跨边界反例 | 关键语义未裁决或缺真实消费者时说明具体缺口，完成可独立检查部分；不为假想需求搭框架。输出为现有 ADR/HXA 的具体修订建议和证据位置 |
+| Skill | 触发与最小输入 | 交付 |
+| --- | --- | --- |
+| [helix-acceptance-closeout](../../.agents/skills/helix-acceptance-closeout/SKILL.md) | 候选收尾、发行准备或验收证据检查；当前 HXA/请求、改动归属、候选与适用验证授权 | 绑定成功构建、实际候选、效果及模型消费的分层证据；明确阻塞和清理范围 |
+| [helix-contract-change-review](../../.agents/skills/helix-contract-change-review/SKILL.md) | 身份、授权、生命周期、路径、结果或插件贡献契约变化；目标、适用 ADR、差异和生产入口 | 共同假设、受影响消费者、旧路径删除、边界测试与现有 ADR/HXA 的具体修订 |
 
-脚本承担确定性工作：APK/输入指纹、方法身份与终态解析、统计和资源归属检查，复用 `build-release-apks.sh`、`run-owned-emulator.py`、`instrumentation_junit.py`、`summarize-owned-runs.py` 等现有入口。设计判断包括证据是否适用、正确性是否改变、何时扩大范围、何时停止。不要把这些判断改成机械总数或固定重试次数，也不要让 Skill 自动取得设备、账号、删库、提交或发布权限。删除与运行环境故障按调试手册逐项诊断，不封装成通用“一键修复/清理”。
+Skill 复用现有手册、runner 与解析器，不增加框架、固定测试总数或自动权限。当前任务的设备、账号、清空数据、提交、推送和发布授权分别核对；遇到真实阻塞停止依赖步骤，继续独立工作。变更后验证 frontmatter、发现元数据、仓库相对链接及授权/停止场景；不通过创建真实副作用来“测试”技能。
 
 ## 交接输出
 

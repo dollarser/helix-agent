@@ -51,13 +51,20 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 | Edition | Capabilities |
 | --- | --- |
 | **Standard / consumer** | The complete base product: conversations, API/on-device models, and channel-supported tools; excludes third-party subscription runtimes and the PRoot terminal |
-| **Advanced / developer** | Adds advanced capabilities allowed by the platform/channel, including subscription adapters and the PRoot terminal; intended for development and advanced use |
+| **Advanced / developer** | Adds advanced capabilities allowed by the platform/channel, including subscription adapters, a terminal, and a bundled Linux environment; intended for development and advanced use |
 
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-The current version is the **[v0.0.5 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**. Choose `helix-v0.0.5-developer-debug.apk` for advanced capabilities, or `helix-v0.0.5-consumer-debug.apk` for the base channel. SHA-256 checksums and build information accompany the release. If Android reports a signing conflict, preserve data before uninstalling or clearing app data.
+**The v0.0.6 development preview is being prepared; no GitHub Release has been created.** The candidates are ARM64, R8-optimized, non-debuggable APKs. They use version `0.0.6`, retain internal `versionCode` `1`, and keep the existing development signing certificate:
 
-This version integrates Mobile Use and host permissions, model and subscription setup, conversation and extension UX, and shared hosts resolution for native clients. Release testing fixed foreground-notification rate limiting during rapid requests and startup failures with earlier development database versions. Validation includes both editions on API29/API36, API34 Root checks, and real-model installation/uninstallation of a test app. See the [release record](docs/evidence/development/v0.0.5-release-2026-10-06.md) and release `BUILDINFO.json` for the exact source, CI and skipped checks; this is not acceptance for every OEM, real account or long-running workload.
+| Edition | Candidate file |
+| --- | --- |
+| Standard | `helix-v0.0.6-consumer-arm64-v8a.apk` |
+| Advanced | `helix-v0.0.6-developer-arm64-v8a.apk` |
+
+This version focuses on plugin and conversation UX, file-path presentation, task results and recovery reliability, and on-demand Linux preparation in Advanced. The first authorized Linux task or manually opened terminal prepares bundled resources automatically, without requiring a verification step in Settings. Execution remains subject to the current mode and authorization scope.
+
+See the [v0.0.6 notes and validation boundaries](docs/product/releases/v0.0.6.en.md). The published version remains **[v0.0.5](https://github.com/dollarser/helix-agent/releases/tag/v0.0.5)**; download only artifacts actually available in Releases. Check the version's build information and SHA-256 before installation. Preserve data when a signing conflict or incompatible database is detected; do not immediately uninstall or clear data. Source pushes, host CI, and release publication are tracked separately.
 
 ## Privacy and control
 
@@ -84,6 +91,7 @@ APKs are written to `app/build/outputs/apk/`. Run `./scripts/check-all.sh --sour
 
 - [Current status and limitations](docs/development/status.md) · [Roadmap index](docs/development/roadmap.md)
 - [Architecture](docs/architecture/overview.md) · [Design decisions](docs/adr/README.md) · [Documentation index](docs/README.md)
+- [Development Agent Skills](docs/development/implementation-guide.md#开发-agent-skills): repository acceptance and contract-review workflows, separate from in-app plugin skills.
 - [Report a bug or suggest an improvement](https://github.com/dollarser/helix-agent/issues): include version, build edition, Android/device details, model, and reproduction steps. Remove keys, credentials, and private content.
 - Created by [dollarser](https://github.com/dollarser), with community contributions welcome.
 
