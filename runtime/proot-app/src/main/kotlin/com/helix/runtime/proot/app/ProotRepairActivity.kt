@@ -127,8 +127,15 @@ class ProotRepairActivity : Activity() {
     private fun refreshState() {
         val installed = installation()
         val summary = summaryLabel(installed.state)
+        val receipt = ProotMaintenancePresentation.message(this)
+        val feedback =
+            if (receipt.isNotBlank() && !ProotMaintenancePresentation.busy()) {
+                getString(R.string.proot_maintenance_previous_result, receipt)
+            } else {
+                receipt
+            }
         statusView.text =
-            listOf(getString(summary), ProotMaintenancePresentation.message(this))
+            listOf(getString(summary), feedback)
                 .filter { it.isNotBlank() }
                 .joinToString("\n")
         primaryButton.setText(

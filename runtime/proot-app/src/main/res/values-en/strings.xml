@@ -60,6 +60,7 @@
     <string name="proot_runtime_installed">Prepared</string>
     <string name="proot_maintenance_interrupted">The previous operation was interrupted. Check the current installation state before retrying.</string>
     <string name="proot_maintenance_unsaved">Unable to save the operation status. Check available storage and the current runtime state.</string>
+    <string name="proot_maintenance_previous_result">Last maintenance result: %1$s</string>
     <string name="proot_environment_update_required">Update to the version bundled with this Helix release</string>
     <string name="proot_environment_damaged">Installation needs repair</string>
     <string name="proot_environment_description">Supports Linux commands and the terminal. Prepared automatically on first use; you can also prepare it here.</string>

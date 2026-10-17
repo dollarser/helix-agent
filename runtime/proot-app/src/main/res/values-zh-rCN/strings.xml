@@ -60,6 +60,7 @@
     <string name="proot_runtime_installed">已准备</string>
     <string name="proot_maintenance_interrupted">上次操作中断。请核查当前安装状态，再决定是否重试。</string>
     <string name="proot_maintenance_unsaved">无法保存操作状态，请检查可用空间和运行时当前状态。</string>
+    <string name="proot_maintenance_previous_result">上次维护结果：%1$s</string>
     <string name="proot_environment_update_required">需要更新到当前 Helix 内置版本</string>
     <string name="proot_environment_damaged">安装异常，需要修复</string>
     <string name="proot_environment_description">为 Linux 命令和终端提供支持。首次使用时自动准备，也可在这里提前准备。</string>
