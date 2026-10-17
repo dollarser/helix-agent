@@ -13,6 +13,31 @@ import org.junit.Test
 class RunControlStoreTest {
     private val defaults = RunControlConfig(AgentMode.CHAT, false, TurnBudgetBounds.DEFAULT)
 
+    @Test fun failedPersistenceCannotPublishUnsavedBudgets() {
+        val lines =
+            object : com.helix.app.internal.LineStore {
+                override fun lines(key: String): List<String> = emptyList()
+
+                override fun setLines(
+                    key: String,
+                    lines: List<String>,
+                ) {
+                    error("disk failure")
+                }
+            }
+        val store = PersistedRunControlStore(lines)
+        val original = store.current
+        assertThrows(IllegalStateException::class.java) { store.setBudgets(TurnBudgets(2048)) }
+        assertEquals(original, store.current)
+        assertThrows(IllegalStateException::class.java) {
+            store.setGoalBudgets(
+                com.helix.core.model
+                    .GoalBudgets(maxGoalRounds = 7),
+            )
+        }
+        assertEquals(original, store.current)
+    }
+
     @Test fun defaultsUseOnlyTheCurrentOutputAllowance() {
         assertEquals(defaults, PersistedRunControlStore(InMemoryLineStore()).current)
         assertEquals(16384L, TurnBudgetBounds.validate(TurnBudgetBounds.DEFAULT).maxOutputTokens)

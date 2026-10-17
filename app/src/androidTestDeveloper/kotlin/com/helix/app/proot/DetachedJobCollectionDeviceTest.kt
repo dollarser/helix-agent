@@ -23,6 +23,8 @@ import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -42,7 +44,8 @@ class DetachedJobCollectionDeviceTest {
 
     @Test fun importFailureKeepsOwnerAndRetriesOnlyTheOriginalArchive() {
         ensureInstalledRuntime(context)
-        Fixture(context).use { f ->
+        val script = "printf collected-out; printf collected-err >&2; printf collection-proof > result.txt"
+        Fixture(context, script).use { f ->
             finish(f)
             var attempts = 0
             var settled = 0
@@ -70,7 +73,7 @@ class DetachedJobCollectionDeviceTest {
                 )
             assertEquals(CommandDetailState.SUCCEEDED, pending.state)
             assertTrue(pending.settlementPending)
-            assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
+            assertCollectedStreams(executor.execute(f.call))
             assertNull(f.ownership.retainedOwners().singleOrNull())
             assertEquals(2, attempts)
             assertEquals(1, settled)
@@ -80,7 +83,7 @@ class DetachedJobCollectionDeviceTest {
                 )
             assertEquals(CommandDetailState.SUCCEEDED, collected.state)
             assertFalse(collected.settlementPending)
-            assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
+            assertCollectedStreams(executor.execute(f.call))
             assertEquals(2, attempts)
         }
     }
@@ -126,7 +129,14 @@ class DetachedJobCollectionDeviceTest {
                     assertNull(archive)
                     effects++
                 }, { _, _ -> })
-            assertTrue(f.ownership.guard(collector.executor()).execute(f.call) is ToolExecutorResult.Completed)
+            val result = f.ownership.guard(collector.executor()).execute(f.call) as ToolExecutorResult.Completed
+            assertEquals(
+                "false",
+                result.output.jsonObject
+                    .getValue("streamsAvailable")
+                    .jsonPrimitive.content,
+            )
+            assertFalse(result.output.jsonObject.containsKey("stdout"))
             assertEquals(1, effects)
             assertNull(f.ownership.retainedOwners().singleOrNull())
         }
@@ -259,6 +269,15 @@ class DetachedJobCollectionDeviceTest {
             assertEquals(ToolExecutorResult.Cancelled, executor.execute(f.call))
             assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
         }
+    }
+
+    private fun assertCollectedStreams(result: ToolExecutorResult) {
+        val output = (result as ToolExecutorResult.Completed).output.jsonObject
+        assertEquals("collected-out", output.getValue("stdout").jsonPrimitive.content)
+        assertEquals("collected-err", output.getValue("stderr").jsonPrimitive.content)
+        assertEquals("true", output.getValue("streamsAvailable").jsonPrimitive.content)
+        assertEquals("false", output.getValue("streamsTruncated").jsonPrimitive.content)
+        assertFalse(output.containsKey("artifactDirectory"))
     }
 
     private class Fixture(

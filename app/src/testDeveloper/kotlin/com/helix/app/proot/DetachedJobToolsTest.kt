@@ -3,6 +3,7 @@ package com.helix.app.proot
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
+import com.helix.runtime.proot.core.JobManifestEntry
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutor
@@ -20,6 +21,18 @@ import org.junit.Test
 import java.time.Instant
 
 class DetachedJobToolsTest {
+    @Test fun collectionLimitAccommodatesEscapedStreamsAndBoundedArtifactMetadata() {
+        val entries =
+            (0 until 64).map { JobManifestEntry("output/" + "界".repeat(500) + it, "a".repeat(64), 1) }
+        val output =
+            buildJsonObject {
+                put("stdout", "\u0000".repeat(DetachedJobTools.MAX_STREAM_CHARACTERS))
+                put("stderr", "\u0000".repeat(DetachedJobTools.MAX_STREAM_CHARACTERS))
+                ProotArtifactReferences.summary("job_001122334455", entries).forEach { (key, value) -> put(key, value) }
+            }
+        assertTrue(output.toString().toByteArray(Charsets.UTF_8).size < DetachedJobTools.collect().maxOutputBytes)
+    }
+
     @Test fun autoWaitDefaultsDoNotApplyToUnacceptedOrBackgroundLaunches() {
         val accepted = ToolExecutorResult.Completed(buildJsonObject { put("accepted", true) })
         val auto = call().copy(args = buildJsonObject { put("waitMode", "AUTO") })

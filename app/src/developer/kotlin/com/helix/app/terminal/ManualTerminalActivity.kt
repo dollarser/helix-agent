@@ -1,15 +1,22 @@
 package com.helix.app.terminal
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.HelixTheme
+import com.helix.app.MainActivity
 import com.helix.app.language.AppLanguageStore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /** User-operated terminal; neither exported nor registered as an Agent tool. */
 class ManualTerminalActivity : ComponentActivity() {
@@ -22,9 +29,29 @@ class ManualTerminalActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val terminal = checkNotNull((application as HelixApplication).appContainer.manualTerminal)
+        lifecycleScope.launch { initialize() }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Startup failure must return to the foreground warning, never reset here.
+    private suspend fun initialize() {
+        val container =
+            try {
+                (application as HelixApplication).awaitAppContainer()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+                return
+            }
+        showTerminal(container)
+    }
+
+    private fun showTerminal(container: AppContainer) {
+        val terminal = checkNotNull(container.manualTerminal)
         model = ViewModelProvider(this, Factory(terminal))[ManualTerminalViewModel::class.java]
         val directory = intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." }
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) model.enter(directory)
         setContent {
             HelixTheme {
                 val settings = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -38,7 +65,7 @@ class ManualTerminalActivity : ComponentActivity() {
                             androidx.compose.material3.Text(getString(com.helix.app.R.string.files_back))
                         }
                         com.helix.app.ui.RuntimeSetupScreen(
-                            (application as HelixApplication).appContainer.profileStore,
+                            container.profileStore,
                         )
                     }
                 } else {
@@ -53,12 +80,12 @@ class ManualTerminalActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        model.enter(intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." })
+        if (::model.isInitialized) model.enter(intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." })
     }
 
     override fun onStop() {
         super.onStop()
-        if (!isChangingConfigurations) model.disconnect()
+        if (::model.isInitialized && !isChangingConfigurations) model.disconnect()
     }
 
     private class Factory(

@@ -21,6 +21,7 @@ internal object DetachedJobTools {
     const val CANCEL = "code.linux.job.cancel"
     const val COLLECT = "code.linux.job.collect"
     const val AWAIT = "jobs.await"
+    const val MAX_STREAM_CHARACTERS = 4096
     private val resultSchema = buildJsonObject { put("type", "object") }
 
     fun start(): ToolDescriptor {
@@ -143,9 +144,13 @@ internal object DetachedJobTools {
     fun collect(): ToolDescriptor =
         control(true).copy(
             name = ToolName(COLLECT),
+            version = ToolVersion(2),
             description =
                 "Collect this session's original terminal Job, import only its originally approved output target, " +
-                    "and settle it. Retry collection after an import failure; never restart the command.",
+                    "and settle it. Returns verified stdout/stderr, each bounded to 4096 characters, with " +
+                    "streamsAvailable/streamsTruncated. No output files means no artifactDirectory. " +
+                    "Retry collection after an import failure; never restart the command.",
+            maxOutputBytes = 512L * 1024L,
             timeout = 120.seconds,
         )
 

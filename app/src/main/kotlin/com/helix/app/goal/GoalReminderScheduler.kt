@@ -62,6 +62,17 @@ class GoalReminderScheduler(
     }
 
     companion object {
+        /** Explicit preview reset only. Pending work is a projection of the database being cleared. */
+        internal fun cancelForDatabaseReset(context: Context) {
+            GoalReminderPublication.serialized {
+                GoalReminderPublication.await(WorkManager.getInstance(context).cancelAllWork().result)
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.activeNotifications
+                    .filter { it.notification.channelId == GoalReminderPayload.CHANNEL_ID }
+                    .forEach { manager.cancel(it.tag, it.id) }
+            }
+        }
+
         fun create(context: Context): GoalReminderScheduler =
             GoalReminderScheduler(
                 WorkManagerReminderEnqueuer(WorkManager.getInstance(context)) { goalId ->

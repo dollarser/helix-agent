@@ -13,7 +13,15 @@ class HelixApplication : Application() {
         check(!Process.isIsolated() && getProcessName() == packageName) {
             "AppContainer belongs to the main process"
         }
-        BackgroundInitialization("helix-container-init") { DefaultAppContainer(this) }
+        AppInitialization<AppContainer>(
+            factory = { DefaultAppContainer(this) },
+            onReady = ::recover,
+            onFailure = { Log.e("HelixStartup", "Application initialization failed", it) },
+            beforeReset = {
+                com.helix.app.goal.GoalReminderScheduler
+                    .cancelForDatabaseReset(this)
+            },
+        )
     }
 
     /** Room initialization always runs off main, even when an Activity wins first access. */
@@ -21,6 +29,13 @@ class HelixApplication : Application() {
         get() = containerInitialization.await()
 
     suspend fun awaitAppContainer(): AppContainer = containerInitialization.awaitAsync()
+
+    internal val startupState get() = containerInitialization.state
+
+    internal fun confirmPreviewReset(request: com.helix.core.storage.PreviewDatabaseResetRequired) =
+        containerInitialization.confirmReset(request)
+
+    internal fun readyAppContainerOrNull(): AppContainer? = containerInitialization.readyOrNull()
 
     private lateinit var processDiagnostics: ProcessDiagnostics
 
@@ -52,7 +67,6 @@ class HelixApplication : Application() {
      * start; it is logged in full and recovery is re-attempted at the next start, with the
      * persisted state consistent either way (doc 9.2). Genuine Errors are not swallowed.
      */
-    @Suppress("TooGenericExceptionCaught")
     override fun onCreate() {
         super.onCreate()
         if (!Process.isIsolated()) {
@@ -65,16 +79,20 @@ class HelixApplication : Application() {
         processDiagnostics = ProcessDiagnostics.install(this)
         // Schedule before recovery/UI access, preserving the private Runtime process guard.
         containerInitialization
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun recover(container: AppContainer) {
         Thread(
             {
                 try {
-                    requireNotNull(appContainer.turnEngine) {
+                    requireNotNull(container.turnEngine) {
                         "main-process AppContainer must provide TurnEngine"
                     }.recoverOnStartup()
-                    appContainer.chatService.onRecoveryCompleted()
+                    container.chatService.onRecoveryCompleted()
                     com.helix.app.goal
                         .GoalReminderReconciler(
-                            appContainer.storage,
+                            container.storage,
                             com.helix.app.goal.GoalReminderScheduler
                                 .create(this),
                             SystemClock(),

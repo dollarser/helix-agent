@@ -55,6 +55,20 @@ class RunControlModeUiDeviceTest {
 }
 
 @RunWith(AndroidJUnit4::class)
+class RunControlSaveFailureUiDeviceTest {
+    @get:Rule val composeRule = createComposeRule()
+
+    @Test fun failedWriteShowsAnErrorWithoutClaimingSaved() {
+        composeRule.setContent {
+            MaterialTheme { RunControlOutputEditor(2048) { error("synthetic disk failure") } }
+        }
+        composeRule.onNodeWithTag("budget-save").performClick()
+        composeRule.onNodeWithTag("budget-save-failed").assertIsDisplayed()
+        composeRule.onNodeWithTag("budget-saved").assertDoesNotExist()
+    }
+}
+
+@RunWith(AndroidJUnit4::class)
 class RunControlSettingsUiDeviceTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()

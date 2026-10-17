@@ -370,34 +370,24 @@ class HelixStorage internal constructor(
 
         private const val CONTENT_DIR = "helix-content"
 
-        /** Development v1 schemas are disposable; files outside the database are retained. */
+        /** Old previews stay untouched until the foreground startup warning is explicitly confirmed. */
         internal fun openDevelopmentDatabase(
             context: Context,
             name: String,
         ): HelixDatabase {
-            fun build() =
+            PreviewDatabaseGate.requireCompatible(context, name)
+            val database =
                 Room
                     .databaseBuilder(context, HelixDatabase::class.java, name)
-                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .openHelperFactory(PreservingSQLiteOpenHelperFactory())
                     .build()
-            val database = build()
+            var opened = false
             try {
                 database.openHelper.writableDatabase
+                opened = true
                 return database
-            } catch (failure: IllegalStateException) {
-                database.close()
-                // Same-version schema changes do not invoke Room's destructive migration fallback.
-                if (failure.message?.startsWith("Room cannot verify the data integrity.") != true) throw failure
-                check(context.deleteDatabase(name)) { "Unable to remove incompatible development database" }
-            }
-            return build().also { replacement ->
-                var opened = false
-                try {
-                    replacement.openHelper.writableDatabase
-                    opened = true
-                } finally {
-                    if (!opened) replacement.close()
-                }
+            } finally {
+                if (!opened) database.close()
             }
         }
     }

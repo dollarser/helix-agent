@@ -56,6 +56,21 @@ class ProotResultPreviewTest {
         assertTrue(scratch.listFiles().orEmpty().isEmpty())
     }
 
+    @Test
+    fun collectionUsesItsSmallerLimitWithoutChangingTheStoredArchive() {
+        val limit = DetachedJobTools.MAX_STREAM_CHARACTERS
+        val archive =
+            archive(mapOf("stdout.txt" to "x".repeat(limit - 1) + "😀tail", "stderr.txt" to "e".repeat(limit)))
+        val output = ProotResultPreview.read(archive, temporary.newFolder(), limit)
+        assertEquals("x".repeat(limit - 1), output.stdout)
+        assertEquals("e".repeat(limit), output.stderr)
+        assertTrue(output.truncated)
+        assertFalse(ProotResultPreview.read(archive, temporary.newFolder()).truncated)
+        assertThrows(IllegalArgumentException::class.java) {
+            ProotResultPreview.read(archive, temporary.newFolder(), 0)
+        }
+    }
+
     private fun archive(contents: Map<String, String>): File {
         val root = temporary.newFolder()
         val files = contents.toSortedMap().map { (name, text) -> File(root, name).apply { writeText(text) } }

@@ -36,6 +36,23 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class GoalReminderPublicationDeviceTest : ForegroundDeviceTestHost() {
     @Test
+    fun confirmedDatabaseResetCancelsQueuedWorkAndPostedReminders() =
+        withFixture { fixture ->
+            assertTrue(fixture.publish())
+            fixture.awaitNotification(true)
+            GoalReminderScheduler.cancelForDatabaseReset(fixture.context)
+            assertFalse(fixture.publish())
+            fixture.awaitNotification(false)
+            assertTrue(
+                GoalReminderPublication
+                    .await(
+                        fixture.workManager.getWorkInfoById(fixture.request.id),
+                    )!!
+                    .state.isFinished,
+            )
+        }
+
+    @Test
     fun cancelledWorkCannotPublishFromALateActor() =
         withFixture { fixture ->
             fixture.scheduler.cancelReminder(fixture.goalId)

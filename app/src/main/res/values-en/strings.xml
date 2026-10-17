@@ -2002,4 +2002,10 @@
     <string name="chat_search_history_navigation">Search history</string>
     <string name="workspace_location_details">Location details</string>
     <string name="workspace_copy_location">Copy full path</string>
+    <string name="preview_reset_title">Reset previous preview data</string>
+    <string name="preview_reset_message">The previous preview database is incompatible with this version. Continuing permanently clears conversations, tasks, configuration, and authorization records stored in the database. Files outside the database remain, but cannot restore these conversations. Nothing is cleared before confirmation. Exit and use the previous version if you need to save old data.</string>
+    <string name="preview_reset_confirm">Clear old data and continue</string>
+    <string name="preview_reset_cancel">Exit and keep data</string>
+    <string name="preview_start_exit">Exit</string>
+    <string name="budget_save_failed">Could not save settings. Check available storage and try again.</string>
 </resources>

@@ -102,6 +102,7 @@ import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -136,14 +137,24 @@ class MainActivity : ComponentActivity() {
         val restoredIntents = savedInstanceState?.getParcelableArrayList<Intent>("startup_pending_intents")
         pendingIntents.addAll(restoredIntents.orEmpty())
         startupIntent = initialIntent
-        setContent { AppStartupScreen(startupFailed) }
+        val app = application as HelixApplication
+        setContent {
+            val startup by app.startupState.collectAsStateWithLifecycle()
+            AppStartupScreen(
+                if (startupFailed) AppStartupState.Failed else startup,
+                onConfirmReset = app::confirmPreviewReset,
+                onExit = ::finishAndRemoveTask,
+            )
+        }
         lifecycleScope.launch { initializeContent(initialIntent) }
     }
 
     @Suppress("TooGenericExceptionCaught") // Show startup failure; cancellation must not attach a destroyed Activity.
     private suspend fun initializeContent(initialIntent: Intent) {
         try {
-            val container = (application as HelixApplication).awaitAppContainer()
+            val app = application as HelixApplication
+            app.startupState.first { it == AppStartupState.Ready }
+            val container = app.awaitAppContainer()
             val owner = BrowserViewOwner(this)
             browserOwner = owner
             readyContainer = container

@@ -30,6 +30,7 @@ internal class DetachedJobCollection(
     private val applyOutput: (DetachedJobBinding, ProotJobRecord, File?) -> Unit,
     private val settleBudget: (DetachedJobBinding, ProotJobRecord?) -> Unit,
 ) {
+    private val previewDirectory = File(context.cacheDir, "proot-collection-preview")
     private val bindings = ProotJobBindingStore(storage)
     private val observations = DetachedJobObservationStore(storage)
     private val jobs = DetachedJobClient(context)
@@ -78,6 +79,7 @@ internal class DetachedJobCollection(
             applyOutput(binding, record, archive)
             recordReceipt(binding, record)
         }
+        val streams = streamSummary(store, binding, record, previewDirectory)
         // A prior output receipt never skips a failed or interrupted Goal settlement.
         settleBudget(binding, record)
         val receipt =
@@ -99,7 +101,8 @@ internal class DetachedJobCollection(
                 put("settlementPending", false)
                 put("acknowledged", receipt != null)
                 put("resultAvailable", record.state == ProotJobState.SUCCEEDED)
-                appendProduced(this, store.produced(binding.turnId, binding.toolCallId))
+                appendFields(this, streams)
+                appendFields(this, store.produced(binding.turnId, binding.toolCallId))
             },
         )
     }
@@ -178,9 +181,31 @@ internal class DetachedJobCollection(
     private fun failure(reason: String) = ToolExecutorResult.Failed(reason, sideEffectFree = true)
 }
 
-private fun appendProduced(
+private fun appendFields(
     builder: kotlinx.serialization.json.JsonObjectBuilder,
     artifacts: kotlinx.serialization.json.JsonObject,
 ) {
     artifacts.forEach { (key, value) -> builder.put(key, value) }
+}
+
+private fun streamSummary(
+    store: ProotResultStore,
+    binding: DetachedJobBinding,
+    record: ProotJobRecord,
+    previewDirectory: File,
+) = buildJsonObject {
+    val preview =
+        if (record.state == ProotJobState.SUCCEEDED) {
+            store.readLocal(binding.turnId, binding.toolCallId)?.let {
+                ProotResultPreview.read(it, previewDirectory, DetachedJobTools.MAX_STREAM_CHARACTERS)
+            }
+        } else {
+            null
+        }
+    put("streamsAvailable", preview != null)
+    preview?.let {
+        put("stdout", it.stdout)
+        put("stderr", it.stderr)
+        put("streamsTruncated", it.truncated)
+    }
 }

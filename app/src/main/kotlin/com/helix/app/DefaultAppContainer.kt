@@ -162,7 +162,8 @@ internal class DefaultAppContainer(
     override val shellRepository: ShellRepository =
         FakeShellRepository(terminalAvailable = manualTerminal != null)
 
-    override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
+    override val runControlStore: RunControlStore =
+        PersistedRunControlStore(PrefsLineStore(context, PREFS_NAME, synchronous = true))
     override val lanScopeStore =
         com.helix.app.network.LanScopeStore(
             PrefsLineStore(context, "helix-lan-scopes", synchronous = true),

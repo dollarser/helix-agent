@@ -42,6 +42,7 @@ internal fun RunControlOutputEditor(
     var output by rememberSaveable(limit) { mutableStateOf(limit.toString()) }
     var invalid by rememberSaveable { mutableStateOf(false) }
     var saved by rememberSaveable { mutableStateOf(false) }
+    var saveFailed by rememberSaveable { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("settings-turn-budgets")) {
         Text(stringResource(R.string.settings_turn_budgets_title), style = MaterialTheme.typography.titleMedium)
@@ -59,9 +60,12 @@ internal fun RunControlOutputEditor(
             output = it
             invalid = false
             saved = false
+            saveFailed = false
         }, invalid, R.string.settings_budget_output, "budget-output")
         Button(
             onClick = {
+                saved = false
+                saveFailed = false
                 invalid =
                     try {
                         val value = output.toLong()
@@ -71,11 +75,17 @@ internal fun RunControlOutputEditor(
                         false
                     } catch (_: IllegalArgumentException) {
                         true
+                    } catch (_: IllegalStateException) {
+                        saveFailed = true
+                        false
                     }
             },
             modifier = Modifier.fillMaxWidth().testTag("budget-save"),
         ) { Text(stringResource(R.string.common_save)) }
         if (saved && !invalid) Text(stringResource(R.string.budget_saved), modifier = Modifier.testTag("budget-saved"))
+        if (saveFailed) {
+            Text(stringResource(R.string.budget_save_failed), modifier = Modifier.testTag("budget-save-failed"))
+        }
     }
 }
 

@@ -8,7 +8,9 @@
 
 ## 当前实施
 
-[HXA-303](tasks/HXA-303.md) 已完成 Owner 授权的独立优化：有效预算/预览存储基线、声明式发现配套及后续任务收敛。全仓主机门禁、双渠道 Debug/Release/R8 构建及测试 APK 编译通过，详见[本轮证据](../evidence/development/pre-refactor-contract-cleanup-2026-10-17.md)；设备/真实服务 not requested，未提交、推送或发布，不自动启动完整架构队列。
+[HXA-304](tasks/HXA-304.md) 已完成：旧预览库清空前确认、旧提醒清理、预算可靠落盘及实测发现的 PRoot collect 标准输出缺口。全仓主机门禁、独立 ARM64 双渠道 R8 与指定真实 Qwen 任务通过，详见[验收记录](../evidence/development/preview-upgrade-confirmation-2026-10-17.md)。HXA-303 已本地提交为 `9e9b6912`，8 项样本/公开 MCP 补验全通过；本轮仅本地提交，日常设备数据不变，未推送或发布。
+
+[HXA-303](tasks/HXA-303.md) 已完成 Owner 授权的独立优化：有效预算/预览存储基线、声明式发现配套及后续任务收敛。全仓主机门禁、双渠道 Debug/Release/R8 构建及测试 APK 编译通过，详见[本轮证据](../evidence/development/pre-refactor-contract-cleanup-2026-10-17.md)；原实施阶段设备/真实服务 not requested；后续追加范围见上，不自动启动完整架构队列。
 
 2026-10-17 Owner 再明确重构总原则：以当前最合理、未来扩展成本最低为基准，不承担旧设计/实现兼容；现有结构仅在符合目标时复用。已同步[开发原则](feature-refactor-strategy.md)、Harness §23 及目录 ADR，澄清“近期不改默认模式”只是补丁范围，不约束重构终态；本次仅修订规划。
 

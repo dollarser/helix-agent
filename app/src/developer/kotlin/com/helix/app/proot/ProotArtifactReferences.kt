@@ -15,7 +15,7 @@ internal object ProotArtifactReferences {
     ) = buildJsonObject {
         val outputs = entries.filter { it.path.startsWith("output/") }
         val directory = "scope:app:${ProotProducedFiles.relativeDirectory(jobId)}"
-        put("artifactDirectory", directory)
+        if (outputs.isNotEmpty()) put("artifactDirectory", directory)
         put("artifactCount", outputs.size)
         put("artifactsTruncated", outputs.size > MAX_ITEMS)
         put(

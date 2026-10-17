@@ -10,6 +10,13 @@ import org.junit.Test
 
 class ProotArtifactReferencesTest {
     @Test
+    fun streamsOnlyNeverAdvertisesANonexistentArtifactDirectory() {
+        val result = ProotArtifactReferences.summary("job_001122334455", emptyList())
+        org.junit.Assert.assertFalse(result.containsKey("artifactDirectory"))
+        assertEquals("0", result.getValue("artifactCount").jsonPrimitive.content)
+    }
+
+    @Test
     fun boundsLargeSummariesWithoutHidingCount() {
         val entries = (0 until 100).map { JobManifestEntry("output/frame-$it.png", "a".repeat(64), 10) }
         val summary = ProotArtifactReferences.summary("job_001122334455", entries)

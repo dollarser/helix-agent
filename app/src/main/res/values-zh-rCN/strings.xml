@@ -1999,4 +1999,10 @@
     <string name="chat_search_history_navigation">查找历史</string>
     <string name="workspace_location_details">位置详情</string>
     <string name="workspace_copy_location">复制完整路径</string>
+    <string name="preview_reset_title">需要重置旧预览版数据</string>
+    <string name="preview_reset_message">旧预览版的数据结构与此版本不兼容。继续将永久清空数据库中的会话、任务、配置与授权记录。数据库外文件会保留，但无法通过这些旧记录恢复会话。未确认前不会清空；如需保存旧数据，请退出并使用旧版本处理。</string>
+    <string name="preview_reset_confirm">清空旧数据并继续</string>
+    <string name="preview_reset_cancel">退出并保留数据</string>
+    <string name="preview_start_exit">退出</string>
+    <string name="budget_save_failed">设置未保存，请检查存储空间后重试。</string>
 </resources>

@@ -107,7 +107,7 @@ class DataSyncForegroundService : Service() {
 
     private fun stopTasks(systemReason: String? = null) {
         val app = application as com.helix.app.HelixApplication
-        val chat = app.appContainer.chatService
+        val chat = app.readyAppContainerOrNull()?.chatService ?: return
         chat.stopContinuousGoals(systemReason)
         chat.backgroundTasks.value.filter { it.running && it.goalId == null }.forEach { task ->
             chat.stopTask(task.id, systemReason = systemReason)

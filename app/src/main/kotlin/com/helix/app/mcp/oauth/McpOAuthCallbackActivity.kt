@@ -4,8 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
+import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
+import com.helix.app.MainActivity
 import com.helix.app.R
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,7 +53,7 @@ class McpOAuthCallbackActivity : Activity() {
         }
 
         scope.launch {
-            val coordinator = app.appContainer.mcpOAuthCoordinator
+            val coordinator = awaitContainer(app)?.mcpOAuthCoordinator
             if (coordinator == null) {
                 finish()
                 return@launch
@@ -82,4 +85,16 @@ class McpOAuthCallbackActivity : Activity() {
             finish()
         }
     }
+
+    @Suppress("TooGenericExceptionCaught") // A callback cannot approve a database reset or use unavailable credentials.
+    private suspend fun awaitContainer(app: HelixApplication): AppContainer? =
+        try {
+            app.awaitAppContainer()
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.connector_oauth_callback_failure, Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, MainActivity::class.java))
+            null
+        }
 }

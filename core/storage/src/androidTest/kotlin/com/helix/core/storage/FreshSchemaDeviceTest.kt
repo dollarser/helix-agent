@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,6 +33,9 @@ class FreshSchemaDeviceTest {
                     "UPDATE room_master_table SET identity_hash = 'old-development-baseline' WHERE id = 42",
                 )
             }
+            assertThrows(PreviewDatabaseResetRequired::class.java) {
+                HelixStorage.openDevelopmentDatabase(context, DATABASE)
+            }.confirm()
             withDevelopmentDatabase { room ->
                 val db = room.openHelper.writableDatabase
                 db.query("SELECT name FROM sqlite_master WHERE name = 'old_baseline_marker'").use {
@@ -60,6 +64,9 @@ class FreshSchemaDeviceTest {
                 old.execSQL("CREATE TABLE earlier_development_marker (value TEXT)")
                 old.version = 9
             }
+            assertThrows(PreviewDatabaseResetRequired::class.java) {
+                HelixStorage.openDevelopmentDatabase(context, DATABASE)
+            }.confirm()
             withDevelopmentDatabase { room ->
                 val db = room.openHelper.writableDatabase
                 assertEquals(1, db.version)
