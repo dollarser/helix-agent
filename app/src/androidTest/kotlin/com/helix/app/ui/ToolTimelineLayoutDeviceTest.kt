@@ -70,6 +70,19 @@ class ToolTimelineLayoutDeviceTest {
         assertTrue(bounds.left >= row.left && bounds.right <= row.right)
     }
 
+    @Test fun collapsedToolsKeepTouchTargetsWithoutExtraVerticalWhitespace() {
+        render(ToolTimelineRow("turn", "call", "read", "{}", "已执行成功", "content", null), fontScale = 1f)
+        val row = compose.onNodeWithTag("tool-row-call").getUnclippedBoundsInRoot()
+        val summary = compose.onNodeWithTag("tool-details-call").getUnclippedBoundsInRoot()
+        assertTrue("The tool disclosure must remain easy to tap", (summary.bottom - summary.top) >= 48.dp)
+        assertTrue(
+            "Collapsed tools must not add a second layer of vertical spacing",
+            (row.bottom - row.top) - (summary.bottom - summary.top) <= 4.dp,
+        )
+        compose.onNodeWithTag("tool-details-call").performClick()
+        compose.onNodeWithTag("tool-row-result-call").assertTextContains("content", substring = true)
+    }
+
     @Test fun longArgumentsAndResultsCanBeExpandedWithoutLosingTheirContent() {
         val args = "{\"path\":\"workspace/long-document.txt\"}\n".repeat(20)
         val result = "A long tool result with its original content.\n".repeat(20)

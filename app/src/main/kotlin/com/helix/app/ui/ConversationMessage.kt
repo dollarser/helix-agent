@@ -118,7 +118,10 @@ internal fun MessageRow(
     val isUser = message.role == "user"
     var actionsVisible by remember(message.id) { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().testTag(if (isUser) "chat-message-user" else "chat-message-assistant"),
+        Modifier
+            .fillMaxWidth()
+            .padding(top = if (isUser) 8.dp else 0.dp, bottom = if (isUser) 4.dp else 0.dp)
+            .testTag(if (isUser) "chat-message-user" else "chat-message-assistant"),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         Column(
@@ -152,7 +155,10 @@ internal fun MessageRow(
                     val bodyModifier =
                         Modifier
                             .testTag("chat-message-body-${message.id}")
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(
+                                horizontal = 12.dp,
+                                vertical = if (isUser) 8.dp else 4.dp,
+                            )
                     SelectionContainer {
                         if (!isUser) {
                             AssistantMessageBody(message, bodyModifier, searchQuery, isCurrentMatch)

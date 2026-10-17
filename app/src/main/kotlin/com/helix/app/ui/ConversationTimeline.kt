@@ -94,8 +94,8 @@ private fun FollowingTimeline(
         com.helix.app.ui.IndicatedLazyColumn(
             state = state,
             modifier = Modifier.fillMaxSize().nestedScroll(connection).testTag("chat-timeline"),
-            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 48.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             content()
             item(key = "timeline-end") {

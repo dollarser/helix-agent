@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -78,6 +79,35 @@ class MessagePresentationDeviceTest {
         }
         repeat(2) { compose.onNodeWithTag("message-progress-toggle-progress").performClick() }
         compose.runOnIdle { assertEquals(0, actions) }
+    }
+
+    @Test fun thinkingOnlyHasNoEmptyBodyAndKeepsAnAccessibleDisclosure() {
+        compose.setContent {
+            MaterialTheme { MessageRow(MessageUi("thinking", "assistant", "<think>Inspect evidence</think>")) }
+        }
+        compose.onNodeWithTag("chat-message-body-thinking").assertDoesNotExist()
+        val header = compose.onNodeWithTag("thinking-header-thinking").getUnclippedBoundsInRoot()
+        val message = compose.onNodeWithTag("chat-message-toggle-thinking").getUnclippedBoundsInRoot()
+        assertTrue("Thinking disclosure must remain easy to tap", (header.bottom - header.top) >= 48.dp)
+        assertTrue(
+            "A thinking-only message must not reserve a blank answer",
+            (message.bottom - message.top) - (header.bottom - header.top) <= 8.dp,
+        )
+        compose.onNodeWithTag("thinking-header-thinking").performClick()
+        compose.onNodeWithText("Inspect evidence").assertExists()
+    }
+
+    @Test fun streamedAnswerAppearsWithoutAnEmptyPlaceholderAfterThinking() {
+        val content = mutableStateOf("<think>Inspect evidence")
+        compose.setContent {
+            MaterialTheme { MessageRow(MessageUi("stream", "assistant", content.value)) }
+        }
+        compose.onNodeWithTag("chat-message-body-stream").assertDoesNotExist()
+        compose.runOnIdle { content.value = "<think>Inspect evidence</think>Verified result" }
+        compose.onNodeWithText("Verified result").assertExists()
+        compose.onNodeWithTag("thinking-header-stream").performClick()
+        compose.onNodeWithTag("thinking-content-stream").assertDoesNotExist()
+        compose.onNodeWithText("Verified result").assertExists()
     }
 
     private fun render(presentation: MessagePresentation) {

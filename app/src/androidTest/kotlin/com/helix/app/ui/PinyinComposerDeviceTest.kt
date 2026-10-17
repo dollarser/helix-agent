@@ -114,6 +114,7 @@ class PinyinComposerDeviceTest {
                 .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
                 .firstNotNullOfOrNull { window -> window.root?.let { findCandidate(it, "Pinyin keyboard") } }
         if (layout != null) clickKeyboard("Pinyin keyboard")
+        // The fixture uses full Pinyin; runners must preserve/restore a user's double-Pinyin scheme.
         "nihao".forEach { clickKeyboard(it.toString()) }
     }
 
@@ -164,6 +165,11 @@ class PinyinComposerDeviceTest {
 
     private fun clickKeyboard(label: String) {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val metrics =
+            InstrumentationRegistry
+                .getInstrumentation()
+                .targetContext.resources.displayMetrics
+        val screen = Rect(0, 0, metrics.widthPixels, metrics.heightPixels)
         automation.serviceInfo =
             automation.serviceInfo.apply {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
@@ -180,7 +186,10 @@ class PinyinComposerDeviceTest {
                     lastBounds = currentBounds
                     stableSince = SystemClock.uptimeMillis()
                 }
-                candidate != null && !currentBounds.isEmpty && SystemClock.uptimeMillis() - stableSince >= 250
+                // IME nodes can already exist below the screen while the keyboard animates in.
+                // Only a stable, visible target is a valid real key press.
+                candidate?.isVisibleToUser == true && !currentBounds.isEmpty && screen.contains(currentBounds) &&
+                    SystemClock.uptimeMillis() - stableSince >= 250
             }
         } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
             capturePreedit("pinyin-failure.png")
@@ -189,15 +198,12 @@ class PinyinComposerDeviceTest {
         if (label == "你好") capturePreedit("pinyin-preedit.png")
         val bounds = Rect()
         requireNotNull(candidate).getBoundsInScreen(bounds)
+        val detail =
+            "PINYIN_TOUCH label=$label text=${candidate?.text} " +
+                "description=${candidate?.contentDescription} bounds=$bounds\n"
         InstrumentationRegistry.getInstrumentation().sendStatus(
             0,
-            android.os.Bundle().apply {
-                putString(
-                    "stream",
-                    "PINYIN_TOUCH label=$label text=${candidate?.text} " +
-                        "description=${candidate?.contentDescription} bounds=$bounds\n",
-                )
-            },
+            android.os.Bundle().apply { putString("stream", detail) },
         )
         check(bounds.width() > 0 && bounds.height() > 0)
         val downTime = SystemClock.uptimeMillis()

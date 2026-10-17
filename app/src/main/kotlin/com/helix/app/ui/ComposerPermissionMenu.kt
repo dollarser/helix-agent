@@ -2,7 +2,8 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ButtonDefaults
@@ -39,15 +40,16 @@ internal fun ComposerPermissionMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val fullAccess = mode == SessionPermissionMode.FULL_ACCESS
-    val warning = permissionWarningColors(isSystemInDarkTheme())
+    val warning = permissionWarningColor(isSystemInDarkTheme())
     Box {
         TextButton(
             onClick = { expanded = true },
             enabled = mode != null && !pending,
-            modifier = Modifier.heightIn(min = 48.dp).testTag("chat-permission-menu"),
+            modifier = Modifier.defaultMinSize(minWidth = 1.dp).testTag("chat-permission-menu"),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
             colors =
                 if (fullAccess) {
-                    ButtonDefaults.textButtonColors(containerColor = warning.first, contentColor = warning.second)
+                    ButtonDefaults.textButtonColors(contentColor = warning)
                 } else {
                     ButtonDefaults.textButtonColors()
                 },
@@ -59,7 +61,7 @@ internal fun ComposerPermissionMenu(
                     else -> mode.labelRes()
                 }
             Text(
-                "${if (fullAccess) "⚠ " else ""}${stringResource(label)} ▾",
+                "${stringResource(label)} ▾",
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -102,6 +104,5 @@ internal fun ComposerPermissionMenu(
     }
 }
 
-/** Opaque warning surfaces retain readable contrast in both system themes. */
-internal fun permissionWarningColors(dark: Boolean): Pair<Color, Color> =
-    if (dark) Color(0xFF633E00) to Color(0xFFFFDDB3) else Color(0xFFFFDDB3) to Color(0xFF4A2800)
+/** Warning text contrasts with the ordinary light/dark composer surface; no extra container. */
+internal fun permissionWarningColor(dark: Boolean): Color = if (dark) Color(0xFFFFB95C) else Color(0xFF9A4600)

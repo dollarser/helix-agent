@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
@@ -79,7 +83,6 @@ internal fun ThinkingAccordion(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp)
                 .testTag("thinking-accordion-$messageId"),
     ) {
         ThinkingHeader(
@@ -107,18 +110,21 @@ private fun ThinkingHeader(
     messageId: String,
     onToggle: () -> Unit,
 ) {
+    val expandedState = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
         modifier =
             Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onToggle)
+                .clickable(role = Role.Button, onClick = onToggle)
+                .semantics { stateDescription = expandedState }
                 .testTag("thinking-header-$messageId"),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -169,11 +175,11 @@ private fun ThinkingContent(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp, start = 8.dp, end = 4.dp)
+                .padding(top = 2.dp)
                 .background(
                     MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f),
                     RoundedCornerShape(8.dp),
-                ).padding(10.dp)
+                ).padding(8.dp)
                 .testTag("thinking-content-$messageId"),
     ) {
         Text(

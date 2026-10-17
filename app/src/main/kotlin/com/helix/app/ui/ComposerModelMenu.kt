@@ -2,6 +2,8 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -109,10 +111,15 @@ internal fun ComposerModelMenu(
         }
     }
     Box {
-        TextButton({
-            query = ""
-            expanded = true
-        }, enabled = enabled, modifier = Modifier.testTag("chat-model-menu")) {
+        TextButton(
+            {
+                query = ""
+                expanded = true
+            },
+            enabled = enabled,
+            modifier = Modifier.defaultMinSize(minWidth = 1.dp).testTag("chat-model-menu"),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+        ) {
             Text(
                 "${currentLabel ?: stringResource(R.string.chat_select_model)} ▾",
                 maxLines = 1,

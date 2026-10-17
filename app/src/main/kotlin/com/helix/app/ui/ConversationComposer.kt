@@ -1,18 +1,19 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,7 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -146,21 +147,34 @@ internal fun ConversationComposer(
                 ) {
                     Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
                 }
-                OutlinedTextField(
+                BasicTextField(
                     value = fieldValue,
                     onValueChange = { value ->
                         editorValue = value
                         if (value.text != input) onInput(value.text)
                     },
-                    modifier = Modifier.weight(1f).focusRequester(inputFocus).testTag("chat-input"),
-                    placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp, vertical = 8.dp)
+                            .heightIn(min = 32.dp)
+                            .focusRequester(inputFocus)
+                            .testTag("chat-input"),
                     enabled = availability.input && !commandPending,
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                        ),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (fieldValue.text.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.chat_input_placeholder),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
                     visualTransformation = { text ->
                         val styled =
                             androidx.compose.ui.text.AnnotatedString

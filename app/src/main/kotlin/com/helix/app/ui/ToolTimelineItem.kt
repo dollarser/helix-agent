@@ -61,7 +61,7 @@ internal fun ToolTimelineItem(
             Modifier
                 .fillMaxWidth()
                 .then(borderModifier)
-                .padding(8.dp)
+                .padding(horizontal = 8.dp)
                 .testTag("tool-row-${row.callId}"),
     ) {
         ToolTimelineSummary(row, displayIntent, details) { details = !details }

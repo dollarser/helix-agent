@@ -57,10 +57,12 @@ internal fun AssistantMessageBody(
                     thinking,
                     parsed.isStreaming,
                     message.id,
-                    Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                 )
             }
-            MarkdownText(parsed.text, modifier, searchQuery, muted = muted)
+            if (parsed.text.isNotBlank()) {
+                MarkdownText(parsed.text, modifier, searchQuery, muted = muted)
+            }
         } else {
             Text(
                 remember(parsed.text) { markdownInline(parsed.text) },
