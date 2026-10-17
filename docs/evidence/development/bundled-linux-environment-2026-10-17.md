@@ -2,7 +2,9 @@
 
 Date: 2026-10-17
 Task: [HXA-305](../../development/tasks/HXA-305.md)
-Status: 已完成；全仓主机门禁通过；设备与真实模型 not requested
+Status: 原主机阶段已完成；该阶段设备与真实模型 not requested
+
+Owner 随后追加独立 ARM64 模拟器、真实 Qwen、最终 R8 和本地候选收尾，当前结果见[追加验收](linux-environment-closeout-2026-10-17.md)。下文保留原阶段证据及当时未提交、未进行设备验证的事实，不作为后续验收状态。
 
 ## 范围和设计判断
 
