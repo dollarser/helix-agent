@@ -91,7 +91,8 @@ class CapabilityRunnerTest(unittest.TestCase):
                 if timeout: raise subprocess.TimeoutExpired(command, 310)
                 kwargs['stdout'].write(SUCCESS.replace('STATUS_CODE: 0', 'STATUS_CODE: -2'))
         cwd = Path.cwd()
-        with TemporaryDirectory(dir=cwd / 'build/current-audit') as temporary:
+        # Own the whole fixture root; a clean checkout has no prior audit directory.
+        with TemporaryDirectory() as temporary:
             try:
                 os.chdir(temporary)
                 args = runner.arguments(['audit', 'gui', '--allow-real-model'])
