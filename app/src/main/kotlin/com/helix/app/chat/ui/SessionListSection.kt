@@ -203,7 +203,10 @@ internal fun SessionListSection(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text(session.title, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                session.title.ifBlank { stringResource(R.string.chat_new_session) },
+                                style = MaterialTheme.typography.titleSmall,
+                            )
                             Text(
                                 UiLabels.formatTime(session.createdAt),
                                 style = MaterialTheme.typography.labelSmall,
@@ -260,7 +263,7 @@ private fun SessionSearchHitRow(
         ) {
             Text(
                 buildString {
-                    append(hit.title)
+                    append(hit.title.ifBlank { stringResource(R.string.chat_new_session) })
                     if (hit.isArchived) append(stringResource(R.string.chat_archived_suffix))
                 },
                 style = MaterialTheme.typography.titleSmall,

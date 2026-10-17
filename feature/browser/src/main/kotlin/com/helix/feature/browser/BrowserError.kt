@@ -1,5 +1,7 @@
 package com.helix.feature.browser
 
+import android.webkit.WebViewClient
+
 /**
  * A stable, user-facing reason a Helix tab shows its error view (HXA-060). [kind] is the stable,
  * locale-independent identity. The UI renders the message from [kind] via resources (HXA-069, see
@@ -48,10 +50,9 @@ data class PolicyBlockedError(
 }
 
 /**
- * Maps the (netError, clientError) pair delivered by
- * `WebViewClient.onReceivedError(WebResourceRequest, WebResourceError)` to a
- * [BrowserErrorKind]. [netError] is the Chromium `ERR_*` code (net_error_list.h);
- * [clientError] is the legacy `WebViewClient.ERROR_*` code. Both zero means "not a
+ * Maps explicitly identified error domains to a [BrowserErrorKind]. [netError] is
+ * the Chromium `ERR_*` code (net_error_list.h); [clientError] is the platform
+ * `WebViewClient.ERROR_*` code, including modern `WebResourceError.errorCode`. Both zero means "not a
  * load failure" and yields null — the caller must not surface an error page then.
  * An aborted load (user stop) is not an error either: it yields null here because the
  * controller clears its loading state through the same path.
@@ -106,20 +107,6 @@ object BrowserErrorMapping {
             ERR_TOO_MANY_REDIRECTS,
         )
 
-    // Legacy WebViewClient.ERROR_* codes (clientErrorCode).
-    private const val ERROR_BAD_URL = -3
-    private const val ERROR_REDIRECT_LOOP = -4
-    private const val ERROR_UNSUPPORTED_AUTH_SCHEME = -5
-    private const val ERROR_IO = -7
-    private const val ERROR_TIMEOUT = -8
-    private const val ERROR_FAILED_SSL_HANDSHAKE = -9
-    private const val ERROR_AUTHENTICATION = -10
-    private const val ERROR_FILE_NOT_FOUND = -13
-    private const val ERROR_TOO_MANY_REQUESTS = -14
-    private const val ERROR_BAD_DATA = -15
-    private const val ERROR_NO_HOST = -20
-    private const val ERROR_UNKNOWN_PORT = -21
-
     /** Null when neither code signals a failure (both zero) or the load was aborted. */
     fun map(
         netError: Int,
@@ -154,25 +141,25 @@ object BrowserErrorMapping {
 
     private fun mapClient(code: Int): BrowserErrorKind =
         when (code) {
-            ERROR_TIMEOUT -> {
+            WebViewClient.ERROR_TIMEOUT -> {
                 BrowserErrorKind.TIMEOUT
             }
 
-            ERROR_FAILED_SSL_HANDSHAKE -> {
+            WebViewClient.ERROR_FAILED_SSL_HANDSHAKE -> {
                 BrowserErrorKind.SSL
             }
 
-            ERROR_BAD_URL, ERROR_NO_HOST, ERROR_UNKNOWN_PORT -> {
+            WebViewClient.ERROR_HOST_LOOKUP -> {
                 BrowserErrorKind.HOST_LOOKUP_FAILED
             }
 
-            ERROR_REDIRECT_LOOP,
-            ERROR_UNSUPPORTED_AUTH_SCHEME,
-            ERROR_IO,
-            ERROR_AUTHENTICATION,
-            ERROR_FILE_NOT_FOUND,
-            ERROR_TOO_MANY_REQUESTS,
-            ERROR_BAD_DATA,
+            WebViewClient.ERROR_CONNECT,
+            WebViewClient.ERROR_IO,
+            WebViewClient.ERROR_AUTHENTICATION,
+            WebViewClient.ERROR_PROXY_AUTHENTICATION,
+            WebViewClient.ERROR_REDIRECT_LOOP,
+            WebViewClient.ERROR_UNSUPPORTED_AUTH_SCHEME,
+            WebViewClient.ERROR_TOO_MANY_REQUESTS,
             -> {
                 BrowserErrorKind.CONNECTION_FAILED
             }

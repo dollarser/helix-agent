@@ -39,8 +39,10 @@ internal class SessionCatalog(
         title: String,
     ) {
         require(title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
-        val row = storage.sessions.resolve(id)
-        storage.sessions.updateDetails(id, title, row.directoryRef)
+        storage.withTransaction {
+            val row = storage.sessions.resolve(id)
+            storage.sessions.updateDetails(id, title, row.directoryRef)
+        }
     }
 
     fun create(
@@ -108,8 +110,9 @@ internal class SessionCatalog(
         id: String,
         bound: String?,
     ): Boolean {
-        val row = storage.sessions.find(id) ?: return false
+        var updated = false
         storage.withTransaction {
+            val row = storage.sessions.find(id) ?: return@withTransaction
             storage.sessions.updateDetails(row.id, row.title, bound)
             val binding = storage.workspaces.binding(row.id)
             storage.auditEvents.append(
@@ -123,8 +126,9 @@ internal class SessionCatalog(
                 }.toString(),
                 clock.now().toEpochMilli(),
             )
+            updated = true
         }
-        return true
+        return updated
     }
 
     /** Caller retains turnGate, the original input identity and Dispatcher authorization revalidation. */

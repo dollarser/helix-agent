@@ -138,7 +138,6 @@ class BrowserSecurityDeviceTest {
                 setOf(
                     BrowserErrorKind.HOST_LOOKUP_FAILED,
                     BrowserErrorKind.CONNECTION_FAILED,
-                    BrowserErrorKind.UNKNOWN,
                 ),
         )
     }
@@ -159,6 +158,29 @@ class BrowserSecurityDeviceTest {
         awaitState("cookie cleared") {
             if (onMain { cookieManager.getCookie("https://helix.example/") } == null) "cleared" else null
         }
+    }
+
+    @Test
+    fun clearingResourceCachePreservesWebsiteStorage() {
+        val tabId = onMain { controller.newTab() }
+        navigateToLoadedPage(tabId, "data:text/html,<h1>cache fixture</h1>")
+        val view = onMain { requireNotNull(controller.hostView(tabId)) }
+        onMain {
+            view.loadDataWithBaseURL("https://helix.example/", "<h1>site storage</h1>", "text/html", "UTF-8", null)
+        }
+        awaitState("site storage origin loaded") {
+            evaluateJavascript(view, "location.origin").takeIf { it == "\"https://helix.example\"" }
+        }
+        assertEquals(
+            "\"retained\"",
+            evaluateJavascript(
+                view,
+                "localStorage.setItem('cache-test','retained');localStorage.getItem('cache-test')",
+            ),
+        )
+        onMain { controller.clearCache() }
+        assertEquals("\"retained\"", evaluateJavascript(view, "localStorage.getItem('cache-test')"))
+        evaluateJavascript(view, "localStorage.removeItem('cache-test')")
     }
 
     @Test

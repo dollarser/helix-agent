@@ -18,7 +18,7 @@ internal data class DraftAttachment(
 )
 
 internal fun automaticSessionTitle(text: String): String {
-    val clean = text.trim().replace(Regex("\\s+"), " ")
-    val end = clean.offsetByCodePoints(0, minOf(20, clean.codePointCount(0, clean.length)))
+    val clean = text.replace("\u0000", "").trim().replace(Regex("\\s+"), " ")
+    val end = clean.offsetByCodePoints(0, minOf(48, clean.codePointCount(0, clean.length)))
     return clean.substring(0, end)
 }

@@ -51,8 +51,11 @@ class NavigationLayoutDeviceTest {
             verifyFiles()
             visit("browser", "browser-url-field")
             listOf("browser-clear-cookies", "browser-clear-cache", "browser-clear-history").forEach {
-                assertWithin("browser", it)
+                compose.onNodeWithTag(it).assertDoesNotExist()
             }
+            compose.onNodeWithTag("browser-menu").performClick()
+            compose.onNodeWithTag("browser-clear-history").performScrollTo().performClick()
+            compose.onNodeWithTag("browser-clear-cancel").assertIsDisplayed().performClick()
             visit("sessions", "chat-new-session")
         } finally {
             prepareChatLayoutLanguage(compose, restore = true)

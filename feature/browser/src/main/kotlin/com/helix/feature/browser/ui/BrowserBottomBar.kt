@@ -23,10 +23,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.helix.feature.browser.BrowserTab
+import com.helix.feature.browser.R
 
 /**
  * Classic 5-button bottom navigation bar inspired by Via and X Browser:
@@ -43,8 +48,9 @@ fun BrowserBottomBar(
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val canGoBack = selectedTab != null && selectedTab.canGoBack
-    val canGoForward = selectedTab != null && selectedTab.canGoForward
+    val tabsLabel = stringResource(R.string.browser_tabs)
+    val canGoBack = selectedTab != null && selectedTab.canGoBack && !selectedTab.isLoading
+    val canGoForward = selectedTab != null && selectedTab.canGoForward && !selectedTab.isLoading
 
     Surface(
         modifier =
@@ -65,6 +71,7 @@ fun BrowserBottomBar(
             // 1. Back button
             BottomBarItem(
                 text = "◀",
+                label = stringResource(R.string.browser_back),
                 enabled = canGoBack,
                 onClick = onBack,
                 testTag = "browser-back",
@@ -73,6 +80,7 @@ fun BrowserBottomBar(
             // 2. Forward button
             BottomBarItem(
                 text = "▶",
+                label = stringResource(R.string.browser_forward),
                 enabled = canGoForward,
                 onClick = onForward,
                 testTag = "browser-forward",
@@ -81,6 +89,7 @@ fun BrowserBottomBar(
             // 3. Home button
             BottomBarItem(
                 text = "⌂",
+                label = stringResource(R.string.browser_home),
                 enabled = true,
                 onClick = onHome,
             )
@@ -89,9 +98,10 @@ fun BrowserBottomBar(
             Box(
                 modifier =
                     Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .clickable { onTabsClick() }
+                        .semantics { contentDescription = tabsLabel }
+                        .clickable(role = Role.Button) { onTabsClick() }
                         .testTag("browser-tabs"),
                 contentAlignment = Alignment.Center,
             ) {
@@ -118,6 +128,7 @@ fun BrowserBottomBar(
             // 5. Menu button (☰)
             BottomBarItem(
                 text = "☰",
+                label = stringResource(R.string.browser_menu),
                 enabled = true,
                 onClick = onMenuClick,
                 testTag = "browser-menu",
@@ -129,6 +140,7 @@ fun BrowserBottomBar(
 @Composable
 private fun BottomBarItem(
     text: String,
+    label: String,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -140,10 +152,11 @@ private fun BottomBarItem(
     Box(
         modifier =
             modifier
-                .size(40.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
-                .clickable(enabled = enabled) { onClick() },
+                .semantics { contentDescription = label }
+                .clickable(enabled = enabled, role = Role.Button) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(

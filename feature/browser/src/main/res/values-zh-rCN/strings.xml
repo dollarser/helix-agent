@@ -105,4 +105,9 @@
     <string name="browser_new_tab_label">新标签页</string>
     <string name="browser_scripts_empty">暂无用户脚本，点击右上角添加</string>
     <string name="browser_downloads_empty">暂无下载</string>
+    <string name="browser_clear_address">清空地址</string>
+    <string name="browser_reload">刷新</string>
+    <string name="browser_clear_cookies_effect">清除 Helix 浏览器中所有网站的 Cookie，可能使网站账号退出登录。</string>
+    <string name="browser_clear_cache_effect">清除 Helix 内网页共用的资源缓存。不会清除 Cookie、网站存储或已保存文件；下次访问可能需要重新下载页面资源。</string>
+    <string name="browser_clear_history_effect">清除浏览记录并关闭全部浏览器标签页。未提交的网页输入将丢失；书签和已保存文件保留。</string>
 </resources>

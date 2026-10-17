@@ -991,18 +991,16 @@ class ChatService(
     suspend fun saveDraftForGoal(text: String): Boolean =
         withContext(workScope.coroutineContext) {
             if (text.isBlank()) return@withContext false
-            val attachments = saveSessionDraft(text) ?: return@withContext false
+            val sessionId = openSessionId ?: return@withContext false
+            val attachments = saveSessionDraft(sessionId) ?: return@withContext false
+            storage.sessions.nameUntitled(sessionId, automaticSessionTitle(text))
             attachments.forEach { stageAttachmentNow(it.uri) }
             stagedAttachments.size == attachments.size
         }
 
-    private fun saveSessionDraft(
-        text: String,
-        expectedSessionId: String? = openSessionId,
-        fallbackTitle: String = str(R.string.chat_attachment_button),
-    ): List<DraftAttachment>? {
+    private fun saveSessionDraft(expectedSessionId: String? = openSessionId): List<DraftAttachment>? {
         val attachments =
-            drafts.persist(expectedSessionId, text, fallbackTitle, catalog::persistDraft) ?: return null
+            drafts.persist(expectedSessionId, catalog::persistDraft) ?: return null
         expectedSessionId?.let { id ->
             storage.sessions.find(id)?.takeIf { it.archivedAt == null }?.let {
                 conversationLaunchStore.selectSession(id)
@@ -1950,7 +1948,7 @@ class ChatService(
             if (id != expectedSessionId || !drafts.beginPreparation(id)) return@withContext null
             try {
                 val attachments =
-                    saveSessionDraft("", id, str(R.string.chat_new_session)) ?: return@withContext null
+                    saveSessionDraft(id) ?: return@withContext null
                 for (attachment in attachments) {
                     if (openSessionId != id) return@withContext null
                     stageAttachmentNow(attachment.uri, id)
@@ -2194,7 +2192,7 @@ class ChatService(
             _screen.update { it.copy(preparingDraft = true) }
             try {
                 val attachments =
-                    saveSessionDraft(request.text)
+                    saveSessionDraft()
                         ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
                 attachments.forEach { stageAttachmentNow(it.uri) }
                 if (stagedAttachments.size != attachments.size) {
@@ -3661,6 +3659,7 @@ class ChatService(
         }
         val accepted = persistSessionInput(request, providerId, attachments, reference)
         if (accepted is SessionInputAcceptResult.Rejected) return ChatSubmissionOutcome.Rejected(accepted.reason)
+        refreshSessions()
         val input = (accepted as SessionInputAcceptResult.Accepted).record
         synchronized(turnGate) {
             val interruptedOwner =
@@ -3721,21 +3720,32 @@ class ChatService(
                     control,
                     if (request.delivery == SessionInputDelivery.STEER) control.mode.name else selected.mode.name,
                 )
-            storage.sessionInputs.accept(
-                SessionInputSpec(
-                    request.clientRequestId,
-                    request.sessionId,
-                    request.delivery,
-                    request.expectedTurnId,
-                    request.revision,
-                    request.text,
-                    attachments.map { InputAttachment(it.artifactId, it.boundSha256) },
-                    configuration,
-                    clock.now().toEpochMilli(),
-                    reference = reference,
-                    skillActivations = request.skillActivations,
-                ),
-            )
+            lateinit var accepted: SessionInputAcceptResult
+            storage.withTransaction {
+                accepted =
+                    storage.sessionInputs.accept(
+                        SessionInputSpec(
+                            request.clientRequestId,
+                            request.sessionId,
+                            request.delivery,
+                            request.expectedTurnId,
+                            request.revision,
+                            request.text,
+                            attachments.map { InputAttachment(it.artifactId, it.boundSha256) },
+                            configuration,
+                            clock.now().toEpochMilli(),
+                            reference = reference,
+                            skillActivations = request.skillActivations,
+                        ),
+                    )
+                if (accepted is SessionInputAcceptResult.Accepted) {
+                    storage.sessions.nameUntitled(
+                        request.sessionId,
+                        automaticSessionTitle(request.text).ifBlank { str(R.string.chat_attachment_button) },
+                    )
+                }
+            }
+            accepted
         }
     }
 

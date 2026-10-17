@@ -23,6 +23,10 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 
 页面发起的导航和显式导航共用 URL 策略。允许的页面请求由 WebView 在原 frame 中继续，不能通过 `loadUrl` 重放或把 iframe 提升为主页面；被拒绝的应用协议/本地文件请求只取消该次跳转，不把仍可用的来源页面改成错误页，也不启动外部应用。若禁止地址已经进入主文档提交回调，则停止并明确失效。快照区分加载中、页面错误、宿主不可用和观察期间页面变化，不能统一误报无页面。
 
+挂载到 Compose 的 WebView 使用明确的匹配父容器尺寸，网页百分比高度必须相对真实视口计算；原生 View 非零、DOM 可读取并不能单独证明页面内容正常绘制。现代资源错误保留平台错误码，只使当前主文档失败；子资源或过期文档错误不替换整页。
+
+数据清理放在菜单设置，不常驻页面底部。清理前说明影响：Cookie 可能导致退出网站账号，缓存只清共享网页资源、不删除网站存储，历史清理同时关闭全部标签和未提交的网页输入。Cookie 异步删除后再刷盘；界面不能在回调前宣布完成。浏览器导航保留地址、后退/前进、刷新/停止和菜单入口，触控与读屏语义独立于图形字符。
+
 ### 原生插件贡献与手动浏览（HXA-276）
 
 `:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。12 个原有工具及279两项新增工具统一为 Browser 的 PluginOrigin，走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
@@ -104,3 +108,7 @@ Owner要求完成279。采用[Playwright Pages](https://playwright.dev/docs/page
 ## Decision history — 2026-10-17：页面跳转拒绝不破坏来源文档
 
 Owner 日常模拟器抖音手测暴露：应用协议跳转被正确拒绝，但旧回调把原 HTTPS 页面标成策略错误，后续快照只返回 `no_page`。按 [Android WebViewClient 官方契约](https://developer.android.com/reference/android/webkit/WebViewClient#shouldOverrideUrlLoading(android.webkit.WebView,%20android.webkit.WebResourceRequest)) 修正为同一 URL 策略决定原请求继续或取消；保留显式导航与禁止文档提交的失败边界，不增加外部应用启动或任意脚本权限。合成页面已在旧实现复现，修复和当前验证范围见 [v0.0.6 交付记录](../../evidence/development/v0.0.6-handoff-2026-10-17.md)。
+
+## Decision history — 2026-10-17：页面视口与清理语义
+
+HXA-306 按 Owner 实际抖音空白反馈补充可见渲染验收，修正 Compose 默认布局导致百分比高度为零；清理入口移入设置，缓存与网站存储不混淆，清理范围先说明。比较 Chrome 和同机独立 WebView 后定位宿主差异，保留 TLS、URL 策略及插件授权边界；具体结果由任务记录证明。

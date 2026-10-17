@@ -23,4 +23,6 @@
     <string name="terminal_execution_busy_help">Terminals and Agent tasks can run together. An open terminal or uncollected result does not block other tasks. Shared files can change concurrently; verify the final result. Only environment maintenance, engine capacity and input to the same terminal require coordination. Leaving detaches without stopping commands.</string>
     <string name="terminal_settlement_required">Terminal stopped. Settle and close cleans up this session; other Agent tasks are not blocked.</string>
     <string name="terminal_menu">Terminal options</string>
+    <string name="terminal_requires_advanced">The terminal requires Advanced mode. Standard mode cannot start a terminal session.</string>
+    <string name="terminal_switch_and_start">Switch to Advanced and start terminal</string>
 </resources>

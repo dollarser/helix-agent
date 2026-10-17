@@ -21,7 +21,7 @@ class SessionRepository(
         createdAt: Long,
         directoryRef: String? = null,
     ): SessionEntity {
-        require(title.isNotBlank()) { "session title must not be blank" }
+        require(title == title.trim() && title.length <= 200 && '\u0000' !in title)
         require(createdAt >= 0) { "createdAt must be >= 0" }
         require(directoryRef == null || directoryRef.length <= 4096)
         val directory = directoryForSession(id, directoryRef)
@@ -54,12 +54,27 @@ class SessionRepository(
 
     fun find(id: String): SessionEntity? = dao.byId(id)
 
+    /** Called in the input acceptance transaction, not when optional composer state is cached. */
+    fun nameUntitled(
+        id: String,
+        title: String,
+    ): Boolean {
+        require(title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
+        val clean = title.trim()
+        return dao.nameUntitled(
+            id,
+            clean,
+            com.helix.core.storage.SearchText
+                .fold(clean),
+        ) == 1
+    }
+
     fun updateDetails(
         id: String,
         title: String,
         directoryRef: String?,
     ) {
-        require(title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
+        require(title.length <= 200 && '\u0000' !in title)
         require(directoryRef == null || directoryRef.length <= 4096)
         val directory = directoryForSession(id, directoryRef)
         transaction {

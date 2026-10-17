@@ -13,6 +13,36 @@ import org.junit.Test
 
 /** Page navigation must not promote subframes or replace a readable page with an app-link error. */
 class BrowserPageNavigationDeviceTest {
+    @Test fun aRealSubresourceFailureLeavesTheDocumentReadable() =
+        withPage { c, b, id ->
+            val received = java.util.concurrent.CountDownLatch(1)
+            onMain {
+                val view = c.hostView(id)!!
+                val original = view.webViewClient
+                view.webViewClient =
+                    object : android.webkit.WebViewClient() {
+                        override fun onReceivedError(
+                            view: android.webkit.WebView,
+                            request: WebResourceRequest,
+                            error: android.webkit.WebResourceError,
+                        ) {
+                            original.onReceivedError(view, request, error)
+                            if (!request.isForMainFrame) received.countDown()
+                        }
+                    }
+                view.evaluateJavascript(
+                    "window.fixtureImage=new Image();fixtureImage.src='https://127.0.0.1:9/missing';",
+                    null,
+                )
+            }
+            assertTrue(
+                "platform reported the failed resource",
+                received.await(10, java.util.concurrent.TimeUnit.SECONDS),
+            )
+            assertEquals(null, c.tab(id)!!.error)
+            assertTrue(b.snapshot(id).ok)
+        }
+
     @Test fun rejectedAppLinksLeaveTheCurrentPageReadable() =
         withPage { c, b, id ->
             val before = c.tab(id)!!

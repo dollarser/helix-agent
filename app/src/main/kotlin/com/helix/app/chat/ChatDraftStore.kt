@@ -41,15 +41,12 @@ internal class ChatDraftStore {
 
     fun persist(
         openId: String?,
-        text: String,
-        fallbackTitle: String,
         save: (SessionDraft) -> Unit,
     ): List<DraftAttachment>? =
         synchronized(lock) {
             val draft = current ?: return@synchronized emptyList()
             if (draft.session.id != openId) return@synchronized null
-            val title = draft.session.title.ifBlank { automaticSessionTitle(text).ifBlank { fallbackTitle } }
-            save(draft.copy(session = draft.session.copy(title = title)))
+            save(draft)
             current = null
             draft.attachments
         }

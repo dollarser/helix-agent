@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import android.webkit.CookieManager
-import android.webkit.WebStorage
 import android.webkit.WebView
 import androidx.core.graphics.createBitmap
 import com.helix.feature.browser.engine.AdBlockEngine
@@ -491,14 +490,11 @@ class BrowserController(
 
     fun clearCookies() {
         val manager = CookieManager.getInstance()
-        manager.flush()
-        manager.removeAllCookies(null)
-        manager.flush()
+        manager.removeAllCookies { manager.flush() }
     }
 
     fun clearCache() {
-        WebStorage.getInstance().deleteAllData()
-        hosts.values.forEach { it.clearCache() }
+        ownerBinding.get()?.takeIf { it.available }?.clearCache()
     }
 
     /** Per-tab history lives inside each WebView: drop every host and start from one blank tab. */

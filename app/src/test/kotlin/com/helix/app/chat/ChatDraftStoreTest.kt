@@ -17,6 +17,13 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class ChatDraftStoreTest {
+    @Test fun metadataMaterializationPreservesAnExplicitTitleIncludingTheUiPlaceholder() {
+        val store = ChatDraftStore()
+        store.open(draft(), control())
+        store.rename("draft", "新建会话")
+        store.persist("draft") { assertEquals("新建会话", it.session.title) }
+    }
+
     private fun draft(id: String = "draft") = SessionEntity(id, "", "provider", "model", 1L, null)
 
     private fun control() =
@@ -29,28 +36,28 @@ class ChatDraftStoreTest {
         store.model("draft", "other", "small")
         store.addAttachment("draft", DraftAttachment("a", "test-uri", "a.txt", 3L))
         var saved: SessionDraft? = null
-        assertNull(store.persist("different", "hello", "fallback") { saved = it })
+        assertNull(store.persist("different") { saved = it })
         assertNull(saved)
-        val attachments = store.persist("draft", " hello\nworld ", "fallback") { saved = it }
-        assertEquals("hello world", saved?.session?.title)
+        val attachments = store.persist("draft") { saved = it }
+        assertEquals("", saved?.session?.title)
         assertEquals("scope:workspace:work", saved?.session?.directoryRef)
         assertEquals("other", saved?.session?.providerId)
         assertEquals(listOf("a"), attachments?.map { it.id })
         assertNull(store.current)
-        store.persist("draft", "again", "fallback") { error("must not save twice") }
+        store.persist("draft") { error("must not save twice") }
     }
 
     @Test fun failedPersistencePreservesDraftAndCanBeRetriedAfterRelease() {
         val store = ChatDraftStore()
         store.open(draft(), control())
         assertTrue(store.beginPreparation("draft"))
-        val result = runCatching { store.persist("draft", "hello", "fallback") { error("disk failure") } }
+        val result = runCatching { store.persist("draft") { error("disk failure") } }
         assertTrue(result.isFailure)
         assertNotNull(store.current)
         assertTrue(store.preparing)
         store.finishPreparation()
         assertTrue(store.beginPreparation("draft"))
-        store.persist("draft", "hello", "fallback") { assertEquals("hello", it.session.title) }
+        store.persist("draft") { assertEquals("", it.session.title) }
         store.finishPreparation()
         assertNull(store.current)
     }

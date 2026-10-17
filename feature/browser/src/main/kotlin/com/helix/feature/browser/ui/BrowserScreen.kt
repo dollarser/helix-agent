@@ -55,16 +55,7 @@ import com.helix.feature.browser.LoadError
 import com.helix.feature.browser.R
 import com.helix.feature.browser.engine.SearchEngines
 
-/**
- * The redesigned, feature-rich Compose surface for Helix Browser, referencing Via and X Browser:
- * - Minimalist, modern Omnibox top bar with SSL lock, progress bar, and smart input resolution
- * - Classic 5-button bottom bar: [Back], [Forward], [Home], [Tabs], [Menu]
- * - Minimalist Via-style start page with Search engine dropdown & Speed Dials
- * - Full card-grid visual Tab Switcher with Incognito mode
- * - Action-packed Menu sheet with Bookmarks, History, Downloads, Find in page, UserScripts, DevTools, Reader mode
- * - Hardware BackHandler stack
- * - 100% preservation of existing test tags and Agent tool capabilities
- */
+/** Browser navigation and page surface; data maintenance stays in the menu settings. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 fun BrowserScreen(controller: BrowserController) {
@@ -89,6 +80,7 @@ fun BrowserScreen(controller: BrowserController) {
     // Modal Sheet & Dialog States
     var showTabSwitcher by remember { mutableStateOf(false) }
     var showMenuSheet by remember { mutableStateOf(false) }
+    var clearAction by remember { mutableStateOf<BrowserDataClear?>(null) }
     var showBookmarksHistory by remember { mutableStateOf(false) }
     var bookmarksHistoryInitialTab by remember { mutableIntStateOf(0) }
     var showDownloads by remember { mutableStateOf(false) }
@@ -254,9 +246,6 @@ fun BrowserScreen(controller: BrowserController) {
                 )
             }
 
-            // 5. Clear Row (Preserves test tags: browser-clear-cookies, browser-clear-cache, browser-clear-history)
-            ClearRow(controller)
-
             // 6. Classic 5-Button Bottom Bar
             BrowserBottomBar(
                 selectedTab = selected,
@@ -396,12 +385,23 @@ fun BrowserScreen(controller: BrowserController) {
                         }
                     }
                 },
-                onClearCookies = { controller.clearCookies() },
-                onClearCache = { controller.clearCache() },
-                onClearHistory = { controller.clearHistory() },
+                onClearCookies = {
+                    clearAction = BrowserDataClear.COOKIES
+                    showMenuSheet = false
+                },
+                onClearCache = {
+                    clearAction = BrowserDataClear.CACHE
+                    showMenuSheet = false
+                },
+                onClearHistory = {
+                    clearAction = BrowserDataClear.HISTORY
+                    showMenuSheet = false
+                },
                 onDismiss = { showMenuSheet = false },
             )
         }
+
+        BrowserDataClearDialog(clearAction, controller) { clearAction = null }
 
         if (showBookmarksHistory) {
             BrowserBookmarksHistoryDialog(
@@ -563,37 +563,6 @@ private fun DownloadsPanel(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-private fun ClearRow(controller: BrowserController) {
-    FlowRow(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        TextButton(
-            onClick = { controller.clearCookies() },
-            modifier = Modifier.testTag("browser-clear-cookies"),
-        ) {
-            Text(stringResource(R.string.browser_clear_cookies), fontSize = 11.sp)
-        }
-        TextButton(
-            onClick = { controller.clearCache() },
-            modifier = Modifier.testTag("browser-clear-cache"),
-        ) {
-            Text(stringResource(R.string.browser_clear_cache), fontSize = 11.sp)
-        }
-        TextButton(
-            onClick = { controller.clearHistory() },
-            modifier = Modifier.testTag("browser-clear-history"),
-        ) {
-            Text(stringResource(R.string.browser_clear_history), fontSize = 11.sp)
         }
     }
 }

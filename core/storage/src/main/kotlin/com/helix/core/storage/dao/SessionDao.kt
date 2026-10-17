@@ -91,6 +91,17 @@ interface SessionDao {
         searchTitle: String,
     ): Int
 
+    /** One-way initialization; a manual title (even the displayed placeholder) always wins. */
+    @Query(
+        "UPDATE sessions SET title = :title, searchTitle = :searchTitle " +
+            "WHERE id = :id AND title = '' AND archivedAt IS NULL",
+    )
+    fun nameUntitled(
+        id: String,
+        title: String,
+        searchTitle: String,
+    ): Int
+
     /** Explicit privacy erase; normal UI removal continues to use [archive]. */
     @Query("DELETE FROM sessions WHERE id = :id")
     fun deletePermanently(id: String): Int

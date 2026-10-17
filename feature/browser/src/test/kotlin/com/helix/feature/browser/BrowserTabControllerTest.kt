@@ -8,6 +8,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserTabControllerTest {
+    @Test fun platformUnknownErrorAfterExplicitStopPreservesTheStoppedPage() {
+        val controller = BrowserTabController()
+        val id = controller.newTab()
+        controller.navigate(id, "https://helix.example/")
+        controller.stop(id)
+        controller.onMainFrameError(id, netError = 0, clientError = -1, failingUrl = "https://helix.example/")
+        val tab = controller.state().tabs.single()
+        assertNull(tab.error)
+        assertFalse(tab.isLoading)
+        assertTrue(tab.stopped)
+    }
+
     @Test
     fun uiCapacityRefusalPreservesSelectionAndAllowsRetryAfterClose() {
         val controller = BrowserTabController(maxTabs = 1)

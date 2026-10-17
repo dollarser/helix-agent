@@ -15,12 +15,15 @@ import com.helix.app.HelixApplication
 import com.helix.app.HelixTheme
 import com.helix.app.MainActivity
 import com.helix.app.language.AppLanguageStore
+import com.helix.app.profile.SafetyProfileStore
+import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** User-operated terminal; neither exported nor registered as an Agent tool. */
 class ManualTerminalActivity : ComponentActivity() {
     private lateinit var model: ManualTerminalViewModel
+    private lateinit var profileStore: SafetyProfileStore
 
     override fun attachBaseContext(base: Context) {
         val locale = AppLanguageStore.effectiveLocaleList(base)
@@ -49,30 +52,39 @@ class ManualTerminalActivity : ComponentActivity() {
 
     private fun showTerminal(container: AppContainer) {
         val terminal = checkNotNull(container.manualTerminal)
+        profileStore = container.profileStore
         model = ViewModelProvider(this, Factory(terminal))[ManualTerminalViewModel::class.java]
         val directory = intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." }
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) model.enter(directory)
         setContent {
             HelixTheme {
-                val settings = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-                androidx.activity.compose.BackHandler(settings.value) { settings.value = false }
-                if (settings.value) {
-                    androidx.compose.foundation.layout.Column(
-                        androidx.compose.ui.Modifier
-                            .systemBarsPadding(),
-                    ) {
-                        androidx.compose.material3.TextButton(onClick = { settings.value = false }) {
-                            androidx.compose.material3.Text(getString(com.helix.app.R.string.files_back))
+                ManualTerminalAccess(
+                    profileStore,
+                    onAvailable = {
+                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) model.enter(directory)
+                    },
+                    onUnavailable = { model.disconnect() },
+                    onBack = { finish() },
+                ) {
+                    val settings = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                    androidx.activity.compose.BackHandler(settings.value) { settings.value = false }
+                    if (settings.value) {
+                        androidx.compose.foundation.layout.Column(
+                            androidx.compose.ui.Modifier
+                                .systemBarsPadding(),
+                        ) {
+                            androidx.compose.material3.TextButton(onClick = { settings.value = false }) {
+                                androidx.compose.material3.Text(getString(com.helix.app.R.string.files_back))
+                            }
+                            com.helix.app.ui.RuntimeSetupScreen(
+                                container.profileStore,
+                            )
                         }
-                        com.helix.app.ui.RuntimeSetupScreen(
-                            container.profileStore,
-                        )
+                    } else {
+                        ManualTerminalScreen(model, directory, onBack = { finish() }, onRuntimeSettings = {
+                            settings.value =
+                                true
+                        })
                     }
-                } else {
-                    ManualTerminalScreen(model, directory, onBack = { finish() }, onRuntimeSettings = {
-                        settings.value =
-                            true
-                    })
                 }
             }
         }
@@ -80,7 +92,9 @@ class ManualTerminalActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (::model.isInitialized) model.enter(intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." })
+        if (::model.isInitialized && profileStore.profile == SafetyProfile.ADVANCED) {
+            model.enter(intent.getStringExtra(DIRECTORY).orEmpty().ifBlank { "." })
+        }
     }
 
     override fun onStop() {

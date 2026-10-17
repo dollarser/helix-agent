@@ -132,15 +132,14 @@ internal class WebViewTabHost(
         }
 
         @SuppressLint("SetJavaScriptEnabled")
-        @Deprecated("Legacy main-frame error callback: WebResourceError exposes no numeric code.")
+        @Deprecated("Legacy callback; modern requests provide explicit main-frame identity.")
         override fun onReceivedError(
             view: WebView,
             errorCode: Int,
             description: String?,
             failingUrl: String?,
         ) {
-            // The legacy callback also reports sub-resource (image/script) failures; the
-            // same-document check keeps only failures of the tab's own document.
+            // Keep late failures of a replaced document out of the current page state.
             if (failingUrl == null || isSameDocument(failingUrl, lastLoadUrl)) {
                 listener.onMainFrameError(0, errorCode, failingUrl)
             }
@@ -151,16 +150,12 @@ internal class WebViewTabHost(
             request: WebResourceRequest,
             error: WebResourceError,
         ) {
-            // The callback the current System WebView actually fires for a main-frame
-            // failure — but `WebResourceError` carries no numeric ERR_* code, so this is
-            // the codeless path: the state machine maps it to an UNKNOWN error page, only
-            // while the tab is still loading and no typed legacy error has landed. The
-            // same-document check also drops ERR_ABORTED-style noise from loads that a
-            // newer navigation already replaced.
+            // WebResourceError exposes WebViewClient.ERROR_* (not Chromium net ERR_*) codes.
+            // A failed image/script or a replaced document must not invalidate the current page.
             if (!request.isForMainFrame()) return
             val url = request.url.toString()
             if (!isSameDocument(url, lastLoadUrl)) return
-            listener.onMainFrameUnknownError(url)
+            listener.onMainFrameError(0, error.errorCode, url)
         }
 
         override fun shouldInterceptRequest(
@@ -270,6 +265,13 @@ internal class WebViewTabHost(
 
     private fun createView(context: Context): WebView =
         WebView(context).also { view ->
+            // AndroidView otherwise supplies WRAP_CONTENT. Blink then gives percentage-height
+            // content an indefinite containing block despite the nonzero native view size.
+            view.layoutParams =
+                android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                )
             applyHardenedSettings(view.settings)
             view.settings.blockNetworkImage = noImageMode
             if (desktopMode) view.settings.userAgentString = DESKTOP_UA
@@ -399,8 +401,6 @@ internal class WebViewTabHost(
     fun cancelDialogs() = dialogs.cancel()
 
     fun resume() = withCreatedView { onResume() }
-
-    fun clearCache() = withCreatedView { clearCache(true) }
 
     fun setDesktopMode(enabled: Boolean) {
         desktopMode = enabled

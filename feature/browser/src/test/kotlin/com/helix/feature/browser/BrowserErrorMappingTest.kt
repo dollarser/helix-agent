@@ -1,5 +1,6 @@
 package com.helix.feature.browser
 
+import android.webkit.WebViewClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -56,17 +57,38 @@ class BrowserErrorMappingTest {
     }
 
     @Test
-    fun legacyClientCodesStillMapWhenNoChromiumCodeIsPresent() {
-        assertEquals(BrowserErrorKind.TIMEOUT, BrowserErrorMapping.map(0, -8))
-        assertEquals(BrowserErrorKind.SSL, BrowserErrorMapping.map(0, -9))
-        assertEquals(BrowserErrorKind.HOST_LOOKUP_FAILED, BrowserErrorMapping.map(0, -3))
-        assertEquals(BrowserErrorKind.HOST_LOOKUP_FAILED, BrowserErrorMapping.map(0, -20))
-        assertEquals(BrowserErrorKind.HOST_LOOKUP_FAILED, BrowserErrorMapping.map(0, -21))
-        assertEquals(BrowserErrorKind.CONNECTION_FAILED, BrowserErrorMapping.map(0, -4))
-        assertEquals(BrowserErrorKind.CONNECTION_FAILED, BrowserErrorMapping.map(0, -7))
-        assertEquals(BrowserErrorKind.CONNECTION_FAILED, BrowserErrorMapping.map(0, -13))
-        assertEquals(BrowserErrorKind.CONNECTION_FAILED, BrowserErrorMapping.map(0, -15))
-        assertEquals(BrowserErrorKind.UNKNOWN, BrowserErrorMapping.map(0, -1))
-        assertEquals(BrowserErrorKind.UNKNOWN, BrowserErrorMapping.map(0, -42))
+    fun platformCodesMapWithoutConfusingChromiumValues() {
+        val expected =
+            mapOf(
+                WebViewClient.ERROR_HOST_LOOKUP to BrowserErrorKind.HOST_LOOKUP_FAILED,
+                WebViewClient.ERROR_TIMEOUT to BrowserErrorKind.TIMEOUT,
+                WebViewClient.ERROR_FAILED_SSL_HANDSHAKE to BrowserErrorKind.SSL,
+                WebViewClient.ERROR_CONNECT to BrowserErrorKind.CONNECTION_FAILED,
+                WebViewClient.ERROR_IO to BrowserErrorKind.CONNECTION_FAILED,
+                WebViewClient.ERROR_REDIRECT_LOOP to BrowserErrorKind.CONNECTION_FAILED,
+                WebViewClient.ERROR_AUTHENTICATION to BrowserErrorKind.CONNECTION_FAILED,
+                WebViewClient.ERROR_PROXY_AUTHENTICATION to BrowserErrorKind.CONNECTION_FAILED,
+                WebViewClient.ERROR_UNSUPPORTED_AUTH_SCHEME to BrowserErrorKind.CONNECTION_FAILED,
+                WebViewClient.ERROR_TOO_MANY_REQUESTS to BrowserErrorKind.CONNECTION_FAILED,
+            )
+        for ((code, kind) in expected) {
+            assertEquals(code.toString(), kind, BrowserErrorMapping.map(0, code))
+        }
+    }
+
+    @Test
+    fun otherPlatformCodesDoNotInventDnsOrTlsFailures() {
+        for (code in listOf(
+            WebViewClient.ERROR_UNKNOWN,
+            WebViewClient.ERROR_BAD_URL,
+            WebViewClient.ERROR_UNSUPPORTED_SCHEME,
+            WebViewClient.ERROR_FILE,
+            WebViewClient.ERROR_FILE_NOT_FOUND,
+            -20,
+            -21,
+            -42,
+        )) {
+            assertEquals(code.toString(), BrowserErrorKind.UNKNOWN, BrowserErrorMapping.map(0, code))
+        }
     }
 }

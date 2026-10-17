@@ -1,8 +1,11 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -15,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
@@ -34,11 +38,19 @@ internal fun ComposerPermissionMenu(
     onSettings: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val fullAccess = mode == SessionPermissionMode.FULL_ACCESS
+    val warning = permissionWarningColors(isSystemInDarkTheme())
     Box {
         TextButton(
             onClick = { expanded = true },
             enabled = mode != null && !pending,
-            modifier = Modifier.testTag("chat-permission-menu"),
+            modifier = Modifier.heightIn(min = 48.dp).testTag("chat-permission-menu"),
+            colors =
+                if (fullAccess) {
+                    ButtonDefaults.textButtonColors(containerColor = warning.first, contentColor = warning.second)
+                } else {
+                    ButtonDefaults.textButtonColors()
+                },
         ) {
             val label =
                 when {
@@ -47,7 +59,7 @@ internal fun ComposerPermissionMenu(
                     else -> mode.labelRes()
                 }
             Text(
-                "${stringResource(label)} ▾",
+                "${if (fullAccess) "⚠ " else ""}${stringResource(label)} ▾",
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -89,3 +101,7 @@ internal fun ComposerPermissionMenu(
         }
     }
 }
+
+/** Opaque warning surfaces retain readable contrast in both system themes. */
+internal fun permissionWarningColors(dark: Boolean): Pair<Color, Color> =
+    if (dark) Color(0xFF633E00) to Color(0xFFFFDDB3) else Color(0xFFFFDDB3) to Color(0xFF4A2800)

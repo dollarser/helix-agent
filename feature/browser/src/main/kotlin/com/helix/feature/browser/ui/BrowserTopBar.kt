@@ -30,11 +30,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,6 +56,7 @@ import com.helix.feature.browser.R
  * - Smooth animated progress indicator at the bottom edge
  */
 @Composable
+@Suppress("CyclomaticComplexMethod") // Declarative editing, loading and connection states of one address bar.
 fun BrowserTopBar(
     selectedTab: BrowserTab?,
     urlText: String,
@@ -60,10 +67,26 @@ fun BrowserTopBar(
     onHome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val homeLabel = stringResource(R.string.browser_home)
+    val clearLabel = stringResource(R.string.browser_clear_address)
+    val reloadLabel = stringResource(R.string.browser_reload)
+    val stopLabel = stringResource(R.string.browser_stop)
+    val goLabel = stringResource(R.string.browser_go)
+    val submit = {
+        onSubmitUrl()
+        focus.clearFocus()
+        keyboard?.hide()
+        Unit
+    }
     val isLoading = selectedTab?.isLoading == true
     val progress = selectedTab?.progress ?: 0
-    val isHttps = selectedTab?.url?.startsWith("https://", ignoreCase = true) == true
     val isBlank = selectedTab == null || selectedTab.url == BrowserTabController.ABOUT_BLANK
+    val isEditing = urlText != selectedTab?.url && !(isBlank && urlText.isEmpty())
+    val isHttps =
+        selectedTab?.url?.startsWith("https://", ignoreCase = true) == true &&
+            selectedTab.error == null && !isEditing && !isLoading
 
     val animatedProgress by animateFloatAsState(
         targetValue = if (isLoading) (progress.coerceIn(10, 100) / 100f) else 0f,
@@ -87,9 +110,10 @@ fun BrowserTopBar(
             Box(
                 modifier =
                     Modifier
-                        .size(36.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .clickable { onHome() },
+                        .semantics { contentDescription = homeLabel }
+                        .clickable(role = Role.Button) { onHome() },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -107,7 +131,7 @@ fun BrowserTopBar(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(40.dp),
+                        .height(48.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
             ) {
@@ -155,11 +179,15 @@ fun BrowserTopBar(
                                     color = MaterialTheme.colorScheme.onSurface,
                                 ),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    imeAction = ImeAction.Go,
+                                    keyboardType = KeyboardType.Uri,
+                                ),
                             keyboardActions =
                                 KeyboardActions(
-                                    onGo = { onSubmitUrl() },
-                                    onDone = { onSubmitUrl() },
+                                    onGo = { submit() },
+                                    onDone = { submit() },
                                 ),
                         )
                     }
@@ -169,9 +197,10 @@ fun BrowserTopBar(
                         Box(
                             modifier =
                                 Modifier
-                                    .size(24.dp)
+                                    .size(48.dp)
                                     .clip(CircleShape)
-                                    .clickable { onUrlChange("") },
+                                    .semantics { contentDescription = clearLabel }
+                                    .clickable(role = Role.Button) { onUrlChange("") },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -187,13 +216,14 @@ fun BrowserTopBar(
             Spacer(modifier = Modifier.width(4.dp))
 
             // Stop or Reload button
-            if (isLoading) {
+            if (isLoading && !isEditing) {
                 Box(
                     modifier =
                         Modifier
-                            .size(36.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .clickable { onStop() }
+                            .semantics { contentDescription = stopLabel }
+                            .clickable(role = Role.Button) { onStop() }
                             .testTag("browser-stop"),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -204,13 +234,14 @@ fun BrowserTopBar(
                         fontWeight = FontWeight.Bold,
                     )
                 }
-            } else if (!isBlank) {
+            } else if (!isBlank && !isEditing) {
                 Box(
                     modifier =
                         Modifier
-                            .size(36.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .clickable { onReload() },
+                            .semantics { contentDescription = reloadLabel }
+                            .clickable(role = Role.Button) { onReload() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -224,9 +255,10 @@ fun BrowserTopBar(
                 Box(
                     modifier =
                         Modifier
-                            .size(36.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .clickable { onSubmitUrl() }
+                            .semantics { contentDescription = goLabel }
+                            .clickable(enabled = urlText.isNotBlank(), role = Role.Button) { submit() }
                             .testTag("browser-go"),
                     contentAlignment = Alignment.Center,
                 ) {

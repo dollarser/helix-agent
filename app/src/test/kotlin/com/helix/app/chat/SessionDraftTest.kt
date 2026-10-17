@@ -6,7 +6,7 @@ import org.junit.Test
 class SessionDraftTest {
     @Test fun titleNormalizesWhitespaceAndDoesNotSplitSurrogatePairs() {
         assertEquals("hello world", automaticSessionTitle("  hello\n world  "))
-        assertEquals("😀".repeat(20), automaticSessionTitle("😀".repeat(25)))
+        assertEquals("😀".repeat(48), automaticSessionTitle("😀".repeat(60)))
         assertEquals("", automaticSessionTitle(" \n "))
     }
 }

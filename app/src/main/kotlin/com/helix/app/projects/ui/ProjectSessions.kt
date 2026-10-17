@@ -101,7 +101,7 @@ private fun ProjectSessionCard(
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Text(row.title)
+            Text(row.title.ifBlank { stringResource(R.string.chat_new_session) })
             if (row.archived) Text(stringResource(R.string.project_archived))
             SettingsActions {
                 if (joining) {

@@ -25,6 +25,7 @@ import androidx.room.PrimaryKey
 )
 data class SessionEntity(
     @PrimaryKey val id: String,
+    /** Empty means not yet named; localized placeholders are presentation, never stored titles. */
     val title: String,
     val providerId: String?,
     val modelId: String?,

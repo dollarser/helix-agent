@@ -1,14 +1,14 @@
 package com.helix.feature.browser
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.activity.ComponentActivity
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 
 /** Real Activity Context for browser tests; no Application Context fallback. */
-class BrowserTestActivity : Activity() {
+class BrowserTestActivity : ComponentActivity() {
     lateinit var controller: BrowserController
     lateinit var owner: BrowserViewOwner
 

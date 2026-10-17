@@ -19,8 +19,8 @@ data class BrowserTab(
     val title: String? = null,
     val isLoading: Boolean = false,
     /**
-     * True right after the user pressed stop. The codeless modern error callback cannot
-     * tell an aborted load from a real failure, so a codeless UNKNOWN error page is
+     * True right after the user pressed stop. A platform ERROR_UNKNOWN or codeless failure cannot
+     * distinguish an aborted load, so an UNKNOWN error page is
      * suppressed while this is set; it clears on the next real transition.
      */
     val stopped: Boolean = false,

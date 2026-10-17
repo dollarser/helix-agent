@@ -6,6 +6,8 @@
 
 Helix executes tasks on Android: interacting with supported apps, browsing the web, handling files, and running tools. Choose your model and access scope, follow execution, and keep results in conversations and files you can use again.
 
+Looking for an **open-source alternative to the Doubao phone-assistant experience**? Helix explores that direction through its Mobile Use plugin, connecting phone interaction, web browsing, and file workflows to a model you choose. Helix is an independent Apache-2.0 project with no official affiliation with Doubao or its developer. It does not require OEM preinstallation and does not claim equivalent system privileges or feature parity.
+
 [Download preview](https://github.com/dollarser/helix-agent/releases) · [Get started](#your-first-task) · [Documentation](docs/README.md) · [Issues](https://github.com/dollarser/helix-agent/issues) · [Contribute](CONTRIBUTING.md)
 
 > **Development preview. Android 10+ required; old data is not guaranteed to survive updates.** Published APKs currently use debug signing. An incompatible database upgrade asks you to confirm before permanently clearing the database's conversations, tasks, configuration, and authorization records. Cancelling exits and preserves old data; files outside the database are retained. Save important content separately; diagnostic exports are not restorable app backups. Features on `main` may not be in published APKs.
@@ -22,6 +24,14 @@ Helix executes tasks on Android: interacting with supported apps, browsing the w
 | **Plugins** | Organize capabilities through plugins, skills, and connectors, including MCP; select plugins per conversation |
 
 Task quality depends on the model, device, permissions, and target app. Helix is not an OEM system image and does not promise compatibility with every app, website, or file format. See [current status](docs/development/status.md) for implementation and verification boundaries.
+
+### Turn a conversation into useful work
+
+- **Operate your phone**: find content, enter information, and complete steps in apps you authorize while following progress and adding instructions.
+- **Turn web research into a deliverable**: browse public pages, compare sources, and organize findings into a file you can preview or share.
+- **Continue with context**: conversations, project directories, and optional memory preserve task context. Connect your own API or on-device model and choose plugins for each task.
+
+Mobile Use is an optional plugin. Browser, file, and tool access retain their own authorization boundaries. Check the requested scope and actual results for account, payment, or other consequential operations.
 
 ## Your first task
 

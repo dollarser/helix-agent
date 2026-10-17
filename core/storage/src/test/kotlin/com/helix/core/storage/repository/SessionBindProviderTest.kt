@@ -122,6 +122,12 @@ class SessionBindProviderTest {
             searchTitle: String,
         ): Int = error("not used")
 
+        override fun nameUntitled(
+            id: String,
+            title: String,
+            searchTitle: String,
+        ): Int = error("not used")
+
         val rows = HashMap<String, SessionEntity>()
 
         override fun insert(session: SessionEntity) {

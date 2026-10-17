@@ -1,6 +1,7 @@
 package com.helix.feature.browser
 
 import android.app.Activity
+import android.webkit.WebView
 import com.helix.feature.browser.webview.WebViewTabHost
 
 /** Activity-owned UI resources. The application facade keeps only a weak binding to this owner. */
@@ -27,6 +28,18 @@ class BrowserViewOwner(
     internal fun resume() {
         resumed = true
         hosts.values.toList().forEach { it.resume() }
+    }
+
+    /** Cache is shared by the application's WebViews, including closed tabs. No page is loaded. */
+    internal fun clearCache() {
+        check(available)
+        val maintenanceView = WebView(checkNotNull(activity))
+        try {
+            WebViewTabHost.applyHardenedSettings(maintenanceView.settings)
+            maintenanceView.clearCache(true)
+        } finally {
+            maintenanceView.destroy()
+        }
     }
 
     internal fun clear() {

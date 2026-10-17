@@ -263,6 +263,8 @@ class BrowserTabController(
         failingUrl: String?,
     ) {
         val kind = BrowserErrorMapping.map(netError, clientError)
+        // WebView has no distinct client ERROR_ABORTED; stopLoading may finish with ERROR_UNKNOWN.
+        if (requireTab(id).stopped && kind == BrowserErrorKind.UNKNOWN) return
         if (kind == null) {
             // Zero codes / aborted load: clear the loading state (and the stop marker — this
             // callback is a real platform transition, not the user pressing stop).
@@ -274,8 +276,7 @@ class BrowserTabController(
     }
 
     /**
-     * Codeless main-frame failure (the modern `onReceivedError` callback carries no numeric
-     * code): surfaces an UNKNOWN error page unless a typed [onMainFrameError] already set one,
+     * Codeless host failure: surfaces an UNKNOWN error page unless a typed [onMainFrameError] already set one,
      * or the tab was stopped by the user — the codeless callback cannot tell an aborted load
      * from a real failure, and [BrowserTab.stopped] is the only marker of the former. It must
      * NOT be gated on [BrowserTab.isLoading]: the legacy callback may clear it (with a

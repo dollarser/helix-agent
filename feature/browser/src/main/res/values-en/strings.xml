@@ -105,4 +105,9 @@
     <string name="browser_new_tab_label">New tab</string>
     <string name="browser_scripts_empty">No user scripts. Use Add to create one.</string>
     <string name="browser_downloads_empty">No downloads</string>
+    <string name="browser_clear_address">Clear address</string>
+    <string name="browser_reload">Reload</string>
+    <string name="browser_clear_cookies_effect">Remove cookies for all sites in the Helix browser. This may sign you out of websites.</string>
+    <string name="browser_clear_cache_effect">Remove the web resource cache shared within Helix. Cookies, site storage, and saved files stay intact; pages may download resources again.</string>
+    <string name="browser_clear_history_effect">Remove browsing history and close all browser tabs. Unsubmitted page input will be lost; bookmarks and saved files stay intact.</string>
 </resources>

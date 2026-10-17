@@ -70,7 +70,6 @@ class WebViewResourceLifecycleDeviceTest : BrowserResourceTestHost() {
             host.pause()
             host.resume()
             host.stop()
-            host.clearCache()
             host.goBack()
             host.goForward()
             host.reload()

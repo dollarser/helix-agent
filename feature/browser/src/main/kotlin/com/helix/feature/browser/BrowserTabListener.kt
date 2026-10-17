@@ -23,7 +23,7 @@ internal interface BrowserTabListener {
 
     /**
      * The tab's own document failed to load. [netError] is the Chromium `ERR_*` code
-     * (0 when the platform did not expose one); [clientError] is the legacy
+     * (0 when the platform did not expose one); [clientError] is the platform
      * `WebViewClient.ERROR_*` code.
      */
     fun onMainFrameError(
@@ -33,12 +33,8 @@ internal interface BrowserTabListener {
     )
 
     /**
-     * The tab's own document failed to load with NO numeric code (the modern
-     * `WebViewClient.onReceivedError(WebResourceRequest, WebResourceError)` callback, which
-     * the current System WebView fires for main-frame failures). The state machine surfaces
-     * an UNKNOWN error page unless a typed [onMainFrameError] already set one or the tab was
-     * stopped by the user — the codeless callback cannot tell an aborted load from a real
-     * failure, and the stop is the only case that must stay a non-error.
+     * A host failure without a platform error code. Modern resource errors use
+     * [onMainFrameError]; this fallback preserves an existing typed error or explicit stop.
      */
     fun onMainFrameUnknownError(failingUrl: String?)
 
