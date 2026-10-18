@@ -70,7 +70,7 @@ internal object DetachedJobTools {
             }
         return base.copy(
             name = ToolName(START),
-            version = ToolVersion(2),
+            version = ToolVersion(1),
             description =
                 "Start one trusted Linux Job in the developer Runtime, sharing Helix UID and network access. " +
                     "BACKGROUND returns acceptance; AUTO returns the original result when completed during waiting, " +
@@ -144,7 +144,7 @@ internal object DetachedJobTools {
     fun collect(): ToolDescriptor =
         control(true).copy(
             name = ToolName(COLLECT),
-            version = ToolVersion(2),
+            version = ToolVersion(1),
             description =
                 "Collect this session's original terminal Job, import only its originally approved output target, " +
                     "and settle it. Returns verified stdout/stderr, each bounded to 4096 characters, with " +

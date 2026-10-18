@@ -58,7 +58,7 @@ object LinuxRunTool {
      */
     internal const val MIN_JOB_DEADLINE_MS: Long = 1_000L
 
-    const val VERSION: Int = 3
+    const val VERSION: Int = 1
 
     /** Fixed execution budget; the model may lower (per call) but never raise it. */
     const val DEFAULT_DEADLINE_SECONDS: Long = 60

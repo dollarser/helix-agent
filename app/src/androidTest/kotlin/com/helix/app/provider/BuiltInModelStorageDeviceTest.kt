@@ -26,15 +26,15 @@ import java.util.UUID
 class BuiltInModelStorageDeviceTest {
     @Test fun freshRegistrationIsIdempotentAndDoesNotReplaceSubsequentSelection() {
         Fixture().use { f ->
-            BuiltInModelRegistration.ensureRegistered(f.storage, f.preferences)
-            BuiltInModelRegistration.ensureRegistered(f.storage, f.preferences)
+            BuiltInModelRegistration.ensureRegistered(f.storage)
+            BuiltInModelRegistration.ensureRegistered(f.storage)
             assertEquals(
                 1,
                 f.storage.providerConfigs
                     .list()
                     .size,
             )
-            assertEquals(BuiltInModel.PROVIDER_ID to BuiltInModel.MODEL_ID, f.launch.draftModel())
+            assertNull(f.launch.draftModel())
             assertNull(
                 f.storage.providerConfigs
                     .resolve(BuiltInModel.PROVIDER_ID)
@@ -42,7 +42,7 @@ class BuiltInModelStorageDeviceTest {
             )
             f.customProvider()
             f.launch.selectDraftModel("custom", "chosen")
-            BuiltInModelRegistration.ensureRegistered(f.storage, f.preferences)
+            BuiltInModelRegistration.ensureRegistered(f.storage)
             assertEquals("custom" to "chosen", ConversationLaunchStore(f.preferences).draftModel())
         }
     }
@@ -53,7 +53,7 @@ class BuiltInModelStorageDeviceTest {
             f.storage.sessions.create("existing", "Keep", "custom", "chosen", 1)
             val provider = f.storage.providerConfigs.resolve("custom")
             val session = f.storage.sessions.resolve("existing")
-            BuiltInModelRegistration.ensureRegistered(f.storage, f.preferences)
+            BuiltInModelRegistration.ensureRegistered(f.storage)
             assertEquals(provider, f.storage.providerConfigs.resolve("custom"))
             assertEquals(session, f.storage.sessions.resolve("existing"))
             assertNull(f.launch.draftModel())
@@ -63,7 +63,7 @@ class BuiltInModelStorageDeviceTest {
     @Test fun serviceAllowsAttemptWithoutFakingPassedAndRejectsMutations() =
         runBlocking {
             Fixture().use { f ->
-                BuiltInModelRegistration.ensureRegistered(f.storage, f.preferences)
+                BuiltInModelRegistration.ensureRegistered(f.storage)
                 val wire =
                     object : WireClient {
                         override suspend fun open(request: WireRequest): WireResponse = error("No network")
@@ -82,7 +82,8 @@ class BuiltInModelStorageDeviceTest {
                     assertTrue(service.chatSelectable(id))
                     assertEquals(ConnectionTestStatus.Untested, service.statusFor(id))
                     assertEquals(BuiltInModel.capabilities, service.capabilitiesFor(id, BuiltInModel.MODEL_ID))
-                    assertNull(service.capabilitiesFor(id, "other"))
+                    assertEquals(false, service.capabilitiesFor(id, "other")?.toolCalls)
+                    assertEquals(false, service.capabilitiesFor(id, "other")?.vision)
                     assertTrue(runCatching { service.delete(id) }.exceptionOrNull() is IllegalArgumentException)
                     assertTrue(runCatching { service.saveSelectedModels(id, listOf("other")) }.isFailure)
                     assertTrue(runCatching { service.declareVisionCapability(id, false) }.isFailure)

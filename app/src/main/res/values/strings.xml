@@ -1943,7 +1943,7 @@
     <string name="plugin_state_metadata">仅保留说明</string>
     <string name="plugin_state_reload">配置已变化，请重新连接</string>
     <string name="plugin_effect_next_request">修改在下一次请求生效</string>
-    <string name="plugin_revision">安装版本：%1$d</string>
+    <string name="plugin_revision">内部安装修订：%1$d</string>
     <string name="plugin_saved_loaded">配置已保存：%1$s；已加载：%2$s</string>
     <string name="plugin_fact_yes">是</string>
     <string name="plugin_fact_no">否</string>
@@ -1999,10 +1999,11 @@
     <string name="settings_proot_manage">环境详情</string>
     <string name="readiness_action_manage_runtime">管理运行环境</string>
     <string name="builtin_model_title">Helix 内置模型</string>
-    <string name="builtin_model_description">项目提供的云端服务，无需填写 API Key。支持文字、图片和工具调用。</string>
+    <string name="builtin_model_description">项目提供的云端模型服务，无需填写 API Key。</string>
+    <string name="builtin_model_catalog_notice">内置模型目录会定期刷新；列出模型不代表推理连接或能力已验证。</string>
     <string name="builtin_model_disclosure">使用内置模型会将消息、上下文、工具结果及所选图片发送至项目云端服务。你可以切换自己的模型。</string>
     <string name="builtin_model_shared_limits">所有用户共用服务额度；繁忙或额度用尽时需要稍后重试。数据留存与训练政策尚未公布。</string>
-    <string name="builtin_model_unverified">已配置，尚未验证连接。连接测试会发送一条简短测试消息。</string>
+    <string name="builtin_model_unverified">尚未获取内置模型目录。</string>
     <string name="builtin_model_verified">最近一次连接测试通过</string>
     <string name="builtin_model_auth_error">内置模型的客户端标识未获授权或已被停用，请联系项目维护者。无需填写 API Key。</string>
     <string name="builtin_model_rate_limit">内置模型触发共享服务限制，可能涉及请求频率、额度或并发。请稍后手动重试，或自行选择其他模型。</string>

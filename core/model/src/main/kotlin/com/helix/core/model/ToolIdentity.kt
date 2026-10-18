@@ -47,8 +47,9 @@ value class ToolName(
 }
 
 /**
- * Monotonic, non-negative tool API version. Changing the version invalidates cached approvals
- * (the approval hash includes `toolVersion`).
+ * Non-negative tool API contract label; owner-authorized preview declarations currently use 1.
+ * The exact per-call proof includes this label, while persistent user permissions use stable
+ * source, tool and approved scope. Contract hashes and runtime incarnations protect replacement.
  */
 @JvmInline
 value class ToolVersion(

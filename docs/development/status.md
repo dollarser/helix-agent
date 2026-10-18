@@ -8,7 +8,9 @@
 
 ## 当前实施
 
-2026-10-18 [HXA-307](tasks/HXA-307.md) 本地实现与完整主机验收完成：内置 Qwen3.8-27B、固定项目 HTTPS 网关与公开 Client ID，首次安装免配置、保留现有模型选择，复用图片/SSE/工具调用。双渠道 JVM 分别 1301/1425 通过、各 4 条件跳过；传输 8/8、Provider API 118/118、Core Model 163/163 通过，Debug/Release/R8 与测试 APK 编译通过。日常 API36/ARM64 的 Room/UI 各 5/5、同源 R8 保数据冷启动/重启共 4 次通过，原会话及模型选择保留；真实网关联调仍 pending，等待白名单登记。仅本地提交，不使用历史 API Key 绕过，不推送、发布、清库或改动既有 v0.0.6 资产。结果、503 隐藏重发修复及未执行边界见[验收记录](../evidence/development/built-in-model-2026-10-18.md)。
+HXA-307 追加实现与本地主机/设备验收完成：内置服务只在对话按动态目录选模，来源/插件布局统一；原生无变化启动与健康 repair 不递增 revision，持久授权来源不依赖包版本，当前包/工具声明版本为 1。完整主机门禁通过，应用 JVM 1309/1434 通过、各 4 条件跳过。日常 API36/ARM64 最新候选 Standard 28 项竖屏 + 9 项真实横屏大字体、Advanced 30 + 9，合计 76 次零失败/跳过；同源 R8 冷启动/重启共 4 次通过，全部用户表与关键设置保留，revision 稳定。Standard 18:54:56 的变更已由 Owner 确认为手动操作，按其要求保留当前值作为最终基线。旋转夹具错误与恢复、制品来源及范围见[追加验收记录](../evidence/development/built-in-model-2026-10-18.md#2026-10-18-追加动态目录布局与插件版本身份)。仅本地提交，真实网关完整闭环仍待白名单。
+
+2026-10-18 [HXA-307](tasks/HXA-307.md) 原接入阶段 `e4434a90`：内置 Qwen3.8-27B、固定项目 HTTPS 网关与公开 Client ID，首次安装免配置、保留现有模型选择，复用图片/SSE/工具调用。双渠道 JVM 分别 1301/1425 通过、各 4 条件跳过；传输 8/8、Provider API 118/118、Core Model 163/163 通过，Debug/Release/R8 与测试 APK 编译通过。日常 API36/ARM64 的 Room/UI 各 5/5、同源 R8 保数据冷启动/重启共 4 次通过，原会话及模型选择保留；真实网关联调仍 pending，等待白名单登记。仅本地提交，不使用历史 API Key 绕过，不推送、发布、清库或改动既有 v0.0.6 资产。结果、503 隐藏重发修复及未执行边界见[验收记录](../evidence/development/built-in-model-2026-10-18.md)。
 
 2026-10-18 Owner 在 HXA-306 本地验收后明确授权 v0.0.6 ARM64 双渠道预览发布，包括提交、正常推送 main、最终 host-only CI、tag/prerelease 和附件读回。最新手势/过程说明补丁已提交 `0a6e1a10`；补齐双语发行材料和 Alpine 精确源码/许可附件，沿用 code 1 与既有开发证书，日常设备保数据，既有 runtime Release 不变。发布身份、验证范围和公开结果入口统一见[发行记录](../evidence/development/v0.0.6-publication-2026-10-18.md)与 [v0.0.6 Release](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)；以下“未推送/发布”仅为先前阶段事实，不再限制本次授权。
 

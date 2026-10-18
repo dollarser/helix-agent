@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mobile-use",
-  "version": "0.2.0",
+  "version": "1",
   "description": "Observe and operate user-authorized Android apps or the whole phone with semantic nodes, gestures and screenshots.",
   "extensions": {
     "com.helix.agent": {

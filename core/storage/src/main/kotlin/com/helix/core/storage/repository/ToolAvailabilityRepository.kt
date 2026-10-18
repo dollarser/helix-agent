@@ -21,6 +21,41 @@ import com.helix.core.storage.entity.ToolAvailabilityEntity
 class ToolAvailabilityRepository(
     private val dao: ToolAvailabilityDao,
 ) {
+    /** One-time key normalization, called inside the host's storage transaction before exposure. */
+    fun normalizeSourceRefs(normalize: (String) -> String): Int {
+        val rows = dao.all()
+        val moved = rows.filter { normalize(it.sourceRef) != it.sourceRef }
+        if (moved.isEmpty()) return 0
+        val affectedKeys = moved.map { listOf(normalize(it.sourceRef), it.toolName, it.scopeKind, it.scopeRef) }.toSet()
+        rows
+            .groupBy { listOf(normalize(it.sourceRef), it.toolName, it.scopeKind, it.scopeRef) }
+            .filterKeys { it in affectedKeys }
+            .forEach { (key, records) ->
+                require(normalize(key[0]) == key[0]) { "source normalization must be idempotent" }
+                val newest = records.maxBy { it.revision }
+                check(newest.revision < Long.MAX_VALUE) { "tool availability revision exhausted" }
+                val state =
+                    if (records.any { stateOf(it) == ToolAvailabilityState.DISABLED }) {
+                        ToolAvailabilityState.DISABLED
+                    } else {
+                        ToolAvailabilityState.ENABLED
+                    }
+                dao.insert(
+                    newest.copy(
+                        sourceRef = key[0],
+                        state = state.name,
+                        revision = newest.revision + 1,
+                        createdAtEpoch = records.minOf { it.createdAtEpoch },
+                        updatedAtEpoch = records.maxOf { it.updatedAtEpoch },
+                    ),
+                )
+            }
+        moved.forEach { row ->
+            check(dao.deleteByKey(row.sourceRef, row.toolName, row.scopeKind, row.scopeRef) == 1)
+        }
+        return moved.size
+    }
+
     /**
      * Sets (or updates) the availability state of one tool identity in one scope; returns the
      * new revision.

@@ -89,6 +89,7 @@ internal fun SessionSettingsScreen(
                 onManageModels = onModels,
                 sourceGroups = providerService.sourceGroups,
                 onConfigureSource = onConfigureModelSource,
+                onRefreshModels = providerService.builtInModels::refresh,
             )
             OutlinedButton(
                 onClick = onModels,

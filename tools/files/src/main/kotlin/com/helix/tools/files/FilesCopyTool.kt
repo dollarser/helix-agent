@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 object FilesCopyTool {
     const val NAME: String = "files.copy"
 
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     fun descriptor(): ToolDescriptor =
         ToolDescriptor(

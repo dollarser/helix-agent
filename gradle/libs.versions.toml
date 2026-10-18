@@ -60,6 +60,7 @@ okhttp-sse = { module = "com.squareup.okhttp3:okhttp-sse", version.ref = "okhttp
 # Leaf alias for the plain okhttp library: `okhttp` is a prefix of `okhttp-sse`,
 # so the type-safe accessor `libs.okhttp` is a namespace without a .get().
 okhttp-wire = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 zipline = { module = "app.cash.zipline:zipline", version.ref = "zipline" }

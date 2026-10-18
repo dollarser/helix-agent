@@ -106,7 +106,7 @@ class AutomationDeviceToolsTest {
         val device = (execute("ui.device", "{}") as ToolExecutorResult.Completed).output.jsonObject
         assertEquals(json("""{"left":0,"top":0,"right":1080,"bottom":2400}"""), device["screenBounds"])
         assertEquals(json("""{"left":70,"top":1016,"right":1010,"bottom":1458}"""), device["windowBounds"])
-        assertEquals(5, descriptor("ui.device").version.value)
+        assertEquals(1, descriptor("ui.device").version.value)
         assertEquals(
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(descriptor("ui.device").outputSchema, device),
@@ -169,7 +169,7 @@ class AutomationDeviceToolsTest {
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(descriptor("ui.apps").outputSchema, result.output),
         )
-        assertEquals(3, descriptor("ui.apps").version.value)
+        assertEquals(1, descriptor("ui.apps").version.value)
     }
 
     @Test fun originIdentifiesEachHostIndependentlyOfAppLabelsForegroundAndQuery() {
@@ -236,7 +236,7 @@ class AutomationDeviceToolsTest {
                 .toString()
                 .contains("ui.gesture"),
         )
-        assertEquals(3, descriptor("ui.screenshot").version.value)
+        assertEquals(1, descriptor("ui.screenshot").version.value)
         assertEquals(
             "1",
             result.output.jsonObject

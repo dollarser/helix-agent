@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -134,13 +134,13 @@ private fun PluginManagementTabs(
     section: Int,
     onSelect: (Int) -> Unit,
 ) {
-    SecondaryTabRow(selectedTabIndex = section) {
+    SecondaryScrollableTabRow(selectedTabIndex = section, edgePadding = 0.dp) {
         listOf(R.string.plugin_configuration, R.string.plugin_guidance_tools, R.string.plugin_details)
             .forEachIndexed { index, label ->
                 Tab(
                     selected = section == index,
                     onClick = { onSelect(index) },
-                    text = { Text(stringResource(label)) },
+                    text = { Text(stringResource(label), maxLines = 1) },
                     modifier = Modifier.testTag("plugin-tab-$index-$id"),
                 )
             }

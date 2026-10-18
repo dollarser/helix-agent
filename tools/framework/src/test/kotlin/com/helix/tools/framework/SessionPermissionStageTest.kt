@@ -73,6 +73,41 @@ class SessionPermissionStageTest {
 
     // ------------------------------------------------------------------ availability
 
+    @Test fun packageAndImplementationUpdatesDoNotReaskUnchangedSessionPermission() {
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
+        val classification =
+            CallEffectClassification(OperationFootprint(effects = setOf(OperationEffect.DEVICE_SYSTEM_MUTATION)))
+        val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
+        val descriptor =
+            TestFixtures
+                .builtIn(name = "fake", operationClass = ToolOperationClass.EXTERNAL_ACTION)
+                .copy(origin = ToolOrigin.PluginOrigin("fixture", "1", "fixture"))
+        val first = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        val old = registry.registerBatch(listOf(ToolBinding(descriptor, first, "revision-1"))).single()
+        assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
+        val updated = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registry.replaceOwner(
+            old.ref.owner,
+            listOf(
+                ToolBinding(
+                    descriptor.copy(origin = ToolOrigin.PluginOrigin("fixture", "2", "fixture")),
+                    updated,
+                    "revision-2",
+                ),
+            ),
+        )
+        assertTrue(
+            dispatcher.dispatch(
+                request().copy(toolCallId = "call-2", uiToken = "ui:card:2"),
+            ) is ToolDispatchOutcome.Succeeded,
+        )
+        assertEquals(0, broker.acquireCalls.size)
+        assertEquals(1, first.invocations)
+        assertEquals(1, updated.invocations)
+        assertTrue(source.statesCalls.all { it.sourceRef == "plugin:fixture:fixture" })
+        assertNull(registry.resolveBinding(old.ref))
+    }
+
     @Test
     fun aDisabledToolStopsBeforeAnyCardWithTheBoundSessionAndWorkspace() {
         val source =

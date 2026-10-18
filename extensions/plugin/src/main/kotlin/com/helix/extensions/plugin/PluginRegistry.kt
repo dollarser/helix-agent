@@ -202,7 +202,7 @@ class PluginRegistry(
         state: NativePluginState,
         factory: HelixPlugin,
     ): Boolean {
-        val expected = factory.tools().map { it.descriptor }.toSet()
+        val expected = if (state.enabled) factory.tools().map { it.descriptor }.toSet() else emptySet()
         val published = toolRegistry.snapshot().filter { it.ref.owner == bindingOwner("plugin", state.pluginId) }
         return factory.manifest.version == state.version && factory.manifest.helixRuntimeId == state.runtimeId &&
             published.map { it.descriptor }.toSet() == expected &&
@@ -215,11 +215,14 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             val current = requireNotNull(catalog.find(pluginId)) { "PLUGIN_NOT_INSTALLED" }
             val factory = requireNotNull(factories[pluginId]) { "PLUGIN_HOST_COMPONENT_UNAVAILABLE" }
-            if (current.enabled && (pluginId !in registrations || factory.registrationError() != null)) {
+            val registrationFailed = current.enabled && factory.registrationError() != null
+            val projectionHealthy = projectionMatches(current, factory)
+            if (!registrationFailed && projectionHealthy) return@synchronized current
+            if (current.enabled && (pluginId !in registrations || registrationFailed)) {
                 registrations.remove(pluginId)?.close()
                 openRegistration(factory)
             }
-            publish(factory, current.enabled)
+            publish(factory, current.enabled, repairRevision = true)
         }
 
     private fun openRegistration(plugin: HelixPlugin) {
@@ -246,6 +249,7 @@ class PluginRegistry(
     private fun publish(
         plugin: HelixPlugin,
         enabled: Boolean,
+        repairRevision: Boolean = false,
     ): NativePluginState {
         val manifest = plugin.manifest
         val runtimeId =
@@ -270,15 +274,12 @@ class PluginRegistry(
                 "PLUGIN_UNOWNED_NATIVE_COLLISION"
             }
         }
-        val state =
-            NativePluginState(
-                manifest.name,
-                runtimeId,
-                manifest.version,
-                fingerprint,
-                enabled,
-                (previous?.revision ?: 0) + 1,
-            )
+        val unchanged =
+            previous != null && previous.runtimeId == runtimeId &&
+                previous.version == manifest.version && previous.fingerprint == fingerprint &&
+                previous.enabled == enabled && !repairRevision
+        val revision = if (unchanged) requireNotNull(previous).revision else (previous?.revision ?: 0) + 1
+        val state = NativePluginState(manifest.name, runtimeId, manifest.version, fingerprint, enabled, revision)
         val published =
             if (enabled) {
                 bindings.map { ToolBinding(it.descriptor, it.executor, "${state.revision}:$fingerprint") }
@@ -286,7 +287,9 @@ class PluginRegistry(
                 emptyList()
             }
         toolRegistry.replaceOwner(bindingOwner(expectedOrigin), published) {
-            catalog.publish(state, previous?.revision)
+            // Healthy startup and repair preserve durable CAS identity. A missing/stale
+            // process projection is still rebuilt below, with a fresh ToolBinding incarnation.
+            if (!unchanged) catalog.publish(state, previous?.revision)
         }
         return state
     }

@@ -29,6 +29,7 @@ import com.helix.app.chat.ChatSubmissionErrorMapper
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.ChatSubmissionReceipt
 import com.helix.app.provider.ProviderService
+import com.helix.app.provider.discoverReasoningOptions
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.storage.repository.InputSkillActivation
@@ -685,6 +686,7 @@ fun ChatScreen(
                             }
                         },
                         onSelectModel = chatService::selectSessionModel,
+                        onRefreshModels = providerService.builtInModels::refresh,
                         onSetMode = chatService::setMode,
                         onCommandMode = { mode ->
                             sessionId?.let { chatService.setModeFromComposer(it, mode) } ?: false

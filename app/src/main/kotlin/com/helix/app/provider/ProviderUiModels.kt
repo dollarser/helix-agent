@@ -48,15 +48,20 @@ data class ProviderRowUi(
     val modelVerifications: Map<String, ProviderModelVerification> = emptyMap(),
     val modelGenerations: Map<String, ProviderModelVerification> = emptyMap(),
     val accountState: ManagedAccountSnapshot? = null,
+    val builtInCatalog: BuiltInModelCatalog? = null,
 ) {
     val bundled: Boolean get() = provisioning == ProviderProvisioningKind.BUNDLED_SERVICE
-    val sourceGroup: ProviderProvisioningKind
-        get() = if (bundled) ProviderProvisioningKind.USER_CONFIGURED else provisioning
     val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
-    val visibleInModelPicker: Boolean get() = !managedExternally || accountState?.ready == true
+    val visibleInModelPicker: Boolean get() =
+        if (bundled) {
+            builtInCatalog?.models?.isNotEmpty() == true
+        } else {
+            !managedExternally || accountState?.ready == true
+        }
 
     /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
-    val conversationModels: List<String> get() = if (bundled) listOf(model) else modelSelection.models
+    val conversationModels: List<String>
+        get() = if (bundled) builtInCatalog?.models.orEmpty() else modelSelection.models
     val selectedModels: List<String> get() = modelSelection.models
     val knownModels: List<String> get() =
         (backendModels.orEmpty() + modelSelection.customModels + modelSelection.models + model).distinct()
@@ -73,19 +78,29 @@ data class ProviderRowUi(
             }
 
     /**
-     * Bundled services allow an attempt by declared contract; other sources require connection evidence.
-     * Neither selection nor declared capabilities imply a successful connection test.
+     * New bundled selections come from the gateway directory. Existing bound requests
+     * retain their exact identity and may be explicitly attempted after a temporary service failure.
      */
     val chatSelectable: Boolean
-        get() = bundled || (status is ConnectionTestStatus.Passed && (accountState == null || accountState.ready))
+        get() =
+            if (bundled) {
+                builtInCatalog?.models?.isNotEmpty() == true
+            } else {
+                status is ConnectionTestStatus.Passed && (accountState == null || accountState.ready)
+            }
 
     fun modelSelectable(modelId: String): Boolean =
-        if (bundled) modelId == model else chatSelectable && modelGenerations[modelId]?.failure == null
+        if (bundled) {
+            modelId in builtInCatalog?.models.orEmpty()
+        } else {
+            chatSelectable &&
+                modelGenerations[modelId]?.failure == null
+        }
 
     /** Resolve only this model's declared fields; a default-model probe does not prove other models. */
     fun capabilitiesForModel(selectedModel: String): ProviderCapabilities? =
         if (bundled) {
-            capabilities.takeIf { selectedModel == model }
+            BuiltInModel.capabilitiesFor(selectedModel)
         } else if (modelGenerations[selectedModel]?.failure != null) {
             null
         } else if (selectedModel in modelVerifications) {

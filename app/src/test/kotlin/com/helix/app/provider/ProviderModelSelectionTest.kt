@@ -64,15 +64,22 @@ class ProviderModelSelectionTest {
         assertTrue(reopened.models.isEmpty())
     }
 
-    @Test fun provisioningDistinguishesFixedBundledModelFromExplicitUserChoices() {
+    @Test fun provisioningDistinguishesDynamicBundledDirectoryFromExplicitUserChoices() {
         ProviderProvisioningKind.entries.forEach { type ->
-            val source = row(type)
+            val source =
+                if (type == ProviderProvisioningKind.BUNDLED_SERVICE) {
+                    row(type).copy(builtInCatalog = BuiltInModelCatalog(1, listOf("a", "new")))
+                } else {
+                    row(type)
+                }
             val selected = source.copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true))
             if (type == ProviderProvisioningKind.BUNDLED_SERVICE) {
-                assertEquals(listOf("a"), source.conversationModels)
+                assertEquals(listOf("a", "new"), source.conversationModels)
                 assertTrue(source.offersConversationModels)
-                assertEquals(listOf("a"), selected.conversationModels)
+                assertEquals(listOf("a", "new"), selected.conversationModels)
                 assertFalse(selected.modelSelectable("b"))
+                assertTrue(selected.modelSelectable("new"))
+                assertTrue(selected.copy(builtInCatalog = null).conversationModels.isEmpty())
             } else {
                 assertTrue(source.conversationModels.isEmpty())
                 assertFalse(source.offersConversationModels)

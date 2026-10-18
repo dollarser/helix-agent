@@ -135,7 +135,7 @@ class FilesMutateToolsTest {
         assertEquals("files.move", move.name.value)
         assertEquals("files.delete", delete.name.value)
         listOf(copy, move, delete).forEach { d ->
-            assertEquals(2, d.version.value)
+            assertEquals(1, d.version.value)
             assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
             assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
             assertTrue(d.origin is ToolOrigin.BuiltInOrigin)

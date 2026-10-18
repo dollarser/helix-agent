@@ -436,8 +436,8 @@ class AutomationToolsTest {
     @Test
     fun findAndWaitDescriptorsExposeClickSuggestionContract() {
         val descriptors = tools.descriptors().associateBy { it.name.value }
-        assertEquals(10, descriptors.getValue(AutomationTools.FIND).version.value)
-        assertEquals(10, descriptors.getValue(AutomationTools.WAIT).version.value)
+        assertEquals(1, descriptors.getValue(AutomationTools.FIND).version.value)
+        assertEquals(1, descriptors.getValue(AutomationTools.WAIT).version.value)
         assertTrue(
             descriptors
                 .getValue(AutomationTools.FIND)
@@ -458,7 +458,7 @@ class AutomationToolsTest {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.CLICK_MATCH }
         assertTrue(descriptor.description.contains("system Install button"))
         assertTrue(descriptor.description.contains("manual confirmation"))
-        assertEquals(8, descriptor.version.value)
+        assertEquals(1, descriptor.version.value)
         assertTrue(descriptor.inputSchema.toString().contains("timeoutMillis"))
         assertEquals(65L, descriptor.timeout.inWholeSeconds)
     }
@@ -614,7 +614,7 @@ class AutomationToolsTest {
 
     @Test fun scrollSchemaOnlyAdmitsDirectionsTheExecutorImplements() {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }
-        assertEquals(6, descriptor.version.value)
+        assertEquals(1, descriptor.version.value)
         val schema = descriptor.inputSchema
         listOf("forward", "backward").forEach {
             assertEquals(

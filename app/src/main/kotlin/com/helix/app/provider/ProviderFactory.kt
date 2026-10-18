@@ -40,6 +40,7 @@ class ProviderFactory(
         com.helix.provider.api.wire.PublicClientWireClient(
             BuiltInModel.GENERATION_URL,
             BuiltInModel.CLIENT_ID,
+            catalogUrl = BuiltInModel.CATALOG_URL,
         ),
     private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
@@ -52,7 +53,7 @@ class ProviderFactory(
         ) {
             BuiltInModel.validate(config)
             val adapter = OpenAiChatProvider(config, credentials, builtInWire, chatImages(config))
-            return BuiltInModelProvider(config, adapter)
+            return BuiltInModelProvider(adapter)
         }
         val managed = additionalFactory(config)
         require(

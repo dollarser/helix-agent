@@ -178,6 +178,7 @@ dependencies {
     testImplementation(libs.junit4)
     // Reuse the locked transport in deterministic OAuth interceptor tests; not a production dependency.
     testImplementation(libs.okhttp.wire)
+    testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)

@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
 
 object BrowserSnapshotTool {
     const val NAME: String = "browser.snapshot"
-    const val VERSION: Int = 3
+    const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(
@@ -148,7 +148,7 @@ object BrowserSnapshotTool {
 // ===========================================================================
 object BrowserFindTool {
     const val NAME: String = "browser.find"
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(

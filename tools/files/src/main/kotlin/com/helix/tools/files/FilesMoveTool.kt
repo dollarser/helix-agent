@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 object FilesMoveTool {
     const val NAME: String = "files.move"
 
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     fun descriptor(): ToolDescriptor =
         ToolDescriptor(

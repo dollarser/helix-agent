@@ -136,7 +136,7 @@ class EditToolTest {
     fun descriptorIsAValidRegisterableBuiltIn() {
         val d = EditTool.descriptor()
         assertEquals("edit", d.name.value)
-        assertEquals(2, d.version.value)
+        assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)

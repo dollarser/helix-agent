@@ -35,7 +35,7 @@ import kotlinx.serialization.json.putJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object DocumentTools {
-    val origin = ToolOrigin.PluginOrigin("documents", "0.1.0", "documents")
+    val origin = ToolOrigin.PluginOrigin("documents", "1", "documents")
     val names = setOf("documents.inspect", "documents.read", "documents.view")
 
     fun owns(descriptor: ToolDescriptor): Boolean = descriptor.origin == origin && descriptor.name.value in names

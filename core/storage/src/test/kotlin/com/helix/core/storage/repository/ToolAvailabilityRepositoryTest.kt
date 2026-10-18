@@ -14,6 +14,38 @@ class ToolAvailabilityRepositoryTest {
     private val dao = FakeToolAvailabilityDao()
     private val repository = ToolAvailabilityRepository(dao)
 
+    @Test fun sourceNormalizationPreservesDisabledScopesAndDoesNotResetRevisions() {
+        val old = "plugin:mobile-use:0.2.0:mobile-use"
+        val stable = "plugin:mobile-use:mobile-use"
+        repository.set(old, "ui.click", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 10)
+        repository.set(stable, "ui.click", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.ENABLED, 20)
+        repository.set(old, "ui.click", ToolAvailabilityScope.SESSION, "session", ToolAvailabilityState.DISABLED, 15)
+        repository.set(
+            "plugin:other:other",
+            "ui.click",
+            ToolAvailabilityScope.GLOBAL,
+            "",
+            ToolAvailabilityState.ENABLED,
+            30,
+        )
+        val normalize: (String) -> String = { if (it == old) stable else it }
+        assertEquals(2, repository.normalizeSourceRefs(normalize))
+        assertEquals(emptyList<ToolAvailabilityEntity>(), repository.byTool(old, "ui.click"))
+        val global = repository.byTool(stable, "ui.click").single { it.scopeKind == "GLOBAL" }
+        assertEquals(2L, global.revision)
+        assertEquals(10L, global.createdAtEpoch)
+        assertEquals(20L, global.updatedAtEpoch)
+        assertEquals(ToolAvailabilityState.DISABLED, repository.statesFor(stable, "ui.click", "session", null).global)
+        assertEquals(ToolAvailabilityState.DISABLED, repository.statesFor(stable, "ui.click", "session", null).session)
+        assertEquals(
+            ToolAvailabilityState.ENABLED,
+            repository.statesFor("plugin:other:other", "ui.click", "session", null).global,
+        )
+        val normalized = dao.all()
+        assertEquals(0, repository.normalizeSourceRefs(normalize))
+        assertEquals(normalized, dao.all())
+    }
+
     @Test
     fun setStoresAnInitialStateAtRevisionOne() {
         val revision =

@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 
 object BrowserScreenshotTool {
     const val NAME: String = "browser.screenshot"
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
         ToolDescriptor(

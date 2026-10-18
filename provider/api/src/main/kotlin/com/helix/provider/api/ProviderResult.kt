@@ -6,12 +6,11 @@ import com.helix.core.model.ModelErrorCode
  * Outcome of a model-list query (provider doc section 2.4 phase 2, HXA-025).
  */
 public sealed interface ModelCatalogResult {
-    /** The service listed its models. */
+    /** The service listed its models; an empty directory is distinct from a failed query. */
     public data class Listed(
         val models: List<String>,
     ) : ModelCatalogResult {
         init {
-            require(models.isNotEmpty()) { "a listed catalog must not be empty" }
             require(models.size <= MAX_MODELS) { "at most $MAX_MODELS models per list" }
             require(models.toSet().size == models.size) { "model ids must be unique" }
             models.forEach { id ->

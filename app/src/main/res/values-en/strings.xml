@@ -1943,7 +1943,7 @@
     <string name="plugin_state_metadata">Metadata only</string>
     <string name="plugin_state_reload">Configuration changed; reconnect</string>
     <string name="plugin_effect_next_request">Changes apply to the next request</string>
-    <string name="plugin_revision">Installed revision: %1$d</string>
+    <string name="plugin_revision">Internal install revision: %1$d</string>
     <string name="plugin_saved_loaded">Configuration saved: %1$s; loaded: %2$s</string>
     <string name="plugin_fact_yes">Yes</string>
     <string name="plugin_fact_no">No</string>
@@ -1999,10 +1999,11 @@
     <string name="settings_proot_manage">Environment details</string>
     <string name="readiness_action_manage_runtime">Manage environment</string>
     <string name="builtin_model_title">Helix built-in model</string>
-    <string name="builtin_model_description">Project-provided cloud service with text, images and tool calls. No API key required.</string>
+    <string name="builtin_model_description">Project-provided cloud model service. No API key required.</string>
+    <string name="builtin_model_catalog_notice">The built-in model directory refreshes periodically. Listing does not verify inference connectivity or capabilities.</string>
     <string name="builtin_model_disclosure">The built-in model sends messages, context, tool results and selected images to the project cloud service. You can switch to your own model.</string>
     <string name="builtin_model_shared_limits">All users share service limits. Retry later when busy or quota is exhausted. Data retention and training policies have not been published.</string>
-    <string name="builtin_model_unverified">Configured; connection not yet verified. A connection test sends a short test message.</string>
+    <string name="builtin_model_unverified">The built-in model directory has not been fetched.</string>
     <string name="builtin_model_verified">Last connection test passed</string>
     <string name="builtin_model_auth_error">The built-in model client ID is not authorized or has been disabled. Contact the project maintainer; no API key is needed.</string>
     <string name="builtin_model_rate_limit">The built-in model hit a shared service limit, which may concern request rate, quota or concurrency. Retry manually later or select another model yourself.</string>

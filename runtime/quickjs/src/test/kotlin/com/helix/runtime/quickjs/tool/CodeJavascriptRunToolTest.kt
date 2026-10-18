@@ -98,7 +98,7 @@ class CodeJavascriptRunToolTest {
     fun descriptorIsL2CodeExecutionOnTheQuickJsLane() {
         val d = CodeJavascriptRunTool.descriptor()
         assertEquals("code.javascript.run", d.name.value)
-        assertEquals(2, d.version.value)
+        assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_QUICKJS, d.executionTarget)
         assertEquals(Idempotency.NON_IDEMPOTENT, d.idempotency)

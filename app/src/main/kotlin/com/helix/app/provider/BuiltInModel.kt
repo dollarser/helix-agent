@@ -21,6 +21,7 @@ object BuiltInModel {
     const val CLIENT_ID = "helix-android-preview-v1"
     const val API_ROOT = "https://api.sunlingzhang.com/v1"
     const val GENERATION_URL = "$API_ROOT/chat/completions"
+    const val CATALOG_URL = "$API_ROOT/models"
 
     val capabilities =
         ProviderCapabilities(
@@ -33,6 +34,11 @@ object BuiltInModel {
             maxContextTokens = null,
             source = CapabilitySource.BUNDLED_CONTRACT,
         )
+
+    /** Only the explicitly supplied Qwen contract is known; directory membership adds no capabilities. */
+    fun capabilitiesFor(model: String): ProviderCapabilities =
+        if (model == MODEL_ID) capabilities else capabilities.copy(streaming = false, toolCalls = false, vision = false)
+
     val connection =
         ProviderConnection(
             ProviderProvisioningKind.BUNDLED_SERVICE,
@@ -44,7 +50,7 @@ object BuiltInModel {
 
     fun validate(config: ProviderConfig) {
         require(
-            owns(config.id) && config.connection == connection && config.model == MODEL_ID && config.headers.isEmpty(),
+            owns(config.id) && config.connection == connection && config.headers.isEmpty(),
         ) {
             "Bundled service configuration changed"
         }

@@ -59,7 +59,7 @@ import kotlin.time.Duration.Companion.seconds
 object EditTool {
     const val NAME: String = "edit"
 
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     /** The input content cap; an edit payload never needs more than one 1 MiB window. */
     const val MAX_CONTENT_CHARS: Int = 1024 * 1024

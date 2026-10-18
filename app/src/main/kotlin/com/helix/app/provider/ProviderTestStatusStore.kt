@@ -32,6 +32,7 @@ class ProviderTestStatusStore(
     val selectedModels = ProviderSelectedModels(store)
     val modelEvidence = ProviderModelEvidenceStore(store)
     val accounts = ManagedAccountStore(store)
+    internal val builtInCatalog = BuiltInModelCatalogStore(store)
 
     fun statusFor(providerId: String): ConnectionTestStatus {
         val fields = backing.lines(KEY).firstOrNull { it.startsWith("$providerId|") }?.split("|", limit = 8)

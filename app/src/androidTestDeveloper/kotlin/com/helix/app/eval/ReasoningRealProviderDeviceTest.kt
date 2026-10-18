@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.app.provider.discoverReasoningOptions
 import com.helix.app.ui.ComposerReasoningMenu
 import com.helix.core.model.ReasoningEffort
 import kotlinx.coroutines.flow.toList

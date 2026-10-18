@@ -25,7 +25,7 @@ sealed interface ToolOrigin {
             }
 
             is PluginOrigin -> {
-                "plugin:$pluginId:$pluginVersion:$runtimeId"
+                "plugin:$pluginId:$runtimeId"
             }
 
             is McpOrigin -> {
@@ -47,10 +47,9 @@ sealed interface ToolOrigin {
     /**
      * A host-known tool contributed by an installed/bundled Agent Plugin client extension.
      *
-     * Plugin provenance is part of the security contract: changing the plugin version or the
-     * host runtime binding produces a new [canonicalOf] value, so approvals minted for an old
-     * implementation cannot authorize the replacement. This provenance does NOT lower risk;
-     * Policy still derives authority from trusted descriptor/call facts.
+     * User preferences use stable plugin/runtime ownership via [canonicalOf]. Package versions
+     * remain in the exact execution contract, so a pending call cannot execute a replacement.
+     * Version changes never grant or revoke user scope.
      */
     data class PluginOrigin(
         val pluginId: String,

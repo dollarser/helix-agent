@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -59,7 +60,19 @@ private fun ConversationModelItem(
                     if (row.bundled) stringResource(R.string.builtin_model_title) else row.displayName,
                     style = MaterialTheme.typography.labelSmall,
                 )
-                if (!row.chatSelectable) Text(stringResource(R.string.provider_models_connection_required))
+                if (!row.chatSelectable) {
+                    Text(
+                        stringResource(
+                            if (row.bundled) {
+                                com.helix.app.provider.BuiltInModel
+                                    .errorLabel(row.builtInCatalog?.failure?.name)
+                                    ?: R.string.builtin_model_unverified
+                            } else {
+                                R.string.provider_models_connection_required
+                            },
+                        ),
+                    )
+                }
                 row.modelGenerations[model]?.failure?.let {
                     Text(
                         stringResource(
@@ -102,18 +115,34 @@ internal fun ComposerModelMenu(
             ProviderProvisioningKind.ON_DEVICE_ASSET,
         ),
     onConfigureSource: ((ProviderProvisioningKind) -> Unit)? = null,
+    onRefreshModels: (suspend (Boolean) -> Unit)? = null,
     reasoningContent: (@Composable () -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var refreshRequest by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var handledRefresh by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
     val currentProvider = providers.firstOrNull { it.id == providerId }
-    val visibleProviders = providers.filter { it.visibleInModelPicker }
+    val visibleProviders = providers.filter { it.visibleInModelPicker || (it.bundled && it.id == providerId) }
     val currentLabel = model?.let { currentProvider?.modelLabel(it) ?: it }
     val entries =
         visibleProviders
             .flatMap { row -> row.conversationModels.map { row to it } }
             .filter { (row, candidate) -> matchesModelQuery(row, candidate, query) }
-    val pendingProviders = visibleProviders.filter { it.needsModelSetup(query) }
+    val pendingProviders = visibleProviders.filter { !it.bundled && it.needsModelSetup(query) }
+    LaunchedEffect(expanded, refreshRequest) {
+        if (expanded && onRefreshModels != null) {
+            refreshing = true
+            try {
+                val force = refreshRequest != handledRefresh
+                handledRefresh = refreshRequest
+                onRefreshModels(force)
+            } finally {
+                refreshing = false
+            }
+        }
+    }
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
     LaunchedEffect(openRequest) {
         if (openRequest > 0 && enabled) {
@@ -142,79 +171,106 @@ internal fun ComposerModelMenu(
                 onDismissRequest = { expanded = false },
                 title = { Text(stringResource(R.string.chat_select_model)) },
                 text = {
-                    Column {
-                        OutlinedTextField(
-                            query,
-                            { query = it },
-                            singleLine = true,
-                            label = { Text(stringResource(R.string.provider_models_search)) },
-                            modifier = Modifier.testTag("chat-model-search"),
-                        )
-                        if (model != null && model !in currentProvider?.conversationModels.orEmpty()) {
-                            Text(
-                                stringResource(R.string.provider_models_current_hidden, currentLabel.orEmpty()),
-                                modifier = Modifier.testTag("chat-model-hidden-current"),
+                    IndicatedLazyColumn(Modifier.heightIn(max = 520.dp).testTag("chat-model-list")) {
+                        item {
+                            OutlinedTextField(
+                                query,
+                                { query = it },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.provider_models_search)) },
+                                modifier = Modifier.fillMaxWidth().testTag("chat-model-search"),
                             )
                         }
-                        IndicatedLazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        if (onRefreshModels != null) {
                             item {
-                                if (onConfigureSource != null || onManageModels != null) {
-                                    ModelSourceActions(sourceGroups) { source ->
-                                        expanded = false
-                                        if (onConfigureSource != null) {
-                                            onConfigureSource(source)
-                                        } else {
-                                            onManageModels?.invoke()
-                                        }
+                                Column {
+                                    TextButton(
+                                        onClick = { refreshRequest++ },
+                                        enabled = !refreshing,
+                                        modifier = Modifier.testTag("chat-model-refresh"),
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                if (refreshing) {
+                                                    R.string.provider_discovering_models
+                                                } else {
+                                                    R.string.provider_models_refresh
+                                                },
+                                            ),
+                                        )
                                     }
-                                }
-                            }
-                            if (entries.isEmpty()) {
-                                item {
                                     Text(
-                                        stringResource(R.string.provider_models_picker_empty),
-                                        modifier = Modifier.testTag("chat-model-empty"),
+                                        stringResource(R.string.builtin_model_catalog_notice),
+                                        style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
                             }
-                            items(entries, key = { (row, candidate) ->
-                                "${row.id.length}:${row.id}$candidate"
-                            }) { (row, candidate) ->
-                                val current = row.id == providerId && candidate == model
-                                ConversationModelItem(
-                                    row,
-                                    candidate,
-                                    current,
-                                    enabled,
-                                    reasoning =
-                                        if (current) {
-                                            {
-                                                androidx.compose.runtime.key(providerId, model) {
-                                                    reasoningContent?.invoke()
-                                                }
-                                            }
-                                        } else {
-                                            null
-                                        },
-                                ) {
-                                    expanded = false
-                                    if (!current) onSelect(row.id, candidate)
-                                }
-                            }
-                            items(pendingProviders, key = { "setup:${it.id}" }) { row ->
-                                val navigateToSource =
-                                    onConfigureSource?.let { configure ->
-                                        { configure(row.provisioning) }
-                                    } ?: onManageModels
-                                ModelSetupRow(
-                                    row,
-                                    navigateToSource?.let { navigate ->
-                                        {
-                                            expanded = false
-                                            navigate()
-                                        }
-                                    },
+                        }
+                        if (model != null && model !in currentProvider?.conversationModels.orEmpty()) {
+                            item {
+                                Text(
+                                    stringResource(R.string.provider_models_current_hidden, currentLabel.orEmpty()),
+                                    modifier = Modifier.testTag("chat-model-hidden-current"),
                                 )
+                            }
+                        }
+                        if (entries.isEmpty()) {
+                            item {
+                                Text(
+                                    stringResource(R.string.provider_models_picker_empty),
+                                    modifier = Modifier.testTag("chat-model-empty"),
+                                )
+                            }
+                        }
+                        items(entries, key = { (row, candidate) ->
+                            "${row.id.length}:${row.id}$candidate"
+                        }) { (row, candidate) ->
+                            val current = row.id == providerId && candidate == model
+                            ConversationModelItem(
+                                row,
+                                candidate,
+                                current,
+                                enabled,
+                                reasoning =
+                                    if (current) {
+                                        {
+                                            androidx.compose.runtime.key(providerId, model) {
+                                                reasoningContent?.invoke()
+                                            }
+                                        }
+                                    } else {
+                                        null
+                                    },
+                            ) {
+                                expanded = false
+                                if (!current) onSelect(row.id, candidate)
+                            }
+                        }
+                        items(pendingProviders, key = { "setup:${it.id}" }) { row ->
+                            val navigateToSource =
+                                onConfigureSource?.let { configure ->
+                                    { configure(row.provisioning) }
+                                } ?: onManageModels
+                            ModelSetupRow(
+                                row,
+                                navigateToSource?.let { navigate ->
+                                    {
+                                        expanded = false
+                                        navigate()
+                                    }
+                                },
+                            )
+                        }
+                        item {
+                            if (onConfigureSource != null || onManageModels != null) {
+                                ModelSourceActions(sourceGroups) { source ->
+                                    expanded = false
+                                    if (onConfigureSource != null) {
+                                        onConfigureSource(source)
+                                    } else {
+                                        onManageModels?.invoke()
+                                    }
+                                }
                             }
                         }
                     }

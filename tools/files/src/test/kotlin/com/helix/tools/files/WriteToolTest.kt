@@ -210,7 +210,7 @@ class WriteToolTest {
     fun descriptorIsAValidRegisterableBuiltIn() {
         val d = WriteTool.descriptor()
         assertEquals("write", d.name.value)
-        assertEquals(3, d.version.value)
+        assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)

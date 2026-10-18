@@ -358,6 +358,16 @@ class WireModelProviderTest {
         }
 
     @Test
+    fun successfulEmptyDirectoryIsListedButDoesNotValidateAGeneratingSource() =
+        runBlocking {
+            val wire = FakeWire { okJson("""{"data":[]}""") }
+            val provider = TestProvider(config(), { "x" }, wire)
+            assertEquals(ModelCatalogResult.Listed(emptyList()), provider.listModels())
+            assertTrue(provider.validateConfiguration() is ProviderCheckResult.Failed)
+            assertTrue(wire.requests.all { it.method == "GET" })
+        }
+
+    @Test
     fun modelListClosesBodyOnFailure() =
         runBlocking {
             val closed = BooleanArray(1)

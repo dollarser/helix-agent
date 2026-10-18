@@ -8,29 +8,25 @@ import org.junit.Test
 class ConversationLaunchStoreTest {
     @Test fun currentConversationIncludingNoModelTakesPrecedenceOverDefault() {
         val store = ConversationLaunchStore(InMemoryLineStore())
-        store.seedDraftModel(true, "builtin", "qwen")
+        store.selectDraftModel("builtin", "qwen")
         assertEquals("builtin" to "qwen", store.draftModelFor(null))
         assertEquals("custom" to "chosen", store.draftModelFor("custom" to "chosen"))
         assertEquals(null to null, store.draftModelFor(null to null))
     }
 
-    @Test fun onlyFreshInstallSeedsDefaultAndExplicitChoiceSurvivesRestart() {
+    @Test fun explicitChoiceAndNoModelSurviveRestartWithoutAutomaticSeeding() {
         val backing = InMemoryLineStore()
-        ConversationLaunchStore(backing).seedDraftModel(true, "builtin", "qwen")
+        ConversationLaunchStore(backing).selectDraftModel("builtin", "qwen")
         assertEquals("builtin" to "qwen", ConversationLaunchStore(backing).draftModel())
         ConversationLaunchStore(backing).selectDraftModel("custom", "chosen")
-        ConversationLaunchStore(backing).seedDraftModel(true, "builtin", "qwen")
         assertEquals("custom" to "chosen", ConversationLaunchStore(backing).draftModel())
         ConversationLaunchStore(backing).selectDraftModel(null, null)
-        ConversationLaunchStore(backing).seedDraftModel(true, "builtin", "qwen")
         assertEquals(null, ConversationLaunchStore(backing).draftModel())
     }
 
     @Test fun existingInstallAndMalformedPreferencesNeverFallBackToBuiltIn() {
         val backing = InMemoryLineStore()
         val store = ConversationLaunchStore(backing)
-        store.seedDraftModel(false, "builtin", "qwen")
-        store.seedDraftModel(true, "builtin", "qwen")
         assertEquals(null, store.draftModel())
         backing.setLines("conversation_draft_model", listOf("invalid"))
         assertEquals(null, store.draftModel())

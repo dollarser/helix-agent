@@ -1,10 +1,13 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -29,12 +32,14 @@ internal fun ModelSourceTabs(
     selected: ProviderProvisioningKind,
     onSelect: (ProviderProvisioningKind) -> Unit,
 ) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        orderedSources(groups).forEach { source ->
-            FilterChip(
+    val sources = orderedSources(groups)
+    if (sources.isEmpty()) return
+    PrimaryScrollableTabRow(selectedTabIndex = sources.indexOf(selected).coerceAtLeast(0), edgePadding = 0.dp) {
+        sources.forEach { source ->
+            Tab(
                 selected = source == selected,
                 onClick = { onSelect(source) },
-                label = { Text(stringResource(providerGroupLabel(source))) },
+                text = { Text(stringResource(providerGroupLabel(source)), maxLines = 1) },
                 modifier = Modifier.testTag("provider-group-${source.name}"),
             )
         }
@@ -48,11 +53,11 @@ internal fun ModelSourceActions(
     onConfigure: (ProviderProvisioningKind) -> Unit,
 ) {
     Text(stringResource(R.string.model_source_configure), style = MaterialTheme.typography.labelLarge)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         orderedSources(groups).forEach { source ->
             OutlinedButton(
                 onClick = { onConfigure(source) },
-                modifier = Modifier.testTag("chat-model-configure-${source.name}"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("chat-model-configure-${source.name}"),
             ) { Text(stringResource(providerGroupLabel(source))) }
         }
     }

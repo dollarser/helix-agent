@@ -239,7 +239,7 @@ internal class McpToolDiscovery(
         val descriptor =
             ToolDescriptor(
                 name = ToolName("tools.search"),
-                version = ToolVersion(4),
+                version = ToolVersion(1),
                 description =
                     "Search user-enabled tools by name, description, source, fields or common Chinese aliases: " +
                         "files, browser, Android UI, Linux, Skills, " +

@@ -26,6 +26,25 @@ internal object ProviderConnectionCheck {
         previous: ProviderCapabilities?,
     ): ProbeOutcome = inspect(config, provider, previous).outcome
 
+    private fun catalogFailure(catalog: ModelCatalogResult): ProbeOutcome.Failed? =
+        when (catalog) {
+            is ModelCatalogResult.Failed -> {
+                ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable)
+            }
+
+            is ModelCatalogResult.Listed -> {
+                if (catalog.models.isEmpty()) {
+                    ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, "Model directory is empty", false)
+                } else {
+                    null
+                }
+            }
+
+            ModelCatalogResult.Unsupported -> {
+                null
+            }
+        }
+
     suspend fun inspect(
         config: ProviderConfig,
         provider: ModelProvider,
@@ -35,13 +54,8 @@ internal object ProviderConnectionCheck {
         val accountCatalog = (provider as? SubscriptionConnectionProvider)?.connectionCatalog()
         val catalog = accountCatalog ?: provider.listModels()
         val shortCircuit: ProbeOutcome? =
-            when {
-                catalog is ModelCatalogResult.Failed -> {
-                    ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable)
-                }
-
-                !verifyGeneration && accountCatalog is ModelCatalogResult.Listed &&
-                    accountCatalog.models.isNotEmpty() -> {
+            catalogFailure(catalog) ?: when {
+                !verifyGeneration && accountCatalog is ModelCatalogResult.Listed -> {
                     connected(previous, catalog)
                 }
 
@@ -49,7 +63,7 @@ internal object ProviderConnectionCheck {
                     null
                 }
             }
-        if (shortCircuit != null) return Observation(shortCircuit, false, catalog is ModelCatalogResult.Failed)
+        if (shortCircuit != null) return Observation(shortCircuit, false, shortCircuit is ProbeOutcome.Failed)
         // Exactly one ordinary, short generation. No tools, images or explicit effort.
         val events =
             provider

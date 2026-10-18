@@ -165,7 +165,7 @@ class ProviderService(
     ) = withContext(Dispatchers.IO) {
         probeGate.access {
             val config = storedConfig(id)
-            require(!BuiltInModel.owns(id)) { "Bundled model selection is fixed" }
+            require(!BuiltInModel.owns(id)) { "Bundled directory is service-managed" }
             if (config.transport is ProviderTransport.OnDeviceLocal) {
                 require((selection.models + selection.customModels).all { it == config.model })
             }
@@ -296,6 +296,13 @@ class ProviderService(
     val networkOperations: StateFlow<Int> = _networkOperations.asStateFlow()
 
     private val probeGate = ProviderProbeGate()
+    internal val builtInModels =
+        BuiltInModelDiscovery(
+            testStatus.builtInCatalog,
+            clock,
+            { factory.create(storedConfig(BuiltInModel.PROVIDER_ID)) },
+            ::refresh,
+        )
 
     private val connectionProbe =
         ProviderConnectionProbe(
@@ -370,6 +377,7 @@ class ProviderService(
             accountState = if (managed.isManaged(entity.id)) testStatus.accounts.read(entity.id) else null,
             modelMetadata = testStatus.modelMetadata.read(entity.id, entity.transportIdentity),
             assetSizeBytes = localModels?.assetSize(entity.model),
+            builtInCatalog = if (BuiltInModel.owns(entity.id)) builtInModels.current() else null,
         )
     }
 
@@ -608,7 +616,8 @@ class ProviderService(
         val stored = storedConfig(providerId)
         val config = stored.copy(model = modelId ?: stored.model)
         if (config.transport is ProviderTransport.Network) _networkOperations.value += 1
-        return BoundModelProvider(factory.create(config), config.model) {
+        val provider = factory.create(config)
+        return BoundModelProvider(provider, config.model) {
             val observed = managedAccountFor(providerId)
             val current = storedConfig(providerId)
             observed == account && (observed == null || observed.ready) && chatSelectable(providerId) &&
@@ -654,7 +663,7 @@ class ProviderService(
             if (!chatSelectable(providerId)) return@runCatching null
             if (BuiltInModel.owns(providerId)) {
                 storedConfig(providerId)
-                return@runCatching BuiltInModel.capabilities.takeIf { model == null || model == BuiltInModel.MODEL_ID }
+                return@runCatching BuiltInModel.capabilitiesFor(model ?: BuiltInModel.MODEL_ID)
             }
             if (model == null) {
                 ProviderCapabilities.parse(storage.providerConfigs.resolve(providerId).capabilitySnapshot)
@@ -678,23 +687,6 @@ class ProviderService(
             .firstOrNull { it.id == providerId }
             ?.modelMetadata
             ?.get(model)
-
-    /** Explicit picker action: prefer model metadata, then reuse identity-checked capability detection. */
-    suspend fun discoverReasoningOptions(
-        providerId: String,
-        model: String,
-    ): List<ReasoningEffort> {
-        refreshModelCatalog(providerId)
-        val declared =
-            rows.value
-                .firstOrNull { it.id == providerId }
-                ?.modelMetadata
-                ?.get(model)
-                ?.reasoningEfforts
-        if (declared != null) return reasoningOptions(providerId, model)
-        check(runCapabilityTest(providerId, model) is ProbeOutcome.Ok) { "CAPABILITY_DETECTION_FAILED" }
-        return reasoningOptions(providerId, model)
-    }
 
     fun resolveReasoning(
         providerId: String,

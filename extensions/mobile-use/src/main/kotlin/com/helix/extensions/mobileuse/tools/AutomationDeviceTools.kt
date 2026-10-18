@@ -303,15 +303,7 @@ class AutomationDeviceTools(
         help: String,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(
-            if (name == DEVICE) {
-                5
-            } else if (name == SCREENSHOT || name == APPS) {
-                3
-            } else {
-                2
-            },
-        ),
+        ToolVersion(1),
         help,
         input,
         output,

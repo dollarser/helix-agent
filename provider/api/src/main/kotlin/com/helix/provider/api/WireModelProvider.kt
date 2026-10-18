@@ -206,7 +206,15 @@ public abstract class WireModelProvider(
     override suspend fun validateConfiguration(): ProviderCheckResult {
         if (modelsPath() != null) {
             return when (val result = listModels()) {
-                is ModelCatalogResult.Listed, is ModelCatalogResult.Unsupported -> {
+                is ModelCatalogResult.Listed -> {
+                    if (result.models.isEmpty()) {
+                        ProviderCheckResult.Failed(ModelErrorCode.PROTOCOL, "Model directory is empty", false)
+                    } else {
+                        ProviderCheckResult.Ok
+                    }
+                }
+
+                is ModelCatalogResult.Unsupported -> {
                     ProviderCheckResult.Ok
                 }
 

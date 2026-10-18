@@ -91,7 +91,7 @@ class PlanToolsTest {
     fun theContractIsAMetadataL0ControlToolAdmittedByPlanMode() {
         val d = PlanTools.descriptor() // construction also enforces the ToolSchema subset
         assertEquals(ToolName("plan.submit"), d.name)
-        assertEquals(ToolVersion(2), d.version)
+        assertEquals(ToolVersion(1), d.version)
         assertEquals(ToolOperationClass.METADATA, d.operationClass)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
         // Plan mode admits READ_ONLY or METADATA at dynamic risk <= L1 (core:agent ModePolicy):

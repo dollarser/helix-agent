@@ -19,6 +19,25 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProviderConnectionCheckTest {
+    @Test fun emptyCatalogNeverStartsApiOrSubscriptionGeneration() =
+        runBlocking {
+            for (subscription in listOf(false, true)) {
+                val fixture = Fixture(if (subscription) ModelCatalogResult.Listed(emptyList()) else null)
+                val source =
+                    if (subscription) {
+                        fixture
+                    } else {
+                        object : ModelProvider by fixture {
+                            override suspend fun listModels() = ModelCatalogResult.Listed(emptyList())
+                        }
+                    }
+                val result = ProviderConnectionCheck.run(config, source, null) as ProbeOutcome.Failed
+                assertEquals(ModelErrorCode.PROTOCOL, result.code)
+                assertEquals(2, result.phase)
+                assertEquals(0, fixture.generations)
+            }
+        }
+
     @Test fun reasoningOnlyCompletedStreamProvesConnection() =
         runBlocking {
             val provider =

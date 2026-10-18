@@ -464,14 +464,7 @@ class AutomationTools(
         output: JsonObject,
     ) = ToolDescriptor(
         ToolName(name),
-        ToolVersion(
-            when (name) {
-                FIND, WAIT -> 10
-                CLICK_MATCH, SNAPSHOT -> 8
-                SET_TEXT, SCROLL -> 6
-                else -> 3
-            },
-        ),
+        ToolVersion(1),
         AutomationToolDescriptions.description(name),
         input,
         output,

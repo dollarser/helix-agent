@@ -48,7 +48,7 @@ import kotlin.time.Duration.Companion.seconds
 object PlanTools {
     const val NAME: String = "plan.submit"
 
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     /** The registered contract; no required capabilities (in-process persist only). */
     fun descriptor(): ToolDescriptor =

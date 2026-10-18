@@ -169,23 +169,24 @@ class BuiltInModelTransportTest {
             }
         }
 
-    @Test fun metadataDoesNotGenerateAndExplicitConnectionTestReallyStreams() =
+    @Test fun unpermittedDirectoryFailsClosedWithoutAnInferenceProbe() =
         runBlocking {
-            assertEquals(ModelCatalogResult.Unsupported, provider.listModels())
+            assertTrue(runCatching { provider.listModels() }.exceptionOrNull() is IllegalArgumentException)
             assertEquals(null, provider.contextWindow(BuiltInModel.MODEL_ID))
             assertTrue(requests.isEmpty())
-            assertEquals(ProviderCheckResult.Ok, provider.validateConfiguration())
-            assertEquals(1, requests.size)
+            assertTrue(runCatching { provider.validateConfiguration() }.exceptionOrNull() is IllegalArgumentException)
+            assertTrue(requests.isEmpty())
             val events = provider.stream(request).toList()
             val answer = events.filterIsInstance<ModelEvent.TextDelta>().joinToString("") { it.text }
             assertEquals("OK", answer)
         }
 
-    @Test fun wrongModelFailsBeforeNetwork() {
-        assertThrows(IllegalArgumentException::class.java) { provider.stream(request.copy(model = "paid-other")) }
-        assertThrows(IllegalArgumentException::class.java) { factory.create(builtInConfig().copy(model = "other")) }
-        assertTrue(requests.isEmpty())
-    }
+    @Test fun newlyListedModelUsesTheSamePinnedGatewayWithoutFallback() =
+        runBlocking {
+            val dynamic = factory.create(builtInConfig().copy(model = "future-model"))
+            assertTrue(dynamic.stream(request.copy(model = "future-model")).toList().any { it is ModelEvent.Completed })
+            assertTrue(requests.single().second.contains("\"model\":\"future-model\""))
+        }
 
     @Test fun toolResultBackfillRetainsCallIdentityAndUsesSameModel() =
         runBlocking {

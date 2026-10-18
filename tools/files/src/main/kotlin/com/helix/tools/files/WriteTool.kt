@@ -53,7 +53,7 @@ import kotlin.time.Duration.Companion.seconds
 object WriteTool {
     const val NAME: String = "write"
 
-    const val VERSION: Int = 3
+    const val VERSION: Int = 1
 
     private val SHA256_HEX = Regex("[0-9a-f]{64}")
 

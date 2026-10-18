@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BuiltInModelTest {
-    @Test fun bundledContractIsSelectableWithoutInventingConnectionEvidence() {
+    @Test fun bundledDirectoryControlsCandidatesWithoutInventingInferenceEvidence() {
         val config = builtInConfig()
         val entity =
             ProviderConfigEntity(
@@ -30,15 +30,24 @@ class BuiltInModelTest {
                 provisioningKind = "BUNDLED_SERVICE",
                 authKind = "NONE",
             )
-        val row = providerRowUi(entity, ConnectionTestStatus.Untested)
+        val undiscovered = providerRowUi(entity, ConnectionTestStatus.Untested)
+        assertFalse(undiscovered.visibleInModelPicker)
+        assertFalse(undiscovered.chatSelectable)
+        val row =
+            undiscovered.copy(
+                builtInCatalog = BuiltInModelCatalog(1, listOf(BuiltInModel.MODEL_ID, "future-model")),
+            )
         assertEquals(ConnectionTestStatus.Untested, row.status)
         assertTrue(row.chatSelectable)
         assertTrue(row.modelSelectable(BuiltInModel.MODEL_ID))
         assertFalse(row.modelSelectable("other"))
-        assertEquals(listOf(BuiltInModel.MODEL_ID), row.conversationModels)
+        assertTrue(row.modelSelectable("future-model"))
+        assertFalse(row.capabilitiesForModel("future-model")!!.vision)
+        assertFalse(row.capabilitiesForModel("future-model")!!.toolCalls)
+        assertEquals(listOf(BuiltInModel.MODEL_ID, "future-model"), row.conversationModels)
         assertEquals(CapabilitySource.BUNDLED_CONTRACT, row.capabilities?.source)
         assertEquals(ProviderSetupStep.READY, ProviderSetupStep.forRow(row))
-        assertEquals(ProviderProvisioningKind.USER_CONFIGURED, row.sourceGroup)
+        assertFalse(ProviderProvisioningKind.BUNDLED_SERVICE in ProviderChannelPolicy.groups(false))
         assertTrue(ProviderChannelPolicy.permits("BUNDLED_SERVICE", false))
     }
 
@@ -47,12 +56,12 @@ class BuiltInModelTest {
         val otherTarget = config.network.copy(endpoint = NormalizedEndpoint.parse("https://other.invalid/v1"))
         for (invalid in listOf(
             config.copy(id = "another"),
-            config.copy(model = "another"),
             config.copy(connection = config.connection.copy(provisioning = ProviderProvisioningKind.USER_CONFIGURED)),
             config.copy(connection = config.connection.copy(transport = otherTarget)),
         )) {
             assertThrows(IllegalArgumentException::class.java) { BuiltInModel.validate(invalid) }
         }
+        BuiltInModel.validate(config.copy(model = "future-model"))
     }
 
     @Test fun terminalLabelsUseOriginalSnapshotInsteadOfCurrentModel() {

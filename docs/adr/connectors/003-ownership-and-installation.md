@@ -25,6 +25,10 @@ Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据
 
 端点不因 URL 相同而跨包共享账号。安装归属不是 Tool Approval，实际调用继续通过现有 Dispatcher、Capability、Policy 和授权解析。
 
+软件包版本、持久安装 revision、运行实例 incarnation 与用户授权分别表达。内容、启用状态不变的原生冷启动仅重建进程投影，不写库或递增安装 revision；健康 repair 不替换绑定、不写库。实际内容/启停变化或丢失投影的必要 repair 才经过原 CAS 发布。宿主 APK 更新由当前实例绑定识别，不单凭升级事件增加安装 revision。预发布阶段内置 package 及当前工具声明版本固定为 1；历史审计版本和所有 CAS/选择计数不回退。
+
+原生工具的持久用户偏好以稳定 pluginId/runtimeId 和工具名识别，版本不构成权限变化。当前安装数据中的版本来源键由启动事务一次性规范化，合并时保留明确禁用及原范围，不维持双轨读写；来源主体/runtime 变化不继承同名工具的偏好。Mobile Use 授权继续由用户配置和持久会话选择身份派生，安装 revision 或非权限配置变化不撤销它。单次调用证明与实际 execution binding 的边界见 [ADR-PERMISSIONS-003](../permissions/003-dispatch-and-audit.md)。
+
 ### 2. 每个会话独立启停 Connector
 
 设备安装回答“有哪些包”，会话选择回答“本会话使用哪些包”。每个会话持久保存按稳定 connectorId 标识的启用集合；用户可在会话能力面板独立开关，不影响其他会话。复用已有会话设置和组件启用基础，不另建通用 scope 框架。
@@ -278,3 +282,7 @@ Owner 授权 [HXA-300](../../development/tasks/HXA-300.md) 实施导入评审。
 ## Decision history — 2026-10-16：预览后能力接续
 
 Owner 要求按当前实现和竞品优化后续计划。298～302 管理/导入/内容审查/诊断/标签均为已交付基线，不重新列为未来功能；依赖就绪、账号连接、组件运行和会话授权分别验收。CLI/常驻 stdio/账号服务候选的进入条件集中到 [Harness §23.12](../../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续)，不扩容 286/291 的实现范围，不因桌面插件清单包含可执行声明而自动运行。
+
+## Decision history — 2026-10-18：原生注册幂等与稳定授权主体
+
+Owner 要求分析无变化启动的 revision 递增并实际修正，随后明确预发布包/工具版本统一为 1，普通升级不因版本重批。采用上述分离与一次性偏好规范化；revision 是 Helix 的持久 CAS 实现，不能宣称为竞品统一内部标准。[Claude 插件更新](https://code.claude.com/docs/en/discover-plugins#keep-plugins-updated)保留运行会话已加载版本，[Chrome 权限更新](https://developer.chrome.com/docs/extensions/develop/concepts/permission-warnings#update_permissions)按新增警告权限重询；这些是避免以普通升级扩大授权的参考，不是 Helix 内部计数机制的证明。实现与验收由 HXA-307 记录。

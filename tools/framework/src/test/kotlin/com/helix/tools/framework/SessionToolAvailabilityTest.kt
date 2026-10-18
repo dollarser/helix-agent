@@ -21,6 +21,22 @@ import org.junit.Test
  * the one [ToolOrigin.canonicalOf] derives.
  */
 class SessionToolAvailabilityTest {
+    @Test fun pluginPreferencesKeepStableOwnerAcrossPackageAndToolVersions() {
+        val original = ToolOrigin.PluginOrigin("mobile-use", "0.2.0", "mobile-use")
+        val updated = original.copy(pluginVersion = "1")
+        assertEquals(original.canonicalOf(), updated.canonicalOf())
+        assertNotEquals(original.canonicalOf(), updated.copy(pluginId = "other").canonicalOf())
+        assertNotEquals(original.canonicalOf(), updated.copy(runtimeId = "other").canonicalOf())
+        val stored =
+            mapOf(
+                (original.canonicalOf() to "ui.click") to
+                    ToolAvailabilityStates(
+                        global = ToolAvailabilityState.DISABLED,
+                    ),
+            )
+        assertEquals(ToolAvailabilityState.DISABLED, fold(stored, updated.canonicalOf(), "ui.click"))
+    }
+
     private val schemaA = "0".repeat(64)
     private val schemaB = "f".repeat(64)
 
@@ -30,10 +46,10 @@ class SessionToolAvailabilityTest {
     }
 
     @Test
-    fun `a plugin identity binds plugin version and host runtime`() {
+    fun `a plugin preference identity binds stable plugin and host runtime`() {
         val origin = ToolOrigin.PluginOrigin("mobile-use", "0.1.0", "mobile-use")
-        assertEquals("plugin:mobile-use:0.1.0:mobile-use", origin.canonicalOf())
-        assertNotEquals(
+        assertEquals("plugin:mobile-use:mobile-use", origin.canonicalOf())
+        assertEquals(
             origin.canonicalOf(),
             ToolOrigin.PluginOrigin("mobile-use", "0.2.0", "mobile-use").canonicalOf(),
         )

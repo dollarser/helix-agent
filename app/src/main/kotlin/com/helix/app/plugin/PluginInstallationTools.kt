@@ -27,7 +27,7 @@ internal object PluginInstallationTools {
             val descriptor =
                 ToolDescriptor(
                     name = ToolName(if (install) "connectors.install" else "connectors.preview"),
-                    version = ToolVersion(2),
+                    version = ToolVersion(1),
                     description =
                         if (install) {
                             "Install a reviewed workspace plugin directory/JSON/ZIP with its exact hash; no connection."

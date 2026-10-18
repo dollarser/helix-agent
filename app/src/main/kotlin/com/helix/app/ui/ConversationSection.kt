@@ -512,6 +512,7 @@ internal fun ConversationSection(
                     onManageModels = intents.onManageModels,
                     sourceGroups = modelSourceGroups,
                     onConfigureSource = intents.onConfigureModelSource,
+                    onRefreshModels = intents.onRefreshModels,
                     openRequest = modelPickerRequest,
                     reasoningContent = {
                         ComposerReasoningMenu(

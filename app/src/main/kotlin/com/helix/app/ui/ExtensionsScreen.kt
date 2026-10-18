@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -204,7 +204,7 @@ private fun ExtensionTabBar(
     val tabs = if (showDiscover) listOf(0, 1, 2) else listOf(0, 2)
     val labels = listOf(R.string.marketplace_tab_manage, R.string.marketplace_tab_market, R.string.plugins_tab_add)
     val tags = listOf("extensions-tab-manage", "extensions-tab-market", "extensions-add")
-    PrimaryTabRow(selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)) {
+    PrimaryScrollableTabRow(selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0), edgePadding = 0.dp) {
         tabs.forEach { tab ->
             Tab(
                 selected = selectedTab == tab,

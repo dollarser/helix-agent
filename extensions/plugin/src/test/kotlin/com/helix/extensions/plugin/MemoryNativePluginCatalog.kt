@@ -12,6 +12,7 @@ internal class MemoryNativePluginCatalog : NativePluginCatalog {
     ) = selections[sessionId to pluginId]
 
     var failPublication = false
+    var publicationCount = 0
 
     override fun find(pluginId: String) = states[pluginId]
 
@@ -23,5 +24,6 @@ internal class MemoryNativePluginCatalog : NativePluginCatalog {
         check(states[state.pluginId]?.revision == expectedRevision)
         check(state.revision == (expectedRevision ?: 0) + 1)
         states[state.pluginId] = state
+        publicationCount++
     }
 }

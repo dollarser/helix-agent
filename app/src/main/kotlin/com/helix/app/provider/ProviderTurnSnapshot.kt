@@ -17,7 +17,13 @@ internal object ProviderTurnSnapshot {
     ): String {
         val capabilitiesJson =
             runCatching {
-                ProviderCapabilities.parse(config.capabilitySnapshot).let { caps ->
+                (
+                    if (BuiltInModel.owns(config.id)) {
+                        BuiltInModel.capabilitiesFor(modelId ?: config.model)
+                    } else {
+                        ProviderCapabilities.parse(config.capabilitySnapshot)
+                    }
+                ).let { caps ->
                     ",\"capabilities\":${ProviderCapabilities.toJsonString(caps)}"
                 }
             }.getOrDefault("")

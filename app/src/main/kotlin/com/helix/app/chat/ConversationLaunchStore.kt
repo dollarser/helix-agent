@@ -40,15 +40,6 @@ class ConversationLaunchStore internal constructor(
         backing.setLines(MODEL_KEY, choice)
     }
 
-    internal fun seedDraftModel(
-        freshInstall: Boolean,
-        providerId: String,
-        modelId: String,
-    ) {
-        if (backing.lines(MODEL_KEY).isNotEmpty()) return
-        if (freshInstall) selectDraftModel(providerId, modelId) else selectDraftModel(null, null)
-    }
-
     private fun validModelPart(value: String): Boolean =
         value.isNotBlank() && value.length <= 256 && value.none { it.isISOControl() }
 

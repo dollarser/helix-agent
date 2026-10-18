@@ -69,7 +69,7 @@ fun interface JsExecutor {
 object CodeJavascriptRunTool {
     const val NAME: String = "code.javascript.run"
 
-    const val VERSION: Int = 2
+    const val VERSION: Int = 1
 
     /** The §4.1 source limit, expressed as a coarse model-facing code-point ceiling. */
     private const val MAX_SOURCE_CODE_POINTS: Long = JsExecutionLimits.DEFAULT_MAX_SOURCE_BYTES.toLong()

@@ -144,6 +144,93 @@ class PluginRegistryTest {
         assertEquals(2, closed)
     }
 
+    @Test fun healthyRestartAndRepairKeepRevisionButCreateFreshProcessBindingIncarnation() {
+        val catalog = MemoryNativePluginCatalog()
+        val firstTools = ToolRegistry()
+        val first = PluginRegistry(firstTools, catalog)
+        first.register(plugin("stable"))
+        val originalState = requireNotNull(catalog.find("stable"))
+        val originalBinding = firstTools.snapshot().single()
+
+        first.repair("stable")
+        assertEquals(originalState.revision, catalog.find("stable")?.revision)
+        assertEquals(originalBinding.ref, firstTools.snapshot().single().ref)
+        assertEquals(1, catalog.publicationCount)
+
+        val secondTools = ToolRegistry()
+        val second = PluginRegistry(secondTools, catalog)
+        second.register(plugin("stable"))
+        assertEquals(originalState.revision, catalog.find("stable")?.revision)
+        val restartedBinding = secondTools.snapshot().single()
+        org.junit.Assert.assertNotEquals(originalBinding.ref, restartedBinding.ref)
+        assertTrue(second.ready("stable"))
+        second.repair("stable")
+        assertEquals(originalState.revision, catalog.find("stable")?.revision)
+        assertEquals(1, catalog.publicationCount)
+    }
+
+    @Test fun unchangedDisabledRestartAndRepairKeepRevisionAndNeverPublishTools() {
+        val catalog = MemoryNativePluginCatalog()
+        val first = PluginRegistry(ToolRegistry(), catalog)
+        first.register(plugin("disabled-stable"))
+        val disabled = first.setEnabled("disabled-stable", false)
+        val tools = ToolRegistry()
+        val restarted = PluginRegistry(tools, catalog)
+        restarted.register(plugin("disabled-stable"))
+        assertEquals(disabled.revision, catalog.find("disabled-stable")?.revision)
+        restarted.repair("disabled-stable")
+        assertEquals(disabled.revision, catalog.find("disabled-stable")?.revision)
+        assertEquals(false, catalog.find("disabled-stable")?.enabled)
+        assertTrue(tools.snapshot().isEmpty())
+    }
+
+    @Test fun disabledRepairUpdatesChangedContentAndRemainsIdempotentWithoutEnabling() {
+        val catalog = MemoryNativePluginCatalog()
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, catalog)
+        var instructions = "before"
+        val base = plugin("disabled-content")
+        registry.register(
+            object : HelixPlugin by base {
+                override val requiredInstructions get() = instructions
+            },
+        )
+        val disabled = registry.setEnabled("disabled-content", false)
+        instructions = "after"
+        val repaired = registry.repair("disabled-content")
+        assertEquals(disabled.revision + 1, repaired.revision)
+        assertEquals(false, repaired.enabled)
+        assertTrue(tools.snapshot().isEmpty())
+        assertEquals(repaired, registry.repair("disabled-content"))
+        assertEquals(3, catalog.publicationCount)
+    }
+
+    @Test fun contentChangeAdvancesRevisionAndInvalidatesOldBinding() {
+        val catalog = MemoryNativePluginCatalog()
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, catalog)
+        val base = plugin("changing")
+        registry.register(base)
+        val original = tools.snapshot().single().ref
+        val previousRevision = requireNotNull(catalog.find("changing")).revision
+        registry.repair("changing")
+        assertEquals(previousRevision, catalog.find("changing")?.revision)
+
+        registry.repair("changing") // healthy repair is idempotent
+        assertEquals(previousRevision, catalog.find("changing")?.revision)
+        val changed =
+            object : HelixPlugin by base {
+                override val requiredInstructions = "changed instructions"
+            }
+        // A process restart loads the changed host factory against the durable installation.
+        val replacementTools = ToolRegistry()
+        val replacementRegistry = PluginRegistry(replacementTools, catalog)
+        replacementRegistry.register(changed)
+        assertEquals(previousRevision + 1, catalog.find("changing")?.revision)
+        org.junit.Assert.assertNotEquals(original, replacementTools.snapshot().single().ref)
+        assertEquals(1, replacementTools.snapshot().size)
+    }
+
     @Test fun initializationFailureWithdrawsProjectionWithoutClaimingDurableInstallationWasRolledBack() {
         val tools = ToolRegistry()
         val catalog = MemoryNativePluginCatalog()
@@ -473,13 +560,17 @@ class PluginRegistryTest {
 
     @Test fun missingProjectionRequiresRepairAndDoesNotReviveOldBinding() {
         val tools = ToolRegistry()
-        val plugins = PluginRegistry(tools, MemoryNativePluginCatalog())
+        val catalog = MemoryNativePluginCatalog()
+        val plugins = PluginRegistry(tools, catalog)
         plugins.register(plugin("mobile-use"))
         val old = tools.snapshot().single().ref
         tools.replaceOwner(old.owner, emptyList())
         assertEquals(false, plugins.ready("mobile-use"))
         plugins.repair("mobile-use")
         assertEquals(true, plugins.ready("mobile-use"))
+        assertEquals(2L, catalog.find("mobile-use")?.revision)
+        plugins.repair("mobile-use")
+        assertEquals(2L, catalog.find("mobile-use")?.revision)
         assertEquals(null, tools.resolveBinding(old))
     }
 

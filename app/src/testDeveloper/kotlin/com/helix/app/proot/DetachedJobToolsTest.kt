@@ -82,7 +82,7 @@ class DetachedJobToolsTest {
 
     @Test fun backgroundJobApprovalShowsSharedNetworkForScriptAndArgv() {
         val descriptor = DetachedJobTools.start()
-        assertEquals(2, descriptor.version.value)
+        assertEquals(1, descriptor.version.value)
         val script =
             requireNotNull(
                 ApprovalUiMapper.codeExecutionUi(descriptor, buildJsonObject { put("script", "printf hello") }),

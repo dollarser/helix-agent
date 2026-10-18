@@ -130,7 +130,7 @@ class FilesMetaToolsTest {
         op: ToolOperationClass,
     ) {
         assertEquals(name, d.name.value)
-        assertEquals(if (d.name.value == "files.mkdir") 2 else 1, d.version.value)
+        assertEquals(1, d.version.value)
         assertEquals(op, d.operationClass)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
