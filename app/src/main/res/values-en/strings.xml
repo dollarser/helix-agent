@@ -2001,7 +2001,6 @@
     <string name="builtin_model_title">Helix built-in model</string>
     <string name="builtin_model_description">Project-provided cloud model service. No API key required.</string>
     <string name="builtin_model_catalog_notice">The built-in model directory refreshes periodically. Listing does not verify inference connectivity or capabilities.</string>
-    <string name="builtin_model_disclosure">The built-in model sends messages, context, tool results and selected images to the project cloud service. You can switch to your own model.</string>
     <string name="builtin_model_shared_limits">All users share service limits. Retry later when busy or quota is exhausted. Data retention and training policies have not been published.</string>
     <string name="builtin_model_unverified">The built-in model directory has not been fetched.</string>
     <string name="builtin_model_verified">Last connection test passed</string>

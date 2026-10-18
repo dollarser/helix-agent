@@ -15,7 +15,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 - HXA-307 增加 `BUNDLED_SERVICE` provisioning：项目提供的固定 HTTPS 云端服务，使用 Network + None credential。地址与公开 Client ID 由部署契约固定，不作为用户可编辑 API、秘密或身份凭据。标识仅附加到固定 `GET /models` 和 `POST /chat/completions`，拒绝重定向、路径/端口/来源变化和秘密认证头；不直连推理端口、不回退其他 Provider。
 - 内置服务不出现在 Provider 管理，只在对话模型选择中按网关目录展示。成功目录缓存 30 分钟、失败 1 分钟，打开时仅过期才刷新，另有显式刷新与短暂防连点；查询单飞合并，取消不发布半份结果。失败保留已有目录，无历史则为空；目录不能证明推理授权、连通性或模型能力，不发送推理健康探测、不伪造连接通过。首个已知 Qwen3.8-27B 保留其项目声明能力，后续新 ID 不继承视觉/工具/思考强度支持；窗口仍未知。已知 Qwen3.8-27B 的思考档位按下述固定官方模板契约提供，不从目录成员关系推断。新草稿不自动选静态模型，已有明确选择、Session/Turn 目标不改写，错误仍由真实调用处理。
-- 内置服务向用户披露消息、上下文、工具结果、所选图片会发送至项目云端；未知留存/训练政策不作承诺。共享 ID 的额度归服务端管理，不显示为每用户额度。401 与用户 API Key 错误区分，429 不猜测具体配额原因/重置时间，502/504 分别呈现服务故障/超时；只支持显式手动重试，不自动重放部分流、不自动切换付费模型。错误显示读取原调用快照身份，不使用后来改变的会话默认值。
+- 内置服务的数据处理范围在项目文档说明；会话窗口不显示传输消息、上下文、工具结果或图片至服务器的提醒。未知留存/训练政策不作承诺。共享 ID 的额度归服务端管理，不显示为每用户额度。401 与用户 API Key 错误区分，429 不猜测具体配额原因/重置时间，502/504 分别呈现服务故障/超时；只支持显式手动重试，不自动重放部分流、不自动切换付费模型。错误显示读取原调用快照身份，不使用后来改变的会话默认值。
 
 - Endpoint 分类只描述首跳连接地址，不能证明下游数据驻留或此前已按 host:port 授权。回环可能是转发器；UI 使用本机/局域网/公网/自定义地址等连接标签，不宣称数据不会离开设备。`ON_DEVICE_LOCAL` 仍表示直接设备内推理，连接标签不改变网络、工具或会话授权。
 
@@ -36,7 +36,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 - 用户在没有活动轮次或待确认发送时选择会话 Provider/model；草稿只改内存，首次发送才持久化。不修改其他会话或 Provider 默认值，不自动发送。历史消息保留，每轮保存实际目标快照。普通程序化切换继续重置到默认；选模弹窗保存显式选择的合法强度。
 - **Provider 分类采用正交维度，不使用一个 `API | SUBSCRIPTION | LOCAL` 枚举同时表达所有事实。** 产品 UI 可以提供 `API / Self-hosted`、`Subscription / Managed account`、`On-device` 三组，但底层至少分别记录 provisioning/ownership、transport、residence 与 auth source。
-- provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`BUNDLED_SERVICE`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。内置来源只提供对话选模和必要的数据处理告知，不提供用户配置卡片。
+- provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`BUNDLED_SERVICE`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。内置来源只提供对话选模，不提供用户配置卡片；数据处理范围保留在项目文档。
 - transport 表示“模型请求怎么送达”：`Network(protocol, endpoint)` 或 `OnDeviceLocal`。`MANAGED_ACCOUNT` 通常仍走 `Network`；`USER_CONFIGURED` 也可以指向 loopback、LAN 或公网。
 - auth source 与 transport/residence 正交：network Provider 可以无认证、使用 SecretStore alias，或由 managed account/token 提供认证。API key 是否存在不能用来判断 Provider 是否“线上/本地”。
 - **设备内本地模型是一等 Provider。** `ON_DEVICE_ASSET + OnDeviceLocal` 可以作为当前 Session/Turn 的主 `ModelProvider`，并在 capability 满足时直接驱动完整 Agent loop、工具调用与 Goal/Task 流程；摘要、标题、分类和纯聊天只是低风险验证/降级场景，不是架构上限。
@@ -195,3 +195,7 @@ Owner 允许按最新开源 SGLang 检查，部署不支持时由 Owner 升级�
 [官方 Qwen3.8-27B 模板固定版本](https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/chat_template.jinja) 接受 `low/medium/xhigh`，默认 `xhigh`，直接 `high` 无效。Helix 为精确内置 ID 提供默认/低/中/高，高映射 `xhigh`；默认省略参数，不能称为关闭思考。模板提示不等于严格 token 预算或效果保证；未知新模型不继承。模板 CPU 渲染、请求编码与真实网关推理分别验收，白名单未确认时不宣称部署成功。
 
 竞品接口并不统一：[Codex App Server model/list](https://learn.chatgpt.com/docs/app-server#models) 返回受支持档位；[OpenRouter Models](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#discovering-per-model-reasoning-options) 可返回 `reasoning.supported_efforts/default_effort` 等元数据，[OpenCode variants](https://opencode.ai/docs/models/#variants) 采用 Provider/模型适配。Helix 采用精确可信声明优先、已核实固定契约补充的方式，不将 SGLang 通用 schema 或目录成功冒充能力检测，不在每次打开弹窗时推理探测。未来网关若提供模型档位声明，可接既有元数据机制；本次未扩展部署 API。
+
+## Decision history — 2026-10-18：会话移除内置传输提醒
+
+Owner 明确要求会话窗口不提示内置模型将消息、上下文等发送至服务器。移除空白会话 Composer 的专用说明及三份语言资源，数据处理范围继续在 README 中如实说明；不添加替代弹窗，不声明未知留存/训练政策。选模、实际发送目标、工具/敏感附件授权和失败处理契约保持。

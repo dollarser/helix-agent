@@ -180,3 +180,38 @@ Owner 允许按最新开源 SGLang 检查，部署不支持时由 Owner 升级�
 原应用先自然启动，单独记录仅 android_metadata 的语言基线规范化；恢复原语言后等待实际页面与原 locale 摘要，再作全表比较。最终两渠道 changedTables 均为空，全部用户表、关键偏好、会话选模、权限范围、安装内容与显式禁用保持，原生 revision 不变；同源 R8 两次启动后仍保持全部表。没有直接改库、清零计数或恢复旧手动设置。自有测试 APK 已卸载，原语言/字体/旋转与中文输入法配置保留，两渠道留下同源 R8，Advanced 前台可用。
 
 官方固定模板的 6 项 CPU 验证与上述本地请求编码均通过，但未运行 SGLang GPU 后端，也未调用项目网关推理、图片或真实 Agent 工具闭环。公开 Client ID 白名单和实际部署模型仓库/模板、参数透传仍 **pending**；客户端已知模板适配不能代替这些确认。没有使用既有自配 Key、订阅或付费来源替代，没有推送、发布或更改 v0.0.6 tag/附件。
+
+## 真实内置服务与会话提醒移除
+
+Owner 随后明确要求在日常模拟器实际测试内置服务；本轮据此发送真实合成请求，不再以白名单未获书面确认为由暂停。另按最新要求移除会话窗口中的内置服务传输提醒及三份语言资源；数据处理范围继续在 README 如实说明，不增加替代弹窗或未知的数据政策承诺，原有工具与敏感附件授权保持。
+
+### 真实服务结果
+
+目标为日常 `Helix_API_36` / `emulator-5554` / API36 / ARM64，先确认已安装 R8 与 `539b06b5` 上轮冻结输入对应的候选一致。全部请求只使用固定项目 HTTPS 网关及公开 `X-Client-Id: helix-android-preview-v1`；内置配置为 None credential、无 SecretAlias/自定义认证头，没有读取或使用既有 Qwen API Key，没有改动服务器白名单。通过 UI 新建专用合成会话，不发送原有用户会话历史。
+
+| 检查 | 实际结果 |
+| --- | --- |
+| Standard / Advanced 显式刷新目录 | UI 均返回内置 Qwen3.8-27B；Standard 的新鲜 LISTED 缓存与无凭据配置已核对 |
+| Standard 首条文字 | 2026-10-18 14:28:27–14:28:31 UTC 完成；准确返回 `HELIX_BUILTIN_LIVE_OK`，Turn/model call 均 COMPLETED，用量 8696 输入 / 127 输出 tokens |
+| Standard 文件闭环 | 一次批准唯一合成文件的 write，随后 read；两个工具均 SUCCEEDED，最终模型请求清单包含两个工具结果，回答正确读回文本；独立读取实际工作目录文件，字节准确等于 `HELIX_BUILTIN_FILE_OK` |
+| Standard 图片 | 实际附件选择器选用 256×256 合成红方块图，沿原附件流程一次批准；模型准确返回 `Red square.`，图片绑定、内容哈希与已完成结果保留 |
+| Standard 思考三档 | 新建无附件合成会话，UI 分别保存低/中/高；冻结 runtime 为 LOW/MEDIUM/HIGH，对应已验证编码 low/medium/xhigh，三轮均 COMPLETED，准确返回 LOW_OK / MEDIUM_OK / XHIGH_OK |
+| Advanced 文字一致性 | 显式选内置来源并保存，实际返回 `DEVELOPER_BUILTIN_OK`，Turn/model call 均 COMPLETED |
+
+合计 **7 个真实 Turn、9 次模型调用**，均成功；包含文件轮的三次模型调用。此结果证明本轮时间、设备与公共标识下的文字/SSE、图片及有界文件 Agent 闭环可用，不能外推长期稳定性、容量、所有模型或其他设备。思考三档成功仅证明请求被接受并完成，不证明部署模板版本或各档语义效果；没有声明已验证思考预算/质量差异。
+
+应用没有保存这轮请求的准确 HTTP 状态码，持久 requestId 均为空，不能补写成已捕获 HTTP 200 或服务端 request-id。成功证据来自真实回复、SSE 完成/用量、冻结目标、工具结果与独立文件核验。另一次主机 urllib 只读 `GET /models` 得到 **403**，没有捕获响应体/request-id，没有重试；它不是模拟器 UI 请求，拒绝原因未定位，不能覆盖日常 App 已成功的结果。
+
+原始证据在忽略目录 `build/hxa307-builtin-live-2026-10-18/`：`catalog-ui-result.json`、`live-durable-result.json`、`synthetic-messages-and-manifests.json`、`file-verified.json`、`file-consumption-verified.json`、`reasoning-live-results.json` 和 `developer/`。仅保存合成会话内容；已有数据库行仅保留摘要。首次 ADB 键盘输入被拼音改写，精确校验在发送前拦截；改用独立 SDK UiAutomation 的 ACTION_SET_TEXT，未修改中文输入法。图片输入夹具首次遇到 root 短暂为空、发送前失败，补有界等待后通过；没有重复发送那条失败输入。
+
+### 提醒移除的候选与验收
+
+实现仅删除 `ChatScreen` 空白内置会话的传输说明，以及 base/en/zh-rCN 对应字符串。增加独立公开 UI 回归 `OwnerBuiltinLiveUiTest`，要求明确的 owner opt-in、日常包白名单与真正空白新草稿；输入仅允许合成标记，不自动发送，不改 IME、不访问 App 私有状态。旧 Advanced R8 的提醒断言如预期失败，确认不是在已有消息的会话上假通过。
+
+本轮重新运行 `./scripts/check-all.sh --all`，退出 **0**；格式/Detekt/lint、主机测试、双渠道 Debug/Release/R8、测试 APK、依赖及制品边界均通过。应用 JVM Standard **1315 通过/4 条件跳过**、Advanced **1440 通过/4 条件跳过**，零失败/错误；这些是原有外部输入条件，不宣称零跳过。随后以最终夹具补跑 `spotlessCheck :tests:release-smoke:assembleDebugAndroidTest :tests:release-smoke:lintDebug` 成功。未变测试允许同输入缓存复用；真实网络结果不由主机夹具代替。
+
+成功门禁的双渠道 ARM64 R8 以原开发签名保数据更新到上述日常设备；安装前确认同签名、Room 基线、无活动 Turn，安装后读回 APK；`candidate/provenance.json` 记录 `539b06b5` 加本轮未提交输入与实际 APK。不是本轮提交后的干净构建。生产改动只有上述 UI/资源删除，传输及模型执行输入与真实服务验收时相同，故复用其真实服务证据，不额外发送公网请求。
+
+最终 Standard 与 Advanced 各 **2/2** 真实空白会话方法执行通过，覆盖 1080×2400 竖屏与 2400×1080 横屏／1.8 倍字体，零失败/跳过；已查看截图，传输提醒消失，语音、正文、添加、发送同排。随后两渠道各一次 R8 进程冷启动通过，全部数据库表及原生 revision 与更新前相同。`updated-device-result.json` 与各 `device-*` 子目录保存安装读回、JUnit、实际 DisplayFrames 和截图。
+
+精确恢复测试前两个会话入口/草稿模型偏好，其他偏好保持；逐表逐行摘要证明全部原数据库行未修改或删除，仅新增合成测试事实。原用户模型绑定、授权、禁用、中文输入法、字体与旋转保持，`final-preservation.json` 和 `restoration.log` 保存核验。留下两渠道新 R8 及合成会话/工作文件，卸载自有输入测试 APK，删除临时选择器图片副本；没有清空用户数据。真机、其他模型、负载/长稳、服务端模板身份与思考语义效果未测；它们不再作为本轮内置服务基本可用的前置阻塞。本轮仅本地提交，不推送、发布或修改 v0.0.6 tag/附件。

@@ -466,16 +466,6 @@ fun ChatScreen(
                         localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                     ),
                 composerStatus = {
-                    if (screen.messages.isEmpty() && screen.badge?.providerId ==
-                        com.helix.app.provider.BuiltInModel.PROVIDER_ID
-                    ) {
-                        Text(
-                            stringResource(R.string.builtin_model_disclosure),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("builtin-model-disclosure"),
-                        )
-                    }
                     buffer.value.skillActivations.forEach { activation ->
                         androidx.compose.material3.TextButton(
                             onClick = {
