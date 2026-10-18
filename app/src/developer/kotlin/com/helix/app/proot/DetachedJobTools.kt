@@ -78,7 +78,7 @@ internal object DetachedJobTools {
                     "never replay an uncertain submission.",
             inputSchema = JsonObject(base.inputSchema + ("properties" to JsonObject(properties))),
             outputSchema = resultSchema,
-            maxOutputBytes = 4_096,
+            maxOutputBytes = 16_384,
             discoveryCompanions = setOf(STATUS, CANCEL, COLLECT, AWAIT).map(::ToolName).toSet(),
         )
     }

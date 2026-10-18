@@ -61,8 +61,7 @@ class ProotJobRunner private constructor(
     com.helix.runtime.proot.ipc.ProotOwnedJobHandler,
     com.helix.runtime.proot.ipc.ProotLogHandler {
     companion object {
-        const val MAX_MANUAL_TERMINALS = 2
-        const val MAX_JOB_EXECUTIONS = 4
+        const val MAX_JOB_EXECUTIONS = com.helix.runtime.proot.core.RuntimeExecutionCapacity.MAX_JOBS
         const val MANUAL_TERMINAL_PREFIX = "pty-"
         private val holder = AtomicReference<ProotJobRunner>()
 
@@ -155,7 +154,18 @@ class ProotJobRunner private constructor(
     }
 
     @Synchronized
-    internal fun reserveManualTerminal(sessionId: String): Boolean = ready() && capacity.reserveTerminal(sessionId)
+    internal fun reserveManualTerminal(sessionId: String): Boolean =
+        reserveTerminal(sessionId) == TerminalAdmission.RESERVED
+
+    internal enum class TerminalAdmission { RESERVED, UNAVAILABLE, FULL }
+
+    @Synchronized
+    internal fun reserveTerminal(sessionId: String): TerminalAdmission =
+        when {
+            !ready() -> TerminalAdmission.UNAVAILABLE
+            capacity.reserveTerminal(sessionId, manualTerminalAllowance(context)) -> TerminalAdmission.RESERVED
+            else -> TerminalAdmission.FULL
+        }
 
     @Synchronized
     internal fun releaseManualTerminal(sessionId: String) {

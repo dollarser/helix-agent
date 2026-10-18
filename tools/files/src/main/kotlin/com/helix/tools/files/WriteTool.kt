@@ -224,10 +224,7 @@ object WriteTool {
                         )
                     ToolExecutorResult.Completed(output(parsed.path, outcome, ok.exists))
                 } catch (e: PreconditionHashMismatch) {
-                    ToolExecutorResult.Failed(
-                        "expectedSha256 precondition failed (hash mismatch): file is missing or changed since read; " +
-                            "re-read it and retry with a fresh expectedSha256",
-                    )
+                    ToolExecutorResult.Failed(fileVersionConflict(parsed.path.toModelReference(), e))
                 } catch (e: WorkspaceQuota.QuotaExceeded) {
                     ToolExecutorResult.Failed("workspace quota exceeded; the write was not performed")
                 } catch (e: SymlinkInPath) {

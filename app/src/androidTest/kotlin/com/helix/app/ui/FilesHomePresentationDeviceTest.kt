@@ -5,11 +5,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.app.R
 import com.helix.app.files.FileSource
 import com.helix.app.files.FileSourceKind
 import org.junit.Assert.assertEquals
@@ -18,6 +20,24 @@ import org.junit.Test
 
 class FilesHomePresentationDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun sameNamedDirectoriesShowTheirActualDocumentOrPathSource() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
+        val state = FilesScreenState(app.appContainer.fileManager)
+        state.replaceSources(
+            state.sources +
+                listOf(
+                    FileSource("fixture-path", "Project", FileSourceKind.WORKSPACE, true, workspaceBackend = "PATH"),
+                    FileSource("fixture-doc", "Project", FileSourceKind.WORKSPACE, true, workspaceBackend = "SAF"),
+                ),
+        )
+        state.workspaceQuery = "fixture-"
+        compose.setContent { MaterialTheme { FilesWorkspaces(state) } }
+        compose.onNodeWithTag("files-workspace-fixture-path").assertIsDisplayed()
+        compose.onNodeWithTag("files-workspace-fixture-doc").assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.workspace_path_backend), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.workspace_document_backend), substring = true).assertIsDisplayed()
+    }
 
     @Test fun manyWorkspacesStayBehindOneEntryAndShortcutsUseDeviceFolders() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication

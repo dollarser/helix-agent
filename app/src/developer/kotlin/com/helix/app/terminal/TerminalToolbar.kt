@@ -150,7 +150,7 @@ private fun TerminalSelector(
                     modifier = Modifier.testTag("terminal-tab-$index").semantics { selected = active },
                 )
             }
-            if (state.sessions.size < 2) {
+            if (state.sessions.count { !it.canSettle } < state.maxSessions) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.terminal_new_tab)) },
                     leadingIcon = { Icon(painterResource(R.drawable.ic_composer_add), null) },

@@ -5,6 +5,7 @@ import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ExecutionOwnershipStore
 import com.helix.core.model.SafetyProfile
 import com.helix.runtime.proot.client.PtySessionClient
+import com.helix.runtime.proot.core.RuntimeExecutionCapacity
 import com.helix.runtime.proot.ipc.PtySessionKey
 import com.helix.tools.framework.ExecutionOwnership
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ import java.util.UUID
 import com.helix.runtime.proot.ipc.PtySessionProtocol as Wire
 
 /** Shares the exact host admission instance used by tools. Construction performs no IPC. */
+@Suppress("TooManyFunctions") // Manual operations plus exact-identity settlement share this admission mutex.
 internal class DeveloperManualTerminal(
     private val context: Context,
     private val ownership: ExecutionOwnership,
@@ -25,23 +27,29 @@ internal class DeveloperManualTerminal(
         File(root, reference).canonicalFile.also { require(it.toPath().startsWith(root.toPath())) }
     },
 ) : ManualTerminal {
-    private val binding1 = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal"))
-    private val binding2 = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal-2"))
+    override val maxSessions: Int
+        get() = Runtime.getRuntime().availableProcessors().coerceIn(1, RuntimeExecutionCapacity.MAX_TERMINALS)
+
+    private val bindings =
+        ManualTerminalBindings(
+            (1..RuntimeExecutionCapacity.MAX_TERMINALS).map { number ->
+                val suffix = if (number == 1) "" else "-$number"
+                ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal$suffix"))
+            },
+        )
     private val mutex = Mutex()
 
     override suspend fun hasSession(): Boolean =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                reconcileBindings(binding1, binding2)
-                binding1.read() != null || binding2.read() != null
+                bindings.owners().isNotEmpty()
             }
         }
 
     override suspend fun sessions(): List<ManualTerminal.State> =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                reconcileBindings(binding1, binding2)
-                val owners = listOfNotNull(binding1.read(), binding2.read())
+                val owners = bindings.owners().map { it.second }
                 if (owners.isEmpty()) return@withContext emptyList()
                 PtySessionClient(context).use { client ->
                     client.connect()
@@ -61,8 +69,8 @@ internal class DeveloperManualTerminal(
             mutex.withLock {
                 check(profile.profile == SafetyProfile.ADVANCED) { "Manual terminal requires Advanced" }
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
-                reconcileBindings(binding1, binding2)
-                val targetBinding = selectTargetBinding(binding1, binding2)
+                retireStoppedBindings()
+                val targetBinding = bindings.free(maxSessions)
                 val workspace = directoryResolver(relativeDirectory)
                 require(workspace.isDirectory)
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
@@ -74,6 +82,9 @@ internal class DeveloperManualTerminal(
                         owner,
                         submit = { submitting -> launchSession(context, key, workspace, leaseMs, submitting) },
                         refused = { it.outcome == "START_REFUSED" || it.outcome == "CAPACITY_EXHAUSTED" },
+                        refusalDetail = {
+                            if (it.outcome == "CAPACITY_EXHAUSTED") "CAPACITY_FULL" else "Runtime not ready"
+                        },
                     )
                 terminalState(reply)
             }
@@ -88,7 +99,7 @@ internal class DeveloperManualTerminal(
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val root = workspace.canonicalFile.toPath()
-                val owners = listOfNotNull(binding1.read(), binding2.read())
+                val owners = bindings.owners().map { it.second }
                 if (owners.isNotEmpty()) {
                     PtySessionClient(context).use { client ->
                         client.connect()
@@ -113,20 +124,10 @@ internal class DeveloperManualTerminal(
     override suspend fun settle(sessionId: String?) {
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                reconcileBindings(binding1, binding2)
-                val (targetBinding, owner) = findOwner(sessionId)
+                val (targetBinding, owner) = bindings.find(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    val observed = client.request(ptyKey(owner), Wire.QUERY)
-                    check(observed.record?.stopProof != null) { "Execution not proven stopped" }
-                    val ack = client.request(ptyKey(owner), Wire.ACK)
-                    check(ack.record?.reconciled == true)
-
-                    if (ownership.isRetained(owner)) {
-                        checkNotNull(ownership.acquireReconciliation(owner)) { "This terminal is being settled" }
-                            .use { check(it.settle()) { "Terminal identity changed" } }
-                    }
-                    check(targetBinding.compareAndSet(owner, null)) { "Terminal binding changed" }
+                    settleBinding(client, targetBinding, owner)
                 }
             }
         }
@@ -139,7 +140,7 @@ internal class DeveloperManualTerminal(
             return withContext(Dispatchers.IO) {
                 mutex.withLock {
                     check(profile.profile == SafetyProfile.ADVANCED)
-                    val (_, owner) = findOwner(sessionId)
+                    val (_, owner) = bindings.find(sessionId)
                     val conn =
                         ManualTerminalConnection(context, ptyKey(owner)) {
                             profile.profile == SafetyProfile.ADVANCED
@@ -167,7 +168,7 @@ internal class DeveloperManualTerminal(
     ): ManualTerminal.State =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                val (_, owner) = findOwner(sessionId)
+                val (_, owner) = bindings.find(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
                     terminalState(client.request(ptyKey(owner), code), owner.takeIf { code == Wire.QUERY })
@@ -175,43 +176,33 @@ internal class DeveloperManualTerminal(
             }
         }
 
-    private fun findOwner(sessionId: String?): Pair<ExecutionOwnershipStore, ExecutionOwnership.Owner> {
-        reconcileBindings(binding1, binding2)
-        val b1 = binding1.read()
-        val b2 = binding2.read()
-        val pair =
-            when {
-                sessionId != null -> {
-                    when {
-                        b1?.executionId == sessionId -> binding1 to b1
-                        b2?.executionId == sessionId -> binding2 to b2
-                        else -> error("Terminal session not found: $sessionId")
-                    }
-                }
-
-                b1 != null -> {
-                    binding1 to b1
-                }
-
-                b2 != null -> {
-                    binding2 to b2
-                }
-
-                else -> {
-                    error("No active terminal session")
+    /** Explicit new start may retire proven exits; uncertain START/runtime loss still occupies its slot. */
+    private fun retireStoppedBindings() {
+        val owners = bindings.owners()
+        if (owners.isEmpty()) return
+        PtySessionClient(context).use { client ->
+            client.connect()
+            owners.forEach { (binding, owner) ->
+                if (client.request(ptyKey(owner), Wire.QUERY).record?.stopProof != null) {
+                    settleBinding(client, binding, owner)
                 }
             }
-        return pair
+        }
     }
-}
 
-private fun reconcileBindings(
-    binding1: ExecutionOwnershipStore,
-    binding2: ExecutionOwnershipStore,
-) {
-    val b1 = binding1.read()
-    val b2 = binding2.read()
-    if (b1 != null && b2 != null && b1 == b2) binding2.compareAndSet(b2, null)
+    private fun settleBinding(
+        client: PtySessionClient,
+        binding: ExecutionOwnership.Store,
+        owner: ExecutionOwnership.Owner,
+    ) {
+        settleTerminalBinding(
+            ownership,
+            binding,
+            owner,
+            query = { client.request(ptyKey(owner), Wire.QUERY).record },
+            acknowledge = { client.request(ptyKey(owner), Wire.ACK).record },
+        )
+    }
 }
 
 private fun ptyKey(owner: ExecutionOwnership.Owner): PtySessionKey =
@@ -236,16 +227,6 @@ internal fun terminalState(
         record.stopProof != null,
     )
 }
-
-private fun selectTargetBinding(
-    binding1: ExecutionOwnershipStore,
-    binding2: ExecutionOwnershipStore,
-): ExecutionOwnershipStore =
-    when {
-        binding1.read() == null -> binding1
-        binding2.read() == null -> binding2
-        else -> error("Manual terminal capacity exhausted (max 2 sessions)")
-    }
 
 private fun launchSession(
     context: Context,

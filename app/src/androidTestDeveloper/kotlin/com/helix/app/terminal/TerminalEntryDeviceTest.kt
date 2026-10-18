@@ -9,7 +9,44 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Lifecycle entry uses the real ViewModel; the fake boundary never launches a shell. */
+@Suppress("TooManyFunctions") // Independent lifecycle and capacity boundary regressions.
 class TerminalEntryDeviceTest {
+    @Test fun configuredFourTerminalCapacityAllowsFourAndCloseReleasesOne() =
+        onMain {
+            val terminal = FakeTerminal(maxSessions = 4)
+            val model = ManualTerminalViewModel(terminal)
+            model.enter(".")
+            repeat(3) { model.open(".") }
+            assertEquals(4, terminal.starts)
+            assertEquals(4, model.state.value.maxSessions)
+            model.open(".")
+            assertEquals(4, terminal.starts)
+            assertEquals("CAPACITY_FULL", model.state.value.errorMessage)
+            model.settle()
+            assertEquals(3, terminal.retained.size)
+            model.open(".")
+            assertEquals(5, terminal.starts)
+            assertEquals(4, terminal.retained.size)
+            assertNull(model.state.value.errorMessage)
+            model.disconnect()
+        }
+
+    @Test fun provenStoppedHistoryDoesNotFillTheActiveLimitButUnknownDoes() =
+        onMain {
+            val terminal = FakeTerminal(state("stopped", "STOPPED", true), maxSessions = 1)
+            val model = ManualTerminalViewModel(terminal)
+            model.enter(".")
+            model.open(".")
+            assertEquals(1, terminal.starts)
+            model.disconnect()
+            val unknown = FakeTerminal(state("unknown", "UNKNOWN"), maxSessions = 1)
+            val other = ManualTerminalViewModel(unknown)
+            other.enter(".")
+            other.open(".")
+            assertEquals(0, unknown.starts)
+            assertEquals("CAPACITY_FULL", other.state.value.errorMessage)
+        }
+
     @Test fun entryStartsOnceAndBackgroundReturnAttachesTheOriginalSession() =
         onMain {
             val terminal = FakeTerminal()
@@ -128,6 +165,7 @@ class TerminalEntryDeviceTest {
 
     private class FakeTerminal(
         initial: ManualTerminal.State? = null,
+        override val maxSessions: Int = 2,
     ) : ManualTerminal {
         val retained = mutableListOf<ManualTerminal.State>().apply { initial?.let(::add) }
         var starts = 0

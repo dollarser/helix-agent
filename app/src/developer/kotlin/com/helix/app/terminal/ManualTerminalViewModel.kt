@@ -24,6 +24,7 @@ internal data class TerminalPageState(
     val busy: Boolean = false,
     val failed: Boolean = false,
     val errorMessage: String? = null,
+    val maxSessions: Int = 2,
 )
 
 /** Owns the connection across rotation; finishing the page never stops the shell. */
@@ -31,7 +32,7 @@ internal data class TerminalPageState(
 internal class ManualTerminalViewModel(
     private val terminal: ManualTerminal,
 ) : ViewModel() {
-    private val mutable = MutableStateFlow(TerminalPageState())
+    private val mutable = MutableStateFlow(TerminalPageState(maxSessions = terminal.maxSessions))
     val state = mutable.asStateFlow()
     private val mutex = Mutex()
     private val cleanup = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -78,7 +79,7 @@ internal class ManualTerminalViewModel(
         action {
             if (directoryToStart != null) {
                 val currentSessions = terminal.sessions()
-                if (currentSessions.size >= 2) {
+                if (currentSessions.count { !it.canSettle } >= terminal.maxSessions) {
                     mutable.value = mutable.value.copy(errorMessage = "CAPACITY_FULL")
                     return@action
                 }
@@ -238,8 +239,13 @@ internal class ManualTerminalViewModel(
                     block()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
-                } catch (_: Exception) {
-                    mutable.value = mutable.value.copy(failed = true)
+                } catch (failure: Exception) {
+                    mutable.value =
+                        if (failure.message == "CAPACITY_FULL") {
+                            mutable.value.copy(errorMessage = "CAPACITY_FULL")
+                        } else {
+                            mutable.value.copy(failed = true)
+                        }
                 } finally {
                     mutable.value = mutable.value.copy(busy = false)
                 }

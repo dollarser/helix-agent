@@ -1,7 +1,6 @@
 package com.helix.app.proot
 
 import com.helix.app.proot.LinuxRunTool.sha256Hex
-import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.core.JobManifest
 import com.helix.runtime.proot.core.JobManifestCodec
@@ -48,9 +47,8 @@ internal class LinuxInputSnapshot(
             val reader = LinuxInputStreams(store, cancelled)
             val entries =
                 references.mapIndexed { index, reference ->
-                    val path = FileScopePath.fromModelReference(reference)
                     // Keep the established snapshot-name contract; do not silently retarget scripts.
-                    val name = path.name + if (index == 0) "" else "-${index + 1}"
+                    val name = snapshotInputName(reference, index)
                     val file = File(staging, "input-$index")
                     reader.read(reference, name, file) to file
                 }

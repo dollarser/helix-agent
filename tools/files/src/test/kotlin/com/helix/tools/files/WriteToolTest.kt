@@ -286,6 +286,7 @@ class WriteToolTest {
         val r =
             write(root, "scope:ws:work/a.txt", "v2", overwrite = true, expectedSha256 = "0".repeat(64))
         assertTrue(failed(r).contains("hash mismatch"))
+        assertTrue(failed(r).contains("observedSha256=${sha("v1".toByteArray())}"))
         assertEquals("the file is intact", "v1", String(Files.readAllBytes(root.resolve("work/a.txt"))))
     }
 

@@ -410,6 +410,7 @@ internal class LinuxJobExecution(
                     put("stderr", JsonPrimitive(readBounded(File(File(scratch, "extracted"), "stderr.txt"))))
                     put("outputImported", JsonPrimitive(outputImported))
                     put("outputSha256", JsonPrimitive(outputSha))
+                    put("execution", linuxExecutionInfo(call, spec.jobId))
                     ProotArtifactReferences.summary(record.jobId, extraction.manifest.entries).forEach { (key, value) ->
                         put(key, value)
                     }

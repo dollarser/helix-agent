@@ -91,6 +91,7 @@ object LinuxRunTool {
                     "It can access the network and app-private data; PRoot is not a security sandbox. " +
                     "It is not an Android ADB/root shell; paths follow runtime mounts. " +
                     "Use Mobile Use for Android app and storage UI. " +
+                    "Inputs are copied to a separate Job workspace; outputs do not automatically update sources. " +
                     "`files` controls snapshot import, not OS access. `argv` runs a program; `script` runs an " +
                     "explicit shell script in /bin/sh (shell syntax only when genuinely " +
                     "needed). Output: verified stdout/stderr, the exit code, and the " +
@@ -269,6 +270,7 @@ object LinuxRunTool {
                     put("artifactDirectory", buildJsonObject { put("type", "string") })
                     put("artifactCount", buildJsonObject { put("type", "integer") })
                     put("artifactsTruncated", buildJsonObject { put("type", "boolean") })
+                    put("execution", buildJsonObject { put("type", "object") })
                     put(
                         "artifacts",
                         buildJsonObject {

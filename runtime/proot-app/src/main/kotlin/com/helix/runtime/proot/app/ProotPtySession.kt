@@ -78,20 +78,22 @@ internal class ProotPtySession(
     @Suppress("TooGenericExceptionCaught")
     private fun run(allowLaunch: Boolean) {
         var process: ProotPtyProcess? = null
+        var neverStarted = false
+        var exitStatus: Int? = null
         try {
             synchronized(lock) {
                 if (SystemClock.elapsedRealtime() >= record.origin.deadlineElapsedMs) {
                     update(record.requestStop(PtySessionRecord.StopReason.LEASE_EXPIRED))
                 }
                 if (!allowLaunch || record.phase == PtySessionRecord.Phase.CLOSING) {
-                    update(record.neverStarted())
+                    neverStarted = true
                     return
                 }
             }
             process = launch()
             val identity = awaitPtyProcessIdentity(process.pid, exitObserved = { process.pollExit() != null })
             synchronized(lock) { update(record.started(identity)) }
-            pump(process)
+            exitStatus = pump(process)
         } catch (failure: Exception) {
             android.util.Log.e("ProotPtySession", "PTY worker failed", failure)
             synchronized(lock) {
@@ -102,11 +104,16 @@ internal class ProotPtySession(
             input.close()
             output.finish()
             process?.let(::cleanup)
-            workerFinished = true
+            synchronized(lock) {
+                workerFinished = true
+                // Publish exit proof only after output and physical cleanup, never before reap/close.
+                if (neverStarted) update(record.neverStarted())
+                exitStatus?.takeIf { it in 0..255 }?.let { update(record.stoppedTree(it)) }
+            }
         }
     }
 
-    private fun pump(process: ProotPtyProcess) {
+    private fun pump(process: ProotPtyProcess): Int {
         val bytes = ByteArray(PtyOutputBuffer.CHUNK_BYTES)
         val writer = PtyPendingWrite(input)
         var quitSent = false
@@ -139,12 +146,9 @@ internal class ProotPtySession(
             val exit = process.pollExit()
             if (exit != null) {
                 drainPtyTail(process, output, eof)
-                synchronized(lock) {
-                    // Only ordinary exit through the pinned --kill-on-exit PRoot event loop is proof.
-                    update(if (exit in 0..255) record.stoppedTree(exit) else record.runtimeLost())
-                }
                 process.reap()
-                return
+                if (exit !in 0..255) synchronized(lock) { update(record.runtimeLost()) }
+                return exit
             }
         }
     }

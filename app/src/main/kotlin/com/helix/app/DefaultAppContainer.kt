@@ -774,16 +774,14 @@ internal class DefaultAppContainer(
                     effectClassifier = effectClassifier,
                     executionOwnership = executionOwnership,
                 )
-            // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
-            // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
-            // the constant default in this first version — low memory / background / thermal
-            // signals lower the allowance through this SAME seam in a later HXA (they can
-            // only lower it, never raise it, and never touch approvals or result order).
+            // CPU-sized admission within the existing four-worker pool; live background/memory/
+            // thermal facts reduce new admissions without changing approval or result ordering.
             val scheduler =
                 ToolScheduler(
                     clock = appClock,
                     dispatcher = dispatcher,
                     registry = toolRegistry,
+                    maxConcurrency = ToolScheduler.HARD_MAX_CONCURRENCY,
                     resourceGate = resourceGate::allowance,
                 )
             ToolPipeline(

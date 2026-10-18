@@ -18,7 +18,11 @@ class OwnerTerminalLayoutUiTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val arguments = InstrumentationRegistry.getArguments()
     private val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
-    private val count get() = checkNotNull(arguments.getString("terminalCount")).toInt().also { require(it in 1..2) }
+    private val limit get() = (arguments.getString("terminalLimit") ?: "4").toInt().also { require(it in 1..4) }
+    private val count get() =
+        checkNotNull(
+            arguments.getString("terminalCount"),
+        ).toInt().also { require(it in 1..limit) }
     private val density get() = instrumentation.context.resources.displayMetrics.density
 
     init {
@@ -68,16 +72,16 @@ class OwnerTerminalLayoutUiTest {
         val original = (1..count).single { index -> nodes().any { label(it) == "终端 $index" } }
         click("终端 $original")
         (1..count).forEach { await("终端 $it") }
-        if (count < 2) await("新建终端")
-        assertEquals(count < 2, nodes().any { label(it) == "新建终端" })
+        if (count < limit) await("新建终端")
+        assertEquals(count < limit, nodes().any { label(it) == "新建终端" })
         click("终端 1")
         awaitTerminal(1)
-        if (count == 2) {
-            click("终端 1")
-            click("终端 2")
-            awaitTerminal(2)
+        for (index in 2..count) {
+            click("终端 ${index - 1}")
+            click("终端 $index")
+            awaitTerminal(index)
         }
-        val current = if (count == 2) 2 else 1
+        val current = count
         if (original != current) {
             click("终端 $current")
             click("终端 $original")

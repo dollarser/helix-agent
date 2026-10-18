@@ -144,6 +144,7 @@ internal class DetachedJobLaunch(
                         put("jobId", spec.jobId)
                         put("state", requireNotNull(reply.record).state.wire)
                         put("executionComplete", false)
+                        put("execution", linuxExecutionInfo(call, spec.jobId))
                     },
                 )
             }

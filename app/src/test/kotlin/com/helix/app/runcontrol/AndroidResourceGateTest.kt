@@ -5,10 +5,10 @@ import org.junit.Test
 
 class AndroidResourceGateTest {
     @Test
-    fun foregroundHealthyAllowsTwoAndEveryPressureLowersToOne() {
+    fun foregroundHealthyAllowsFourAndEveryPressureLowersToOne() {
         val probe = FakeProbe()
         val gate = AndroidResourceGate(probe)
-        assertEquals(2, gate.allowance())
+        assertEquals(4, gate.allowance())
 
         probe.foreground = false
         assertEquals(1, gate.allowance())
@@ -26,18 +26,30 @@ class AndroidResourceGateTest {
         val gate = AndroidResourceGate(probe)
         assertEquals(1, gate.allowance())
         probe.lowMemory = false
-        assertEquals(2, gate.allowance())
+        assertEquals(4, gate.allowance())
         probe.foreground = false
         assertEquals(1, gate.allowance())
         probe.foreground = true
-        assertEquals(2, gate.allowance())
+        assertEquals(4, gate.allowance())
+    }
+
+    @Test fun cpuAllowanceNeverExceedsExistingPoolAndSamplesChanges() {
+        val probe = FakeProbe()
+        val gate = AndroidResourceGate(probe)
+        for ((processors, expected) in listOf(0 to 1, 1 to 1, 2 to 2, 4 to 4, 8 to 4)) {
+            probe.processors = processors
+            assertEquals(expected, gate.allowance())
+        }
     }
 
     private data class FakeProbe(
         var foreground: Boolean = true,
         var lowMemory: Boolean = false,
         var thermal: Boolean = false,
+        var processors: Int = 4,
     ) : DeviceResourceProbe {
+        override fun processorCount() = processors
+
         override fun isForeground() = foreground
 
         override fun isLowMemory() = lowMemory

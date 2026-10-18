@@ -28,9 +28,10 @@ class ResourcePressureDeviceTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 scenario.moveToState(Lifecycle.State.RESUMED)
                 assertTrue(probe.isForeground())
-                assertEquals(2, gate.allowance())
+                val normal = probe.processorCount().coerceIn(1, 4)
+                assertEquals(normal, gate.allowance())
                 log.writeText("elapsedMs,availableBytes,thresholdBytes,lowMemory,allowance\n")
-                observePressure(manager, gate, log, File(app.cacheDir, "resource-pressure-$runId.released"))
+                observePressure(manager, gate, log, File(app.cacheDir, "resource-pressure-$runId.released"), normal)
                 assertTrue(probe.isForeground())
             }
         } finally {
@@ -43,6 +44,7 @@ class ResourcePressureDeviceTest {
         gate: AndroidResourceGate,
         log: File,
         released: File,
+        normal: Int,
     ) {
         val start = android.os.SystemClock.elapsedRealtime()
         var lowSeen = false
@@ -52,7 +54,7 @@ class ResourcePressureDeviceTest {
             val elapsed = android.os.SystemClock.elapsedRealtime() - start
             log.appendText("$elapsed,${memory.availMem},${memory.threshold},${memory.lowMemory},$allowance\n")
             if (memory.lowMemory && allowance == 1) lowSeen = true
-            val healthy = !memory.lowMemory && allowance == 2
+            val healthy = !memory.lowMemory && allowance == normal
             if (lowSeen && released.exists() && healthy) return
             Thread.sleep(100)
         }

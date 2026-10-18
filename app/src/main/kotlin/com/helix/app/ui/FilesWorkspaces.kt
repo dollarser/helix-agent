@@ -56,6 +56,15 @@ internal fun FilesWorkspaces(state: FilesScreenState) {
                         }
                     ) +
                         stringResource(
+                            if (source.workspaceBackend ==
+                                "SAF"
+                            ) {
+                                R.string.workspace_document_backend
+                            } else {
+                                R.string.workspace_path_backend
+                            },
+                        ) + " · " +
+                        stringResource(
                             if (source.available) R.string.files_workspace_files else R.string.workspace_unavailable,
                         ),
                     "files-workspace-${source.scopeId}",

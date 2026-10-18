@@ -2,11 +2,12 @@ package com.helix.runtime.proot.core
 
 /** Physical capacity and environment maintenance, not a lock on user files or results. */
 class RuntimeExecutionCapacity(
-    private val maxJobs: Int = 4,
-    private val maxTerminals: Int = 2,
+    private val maxJobs: Int = MAX_JOBS,
+    private val maxTerminals: Int = MAX_TERMINALS,
+    private val maxTotal: Int = MAX_TOTAL,
 ) {
     init {
-        require(maxJobs in 1..4 && maxTerminals in 1..2)
+        require(maxJobs in 1..MAX_JOBS && maxTerminals in 1..MAX_TERMINALS && maxTotal in 1..MAX_TOTAL)
     }
 
     private val jobs = mutableMapOf<String, Boolean>()
@@ -16,7 +17,9 @@ class RuntimeExecutionCapacity(
     @Synchronized
     fun reserveJob(id: String): Boolean {
         require(id.isNotBlank())
-        if (maintenance != null || id in jobs || jobs.size >= maxJobs) return false
+        val known = id in jobs || id in terminals
+        val unavailable = maintenance != null || jobs.size >= maxJobs || full()
+        if (known || unavailable) return false
         jobs[id] = false
         return true
     }
@@ -48,9 +51,14 @@ class RuntimeExecutionCapacity(
     }
 
     @Synchronized
-    fun reserveTerminal(id: String): Boolean {
+    fun reserveTerminal(
+        id: String,
+        allowance: Int = maxTerminals,
+    ): Boolean {
         require(id.isNotBlank())
-        return maintenance == null && terminals.size < maxTerminals && terminals.add(id)
+        require(allowance in 0..MAX_TERMINALS)
+        return maintenance == null && id !in jobs && terminals.size < minOf(maxTerminals, allowance) &&
+            !full() && terminals.add(id)
     }
 
     @Synchronized
@@ -68,5 +76,15 @@ class RuntimeExecutionCapacity(
     @Synchronized
     fun releaseMaintenance(id: String) {
         if (maintenance == id) maintenance = null
+    }
+
+    private fun full(): Boolean = jobs.size + terminals.size >= maxTotal
+
+    companion object {
+        const val MAX_JOBS = 4
+        const val MAX_TERMINALS = 4
+
+        // Retain the previous aggregate budget (four jobs + two terminals), shared by both kinds.
+        const val MAX_TOTAL = 6
     }
 }

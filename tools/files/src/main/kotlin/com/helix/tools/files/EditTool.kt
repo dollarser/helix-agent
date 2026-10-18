@@ -235,10 +235,7 @@ object EditTool {
                     val outcome = publish(store, parsed, region, updated, call)
                     ToolExecutorResult.Completed(output(parsed.path, count, outcome))
                 } catch (e: PreconditionHashMismatch) {
-                    ToolExecutorResult.Failed(
-                        "file changed since you read it (hash mismatch); " +
-                            "re-read it and retry with a fresh expectedSha256",
-                    )
+                    ToolExecutorResult.Failed(fileVersionConflict(ref, e))
                 } catch (e: FileNotFoundException) {
                     ioFailure(publishStarted)
                 } catch (e: WorkspaceQuota.QuotaExceeded) {

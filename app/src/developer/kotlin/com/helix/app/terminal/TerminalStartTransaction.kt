@@ -12,10 +12,11 @@ internal class TerminalStartTransaction(
         owner: ExecutionOwnership.Owner,
         submit: (() -> Unit) -> T,
         refused: (T) -> Boolean,
+        refusalDetail: (T) -> String = { "Manual terminal was not started; check Runtime readiness" },
     ): T {
         val permit = checkNotNull(ownership.acquire(callId)) { "Execution capacity exhausted" }
         try {
-            return reserved(callId, owner, submit, refused)
+            return reserved(callId, owner, submit, refused, refusalDetail)
         } finally {
             permit.close()
         }
@@ -45,6 +46,7 @@ internal class TerminalStartTransaction(
         owner: ExecutionOwnership.Owner,
         submit: (() -> Unit) -> T,
         refused: (T) -> Boolean,
+        refusalDetail: (T) -> String,
     ): T {
         var submitted = false
         try {
@@ -54,7 +56,7 @@ internal class TerminalStartTransaction(
             check(submitted) { "Terminal submission boundary was not recorded" }
             if (refused(result)) {
                 submitted = false // A definitive refusal, not a timeout or missing reply.
-                error("Manual terminal was not started; check Runtime readiness")
+                error(refusalDetail(result))
             }
             return result
         } catch (failure: Throwable) {

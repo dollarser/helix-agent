@@ -12,7 +12,7 @@ import com.helix.runtime.proot.ipc.PtySessionReply
 import java.io.File
 import java.util.UUID
 
-/** Up to two live manual executions in the private Runtime; observation cannot create a shell. */
+/** Bounded live manual executions; retained history is not physical capacity. */
 internal class ProotTerminalHost(
     private val context: Context,
 ) {
@@ -38,13 +38,23 @@ internal class ProotTerminalHost(
             require(key.matches(existing) && existing.origin.workspace == workspace)
             return PtySessionReply(query(key), outcome = "DUPLICATE")
         }
-        val records = store.records()
-        val activeRecords = records.filter { !it.reconciled }
-        if (sessions.size >= MAX_SESSIONS || activeRecords.size >= MAX_SESSIONS) {
+        val records =
+            store.records().map {
+                query(PtySessionKey(it.origin.sessionId, it.origin.generation, it.origin.executionId))!!
+            }
+        val activeRecords = records.filter { it.stopProof == null }
+        if (activeRecords.size >= MAX_SESSIONS) {
             return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
         }
         pruneReconciledRecords(store, records)
-        if (!runner.reserveManualTerminal(key.sessionId)) return PtySessionReply(null, outcome = "START_REFUSED")
+        sessions.values.filter { it.workerFinished && it.record.stopProof != null }.forEach {
+            runner.releaseManualTerminal(it.record.origin.sessionId)
+        }
+        when (runner.reserveTerminal(key.sessionId)) {
+            ProotJobRunner.TerminalAdmission.FULL -> return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
+            ProotJobRunner.TerminalAdmission.UNAVAILABLE -> return PtySessionReply(null, outcome = "START_REFUSED")
+            ProotJobRunner.TerminalAdmission.RESERVED -> Unit
+        }
         val launch =
             prepareLaunch(context, workspace, key.sessionId)
                 ?: run {
@@ -131,6 +141,8 @@ internal class ProotTerminalHost(
     fun acknowledge(key: PtySessionKey): PtySessionRecord {
         val record = checkNotNull(query(key))
         check(record.stopProof != null)
+        val live = sessions[key.sessionId]?.takeIf { it.record.origin == record.origin }
+        check(live == null || live.workerFinished) { "Terminal physical cleanup is still running" }
         val acknowledged = record.acknowledge()
         if (record != acknowledged) check(store.compareAndSet(record, acknowledged))
         if (sessions[key.sessionId]?.record?.origin == record.origin) {
@@ -150,7 +162,7 @@ internal class ProotTerminalHost(
         val now = SystemClock.elapsedRealtime()
         for ((id, session) in sessions.toList()) {
             when {
-                session.record.stopProof != null -> {
+                session.record.stopProof != null && session.workerFinished -> {
                     val origin = session.record.origin
                     runner.releaseManualTerminal(origin.sessionId)
                 }
@@ -181,7 +193,7 @@ internal class ProotTerminalHost(
     }
 
     companion object {
-        const val MAX_SESSIONS = 2
+        const val MAX_SESSIONS = com.helix.runtime.proot.core.RuntimeExecutionCapacity.MAX_TERMINALS
     }
 }
 

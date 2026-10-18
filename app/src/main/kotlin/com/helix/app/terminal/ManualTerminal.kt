@@ -2,6 +2,9 @@ package com.helix.app.terminal
 
 /** Application-only manual surface. No model tool registration and no passive Runtime binding. */
 interface ManualTerminal {
+    /** Presentation ceiling; Runtime separately checks live shared capacity and current pressure. */
+    val maxSessions: Int get() = 2
+
     data class State(
         val sessionId: String,
         val phase: String,

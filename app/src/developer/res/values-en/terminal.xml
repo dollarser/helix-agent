@@ -22,7 +22,7 @@
     <string name="terminal_directory">Starting directory: Workspace / %1$s</string>
     <string name="terminal_tab_title">Terminal %1$d</string>
     <string name="terminal_new_tab">New terminal</string>
-    <string name="terminal_capacity_full">Maximum 2 terminals reached</string>
+    <string name="terminal_capacity_full">Terminal capacity is full. Close an unused terminal, or retry after other tasks finish or resource pressure clears.</string>
     <string name="terminal_observer_mode">Current connection is in read-only observer mode</string>
     <string name="terminal_initial_help">No conversation needs to be created or selected. Opening the page connects to a retained terminal; first entry creates one if none exists. The bundled Linux environment is prepared on first start. Maintenance is under Terminal options → Execution environments.</string>
     <string name="terminal_execution_busy_help">Terminals and Agent tasks can run together. An open terminal or uncollected result does not block other tasks. Shared files can change concurrently; verify the final result. Only environment maintenance, engine capacity and input to the same terminal require coordination. Leaving detaches without stopping commands.</string>

@@ -174,6 +174,8 @@ class EditToolTest {
         val stale = sha256("something else entirely".toByteArray())
         val detail = failed(edit(root, path, "world", "there", stale))
         assertTrue(detail.contains("hash mismatch"))
+        assertTrue(detail.contains("expectedSha256=$stale"))
+        assertTrue(detail.contains("observedSha256=${sha256("hello world".toByteArray())}"))
         assertEquals("hello world", Files.readString(root.resolve(path.relativePath)))
     }
 

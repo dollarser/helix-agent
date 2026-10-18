@@ -23,14 +23,14 @@ class AndroidResourceGateDeviceTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
             val foreground = gate.allowance()
-            assertTrue(foreground == 1 || foreground == 2)
+            assertTrue(foreground in 1..probe.processorCount().coerceIn(1, 4))
 
             scenario.moveToState(Lifecycle.State.CREATED)
             assertEquals(1, gate.allowance())
 
             scenario.moveToState(Lifecycle.State.RESUMED)
             assertEquals(
-                if (probe.isLowMemory() || probe.isThermallyConstrained()) 1 else 2,
+                if (probe.isLowMemory() || probe.isThermallyConstrained()) 1 else probe.processorCount().coerceIn(1, 4),
                 gate.allowance(),
             )
         }
