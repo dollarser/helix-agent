@@ -2,6 +2,8 @@ package com.helix.core.model
 
 /** Ownership determines management, never network trust or tool permission. */
 enum class ProviderProvisioningKind {
+    /** A project-maintained network service; its endpoint is not user-editable. */
+    BUNDLED_SERVICE,
     USER_CONFIGURED,
     MANAGED_ACCOUNT,
     ON_DEVICE_ASSET,
@@ -51,6 +53,11 @@ data class ProviderConnection(
     init {
         require(
             when (provisioning) {
+                ProviderProvisioningKind.BUNDLED_SERVICE -> {
+                    transport is ProviderTransport.Network && transport.endpoint.scheme == "https" &&
+                        auth == ProviderAuth.None
+                }
+
                 ProviderProvisioningKind.USER_CONFIGURED -> {
                     transport is ProviderTransport.Network && (auth is ProviderAuth.None || auth is ProviderAuth.Secret)
                 }

@@ -23,6 +23,11 @@ class ProviderConnectionTest {
                 for (auth in auths) {
                     val allowed =
                         when (provisioning) {
+                            ProviderProvisioningKind.BUNDLED_SERVICE -> {
+                                false
+                            }
+
+                            // Fixture network uses HTTP.
                             ProviderProvisioningKind.USER_CONFIGURED -> {
                                 transport == network &&
                                     auth != ProviderAuth.ManagedAccount
@@ -50,6 +55,27 @@ class ProviderConnectionTest {
             }
         }
         assertEquals(4, accepted)
+    }
+
+    @Test fun bundledServiceRequiresHttpsAndNoSecret() {
+        val https = network.copy(endpoint = NormalizedEndpoint.parse("https://fixture.invalid/v1"))
+        val expected = ProviderConnection(ProviderProvisioningKind.BUNDLED_SERVICE, https, ProviderAuth.None)
+        assertEquals(
+            expected,
+            ProviderConnectionCodec.decode(
+                "BUNDLED_SERVICE",
+                "NETWORK",
+                "NONE",
+                "OPENAI_CHAT_COMPLETIONS",
+                "https://fixture.invalid/v1",
+                null,
+            ),
+        )
+        for (auth in listOf(ProviderAuth.Secret(SecretAlias("key")), ProviderAuth.ManagedAccount)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                ProviderConnection(ProviderProvisioningKind.BUNDLED_SERVICE, https, auth)
+            }
+        }
     }
 
     @Test

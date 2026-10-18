@@ -64,13 +64,20 @@ class ProviderModelSelectionTest {
         assertTrue(reopened.models.isEmpty())
     }
 
-    @Test fun everyProvisioningTypeUsesOnlyExplicitChoicesNotDefaultOrCatalog() {
+    @Test fun provisioningDistinguishesFixedBundledModelFromExplicitUserChoices() {
         ProviderProvisioningKind.entries.forEach { type ->
             val source = row(type)
-            assertTrue(source.conversationModels.isEmpty())
-            assertFalse(source.offersConversationModels)
             val selected = source.copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true))
-            assertEquals(listOf("b"), selected.conversationModels)
+            if (type == ProviderProvisioningKind.BUNDLED_SERVICE) {
+                assertEquals(listOf("a"), source.conversationModels)
+                assertTrue(source.offersConversationModels)
+                assertEquals(listOf("a"), selected.conversationModels)
+                assertFalse(selected.modelSelectable("b"))
+            } else {
+                assertTrue(source.conversationModels.isEmpty())
+                assertFalse(source.offersConversationModels)
+                assertEquals(listOf("b"), selected.conversationModels)
+            }
             assertEquals(listOf("a", "b", "new"), selected.backendModels)
             assertEquals("a", selected.model)
             assertTrue(selected.offersConversationModels)

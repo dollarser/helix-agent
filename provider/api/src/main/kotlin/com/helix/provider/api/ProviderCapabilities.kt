@@ -16,6 +16,9 @@ import kotlinx.serialization.json.longOrNull
  * HXA-025: "保存 capability snapshot 和来源。手工 override 必须标记。").
  */
 public enum class CapabilitySource {
+    /** Explicit project service contract, not a successful connection or capability probe. */
+    BUNDLED_CONTRACT,
+
     /** Only an ordinary text request passed; capability probes have not run. */
     CONNECTION_ONLY,
 

@@ -205,7 +205,13 @@ internal class ChatScreenProjection(
             id = entity.id,
             state = state,
             streamingText = if (state.isTerminal) null else previousStreamingText,
-            errorLabel = entity.errorCode?.let { code -> str(modelTerminalCodeRes(code)) },
+            errorLabel =
+                entity.errorCode?.let { code ->
+                    val label =
+                        com.helix.app.provider.BuiltInModel
+                            .errorLabelForTurn(storage, entity.id, code)
+                    str(label ?: modelTerminalCodeRes(code))
+                },
             retryable = state == TurnState.FAILED,
             continueFromResults = BudgetContinuation.eligible(storage, entity),
             budgetDetail = budgetDetail(entity),

@@ -49,11 +49,14 @@ data class ProviderRowUi(
     val modelGenerations: Map<String, ProviderModelVerification> = emptyMap(),
     val accountState: ManagedAccountSnapshot? = null,
 ) {
+    val bundled: Boolean get() = provisioning == ProviderProvisioningKind.BUNDLED_SERVICE
+    val sourceGroup: ProviderProvisioningKind
+        get() = if (bundled) ProviderProvisioningKind.USER_CONFIGURED else provisioning
     val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
     val visibleInModelPicker: Boolean get() = !managedExternally || accountState?.ready == true
 
     /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
-    val conversationModels: List<String> get() = modelSelection.models
+    val conversationModels: List<String> get() = if (bundled) listOf(model) else modelSelection.models
     val selectedModels: List<String> get() = modelSelection.models
     val knownModels: List<String> get() =
         (backendModels.orEmpty() + modelSelection.customModels + modelSelection.models + model).distinct()
@@ -70,17 +73,20 @@ data class ProviderRowUi(
             }
 
     /**
-     * Selectable for a new session only when the connection test COMPLETED
-     * (HXA-028: "未完成连接测试不贬为'已可用'").
+     * Bundled services allow an attempt by declared contract; other sources require connection evidence.
+     * Neither selection nor declared capabilities imply a successful connection test.
      */
     val chatSelectable: Boolean
-        get() = status is ConnectionTestStatus.Passed && (accountState == null || accountState.ready)
+        get() = bundled || (status is ConnectionTestStatus.Passed && (accountState == null || accountState.ready))
 
-    fun modelSelectable(modelId: String): Boolean = chatSelectable && modelGenerations[modelId]?.failure == null
+    fun modelSelectable(modelId: String): Boolean =
+        if (bundled) modelId == model else chatSelectable && modelGenerations[modelId]?.failure == null
 
     /** Resolve only this model's declared fields; a default-model probe does not prove other models. */
     fun capabilitiesForModel(selectedModel: String): ProviderCapabilities? =
-        if (modelGenerations[selectedModel]?.failure != null) {
+        if (bundled) {
+            capabilities.takeIf { selectedModel == model }
+        } else if (modelGenerations[selectedModel]?.failure != null) {
             null
         } else if (selectedModel in modelVerifications) {
             modelVerifications[selectedModel]?.capabilities?.let { exact ->
@@ -224,6 +230,9 @@ internal fun providerRowUi(
             entity.transportKind,
             entity.authKind,
         )
+    if (BuiltInModel.owns(config.id) || config.provisioning == ProviderProvisioningKind.BUNDLED_SERVICE) {
+        BuiltInModel.validate(config)
+    }
     return ProviderRowUi(
         id = entity.id,
         displayName = entity.displayName,
@@ -235,7 +244,12 @@ internal fun providerRowUi(
         isCleartext = (config.transport as? ProviderTransport.Network)?.endpoint?.scheme == "http",
         provisioning = config.provisioning,
         status = status,
-        capabilities = (status as? ConnectionTestStatus.Passed)?.capabilities,
+        capabilities =
+            if (config.provisioning == ProviderProvisioningKind.BUNDLED_SERVICE) {
+                BuiltInModel.capabilities
+            } else {
+                (status as? ConnectionTestStatus.Passed)?.capabilities
+            },
         backendModels = (status as? ConnectionTestStatus.Passed)?.modelIds,
         templateNotes = emptyList(),
     )

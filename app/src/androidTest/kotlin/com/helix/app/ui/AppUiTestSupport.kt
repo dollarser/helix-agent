@@ -73,14 +73,14 @@ fun AndroidComposeTestRule<*, *>.dismissFirstLaunchIfNeeded() {
 }
 
 /**
- * Deletes editable provider configurations while retaining Runtime-managed rows.
+ * Deletes editable provider configurations while retaining Runtime-managed and bundled rows.
  * [ProviderService.delete] also prunes their secrets, statuses and bindings; the
  * test thread waits for each suspend Room/Keystore operation to finish.
  */
 fun deleteEditableProviders(container: AppContainer) {
     runBlocking {
         container.providerService.rows.value
-            .filterNot { it.managedExternally }
+            .filterNot { it.managedExternally || it.bundled }
             .forEach { row -> container.providerService.delete(row.id) }
     }
 }

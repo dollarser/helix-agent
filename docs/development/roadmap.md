@@ -350,3 +350,4 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-304 | 完成；指定主机/ARM64 设备/Qwen 范围通过 | 预览升级确认与重构前双渠道验收 | [任务](tasks/HXA-304.md) |
 | HXA-305 | 本地收尾完成；主机、独立 ARM64 / R8 / Qwen 有界验收通过 | 内置 Linux 环境默认可用与维护体验 | [主机](../evidence/development/bundled-linux-environment-2026-10-17.md) · [追加收尾](../evidence/development/linux-environment-closeout-2026-10-17.md) |
 | HXA-306 | 已完成；仅本地收尾 | 手测反馈、浏览器与会话交互 | [任务](tasks/HXA-306.md) |
+| HXA-307 | 主机/有界模拟器交付；真实网关联调 pending | 内置 Qwen 云端来源与公开 Client ID | [任务](tasks/HXA-307.md) |

@@ -10,7 +10,8 @@ import com.helix.provider.api.ProviderCapabilities
  * The three-way distinction is a task contract: a provider whose connection
  * test has not completed (or was overridden manually) must NOT be displayed as
  * "available" — only [State.Passed] (a completed [com.helix.provider.api.CapabilityProbe]
- * run) marks a provider usable for chat. [State.Failed] carries the probe
+ * run) is connection evidence. Project-provided services may be selectable by an explicit
+ * bundled contract while remaining untested; selection does not manufacture evidence. [State.Failed] carries the probe
  * phase that failed so the UI can show WHERE the test stopped (FR-LLM-004:
  * distinguish network/TLS/auth, model list, text stream and tool call) with a
  * SAFE label — never a raw exception message (doc 02 section 13).
@@ -20,7 +21,7 @@ import com.helix.provider.api.ProviderCapabilities
  * them to the current locale, so this model stays pure-JVM-testable with no Context.
  */
 sealed interface ConnectionTestStatus {
-    /** No completed test yet — the provider cannot be selected for chat. */
+    /** No completed test yet; independent of an explicit bundled-service selection contract. */
     data object Untested : ConnectionTestStatus
 
     /**

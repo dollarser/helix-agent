@@ -11,6 +11,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+- HXA-307 增加 `BUNDLED_SERVICE` provisioning：项目提供的固定 HTTPS 云端模型，使用 Network + None credential。首版只有 Qwen3.8-27B，地址与公开 Client ID 由项目部署契约固定，不作为用户可编辑 API、秘密或身份凭据。标识仅在固定 generation endpoint 的 POST 请求附加，拒绝重定向、路径/端口/来源变化和秘密认证头；不直连推理端口、不回退其他 Provider。
+- 内置模型的新安装默认选择与现有明确选模分开。首次注册仅对没有 Provider/会话且没有保存偏好的安装预置草稿选择；后续用户选择持久保存，已有会话/Turn 目标不改写。`BUNDLED_CONTRACT` 表示项目声明可尝试流式文本、图片和工具，不表示连接/模型能力实测通过；选择资格不伪造连接证据。未知上下文窗口和推理档位保持未知，实际执行继续走现有 Agent/授权/图片来源校验。
+- 内置服务向用户披露消息、上下文、工具结果、所选图片会发送至项目云端；未知留存/训练政策不作承诺。共享 ID 的额度归服务端管理，不显示为每用户额度。401 与用户 API Key 错误区分，429 不猜测具体配额原因/重置时间，502/504 分别呈现服务故障/超时；只支持显式手动重试，不自动重放部分流、不自动切换付费模型。错误显示读取原调用快照身份，不使用后来改变的会话默认值。
+
 - Endpoint 分类只描述首跳连接地址，不能证明下游数据驻留或此前已按 host:port 授权。回环可能是转发器；UI 使用本机/局域网/公网/自定义地址等连接标签，不宣称数据不会离开设备。`ON_DEVICE_LOCAL` 仍表示直接设备内推理，连接标签不改变网络、工具或会话授权。
 
 - 2026-10-14 Owner明确将服务端日志关联限定为Debug且自定义API后端：App HTTP层只在宿主FLAG_DEBUGGABLE与自定义表单的显式来源标记同时满足时，读取已有LocalModelCallContext原Turn/model-call身份并发送`x-helix-turn-id`、`x-helix-model-call-id`，覆盖三个网络协议。仅HTTP头、不进入模型JSON/提示词、不是认证或执行授权；Release、官方表单、订阅、设备内模型及无Turn身份的目录/连接探测不发送。既有LineStore保存开发诊断资格与实际transport绑定，旧记录无标记不回填，不依据域名猜测。用户headers不能伪造宿主保留头，没有用户设置入口、Room schema、核心循环或协议适配器修改。
@@ -24,13 +28,13 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 网络首次接入表单顺序为名称、接口协议、API 地址、API Key、高级选项（自定义 header 名称和值）、初始模型。API Key 始终显示且可留空，服务端认证失败由连接测试报告；编辑时留空保留已有密钥，不因模板非必填而删除。已有来源的接入设置不承载模型多选，候选使用统一模型管理。高级 header 仍受原有白名单约束，不能代替凭据存储。
 - 模型显示名称可选，留空使用服务端模型名称；显示名称按 Provider/model 保存，仅用于展示，不改变请求标识和能力证据。
 - 点击“添加模型”后可显式在线获取目录，在可编辑下拉框中选择或手输服务端模型名称。新建来源保存当前输入的一项模型，更多模型在模型管理页添加。发现使用当前表单和临时凭据，不能保存临时 Provider 或连接成功状态；用户配置的 HTTP endpoint 只显示非阻塞风险提示，不再单独确认；过期响应不得覆盖修改后的表单。用户选择持久保存，但不充当能力检测证据。
-- 三类来源共用模型管理：完整目录、显式有序候选与精确模型证据分开，不再设置新会话默认模型。新建会话仅继承当前会话的精确 Provider/model；没有当前绑定则为空，不从其他来源或候选顺序回退。旧偏好中的 default 字段被忽略，新写入不包含该字段。空选择不回退全量，目录刷新不改变偏好。API/订阅可手动添加模型 ID；设备内只允许已安装资产。候选隐藏不删除文件、不退出账号、不改变现有 Session/Turn 的目标。
+- 自配 API、订阅与本地来源共用模型管理：完整目录、显式有序候选与精确模型证据分开；内置来源仅提供固定单模型。新建会话优先继承当前会话的精确 Provider/model（包括明确未绑定）；没有当前会话时使用已保存的草稿选择。只有首次安装且无既有选择时预选内置模型，不从其他来源或目录顺序回退。该 UI 偏好不改变候选目录、现有 Session 或 Turn。空选择不回退全量，目录刷新不改变偏好。API/订阅可手动添加模型 ID；设备内只允许已安装资产。候选隐藏不删除文件、不退出账号、不改变现有 Session/Turn 的目标。
 - 订阅首页按管理登录、管理对话模型、检查账号连接排序；精确模型的基础生成测试、能力检测和上下文设置集中在模型详情，不在账号首页重复。模型名称与整行可勾选，只保留一个候选选择框。未接入完整目录的适配器明确范围，不能用单一模型回退伪装完整服务端目录；未返回上下文窗口时明确未知，估算值不能冒充官方上限。
 - 模型偏好和显示名称更新不废止已有连接/能力证据；真实接入配置和相关本地运行参数变化仍失效。能力检测绑定精确 provider/model 与配置生命周期，不先修改来源基础模型；检测 B 不外推 A 或其他模型的工具能力。
 
 - 用户在没有活动轮次或待确认发送时选择会话 Provider/model；草稿只改内存，首次发送才持久化。不修改其他会话或 Provider 默认值，不自动发送。历史消息保留，每轮保存实际目标快照，模型切换重置推理到默认。
 - **Provider 分类采用正交维度，不使用一个 `API | SUBSCRIPTION | LOCAL` 枚举同时表达所有事实。** 产品 UI 可以提供 `API / Self-hosted`、`Subscription / Managed account`、`On-device` 三组，但底层至少分别记录 provisioning/ownership、transport、residence 与 auth source。
-- provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。
+- provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`BUNDLED_SERVICE`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。内置来源在 API 分类显示固定服务卡片，不新增无意义的登录/模型管理入口。
 - transport 表示“模型请求怎么送达”：`Network(protocol, endpoint)` 或 `OnDeviceLocal`。`MANAGED_ACCOUNT` 通常仍走 `Network`；`USER_CONFIGURED` 也可以指向 loopback、LAN 或公网。
 - auth source 与 transport/residence 正交：network Provider 可以无认证、使用 SecretStore alias，或由 managed account/token 提供认证。API key 是否存在不能用来判断 Provider 是否“线上/本地”。
 - **设备内本地模型是一等 Provider。** `ON_DEVICE_ASSET + OnDeviceLocal` 可以作为当前 Session/Turn 的主 `ModelProvider`，并在 capability 满足时直接驱动完整 Agent loop、工具调用与 Goal/Task 流程；摘要、标题、分类和纯聊天只是低风险验证/降级场景，不是架构上限。
@@ -79,6 +83,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号或设备验证按各自显式授权执行。
 
 ## Decision history
+
+- **2026-10-18（HXA-307）**：Owner 明确授权内置 Qwen3.8-27B 和 `X-Client-Id` 项目网关，采用免配置初始入口与普通 Provider 执行链路；保留用户自配来源、已有数据/选择与渠道能力。采用 [OpenCode 官方 FAQ](https://dev.opencode.ai/) 的内置/自配并存方式，不继承其免费模型数据政策。白名单是实时联调条件，不是本地实现条件；禁止借既有私有 API Key 绕过。实现与验证见 [HXA-307](../../development/tasks/HXA-307.md)。
 
 - 2026-10-14：Owner服务端代理支持request/SSE response ID关联，要求纯Debug且自定义API、不猜域名、允许三个协议。来源入口目前只在草稿保存templateId，执行配置没有历史入口；在已有开发状态存储记录明确创建/保存自定义表单的资格，绑定精确transport，缺失/变更即不发送；编辑先清资格、提交成功再记录，删除清理。沿[OpenAI请求ID调试实践](https://developers.openai.com/api/reference/overview/#debugging-requests)使用独立传输元数据，不改权限或借模板授权，不替换服务端request ID。核心/ModelRequest/协议岛保持；旧请求不能追补，真实代理关联需当轮模型验收，主机回归不计外部服务通过。
 

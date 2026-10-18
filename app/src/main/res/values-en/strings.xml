@@ -1998,4 +1998,14 @@
     <string name="settings_proot_description">Available by default; prepared automatically on first use. Environment versions ship with Helix.</string>
     <string name="settings_proot_manage">Environment details</string>
     <string name="readiness_action_manage_runtime">Manage environment</string>
+    <string name="builtin_model_title">Helix built-in model</string>
+    <string name="builtin_model_description">Project-provided cloud service with text, images and tool calls. No API key required.</string>
+    <string name="builtin_model_disclosure">The built-in model sends messages, context, tool results and selected images to the project cloud service. You can switch to your own model.</string>
+    <string name="builtin_model_shared_limits">All users share service limits. Retry later when busy or quota is exhausted. Data retention and training policies have not been published.</string>
+    <string name="builtin_model_unverified">Configured; connection not yet verified. A connection test sends a short test message.</string>
+    <string name="builtin_model_verified">Last connection test passed</string>
+    <string name="builtin_model_auth_error">The built-in model client ID is not authorized or has been disabled. Contact the project maintainer; no API key is needed.</string>
+    <string name="builtin_model_rate_limit">The built-in model hit a shared service limit, which may concern request rate, quota or concurrency. Retry manually later or select another model yourself.</string>
+    <string name="builtin_model_service_error">The built-in model is unreachable or its gateway is unavailable. Try again later.</string>
+    <string name="builtin_model_timeout">The built-in model response timed out. Try again later.</string>
 </resources>

@@ -106,7 +106,12 @@ internal class ProviderConnectionProbe(
                     } else {
                         previous ?: outcome.capabilities
                     }
-                val caps = ProviderProbePublication.capabilities(detectCapabilities, outcome.capabilities, latest)
+                val caps =
+                    if (BuiltInModel.owns(config.id) && !detectCapabilities) {
+                        BuiltInModel.capabilities
+                    } else {
+                        ProviderProbePublication.capabilities(detectCapabilities, outcome.capabilities, latest)
+                    }
                 publishSuccess(config.id, config, outcome.copy(capabilities = caps), result, detectCapabilities)
             }
 

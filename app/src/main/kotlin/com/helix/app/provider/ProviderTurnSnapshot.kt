@@ -29,6 +29,11 @@ internal object ProviderTurnSnapshot {
             append("\",\"model\":\"")
             append(jsonEscape(modelId ?: config.model))
             append("\"")
+            if (BuiltInModel.owns(config.id)) {
+                append(",\"providerId\":\"")
+                append(jsonEscape(config.id))
+                append("\"")
+            }
             append(capabilitiesJson)
             append("}")
         }

@@ -221,6 +221,8 @@ internal class DefaultAppContainer(
 
     override val providerService: ProviderService =
         run {
+            com.helix.app.provider.BuiltInModelRegistration
+                .ensureRegistered(storage, lineStore)
             SubscriptionProviderModule.ensureRegistered(storage)
             ProviderService(
                 storage = storage,

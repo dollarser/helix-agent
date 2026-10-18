@@ -38,6 +38,8 @@ public class OkHttpWireClient(
     connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
     readTimeoutMillis: Long = DEFAULT_READ_TIMEOUT_MS,
     private val maxBodyBytes: Long = DEFAULT_MAX_BODY_BYTES,
+    followRedirects: Boolean = true,
+    private val retryConnections: Boolean = true,
     private val client: OkHttpClient =
         OkHttpClient
             .Builder()
@@ -46,13 +48,15 @@ public class OkHttpWireClient(
                     .resolve(it)
             }.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
+            .followRedirects(followRedirects)
+            .retryOnConnectionFailure(retryConnections)
             // HTTP is an explicit endpoint choice, never an automatic HTTPS downgrade.
             .followSslRedirects(false)
             .build(),
 ) : WireClient {
     override suspend fun open(request: WireRequest): WireResponse =
         suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(Request0Builder.build(request, JSON_MEDIA_TYPE))
+            val call = client.newCall(Request0Builder.build(request, JSON_MEDIA_TYPE, singleUse = !retryConnections))
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(
                 object : okhttp3.Callback {
@@ -162,14 +166,31 @@ public class OkHttpWireClient(
         fun build(
             request: WireRequest,
             mediaType: okhttp3.MediaType,
+            singleUse: Boolean,
         ): okhttp3.Request =
             okhttp3.Request
                 .Builder()
                 .url(request.url)
                 .method(
                     request.method,
-                    request.body?.let { it.toRequestBody(mediaType) },
+                    request.body?.let {
+                        val body = it.toRequestBody(mediaType)
+                        if (singleUse) SingleUseBody(body) else body
+                    },
                 ).apply { request.headers.forEach { (name, value) -> header(name, value) } }
                 .build()
+    }
+
+    /** Also blocks HTTP follow-ups (for example 503 + Retry-After: 0), not just connection recovery. */
+    private class SingleUseBody(
+        private val body: okhttp3.RequestBody,
+    ) : okhttp3.RequestBody() {
+        override fun contentType() = body.contentType()
+
+        override fun contentLength() = body.contentLength()
+
+        override fun isOneShot() = true
+
+        override fun writeTo(sink: okio.BufferedSink) = body.writeTo(sink)
     }
 }

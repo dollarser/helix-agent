@@ -124,14 +124,14 @@ fun ProviderManager(
             ) { Text(stringResource(R.string.model_source_download)) }
         }
         if (deleteFailure) Text(stringResource(R.string.local_model_delete_failed))
-        if (rows.none { it.provisioning == group }) {
+        if (rows.none { it.sourceGroup == group }) {
             Text(
                 stringResource(modelSourceEmpty(group)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        rows.filter { it.provisioning == group }.forEach { row ->
+        rows.filter { it.sourceGroup == group }.forEach { row ->
             ProviderRow(
                 row = row,
                 testing = testingId == row.id,

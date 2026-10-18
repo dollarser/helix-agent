@@ -36,12 +36,24 @@ class ProviderFactory(
     private val imageSource: () -> VisionImageSource,
     private val debuggable: Boolean = false,
     private val customApiForDebug: (ProviderConfig) -> Boolean = { false },
+    private val builtInWire: WireClient =
+        com.helix.provider.api.wire.PublicClientWireClient(
+            BuiltInModel.GENERATION_URL,
+            BuiltInModel.CLIENT_ID,
+        ),
     private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
     /** Draft catalog requests use a transient credential, never a saved provider or key. */
     fun forDraft(credentials: CredentialLookup): ProviderFactory = ProviderFactory(credentials, wire, imageSource)
 
     fun create(config: ProviderConfig): ModelProvider {
+        if (BuiltInModel.owns(config.id) ||
+            config.provisioning == com.helix.core.model.ProviderProvisioningKind.BUNDLED_SERVICE
+        ) {
+            BuiltInModel.validate(config)
+            val adapter = OpenAiChatProvider(config, credentials, builtInWire, chatImages(config))
+            return BuiltInModelProvider(config, adapter)
+        }
         val managed = additionalFactory(config)
         require(
             config.connection.provisioning != com.helix.core.model.ProviderProvisioningKind.MANAGED_ACCOUNT ||

@@ -307,7 +307,17 @@ class ChatService(
     private fun terminalLabel(
         state: TurnState,
         errorCode: String?,
-    ): String? = labels.terminalLabel(state, errorCode)
+        turnId: String,
+    ): String? =
+        if (state == TurnState.FAILED && errorCode != null) {
+            str(
+                com.helix.app.provider.BuiltInModel
+                    .errorLabelForTurn(storage, turnId, errorCode)
+                    ?: labels.modelTerminalCodeRes(errorCode),
+            )
+        } else {
+            labels.terminalLabel(state, errorCode)
+        }
 
     private fun egressRejectedLabel(code: String): String = labels.egressRejectedLabel(code)
 
@@ -964,8 +974,11 @@ class ChatService(
 
     private fun openSessionDraft(directory: String?): String? {
         val current = sessions.value.firstOrNull { it.id == openSessionId }
-        val providerId = sessionDraft?.session?.providerId ?: current?.providerId
-        val modelId = sessionDraft?.session?.modelId ?: current?.model
+        val draft = sessionDraft?.session
+        val (providerId, modelId) =
+            conversationLaunchStore.draftModelFor(
+                draft?.let { it.providerId to it.modelId } ?: current?.let { it.providerId to it.model },
+            )
         val entity =
             SessionEntity(
                 idGenerator(),
@@ -1309,12 +1322,14 @@ class ChatService(
             }
             sessionDraft?.takeIf { it.session.id == sessionId }?.let {
                 drafts.model(it.session.id, providerId, modelId)
+                conversationLaunchStore.selectDraftModel(providerId, modelId)
                 refreshScreen()
                 return@launch
             }
             if (turnGateHolds(sessionId)) return@launch // a turn in flight owns the session's target
             try {
                 catalog.bindProvider(sessionId, providerId, modelId)
+                conversationLaunchStore.selectDraftModel(providerId, modelId)
             } catch (_: IllegalArgumentException) {
                 // Swallowed deliberately: the IAE message carries the internal session id,
                 // and the user-visible label stays the one stable, path-free sentence
@@ -1398,6 +1413,7 @@ class ChatService(
                     check(catalog.persistSettings(sessionId, providerId, modelId, next, null))
                 }
                 if (openSessionId == sessionId) _runControl.value = next
+                conversationLaunchStore.selectDraftModel(providerId, modelId)
                 SessionModelSelectionResult.APPLIED
             } catch (_: Exception) {
                 SessionModelSelectionResult.FAILED
@@ -1494,6 +1510,7 @@ class ChatService(
         call: com.helix.tools.framework.ExecutableToolCall?,
     ): Boolean {
         val saved = catalog.persistSettings(sessionId, providerId, modelId, next, call)
+        if (saved && call == null) conversationLaunchStore.selectDraftModel(providerId, modelId)
         if (saved && openSessionId == sessionId) _runControl.value = next
         return saved
     }
@@ -4251,7 +4268,7 @@ class ChatService(
                         completed = true
                         TurnTerminalProjection(
                             continueDelivery = continueDelivery,
-                            errorLabel = terminalLabel(outcome.state, outcome.errorCode),
+                            errorLabel = terminalLabel(outcome.state, outcome.errorCode, turnId),
                         )
                     } finally {
                         if (!completed) {
@@ -4287,7 +4304,7 @@ class ChatService(
                         turnId,
                         outcome.state,
                         null,
-                        terminalLabel(outcome.state, outcome.errorCode),
+                        terminalLabel(outcome.state, outcome.errorCode, turnId),
                         outcome.state == TurnState.FAILED,
                     ),
                 )

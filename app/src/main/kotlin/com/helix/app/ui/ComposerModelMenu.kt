@@ -55,13 +55,24 @@ private fun ConversationModelItem(
         text = {
             Column {
                 Text((if (current) "✓ " else "") + row.modelLabel(model))
-                Text(row.displayName, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    if (row.bundled) stringResource(R.string.builtin_model_title) else row.displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                )
                 if (!row.chatSelectable) Text(stringResource(R.string.provider_models_connection_required))
                 row.modelGenerations[model]?.failure?.let {
                     Text(
                         stringResource(
-                            com.helix.app.provider.ConnectionTestMapping
-                                .codeLabel(it),
+                            (
+                                if (row.bundled) {
+                                    com.helix.app.provider.BuiltInModel
+                                        .errorLabel(it.name)
+                                } else {
+                                    null
+                                }
+                            )
+                                ?: com.helix.app.provider.ConnectionTestMapping
+                                    .codeLabel(it),
                         ),
                     )
                 }

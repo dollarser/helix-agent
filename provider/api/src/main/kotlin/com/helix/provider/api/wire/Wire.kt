@@ -98,7 +98,7 @@ public interface WireClient {
  * - 401/403 → [ModelErrorCode.AUTH] (fix the credential; not retryable);
  * - 408 → [ModelErrorCode.TIMEOUT] (gateway gave up; retryable);
  * - 429 → [ModelErrorCode.RATE_LIMITED] (retryable);
- * - 500/502/503/504 → [ModelErrorCode.SERVER_ERROR] (transient; retryable);
+ * - 504 → [ModelErrorCode.TIMEOUT]; other 500–503 → [ModelErrorCode.SERVER_ERROR];
  * - 501 Not Implemented → [ModelErrorCode.SERVER_ERROR] (not retryable: the
  *   endpoint does not implement the API — retrying changes nothing);
  * - any other 4xx (400/404/413/422/…) → [ModelErrorCode.PROTOCOL] (the request
@@ -113,7 +113,8 @@ public fun mapHttpStatus(status: Int): Pair<ModelErrorCode, Boolean> =
         status == 408 -> ModelErrorCode.TIMEOUT to true
         status == 429 -> ModelErrorCode.RATE_LIMITED to true
         status == 501 -> ModelErrorCode.SERVER_ERROR to false
-        status in 500..504 -> ModelErrorCode.SERVER_ERROR to true
+        status == 504 -> ModelErrorCode.TIMEOUT to true
+        status in 500..503 -> ModelErrorCode.SERVER_ERROR to true
         status in 400..499 -> ModelErrorCode.PROTOCOL to false
         status in 505..599 -> ModelErrorCode.SERVER_ERROR to false
         else -> ModelErrorCode.SERVER_ERROR to false

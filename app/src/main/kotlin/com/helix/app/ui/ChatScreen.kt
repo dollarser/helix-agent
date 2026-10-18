@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -464,6 +465,16 @@ fun ChatScreen(
                         localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                     ),
                 composerStatus = {
+                    if (screen.messages.isEmpty() && screen.badge?.providerId ==
+                        com.helix.app.provider.BuiltInModel.PROVIDER_ID
+                    ) {
+                        Text(
+                            stringResource(R.string.builtin_model_disclosure),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("builtin-model-disclosure"),
+                        )
+                    }
                     buffer.value.skillActivations.forEach { activation ->
                         androidx.compose.material3.TextButton(
                             onClick = {

@@ -36,7 +36,7 @@ Mobile Use is an optional plugin. Browser, file, and tool access retain their ow
 ## Your first task
 
 1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the release notes and checksum files for that version.
-2. Under **Models**, add a provider with its API address, protocol, and API key. Choose **Add model**, then enter the server's model name or fetch and select an available model. A custom display name is optional. You can also install a supported on-device model.
+2. Fresh installs built from current source select **Helix built-in Qwen3.8-27B** without a key. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Published v0.0.6 does not include this integration and still requires a provider address, protocol, key (if required) and model name. See [HXA-307](docs/development/tasks/HXA-307.md) for live integration status.
 3. Start a conversation, select a model, and try a small file task:
 
 ```text

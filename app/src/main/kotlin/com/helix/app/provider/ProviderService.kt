@@ -165,6 +165,7 @@ class ProviderService(
     ) = withContext(Dispatchers.IO) {
         probeGate.access {
             val config = storedConfig(id)
+            require(!BuiltInModel.owns(id)) { "Bundled model selection is fixed" }
             if (config.transport is ProviderTransport.OnDeviceLocal) {
                 require((selection.models + selection.customModels).all { it == config.model })
             }
@@ -432,6 +433,7 @@ class ProviderService(
         withContext(workScope.coroutineContext) {
             probeGate.mutate(providerId) {
                 require(!managed.isManaged(providerId)) { "managed provider cannot be edited" }
+                require(!BuiltInModel.owns(providerId)) { "Bundled service cannot be edited" }
                 val existing = storage.providerConfigs.resolve(providerId)
                 require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
                 val requiresRetest = providerConnectionChanged(configFrom(existing), draft, apiKey)
@@ -479,6 +481,7 @@ class ProviderService(
         withContext(workScope.coroutineContext) {
             probeGate.mutate(providerId) {
                 require(!managed.isManaged(providerId)) { "managed provider cannot be deleted" }
+                require(!BuiltInModel.owns(providerId)) { "Bundled service cannot be deleted" }
                 val entity = storage.providerConfigs.resolve(providerId)
                 if (entity.secretAlias != null && entity.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
                     storage.secrets.delete(SecretAlias(requireNotNull(entity.secretAlias)))
@@ -575,7 +578,13 @@ class ProviderService(
             require(ProviderChannelPolicy.permits(entity.provisioningKind, managedAccountsEnabled)) {
                 "Managed subscriptions are not available in this channel"
             }
-            configFrom(entity)
+            configFrom(entity).also {
+                if (BuiltInModel.owns(providerId) || it.connection.provisioning ==
+                    com.helix.core.model.ProviderProvisioningKind.BUNDLED_SERVICE
+                ) {
+                    BuiltInModel.validate(it)
+                }
+            }
         }
 
     suspend fun openManagedAccount(providerId: String): ManagedProviderAccountResult =
@@ -610,10 +619,13 @@ class ProviderService(
     /** The test status of one provider (UI rows are rebuilt from this). */
     fun statusFor(providerId: String): ConnectionTestStatus = testStatus.statusFor(providerId)
 
-    /** True when the provider passed its connection test (chat-selectable). */
+    /** Bundled contract permits attempting a request; it is not a successful connection test. */
     fun chatSelectable(providerId: String): Boolean =
-        statusFor(providerId) is ConnectionTestStatus.Passed &&
-            (!managed.isManaged(providerId) || testStatus.accounts.read(providerId).ready)
+        BuiltInModel.owns(providerId) ||
+            (
+                statusFor(providerId) is ConnectionTestStatus.Passed &&
+                    (!managed.isManaged(providerId) || testStatus.accounts.read(providerId).ready)
+            )
 
     /**
      * The egress-disclosure target for one provider (doc 10 section 2.6): the
@@ -640,6 +652,10 @@ class ProviderService(
     suspend fun capabilitiesFor(providerId: String, model: String? = null): ProviderCapabilities? =
         runCatching {
             if (!chatSelectable(providerId)) return@runCatching null
+            if (BuiltInModel.owns(providerId)) {
+                storedConfig(providerId)
+                return@runCatching BuiltInModel.capabilities.takeIf { model == null || model == BuiltInModel.MODEL_ID }
+            }
             if (model == null) {
                 ProviderCapabilities.parse(storage.providerConfigs.resolve(providerId).capabilitySnapshot)
             } else {
@@ -707,6 +723,7 @@ class ProviderService(
     ) {
         probeGate.mutate(providerId) {
             require(!managed.isManaged(providerId)) { "managed provider capabilities cannot be overridden" }
+            require(!BuiltInModel.owns(providerId)) { "Bundled service capabilities are project-declared" }
             val row = storage.providerConfigs.resolve(providerId)
             val current =
                 runCatching { ProviderCapabilities.parse(row.capabilitySnapshot) }.getOrNull()

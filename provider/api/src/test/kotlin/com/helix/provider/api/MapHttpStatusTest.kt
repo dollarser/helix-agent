@@ -16,6 +16,7 @@ class MapHttpStatusTest {
     @Test
     fun gatewayTimeoutMapsToTimeoutRetryable() {
         assertEquals(ModelErrorCode.TIMEOUT to true, mapHttpStatus(408))
+        assertEquals(ModelErrorCode.TIMEOUT to true, mapHttpStatus(504))
     }
 
     @Test
@@ -25,7 +26,7 @@ class MapHttpStatusTest {
 
     @Test
     fun transientServerErrorsAreRetryable() {
-        for (status in listOf(500, 502, 503, 504)) {
+        for (status in listOf(500, 502, 503)) {
             assertEquals("status $status", ModelErrorCode.SERVER_ERROR to true, mapHttpStatus(status))
         }
     }

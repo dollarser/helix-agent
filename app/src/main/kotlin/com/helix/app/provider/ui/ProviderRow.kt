@@ -41,6 +41,10 @@ internal fun ProviderRow(
     detectingCapabilities: Boolean = false,
     capabilityOutcome: com.helix.provider.api.ProbeOutcome? = null,
 ) {
+    if (row.bundled) {
+        BuiltInModelRow(row, testing, actions)
+        return
+    }
     val visionEnabled = row.capabilities?.vision == true
     var advanced by rememberSaveable(row.id) { mutableStateOf(false) }
     val expansionLabel = stringResource(if (advanced) R.string.nav_expanded else R.string.nav_collapsed)
