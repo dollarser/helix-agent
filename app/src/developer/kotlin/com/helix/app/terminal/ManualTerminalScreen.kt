@@ -123,15 +123,23 @@ private fun ColumnScope.TerminalBody(
             onTerminalTap = onTerminalTap,
         )
     } else {
-        TerminalEmptyState(state.hasSession)
+        TerminalEmptyState(state)
     }
 }
 
 @Composable
 @Suppress("FunctionName")
-private fun TerminalEmptyState(hasSession: Boolean) {
+private fun TerminalEmptyState(state: TerminalPageState) {
+    val message =
+        when {
+            state.session?.phase == "UNKNOWN" && state.session.canSettle -> R.string.terminal_runtime_ended
+            state.session?.phase == "UNKNOWN" -> R.string.terminal_runtime_unknown
+            state.session?.canSettle == true -> R.string.terminal_settlement_required
+            state.hasSession -> R.string.terminal_detached
+            else -> R.string.terminal_initial_help
+        }
     Text(
-        stringResource(if (hasSession) R.string.terminal_detached else R.string.terminal_initial_help),
+        stringResource(message),
         Modifier.padding(8.dp),
     )
 }
@@ -181,10 +189,10 @@ private fun TerminalStatusBanners(
 ) {
     if (errorMessage != null) {
         val message =
-            if (errorMessage == "CAPACITY_FULL") {
-                stringResource(R.string.terminal_capacity_full)
-            } else {
-                errorMessage
+            when (errorMessage) {
+                "CAPACITY_FULL" -> stringResource(R.string.terminal_capacity_full)
+                "CLOSE_UNCONFIRMED" -> stringResource(R.string.terminal_close_unconfirmed)
+                else -> errorMessage
             }
         Text(
             text = message,
@@ -224,14 +232,20 @@ private fun TerminalSessionDetails(
         overflow = TextOverflow.Ellipsis,
     )
     session?.let {
+        val status =
+            when {
+                it.phase == "UNKNOWN" && it.canSettle -> stringResource(R.string.terminal_state_ended)
+                it.phase == "UNKNOWN" -> stringResource(R.string.terminal_state_unknown)
+                else -> listOfNotNull(it.phase, it.stopReason, it.exitStatus?.toString()).joinToString(" · ")
+            }
         Text(
-            listOfNotNull(it.phase, it.stopReason, it.exitStatus?.toString()).joinToString(" · "),
+            status,
             Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("terminal-state"),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    if (session?.canSettle == true) {
+    if (session?.canSettle == true && session.phase != "UNKNOWN") {
         Text(stringResource(R.string.terminal_settlement_required), Modifier.testTag("terminal-settlement-required"))
     }
     if (failed) Text(stringResource(R.string.terminal_failed), Modifier.testTag("terminal-error"))
@@ -253,13 +267,14 @@ private fun TerminalActionControls(
             ) {
                 Text(stringResource(R.string.terminal_start))
             }
-        } else if (state.session?.canSettle == true) {
+        } else {
             TextButton(
                 onClick = { model.settle() },
                 enabled = !state.busy,
                 modifier = Modifier.testTag("terminal-settle"),
             ) { Text(stringResource(R.string.terminal_settle)) }
-        } else if (state.connection == null) {
+        }
+        if (state.connection == null && state.session?.canConnect == true) {
             TextButton(
                 onClick = { model.open(directoryToStart = null) },
                 enabled = !state.busy,

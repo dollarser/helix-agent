@@ -1,28 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="terminal_title">手动终端</string>
+    <string name="terminal_title">终端</string>
     <string name="terminal_licenses">组件许可证</string>
     <string name="terminal_keyboard">键盘</string>
-    <string name="terminal_shared_workspace">从当前 Workspace 目录启动；与应用共享 UID。关闭页面仅断开，默认两小时后停止。</string>
-    <string name="terminal_failed">操作未完成。请查询原会话状态；启动和输入不会自动重试。如环境需要维护，可在终端选项中打开运行环境。</string>
-    <string name="terminal_start">启动会话</string>
-    <string name="terminal_connect">连接原会话</string>
-    <string name="terminal_stop">停止会话</string>
-    <string name="terminal_settle">结算并关闭</string>
-    <string name="terminal_refresh">查询状态</string>
-    <string name="terminal_detached">未连接。离开页面不会终止会话；可重新连接查看保留输出。</string>
+    <string name="terminal_shared_workspace">终端默认使用独立于聊天的目录；文件管理器指定的目录仅用于新建终端。与应用共享 UID。默认租期两小时，断开连接后三十分钟空闲回收。</string>
+    <string name="terminal_failed">操作未完成。请刷新终端状态；不会自动重复启动或重发输入。如环境需要维护，可在终端选项中打开运行环境。</string>
+    <string name="terminal_start">启动终端</string>
+    <string name="terminal_connect">重新连接</string>
+    <string name="terminal_stop">停止终端</string>
+    <string name="terminal_settle">关闭终端</string>
+    <string name="terminal_refresh">刷新状态</string>
+    <string name="terminal_detached">终端未连接。离开页面或切换聊天不停止命令；可重新连接查看保留输出。</string>
+    <string name="terminal_runtime_ended">应用更新或设备重启已结束旧终端，原命令结果未知。请关闭旧终端以释放名额，再新建终端；不会重发原命令，工作区文件保留。</string>
+    <string name="terminal_state_ended">旧终端已结束 · 原命令结果未知</string>
+    <string name="terminal_state_unknown">终端运行时失联 · 结果未知</string>
+    <string name="terminal_runtime_unknown">旧终端运行状态无法确认，不能重新连接或重发命令。请刷新状态；若仍无法确认，重启设备后可关闭旧终端并新建，工作区文件保留。</string>
+    <string name="terminal_close_unconfirmed">未能确认该终端的进程已全部结束，关闭未完成。可刷新后重试；运行时已失联且仍无法确认时，请重启设备。不会重发命令或删除工作区文件。</string>
     <string name="terminal_input_rejected">部分输入未接收或结果未知，未自动重发。请核对终端内容后再输入。</string>
-    <string name="terminal_output_failed">输出连接中断。请离开并重新连接原会话。</string>
+    <string name="terminal_output_failed">输出连接中断。请离开页面后重新连接原终端。</string>
     <string name="terminal_output_gap">部分旧输出已丢弃，显示从保留内容重新开始。</string>
     <string name="terminal_directory">起始目录：Workspace / %1$s</string>
     <string name="terminal_tab_title">终端 %1$d</string>
     <string name="terminal_new_tab">新建终端</string>
     <string name="terminal_capacity_full">已达到最大并发终端数（最多 2 个）</string>
     <string name="terminal_observer_mode">当前连接为只读观察模式</string>
-    <string name="terminal_initial_help">点击“启动会话”即可使用；首次启动会自动准备内置 Linux 环境。环境维护位于终端选项 → 运行环境。</string>
+    <string name="terminal_initial_help">无需创建或选择聊天。打开页面会连接保留的终端；首次进入且没有终端时自动新建。首次启动自动准备内置 Linux 环境。维护位于终端选项 → 运行环境。</string>
     <string name="terminal_execution_busy_help">终端与 Agent 任务可以同时运行，不会因终端未关闭或结果未收取而阻挡其他任务。共享文件可能被同时修改，请核对最终结果。仅运行环境维护、引擎容量及同一终端的输入连接需要协调。关闭页面只断开查看，不停止命令。</string>
-    <string name="terminal_settlement_required">终端已停止，可点“结算并关闭”清理此会话；其他 Agent 任务不受影响。</string>
+    <string name="terminal_settlement_required">终端已停止，点击“关闭终端”可释放终端名额。</string>
     <string name="terminal_menu">终端选项</string>
-    <string name="terminal_requires_advanced">终端需要高级模式。当前为标准模式，无法启动终端会话。</string>
+    <string name="terminal_requires_advanced">终端需要高级模式。当前为标准模式，无法启动终端。</string>
     <string name="terminal_switch_and_start">切换到高级模式并启动终端</string>
 </resources>

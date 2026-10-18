@@ -33,8 +33,9 @@ internal class ManualTerminalConnection(
         try {
             client.connect()
             val reply = client.request(key, Wire.ATTACH) { it.writeStrongBinder(death) }
+            val writer = terminalAttachmentIsWriter(reply)
             token = reply.connection
-            _isWriter = (reply.outcome == "OK" && token != null)
+            _isWriter = writer
             return this
         } catch (failure: Exception) {
             client.close()
@@ -95,4 +96,13 @@ internal class ManualTerminalConnection(
                 }
             }
         }
+}
+
+/** A transport failure is not a valid observer connection. */
+internal fun terminalAttachmentIsWriter(reply: com.helix.runtime.proot.ipc.PtySessionReply): Boolean {
+    val record = checkNotNull(reply.record) { reply.outcome }
+    check(reply.outcome in setOf("OK", "WRITER_BUSY")) { reply.outcome }
+    check(record.phase != com.helix.runtime.proot.core.PtySessionRecord.Phase.UNKNOWN && record.stopProof == null)
+    check(reply.outcome != "OK" || reply.connection != null) { "Missing terminal connection" }
+    return reply.outcome == "OK"
 }

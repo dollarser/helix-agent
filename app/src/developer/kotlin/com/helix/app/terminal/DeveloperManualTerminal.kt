@@ -45,9 +45,9 @@ internal class DeveloperManualTerminal(
                 if (owners.isEmpty()) return@withContext emptyList()
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    owners.mapNotNull { owner ->
+                    owners.map { owner ->
                         val reply = client.request(ptyKey(owner), Wire.QUERY)
-                        reply.record?.let { terminalState(reply) }
+                        terminalState(reply, owner)
                     }
                 }
             }
@@ -170,7 +170,7 @@ internal class DeveloperManualTerminal(
                 val (_, owner) = findOwner(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    terminalState(client.request(ptyKey(owner), code))
+                    terminalState(client.request(ptyKey(owner), code), owner.takeIf { code == Wire.QUERY })
                 }
             }
         }
@@ -217,8 +217,16 @@ private fun reconcileBindings(
 private fun ptyKey(owner: ExecutionOwnership.Owner): PtySessionKey =
     PtySessionKey(owner.executionId, owner.generation, owner.executionId)
 
-internal fun terminalState(reply: com.helix.runtime.proot.ipc.PtySessionReply): ManualTerminal.State {
-    val record = checkNotNull(reply.record) { reply.outcome }
+internal fun terminalState(
+    reply: com.helix.runtime.proot.ipc.PtySessionReply,
+    retainedOwner: ExecutionOwnership.Owner? = null,
+): ManualTerminal.State {
+    val record =
+        reply.record ?: run {
+            check(reply.outcome == "NOT_FOUND" && retainedOwner != null) { reply.outcome }
+            // A submitted START can have no journal. Keep its exact identity visible, never silently free it.
+            return ManualTerminal.State(retainedOwner.executionId, "UNKNOWN", ".", "START_UNCONFIRMED", null, false)
+        }
     return ManualTerminal.State(
         record.origin.sessionId,
         record.phase.name,

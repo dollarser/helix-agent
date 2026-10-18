@@ -46,12 +46,13 @@ data class PtySessionRecord(
     val exitStatus: Int? = null,
     val reconciled: Boolean = false,
     val stoppedAtBootCount: Int? = null,
+    val stoppedAtPackageUpdateTime: Long? = null,
 ) {
     enum class Phase { STARTING, RUNNING, CLOSING, STOPPED, UNKNOWN }
 
     enum class StopReason { USER, LEASE_EXPIRED, IDLE, IO_FAILURE, RUNTIME_LOST, START_FAILED, SHELL_EXIT }
 
-    enum class StopProof { NEVER_STARTED, PROCESS_TREE_EXIT, DEVICE_REBOOT }
+    enum class StopProof { NEVER_STARTED, PROCESS_TREE_EXIT, DEVICE_REBOOT, PACKAGE_REPLACED }
 
     init {
         require(exitStatus == null || exitStatus in 0..511)
@@ -60,15 +61,23 @@ data class PtySessionRecord(
         require(phase !in setOf(Phase.CLOSING, Phase.STOPPED, Phase.UNKNOWN) || stopReason != null)
         require(
             (stopProof != null) ==
-                (phase == Phase.STOPPED || (phase == Phase.UNKNOWN && stopProof == StopProof.DEVICE_REBOOT)),
+                (
+                    phase == Phase.STOPPED || (
+                        phase == Phase.UNKNOWN && stopProof in
+                            setOf(StopProof.DEVICE_REBOOT, StopProof.PACKAGE_REPLACED)
+                    )
+                ),
         )
         require(stopProof != StopProof.NEVER_STARTED || process == null)
         require(stopProof != StopProof.PROCESS_TREE_EXIT || process != null)
         require(stopProof != StopProof.DEVICE_REBOOT || phase == Phase.UNKNOWN)
+        require(stopProof != StopProof.PACKAGE_REPLACED || phase == Phase.UNKNOWN)
         require(exitStatus == null || stopProof == StopProof.PROCESS_TREE_EXIT)
         require(!reconciled || stopProof != null)
         require((stoppedAtBootCount != null) == (stopProof == StopProof.DEVICE_REBOOT))
         if (stoppedAtBootCount != null) require(origin.bootCount != null && stoppedAtBootCount > origin.bootCount)
+        require((stoppedAtPackageUpdateTime != null) == (stopProof == StopProof.PACKAGE_REPLACED))
+        if (stoppedAtPackageUpdateTime != null) require(stoppedAtPackageUpdateTime > origin.createdAtEpochMs)
     }
 
     fun started(identity: PtyProcessIdentity): PtySessionRecord {
@@ -121,6 +130,13 @@ data class PtySessionRecord(
         val original = origin.bootCount
         check(original != null && currentBootCount != null && currentBootCount > original)
         return copy(stopProof = StopProof.DEVICE_REBOOT, stoppedAtBootCount = currentBootCount)
+    }
+
+    /** A system-observed package kill ends physical occupancy, never proves command success. */
+    fun afterPackageReplacement(proof: PtyPackageReplacement): PtySessionRecord {
+        check(phase == Phase.UNKNOWN && stopProof == null)
+        check(proof.provesExit(origin))
+        return copy(stopProof = StopProof.PACKAGE_REPLACED, stoppedAtPackageUpdateTime = proof.updatedAtEpochMs)
     }
 
     fun acknowledge(): PtySessionRecord {

@@ -93,6 +93,11 @@ internal class ProotTerminalHost(
             if (next.stopProof == null && rebooted) {
                 next = next.afterReboot(boot)
             }
+            if (next.stopProof == null) {
+                packageReplacement(context, boot)?.takeIf { it.provesExit(next.origin) }?.let {
+                    next = next.afterPackageReplacement(it)
+                }
+            }
             if (next != old) check(store.compareAndSet(old, next))
             next
         }
@@ -151,17 +156,18 @@ internal class ProotTerminalHost(
                 }
 
                 session.record.phase == PtySessionRecord.Phase.UNKNOWN -> {
-                    // Not counted as active, does not prevent teardown
+                    // An uncertain outcome can still have a worker cleaning up physical execution.
+                    if (!session.workerFinished) anyActive = true
                 }
 
                 else -> {
+                    // A stop request is not an exit receipt. Keep the foreground owner through cleanup.
+                    anyActive = true
                     val lastAct = sessionActivity[id] ?: session.record.origin.startedAtElapsedMs
                     if (now >= session.record.origin.deadlineElapsedMs) {
                         session.stop(PtySessionRecord.StopReason.LEASE_EXPIRED)
                     } else if (!attachedSessions.contains(id) && now - lastAct >= PtySessionProtocol.IDLE_MS) {
                         session.stop(PtySessionRecord.StopReason.IDLE)
-                    } else {
-                        anyActive = true
                     }
                 }
             }

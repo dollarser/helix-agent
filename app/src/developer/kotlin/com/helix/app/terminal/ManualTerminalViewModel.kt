@@ -123,6 +123,7 @@ internal class ManualTerminalViewModel(
                     activeSessionId = currentSession?.sessionId,
                     session = currentSession,
                 )
+            if (currentSession?.phase == "UNKNOWN") detachConnection(mutable)
         }
 
     fun stop(sessionId: String? = null) =
@@ -139,10 +140,23 @@ internal class ManualTerminalViewModel(
             }
         }
 
-    fun settle(sessionId: String? = null) =
+    fun settle(sessionId: String? = mutable.value.activeSessionId) =
         action {
-            val targetId = sessionId ?: mutable.value.activeSessionId
+            val targetId = sessionId
             if (targetId != null) {
+                var observed = terminal.query(targetId)
+                if (!observed.canSettle) {
+                    observed = terminal.stop(targetId)
+                    val deadline = System.nanoTime() + CLOSE_WAIT_NANOS
+                    while (!observed.canSettle && observed.phase != "UNKNOWN" && System.nanoTime() < deadline) {
+                        delay(100)
+                        observed = terminal.query(targetId)
+                    }
+                }
+                if (!observed.canSettle) {
+                    mutable.value = mutable.value.copy(session = observed, errorMessage = "CLOSE_UNCONFIRMED")
+                    return@action
+                }
                 if (mutable.value.activeSessionId == targetId) {
                     detachConnection(mutable)
                 }
@@ -155,6 +169,7 @@ internal class ManualTerminalViewModel(
                         sessions = remaining,
                         activeSessionId = nextActive?.sessionId,
                         session = nextActive,
+                        errorMessage = null,
                     )
                 if (nextActive != null && mutable.value.connection == null) {
                     connect(nextActive.sessionId)
@@ -181,6 +196,7 @@ internal class ManualTerminalViewModel(
                                 session = updated,
                                 sessions = all,
                             )
+                        if (updated.phase == "UNKNOWN") detachConnection(mutable)
                     }
                 }
             }
@@ -203,6 +219,7 @@ internal class ManualTerminalViewModel(
                 sessions = all,
                 activeSessionId = queryState.sessionId,
             )
+        if (!queryState.canConnect) return
         val connection = if (targetId != null) terminal.attach(targetId) else terminal.attach()
         // No suspension between acquiring the connection and assigning its owner.
         mutable.value =
@@ -242,6 +259,10 @@ internal class ManualTerminalViewModel(
                 cleanup.cancel()
             }
         }
+    }
+
+    companion object {
+        private const val CLOSE_WAIT_NANOS = 15_000_000_000L
     }
 }
 

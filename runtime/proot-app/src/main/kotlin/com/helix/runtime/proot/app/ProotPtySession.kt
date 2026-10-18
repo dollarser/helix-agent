@@ -24,6 +24,9 @@ internal class ProotPtySession(
 
     @Volatile private var size: Pair<Int, Int>? = null
 
+    @Volatile var workerFinished: Boolean = false
+        private set
+
     init {
         require(initial == PtySessionRecord(initial.origin))
         check(store.compareAndSet(null, initial)) { "PTY session already exists" }
@@ -99,6 +102,7 @@ internal class ProotPtySession(
             input.close()
             output.finish()
             process?.let(::cleanup)
+            workerFinished = true
         }
     }
 

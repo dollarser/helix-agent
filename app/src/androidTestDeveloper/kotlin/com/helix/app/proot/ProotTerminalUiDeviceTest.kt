@@ -117,13 +117,6 @@ class ProotTerminalUiDeviceTest {
                 send(scenario, "printf \"%s\" \"\$KEEP\" > rotated.txt; printf '\\033[32mROTATED_保留\\033[0m\\n'\n")
                 awaitFile(workspace, "rotated.txt", "preserved")
                 visibleGlyphs("terminal-rotated.png")
-                compose.onNodeWithTag("terminal-menu").performClick()
-                compose.onNodeWithTag("terminal-stop").performClick()
-                runBlocking {
-                    withTimeout(15_000) { while (!terminal.query().canSettle) delay(50) }
-                }
-                awaitPhase("STOPPED")
-                compose.waitForIdle()
                 compose.onNodeWithTag("terminal-settle").performClick()
                 compose.waitUntil(10_000) { runBlocking { !terminal.hasSession() } }
             }
@@ -193,9 +186,6 @@ class ProotTerminalUiDeviceTest {
                 send(second, "printf '%s' \"$?\" > interrupted.txt\n")
                 awaitFile(workspace, "interrupted.txt", "130")
                 compose.waitUntil(5000) { !File("/proc/$pid").exists() }
-                compose.onNodeWithTag("terminal-menu").performClick()
-                compose.onNodeWithTag("terminal-stop").performClick()
-                awaitPhase("STOPPED")
                 compose.onNodeWithTag("terminal-settle").performClick()
                 compose.waitUntil(10_000) { runBlocking { !terminal.hasSession() } }
             }

@@ -1,7 +1,7 @@
 # ADR-RUNTIME-002: 命令日志、后台 Job 与手动终端
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-17
+Date: 2026-09-16; revised 2026-10-19
 HXA: HXA-195, HXA-196, HXA-197, HXA-198, HXA-286, HXA-288
 Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务；接受范围见 Decision，实施另计）
 
@@ -31,6 +31,10 @@ Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务�
 组件要求 compileSdk 37；本次明确升级 compileSdk 至 37、Compose BOM 至 2026.09.00，保持 targetSdk 36 和 minSdk 29。CI 同时保留用于既有兼容探针的 API36 SDK。原生 ABI 为 arm64-v8a/x86_64；16 KiB ELF/ZIP 静态检查和真实 16 KiB 设备运行分别记账。OSC 自动剪贴板、图片及链接自动打开不启用，模型不获得终端输入能力。生产页面验收以 197 任务和证据为准，构建接线不代表验收完成。
 
 当前抽屉开启的手动终端使用应用私有 `workspaces/app/terminal` 目录，不依赖选中会话；文件管理器显式传入 scope 路径时仍使用该目录。终端 detach/attach 与租期不变，关闭或切换聊天不停止终端，Advanced、物理容量和运行环境维护约束仍适用，不再全局排斥 Agent 任务。
+
+人工“关闭终端”一次操作终止所选 PTY 及其进程树，内部等待退出证明后按原 identity/generation ACK 并释放名额；不要求用户先停止再结算，不影响其他终端/Job，不删除工作区或重发命令。租期、停止意图、缺失 PID、版本号或安装时间本身均不是退出证明。关闭未能确认进程结束时报告未完成，保留原身份以供重试。
+
+覆盖安装后，Android 的原 `:proot` 包更新退出记录、晚于终端创建的 PackageManager 更新时间、同 boot 与一致的 wall/elapsed 时钟共同证明旧物理占用结束，允许显式关闭。API34+ 要求 `REASON_PACKAGE_UPDATED`；API30–33 的旧系统原因还需与安装时刻相符。无系统证据、API29 或时钟不一致时不猜测，仍可由严格递增 boot count 证明设备重启。恢复后原命令结果保持 UNKNOWN，不伪造退出码或恢复 shell 内存。旧 v1 PTY 日志严格读取后可写为包含更新证明的 v2，原 origin、CAS、授权和声明版本保持。
 
 ### HXA-240：FFmpeg 复用 Advanced Bash / Job
 
@@ -93,6 +97,10 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-19 追加：Owner 报告手机覆盖安装后终端 UNKNOWN/无法新建，并明确关闭应一次终止终端中的全部进程。日常 API36 ARM64 相同版本/签名覆盖安装已复现；修复在原 PTY 生命周期中增加上述包更新证明和单步关闭，拒绝将失败 ATTACH 当只读连接，保留丢失 START 回执的原身份。Android 退出原因与更新流程参考 [ApplicationExitInfo](https://developer.android.com/reference/android/app/ApplicationExitInfo) 和 [AOSP InstallPackageHelper](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/services/core/java/com/android/server/pm/InstallPackageHelper.java)；没有复制上游代码或新增执行域。设备复现不外推手机/OEM 通过，修复验收单列。
+
+- 2026-10-19：Owner 再次要求手动终端独立于聊天。源码核对侧栏入口不传聊天 ID，默认目录与 PTY 身份已独立，关闭/切换聊天不结束终端；本轮将 UI 的“启动/停止会话”和“结算并关闭”改为终端操作名称，帮助明确无需创建或选择聊天，并纠正架构页残留的旧启动步骤。没有新增模型 PTY、改变人工入口授权、Advanced 限制、租期或进程恢复语义；源码核对不作为新设备验收。
 
 - 2026-10-17，HXA-304：真实模型验收发现 `job.collect` 只返回结算/产物元数据，模型无法读取已成功作业的标准输出。收取原已验证归档后返回有界 stdout/stderr（每流 4096 字符）及 available/truncated 标志，读取失败不伪造空输出；重复 collect 读取原本地归档，不重跑、不重复导入。没有 `output/` 产物时不提供不存在的 artifactDirectory。原授权、receipt、结算与 ACK 顺序保持；类型化结果终态仍由 288 继续替换。
 

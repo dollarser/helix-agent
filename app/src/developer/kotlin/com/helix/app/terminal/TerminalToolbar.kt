@@ -67,17 +67,6 @@ internal fun TerminalTopBar(
                         modifier = Modifier.testTag(tag),
                     )
                 }
-                if (state.hasSession && state.session?.canSettle != true) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.terminal_stop)) },
-                        onClick = {
-                            menu = false
-                            model.stop()
-                        },
-                        enabled = !state.busy,
-                        modifier = Modifier.testTag("terminal-stop"),
-                    )
-                }
             }
         }
     }

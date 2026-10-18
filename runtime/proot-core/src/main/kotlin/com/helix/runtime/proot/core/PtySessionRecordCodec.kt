@@ -8,7 +8,7 @@ import java.io.DataOutputStream
 /** Strict versioned metadata only. PTY bytes, credentials and process memory are never journalled. */
 object PtySessionRecordCodec {
     const val MAX_BYTES = 32 * 1024
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     fun encode(record: PtySessionRecord): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -32,6 +32,7 @@ object PtySessionRecordCodec {
             data.writeInt(record.exitStatus ?: -1)
             data.writeBoolean(record.reconciled)
             data.writeInt(record.stoppedAtBootCount ?: -1)
+            data.writeLong(record.stoppedAtPackageUpdateTime ?: -1)
         }
         return bytes.toByteArray().also { require(it.size <= MAX_BYTES) }
     }
@@ -45,7 +46,8 @@ object PtySessionRecordCodec {
     fun decode(bytes: ByteArray): PtySessionRecord {
         require(bytes.size in 1..MAX_BYTES)
         return DataInputStream(ByteArrayInputStream(bytes)).use { data ->
-            require(data.readInt() == VERSION) { "Unsupported PTY journal version" }
+            val version = data.readInt()
+            require(version in 1..VERSION) { "Unsupported PTY journal version" }
             val origin =
                 PtySessionOrigin(
                     data.readUTF(),
@@ -68,6 +70,7 @@ object PtySessionRecordCodec {
                     data.readInt().also { require(it >= -1) }.takeIf { it >= 0 },
                     data.strictBoolean(),
                     data.readInt().also { require(it >= -1) }.takeIf { it >= 0 },
+                    if (version >= 2) data.readLong().also { require(it >= -1) }.takeIf { it >= 0 } else null,
                 )
             require(data.read() == -1) { "Trailing PTY journal bytes" }
             record

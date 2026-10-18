@@ -65,6 +65,53 @@ class TerminalEntryDeviceTest {
             model.disconnect()
         }
 
+    @Test fun explicitReconnectAndTabSwitchNeverAttachAnUnknownOrStoppedTerminal() =
+        onMain {
+            for (retained in listOf(
+                state("old", "UNKNOWN"),
+                state("old", "UNKNOWN", true),
+                state("old", "STOPPED", true),
+            )) {
+                val terminal = FakeTerminal(retained)
+                val model = ManualTerminalViewModel(terminal)
+                model.enter(".")
+                model.open(null)
+                model.switchSession("old")
+                assertTrue(terminal.attached.isEmpty())
+                assertFalse(model.state.value.failed)
+                assertNull(model.state.value.connection)
+            }
+        }
+
+    @Test fun closingReplacedTerminalsAllowsExplicitNewStartWithoutReplayingOldCommands() =
+        onMain {
+            val terminal = FakeTerminal(state("old1", "UNKNOWN", true))
+            terminal.retained.add(state("old2", "UNKNOWN", true))
+            val model = ManualTerminalViewModel(terminal)
+            model.enter(".")
+            model.settle()
+            assertEquals("old2", model.state.value.activeSessionId)
+            assertFalse(model.state.value.failed)
+            assertTrue(terminal.attached.isEmpty())
+            model.open(".")
+            assertEquals(1, terminal.starts)
+            assertEquals(listOf("s1"), terminal.attached)
+            model.disconnect()
+        }
+
+    @Test fun closeStopsTheRunningTerminalAndReleasesItInOneAction() =
+        onMain {
+            val terminal = FakeTerminal(state("live"))
+            val model = ManualTerminalViewModel(terminal)
+            model.enter(".")
+            model.settle()
+            assertEquals(1, terminal.stops)
+            assertTrue(terminal.retained.isEmpty())
+            assertFalse(model.state.value.hasSession)
+            assertFalse(model.state.value.failed)
+            assertNull(model.state.value.connection)
+        }
+
     @Test fun cancelledAutomaticStartDoesNotBecomeSuccessOrRepeat() =
         onMain {
             val terminal = FakeTerminal().apply { startFailure = CancellationException("cancelled") }
@@ -85,6 +132,7 @@ class TerminalEntryDeviceTest {
         val retained = mutableListOf<ManualTerminal.State>().apply { initial?.let(::add) }
         var starts = 0
         var detaches = 0
+        var stops = 0
         var startFailure: Exception? = null
         val attached = mutableListOf<String>()
 
@@ -104,7 +152,13 @@ class TerminalEntryDeviceTest {
             return state("s$starts").also(retained::add)
         }
 
-        override suspend fun stop(sessionId: String?) = query(sessionId)
+        override suspend fun stop(sessionId: String?): ManualTerminal.State {
+            stops++
+            val original = query(sessionId)
+            return original.copy(phase = "STOPPED", canSettle = true).also {
+                retained[retained.indexOf(original)] = it
+            }
+        }
 
         override suspend fun settle(sessionId: String?) {
             retained.remove(query(sessionId))
