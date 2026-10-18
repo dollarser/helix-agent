@@ -36,7 +36,7 @@ Mobile Use is an optional plugin. Browser, file, and tool access retain their ow
 ## Your first task
 
 1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the release notes and checksum files for that version.
-2. Current source builds dynamically fetch **Helix built-in models** in the conversation model picker without a key. Directory membership does not verify inference connectivity. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Published v0.0.6 does not include this integration and still requires a provider address, protocol, key (if required) and model name. See [HXA-307](docs/development/tasks/HXA-307.md) for live integration status.
+2. The v0.0.6 reissue dynamically fetches **Helix built-in models** in the conversation model picker without a key. Directory membership does not verify inference connectivity. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Built-in text, image and bounded file workflows have been validated; current shared-service availability still depends on actual requests. See [HXA-307](docs/development/tasks/HXA-307.md) for the validation scope.
 3. Start a conversation, select a model, and try a small file task:
 
 ```text
@@ -65,7 +65,7 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-The **[v0.0.6 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)** targets ARM64 with R8-optimized, non-debuggable APKs. It retains internal `versionCode` `1` and the existing development signing certificate:
+The **[v0.0.6 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)** targets ARM64 with R8-optimized, non-debuggable APKs. The 2026-10-18 reissue keeps `versionCode=1` and the same development certificate. Existing users must manually download and install the APK for their edition over the original; the unchanged code does not provide a newer version-number prompt:
 
 | Edition | Package |
 | --- | --- |
