@@ -35,15 +35,19 @@ archive does not replace the full application distribution checks below.
    artifacts, and model files require a separate source-and-license manifest
    before they can be bundled.
 
-This file is a notice policy and a partial attribution inventory. The v0.0.6
-preview Release supplies a resolved dependency inventory and retained upstream
-license/notice materials in `THIRD_PARTY_NOTICES.zip`, alongside exact APK build
-information. A resolved dependency is a build input, not proof that all of its
-classes survive R8. A Compose BOM is a constraint, not a shipped binary.
+This file is a notice policy and a partial attribution inventory. The existing
+[runtime asset release](https://github.com/dollarser/helix-agent/releases/tag/runtime-assets-20260917)
+retains the v0.0.6 resolved dependency inventory and original upstream notices in
+[`helix-v0.0.6-third-party-notices.zip`](https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/helix-v0.0.6-third-party-notices.zip).
+The application Release body records the APK source commit, CI and checksums.
+A resolved dependency is a build input, not proof that all of its classes survive
+R8. A Compose BOM is a constraint, not a shipped binary.
 Alpine package versions/origins/commits, aports recipes and checksum-verified
 source inputs are distributed in `alpine-corresponding-source.tar.gz` and
-`alpine-source-manifest.json` on the same application Release. Termux materials
-remain in the fixed resource release above. Native/runtime locks and original
+`alpine-source-manifest.json` in that runtime asset Release, together with
+`media-corresponding-source.tar.gz`. The application Release directly links these
+exact materials. Termux materials remain in the same fixed resource release.
+Native/runtime locks and original
 upstream licenses remain authoritative; Helix's Apache-2.0 license does not
 replace them. Passing hash checks alone is not a distribution-license review.
 

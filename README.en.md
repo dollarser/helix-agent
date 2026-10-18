@@ -35,7 +35,7 @@ Mobile Use is an optional plugin. Browser, file, and tool access retain their ow
 
 ## Your first task
 
-1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the release notes and checksum files for that version.
+1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the notes and APK checksums in that version's Release body.
 2. The v0.0.6 reissue dynamically fetches **Helix built-in models** in the conversation model picker without a key. Directory membership does not verify inference connectivity. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Built-in text, image and bounded file workflows have been validated; current shared-service availability still depends on actual requests. See [HXA-307](docs/development/tasks/HXA-307.md) for the validation scope.
 3. Start a conversation, select a model, and try a small file task:
 
@@ -76,7 +76,7 @@ This version focuses on plugin and conversation UX, file-path presentation, task
 
 This version also fixes browser page layout and snapshots, notification gestures cancelled by valid window transitions, empty progress disclosures and automatic conversation titles, while retaining the compact inline composer.
 
-See the [v0.0.6 notes and validation boundaries](docs/product/releases/v0.0.6.en.md). Download only assets available on the Release page and check `BUILDINFO.json` and `SHA256SUMS`. Validation primarily uses the API36 ARM64 emulator, without physical-phone/OEM acceptance. Browser resource testing lasted 15 minutes; the Douyin task passed after supplying download facts and a menu entry, and the model can still search or act redundantly. Preserve existing data when signatures conflict, the installed versionCode exceeds 1, or the database is incompatible; do not immediately uninstall or clear data.
+See the [v0.0.6 notes and validation boundaries](docs/product/releases/v0.0.6.en.md). Version Releases provide only APKs and tag-based source archives. Check the APK SHA-256 in the Release body, which also links exact third-party sources and licenses. Validation primarily uses the API36 ARM64 emulator, without physical-phone/OEM acceptance. Browser resource testing lasted 15 minutes; the Douyin task passed after supplying download facts and a menu entry, and the model can still search or act redundantly. Preserve existing data when signatures conflict, the installed versionCode exceeds 1, or the database is incompatible; do not immediately uninstall or clear data.
 
 ## Privacy and control
 
