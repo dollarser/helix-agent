@@ -1,7 +1,7 @@
 # Helix 手机端 Tool 编排架构
 
-文档状态：Baseline 1.4 补充规范；并发契约已按 HXA-238 更新
-基线日期：2026-09-03；并发裁决日期：2026-10-02
+文档状态：Baseline 1.4 补充规范；并发契约沿 HXA-238，2026-10-19 按 Owner 容量评审更新
+基线日期：2026-09-03；容量取舍与验证见[本轮记录](../evidence/development/workspace-capacity-and-guidance-2026-10-19.md)
 
 ## 1. 目标
 
@@ -15,7 +15,7 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | --- | --- | --- | --- |
 | 统一 approval → execution target → attempt → verify → audit 管道 | **首版采纳** | Dispatcher 唯一入口；target 在 approval hash 中，失败不回退到低隔离执行域 | HXA-035 |
 | 有界并发与实际引擎协调 | **已调整** | HXA-238 不以读写类别、用户文件或 origin 阻止执行；仅不可重入引擎与内部提交必要同步，元数据不授予权限 | HXA-037 / HXA-238 |
-| 有界并发池、取消与按模型顺序回填 | **采纳并更新** | Scheduler 默认 2、硬上限 4；PRoot 最多四个 Job 与两个终端并存；原生 QuickJS 单例协调不限制独立 JS；结果按 call sequence 提交 | HXA-037 / HXA-238 |
+| 有界并发池、取消与按模型顺序回填 | **采纳并更新** | App 健康前台按 CPU 最多四调用，后台/低内存/热压降一；PRoot Job/手动终端各最多四、共用六槽。Framework 默认值仍为二，实际退出前不释放；QuickJS 单例按资源协调，结果按 call sequence 提交 | HXA-037 / HXA-238；[容量决定](../adr/runtime/002-terminal-and-jobs.md) |
 | model-visible ⇔ persisted/logged、回放恢复 | **首版采纳** | 任何进入模型的 ToolResult、用户回答、委托结果和 compaction summary 都必须可由持久事件重建 | HXA-035/037/102 |
 | 分阶段 timing、decision source、correlation ID | **首版采纳** | 记录 queue/approval/execution/verification 时间和 Policy/User/Recovery 来源，不记录敏感正文 | HXA-035/037 |
 | 结构化用户提问与迟到 receipt 拒绝 | **采纳** | 问题绑定 turn/request/version；已取消、已回答或状态变化后的答复不生效；提问不代替审批 | HXA-036/037 |
