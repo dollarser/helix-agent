@@ -1,18 +1,12 @@
 # Helix Agent Instructions
 
-## Authority and reading order
+## Scope and references
 
-Helix is an Android single-device product with a complete store-facing Standard channel and an Advanced/developer capability set. Current scope is defined by `docs/development/status.md`, the active HXA, and accepted ADRs; capabilities that are not in the current HXA must not be added opportunistically. Future platform/product scope may be promoted only by an explicit owner-authorized roadmap/ADR change.
+Helix is an Android single-device product with a complete store-facing Standard channel and an Advanced/developer capability set. Keep changes within the owner-authorized task and accepted product scope. Future platform/product scope needs an explicit owner-authorized roadmap/ADR change.
 
-Before changing code, establish scope through targeted reading:
+Continue the ongoing task from the conversation and its compaction summary. Consult relevant source, README, `docs/development/status.md`, HXA and accepted ADR clauses as needed; they provide facts and contracts, not a replacement task. Compaction alone does not require reselecting work or rereading documents. Historical records do not restart completed work.
 
-1. `README.md` product/channel summary; load other sections only when relevant.
-2. `docs/development/status.md` current work/next-task sections — the live scope authority, not a remembered task order.
-3. The applicable HXA/current owner request and relevant ADR clauses, including status and applicable Decision history.
-4. The affected entry points, callers/shared-state owners and tests; architecture/plan sections only as needed.
-5. Historical research, completion records, bug-fix and evidence bodies only for relevant provenance or regression investigation; search metadata first.
-
-Use existing CodeGraph (MCP when available, otherwise CLI), or an already configured applicable GitNexus index, for code structure, callers/callees, impact and task context; see [navigation](docs/development/context-navigation.md). Choose one suitable entry for the question; do not query both by default. An unavailable WebCodex semantic-navigation entry does not mean native tools or CodeGraph are unavailable. For known small changes, read the needed source range directly; use scoped `rg` for exact text or Markdown. Graph results are candidates: check current source and root/nested AGENTS before edits. Return bounded hits, log deltas and test summaries; reread necessary material after compaction/reset/handoff, with no fixed task-token/file-count cap. Inventory installed tools before adding helpers; do not duplicate existing navigation with another parser, index, packet format or wrapper.
+Use direct source reads, scoped search or existing CodeGraph/GitNexus according to the question; [navigation](docs/development/context-navigation.md) is a reference, not a mandatory tool sequence. Verify graph candidates against current source. Do not add a duplicate code index/parser or navigation wrapper.
 
 `roadmap.md` is an HXA inventory/index, not a second current plan. ADRs are feature-level living decisions: update the same ADR when that feature contract changes and append `Decision history`; create a new ADR only for a genuinely separate decision domain. Accepted ADRs authorize design, not completed implementation. Older wording is recovered from Git history, not from compatibility/supersession files. Do not restart completed HXA work or restore obsolete behavior.
 
@@ -33,10 +27,10 @@ Use existing CodeGraph (MCP when available, otherwise CLI), or an already config
 
 ## Task and change discipline
 
-- For optimizations and new features, research relevant Agent products/reference projects where practical before choosing the design. Use primary documentation and current source as evidence, compare their behavior against Helix's Android, authorization, durable-state and product constraints, and record the adopted choices and tradeoffs in the applicable task/ADR. Research does not expand accepted scope or authorize copying reference code; preserve license obligations.
+- For substantial design choices, use relevant primary documentation/current source where useful and record adopted tradeoffs in the task/ADR. Research does not expand scope or authorize copying reference code; preserve license obligations.
 - Continue until the full user-authorized task is complete; one passing test, one slice or one HXA sub-checkpoint is not a stopping condition.
 - Keep edits inside the current HXA/user-authorized scope. Make reasonable reversible implementation choices without routine approval; pause only for a real architecture decision, missing authority, external dependency, irreversible data-loss risk or evidence-backed blocker.
-- A persistent development Goal is created only when the user explicitly requests one. It may span work, but keeps one HXA checkpoint in progress at a time.
+- Create a persistent development Goal only when the user explicitly requests one.
 - Add tests for normal behavior and applicable failure/cancellation/boundary/recovery paths. Never delete, weaken or skip tests merely to make a task pass. When an accepted contract replaces an obsolete implementation, replace its tests with coverage of the new behavior and retained correctness boundaries; old implementation assertions are not compatibility requirements. Removing compatibility does not authorize deleting user data. Do not return success from catch-all exception handlers. Accepted work must not leave placeholder implementations or unresolved TODOs.
 - Preserve parallel work: do not reset/stash/overwrite unrelated dirty changes, and stage only owned paths/hunks. Commit, push, merge, publish, submit to stores or consume real accounts only when the current task explicitly authorizes that action.
 - Reference repositories are evidence/design inputs, not code sources. Do not copy AGPL/GPL/CPAL/MPL code unless the task explicitly adopts the license and records the decision. Preserve license/source obligations for bundled third-party runtimes/artifacts.

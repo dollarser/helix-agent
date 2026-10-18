@@ -2,14 +2,14 @@
 
 本目录只保存**当前代码/产品开发控制面**，不是历史证据库。HXA 主要记录实现、重构、修复、迁移、验证和发布类开发工作；纯文档整理、索引重构或 Research 综合不单独创建 HXA。
 
-- [status.md](status.md)：唯一当前状态、In progress、Next task 与 Blocked 入口。
+- [status.md](status.md)：当前实施事实、开放条件和后续设计依赖，不替对话选择任务。
 - [候选需求与待裁决索引](candidate-decisions.md)：区分接受范围、已实现基础、未启用功能和进入开发条件；不维护第二份计划。
 - [roadmap.md](roadmap.md)：HXA 清单/长期排序；不是第二份 current plan。
-- [tasks/](tasks/)：所有尚未完成的 HXA 规格，包括进行中、外部依赖、发行队列和未来已授权任务。真正当前执行项必须同时出现在 `status.md`。
-- [implementation-guide.md](implementation-guide.md)：通用开发/交接流程。
+- [tasks/](tasks/)：尚未完成的 HXA 规格，包括实施、外部依赖、发行和未来范围；登记不等于当前执行。
+- [implementation-guide.md](implementation-guide.md)：按需开发/交接参考。
 - [个人工程手册](engineering-playbook.md)：所有者开发偏好、决策方法与可追溯案例；跨项目复用的解释性资料，不替代 AGENTS、有效 ADR 或当前任务。
 - [context-navigation.md](context-navigation.md)：复用 CodeGraph 定位结构与关联，结合精确搜索、当前源码和 Git 差异按需读取；不维护平行导航或资料包系统。
-- [开发原则与后续推进策略](feature-refactor-strategy.md)：有限基础收敛、功能接入顺序、重构停止条件与评审分级；不替代 status/HXA 的当前排期。
+- [开发原则与后续推进策略](feature-refactor-strategy.md)：有限基础收敛、功能取舍、停止条件与评审参考，不规定当前任务步骤。
 - [verification-matrix.md](verification-matrix.md)：公共主机、构建、设备验证规则。
 - [environment.md](environment.md)、[ci.md](ci.md)：开发环境与 GitHub CI 边界。
 - [Agent Eval](agent-eval.md)、[Harness 系统基线](harness-system-baseline.md)：证据字段、比较方法与固定系统测量口径。

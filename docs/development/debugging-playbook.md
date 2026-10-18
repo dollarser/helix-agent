@@ -8,10 +8,11 @@ Android 原始状态使用已有 `instrumentation_junit.py`：校验每个方法
 
 副作用次数（例如停止后不能多执行一次）、身份唯一性、输入/归档大小上限、256自动轮边界、FD/线程/PSS资源阈值及安全/权限/恢复断言属于行为契约，继续保留。资源循环逐类要求实际非空、零失败、零跳过，输出 `HelixSoakCases` 实际完成数量；host只汇总这些完成事件。缺少新事件的旧日志不估算为固定8项，原历史报告保持当时事实。
 
-## 主机复核模板
+## 主机命令示例
+
+按当前变更选用，任务明确要求的门禁优先；不把示例变成每次执行的完整流程。
 
 ```sh
-python3 scripts/run-host-tests.py
 scripts/check-all.sh --source
 # AndroidTest或构建入口改变时，包含可选实验模块的完整Debug验证：
 ORG_GRADLE_PROJECT_includeSpikes=true python3 scripts/with-host-slot.py -- \
@@ -24,7 +25,7 @@ ORG_GRADLE_PROJECT_includeSpikes=true python3 scripts/with-host-slot.py -- \
 
 ## 有授权的设备测试模板
 
-每个当前任务先明确设备与模型授权，默认选择未运行的AVD、自有serial和新输出目录。所有者明确指定日常实例时按该授权范围使用，保留既有数据并记录实际安装/清理边界，不擅自改用其他设备。不因设备验收授权而清数据，不用快照恢复冒充当前数据库；设备授权不含真实账号或模型额度授权。
+仅在当前任务已有对应授权时使用设备/模型；同一任务的许可不因压缩或交接重新询问。新建实例时使用自有 serial 和新输出目录；所有者指定日常实例则保留既有数据并记录安装/清理边界。不因设备验收而清数据，不用快照恢复冒充当前数据库；设备授权不含真实账号或模型额度授权。
 
 ```sh
 python3 scripts/with-host-slot.py -- python3 scripts/run-owned-emulator.py \
@@ -106,26 +107,12 @@ Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞�
 
 ## 插件市场与模型夹具生命周期
 
-订阅 Runtime 生产入口是 Developer 主 APK 内的 `:subscriptions` 私有进程，不再安装 `runtime/cli-app` 独立 APK。库 AndroidTest 宿主只用于组件自测试，其包、沙箱及登录记录与 Helix 产品不同；真实账号/模型验收使用 App 中的 Provider 与原生登录配置，不从宿主 CLI 导入凭据。测试前核对当前 module 类型、最终 manifest、APK hash 和 instrumentation target，而非根据残留文件名猜测架构。旧独立产物与脚本的删除清单见[退役记录](../evidence/development/runtime-artifact-retirement-2026-10-13.md)。
+以下是相关测试的诊断参考，不是所有任务的前置流程：
 
-市场列表从IO异步加载，Compose空闲不代表条目已经就绪；在操作前对真实条目做有界等待。本地化测试覆盖LocalContext时，要保留真实ActivityResultRegistryOwner，否则文件选择器不能注册。安装确认和详情展开是独立交互，不能在未展开时断言会话按钮存在。
+- 订阅生产入口在主 APK 的私有进程；测试宿主、旧独立 APK 与产品的包、沙箱及凭据不同。按实际 manifest/target 确认对象，不导入宿主登录记录。[退役记录](../evidence/development/runtime-artifact-retirement-2026-10-13.md)保留旧架构证据。
+- 安装、启用、会话选择、连接及执行审批各有事实；异步条目、持久结果和 Activity/窗口分别等待实际条件，Compose 空闲或 startActivity 返回不代表就绪。夹具只执行获准渠道路径，不代做被测模型动作。
+- 保留原 Turn/Call/Job 与恢复 Turn 身份、业务结果和清理结果。停止请求不等于执行已退出；删除本轮合成数据前等待观察/执行结算结束并核对持久终态，不重放未知效果，不清其他用户数据。
+- 资源对照使用相同生命周期/渲染状态与原阈值，缺失 PID 样本记未知而非零；诊断 GC、反复重试或正常 Turn 结束不替代业务通过。测试需恢复其临时设置和本轮服务，不覆盖其他服务配置。
+- 模型叙述、可见 UI、原 HTTP/SSE 输出、输出 schema、持久回填和下一请求各是不同证据；保留全部失败与未测条件，不由小样本推断 EOS 根因或普遍收益。
 
-模型夹具必须区分插件安装、Skill内容启用、会话选择、MCP连接和执行审批；安装或选择不会自动完成所有前置条件。按渠道选择夹具：Developer可临时使用精确LAN授权的loopback MCP，Standard保持既有拒绝边界并使用独立内容/文件工作流，不借用Developer专属chat-reply。
-
-真实模型必须分别记录业务结果与JUnit/清理结果：Turn.COMPLETED不能证明按钮已点击，token失效也不表示成功。读取持久assistant后有界等待UI投影，避免把用户提示误当模型回复。反复NEW_TASK启动以及对已被另一路由替换的ActivityScenario执行close会制造堆积/清理失败；实际Main UI dispatcher与SINGLE_TOP/CLEAR_TOP复用现有宿主，不吞掉close异常。
-
-Instrumentation force-stop可让enabled list残留而系统标记Helix无障碍服务crashed；重复写同一列表不会重连。授权的夹具只重新加入自己的服务，等待系统确认移除再启用，保存/恢复其他服务与原设置。资源idle断言先记录当前数值及新增FD，仍用原阈值；诊断GC不算接受依据。完整长测保留所有业务失败并在结束统一断言，不能删掉失败或靠重新试跑覆盖历史。当前案例见[HXA-282证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)。
-
-资源基线与后续样本必须处于相同生命周期/渲染状态。硬件加速窗口可用实际帧提交确认及固定静置对齐，不能依据 FD 下降动态等待、过滤描述符或上调阈值。主机终末采样无 PID 时，核对方法终态时间、最后成功采样间隔和原始 meminfo，区分退出后的空采样与测量中的失联；保留失败条目，不将 null 当零。当前两小时资源满足阈值但业务失败的整轮仍为 FAIL_FUNCTIONAL。
-
-参数错误与业务停滞分别回归。宿主已绑定会话时，应在工具描述中明确模型省略可选身份字段，保留空值拒绝与跨会话隔离测试。对屏幕外目标，除普通表单外，先要求模型实际查找以获得 offscreen 结果，再检查模型自行继续滚动及独立业务结果；夹具不能代做动作。固定次数、保留所有失败，不以重试到通过或正常 Turn 终态替代任务核验。
-
-工具返回的操作提示也受输出 schema 约束。修改 actionHint 后，对实际成功、屏幕外和歧义分支执行输出校验；执行器直测成功不能证明 Dispatcher 接受该输出。提示应区分返回事实与输入参数，例如 scrollable 是节点标志，不是 find 参数；普通 set_text 填入与可选 IME submit 是不同动作，不应要求每次填入都提交键盘。
-
-有自动恢复的模型夹具应固定最初用户 Turn ID，分别记录其终态、关联恢复 Turn 与独立业务结果。读取最后一个 Turn 会把恢复完成误记为原任务完成。清理前停止并等待本轮所有关联 Turn 的持久终态，保持原执行身份和禁止重放未知效果的边界。
-
-startActivity 返回不代表目标 Activity 已 RESUMED 或窗口已显示。确认返回帧时，在同一个原有 deadline 内等待唯一目标 Activity、附着可见窗口及实际帧提交；不能给每个阶段重新分配完整超时。成功、业务失败后的清理和直接返回路径都应覆盖；保留缺失窗口、多窗口、软件渲染及超时失败，不依赖资源数值下降决定何时采样。
-
-stopTurn只接受停止请求；删除测试会话前应等待AgentRuntime.observe结束、核对持久终态，避免后台结算仍引用已删除Turn。清理只处理本轮明确拥有的ID；进程崩溃留下的合成Provider按基线差集核对后，走原生产删除接口，不直接删除用户配置或吞掉异常。具体复现与失败证据见[HXA-281设备补验](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)。
-
-模型只叙述操作却结束时，先核对原始响应的完整HTTP/SSE终态、finish_reason、实际调用片段、输出上限及原Turn身份，再检查持久记录到下一请求的投影。一次响应的可见文字与调用须按原步骤完整回填，UI显示副本不重复进入模型上下文；压缩后的单独工具步骤也须保留文字。不能凭相邻位置合并普通最终答复，或把“我要点击”补成执行。固定历史输入对照只测续调用决策；当前实际业务、原长测失败及服务器配置缺失分别记录，少量随机样本不能证明EOS根因或普遍收益。
+具体夹具同步、返回帧、服务重连、输出契约及清理竞态案例在 [HXA-281 补验](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)和 [HXA-282 证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)中，不将单次故障步骤升级成全仓强制流程。

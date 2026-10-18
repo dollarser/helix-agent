@@ -5,26 +5,15 @@ description: "Close out a Helix candidate or review whether its acceptance evide
 
 # Helix Acceptance Closeout
 
-## Establish the acceptance scope
+Use the ongoing task and its compaction summary; this skill does not choose work from the repository queue or grant device, account, deletion or publication authority. Project boundaries remain in [AGENTS.md](../../../AGENTS.md).
 
-Work from the Helix repository root. Read its applicable [AGENTS.md](../../../AGENTS.md), the current work in [status](../../../docs/development/status.md), and the requested HXA or owner instruction. Follow the [implementation guide](../../../docs/development/implementation-guide.md) for authority and handoff; use the [verification matrix](../../../docs/development/verification-matrix.md) only for relevant gates.
+## Relevant acceptance evidence
 
-Record the current branch, HEAD, existing changes and their owners. Resolve the candidate, successful build source, requested checks and current authorization from available evidence before asking for missing inputs. Preserve authorization within the same ongoing task; availability of a device, account or old result is not authorization for a new task. This skill does not authorize device use, real services, data removal, commits, pushes or releases.
+- Bind successful build inputs, APK identity and installed bytes. A failed build's leftover APK is not a candidate; reuse unchanged evidence with its applicable boundary.
+- Choose checks for the requested outcome and affected paths. Separate host tests, test APK compilation, device effects, durable results and actual model consumption; a wrapper or Turn completion alone is insufficient.
+- Preserve user data and unrelated work. Daily-emulator replacement needs the designated instance, matching package/signature and compatible database; cleanup touches only task-owned resources.
+- Keep failures, skips and untested conditions visible. Fix scoped defects without weakening boundary assertions. Missing authority or destructive installation blocks that action, not independent work.
 
-## Bind evidence to the actual candidate
+Existing commands are in the [verification reference](../../../docs/development/verification-matrix.md) and [debugging reference](../../../docs/development/debugging-playbook.md): `check-all.sh`, `build-release-apks.sh`, owned emulator runners and `instrumentation_junit.py` / `summarize-owned-runs.py`. Use what fits the task, without a duplicate runner or fixed test-count convention. [Release readiness](../../../docs/development/release-readiness.md) applies to explicitly authorized distribution.
 
-- Distinguish production source, later documentation commits, build inputs, APK identity and installed bytes. An APK remaining after a failed build does not validate the attempted source change. Reuse unchanged evidence only with a stated reason and boundary.
-- Reuse existing scripts: `scripts/check-all.sh` for applicable host gates, `scripts/build-release-apks.sh` for an authorized build, and `scripts/instrumentation_junit.py` / `scripts/summarize-owned-runs.py` for existing evidence. Read their arguments before invocation; do not invent a parallel runner or counting scheme.
-- For explicitly requested isolated emulator checks, use `scripts/run-owned-emulator.py` or the applicable existing runner. A request to update the daily emulator requires that exact instance, matching package/signature and a non-destructive database preflight; do not replace it with a disposable instance or clear its data. Follow the root keyboard preference without adding unrelated IME tests.
-- Check execution, independently observed effects, durable result persistence and actual model consumption separately where the task requires them. A completed Turn, model claim or successful wrapper alone is insufficient.
-- Report host checks, AndroidTest compilation, device execution, real-provider tasks and media end-to-end work separately. Preserve failures and identify adopted passing subsets; do not convert an incomplete run into a complete pass.
-
-## Resolve or report concrete blockers
-
-Use the [debugging playbook](../../../docs/development/debugging-playbook.md) for failed checks. Fix reproducible in-scope defects and rerun affected acceptance; do not weaken assertions or retry without a hypothesis. Stop the dependent action if the candidate cannot be identified, required authority is absent, or installation requires unapproved data loss. Continue independent authorized work and report the exact missing condition. Do not expand the task into new platforms, accounts or an unlimited stability campaign.
-
-## Deliver and clean up
-
-Use [release readiness](../../../docs/development/release-readiness.md) for requested distribution work. Before an authorized push, verify the destination, inspect the entire outgoing range for sensitive content and unrelated changes, recheck remote concurrency, and confirm the remote commit after pushing. A push is not a tag, Release or successful CI run.
-
-Keep raw logs, hashes and inventories under ignored `build/<task>/`; keep temporary helpers under `scripts/local/debug/YYYY-MM-DD/`. Record the concise result in an existing relevant evidence/HXA location and update `status` only when current facts change. Include commands, candidate provenance, pass/fail/skip counts, untested boundaries and remaining inputs. Shut down only task-owned temporary resources; leave an owner-requested daily instance available. Never claim `not requested` or `pending` as a pass.
+Report concise implementation/verification results, source and candidate identity, remaining conditions and cleanup. Keep raw evidence in ignored `build/<task>/`, temporary helpers in `scripts/local/debug/YYYY-MM-DD/`, and stable conclusions in the relevant task/evidence record. `not requested` and `pending` are not passes.

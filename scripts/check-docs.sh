@@ -108,10 +108,11 @@ for task_path in task_dir.glob("HXA-*.md"):
         fail(task_path, "task title does not match filename")
 
 required_status_sections = (
-    "Completed",
-    "In progress",
-    "Next task",
-    "Blocked",
+    "当前实施",
+    "当前结论",
+    "已交付与历史证据",
+    "后续架构队列（未启动）",
+    "开放条件与限制",
     "Current interfaces",
     "Known limitations",
 )
@@ -121,70 +122,13 @@ for section in required_status_sections:
     if len(re.findall(rf"^## {re.escape(section)}$", status, re.MULTILINE)) != 1:
         fail(status_path, f"requires exactly one '## {section}' section")
 
-# Completion-record contract: the compact milestone table in Completed declares inclusive
-# HXA ranges (for example "| M3 | HXA-030～038：… |"). Every declared task must have
-# evidence (M0: the combined completion-records/M0.md; M1+: one file per HXA), every M1+
-# record must contain a 决策记录 section, and no M1+ record may silently disappear from
-# the status summary. Keep accepting the legacy per-HXA bullet form while old branches migrate.
-completed_match = re.search(r"^## Completed\n(.*?)(?=^## )", status, re.MULTILINE | re.DOTALL)
-completed_section = completed_match.group(1) if completed_match else ""
-# M(\d+[A-Za-z]?) accepts lettered sub-milestones (M5A/M5B, roadmap §9A/§9B) in addition to the
-# plain numeric milestones; the letter suffix is cosmetic to the record contract (one record per
-# HXA either way).
-completed_entries = re.findall(r"^\s*[-*]\s*M(\d+[A-Za-z]?) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE)
-for milestone, start, end in re.findall(
-    r"^\|\s*M(\d+[A-Za-z]?)\s*\|\s*HXA-(\d{3})～(?:HXA-)?(\d{3})\b",
-    completed_section,
-    re.MULTILINE,
-):
-    if int(start) > int(end):
-        fail(status_path, f"M{milestone} has a reversed completed range: HXA-{start}～{end}")
-        continue
-    completed_entries.extend(
-        (milestone, f"HXA-{task_number:03d}")
-        for task_number in range(int(start), int(end) + 1)
-    )
-
-if "[完成记录索引](../completion-records/index.md)" in completed_section:
-    index = (root / "docs/completion-records/index.md").read_text(encoding="utf-8")
-    completed_entries.extend(("record", task_id) for task_id in re.findall(r"^\| (HXA-\d{3}) \|", index, re.MULTILINE))
-
-if not completed_entries:
-    fail(status_path, "Completed has neither milestone ranges nor legacy per-HXA bullets (gate would be vacuous)")
-
-listed_task_ids: set[str] = set()
-for milestone, task_id in completed_entries:
-    if task_id in listed_task_ids:
-        fail(status_path, f"Completed lists {task_id} more than once")
-        continue
-    listed_task_ids.add(task_id)
-    if milestone == "0":
-        record = root / "docs" / "completion-records" / "M0.md"
-    else:
-        record = root / "docs" / "completion-records" / f"{task_id}.md"
-    if not record.is_file():
-        fail(status_path, f"'M{milestone} / {task_id} 已完成' has no completion record: {record.relative_to(root)}")
-        continue
-    if milestone != "0" and "决策记录：" not in record.read_text(encoding="utf-8"):
+# The generated completion index is the inventory; status links it instead of duplicating
+# every completed task. Keep evidence/decision requirements for every record.
+if "[完成记录索引](../completion-records/index.md)" not in status:
+    fail(status_path, "must link the authoritative completion-record index")
+for record in (root / "docs/completion-records").glob("HXA-*.md"):
+    if "决策记录：" not in record.read_text(encoding="utf-8"):
         fail(record, "missing the '决策记录：' section required by completion-records/README.md")
-
-record_task_ids = {
-    path.stem
-    for path in (root / "docs" / "completion-records").glob("HXA-*.md")
-}
-listed_record_task_ids = {
-    task_id
-    for milestone, task_id in completed_entries
-    if milestone != "0"
-}
-if listed_record_task_ids != record_task_ids:
-    missing_from_status = sorted(record_task_ids - listed_record_task_ids)
-    missing_records = sorted(listed_record_task_ids - record_task_ids)
-    fail(
-        status_path,
-        "completion-record index mismatch; "
-        f"missing_from_status={missing_from_status}, missing_records={missing_records}",
-    )
 
 # Bug-fix records are durable defect decisions, not free-form review logs. Their filename,
 # lifecycle metadata, HXA ownership, and section order are mechanical so a "fixed" record
@@ -280,10 +224,10 @@ for path in sorted(postmortem_dir.glob("*.md")):
 guide_path = root / "docs" / "development" / "implementation-guide.md"
 guide = guide_path.read_text(encoding="utf-8")
 for required_text in (
-    "docs/development/status.md",
-    "已有完成记录的 HXA 不得重复实现",
+    "(status.md)",
+    "已完成 HXA 不重复实施",
     "只有用户明确要求建立持久 Goal 时才创建",
-    "verification matrix",
+    "(verification-matrix.md)",
 ):
     if required_text not in guide:
         fail(guide_path, f"missing implementation-guide contract text: {required_text}")

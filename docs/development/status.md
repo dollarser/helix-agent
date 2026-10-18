@@ -1,286 +1,39 @@
 # 当前实施状态
 
-2026-10-15最终结案：按Owner要求结束Notion和Linear全部测试，不再列为待办或重构阻塞，不新增授权/刷新/业务调用。两家既有登录、读取、审批与厂商撤销/旧凭据失效证据保留；Notion自然刷新及重启复用已通过，Linear自然刷新未单独验证且不再追加。最近Notion撤销后的正常重连未确认，不虚写恢复通过；最终数据/权限清理见[结案记录](../evidence/development/mcp-revocation-and-browser-closeout-2026-10-15.md)。
-
-
-
-更新：2026-10-19。本页维护当前事实、开放范围和唯一下一步；各轮失败、制品、命令和清理详见原任务/证据，不把历史阶段状态当当前阻塞。
-
-2026-10-19 Owner 后续要求压缩终端顶部，并说明后台任务、聊天 Job 和起始目录的关系。`c4f95a06` 已将顶部合并为单行返回/终端选择/键盘/关闭/更多，新建在终端选择菜单，普通目录和状态移入“终端信息”；异常处理保留。Owner 随后明确继续主机与日常 ARM64 验收：完整主机门禁通过，双渠道应用与 PRoot JVM 定向强制重跑通过（各应用 4 项既有条件跳过）；API36 Advanced 同源 R8 布局/键盘/切换 20 次及可写/单步关闭 3 次通过，生命周期 8 项通过。实际返回、横竖屏/两倍字体后原身份/目录/环境保留，关闭一个不影响另一个；全部 Room 表、用户偏好、原终端记录及显示/输入设置保持，仅进程心跳诊断按设计更新。日常实例留下新 R8 包和无活动终端状态，本轮临时任务/测试 APK 已清理；中间夹具同步失败与前台切换如实保留，未推送或修改 Release。细节见[追加布局验收](../bug-fixes/2026-10-19-terminal-package-replacement.md#regression-verification)和[界面约定](../architecture/terminal.md#手动终端页面)。
-
-2026-10-19 Owner 追加反馈手机覆盖安装导致终端 UNKNOWN/无法新建，并要求一次关闭终止终端全部进程。日常 API36 ARM64 已复现原 R8 故障，修复更新退出证明、错误 ATTACH/重连及单步关闭；终端仍独立于聊天，保留此前三语言文案改动。完整主机通过，新增 JVM 11/11、生命周期 8/8、实际 R8 界面 11 次方法执行通过；同 boot 两运行终端覆盖安装、子进程退出、旧身份关闭后新建，以及关闭一个而另一个保留环境/可写均通过。全部 Room 表与原 UI 偏好保持，版本仍 0.0.6/code 1，日常安装修复候选，未操作 GitHub Release。中途 ADB 离线/保数据恢复、条件跳过、手机及其他 API 未测边界见[故障与验收记录](../bug-fixes/2026-10-19-terminal-package-replacement.md)。两终端固定上限本轮未变，不将其描述为 Android 限制。
-
-2026-10-18 Owner 最新发布标准已落实：v0.0.6 只保留两份原 APK 和 GitHub 自动标签源码，构建提交/CI/校验值写正文。固定 Alpine/媒体对应源码、清单和原始许可追加到现有 runtime-assets，原 15 个运行时附件保持；这覆盖此前阶段“不改 runtime-assets”的范围限制，不另建资料 Release。两 APK、四份源码/许可的匿名完整下载与 SHA-256 通过，整理后原 APK ID/字节与标签目标均不变，自动源码入口可用。mapping 与简要构建身份只作开发归档，重复副本已清理；临时 GitHub 主机迁移任务完成、临时分支已删除，不重建或重跑设备/模型验收。规则见[发行就绪条件](release-readiness.md#7-发布附件与开发归档)，结果见[附件整理记录](../evidence/development/v0.0.6-publication-2026-10-18.md)。
-
-
-2026-10-18 Owner 最新授权：收尾测试、推送 GitHub 并替换既有 v0.0.6。本地主机门禁及日常双渠道同版本覆盖安装、短 UI 与冷启动验收已通过，原数据/手改设置保持；重发继续 ARM64 双渠道预览，按 Owner 最新要求 versionName=0.0.6/versionCode=1 保持、包名/开发签名保持，手动下载覆盖安装。原发布正文/tag/11 附件已完整备份并校验，runtime-assets 不修改。该授权覆盖以下先前阶段“不推送/发布”的限制；最终状态见[发行记录](../evidence/development/v0.0.6-publication-2026-10-18.md)。
-
-2026-10-18 HXA-307 真实内置服务有界验收完成：Owner 追加授权后，日常 API36/ARM64 Standard 的文字、文件写入/读回、图片识别、低/中/高三档请求及 Advanced 文字全部成功，共 7 个真实 Turn、9 次模型调用；仅公开 Client ID，无其他 Key/白名单改动。会话传输提醒已按最新要求移除，完整主机门禁重新通过，应用 JVM 1315/1440 通过、各 4 条件跳过；新双渠道 R8 竖屏/真实横屏大字体共 4/4、两次冷启动通过，原数据、revision、会话入口与模型偏好保持。思考档位接受不证明语义效果；单独主机目录 403 与准确 HTTP 状态/request-id 未留存的边界如实记录，见[真实服务与提醒验收](../evidence/development/built-in-model-2026-10-18.md#真实内置服务与会话提醒移除)。仅本地提交，不推送/发布。
-
-2026-10-18 HXA-307 此前 `539b06b5` 阶段已完成本地验收：选模与强度暂存后一次保存，草稿同锁更新、旧回执隔离；内置 Qwen 按客户端已知官方模板适配低/中/高（low/medium/xhigh），部署模板未获确认。普通插件页只显示包版本 1，内部 revision 保留。完整主机门禁通过，应用 JVM 1315/1440 通过、各 4 条件跳过；日常 API36/ARM64 Standard 40+16、Advanced 42+16，共 114 次竖屏/真实横屏大字体方法执行通过，R8 冷启动/重启共 4 次通过。全部用户表、关键偏好、授权和禁用保持，保留 Owner 手动设置；中间夹具失败与 SQLite locale 恢复详见[最新验收](../evidence/development/built-in-model-2026-10-18.md#最新追加最终结果)。仅本地提交、不推送/发布；真实网关仍待白名单和部署模板确认。
+更新：2026-10-19。本页记录实施事实、当前工作和开放条件，不从队列自动选择任务，也不覆盖当前对话的压缩摘要。历史流水见原任务、完成记录和证据；已完成项不重复实施。
 
 ## 当前实施
 
-前轮 `608d4345` 的 HXA-307 追加实现与本地主机/设备验收完成：内置服务只在对话按动态目录选模，来源/插件布局统一；原生无变化启动与健康 repair 不递增 revision，持久授权来源不依赖包版本，当前包/工具声明版本为 1。完整主机门禁通过，应用 JVM 1309/1434 通过、各 4 条件跳过。日常 API36/ARM64 最新候选 Standard 28 项竖屏 + 9 项真实横屏大字体、Advanced 30 + 9，合计 76 次零失败/跳过；同源 R8 冷启动/重启共 4 次通过，全部用户表与关键设置保留，revision 稳定。Standard 18:54:56 的变更已由 Owner 确认为手动操作，按其要求保留当前值作为最终基线。旋转夹具错误与恢复、制品来源及范围见[追加验收记录](../evidence/development/built-in-model-2026-10-18.md#2026-10-18-追加动态目录布局与插件版本身份)。仅本地提交，真实网关完整闭环仍待白名单。
+Owner 当前要求：完成终端布局验收后，调整工作区目标契约，默认直接操作选定的真实目录，独立终端不依赖聊天；URI 原生能力按需使用，只有消费者确需 POSIX 桥接时才物化。同步 Harness §23.3.1、HXA-286/287/288 与原主题 ADR，联合验收覆盖原位与显式快照两条路径。完整重构尚未开始，当前 `code.linux.run` 仍是输入快照/独立 Job 副本。
 
-2026-10-18 [HXA-307](tasks/HXA-307.md) 原接入阶段 `e4434a90`：内置 Qwen3.8-27B、固定项目 HTTPS 网关与公开 Client ID，首次安装免配置、保留现有模型选择，复用图片/SSE/工具调用。双渠道 JVM 分别 1301/1425 通过、各 4 条件跳过；传输 8/8、Provider API 118/118、Core Model 163/163 通过，Debug/Release/R8 与测试 APK 编译通过。日常 API36/ARM64 的 Room/UI 各 5/5、同源 R8 保数据冷启动/重启共 4 次通过，原会话及模型选择保留；真实网关联调仍 pending，等待白名单登记。仅本地提交，不使用历史 API Key 绕过，不推送、发布、清库或改动既有 v0.0.6 资产。结果、503 隐藏重发修复及未执行边界见[验收记录](../evidence/development/built-in-model-2026-10-18.md)。
+本轮还包括目录/执行/产物信息与现有冲突、Git diff 入口的小优化，按真实资源调整终端/工具并发预算，以及精简 AGENTS、开发指南和相关 Skill 的重复与僵硬流程。容量方案先报告再实现；不提前实现通用变更账本、逐调用 diff 或新后端。
 
-2026-10-18 Owner 在 HXA-306 本地验收后明确授权 v0.0.6 ARM64 双渠道预览发布，包括提交、正常推送 main、最终 host-only CI、tag/prerelease 和附件读回。最新手势/过程说明补丁已提交 `0a6e1a10`；补齐双语发行材料和 Alpine 精确源码/许可附件，沿用 code 1 与既有开发证书，日常设备保数据，既有 runtime Release 不变。发布身份、验证范围和公开结果入口统一见[发行记录](../evidence/development/v0.0.6-publication-2026-10-18.md)与 [v0.0.6 Release](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)；以下“未推送/发布”仅为先前阶段事实，不再限制本次授权。
-
-2026-10-18 [HXA-306](tasks/HXA-306.md) 通知栏与过程说明修复完成：旧 R8/Qwen 的单次下拉复现 UNKNOWN，新实现区分起始 frame 和执行中的授权/显示映射，允许合法窗口变化；过程说明按有效正文折叠，短文本直接显示、空内容不生成入口。完整主机门禁通过（JVM 6093 通过/8 条件跳过、Mobile Use 311/311），日常 API36 会话 UI 9/9；新双渠道 ARM64/R8 保数据安装，Developer/Shizuku/真实 Qwen 的同一手势与 ui.system 通知栏入口各 1/1 通过，有独立窗口、截图和后续模型消费证据。来源、失败及未测边界见[本轮修复](../evidence/development/daily-interaction-closeout-2026-10-17.md#通知栏与过程说明修复)。仅本地，未提交、推送、发布或启动整体重构。
-
-2026-10-18 [HXA-306](tasks/HXA-306.md) 追加收尾完成：此前 8 项外部验收、原生 WebView 创建/销毁 100 次、工具发现及曝光顺序两渠道 78 项均重新执行通过；独立 Browser 测试宿主 15 分钟/122 循环资源门禁通过。最终 R8/Qwen 抖音首次安装尝试卡在下载后导航并进入只读复核；补充已下载事实和菜单入口后，安装、独立采样 66 秒播放、卸载与返回原会话通过，按辅助任务记录。悬浮窗缺失由 Developer 系统权限未开启导致，开启后可见，工具截图隐藏正常。Owner 只授权删除抖音及其数据；Helix/其他应用数据保留，测试资源与临时设置已清理/恢复，悬浮权限留给手测。未改生产源码，最终候选身份保持；失败与边界见[追加记录](../evidence/development/daily-interaction-closeout-2026-10-17.md#2026-10-18-追加收尾)。继续仅本地，不推送、发布或启动整体重构。
-
-本次修复前的只读核查发现四次下拉未得到稳定展开结果，末次日志出现短暂 NotificationShade 窗口；当时将执行中绑定原窗口列为定向复现项，没有归因全部为模型能力。该项现已按页首记录复现、修复并回归通过。原路径选择、工具曝光事实与当时证据边界保留在[核查记录](../evidence/development/daily-interaction-closeout-2026-10-17.md#通知栏追加核查)。
-
-2026-10-17 [HXA-306](tasks/HXA-306.md) 已完成本地收尾：完全访问仅文字变色，保留语音/正文/添加/发送同排并收紧会话、思考与工具间距；标准模式终端入口、抖音实际绘制、浏览器清理和错误映射、自动标题及双语定位已修复。完整主机门禁通过，浏览器 44 通过/2 专用诊断跳过、Room 3/3、UI 接受集 36 项通过；干净 `d3422488` 的双渠道 ARM64/R8 保数据更新到日常 API36，最终真实 Qwen 网页/文件读取、实际截图和重启标题核验通过。自有测试包/转发已清理，日常模拟器和已配置模型留给 Owner 手测。仅本地提交，未推送发布、未开启整体重构；阶段来源、失败与边界见[验收记录](../evidence/development/daily-interaction-closeout-2026-10-17.md)。
-
-2026-10-17 Owner 追加授权 Runtime 资产补齐：`9c3986ff` 的 CI source 通过，PRoot 上游下载 404 导致 runtime-assets/verify 失败、Android 未执行。已向现有资源 Release 追加三个原始锁定包及对应源码、构建材料、许可和校验说明，公开下载 8/8 字节一致，原七份资产保持；依赖版本/二进制哈希不变。修复提交 `a9571a59` 已正常推送，本地资产、276 项 source 和 172 项 PRoot 核心 JVM 通过；[完整 CI](https://github.com/dollarser/helix-agent/actions/runs/39050010563) 六项作业全部成功，不新建应用 Release。
-
-同日 Owner 进一步明确允许清理日常模拟器旧 Helix 数据并配置 API，已解除首次保数据预检的安装阻塞。干净 `a9571a59` 成功构建的双渠道 ARM64/R8 0.0.6/code 1 已安装到 `Helix_API_36`；APK 读回一致、当前 Room 基线、API 连接和基础能力探测通过，重启后配置保留。Advanced 前台新会话已选好模型，交 Owner 手测；未运行用户实际任务、真机或新一轮 Linux/媒体验收。来源及边界见[交付记录](../evidence/development/v0.0.6-handoff-2026-10-17.md#日常模拟器追加授权与手测交付)。
-
-同次手测反馈的 Browser 快照失效已定位并修复：页面应用跳转被拒绝时不再破坏来源网页，允许请求保留原 frame 与请求语义；快照返回明确失败原因。旧实现三个新增回归均失败，修复后日常 API36 独立浏览器 35/35 与完整主机门禁通过。双渠道 ARM64/R8 修复版已保数据更新；Advanced 的真实 Qwen 成功读取抖音首页 21 个节点并报告下载入口。保留首次加载中、工具未发现后恢复及测试输入误转写后取消的记录；未重测下载安装/播放。补丁及文档已本地提交为 `1dd08d93`，未推送，不借用资源提交的 CI 作为补丁证据。详见[反馈记录](../evidence/development/v0.0.6-handoff-2026-10-17.md#手测反馈浏览器应用跳转导致快照失效)。
-
-2026-10-17 Owner 追加交付：双语 v0.0.6 README/版本说明和两个 `.agents/skills/` 开发入口已完成；本轮 source 门禁 275 项主机测试及文档/ADR/i18n/敏感信息检查通过。源码与交付提交 `25b8d0e7` 已普通推送到核实的 GitHub main，远端 Git/API 身份一致；最终 CI 以对应 HEAD 的 Actions 为准，不创建 tag/Release。常规模拟器两渠道签名匹配，但数据库与候选不兼容，已按本轮保数据要求在安装前停止，原应用/数据保留；安装 `pending`，不重建数据库。具体范围与检查见[本次交付](../evidence/development/v0.0.6-handoff-2026-10-17.md)。以下 HXA-305 的“未推送”描述是前一轮本地冻结时的历史状态。
-
-同次首轮 GitHub source 失败暴露两个主机夹具依赖本地旧目录；已在干净临时目录复现，并改为自行拥有临时目录。修复后定向 2/2 与完整 source 门禁 275 项重新通过，保留所有原断言且不改生产 APK；远端复验独立记录，不沿用首次失败为通过。
-
-2026-10-17 [HXA-305](tasks/HXA-305.md) 本地候选收尾完成：完整主机门禁通过，独立 API36 / ARM64 Debug 14 项通过；最终生产提交 `9868605a` 的双渠道 R8 有界检查及真实 Qwen 两个任务通过，含原 Job 实际输出/模型消费、终端输入与复用、损坏修复、删除取消和链接外文件保留。设置状态语言、旧帮助流程与历史维护回执已修正；7 份指导文档和竞品取舍沿原研究/ADR/任务整合。候选保持 0.0.6 / code 1 与既有开发签名，按范围关联来源、哈希、签名、测试与失败记录，见[追加验收](../evidence/development/linux-environment-closeout-2026-10-17.md)。仅本地提交和冻结，未推送发布；自有实例及临时模型转发已关闭，日常模拟器/真机数据不变，未启动整体重构。
-
-[HXA-305](tasks/HXA-305.md) 原主机阶段已交付：Advanced 内置 Linux 环境首次获准使用时自动准备，安装事实驱动状态，维护入口收敛，移除手动验证/重定基线和重复删除确认；另修复环境/结果清理跟随目录链接误删外部文件。14 项新增 JVM 回归、完整主机门禁及双渠道 Debug/Release/R8 构建通过，详见[主机记录](../evidence/development/bundled-linux-environment-2026-10-17.md)。该阶段设备/真实模型 not requested；追加授权及当前结果见上一段。后续 HXA-288 已承接契约，未启动整体重构。
-
-[HXA-304](tasks/HXA-304.md) 已完成：旧预览库清空前确认、旧提醒清理、预算可靠落盘及实测发现的 PRoot collect 标准输出缺口。全仓主机门禁、独立 ARM64 双渠道 R8 与指定真实 Qwen 任务通过，详见[验收记录](../evidence/development/preview-upgrade-confirmation-2026-10-17.md)。HXA-303 已本地提交为 `9e9b6912`，8 项样本/公开 MCP 补验全通过；本轮仅本地提交，日常设备数据不变，未推送或发布。
-
-[HXA-303](tasks/HXA-303.md) 已完成 Owner 授权的独立优化：有效预算/预览存储基线、声明式发现配套及后续任务收敛。全仓主机门禁、双渠道 Debug/Release/R8 构建及测试 APK 编译通过，详见[本轮证据](../evidence/development/pre-refactor-contract-cleanup-2026-10-17.md)；原实施阶段设备/真实服务 not requested；后续追加范围见上，不自动启动完整架构队列。
-
-2026-10-17 Owner 再明确重构总原则：以当前最合理、未来扩展成本最低为基准，不承担旧设计/实现兼容；现有结构仅在符合目标时复用。已同步[开发原则](feature-refactor-strategy.md)、Harness §23 及目录 ADR，澄清“近期不改默认模式”只是补丁范围，不约束重构终态；本次仅修订规划。
-
-2026-10-17 目录与执行环境研究追加完成：已核对 Codex、Claude Code、OpenHands、SWE-ReX/SWE-agent、VS Code、E2B、Modal 的一手资料及当前源码，区分原生文件/SAF、手动终端 live mount 与 Job snapshot。[研究 §11](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#11-2026-10-17-目录工作副本与执行环境)、[Harness §23.3.1](../architecture/harness-refactor-plan.md#2331-目录资源与执行环境) 和原主题 ADR/HXA 已补责任与迁移验收；这是文档规划，没有改变 Job 默认快照、实现远程平台或启动整体重构。
-
-2026-10-17 HXA-302 路径与连接文案追加完成：模型文件引用按捕获目录投影，持久参数、审计和压缩源保持完整身份；文件工具标题只显示操作与文件名，目录/完整信息放详情，连接标签移除数据驻留/已授权断言。新增 9 项 JVM 回归，完整主机通过；API36 ARM64 定向双渠道各 20/20、零跳过，最终 R8 上真实 Qwen 各 3 个 Turn（Standard 7、Advanced 9 次文件调用）通过同名文件、目录切换、单次批准和重启读取。日常既有数据/配置保留，临时配置/测试包/代理已清理；旧候选不改，新包与验收文件留在日常模拟器。竞品依据、修复、失败过程与范围见[本轮记录](../evidence/development/path-presentation-2026-10-17.md)。目录选择器大量来源的搜索/辨认列后续计划；导航返回仅只读咨询，不推送发布。
-
-2026-10-16 发布前恢复追加审查已收口：单调用入口丢失 `requiresReview` 与提交后界面异常传播已修复，5 项新增回归及 4 项过时夹具修正归 `8ef710d3`。完整主机通过；双渠道 API36 ARM64 定向恢复各 35/35，同源新 ARM64 候选的实际 R8 进程恢复各 2/2，均零跳过。随后按 Owner 请求，日常可见模拟器上的真实 Qwen 写入/读回/展示/正常重启各 1/1；两渠道新包、验收会话和文件保留，既有数据/配置未删除，临时测试与转发已清理。冻结包未改，当时发现的内部路径标题和回环数据驻留文案已由页首追加处理；原范围及证据见[本轮记录](../evidence/development/crash-window-review-2026-10-16.md)。远端发布仍暂缓。
-
-2026-10-16 预览后文档复核：已按当前源码与 Codex、Claude Code、OpenHands、MCP 规范及移动/终端一手资料更新 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)、HXA-286～295 与原主题 ADR。已实现能力去重、287/288 联合副作用/Room 检查点、存储命令边界及插件本地运行条件已明确；研究事实和取舍见[竞品复核](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#10-2026-10-16-预览后重构与能力复核)。本轮没有实施重构、新增功能或账号测试。
-
-本版 v0.0.6 预览按 Owner 最新决定只分发和验收双渠道 ARM64；最新候选为页首路径优化的双渠道 R8 包。`8ef710d3` 恢复包、下方 `89e8ffe7` 及[原 ARM64 清单](../evidence/development/ui-r8-closeout-2026-10-16.md#arm64-预览范围确认)保留其 UI/真实模型证据，不能覆盖新源码。x86_64 暂不验证、不列本版缺口，既有构建资产和全局 ABI 支持保留；尚未推送或发布。
-
-2026-10-16 [HXA-302](tasks/HXA-302.md) 本地收尾完成：插件采用已安装/市场/导入，工作聚焦任务/成果，Advanced 终端直达已有实例，输入框图片缩略图和历史大图已交付。最终 R8 实测另发现非调试 PTY 子进程 exec 前身份暂时不可见，已修复并补 6 项 JVM 回归；完整主机通过。从干净 `89e8ffe7` 冻结同源双渠道/双 ABI 四包，保持 0.0.6/code 1 和既有开发证书。最终 API36 ARM64 自有只读实例共 21 个 UI 批次、23 个方法通过，覆盖双渠道页面、插件更新、图片发送/重启历史和 Advanced 终端输入/原实例重连/停止；真实 Qwen 双渠道文件写入/读回通过。发行材料及测试安装、转发、自有实例已清理，旧候选和日常安装不变，详见[最终 R8 记录](../evidence/development/ui-r8-closeout-2026-10-16.md)。x86_64 仅主机检查，真机 not requested，不推送、运行远端 CI、发布或启动整体重构。
-
-HXA-302 早期日常 Developer 40 项、Consumer 35 项及图片补丁两渠道各 7/7 的结果仍归[原证据](../evidence/development/ui-experience-2026-10-16.md)。Owner 已确认线上模型视觉能力限制；最终 Developer 再次将 `482` 误读为 `402`，Consumer 本次识别正确，准确性失败保留。原图/放大诊断分别 2/3、3/3，视觉 token 为 4 倍，未据此修改默认图片；SGLang/MTP 对照未执行且不再列为本次待办。图片 UI、模型调用完成与识别准确性分别报告。
-
-2026-10-16 [HXA-301](tasks/HXA-301.md) 本地验收完成：HXA-295～300 分阶段本地提交，搜索输入回写已修复，完整主机通过；API36 插件/会话 UI 双渠道各 31/31、Room 20/20、进程恢复和大历史各 1/1，最终 ARM64 R8 基础 UI 各 2/2、Mobile Use 范围/重启/撤销 1/1。Standard/Qwen 会话与文件旅程通过；Advanced/Qwen 在补充官方备用下载入口后完成抖音安装、约 96 秒独立播放采样、卸载和返回原会话，首轮全自主尝试取消、不记通过。四份候选生产来源为 `6a14cad0`，0.0.6/code 1；冻结时仅 `.gitignore` 有非生产差异，原 dirty 事实保留。自有测试环境/转发已清理，日常测试 APK 残留已移除。详见[当前证据](../evidence/development/latest-preview-closeout-2026-10-16.md)。推送/远端 CI/发布仍暂缓，HXA-295 B/C 与完整重构未扩展实施；下方历史阶段的未执行状态不覆盖本轮补验。
-
-2026-10-16 [HXA-300](tasks/HXA-300.md) 主机交付：导入后精确配置/选用、组件限制与错误摘要、折叠预览、实际更新差异和明确的本地更新目标选择已实现。完整主机通过，定向双渠道各 18/18、原始包与公开配置离线各 3/3；两渠道 AndroidTest 已编译，三个新增 UI/Room 方法未执行。既有安装事务与权限保持，边界见[验收记录](../evidence/development/plugin-import-ux-2026-10-16.md)；设备/真实模型 not requested，未推送发布或启动完整架构重组。
-
-2026-10-16 [HXA-299](tasks/HXA-299.md) 有界交付：三类外部输入已集中到本地 fixture 并分离离线/联网门禁，新增分段成本/省略事实与原生插件测量，省去未选插件上下文探测；真实模型发现的 ask_user 描述换行 INTERNAL 已修复。完整主机、离线双渠道各 3/3、公开 MCP 各 1/1 通过；日常 API36 两渠道样本/UI/诊断与 Qwen 两渠道文件、Developer 原生指导分别闭环。中间网络失败、模拟器无响应与冷启动恢复后 Developer 定向 1/1 见[验收记录](../evidence/development/plugin-diagnostics-and-samples-2026-10-16.md)，不改写原失败批次。已清理临时模型/转发与新增 Standard 安装，保留日常 Developer 和全部既有工作；真机未请求、R8 本轮仅构建，不提交/推送/发布，不启动完整架构重组。
-
-2026-10-16 [HXA-298](tasks/HXA-298.md) 有界交付：插件统一配置／提示与工具／详情、精确选用/配置定位及只读提示审查，完成领域指导整理；模拟器发现插件清理与 Skill 读取反向锁序死锁，已共享关联元数据门闩并补并发回归。完整主机及最终测试 APK/静态检查通过；日常 API36 Developer 41 方法覆盖分批闭环、Standard 30/30、窄屏大字体 4/4，原失败与现场恢复见[验收记录](../evidence/development/plugin-guidance-management-2026-10-16.md)。竞品取舍见[研究](../research/topics/plugin-guidance-and-management-2026-10-16.md)。Owner 明确拼音是人工输入偏好，不是每轮设备测试门禁，AGENTS 已澄清。真机/真实模型 not requested，R8 未运行；未提交/推送/发布，不启动下方架构重组。
-
-2026-10-16 [HXA-297](tasks/HXA-297.md) 主机范围交付：会话活动排序、事务搜索投影、历史窗口与跨窗口定位、GC 引用索引/单候选协调，以及模型/工具持久来源、序号和时间已接生产；JSONL 按需导出更新为 v2，不增加实时双写或备份恢复。完整主机门禁与两渠道 Debug/Release 制品通过；具体测试、跳过项和风险见[优化记录](../evidence/development/session-storage-optimization-2026-10-16.md)。设备/真实模型 not requested；不兼容旧预览内部结构，不启动完整宿主提取，未提交/推送/发布。
-
-2026-10-16 Owner 追加 [HXA-296](tasks/HXA-296.md)：13 个系统行为模板已统一，显式有界读取哈希、编辑已读版本/失败事实、UTF-8 窗口与压缩 SYSTEM 指令已修复。完整主机门禁通过，Files/Workspace/Agent 共 531/531、相关 App 套件双渠道各 25/25，新增 14 项回归通过；具体竞品取舍、首轮失败和验收边界见[实施记录](../evidence/development/prompt-alignment-2026-10-16.md)。没有启动架构重组；设备/真实模型 not requested，未提交或发布。
-
-2026-10-16 Owner 追加[HXA-295](tasks/HXA-295.md)，选择现在实现必要首版并更新后续重构，明确不兼容旧内部方案。A 已实现宿主会话状态、分页历史、搜索、读取已保存引用和条件标题修改，完整主机门禁通过，相关 JVM 套件双渠道各 74/74；任意跨会话列表/创建/发消息仍未实现，按 295 B/C 接续 286/287。竞品与目标边界见[研究](../research/topics/session-management-2026-10-16.md)，实际过程见[首版记录](../evidence/development/session-management-2026-10-16.md)。本次设备/真实模型 not requested，真实 Room 用例仅编译；不改变旧发布候选或暂不推送发布决定。
-
-2026-10-16 预览发布收尾：动态观察、R8 截图残留以及双渠道返回缺少来源身份均已修复。截图候选 `1161b7e8` 动态截图 12/12、维护回归 1/1、双渠道 UI 6/6 通过；最新生产提交 `1d34221a` 在插件输出可信 `originatingHelixPackage`，完整主机通过（Mobile Use 305/305），新四个单 ABI R8 候选从该干净提交构建，保持 code 1 和既有开发证书。新候选 API36 双渠道 UI 4/4、真实 Qwen 独立夹具视觉与返回 1/1，工具结果、最终前台及原会话可见性一致；不把旧抖音辅助通过或截图 12 张循环改标为新 APK 重跑。一次独立实例拼音预检超时保留，后续实例真实中文提交 1/1；两实例均已关闭，测试安装/凭据/转发清理，日常实例未修改。制品来源、失败与范围见[本轮发布收尾](../evidence/development/v0.0.6-release-2026-10-16.md)。Owner 随后明确“只完成本地收尾，暂不推送发布”，本轮按本地完成结案；远端 host-only CI 未请求、未运行，未推送或发布，不再等待许可回复。后续证据提交只更新文档，不改变候选生产来源。以下历史段落不覆盖这一状态。
-
-2026-10-15 GitHub v0.0.6 预览收敛：Owner 限定仅模拟器，并要求正式发布前 `versionCode=1`、删除会话常驻 HTTP 提醒。最终两渠道 ARM64/R8 候选已沿用与 v0.0.5 一致的既有开发证书；完整主机、签名/安装哈希和独立 UI 6/6 通过，未生成长期密钥、未提交/推送/发布。原候选 API36/Shizuku/Qwen 实际完成抖音官方来源安装、卸载及返回；视频有变化和活动音轨，但严重画面损坏及观察拒绝使播放核验未通过，模型关于登录/FLAG_SECURE 的归因不成立。自有实例、临时安装、转发与凭据已清理，日常模拟器未修改；最终制品与原业务测试对象的区别、失败和下一步诊断见[本轮验收](../evidence/development/v0.0.6-preview-acceptance-2026-10-15.md)。
-
-2026-10-15 Owner 追加结合竞品收尾：Mobile Use 派发前/观察阶段取消与超时的效果事实、截图的 `ui.device` 默认及发现配套、锁屏授权旧提示已修正，完整主机门禁通过。日常 API36 隔离 Developer Debug 的真实 Qwen 截图/中文输入/一次完成及返回/停留重复旅程 4/4 通过；首轮漏返回后已明确插件收尾指导，保留原失败。独立 R8 取消、进程死亡 UNKNOWN/不重放、旧节点拒绝/新节点可用及配置/手动撤销共 4/4 通过；修正测试夹具异步断言，临时安装/转发/无障碍均清理，日常包未覆盖。采用现有插件/Dispatcher 接口，不提前启动统一贡献重构，不把 Debug 真实模型结果当作 R8 真实模型或完整 OEM 验收。见[追加收尾](../evidence/development/pre-refactor-finish-2026-10-15.md#竞品对照追加收尾)。
-
-2026-10-15 重构前收尾复核：Owner 将剩余设备验收改为日常 API36 模拟器。独立 R8 两渠道基础 UI 4 项、Developer 配置/会话选择/进程重启/手动撤销旅程 1 项通过；随后追加的执行中取消、进程死亡 UNKNOWN/不重放、后端重建后旧节点拒绝与新节点可用 3 项也通过。修复 `ui.wait` 将无副作用取消误报为 NEEDS_REVIEW 的缺陷，自有安装和临时无障碍设置已清理；这些有界结果不代替全部 live UNKNOWN/gesture frame、Root/Shizuku 或 OEM 矩阵。此前 GitLab 市场提示、Detekt/lint 遍历竞态及清理报告修复保留，最新完整主机门禁通过。直接内置与市场选装逐项建议见[插件评审 §6.2](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#62-直接内置与内置市场的重新划分)，没有提前迁移插件。具体制品、失败修复与发行边界见[收尾记录](../evidence/development/pre-refactor-finish-2026-10-15.md)。
-
-2026-10-15 Owner 后续确认：**预览版不要求旧数据保留**，不再以旧库迁移或无损升级作为本次预览发布前置；现行不兼容开发库重建及数据库外文件边界保持，正式发行契约另定。模型选中即返回、Runtime 反馈/返回刷新、中英文帮助与实际安装身份绑定已实施；完整主机门禁、OnePlus/API34 两渠道 Debug 交互/帮助/Runtime 恢复 22 项与 R8 独立黑盒 4 项通过。移除旧设备运行器每类测试前的剩余清库调用，日常安装未覆盖；验证范围、失败修复和重构前功能取舍见[本轮记录](../evidence/development/preview-polish-2026-10-15.md)。完整 R8 Mobile Use 生命周期仍须独立补验，不提前实施 HXA-286～294。
-
-2026-10-15 Owner 随后追加 OnePlus 6T/API34 真机、指定 Qwen 模型和交互优化：上下文未知提示收起、Provider 高级项折叠、插件直接配置导航和历史审批文案已修复；127 项有界设备检查、9 项 Debug 真实模型检查通过，含 Mobile Use 中文输入/滚动/一次完成及返回/停留、PDF 图像与 DOCX 读取。R8 Release 的两渠道真实模型旅程、隔离 QuickJS 和 Developer 首次 RootFS 安装/验证另有实际证据；最终措辞候选启动/持久结果复验、相关主机及制品门禁通过。日常应用未覆盖，临时模型转发、凭据和测试安装已清理；准确构建口径、失败修复和未覆盖项见[真机与交互记录](../evidence/development/device-ui-model-validation-2026-10-15.md)。不推进下方架构队列，也不扩展已结案的账号测试。
-
-2026-10-15 APK 体积优化已完成主机阶段：Release R8、单 ABI 分发和有界 RootFS XZ 编码/解码已接入；完整主机门禁、默认双渠道 Debug/Release 边界、四个独立 ABI Release 候选及三个 AndroidTest APK 编译通过。[实现与验证记录](../evidence/development/apk-size-optimization-2026-10-15.md)保留失败修复、组合收益口径和跳过项。本轮设备/真实 Provider/媒体端到端 not requested，Release 候选未签名，未安装或发布；不继承旧 Debug 验收，也不推进下方架构重组队列。
-
-2026-10-15 工具/插件与执行边界评审已整理为 HXA-286～294 待实施队列，见下方 Next task。目标设计、依赖与删除范围已同步原主题 ADR；本轮为文档与任务更新，未实施代码或新增测试结论。以下各段保留既有交付证据，不作为新任务已完成的证明。
-
-2026-10-15 R2-B首个有界成本对照已完成：同一clean实现/制品、相同谓词、仅改变观察提示，Qwen A6/B6全部passed，单次255秒结束并恢复关闭自有实例。B输入略少但中位耗时更慢，未证明稳定收益，保持生产默认，不再把该实验列为等待授权。该轮账号状态是历史快照；Notion/Linear后续测试范围已按Owner决定结案，当前结论及未执行边界见页首[最终结案记录](../evidence/development/mcp-revocation-and-browser-closeout-2026-10-15.md)。
-
-2026-10-15 Owner追加MCP连接体验优化与重构前收尾，明确允许设备/真实模型/真实MCP。默认“连接账号”、高级参数折叠及手动客户端身份复用已实现；API36 OAuth界面4项、原生文档4项、Room上下文6项及Qwen的PDF/DOCX两项真实摘要通过。引用仅来自保存快照的真实压缩与跟进也已通过；两家官方MCP指定对象读取/工具审批拒绝复测通过。完整主机门禁、最终数据恢复与阶段提交由[本轮收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)及[MCP体验](../evidence/development/mcp-connection-ux-2026-10-15.md)记录。实体设备是否验收、发行输入和长稳仍按各自范围处理；Notion/Linear账号测试随后已由Owner结案，不再追加刷新、撤销或恢复测试，见页首结案记录。按主会话要求，提前结束专项与长稳保持暂停，不自动启动。
-
-阶段记录（结案前）：Owner追加[HXA-126](tasks/HXA-126.md)真实Linear/Notion连接修复：46d10b13已解决不透明凭据；10月15日日常API36保留数据更新成功，原3会话/5个Turn保留，Linear实际连接和工具发现passed。随后Notion实际OAuth完成，定位并修复80,556字节Schema被旧64 KiB上限拒绝，以及2020-12日期format注解适配失败；同一实例实际连接/工具发现及notion-search/fetch只读工具激活passed。Owner指定两家对象的真实Dispatcher读取及工具审批拒绝已通过；在该阶段自然刷新/旧Token厂商失效仍开放，后续于同日按Owner决定结案。完整过程和未执行边界见[修复记录](../evidence/development/mcp-opaque-credential-fix-2026-10-14.md)、[兼容注册收尾](../evidence/development/mcp-oauth-client-setup-closeout-2026-10-15.md)、[真实对象验收](../evidence/development/mcp-official-object-read-2026-10-15.md)及页首结案记录。
-
-Owner要求先收尾；[HXA-285](tasks/HXA-285.md)引用/压缩一致性生产修复及主机切片已交付，19项相关JVM及完整主机门禁通过。10月15日追加授权后，当前API36实际Room6项及保存引用的真实Qwen压缩/跟进通过；不再将三项新增Room夹具描述为仅编译。执行边界和上下文策略提案不随本次实施，提前结束专项与长稳仍暂停。
-
-Owner已授权[HXA-284](tasks/HXA-284.md)：统一PDF/DOCX文档插件。完整主机和双渠道制品/测试APK通过，10月15日当前API36原生PDF/DOCX4项及Qwen真实文档读取/摘要2项通过；不继承HXA-283验收，不据小样本关闭API29视觉、大文档资源峰值或完整Word排版边界。
-
-2026-10-15 `helix-docs` 首阶段证据：8 个英文离线章节、内容 revision/hash、按需资源读取和默认工具发现通过当时的定向 JVM、API36 隔离模拟器和 Qwen 验收；生成的 consumer/developer `0.0.5` Debug preview 未修改版本或覆盖真机。随后本页首段已补中文章节及实际包版本/渠道身份，且 Owner 取消预览保数据前置；首阶段未完成项不能继续当作当前事实。独立静态帮助页、从文档源生成、精确构建提交/签名身份及全章节引用质量评测仍开放。Owner 指定的下一发布版本为 v0.0.6，正式发布签名与版本升级未在本轮实施。
+本轮授权主机及指定日常 API36 ARM64 模拟器验收、保留当前设置和用户数据、本地提交；不推送、不改 Release、不清库、不调用真实账号或模型。版本保持 0.0.6 / code 1，包/工具声明版本保持 1。同一任务已取得的许可跨压缩继续有效，历史独立任务的账号/删除/发布许可不扩展到本轮。
 
 ## 当前结论
 
-| 领域 | 最新事实 | 保留边界 |
+| 范围 | 最新事实与证据 | 保留边界 |
 | --- | --- | --- |
-| 架构和测试维护 | HXA-253～268已按各自范围交付；应用接口/状态owner、生产测试桥、测试入口、页面归属及历史产物清理不重复实施 | 完成记录只覆盖明确范围，完整OEM/账号矩阵仍独立 |
-| 插件与工具发现 | HXA-272～281已有界交付，统一内容/资格/就绪/贡献/资源及市场导入已接生产 | 工具/Skill成本收益混合，未执行的桌面组件明确诊断，不承诺任意桌面包可运行 |
-| Mobile Use新观察 | 8e9a60d2：289项JVM和全仓通过；API36/Qwen固定4业务/8返回通过，直接新token6/6成功、输入附带正确文字4/4，中间工具失败0 | 单次小样本不证明普遍收益；新版本未跑两小时，原三次STALE_TOKEN证据保留 |
-| 最近两小时长稳 | R6冻结旧制品PASS：7211655ms，同PID，172测量业务＋2热身通过；原资源门禁通过 | 中间3次TOKEN_UNKNOWN恢复，240/241采样；不能继承为8e9a60d2长稳 |
-| 实际App旅程 | 旧制品曾通过；v0.0.6 上一候选视频损坏/观察拒绝，当前修复与最终复验见页首 | 历史成功不覆盖最新失败，不推导所有App/账号/后端可用 |
-| 文档读取与总结 | HXA-284统一documents插件、PDF页面/区域、DOCX图文/表格、持久快照及阅读Skill已接生产，完整全仓/双渠道制品与测试APK通过 | API35以下PDF/扫描件依赖视觉；DOCX无Word分页/完整排版。API36/Qwen有界补验见[收尾证据](../evidence/development/pre-refactor-closeout-2026-10-15.md)，其他API/OEM和大文档峰值不推导通过 |
-| 黑屏 | HXA-269主线程阻塞修复和同机有界回归已交付，按Owner后续规则关闭黑屏问题 | 其他OEM、24h与完整生命周期不自动通过 |
+| 终端布局 | `c4f95a06` 实现单行工具栏、按需信息/帮助；`ef8fd10c` 主机门禁、API36 Advanced R8 23 次布局/键盘/实际关闭及 8 项生命周期检查通过，用户数据和设置保持；[验收](../bug-fixes/2026-10-19-terminal-package-replacement.md#regression-verification) | 当前固定两个手动终端不是 Android 限制；增容另行实现/验收，不继承旧通过 |
+| 终端生命周期 | `b1bb9101` 修复同 boot 覆盖安装 UNKNOWN、错误 ATTACH 与单步关闭进程树；[故障记录](../bug-fixes/2026-10-19-terminal-package-replacement.md) | 手动 PTY 与聊天 Job 独立；真实手机、其他 API/OEM 未因此验收 |
+| 内置模型/插件 | [HXA-307](tasks/HXA-307.md) 动态可用目录只进对话选模，无 Provider 配置和会话传输提醒；无变化启动/健康 repair revision 稳定；[7 个真实 Turn、9 次调用](../evidence/development/built-in-model-2026-10-18.md#真实内置服务与会话提醒移除)已完成 | 不再把旧阶段待白名单当当前阻塞；档位接受不证明思考语义，部署模板/容量/长稳未由此验证 |
+| 发布 | v0.0.6 已发布，版本 Release 只保留两 APK 和标签源码；固定对应源码/许可在既有 runtime-assets；[整理记录](../evidence/development/v0.0.6-publication-2026-10-18.md) | 原标签、APK 字节不变；mapping 用于排障，不代表当前必然有 Bug；本轮无新发布授权 |
+| 工作区目标 | [Harness §23.3.1](../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)、[工作区 ADR](../adr/workspace/004-workspace-binding.md)维护目标与现行实现差异 | 设计接受不等于生产原位执行已交付，远程平台/透明同步未交付 |
 
-最新观察实现与对照见[观察闭环证据](../evidence/development/mobile-use-observation-loop-2026-10-14.md)；R6、实际App和历史失败见[独立验收记录](../evidence/development/autonomous-app-and-stability-2026-10-14.md)。历史R5失败保持，旧阶段“未安装/仍pending”不覆盖随后结果。
+## 已交付与历史证据
 
-## 当前整合与验证边界
+| 领域 | 现有交付入口 |
+| --- | --- |
+| 近期交互、浏览器、恢复 | [HXA-306 日常收尾](../evidence/development/daily-interaction-closeout-2026-10-17.md)、[恢复复核](../evidence/development/crash-window-review-2026-10-16.md)；旧通知栏问题已修复，不是当前任务 |
+| Linux 环境与目录展示 | [HXA-305](../evidence/development/linux-environment-closeout-2026-10-17.md)、[路径展示](../evidence/development/path-presentation-2026-10-17.md)、[HXA-303 配套](../evidence/development/pre-refactor-contract-cleanup-2026-10-17.md) |
+| 工具与插件 | [R1 原子绑定](../completion-records/HXA-231.md)、[插件优化承接](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)、[市场/模型](../evidence/development/external-mcp-market-and-model-2026-10-13.md)、[发现](../evidence/development/tool-discovery-workset-2026-10-12.md) |
+| 文档、Memory、Job | [HXA-284 有界验收](../evidence/development/pre-refactor-closeout-2026-10-15.md)、[HXA-246](tasks/HXA-246.md)、[HXA-248](tasks/HXA-248.md)、[HXA-249](tasks/HXA-249.md)；不重做已交付主体 |
+| 观察、资源和真机 | [观察闭环](../evidence/development/mobile-use-observation-loop-2026-10-14.md)、[旧 R6 长稳](../evidence/development/autonomous-app-and-stability-2026-10-14.md)、[资源报告复核](../evidence/development/resource-gate-review-2026-10-12.md#完成后的离线核对)；旧绿色不迁给新版本 |
+| 维护与旧验收 | [完成记录索引](../completion-records/index.md)、[证据索引](../evidence/README.md)、[系统基线](harness-system-baseline.md)；黑屏和 Notion/Linear 测试按 Owner 决定结案，不自动重启 |
 
-- 2026-10-13 Owner追加[HXA-281](../completion-records/HXA-281.md)设备/真实模型验收：OnePlus/API34最终5/5，Developer/API36业务7项及中英文UI2项定向复测通过，Standard/API36最终6/6，两渠道实际拼音通过。Qwen完成Codex格式导入Skill/HTTP MCP真实标记，以及Standard导入Claude格式文件Skill缺失恢复/保存读回；完整主机与测试APK通过。真机保留原8会话/10个Turn/5个Provider更新，自有实例关闭、日常未覆盖；原夹具渠道/异步/清理竞态失败与崩溃均保留，不宣称普遍模型收益或公网账号/OEM全通过。[补验证据](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)。
+## 后续架构队列（未启动）
 
-- 2026-10-13 [HXA-281](../completion-records/HXA-281.md)原主机阶段交付：当前schema/执行权限分层，桌面MCP名称只作检索线索；主流包路径数组、有序MCP配置、离线市场发现源与逐项安装、配置/版本反馈。13项新增边界回归、两渠道WorkBuddy原样本、完整全仓主机门禁及两渠道AndroidTest编译通过。当时设备/真实模型not requested、未安装APK；随后Owner追加补验见上方，不继承280验收或声称普遍Qwen收益；[主机阶段证据](../evidence/development/plugin-marketplace-reuse-2026-10-13.md)。
-
-- 2026-10-12 [HXA-280](../completion-records/HXA-280.md)工具架构优化有界交付：取消全局64截断，同源能力目录/中文与字段检索、成本约束近期工作集及完整操作组已接生产；修复显式目标被陈旧UI会话阻断的启动接缝。完整主机/双渠道Debug和Release制品及边界通过，自有API36 Developer6方法（6业务轮与70工具完整性）、Standard发现/实际拼音2方法、OnePlus/API34最终4方法通过。真机已保留数据更新，原8会话/10个Turn/5个Provider逐行一致；日常模拟器未覆盖，临时映射撤回。基线/首候选业务各6/6，成本混合，不预报普遍收益。[证据与失败尝试](../evidence/development/tool-discovery-workset-2026-10-12.md)。
-
-- 2026-10-12 Owner要求先复核门禁再重测。资源预算保持原阈值；同一OnePlus/API34原APK两小时precheck完成340轮、设备7,220,700毫秒、同PID，原FD/线程/PSS断言通过，host237/238采样且最大间隔30.7秒。设备结果passed；主机finalize因logcat非UTF-8字节失败，原result.json未生成，离线核对与原始证据分别保留；报告器已修复，新增回归及原日志独立离线重处理PASS，不覆盖原缺失报告。没有改库/权限，不代表24h或连续Mobile Use/Qwen通过。[完整结果与边界](../evidence/development/resource-gate-review-2026-10-12.md#完成后的离线核对)。
-
-- 2026-10-12 HXA-271阶段11已实现隐藏确认组复用及原生取消/超时结算；OnePlus/API34实际AX/Root/Shizuku Qwen各2轮、Qwen截图/坐标两轮、后台返回8次、SDK9项、Root/Shizuku短按及两种实际进程死亡不重放恢复均通过。Shizuku本轮授权安装/ADB运行后撤销临时Helix授权，未重建数据库；首轮两小时主机检查因Codex重启采样中断为INFRA_INTERRUPTED，手机随后触发PSS增长约102 MiB超过96 MiB门禁而failed，清理UiAutomation又遇连接失效。独立后台复测设备已通过，见上方；首轮根因尚未由此确定，历史失败保留，其他OEM/24h/第三方账号不推导通过。[阶段证据](../evidence/development/mobile-backend-closeout-2026-10-12.md)。
-
-- 2026-10-12 HXA-271阶段10减少浮窗显隐：纯观察保留浮窗且排除自有节点，截图/动作保留移除、两帧及View脱离确认，150毫秒合并显示恢复，审批/取消和实际物理租约不延后。全仓主机/双渠道制品通过，同一OnePlus/API34最终SDK9/9及实际Dispatcher中文输入/连续观察2/2通过；已更新真机、保留数据库并恢复临时权限。本轮无真实模型/日常模拟器/账号测试，首个像素失败及其他OEM边界如实保留。[本轮证据](../evidence/development/overlay-observation-retention-2026-10-12.md)。
-
-- 2026-10-12 修复OnePlus/API34无障碍输入后连续TARGET_CHANGED：浮窗隐藏后的延迟窗口层级事件使遍历结果过期；保留失效保护，原授权内有界重采只读观察，不重放动作。严格观察修复前2/10、修复后10/10；新增8项JVM、真实Qwen表单两轮及4次会话后台返回通过，全仓主机/source通过。已更新真机并恢复临时设置，没有再次重建数据库；Root前轮通过及黑屏关闭保持，其他OEM/Shizuku/长稳独立保留。[修复对照](../evidence/development/accessibility-observation-stability-2026-10-12.md)。
-
-- 2026-10-12 Owner批准真机备份后更新/重建及临时权限。首阶段OnePlus/API34 Developer更新到76aedcf6，新库identity/完整性正确；SDK8项、Root探针/Dispatcher断连恢复/短按各1项及Root真实Qwen表单两轮通过。无障碍Qwen当时首轮业务失败、次轮240秒超时，后续已按上方记录定位修复；不重开历史黑屏。[阶段证据](../evidence/development/physical-followup-2026-10-12.md#批准后的升级后端与模型补验)。Shizuku未准备及其他OEM/长稳仍独立保留。
-
-- 2026-10-12 Owner连接OnePlus/API34要求真机补验，并允许本轮未复现则关闭黑屏问题。独立Standard实际UI/后台20/20、socket取消/断流/旋转4/4、新Standard6次及原Developer2次普通返回通过，未复现黑屏；HXA-269按Owner规则关闭。原Developer是9月24日不兼容旧库，首阶段未覆盖；后续批准的升级及后端补验见上方，不由普通UI通过代替。[真机证据](../evidence/development/physical-followup-2026-10-12.md)。
-
-- 2026-10-12 输入法/真实视觉/稳定性补验：只读root确认故障AVD的70份Gboard公共中文资源全为0字节，健康同版资源完整；保留故障数据，新空白自有API36实际拼音及冷启动通过。真实Qwen图片请求字节与附件哈希一致，两种布局实际选择/点击通过；健康中文Mobile Use合成表单2/2、SDK8/8、固定Developer14/14和Consumer16/16及双渠道900秒资源pilot通过。当前无实体手机，不关闭Root/Shizuku/OEM及真机黑屏边界；更强会话返回和最终主机结果见[补验证据](../evidence/development/device-vision-stability-followup-2026-10-12.md)。未更新日常APK或清数据。
-
-- 2026-10-11 HXA-271阶段9按Owner要求将配置不足的静默跳转改为先说明原因和步骤，再由“去设置”导航；会话选择和默认新会话开启统一提示，取消不选中/不保存。全仓主机/source、双渠道lint/APK与Developer测试APK通过，三项UI夹具仅编译；设备/模型not requested，未安装APK。[证据](../evidence/development/plugin-setup-explanation-2026-10-11.md)。
-
-- 2026-10-11 HXA-271阶段8检查Owner指定日常API36的抖音链接：已安装40.7.0且域名verified，但首页URL无抖音Activity匹配，系统解析为Chrome；会话把opened误说成必然进入App。已澄清工具说明、要求观察及授权应用启动，全仓主机/source/双渠道制品和映射30/30通过；当前设备只读诊断passed，真实模型遵循率未验，未更新设备APK。[证据](../evidence/development/open-uri-routing-diagnosis-2026-10-11.md)。
-
-- 2026-10-11 [HXA-271阶段7](tasks/HXA-271.md)优化系统授权/连接状态和恢复入口，Root复用授权的显式连接，以及Mobile Use执行拒绝原因；全仓主机/source、双渠道lint/制品及定向19/19通过。本轮设备/真实模型not requested，阶段6安装包未更新，后端恢复后真实工具执行边界仍开放。[证据](../evidence/development/mobile-use-authorization-recovery-2026-10-11.md)。
-
-- 2026-10-11 [HXA-271阶段5](tasks/HXA-271.md)日常模拟器调试交付：复现并修复输出配置错误滞留及过期总额度文案，明确保存/数字输入/范围反馈并保留未保存输入，精简重复说明；Mobile Use具体工具动作、模式本地化、披露标题48dp。全仓主机/source、双渠道lint/制品通过；Owner指定日常API36 Developer纯展示22/22、实际配置/工具/上下文页面与3次后台返回通过，已更新日常APK，原数据库关键记录逐行一致。[证据](../evidence/development/daily-emulator-ui-audit-2026-10-11.md)。本次真实模型not requested，不关闭真机黑屏/OEM/完整页面矩阵边界。
-
-- 2026-10-11 [HXA-271阶段4](tasks/HXA-271.md)过程/最终答复展示分层主机交付：根据持久原子工具步骤识别过程，灰色小字，成功且存在之后可见回答时长说明三行预览、整行披露；未确认/流式及失败/停止/恢复正常展示，提问/审批独立，搜索命中展开，原文和调用顺序不变。全仓JVM/source/静态、双渠道lint/APK及App测试APK通过，新增分类每渠道6项通过；[本轮证据](../evidence/development/chat-message-presentation-2026-10-11.md)。本轮设备/模型not requested，四项UI夹具只编译，未更新日常或手机。
-
-- 2026-10-10 [HXA-271](tasks/HXA-271.md)会话交互本地交付：查看会话仅导航、对话内隐藏浮窗，简洁窗口上限/保留上下文占用，工具按原持久调用顺序穿插、搜索逐节点定位，审批/诊断详情展开。全仓主机/双渠道lint与制品通过；自有API36 Developer会话/真实Qwen22/22、浮窗6/6通过，无skip。[证据](../evidence/development/chat-interaction-context-timeline-2026-10-10.md)保留真实wire/local身份修正和夹具失败；新AVD额外Gboard实际拼音检查失败，输入法验收pending，不覆盖日常/真机APK或关闭其他OEM边界。
-
-- 2026-10-10 [HXA-251](tasks/HXA-251.md) 有限补验交付：最终全仓主机/静态检查、双渠道lint及制品编译通过。双API Developer既有各26项、Consumer Memory真正进程死亡与项目提示各3项、CLI wire各4项通过。Provider窗口适配已修复，默认表单各5项、窄屏/大字体输入与保存各9项、实际拼音候选/中文草稿各1项通过；插件取消更新六项及双API Developer原生修复保持选择/权限通过。真实Qwen六轮发现提示对照基线1/3、候选3/3，失败轮包含UNKNOWN_TOOL拒绝及无进展，未发现脚本重复执行；四请求真实Memory读取/拒绝/项目隔离通过。不宣称生产策略普遍收益，[本轮证据](../evidence/development/refactor-closeout-2026-10-10.md)保留完整交叉矩阵、其他IME/OEM、摘要质量和长稳边界。日常主APK未覆盖安装。
-
-- 2026-10-09 Mobile Use 收尾提示：[HXA-250](tasks/HXA-250.md) 在插件技能、摘要和 ui.launch 说明要求验证业务结果后返回原 Helix 对话，再回复；尊重停留/前台活动/手动接管，返回不扩权、不重放。216 项插件主机测试、静态检查与双渠道 APK 构建通过；随后授权日常 API36 Developer 安装及真实 Qwen 返回/停留 2/2，原对话实际顶部标题/窗口焦点确认。[本轮证据](../evidence/development/mobile-use-return-conversation-2026-10-09.md)保留测试资源争抢/夹具失败，不推导普遍遵循率、长稳或真机/OEM 通过。
-
-- 2026-10-09 实际模型协议瓶颈：[HXA-249](tasks/HXA-249.md) 修复 Chat 前导 system 编码兼容，全仓主机门禁通过。所有者明确要求后已覆盖安装日常 API36 Developer 0.0.5，安装前后 Room identity 一致；同一 Qwen 的新编码协议对照、真实 J1 与 AUTO 各 1/1 通过。[对照与旅程证据](../evidence/development/chat-system-compatibility-2026-10-09.md)保留旧 PROTOCOL 失败，不宣称普遍完成率、成本收益或真机通过。
-
-- 2026-10-09 Project/Memory 本地收尾：API36 Developer/Consumer 界面/权限/项目隔离各 6/6，Global/Project 真正进程死亡恢复 1/1；修复项目文件页来源异步加载前崩溃。[本轮证据](../evidence/development/project-memory-device-2026-10-09.md)保留夹具失败、实际崩溃与各制品身份，其他设备/IME/真实摘要质量不由此关闭。
-
-- 2026-10-09 J2 本地交付：AUTO 与 USER 后台释放保持同一原 Job 身份、权限和 lease；全仓主机/双渠道编译通过，API36 Runtime/UI 八项通过。[本轮结果](../evidence/development/j2-auto-local-2026-10-09.md)保留旧主 APK 两次真实模型 PROTOCOL；HXA-249 后续修复并验证当前真实 J1/AUTO，通过不关闭全部生命周期组合或真机边界。
-
-- 2026-10-09 有限基线补验：API36 Developer 输入、插件、前后台刷新、实际 Runtime/PTY、J1 等待与收取共 60 个不同场景已有通过证据；初次类名/异步 fixture 失败及修正如实保留。[本轮基线](../evidence/development/local-baseline-closeout-2026-10-09.md)不关闭 IME/OEM/全部真实模型边界。DSH 预算已独立提交 `0d987abf`；新 J2 检查点与项目/Memory、R2-B 继续按下方顺序推进。
-
-- 2026-10-08 预算补充收尾：API29/API36 双渠道完整定向矩阵 316 项通过，包含模拟服务长上下文压缩、旧累计额度不阻止执行、项目 Room 检查及 8 次真实 SIGKILL 恢复；日常 API36 Developer 模拟器安全覆盖安装，原记录身份和数量保留。[本轮证据与改动审查](../evidence/development/dsh-budget-followup-2026-10-08.md)明确失败尝试、夹具修正及边界。真机卡顿/黑屏、真实摘要质量、完整项目 UI/Memory 和后台新功能仍开放；未提交或发布。
-
-- 2026-10-07 所有者要求预算对齐 DSH：普通 Turn 累计用量只统计，Goal 默认最多 256 个自动轮次；上下文压缩与累计任务预算分离。全项目主机测试、静态检查、双渠道 APK 与测试 APK 构建通过；后续授权 API36 Developer 隔离模拟器定向回归 53/53，通过范围与一次旧断言修正见[本轮证据](../evidence/development/dsh-budget-policy-2026-10-07.md)。未覆盖日常模拟器，Consumer/其他设备及真实模型未运行；未提交或发布。
-
-- 2026-10-06 main 整合与发布验证：只保留 main、公共评测、BioHelix 三个工作树；完成当前授权的 API29/API36 双渠道扫描与定向复测、24 组输入恢复、每 API 37 个进程死亡场景、API34 Root 5 项及真实模型 Shizuku 安装/卸载。修复前台通知限流与旧开发库版本启动失败；[发布回归记录](../evidence/development/v0.0.5-release-2026-10-06.md)明确失败、修复、跳过和长期/OEM 边界。发布来源与该提交 GitHub CI 以 v0.0.5 的 BUILDINFO 为准，本地通过不代替远端 CI。
-
-- 2026-10-06 无障碍点击反馈优化：区分显示屏与窗口坐标，补充截图兜底与系统触摸过滤的边界，保留无节点控件视觉点击；结果不明不自动跨后端重放。[定点审查与后续优化](../evidence/development/mobile-use-install-optimization-2026-10-06.md)。后续所有者授权 API36 日常模拟器回归：修复无语义测试夹具，四模式定点与安装页对照各 1/1 通过；系统过滤仍存在，不等于无障碍安装成功，未调用真实模型。
-
-- 前轮整合范围：接手优先级 1（版本整合回归）、优先级 2（Mobile Use 分后端验证）与优先级 3（真实任务稳定性与效率实测）。前轮审查已收敛缺陷并完成主机与文档门禁。
-- 优先级 1 整合回归：修复并验证 `ConversationTopBarDeviceTest` (4/4)、`IaAuthorityDeviceTest` (2/2)、`ConnectorUiDeviceTest` (1/1)、`SystemBarInsetsDeviceTest` (1/1) 与 `HierarchicalNavigationDeviceTest` (5/5)；覆盖这些用例实际断言的 Extensions 展开、导航与会话菜单；不包含全局 Hosts 和消息排队投递的完整回归。
-- 优先级 2 Mobile Use 分后端验证：`MobileUseOverlayDeviceTest` (4/4)、`AutomationServiceDeviceTest` (1/1) 全流程生命周期、无障碍断言及即时停止测试通过；验证 Shizuku 授权就绪 (`moe.shizuku.privileged.api`)、Shizuku 独立设置检查 (`ShizukuSettingsDeviceTest` 1/1 通过)；Root 后端在当前模拟器无 Magisk/KernelSU 守护且 Helix 未获授权时，`RootToolsRootlessDeviceTest` (2/2 通过) 验证无 Root 时的状态与执行拒绝；设置页检查不证明 Shizuku 执行成功，Rootless 检查不证明自动后端回退。真实模型轨迹的观察后端为 Shizuku，Root 成功路径及普通无障碍单后端仍待验证。
-- 优先级 3 真实模型实测：经所有者明确授权 Qwen3.8-27B 模型，在 `emulator-5554` (API 36 arm64) 执行 3 轮完整独立重复合成任务评测（`eval-trial-1`、`eval-trial-2`、`eval-trial-3`），包含 `gui`、`files`、`recovery`、`combined`、`keyboard` 5 项用例，共 15 次独立判定**全部达成并通过 (15/15, 100%)**；详见[模型实测](../evidence/development/current-model-capability-eval-2026-10-05.md)。
-- 2026-10-06 后续修复：应用启动、返回/主页和系统动作接入 Root/Shizuku；修复系统通知弹窗公开选项被整体脱敏。API36 无障碍关闭时 Shizuku 导航及通知回归通过，当前 Qwen3.8-27B 一次通知/输入/滚动任务通过；[本轮证据](../evidence/development/mobile-use-navigation-notification-2026-10-06.md)。未重跑真实酷安首次弹窗或抖音安装，也不推导 Root/OEM 成功。
-- 2026-10-06 悬浮窗解耦：Helix 集中管理普通悬浮窗授权，Mobile Use 优先普通窗口、回退无障碍窗口；Root/Shizuku 工具绑定共享任务呈现。210 项主机测试及双渠道构建通过，新增设备测试仅编译，设备验证 not requested；[证据与边界](../evidence/development/mobile-use-independent-overlay-2026-10-06.md)。
-- 2026-10-06 三后端真实模型安装/卸载评测：三组安装均未完成，三组卸载通过；高权限安装确认被 Helix 保护节点规则拦截，无障碍安装反复无进展，Root 复现计划式最终回复。普通悬浮窗无无障碍回归 1/1；[结果、配置交互与优先修复建议](../evidence/development/mobile-use-backend-install-eval-2026-10-06.md)。后续修复与当前剩余问题见下一项，不以历史安装记录覆盖。
-- 2026-10-06 安装与授权优化：Root/API34、Shizuku/API36 真实模型安装成功；三后端卸载均通过，各 6 次工具调用。修复系统安装按钮错误保护、增加 `ui.apps(packageName)` 精确核查、集中 Root 授权后连接已启用功能，并调整权限布局。普通无障碍安装仍失败，提示改进未证明能消除重复尝试；[本轮结果与剩余边界](../evidence/development/mobile-use-install-optimization-2026-10-06.md)。
-- Standard/consumer 是完整商店面向产品，Advanced/developer 增加平台/渠道允许的能力。debug 构建、局部设备通过、主机检查和真实账号验收分别记录，不互相替代。
-- 开发期 Room 采用 v1 baseline：不兼容库重建，数据库外文件保留；正式签名、applicationId 和升级承诺仍由 HXA-122 承接。版本下载入口不代表当前未提交代码已发布。
-
-| 最近整合领域 | 当前实现与证据入口 | 尚未由此证明 |
-| --- | --- | --- |
-| Mobile Use / 宿主授权 | Helix 管无障碍、Root、Shizuku 授权与连接；插件管自动化范围、工具和内置 Skill。会话只选择插件；[架构精简](../evidence/development/plugin-architecture-simplification-2026-10-05.md)、[系统授权拆分](../evidence/development/system-permissions-plugin-separation-2026-10-05.md) | 高权限不等于所有操作可用，独立插件不等于第三方原生代码沙箱 |
-| 语义与视觉后端 | 支持的观察/节点/截图/手势按实际就绪能力选择 Root → Shizuku → Accessibility；高权限路径不统一依赖普通无障碍。[五项优化](../evidence/development/mobile-use-refactor-2026-10-05.md)、[特权语义](../evidence/development/mobile-use-privileged-semantics-2026-10-05.md)、[工具指导](../evidence/development/mobile-use-tool-guidance-2026-10-05.md) | 系统动作等仍按具体后端实现；失败或 UNKNOWN 不跨后端重放，未证明所有 OEM/安全窗口 |
-| 安装和任务实测 | [抖音/酷安安装记录](../evidence/development/douyin-coolapk-model-install-2026-10-05.md)记录自主操作、追加提示和独立包事实；[最新合成任务](../evidence/development/current-model-capability-eval-2026-10-05.md)记录工具效率与键盘修复 | 安装记录不等于当前设备仍有该包；有人工追加提示的轨迹不算一次请求无干预成功 |
-| 插件 / 会话界面 | [统一插件管理与更多菜单](../evidence/development/conversation-more-and-plugin-layout-2026-10-05.md)、[插件设置](../evidence/development/mobile-use-plugin-settings-2026-10-05.md)、[会话投递设置](../evidence/development/session-message-delivery-2026-10-05.md) | 某次界面回归不关闭完整扩展生命周期或全部并发旅程 |
-| 模型 / 订阅 / 权限交互 | [Provider 入口](../evidence/development/provider-entry-and-subscription-ux-2026-10-05.md)、[模型选择与授权分类](../evidence/development/model-combobox-navigation-permissions-2026-10-05.md) | 支持配置不等于每家真实登录/模型通过；[Antigravity 定向结果](../evidence/development/antigravity-foreground-login-2026-09-30.md)仅覆盖记录中的精确模型 |
-| 原生网络与关于页 | 设置中统一 hosts 文本，保存前整篇校验；API、订阅、MCP、A2A、原生 HTTP 共用解析。[实现与验证](../evidence/development/global-native-dns-2026-10-05.md) | WebView、终端、外部浏览器、独立下载器未纳入；映射不扩大网络权限 |
-| 项目与文件 | [HXA-246](tasks/HXA-246.md)本地主机及 API36 双渠道 UI/Memory 与进程恢复已交付；[项目设计](../product/projects.md) | API29/API36 有界 Room 重开/服务检查已通过；其他设备与模型摘要质量仍待验，不代表已支持 Git 回退 |
-| 手机助手体验 | [竞品差距与入口优化](../product/competitive-doubao-phone-gap.md)保留首任务、语音及验收协议；系统语音优先 | 没有 OEM/System Image 发行承诺；真实第三方 App 成功率和语音 OEM 兼容性仍待验证 |
-
-## Completed
-
-- 2026-10-12 [HXA-280](../completion-records/HXA-280.md)：工具发现与请求工作集按授权范围交付；当前验收与独立边界见本页顶部。
-
-- 2026-10-10 旧版报告整理：9份客户端/Provider/旧发布报告有效内容汇为[客户端交互](../evidence/development/historical-client-ui-validation.md)与[Provider/发布经验](../evidence/development/historical-provider-and-release-validation.md)，原重复报告删除并修入链，206项host回归及源码门禁通过；历史结果不计当前设备通过。
-
-- 2026-10-10 [HXA-268](../completion-records/HXA-268.md)：按Owner追加授权删除62个历史版本脚本/日志/旧发布产物，必要结论与来源hash汇总文档；206项host回归与源码门禁通过。设备和真实模型not requested，当前回归/构建输入/未闭合故障与工作树恢复包保留。
-
-- 2026-10-10 [HXA-267](../completion-records/HXA-267.md)：固定套件总数门禁改为实际方法/完成事件，清理390个已失效或已迁移脚本/本地草稿，有效host覆盖归并统一发现，206项回归及完整Debug主机门禁通过；[维护手册](debugging-playbook.md)保留方法和模板。设备与真实模型not requested，历史证据及唯一诊断保留。
-
-2026-10-10：[HXA-255](../completion-records/HXA-255.md)权限页经EgressRuleService读写，窄行模型与精确目标/固定TTL校验，取消/致命错误传播、无message读取失败可重试，旧提交不清空新草稿；移动页面到permissions/ui。新JVM5项每渠道、主机/两渠道Debug lint与制品通过；API36 Developer4/4、Consumer3/3（均含实际拼音）通过。[本轮证据](../evidence/development/egress-application-interface-2026-10-10.md)保留夹具断言失败，日常APK/数据库未动；继续测试桥和ChatService职责整理。
-
-2026-10-10：[HXA-254](../completion-records/HXA-254.md)项目会话页面消费窄读模型，Room 驱动外部重命名、归档/恢复及新候选实时刷新；读取失败可重试，切换/归档清理加入模式，原归属与活动 Turn 保护保持。默认构建主机及两渠道 Debug lint/制品通过，API36 Consumer/Developer各8项（含真实拼音）通过；[本轮证据](../evidence/development/project-session-readmodel-2026-10-10.md)保留两次输入夹具失败及端口启动拒绝。日常APK/数据库未动，未调用模型或关闭真机卡顿/黑屏边界。
-
-2026-10-10：[HXA-253](../completion-records/HXA-253.md)统一 host fixture discovery，补齐五套漏测入口并拒绝空/全跳过/导入/断言失败；151 项回归及 source gates 通过。没有删除旧测试或在 CI 启动设备。
-
-2026-10-10：[HXA-252 通用工具发现提示](../completion-records/HXA-252.md)已交付，主机门禁通过；API36/既有 Qwen 有效严格对照候选 6/6、基线 5/6，手动 Job 的窗口误用减少，未扩大工具/授权策略。原归档夹具错误与补测、快照恢复失败及所有者随后授权数据库重建均保留在[本轮证据](../evidence/development/discovery-guidance-2026-10-10.md)。日常同哈希原 APK、重建库、Qwen、无在途任务及实际拼音提交核查通过；没有安装候选日常 APK，不宣称历史数据恢复或普遍模型收益。
-
-完整历史交付查[完成记录索引](../completion-records/index.md)和[M0](../completion-records/M0.md)；各记录只证明其明确验收范围。
-
-当前整合基线包含恢复/QuickJS、历史正确性修复及 **HXA-231 R1 原子工具绑定**。主机、有界 API36 和真实 SGLang 的实际范围见[整合验证](../evidence/development/r1-device-service-closeout-2026-09-30.md)；它不是发布 APK、clean 正式 P5 或所有设备/任务通过的证明。
-
-| 领域 | 已有能力与证据入口 | 不由此推导 |
-| --- | --- | --- |
-| 工具绑定 | [HXA-231](../completion-records/HXA-231.md)：单一 binding、请求/调度/审批/执行同源、全部来源迁移与撤销准入；[有效契约](../adr/tools/001-descriptor-contract.md) | 不再重做 R1；不等于完整 R2/R3/J1 |
-| Core/恢复 | [HXA-220](../completion-records/HXA-220.md)、[221](../completion-records/HXA-221.md)、[223](../completion-records/HXA-223.md)：唯一 Engine 与 CAS；[HXA-234](tasks/HXA-234.md) 补齐唯一 Core Loop 和有界上下文迁移的本地主机交付 | 后续候选未提交；不等于设备全验、R2-B 收益或 JobObservation 自动纳入 |
-| 输入、导航与活动 | HXA-214～219、[226](../completion-records/HXA-226.md)、[228](../completion-records/HXA-228.md)、[229](../completion-records/HXA-229.md)；[跨会话输入与联合回归](../evidence/development/merged-api36-regression-2026-09-29.md) | 不把历史输入/草稿问题重新列为未修复 |
-| 自主视觉 | [HXA-225](../completion-records/HXA-225.md)：view_image、浏览器视觉回填、三协议编码和有界校验；[产品边界](../product/image-reading.md) | 有限工具看图验证不覆盖全部协议、手机整屏截图或设备内视觉 |
-| Linux Job/终端 | [HXA-196](../completion-records/HXA-196.md)～[199](../completion-records/HXA-199.md)：后台 Job 与双 PTY；[HXA-236](tasks/HXA-236.md) 原身份观察与 [HXA-248](tasks/HXA-248.md) AUTO/后台等待释放本地已交付 | API36 Runtime/UI 已通过；完整设备/真实模型组合仍开放，不由等待释放恢复未知执行 |
-| 扩展 | [HXA-129](../completion-records/HXA-129.md)、[130](../completion-records/HXA-130.md)、[212](../completion-records/HXA-212.md)；[HXA-235](tasks/HXA-235.md) 已接统一安装目录、会话选择与停用/更新/修复，HXA-251 双API真实 Room 取消更新/原生修复通过 | 不重做 R3 主体；完整在途引用/撤销/进程死亡交叉矩阵尚未验收 |
-| Workspace/Memory | [HXA-210](../completion-records/HXA-210.md)、[目录恢复](../evidence/development/recoverable-workspace-2026-09-27.md)、[HXA-230](../completion-records/HXA-230.md)、[HXA-246](tasks/HXA-246.md) | Global/Project 主机、API36 双渠道 UI 与项目记忆进程恢复已通过；其他设备与模型质量仍开放 |
-| 设备内模型 | [HXA-222](../completion-records/HXA-222.md)、[收口](../evidence/development/hxa222-closeout-2026-09-28.md)、[安装](../evidence/development/p3-local-model-install-2026-09-28.md)/[首次使用](../evidence/development/p4-first-success-journey-2026-09-28.md) | 本地 Provider 可驱动完整 Loop，不等于所有设备与任务质量已验证 |
-| Eval/整合 | [HXA-227](../completion-records/HXA-227.md)、[设备基线](../evidence/development/hxa227-device-baseline-2026-09-27.md)、[历史真机验收](../evidence/development/physical-oneplus-acceptance-2026-09-24.md) | 每份证据仅覆盖原基线；公共 benchmark 与生产 Harness 分开报告 |
-
-## 候选与有限接受范围
-
-[候选索引](candidate-decisions.md)集中记录有限接受、已有基础和未排期能力。R1 已交付。2026-10-01 所有者明确要求依次完成审查列出的剩余工作，包含 R2-A/Core、R3/插件生命周期、J1/J2、Project Memory 的实施推进；按下方当前顺序逐项建立具体任务和验收。R2-B 仍须等价基线与收益实验，不因授权预报收益；未排期的 PDF/视频/子 Agent/远程等不是此次自动扩展目标。不重开已完成的生命周期、输入或视觉任务。
-
-## In progress
-
-- 2026-10-14 Owner追加日常安装：emulator-5554/Helix_API_36/API36的Developer已保留数据覆盖到f779a48f制品并打开MainActivity；原3会话/5 Turn/6 provider完整hash及schema/integrity不变，设备读回APK hash匹配。未运行模型/fixture或重建库，此项是安装核对，真实代理关联待Owner手测。[安装证据](../evidence/development/debug-model-correlation-2026-10-14.md#owner追加日常安装)。
-
-- 2026-10-14 HXA-282 Debug自定义API诊断关联已交付：App HTTP装饰复用已有context，三个协议均支持，不改核心循环/请求/协议岛；已有LineStore绑定明确表单来源，不猜域名，旧记录不回填。全仓主机/两渠道Debug与Release制品及测试APK编译通过，新增类每渠道6方法通过，实际manifest Debug为true/Release为false；设备/真实模型not requested。Owner提供旧rep93/140生成日志，直接机制为普通文字后im_end且无工具标记，未见解析丢失/长度截断；有效HF模板hash及诱因仍待证。[证据](../evidence/development/debug-model-correlation-2026-10-14.md)。
-
-- [HXA-282](tasks/HXA-282.md)：公网合成OAuth、市场恢复、Qwen/Codex有界业务、消息回填及Debug自定义API关联已交付。R6旧冻结版本两小时PASS、新稳定观察固定短验通过，完整范围见本页顶部证据。Notion/Linear测试已按Owner决定结案，新观察版本长期资源仍独立开放；不重复已完成市场/协议主体，也不将历史R5失败覆盖为通过。
-
-- 2026-10-12 Owner 授权继续收尾及 276→279。日常 API36 已保留数据更新到 HXA-275 验收 APK，自有 API36/Qwen 完整文件任务 1/1 通过，失败尝试与转换过程见[收尾证据](../evidence/development/plugin-closeout-2026-10-12.md)。HXA-276 单一 Browser 贡献已通过全仓主机、API36 双渠道各 9 项及共享浏览器引擎 29 项有界验收，见[276证据](../evidence/development/hxa276-browser-contribution-2026-10-12.md)；HXA-277 已完成在途资源引用与清理、主机和 API36 后端/应用组合有界验收，见[277证据](../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-278渐进装载、精确资源和有界就绪事实已通过主机、双渠道内容及固定Qwen对照，见[278证据](../evidence/development/hxa278-progressive-skills-2026-10-12.md)；模型成本为混合结果。HXA-279已完成浏览器发现、等待与本地有界交付，见[279证据](../evidence/development/hxa279-browser-observation-2026-10-12.md)：引擎28项、最终双渠道各9项及严格六类Qwen通过，先前模型失败/单轮边界保留；日常已更新到最终APK并核实原数据保留。测试AVD的Gboard中文拼音因原生崩溃仍failed，不作整体验收通过。
-
-- HXA-271阶段7授权/连接交互及后续恢复实现已交付；当轮设备/模型未请求是历史边界，随后同机AX/Root/Shizuku及现有Qwen补验已完成，当前结果见本页顶部阶段11。其他OEM和长期组合仍独立保留，不重新实施旧切片。
-
-- [HXA-271](tasks/HXA-271.md)：会话导航/浮窗、上下文与工具时间线、灰色整行披露、过程/最终答复分层、配置就绪提示及隐藏确认优化均有本地主机与对应有界设备证据。日常更新和保留数据、后续同机后端/恢复/两小时资源补验见本页顶部；长稳报告器已修复。历史故障AVD中文资源损坏保留，新自有API36两渠道实际拼音已通过；不再将旧“后端未连接/未请求”列为当前阻塞。其他OEM、完整页面/账号组合与24h仍是独立验收边界，不能生成全面通过记录。
-
-- [HXA-270](tasks/HXA-270.md)：Owner追加悬浮审批要求，原任务只读诊断确认 launch/snapshot 成功、ui.click 待审批；实施可信原生单次批准/拒绝、完整详情展开、等待状态同步及查看会话不取消。主机source/全仓JVM/静态/双渠道lint与制品编译已通过，新增6项回归通过；[证据](../evidence/development/mobile-use-overlay-approval-2026-10-10.md)。Owner追加手机更新测试后，OnePlus/API35 的现有 Qwen 合成 Settings 原生批准/拒绝、详情滚动、查看会话和接管路径 passed；已修正实机布局，更新最终APK，未重试或批准真实微信操作，其他设备矩阵 pending。
-
-- [HXA-269](tasks/HXA-269.md)：Owner追加实施修复及同一真机/Qwen回归，已移除无障碍事件主线程节点查询，采用有界后台观察、合并及失效结果丢弃；224项插件测试、全仓JVM/source/静态/双渠道lint与编译通过。最终OnePlus/API35 Developer 6次返回、12次滚动及实际Qwen launch/snapshot通过，无新Helix ANR/FATAL；保留2次未伴随黑屏的系统窗口异常。阻塞路径修复及有界回归交付；2026-10-12新增API34补验未复现，按Owner新规则关闭黑屏问题。其他后端/OEM完整矩阵独立保留；历史诊断详见[诊断与修复证据](../evidence/development/physical-mobile-use-black-screen-2026-10-10.md)。
-
-- 本轮[HXA-263](../completion-records/HXA-263.md)连续测试日志与真实Qwen压缩约束保留2/2；[HXA-264](../completion-records/HXA-264.md)双渠道主回归各42/42、追加20项及14个实际进程死亡边界；[HXA-265](../completion-records/HXA-265.md)双渠道900秒资源pilot；[HXA-266](../completion-records/HXA-266.md)当前DSH契约/真实Qwen Goal与Skill完整9/9均有界本地交付。HXA-267/268脚本与历史版本维护也已主机交付；此前维护检查点已收口；HXA-269本轮真机诊断、阻塞修复与有界回归已记录，黑屏问题已按2026-10-12Owner规则关闭；下表保留此前维护检查点完整设备/服务矩阵与长稳边界，本轮另行操作真机，未操作日常模拟器。
-
-以下保留尚未闭合的验收范围；已实现的主体不重复开发。HXA-237～245 的阶段命令及交付查各任务和证据，不能用较早“仍依赖无障碍”“尚未安装”等叙述覆盖上方后续实现。
-
-| 开放工作 | 已有基础 | 仍需处理的范围 |
-| --- | --- | --- |
-| [HXA-239 会话输入](tasks/HXA-239.md) | 选模、光标、权限入口及有界API29/API36实际输入旅程、指定拼音预编辑/候选/中文commit与草稿零发送通过，见HXA-251 | 其他IME/OEM与完整切换/恢复边界仍需证据；不再列已执行场景为“仅编译” |
-| [HXA-238 执行与表单](tasks/HXA-238.md) | 多执行身份、实际引擎/容量协调、PRoot Job/终端共存、Provider 滚动/缺项定位已接线；HXA-251 双API有限 Job 与窄屏/大字体输入表单通过 | 完整并发、取消恢复组合及其他 OEM；真实模型结果不由主机代替 |
-| [HXA-236 J1](tasks/HXA-236.md) | 原身份观察/等待、同一 ContextCompiler 状态投影、可信 Dispatcher 进展证据已接生产；HXA-249 真实 J1/AUTO、HXA-251 双API六项及固定模型对照已有实际证据 | 完整取消/恢复交叉组合与其他服务/OEM；有限模型完成率不升级为普遍策略收益 |
-| [HXA-233 回放生命周期](tasks/HXA-233.md) | 引用感知清理、归属/分支/在途保护、存储反馈及主机回归；HXA-251 双API Room/清理各4项、CLI wire 各4项通过 | 保守保留未知归属；真实服务、长稳和完整故障矩阵独立，不由有限设备结果推导真机通过 |
-| [HXA-232 自主恢复](tasks/HXA-232.md) | 自动化授权内恢复、Goal 局部额度衔接、无进展收尾、Runtime 查询/收取、UNKNOWN 只读核查、原 Goal 账本、队列重验证、统一授权；QuickJS 原生总开关、结构化反问与提示词资源化已有实现及有界验证 | 真实模型恢复完成率、完整进程/订阅/PRoot 故障矩阵及 OEM；不把诊断完成或有限场景通过当作原任务成功 |
-| [历史正确性收口](../bug-fixes/2026-09-30-historical-correctness-audit.md) | Provider 探测发布/取消、压缩参数、Git、内容发布/删除并发和执行线程容量已有修复，纳入整合基线 | 仅按记录中遗留问题和新证据继续，不重新执行整个历史缺陷清单 |
-| [偶发问题](../evidence/development/intermittent-closeout-2026-09-28.md) | 可复现 SAF 撤销/异步投影和 Goal 仅规划问题已修 | 历史截断、探测偶发失败与额外只读调用仍保留调查边界；未复现不等于根因关闭 |
-| [HXA-126](tasks/HXA-126.md) | issuer/resource、准备取消、CIMD/显式 DCR、持久归属及配置修复已通过主机集成；Notion/Linear真实服务子范围已结案，见页首结案记录 | 不再等待两家账号、自然刷新或重连验收；自有HTTPS/App Link、签名与渠道输入属于独立发行准备 |
-
-## Next task
-
-[HXA-303](tasks/HXA-303.md)～[HXA-306](tasks/HXA-306.md) 已交付范围按页首当前事实与各任务记录维护；当前仅完成 Owner 追加的 HXA-306 有界补验及文档收尾，不自动进入生产重构。HXA-295 A、296～302 的历史失败和验证边界仍留在原任务；不重开已结案账号测试。OCR 已确认为线上模型局限，不等待额外服务输入。
-
-v0.0.6 发布以页首发行记录为准，旧阶段“未授权发布”已不再是当前待办。HXA-307 本地实现、主机门禁、日常模拟器回归及 Owner 追加授权的真实网关有界 Agent 闭环已完成，不再等待白名单书面确认才测试。后续部署模板/思考语义、容量与长稳需另定范围；不能继承 v0.0.6 的设备或 CI 结果。本任务仅本地提交，不推送/发布，先前一次性清理旧数据的许可不扩大为本轮清库。
-
-2026-10-15 Owner 要求按本次评审优化文档和任务：采用单一目标契约，不兼容旧 Helix 内部方案，以当前产品结构和后续扩展成本决定改动。已登记 HXA-286～294，**完整架构队列未实施；303 的独立发现配套与预算清理不等于整项退出**。设计见 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，范围和验收只在各任务维护。
-
-**既有“先发布、再启动生产重构”的顺序保留；此次暂缓发布不自动启动下列重构。** 当前只落实共同契约、任务依赖和验收定义；发布收尾参考[发布与顺序复核](../research/topics/v0.0.6-release-and-refactor-order-review-2026-10-15.md)，其中保数据前置已由 Owner 后续预览决定取消。包体优化的[主机验证](../evidence/development/apk-size-optimization-2026-10-15.md)之后，测试签名 R8 隔离包已有真机启动、两渠道模型工具旅程、QuickJS 和首次 RootFS 安装/验证[实际证据](../evidence/development/device-ui-model-validation-2026-10-15.md)；当前 API36 的独立配置/会话恢复补验见[收尾记录](../evidence/development/pre-refactor-finish-2026-10-15.md)。仍需界定最终分发身份和执行恢复覆盖，不能将测试签名包当成已发布制品。重构前功能取舍见[本轮分析](../evidence/development/preview-polish-2026-10-15.md#重构前功能取舍)。
+HXA-286～294 的完整生产重构尚未实施；303 的独立配套和本轮小优化不表示整项退出。下表只表达已记录的设计依赖，不是当前任务选择器；具体范围与验收归各 HXA。完整 Turn/真实 Room 与执行核心分别有据，不要求完整任务互等。
 
 | 顺序 | 任务 | 推进方式与依赖 |
 | --- | --- | --- |
@@ -291,88 +44,17 @@ v0.0.6 发布以页首发行记录为准，旧阶段“未授权发布”已不�
 | 5 | [HXA-293](tasks/HXA-293.md)：Memory/上下文质量 | A 共同预算/内容端口 P1，B 相关性选择 P2；285/299 已交付基线保留，配对/恢复正确性在 286/287 前置，策略单变量评估，无收益不改默认 |
 | 6 | [HXA-294](tasks/HXA-294.md)：冻结后的集成与恢复验收 | 汇总各阶段已积累的正确性证据，回归冻结范围并清理旧路径；不是第一次验证取消/身份/恢复，设备/模型/时长仍按当轮授权 |
 
-发布之后的首个重构检查点是 HXA-286 的共享契约及目录/依赖生产接线；287/288/293 在 286 共同设计，后续共同集成须等 287-A/288-A 各自就绪，不代表无依赖并行改公共接口。287 首片即验证 crash/reload、call/result 配对、无 UI 审批/停止，288 先核心后领域适配；完整 Turn 与真实 Room 分别举证，不等待第二个产品消费者。不包含独立 Server、CLI、云宿主或第二个 Engine；每条生产路径切换即删旧 DTO/别名/双写/永久桥，外部格式和真实基础设施适配保留。
 
-上表 3～5 是稳定接缝后的能力选择，不要求机械按整项串行；结构检查点和近期产品增量分开验收。包内 CLI/账号服务、常驻 stdio 与模型 PTY 等仍为 P2 条件候选，进入条件归 [Harness §23.12](../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续) 和[候选索引](candidate-decisions.md)，不扩大 286～294 的完成范围。
+已交付的插件 HXA-272～279、应用接口/状态收敛 HXA-253～268 和既有 R1/R3/J1/J2 不重新排为底座开发。R2-B、子 Agent、远程、hooks/LSP、模型 PTY 等仍按[候选索引](candidate-decisions.md)的进入条件，不随文档整理启动。两个小时/24 小时长稳与提前结束专项继续暂停；新故障有证据时定向处理。
 
-本次扩展性补充不改变顺序：HXA-286 定义组件、阶段与长期资源 owner/控制权等共同契约，287/288 分别落实独立运行与执行资源接线，289/293 沿已定义内容版本/快照推进，294 汇总反例。目标见 [§23.9](../architecture/harness-refactor-plan.md#239-后续扩展约束)。四类功能仍未立项；“单一引擎”不限制为全局单运行，“结束调用”不等于销毁共享资源，验收不以提前建空 hooks/LSP/子 Agent 框架完成。
+## 开放条件与限制
 
-既有生命周期补验、HXA-284 文档阅读、HXA-285 引用/压缩收尾及 R2-B 有界对照不重复实施。Notion/Linear全部测试和黑屏已结案；2 小时/24 小时长稳及提前结束专项继续暂停，HXA-306 追加的 15 分钟检查仅覆盖其有界工作负载。旧 R6 不证明新制品长稳，其他 OEM/资源峰值等边界留在原证据；有新可复现故障时定向处理。签名、稳定包名/渠道及正式发行独立于本重构，见[发行条件](release-readiness.md)。上述规划阶段未运行门禁或操作设备；后续 Owner 追加的优化与验证以本页当前实施记录为准。
-
-### 插件优化队列（2026-10-11）
-
-Owner 已要求将[调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md)和[优化建议](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)结合当前代码拆成任务，并明确**不兼容旧版，按单一目标实现设计**。HXA-272～279已登记；本轮Owner授权收尾交互并完成272～275，272统一内容实现的主机/source、Developer API36 11项含真实Qwen、Standard纯Skill 1项及作者样例解析均通过；迟到取消崩溃已修复并复验，其他OEM/长稳边界保留。273调用资格与可信输入已通过全仓主机/source、Developer API36含Qwen5项、storage17项和Standard窄屏/大字体2项；[273证据](../evidence/development/hxa273-skill-invocation-2026-10-11.md)保留失败尝试。274本轮同源就绪投影与恢复导航有界交付，含全仓主机/source、Developer组合20项、最终内容/Qwen4项与Standard窄屏11项；[274证据](../evidence/development/hxa274-plugin-readiness-2026-10-11.md)保留失败尝试。275组件诊断/作者样例已通过全仓主机、Developer API36含Qwen8项与Standard窄屏13项；[275证据](../evidence/development/hxa275-component-diagnostics-2026-10-11.md)保留失败尝试。276已完成单一贡献与双渠道有界验收，277资源契约已交付，278有界实现与验收已交付，279本地有界实现与验收已交付，Gboard输入环境失败及未测边界独立保留。当前代码复核与研究切片映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)。
-
-2026-10-11 已按所有者要求同步四份现有主题 ADR 的有效正文与 Decision history，见 [HXA→ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。HXA-277 的通用原生资源规则归 ADR-CONNECTORS-003，Browser 具体生命周期归 ADR-PLATFORM-002；设计已接受，277已完成授权有界实现与验收，后续完整故障组合和长稳仍需独立证据。
-
-**调度规则。** HXA-269/270/271 已交付的切片不重新列为进行中；新发现的相关执行错误、授权错误或数据损坏优先修复。其余 OEM、账号和已记录设备补验独立排队，不作为全部新开发的前置。272～279本轮切片已交付；后续优先处理有实际复现的故障和已记录设备边界，不自动启动条件性新功能。2026-10-12已定位测试AVD的Gboard公共中文资源损坏，保留原数据并建立实际拼音通过的自有替代环境；真实Qwen浏览器像素识别、图片传输及操作核验和双渠道900秒pilot已补验。同一OnePlus/API34的Root/Shizuku定向任务及两小时应用资源precheck已补验，后者主机报告器编码/异常结算已修复并回归。旧制品R6连续Mobile Use/Qwen两小时已通过；最新观察版本未继承该结果，其他OEM、未覆盖视觉场景及24h长稳独立保留。实体黑屏问题按Owner规则关闭，完整证据见本页顶部。
-
-下表保留已交付任务的原实施顺序与技术依赖，不是当前待办。原 P1/P2 是开发优先级，不是缺陷严重度；未覆盖验收及新工作按上方 Next task 和原 HXA 推进。
-
-| 顺序 / 优先级 | 任务与交付 | 技术硬依赖 | 退出重点 |
-| --- | --- | --- | --- |
-| 1 / P1 | [HXA-272](tasks/HXA-272.md)：统一 Skill 内容贡献，零工具插件独立激活 | 已交付 R1/R3/Skill 基础 | 单一内容来源，list/read 与会话选择一致，无占位工具或旧正文通道 |
-| 2 / P1 | [HXA-273](tasks/HXA-273.md)：用户/模型调用资格与本次显式激活 | 272 | 实际读取检查资格，用户输入来源可信，不由内容或模型伪造激活 |
-| 3 / P1 | [HXA-274](tasks/HXA-274.md)：就绪原因、保存/加载/请求生效反馈、恢复导航边界 | 272；复用 271 已交付部分 | UI/模型同源只读投影，恢复目标由当前页面处理，无被动授权/连接或服务持有页面导航回调 |
-| 4 / P1 | [HXA-275](tasks/HXA-275.md)：组件兼容诊断和三种作者样例 | 272、273、274 | 当前外部格式支持明确，局部可用，样例走生产解析/执行路径 |
-| 5 / P2 | [HXA-276](tasks/HXA-276.md)：Browser 原生插件贡献与统一选择 | 272、274 | 12 工具唯一 PluginOrigin，手动浏览独立，直接删除旧 built-in 注册 |
-| 6 / P2 | [HXA-277](tasks/HXA-277.md)：原生实例/共享资源的停止与释放 | 276 | Turn/调度/执行/插件引用各有 owner，复用原 Runtime 退出事实，最后引用后清理，旧回调不影响新实例 |
-| 7 / P2 | [HXA-278](tasks/HXA-278.md)：Skill 渐进装载、失效与压缩一致性 | 272、273；推荐 275 后 | 内容正确性先交付，收益用固定任务证明；不保留生产双策略 |
-| 8 / P2 | [HXA-279](tasks/HXA-279.md)：UI 观察事实、Browser 标签发现与有界等待 | 276、277 | scope/deadline/取消有效，未知动作不重放，有界任务对照 |
-
-HXA-278/279 的原准备与接线依赖已经随各自切片完成，不再等待 275/276/277 重新开发。HXA-235 保留安装/引用/取消更新/进程死亡的原验收，HXA-277 只承接新增原生资源；HXA-271 保留已有系统授权恢复产品行为及验收，HXA-274 已扩展同源投影并替换所涉恢复导航承载接口。HXA-252 的发现提示和既有 R1/R3/J1/J2/视觉能力不重新立项。
-
-**目标实现约束。** Skill、native 与 MCP 使用同一工具治理链，按真实执行边界选择 adapter，Mobile Use 保持 native。旧 Skill 注入、Browser built-in 发布和被替换的内部接口随任务删除；不安排旧版数据库/会话/批准迁移、双写或兼容桥。开发期持久化按现行 baseline 规则处理；本轮计划更新不操作数据。当前外部包格式的互操作支持与旧 Helix 兼容是不同范围。
-
-**条件队列。** 外部异步 provider（F）先确定一个服务与 start/status/wait/collect/cancel 语义；文件流程（G）先选一项格式/任务及双渠道可用依赖。具体准备步骤保留在[候选索引](candidate-decisions.md#插件研究的条件性增量)，暂不创建无服务或格式输入的实现 HXA。MCP 服务端导出、Code Mode、任意 hooks/LSP 执行和完整定位器仍按各自进入条件处理；HXA-275 只诊断支持范围。
-
-### 系统分层优化承接（2026-10-11）
-
-本节保留2026-10-11系统分层分析的原承接与交付边界，不是待实施队列。Owner要求将AgentLoop/Core/UI/Turn/工具/权限分析纳入原计划与ADR；[源码分析与去重表](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)、[当前架构](../architecture/overview.md)已同步。当前排期看上方Next task；此处整理不新增HXA或改变设备验收结论。
-
-| 优先级 / 实施位置 | 承接任务 | 本次补充与完成边界 |
-| --- | --- | --- |
-| P1 / 原队列 1～4 | HXA-272～275 | 内容/调用资格先行；274 内按“结构化原因与恢复目标 → 同源投影和页面消费 → 删除旧导航回调/重复 ready 推导 → 生命周期验证”实施，275 复用结果。只收窄实际恢复消费者，不重做271系统授权中心 |
-| P2 / 原队列 5～6 | HXA-276、277 | 先 Browser 单一贡献，再补真实资源的 owner/引用/释放；277 明确 Turn live owner、Scheduler 槽位、Executor/Runtime 容量及插件引用的区别，复用原退出/对账事实，无第二执行注册表 |
-| P2 / 原队列 7～8 | HXA-278、279 | 沿原依赖完善内容与观察；279 消费277的实际 owner/generation，不自行解释 Runtime 是否结束 |
-| 原条件项；2026-10-15已调整 | 应用入口收窄、完整 Turn 宿主提取 | 旧阶段要求实际新消费者；本次评审以当前 App/Room 解耦与完整无页面测试为明确需求，已归 HXA-287。当前依赖与验收看上方 Next task，不再套用旧进入条件 |
-
-对应有效决定已补入 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md) 的应用入口/表现/执行边界与 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 的恢复投影和原生资源条款；HXA-274恢复投影及HXA-277资源契约代码已交付，验收以各自任务为准。原权限与工具准入规则继续适用，不另建“总引擎”ADR。完整Turn宿主提取仍未实施；2026-10-14新增执行边界设计见[Harness方案 §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，不从设计文档推导实现或验收。
-
-HXA-220/223 的 Engine owner、HXA-234 的 Core 迁移、HXA-254～258 的应用接口/测试桥/状态与事务收敛均复用原交付；不以 ChatService 行数、变成空壳、全量 MCP 化或分出更多模块作为退出条件。已有 HXA-269/270/271 当前切片及真实故障优先规则不变，完整设备/OEM/长稳/账号矩阵独立保留。
-
-### 既有验收与发行分支
-
-2026-10-10 架构审查后的维护切片依据[系统/测试审查](../research/topics/architecture-and-test-maintenance-audit-2026-10-10.md)已交付：HXA-253解决主机fixture漏测，HXA-254/255收敛项目/权限应用接口，HXA-256完成生产测试桥清理，HXA-257/258交付会话状态owner与元数据事务，HXA-259完成22个项目/Provider页面功能归属的主机验证，HXA-260完成路径级清理和复杂类/构建条件取舍。HXA-261～266已完成各自有界性能、页面/压缩、日志、停止/进程恢复、资源pilot和Goal/Skill旅程。已有能力不重复开发，不以ChatService行数或变成空壳作为退出条件。历史未知截断及未覆盖故障组合/OEM/长稳仍保留证据边界；黑屏已按Owner规则关闭，不能再次列为待办，也不能由结构变化推导其他问题已改善。
-
-上方 main 本地整合及授权回归已收敛；v0.0.5 发布仍遵循精确提交 CI 成功后生成制品的门禁。下表保留后续开发路线；本次只关闭实际执行并有证据的验证项，不自动宣称完成全部 HXA/OEM/真实账号验收。
-
-HXA-239 本地实现和主机整合完成；J2-1 AUTO 与 J2-2 用户后台按钮现由 HXA-248 完成本地主机/API36 Runtime/UI，真实模型组合边界仍开放。Project Memory 转 HXA-246 收尾验收，不重复其已交付接线，也不重做 HXA-238 或 HXA-236 基础 join、上下文/进展以及 R2-A/R3。前置检查点 `9d0ab5c0` 不自动证明本轮输入体验，239 使用自己的交付证据；固定 P5 仍需选定 clean 提交、指定设备和模型，真实内测另需试用者。
-
-| 顺序/分支 | 剩余工作 | 依赖与退出条件 |
-| --- | --- | --- |
-| 1．既有重构验收余项 | HXA-251有限补验已交付；HXA-264增加双渠道停止/队列/Goal取消/恢复组合和14个实际进程死亡边界，HXA-265增加双900秒同PID资源pilot，HXA-266当前Goal/Skill模型旅程通过 | 后续按具体验收切片处理完整取消/恢复交叉矩阵、其他IME/OEM及长稳；不重复已通过旅程，设备/账号仍须当轮授权 |
-| 2．J2-1 → J2-2 | [HXA-248](tasks/HXA-248.md) 本地主机及 API36 Runtime/UI 八项通过；HXA-249 新编码真实 J1/AUTO 各 1/1 | 当前模型协议失败已修复；其他服务与跨生命周期组合仍开放，有限通过不关闭全部设备范围 |
-| 3．Project Memory | HXA-246 本地主机与 API36 双渠道 UI/Memory 各六项、项目记忆进程死亡恢复通过 | 其他设备/真实摘要质量和长稳仍保留，不重复已交付接线与本轮 UI 旅程 |
-| 条件性补验 | HXA-232 故障矩阵/真实恢复；233/234/235/236/237/238/239 设备；125/126/190 服务；同候选 P5/独立内测 | 指定设备、账号及当次授权；缺条件只阻塞对应项，不把 fixture、编译或旧绿色当通过 |
-| 有证据再做 | R2-B、工具发现/Mobile Use、模型/Memory 效果与长稳 | 固定对照或实际瓶颈；区分完成率、时延、成本、资源与 OEM，不凭减少 token 宣称提升 |
-| 发行 | HXA-120 → 122 → 121 → 123 | 渠道审计→身份/签名/升级承诺→同签名候选验收→材料/提交；发布另需明确授权 |
-
-上述表格保留既有工作的交付与验收分支，不承担当前排期。PDF/DOCX阅读已由HXA-284交付主机及10月15日API36/真实模型有界验收，其他格式、编辑/生成、视频、子Agent和远程能力不随该交付启用。真实用户试用尚未执行，P0～P4、P7和R1的已有交付不重排为底座开发。
-
-后续结构与功能投入由实际瓶颈决定，选择方法见[开发策略](feature-refactor-strategy.md)，目标契约见[Harness 方案](../architecture/harness-refactor-plan.md)，非重构依赖见[内测](internal-pilot.md)和[发行就绪](release-readiness.md)。账号、真机和发行输入不阻塞无依赖的本地工作。
-
-最近记录的 clean 正式 P5 来自 `92e93bf5`，固定 15/15 与准备 smoke 1/1 通过，详见[Runtime / Provider 设备收口](../evidence/development/runtime-provider-device-closeout-2026-09-30.md)和[系统基线](harness-system-baseline.md)。此前 `8c7a95b4` 和各 candidate 证据保留；新改动不自动继承历史绿色。
-
-## Blocked
-
-| 项目 | 缺少条件 / 决策 |
+| 范围 | 条件或边界 |
 | --- | --- |
-| 16 KiB 物理巡检 | Android 15+、16 KiB 页面物理硬件 |
-| HXA-125 受保护 Connector | Notion/Linear真实账号切片已结案；其他Connector契约按原任务范围维护，WorkBuddy来源样本已有 |
-| HXA-126 外部验收 | Notion/Linear真实服务测试已结案，不再追加授权、自然刷新或恢复验收；保留实际通过与未执行边界。自有HTTPS/App Link与发行签名属于发行准备 |
-| HXA-190 真实订阅 | Claude/Grok 付费账号不可用，按所有者决定暂缓；fixture 不替代 |
-| 发布验收 | HXA-122 的稳定 applicationId、渠道命名、签名与升级路径；保持 120 → 122 → 121 → 123 的发行顺序 |
+| 本轮验收 | 文档精简、工作区规划、小优化和容量调整正在进行；新候选的主机/日常 ARM64 结果尚未完成，不继承终端布局候选通过 |
+| 真实服务 | Notion/Linear 全部测试已结案；Claude/Grok 付费账号按 Owner 决定暂缓，不追加调用。其他服务另需指定输入及当前授权 |
+| 设备/资源 | 其他 API/OEM、物理低内存/热压/Doze/16 KiB 硬件、24h 与全部 Runtime 组合未由日常模拟器覆盖 |
+| 发行 | 稳定应用身份、签名/升级与渠道材料仍按[发行就绪](release-readiness.md)；本轮仅本地提交，历史一次性发布/删数据授权不沿用 |
 
 ## Current interfaces
 

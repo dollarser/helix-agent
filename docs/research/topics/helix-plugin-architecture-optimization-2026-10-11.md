@@ -2,7 +2,7 @@
 
 日期：2026-10-11。本文保存 Helix 的差距、建议、设计取舍、实施顺序及验收条件。参考产品机制、样本身份、权限事实和来源集中在[Agent 插件架构调研](agent-plugin-architecture-research-2026-10-11.md)；本方案引用该证据，不另行维护外部产品说明。
 
-当前实施顺序由 [status](../../development/status.md#插件优化队列2026-10-11)维护；安装生命周期和异步执行沿用 [Harness 方案](../../architecture/harness-refactor-plan.md)。2026-10-11 所有者要求结合当前代码将建议拆为具体任务，HXA-272～275 已有界本地交付，276～279 已登记并按当前授权继续实施；最新进度以 status 为准；F/G 和其他有进入条件的能力留在候选索引。本文维护设计取舍与研究映射，不另维护第二份排期。
+HXA-272～279 已有界交付，事实入口见 [status](../../development/status.md#已交付与历史证据)；安装生命周期和异步执行沿用 [Harness 方案](../../architecture/harness-refactor-plan.md)。本文保留 2026-10-11 设计取舍与任务映射，F/G 和其他有进入条件的能力留在候选索引，不据历史实施顺序选择当前任务。
 
 2026-10-11 所有者进一步要求同步 ADR：新增任务的目标决定已写入四份现有主题 ADR，见 [HXA→ADR 归属表](../../adr/README.md#插件优化任务的-adr-归属2026-10-11)。本文保留研究依据，当前有效契约以对应 ADR 为准；设计接受不等于实现或验收完成。
 
@@ -324,7 +324,7 @@ CUA 的 JS REPL / Code Mode 是另一项设计选择。若 Helix 以后提供脚
 
 ## 7 任务承接与验收
 
-本节将研究切片映射到开发控制面。任务范围和验收在 HXA 中维护，优先级、默认执行顺序和硬依赖只由 [status](../../development/status.md#插件优化队列2026-10-11)维护；[roadmap](../../development/roadmap.md)登记任务清单。
+本节将研究切片映射到开发控制面。任务范围和验收在 HXA 中维护，历史交付由 [status](../../development/status.md#已交付与历史证据)维护；[roadmap](../../development/roadmap.md)登记任务清单。
 
 ### 7.1 代码复核与任务承接
 
@@ -356,7 +356,7 @@ CUA 的 JS REPL / Code Mode 是另一项设计选择。若 Helix 以后提供脚
 
 ### 7.3 验收边界
 
-同日[系统分层分析](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)的新增范围并入原 HXA-274/277，应用/表现边界联动 ADR-AGENT-001；不增加任务或 ADR 编号。具体切片顺序见 [status](../../development/status.md#系统分层优化承接2026-10-11)。274 增加无 UI 订阅、恢复目标失效与页面重建；277 分别核对 Turn live owner、调度槽位、实际执行容量和插件引用，复用已有 fixture。完整 Turn 宿主提取保留真实消费者进入条件，不成为八项插件工作的前置。
+同日[系统分层分析](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)的新增范围并入原 HXA-274/277，应用/表现边界联动 ADR-AGENT-001；不增加任务或 ADR 编号。历史交付见 [status](../../development/status.md#已交付与历史证据)。274 增加无 UI 订阅、恢复目标失效与页面重建；277 分别核对 Turn live owner、调度槽位、实际执行容量和插件引用，复用已有 fixture。完整 Turn 宿主提取保留真实消费者进入条件，不成为八项插件工作的前置。
 
 先冻结任务、模型、页面/App 版本和权限条件，再做基线/候选对照。按具体 HXA 验证同名来源、调用资格、部分可用、保存但未加载、更新/停用、旧回调、tab/host 失效、等待超时和像素未披露。使用合成账号/本地 fixture 检查确定性契约；设备和真实模型按当轮明确授权，编译与 fixture 不代替实际旅程。
 

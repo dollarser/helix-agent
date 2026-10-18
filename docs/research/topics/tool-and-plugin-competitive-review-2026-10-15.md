@@ -241,7 +241,7 @@ MCP 下一项实用补充是**资源消费闭环**：列举／分页、模板发
 
 ## 7. 评审后的任务承接
 
-2026-10-15 已将本次评审与 [Harness §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 合并安排。研究不再维护另一份 P0～P3 排序；下表只索引已采用建议的归属，实施顺序与状态统一查看 [status](../../development/status.md#next-task)。
+2026-10-15 已将本次评审与 [Harness §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 合并安排。研究不再维护另一份 P0～P3 排序；下表只索引已采用建议的归属，已记录的设计依赖与状态查看 [status](../../development/status.md#后续架构队列未启动)。
 
 | 研究建议 | 承接任务与边界 |
 | --- | --- |
@@ -365,7 +365,7 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 - 资源/Workspace 层负责真实资源、版本、能力和可用性；执行适配层负责工作副本物化、guest 路径与实例 generation；会话/Turn 层负责绑定、请求快照、原调用及持久结算；产物层负责发布与引用。Memory 仍属内容域，不因落盘而并入执行器。
 - 输入采用有界的“来源引用＋可确认版本 → guest 相对目标”manifest，保留层级并拒绝冲突/越界。复制中的内容变化需报告或拒绝，不能声称拿到了全目录原子快照。运行前能发现真实映射，不让模型猜后缀。
 - 产物注册、展示、模型实际读取、回写原文件分别留事实。回写单独按当下授权和源版本处理；Provider 真支持条件写才提供该保证，先 hash 后写不等于原子 CAS。
-- SAF 原生读写继续直连 Provider。需要 Shell 时显式物化，相关任务工具绑定副本，之后明确导回/发布；不能让 read 留在源目录而 bash 悄悄写副本，也不强迫所有 SAF Provider 实现完整 POSIX。
+- URI-native 消费者直接使用 Provider；只有不能使用 URI、确需 POSIX 桥接的消费者才物化。相关任务工具明确源/目标，不能让 read 留在源目录而 bash 悄悄写副本；不强迫任意 Provider 实现 POSIX。远程能访问真实工作区时可原位工作，不因远程固有复制。
 - 若未来选定远程真实旅程，再定义 endpoint 认证、环境身份核验、传输授权、lease、去重 receipt 和断线对账。保持一个 Turn owner，不提前建 Host/Node/Device 目录、同步平台或通用 transport；同名路径不代表同一资源。
 
 ### 11.4 近期优化与重构承接
@@ -374,7 +374,7 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 
 **近期仍是计划，未借本次文档工作实施。** 优先补实际环境/cwd、live/snapshot、输入映射、产物位置和准确失败反馈；现有 Job 默认快照保持。目录选择器补搜索及来源辨认：项目/会话名称、相对子目录和可用状态用于区分重名，完整引用放详情，不清理用户已有目录。此次日常模拟器上的大量来源已证明可发现性成本，尚未做选择器改造。
 
-输入 manifest、跨工具同副本、嵌套 cwd 和显式导回属于 286～288 的共同契约与完整路径替换；不为了短期显示而修补成第二套映射。既有身份、授权及存储边界保留，废弃的内部 DTO/别名直接删除。Git 可在明确任务中选 worktree/diff；非 Git 使用明确副本和导出，不要求 Git 化所有目录，也不添加文件冲突全局执行锁。
+输入 manifest、跨工具同资源、嵌套 cwd 和显式导回属于 286～288 的共同契约与完整路径替换；不为了短期显示而修补成第二套映射。既有身份、授权及存储边界保留，废弃的内部 DTO/别名直接删除。默认直接操作真实工作区，worktree/snapshot 显式选择，非 Git 目录不强制复制或 Git 化，不添加文件冲突全局执行锁。
 
 可执行切片、退出条件和 HXA 归属见 [§23.7.3](../../architecture/harness-refactor-plan.md#2373-目录优化与工作副本迁移检查点)，失败矩阵见 [§23.8](../../architecture/harness-refactor-plan.md#238-验证矩阵收益与接受条件)。顺序仍为 286 → 287-A/288-A → 最小真实 Room 联合路径；本次研究不自动启动重构、远程平台或新增设备/账号验收。
 
@@ -387,3 +387,7 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 当前 Helix 已有 [GitWorkspaceReader](../../../app/src/main/kotlin/com/helix/app/git/GitWorkspaceReader.kt)与 [GitStatusScreen](../../../app/src/main/kotlin/com/helix/app/ui/GitStatusScreen.kt)，提供 JGit 的 staged/unstaged 只读状态和差异；不能写成“完全没有 diff”。缺口是按原调用关联的有界变更记录、非 Git 文件差异，以及明确区分写前审批预览和写后效果的工具卡片。Git 累积差异不能自动归因给某次工具调用，也不能证明所有写入均可撤销。
 
 目标取舍：交互式任务持续使用同一 binding 的工作区，文件/exec/终端共享实际文件面；批处理或受限后端保留显式快照及目录/版本映射。Git 并行任务可选择 worktree，普通非 Git 目录不必复制或 Git 化。产物发布与源文件写回分开，源变更冲突保留结果，SAF 如实声明条件写能力。变更记录/卡片 diff 列入原 286/288 接缝验收，本次收尾不实现该功能或整体执行重构。
+
+### 11.6 2026-10-19：原位默认与近期边界
+
+Owner 明确默认选定真实工作区原位操作，独立终端无需聊天，worktree/snapshot 显式选择。对照 [VS Code 终端](https://code.visualstudio.com/docs/terminal/basics)在工作区起始并独立管理实例、[Claude Code worktrees](https://code.claude.com/docs/en/worktrees)为并行隔离显式创建 checkout，以及 [ContentResolver](https://developer.android.com/reference/android/content/ContentResolver#openOutputStream(android.net.Uri))按 URI 打开输出流：采用能力决定桥接，而非按 URI/远程标签一律复制。Provider 可写不推导 Shell/Git 或原子条件写能力；远程协议仍未立项。287/288 必须同时验原位与显式快照的权限/身份/恢复；当前 `code.linux.run` 保持快照到完整迁移，近期只改善真实来源、模式、输出与既有冲突/Git 入口，不提前实现通用变更账本或逐调用 diff。
