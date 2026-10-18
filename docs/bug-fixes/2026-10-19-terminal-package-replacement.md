@@ -55,6 +55,8 @@ Scope: Owner 报告手机覆盖安装后 UNKNOWN / RUNTIME_LOST、重连及新�
 
 临时测试 APK、四个逐项核验的具名夹具目录已删除；旧终端日志/工作区/用户数据保留。日常模拟器保持可见，安装最终 ARM64 R8 修复包，停留终端启动页。未发送聊天或调用模型，未操作 GitHub Release。
 
+Owner 随后追加顶部布局反馈：删除正常运行时独立的标签、目录/状态与操作行，合并为单行返回、终端选择、键盘、关闭和更多；新建入口在终端选择菜单，关闭仍直接绑定点击时的终端身份。普通元数据放入可滚动“终端信息”，异常及未连接处理直接显示；帮助补充后台保留、独立 Job 和起始目录语义。参考设计与取舍记录在原 ADR，三套语言资源同步，既有 UI 验收路径改为按需打开信息并核对原 Runtime 状态，未削弱退出/数据断言。该追加仅执行 `spotlessCheck detekt :app:compileDeveloperDebugKotlin :app:compileDeveloperDebugAndroidTestKotlin :tests:release-smoke:compileDebugAndroidTestKotlin :app:lintDeveloperDebug`（启用既有 Release smoke 模块）及文档/ADR/i18n/Secret 静态检查，全部通过；完整日志在忽略目录 `build/terminal-layout-2026-10-19/`。未运行主机或设备测试、未安装候选；上表实际设备通过属于布局变更前的候选，不是新布局的设备验收。
+
 ## Residual risk
 
 - 开发阶段曾有新增 CAS 测试遗漏合法中间状态、跨模块可空属性编译、格式/复杂度和新 API 常量 lint 失败；逐项修正后重新通过，没有删除或放宽断言。

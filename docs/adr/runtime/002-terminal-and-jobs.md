@@ -98,6 +98,8 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 
 ## Decision history
 
+- 2026-10-19：Owner 要求说明后台保留、聊天 Job 与手动终端的关系及起始目录，并继续压缩顶部占用。采用单行导航/终端选择/键盘/关闭/更多，普通目录和阶段移入按需信息，异常状态直接可见；“新建终端”随终端选择展开，不再为两个终端常驻第二行。参考 [VS Code 终端管理](https://code.visualstudio.com/docs/terminal/basics)、[Android app bar](https://developer.android.com/develop/ui/compose/components/app-bars) 和 [48dp 触控规范](https://developer.android.com/develop/ui/compose/accessibility/api-defaults)，采用移动端单行信息层次和完整触控区，没有复制参考源码。帮助明确返回只 detach、关闭结束所选进程树（包括 `&` 后台子进程）、租期/空闲限制和 `cd` 与创建映射的区别；聊天 Job 身份和输入副本保持独立。布局调整不新增永久后台任务、模型 PTY 或自动续期。
+
 - 2026-10-19 追加：Owner 报告手机覆盖安装后终端 UNKNOWN/无法新建，并明确关闭应一次终止终端中的全部进程。日常 API36 ARM64 相同版本/签名覆盖安装已复现；修复在原 PTY 生命周期中增加上述包更新证明和单步关闭，拒绝将失败 ATTACH 当只读连接，保留丢失 START 回执的原身份。Android 退出原因与更新流程参考 [ApplicationExitInfo](https://developer.android.com/reference/android/app/ApplicationExitInfo) 和 [AOSP InstallPackageHelper](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/services/core/java/com/android/server/pm/InstallPackageHelper.java)；没有复制上游代码或新增执行域。设备复现不外推手机/OEM 通过，修复验收单列。
 
 - 2026-10-19：Owner 再次要求手动终端独立于聊天。源码核对侧栏入口不传聊天 ID，默认目录与 PTY 身份已独立，关闭/切换聊天不结束终端；本轮将 UI 的“启动/停止会话”和“结算并关闭”改为终端操作名称，帮助明确无需创建或选择聊天，并纠正架构页残留的旧启动步骤。没有新增模型 PTY、改变人工入口授权、Advanced 限制、租期或进程恢复语义；源码核对不作为新设备验收。

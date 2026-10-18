@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="terminal_help">Help</string>
+    <string name="terminal_info">Terminal info</string>
+    <string name="terminal_leave">Leave terminal running</string>
+    <string name="terminal_state_running">Running</string>
+    <string name="terminal_help_background">Going back or leaving the page disconnects the view and keeps commands running. Close terminal stops the selected terminal and all its child processes, including commands started with &amp;; other terminals and conversation tasks are unaffected. The default lease is two hours, with reclamation after 30 minutes detached. Output does not extend these limits. App updates, runtime termination by Android, or device restarts may also stop the processes.</string>
+    <string name="terminal_help_directory">The initial directory is the directory mapped to /workspace when creating a terminal, not its current working directory. cd changes only this terminal; use pwd to see its location. Reconnecting keeps that location.</string>
+    <string name="terminal_help_jobs">Conversation Bash commands and Linux Jobs run separately from this interactive terminal. A Job uses its own input copy for /workspace, so the same path need not refer to the manual terminal’s files.</string>
     <string name="terminal_show_keyboard">Show keyboard</string>
     <string name="terminal_hide_keyboard">Hide keyboard</string>
     <string name="terminal_more_keys">More keys</string>

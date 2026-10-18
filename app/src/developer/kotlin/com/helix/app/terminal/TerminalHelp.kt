@@ -35,6 +35,9 @@ internal fun TerminalHelp(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(stringResource(R.string.terminal_initial_help))
+                Text(stringResource(R.string.terminal_help_background))
+                Text(stringResource(R.string.terminal_help_directory))
+                Text(stringResource(R.string.terminal_help_jobs))
                 Text(stringResource(R.string.terminal_shared_workspace))
                 Text(stringResource(R.string.terminal_execution_busy_help))
                 Text(stringResource(R.string.terminal_help_input))

@@ -33,13 +33,13 @@ class OwnerTerminalRecoveryUiTest {
             SystemClock.sleep(500)
         }
         click("启动终端")
-        await("RUNNING")
+        inspectRunningStatus()
         assertFalse(nodes().any { it.text?.toString()?.contains("操作未完成") == true })
     }
 
     @Test fun liveTerminalHasWritableConnectionAfterReentry() {
         require(arguments.getString("ownerTerminalRecovery") == "inspect-live")
-        await("RUNNING")
+        inspectRunningStatus()
         assertTrue(await("显示键盘").isEnabled)
         assertFalse(nodes().any { it.text?.toString()?.contains("只读观察模式") == true })
     }
@@ -50,6 +50,13 @@ class OwnerTerminalRecoveryUiTest {
         SystemClock.sleep(1500)
         val labels = nodes().mapNotNull { it.text?.toString() }
         assertFalse(labels.any { "操作未完成" in it || "关闭未完成" in it })
+    }
+
+    private fun inspectRunningStatus() {
+        click("终端选项")
+        click("终端信息")
+        await("正在运行")
+        click("关闭")
     }
 
     private fun nodes(): List<AccessibilityNodeInfo> {

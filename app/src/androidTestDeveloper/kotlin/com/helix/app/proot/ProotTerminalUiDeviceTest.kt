@@ -23,6 +23,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
+import com.helix.app.R
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.terminal.ManualTerminalActivity
@@ -67,7 +68,10 @@ class ProotTerminalUiDeviceTest {
             ActivityScenario.launch<ManualTerminalActivity>(intent).use { scenario ->
                 awaitNode("terminal-viewport")
                 awaitPhase("RUNNING")
+                openInfo()
                 compose.onNodeWithTag("terminal-workspace").assertTextContains(relative, substring = true)
+                compose.onNodeWithTag("terminal-info-close").performClick()
+                compose.onNodeWithTag("terminal-workspace").assertDoesNotExist()
                 compose.onNodeWithTag("terminal-help-content").assertDoesNotExist()
                 compose.onNodeWithTag("terminal-menu").performClick()
                 compose.onNodeWithTag("terminal-help").performClick()
@@ -203,12 +207,22 @@ class ProotTerminalUiDeviceTest {
     }
 
     private fun awaitPhase(phase: String) {
+        openInfo()
+        val localized = AppLanguageStore.wrapForLocale(context, AppLanguageStore.effectiveLocaleList(context))
+        val label = if (phase == "RUNNING") localized.getString(R.string.terminal_state_running) else phase
         compose.waitUntil(10_000) {
             compose
-                .onAllNodes(hasTestTag("terminal-state") and hasText(phase, substring = true))
+                .onAllNodes(hasTestTag("terminal-state") and hasText(label, substring = true))
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
+        assertEquals(phase, runBlocking { checkNotNull(container.manualTerminal).query().phase })
+        compose.onNodeWithTag("terminal-info-close").performClick()
+    }
+
+    private fun openInfo() {
+        compose.onNodeWithTag("terminal-menu").performClick()
+        compose.onNodeWithTag("terminal-info").performClick()
     }
 
     private fun awaitNode(tag: String) {

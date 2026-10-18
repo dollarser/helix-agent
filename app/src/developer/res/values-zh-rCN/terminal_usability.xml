@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="terminal_help">帮助</string>
+    <string name="terminal_info">终端信息</string>
+    <string name="terminal_leave">离开终端，保留运行</string>
+    <string name="terminal_state_running">正在运行</string>
+    <string name="terminal_help_background">返回或离开页面只断开查看，命令继续运行；“关闭终端”会终止所选终端及全部子进程，包括用 &amp; 启动的后台命令，不影响其他终端或聊天任务。默认租期两小时，断开三十分钟后空闲回收；持续输出不延长期限，应用更新、系统结束运行时或设备重启也可能终止进程。</string>
+    <string name="terminal_help_directory">起始目录是新建终端时映射为 /workspace 的文件目录，不是当前所在目录。cd 只改变该终端的位置，可用 pwd 查看；重新连接会保留原位置。</string>
+    <string name="terminal_help_jobs">聊天中的 Bash／Linux Job 另行执行，不使用这个交互终端；Job 的 /workspace 来自其输入副本，与手动终端的同名路径不一定是同一份文件。</string>
     <string name="terminal_show_keyboard">显示键盘</string>
     <string name="terminal_hide_keyboard">收起键盘</string>
     <string name="terminal_more_keys">更多键</string>
