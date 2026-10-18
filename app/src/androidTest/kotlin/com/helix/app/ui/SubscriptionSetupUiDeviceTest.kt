@@ -55,7 +55,7 @@ class SubscriptionSetupUiDeviceTest {
                     null,
                     null,
                     true,
-                    { _, _ -> error("must not select") },
+                    { _, _, _ -> error("must not select") },
                     onManageModels = {
                         navigations++
                     },
@@ -77,7 +77,7 @@ class SubscriptionSetupUiDeviceTest {
                     null,
                     null,
                     true,
-                    { _, _ -> error("must not select") },
+                    { _, _, _ -> error("must not select") },
                 )
             }
         }

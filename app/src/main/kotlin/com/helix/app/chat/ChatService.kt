@@ -1361,9 +1361,14 @@ class ChatService(
         requestedSession: String?,
         providerId: String,
         modelId: String,
+        reasoning: ReasoningEffort? = null,
+        expected: SessionModelSelectionSnapshot? = null,
     ): kotlinx.coroutines.Deferred<SessionModelSelectionResult> =
         sessionActions.submit {
-            val result = submissionGate.withLock { commitModelSelection(requestedSession, providerId, modelId) }
+            val result =
+                submissionGate.withLock {
+                    commitModelSelection(requestedSession, providerId, modelId, reasoning, expected)
+                }
             if (result == SessionModelSelectionResult.APPLIED) {
                 refreshSessionsNow()
                 refreshScreen()
@@ -1388,30 +1393,39 @@ class ChatService(
         requestedSession: String?,
         providerId: String,
         modelId: String,
+        reasoning: ReasoningEffort?,
+        expected: SessionModelSelectionSnapshot?,
     ): SessionModelSelectionResult =
         synchronized(turnGate) {
-            val row = providerService.rows.value.firstOrNull { it.id == providerId }
             val draft = sessionDraft?.takeIf { it.session.id == requestedSession }
-            val busy = modelSelectionBusy(requestedSession, draft != null)
+            val session = draft?.session ?: requestedSession?.let(storage.sessions::find)
+            val current =
+                draft?.control ?: requestedSession?.let(sessionRunControls::forSession)
+                    ?: sessionRunControls.defaultSnapshot()
+            val actual = SessionModelSelectionSnapshot(session?.providerId, session?.modelId, current.reasoning)
+            val nextReasoning = reasoning ?: ReasoningEffort.OFF
+            val target = SessionModelSelectionSnapshot(providerId, modelId, nextReasoning)
             val rejection =
-                selectionRejection(
+                validateModelSelection(
                     requestedSession,
-                    openSessionId,
-                    busy,
-                    row?.chatSelectable == true,
-                    row?.let { modelId in it.conversationModels && it.modelSelectable(modelId) } == true,
+                    actual,
+                    target,
+                    expected,
+                    modelSelectionBusy(requestedSession, draft != null),
                 )
             if (rejection != null) return@synchronized rejection
+            if (actual == target) return@synchronized SessionModelSelectionResult.APPLIED
             val sessionId = requireNotNull(requestedSession)
             try {
-                val current = draft?.control ?: sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
-                val next = current.copy(reasoning = ReasoningEffort.OFF)
-                if (draft != null) {
-                    drafts.model(sessionId, providerId, modelId)
-                    drafts.control(sessionId, next)
-                } else {
-                    check(catalog.persistSettings(sessionId, providerId, modelId, next, null))
-                }
+                val next =
+                    if (draft != null) {
+                        drafts.modelAndReasoning(draft, providerId, modelId, nextReasoning)
+                            ?: return@synchronized SessionModelSelectionResult.BUSY
+                    } else {
+                        current.copy(reasoning = nextReasoning).also {
+                            check(catalog.persistSettings(sessionId, providerId, modelId, it, null))
+                        }
+                    }
                 if (openSessionId == sessionId) _runControl.value = next
                 conversationLaunchStore.selectDraftModel(providerId, modelId)
                 SessionModelSelectionResult.APPLIED
@@ -1419,6 +1433,43 @@ class ChatService(
                 SessionModelSelectionResult.FAILED
             }
         }
+
+    private fun validateModelSelection(
+        requestedSession: String?,
+        actual: SessionModelSelectionSnapshot,
+        target: SessionModelSelectionSnapshot,
+        expected: SessionModelSelectionSnapshot?,
+        busy: Boolean,
+    ): SessionModelSelectionResult? {
+        val row = providerService.rows.value.firstOrNull { it.id == target.providerId }
+        val sameModel = actual.providerId == target.providerId && actual.modelId == target.modelId
+        val rejection =
+            selectionRejection(
+                requestedSession,
+                openSessionId,
+                busy,
+                row != null && (sameModel || row.chatSelectable),
+                sameModel || row?.let {
+                    target.modelId in it.conversationModels &&
+                        target.modelId?.let(it::modelSelectable) == true
+                } == true,
+            )
+        return when {
+            expected != null && expected != actual -> SessionModelSelectionResult.SETTINGS_CHANGED
+
+            rejection != null -> rejection
+
+            actual != target && target.reasoning != ReasoningEffort.OFF &&
+                target.reasoning !in
+                providerService.reasoningOptions(
+                    requireNotNull(target.providerId),
+                    requireNotNull(target.modelId),
+                )
+            -> SessionModelSelectionResult.SETTINGS_CHANGED
+
+            else -> null
+        }
+    }
 
     /** Explicit UI confirmation only; model tool output cannot call this path. */
     @Suppress("CyclomaticComplexMethod") // Atomic revalidation of a user-confirmed multi-field change.

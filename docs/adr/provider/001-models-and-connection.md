@@ -14,7 +14,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 合法成功空目录表示当前没有候选，须清除旧目录候选并保留已选目标；查询失败与成功空目录分别保存。普通 API/订阅的空目录仍不能通过连接检查或触发额外生成。
 
 - HXA-307 增加 `BUNDLED_SERVICE` provisioning：项目提供的固定 HTTPS 云端服务，使用 Network + None credential。地址与公开 Client ID 由部署契约固定，不作为用户可编辑 API、秘密或身份凭据。标识仅附加到固定 `GET /models` 和 `POST /chat/completions`，拒绝重定向、路径/端口/来源变化和秘密认证头；不直连推理端口、不回退其他 Provider。
-- 内置服务不出现在 Provider 管理，只在对话模型选择中按网关目录展示。成功目录缓存 30 分钟、失败 1 分钟，打开时仅过期才刷新，另有显式刷新与短暂防连点；查询单飞合并，取消不发布半份结果。失败保留已有目录，无历史则为空；目录不能证明推理授权、连通性或模型能力，不发送推理健康探测、不伪造连接通过。首个已知 Qwen3.8-27B 保留其项目声明能力，后续新 ID 不继承视觉/工具支持；未知窗口与推理档位保持未知。新草稿不自动选静态模型，已有明确选择、Session/Turn 目标不改写，错误仍由真实调用处理。
+- 内置服务不出现在 Provider 管理，只在对话模型选择中按网关目录展示。成功目录缓存 30 分钟、失败 1 分钟，打开时仅过期才刷新，另有显式刷新与短暂防连点；查询单飞合并，取消不发布半份结果。失败保留已有目录，无历史则为空；目录不能证明推理授权、连通性或模型能力，不发送推理健康探测、不伪造连接通过。首个已知 Qwen3.8-27B 保留其项目声明能力，后续新 ID 不继承视觉/工具/思考强度支持；窗口仍未知。已知 Qwen3.8-27B 的思考档位按下述固定官方模板契约提供，不从目录成员关系推断。新草稿不自动选静态模型，已有明确选择、Session/Turn 目标不改写，错误仍由真实调用处理。
 - 内置服务向用户披露消息、上下文、工具结果、所选图片会发送至项目云端；未知留存/训练政策不作承诺。共享 ID 的额度归服务端管理，不显示为每用户额度。401 与用户 API Key 错误区分，429 不猜测具体配额原因/重置时间，502/504 分别呈现服务故障/超时；只支持显式手动重试，不自动重放部分流、不自动切换付费模型。错误显示读取原调用快照身份，不使用后来改变的会话默认值。
 
 - Endpoint 分类只描述首跳连接地址，不能证明下游数据驻留或此前已按 host:port 授权。回环可能是转发器；UI 使用本机/局域网/公网/自定义地址等连接标签，不宣称数据不会离开设备。`ON_DEVICE_LOCAL` 仍表示直接设备内推理，连接标签不改变网络、工具或会话授权。
@@ -23,7 +23,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 - 2026-10-09 HXA-249：Chat Completions 在 wire 编码时聚合连续前导 SYSTEM 文本为一条同角色消息，以兼容已复现拒绝多 system 的模型服务。保留文本顺序、原历史/来源与观察数据标记，不移动后置 system、不改权限或工具绑定，不做失败后的协议回退/自动重试。仅编码投影，其他协议沿用其原契约。
 
-- 会话输入区只保留一个模型入口；模型选择展开页内继续选择推理强度。切换提交完成前不暴露旧模型推理选项，可用强度仍来自实际所选模型能力。
+- 会话输入区只保留一个模型入口；弹窗内暂存模型与该待选模型的推理强度，点击行不提交或关闭。切换待选模型先将待选强度重置为默认，再显示该模型选项；只有“保存”把二者一次提交后关闭。“取消”、返回、外部关闭均丢弃；重开读取已保存值。目录刷新不替换待选目标，新候选已失效时禁止保存；真实会话/已保存模型或强度变化废弃旧编辑，重建只恢复同身份编辑。
 
 - Provider 管理首页按构建渠道提供入口：Standard/consumer 只有本地模型与 API / 自建服务；Advanced/developer 额外提供订阅账号。订阅受构建依赖、来源解析和适配器准入共同限制，不仅隐藏按钮；旧受管记录不删除但不能在 consumer 调用。配置页统一命名为“模型”，常驻分类直接切换相应来源，不再增加来源首页及重复标题。开发者包中的交互/权限模式不改变安装包渠道。
 - **按接入方式分类，不按付费方式分类。** Kimi Code、MiniMax Token Plan 等若使用 endpoint + API Key，属于 `USER_CONFIGURED`，两渠道均可接入；不登记为 managed subscription，不要求专用登录 Runtime。套餐 Key 与按量 Key 的适用范围由厂商决定，Helix 不自动切换计费来源。
@@ -34,7 +34,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 订阅首页按管理登录、管理对话模型、检查账号连接排序；精确模型的基础生成测试、能力检测和上下文设置集中在模型详情，不在账号首页重复。模型名称与整行可勾选，只保留一个候选选择框。未接入完整目录的适配器明确范围，不能用单一模型回退伪装完整服务端目录；未返回上下文窗口时明确未知，估算值不能冒充官方上限。
 - 模型偏好和显示名称更新不废止已有连接/能力证据；真实接入配置和相关本地运行参数变化仍失效。能力检测绑定精确 provider/model 与配置生命周期，不先修改来源基础模型；检测 B 不外推 A 或其他模型的工具能力。
 
-- 用户在没有活动轮次或待确认发送时选择会话 Provider/model；草稿只改内存，首次发送才持久化。不修改其他会话或 Provider 默认值，不自动发送。历史消息保留，每轮保存实际目标快照，模型切换重置推理到默认。
+- 用户在没有活动轮次或待确认发送时选择会话 Provider/model；草稿只改内存，首次发送才持久化。不修改其他会话或 Provider 默认值，不自动发送。历史消息保留，每轮保存实际目标快照。普通程序化切换继续重置到默认；选模弹窗保存显式选择的合法强度。
 - **Provider 分类采用正交维度，不使用一个 `API | SUBSCRIPTION | LOCAL` 枚举同时表达所有事实。** 产品 UI 可以提供 `API / Self-hosted`、`Subscription / Managed account`、`On-device` 三组，但底层至少分别记录 provisioning/ownership、transport、residence 与 auth source。
 - provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`BUNDLED_SERVICE`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。内置来源只提供对话选模和必要的数据处理告知，不提供用户配置卡片。
 - transport 表示“模型请求怎么送达”：`Network(protocol, endpoint)` 或 `OnDeviceLocal`。`MANAGED_ACCOUNT` 通常仍走 `Network`；`USER_CONFIGURED` 也可以指向 loopback、LAN 或公网。
@@ -54,7 +54,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ### 选择回执、模型健康与账号生命周期
 
-- 模型候选保存不等于会话切换。用户选择立即进入发送同序队列；对话框等待实际提交回执。忙碌、会话已变化和不可用分别反馈，持久模型与推理重置一起提交；不修改活动 Turn。
+- 模型候选保存不等于会话切换。用户点击保存才进入发送同序队列；对话框等待实际提交回执。保存比较原会话、原 Provider/model 和原强度，重校验忙碌及当前可选性。忙碌、会话/设置已变化、不可用或失败保持弹窗，不改活动 Turn；持久模型与显式推理强度在同一 Room 事务提交，其他运行设置取当前值保留。草稿仍只更新内存，在物化共用锁内一次比较并替换模型与强度，物化先获锁则拒绝保存，不返回虚假成功。保存中禁用重复提交，异步回执绑定原会话/编辑请求代次，不能关闭或污染新弹窗；取消不冒充已提交撤回。
 - 来源连接、精确模型基础生成、可选能力分开记账。基础模型 A 的普通生成错误不能使同来源 B 失效；认证/来源错误影响来源。订阅认证目录成功不产生基础生成成功证据；显式生成检测单独披露资源/额度使用。
 - Runtime 公开本地账号状态与随机登录 revision，不公开凭据或账号身份。新登录、退出和损坏使旧账号证据与在途探测失效；刷新保留登录 revision。旧凭据刷新不得复活退出、覆盖新登录或删除较新的成功轮换。暂时不可查询不等于已退出。
 - AgentLoop 以准入冻结的精确模型创建适配器，后续回填/压缩/继续使用同一目标。账号/接入状态变化不能静默换目标；本地校验不承诺撤回远端已经接受的请求。
@@ -185,3 +185,13 @@ Owner 要求不再强调数据不出设备。移除回环和 LAN 标签中的驻
 合法成功的空目录与查询失败分开：空目录移除缓存候选但保留用户已选目标，临时失败保留上次目录。普通 API/订阅的空目录仍不能通过连接检查或触发额外生成；该区分不扩大推理探测范围。
 
 Owner 将静态内置卡片/生成探测收敛为上述纯目录路径；目录结果、推理成败和精确能力分别表达。采用 [OpenCode 模型选择](https://opencode.ai/docs/models/)的统一选模入口思路与 [Material Compose Tabs](https://developer.android.com/develop/ui/compose/components/tabs)的同层导航，来源页面可横向滚动，聊天配置动作等宽单列，避免窄屏 2+1；不引入新的 UI 框架或模型回退。HXA-307 承接实现与验证。
+
+## Decision history — 2026-10-18：显式保存与 SGLang 思考契约
+
+Owner 要求选模后保留弹窗，模型与思考强度仅由“保存”共同生效；取消/返回不生效，并移除普通插件页的内部 revision。采用 [Material Dialog](https://developer.android.com/develop/ui/compose/components/dialog) 的确认/取消语义，复用现有发送有序准入、事务及草稿 owner，不新增并行设置事实。
+
+Owner 允许按最新开源 SGLang 检查，部署不支持时由 Owner 升级。官方 Qwen 仓库/模板是客户端根据模型名选择的已知适配参考，Owner 未确认实际部署的模型仓库或模板。本次核实 [SGLang v0.5.21](https://github.com/sgl-project/sglang/releases/tag/v0.5.21)；其 [ModelCard](https://github.com/sgl-project/sglang/blob/v0.5.21/python/sglang/srt/entrypoints/openai/protocol.py) 无思考档位枚举，[Chat 实现](https://github.com/sgl-project/sglang/blob/v0.5.21/python/sglang/srt/entrypoints/openai/serving_chat.py) 将 `reasoning_effort` 传入模板。请求 schema 接受参数不能证明某模型模板生效。
+
+[官方 Qwen3.8-27B 模板固定版本](https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/chat_template.jinja) 接受 `low/medium/xhigh`，默认 `xhigh`，直接 `high` 无效。Helix 为精确内置 ID 提供默认/低/中/高，高映射 `xhigh`；默认省略参数，不能称为关闭思考。模板提示不等于严格 token 预算或效果保证；未知新模型不继承。模板 CPU 渲染、请求编码与真实网关推理分别验收，白名单未确认时不宣称部署成功。
+
+竞品接口并不统一：[Codex App Server model/list](https://learn.chatgpt.com/docs/app-server#models) 返回受支持档位；[OpenRouter Models](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#discovering-per-model-reasoning-options) 可返回 `reasoning.supported_efforts/default_effort` 等元数据，[OpenCode variants](https://opencode.ai/docs/models/#variants) 采用 Provider/模型适配。Helix 采用精确可信声明优先、已核实固定契约补充的方式，不将 SGLang 通用 schema 或目录成功冒充能力检测，不在每次打开弹窗时推理探测。未来网关若提供模型档位声明，可接既有元数据机制；本次未扩展部署 API。

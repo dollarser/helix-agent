@@ -2009,4 +2009,6 @@
     <string name="builtin_model_rate_limit">内置模型触发共享服务限制，可能涉及请求频率、额度或并发。请稍后手动重试，或自行选择其他模型。</string>
     <string name="builtin_model_service_error">内置模型服务暂时无法连接或网关异常，请稍后重试。</string>
     <string name="builtin_model_timeout">内置模型响应超时，请稍后重试。</string>
+    <string name="model_selection_settings_changed">模型或思考设置已变化，请重新选择并保存。</string>
+    <string name="builtin_reasoning_contract_notice">默认沿用服务端的思考设置，不代表关闭思考。当前服务的实际效果尚待验证。</string>
 </resources>

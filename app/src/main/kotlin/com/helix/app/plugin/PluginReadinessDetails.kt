@@ -38,7 +38,6 @@ internal fun PluginReadinessDetails(state: PluginReadinessSnapshot) {
         Text(stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show))
     }
     if (expanded) {
-        Text(stringResource(R.string.plugin_revision, state.revision))
         state.components.forEach { component ->
             Text("${component.kind.name}: ${stringResource(componentStateLabel(component.state))}")
             if (component.requestState(state.selected, state.enabled) == PluginComponentState.REQUEST_UNAVAILABLE) {

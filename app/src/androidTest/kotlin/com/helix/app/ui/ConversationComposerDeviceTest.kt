@@ -183,23 +183,7 @@ class ConversationComposerDeviceTest {
     }
 
     @Test fun reasoningSelectionIsExplicitAndLockedDuringGeneration() {
-        val caps = ProviderCapabilities(true, true, false, false, false, false, 8192, CapabilitySource.PROBED)
-        val provider =
-            ProviderRowUi(
-                "fixture",
-                "Fixture",
-                ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                "https://example.test",
-                ProviderResidence.PUBLIC_CLOUD,
-                "selected-model",
-                false,
-                false,
-                ConnectionTestStatus.Passed(1, caps, listOf("selected-model")),
-                caps,
-                listOf("selected-model"),
-                emptyList(),
-                modelSelection = ProviderModelSelection(models = listOf("selected-model"), configured = true),
-            )
+        val provider = reasoningFixtureProvider()
         val reasoning = mutableStateOf(ReasoningEffort.OFF)
         val sending = mutableStateOf(false)
         var sends = 0
@@ -217,10 +201,16 @@ class ConversationComposerDeviceTest {
                             provider.id,
                             "selected-model",
                             !sending.value,
-                            { _, _ -> },
-                        ) {
-                            ComposerReasoningMenu(reasoning.value, !sending.value, { reasoning.value = it })
-                        }
+                            {
+                                _,
+                                _,
+                                effort,
+                                ->
+                                reasoning.value = effort
+                                com.helix.app.chat.SessionModelSelectionResult.APPLIED
+                            },
+                            reasoning = reasoning.value,
+                        )
                     },
                 )
             }
@@ -229,16 +219,38 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-medium").performClick()
+        compose.runOnIdle { assertEquals(ReasoningEffort.OFF, reasoning.value) }
+        compose.onNodeWithTag("chat-model-picker-save").performClick()
         compose.runOnIdle {
             assertEquals(ReasoningEffort.MEDIUM, reasoning.value)
             assertEquals(0, sends)
         }
+        compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-menu").performClick()
         compose.runOnIdle { sending.value = true }
         compose.onNodeWithTag("chat-model-menu").assertIsNotEnabled()
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-reasoning-medium").assertDoesNotExist()
         compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
+    }
+
+    private fun reasoningFixtureProvider(): ProviderRowUi {
+        val caps = ProviderCapabilities(true, true, false, false, true, false, 8192, CapabilitySource.PROBED)
+        return ProviderRowUi(
+            "fixture",
+            "Fixture",
+            ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+            "https://example.test",
+            ProviderResidence.PUBLIC_CLOUD,
+            "selected-model",
+            false,
+            false,
+            ConnectionTestStatus.Passed(1, caps, listOf("selected-model")),
+            caps,
+            listOf("selected-model"),
+            emptyList(),
+            modelSelection = ProviderModelSelection(models = listOf("selected-model"), configured = true),
+        )
     }
 
     @Test fun modelStaysBelowEditingAndReasoningLivesInsidePicker() {
@@ -259,7 +271,7 @@ class ConversationComposerDeviceTest {
                                     null,
                                     "A long model name",
                                     true,
-                                    { _, _ -> },
+                                    { _, _, _ -> com.helix.app.chat.SessionModelSelectionResult.APPLIED },
                                 )
                             },
                             contextUsage =

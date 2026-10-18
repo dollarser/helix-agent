@@ -42,7 +42,7 @@ class BuiltInModelUiDeviceTest {
                     null,
                     null,
                     true,
-                    { _, _ -> error("No models discovered") },
+                    { _, _, _ -> error("No models discovered") },
                     onConfigureSource = {},
                 )
             }
@@ -61,15 +61,18 @@ class BuiltInModelUiDeviceTest {
         val discovered = row.copy(builtInCatalog = BuiltInModelCatalog(1, listOf("future-model")))
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(discovered), null, null, true, { provider, model ->
+                ComposerModelMenu(listOf(discovered), null, null, true, { provider, model, _ ->
                     selected =
                         provider to model
+                    com.helix.app.chat.SessionModelSelectionResult.APPLIED
                 })
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
         reveal("chat-model-${row.id}-future-model")
         compose.onNodeWithTag("chat-model-${row.id}-future-model").performClick()
+        compose.runOnIdle { assertEquals(null, selected) }
+        compose.onNodeWithTag("chat-model-picker-save").performClick()
         compose.runOnIdle { assertEquals(row.id to "future-model", selected) }
     }
 
@@ -77,7 +80,10 @@ class BuiltInModelUiDeviceTest {
         var selections = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, "previous-model", true, { _, _ -> selections++ })
+                ComposerModelMenu(listOf(row), row.id, "previous-model", true, { _, _, _ ->
+                    selections++
+                    com.helix.app.chat.SessionModelSelectionResult.APPLIED
+                })
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()

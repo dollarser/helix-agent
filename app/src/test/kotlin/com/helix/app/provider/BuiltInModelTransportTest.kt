@@ -93,6 +93,27 @@ class BuiltInModelTransportTest {
         server.stop(0)
     }
 
+    @Test fun officialQwenEffortsUseExactWireValuesAndDefaultOmitsTheParameter() =
+        runBlocking {
+            val efforts = com.helix.core.model.ReasoningEffort.FALLBACK
+            for (effort in efforts) {
+                val events = provider.stream(request.copy(reasoning = effort)).toList()
+                assertTrue(events.any { it is ModelEvent.Completed })
+                val body =
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement(requests.last().second)
+                val encoded = (body as kotlinx.serialization.json.JsonObject)["reasoning_effort"]
+                val expected =
+                    when (effort) {
+                        com.helix.core.model.ReasoningEffort.OFF -> null
+                        com.helix.core.model.ReasoningEffort.HIGH -> "xhigh"
+                        else -> effort.name.lowercase()
+                    }
+                assertEquals(expected, (encoded as? kotlinx.serialization.json.JsonPrimitive)?.content)
+            }
+            assertEquals(efforts.size, requests.size)
+        }
+
     @Test fun textImagesAndFragmentedToolCallsUseExistingAdapterAndPublicHeader() =
         runBlocking {
             reply = { respond(it, 200, TOOL_STREAM) }

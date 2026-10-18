@@ -98,11 +98,19 @@ class SessionModelDeviceTest {
                     chat.setReasoning(ReasoningEffort.MEDIUM)
                     compose.onNodeWithTag("chat-model-menu").performClick()
                     compose.onNodeWithTag("chat-model-$alternate-fixture-model-c").performClick()
+                    compose.runOnIdle {
+                        assertEquals(
+                            "fixture-model-b",
+                            chat.screen.value.badge
+                                ?.model,
+                        )
+                    }
+                    compose.onNodeWithTag("chat-model-picker-save").performClick()
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                         chat.screen.value.badge
                             ?.model == "fixture-model-c"
                     }
-                    compose.onNodeWithTag("chat-model-picker-close").assertDoesNotExist()
+                    compose.onNodeWithTag("chat-model-picker-save").assertDoesNotExist()
                     assertEquals(ReasoningEffort.OFF, chat.runControl.value.reasoning)
                     assertEquals(alternate, storage.sessions.resolve(id).providerId)
                     assertEquals(history, storage.messages.listBySession(id))

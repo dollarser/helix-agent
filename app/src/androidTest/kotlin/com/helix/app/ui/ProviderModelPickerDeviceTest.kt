@@ -134,7 +134,13 @@ class ProviderModelPickerDeviceTest {
         val row = row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, "a", true, onSelect = { _, _ -> error("No candidate selected") })
+                ComposerModelMenu(listOf(row), row.id, "a", true, onSave = {
+                    _,
+                    _,
+                    _,
+                    ->
+                    error("No candidate selected")
+                })
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -164,9 +170,10 @@ class ProviderModelPickerDeviceTest {
         var selected: Pair<String, String>? = null
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(subscription, local), null, null, true, onSelect = { provider, model ->
+                ComposerModelMenu(listOf(subscription, local), null, null, true, onSave = { provider, model, _ ->
                     selected =
                         provider to model
+                    com.helix.app.chat.SessionModelSelectionResult.APPLIED
                 })
             }
         }
@@ -175,6 +182,8 @@ class ProviderModelPickerDeviceTest {
         compose.onNodeWithTag("chat-model-subscription-b").assertIsDisplayed()
         compose.onNodeWithText(localId).assertDoesNotExist()
         compose.onNodeWithTag("chat-model-local-$localId").performClick()
+        compose.runOnIdle { assertEquals(null, selected) }
+        compose.onNodeWithTag("chat-model-picker-save").performClick()
         compose.runOnIdle { assertEquals("local" to localId, selected) }
     }
 
@@ -184,7 +193,7 @@ class ProviderModelPickerDeviceTest {
                 .copy(modelSelection = ProviderModelSelection(listOf("a"), configured = true))
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(subscription), null, null, true, onSelect = { _, _ -> error("Hidden") })
+                ComposerModelMenu(listOf(subscription), null, null, true, onSave = { _, _, _ -> error("Hidden") })
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -193,40 +202,71 @@ class ProviderModelPickerDeviceTest {
         compose.onNodeWithTag("chat-model-empty").assertIsDisplayed()
     }
 
-    @Test fun reasoningWaitsForTheSelectedModelToBeApplied() {
+    @Test fun reasoningWaitsForSaveAndRejectedSaveKeepsTheDialog() {
         val current = androidx.compose.runtime.mutableStateOf("a")
-        val row =
-            row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
-                .copy(modelSelection = ProviderModelSelection(listOf("a", "b"), configured = true))
+        val actualReasoning = androidx.compose.runtime.mutableStateOf(com.helix.core.model.ReasoningEffort.OFF)
+        var succeeds = false
+        val row = reasoningFixtureRow()
         var requested: String? = null
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, current.value, true, { _, model -> requested = model }) {
-                    ComposerReasoningMenu(com.helix.core.model.ReasoningEffort.OFF, true, {})
-                }
+                ComposerModelMenu(listOf(row), row.id, current.value, true, { _, model, reasoning ->
+                    requested = model
+                    if (succeeds) {
+                        current.value = model
+                        actualReasoning.value = reasoning
+                        com.helix.app.chat.SessionModelSelectionResult.APPLIED
+                    } else {
+                        com.helix.app.chat.SessionModelSelectionResult.FAILED
+                    }
+                }, reasoning = actualReasoning.value)
             }
         }
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
         compose.onNodeWithTag("chat-model-api-b").performClick()
-        compose.runOnIdle { assertEquals("b", requested) }
-        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
-        compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
-        // A rejected or delayed switch can return to the actual model without reapplying it.
-        compose.onNodeWithTag("chat-model-menu").performClick()
-        compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed()
-        compose.onNodeWithTag("chat-model-api-a").performClick()
-        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
-        compose.runOnIdle { assertEquals("b", requested) }
-        compose.onNodeWithTag("chat-model-menu").performClick()
-        compose.onNodeWithTag("chat-model-api-b").performClick()
-        compose.runOnIdle { current.value = "b" }
-        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
-        compose.onNodeWithTag("chat-model-menu").performClick()
+        compose.runOnIdle {
+            assertEquals(null, requested)
+            assertEquals("a", current.value)
+        }
         compose.onNodeWithTag("chat-reasoning-menu").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("chat-reasoning-medium").assertIsDisplayed()
+        compose.onNodeWithTag("chat-reasoning-medium").performClick()
+        compose.runOnIdle { assertEquals(com.helix.core.model.ReasoningEffort.OFF, actualReasoning.value) }
+        compose.onNodeWithTag("chat-model-picker-save").performClick()
+        compose.onNodeWithTag("chat-model-save-error").assertExists()
+        compose.runOnIdle {
+            assertEquals("a", current.value)
+            succeeds = true
+        }
+        compose.onNodeWithTag("chat-model-picker-save").performClick()
+        compose.onNodeWithTag("chat-model-search").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals("b", current.value)
+            assertEquals(com.helix.core.model.ReasoningEffort.MEDIUM, actualReasoning.value)
+        }
     }
+
+    private fun reasoningFixtureRow(): ProviderRowUi =
+        row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
+            .copy(
+                modelSelection = ProviderModelSelection(listOf("a", "b"), configured = true),
+                modelMetadata =
+                    mapOf(
+                        "a" to
+                            com.helix.provider.api.ModelMetadata(
+                                reasoningEfforts =
+                                    com.helix.core.model.ReasoningEffort.FALLBACK
+                                        .drop(1),
+                            ),
+                        "b" to
+                            com.helix.provider.api.ModelMetadata(
+                                reasoningEfforts =
+                                    com.helix.core.model.ReasoningEffort.FALLBACK
+                                        .drop(1),
+                            ),
+                    ),
+            )
 
     private fun row(
         id: String,

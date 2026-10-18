@@ -2009,4 +2009,6 @@
     <string name="builtin_model_rate_limit">The built-in model hit a shared service limit, which may concern request rate, quota or concurrency. Retry manually later or select another model yourself.</string>
     <string name="builtin_model_service_error">The built-in model is unreachable or its gateway is unavailable. Try again later.</string>
     <string name="builtin_model_timeout">The built-in model response timed out. Try again later.</string>
+    <string name="model_selection_settings_changed">Model or reasoning settings changed. Select again and save.</string>
+    <string name="builtin_reasoning_contract_notice">Default uses the server’s reasoning setting; it does not turn reasoning off. This service’s actual behavior remains unverified.</string>
 </resources>

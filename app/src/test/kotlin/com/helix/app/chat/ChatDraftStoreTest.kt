@@ -4,6 +4,7 @@ import com.helix.core.agent.GoalBudgetDefaults
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.feature.files.AttachmentClassifier
 import org.junit.Assert.assertEquals
@@ -17,6 +18,62 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class ChatDraftStoreTest {
+    @Test fun modelAndReasoningCommitTogetherBeforeMaterializationAndPreserveOtherControls() {
+        val store = ChatDraftStore()
+        store.open(draft(), control())
+        val expected = requireNotNull(store.current)
+        store.control("draft", control().copy(chatToolsEnabled = true))
+        val applied = store.modelAndReasoning(expected, "next", "next", ReasoningEffort.HIGH)
+        assertEquals(control().copy(chatToolsEnabled = true, reasoning = ReasoningEffort.HIGH), applied)
+        store.persist("draft") {
+            assertEquals("next", it.session.modelId)
+            assertEquals(applied, it.control)
+        }
+        assertNull(store.modelAndReasoning(expected, "stale", "stale", ReasoningEffort.LOW))
+    }
+
+    @Test fun materializationWinningTheLockRejectsSaveAndNeverPersistsMixedFields() {
+        val store = ChatDraftStore()
+        store.open(draft(), control())
+        val expected = requireNotNull(store.current)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val materialize =
+                pool.submit {
+                    store.persist("draft") {
+                        entered.countDown()
+                        assertTrue(release.await(5, TimeUnit.SECONDS))
+                        assertEquals(expected, it)
+                    }
+                }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            val selection =
+                pool.submit<RunControlConfig?> {
+                    store.modelAndReasoning(expected, "next", "next", ReasoningEffort.HIGH)
+                }
+            release.countDown()
+            materialize.get(5, TimeUnit.SECONDS)
+            assertNull(selection.get(5, TimeUnit.SECONDS))
+        } finally {
+            release.countDown()
+            pool.shutdownNow()
+        }
+    }
+
+    @Test fun preparationAndStaleEditedFieldsRejectTheAtomicDraftUpdate() {
+        val store = ChatDraftStore()
+        store.open(draft(), control())
+        val expected = requireNotNull(store.current)
+        assertTrue(store.beginPreparation("draft"))
+        assertNull(store.modelAndReasoning(expected, "next", "next", ReasoningEffort.HIGH))
+        assertEquals(expected, store.current)
+        store.finishPreparation()
+        assertNotNull(store.modelAndReasoning(expected, "next", "next", ReasoningEffort.HIGH))
+        assertNull(store.modelAndReasoning(expected, "stale", "stale", ReasoningEffort.LOW))
+    }
+
     @Test fun metadataMaterializationPreservesAnExplicitTitleIncludingTheUiPlaceholder() {
         val store = ChatDraftStore()
         store.open(draft(), control())

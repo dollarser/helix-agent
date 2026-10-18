@@ -57,7 +57,7 @@ class ModelSourceNavigationDeviceTest {
                     null,
                     null,
                     true,
-                    { _, _ -> error("navigation must not select a model") },
+                    { _, _, _ -> error("navigation must not select a model") },
                     onConfigureSource = { destination = it },
                 )
             }
@@ -84,7 +84,7 @@ class ModelSourceNavigationDeviceTest {
                     null,
                     null,
                     true,
-                    { _, _ -> error("navigation must not select a model") },
+                    { _, _, _ -> error("navigation must not select a model") },
                     onConfigureSource = { destination = it },
                 )
             }
@@ -108,7 +108,7 @@ class ModelSourceNavigationDeviceTest {
                     null,
                     null,
                     true,
-                    { _, _ -> error("navigation must not select a model") },
+                    { _, _, _ -> error("navigation must not select a model") },
                     sourceGroups = ProviderProvisioningKind.entries,
                     onConfigureSource = { destination = it },
                 )

@@ -60,5 +60,10 @@ class ModelPluginLayoutDeviceTest {
             .performScrollTo()
             .assertIsDisplayed()
         captureChatLayout(compose.activity, "hxa307-plugin-details")
+        compose.onNodeWithTag("plugin-tab-0-bundled-plugin:browser").onParent().performScrollTo()
+        compose.onNodeWithTag("plugin-tab-0-bundled-plugin:browser").performScrollTo().performClick()
+        compose.onNodeWithTag("plugin-readiness-bundled-plugin:browser").performScrollTo().performClick()
+        val revisionLabel = compose.activity.getString(R.string.plugin_revision, 999).substringBefore("999")
+        compose.onNodeWithText(revisionLabel, substring = true).assertDoesNotExist()
     }
 }

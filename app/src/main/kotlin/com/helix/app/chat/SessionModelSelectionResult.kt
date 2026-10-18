@@ -11,8 +11,16 @@ enum class SessionModelSelectionResult(
     BUSY(R.string.model_selection_busy),
     PROVIDER_UNAVAILABLE(R.string.model_selection_provider_unavailable),
     MODEL_UNAVAILABLE(R.string.model_selection_model_unavailable),
+    SETTINGS_CHANGED(R.string.model_selection_settings_changed),
     FAILED(R.string.model_selection_failed),
 }
+
+/** Compare only the fields edited by the model picker; retain unrelated current session settings. */
+data class SessionModelSelectionSnapshot(
+    val providerId: String?,
+    val modelId: String?,
+    val reasoning: com.helix.core.model.ReasoningEffort,
+)
 
 internal fun selectionRejection(
     expectedSession: String?,

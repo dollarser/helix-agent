@@ -685,7 +685,20 @@ fun ChatScreen(
                                 actual == selected
                             }
                         },
-                        onSelectModel = chatService::selectSessionModel,
+                        onSaveModel = { provider, model, reasoning ->
+                            chatService
+                                .requestSessionModelSelection(
+                                    screen.openSessionId,
+                                    provider,
+                                    model,
+                                    reasoning,
+                                    com.helix.app.chat.SessionModelSelectionSnapshot(
+                                        screen.badge?.providerId,
+                                        screen.badge?.model,
+                                        runControl.reasoning,
+                                    ),
+                                ).await()
+                        },
                         onRefreshModels = providerService.builtInModels::refresh,
                         onSetMode = chatService::setMode,
                         onCommandMode = { mode ->
@@ -694,7 +707,6 @@ fun ChatScreen(
                         onDetectReasoning = { provider, model ->
                             providerService.discoverReasoningOptions(provider, model)
                         },
-                        onSetReasoning = chatService::setReasoning,
                         onSetChatTools = chatService::setChatToolsEnabled,
                         onInspectProot = chatService::inspectInterruptedProot,
                         onRecoverProot = chatService::recoverInterruptedProot,

@@ -25,6 +25,7 @@ import com.helix.app.chat.ChatService
 import com.helix.app.plugin.PluginService
 import com.helix.app.projects.ui.SessionProjectSection
 import com.helix.app.provider.ProviderService
+import com.helix.app.provider.discoverReasoningOptions
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ProviderProvisioningKind
 import kotlinx.coroutines.launch
@@ -85,11 +86,27 @@ internal fun SessionSettingsScreen(
                 providerId = screen.badge?.providerId,
                 model = screen.badge?.model,
                 enabled = !screen.isSending && screen.pendingDisclosure == null,
-                onSelect = chatService::selectSessionModel,
+                onSave = { provider, model, reasoning ->
+                    chatService
+                        .requestSessionModelSelection(
+                            sessionId,
+                            provider,
+                            model,
+                            reasoning,
+                            com.helix.app.chat.SessionModelSelectionSnapshot(
+                                screen.badge?.providerId,
+                                screen.badge?.model,
+                                runControl.reasoning,
+                            ),
+                        ).await()
+                },
                 onManageModels = onModels,
                 sourceGroups = providerService.sourceGroups,
                 onConfigureSource = onConfigureModelSource,
                 onRefreshModels = providerService.builtInModels::refresh,
+                reasoning = runControl.reasoning,
+                sessionKey = sessionId,
+                onDetectReasoning = providerService::discoverReasoningOptions,
             )
             OutlinedButton(
                 onClick = onModels,

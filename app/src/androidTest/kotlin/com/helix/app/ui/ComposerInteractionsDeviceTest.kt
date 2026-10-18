@@ -170,7 +170,7 @@ class ComposerInteractionsDeviceTest {
                                 "provider",
                                 "long-model-name",
                                 false,
-                                { _, _ -> },
+                                { _, _, _ -> com.helix.app.chat.SessionModelSelectionResult.APPLIED },
                             )
                         },
                     )

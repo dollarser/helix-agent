@@ -29,15 +29,29 @@ object BuiltInModel {
             toolCalls = true,
             parallelToolCalls = false,
             vision = true,
-            reasoning = false,
+            reasoning = true,
             jsonSchemaOutput = false,
             maxContextTokens = null,
             source = CapabilitySource.BUNDLED_CONTRACT,
         )
 
-    /** Only the explicitly supplied Qwen contract is known; directory membership adds no capabilities. */
+    /** Only the named bundled adapter contract is known; directory membership adds no capabilities. */
     fun capabilitiesFor(model: String): ProviderCapabilities =
-        if (model == MODEL_ID) capabilities else capabilities.copy(streaming = false, toolCalls = false, vision = false)
+        if (model ==
+            MODEL_ID
+        ) {
+            capabilities
+        } else {
+            capabilities.copy(streaming = false, toolCalls = false, vision = false, reasoning = false)
+        }
+
+    /**
+     * Client adaptation for upstream Qwen/Qwen3.8-27B template
+     * 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 (low/medium/xhigh).
+     * The deployment template is unconfirmed; this is not detected gateway or directory evidence.
+     */
+    fun reasoningOptionsFor(model: String): List<com.helix.core.model.ReasoningEffort> =
+        if (model == MODEL_ID) com.helix.core.model.ReasoningEffort.FALLBACK else emptyList()
 
     val connection =
         ProviderConnection(

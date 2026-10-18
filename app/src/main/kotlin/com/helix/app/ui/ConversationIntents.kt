@@ -29,10 +29,19 @@ data class ConversationIntents(
     },
     val onSetChatTools: (Boolean) -> Unit,
     val onSelectPermission: suspend (com.helix.core.model.SessionPermissionMode) -> Boolean = { false },
-    val onSelectModel: (String, String) -> Unit = { _, _ -> },
+    val onSaveModel: suspend (
+        String,
+        String,
+        com.helix.core.model.ReasoningEffort,
+    ) -> com.helix.app.chat.SessionModelSelectionResult = {
+        _,
+        _,
+        _,
+        ->
+        com.helix.app.chat.SessionModelSelectionResult.FAILED
+    },
     val onRefreshModels: (suspend (Boolean) -> Unit)? = null,
     val onDetectReasoning: (suspend (String, String) -> List<com.helix.core.model.ReasoningEffort>)? = null,
-    val onSetReasoning: (com.helix.core.model.ReasoningEffort) -> Unit = {},
     val onNew: () -> Unit = {},
     val onTasks: () -> Unit = {},
     val onNavigation: () -> Unit = {},

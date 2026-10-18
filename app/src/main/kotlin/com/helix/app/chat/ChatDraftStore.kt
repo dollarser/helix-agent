@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.feature.files.AttachmentClassifier
 
@@ -77,6 +78,33 @@ internal class ChatDraftStore {
         id: String,
         value: RunControlConfig,
     ) = update(id) { it.copy(control = value) }
+
+    /** Compare and replace the edited fields under the same lock used by materialization. */
+    fun modelAndReasoning(
+        expected: SessionDraft,
+        providerId: String,
+        modelId: String,
+        reasoning: ReasoningEffort,
+    ): RunControlConfig? =
+        synchronized(lock) {
+            val draft = current ?: return@synchronized null
+            val actual =
+                SessionModelSelectionSnapshot(draft.session.providerId, draft.session.modelId, draft.control.reasoning)
+            val original =
+                SessionModelSelectionSnapshot(
+                    expected.session.providerId,
+                    expected.session.modelId,
+                    expected.control.reasoning,
+                )
+            if (preparing || draft.session.id != expected.session.id || actual != original) return@synchronized null
+            val next = draft.control.copy(reasoning = reasoning)
+            current =
+                draft.copy(
+                    session = draft.session.copy(providerId = providerId, modelId = modelId),
+                    control = next,
+                )
+            next
+        }
 
     fun addAttachment(
         id: String,

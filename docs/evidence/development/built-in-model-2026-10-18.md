@@ -125,3 +125,58 @@ Owner 随后明确回答“是，保留当前设置继续验收”，确认上�
 最终两渠道 `changedTables` 均为空；全部用户表摘要、会话/选模、权限范围、显式禁用和关键偏好与各自当前基线相同。Standard 保留 Owner 已确认的手动设置，未恢复旧值。原生修订 Standard Browser 27 / Documents 26，Advanced Browser 13 / 其余 12，在该批及随后两次 R8 启动均不变。此前 Browser 因补齐工具 API 声明产生的指纹变化递增属于实际内容变化；没有清零内部计数。自有测试包已卸载，原语言、字体与旋转模式恢复，既有中文输入法配置未修改；两渠道均留下同源 R8，Advanced 处于前台。
 
 真实网关推理/图片/Agent 工具闭环仍为 **pending**，等待公开 Client ID 白名单；本追加收口未重复公网探测，也未调用既有自配 Key、订阅账号或其他付费来源来替代成功。目录夹具成功不能证明推理可用。真机/OEM/其他 API 矩阵与长稳未运行；本次仅日常 ARM64 模拟器的上述有界验收。完整主机/设备证据与失败诊断保留，本次仅创建本地提交，不推送、发布或更改既有 v0.0.6 tag/资产。
+
+## 最新追加：显式保存、思考档位与普通版本呈现
+
+本节对应 `608d4345` 之后的 Owner 反馈；不继承前轮通过结果。原生 revision 逻辑无需清零或再修改，普通就绪详情漏出的内部计数字段已移除；包详情继续显示声明版本 1，两渠道安装历史保留。
+
+根因：内置能力将 reasoning 标为不支持，而精确内置来源禁止通用付费能力探测；原会话模型行点击直接调用切换，推理下拉也即时调用运行设置 setter。这两处改为同一弹窗编辑状态，保存经原有有序队列、空闲检查、原会话/原设置比较和当前模型校验，Room 中一次提交模型与强度。草稿保持内存编辑和既有物化流程，保存保留其他当前运行设置。取消/返回、刷新、身份变化和重建分别处理；失败保持编辑，保存中阻止重复提交。草稿将模型和强度在物化使用的同一锁内比较并替换，物化先取得锁则保存返回忙碌，不能静默报告成功；新会话/新弹窗使用请求代次隔离，旧成功或失败回执不能关闭或污染新弹窗。
+
+### 开源与竞品核实
+
+Owner 允许按最新开源 SGLang 检查，部署不支持时由 Owner 升级。官方 Qwen 仓库和模板由本次研究选作客户端已知适配参考，Owner 未确认该仓库/模板就是当前部署，不能将其写成用户确认的部署契约。[v0.5.21 发布](https://github.com/sgl-project/sglang/releases/tag/v0.5.21)是本次查询的最新稳定版。其 [OpenAI ModelCard](https://github.com/sgl-project/sglang/blob/v0.5.21/python/sglang/srt/entrypoints/openai/protocol.py) 没有模型思考档位枚举；[Chat 入口](https://github.com/sgl-project/sglang/blob/v0.5.21/python/sglang/srt/entrypoints/openai/serving_chat.py) 把请求 `reasoning_effort` 传给模板。通用 schema 接受某字符串不证明具体模型模板生效。
+
+[官方 Qwen3.8-27B 模板](https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/chat_template.jinja)的固定版本接受 `low/medium/xhigh`；默认 `xhigh`，直接 `high` 拒绝。精确内置 ID 因此提供默认/低/中/高，高沿用现有编码映射 `xhigh`，默认省略参数；未知动态 ID 不继承这些档位。界面说明默认不是关闭思考，实际部署效果尚待验证，不把模板提示等同于严格 token 预算。
+
+在忽略的构建目录使用隔离 Jinja2 3.1.6 环境，直接获取固定版本官方模板并纯 CPU 渲染，6 项通过：低/中/xhigh 模板输入不同、默认等同 xhigh、raw high 拒绝、显式关闭模板产生空 think 前缀。结果 `build/hxa307-picker-reasoning/template/result.json` 与本地 helper `scripts/local/debug/2026-10-18/verify-qwen38-template.py` 保存来源和断言；未运行模型、未访问项目网关，测试依赖未进入应用或项目依赖。
+
+[Codex model/list](https://learn.chatgpt.com/docs/app-server#models)有专有 supportedReasoningEfforts/defaultReasoningEffort；[OpenRouter Models](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#discovering-per-model-reasoning-options)也有实际 per-model reasoning.supported_efforts/default_effort 等扩展；[OpenCode variants](https://opencode.ai/docs/models/#variants)体现 Provider 适配。这些不能当作 SGLang `/v1/models` 的通用标准。采用已有可信模型元数据优先，加精确官方模板契约，不引入启动/打开弹窗推理探测或新网关 API。
+
+### 验证诊断（最终结果见下）
+
+初轮格式与 Detekt 指出过长方法/复杂条件，已拆分当前字段比较和当前候选校验，未放宽规则；两个新增辅助函数因 return 换行推断 Unit 的编译错误已修复。首个完整门禁在并发审查修正后主动终止，日志保留为 `host-all-before-concurrency-fix.log`，不作为最终验收；最终候选重新冻结并完整执行。以下保留中间失败和定位过程，不计为最终通过；当前完整主机与双渠道最终结果见本节末。真实公开 Client ID 网关仍待白名单，没有调用自配 Key 或订阅替代。
+
+首批新保存 UI 的 7 项中 5 项通过，2 项在打开思考下拉后调用 Espresso.pressBack 时发生 RootViewWithoutFocusException；正常保存、失败重试、保存中防重与旧回执隔离均通过。失败位于 Espresso 的 root 选择，改为项目既有 Instrumentation/UiAutomation 注入真实设备事件，保留所有取消/已保存状态断言。`device-205054` 为不完整批次，不计最终通过；finally 清理后再次严格核对全部 Standard 表、选择、权限、禁用与关键偏好均与该批前置基线一致。原语言、字体/旋转和自有测试包已恢复/清理，未清空用户数据。
+
+夹具复核另将重开会话的等待条件改为组合 screen/runControl，确认已恢复持久模型和完整运行设置后再断言，避免读取旧 screen 或关闭后的临时默认值；同时补充真实外侧点击关闭与重开保持保存值的检查。此处只修正验收同步和补充覆盖，不改变生产保存逻辑。
+
+事件夹具首次尝试引用未配置的 UiDevice 类型，AndroidTest 编译拒绝；已改用项目现有 SDK 注入方式，未新增依赖、未跳过用例。失败编译日志与前一完整主机门禁分别保留，最终测试 APK 以新成功构建为准。
+
+`device-211117` 的新保存 UI 7/7 通过，包含取消、真实返回/外侧点击、重建、重复保存与旧回执隔离；Room 类因一个表达式协程方法推断出非 void 返回，被 JUnit 在初始化时拒绝，5 项未执行。已统一为 `runBlocking<Unit>`，不删除/跳过断言；该诊断批次不计完整验收。清理后严格核对全部用户表、权限、禁用及偏好保持，恢复核查保留。
+
+`device-211427` 的新 UI 再次 7/7；Room 5 项均失败，根因为隔离 ProviderService 没有调用生产启动所需的 refresh，rows 保持初始空列表，表现为 badge 等待超时和 PROVIDER_UNAVAILABLE。已补齐夹具启动刷新与精确候选就绪等待，生产校验不变；该批不计通过。清理后全部日常表、权限、禁用和偏好严格保持。
+
+`device-211834` 新 UI 7/7、Room 4/5 通过；唯一失败为正向旅程等待超时。首先加强为 Compose waitUntil 等待并断言实际 APPLIED 回执；后续 device-212242 仍在重开时超时，确认根因为夹具将 RunControlConfig 与存储 SessionRunControlRecord 比较，非同类型永不相等。已把存储记录完整转换为运行配置后比较，并保留实际回执及后续请求断言、增加模拟响应 COMPLETED 断言；没有扩大超时。两批全部日常数据再次严格复核保持。
+
+`device-212705` 新 UI 7/7、隔离 Room 5/5、真实横屏 1.8 倍字体 7/7 全部通过，正向实际回执/重开/请求 xhigh 与模拟响应 COMPLETED 均通过。R8 首次冷启动严格摘要断言失败，唯一差异为 android_metadata 的 locale 从 zh_CN 变为系统实际 zh_CN_#Hans；用户表、关键偏好、权限、安装与显式禁用完全保持，未直接改库。普通启动此前只等 am start -W 即结束，可能尚未以原语言打开数据库。运行器现在先自然启动原应用并等待实际页面，允许且单独记录仅该内部语言元数据的基线规范化；测试后恢复原语言时同样等待页面与原 locale 摘要，再做全表比较。保留原语言选择和系统配置，不用手写 SQLite locale 或清库掩盖差异；该批仍不记完整 R8 通过，最终两渠道另跑。
+
+### 最新追加最终结果
+
+最终候选以 `608d4345` 加本轮冻结源码/资源/构建输入成功构建，测试 APK 另以相同输入编译。安装前验证签名、Room 基线及无活动 Turn，安装后读回 APK 字节核对；输入映射在完整门禁、设备验收及提交前保持一致。本地提交固定这些输入，不将 APK 内的基线提交元数据描述为本次提交后的干净构建。
+
+执行命令为 `./scripts/check-all.sh --all`、`:app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest`，以及本地保数据 runner `hxa307-catalog-closeout.py --picker`。完整必选门禁退出 0，含格式/Detekt/lint、JVM、Debug/Release/R8、依赖锁和制品边界。应用 JVM Standard **1315 通过/4 条件跳过**，Advanced **1440 通过/4 条件跳过**，失败/错误均为 0；新增 6 项 JVM 方法均执行通过，含 3 项草稿物化交错、2 项编辑状态和请求四档编码。Registry 89、框架 263、存储 242、Mobile Use 311、Provider API 119、Core Model 163、文件 130、Browser 45、QuickJS 103 的相关 JVM 结果均通过。未变模块可复用 Gradle 相同输入缓存；新增用例本轮实际执行。应用汇总器因既有外部输入条件跳过标为 INCOMPLETE，不能称为零跳过；必选门禁自身成功。
+
+最终设备 runner 退出 0，结果目录 `build/hxa307-picker-reasoning/device-213658/`，对应 `device-final.log`、`host-all-final.log`、`android-test-final.log`、`final-jvm-complete/` 和 `candidate-source-inputs.json`。设备为日常 `Helix_API_36` / `emulator-5554` / API36 / ARM64。
+
+| 渠道 | 竖屏 1080×2400 | 真实横屏 2400×1080 / 1.8 倍字体 | R8 冷启动/进程重启 | 最终失败/跳过 |
+| --- | --- | --- | --- | --- |
+| Standard | 40 | 16 | 2 | 0 / 0 |
+| Advanced | 42 | 16 | 2 | 0 / 0 |
+
+114 次方法执行包含跨渠道/方向重复，不是 114 个不同用例。新保存 UI 各方向 7 项覆盖取消、设备返回与外侧点击丢弃、重开已保存值、Saveable 状态恢复、目录移除、会话变化、失败重试、保存中防重和旧回执隔离。两渠道 Room 各 5 项使用独立 UUID 数据库、内存偏好与脚本 SSE，验证实际 APPLIED 回执、模型/强度共同持久化、重开、下一次请求 model 与 xhigh、模拟响应 COMPLETED、忙碌/过期/未知档位拒绝、其他设置保留，以及草稿延后物化。没有用会清理日常数据的旧 SessionModelDeviceTest 作为此批设备入口；其改动仅编译。
+
+完整集合还复验动态目录/隐藏/已选保留、来源导航、Composer 同排、完全访问文字和普通插件版本；Advanced 额外执行原生版本/修订/实例/禁用/repair 两项。逐类校验实际 DisplayFrames 与截图方向；已查看 Standard 横屏 API/插件版本 1、Advanced 竖横屏订阅来源截图，来源同排且滚动内容无重叠。既有“Qwen API”与已配置 Key 状态属于保留的用户来源，不是内置网关验证结果。
+
+原应用先自然启动，单独记录仅 android_metadata 的语言基线规范化；恢复原语言后等待实际页面与原 locale 摘要，再作全表比较。最终两渠道 changedTables 均为空，全部用户表、关键偏好、会话选模、权限范围、安装内容与显式禁用保持，原生 revision 不变；同源 R8 两次启动后仍保持全部表。没有直接改库、清零计数或恢复旧手动设置。自有测试 APK 已卸载，原语言/字体/旋转与中文输入法配置保留，两渠道留下同源 R8，Advanced 前台可用。
+
+官方固定模板的 6 项 CPU 验证与上述本地请求编码均通过，但未运行 SGLang GPU 后端，也未调用项目网关推理、图片或真实 Agent 工具闭环。公开 Client ID 白名单和实际部署模型仓库/模板、参数透传仍 **pending**；客户端已知模板适配不能代替这些确认。没有使用既有自配 Key、订阅或付费来源替代，没有推送、发布或更改 v0.0.6 tag/附件。

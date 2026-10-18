@@ -508,26 +508,15 @@ internal fun ConversationSection(
                     screen.badge?.providerId,
                     screen.badge?.model,
                     !screen.isSending && screen.pendingDisclosure == null,
-                    intents.onSelectModel,
+                    intents.onSaveModel,
                     onManageModels = intents.onManageModels,
                     sourceGroups = modelSourceGroups,
                     onConfigureSource = intents.onConfigureModelSource,
                     onRefreshModels = intents.onRefreshModels,
                     openRequest = modelPickerRequest,
-                    reasoningContent = {
-                        ComposerReasoningMenu(
-                            runControl.reasoning,
-                            !screen.isSending && screen.pendingDisclosure == null,
-                            intents.onSetReasoning,
-                            efforts = screen.badge?.reasoningEfforts.orEmpty(),
-                            onDetect =
-                                screen.badge?.takeIf { it.providerId != null }?.let { badge ->
-                                    intents.onDetectReasoning?.let { detect ->
-                                        { detect(requireNotNull(badge.providerId), badge.model) }
-                                    }
-                                },
-                        )
-                    },
+                    reasoning = runControl.reasoning,
+                    sessionKey = screen.openSessionId,
+                    onDetectReasoning = intents.onDetectReasoning,
                 )
             },
             permissionMode = permissionMode,
