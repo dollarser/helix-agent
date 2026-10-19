@@ -68,3 +68,11 @@
 
 
 后续 Owner 追加的十模型同语料主机/设备对照见[移动 ASR 测量](mobile-asr-comparison-2026-10-19.md)。其中新的新建加载、无测量开销的吞吐与实时节奏数据，应按该记录的固定方法阅读，不与本页初轮逐块 PSS 采样的处理耗时直接混用；本页保留当时执行事实。
+
+## 正式采用确认
+
+Owner 在十模型比较后明确要求使用当前方案正式接入。核查确认：`OfflineAsrFactory`、录音控制器和编辑面板已经位于 `app/src/main`，Standard/Advanced 普通构建均默认包含固定双语模型和 ASR-only JNI；不需要 `helix.asrValidation` 或 `helix.asrBenchmark`。这两个属性分别只用于保护现有安装的独立验证包及实验测试源集，不是正式功能开关。
+
+再次执行普通构建（不传上述属性）：`:app:verifyAsrAssets :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerRelease :app:assembleDeveloperRelease --offline --console=plain`，全部成功。检查两渠道普通 Debug APK 中四个必要模型文件、许可目录和实验原生库排除；Standard 包名为 `com.helix.agent`，版本仍为 0.0.6 / code 1。文档检查通过（936 Markdown / 290 HXA）。本次没有修改运行代码，不重复计入前轮设备检查，也没有覆盖设备原安装或清除数据。
+
+常规可安装 Debug 产物保存在 `build/asr/deliverables/Helix-Standard-debug.apk` 和 `Helix-Advanced-debug.apk`；本地构建日志、产物校验记录分别为 `build/asr/formal-integration-build.log`、`build/asr/formal-integration-artifacts.json`。Release 构建通过只证明打包/R8，本轮没有签名发布或新增 Release 设备验收。真实口述仍待 Owner 主动体验。
