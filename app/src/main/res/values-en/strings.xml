@@ -1804,7 +1804,7 @@
     <string name="system_voice_title">System speech</string>
     <string name="system_voice_input_available">System speech input is installed. Actual recognition depends on the selected service.</string>
     <string name="system_voice_service_only">A recognition service is installed, but it provides no speech input screen Helix can open. Use your keyboard microphone or enable a compatible input app in system settings.</string>
-    <string name="system_voice_tts_count">%1$d system text-to-speech engines detected. Helix does not currently read messages aloud.</string>
+    <string name="system_voice_tts_count">%1$d system text-to-speech engines detected. Response reading uses a separate local Melo voice, independently of these services.</string>
     <string name="system_voice_language_hint">Helix offline input supports Chinese and English. Other system voice apps manage their own language settings.</string>
     <string name="system_voice_privacy">Helix voice input uses its bundled offline model on this device. The system services inspected here are separate apps and may use their own online services.</string>
     <string name="system_voice_input_settings">Speech input settings</string>

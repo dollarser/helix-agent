@@ -72,6 +72,8 @@ internal fun ConversationSection(
         ),
 ) {
     val context = LocalContext.current
+    val reader = (context.applicationContext as? com.helix.app.HelixApplication)?.readAloud
+    ReadAloudLifecycle(reader, screen.openSessionId)
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
     // (the user backed out) is ignored.
@@ -401,6 +403,7 @@ internal fun ConversationSection(
                         if (!turn.state.isTerminal && !turn.streamingText.isNullOrBlank()) {
                             MessageRow(
                                 MessageUi("streaming", "assistant", turn.streamingText.orEmpty()),
+                                readAloud = false,
                                 searchQuery = activeSearchQuery,
                                 isCurrentMatch = "streaming" == currentTargetId,
                             )
@@ -579,7 +582,10 @@ internal fun ConversationSection(
                     onSkills = intents.onSkills,
                     onConnectors = intents.onConnectors,
                     onSessionSettings = intents.onSettings,
-                    onVoice = { voiceOpen = true },
+                    onVoice = {
+                        reader?.leave()
+                        voiceOpen = true
+                    },
                     onSend = intents.onSend,
                     onStop = {
                         val turnId = screen.activeTurn?.id

@@ -7,7 +7,7 @@
 - accepted [ADR-PLATFORM-001](001-distribution.md)：产品完整性与渠道分发
 - accepted [ADR-PLATFORM-002](002-browser-lifecycle.md)：浏览器 View 与逻辑标签生命周期
 - accepted [ADR-PLATFORM-003](003-storage-encoding.md)：领域值的严格存储编码
-- accepted [ADR-PLATFORM-004](004-offline-voice-input.md)：本地语音草稿输入与后续 TTS 评估边界
+- accepted [ADR-PLATFORM-004](004-offline-voice-input.md)：本地语音草稿输入与主动回复朗读
 - accepted [ADR-PLATFORM-005](005-local-reminders.md)：本机备忘、日历重复、通知与错过恢复；不触发后台 Agent
 
 2026-10-11 在 ADR-PLATFORM-002 接受 HXA-276/277/279 的 Browser 贡献边界、观察引用、标签发现与有界等待；代码尚未实施。

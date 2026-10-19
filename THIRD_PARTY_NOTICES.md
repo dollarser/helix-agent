@@ -4,6 +4,17 @@ Helix source code is licensed under Apache License 2.0. Third-party libraries,
 tools, runtime assets, models, and command-line artifacts retain their own
 licenses and are not relicensed by the Helix project.
 
+## Local speech
+
+ASR and optional Melo reply reading use the pinned sherpa-onnx/ONNX Runtime
+inputs in `config/asr/dependencies.lock.json`. The custom JNI build excludes
+Piper/eSpeak and retains the shared dependency notices under APK assets
+`asr-licenses/` and `tts-licenses/`. Optional Melo INT8 weights, lexicon and text
+rules are MIT licensed; their source revision, download URLs and integrity are
+recorded in `config/tts/model.lock.json`. These resources download only after
+the user chooses to install the local voice. Build modifications and scope are
+documented in `scripts/build-tts-assets.py` and ADR-PLATFORM-004.
+
 ## JGit local TLS correction
 
 The app uses Eclipse JGit `6.10.0.202406032230-r` under its upstream EDL-1.0

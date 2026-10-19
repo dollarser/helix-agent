@@ -214,6 +214,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        (application as HelixApplication).readAloud.leave()
         // A Root manager may revoke policy without killing an existing libsu shell. Never retain
         // developer Root authority after the app leaves the foreground; REQUESTING is preserved
         // so the manager's grant dialog can complete normally.

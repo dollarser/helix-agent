@@ -97,6 +97,7 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 - **本机执行不等于数据完全离线。** 使用远程模型时，对话和任务所需的文件片段、工具结果或图像可能发送给所选模型服务。
 - 设备内对话模型在本地推理，但下载、网页和联网工具仍可能访问网络；对话模型权重不随 APK 提供。
 - 语音输入内置约 58 MiB 的中英双语离线模型，无需系统识别服务。点击麦克风后边说边预览，结束后可编辑并加入草稿，仍需主动发送；取消或失败保留原草稿。语音音频不上传、不保存，单次最多 120 秒。
+- 完整回复的消息操作提供本机朗读与停止/重播。首次需明确下载约 57.8 MiB 的 Melo INT8 单音色资源；文本不发送到云端，下载完成不会自动播放。切换会话、退后台、启动语音输入或丢失音频焦点时停止。
 - 系统权限与工具授权分别管理。按需开放访问范围，并查看实际执行状态；模型说“完成”不等于操作已被验证。
 - 停止任务不会撤销已经发生的外部操作。首次体验请使用测试资料或副本。
 
@@ -107,7 +108,8 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 ```sh
 git clone https://github.com/dollarser/helix-agent.git
 cd helix-agent
-python3 scripts/build-asr-assets.py  # pinned ASR-only JNI + offline speech model; host only
+python3 scripts/build-asr-assets.py  # pinned offline ASR inputs; host only
+python3 scripts/build-tts-assets.py  # pinned ASR+Melo JNI and test resources; host only
 ./gradlew :app:assembleConsumerDebug
 # 需要进阶构建时：
 ./gradlew :app:assembleDeveloperDebug

@@ -4,13 +4,15 @@
 
 ## 当前实施
 
-Owner 授权知识库后继续的 [HXA-309](tasks/HXA-309.md) 本机备忘/任务提醒已本地实现：独立条目、固定时区一次/日/周/月、AlarmManager 通知与 WorkManager 恢复核对、真实错过/未知记录，不自动运行模型。最终双渠道主机/Debug/R8、日常 ARM64 模拟器各 18 项、重启/强停恢复及 Doze 短闹钟通过。前一候选 OnePlus 实际通知/点击通过；最终覆盖安装前设备断开，最终真机重测 pending。设置保留、失败与边界见[证据](../evidence/development/local-reminders-2026-10-19.md)。未来定时 Agent 身份/去重/取消/未知副作用已补充至 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)；本轮不实现 TTS、不推进整套重构、不 push/发布，版本不变。
+Owner 按三阶段顺序授权的 [HXA-310](tasks/HXA-310.md) 主动回复朗读已本地实现：单音色 Melo INT8 约 57.8 MiB 按需安装，本机合成、显式播放/停止与焦点/生命周期控制；双渠道主机/JVM/lint/Debug/R8、日常 ARM64 模拟器两渠道各 32 项语音/导航及各 37 项知识库/提醒通过，真实资源下载 1 项通过；性能快照仍有明显等待，真机自然度和提醒最终真机重测待连接，见[本轮证据](../evidence/development/read-aloud-2026-10-19.md)。此前阶段的“不实现 TTS”仅描述各自范围，不限制本次新增授权。
+
+Owner 授权知识库后继续的 [HXA-309](tasks/HXA-309.md) 本机备忘/任务提醒已本地实现：独立条目、固定时区一次/日/周/月、AlarmManager 通知与 WorkManager 恢复核对、真实错过/未知记录，不自动运行模型。最终双渠道主机/Debug/R8、日常 ARM64 模拟器各 18 项、重启/强停恢复及 Doze 短闹钟通过。前一候选 OnePlus 实际通知/点击通过；最终覆盖安装前设备断开，最终真机重测 pending。设置保留、失败与边界见[证据](../evidence/development/local-reminders-2026-10-19.md)。未来定时 Agent 身份/去重/取消/未知副作用已补充至 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)；该提醒阶段不实现 TTS、不推进整套重构、不 push/发布，版本不变。
 
 Owner 授权的 [HXA-308](tasks/HXA-308.md) 本机知识库第一阶段已本地交付：系统分享先收集原始来源，原件/提取/来源附属笔记与已核对知识分开；支持手写、单源提炼、多源综合、固定引用快照和显式模型生成建议。来源与笔记使用同一个新增 Room/FTS 资料库，不做旧版迁移或兼容层，不重置真实会话/文件。双渠道主机/Debug/R8、日常 ARM64 模拟器两渠道各 27 项、OnePlus API34 Advanced 27 项及现有内置模型合成双来源 1 项通过；偏好缓存差异及实际边界见[验收证据](../evidence/development/local-knowledge-2026-10-19.md)，设计见 [ADR-WORKSPACE-007](../adr/workspace/007-local-knowledge.md)。提醒及 TTS 不在本轮范围，版本不变、不推送发布。
 
 Owner 最新要求的分支确认已加入：预览所选消息、取消无创建、确认防重、切换会话丢弃待确认请求。普通 Standard/Advanced 主机 lint/JVM/Debug/R8 与日常 ARM64 模拟器各 17 项回归通过；OnePlus 普通 Advanced 的公开音频/合成控制器 6 项通过，保留原数据与设置，不使用手机麦克风。Owner 随后决定仅移除与复制重复的单条消息分享，已移除专用按钮/代码/资源；保留 JSONL、文件/产物交付，明确“分享文件/任务结果”命名，修复已复现的文本 MIME 与暂存扩展名问题。普通两渠道在日常模拟器各 14 项新增回归通过，见[分享入口整理](../evidence/development/message-sharing-cleanup-2026-10-19.md)。证据见[分支与语音普通包收尾](../evidence/development/session-actions-voice-closeout-2026-10-19.md)。
 
-Owner 已确认采用当前 sherpa-onnx + 小型双语 Zipformer 方案正式接入；离线 ASR 已进入两渠道 main 源集、普通 Debug/Release 默认构建，无需实验开关，并完成有界验收：内置中英流式识别、独立编辑预览、显式加入草稿、权限/取消/生命周期边界；两渠道主机 lint/JVM/Debug/R8 构建通过，日常 ARM64 模拟器 14 项、OnePlus 公开音频/控制器 7 项通过。设计见 [ADR-PLATFORM-004](../adr/platform/004-offline-voice-input.md)，真实测量、失败修复与限制见[语音证据](../evidence/development/offline-voice-input-2026-10-19.md)。独立验证包不覆盖原安装/数据，不使用真机麦克风；真实口述体验待 Owner 主动进行。后续 TTS 只完成候选/许可评估，本轮不实现；不推进历史队列，不推送/发布，版本不变。
+Owner 已确认采用当前 sherpa-onnx + 小型双语 Zipformer 方案正式接入；离线 ASR 已进入两渠道 main 源集、普通 Debug/Release 默认构建，无需实验开关，并完成有界验收：内置中英流式识别、独立编辑预览、显式加入草稿、权限/取消/生命周期边界；两渠道主机 lint/JVM/Debug/R8 构建通过，日常 ARM64 模拟器 14 项、OnePlus 公开音频/控制器 7 项通过。设计见 [ADR-PLATFORM-004](../adr/platform/004-offline-voice-input.md)，真实测量、失败修复与限制见[语音证据](../evidence/development/offline-voice-input-2026-10-19.md)。独立验证包不覆盖原安装/数据，不使用真机麦克风；真实口述体验待 Owner 主动进行。此前 ASR 阶段仅评估 TTS；当前独立 HXA-310 已获授权继续实施。不推进历史队列，不推送/发布，版本不变。
 
 Owner 追加的十模型对照已完成：固定 31 段公开/合成语料的主机、ARM64 模拟器和 OnePlus 6T 准确率/吞吐，以及两台的实时节奏首字/最终文字测量。结果见[移动 ASR 对照](../evidence/development/mobile-asr-comparison-2026-10-19.md)。Moonshine 的中文加载/体积有收益，英文与 SDK 采用边界仍需验证；当前默认不变，没有将实验库或额外模型放进产品。
 

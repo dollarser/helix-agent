@@ -76,7 +76,7 @@ internal fun CopyTextButton(
 }
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "LongParameterList") // Message content and optional owner actions.
 internal fun MessageRow(
     message: MessageUi,
     onFork: ((String) -> Unit)? = null,
@@ -84,6 +84,7 @@ internal fun MessageRow(
     onRegenerate: ((String) -> Unit)? = null,
     searchQuery: String? = null,
     isCurrentMatch: Boolean = false,
+    readAloud: Boolean = true,
     imageContent: @Composable () -> Unit = {},
 ) {
     val isUser = message.role == "user"
@@ -166,6 +167,7 @@ internal fun MessageRow(
                     onFork = onFork?.takeUnless { isUser },
                     onEdit = onEdit,
                     onRegenerate = onRegenerate,
+                    readAloud = readAloud,
                 )
             }
         }
@@ -180,9 +182,13 @@ private fun MessageActionRow(
     onFork: ((String) -> Unit)?,
     onEdit: ((String) -> Unit)?,
     onRegenerate: ((String) -> Unit)?,
+    readAloud: Boolean,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         CopyTextButton(message.content, "chat-copy-${message.id}")
+        if (readAloud && message.role == "assistant" && message.presentation == MessagePresentation.NORMAL) {
+            ReadAloudAction(message.id, message.content)
+        }
         if (isUser && onEdit != null) {
             IconButton(
                 onClick = { onEdit(message.id) },

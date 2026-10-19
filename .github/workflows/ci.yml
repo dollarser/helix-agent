@@ -182,6 +182,9 @@ jobs:
       - name: Prepare locked offline ASR inputs (host only)
         run: python3 scripts/build-asr-assets.py
 
+      - name: Prepare locked local read-aloud inputs (host only)
+        run: python3 scripts/build-tts-assets.py
+
       - name: Verify runtime inputs before building APKs
         run: ./gradlew :app:verifyDeveloperRuntimeAssets
 

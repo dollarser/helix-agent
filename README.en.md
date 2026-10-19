@@ -124,3 +124,7 @@ APKs are written to `app/build/outputs/apk/`. Run `./scripts/check-all.sh --sour
 Helix's own source code is licensed under **[Apache License 2.0](LICENSE)**. Third-party libraries, runtime assets, command-line tools, and model weights retain their respective licenses; using them in Helix does not relicense them under Apache-2.0.
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party attribution and release review requirements. It is currently a partial inventory and review policy, not a complete release SBOM or confirmation that all redistribution obligations are satisfied.
+
+### Local reply reading
+
+Completed assistant replies offer an explicit read/stop action. First use requires an explicit download of about 57.8 MiB of pinned Melo INT8 voice resources. Text stays on the device; downloading does not start playback. Leaving the conversation, entering voice input, backgrounding or losing audio focus stops reading. Source builds prepare `python3 scripts/build-asr-assets.py` followed by `python3 scripts/build-tts-assets.py` before Gradle.

@@ -9,6 +9,21 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
+    val readAloud by lazy {
+        val audio =
+            com.helix.app.voice
+                .SpeechAudio(this)
+        com.helix.app.voice.ReadAloudService(
+            com.helix.app.voice
+                .LocalVoiceModel(this),
+            { directory ->
+                com.helix.app.voice
+                    .MeloSpeechEngine(directory)
+            },
+            audio::focus,
+            audio::sink,
+        )
+    }
     val reminders by lazy {
         com.helix.app.reminder.ReminderService(
             com.helix.core.storage.reminder
