@@ -9,6 +9,14 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
+    val reminders by lazy {
+        com.helix.app.reminder.ReminderService(
+            com.helix.core.storage.reminder
+                .ReminderStore(this),
+            com.helix.app.reminder
+                .ReminderPlatform(this),
+        )
+    }
     val knowledge by lazy {
         com.helix.app.knowledge
             .KnowledgeService(this)
@@ -81,6 +89,9 @@ class HelixApplication : Application() {
         // processes. Only the main process owns host diagnostics, Room and recovery.
         if (Process.isIsolated() || getProcessName() != packageName) return
         processDiagnostics = ProcessDiagnostics.install(this)
+        reminders.recoverAsync()
+        com.helix.app.reminder.ReminderRecovery
+            .periodic(this)
         // Schedule before recovery/UI access, preserving the private Runtime process guard.
         containerInitialization
     }

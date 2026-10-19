@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-22
-HXA: HXA-013, HXA-102, HXA-177, HXA-178, HXA-208, HXA-216, HXA-232, HXA-303
+HXA: HXA-013, HXA-102, HXA-177, HXA-178, HXA-208, HXA-216, HXA-232, HXA-303, HXA-309
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -22,6 +22,14 @@ Goal 是持久目标；Turn/run 是一次执行；激活是独立的进程内运
 Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 GoalRun/Turn 都是一次 execution attempt：前轮先持久结算，下一轮绑定激活标识和前轮 ID，准入时重验，重复通知不能重复启动。正常结束且仍有工作、自动轮数未用尽、无未决副作用时可以创建下一 Run。完成、阻塞、等待输入、取消、不可衔接异常、截断、容量不足或自动轮数耗尽时解除激活。显式停止先解除旧激活，再安全结算当前轮；普通 Queue/Steer 不解除激活、不暂停或取消当前轮。终局后同会话已就绪用户队列优先，普通用户后继结束再重验保留的 Goal 激活；不能因页面处于 Goal 模式创建第二个目标。切换会话本身不取消任务。具体交付与停止停泊按 [ADR-AGENT-001](../agent/001-turn-coordination.md)。
 
 用户启动的连续任务通过有效前台服务路径衔接下一轮，Activity 退后台不解除激活。等待审批/输入不维持空转服务；系统拒绝、超时、进程死亡或强停后不自动恢复旧 Run。当前 GoalRun 随旧 Turn 结束为 interrupted/blocked outcome；正常任务恢复仍需新的运行准入并创建新 GoalRun/Turn，不恢复死亡前的激活。HXA-232 的有界只读 RecoveryInspection 使用下述独立准入，并非旧任务自动续跑。WorkManager/checkpoint 只提醒，不自动调用模型；未知副作用不得重放。
+
+### 未来定时 Agent 执行的准入与归属
+
+Owner 2026-10-19 要求明确后续定时执行生命周期；以下为未来能力契约，不代表本机通知阶段已实现后台执行。普通备忘/通知和 Goal checkpoint 都不能触发模型。调度时钟事件只唤醒核查，必须有用户明确创建/启用的执行规则，包含稳定 rule ID/revision、创建用户、动作内容、权限/工作目录/模型范围、固定时区与重复/错过策略、结果目标会话。来源文本、模型解析、远程消息和知识库材料不提供授权；自然语言解析必须先展示实际时间、时区、重复与动作并由用户确认规则。
+
+每次发生用 `(ruleId, revision, scheduledInstant)` 持久去重，重复广播不创建第二次执行。准入冻结规则、触发身份、动作与目标会话快照，并按当前 schema → capability/policy → authorization → limits → audit 路径创建新 Turn/GoalRun。规则编辑/关闭只影响未来发生项；不重定向已运行调用。发生项的每个重试是新的 attempt ID，仍归原 occurrence、原授权和结果目标，重新检查权限；不复活死亡前的激活或让调度事件扩权。结果、日志和产物明确归触发规则、发生项、attempt 及该快照绑定的会话，不能投给当时碰巧前台的会话。
+
+取消规则与取消当前执行是两个明确动作；取消执行沿原 turn/call 身份发停止请求，executor 实际退出后才释放物理槽位，外部效果不视作回滚。进程死亡、超时和发布/执行确认缺失记录 INTERRUPTED/UNKNOWN；未决发送、支付、文件或其他外部副作用先按 ADR-AGENT-001 审核事实，不自动重放。只读或已证实幂等动作也必须有具体重试策略和原授权，不能靠“定时”默认无限重试。错过项默认记录并跳过，无并发追赶风暴；需要补跑必须是用户明确规则或操作，且不能绕过 UNKNOWN 门禁。通知与既有悬浮窗仅投影这些事实，不建立另一套执行状态机。
 
 ### 状态与阻塞
 
@@ -66,6 +74,8 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 Goa
 交付证据看 [HXA-208](../../completion-records/HXA-208.md)、[HXA-232](../../development/tasks/HXA-232.md) 与[实施状态](../../development/status.md)。回归覆盖模型 CRUD、revision 冲突、跨轮预算、双 flavor/API29/36、真实进程死亡、后台衔接和未知副作用；已有证据不代表定时/Channel 自动激活或长稳完成。
 
 ## Decision history
+
+- 2026-10-19：Owner 授权明确未来定时 Agent 的触发身份、发生去重、取消/中断/重试与结果归属；补充以上准入契约，普通本机提醒不执行模型或自动重放副作用。
 
 - 2026-10-17：Owner 要求落实可独立优化并无旧实现兼容负担；303 删除不再执行的预算/重试字段及默认迁移。仅配置契约与预览基线变化，累计记账、自动轮门禁、输出/物理限制及同版本恢复不变。验证见 [303](../../development/tasks/HXA-303.md)。
 

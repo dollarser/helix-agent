@@ -29,6 +29,11 @@ enum class ShellDestination(
         titleRes = R.string.nav_knowledge,
         emptyStateRes = R.string.knowledge_empty,
     ),
+    Reminders(
+        route = "reminders",
+        titleRes = R.string.reminder_title,
+        emptyStateRes = R.string.reminder_new,
+    ),
     Tasks(
         route = "tasks",
         titleRes = R.string.nav_tasks,

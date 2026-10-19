@@ -9,9 +9,9 @@ class ShellRepositoryTest {
 
     @Test
     fun `shell exposes only primary authority routes`() {
-        assertEquals(12, repository.destinations.size)
+        assertEquals(13, repository.destinations.size)
         assertEquals(
-            12,
+            13,
             repository.destinations
                 .map(ShellDestination::route)
                 .toSet()
@@ -22,6 +22,7 @@ class ShellRepositoryTest {
                 "sessions",
                 "projects",
                 "knowledge",
+                "reminders",
                 "tasks",
                 "artifacts",
                 "git",
@@ -43,9 +44,9 @@ class ShellRepositoryTest {
     }
 
     @Test
-    fun `shell exposes twelve routes when terminal is available`() {
+    fun `shell exposes fourteen routes when terminal is available`() {
         val devRepo = FakeShellRepository(terminalAvailable = true)
-        assertEquals(13, devRepo.destinations.size)
+        assertEquals(14, devRepo.destinations.size)
         assertTrue(ShellDestination.Terminal in devRepo.destinations)
         assertEquals("terminal", ShellDestination.Terminal.route)
     }

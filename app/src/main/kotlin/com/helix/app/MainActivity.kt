@@ -190,6 +190,9 @@ class MainActivity : ComponentActivity() {
         restore: Boolean,
     ) {
         val isShare = request.action in setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
+        com.helix.app.reminder.localReminderId(request)?.let {
+            (application as HelixApplication).reminders.openRequest.value = it
+        }
         if (isShare && !(restore && shareIntentConsumed)) {
             (application as HelixApplication).knowledge.capture(request, callingPackage ?: "Android share")
             shareIntentConsumed = true
@@ -220,6 +223,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        (application as HelixApplication).reminders.recoverAsync()
         browserOwner?.let { readyContainer?.browser?.resume(it) }
         readyContainer?.providerService?.refresh()
     }
@@ -289,6 +293,10 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    com.helix.app.reminder.ReminderNavigation(
+        (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).reminders,
+        navController,
+    )
     val knowledge = (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).knowledge
     com.helix.app.knowledge
         .KnowledgeNavigation(knowledge, navController)
@@ -690,6 +698,12 @@ private fun DestinationScreen(
     initialModelSource: ProviderProvisioningKind? = null,
 ) {
     when (destination) {
+        ShellDestination.Reminders -> {
+            com.helix.app.reminder.ReminderScreen(
+                (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).reminders,
+            )
+        }
+
         ShellDestination.Knowledge -> {
             val context = androidx.compose.ui.platform.LocalContext.current
             com.helix.app.knowledge.KnowledgeScreen(

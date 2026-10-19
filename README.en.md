@@ -43,6 +43,10 @@ Public pages are fetched without login. Unavailable, title-only, login-dependent
 
 ## Your first task
 
+### Local notes and reminders (not released yet)
+
+Open **Work → Notes & reminders** for an untimed note, or confirm a date, fixed time zone and once/daily/weekly/monthly recurrence. Alerts post a system notification without calling a model; tapping opens the entry. Editing replaces the old alarm; completing or cancelling stops the entire series. Without exact-alarm access, alerts are approximate. Disabled notifications/channels cannot display them; battery restrictions may delay them and force-stop requires reopening the app. Occurrences over 15 minutes late are recorded as missed without replay. See [HXA-309](docs/development/tasks/HXA-309.md).
+
 1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the notes and APK checksums in that version's Release body.
 2. The v0.0.6 reissue dynamically fetches **Helix built-in models** in the conversation model picker without a key. Directory membership does not verify inference connectivity. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Built-in text, image and bounded file workflows have been validated; current shared-service availability still depends on actual requests. See [HXA-307](docs/development/tasks/HXA-307.md) for the validation scope.
 3. Start a conversation, select a model, and try a small file task:

@@ -178,6 +178,7 @@ class GroupedNavigationDeviceTest {
                 when (destination) {
                     ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
                     ShellDestination.Knowledge,
+                    ShellDestination.Reminders,
                     -> {
                         "navigation-group-work"
                     }

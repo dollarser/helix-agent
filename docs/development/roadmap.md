@@ -353,3 +353,4 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-306 | 已完成；仅本地收尾 | 手测反馈、浏览器与会话交互 | [任务](tasks/HXA-306.md) |
 | HXA-307 | 主机/有界模拟器交付；真实网关联调 pending | 内置 Qwen 云端来源与公开 Client ID | [任务](tasks/HXA-307.md) |
 | HXA-308 | 第一阶段本地交付 | 系统分享收集与本机知识库第一阶段 | [任务](tasks/HXA-308.md) / [证据](../evidence/development/local-knowledge-2026-10-19.md) |
+| HXA-309 | 本地实现；最终真机待连接 | 本机备忘与任务提醒 | [任务](tasks/HXA-309.md) / [证据](../evidence/development/local-reminders-2026-10-19.md) |

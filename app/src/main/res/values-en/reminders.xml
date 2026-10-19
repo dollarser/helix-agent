@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="reminder_pick_date">Choose date</string>
+    <string name="reminder_pick_time">Choose time</string>
+    <string name="reminder_open_settings">Open notification and channel settings</string>
+    <string name="reminder_title">Notes &amp; reminders</string>
+    <string name="reminder_nav">Personal notes and scheduled notifications</string>
+    <string name="reminder_limits">Local notifications only; no model runs. Reopen after force-stop. Battery restrictions may delay alerts. Occurrences over 15 minutes late are recorded as missed without replay.</string>
+    <string name="reminder_new">New note or reminder</string>
+    <string name="reminder_back_discard">Back (discard unsaved edits)</string>
+    <string name="reminder_name">Title</string>
+    <string name="reminder_body">Note</string>
+    <string name="reminder_timed">Set a reminder time</string>
+    <string name="reminder_date" tools:ignore="TypographyDashes">Date and time, e.g. 2026-10-20T09:00</string>
+    <string name="reminder_zone">Fixed time zone, e.g. Asia/Shanghai</string>
+    <string name="reminder_repeat_help">Recurrence follows the fixed zone calendar, not completion time. Short months use month-end then return to the original day. DST gaps shift forward; overlaps use the earlier offset. Complete or cancel stops the entire series.</string>
+    <string name="reminder_exact">Prefer exact timing (requires special access)</string>
+    <string name="reminder_review">Save confirms: %1$s · %2$s. Changing the device zone does not change this fixed zone.</string>
+    <string name="reminder_permission_help">Without exact access, approximate alerts may be delayed. Disabled app/channel notifications cannot be shown. Enabling does not replay old alerts. Posted does not mean seen.</string>
+    <string name="reminder_notification_settings">Allow notifications / settings</string>
+    <string name="reminder_alarm_settings">Grant exact alarm access</string>
+    <string name="reminder_error">Operation incomplete. Check the future time and valid zone, or reopen the entry and retry.</string>
+    <string name="reminder_save">Confirm and save</string>
+    <string name="reminder_complete">Complete entire item</string>
+    <string name="reminder_cancel">Cancel entire item</string>
+    <string name="reminder_active">Open</string>
+    <string name="reminder_done">Completed</string>
+    <string name="reminder_cancelled">Cancelled</string>
+    <string name="reminder_precise">Exact alert scheduled</string>
+    <string name="reminder_approximate">Approximate alert scheduled</string>
+    <string name="reminder_blocked">Notifications blocked / not shown</string>
+    <string name="reminder_posted">Posted to system (not read receipt)</string>
+    <string name="reminder_missed">Missed (elapsed intervals skipped)</string>
+    <string name="reminder_unknown">Notification outcome unknown; no replay</string>
+    <string name="reminder_once">Once</string>
+    <string name="reminder_daily">Daily</string>
+    <string name="reminder_weekly">Weekly</string>
+    <string name="reminder_monthly">Monthly</string>
+    <string name="reminder_memo">Note without an alert</string>
+    <string name="reminder_no_pending">No pending alert</string>
+    <string name="reminder_pending">Scheduling pending</string>
+</resources>

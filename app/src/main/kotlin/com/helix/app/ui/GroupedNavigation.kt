@@ -180,6 +180,7 @@ private fun ShellDestination.workDrawerEntry() =
         when (this) {
             ShellDestination.Tasks -> R.string.nav_tasks_description
             ShellDestination.Knowledge -> R.string.knowledge_nav_description
+            ShellDestination.Reminders -> R.string.reminder_nav
             else -> R.string.nav_artifacts_description
         },
     )
@@ -214,6 +215,7 @@ private fun ShellDestination.navigationGroup(): Int =
         ShellDestination.Sessions -> R.string.nav_group_conversations
 
         ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git, ShellDestination.Knowledge,
+        ShellDestination.Reminders,
         -> R.string.nav_group_work
 
         ShellDestination.Projects -> R.string.nav_projects
