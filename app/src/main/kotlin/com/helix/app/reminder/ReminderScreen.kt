@@ -43,22 +43,33 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 @Suppress("FunctionName", "LongMethod") // One list/detail screen; actions stay in the service.
-fun ReminderScreen(service: ReminderService) {
+fun ReminderScreen(
+    service: ReminderService,
+    providers: com.helix.app.provider.ProviderService? = null,
+) {
     val rows by service.items.collectAsStateWithLifecycle(emptyList())
     val request by service.openRequest.collectAsStateWithLifecycle()
     val failed by service.failure.collectAsStateWithLifecycle()
     var selected by remember { mutableStateOf<LocalReminder?>(null) }
     var editing by remember { mutableStateOf(false) }
+    var interpreting by remember { mutableStateOf(false) }
     LaunchedEffect(request, rows) {
         request?.let { id ->
             rows.firstOrNull { it.id == id }?.let {
                 selected = it
                 editing = true
+                interpreting = false
                 service.openRequest.value = null
             }
         }
     }
-    if (editing) {
+    if (interpreting) {
+        ReminderInterpretScreen(providers, { interpreting = false }) { proposal ->
+            selected = proposal
+            interpreting = false
+            editing = true
+        }
+    } else if (editing) {
         ReminderEditor(service, selected) { editing = false }
     } else {
         LazyColumn(
@@ -74,6 +85,9 @@ fun ReminderScreen(service: ReminderService) {
                     editing = true
                 }, Modifier.testTag("reminder-new")) {
                     Text(stringResource(R.string.reminder_new))
+                }
+                TextButton(onClick = { interpreting = true }, Modifier.testTag("reminder-natural-language")) {
+                    Text(stringResource(R.string.reminder_nl_entry))
                 }
             }
             items(rows, key = { it.id }) { row ->
@@ -96,9 +110,15 @@ fun ReminderScreen(service: ReminderService) {
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
 // Preserve the editor draft on service failure.
-private fun ReminderEditor(service: ReminderService, original: LocalReminder?, onBack: () -> Unit) {
+internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val draftId =
+        remember(original?.id) {
+            original?.id?.takeIf { it.isNotBlank() } ?: java.util.UUID
+                .randomUUID()
+                .toString()
+        }
     var title by remember(original?.id) { mutableStateOf(original?.title.orEmpty()) }
     var body by remember(original?.id) { mutableStateOf(original?.body.orEmpty()) }
     var enabled by remember(original?.id) { mutableStateOf(original?.localTime?.isNotEmpty() == true) }
@@ -117,6 +137,7 @@ private fun ReminderEditor(service: ReminderService, original: LocalReminder?, o
     var repeat by remember(original?.id) { mutableStateOf(original?.repeat ?: "ONCE") }
     var exact by remember(original?.id) { mutableStateOf(original?.exact ?: false) }
     var error by remember { mutableStateOf(false) }
+    var saveAttempted by remember(original?.id) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var history by remember { mutableStateOf(emptyList<com.helix.core.storage.reminder.ReminderEvent>()) }
     val platform = remember { ReminderPlatform(context) }
@@ -134,11 +155,25 @@ private fun ReminderEditor(service: ReminderService, original: LocalReminder?, o
                 null
             }
         }
-    LaunchedEffect(original?.id) { if (original != null) history = service.events(original.id) }
+    LaunchedEffect(original?.id) {
+        if (original != null &&
+            original.id.isNotBlank()
+        ) {
+            history = service.events(original.id)
+        }
+    }
     // Leaving an editor never saves or arms an unconfirmed reminder.
     BackHandler(enabled = !busy, onBack = onBack)
     LazyColumn(Modifier.padding(16.dp).testTag("reminder-editor"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { TextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.reminder_back_discard)) } }
+        if (original != null && original.id.isEmpty()) {
+            item {
+                Text(
+                    stringResource(if (saveAttempted) R.string.reminder_nl_save_check else R.string.reminder_nl_draft),
+                    Modifier.testTag("reminder-nl-draft"),
+                )
+            }
+        }
         item {
             OutlinedTextField(
                 title,
@@ -269,12 +304,14 @@ private fun ReminderEditor(service: ReminderService, original: LocalReminder?, o
             if (error) Text(stringResource(R.string.reminder_error))
             Button(
                 onClick = {
+                    if (busy) return@Button
+                    saveAttempted = true
                     busy = true
                     scope.launch {
                         try {
                             val draft =
                                 LocalReminder(
-                                    original?.id.orEmpty(),
+                                    draftId,
                                     title.trim(),
                                     body,
                                     if (enabled) LocalDateTime.parse(local.replace(' ', 'T')).toString() else "",
@@ -298,7 +335,7 @@ private fun ReminderEditor(service: ReminderService, original: LocalReminder?, o
                 enabled = !busy && title.isNotBlank() && (!enabled || preview != null),
                 modifier = Modifier.testTag("reminder-save"),
             ) { Text(stringResource(R.string.reminder_save)) }
-            if (original != null && original.state == "ACTIVE") {
+            if (original != null && original.id.isNotBlank() && original.state == "ACTIVE") {
                 Row {
                     listOf(false, true).forEach { cancel ->
                         TextButton(

@@ -4,7 +4,9 @@
 
 ## 当前实施
 
-Owner 授权的第二阶段 [HXA-312](tasks/HXA-312.md) 检索问答已本地交付：先在本机有界检索、用户选来源并核对片段与模型目标后才发送，回答/来源/用户笔记分离，显式保存为草稿；失败、中断、伪造引用和重复确认有界处理。双渠道主机/JVM/lint/Debug/AndroidTest/R8 与 API36 ARM64 各 12 项新问答、38 项回归及真实合成多来源 Qwen 1 项通过，见[阶段证据](../evidence/development/knowledge-questions-2026-10-19.md)。原数据和设置保留；真机手测按 Owner 选择延后，版本不变，未 push/发布。后续按既定授权推进确认式自然语言提醒，再推进最小定时 Agent 生命周期。
+Owner 授权的 [HXA-313](tasks/HXA-313.md) 确认式自然语言提醒已本地交付：先确认所选模型的发送范围，得到提案/澄清后进入原编辑页，仅用户保存才安排；稳定保存身份和部分失败提示保留事实。双渠道 JVM/lint/Debug/AndroidTest/R8、283 主机脚本及功能 XML 国际化门禁通过；API36 ARM64 各 10 项新边界、50 项回归及真实中文 Qwen 1 项（两次请求）通过，见[阶段证据](../evidence/development/reminder-interpretation-2026-10-19.md)。原数据/设置与版本保留，未 push/发布；真机手测延后，随后按既定授权推进最小定时 Agent 生命周期。
+
+Owner 授权的第二阶段 [HXA-312](tasks/HXA-312.md) 检索问答已本地交付：先在本机有界检索、用户选来源并核对片段与模型目标后才发送，回答/来源/用户笔记分离，显式保存为草稿；失败、中断、伪造引用和重复确认有界处理。双渠道主机/JVM/lint/Debug/AndroidTest/R8 与 API36 ARM64 各 12 项新问答、38 项回归及真实合成多来源 Qwen 1 项通过，见[阶段证据](../evidence/development/knowledge-questions-2026-10-19.md)。原数据和设置保留；真机手测按 Owner 选择延后，版本不变，未 push/发布。确认式自然语言提醒由 HXA-313 接续交付，随后按既定授权推进最小定时 Agent 生命周期。
 
 Owner 授权继续的 [HXA-311](tasks/HXA-311.md) 收尾已完成本地主机与日常 ARM64 自动验收：短首段、有界合成/播放与明确渠道分享目标；两渠道各 36 项语音/导航、38 项知识库/提醒及 Chrome 公开分享 1 项通过。长句首次 PCM 等待下降，日期短句和约 4.4 秒加载仍有等待；见[本轮证据](../evidence/development/phase-closeout-2026-10-19.md)。OnePlus 未连接，Owner 选择稍后真实口述、外放及提醒手测，不算通过。后续知识库检索问答已由 HXA-312 接续，自然语言提醒与定时 Agent 按已授权顺序推进；版本不变，未 push/发布。
 

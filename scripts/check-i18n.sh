@@ -3,8 +3,8 @@ set -euo pipefail
 
 # HXA-069 (roadmap §10): the CI-runnable internationalization gate. Three independent checks:
 #
-#   1. Translation-key parity — the base fallback (values/strings.xml) and the two locale
-#      resources (values-en/strings.xml, values-zh-rCN/strings.xml) must define the EXACT same
+#   1. Translation-key parity — the base fallback (values/*.xml) and the two locale
+#      resource groups (values-en/*.xml, values-zh-rCN/*.xml) must define the EXACT same
 #      set of <string>/<plurals>/<string-array> keys. A missing key in a locale (or an extra key
 #      only a locale has) is a fail-closed error: a user in that locale would otherwise see a
 #      resource-id crash or a silently-stale fallback.
@@ -35,6 +35,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 root = Path(os.environ["HELIX_PROJECT_ROOT"]).resolve()
@@ -59,33 +60,50 @@ ALLOWLIST: list[tuple[str, str, str]] = [
 
 # ── Check 1: translation-key parity (every module that ships a base fallback) ──────
 # Resources are per-module (each has its own namespaced R), so EVERY module with a base
-# values/strings.xml must keep values-en and values-zh-rCN in exact key parity (roadmap:
-# complete fallback + values-en + values-zh-rCN in every locale). A module with no base
-# strings.xml ships no user-visible strings — nothing to check there.
-KEY_RE = re.compile(r"<(?:string|plurals|string-array)\s+name=\"([^\"]+)\"")
+# values/*.xml must keep values-en and values-zh-rCN in exact key parity. Resource grouping
+# is a file organization choice, not permission to omit translations. Android's explicitly
+# non-translatable constants are excluded, in base and locales alike.
 
 
-def resource_keys(path: Path) -> set[str]:
-    return set(KEY_RE.findall(path.read_text(encoding="utf-8")))
+def resource_keys(directory: Path) -> set[str]:
+    keys: set[str] = set()
+    for path in sorted(directory.glob("*.xml")):
+        try:
+            elements = ET.parse(path).getroot()
+        except ET.ParseError as error:
+            errors.append(f"i18n: invalid XML in {path.relative_to(root)}: {error}")
+            continue
+        for element in elements:
+            if element.tag not in {"string", "plurals", "string-array"} or element.get("translatable") == "false":
+                continue
+            key = element.get("name")
+            if not key:
+                errors.append(f"i18n: unnamed resource in {path.relative_to(root)}")
+            elif key in keys:
+                errors.append(f"i18n: duplicate resource {key} in {path.relative_to(root)}")
+            else:
+                keys.add(key)
+    return keys
 
 
 total_keys = 0
-base_files = sorted(
-    p
-    for p in root.glob("**/src/main/res/values/strings.xml")
+res_roots = sorted({
+    p.parent.parent
+    for p in root.glob("**/src/main/res/values/*.xml")
     if not {"build", ".claude"}.intersection(p.relative_to(root).parts)
-)
-for base_file in base_files:
-    res_root = base_file.parent.parent  # <module>/src/main/res
+})
+for res_root in res_roots:
     rel_root = res_root.relative_to(root).as_posix()
-    base_keys = resource_keys(base_file)
+    base_keys = resource_keys(res_root / "values")
+    if not base_keys:
+        continue
     total_keys += len(base_keys)
     for locale in ("values-en", "values-zh-rCN"):
-        locale_file = res_root / locale / "strings.xml"
-        if not locale_file.is_file():
-            errors.append(f"i18n: {locale}/strings.xml missing for module with base {rel_root}/values/strings.xml")
+        locale_directory = res_root / locale
+        if not locale_directory.is_dir():
+            errors.append(f"i18n: {locale} missing for module with base {rel_root}/values")
             continue
-        locale_keys = resource_keys(locale_file)
+        locale_keys = resource_keys(locale_directory)
         missing = sorted(base_keys - locale_keys)
         extra = sorted(locale_keys - base_keys)
         if missing:

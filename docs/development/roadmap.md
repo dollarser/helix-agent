@@ -357,3 +357,4 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-310 | 本地实现；真机主动试听待补 | 本机回复主动朗读 | [任务](tasks/HXA-310.md) / [证据](../evidence/development/read-aloud-2026-10-19.md) |
 | HXA-311 | 本地自动验收交付；真机/客户端手测待补 | 三阶段收尾与回复朗读等待优化 | [任务](tasks/HXA-311.md) / [证据](../evidence/development/phase-closeout-2026-10-19.md) |
 | HXA-312 | 本地主机/ARM64/真实合成模型交付；真机手测延后 | 本地知识库检索问答 | [任务](tasks/HXA-312.md) / [证据](../evidence/development/knowledge-questions-2026-10-19.md) |
+| HXA-313 | 本地主机/ARM64/真实中文模型交付；真机手测延后 | 确认式自然语言提醒 | [任务](tasks/HXA-313.md) / [证据](../evidence/development/reminder-interpretation-2026-10-19.md) |

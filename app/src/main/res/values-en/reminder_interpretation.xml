@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_nl_entry">Draft with natural language</string>
+    <string name="reminder_nl_intro">Describe the task, reminder time and recurrence. Review what is sent to your chosen model, then edit its proposal. Only the final Save creates a reminder. Unclear times need clarification.</string>
+    <string name="reminder_nl_description">Example: Remind me to drink water tomorrow at 3 pm</string>
+    <string name="reminder_nl_prepare">Review sending scope</string>
+    <string name="reminder_nl_confirm">Send description and draft proposal</string>
+    <string name="reminder_nl_scope">Only the description below and the displayed reference time and timezone are sent. Existing reminders, chats and library materials are excluded.</string>
+    <string name="reminder_nl_remote">This description, reference time and timezone will be sent to the provider above. Local storage does not mean local inference.</string>
+    <string name="reminder_nl_stop">Stop drafting</string>
+    <string name="reminder_nl_failed">No valid proposal received. No reminder created. Specify an exact time or create it manually.</string>
+    <string name="reminder_nl_interrupted">Drafting interrupted. No reminder created and no automatic retry.</string>
+    <string name="reminder_nl_clarify">Update the description and draft again:</string>
+    <string name="reminder_nl_draft">Model proposal · not saved. Check or edit the title, date, timezone and recurrence. Only Save activates it.</string>
+    <string name="reminder_nl_save_check">Save was submitted. Check the list for the saved item and scheduling result. Your edits remain available if the operation fails.</string>
+</resources>

@@ -702,6 +702,7 @@ private fun DestinationScreen(
         ShellDestination.Reminders -> {
             com.helix.app.reminder.ReminderScreen(
                 (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).reminders,
+                providers = container.providerService,
             )
         }
 

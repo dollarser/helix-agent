@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_nl_entry">用自然语言起草</string>
+    <string name="reminder_nl_intro">描述要做什么、何时提醒及是否重复。先核对模型发送范围，再生成可编辑提案；只有最终保存才创建提醒。时间不明确时需要补充。</string>
+    <string name="reminder_nl_description">例如：明天下午三点提醒我喝水</string>
+    <string name="reminder_nl_prepare">核对发送范围</string>
+    <string name="reminder_nl_confirm">发送描述并起草提案</string>
+    <string name="reminder_nl_scope">仅发送下面这段描述及所示当前时间、时区，不发送已有提醒、聊天或知识库。</string>
+    <string name="reminder_nl_remote">这段描述及时间、时区会发送给上方服务。本机保存不代表本机推理。</string>
+    <string name="reminder_nl_stop">停止起草</string>
+    <string name="reminder_nl_failed">未能得到有效提案，尚未创建提醒。请补充准确时间或使用手动创建。</string>
+    <string name="reminder_nl_interrupted">起草已中断，没有创建提醒，也不会自动重试。</string>
+    <string name="reminder_nl_clarify">请补充描述后重新起草：</string>
+    <string name="reminder_nl_draft">模型提案 · 尚未保存。请核对或修改标题、日期、时区和重复规则，确认保存才生效。</string>
+    <string name="reminder_nl_save_check">保存操作已提交。请返回列表核对条目与提醒安排结果；操作失败时，当前编辑内容仍保留。</string>
+</resources>

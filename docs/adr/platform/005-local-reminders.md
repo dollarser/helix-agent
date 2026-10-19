@@ -11,7 +11,9 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 
 ## Decision
 
-- 独立备忘/提醒页面与 `reminders.db` Room 持久领域，不把个人条目伪装成已有 Turn/Goal。纯备忘无需时间；定时条目保存原始本地日期、IANA 固定时区、一次/每日/每周/每月规则及下一发生时间。指定时区不跟随设备旅行变化；月末按原始锚点截到短月份月末，后续恢复原日；DST 缺口向后平移，重叠用较早偏移。界面展示实际偏移及重复含义，明确保存才创建。不加猜测式自然语言创建，知识库文本不能授权创建任务。
+- 独立备忘/提醒页面与 `reminders.db` Room 持久领域，不把个人条目伪装成已有 Turn/Goal。纯备忘无需时间；定时条目保存原始本地日期、IANA 固定时区、一次/每日/每周/每月规则及下一发生时间。指定时区不跟随设备旅行变化；月末按原始锚点截到短月份月末，后续恢复原日；DST 缺口向后平移，重叠用较早偏移。界面展示实际偏移及重复含义，明确保存才创建。可选自然语言起草同样必须经用户核对与保存，知识库文本或模型提案不能授权创建任务。
+- 自然语言入口只处理用户本次描述，用户选择既有 API/设备内模型并确认内容去向，发送描述、固定参照时间和时区；不读取/上传提醒库、聊天或知识库，不使用订阅 CLI。确认绑定 Provider 配置与目标，执行前变更使请求失效。模型无工具能力，只能返回严格有界的提案或澄清问题；缺少准确时间、含糊时段、不支持的重复不能静默补成可执行安排。提案仅有现有规则字段；拒绝未知字段、错误类型、过去时间、无效时区以及 NLP 阶段含糊的 DST 缺口/重叠。用户仍可在原有编辑页手动选择并核对现有日历解析规则。
+- 自然语言提案不落库、不安排投影，进入编辑页时清楚标未保存，用户可修改后保存；关闭、取消或失败没有创建效果，也不自动模型重试。新编辑器预分配稳定身份，保存重试沿用该身份；未持久提案没有完成/取消已有条目的操作。此入口不改变提醒发布、错过、未知和恢复契约。
 - AlarmManager RTC_WAKEUP + PendingIntent 接收器用于短通知。默认 `setAndAllowWhileIdle` 近似提醒；用户选精确且已授予 `SCHEDULE_EXACT_ALARM` 时使用 `setExactAndAllowWhileIdle`。不声明自动授予的 USE_EXACT_ALARM、不启动常驻服务、不绕过省电或勿扰。不获授权仍保存并近似安排，状态诚实可见。
 - 通知权限和渠道开关按需引导；关闭记 NOTIFICATIONS_OFF/BLOCKED，不说已送达。系统 `notify` 接受后仅称 POSTED，不推断用户已看到。通知内容设私密，点击仅打开对应持久条目，不执行工具或模型。
 - WorkManager 12 小时有界核对及启动/重启/覆盖安装/时钟或时区/精确权限授予事件用于恢复投影，不当精确定时器。AlarmManager 仍受 Android 配额、Doze、OEM 与权限限制；force-stop 后需用户重新打开才能恢复，不能承诺永不漏提醒。精确权限撤销会停止应用并取消精确闹钟，后续恢复时按当前权限降为近似。
@@ -29,7 +31,7 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 - [Android alarms](https://developer.android.com/develop/background-work/services/alarms)：AlarmManager 外部进程生命周期与精确权限、Doze、开机重建边界；采用短接收器通知，不运行长任务。
 - [Android 14 exact alarms](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms)、[notification permission](https://developer.android.com/develop/ui/compose/notifications/notification-permission)、[Android 15 stopped state](https://developer.android.com/about/versions/15/behavior-changes-all#stopped-state)：不假设默认权限或强停后自动运行。
 - [Work requests](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)：用于可延后重建，而非承诺准点。
-- [Todoist dates](https://www.todoist.com/help/todoist/features/schedule-a-date-and-time-for-your-todoist-tasks-q7VobO)、[recurring dates](https://www.todoist.com/help/todoist/features/introduction-to-recurring-dates-YUYVJJAV)：日期与重复含义先确认，借鉴条目编辑/完成模型；不引入云端账号和自动 NLP。
+- [Todoist dates](https://www.todoist.com/help/todoist/features/schedule-a-date-and-time-for-your-todoist-tasks-q7VobO)、[recurring dates](https://www.todoist.com/help/todoist/features/introduction-to-recurring-dates-YUYVJJAV)：借鉴识别结果可见、可修改、保存才生效；采用可选所选模型提案，不引入其账号、全部语法或默认时段猜测。
 - [TickTick recurring tasks](https://help.ticktick.com/articles/7055782206349770752)、[reminders](https://help.ticktick.com/articles/7055782395743567872)：日期/重复配置可见；本阶段不做循环强响、多提醒、位置或全屏闹钟。
 
 只参考官方行为和产品设计，没有复制参考实现。
@@ -40,7 +42,7 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 
 ## Verification
 
-[HXA-309](../../development/tasks/HXA-309.md) 维护范围与主机/当前授权设备合成验证；accepted 不代表测试通过。
+[HXA-309](../../development/tasks/HXA-309.md) 维护提醒范围，[HXA-313](../../development/tasks/HXA-313.md) 维护自然语言提案与确认边界的主机/当前授权设备及合成真实模型验证；accepted 不代表测试通过。
 
 ## Reconsider when
 
@@ -53,3 +55,4 @@ Owner 要求自然语言解析、复杂重复、TTS 播报、日历同步或实�
 ## Decision history
 
 - 2026-10-19：Owner 授权按顺序推进备忘/任务提醒与未来定时执行生命周期设计；接受本机日历规则、AlarmManager/WorkManager 分工和诚实发布/错过事实，本阶段不运行定时 Agent。
+- 2026-10-19：Owner 授权在知识库检索问答之后实施确认式自然语言提醒。接受所选模型、明确发送范围、提案/澄清与最终用户保存分离；不自动授权工具、安排通知或推断含糊时间，保留现有本机提醒与通知契约。
