@@ -6,6 +6,8 @@
 
 Owner 当前授权的离线 ASR 已本地实施并完成有界验收：内置中英流式识别、独立编辑预览、显式加入草稿、权限/取消/生命周期边界；两渠道主机 lint/JVM/Debug/R8 构建通过，日常 ARM64 模拟器 14 项、OnePlus 公开音频/控制器 7 项通过。设计见 [ADR-PLATFORM-004](../adr/platform/004-offline-voice-input.md)，真实测量、失败修复与限制见[语音证据](../evidence/development/offline-voice-input-2026-10-19.md)。独立验证包不覆盖原安装/数据，不使用真机麦克风；真实口述体验待 Owner 主动进行。后续 TTS 只完成候选/许可评估，本轮不实现；不推进历史队列，不推送/发布，版本不变。
 
+Owner 追加的十模型对照已完成：固定 31 段公开/合成语料的主机、ARM64 模拟器和 OnePlus 6T 准确率/吞吐，以及两台的实时节奏首字/最终文字测量。结果见[移动 ASR 对照](../evidence/development/mobile-asr-comparison-2026-10-19.md)。Moonshine 的中文加载/体积有收益，英文与 SDK 采用边界仍需验证；当前默认不变，没有将实验库或额外模型放进产品。
+
 前轮 Owner 要求的文档核查与真机、真实内置模型有界验收已完成。OnePlus 6T（API34/ARM64）安装精确 Advanced R8 候选；旧 0.0.5 架构先触发停检，随后依 Owner 分别明确要求覆盖安装、允许清空 Advanced 旧数据库，通过前台确认重建。14 项 UI 检查、4 次精确输入夹具通过；4 个真实 Turn、10 次固定内置模型调用完成，文件字节、hash 拒写、原生 Job 终态/ACK 和模型实际消费已核验。Standard、既有测试包与全局输入/显示设置保留，本轮临时资源清理，见[真机结果](../evidence/development/physical-workspace-model-2026-10-19.md)。这不表示支持旧内部架构无损迁移。
 
 前一轮追加范围已本地交付：`40288cf8` 精简指导并改写工作区目标，`45e2f0d7` 实现容量与信息小优化；完整主机及日常 API36 ARM64 Advanced 的 Debug 13 项、同源 R8 24 次方法执行与真实热状态/自然退出回收检查通过。用户表、偏好、原终端记录和显示输入设置保持；前轮自有资源/测试 APK 清理，新 R8 留在日常实例，见[前轮结果](../evidence/development/workspace-capacity-and-guidance-2026-10-19.md)。没有从后续队列自动启动新任务。

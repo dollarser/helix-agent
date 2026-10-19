@@ -82,6 +82,14 @@ android {
 
     sourceSets.getByName("main").assets.srcDir(rootProject.file("build/asr/assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr/test-assets"))
+    if (providers.gradleProperty("helix.asrBenchmark").orNull == "true") {
+        require(providers.gradleProperty("helix.asrValidation").orNull == "true")
+        sourceSets
+            .getByName(
+                "androidTest",
+            ).kotlin
+            .srcDir(rootProject.file("scripts/experiments/asr-benchmark/android/src"))
+    }
 
     // RootFS has its own bounded XZ stream; a second ZIP compression layer adds no value.
     androidResources { noCompress += "xz" }
@@ -190,6 +198,14 @@ dependencies {
     // Reuse the locked transport in deterministic OAuth interceptor tests; not a production dependency.
     testImplementation(libs.okhttp.wire)
     testImplementation(libs.mockwebserver)
+    if (providers.gradleProperty("helix.asrBenchmark").orNull == "true") {
+        androidTestImplementation(files(rootProject.file("build/asr/benchmark/downloads/vosk.aar")))
+        androidTestImplementation(files(rootProject.file("build/asr/benchmark/downloads/jna.aar")))
+        val moonRuntime = providers.gradleProperty("helix.asrBenchmarkMoonRuntime").orNull == "true"
+        val moonArtifact =
+            if (moonRuntime) "build/asr/benchmark/downloads/moonshine.aar" else "build/asr/benchmark/moonshine-test.aar"
+        androidTestImplementation(files(rootProject.file(moonArtifact)))
+    }
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)

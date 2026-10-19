@@ -1,0 +1,344 @@
+{
+  "artifacts": [
+    {
+      "name": "adapter.ort",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/adapter.ort",
+      "size": 1318472,
+      "sha256": "84d1bed88310f5b6dd452203bcaffb765f017a7d06da8d84a898235ef5c90e12"
+    },
+    {
+      "name": "cross_kv.ort",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/cross_kv.ort",
+      "size": 1288120,
+      "sha256": "22c2261f3120b766a91deceb4f32ca0bef0a8f2b181509ad0dc9fe6adbd0c23a"
+    },
+    {
+      "name": "decoder_kv.ort",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/decoder_kv.ort",
+      "size": 19717336,
+      "sha256": "5caf9e4e9eaa39b93122338bfbad2917630afc51293f6229b935ae7df28bed33"
+    },
+    {
+      "name": "encoder.ort",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/encoder.ort",
+      "size": 7772792,
+      "sha256": "4270ca0e1ecd10e78d658b08b91d81c7f913511177e1ad461c8a9d9d0903503d"
+    },
+    {
+      "name": "frontend.model.ort",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/frontend.model.ort",
+      "size": 27608,
+      "sha256": "d27a9c994b43fa6568121f502e8b99d511ffd0425d4090ffddcc82c9a5667971"
+    },
+    {
+      "name": "frontend.weights.ort",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/frontend.weights.ort",
+      "size": 2090728,
+      "sha256": "ac56e8ee7780e1f254ee26f2d9c9a3b3c6cfd2f6822cb3944924ae321f86dc50"
+    },
+    {
+      "name": "streaming_config.json",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/streaming_config.json",
+      "size": 509,
+      "sha256": "d31afd7c2dd5ee9ae3fa232312c5b42cb3e4fe1c6e9c53d885f2bea63023790a"
+    },
+    {
+      "name": "tokenizer.bin",
+      "url": "https://download.moonshine.ai/model/tiny-streaming-zh/quantized_26_08_24/tokenizer.bin",
+      "size": 74587,
+      "sha256": "f172da002a818b9968d5c7a995cc7c51acf2168331ab5f914b5b0860ceab8236"
+    },
+    {
+      "name": "decoder.int8.onnx",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/decoder.int8.onnx",
+      "size": 71664561,
+      "sha256": "f3cca9f77bb9d93c8fcbfb63ae617b6b1ee96818df3aa3b151c40658fe38594f"
+    },
+    {
+      "name": "encoder.int8.onnx",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/encoder.int8.onnx",
+      "size": 165462184,
+      "sha256": "81a70226a8934e6ed92aa1d4fc486b428b5398e2f2619ed4897b7294cab90e9a"
+    },
+    {
+      "name": "tokens.txt",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/tokens.txt",
+      "size": 75756,
+      "sha256": "59aba8873a2ed1e122c25fee421e25f283b63290efbde85c1f01a853d83cb6e6"
+    },
+    {
+      "name": "vosk-model.zip",
+      "url": "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip",
+      "size": 43898754,
+      "sha256": "3af8b0e7e0f835ae9d414ce5df580237a3cfb08d586c9fbbb0f7ff29ad5b14ba"
+    },
+    {
+      "name": "wenet.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-wenetspeech-yue-u2pp-conformer-ctc-zh-en-cantonese-int8-2025-09-10.tar.bz2",
+      "size": 117203117,
+      "sha256": "8636295785a43538a1b4620f167bcb89c10ce5ebdcee61c72a388738b783f992"
+    },
+    {
+      "name": "jfk.wav",
+      "url": "https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav",
+      "size": 352078,
+      "sha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e"
+    },
+    {
+      "name": "sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23.tar.bz2",
+      "size": 74004050,
+      "sha256": "2cbd71b640d9c37d3784f29367333a4577b0398b62e9deeed418170b081cba8b"
+    },
+    {
+      "name": "sherpa-onnx-whisper-tiny.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.tar.bz2",
+      "size": 116204861,
+      "sha256": "c46116994e539aa165266d96b325252728429c12535eb9d8b6a2b10f129e66b1"
+    },
+    {
+      "name": "sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2",
+      "size": 132634597,
+      "sha256": "5a2832047ea1f97dd0dc595b816c230c4bafad65cfc0341fa57517cadc50afd0"
+    },
+    {
+      "name": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+      "size": 163002883,
+      "sha256": "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e"
+    },
+    {
+      "name": "moonshine.aar",
+      "url": "https://repo.maven.apache.org/maven2/ai/moonshine/moonshine-voice/0.1.5/moonshine-voice-0.1.5.aar",
+      "size": 24321396,
+      "sha256": "ee2d95c21150683c743db8f3aef66281fd5408bcefc94be3ca1d2545ada1f571"
+    },
+    {
+      "name": "vosk.aar",
+      "url": "https://repo.maven.apache.org/maven2/com/alphacephei/vosk-android/0.3.75/vosk-android-0.3.75.aar",
+      "size": 13472638,
+      "sha256": "ab2f8b91ac8051561aa325546b35fed9a68b36b8121bac5c6fb927525c4adfad"
+    },
+    {
+      "name": "jna.aar",
+      "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.18.1/jna-5.18.1.aar",
+      "size": 522677,
+      "sha256": "7f053e3ec99e14dd71259c82c1c8a02738d64a13c31226b2acc170f3060951e0"
+    }
+  ],
+  "models": {
+    "zipzh": {
+      "decoder.onnx": {
+        "size": 5165083,
+        "sha256": "06522ad63cec0fdf6809f4e1db9bb4f7d710c34582e3b35db62ac60eccafac7e"
+      },
+      "tokens.txt": {
+        "size": 20628,
+        "sha256": "6193c7ea1c96d0d9a1e9652789b40d13a8a913b434a5451e93158f5a09fd6652"
+      },
+      "joiner.int8.onnx": {
+        "size": 1033416,
+        "sha256": "b34584dc6f561089e1d747fedebb3765f2caa72c927ef54d7ca55e5ae40a814b"
+      },
+      "encoder.int8.onnx": {
+        "size": 161141793,
+        "sha256": "5ac51e27981bb4dab01bb9be4958453ba50c3b61c063ddda0eab23fd3671aa4f"
+      }
+    },
+    "bilingual": {
+      "decoder.onnx": {
+        "size": 13877276,
+        "sha256": "89be509a83175261695bdef5fd1c7b9ab1129a663d1284e7ba9f8507b21e0906"
+      },
+      "tokens.txt": {
+        "size": 56317,
+        "sha256": "a8e0e4ec53810e433789b54a5c0134a7eaa2ffca595a6334d54c00da858841d3"
+      },
+      "joiner.int8.onnx": {
+        "size": 3228485,
+        "sha256": "bdda356d6f9b8c2d7cee9ee0e26075fa537490f7fd06520be408d287073667b9"
+      },
+      "encoder.int8.onnx": {
+        "size": 42980793,
+        "sha256": "db6f51551762e40e549166fe041ea3e45464370b595e9ad23f06478ec3794fbb"
+      }
+    },
+    "sensevoice": {
+      "model.int8.onnx": {
+        "size": 239233841,
+        "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"
+      },
+      "tokens.txt": {
+        "size": 315894,
+        "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+      }
+    },
+    "vosk": {
+      "README": {
+        "size": 82,
+        "sha256": "7362be411c609f2a1c9d2dfe22c2d72555c15eb90bfe47c41772f49ef94840ce"
+      },
+      "am/final.mdl": {
+        "size": 15901896,
+        "sha256": "91eda2c04c4f599361cb92b0e5298ccdf6b3c7a1fa52bfcefcd2c4e07aa1c131"
+      },
+      "graph/HCLr.fst": {
+        "size": 16158762,
+        "sha256": "798af0d9ba6f2d727747f58e1e7b2305f8618bc8ea7f6c51beecd8a2c965b965"
+      },
+      "graph/disambig_tid.int": {
+        "size": 234,
+        "sha256": "c9200318c2a265549ebfbea7e0176fa62e131e953abd140c9b0b39fe61e24015"
+      },
+      "graph/Gr.fst": {
+        "size": 26082259,
+        "sha256": "46d41a9b1723abccdcb354d731a5b58d87c060100d88ada1a3e31220f52b0434"
+      },
+      "ivector/global_cmvn.stats": {
+        "size": 1090,
+        "sha256": "b267dc89c1556fdd5bc358f0a480929da1743eeccfa06a67daf8db629ca336bb"
+      },
+      "ivector/splice.conf": {
+        "size": 35,
+        "sha256": "9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756"
+      },
+      "ivector/final.mat": {
+        "size": 44975,
+        "sha256": "42706d88818070ea0d0182b4d11367ba52a13b9a2be45630f60858a422109ada"
+      },
+      "ivector/online_cmvn.conf": {
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ivector/final.ie": {
+        "size": 9927287,
+        "sha256": "c39d46fbff04efb7baa9660ae7a728b0e2f35a4a1250b56ed3a599e26956df86"
+      },
+      "ivector/final.dubm": {
+        "size": 168048,
+        "sha256": "e33276cbd548c0a03ae5812c98115940614997dff23a6d59968af6eaf7630ff8"
+      },
+      "conf/mfcc.conf": {
+        "size": 153,
+        "sha256": "6c326fea5741c2d78be12f76eb1b36ea2ace040da9e355e4cfe6bb80e5f7d5ab"
+      },
+      "conf/model.conf": {
+        "size": 289,
+        "sha256": "468a8125c07530f96adcc219a0a5f993e8e0721ccf18acbd3169b77fc685fb9b"
+      },
+      "graph/phones/word_boundary.int": {
+        "size": 7161,
+        "sha256": "11ca784b99f03188b451fb54714c2de3dd694e662a5f88e82df435c2789b9aec"
+      }
+    },
+    "moonshine": {
+      "streaming_config.json": {
+        "size": 509,
+        "sha256": "d31afd7c2dd5ee9ae3fa232312c5b42cb3e4fe1c6e9c53d885f2bea63023790a"
+      },
+      "encoder.ort": {
+        "size": 7772792,
+        "sha256": "4270ca0e1ecd10e78d658b08b91d81c7f913511177e1ad461c8a9d9d0903503d"
+      },
+      "decoder_kv.ort": {
+        "size": 19717336,
+        "sha256": "5caf9e4e9eaa39b93122338bfbad2917630afc51293f6229b935ae7df28bed33"
+      },
+      "adapter.ort": {
+        "size": 1318472,
+        "sha256": "84d1bed88310f5b6dd452203bcaffb765f017a7d06da8d84a898235ef5c90e12"
+      },
+      "frontend.weights.ort": {
+        "size": 2090728,
+        "sha256": "ac56e8ee7780e1f254ee26f2d9c9a3b3c6cfd2f6822cb3944924ae321f86dc50"
+      },
+      "cross_kv.ort": {
+        "size": 1288120,
+        "sha256": "22c2261f3120b766a91deceb4f32ca0bef0a8f2b181509ad0dc9fe6adbd0c23a"
+      },
+      "tokenizer.bin": {
+        "size": 74587,
+        "sha256": "f172da002a818b9968d5c7a995cc7c51acf2168331ab5f914b5b0860ceab8236"
+      },
+      "frontend.model.ort": {
+        "size": 27608,
+        "sha256": "d27a9c994b43fa6568121f502e8b99d511ffd0425d4090ffddcc82c9a5667971"
+      }
+    },
+    "wenet": {
+      "model.int8.onnx": {
+        "size": 134698500,
+        "sha256": "201bfd9e12ec4ac9ee3b23c5e071d9fa2381a8b21df317e2e08a170d6f1f55d3"
+      },
+      "tokens.txt": {
+        "size": 85361,
+        "sha256": "c7750677a1183606d2fd6f16d792e06e70d9843dba8a0c6e23a9dec78e06977a"
+      }
+    },
+    "zip14m": {
+      "decoder.onnx": {
+        "size": 7509745,
+        "sha256": "5ee0f03a2768ff1d5c83ef3a493243c7935d316cd41280037b14783a3467cc78"
+      },
+      "tokens.txt": {
+        "size": 48697,
+        "sha256": "8b294db9045d6e5f94647f4c1eec1af4da143a75053c399611444b378ff966ac"
+      },
+      "joiner.int8.onnx": {
+        "size": 1795562,
+        "sha256": "a7cf9d82757bdcf786059454495a9ca95e4bd7347f72473fc08d794475c36169"
+      },
+      "encoder.int8.onnx": {
+        "size": 21621684,
+        "sha256": "1c556ea57cec304e55ec4b72e52c1cc098bb01476ed7d90f3de939fe126487b1"
+      }
+    },
+    "ctc": {
+      "model.int8.onnx": {
+        "size": 26342340,
+        "sha256": "68c9c943840f7d9cf3e8a4970ba50f404feb5277f611fa82b7e72267786fa84a"
+      },
+      "tokens.txt": {
+        "size": 13366,
+        "sha256": "6fed8c6c248516f38e7faa19404b57413e8ce259f1cbc1fa4aebc86eac32fdfd"
+      }
+    },
+    "whisper": {
+      "tokens.txt": {
+        "size": 816730,
+        "sha256": "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126"
+      },
+      "tiny-decoder.int8.onnx": {
+        "size": 89855401,
+        "sha256": "d2fece8dd42771f1df975c6c0445770d0c292bf7547c2cae04a6c0cc57540925"
+      },
+      "tiny-encoder.int8.onnx": {
+        "size": 12937772,
+        "sha256": "d24fb083ae3b1041fc24e97971d60e280c9342201fbb67b0ab428a8b4a51a434"
+      }
+    },
+    "paraformer": {
+      "tokens.txt": {
+        "size": 75756,
+        "sha256": "59aba8873a2ed1e122c25fee421e25f283b63290efbde85c1f01a853d83cb6e6"
+      },
+      "decoder.int8.onnx": {
+        "size": 71664561,
+        "sha256": "f3cca9f77bb9d93c8fcbfb63ae617b6b1ee96818df3aa3b151c40658fe38594f"
+      },
+      "encoder.int8.onnx": {
+        "size": 165462184,
+        "sha256": "81a70226a8934e6ed92aa1d4fc486b428b5398e2f2619ed4897b7294cab90e9a"
+      }
+    }
+  },
+  "fleurs": {
+    "url": "https://huggingface.co/datasets/google/fleurs/resolve/refs%2Fconvert%2Fparquet/cmn_hans_cn/test/0000.parquet",
+    "size": 695674033,
+    "sha256": "87c0aebbe183f3a36ac87b5c3421b6ab57036824744ff695029a3f858e7622fd",
+    "license": "CC-BY-4.0"
+  },
+  "corpusSha256": "b5ef265415a9930e6aaa1d59cb9e9bef8318175d98c4d1e245bd2493944eefda",
+  "baseModelLock": "config/asr/dependencies.lock.json"
+}
