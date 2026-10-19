@@ -42,10 +42,12 @@ class KnowledgeService(
     val openRequests = MutableStateFlow<String?>(null)
     val captureError = MutableStateFlow(false)
     val noteService = KnowledgeNoteService(store)
+    val questionService = KnowledgeQuestionService(store)
 
     fun close() {
         scope.cancel()
         noteService.close()
+        questionService.close()
         store.close()
     }
 

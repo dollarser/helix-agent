@@ -1,6 +1,7 @@
 package com.helix.core.storage.knowledge
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -80,20 +81,35 @@ interface KnowledgeDao {
             "ORDER BY receivedAt DESC",
     )
     suspend fun substring(query: String): List<CollectedSource>
+
+    @Query(
+        "SELECT knowledge.* FROM knowledge JOIN knowledge_fts ON knowledge.id = knowledge_fts.id " +
+            "WHERE knowledge_fts MATCH :query ORDER BY receivedAt DESC LIMIT 80",
+    )
+    suspend fun candidates(query: String): List<CollectedSource>
+
+    @Query(
+        "SELECT * FROM knowledge WHERE instr(lower(title || rawText || extracted), lower(:query)) > 0 " +
+            "ORDER BY receivedAt DESC LIMIT 24",
+    )
+    suspend fun candidateSubstring(query: String): List<CollectedSource>
 }
 
 @Database(
     entities = [
         CollectedSource::class, KnowledgeSearch::class, KnowledgeNote::class,
-        KnowledgeNoteSource::class, KnowledgeNoteSearch::class,
+        KnowledgeNoteSource::class, KnowledgeNoteSearch::class, KnowledgeAnswer::class,
     ],
-    version = 1,
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
     exportSchema = true,
 )
 abstract class KnowledgeDatabase : RoomDatabase() {
     abstract fun items(): KnowledgeDao
 
     abstract fun notes(): KnowledgeNoteDao
+
+    abstract fun answers(): KnowledgeAnswerDao
 }
 
 @Suppress("TooManyFunctions") // One transactional boundary for library sources, notes and evidence links.
@@ -110,8 +126,52 @@ class KnowledgeStore(
             ).build()
     private val dao = database.items()
     private val noteDao = database.notes()
+    private val answerDao = database.answers()
     val items = dao.observe()
     val notes = noteDao.observe()
+    val answers = answerDao.observe()
+
+    suspend fun answer(id: String) = answerDao.get(id)
+
+    suspend fun saveAnswer(answer: KnowledgeAnswer) = answerDao.save(answer)
+
+    suspend fun recoverAnswers() = answerDao.recover()
+
+    suspend fun saveAnswerAsNote(
+        id: String,
+        sources: List<KnowledgeNoteSource>,
+    ): String =
+        database.withTransaction {
+            val answer = requireNotNull(answerDao.get(id))
+            check(answer.state == "READY")
+            if (answer.savedNoteId.isNotEmpty()) return@withTransaction answer.savedNoteId
+            val noteId =
+                java.util.UUID
+                    .randomUUID()
+                    .toString()
+            val now = System.currentTimeMillis()
+            saveNote(
+                KnowledgeNote(noteId, answer.question.take(160), answer.body, now, now),
+                sources.map {
+                    it.copy(noteId = noteId)
+                },
+            )
+            answerDao.save(answer.copy(savedNoteId = noteId))
+            noteId
+        }
+
+    suspend fun retrievalCandidates(terms: List<String>): List<CollectedSource> {
+        require(terms.isNotEmpty() && terms.size <= 24 && terms.all { it.isNotBlank() && it.length <= 200 })
+        val query = terms.joinToString(" OR ") { "\"${it.replace("\"", "") }\"*" }
+        val candidates = dao.candidates(query).associateByTo(linkedMapOf()) { it.id }
+        for (term in terms) {
+            if (candidates.size >= 128) break
+            dao.candidateSubstring(term).forEach { source ->
+                if (candidates.size < 128) candidates.putIfAbsent(source.id, source)
+            }
+        }
+        return candidates.values.toList()
+    }
 
     fun close() {
         database.close()

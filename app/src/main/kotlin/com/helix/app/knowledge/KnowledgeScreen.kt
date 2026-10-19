@@ -67,6 +67,7 @@ fun KnowledgeScreen(
     var hits by remember { mutableStateOf<List<CollectedSource>>(emptyList()) }
     var noteHits by remember { mutableStateOf(notes) }
     var showNotes by remember { mutableStateOf(false) }
+    var showQuestions by remember { mutableStateOf(false) }
     var selectedNote by remember { mutableStateOf<String?>(null) }
     var selectedSources by remember { mutableStateOf(emptySet<String>()) }
     var failed by remember { mutableStateOf(false) }
@@ -93,6 +94,7 @@ fun KnowledgeScreen(
         if (request != null) {
             selected = request
             selectedNote = null
+            showQuestions = false
             showNotes = false
             service.openRequests.value = null
         }
@@ -111,6 +113,12 @@ fun KnowledgeScreen(
                 selectedNote = null
                 showNotes = true
             }
+        } else if (showQuestions) {
+            KnowledgeQuestionScreen(service.questionService, providers, { showQuestions = false }) { id ->
+                selectedNote = id
+                showQuestions = false
+                showNotes = true
+            }
         } else if (item == null) {
             androidx.compose.foundation.layout.Row {
                 TextButton(onClick = { showNotes = false }, modifier = Modifier.testTag("knowledge-tab-sources")) {
@@ -118,6 +126,9 @@ fun KnowledgeScreen(
                 }
                 TextButton(onClick = { showNotes = true }, modifier = Modifier.testTag("knowledge-tab-notes")) {
                     Text(stringResource(R.string.knowledge_notes_tab))
+                }
+                TextButton(onClick = { showQuestions = true }, modifier = Modifier.testTag("knowledge-tab-questions")) {
+                    Text(stringResource(R.string.knowledge_qa_tab))
                 }
             }
             if (showNotes) {

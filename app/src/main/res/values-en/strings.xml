@@ -2031,4 +2031,17 @@
 <string name="offline_voice_retry">Record again</string>
 <string name="offline_voice_cancel">Cancel</string>
 <string name="offline_voice_app_settings">App microphone settings</string>
+    <string name="knowledge_qa_tab">Q&amp;A</string>
+    <string name="knowledge_qa_scope">Search source materials locally by keywords (up to 16 results). Select up to 8 and review excerpts before sending the question and selected excerpts. Other sources, answers and notes are excluded.</string>
+    <string name="knowledge_qa_question">Question</string>
+    <string name="knowledge_qa_search">Search locally</string>
+    <string name="knowledge_qa_no_results">No matching sources. No model called. Try shorter wording or keywords from your materials.</string>
+    <string name="knowledge_qa_failed">Could not complete. Check the sources or model and retry. Existing materials and saved content are retained.</string>
+    <string name="knowledge_qa_preview">Review excerpts and destination</string>
+    <string name="knowledge_qa_generated">Generated answer · unreviewed</string>
+    <string name="knowledge_qa_stop">Stop generation</string>
+    <string name="knowledge_qa_save">Save as editable note</string>
+    <string name="knowledge_qa_running">Generating…</string>
+    <string name="knowledge_qa_ready">Answer ready. Check its citations.</string>
+    <string name="knowledge_qa_interrupted">Generation interrupted. No automatic retry.</string>
 </resources>

@@ -2031,4 +2031,17 @@
     <string name="offline_voice_retry">Record again</string>
     <string name="offline_voice_cancel">Cancel</string>
     <string name="offline_voice_app_settings">App microphone settings</string>
+    <string name="knowledge_qa_tab">问答</string>
+    <string name="knowledge_qa_scope">先在本机按关键词检索原始来源（最多展示 16 项）；选择最多 8 项并核对片段后，才会发送问题和所选片段。不会发送其他来源、历史问答或笔记。</string>
+    <string name="knowledge_qa_question">问题</string>
+    <string name="knowledge_qa_search">本地检索</string>
+    <string name="knowledge_qa_no_results">没有匹配来源，尚未调用模型。请缩短问题或改用材料中的关键词。</string>
+    <string name="knowledge_qa_failed">未完成，请检查资料或模型后重试。原始资料和已保存内容保留。</string>
+    <string name="knowledge_qa_preview">核对片段与发送范围</string>
+    <string name="knowledge_qa_generated">生成回答 · 未核对</string>
+    <string name="knowledge_qa_stop">停止生成</string>
+    <string name="knowledge_qa_save">保存为可编辑笔记</string>
+    <string name="knowledge_qa_running">正在生成…</string>
+    <string name="knowledge_qa_ready">回答已生成，请核对引用。</string>
+    <string name="knowledge_qa_interrupted">生成已中断，未自动重试。</string>
 </resources>
