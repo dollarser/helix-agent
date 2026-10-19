@@ -24,7 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Run on the owner-authorized emulator only, with hostmicoff and an isolated package. */
+/** Owner-authorized emulator only, with hostmicoff; the runner restores permission state afterwards. */
 class OfflineVoicePermissionDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
@@ -130,6 +130,7 @@ class OfflineVoicePermissionDeviceTest {
 
     @Test
     fun audioFocusLossStopsRecorderWithoutAddingDraft() {
+        check(Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("sdk_gphone"))
         assertEquals(
             PackageManager.PERMISSION_GRANTED,
             ContextCompat.checkSelfPermission(instrumentation.targetContext, Manifest.permission.RECORD_AUDIO),

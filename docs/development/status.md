@@ -4,6 +4,8 @@
 
 ## 当前实施
 
+Owner 最新要求的分支确认已加入：预览所选消息、取消无创建、确认防重、切换会话丢弃待确认请求。普通 Standard/Advanced 主机 lint/JVM/Debug/R8 与日常 ARM64 模拟器各 17 项回归通过；OnePlus 普通 Advanced 的公开音频/合成控制器 6 项通过，保留原数据与设置，不使用手机麦克风。会话分享按 Owner 后续澄清暂停修改，当前为本地系统文本分享，未实现云端链接；入口去留待产品决定。证据见[分支与语音普通包收尾](../evidence/development/session-actions-voice-closeout-2026-10-19.md)。
+
 Owner 已确认采用当前 sherpa-onnx + 小型双语 Zipformer 方案正式接入；离线 ASR 已进入两渠道 main 源集、普通 Debug/Release 默认构建，无需实验开关，并完成有界验收：内置中英流式识别、独立编辑预览、显式加入草稿、权限/取消/生命周期边界；两渠道主机 lint/JVM/Debug/R8 构建通过，日常 ARM64 模拟器 14 项、OnePlus 公开音频/控制器 7 项通过。设计见 [ADR-PLATFORM-004](../adr/platform/004-offline-voice-input.md)，真实测量、失败修复与限制见[语音证据](../evidence/development/offline-voice-input-2026-10-19.md)。独立验证包不覆盖原安装/数据，不使用真机麦克风；真实口述体验待 Owner 主动进行。后续 TTS 只完成候选/许可评估，本轮不实现；不推进历史队列，不推送/发布，版本不变。
 
 Owner 追加的十模型对照已完成：固定 31 段公开/合成语料的主机、ARM64 模拟器和 OnePlus 6T 准确率/吞吐，以及两台的实时节奏首字/最终文字测量。结果见[移动 ASR 对照](../evidence/development/mobile-asr-comparison-2026-10-19.md)。Moonshine 的中文加载/体积有收益，英文与 SDK 采用边界仍需验证；当前默认不变，没有将实验库或额外模型放进产品。

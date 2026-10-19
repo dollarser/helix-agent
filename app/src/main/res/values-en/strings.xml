@@ -35,6 +35,9 @@
     <string name="chat_artifacts_count">Session outputs (%1$d)</string>
     <string name="chat_artifacts_title">Session outputs</string>
     <string name="chat_artifacts_back">Back to outputs</string>
+    <string name="session_fork_confirm_title">Create a conversation branch?</string>
+    <string name="session_fork_confirm_scope">Create a new conversation with history through this assistant message. Keep the original conversation; files are not copied or reverted. Source message:</string>
+    <string name="session_fork_confirm_action">Create branch</string>
     <string name="session_fork_action">Branch from here</string>
     <string name="session_fork_title">%1$s · Branch</string>
     <string name="session_fork_failed">Cannot create a complete branch here. Choose an earlier complete message. The original conversation is preserved.</string>

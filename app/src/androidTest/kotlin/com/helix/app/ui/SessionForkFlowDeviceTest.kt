@@ -62,6 +62,7 @@ class SessionForkFlowDeviceTest {
                         ).performScrollToNode(hasTestTag("chat-message-toggle-$target"))
                     compose.onNodeWithTag("chat-message-toggle-$target").performClick()
                     compose.onNodeWithTag("chat-fork-$target").performClick()
+                    compose.onNodeWithTag("session-fork-confirm").performClick()
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
                     val branch = requireNotNull(chat.screen.value.openSessionId)
                     compose.onNodeWithTag("chat-composer-options").performClick()
@@ -163,6 +164,7 @@ class SessionForkFlowDeviceTest {
                 throw error
             }
             compose.onNodeWithTag("chat-fork-$last").performClick()
+            compose.onNodeWithTag("session-fork-confirm").performClick()
             compose.waitUntil(10_000) { chat.screen.value.blockedReason != null }
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("chat-blocked-reason").fetchSemanticsNodes().size == 1
@@ -172,6 +174,7 @@ class SessionForkFlowDeviceTest {
             compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-message-toggle-$first"))
             compose.onNodeWithTag("chat-message-toggle-$first").performClick()
             compose.onNodeWithTag("chat-fork-$first").performClick()
+            compose.onNodeWithTag("session-fork-confirm").performClick()
             compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
             assertEquals(
                 "safe prefix",

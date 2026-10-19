@@ -116,6 +116,20 @@ internal fun ConversationSection(
         }
 
     var voiceOpen by remember(screen.openSessionId) { mutableStateOf(false) }
+    var pendingFork by remember(screen.openSessionId) { mutableStateOf<MessageUi?>(null) }
+    pendingFork?.let { message ->
+        SessionForkConfirmation(
+            message = message,
+            onDismiss = { pendingFork = null },
+            onConfirm = {
+                // Clear before calling the service: repeated clicks cannot create another branch.
+                if (pendingFork?.id == message.id && pickerSession == screen.openSessionId) {
+                    pendingFork = null
+                    intents.onFork?.invoke(message.id)
+                }
+            },
+        )
+    }
     var inputNotice by remember { mutableStateOf<String?>(null) }
     val captureUnavailable = stringResource(R.string.chat_capture_unavailable)
     val pickerUnavailable = stringResource(R.string.chat_picker_unavailable)
@@ -318,7 +332,10 @@ internal fun ConversationSection(
                             MessageRow(
                                 message = message,
                                 imageContent = { ChatMessageImages(message.images, intents.onPreviewImage) },
-                                onFork = intents.onFork?.takeIf { message.id == forkMessageId },
+                                onFork =
+                                    intents.onFork?.takeIf { message.id == forkMessageId }?.let {
+                                        { _: String -> pendingFork = message }
+                                    },
                                 onEdit =
                                     intents.onEditLatest?.takeIf {
                                         message.role == "user" &&

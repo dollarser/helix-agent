@@ -34,6 +34,8 @@ class HelixAndroidJUnitRunner : AndroidJUnitRunner() {
         heldProotBoundary = arguments?.getString("proot.goal.kill.phase") == "result-boundary" &&
             arguments.getString("class") == "com.helix.app.eval.ProotGoalProcessKillDeviceTest"
         super.onCreate(arguments)
+        // Bounded ordinary-package checks can keep the owner's existing language choice intact.
+        if (arguments?.getString("helix.preserveUserSettings") == "true") return
         runCatching {
             // Persist-only on purpose (see class doc): the synchronous attachBaseContext wrap renders
             // the choice, so the async setApplicationLocales push is skipped to keep the activity
