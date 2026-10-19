@@ -108,6 +108,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var consumedReminderId: String? = null
+    private var shareIntentConsumed = false
 
     /**
      * HXA-069: apply the app UI language to this activity's context (and every Composable
@@ -130,6 +131,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         consumedReminderId = savedInstanceState?.getString("consumed_goal_reminder")
+        shareIntentConsumed = savedInstanceState?.getBoolean("share_intent_consumed") ?: false
         @Suppress("DEPRECATION")
         val initialIntent = savedInstanceState?.getParcelable<Intent>("startup_initial_intent") ?: intent
 
@@ -187,19 +189,19 @@ class MainActivity : ComponentActivity() {
         request: Intent,
         restore: Boolean,
     ) {
-        // HXA-056 / PX-06: a share intent (text, images, or PDF/DOCX/HTML files) becomes a
-        // local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5). Re-runs when the
-        // user shares again into the running task (onNewIntent).
-        val draft = ShareIntentDraft.draftFrom(request)
+        val isShare = request.action in setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
+        if (isShare && !(restore && shareIntentConsumed)) {
+            (application as HelixApplication).knowledge.capture(request, callingPackage ?: "Android share")
+            shareIntentConsumed = true
+        }
         val goalId =
             com.helix.app.goal
                 .goalReminderId(request)
-        container.chatService.acceptShareDraft(draft.text, draft.imageUris, draft.fileUris)
         if (goalId != null && goalId != consumedReminderId) {
             consumedReminderId = goalId
             container.chatService.openGoalReminder(goalId)
         }
-        if (restore && draft.isEmpty && goalId == null) container.chatService.restoreConversationLaunchTarget()
+        if (restore && !isShare && goalId == null) container.chatService.restoreConversationLaunchTarget()
     }
 
     // Best-effort WebView pause on background; onPause does not pause JavaScript globally.
@@ -236,6 +238,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("consumed_goal_reminder", consumedReminderId)
+        outState.putBoolean("share_intent_consumed", shareIntentConsumed)
         startupIntent?.let { outState.putParcelable("startup_initial_intent", it) }
         outState.putParcelableArrayList("startup_pending_intents", ArrayList(pendingIntents))
         super.onSaveInstanceState(outState)
@@ -286,6 +289,9 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    val knowledge = (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).knowledge
+    com.helix.app.knowledge
+        .KnowledgeNavigation(knowledge, navController)
     com.helix.app.plugin.PluginTaskNavigation
         .Observe(navController)
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
@@ -675,7 +681,7 @@ internal fun HelixApp(container: AppContainer) {
 }
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Exhaustive shell destination dispatch.
 private fun DestinationScreen(
     destination: ShellDestination,
     container: AppContainer,
@@ -684,6 +690,18 @@ private fun DestinationScreen(
     initialModelSource: ProviderProvisioningKind? = null,
 ) {
     when (destination) {
+        ShellDestination.Knowledge -> {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            com.helix.app.knowledge.KnowledgeScreen(
+                (context.applicationContext as HelixApplication).knowledge,
+                providers = container.providerService,
+                onReference = { text ->
+                    container.chatService.acceptShareDraft(text, emptyList(), emptyList())
+                    navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                },
+            )
+        }
+
         ShellDestination.Sessions -> {
             ChatScreen(
                 container.chatService,

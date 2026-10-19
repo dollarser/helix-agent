@@ -3,6 +3,7 @@
      Workspace files live under the app-private filesDir/workspaces/ (HXA-041 layout);
      all-files roots (developer flavor) are public external-storage directories. -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="knowledge" path="knowledge/" />
     <files-path
         name="workspaces"
         path="workspaces/" />

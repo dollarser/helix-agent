@@ -63,51 +63,22 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- HXA-056 / PX-06 share drafts: receiving a share from another app lands a LOCAL
-                 DRAFT (text pre-filled; images and office/research files imported + staged,
-                 never auto-sent — ADR-0014 §5). Other share types do not list Helix. -->
+        </activity>
+        <!-- Knowledge collection materializes temporary grants locally, never sends to a model. -->
+        <activity android:name=".knowledge.KnowledgeCaptureActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 
                 <category android:name="android.intent.category.DEFAULT" />
 
-                <data android:mimeType="text/plain" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-
-                <data android:mimeType="image/*" />
+                <data android:mimeType="*/*" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
 
                 <category android:name="android.intent.category.DEFAULT" />
 
-                <data android:mimeType="image/*" />
-            </intent-filter>
-            <!-- PX-06: a shared office/research FILE (PDF / DOCX / HTML) also lands a local
-                 draft — imported + staged as an attachment through the existing pipeline (the
-                 on-device extractor turns it to model-visible text). Multiple <data> MIME rows
-                 are OR-ed: Helix is offered for any one of them. -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-
-                <data android:mimeType="application/pdf" />
-                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-                <data android:mimeType="text/html" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-
-                <data android:mimeType="application/pdf" />
-                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-                <data android:mimeType="text/html" />
+                <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
         <!-- HXA-126: MCP OAuth 2.0 PKCE browser redirect callback (ADR-CONNECTORS-002) -->

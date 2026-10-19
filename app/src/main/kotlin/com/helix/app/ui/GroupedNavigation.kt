@@ -177,7 +177,11 @@ private fun ShellDestination.workDrawerEntry() =
     DrawerEntry(
         route,
         titleRes,
-        if (this == ShellDestination.Tasks) R.string.nav_tasks_description else R.string.nav_artifacts_description,
+        when (this) {
+            ShellDestination.Tasks -> R.string.nav_tasks_description
+            ShellDestination.Knowledge -> R.string.knowledge_nav_description
+            else -> R.string.nav_artifacts_description
+        },
     )
 
 @Composable
@@ -209,7 +213,7 @@ private fun ShellDestination.navigationGroup(): Int =
     when (this) {
         ShellDestination.Sessions -> R.string.nav_group_conversations
 
-        ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
+        ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git, ShellDestination.Knowledge,
         -> R.string.nav_group_work
 
         ShellDestination.Projects -> R.string.nav_projects

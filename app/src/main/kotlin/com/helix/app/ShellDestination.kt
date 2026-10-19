@@ -24,6 +24,11 @@ enum class ShellDestination(
         titleRes = R.string.nav_projects,
         emptyStateRes = R.string.project_empty,
     ),
+    Knowledge(
+        route = "knowledge",
+        titleRes = R.string.nav_knowledge,
+        emptyStateRes = R.string.knowledge_empty,
+    ),
     Tasks(
         route = "tasks",
         titleRes = R.string.nav_tasks,

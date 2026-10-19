@@ -9,6 +9,10 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
+    val knowledge by lazy {
+        com.helix.app.knowledge
+            .KnowledgeService(this)
+    }
     private val containerInitialization by lazy {
         check(!Process.isIsolated() && getProcessName() == packageName) {
             "AppContainer belongs to the main process"

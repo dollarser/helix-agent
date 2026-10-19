@@ -1,0 +1,31 @@
+<resources>
+    <string name="knowledge_sources_tab">来源库</string>
+    <string name="knowledge_notes_tab">知识笔记</string>
+    <string name="knowledge_note_new">直接写知识笔记</string>
+    <string name="knowledge_synthesize">综合选中的 %1$d 份来源</string>
+    <string name="knowledge_distill">从这份材料提炼知识笔记</string>
+    <string name="knowledge_note_draft">草稿 · 尚未核对为知识</string>
+    <string name="knowledge_note_reviewed">知识笔记 · 已核对保存</string>
+    <string name="knowledge_note_title">主题 / 标题</string>
+    <string name="knowledge_note_body">笔记内容、问题或综合要求</string>
+    <string name="knowledge_note_save">核对后保存为知识笔记</string>
+    <string name="knowledge_save_draft">保存草稿</string>
+    <string name="knowledge_frozen_sources">已关联 %1$d 份来源快照。来源重新提取不会静默覆盖本笔记或这些引用。</string>
+    <string name="knowledge_choose_model">选择服务商和模型</string>
+    <string name="knowledge_generation_instructions">可选模型生成仅使用这些来源片段和你的主题/草稿（草稿最多 6000 字符），不会扫描或合并全库。请核对生成内容后再保存为知识。</string>
+    <string name="knowledge_generate">准备模型生成草稿</string>
+    <string name="knowledge_generating">正在生成草稿…原有笔记仍保留。</string>
+    <string name="knowledge_generation_failed">生成未完成或发送前检查未通过。草稿和来源仍保留，请核对模型与去向后明确重试。</string>
+    <string name="knowledge_generated_unreviewed">模型生成建议 · 尚未确认为知识</string>
+    <string name="knowledge_load_draft">将生成建议载入编辑器</string>
+    <string name="knowledge_unsaved">返回前保存当前编辑？</string>
+    <string name="knowledge_save_draft_back">保存草稿并返回</string>
+    <string name="knowledge_keep_editing">继续编辑</string>
+    <string name="knowledge_close">关闭</string>
+    <string name="knowledge_confirm_generation">确认内容发送去向</string>
+    <string name="knowledge_generation_local">此模型在本设备运行。</string>
+    <string name="knowledge_generation_remote">选中的来源片段和当前草稿将发送给上方服务商。本机保存不等于模型在本地推理。</string>
+    <string name="knowledge_generation_scope">选中 %1$d 份来源，发送 %2$d 字符。不自动确认为知识、不执行工具、不上传全库。</string>
+    <string name="knowledge_confirm_send">确认发送并生成草稿</string>
+    <string name="knowledge_selected_question">用所选来源在聊天提问 · 不创建笔记</string>
+</resources>

@@ -1,0 +1,31 @@
+<resources>
+    <string name="knowledge_sources_tab">Sources</string>
+    <string name="knowledge_notes_tab">Knowledge notes</string>
+    <string name="knowledge_note_new">Write a knowledge note</string>
+    <string name="knowledge_synthesize">Synthesize %1$d selected sources</string>
+    <string name="knowledge_distill">Distill this source into a note</string>
+    <string name="knowledge_note_draft">Draft · not reviewed knowledge</string>
+    <string name="knowledge_note_reviewed">Knowledge note · saved after review</string>
+    <string name="knowledge_note_title">Topic / title</string>
+    <string name="knowledge_note_body">Your note, question or synthesis instructions</string>
+    <string name="knowledge_note_save">Save reviewed knowledge note</string>
+    <string name="knowledge_save_draft">Save draft</string>
+    <string name="knowledge_frozen_sources">%1$d selected source snapshots. Later extraction never silently overwrites this note or these references.</string>
+    <string name="knowledge_choose_model">Choose provider and model</string>
+    <string name="knowledge_generation_instructions">Optional model generation uses only these selected source excerpts and your topic/draft (up to 6000 draft characters). It does not search or merge the entire library. Review the output before saving it as knowledge.</string>
+    <string name="knowledge_generate">Prepare a model-generated draft</string>
+    <string name="knowledge_generating">Generating a draft… Your existing note is retained.</string>
+    <string name="knowledge_generation_failed">Generation did not complete or pre-send checks failed. Your draft and sources are retained. Check the model/destination and retry explicitly.</string>
+    <string name="knowledge_generated_unreviewed">Generated suggestion · not confirmed knowledge</string>
+    <string name="knowledge_load_draft">Load suggestion into editor</string>
+    <string name="knowledge_unsaved">Save your edits before leaving?</string>
+    <string name="knowledge_save_draft_back">Save draft and return</string>
+    <string name="knowledge_keep_editing">Continue editing</string>
+    <string name="knowledge_close">Close</string>
+    <string name="knowledge_confirm_generation">Confirm content destination</string>
+    <string name="knowledge_generation_local">This destination runs on your device.</string>
+    <string name="knowledge_generation_remote">These selected excerpts and your draft will be sent to the provider above. Local storage does not mean local model inference.</string>
+    <string name="knowledge_generation_scope">%1$d selected sources; %2$d input characters. No automatic saving as reviewed knowledge, tool execution or full-library upload.</string>
+    <string name="knowledge_confirm_send">Confirm send and generate draft</string>
+    <string name="knowledge_selected_question">Ask in chat using selected sources · do not create a note</string>
+</resources>

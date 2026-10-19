@@ -177,6 +177,7 @@ class GroupedNavigationDeviceTest {
             val groupTag =
                 when (destination) {
                     ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
+                    ShellDestination.Knowledge,
                     -> {
                         "navigation-group-work"
                     }

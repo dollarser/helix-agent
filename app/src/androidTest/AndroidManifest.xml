@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <activity android:name="com.helix.app.test.KnowledgeSenderActivity" android:exported="true" />
+        <provider android:name="com.helix.app.test.KnowledgeFixtureProvider"
+            android:authorities="${applicationId}.knowledgefixture" android:exported="false"
+            android:grantUriPermissions="true" />
         <activity android:name="com.helix.app.test.ShareReceiptActivity" android:exported="true" />
         <activity android:name="com.helix.app.ui.FixtureSpeechActivity" android:exported="true">
             <intent-filter>
