@@ -4,19 +4,21 @@
 
 ## 当前实施
 
-Owner 本轮追加范围已本地交付：`40288cf8` 精简指导并改写工作区目标，`45e2f0d7` 实现容量与信息小优化；完整主机及日常 API36 ARM64 Advanced 的 Debug 13 项、同源 R8 24 次方法执行与真实热状态/自然退出回收检查通过。用户表、偏好、原终端记录和显示输入设置保持；本轮资源/测试 APK 清理，新 R8 留在日常实例，见[本轮结果](../evidence/development/workspace-capacity-and-guidance-2026-10-19.md)。没有从后续队列自动启动新任务。
+Owner 最新要求的文档核查与真机、真实内置模型有界验收已完成。OnePlus 6T（API34/ARM64）安装精确 Advanced R8 候选；旧 0.0.5 架构先触发停检，随后依 Owner 分别明确要求覆盖安装、允许清空 Advanced 旧数据库，通过前台确认重建。14 项 UI 检查、4 次精确输入夹具通过；4 个真实 Turn、10 次固定内置模型调用完成，文件字节、hash 拒写、原生 Job 终态/ACK 和模型实际消费已核验。Standard、既有测试包与全局输入/显示设置保留，本轮临时资源清理，见[真机结果](../evidence/development/physical-workspace-model-2026-10-19.md)。这不表示支持旧内部架构无损迁移。
 
-目标现为真实工作区原位操作，独立终端无需聊天；URI-native 直接使用 Provider，需要 POSIX 的具体消费者才物化，worktree/snapshot 明确选择，287/288 联合验两路。完整重构仍未开始，当前 `code.linux.run` 继续快照；本轮只报告来源/执行/输出、增强原 hash 冲突反馈、复用现有 Git diff。工具普通调用按 CPU 最多四、压力降一；手动终端最多四，Job 最多四，共用六槽。指导精简保留有效流程为按需参考，不增加新恢复手册或通用 diff 后端。
+前一轮追加范围已本地交付：`40288cf8` 精简指导并改写工作区目标，`45e2f0d7` 实现容量与信息小优化；完整主机及日常 API36 ARM64 Advanced 的 Debug 13 项、同源 R8 24 次方法执行与真实热状态/自然退出回收检查通过。用户表、偏好、原终端记录和显示输入设置保持；前轮自有资源/测试 APK 清理，新 R8 留在日常实例，见[前轮结果](../evidence/development/workspace-capacity-and-guidance-2026-10-19.md)。没有从后续队列自动启动新任务。
 
-本轮授权主机及指定日常 API36 ARM64 模拟器验收、保留当前设置和用户数据、本地提交；不推送、不改 Release、不清库、不调用真实账号或模型。版本保持 0.0.6 / code 1，包/工具声明版本保持 1。同一任务已取得的许可跨压缩继续有效，历史独立任务的账号/删除/发布许可不扩展到本轮。
+目标现为真实工作区原位操作，独立终端无需聊天；URI-native 直接使用 Provider，需要 POSIX 的具体消费者才物化，worktree/snapshot 明确选择，287/288 联合验两路。完整重构仍未开始，当前 `code.linux.run` 继续快照；前轮小优化报告来源/执行/输出、增强原 hash 冲突反馈、复用现有 Git diff。工具普通调用按 CPU 最多四、压力降一；手动终端最多四，Job 最多四，共用六槽。指导精简保留有效流程为按需参考，不增加新恢复手册或通用 diff 后端。
+
+本轮已明确授权物理手机与固定内置服务 `Qwen3.8-27B` 的有界合成验收，使用公开 Client ID，不使用其他 Key 或付费回退；旧 Advanced 数据库删除依据本轮单独明确许可，不扩展到 Standard 或数据库外文件。本地提交，不推送、不改 Release。前轮日常模拟器验收没有真实模型调用，该历史边界保留。版本保持 0.0.6 / code 1，包/工具声明版本保持 1。同一任务已取得的许可跨压缩继续有效，历史独立任务的账号/删除/发布许可不扩展到本轮。
 
 ## 当前结论
 
 | 范围 | 最新事实与证据 | 保留边界 |
 | --- | --- | --- |
-| 终端布局与容量 | `c4f95a06`/`ef8fd10c` 原布局交付；本轮四终端横竖屏/两倍字体、热压新建拒绝、原身份/目录/环境、退出回收及单步关闭通过，见[本轮验收](../evidence/development/workspace-capacity-and-guidance-2026-10-19.md) | 先前固定两个不是 Android 限制；新结果仅指定 API36 ARM64 Advanced，不外推物理手机、其他 API/OEM、实际低内存或长稳 |
-| 终端生命周期 | `b1bb9101` 修复同 boot 覆盖安装 UNKNOWN、错误 ATTACH 与单步关闭进程树；[故障记录](../bug-fixes/2026-10-19-terminal-package-replacement.md) | 手动 PTY 与聊天 Job 独立；真实手机、其他 API/OEM 未因此验收 |
-| 内置模型/插件 | [HXA-307](tasks/HXA-307.md) 动态可用目录只进对话选模，无 Provider 配置和会话传输提醒；无变化启动/健康 repair revision 稳定；[7 个真实 Turn、9 次调用](../evidence/development/built-in-model-2026-10-18.md#真实内置服务与会话提醒移除)已完成 | 不再把旧阶段待白名单当当前阻塞；档位接受不证明思考语义，部署模板/容量/长稳未由此验证 |
+| 终端布局与容量 | `c4f95a06`/`ef8fd10c` 原布局交付；[日常验收](../evidence/development/workspace-capacity-and-guidance-2026-10-19.md)含四终端横竖屏/两倍字体与热压门禁；[OnePlus 真机](../evidence/development/physical-workspace-model-2026-10-19.md)追加四终端、后台身份/目录/环境、五次子树关闭与槽位复用通过 | 先前固定两个不是 Android 限制；有界结果不外推其他 API/OEM、实际低内存或长稳，物理手机未运行横竖屏/字体矩阵 |
+| 终端生命周期 | `b1bb9101` 修复同 boot 覆盖安装 UNKNOWN、错误 ATTACH 与单步关闭进程树；[故障记录](../bug-fixes/2026-10-19-terminal-package-replacement.md)；OnePlus 五个本轮终端均退出/ACK | 手动 PTY 与聊天 Job 独立；手机预检没有存量活动终端，不把这次安装算作物理手机活动终端覆盖安装恢复验收 |
+| 内置模型/插件 | [HXA-307](tasks/HXA-307.md) 动态目录只进对话选模，无 Provider 配置和会话传输提醒；无变化启动/健康 repair revision 稳定；历史模拟器 [7 Turn/9 调用](../evidence/development/built-in-model-2026-10-18.md#真实内置服务与会话提醒移除)，本轮真机 4 Turn/10 调用分别有据 | 不再把旧阶段待白名单当当前阻塞；本轮目录返回档位扩展元数据，声明/请求接受均不证明思考语义，部署模板/容量/长稳未由此验证 |
 | 发布 | v0.0.6 已发布，版本 Release 只保留两 APK 和标签源码；固定对应源码/许可在既有 runtime-assets；[整理记录](../evidence/development/v0.0.6-publication-2026-10-18.md) | 原标签、APK 字节不变；mapping 用于排障，不代表当前必然有 Bug；本轮无新发布授权 |
 | 工作区目标 | [Harness §23.3.1](../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)、[工作区 ADR](../adr/workspace/004-workspace-binding.md)维护目标与现行实现差异 | 设计接受不等于生产原位执行已交付，远程平台/透明同步未交付 |
 
@@ -51,7 +53,7 @@ HXA-286～294 的完整生产重构尚未实施；303 的独立配套和本轮�
 
 | 范围 | 条件或边界 |
 | --- | --- |
-| 本轮验收 | 本轮主机/指定日常 Advanced 有界验收已完成；两渠道 JVM 各 4 项外部输入跳过。其他设备、实际低内存、长稳和真实模型未跑，不算通过 |
+| 本轮验收 | 前轮主机/指定日常 Advanced 与本轮 OnePlus Advanced R8 有界验收已完成；本轮另有主机网关推理 1 次、手机 4 Turn/10 调用。两渠道 JVM 各 4 项外部输入跳过属前轮；本轮未重跑全量 JVM/APK 构建。旧库需授权重建，实际低内存、长稳未跑，不算通过 |
 | 真实服务 | Notion/Linear 全部测试已结案；Claude/Grok 付费账号按 Owner 决定暂缓，不追加调用。其他服务另需指定输入及当前授权 |
 | 设备/资源 | 其他 API/OEM、物理低内存/热压/Doze/16 KiB 硬件、24h 与全部 Runtime 组合未由日常模拟器覆盖 |
 | 发行 | 稳定应用身份、签名/升级与渠道材料仍按[发行就绪](release-readiness.md)；本轮仅本地提交，历史一次性发布/删数据授权不沿用 |
