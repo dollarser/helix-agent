@@ -18,6 +18,7 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Real speech is synthesized to files only. Control tests use silent injected sinks, never the microphone. */
@@ -30,6 +31,167 @@ class ReadAloudDeviceTest {
         }
 
     private fun main(action: () -> Unit) = InstrumentationRegistry.getInstrumentation().runOnMainSync(action)
+
+    @Test fun normalCompletionDrainsOrderedPcmAndReleasesOutputAndFocus() {
+        val generated = AtomicInteger()
+        val engineClosed = AtomicInteger()
+        val leaseClosed = AtomicInteger()
+        val finished = AtomicBoolean()
+        val outputClosed = AtomicBoolean()
+        val written = java.util.concurrent.CopyOnWriteArrayList<Float>()
+        val service =
+            ReadAloudService(LocalVoiceModel(context, root), {
+                object : SpeechEngine {
+                    override fun generate(
+                        text: String,
+                        keepGoing: () -> Boolean,
+                        consume: (FloatArray, Int) -> Unit,
+                    ) {
+                        consume(floatArrayOf(generated.incrementAndGet().toFloat()), 16_000)
+                    }
+
+                    override fun close() {
+                        engineClosed.incrementAndGet()
+                    }
+                }
+            }, { AutoCloseable { leaseClosed.incrementAndGet() } }, {
+                object : SpeechSink {
+                    override fun write(
+                        samples: FloatArray,
+                        keepGoing: () -> Boolean,
+                    ) {
+                        written.add(samples.single())
+                    }
+
+                    override fun finish(keepGoing: () -> Boolean) {
+                        finished.set(true)
+                    }
+
+                    override fun interrupt() = Unit
+
+                    override fun close() {
+                        outputClosed.set(true)
+                    }
+                }
+            })
+        try {
+            main { service.play("complete", "中".repeat(150)) }
+            await {
+                service.state.value.phase == ReadAloudPhase.IDLE &&
+                    engineClosed.get() == 1 && leaseClosed.get() == 1 && outputClosed.get()
+            }
+            assertEquals(listOf(1f, 2f, 3f, 4f), written.toList())
+            assertTrue(finished.get())
+        } finally {
+            main(service::close)
+        }
+    }
+
+    @Test fun synthesisPrefetchIsBoundedAndCancellationDiscardsQueuedPcm() {
+        val generated = AtomicInteger()
+        val writes = AtomicInteger()
+        val closed = AtomicInteger()
+        val release = CountDownLatch(1)
+        val service =
+            ReadAloudService(LocalVoiceModel(context, root), {
+                object : SpeechEngine {
+                    override fun generate(
+                        text: String,
+                        keepGoing: () -> Boolean,
+                        consume: (FloatArray, Int) -> Unit,
+                    ) {
+                        generated.incrementAndGet()
+                        consume(floatArrayOf(0.1f), 16_000)
+                    }
+
+                    override fun close() {
+                        closed.incrementAndGet()
+                    }
+                }
+            }, { AutoCloseable {} }, {
+                object : SpeechSink {
+                    override fun write(
+                        samples: FloatArray,
+                        keepGoing: () -> Boolean,
+                    ) {
+                        writes.incrementAndGet()
+                        check(release.await(10, TimeUnit.SECONDS))
+                    }
+
+                    override fun finish(keepGoing: () -> Boolean) = Unit
+
+                    override fun interrupt() {
+                        release.countDown()
+                    }
+
+                    override fun close() = Unit
+                }
+            })
+        try {
+            main { service.play("pipeline", "中".repeat(400)) }
+            await { generated.get() == 3 && writes.get() == 1 }
+            assertEquals(0, closed.get())
+            main(service::stop)
+            await { closed.get() == 1 && service.state.value.phase == ReadAloudPhase.IDLE }
+            assertEquals(1, writes.get())
+            assertEquals(3, generated.get())
+        } finally {
+            release.countDown()
+            main(service::close)
+        }
+    }
+
+    @Test fun producerFailureCancelsAnActiveOutputBeforeReportingFailure() {
+        val entered = CountDownLatch(1)
+        val stopped = AtomicBoolean()
+        val closed = AtomicInteger()
+        val leases = AtomicInteger()
+        val service =
+            ReadAloudService(LocalVoiceModel(context, root), {
+                object : SpeechEngine {
+                    override fun generate(
+                        text: String,
+                        keepGoing: () -> Boolean,
+                        consume: (FloatArray, Int) -> Unit,
+                    ) {
+                        consume(floatArrayOf(0.1f), 16_000)
+                        check(entered.await(10, TimeUnit.SECONDS))
+                        error("Injected failure after output began")
+                    }
+
+                    override fun close() {
+                        closed.incrementAndGet()
+                    }
+                }
+            }, { AutoCloseable { leases.incrementAndGet() } }, {
+                object : SpeechSink {
+                    override fun write(
+                        samples: FloatArray,
+                        keepGoing: () -> Boolean,
+                    ) {
+                        entered.countDown()
+                        val deadline = android.os.SystemClock.elapsedRealtime() + 5000
+                        while (keepGoing() && android.os.SystemClock.elapsedRealtime() < deadline) Thread.sleep(5)
+                        stopped.set(!keepGoing())
+                    }
+
+                    override fun finish(keepGoing: () -> Boolean) = Unit
+
+                    override fun interrupt() = Unit
+
+                    override fun close() = Unit
+                }
+            })
+        try {
+            main { service.play("failure", "Synthetic failure") }
+            await { service.state.value.phase == ReadAloudPhase.FAILED && leases.get() == 1 }
+            assertTrue(stopped.get())
+            assertEquals(1, closed.get())
+        } finally {
+            entered.countDown()
+            main(service::close)
+        }
+    }
 
     @Test fun realMeloChineseAndMixedTextProducesFiniteNonSilentPcm(): Unit =
         runBlocking {
@@ -166,6 +328,7 @@ class ReadAloudDeviceTest {
         try {
             main { service.play("first", "Synthetic first") }
             assertTrue(entered.await(15, TimeUnit.SECONDS))
+            await { service.state.value.phase == ReadAloudPhase.SPEAKING }
             main {
                 service.play("discarded", "Synthetic discarded")
                 service.play("last", "Synthetic last")

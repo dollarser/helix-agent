@@ -77,7 +77,8 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
-        <activity android:name=".knowledge.KnowledgeCaptureActivity" android:exported="true">
+        <activity android:name=".knowledge.KnowledgeCaptureActivity" android:exported="true"
+            android:label="@string/knowledge_share_target">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 

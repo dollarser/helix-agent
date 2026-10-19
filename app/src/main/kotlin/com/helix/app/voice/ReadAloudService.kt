@@ -8,9 +8,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -63,19 +68,7 @@ class ReadAloudService(
                             ensureActive()
                             lease = requireNotNull(focus { if (epoch.get() == ticket) stop() }) { "AUDIO_FOCUS_DENIED" }
                             withContext(Dispatchers.IO) {
-                                engine(directory).use { voice ->
-                                    chunks.forEach { chunk ->
-                                        ensureActive()
-                                        voice.generate(chunk, { epoch.get() == ticket }) { samples, rate ->
-                                            if (epoch.get() == ticket) {
-                                                val target = output.get() ?: sink(rate).also(output::set)
-                                                state.value = ReadAloudState(id, ReadAloudPhase.SPEAKING)
-                                                target.write(samples) { epoch.get() == ticket }
-                                            }
-                                        }
-                                    }
-                                    output.get()?.finish { epoch.get() == ticket }
-                                }
+                                speak(chunks, directory, ticket, id)
                             }
                             if (epoch.get() == ticket) state.value = ReadAloudState()
                         }
@@ -90,6 +83,54 @@ class ReadAloudService(
                     }
                 }
             }
+    }
+
+    private data class AudioPart(
+        val samples: FloatArray,
+        val rate: Int,
+    )
+
+    /** One queued PCM part: synthesize ahead while output blocks, never accumulate a reply in RAM. */
+    private suspend fun speak(
+        chunks: List<String>,
+        directory: File,
+        ticket: Long,
+        id: String,
+    ) = coroutineScope {
+        val audio = Channel<AudioPart>(capacity = 1)
+        val producer =
+            launch(Dispatchers.IO) {
+                val active = currentCoroutineContext()
+                try {
+                    engine(directory).use { voice ->
+                        for (chunk in chunks) {
+                            ensureActive()
+                            if (epoch.get() != ticket) break
+                            voice.generate(chunk, { active.isActive && epoch.get() == ticket }) { samples, rate ->
+                                // Native callbacks are synchronous. Channel cancellation unblocks this bounded send.
+                                if (epoch.get() == ticket) runBlocking { audio.send(AudioPart(samples, rate)) }
+                            }
+                        }
+                    }
+                } finally {
+                    audio.close()
+                }
+            }
+        try {
+            val active = currentCoroutineContext()
+            for (part in audio) {
+                ensureActive()
+                if (epoch.get() != ticket) break
+                val target = output.get() ?: sink(part.rate).also(output::set)
+                state.value = ReadAloudState(id, ReadAloudPhase.SPEAKING)
+                target.write(part.samples) { active.isActive && epoch.get() == ticket }
+            }
+            ensureActive()
+            output.get()?.finish { active.isActive && epoch.get() == ticket }
+        } finally {
+            audio.cancel()
+            producer.cancel()
+        }
     }
 
     @Suppress("TooGenericExceptionCaught") // Focus is released even when output cleanup fails.

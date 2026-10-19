@@ -35,7 +35,7 @@ Mobile Use is an optional plugin. Browser, file, and tool access retain their ow
 
 ## Collect original sources (current source)
 
-Choose Helix from another app’s **Android system share** sheet to save text, links, images or files in the local source library. Collected material is not automatically confirmed knowledge. Knowledge retains originals, shows extraction limits, and supports search and selected references. WeChat’s internal forwarding menu may not expose system sharing; copy text/link or save a file and share it instead.
+Choose **Collect in Helix** (or **Collect in Helix Advanced**) from another app’s **Android system share** sheet to save text, links, images or files in the local source library. Collected material is not automatically confirmed knowledge. Knowledge retains originals, shows extraction limits, and supports search and selected references. WeChat’s internal forwarding menu may not expose system sharing; copy text/link or save a file and share it instead.
 
 Knowledge notes are independent: write directly, distill one source, or select several sources to synthesize. Optional model generation requires choosing a provider/model and confirming the destination and selected content. Its output remains an unreviewed suggestion until you load it into the editor, edit and save a reviewed note. Citation snapshots remain fixed when sources are re-extracted. You can also ask in chat using selected search results without creating a note. Original sources remain in the library; no inbox-clearing workflow is required.
 

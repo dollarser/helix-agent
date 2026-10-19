@@ -4,6 +4,8 @@
 
 ## 当前实施
 
+Owner 授权继续的 [HXA-311](tasks/HXA-311.md) 收尾已完成本地主机与日常 ARM64 自动验收：短首段、有界合成/播放与明确渠道分享目标；两渠道各 36 项语音/导航、38 项知识库/提醒及 Chrome 公开分享 1 项通过。长句首次 PCM 等待下降，日期短句和约 4.4 秒加载仍有等待；见[本轮证据](../evidence/development/phase-closeout-2026-10-19.md)。OnePlus 未连接，Owner 选择稍后真实口述、外放及提醒手测，不算通过。后续知识库检索问答→自然语言提醒→定时 Agent 尚未编码，按已授权顺序接续；版本不变，未 push/发布。
+
 Owner 按三阶段顺序授权的 [HXA-310](tasks/HXA-310.md) 主动回复朗读已本地实现：单音色 Melo INT8 约 57.8 MiB 按需安装，本机合成、显式播放/停止与焦点/生命周期控制；双渠道主机/JVM/lint/Debug/R8、日常 ARM64 模拟器两渠道各 32 项语音/导航及各 37 项知识库/提醒通过，真实资源下载 1 项通过；性能快照仍有明显等待，真机自然度和提醒最终真机重测待连接，见[本轮证据](../evidence/development/read-aloud-2026-10-19.md)。此前阶段的“不实现 TTS”仅描述各自范围，不限制本次新增授权。
 
 Owner 授权知识库后继续的 [HXA-309](tasks/HXA-309.md) 本机备忘/任务提醒已本地实现：独立条目、固定时区一次/日/周/月、AlarmManager 通知与 WorkManager 恢复核对、真实错过/未知记录，不自动运行模型。最终双渠道主机/Debug/R8、日常 ARM64 模拟器各 18 项、重启/强停恢复及 Doze 短闹钟通过。前一候选 OnePlus 实际通知/点击通过；最终覆盖安装前设备断开，最终真机重测 pending。设置保留、失败与边界见[证据](../evidence/development/local-reminders-2026-10-19.md)。未来定时 Agent 身份/去重/取消/未知副作用已补充至 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)；该提醒阶段不实现 TTS、不推进整套重构、不 push/发布，版本不变。

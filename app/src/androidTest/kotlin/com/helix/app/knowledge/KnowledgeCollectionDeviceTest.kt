@@ -234,65 +234,76 @@ class KnowledgeCollectionDeviceTest {
         }
 
     @Test
-    fun externalSenderReachesExportedReceiverWithTemporaryContentGrant() =
+    fun externalSenderReachesExportedReceiverWithTemporaryContentGrant(): Unit =
         runBlocking {
-            val app = context.applicationContext as HelixApplication
-            val service = app.knowledge
-            val token = "external-${UUID.randomUUID()}"
-            val component =
-                Intent(Intent.ACTION_SEND)
-                    .setType("application/octet-stream")
-                    .setPackage(context.packageName)
-                    .resolveActivity(context.packageManager)
-            assertEquals(KnowledgeCaptureActivity::class.java.name, component?.className)
-            val outgoing = sender(token).putExtra("text", token)
-            val uri = requireNotNull(outgoing.data)
-            assertEquals(
-                android.content.pm.PackageManager.PERMISSION_DENIED,
-                context.checkUriPermission(
-                    uri,
-                    android.os.Process.myPid(),
-                    android.os.Process.myUid(),
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                ),
-            )
-            context.startActivity(outgoing)
-            val row =
-                withTimeout(30_000) {
-                    service.items.first { rows -> rows.any { it.rawText == token && it.state == "READY" } }
-                }.first { it.rawText == token }
-            try {
-                assertTrue(service.originalFile(row, 0).readText().contains("知识引用"))
-                assertEquals("READY", row.state)
-                val seen = app.awaitAppContainer().firstLaunch.noticeSeen
-                val expected = if (seen) token else app.getString(com.helix.app.R.string.notice_title)
-                android.util.Log.i("HelixKnowledgeEvidence", "external-entry waiting noticeSeen=$seen")
-                // Cold app startup can outlast source materialization, especially during host builds.
-                withTimeout(15_000) {
-                    while (!hasVisibleText(expected)) {
-                        kotlinx.coroutines.delay(50)
-                    }
-                }
-                android.util.Log.i("HelixKnowledgeEvidence", "external-entry visible=true noticeSeen=$seen")
-                // Android may retain an Activity-stack grant until the task finishes. Revoke from the owner UID.
-                context.startActivity(sender(token).putExtra("revokeOnly", true))
-                withTimeout(5000) {
-                    while (context.checkUriPermission(
-                            uri,
-                            android.os.Process.myPid(),
-                            android.os.Process.myUid(),
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                        ) ==
-                        android.content.pm.PackageManager.PERMISSION_GRANTED
-                    ) {
-                        kotlinx.coroutines.delay(50)
-                    }
-                }
-                assertTrue(service.originalFile(row, 0).readText().contains("知识引用"))
-            } finally {
-                service.remove(row.id)
-            }
+            receiveExternal(chooser = false)
         }
+
+    @Test
+    fun systemSharesheetSelectsHelixAndRetainsOriginalAfterGrantRevocation(): Unit =
+        runBlocking {
+            receiveExternal(chooser = true)
+        }
+
+    private suspend fun receiveExternal(chooser: Boolean) {
+        val app = context.applicationContext as HelixApplication
+        val service = app.knowledge
+        val token = "external-${UUID.randomUUID()}"
+        val component =
+            Intent(Intent.ACTION_SEND)
+                .setType("application/octet-stream")
+                .setPackage(context.packageName)
+                .resolveActivity(context.packageManager)
+        assertEquals(KnowledgeCaptureActivity::class.java.name, component?.className)
+        val outgoing = sender(token).putExtra("text", token).putExtra("chooser", chooser)
+        val uri = requireNotNull(outgoing.data)
+        assertEquals(
+            android.content.pm.PackageManager.PERMISSION_DENIED,
+            context.checkUriPermission(
+                uri,
+                android.os.Process.myPid(),
+                android.os.Process.myUid(),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            ),
+        )
+        context.startActivity(outgoing)
+        if (chooser) selectHelixFromSharesheet()
+        val row =
+            withTimeout(30_000) {
+                service.items.first { rows -> rows.any { it.rawText == token && it.state == "READY" } }
+            }.first { it.rawText == token }
+        try {
+            assertTrue(service.originalFile(row, 0).readText().contains("知识引用"))
+            assertEquals("READY", row.state)
+            val seen = app.awaitAppContainer().firstLaunch.noticeSeen
+            val expected = if (seen) token else app.getString(com.helix.app.R.string.notice_title)
+            android.util.Log.i("HelixKnowledgeEvidence", "external-entry waiting noticeSeen=$seen")
+            // Cold app startup can outlast source materialization, especially during host builds.
+            withTimeout(15_000) {
+                while (!hasVisibleText(expected)) {
+                    kotlinx.coroutines.delay(50)
+                }
+            }
+            android.util.Log.i("HelixKnowledgeEvidence", "external-entry visible=true noticeSeen=$seen")
+            // Android may retain an Activity-stack grant until the task finishes. Revoke from the owner UID.
+            context.startActivity(sender(token).putExtra("revokeOnly", true))
+            withTimeout(5000) {
+                while (context.checkUriPermission(
+                        uri,
+                        android.os.Process.myPid(),
+                        android.os.Process.myUid(),
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    ) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    kotlinx.coroutines.delay(50)
+                }
+            }
+            assertTrue(service.originalFile(row, 0).readText().contains("知识引用"))
+        } finally {
+            service.remove(row.id)
+        }
+    }
 
     private fun hasVisibleText(expected: String): Boolean {
         val root = instrumentation.uiAutomation.rootInActiveWindow
@@ -309,6 +320,38 @@ class KnowledgeCollectionDeviceTest {
             repeat(node.childCount) { index -> node.getChild(index)?.let(pending::add) }
         }
         return false
+    }
+
+    private suspend fun selectHelixFromSharesheet() {
+        val label =
+            context.packageManager
+                .getActivityInfo(
+                    android.content.ComponentName(context, KnowledgeCaptureActivity::class.java),
+                    0,
+                ).loadLabel(context.packageManager)
+                .toString()
+        withTimeout(15_000) {
+            while (!selectShareTarget(label)) kotlinx.coroutines.delay(50)
+        }
+    }
+
+    private fun selectShareTarget(label: String): Boolean {
+        val root = instrumentation.uiAutomation.rootInActiveWindow
+        if (root == null || !root.packageName.toString().contains("intentresolver")) return false
+        val pending = java.util.ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
+        pending.add(root)
+        var visited = 0
+        var clicked = false
+        while (pending.isNotEmpty() && visited++ < 500 && !clicked) {
+            val node = pending.removeFirst()
+            if (node.text?.toString() == label || node.contentDescription?.toString() == label) {
+                var target: android.view.accessibility.AccessibilityNodeInfo? = node
+                while (target != null && !target.isClickable) target = target.parent
+                clicked = target?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true
+            }
+            repeat(node.childCount) { index -> node.getChild(index)?.let(pending::add) }
+        }
+        return clicked
     }
 
     @Test

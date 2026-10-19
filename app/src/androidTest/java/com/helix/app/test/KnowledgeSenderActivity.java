@@ -18,14 +18,17 @@ public class KnowledgeSenderActivity extends Activity {
             grantUriPermission(target, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } else {
             Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain");
-            send.setClassName(target, "com.helix.app.knowledge.KnowledgeCaptureActivity");
+            if (!getIntent().getBooleanExtra("chooser", false)) {
+                send.setClassName(target, "com.helix.app.knowledge.KnowledgeCaptureActivity");
+            }
             send.putExtra(Intent.EXTRA_TEXT, getIntent().getStringExtra("text"));
             if (uri != null) {
                 send.putExtra(Intent.EXTRA_STREAM, uri);
                 send.setClipData(ClipData.newRawUri("Synthetic fixture", uri));
                 send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             }
-            startActivity(send);
+            startActivity(getIntent().getBooleanExtra("chooser", false)
+                ? Intent.createChooser(send, "Synthetic Helix collection test") : send);
         }
         finish();
     }
