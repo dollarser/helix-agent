@@ -176,6 +176,11 @@ internal fun ScheduledAgentEditor(
     var local by remember(id) { mutableStateOf(original?.localTime ?: defaultScheduledTime()) }
     var zone by remember(id) { mutableStateOf(original?.zone ?: ZoneId.systemDefault().id) }
     var repeat by remember(id) { mutableStateOf(original?.repeat ?: "ONCE") }
+    var runtime by remember(id) {
+        mutableStateOf(
+            ScheduledRuntimeBudget.seconds(original?.runtimeBudgetMillis ?: ScheduledRuntimeBudget.DEFAULT_MILLIS),
+        )
+    }
     var enabled by remember(id) { mutableStateOf(original?.enabled ?: false) }
     var choices by remember { mutableStateOf(emptyList<ScheduledSessionChoice>()) }
     var prepared by remember { mutableStateOf<PreparedScheduledRule?>(null) }
@@ -187,7 +192,7 @@ internal fun ScheduledAgentEditor(
         item {
             TextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.reminder_back_discard)) }
             Text(stringResource(R.string.scheduled_limits))
-            if (error) Text(stringResource(R.string.scheduled_error))
+            if (error) Text(stringResource(R.string.scheduled_error), Modifier.testTag("scheduled-editor-error"))
             OutlinedTextField(
                 title,
                 { title = it.take(160) },
@@ -231,6 +236,12 @@ internal fun ScheduledAgentEditor(
                     Text(stringResource(label))
                 }
             }
+            OutlinedTextField(
+                runtime,
+                { runtime = it },
+                Modifier.fillMaxWidth().testTag("scheduled-runtime"),
+                label = { Text(stringResource(R.string.scheduled_runtime)) },
+            )
             Text(stringResource(R.string.scheduled_calendar))
             Row {
                 Checkbox(enabled, { enabled = it }, Modifier.testTag("scheduled-enabled"))
@@ -256,7 +267,7 @@ internal fun ScheduledAgentEditor(
                                     revision = original?.revision ?: 1,
                                     enabled = enabled,
                                 )
-                            prepared = service.prepare(draft)
+                            prepared = service.prepare(draft, ScheduledRuntimeBudget.parseSeconds(runtime))
                         }
                         busy = false
                     }
@@ -313,6 +324,10 @@ internal fun ScheduledAgentEditor(
 @Suppress("FunctionName")
 private fun ScheduledScopePreview(bound: ScheduledAgentScope) {
     Text(bound.sessionTitle)
+    Text(
+        stringResource(R.string.scheduled_runtime_review, ScheduledRuntimeBudget.seconds(bound.maxRuntimeMillis)),
+        Modifier.testTag("scheduled-runtime-preview"),
+    )
     Text("${bound.providerName} · ${bound.model} · ${bound.origin}", Modifier.testTag("scheduled-scope-target"))
     Text(stringResource(R.string.scheduled_disclosure, bound.workspace, bound.toolCount))
 }

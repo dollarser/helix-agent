@@ -8,7 +8,7 @@
 - 首版 PLAN 只读分析/检索，复用原 AgentRuntime、schema/policy/权限/审批/限额/审计；原闭合元数据操作仍按既有模式准入，不授予文件写入或外部副作用。`directUserRequest=false`，不因定时事件创建新的人类请求/Goal 权限。无新账号、服务、依赖或框架。
 - 单独 `scheduled-agents.db` schema 1 保存规则/revision、发生三元组 `(ruleId, revision, dueAt)`、冻结规则/授权/结果会话及每次新 attempt。Worker 只携带三元组，不能凭 metadata 扩权。并发、过时、提前、错过或忙会话不重复启动。一次日历结束后停用，释放 32 条启用名额；历史发生/attempt 保留。
 - 授权快照绑定 Provider/模型/连接目标、工作区身份/版本、权限配置和工具持久绑定。每次实际模型请求（包括压缩）再核对当前范围、真实 request 的模型/工具及已记录工作区。Core 只新增可选请求前检查点，保持 Provider 实例及既有普通请求重试语义。进程内工具 incarnation 不写入持久身份；实际执行继续经过正常精确绑定。配置漂移或删除均暂停未来执行并记录失败，需重新确认。
-- WorkManager 仅近似唤醒，不申请精确闹钟或新前台服务。超过 15 分钟合并记录错过、推进下个原日历时间，无补跑风暴；早到用当前 Worker 后继投影，不替换正在运行的 Worker。暂停/编辑只影响未来，停止本次沿原 Turn ID，真实 executor 退出前不释放物理容量。审批等待计入两分钟执行期限；每次模型请求输出最多 2048 token，没有宣称累计模型调用次数上限。
+- WorkManager 仅近似唤醒，不申请精确闹钟或新前台服务。超过 15 分钟合并记录错过、推进下个原日历时间，无补跑风暴；早到用当前 Worker 后继投影，不替换正在运行的 Worker。暂停/编辑只影响未来，停止本次沿原 Turn ID，真实 executor 退出前不释放物理容量。审批等待计入规则确认的运行期限（初始 120 秒可调整）；每次模型请求输出最多 2048 token，没有宣称累计模型调用次数上限。
 - 启动恢复先等原 Turn/Goal 恢复结束。ADMITTING/RUNNING/WAITING/UNKNOWN 重新查询实际 Turn、审批及未决效果；缺失 ACK 用稳定 clientRequestId 查原执行，不再次 submit。已有 Turn ID 但原 Turn 缺失保持未知/需核对，不能当作从未执行。取消、超时、死亡/中断不自动重试；显式重试新建 attempt，沿原发生/授权/会话，活动执行、NEEDS_REVIEW、未决效果和范围变化仍门控。
 - 提醒通知/条目打开请求优先离开定时页面，避免原提醒跳转被页面状态遮挡。失败、保存后投影失败和原记录事实分开；没有 catch-all 成功回执或 placeholder。
 
@@ -55,3 +55,29 @@ Standard 偏好字节（排除进程诊断）与初始基线一致；Advanced �
 真实模型测试通过服务入口输入合成到期事件，系统测试单独验证真实 WorkManager 持久投影/去重/取消；没有把二者描述成休眠后 OS Worker→联网模型的一项端到端验收。恢复采用预置持久状态的核查夹具，并非物理断电或正在联网模型的强杀重建矩阵。没有测试任意 ACT 写入、订阅 CLI、长稳、其他 API/OEM、Release 运行或真人通知/听感。OnePlus 手测 pending，Owner 已选择稍后。
 
 最终六份 APK 在 `build/scheduled-agent/deliverables/Helix-{Standard,Advanced}-{debug,test,release-unsigned}.apk`；成功构建的源码/测试/JVM/产物摘要在 `build/scheduled-agent/evidence/provenance.json`。Debug 安装包与最终归档字节一致；未签名 Release 只证明 R8 构建，不冒充设备运行验收。版本仍 0.0.6 / code 1，工具声明版本 1，不发布或推送。
+
+## 审查补充：规则预算与真实授权变更
+
+基线提交 fd28cc76。审查指出原两分钟是实现自行选择，不能当作用户接受的固定产品上限。本轮改为规则编辑页的最大运行时长，初始 120 秒可编辑，确认页显示实际值。预算保存在规则已有 scopeJson 中、参与 scopeHash 并冻结在 occurrence.ruleJson，Room schema 1 不改表。原缺少字段的历史固定默认确认仍解释为原 120 秒，不删除来源、会话或规则。
+
+Service 的计时与每次实际模型请求的剩余授权窗口均读取原发生项预算。编辑只产生未来 revision，不能延长运行中或原次重试的旧预算。用户输入按精确正毫秒验证，支持更长时长和小数秒；拒绝零、负数、非数字、不可精确表示及 Long 表示溢出，没有新增任意业务上限。
+
+真实集成测试在第一次正常 time.now 执行完成后，用同一隔离会话的真实 Room 配置 API 改变权限预设或工具 SESSION 资格，随后由同一 AgentLoop 建立第二个模型请求；断言失败、Provider Wire 调用仍只有一次，第二次未出网。不是替换一个假的 scopeHash，也不是只手动调用校验函数。另补超过两分钟窗口仍受本规则预算允许、预算到期拒绝、授权预算篡改、旧默认数据、运行中编辑与实际编辑页确认/无效值测试。
+
+补充候选沿用新 6 GiB JVM、最多两个 worker、禁项目并行的四段主机门禁，全部通过且逐段源码/测试输入一致：spotless/detekt、双渠道 JVM/Debug/AndroidTest、双渠道 lint、双渠道 R8。Standard JVM 1323、Advanced 1458（各四项既有外部 profile 跳过），Storage 242、Agent 295，零失败。`scripts/check-all.sh --source` exit 0，283 主机脚本、954 文档/297 HXA、40 ADR、2633 国际化键及秘密扫描通过。日志 `build/scheduled-budget/host/`、`build/scheduled-budget-host-serial.log`、`build/scheduled-budget-source-final.log`。
+
+设备使用相同源码构建与安装候选，新增数改为 30（生命周期 16、Runtime 8、UI 5、投影 1）。权限和工具资格漂移各自断言 Core 已记录第二次模型请求，但 Provider Wire 仍仅一次；第二次被本次原授权拒绝。超过两分钟测试通过合成原 attempt 时间验证三分钟仍允许、超过五分钟拒绝，并非实际等待三分钟或长稳验收。
+
+Standard 首轮旧知识库回归第 13 项进程原生崩溃：API36 `libhwui.so / BaseRenderNodeAnimator::pushStaging`，RenderThread SIGSEGV 空指针，未出现 Java 断言失败。完整退出/崩溃记录与失败 instrumentation 保留在本轮 consumer 目录（`crash-buffer.log`、`exit-info.log`、`integration-previous.log`）。未改产品或弱化测试、未清数据或改系统动画设置；同候选触发单项复验 1/1，通过后完整回归 50/50。只能确认本轮复验未复现，不能声称修复系统渲染根因。
+
+普通 [CoroutineWorker 平台执行窗口](https://developer.android.com/reference/androidx/work/CoroutineWorker)与规则最大值分开，系统可更早中断；没有把平台十分钟窗口另设为产品上限，也不声称本轮实现了十分钟以上持续后台或长稳验收。
+
+
+| 补充候选渠道 | 新增定时 Agent | 知识库/问答/提醒 | 自然语言提醒 | 真实 Qwen 合成任务 |
+| --- | --- | --- | --- | --- |
+| Standard | 30/30，22.570 秒 | 50/50，38.794 秒（崩溃后同候选完整重跑） | 10/10，12.554 秒 | 1/1，5.507 秒 |
+| Advanced | 30/30，26.273 秒 | 50/50，43.811 秒 | 10/10，12.082 秒 | 1/1，5.791 秒 |
+
+本轮两渠道全部用户偏好逐键值、其他偏好文件字节均与本轮基线一致（排除进程诊断）；没有发生五项就绪缓存变化。通知/麦克风授予、精确闹钟访问、时区与 IME 一致。测试 APK 已移除、普通应用保留；未清数据、录音、播放或使用真机。旧基线的不确定性仍保留，不由此次精确比较倒推消除。
+
+本轮实际安装及测试 APK 与最终归档逐一校验相同，六份 APK 在 `build/scheduled-budget/deliverables/Helix-{Standard,Advanced}-{debug,test,release-unsigned}.apk`；构建源码/测试摘要、JVM 结果和产物摘要在 `build/scheduled-budget/evidence/provenance.json`，设备原始日志/设置比较在 `build/scheduled-budget/devices/emulator-5554/`。版本 0.0.6/code 1/工具声明 1 保持，未 push/发布。没有新增外部账号或凭据；OnePlus 真人手测依 Owner 选择延后。

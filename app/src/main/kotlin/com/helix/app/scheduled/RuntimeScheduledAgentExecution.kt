@@ -53,8 +53,9 @@ class RuntimeScheduledAgentExecution(
         }
 
     @Suppress("LongMethod") // One immutable authorization snapshot; no model execution.
-    override suspend fun scope(sessionId: String): ScheduledAgentScope =
+    override suspend fun scope(sessionId: String, maxRuntimeMillis: Long): ScheduledAgentScope =
         withContext(Dispatchers.IO) {
+            require(maxRuntimeMillis > 0)
             val session = storage.sessions.resolve(sessionId)
             check(session.archivedAt == null)
             val providerId = requireNotNull(session.providerId)
@@ -110,7 +111,7 @@ class RuntimeScheduledAgentExecution(
                         "mode",
                         "PLAN",
                     ).put("outputTokens", OUTPUT_TOKENS)
-                    .put("deadlineMillis", ScheduledAgentService.EXECUTION_MILLIS)
+                    .put("deadlineMillis", maxRuntimeMillis)
             ScheduledAgentScope(
                 sessionId,
                 session.title,
@@ -125,6 +126,7 @@ class RuntimeScheduledAgentExecution(
                 analysisHash(config.connection.toString()),
                 workspaceIdentity(binding.workspaceId, binding.relativePath, binding.revision),
                 bindings.toString(),
+                maxRuntimeMillis,
             )
         }
 
@@ -144,9 +146,9 @@ class RuntimeScheduledAgentExecution(
         val bound = ScheduledAgentScope.decode(rule.scopeJson)
         check(rule.id == attempt.ruleId && rule.revision == attempt.revision)
         check(rule.creator == "LOCAL_USER" && turn.sessionId == attempt.sessionId && rule.sessionId == turn.sessionId)
-        check(System.currentTimeMillis() - attempt.createdAt < ScheduledAgentService.EXECUTION_MILLIS)
+        check(System.currentTimeMillis() - attempt.createdAt < bound.maxRuntimeMillis)
         check(attempt.state in setOf("ADMITTING", "RUNNING", "WAITING"))
-        check(scope(rule.sessionId).hash == rule.scopeHash && bound.hash == rule.scopeHash)
+        check(scope(rule.sessionId, bound.maxRuntimeMillis).hash == rule.scopeHash && bound.hash == rule.scopeHash)
         check(provider.id == bound.providerId && request.model == bound.model)
         check(analysisHash(provider.connection.toString()) == bound.connectionHash)
         val runtime = requireNotNull(storage.turnRuntimeRecords.find(turnId))
@@ -171,7 +173,7 @@ class RuntimeScheduledAgentExecution(
         withContext(Dispatchers.IO) {
             val bound = ScheduledAgentScope.decode(rule.scopeJson)
             check(bound.sessionId == rule.sessionId && bound.hash == rule.scopeHash)
-            check(scope(rule.sessionId).hash == rule.scopeHash)
+            check(scope(rule.sessionId, bound.maxRuntimeMillis).hash == rule.scopeHash)
             // A user-created rule is not a fresh human message and cannot create/extend Goal authority.
             chat.agentRuntime
                 .submit(

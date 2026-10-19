@@ -16,7 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 
 internal class ScheduledFixture(
-    limit: Long = ScheduledAgentService.EXECUTION_MILLIS,
+    private val limit: Long = ScheduledRuntimeBudget.DEFAULT_MILLIS,
 ) : AutoCloseable {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val name = "scheduled-test-${UUID.randomUUID()}.db"
@@ -24,7 +24,7 @@ internal class ScheduledFixture(
     val now = AtomicLong(System.currentTimeMillis())
     val execution = ScheduledFakeExecution()
     val wake = ScheduledFakeWake()
-    val service = ScheduledAgentService(store, execution, wake, now::get, limit)
+    val service = ScheduledAgentService(store, execution, wake, now::get)
 
     fun draft(
         id: String = UUID.randomUUID().toString(),
@@ -48,7 +48,7 @@ internal class ScheduledFixture(
     )
 
     suspend fun save(draft: ScheduledAgentRule = draft()): ScheduledAgentRule {
-        service.save(service.prepare(draft))
+        service.save(service.prepare(draft, if (draft.scopeJson.isBlank()) limit else draft.runtimeBudgetMillis))
         return requireNotNull(store.dao.rule(draft.id))
     }
 
@@ -83,7 +83,10 @@ internal class ScheduledFakeExecution : ScheduledAgentExecution {
 
     override suspend fun sessions() = listOf(ScheduledSessionChoice("bound", "Synthetic result session"))
 
-    override suspend fun scope(sessionId: String): ScheduledAgentScope {
+    override suspend fun scope(
+        sessionId: String,
+        maxRuntimeMillis: Long,
+    ): ScheduledAgentScope {
         check(!invalidScope) { "Synthetic deleted configuration" }
         return ScheduledAgentScope(
             sessionId,
@@ -95,10 +98,11 @@ internal class ScheduledFakeExecution : ScheduledAgentExecution {
             "REMOTE",
             "synthetic/",
             0,
-            hash,
+            "$hash:$maxRuntimeMillis",
             "connection",
             "workspace",
             "[]",
+            maxRuntimeMillis,
         )
     }
 

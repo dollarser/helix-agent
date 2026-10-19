@@ -2,8 +2,8 @@
 <resources>
     <string name="scheduled_title">定时 Agent 分析与检索</string>
     <string name="scheduled_new">新建定时任务</string>
-    <string name="scheduled_limits">在本机近似时间唤醒，只读分析/检索。每次最多运行2分钟，每次模型请求最多输出2048 token；仍受现有权限、审批和容量限制。系统省电可能延迟，强停需重新打开；错过超过15分钟只记录跳过，不补跑。暂停未来任务不会停止已开始的任务。</string>
-    <string name="scheduled_error">操作未完成。请检查未来时间、时区、所选会话和配置；保存可能已落库，请返回列表核对后重新打开。</string>
+    <string name="scheduled_limits">本机近似唤醒，只读分析/检索。最大运行时长按规则调整（初始120秒），到期请求停止并等待原执行器退出；Android可能提前中断。每次模型请求最多输出2048 token，仍受现有权限、审批和容量限制。省电可能延迟，强停需重新打开；迟到超过15分钟记录跳过，不补跑。暂停未来不会停止当前执行。</string>
+    <string name="scheduled_error">操作未完成。请检查正数运行时长、未来时间、时区、会话及配置；保存可能已落库，请返回列表核对后重新打开。</string>
     <string name="scheduled_edit">编辑并重新确认</string>
     <string name="scheduled_pause">暂停未来执行</string>
     <string name="scheduled_result">打开绑定会话查看结果/审批</string>
@@ -23,8 +23,10 @@
     <string name="scheduled_busy">绑定会话忙，已跳过</string>
     <string name="scheduled_running">执行中</string>
     <string name="scheduled_stopping">正在停止，等待原执行退出</string>
-    <string name="scheduled_waiting">等待原会话审批（仍计入2分钟限制）</string>
+    <string name="scheduled_waiting">等待原会话审批（计入已确认的运行预算）</string>
     <string name="scheduled_failed">失败 / 范围变化需重新确认</string>
     <string name="scheduled_interrupted">已中断，不自动重跑</string>
     <string name="scheduled_unknown">结果或副作用未知，不自动重试</string>
+    <string name="scheduled_runtime">最大运行时长（秒，初始120，可调整）</string>
+    <string name="scheduled_runtime_review">本规则最大运行时长：%1$s秒，审批等待也计入。</string>
 </resources>

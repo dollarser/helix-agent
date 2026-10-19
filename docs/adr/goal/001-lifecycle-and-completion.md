@@ -33,7 +33,9 @@ Owner 2026-10-19 要求明确后续定时执行生命周期；以下为未来能
 
 HXA-314 首版采用单独 `scheduled-agents.db` 规则/发生/attempt 账本与 WorkManager 近似唤醒，经现有 AgentRuntime 提交 PLAN 只读分析/检索 Turn，不启动连续 Goal 激活或任意 ACT 副作用。用户保存前核对会话、任务、日历、模型目标/发送范围和工具范围；会话当时历史、现有上下文及读取结果可能发送至选定模型，规则本地保存不代表本地推理。模型/传输、固定工作区、权限配置或工具持久身份变化需重新确认；每次实际模型请求及压缩都核对冻结目标和实际记录的工作区/工具绑定，不能只在 UI 保存时核对。进程内工具 incarnation 不作为跨启动授权身份，但执行仍经正常精确绑定检查。
 
-一次执行最多两分钟（审批等待仍计时），每次模型请求输出最多 2048 token，最多启用 32 条规则；不承诺累计模型调用次数上限。OS 延迟超过 15 分钟合并记录错过并推进未来日历，不自动补跑；绑定会话忙则记录跳过。暂停未来规则与停止原 attempt 分离，早到唤醒顺序投影，不替换/取消正在执行的 Worker。恢复先等待原 Turn 恢复，再按实际 Turn、审批及未决效果核对，缺失 ACK 用 attempt 的稳定 clientRequestId 查原 Turn，不重新提交。只有用户显式重试才创建新身份；活动执行、NEEDS_REVIEW/未决效果或范围变化仍门控。通知型提醒和 Goal checkpoint 仍不执行模型。
+最大运行时长由用户在每条规则编辑页设置，初始 120 秒仅是可编辑默认值，没有统一两分钟硬上限（审批等待仍计入该规则预算），每次模型请求输出最多 2048 token，最多启用 32 条规则；不承诺累计模型调用次数上限。OS 延迟超过 15 分钟合并记录错过并推进未来日历，不自动补跑；绑定会话忙则记录跳过。暂停未来规则与停止原 attempt 分离，早到唤醒顺序投影，不替换/取消正在执行的 Worker。恢复先等待原 Turn 恢复，再按实际 Turn、审批及未决效果核对，缺失 ACK 用 attempt 的稳定 clientRequestId 查原 Turn，不重新提交。只有用户显式重试才创建新身份；活动执行、NEEDS_REVIEW/未决效果或范围变化仍门控。通知型提醒和 Goal checkpoint 仍不执行模型。
+
+预算是触发停止的期限，不是执行器必定退出或后台持续运行的承诺。普通 [CoroutineWorker](https://developer.android.com/reference/androidx/work/CoroutineWorker) 有平台执行窗口，官方说明约十分钟后会被通知停止；省电/配额/进程回收也可更早中断。规则不据此静默截成十分钟或两分钟，不新建长运行前台服务/配置系统；实际中断按原生命周期记录，不自动重试。将来若要保证更长后台工作，需要独立平台执行方案与验收，不能从可编辑最大值推定已实现。
 
 参考 [n8n Schedule Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger) 的显式保存/启用、时区及默认跳过错过执行，以及 [Android WorkManager](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work) 的最小延迟而非精确时点。仅参考官方行为，不引入其服务、框架或代码；Helix 月末/DST 日历继续复用既有 ReminderTime。
 
@@ -108,4 +110,6 @@ HXA-314 首版采用单独 `scheduled-agents.db` 规则/发生/attempt 账本与
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
 
-- 2026-10-19：Owner 授权继续最小定时 Agent 实现；细化 HXA-314 的 PLAN 范围、持久发生/attempt、每请求范围核对、两分钟期限、近似唤醒及显式重试边界。实现/验收不从本 ADR 状态推定。
+- 2026-10-19：Owner 授权继续最小定时 Agent 实现；细化 HXA-314 的 PLAN 范围、持久发生/attempt、每请求范围核对、初始运行预算、近似唤醒及显式重试边界。实现/验收不从本 ADR 状态推定。
+
+- 2026-10-19：Owner 审查要求取消任意固定两分钟产品上限，改为规则级显式确认的最大运行时长。预算写入现有授权 scopeJson 并参与 hash/发生快照，编辑只影响未来 revision；原固定默认值确认保留 120 秒语义，不改 Room 表、不删用户数据。输入需为可精确表示的正毫秒时长，只有数值表示边界，没有新增业务上限。补真实会话权限和工具资格变化后的下一模型请求出网拒绝测试。

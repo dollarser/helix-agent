@@ -31,12 +31,7 @@ class ScheduledAgentService(
     private val execution: ScheduledAgentExecution,
     private val wake: ScheduledAgentWake,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val executionMillis: Long = EXECUTION_MILLIS,
 ) {
-    init {
-        require(executionMillis in 1..EXECUTION_MILLIS)
-    }
-
     private val producers = ConcurrentHashMap<String, Job>()
     private val userActions = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val rules = store.dao.observeRules()
@@ -67,10 +62,14 @@ class ScheduledAgentService(
             }
         }
 
-    suspend fun prepare(draft: ScheduledAgentRule): PreparedScheduledRule =
+    suspend fun prepare(
+        draft: ScheduledAgentRule,
+        maxRuntimeMillis: Long = draft.runtimeBudgetMillis,
+    ): PreparedScheduledRule =
         withContext(Dispatchers.IO) {
             validate(draft)
-            val scope = execution.scope(draft.sessionId)
+            require(maxRuntimeMillis > 0)
+            val scope = execution.scope(draft.sessionId, maxRuntimeMillis)
             PreparedScheduledRule(
                 draft.copy(scopeJson = scope.encode(), scopeHash = scope.hash, creator = "LOCAL_USER"),
                 scope,
@@ -81,7 +80,9 @@ class ScheduledAgentService(
         withContext(Dispatchers.IO) {
             val draft = prepared.rule
             validate(draft)
-            check(execution.scope(draft.sessionId).hash == draft.scopeHash) { "Scheduled scope changed" }
+            check(
+                execution.scope(draft.sessionId, draft.runtimeBudgetMillis).hash == draft.scopeHash,
+            ) { "Scheduled scope changed" }
             var cancel: ScheduledAgentRule? = null
             val saved =
                 store.transaction {
@@ -168,7 +169,7 @@ class ScheduledAgentService(
         refreshAttempts()
         val occurrence = requireNotNull(store.dao.occurrence(id, revision, due))
         val rule = ScheduledRuleSnapshot.decode(occurrence.ruleJson)
-        check(execution.scope(rule.sessionId).hash == rule.scopeHash)
+        check(execution.scope(rule.sessionId, rule.runtimeBudgetMillis).hash == rule.scopeHash)
         if (occurrence.lastAttemptId.isNotEmpty()) {
             val previous = requireNotNull(store.dao.attempt(occurrence.lastAttemptId))
             val fact = execution.lookup(previous)
@@ -262,7 +263,7 @@ class ScheduledAgentService(
         try {
             val admitted = requireNotNull(store.dao.attempt(attempt.id))
             if (!validateAdmitted(rule, admitted)) return
-            withTimeout(executionMillis) {
+            withTimeout(rule.runtimeBudgetMillis) {
                 val turn = execution.submit(rule, attempt)
                 attempt = attempt.copy(turnId = turn, state = "RUNNING")
                 store.transaction {
@@ -334,7 +335,7 @@ class ScheduledAgentService(
     @Suppress("TooGenericExceptionCaught")
     private suspend fun scopeMatches(rule: ScheduledAgentRule): Boolean =
         try {
-            execution.scope(rule.sessionId).hash == rule.scopeHash
+            execution.scope(rule.sessionId, rule.runtimeBudgetMillis).hash == rule.scopeHash
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
@@ -558,7 +559,6 @@ class ScheduledAgentService(
 
     companion object {
         const val MISSED_GRACE = 15 * 60 * 1000L
-        const val EXECUTION_MILLIS = 2 * 60 * 1000L
         const val MAX_RULES = 32
         internal val ACTIVE = setOf("ADMITTING", "RUNNING", "STOP_REQUESTED", "WAITING")
         internal val TERMINAL = setOf("COMPLETED", "CANCELLED", "FAILED", "INTERRUPTED", "NEEDS_REVIEW")

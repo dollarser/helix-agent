@@ -1,6 +1,9 @@
 package com.helix.app.scheduled
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
@@ -10,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.text.AnnotatedString
 import com.helix.app.reminder.ReminderDelivery
 import com.helix.app.reminder.ReminderScreen
 import com.helix.app.reminder.ReminderService
@@ -39,6 +43,13 @@ class ScheduledAgentUiDeviceTest {
                 5000,
             ) { compose.onAllNodes(hasTestTag("scheduled-session-bound")).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("scheduled-session-bound").performClick()
+            compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-runtime"))
+            compose
+                .onNodeWithTag(
+                    "scheduled-runtime",
+                ).assert(
+                    SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("120")),
+                ).performTextReplacement("600")
             compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-enabled"))
             compose.onNodeWithTag("scheduled-enabled").performClick()
             compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-review"))
@@ -65,6 +76,7 @@ class ScheduledAgentUiDeviceTest {
                 }
             assertEquals("bound", rule.sessionId)
             assertTrue(rule.enabled)
+            assertEquals(600_000L, rule.runtimeBudgetMillis)
             assertEquals(1, f.wake.scheduled.size)
             assertTrue(f.execution.submitted.isEmpty())
         }
@@ -183,6 +195,52 @@ class ScheduledAgentUiDeviceTest {
                 compose.runOnIdle { visible.value = false }
                 compose.waitForIdle()
             }
+        }
+    }
+
+    @Test fun budgetEditingRequiresReviewAndRejectsNonPositiveValues() {
+        ScheduledFixture().use { fixture ->
+            val draft = fixture.draft()
+            val original =
+                runBlocking {
+                    fixture.service.save(fixture.service.prepare(draft, 300_000))
+                    requireNotNull(fixture.store.dao.rule(draft.id))
+                }
+            val saved = AtomicInteger()
+            compose.setContent {
+                MaterialTheme {
+                    ScheduledAgentEditor(
+                        fixture.service,
+                        original,
+                    ) { saved.incrementAndGet() }
+                }
+            }
+            compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-runtime"))
+            compose
+                .onNodeWithTag(
+                    "scheduled-runtime",
+                ).assert(
+                    SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("300")),
+                ).performTextReplacement("0")
+            compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-review"))
+            compose.onNodeWithTag("scheduled-review").performClick()
+            compose.waitUntil(
+                5000,
+            ) { compose.onAllNodes(hasTestTag("scheduled-editor-error")).fetchSemanticsNodes().isNotEmpty() }
+            assertEquals(300_000L, runBlocking { requireNotNull(fixture.store.dao.rule(draft.id)).runtimeBudgetMillis })
+            assertEquals(0, saved.get())
+            compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-runtime"))
+            compose.onNodeWithTag("scheduled-runtime").performTextReplacement("900")
+            compose.onNodeWithTag("scheduled-editor").performScrollToNode(hasTestTag("scheduled-review"))
+            compose.onNodeWithTag("scheduled-review").performClick()
+            compose.waitUntil(5000) {
+                compose.onAllNodes(hasTestTag("scheduled-runtime-preview")).fetchSemanticsNodes().isNotEmpty()
+            }
+            assertEquals(300_000L, runBlocking { requireNotNull(fixture.store.dao.rule(draft.id)).runtimeBudgetMillis })
+            compose.onNodeWithTag("scheduled-confirm").performClick()
+            compose.waitUntil(5000) { saved.get() == 1 }
+            assertEquals(900_000L, runBlocking { requireNotNull(fixture.store.dao.rule(draft.id)).runtimeBudgetMillis })
+            assertTrue(fixture.execution.submitted.isEmpty())
         }
     }
 }

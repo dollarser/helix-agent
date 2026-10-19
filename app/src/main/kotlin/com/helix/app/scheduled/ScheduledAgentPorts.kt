@@ -20,7 +20,12 @@ data class ScheduledAgentScope(
     val connectionHash: String,
     val workspaceBinding: String,
     val bindings: String,
+    val maxRuntimeMillis: Long = ScheduledRuntimeBudget.DEFAULT_MILLIS,
 ) {
+    init {
+        require(maxRuntimeMillis > 0)
+    }
+
     fun encode(): String =
         JSONObject()
             .put("sessionId", sessionId)
@@ -36,6 +41,7 @@ data class ScheduledAgentScope(
             .put("connectionHash", connectionHash)
             .put("workspaceBinding", workspaceBinding)
             .put("bindings", bindings)
+            .put("maxRuntimeMillis", maxRuntimeMillis)
             .toString()
 
     companion object {
@@ -55,7 +61,15 @@ data class ScheduledAgentScope(
                 value.getString("connectionHash"),
                 value.getString("workspaceBinding"),
                 value.getString("bindings"),
+                runtimeMillis(value),
             )
+        }
+
+        private fun runtimeMillis(value: JSONObject): Long {
+            if (!value.has("maxRuntimeMillis")) return ScheduledRuntimeBudget.DEFAULT_MILLIS
+            val budget = value.get("maxRuntimeMillis")
+            require(budget is Int || budget is Long)
+            return (budget as Number).toLong().also { require(it > 0) }
         }
     }
 }
@@ -77,7 +91,10 @@ data class ScheduledSessionChoice(
 interface ScheduledAgentExecution {
     suspend fun sessions(): List<ScheduledSessionChoice>
 
-    suspend fun scope(sessionId: String): ScheduledAgentScope
+    suspend fun scope(
+        sessionId: String,
+        maxRuntimeMillis: Long = ScheduledRuntimeBudget.DEFAULT_MILLIS,
+    ): ScheduledAgentScope
 
     suspend fun isBusy(sessionId: String): Boolean = false
 

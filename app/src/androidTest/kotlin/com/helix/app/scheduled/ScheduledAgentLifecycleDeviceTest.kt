@@ -415,6 +415,96 @@ class ScheduledAgentLifecycleDeviceTest {
             }
         }
 
+    @Test fun runtimeBudgetIsPersistedAndBoundWithoutAProductWideCeiling(): Unit =
+        runBlocking {
+            ScheduledFixture().use { fixture ->
+                val draft = fixture.draft()
+                val prepared = fixture.service.prepare(draft, 300_000)
+                assertEquals(300_000L, prepared.scope.maxRuntimeMillis)
+                assertTrue(
+                    fixture.store.dao
+                        .rules()
+                        .isEmpty(),
+                )
+                val tamperedScope = prepared.scope.copy(maxRuntimeMillis = 900_000)
+                rejects {
+                    fixture.service.save(
+                        PreparedScheduledRule(prepared.rule.copy(scopeJson = tamperedScope.encode()), tamperedScope),
+                    )
+                }
+                rejects { fixture.service.prepare(draft, 0) }
+                rejects { fixture.service.prepare(draft, -1) }
+                fixture.service.save(prepared)
+                val saved = requireNotNull(fixture.store.dao.rule(draft.id))
+                assertEquals(300_000L, saved.runtimeBudgetMillis)
+                fixture.fire(saved)
+                val occurrence =
+                    fixture.store.dao
+                        .observeOccurrences()
+                        .first()
+                        .single()
+                assertEquals(300_000L, ScheduledRuleSnapshot.decode(occurrence.ruleJson).runtimeBudgetMillis)
+                // Existing fixed-default confirmations retain that exact budget without deleting their data.
+                val originalDefault = fixture.service.prepare(fixture.draft(), 120_000)
+                val existing = org.json.JSONObject(originalDefault.scope.encode()).apply { remove("maxRuntimeMillis") }
+                val existingRule = originalDefault.rule.copy(scopeJson = existing.toString())
+                assertEquals(120_000L, existingRule.runtimeBudgetMillis)
+                fixture.service.save(
+                    PreparedScheduledRule(existingRule, ScheduledAgentScope.decode(existing.toString())),
+                )
+                fixture.fire(requireNotNull(fixture.store.dao.rule(existingRule.id)))
+                assertEquals(
+                    2,
+                    fixture.store.dao
+                        .observeAttempts()
+                        .first()
+                        .size,
+                )
+                val invalid = org.json.JSONObject(prepared.scope.encode()).put("maxRuntimeMillis", "300000")
+                rejects { ScheduledAgentScope.decode(invalid.toString()) }
+            }
+        }
+
+    @Test fun editingRuleBudgetAffectsOnlyFutureOccurrences(): Unit =
+        runBlocking {
+            ScheduledFixture().use { fixture ->
+                fixture.execution.hold = CompletableDeferred()
+                val draft = fixture.draft(repeat = "DAILY")
+                fixture.service.save(fixture.service.prepare(draft, 300_000))
+                val original = requireNotNull(fixture.store.dao.rule(draft.id))
+                val producer = async { fixture.fire(original) }
+                fixture.execution.started.await()
+                val advanced = requireNotNull(fixture.store.dao.rule(draft.id))
+                fixture.service.save(fixture.service.prepare(advanced, 900_000))
+                val edited = requireNotNull(fixture.store.dao.rule(draft.id))
+                assertEquals(900_000L, edited.runtimeBudgetMillis)
+                assertTrue(edited.scopeHash != original.scopeHash)
+                assertEquals(original.revision + 1, edited.revision)
+                assertEquals(
+                    300_000L,
+                    fixture.execution.submitted
+                        .single()
+                        .first.runtimeBudgetMillis,
+                )
+                val occurrence =
+                    fixture.store.dao
+                        .observeOccurrences()
+                        .first()
+                        .single()
+                assertEquals(300_000L, ScheduledRuleSnapshot.decode(occurrence.ruleJson).runtimeBudgetMillis)
+                fixture.execution.hold?.complete(Unit)
+                producer.await()
+                assertEquals(
+                    "COMPLETED",
+                    fixture.store.dao
+                        .observeAttempts()
+                        .first()
+                        .single()
+                        .state,
+                )
+            }
+        }
+
     private suspend fun seed(
         f: ScheduledFixture,
         rule: ScheduledAgentRule,

@@ -7,7 +7,11 @@ import com.helix.app.chat.toolCallStream
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
+import com.helix.core.model.SessionPermissionMode
+import com.helix.core.model.ToolAvailabilityScope
+import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.model.ToolOperationClass
+import com.helix.core.policy.SessionPermissionConfig
 import com.helix.tools.framework.TimeNowTool
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -204,6 +208,110 @@ class ScheduledAgentRuntimeDeviceTest {
                 val fact = requireNotNull(f.execution.lookup(attempt))
                 assertEquals("NEEDS_REVIEW", fact.state)
                 assertTrue(fact.unresolvedEffects)
+            }
+        }
+
+    @Test fun changedRealSessionPermissionsRejectNextModelRequestBeforeWire(): Unit =
+        runBlocking {
+            rejectNextRequestAfterRealChange { fixture ->
+                fixture.storage.sessionPermissionConfigs.setForSession(
+                    "bound",
+                    SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+                    System.currentTimeMillis(),
+                )
+                assertEquals(
+                    SessionPermissionMode.FULL_ACCESS,
+                    fixture.storage.sessionPermissionConfigs
+                        .forSession("bound")
+                        ?.mode,
+                )
+            }
+        }
+
+    @Test fun changedRealToolEligibilityRejectsNextModelRequestBeforeWire(): Unit =
+        runBlocking {
+            rejectNextRequestAfterRealChange { fixture ->
+                fixture.storage.toolAvailability.set(
+                    TimeNowTool.descriptor().origin.canonicalOf(),
+                    "time.now",
+                    ToolAvailabilityScope.SESSION,
+                    "bound",
+                    ToolAvailabilityState.DISABLED,
+                    System.currentTimeMillis(),
+                )
+                assertFalse(requireNotNull(fixture.pipeline.disabledToolFilter)("bound", TimeNowTool.descriptor()))
+            }
+        }
+
+    private suspend fun rejectNextRequestAfterRealChange(change: (ScheduledRuntimeFixture) -> Unit) {
+        val wire =
+            ScriptedSseWire().apply {
+                script(
+                    sseResponse(toolCallStream("actual-time", "\"time.now\"", "{}")),
+                    sseResponse(textAnswerStream("Must never be requested after authorization changes")),
+                )
+            }
+        ScheduledRuntimeFixture(wire.wireClient).use { fixture ->
+            var changed = false
+            fixture.afterTool = {
+                change(fixture)
+                changed = true
+            }
+            val attempt = fixture.execute("Read time.now and then summarize the result.")
+            assertTrue(changed)
+            assertEquals("FAILED", attempt.state)
+            assertEquals(1, wire.callCount)
+            // A second model-call admission exists, but its pre-stream scope guard rejects the wire call.
+            assertEquals(
+                2,
+                fixture.storage.modelCalls
+                    .listByTurn(attempt.turnId)
+                    .size,
+            )
+            val call =
+                fixture.storage.toolCalls
+                    .listByTurn(attempt.turnId)
+                    .single()
+            assertTrue(fixture.storage.toolResults.byToolCall(call.id) != null)
+            val rule =
+                ScheduledRuleSnapshot.decode(
+                    fixture.ledger.dao
+                        .observeOccurrences()
+                        .first()
+                        .single()
+                        .ruleJson,
+                )
+            assertTrue(rule.scopeHash != fixture.execution.scope("bound", rule.runtimeBudgetMillis).hash)
+        }
+    }
+
+    @Test fun confirmedRuleBudgetBeyondTwoMinutesRemainsValidUntilItsOwnDeadline(): Unit =
+        runBlocking {
+            val wire = ScriptedSseWire().apply { script(sseResponse(textAnswerStream("Synthetic answer"))) }
+            ScheduledRuntimeFixture(wire.wireClient).use { fixture ->
+                val attempt = fixture.execute("Summarize synthetic facts.", 300_000)
+                assertEquals("COMPLETED", attempt.state)
+                val call =
+                    fixture.storage.modelCalls
+                        .listByTurn(attempt.turnId)
+                        .single()
+                val config = fixture.providers.storedConfig(com.helix.app.provider.BuiltInModel.PROVIDER_ID)
+                val provider = fixture.providers.modelProviderFor(config.id, config.model).descriptor
+                val request =
+                    ModelRequest(
+                        provider.model,
+                        listOf(ModelMessage(ModelRole.USER, "Synthetic")),
+                        maxOutputTokens = 2048,
+                    )
+                fixture.ledger.dao.save(
+                    attempt.copy(state = "RUNNING", createdAt = System.currentTimeMillis() - 180_000),
+                )
+                fixture.execution.verifyModelRequest(attempt.turnId, call.id, provider, request)
+                fixture.ledger.dao.save(
+                    attempt.copy(state = "RUNNING", createdAt = System.currentTimeMillis() - 300_001),
+                )
+                rejects { fixture.execution.verifyModelRequest(attempt.turnId, call.id, provider, request) }
+                assertEquals(1, wire.callCount)
             }
         }
 

@@ -58,6 +58,7 @@ internal class ScheduledRuntimeFixture(
     private val scope = CoroutineScope(job + Dispatchers.IO)
     private val clock = SystemClock()
     val engine = TurnEngine(storage, clock, ::newId)
+    var afterTool: () -> Unit = {}
     val pipeline = pipeline()
     val providers: ProviderService
     val chat: ChatService
@@ -124,7 +125,10 @@ internal class ScheduledRuntimeFixture(
         withTimeout(10_000) { chat.screen.first { it.openSessionId == "foreground" } }
     }
 
-    suspend fun execute(prompt: String): com.helix.core.storage.scheduled.ScheduledAttempt {
+    suspend fun execute(
+        prompt: String,
+        maxRuntimeMillis: Long = ScheduledRuntimeBudget.DEFAULT_MILLIS,
+    ): com.helix.core.storage.scheduled.ScheduledAttempt {
         ready()
         val due = LocalDateTime.now(ZoneOffset.UTC).plusNanos(250_000_000)
         val draft =
@@ -140,7 +144,7 @@ internal class ScheduledRuntimeFixture(
                 "ONCE",
                 enabled = true,
             )
-        service.save(service.prepare(draft))
+        service.save(service.prepare(draft, maxRuntimeMillis))
         val rule = requireNotNull(ledger.dao.rule(draft.id))
         delay(maxOf(0, requireNotNull(rule.nextAt) - System.currentTimeMillis()) + 10)
         withTimeout(110_000) { service.fire(rule.id, rule.revision, requireNotNull(rule.nextAt)) }
@@ -151,7 +155,17 @@ internal class ScheduledRuntimeFixture(
     }
 
     private fun pipeline(): ToolPipeline {
-        val registry = ToolRegistry().apply { register(TimeNowTool.descriptor(), TimeNowTool.executor(clock)) }
+        val delegate = TimeNowTool.executor(clock)
+        val registry =
+            ToolRegistry().apply {
+                register(
+                    TimeNowTool.descriptor(),
+                    object : com.helix.tools.framework.ToolExecutor {
+                        override fun execute(call: com.helix.tools.framework.ExecutableToolCall) =
+                            delegate.execute(call).also { afterTool() }
+                    },
+                )
+            }
         val broker =
             StorageApprovalBroker(storage.approvals, clock, ::newId, cardSink = {
                 _,
@@ -178,7 +192,25 @@ internal class ScheduledRuntimeFixture(
                     com.helix.app.tool
                         .SessionToolEffectClassifier(workspace),
             )
-        return ToolPipeline(registry, dispatcher, broker, audit, ToolScheduler(clock, dispatcher, registry))
+        return ToolPipeline(
+            registry,
+            dispatcher,
+            broker,
+            audit,
+            ToolScheduler(clock, dispatcher, registry),
+            disabledToolFilter = { session, descriptor ->
+                val states =
+                    permissions.statesFor(
+                        descriptor.origin.canonicalOf(),
+                        descriptor.name.value,
+                        session,
+                        null,
+                    )
+                com.helix.core.policy
+                    .effectiveAvailability(states.global, states.workspace, states.session) !=
+                    com.helix.core.model.ToolAvailabilityState.DISABLED
+            },
+        )
     }
 
     override fun close() {
