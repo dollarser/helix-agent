@@ -9,6 +9,7 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
+    internal val runtimeRecoveryReady = kotlinx.coroutines.CompletableDeferred<Unit>()
     val readAloud by lazy {
         val audio =
             com.helix.app.voice
@@ -127,7 +128,15 @@ class HelixApplication : Application() {
                                 .create(this),
                             SystemClock(),
                         ).reconcileAll()
+                    // Install the scheduled request guard before opening any background admission.
+                    container.scheduledAgents
+                    runtimeRecoveryReady.complete(Unit)
+                    com.helix.app.scheduled.ScheduledAgentRecovery
+                        .enqueue(this)
+                    com.helix.app.scheduled.ScheduledAgentRecovery
+                        .periodic(this)
                 } catch (t: Exception) {
+                    runtimeRecoveryReady.completeExceptionally(t)
                     Log.e(TAG, "process recovery failed; will retry at next start", t)
                 }
             },

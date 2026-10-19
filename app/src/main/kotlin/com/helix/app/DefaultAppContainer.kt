@@ -922,6 +922,25 @@ internal class DefaultAppContainer(
             openPreviewSource = featureFiles.sourceOpener::openStream,
         )
 
+    override val scheduledAgents by lazy {
+        val ledger =
+            com.helix.core.storage.scheduled
+                .ScheduledAgentStore(appContext)
+        com.helix.app.scheduled.ScheduledAgentService(
+            ledger,
+            com.helix.app.scheduled.RuntimeScheduledAgentExecution(
+                storage,
+                providerService,
+                chatService,
+                turnEngine,
+                toolPipeline,
+                ledger,
+            ),
+            com.helix.app.scheduled
+                .AndroidScheduledAgentWake(appContext),
+        )
+    }
+
     override val chatService: ChatService =
         ChatService(
             storage = storage,

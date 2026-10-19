@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-22
-HXA: HXA-013, HXA-102, HXA-177, HXA-178, HXA-208, HXA-216, HXA-232, HXA-303, HXA-309
+HXA: HXA-013, HXA-102, HXA-177, HXA-178, HXA-208, HXA-216, HXA-232, HXA-303, HXA-309, HXA-314
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -21,15 +21,21 @@ Goal 是持久目标；Turn/run 是一次执行；激活是独立的进程内运
 
 Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 GoalRun/Turn 都是一次 execution attempt：前轮先持久结算，下一轮绑定激活标识和前轮 ID，准入时重验，重复通知不能重复启动。正常结束且仍有工作、自动轮数未用尽、无未决副作用时可以创建下一 Run。完成、阻塞、等待输入、取消、不可衔接异常、截断、容量不足或自动轮数耗尽时解除激活。显式停止先解除旧激活，再安全结算当前轮；普通 Queue/Steer 不解除激活、不暂停或取消当前轮。终局后同会话已就绪用户队列优先，普通用户后继结束再重验保留的 Goal 激活；不能因页面处于 Goal 模式创建第二个目标。切换会话本身不取消任务。具体交付与停止停泊按 [ADR-AGENT-001](../agent/001-turn-coordination.md)。
 
-用户启动的连续任务通过有效前台服务路径衔接下一轮，Activity 退后台不解除激活。等待审批/输入不维持空转服务；系统拒绝、超时、进程死亡或强停后不自动恢复旧 Run。当前 GoalRun 随旧 Turn 结束为 interrupted/blocked outcome；正常任务恢复仍需新的运行准入并创建新 GoalRun/Turn，不恢复死亡前的激活。HXA-232 的有界只读 RecoveryInspection 使用下述独立准入，并非旧任务自动续跑。WorkManager/checkpoint 只提醒，不自动调用模型；未知副作用不得重放。
+用户启动的连续任务通过有效前台服务路径衔接下一轮，Activity 退后台不解除激活。等待审批/输入不维持空转服务；系统拒绝、超时、进程死亡或强停后不自动恢复旧 Run。当前 GoalRun 随旧 Turn 结束为 interrupted/blocked outcome；正常任务恢复仍需新的运行准入并创建新 GoalRun/Turn，不恢复死亡前的激活。HXA-232 的有界只读 RecoveryInspection 使用下述独立准入，并非旧任务自动续跑。普通 Goal 的 WorkManager/checkpoint 只提醒，不自动调用模型；未知副作用不得重放。
 
-### 未来定时 Agent 执行的准入与归属
+### 定时 Agent 执行的准入与归属
 
 Owner 2026-10-19 要求明确后续定时执行生命周期；以下为未来能力契约，不代表本机通知阶段已实现后台执行。普通备忘/通知和 Goal checkpoint 都不能触发模型。调度时钟事件只唤醒核查，必须有用户明确创建/启用的执行规则，包含稳定 rule ID/revision、创建用户、动作内容、权限/工作目录/模型范围、固定时区与重复/错过策略、结果目标会话。来源文本、模型解析、远程消息和知识库材料不提供授权；自然语言解析必须先展示实际时间、时区、重复与动作并由用户确认规则。
 
 每次发生用 `(ruleId, revision, scheduledInstant)` 持久去重，重复广播不创建第二次执行。准入冻结规则、触发身份、动作与目标会话快照，并按当前 schema → capability/policy → authorization → limits → audit 路径创建新 Turn/GoalRun。规则编辑/关闭只影响未来发生项；不重定向已运行调用。发生项的每个重试是新的 attempt ID，仍归原 occurrence、原授权和结果目标，重新检查权限；不复活死亡前的激活或让调度事件扩权。结果、日志和产物明确归触发规则、发生项、attempt 及该快照绑定的会话，不能投给当时碰巧前台的会话。
 
 取消规则与取消当前执行是两个明确动作；取消执行沿原 turn/call 身份发停止请求，executor 实际退出后才释放物理槽位，外部效果不视作回滚。进程死亡、超时和发布/执行确认缺失记录 INTERRUPTED/UNKNOWN；未决发送、支付、文件或其他外部副作用先按 ADR-AGENT-001 审核事实，不自动重放。只读或已证实幂等动作也必须有具体重试策略和原授权，不能靠“定时”默认无限重试。错过项默认记录并跳过，无并发追赶风暴；需要补跑必须是用户明确规则或操作，且不能绕过 UNKNOWN 门禁。通知与既有悬浮窗仅投影这些事实，不建立另一套执行状态机。
+
+HXA-314 首版采用单独 `scheduled-agents.db` 规则/发生/attempt 账本与 WorkManager 近似唤醒，经现有 AgentRuntime 提交 PLAN 只读分析/检索 Turn，不启动连续 Goal 激活或任意 ACT 副作用。用户保存前核对会话、任务、日历、模型目标/发送范围和工具范围；会话当时历史、现有上下文及读取结果可能发送至选定模型，规则本地保存不代表本地推理。模型/传输、固定工作区、权限配置或工具持久身份变化需重新确认；每次实际模型请求及压缩都核对冻结目标和实际记录的工作区/工具绑定，不能只在 UI 保存时核对。进程内工具 incarnation 不作为跨启动授权身份，但执行仍经正常精确绑定检查。
+
+一次执行最多两分钟（审批等待仍计时），每次模型请求输出最多 2048 token，最多启用 32 条规则；不承诺累计模型调用次数上限。OS 延迟超过 15 分钟合并记录错过并推进未来日历，不自动补跑；绑定会话忙则记录跳过。暂停未来规则与停止原 attempt 分离，早到唤醒顺序投影，不替换/取消正在执行的 Worker。恢复先等待原 Turn 恢复，再按实际 Turn、审批及未决效果核对，缺失 ACK 用 attempt 的稳定 clientRequestId 查原 Turn，不重新提交。只有用户显式重试才创建新身份；活动执行、NEEDS_REVIEW/未决效果或范围变化仍门控。通知型提醒和 Goal checkpoint 仍不执行模型。
+
+参考 [n8n Schedule Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger) 的显式保存/启用、时区及默认跳过错过执行，以及 [Android WorkManager](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work) 的最小延迟而非精确时点。仅参考官方行为，不引入其服务、框架或代码；Helix 月末/DST 日历继续复用既有 ReminderTime。
 
 ### 状态与阻塞
 
@@ -101,3 +107,5 @@ Owner 2026-10-19 要求明确后续定时执行生命周期；以下为未来能
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+- 2026-10-19：Owner 授权继续最小定时 Agent 实现；细化 HXA-314 的 PLAN 范围、持久发生/attempt、每请求范围核对、两分钟期限、近似唤醒及显式重试边界。实现/验收不从本 ADR 状态推定。

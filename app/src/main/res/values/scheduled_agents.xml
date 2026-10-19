@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scheduled_title">定时 Agent 分析与检索</string>
+    <string name="scheduled_new">新建定时任务</string>
+    <string name="scheduled_limits">在本机近似时间唤醒，只读分析/检索。每次最多运行2分钟，每次模型请求最多输出2048 token；仍受现有权限、审批和容量限制。系统省电可能延迟，强停需重新打开；错过超过15分钟只记录跳过，不补跑。暂停未来任务不会停止已开始的任务。</string>
+    <string name="scheduled_error">操作未完成。请检查未来时间、时区、所选会话和配置；保存可能已落库，请返回列表核对后重新打开。</string>
+    <string name="scheduled_edit">编辑并重新确认</string>
+    <string name="scheduled_pause">暂停未来执行</string>
+    <string name="scheduled_result">打开绑定会话查看结果/审批</string>
+    <string name="scheduled_stop">停止本次执行</string>
+    <string name="scheduled_retry">重试原次任务</string>
+    <string name="scheduled_retry_scope">将以新的执行身份重试原发生时间、提示、会话和范围。不会改用当前前台会话。配置变化、仍在执行或存在未知副作用时禁止重试；请先在原会话核对。</string>
+    <string name="scheduled_confirm_retry">确认重试一次</string>
+    <string name="scheduled_prompt">只读分析/检索任务</string>
+    <string name="scheduled_session">明确选择结果会话（沿用该会话的模型与工作区）</string>
+    <string name="scheduled_enable">启用未来定时执行</string>
+    <string name="scheduled_disabled">已暂停 / 仅保存规则</string>
+    <string name="scheduled_review">核对任务范围与发送目标</string>
+    <string name="scheduled_disclosure">工作区：%1$s；可用工具目录上限：%2$d。运行时会使用此会话当时的历史、现有上下文及读取结果，并发送至上方模型目标；本地保存规则不代表模型本地运行。仅按现有只读/闭合元数据权限执行，不授权写文件或外部副作用。模型、目标、工作区、权限或工具身份变化需重新确认。</string>
+    <string name="scheduled_calendar">一次/日/周/月按固定时区和原始日历锚点推进；短月份取月末，后续恢复原日期，夏令时缺口向后平移、重叠取较早偏移。重复不按完成时间推进。</string>
+    <string name="scheduled_pending">等待系统唤醒（可能延迟）</string>
+    <string name="scheduled_completed">已完成（请核对会话结果）</string>
+    <string name="scheduled_busy">绑定会话忙，已跳过</string>
+    <string name="scheduled_running">执行中</string>
+    <string name="scheduled_stopping">正在停止，等待原执行退出</string>
+    <string name="scheduled_waiting">等待原会话审批（仍计入2分钟限制）</string>
+    <string name="scheduled_failed">失败 / 范围变化需重新确认</string>
+    <string name="scheduled_interrupted">已中断，不自动重跑</string>
+    <string name="scheduled_unknown">结果或副作用未知，不自动重试</string>
+</resources>

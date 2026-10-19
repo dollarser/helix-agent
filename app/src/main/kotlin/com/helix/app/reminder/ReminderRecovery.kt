@@ -44,6 +44,8 @@ class ReminderReceiver : BroadcastReceiver() {
         } else if (intent.action in RECOVERY_ACTIONS) {
             android.util.Log.i("HelixReminder", "Rescheduling after ${intent.action}")
             ReminderRecovery.enqueue(context)
+            com.helix.app.scheduled.ScheduledAgentRecovery
+                .enqueue(context)
         }
     }
 

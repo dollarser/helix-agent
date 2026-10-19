@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scheduled_title">Scheduled Agent analysis and retrieval</string>
+    <string name="scheduled_new">New scheduled task</string>
+    <string name="scheduled_limits">Approximate local wake for read-only analysis/retrieval. Each attempt has a 2-minute deadline; each model request may output up to 2048 tokens. Existing permissions, approvals and capacity apply. Battery restrictions may delay work; reopen after force-stop. Over 15 minutes late is recorded and skipped. Pausing future work does not stop a running attempt.</string>
+    <string name="scheduled_error">Action incomplete. Check the future time, zone, selected session and configuration. A save may already be durable; check the list and reopen before retrying.</string>
+    <string name="scheduled_edit">Edit and reconfirm</string>
+    <string name="scheduled_pause">Pause future executions</string>
+    <string name="scheduled_result">Open bound session for result/approval</string>
+    <string name="scheduled_stop">Stop this attempt</string>
+    <string name="scheduled_retry">Retry original occurrence</string>
+    <string name="scheduled_retry_scope">A new attempt retains the original occurrence, prompt, session and scope, regardless of the foreground session. Changed configuration, live execution or unresolved effects block retry. Review the original session first.</string>
+    <string name="scheduled_confirm_retry">Confirm one retry</string>
+    <string name="scheduled_prompt">Read-only analysis/retrieval task</string>
+    <string name="scheduled_session">Choose the result session explicitly (uses its model and workspace)</string>
+    <string name="scheduled_enable">Enable future scheduled execution</string>
+    <string name="scheduled_disabled">Paused / save rule only</string>
+    <string name="scheduled_review">Review task scope and destination</string>
+    <string name="scheduled_disclosure">Workspace: %1$s; tool catalog ceiling: %2$d. Execution uses this session’s then-current history, existing context and read results, sent to the model destination above. Saving locally does not mean local inference. Existing read-only/closed metadata permissions apply; file writes and external side effects are not authorized. Changes to model, destination, workspace, permissions or tool identities require reconfirmation.</string>
+    <string name="scheduled_calendar">Once/daily/weekly/monthly use a fixed zone and original calendar anchor. Short months use month-end, later restoring the original day; DST gaps move forward and overlaps use the earlier offset. Recurrence does not follow completion time.</string>
+    <string name="scheduled_pending">Waiting for system wake (may be delayed)</string>
+    <string name="scheduled_completed">Completed (review session result)</string>
+    <string name="scheduled_busy">Bound session busy; skipped</string>
+    <string name="scheduled_running">Running</string>
+    <string name="scheduled_stopping">Stopping; awaiting original executor exit</string>
+    <string name="scheduled_waiting">Awaiting approval in bound session (2-minute deadline still applies)</string>
+    <string name="scheduled_failed">Failed / scope change requires reconfirmation</string>
+    <string name="scheduled_interrupted">Interrupted; no automatic replay</string>
+    <string name="scheduled_unknown">Result or effects unknown; no automatic retry</string>
+</resources>

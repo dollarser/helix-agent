@@ -182,7 +182,7 @@ class ChatService(
     internal val agentRuntime: AgentRuntime =
         AppAgentRuntime(
             startTurn = ::startRuntimeTurn,
-            cancelTurn = ::cancelRuntimeTurn,
+            cancelTurn = { cancelRuntimeTurn(it) },
             runtime = turnEngine.runtimeView,
         )
 
@@ -251,6 +251,29 @@ class ChatService(
             ::refreshBackgroundTasks,
         )
     }
+
+    @Volatile
+    private var scheduledModelGuard: (
+        suspend (
+            String,
+            String,
+            com.helix.provider.api.ProviderDescriptor,
+            com.helix.core.model.ModelRequest,
+        ) -> Unit
+    )? = null
+
+    internal fun installScheduledModelGuard(
+        guard: suspend (
+            String,
+            String,
+            com.helix.provider.api.ProviderDescriptor,
+            com.helix.core.model.ModelRequest,
+        ) -> Unit,
+    ) {
+        check(scheduledModelGuard == null)
+        scheduledModelGuard = guard
+    }
+
     private val agentLoop by lazy {
         AgentLoopHost(
             storage,
@@ -265,6 +288,9 @@ class ChatService(
             ::refreshScreen,
             ::publishModelText,
             turnEngine::persistTerminalInTransaction,
+            beforeModelStream = { turn, call, provider, request ->
+                scheduledModelGuard?.invoke(turn, call, provider, request)
+            },
             inputDelivery =
                 object : TurnInputDelivery {
                     override suspend fun prepareSteering(
@@ -3322,7 +3348,21 @@ class ChatService(
             regenerateMessageId = command.regenerateMessageId,
         )
 
-    private suspend fun cancelRuntimeTurn(turnId: String): TurnCancelOutcome =
+    internal suspend fun stopScheduledTurn(
+        turnId: String,
+        sessionId: String,
+        reason: String,
+    ) {
+        require(reason in setOf("SCHEDULED_USER_STOP", "SCHEDULED_TIMEOUT", "SCHEDULED_INTERRUPTED"))
+        val turn = storage.turns.find(turnId) ?: return
+        check(turn.sessionId == sessionId)
+        cancelRuntimeTurn(turnId, reason)
+    }
+
+    private suspend fun cancelRuntimeTurn(
+        turnId: String,
+        reason: String = "USER_STOP",
+    ): TurnCancelOutcome =
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val outcome =
                 synchronized(turnGate) {
@@ -3342,7 +3382,7 @@ class ChatService(
                             sessionId = task.sessionId,
                             hasLiveDriver = active != null,
                             parkTerminalDelivery = ownsDelivery,
-                            reason = "USER_STOP",
+                            reason = reason,
                         )
                     val result =
                         when (decision) {
@@ -3955,6 +3995,10 @@ class ChatService(
         // session + the current run-control (behavior unchanged).
         val session = resolveTurnSession(requestedSessionId) ?: return null
         val sessionId = session.id
+
+        fun reportBlocked(reason: String) {
+            if (openSessionId == sessionId) setBlocked(reason)
+        }
         // Snapshot before creating the durable Turn: later UI/profile changes cannot alter this
         // Turn's mode, tool table, dispatcher mode, or limits.
         val selectedControl = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
@@ -3980,7 +4024,7 @@ class ChatService(
                 // row has been written yet, so surface a blocked state — the
                 // send must never vanish.
                 Log.e(TAG, "could not snapshot provider $providerId", e)
-                setBlocked(str(R.string.chat_blocked_provider_state_changed))
+                reportBlocked(str(R.string.chat_blocked_provider_state_changed))
                 return null
             }
         val admittedModelId = session.modelId ?: providerService.storedConfig(providerId).model
@@ -4034,7 +4078,7 @@ class ChatService(
                 }
 
                 com.helix.app.engine.SubmitReceiptDecision.Conflict -> {
-                    setBlocked(str(R.string.turn_submit_conflict))
+                    reportBlocked(str(R.string.turn_submit_conflict))
                     return null
                 }
 
@@ -4045,12 +4089,12 @@ class ChatService(
             // Durable Room truth blocks only genuinely live non-terminal Turns. NEEDS_REVIEW is
             // execution-stopped history; successor admission is allowed and effects are gated later.
             turnEngine.sessionBlocker(sessionId)?.let {
-                setBlocked(str(R.string.chat_blocked_session_busy))
+                reportBlocked(str(R.string.chat_blocked_session_busy))
                 return null
             }
             // The process-local registry remains a same-process race guard until E1-B2 moves Jobs.
             if (turnEngine.liveExecution.hasActive(sessionId)) {
-                setBlocked(str(R.string.chat_blocked_session_busy))
+                reportBlocked(str(R.string.chat_blocked_session_busy))
                 return null
             }
             if (queuedInput != null && !queueStillConsumable(queuedInput, requireQueueHead)) return null
@@ -4064,7 +4108,7 @@ class ChatService(
             }
             val liveSession = storage.sessions.resolve(sessionId)
             if (liveSession.providerId != providerId || liveSession.modelId != session.modelId) {
-                setBlocked(str(R.string.chat_blocked_provider_state_changed))
+                reportBlocked(str(R.string.chat_blocked_provider_state_changed))
                 return null
             }
             val turnId = idGenerator()
@@ -4155,12 +4199,12 @@ class ChatService(
                     }
 
                     is com.helix.app.engine.TurnAdmissionResult.Blocked -> {
-                        setBlocked(str(R.string.chat_blocked_session_busy))
+                        reportBlocked(str(R.string.chat_blocked_session_busy))
                         return null
                     }
 
                     com.helix.app.engine.TurnAdmissionResult.Conflict -> {
-                        setBlocked(str(R.string.turn_submit_conflict))
+                        reportBlocked(str(R.string.turn_submit_conflict))
                         return null
                     }
 
@@ -4169,7 +4213,7 @@ class ChatService(
                     }
 
                     com.helix.app.engine.TurnAdmissionResult.GoalRefused -> {
-                        setBlocked(str(R.string.goal_continue_unavailable))
+                        reportBlocked(str(R.string.goal_continue_unavailable))
                         return null
                     }
                 }

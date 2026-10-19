@@ -46,6 +46,8 @@ import java.time.format.DateTimeFormatter
 fun ReminderScreen(
     service: ReminderService,
     providers: com.helix.app.provider.ProviderService? = null,
+    scheduled: com.helix.app.scheduled.ScheduledAgentService? = null,
+    onOpenSession: (String) -> Unit = {},
 ) {
     val rows by service.items.collectAsStateWithLifecycle(emptyList())
     val request by service.openRequest.collectAsStateWithLifecycle()
@@ -53,17 +55,22 @@ fun ReminderScreen(
     var selected by remember { mutableStateOf<LocalReminder?>(null) }
     var editing by remember { mutableStateOf(false) }
     var interpreting by remember { mutableStateOf(false) }
+    var scheduling by remember { mutableStateOf(false) }
     LaunchedEffect(request, rows) {
         request?.let { id ->
             rows.firstOrNull { it.id == id }?.let {
                 selected = it
                 editing = true
                 interpreting = false
+                scheduling = false
                 service.openRequest.value = null
             }
         }
     }
-    if (interpreting) {
+    if (scheduling && scheduled != null) {
+        com.helix.app.scheduled
+            .ScheduledAgentScreen(scheduled, { scheduling = false }, onOpenSession)
+    } else if (interpreting) {
         ReminderInterpretScreen(providers, { interpreting = false }) { proposal ->
             selected = proposal
             interpreting = false
@@ -88,6 +95,13 @@ fun ReminderScreen(
                 }
                 TextButton(onClick = { interpreting = true }, Modifier.testTag("reminder-natural-language")) {
                     Text(stringResource(R.string.reminder_nl_entry))
+                }
+                if (scheduled !=
+                    null
+                ) {
+                    TextButton(onClick = { scheduling = true }, Modifier.testTag("scheduled-entry")) {
+                        Text(stringResource(R.string.scheduled_title))
+                    }
                 }
             }
             items(rows, key = { it.id }) { row ->

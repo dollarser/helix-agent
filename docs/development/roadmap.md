@@ -358,3 +358,4 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-311 | 本地自动验收交付；真机/客户端手测待补 | 三阶段收尾与回复朗读等待优化 | [任务](tasks/HXA-311.md) / [证据](../evidence/development/phase-closeout-2026-10-19.md) |
 | HXA-312 | 本地主机/ARM64/真实合成模型交付；真机手测延后 | 本地知识库检索问答 | [任务](tasks/HXA-312.md) / [证据](../evidence/development/knowledge-questions-2026-10-19.md) |
 | HXA-313 | 本地主机/ARM64/真实中文模型交付；真机手测延后 | 确认式自然语言提醒 | [任务](tasks/HXA-313.md) / [证据](../evidence/development/reminder-interpretation-2026-10-19.md) |
+| HXA-314 | 本地主机/ARM64/真实合成模型交付；真机延后 | 最小定时 Agent 生命周期 | [任务](tasks/HXA-314.md) / [证据](../evidence/development/scheduled-agent-2026-10-19.md) |

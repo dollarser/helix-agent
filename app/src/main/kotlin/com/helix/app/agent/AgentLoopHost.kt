@@ -20,8 +20,10 @@ import com.helix.core.agent.TurnContextAssembler
 import com.helix.core.agent.TurnLoopResult
 import com.helix.core.agent.TurnTerminalCheckpoint
 import com.helix.core.model.Clock
+import com.helix.core.model.ModelRequest
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.HelixStorage
+import com.helix.provider.api.ProviderDescriptor
 
 /** Android composition and Goal-time ownership only; the sole model/tool loop lives in Core. */
 @Suppress("LongParameterList") // Existing application dependencies are wired once into narrow Core ports.
@@ -39,11 +41,13 @@ internal class AgentLoopHost(
     onTextChanged: (String, String) -> Unit,
     private val persistTerminalInTransaction: (TurnTerminalCheckpoint, ModelStreamTerminal) -> ModelStreamTerminal,
     private val inputDelivery: TurnInputDelivery? = null,
+    private val beforeModelStream: (suspend (String, String, ProviderDescriptor, ModelRequest) -> Unit)? = null,
 ) {
     private val core =
         AgentLoop(
             runtimeAccounting = TurnRuntimeAccounting(storage),
             provenance = RoomRequestProvenance(storage),
+            beforeModelStream = beforeModelStream,
             models =
                 object : AgentModelAccess {
                     override suspend fun modelProviderFor(

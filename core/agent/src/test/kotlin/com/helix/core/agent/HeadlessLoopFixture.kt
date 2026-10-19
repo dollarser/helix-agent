@@ -54,7 +54,15 @@ internal class HeadlessLoopFixture(
     private val provider =
         object : ModelProvider {
             override val descriptor: ProviderDescriptor
-                get() = error("Unexpected configuration read")
+                get() =
+                    ProviderDescriptor(
+                        "p",
+                        "Fixture",
+                        com.helix.core.model.ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                        "fixture",
+                        com.helix.core.model.NormalizedEndpoint
+                            .parse("https://synthetic.invalid/v1"),
+                    )
 
             override suspend fun listModels() = error("No catalog network access is permitted")
 
@@ -202,7 +210,7 @@ internal class HeadlessLoopFixture(
                 }
         }
 
-    fun loop(): AgentLoop =
+    fun loop(guard: (suspend (String, String, ProviderDescriptor, ModelRequest) -> Unit)? = null): AgentLoop =
         AgentLoop(
             accounting,
             object : RequestProvenanceStore {
@@ -287,5 +295,6 @@ internal class HeadlessLoopFixture(
                 override fun now() = Instant.ofEpochMilli(1000)
             },
             { "local-${++ids}" },
+            beforeModelStream = guard,
         )
 }

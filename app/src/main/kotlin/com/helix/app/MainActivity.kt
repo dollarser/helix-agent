@@ -703,6 +703,11 @@ private fun DestinationScreen(
             com.helix.app.reminder.ReminderScreen(
                 (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).reminders,
                 providers = container.providerService,
+                scheduled = container.scheduledAgents,
+                onOpenSession = { sessionId ->
+                    container.chatService.openSession(sessionId)
+                    navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                },
             )
         }
 

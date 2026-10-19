@@ -4,6 +4,8 @@
 
 ## 当前实施
 
+Owner 授权的 [HXA-314](tasks/HXA-314.md) 最小定时 Agent 已本地交付：明确确认规则、绑定会话/模型/工作区/权限、持久发生与 attempt，复用 Runtime 的 PLAN 只读分析/检索；暂停未来与停止当前分离，错过/中断/未知不自动重试。双渠道主机门禁及 API36 ARM64 各 24 项新增、60 项回归、真实合成 Qwen 1 项通过；并行堆溢出及同源串行重验见[阶段证据](../evidence/development/scheduled-agent-2026-10-19.md)。用户设置逐键复验与 Advanced 初始摘要/就绪缓存差异均留证；版本保留，真机延后，未 push/发布。
+
 Owner 授权的 [HXA-313](tasks/HXA-313.md) 确认式自然语言提醒已本地交付：先确认所选模型的发送范围，得到提案/澄清后进入原编辑页，仅用户保存才安排；稳定保存身份和部分失败提示保留事实。双渠道 JVM/lint/Debug/AndroidTest/R8、283 主机脚本及功能 XML 国际化门禁通过；API36 ARM64 各 10 项新边界、50 项回归及真实中文 Qwen 1 项（两次请求）通过，见[阶段证据](../evidence/development/reminder-interpretation-2026-10-19.md)。原数据/设置与版本保留，未 push/发布；真机手测延后，随后按既定授权推进最小定时 Agent 生命周期。
 
 Owner 授权的第二阶段 [HXA-312](tasks/HXA-312.md) 检索问答已本地交付：先在本机有界检索、用户选来源并核对片段与模型目标后才发送，回答/来源/用户笔记分离，显式保存为草稿；失败、中断、伪造引用和重复确认有界处理。双渠道主机/JVM/lint/Debug/AndroidTest/R8 与 API36 ARM64 各 12 项新问答、38 项回归及真实合成多来源 Qwen 1 项通过，见[阶段证据](../evidence/development/knowledge-questions-2026-10-19.md)。原数据和设置保留；真机手测按 Owner 选择延后，版本不变，未 push/发布。确认式自然语言提醒由 HXA-313 接续交付，随后按既定授权推进最小定时 Agent 生命周期。

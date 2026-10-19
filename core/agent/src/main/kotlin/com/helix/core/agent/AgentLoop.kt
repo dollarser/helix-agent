@@ -38,6 +38,8 @@ class AgentLoop(
     private val events: AgentLoopEvents,
     private val clock: Clock,
     private val idGenerator: () -> String,
+    private val beforeModelStream:
+        (suspend (String, String, com.helix.provider.api.ProviderDescriptor, ModelRequest) -> Unit)? = null,
 ) {
     enum class Entry { INITIAL, BACKFILL }
 
@@ -163,6 +165,7 @@ class AgentLoop(
                         ).toString(),
                 )
             }
+            beforeModelStream?.invoke(turnId, coordinator.snapshot().modelCallId, provider.descriptor, request)
             val acc =
                 collectModelStream(
                     coordinator,
