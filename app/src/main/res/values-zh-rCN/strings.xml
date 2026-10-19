@@ -294,7 +294,7 @@
     <string name="chat_turn_failed">本次请求未成功：%1$s</string>
     <string name="chat_unbound_provider">该会话未绑定 Provider</string>
     <string name="chat_voice_button">语音</string>
-    <string name="chat_voice_unavailable">未找到可用的系统语音输入。请安装或启用语音识别应用，或使用键盘麦克风；识别后可编辑再发送。</string>
+    <string name="chat_voice_unavailable">未找到系统语音识别应用。Helix 离线识别不依赖该服务。</string>
     <string name="chat_waiting_model">正在等待模型响应…</string>
     <string name="common_unknown">未知</string>
     <string name="conn_error_auth">认证或访问权限被服务端拒绝。API Provider 请检查 key；订阅 Provider 请检查登录与账号权限。若 HTTP 403，也可能是网络出口被拒绝。</string>
@@ -1800,8 +1800,8 @@
     <string name="system_voice_input_available">已找到系统语音输入入口；实际识别能力由所选服务提供。</string>
     <string name="system_voice_service_only">检测到识别服务，但没有可供 Helix 打开的语音输入界面。可使用键盘麦克风，或在系统设置中启用兼容的语音输入应用。</string>
     <string name="system_voice_tts_count">已检测到 %1$d 个系统朗读引擎。Helix 当前尚未提供消息朗读。</string>
-    <string name="system_voice_language_hint">识别语言跟随 Helix 的语言设置。语言包和中文支持请在系统语音设置中确认；检测到服务不代表语言已可用。</string>
-    <string name="system_voice_privacy">录音由系统语音应用处理，可能使用其在线服务；Helix 只接收识别文字，放入输入框供你编辑，不会自动发送。</string>
+    <string name="system_voice_language_hint">Helix 离线输入支持中文和英文，其他系统语音应用的语言由其自身管理。</string>
+    <string name="system_voice_privacy">Helix 语音输入使用本机内置离线模型。此处仅检查独立的系统语音应用，这些应用可能使用各自的在线服务。</string>
     <string name="system_voice_input_settings">语音输入设置</string>
     <string name="system_voice_tts_settings">系统朗读设置</string>
     <string name="system_voice_settings_failed">无法读取语音状态或打开设置，请从手机系统设置检查语音服务。</string>
@@ -2007,4 +2007,23 @@
     <string name="builtin_model_timeout">内置模型响应超时，请稍后重试。</string>
     <string name="model_selection_settings_changed">模型或思考设置已变化，请重新选择并保存。</string>
     <string name="builtin_reasoning_contract_notice">默认沿用服务端的思考设置，不代表关闭思考。当前服务的实际效果尚待验证。</string>
+    <string name="offline_voice_title">离线语音输入</string>
+    <string name="offline_voice_privacy">中英双语 · 在本机识别，不保存或上传音频。每次最长 2 分钟。</string>
+    <string name="offline_voice_permission">需要麦克风权限，原草稿会保留。</string>
+    <string name="offline_voice_loading">正在加载离线模型…</string>
+    <string name="offline_voice_listening">正在聆听…结束后可检查和编辑。</string>
+    <string name="offline_voice_finishing">正在完成识别…</string>
+    <string name="offline_voice_review">检查文字后加入草稿，再由你主动发送。</string>
+    <string name="offline_voice_empty">未识别到文字，可在此输入或重新录音。</string>
+    <string name="offline_voice_model_error">离线模型不可用，未上传音频。请关闭后重试，或重新安装完整应用。</string>
+    <string name="offline_voice_focus_error">音频正被占用，请稍后重试。</string>
+    <string name="offline_voice_audio_error">录音中断或不可用，原草稿未改动。</string>
+    <string name="offline_voice_stopped">录音已停止，原草稿未改动。</string>
+    <string name="offline_voice_transcript">识别文字</string>
+    <string name="offline_voice_grant">允许麦克风</string>
+    <string name="offline_voice_accept">加入草稿</string>
+    <string name="offline_voice_finish">结束录音</string>
+    <string name="offline_voice_retry">重新录音</string>
+    <string name="offline_voice_cancel">取消</string>
+    <string name="offline_voice_app_settings">应用麦克风设置</string>
 </resources>

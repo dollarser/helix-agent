@@ -46,8 +46,15 @@ android {
     }
 
     buildTypes {
+        // Owner-authorized device checks can coexist with user installations and their data.
+        debug {
+            if (providers.gradleProperty("helix.asrValidation").orNull == "true") {
+                applicationIdSuffix = ".asrvalidation"
+            }
+        }
         release {
             optimization { enable = true }
+            proguardFiles("asr-rules.pro")
         }
     }
 
@@ -73,6 +80,9 @@ android {
         resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
     }
 
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("build/asr/assets"))
+    sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr/test-assets"))
+
     // RootFS has its own bounded XZ stream; a second ZIP compression layer adds no value.
     androidResources { noCompress += "xz" }
 
@@ -87,6 +97,7 @@ android {
 }
 
 dependencies {
+    implementation(files(rootProject.file("build/asr/asr-only.aar")))
     "developerImplementation"(project(":runtime:terminal-renderer"))
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
     implementation(project(":core:model"))
@@ -278,3 +289,11 @@ val verifyDeveloperRuntimeAssets =
 tasks.matching { it.name.startsWith("preDeveloper") && it.name.endsWith("Build") }.configureEach {
     dependsOn(verifyDeveloperRuntimeAssets)
 }
+
+val verifyAsrAssets by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verify prepared ASR-only JNI, offline model and license inputs without network or devices."
+    workingDir(rootProject.projectDir)
+    commandLine("python3", "scripts/build-asr-assets.py", "--verify")
+}
+tasks.named("preBuild") { dependsOn(verifyAsrAssets) }

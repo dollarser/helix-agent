@@ -1,0 +1,27 @@
+{
+  "source.tar.gz": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/archive/refs/tags/v1.13.8.tar.gz",
+    "sha256": "b0374cc56dbc186d442ae73d5de743bb092470b640c4c50ce7b029044c0c4fa8",
+    "size": 11642707
+  },
+  "sherpa.aar": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar",
+    "sha256": "633c24321e06b1fe79feafa03ea16cbc0f8a286641e2da3559bac91bdb13bd96",
+    "size": 50129134
+  },
+  "ort.zip": {
+    "url": "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.28.2/onnxruntime-android-1.28.2.zip",
+    "sha256": "01518867f78241138b6aa25925802e843a4fa9085af8d303d49e35bbb52aff4d",
+    "size": 33765715
+  },
+  "model.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16.tar.bz2",
+    "sha256": "2b7c63322b32e5e0f2526043a1103366119ca58dd615cd7105a37c01db9553d7",
+    "size": 458187351
+  },
+  "ctc-model.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01.tar.bz2",
+    "sha256": "b3b309f7ce4a737195fcc6963ea19b0653a7d3401580af5ae0d3e284cbb71f0b",
+    "size": 21264113
+  }
+}

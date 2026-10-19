@@ -34,7 +34,6 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.MessageUi
 import com.helix.app.provider.ProviderRowUi
-import com.helix.app.voice.SpeechRecognitionLauncher
 import com.helix.app.voice.VoiceInputMapper
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
@@ -116,38 +115,18 @@ internal fun ConversationSection(
             cameraTarget = null
         }
 
-    // HXA-067 voice input: the system recognizer (ACTION_RECOGNIZE_SPEECH) transcribes a
-    // USER-INITIATED recording into an EDITABLE composer draft. It never auto-sends (the text only
-    // lands in `input`; send is the explicit button) and never listens in the background (the
-    // system UI records; we only receive the transcript on return). A cancel, no-match or failed
-    // result is a benign no-draft (the system UI already surfaced it); a device with no recognizer
-    // is gated pre-launch and shows a transient, path-free notice.
-    val speech = remember { SpeechRecognitionLauncher() }
-    var voiceHelp by remember(screen.openSessionId) { mutableStateOf(false) }
-    var voiceFailure by remember(screen.openSessionId) { mutableStateOf<VoiceInputMapper.Failure?>(null) }
-    var voiceTarget by androidx.compose.runtime.saveable
-        .rememberSaveable { mutableStateOf<String?>(null) }
-    val currentVoiceSession by androidx.compose.runtime.rememberUpdatedState(screen.openSessionId)
-    val currentVoiceInput by androidx.compose.runtime.rememberUpdatedState(input)
-    val currentVoiceEdit by androidx.compose.runtime.rememberUpdatedState(onInput)
+    var voiceOpen by remember(screen.openSessionId) { mutableStateOf(false) }
     var inputNotice by remember { mutableStateOf<String?>(null) }
     val captureUnavailable = stringResource(R.string.chat_capture_unavailable)
     val pickerUnavailable = stringResource(R.string.chat_picker_unavailable)
-    val voiceLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val target = voiceTarget
-            voiceTarget = null
-            val outcome = speech.mapResult(result.resultCode, result.data)
-            if (outcome is VoiceInputMapper.Outcome.Draft && target != null && target == currentVoiceSession) {
-                currentVoiceEdit(VoiceInputMapper.appendDraft(currentVoiceInput, outcome.text))
-            }
-            if (outcome is VoiceInputMapper.Outcome.Failed && target != null && target == currentVoiceSession) {
-                voiceFailure = outcome.reason
-                voiceHelp = true
-            }
+    androidx.compose.runtime.key(screen.openSessionId) {
+        if (voiceOpen) {
+            OfflineVoiceDialog(
+                onDismiss = { voiceOpen = false },
+                onAccept = { text -> onInput(VoiceInputMapper.appendDraft(input, text)) },
+            )
         }
-
-    if (voiceHelp) SystemVoiceDialog(voiceFailure) { voiceHelp = false }
+    }
 
     val timelineListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -583,29 +562,7 @@ internal fun ConversationSection(
                     onSkills = intents.onSkills,
                     onConnectors = intents.onConnectors,
                     onSessionSettings = intents.onSettings,
-                    onVoice = {
-                        voiceFailure = null
-                        when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
-                            VoiceInputMapper.Outcome.Available -> {
-                                inputNotice = null
-                                voiceTarget = screen.openSessionId
-                                try {
-                                    voiceLauncher.launch(speech.buildIntent(context))
-                                } catch (_: android.content.ActivityNotFoundException) {
-                                    voiceTarget = null
-                                    voiceHelp = true
-                                } catch (_: SecurityException) {
-                                    voiceTarget = null
-                                    voiceFailure = VoiceInputMapper.Failure.SERVICE
-                                    voiceHelp = true
-                                }
-                            }
-
-                            else -> {
-                                voiceHelp = true
-                            }
-                        }
-                    },
+                    onVoice = { voiceOpen = true },
                     onSend = intents.onSend,
                     onStop = {
                         val turnId = screen.activeTurn?.id

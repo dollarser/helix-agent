@@ -91,6 +91,7 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 ```sh
 git clone https://github.com/dollarser/helix-agent.git
 cd helix-agent
+python3 scripts/build-asr-assets.py  # pinned ASR-only JNI + offline speech model; host only
 ./gradlew :app:assembleConsumerDebug
 # 需要进阶构建时：
 ./gradlew :app:assembleDeveloperDebug
