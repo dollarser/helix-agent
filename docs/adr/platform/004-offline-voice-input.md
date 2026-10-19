@@ -31,6 +31,25 @@ TTS 是后续独立输出能力，可复用固定 ORT/JNI 构建经验，不能�
 
 [Matcha Baker 中文](https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/matcha.html) 官方说明训练数据仅限非商用，且声学模型约 72 MB 外加约 51 MB vocoder，不作为商店默认候选。更大生成式/克隆模型在没有手机算力、内存、许可和体验实测前也不预装。首轮没有下载/运行 TTS 模型或生成合成语音，尚无 TTS 手机性能结论。
 
+### 2026-10-19 官方方案复核
+
+本次重新检查官方发布页，当前最新稳定 sherpa-onnx 为 [v1.13.8](https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.8)，与已安装实现一致。框架继续保留；58 MiB 双语模型是已有设备证据支持的基础方案，不称为最新或全面最优模型。ncnn 有成熟 Android 离线流式路径，但没有本项目同设备对比证据支持更换；[MNN](https://github.com/alibaba/MNN) 有移动端语音应用，框架支持不能直接证明相同模型更快，新增转换/算子/JNI 维护成本目前缺少收益证据。
+
+后续比较优先级如下，全部是候选，不表示已经下载、接入或通过手机验收：
+
+| 候选 | 官方能力与体积口径 | 对 Helix 的判断 |
+| --- | --- | --- |
+| [中文 streaming Zipformer INT8 2025-06-30](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-transducer/zipformer-transducer-models.html) | 原生流式，官方文件列表 encoder 154M + decoder 4.9M + joiner 1M；不是运行 RAM | 第一优先比较的中文增强模型；须验证中英混说，不能预设中文模型适合作为双语默认 |
+| [Streaming Paraformer 中英](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-paraformer/paraformer-models.html) | 原生流式，INT8 encoder 158M + decoder 68M；官方注明无时间戳 | 第二优先；同框架可比较，但模型显著大于当前基础包 |
+| [SenseVoice INT8](https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html) | 有 Android/Kotlin 路线及 2024-07-17、2025-09-09 导出；VAD 分段识别 | 评估停顿后识别或结束后的本地复核；不能把 VAD 分段结果冒充当前逐帧流式预览 |
+| [Qwen3-ASR-0.6B](https://github.com/QwenLM/Qwen3-ASR) | 2026 新系列，官方支持流式/离线、30 语言及 22 中文方言；常规部署为 Transformers/vLLM | 值得增强质量实验。sherpa 最新源码已有 offline Qwen3 适配，不能因此宣称 Android 已有相同流式能力；没有本机 RAM/发热/延迟证据前不预装 |
+| [Fun-ASR-Nano GGUF](https://github.com/QwenAudio/Fun-ASR/tree/main/runtime/llama.cpp) | 官方已有 C++ CPU/edge 路线，说明包含 phone，量化整套约 1.3 GB；VAD 分段 | 修正“只能服务器”的过强判断；仍不是当前低包体流式输入的直接替代，尚缺 Android 集成与 OnePlus 实测 |
+| [whisper.cpp stream](https://github.com/ggml-org/whisper.cpp/tree/master/examples/stream) | 官方示例按窗口重复识别，另有 VAD 模式 | 可作为离线质量参考；不优先替换支持持续增量解码的基线 |
+
+推荐保留开箱可用的小双语模型，先在测试端比较中文 Zipformer、Paraformer、SenseVoice；只有质量收益与手机预算证实后，再决定是否增加用户主动下载的增强模型。下载不是本轮已实现能力。新一轮应使用同一批有许可的普通话、中英技术词、数字、口音、噪声及静音样本，分别记录中文 CER、英文 WER、关键术语、静音误识别、首次可见文字墙钟延迟、停止到最终文字延迟、冷启动、进程峰值 PSS、连续使用发热和失败率。流式录音按真实时间节奏喂入；吞吐测试单列。模型权重、分词器、前端与测试音频分别核对许可，框架 Apache 不能代替模型授权。
+
+未来 TTS 保留 Kokoro INT8 作为小模型优先候选，同时纳入 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 的 0.6B 路线做质量参考；更大参数和官方流式能力都不能推导出老款手机可实时运行。此次没有新增 TTS、模型下载或云端调用，没有新的模型手机性能结论。
+
 ## Consequences
 
 模型与原生库增加安装包体积、冷加载延迟和内存占用，换取离线可用、明确的数据边界与不依赖 OEM。每次录音退出释放原生对象，避免常驻模型；首次加载以 UI 明示等待。独立验证包用于保护设备原有安装，不扩展应用正式包名或版本。
@@ -52,3 +71,5 @@ TTS 是后续独立输出能力，可复用固定 ORT/JNI 构建经验，不能�
 ## Decision history
 
 - 2026-10-19：Owner 授权本地中文优先 ASR；依据官方 Android 路线和两台 ARM64 设备公开音频结果接受上述范围。后续 TTS 保留独立评估边界，不扩大本轮实现。
+
+- 2026-10-19：按 Owner 追加要求复装独立验证版并复核最新官方候选；保持现有实现，明确基础模型并非全面择优结论，补充增强模型比较顺序及移动端验收条件。
