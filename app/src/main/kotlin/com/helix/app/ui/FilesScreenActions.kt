@@ -326,16 +326,19 @@ internal class FilesScreenActions(
                 try {
                     val realFile =
                         withContext(Dispatchers.IO) { fileManager.realFileFor(selectedScopeId, file.relativePath) }
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", realFile)
+                    val uri =
+                        FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            realFile,
+                            file.name,
+                        )
                     val mime =
                         withContext(Dispatchers.IO) { fileManager.mimeTypeFor(selectedScopeId, file.relativePath) }
-                    val send =
-                        Intent(Intent.ACTION_SEND).apply {
-                            type = mime.ifEmpty { "application/octet-stream" }
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
+                    val send = fileShareIntent(uri, mime)
                     context.startActivity(Intent.createChooser(send, str(R.string.files_share_chooser_title)))
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
                     status = str(R.string.files_share_failed, e.message.orEmpty())
                 }

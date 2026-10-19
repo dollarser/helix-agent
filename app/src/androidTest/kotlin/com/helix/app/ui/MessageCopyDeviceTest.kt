@@ -30,6 +30,7 @@ class MessageCopyDeviceTest {
         compose.onNodeWithTag("chat-copy-question").assertDoesNotExist()
         compose.onNodeWithTag("chat-message-toggle-question").performClick()
         compose.onNodeWithTag("chat-copy-question").assertIsDisplayed()
+        compose.onNodeWithTag("chat-share-question").assertDoesNotExist()
         compose.onNodeWithTag("chat-fork-question").assertDoesNotExist()
         compose.onNodeWithTag("chat-message-toggle-question").performClick()
         compose.onNodeWithTag("chat-copy-question").assertDoesNotExist()
@@ -71,6 +72,7 @@ class MessageCopyDeviceTest {
                     .AnnotatedString(""),
             )
         }
+        compose.onNodeWithTag("chat-share-copy").assertDoesNotExist()
         compose.onNodeWithTag("chat-copy-copy").performClick()
         awaitClipboard(clipboard, text)
         compose.runOnIdle { assertEquals(text, clipboard.getText()?.text) }

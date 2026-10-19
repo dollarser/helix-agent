@@ -1,6 +1,8 @@
 package com.helix.app.ui
 
+import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,11 +51,7 @@ internal fun FileShareAction(
                     }
                 context.startActivity(
                     Intent.createChooser(
-                        Intent(Intent.ACTION_SEND).apply {
-                            type = mime.ifBlank { "application/octet-stream" }
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        },
+                        fileShareIntent(uri, mime),
                         null,
                     ),
                 )
@@ -69,4 +67,19 @@ internal fun FileShareAction(
         Text(stringResource(R.string.files_share))
     }
     if (failed) Text(stringResource(R.string.artifacts_share_unavailable))
+}
+
+/** Explicit ClipData propagates the same scoped read grant through the chooser to its receiver. */
+internal fun fileShareIntent(
+    uri: Uri,
+    mime: String,
+): Intent {
+    require(uri.scheme == "content")
+    val mediaType = mime.ifBlank { "application/octet-stream" }
+    return Intent(Intent.ACTION_SEND).apply {
+        type = mediaType
+        putExtra(Intent.EXTRA_STREAM, uri)
+        clipData = ClipData("Shared file", arrayOf(mediaType), ClipData.Item(uri))
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
 }

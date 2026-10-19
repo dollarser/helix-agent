@@ -580,6 +580,17 @@ class FileManagerServiceTest {
     }
 
     @Test
+    fun sharingLabelsDetectedTextAndPreservesStagedExtensionWithoutChangingSource() {
+        seedText("work/share.txt", "synthetic share body")
+        assertEquals("text/plain", service.mimeTypeFor(scopeId, "work/share.txt"))
+        val staged = service.realFileFor("ws-staged", "work/share.txt")
+        assertEquals("txt", staged.extension)
+        assertEquals("synthetic share body", staged.readText())
+        assertEquals("synthetic share body", real("work/share.txt").toFile().readText())
+        assertFalse(staged.toPath() == real("work/share.txt"))
+    }
+
+    @Test
     fun realFileForOfMissingPathFailsClosed() {
         assertThrows(FileNotFoundException::class.java) { service.realFileFor(scopeId, "work/absent.txt") }
     }

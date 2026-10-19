@@ -502,7 +502,7 @@
     <string name="files_select">Select</string>
     <string name="files_selected_count">%1$s selected</string>
     <string name="files_sha_omitted">(file too large, omitted)</string>
-    <string name="files_share">Share</string>
+    <string name="files_share">Share file</string>
     <string name="files_share_chooser_title">Share</string>
     <string name="files_share_failed">Cannot share: %1$s</string>
     <string name="files_skip">Skip</string>
@@ -1023,7 +1023,7 @@
     <!-- P0-B: Artifact Center (doc section 28) -->
     <string name="nav_artifacts">All outputs</string>
     <string name="empty_artifacts">No delivered artifacts yet. When a task finishes, its result appears here so you can share it or return to the session.</string>
-    <string name="artifacts_share">Share</string>
+    <string name="artifacts_share">Share task result</string>
     <string name="artifacts_open">Open session</string>
     <string name="artifacts_summary_label">Summary</string>
     <string name="artifacts_state_done">Completed</string>
@@ -1430,7 +1430,6 @@
     <string name="chat_search_prev">Previous match</string>
     <string name="chat_search_next">Next match</string>
     <string name="chat_search_close">Close search</string>
-    <string name="chat_share_message">Share message</string>
     <string name="chat_prompt_suggestion_code_analysis">Analyze codebase architecture and dependencies</string>
     <string name="chat_prompt_suggestion_plan_feature">Plan a new feature and create an implementation plan</string>
     <string name="chat_prompt_suggestion_run_tests">Run automated tests and verify quality gates</string>

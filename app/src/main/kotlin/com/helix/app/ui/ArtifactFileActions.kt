@@ -58,12 +58,10 @@ internal fun ArtifactFileDialogContent(
     state: ArtifactAvailability,
     exportState: ArtifactExportState,
     external: ArtifactExternalOpenResult?,
-    fileManager: FileManagerService,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ArtifactFilePreviewBody(row, state)
         ArtifactLocateAction(row, state)
-        row.parsedScopePath()?.let { FileShareAction(fileManager, it, state is ArtifactAvailability.Ready) }
         ArtifactActionOutcomes(row, exportState, external)
     }
 }
@@ -151,12 +149,12 @@ private fun externalOpenOutcomeRes(result: ArtifactExternalOpenResult): Int =
 /**
  * The dialog's primary actions: Export (workspace files in an exportable region only, via
  * the system "create document" picker; the outcome is the pipeline's, not the click's) with
- * a cancel during the run, plus Share (text preview only).
+ * a cancel during the run, plus separate file and preview-text sharing.
  */
 @Composable
 @Suppress("FunctionName")
 internal fun ArtifactFilePrimaryActions(
-    context: Context,
+    fileManager: FileManagerService,
     row: ArtifactRowUi,
     state: ArtifactAvailability,
     exportState: ArtifactExportState,
@@ -164,8 +162,10 @@ internal fun ArtifactFilePrimaryActions(
     onExportClick: () -> Unit,
     onCancelExport: () -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val shareFailed = remember(row.id) { mutableStateOf(false) }
     FlowRow {
+        row.parsedScopePath()?.let { FileShareAction(fileManager, it, state is ArtifactAvailability.Ready) }
         if (shareFailed.value) {
             Text(
                 stringResource(R.string.artifacts_share_unavailable),

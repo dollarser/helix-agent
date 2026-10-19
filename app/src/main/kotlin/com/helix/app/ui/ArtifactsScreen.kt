@@ -226,12 +226,11 @@ internal fun ArtifactFileDialog(
                 view.availability.value,
                 view.export.value,
                 view.external.value,
-                fileManager,
             )
         },
         confirmButton = {
             ArtifactFilePrimaryActions(
-                context,
+                fileManager,
                 row,
                 view.availability.value,
                 view.export.value,

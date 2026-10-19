@@ -109,7 +109,7 @@ internal class FileManagerPreview(
         return try {
             val cap = minOf(maxBytes, SAF_READ_CAP)
             val bytes = access.reader.read(scopeId, relativePath, 0, cap)
-            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType.startsWith("image/")) {
+            if (!shareMime(ContentProbe.probeBytes(bytes, bytes.size.toLong())).startsWith("image/")) {
                 return ByteArray(0)
             }
             bytes
@@ -127,7 +127,7 @@ internal class FileManagerPreview(
         relativePath: String,
     ): String {
         if (isSaf(scopeId)) return safMimeTypeFor(scopeId, relativePath)
-        return store.probe(FileScopePath(scopeId, relativePath)).mimeType
+        return shareMime(store.probe(FileScopePath(scopeId, relativePath)))
     }
 
     /** SAF tree best-effort MIME from a bounded prefix (HXA-057). A non-file/dir failure → octet. */
@@ -139,7 +139,7 @@ internal class FileManagerPreview(
         val access = verifySaf(scopeId, SafAccessMode.READ)
         return try {
             val bytes = access.reader.read(scopeId, relativePath, 0, DEFAULT_PREVIEW_BYTES)
-            ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
+            shareMime(ContentProbe.probeBytes(bytes, bytes.size.toLong()))
         } catch (e: Exception) {
             "application/octet-stream"
         }
@@ -261,7 +261,7 @@ internal class FileManagerPreview(
         relativePath: String,
     ): File {
         val access = verifySaf(scopeId, SafAccessMode.READ)
-        val staged = access.shareDir.resolve("share-${System.nanoTime()}.bin")
+        val staged = access.shareDir.resolve("share-${System.nanoTime()}.${shareExtension(relativePath)}")
         // copyToAppPrivate deletes its own partial target on the limit-exceeded failure; a missing
         // document / revoked scope throws before any file is created, so no cleanup is needed here.
         access.reader.copyToAppPrivate(scopeId, relativePath, staged, SAF_SHARE_CAP)
@@ -287,11 +287,22 @@ internal class FileManagerPreview(
             bytes.size.toLong(),
             512L * 1024 * 1024,
         )
-        val target = directory.resolve("workspace-${java.util.UUID.randomUUID()}.bin")
+        val target = directory.resolve("workspace-${java.util.UUID.randomUUID()}.${shareExtension(relativePath)}")
         com.helix.core.workspace.AtomicFileWriter
             .writeAtomic(target, bytes)
         return target.toFile()
     }
+
+    /** Sharing labels positively detected text without changing the tool probe's conservative MIME. */
+    private fun shareMime(probe: ContentProbe.Result): String =
+        if (probe.mimeType == "application/octet-stream" && probe.isText) "text/plain" else probe.mimeType
+
+    private fun shareExtension(relativePath: String): String =
+        relativePath
+            .substringAfterLast('/')
+            .substringAfterLast('.', "bin")
+            .takeIf { it.matches(Regex("[A-Za-z0-9]{1,16}")) }
+            ?.lowercase(java.util.Locale.ROOT) ?: "bin"
 
     private fun sha256Hex(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
