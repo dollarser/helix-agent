@@ -52,8 +52,12 @@ fun SettingsScreen() {
             .testTag("screen-settings"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        SettingsGroup { AccountSettingsEntry() }
         SettingsGroup { LanguageSection() }
-        SettingsGroup { SystemVoiceSettingsEntry() }
+        SettingsGroup {
+            CloudSpeechSettingsEntry()
+            SystemVoiceSettingsEntry()
+        }
         SettingsGroup {
             com.helix.app.network
                 .NetworkSettingsEntry()

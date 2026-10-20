@@ -187,7 +187,7 @@ private fun MessageActionRow(
     Row(verticalAlignment = Alignment.CenterVertically) {
         CopyTextButton(message.content, "chat-copy-${message.id}")
         if (readAloud && message.role == "assistant" && message.presentation == MessagePresentation.NORMAL) {
-            ReadAloudAction(message.id, message.content)
+            ReadAloudAction(message.id, message.content, turnId = message.turnId)
         }
         if (isUser && onEdit != null) {
             IconButton(

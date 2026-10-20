@@ -13,6 +13,7 @@ import com.helix.app.voice.StreamingAsrFactory
 import com.helix.app.voice.VoiceCapture
 import com.helix.app.voice.VoiceInputMapper
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
@@ -20,6 +21,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Granted permission plus injected PCM: this suite never records environmental audio. */
 class OfflineVoiceDialogDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun grantPermissionForInjectedPcm() {
+        val instrumentation =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getInstrumentation()
+        check(
+            android.os.Build.MODEL
+                .contains("sdk_gphone"),
+        )
+        instrumentation.uiAutomation.grantRuntimePermission(
+            instrumentation.targetContext.packageName,
+            android.Manifest.permission.RECORD_AUDIO,
+        )
+    }
 
     private fun hasNode(tag: String) =
         compose

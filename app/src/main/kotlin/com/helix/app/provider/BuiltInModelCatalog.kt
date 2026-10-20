@@ -24,10 +24,15 @@ data class BuiltInModelCatalog(
 
 internal class BuiltInModelCatalogStore(
     private val backing: LineStore,
+    private val accountIdentity: () -> String = { "signed-out" },
 ) {
+    fun accountAvailable() = accountIdentity() != "signed-out"
+
+    fun identity() = listOf(BuiltInModel.CATALOG_URL, "account-v1:" + accountIdentity())
+
     fun read(): BuiltInModelCatalog {
         val rows = backing.lines(KEY)
-        if (rows.size != 5 || rows.take(2) != identity) return BuiltInModelCatalog()
+        if (!accountAvailable() || rows.size != 5 || rows.take(2) != identity()) return BuiltInModelCatalog()
         return try {
             val at = rows[2].toLong().also { require(it > 0) }
             val models = requireNotNull(parseModels(rows[3]))
@@ -38,12 +43,15 @@ internal class BuiltInModelCatalogStore(
         }
     }
 
-    fun save(value: BuiltInModelCatalog) {
+    fun save(
+        value: BuiltInModelCatalog,
+        expectedIdentity: List<String> = identity(),
+    ) {
         require(value.checkedAt > 0)
         val models = JsonArray(CapabilityProbe.normalizeModelIds(value.models).map(::JsonPrimitive))
         backing.setLines(
             KEY,
-            identity + listOf(value.checkedAt.toString(), models.toString(), value.failure?.name ?: "LISTED"),
+            expectedIdentity + listOf(value.checkedAt.toString(), models.toString(), value.failure?.name ?: "LISTED"),
         )
     }
 
@@ -67,6 +75,5 @@ internal class BuiltInModelCatalogStore(
 
     private companion object {
         const val KEY = "builtin_model_catalog"
-        val identity = listOf(BuiltInModel.CATALOG_URL, BuiltInModel.CLIENT_ID)
     }
 }

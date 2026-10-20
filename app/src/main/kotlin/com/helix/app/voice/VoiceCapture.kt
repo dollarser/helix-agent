@@ -21,7 +21,11 @@ class VoiceCapture(
 ) {
     enum class Phase { IDLE, LOADING, LISTENING, FINISHING, REVIEW, CANCELLED, FAILED }
 
-    enum class Failure { MODEL, AUDIO, FOCUS, INTERRUPTED }
+    enum class Failure { MODEL, AUDIO, FOCUS, INTERRUPTED, CONNECTION }
+
+    val uploadsAudio get() = factory.uploadsAudio
+    val destination get() = factory.destination
+    val supportsPartial get() = factory.supportsPartial
 
     data class State(
         val phase: Phase = Phase.IDLE,
@@ -42,6 +46,7 @@ class VoiceCapture(
 
     private var job: Job? = null
     private val activeSource = AtomicReference<PcmCapture?>(null)
+    private val activeAsr = AtomicReference<StreamingAsr?>(null)
 
     // One bounded capture with ordered native cleanup.
     @Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod", "ComplexCondition")
@@ -54,15 +59,17 @@ class VoiceCapture(
             scope.launch(Dispatchers.IO) {
                 var asr: StreamingAsr? = null
                 var recorder: PcmCapture? = null
-                var failure = Failure.MODEL
+                var failure = if (uploadsAudio) Failure.CONNECTION else Failure.MODEL
                 try {
                     asr = factory.open()
+                    activeAsr.set(asr)
                     if (cancelled.get() || !currentCoroutineContext().isActive) return@launch
                     failure = Failure.AUDIO
                     recorder = source { cancel(Failure.INTERRUPTED) }
                     activeSource.set(recorder)
                     if (cancelled.get() || !currentCoroutineContext().isActive) return@launch
                     publish(State(Phase.LISTENING))
+                    if (uploadsAudio) failure = Failure.CONNECTION
                     val samples = ShortArray(1600)
                     var count = 0
                     val deadline = android.os.SystemClock.elapsedRealtime() + 120000
@@ -91,6 +98,7 @@ class VoiceCapture(
                 } catch (_: LinkageError) {
                     publish(State(Phase.FAILED, failure = Failure.MODEL))
                 } finally {
+                    activeAsr.set(null)
                     activeSource.set(null)
                     try {
                         recorder?.close()
@@ -119,5 +127,6 @@ class VoiceCapture(
         } catch (_: IllegalStateException) {
             // The worker still owns release for an already stopped or failed recorder.
         }
+        (activeAsr.get() as? InterruptibleAsr)?.interrupt()
     }
 }

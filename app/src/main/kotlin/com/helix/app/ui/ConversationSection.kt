@@ -34,6 +34,7 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.MessageUi
 import com.helix.app.provider.ProviderRowUi
+import com.helix.app.voice.VisibleReplyFrame
 import com.helix.app.voice.VoiceInputMapper
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
@@ -74,6 +75,8 @@ internal fun ConversationSection(
     val context = LocalContext.current
     val reader = (context.applicationContext as? com.helix.app.HelixApplication)?.readAloud
     ReadAloudLifecycle(reader, screen.openSessionId)
+    val speechFrame = visibleReplyFrame(screen)
+    ObserveLiveReplyReadAloud(reader, speechFrame)
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
     // (the user backed out) is ignored.
@@ -407,6 +410,11 @@ internal fun ConversationSection(
                                 searchQuery = activeSearchQuery,
                                 isCurrentMatch = "streaming" == currentTargetId,
                             )
+                            if (speechFrame?.phase == VisibleReplyFrame.Phase.STREAMING && reader != null) {
+                                ReadAloudAction(speechFrame.speechId, speechFrame.text, reader) {
+                                    reader.startLiveReply(speechFrame)
+                                }
+                            }
                         }
                         TurnProgressLabel(
                             turn.state,

@@ -9,6 +9,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -36,22 +37,74 @@ class ReadAloudService(
     private val engine: (File) -> SpeechEngine,
     private val focus: (() -> Unit) -> AutoCloseable?,
     private val sink: (Int) -> SpeechSink,
+    /** Explicit service-specific adapter; null retains local synthesis. Never an automatic fallback. */
+    private val cloudEngine: (() -> InterruptibleSpeechEngine)? = null,
+    val uploadDestination: String? = null,
+    val segmentedHttp: Boolean = false,
+    private val synthesis: Mutex = Mutex(),
 ) {
+    val uploadsText get() = cloudEngine != null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val epoch = AtomicLong()
-    private val synthesis = Mutex()
     private val output = AtomicReference<SpeechSink?>(null)
+    private val activeCloud = AtomicReference<InterruptibleSpeechEngine?>(null)
     private var job: Job? = null
     private var downloadJob: Job? = null
     val state = MutableStateFlow(ReadAloudState())
+    private var liveInput: Channel<String>? = null
+    private var livePlayback: Pair<String, String>? = null
 
-    @Suppress("TooGenericExceptionCaught") // Failure is user-visible; do not turn native/output errors into completion.
+    val livePlaybackTurnId: String?
+        get() = livePlayback?.takeIf { state.value.messageId == it.first }?.second
+
+    fun startLiveReply(frame: VisibleReplyFrame) {
+        liveReply.start(frame)
+        if (liveReply.activeId != null) livePlayback = frame.speechId to frame.turnId
+    }
+
+    val liveReply =
+        LiveReplySpeech(
+            object : ReplySpeechOutput {
+                override fun begin(id: String) {
+                    val input = Channel<String>(Channel.UNLIMITED)
+                    liveInput = input
+                    startPlayback(id) { input }
+                }
+
+                override fun append(text: String) = liveInput?.trySend(text)?.isSuccess == true
+
+                override fun finish() {
+                    liveInput?.close()
+                }
+
+                override fun cancel() {
+                    liveInput?.cancel()
+                    liveInput = null
+                    stopPlayback()
+                }
+            },
+        )
+
     fun play(
         id: String,
         text: String,
     ) {
         if (downloadJob?.isCompleted == false) return
         stop()
+        startPlayback(id) {
+            Channel<String>(Channel.UNLIMITED).also { input ->
+                ReadAloudText.chunks(text).forEach { input.trySend(it).getOrThrow() }
+                input.close()
+            }
+        }
+    }
+
+    // Failure is user-visible; never report synthesis/output errors as completion.
+    @Suppress("TooGenericExceptionCaught")
+    private fun startPlayback(
+        id: String,
+        input: () -> ReceiveChannel<String>,
+    ) {
         val ticket = epoch.incrementAndGet()
         state.value = ReadAloudState(id, ReadAloudPhase.PREPARING)
         job =
@@ -59,16 +112,17 @@ class ReadAloudService(
                 synthesis.withLock {
                     ensureActive()
                     var lease: AutoCloseable? = null
+                    var chunks: ReceiveChannel<String>? = null
                     try {
-                        val chunks = withContext(Dispatchers.IO) { ReadAloudText.chunks(text) }
-                        val directory = model.ready()
-                        if (directory == null) {
+                        chunks = withContext(Dispatchers.IO) { input() }
+                        val directory = if (cloudEngine == null) model.ready() else null
+                        if (directory == null && cloudEngine == null) {
                             state.value = ReadAloudState(id, ReadAloudPhase.MISSING)
                         } else {
                             ensureActive()
                             lease = requireNotNull(focus { if (epoch.get() == ticket) stop() }) { "AUDIO_FOCUS_DENIED" }
                             withContext(Dispatchers.IO) {
-                                speak(chunks, directory, ticket, id)
+                                speak(requireNotNull(chunks), directory, ticket, id)
                             }
                             if (epoch.get() == ticket) state.value = ReadAloudState()
                         }
@@ -79,6 +133,8 @@ class ReadAloudService(
                     } catch (_: Exception) {
                         if (epoch.get() == ticket) state.value = ReadAloudState(id, ReadAloudPhase.FAILED)
                     } finally {
+                        chunks?.cancel()
+                        if (epoch.get() == ticket) liveReply.detach(id)
                         release(lease, ticket, id)
                     }
                 }
@@ -92,8 +148,8 @@ class ReadAloudService(
 
     /** One queued PCM part: synthesize ahead while output blocks, never accumulate a reply in RAM. */
     private suspend fun speak(
-        chunks: List<String>,
-        directory: File,
+        chunks: ReceiveChannel<String>,
+        directory: File?,
         ticket: Long,
         id: String,
     ) = coroutineScope {
@@ -102,25 +158,28 @@ class ReadAloudService(
             launch(Dispatchers.IO) {
                 val active = currentCoroutineContext()
                 try {
-                    engine(directory).use { voice ->
-                        for (chunk in chunks) {
-                            ensureActive()
-                            if (epoch.get() != ticket) break
-                            voice.generate(chunk, { active.isActive && epoch.get() == ticket }) { samples, rate ->
-                                // Native callbacks are synchronous. Channel cancellation unblocks this bounded send.
-                                if (epoch.get() == ticket) runBlocking { audio.send(AudioPart(samples, rate)) }
-                            }
+                    val voiceEngine = cloudEngine?.invoke() ?: engine(requireNotNull(directory))
+                    if (voiceEngine is InterruptibleSpeechEngine) activeCloud.set(voiceEngine)
+                    voiceEngine.use { voice ->
+                        ensureActive()
+                        val keepGoing = { active.isActive && epoch.get() == ticket }
+                        generateSpeechStream(voice, chunks, keepGoing) { samples, rate ->
+                            if (epoch.get() == ticket) runBlocking { audio.send(AudioPart(samples, rate)) }
                         }
                     }
                 } finally {
+                    activeCloud.set(null)
                     audio.close()
                 }
             }
         try {
             val active = currentCoroutineContext()
+            var outputRate: Int? = null
             for (part in audio) {
                 ensureActive()
                 if (epoch.get() != ticket) break
+                check(outputRate == null || outputRate == part.rate) { "AUDIO_RATE_CHANGED" }
+                outputRate = part.rate
                 val target = output.get() ?: sink(part.rate).also(output::set)
                 state.value = ReadAloudState(id, ReadAloudPhase.SPEAKING)
                 target.write(part.samples) { active.isActive && epoch.get() == ticket }
@@ -129,6 +188,7 @@ class ReadAloudService(
             output.get()?.finish { active.isActive && epoch.get() == ticket }
         } finally {
             audio.cancel()
+            chunks.cancel()
             producer.cancel()
         }
     }
@@ -148,10 +208,16 @@ class ReadAloudService(
         }
 
     fun stop() {
+        liveReply.stop()
+    }
+
+    private fun stopPlayback() {
+        livePlayback = null
         val ticket = epoch.incrementAndGet()
         val previous = job
         output.get()?.interrupt()
         previous?.cancel()
+        activeCloud.get()?.interrupt()
         if (previous?.isCompleted == false) {
             state.value = state.value.copy(phase = ReadAloudPhase.STOPPING)
             scope.launch {

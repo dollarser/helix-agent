@@ -37,7 +37,8 @@ internal fun OfflineVoiceDialog(
     onDismiss: () -> Unit,
     onAccept: (String) -> Unit,
     captureFactory: (android.content.Context, kotlinx.coroutines.CoroutineScope) -> VoiceCapture = { context, scope ->
-        VoiceCapture(context, scope)
+        val application = context.applicationContext as com.helix.app.HelixApplication
+        VoiceCapture(context, scope, application.speechSettings.asrFactory(context))
     },
 ) {
     val context = LocalContext.current
@@ -51,6 +52,7 @@ internal fun OfflineVoiceDialog(
         )
     }
     var permissionDenied by remember { mutableStateOf(false) }
+    var uploadConsent by remember(capture) { mutableStateOf(!capture.uploadsAudio) }
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             permission = it
@@ -68,7 +70,7 @@ internal fun OfflineVoiceDialog(
         permission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
     }
-    LaunchedEffect(permission) { if (permission) capture.start() }
+    LaunchedEffect(permission, uploadConsent) { if (permission && uploadConsent) capture.start() }
     var review by remember { mutableStateOf("") }
     LaunchedEffect(state.phase) { if (state.phase == VoiceCapture.Phase.REVIEW) review = state.text }
     val reviewing = state.phase == VoiceCapture.Phase.REVIEW
@@ -84,11 +86,28 @@ internal fun OfflineVoiceDialog(
             capture.cancel()
             onDismiss()
         },
-        title = { Text(stringResource(R.string.offline_voice_title)) },
+        title = {
+            val title = if (capture.uploadsAudio) R.string.speech_http_input_title else R.string.offline_voice_title
+            Text(stringResource(title))
+        },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(stringResource(R.string.offline_voice_privacy))
-                Text(stringResource(voiceStatusText(state, permission)))
+                Text(
+                    stringResource(
+                        if (capture.uploadsAudio) R.string.cloud_voice_upload else R.string.offline_voice_privacy,
+                    ),
+                )
+                if (capture.uploadsAudio && !capture.supportsPartial) {
+                    Text(stringResource(R.string.speech_http_asr_mode))
+                }
+                capture.destination?.let { Text(it) }
+                val status =
+                    if (capture.uploadsAudio && permission && state.phase == VoiceCapture.Phase.LOADING) {
+                        R.string.speech_service_preparing
+                    } else {
+                        voiceStatusText(state, permission)
+                    }
+                Text(stringResource(status))
                 if (permissionDenied && !permission) {
                     TextButton({
                         context.startActivity(
@@ -115,6 +134,10 @@ internal fun OfflineVoiceDialog(
         },
         confirmButton = {
             when {
+                !uploadConsent -> {
+                    TextButton({ uploadConsent = true }) { Text(stringResource(R.string.cloud_voice_confirm)) }
+                }
+
                 !permission -> {
                     TextButton(
                         { launcher.launch(Manifest.permission.RECORD_AUDIO) },
@@ -186,6 +209,7 @@ internal fun voiceStatusText(
                 when (state.failure) {
                     VoiceCapture.Failure.MODEL -> R.string.offline_voice_model_error
                     VoiceCapture.Failure.FOCUS -> R.string.offline_voice_focus_error
+                    VoiceCapture.Failure.CONNECTION -> R.string.cloud_voice_connection_error
                     else -> R.string.offline_voice_audio_error
                 }
             }

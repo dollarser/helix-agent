@@ -37,22 +37,21 @@ class ProviderFactory(
     private val debuggable: Boolean = false,
     private val customApiForDebug: (ProviderConfig) -> Boolean = { false },
     private val builtInWire: WireClient =
-        com.helix.provider.api.wire.PublicClientWireClient(
-            BuiltInModel.GENERATION_URL,
-            BuiltInModel.CLIENT_ID,
-            catalogUrl = BuiltInModel.CATALOG_URL,
-        ),
+        com.helix.app.account
+            .BuiltInAccountWire(null),
     private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
     /** Draft catalog requests use a transient credential, never a saved provider or key. */
-    fun forDraft(credentials: CredentialLookup): ProviderFactory = ProviderFactory(credentials, wire, imageSource)
+    fun forDraft(credentials: CredentialLookup): ProviderFactory =
+        ProviderFactory(credentials, wire, imageSource, builtInWire = builtInWire)
 
     fun create(config: ProviderConfig): ModelProvider {
         if (BuiltInModel.owns(config.id) ||
             config.provisioning == com.helix.core.model.ProviderProvisioningKind.BUNDLED_SERVICE
         ) {
             BuiltInModel.validate(config)
-            val adapter = OpenAiChatProvider(config, credentials, builtInWire, chatImages(config))
+            val accountWire = (builtInWire as? com.helix.app.account.BuiltInAccountWire)?.newInvocation() ?: builtInWire
+            val adapter = OpenAiChatProvider(config, credentials, accountWire, chatImages(config))
             return BuiltInModelProvider(adapter)
         }
         val managed = additionalFactory(config)

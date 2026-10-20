@@ -18,7 +18,7 @@ import kotlinx.serialization.json.jsonPrimitive
 object BuiltInModel {
     const val PROVIDER_ID = "builtin-helix-qwen"
     const val MODEL_ID = "Qwen3.8-27B"
-    const val CLIENT_ID = "helix-android-preview-v1"
+    const val CLIENT_ID = com.helix.app.account.AccountSession.CLIENT_ID
     const val API_ROOT = "https://api.sunlingzhang.com/v1"
     const val GENERATION_URL = "$API_ROOT/chat/completions"
     const val CATALOG_URL = "$API_ROOT/models"

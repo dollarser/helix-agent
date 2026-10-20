@@ -18,7 +18,7 @@ import java.time.Instant
 
 class BuiltInModelDiscoveryTest {
     private val backing = InMemoryLineStore()
-    private val store = BuiltInModelCatalogStore(backing)
+    private val store = BuiltInModelCatalogStore(backing) { "fixture-account" }
     private var millis = 1_000L
     private var calls = 0
     private var result: suspend () -> ModelCatalogResult = {
@@ -48,6 +48,23 @@ class BuiltInModelDiscoveryTest {
             { source },
             {},
         )
+
+    @Test fun signedOutNeverFetchesOrReadsRetiredDirectory() =
+        runBlocking {
+            val signedOut = BuiltInModelCatalogStore(backing)
+            signedOut.save(BuiltInModelCatalog(100, listOf("retired-model")))
+            val discovery =
+                BuiltInModelDiscovery(
+                    signedOut,
+                    object : Clock {
+                        override fun now() = Instant.ofEpochMilli(millis)
+                    },
+                    { error("Signed-out discovery must not create a provider") },
+                    {},
+                )
+            discovery.refresh(true)
+            assertEquals(emptyList<String>(), discovery.current().models)
+        }
 
     @Test fun directoryRefreshIsDynamicCachedAcrossRestartAndNeverInfers() =
         runBlocking {
@@ -124,4 +141,26 @@ class BuiltInModelDiscoveryTest {
             cancelled.cancelAndJoin()
             assertEquals(before, store.read())
         }
+}
+
+class BuiltInAccountCatalogIdentityTest {
+    @org.junit.Test
+    fun accountChangeAndLatePublicationCannotReusePreviousDirectory() {
+        var identity = "first-account-session"
+        val store =
+            BuiltInModelCatalogStore(
+                com.helix.app.internal
+                    .InMemoryLineStore(),
+            ) { identity }
+        val first = store.identity()
+        store.save(BuiltInModelCatalog(100, listOf("first-account-model")))
+        org.junit.Assert.assertEquals(listOf("first-account-model"), store.read().models)
+        identity = "signed-out"
+        org.junit.Assert.assertTrue(store.read().models.isEmpty())
+        org.junit.Assert.assertFalse(store.accountAvailable())
+        identity = "second-account-session"
+        org.junit.Assert.assertTrue(store.read().models.isEmpty())
+        store.save(BuiltInModelCatalog(200, listOf("late-first-account-model")), first)
+        org.junit.Assert.assertTrue(store.read().models.isEmpty())
+    }
 }

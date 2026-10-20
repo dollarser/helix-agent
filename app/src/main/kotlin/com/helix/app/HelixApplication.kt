@@ -6,15 +6,45 @@ import android.os.Process
 import android.util.Log
 import com.helix.app.diagnostics.ProcessDiagnostics
 import com.helix.app.language.AppLanguageStore
+import com.helix.app.voice.ReadAloudService
+import com.helix.app.voice.SpeechServiceSettings
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
+    val account by lazy {
+        com.helix.app.account.AccountSession(
+            com.helix.app.account
+                .AccountSecretStorage(
+                    com.helix.core.storage.AndroidKeystoreSecretStore
+                        .create(this),
+                ),
+        )
+    }
+
     internal val runtimeRecoveryReady = kotlinx.coroutines.CompletableDeferred<Unit>()
-    val readAloud by lazy {
+    val speechSettings by lazy {
+        com.helix.app.voice
+            .SpeechSettingsStore(this)
+    }
+    private var readAloudSettings: com.helix.app.voice.SpeechServiceSettings? = null
+    private var readAloudService: com.helix.app.voice.ReadAloudService? = null
+    private val speechSynthesis = kotlinx.coroutines.sync.Mutex()
+    val readAloud: com.helix.app.voice.ReadAloudService
+        @Synchronized get() {
+            val settings = speechSettings.read()
+            if (settings != readAloudSettings) {
+                readAloudService?.close()
+                readAloudService = createReadAloud(settings)
+                readAloudSettings = settings
+            }
+            return requireNotNull(readAloudService)
+        }
+
+    private fun createReadAloud(settings: SpeechServiceSettings): ReadAloudService {
         val audio =
             com.helix.app.voice
                 .SpeechAudio(this)
-        com.helix.app.voice.ReadAloudService(
+        return com.helix.app.voice.ReadAloudService(
             com.helix.app.voice
                 .LocalVoiceModel(this),
             { directory ->
@@ -23,8 +53,24 @@ class HelixApplication : Application() {
             },
             audio::focus,
             audio::sink,
+            cloudEngine =
+                if (settings.httpEnabled) {
+                    {
+                        com.helix.app.voice.CloudSpeechEngine(
+                            com.helix.app.voice.HttpWavTts(
+                                settings.session(settings.ttsEndpoint, account),
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
+            uploadDestination = settings.ttsEndpoint.takeIf { settings.httpEnabled },
+            segmentedHttp = settings.httpEnabled,
+            synthesis = speechSynthesis,
         )
     }
+
     val reminders by lazy {
         com.helix.app.reminder.ReminderService(
             com.helix.core.storage.reminder
@@ -42,7 +88,15 @@ class HelixApplication : Application() {
             "AppContainer belongs to the main process"
         }
         AppInitialization<AppContainer>(
-            factory = { DefaultAppContainer(this) },
+            factory = {
+                // Initialization runs off main. Restore local identity before model admission/UI rows.
+                try {
+                    kotlinx.coroutines.runBlocking { account.restore() }
+                } catch (_: java.io.IOException) {
+                    Log.w("HelixAccount", "Account restoration unavailable; built-in models remain locked")
+                }
+                DefaultAppContainer(this)
+            },
             onReady = ::recover,
             onFailure = { Log.e("HelixStartup", "Application initialization failed", it) },
             beforeReset = {

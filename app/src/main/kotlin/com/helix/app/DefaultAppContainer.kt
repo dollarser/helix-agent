@@ -235,7 +235,10 @@ internal class DefaultAppContainer(
                         localModels,
                         debugCustomApis,
                     ) { visionImageSource },
-                testStatus = ProviderTestStatusStore(lineStore),
+                testStatus =
+                    ProviderTestStatusStore(lineStore) {
+                        (appContext.applicationContext as HelixApplication).account.identity
+                    },
                 debugCustomApis = debugCustomApis,
                 contextSettingsStore = providerContextSettings,
                 idGenerator = { idGenerator.next() },
@@ -1049,6 +1052,11 @@ internal class DefaultAppContainer(
     }
 
     init {
+        appScope.launch {
+            (appContext.applicationContext as HelixApplication).account.identityState.collect {
+                providerService.refresh()
+            }
+        }
         appScope.launch(Dispatchers.IO) { pluginService.cleanupRetired() }
         appScope.launch(Dispatchers.IO) {
             runCatching { ProotToolModule.observeForegroundExecution(storage) }
@@ -1076,6 +1084,9 @@ private fun productionProviderFactory(
     images,
     debuggable = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0,
     customApiForDebug = debugCustomApis::enabled,
+    builtInWire =
+        com.helix.app.account
+            .BuiltInAccountWire((context.applicationContext as HelixApplication).account),
 ) { config ->
     localModels.provider(config) ?: SubscriptionProviderModule.create(context, config, images)
 }

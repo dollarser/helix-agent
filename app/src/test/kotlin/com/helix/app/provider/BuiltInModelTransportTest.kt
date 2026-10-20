@@ -1,5 +1,7 @@
 package com.helix.app.provider
 
+import com.helix.app.account.BuiltInAccountWire
+import com.helix.app.account.testAccount
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelErrorCode
@@ -12,7 +14,6 @@ import com.helix.core.model.ToolName
 import com.helix.provider.api.ModelCatalogResult
 import com.helix.provider.api.ProviderCheckResult
 import com.helix.provider.api.wire.OkHttpWireClient
-import com.helix.provider.api.wire.PublicClientWireClient
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
@@ -46,7 +47,7 @@ class BuiltInModelTransportTest {
     private val local =
         object : WireClient {
             override suspend fun open(request: WireRequest): WireResponse {
-                assertEquals(BuiltInModel.GENERATION_URL, request.url)
+                require(request.url == BuiltInModel.GENERATION_URL)
                 // Test-only route substitution after production origin/header checks, never shipped to the app.
                 val url = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
                 return http.open(WireRequest(request.method, url, request.headers, request.body))
@@ -74,7 +75,7 @@ class BuiltInModelTransportTest {
                     }
                 }
             },
-            builtInWire = PublicClientWireClient(BuiltInModel.GENERATION_URL, BuiltInModel.CLIENT_ID, local),
+            builtInWire = BuiltInAccountWire(testAccount(), local),
             additionalFactory = { error("No alternate adapter") },
         )
     private val provider = factory.create(builtInConfig())
@@ -114,7 +115,7 @@ class BuiltInModelTransportTest {
             assertEquals(efforts.size, requests.size)
         }
 
-    @Test fun textImagesAndFragmentedToolCallsUseExistingAdapterAndPublicHeader() =
+    @Test fun textImagesAndFragmentedToolCallsUseExistingAdapterAndAccountHeader() =
         runBlocking {
             reply = { respond(it, 200, TOOL_STREAM) }
             val image = ImageReference(ArtifactRef("fixture-image"), "image/png")
@@ -134,9 +135,13 @@ class BuiltInModelTransportTest {
             assertEquals("{\"path\":\"fixture\"}", arguments)
             assertTrue(events.any { it is ModelEvent.Completed })
             val (headers, body) = requests.single()
-            val identity = headers.entries.single { it.key.equals("X-Client-Id", true) }.value
-            assertEquals(listOf(BuiltInModel.CLIENT_ID), identity)
-            assertFalse(headers.keys.any { it.equals("Authorization", true) || it.equals("Cookie", true) })
+            val identity = headers.entries.single { it.key.equals("Authorization", true) }.value
+            assertEquals(listOf("Bearer fixture-access"), identity)
+            assertEquals(
+                listOf(BuiltInModel.CLIENT_ID),
+                headers.entries.single { it.key.equals("X-Client-Id", true) }.value,
+            )
+            assertFalse(headers.keys.any { it.equals("Cookie", true) })
             assertTrue(body.contains("\"model\":\"${BuiltInModel.MODEL_ID}\""))
             assertTrue(body.contains("\"stream\":true"))
             assertTrue(body.contains("data:image/png;base64,${ArtifactVisionImageSource.PROBE_IMAGE.base64}"))
@@ -159,10 +164,16 @@ class BuiltInModelTransportTest {
                     respond(it, status, "private server diagnostic")
                 }
                 val before = requests.size
-                val event = provider.stream(request).toList().single() as ModelEvent.Error
+                val fresh =
+                    ProviderFactory({
+                        error("No key")
+                    }, forbidden, {
+                        error("No image")
+                    }, builtInWire = BuiltInAccountWire(testAccount(), local)).create(builtInConfig())
+                val event = fresh.stream(request).toList().single() as ModelEvent.Error
                 assertEquals(expected, event.code)
                 assertFalse(event.retryable)
-                assertEquals(before + 1, requests.size)
+                assertEquals(before + (if (status == 401) 2 else 1), requests.size)
             }
         }
 

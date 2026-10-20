@@ -7,7 +7,16 @@ interface StreamingAsr : AutoCloseable {
     fun finish(): String
 }
 
+/** Network implementations can unblock pending I/O from the cancelling thread. */
+interface InterruptibleAsr : StreamingAsr {
+    fun interrupt()
+}
+
 /** No transport choice or credentials can be inferred from chat model settings. */
 fun interface StreamingAsrFactory {
     fun open(): StreamingAsr
+
+    val uploadsAudio: Boolean get() = false
+    val destination: String? get() = null
+    val supportsPartial: Boolean get() = true
 }

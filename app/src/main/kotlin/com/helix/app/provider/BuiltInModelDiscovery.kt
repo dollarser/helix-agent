@@ -29,6 +29,8 @@ internal class BuiltInModelDiscovery(
 
     suspend fun refresh(force: Boolean) =
         withContext(Dispatchers.IO) {
+            if (!store.accountAvailable()) return@withContext
+            val account = store.identity()
             val observed = synchronized(publicationLock) { revision }
             gate.withLock {
                 val cached = current()
@@ -39,7 +41,8 @@ internal class BuiltInModelDiscovery(
                 }
                 if (force && cached.checkedAt > 0 && now() - cached.checkedAt < MANUAL_COOLDOWN) return@withLock
                 val result = fetch()
-                publish(if (result.second == null) result.first else cached.models, result.second, observed)
+                if (store.identity() != account) return@withLock
+                publish(if (result.second == null) result.first else cached.models, result.second, observed, account)
             }
         }
 
@@ -67,10 +70,11 @@ internal class BuiltInModelDiscovery(
         models: List<String>,
         failure: ModelErrorCode?,
         expectedRevision: Long,
+        expectedAccount: List<String>,
     ) {
         synchronized(publicationLock) {
             if (revision != expectedRevision) return
-            store.save(BuiltInModelCatalog(now(), models, failure))
+            store.save(BuiltInModelCatalog(now(), models, failure), expectedAccount)
             revision++
         }
         onChanged()

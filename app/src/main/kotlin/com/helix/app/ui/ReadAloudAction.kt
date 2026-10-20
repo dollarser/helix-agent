@@ -60,23 +60,33 @@ internal fun ReadAloudAction(
     id: String,
     text: String,
     supplied: ReadAloudService? = null,
+    turnId: String? = null,
+    onStart: (() -> Unit)? = null,
 ) {
     val service = supplied ?: (LocalContext.current.applicationContext as? HelixApplication)?.readAloud ?: return
     val state by service.state.collectAsStateWithLifecycle()
     val bytes by service.model.downloadedBytes.collectAsStateWithLifecycle()
     var details by remember(id) { mutableStateOf(false) }
+    var uploadConfirmation by remember(id, service) { mutableStateOf(false) }
+    val matches = state.messageId == id || (turnId != null && service.livePlaybackTurnId == turnId)
     val active =
-        state.messageId == id && state.phase in
+        matches && state.phase in
             setOf(ReadAloudPhase.PREPARING, ReadAloudPhase.SPEAKING, ReadAloudPhase.STOPPING)
     LaunchedEffect(state) {
-        if (state.messageId == id && state.phase in
+        if (matches && state.phase in
             setOf(ReadAloudPhase.MISSING, ReadAloudPhase.FAILED, ReadAloudPhase.UNAVAILABLE)
         ) {
             details = true
         }
     }
     IconButton(
-        onClick = { if (active) service.stop() else service.play(id, text) },
+        onClick = {
+            when {
+                active -> service.stop()
+                service.uploadsText -> uploadConfirmation = true
+                else -> if (onStart == null) service.play(id, text) else onStart()
+            }
+        },
         enabled = text.isNotBlank() && state.phase !in setOf(ReadAloudPhase.DOWNLOADING, ReadAloudPhase.STOPPING),
         modifier = Modifier.testTag("chat-read-$id"),
     ) {
@@ -85,15 +95,43 @@ internal fun ReadAloudAction(
             stringResource(if (active) R.string.read_aloud_stop else R.string.read_aloud_start),
         )
     }
+    if (uploadConfirmation) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { uploadConfirmation = false },
+            title = { Text(stringResource(R.string.read_aloud_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.cloud_tts_upload))
+                    service.uploadDestination?.let { Text(it) }
+                    if (service.segmentedHttp) Text(stringResource(R.string.speech_http_tts_mode))
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    uploadConfirmation = false
+                    if (onStart == null) service.play(id, text) else onStart()
+                }) {
+                    Text(stringResource(R.string.cloud_voice_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton({ uploadConfirmation = false }) { Text(stringResource(R.string.offline_voice_cancel)) }
+            },
+        )
+    }
     if (details) {
         ConversationSheet(stringResource(R.string.read_aloud_title), "read-aloud", {
             service.leave()
             details = false
         }) {
             Column {
-                Text(stringResource(R.string.read_aloud_local))
+                Text(stringResource(if (service.uploadsText) R.string.cloud_tts_upload else R.string.read_aloud_local))
                 Text(stringResource(R.string.read_aloud_lifecycle))
-                if (state.phase == ReadAloudPhase.FAILED) Text(stringResource(R.string.read_aloud_failed))
+                if (state.phase == ReadAloudPhase.FAILED) {
+                    val error =
+                        if (service.uploadsText) R.string.cloud_voice_connection_error else R.string.read_aloud_failed
+                    Text(stringResource(error))
+                }
                 if (state.phase == ReadAloudPhase.UNAVAILABLE) Text(stringResource(R.string.read_aloud_unavailable))
                 if (state.phase == ReadAloudPhase.DOWNLOADING) {
                     LinearProgressIndicator(progress = { (bytes ?: 0).toFloat() / service.model.totalBytes })

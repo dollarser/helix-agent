@@ -20,6 +20,7 @@ import java.net.InetSocketAddress
 class OkHttpWireClientTest {
     private lateinit var server: HttpServer
     private lateinit var base: String
+    private var requestContentType: String? = null
     private var handler: suspend (path: String, body: ByteArray) -> Pair<Int, String> = { path, _ ->
         200 to "hello $path"
     }
@@ -30,6 +31,7 @@ class OkHttpWireClientTest {
         server.createContext(
             "/",
         ) { exchange ->
+            requestContentType = exchange.requestHeaders.getFirst("Content-Type")
             val body = exchange.requestBody.readBytes()
             val (status, payload) =
                 runBlocking { handler(exchange.requestURI.path, body) }
@@ -47,6 +49,21 @@ class OkHttpWireClientTest {
     fun stopServer() {
         server.stop(0)
     }
+
+    @Test fun explicitMultipartContentTypeIsPreservedOnTheWire() =
+        runBlocking {
+            val response =
+                OkHttpWireClient(retryConnections = false).open(
+                    WireRequest(
+                        "POST",
+                        "$base/upload",
+                        mapOf("Content-Type" to "multipart/form-data; boundary=test"),
+                        "--test--\r\n".toByteArray(),
+                    ),
+                )
+            response.body.close()
+            assertEquals("multipart/form-data; boundary=test", requestContentType)
+        }
 
     @Test
     fun getReturnsStatusHeadersAndBody() =

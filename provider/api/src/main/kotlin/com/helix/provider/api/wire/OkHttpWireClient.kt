@@ -174,7 +174,13 @@ public class OkHttpWireClient(
                 .method(
                     request.method,
                     request.body?.let {
-                        val body = it.toRequestBody(mediaType)
+                        val contentType =
+                            request.headers.entries
+                                .firstOrNull {
+                                    it.key.equals("Content-Type", ignoreCase = true)
+                                }?.value
+                                ?.toMediaType() ?: mediaType
+                        val body = it.toRequestBody(contentType)
                         if (singleUse) SingleUseBody(body) else body
                     },
                 ).apply { request.headers.forEach { (name, value) -> header(name, value) } }

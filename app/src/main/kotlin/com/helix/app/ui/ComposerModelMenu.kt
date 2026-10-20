@@ -154,7 +154,10 @@ internal fun ComposerModelMenu(
     val sameModel = edit.providerId == providerId && edit.model == model
     val selectable =
         edit.providerId != null && edit.model != null &&
-            (sameModel || pendingProvider?.modelSelectable(requireNotNull(edit.model)) == true)
+            (
+                (sameModel && (pendingProvider?.bundled != true || pendingProvider.chatSelectable)) ||
+                    pendingProvider?.modelSelectable(requireNotNull(edit.model)) == true
+            )
     val visibleProviders = providers.filter { it.visibleInModelPicker || (it.bundled && it.id == providerId) }
     val currentLabel = model?.let { currentProvider?.modelLabel(it) ?: it }
     val entries =
@@ -211,6 +214,7 @@ internal fun ComposerModelMenu(
                 text = {
                     IndicatedLazyColumn(Modifier.heightIn(max = 520.dp).testTag("chat-model-list")) {
                         item {
+                            AccountSettingsEntry { refreshRequest++ }
                             OutlinedTextField(
                                 query,
                                 { query = it },

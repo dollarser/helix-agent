@@ -630,9 +630,9 @@ class ProviderService(
 
     /** Bundled contract permits attempting a request; it is not a successful connection test. */
     fun chatSelectable(providerId: String): Boolean =
-        BuiltInModel.owns(providerId) ||
+        (BuiltInModel.owns(providerId) && testStatus.builtInCatalog.accountAvailable()) ||
             (
-                statusFor(providerId) is ConnectionTestStatus.Passed &&
+                !BuiltInModel.owns(providerId) && statusFor(providerId) is ConnectionTestStatus.Passed &&
                     (!managed.isManaged(providerId) || testStatus.accounts.read(providerId).ready)
             )
 

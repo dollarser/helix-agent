@@ -26,13 +26,14 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 class ProviderTestStatusStore(
     store: LineStore,
+    accountIdentity: () -> String = { "signed-out" },
 ) {
     private val backing = store
     val modelMetadata = ProviderModelMetadataStore(store)
     val selectedModels = ProviderSelectedModels(store)
     val modelEvidence = ProviderModelEvidenceStore(store)
     val accounts = ManagedAccountStore(store)
-    internal val builtInCatalog = BuiltInModelCatalogStore(store)
+    internal val builtInCatalog = BuiltInModelCatalogStore(store, accountIdentity)
 
     fun statusFor(providerId: String): ConnectionTestStatus {
         val fields = backing.lines(KEY).firstOrNull { it.startsWith("$providerId|") }?.split("|", limit = 8)
