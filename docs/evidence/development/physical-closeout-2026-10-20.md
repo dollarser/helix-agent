@@ -28,3 +28,11 @@ Owner 明确要求“帮我收尾，没有的应用可以直接在真机安装�
 已向用户给出上述最小配合步骤并等待结果。这些项尚未执行，不能宣布整体验收或发布就绪。无发布/推送操作；如下一步替换现有 v0.0.6 Release，需要明确确认仓库 `dollarser/helix-agent`、标签、两渠道附件、签名与目标提交范围。
 
 原始日志、前后状态摘要及本轮 provenance 位于忽略目录 `build/physical-closeout/`；可安装候选仍为 `build/scheduled-budget/deliverables/Helix-Advanced-debug.apk`。本记录提交仅更新文档，不改变 APK 源码身份。
+
+## 官方入口与独立原生分享补查
+
+随后只读核查 [X 官方 Android 帮助页](https://help.x.com/en/using-x/x-for-android)，其下载链接指向 [Google Play 的 X Corp. / com.twitter.android](https://play.google.com/store/apps/details?id=com.twitter.android)。官方商店条目可读取；此前两个 URL 的 403 不代表所有官方网页均不可访问。当前手机没有 Google Play，也没有查到现有 Amazon/厂商应用商店；market URI 解析到 APKPure、酷安及百度下载管理，均未作为本任务的官方 X 安装来源使用；未新建 Google 账号、安装商店基础设施、绕过访问限制或使用第三方 APK 源。未找到可验证的官方直装 APK，本机安装仍 pending。
+
+手机已有系统 `com.android.documentsui`，LauncherActivity 可解析，具备独立于微信/X 的文件管理器入口；`com.android.gallery3d` 包存在但 MAIN/LAUNCHER 入口未解析到，不能据此声称图库分享已执行。已在本机忽略目录 `build/physical-closeout/native-share/` 准备带唯一标记的合成 UTF-8 文件与合法 PNG，尚未推到手机或分享。
+
+此时仅读窗口焦点，发现手机已由微信 WelcomeActivity 切换至 MMWebViewUI；没有读取网页、账号字段或截图。为避免切走可能正在进行的微信操作，本轮未接管前台启动 DocumentsUI。原生文件管理器→Helix 的独立真实分享仍 pending，等待设备空闲后只处理这两个自有夹具；原先夹具发送器的系统分享通过不冒充本项完成。没有重复提示用户、代登录或重跑 91 项。
