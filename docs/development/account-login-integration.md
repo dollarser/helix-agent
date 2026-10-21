@@ -145,3 +145,41 @@ Owner明确授权除真机以外的剩余验收与本地提交，并允许长期
 同一命令第一轮已完整通过，最终审查发现UI行账号通知缺口后，只因新修正而重跑了受影响候选、两渠道36项与完整门禁；不将第一轮结果冒充新源码。最终模拟器为Debug/API36 ARM64，Release/R8这里只证明主机构建及静态制品边界，不声称Release真机、声学或全产品验收。原 `docs/development/implementation-guide.md` 无关两行修改始终保留、不纳入本轮提交。仅本地提交相关实现/测试/说明，不推送或发布、不修改版本。
 
 上述HTTP交付时，WS契约尚缺；Owner随后提供完整协议，持续WS已在同一任务完成，最新证据见云端语音说明。原固定样本多字的WAV/JSON和16kHz有限对照保留，不能被新样本正常覆盖。最新有限双WS繁忙关闭码为1013；服务端HTTP FIFO队列深度/超时未做压力验收。
+
+## 原型到 Compose 的第一组界面（2026-10-21）
+
+Owner 采纳 HTML 原型确定交互、Android 继续使用 Compose 的方案。本轮仅调整抽屉—账号—模型选择—返回会话。设计参考为 [HTML 原型片段](../design/helix-account-navigation.html)，包含未登录、已登录、需重新登录，以及模拟等待、失败重试、取消返回和模型搜索词保留。它只使用合成展示状态，账号操作不联网；需要在支持片段的预览容器中渲染，不是生产 H5 页面或登录实现。生成的独立预览放在忽略的 `build/ui-proposals/`，不打入 APK。
+
+`GroupedNavigation` 的 header slot 承载固定顶部账号；`DrawerSettingsNavigation` 通过现有 `ConversationSheet` 保留六个设置权威。中部内容滚动，底部设置/权限模式不跟随滚动。抽屉为窗口 88%、最大 360dp。账号入口复用 `AccountAccessEntry` 和既有邮箱密码表单；模型选择器以 accountEntry slot 复用同一交互。登录成功只关闭账号面板，原选择器继续存在，用户仍需明确选择并保存；取消与失败不替换草稿、不触发发送。退出确认及账号双头鉴权不变。
+
+`AccountStatus` 仅供展示，不授予访问。恢复时清除 refresh 已到期的本地记录，access 到期但 refresh 有效时仍可正常刷新。刷新被拒绝或结果不确定时要求重新登录；存储不可用与一般模型网络失败分别处理。重新登录原因不新增持久字段：后续进程没有该原因时显示未登录，不伪称确定过期。未获取已确认的账号展示资料，登录后采用通用账号标题。
+
+新增主机覆盖：恢复时 refresh 到期与 access 可刷新分别处理、刷新失败与普通模型网络故障区分、远端注销失败仍显示本地退出、存储不可读不冒充过期。新增 Compose fixtures 覆盖固定顶部/底部、四态入口，以及真实模型选择器中的合成登录成功/失败取消返回与草稿保留；设备执行需当前明确授权。旧设置展开断言改为面板打开/选择关闭/全部分类可达，保留受支持入口覆盖。
+
+本轮未使用真实账号、未安装或操作模拟器/真机；设备状态为 **not requested**。浏览器本地文件预览被 URL 策略拒绝，未绕过；原型仅完成生成及 JavaScript 语法检查，尚无浏览器视觉通过结论。主机门禁和编译的最终结果在本轮交付时追加。
+
+### 本轮最终主机结果
+
+`GRADLE_OPTS='-Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false' scripts/check-all.sh --all` 退出0，日志 `build/ui-redesign-final-all.log`。283项主机脚本、文档/ADR/国际化/秘密检查、静态分析与四变体lint、全模块测试、两渠道Debug及Release/R8构建、release-smoke测试APK编译、依赖锁及Debug/Release组件/进程/载荷/HTTP-TLS/Runtime制品边界均通过。Consumer/Developer Debug JVM分别1396/1531项，零失败/错误，各5项既有条件skip；新增4项账号状态测试通过。
+
+最终 `./gradlew spotlessCheck :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest --max-workers=1 -Dorg.gradle.parallel=false` 退出0，日志 `build/ui-redesign-final-test-apks.log`。新增4个Compose场景只证明测试APK可编译，未执行设备断言。初轮并行回归中的既有SocketWireTest握手超时在单worker及完整门禁中未复现；未延长超时、删除或放宽断言，不将一次复跑推断为已确定根因。初轮格式与复杂度问题已修正，最终检查通过。
+
+主机产物保留在 `app/build/outputs/apk/`，源码与产物的本地完整性记录位于忽略的 `build/ui-redesign-acceptance/`。本轮源码改动未提交、未推送，原 `implementation-guide.md` 的无关修改保留。新UI尚未安装；浏览器视觉核验和设备交互验收没有通过结论，之前账号/语音阶段的设备成功不能替代本轮新界面验收。
+
+## 抽屉视觉还原修正（2026-10-21）
+
+Owner 在实际安装后指出与已选 HTML 原型的布局、字体、圆角、间距和图标差异。本轮将原来 Material 默认抽屉条目改为原生 `DrawerRow`：正文14sp/21sp行高、次级12sp/18sp，普通字重、零额外字距，行圆角24dp，新会话16dp，头像40dp，线性图标20dp，图标与文字间距14dp。账号区18dp水平/20dp垂直内边距，列表外边距12dp、行内16dp；保留至少48dp触控区和用户字体缩放。Android系统无衬线字形与桌面浏览器系统字体可能不同，不打包来源不明字体。
+
+`DrawerVisualTheme` 只作用于导航表面，使用原型的浅/深灰绿色、明确的表面层级和文字颜色；Drawer容器显式指定surface，避免Material默认surfaceContainerLow继续显示淡紫色。导航主项和展开子项均有原生矢量图标，模型及设置有进入箭头，分组使用展开箭头。权限模式改成单行，仍保留Advanced风险确认和原权限语义。没有改变会话、账号鉴权、模型选择、Agent执行或用户文件。
+
+此修正继续使用Compose和现有依赖。Owner另询问M3 Expressive的新导航容器；[官方建议](https://m3.material.io/components/navigation-drawer/overview)在采用Expressive后使用展开式Navigation Rail。候选方向为手机模态展开、宽窗口可折叠侧栏，避免挤占对话；本轮没有把该建议当成容器迁移已经获准或完成，字体/颜色/间距token可复用。
+
+模拟器使用现有API36 ARM64日常实例，测试仅选择纯UI与内存合成账号fixture，并传入 `helix.preserveUserSettings=true`；不清除数据、不使用真实账号。首轮两项登录返回断言误把OutlinedTextField标签也计入整段Text相等；原始日志保留，修正为完整EditableText精确匹配后9项通过，没有放宽字符串比较。后续容器配色修正仍需绑定最终APK复核。手机PLC110/API35仅覆盖原有Advanced，日常模拟器覆盖原有Standard和Advanced，不新增启动图标；手机处于指纹锁屏，未绕过解锁，不能把安装成功当成手机视觉验收。
+
+### 视觉修正最终结果
+
+最终候选命令为 `./gradlew spotlessApply detekt lintDebug lintConsumerDebug lintDeveloperDebug :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest --max-workers=1 -Dorg.gradle.parallel=false`，退出0，日志 `build/ui-visual-alignment-accepted-host.log`。两渠道Debug JVM分别1396/1531项，零失败/错误，各5项既有条件skip。`scripts/check-all.sh --source` 同样退出0。此前第一组UI的Release全门禁属于此前候选；本次纯视觉修正没有重跑Release/R8或做发布验收。
+
+手机原有Advanced、日常模拟器原有Standard和Advanced均覆盖安装；安装后回读APK与本机最终产物哈希一致。最终Consumer app/test APK也逐字节核对，模拟器以该候选执行9项，全部通过、无skip。原始日志、JUnit、用例名单、源输入与产物绑定保留在忽略的 `build/ui-visual-alignment-device/`。覆盖短窗口大字号可达性、六类设置面板的打开/选择关闭、当前会话直接返回、工具分组展开、固定账号与设置、四态入口、40dp头像/20dp图标/至少48dp触控区，以及合成登录成功和失败取消时搜索词/草稿完整保留且不保存或发送。测试安装包为本轮新增，验收后移除；不清除主应用数据，保留既有IME和语言选择。
+
+模拟器浅色实际抽屉截图用于复核图标、文字层次和间距；这不等于桌面HTML像素级相等。Android系统字体和SP缩放保留。手机安装后初次被指纹锁屏阻挡，未尝试解锁；随后手机可见时已在同一最终APK补查浅色实际抽屉、顶部账号、图标、单行Advanced权限模式与设置入口，截图保留于本地证据。9项自动回归仍只在模拟器执行，手机未做完整功能回归；暗色与宽窗口视觉本轮未验收。容器仍为ModalNavigationDrawer，未将视觉修正写成M3 Expressive迁移完成；当前BOM及实际Material3版本以版本目录和依赖锁为准，现有解析制品已含ModalWideNavigationRail，后续迁移需要窗口宽度、返回/关闭与可达性回归。本轮未提交或推送，无关implementation-guide改动保留。

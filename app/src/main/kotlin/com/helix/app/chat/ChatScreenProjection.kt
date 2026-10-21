@@ -146,6 +146,16 @@ internal class ChatScreenProjection(
             sessionId?.let { storage.messages.recentBySession(it, HISTORY_PAGE_SIZE) }.orEmpty(),
     ): List<MessageUi> {
         if (sessionId == null) return screen.messages
+        val edits =
+            try {
+                MessageEditHistory.read(storage, sessionId)
+            } catch (
+                _: java.io.IOException,
+            ) {
+                null
+            } catch (_: IllegalArgumentException) {
+                null
+            }
         val messages =
             history
                 .filter {
@@ -172,6 +182,13 @@ internal class ChatScreenProjection(
                             entity.turnId,
                             entity.sequence,
                             images = messageImages(storage, sessionId, entity.id),
+                            historyContext =
+                                when {
+                                    entity.role != ModelRole.ASSISTANT.name -> MessageHistoryContext.CURRENT
+                                    edits == null -> MessageHistoryContext.UNAVAILABLE
+                                    edits.any { entity.sequence in it } -> MessageHistoryContext.BEFORE_EDIT
+                                    else -> MessageHistoryContext.CURRENT
+                                },
                         )
                     }
                 }

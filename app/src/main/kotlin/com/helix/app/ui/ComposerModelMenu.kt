@@ -123,6 +123,9 @@ internal fun ComposerModelMenu(
     onRefreshModels: (suspend (Boolean) -> Unit)? = null,
     reasoning: ReasoningEffort = ReasoningEffort.OFF,
     sessionKey: String? = null,
+    accountEntry: @Composable (() -> Unit) -> Unit = { changed ->
+        AccountSettingsEntry(AccountEntryPresentation.MODEL_PICKER, onChanged = changed)
+    },
     onDetectReasoning: (suspend (String, String) -> List<ReasoningEffort>)? = null,
 ) {
     val identity = modelPickerIdentity(sessionKey, providerId, model, reasoning)
@@ -214,7 +217,7 @@ internal fun ComposerModelMenu(
                 text = {
                     IndicatedLazyColumn(Modifier.heightIn(max = 520.dp).testTag("chat-model-list")) {
                         item {
-                            AccountSettingsEntry { refreshRequest++ }
+                            accountEntry { refreshRequest++ }
                             OutlinedTextField(
                                 query,
                                 { query = it },

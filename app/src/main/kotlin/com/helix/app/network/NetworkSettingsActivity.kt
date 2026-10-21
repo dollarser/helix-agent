@@ -47,10 +47,12 @@ class NetworkSettingsActivity : ComponentActivity() {
 @Composable
 internal fun NetworkSettingsEntry() {
     val context = LocalContext.current
-    TextButton(
+    com.helix.app.ui.SettingsEntryRow(
+        title = stringResource(R.string.network_dns_title),
+        icon = R.drawable.ic_drawer_browser,
         onClick = { context.startActivity(Intent(context, NetworkSettingsActivity::class.java)) },
         modifier = Modifier.testTag("settings-network"),
-    ) { Text(stringResource(R.string.network_dns_title)) }
+    )
 }
 
 @Composable

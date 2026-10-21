@@ -1,7 +1,11 @@
 package com.helix.app
 
+import android.os.SystemClock
+import android.view.accessibility.AccessibilityNodeInfo
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ToolTimelineRow
@@ -318,7 +322,7 @@ class ApprovalFlowDeviceTest {
 
         // Resolve with a denial: the decision lands on the exact record that was pending,
         // the dispatch terminalizes Denied, and the call row gets its durable DENIED state.
-        container.chatService.denyApproval(approvalId)
+        denyAfterActivityRebuild(approvalId)
         val denied = handle.join() as ToolDispatchOutcome.Denied
         assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, denied.code)
         val decided = container.storage.approvals.resolve(approvalId)
@@ -332,6 +336,62 @@ class ApprovalFlowDeviceTest {
         if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
             container.profileStore.switchTo(SafetyProfile.STANDARD)
         }
+    }
+
+    private fun denyAfterActivityRebuild(approvalId: String) {
+        val hash =
+            container.storage.approvals
+                .resolve(approvalId)
+                .bindingHash
+        // This service fixture bypasses onboarding; acknowledge it before testing the shell.
+        container.firstLaunch.markSeen()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.recreate()
+            var denyLabel = ""
+            scenario.onActivity { denyLabel = it.getString(R.string.approval_action_deny) }
+            val restored = container.storage.approvals.resolve(approvalId)
+            assertEquals(hash, restored.bindingHash)
+            assertNull(restored.decision)
+            val button = awaitOwnedButton(denyLabel)
+            assertTrue(
+                "Rebuilt approval must retain a working deny action",
+                button.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+            )
+        }
+    }
+
+    private fun awaitOwnedButton(label: String): AccessibilityNodeInfo {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val deadline = SystemClock.uptimeMillis() + 10_000
+        while (SystemClock.uptimeMillis() < deadline) {
+            fun find(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? =
+                when {
+                    node == null -> null
+
+                    node.text?.toString() == label && node.isVisibleToUser &&
+                        node.packageName == instrumentation.targetContext.packageName -> node
+
+                    else -> (0 until node.childCount).firstNotNullOfOrNull { find(node.getChild(it)) }
+                }
+            var node = find(instrumentation.uiAutomation.rootInActiveWindow)
+            while (node != null && !node.isClickable) node = node.parent
+            if (node != null) return node
+            Thread.sleep(50)
+        }
+        val root = instrumentation.uiAutomation.rootInActiveWindow
+        val evidence = java.io.File(instrumentation.targetContext.cacheDir, "approval-rebuild-visible.txt")
+
+        fun dump(
+            node: AccessibilityNodeInfo?,
+            depth: Int = 0,
+        ) {
+            if (node == null || depth > 40) return
+            evidence.appendText("${node.packageName}: ${node.text} / ${node.contentDescription}\n")
+            repeat(node.childCount) { dump(node.getChild(it), depth + 1) }
+        }
+        evidence.writeText("session=${container.chatService.screen.value.openSessionId}\n")
+        dump(root)
+        error("Pending approval deny action was not restored")
     }
 
     @Test

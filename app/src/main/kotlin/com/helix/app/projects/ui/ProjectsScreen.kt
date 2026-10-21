@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
+import com.helix.app.ui.HelixCard
 import com.helix.app.ui.IndicatedLazyColumn
 
 internal const val PROJECT_ROUTE = "project/{projectId}"
@@ -63,7 +63,7 @@ internal fun ProjectsScreen(
         ) {
             if (visible.isEmpty()) item { Text(stringResource(R.string.project_empty)) }
             items(visible, key = { it.id }) { project ->
-                Card(
+                HelixCard(
                     onClick = { onOpen(project.id) },
                     modifier = Modifier.fillMaxWidth().testTag("project-${project.id}"),
                 ) {

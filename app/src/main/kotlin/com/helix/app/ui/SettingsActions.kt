@@ -32,10 +32,15 @@ internal fun SettingsGroup(content: @Composable androidx.compose.foundation.layo
         shape =
             androidx.compose.foundation.shape
                 .RoundedCornerShape(16.dp),
-        color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerLow,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.surface,
+        border =
+            androidx.compose.foundation.BorderStroke(
+                1.dp,
+                androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+            ),
     ) {
         androidx.compose.foundation.layout.Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             content = content,
         )

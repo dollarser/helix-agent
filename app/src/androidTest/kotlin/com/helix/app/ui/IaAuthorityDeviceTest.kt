@@ -27,7 +27,7 @@ class IaAuthorityDeviceTest {
             compose.onNodeWithTag("navigation-$route").performScrollTo().assertIsDisplayed()
         }
 
-        compose.onNodeWithTag("navigation-group-settings").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-group-settings").assertIsDisplayed().performClick()
         settingsDrawerEntries.forEach { entry ->
             compose.onNodeWithTag("navigation-${entry.route}").performScrollTo().assertIsDisplayed()
         }

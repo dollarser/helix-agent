@@ -31,6 +31,65 @@ class AccountSessionTest {
 
     private fun request(target: String = url) = WireRequest("POST", target, emptyMap(), "{}".toByteArray())
 
+    @Test fun restoreDistinguishesExpiredRefreshFromRefreshableAccess() =
+        runBlocking {
+            val expired = AccountSession(MemoryAccountTokens(AccountTokens("a", "r", 1, 2, "id")), now = { 100L })
+            expired.restore()
+            assertEquals(AccountStatus.REAUTH_REQUIRED, expired.status.value)
+            assertFalse(expired.signedIn.value)
+            val refreshable =
+                AccountSession(MemoryAccountTokens(AccountTokens("a", "r", 1, 200000, "id")), now = { 100L })
+            refreshable.restore()
+            assertEquals(AccountStatus.SIGNED_IN, refreshable.status.value)
+        }
+
+    @Test fun failedRefreshRequiresSignInButModelNetworkFailureKeepsAccount() =
+        runBlocking {
+            val stale =
+                AccountSession(
+                    MemoryAccountTokens(AccountTokens("a", "r", 1, 200000, "id")),
+                    wire { accountResponse(503) },
+                    { 100L },
+                )
+            assertThrows(IOException::class.java) { runBlocking { stale.wire(url).open(request()) } }
+            assertEquals(AccountStatus.REAUTH_REQUIRED, stale.status.value)
+            val valid = testAccount()
+            assertThrows(IOException::class.java) {
+                runBlocking { valid.wire(url, wire { throw IOException("synthetic offline") }).open(request()) }
+            }
+            assertEquals(AccountStatus.SIGNED_IN, valid.status.value)
+        }
+
+    @Test fun explicitLogoutHasNoExpiredLabelEvenWhenRevocationFails() =
+        runBlocking {
+            val account =
+                AccountSession(
+                    MemoryAccountTokens(AccountTokens("a", "r", 100000, 200000, "id")),
+                    wire { accountResponse(503) },
+                    { 100L },
+                )
+            account.restore()
+            assertThrows(IOException::class.java) { runBlocking { account.logout() } }
+            assertEquals(AccountStatus.SIGNED_OUT, account.status.value)
+            assertFalse(account.signedIn.value)
+        }
+
+    @Test fun unreadableStorageDoesNotPretendAccountExpired() =
+        runBlocking {
+            val store =
+                object : AccountTokenStorage {
+                    override fun load(): AccountTokens? = throw IOException("synthetic unavailable")
+
+                    override fun save(tokens: AccountTokens) = Unit
+
+                    override fun clear() = Unit
+                }
+            val account = AccountSession(store)
+            assertThrows(IOException::class.java) { runBlocking { account.restore() } }
+            assertEquals(AccountStatus.UNAVAILABLE, account.status.value)
+            assertFalse(account.signedIn.value)
+        }
+
     @Test fun signedOutNeverCallsGenerationOrFallsBackToClientId() =
         runBlocking {
             val account = AccountSession(MemoryAccountTokens())

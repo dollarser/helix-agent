@@ -24,7 +24,7 @@ class HierarchicalNavigationDeviceTest {
 
     @Before fun prepareShell() = compose.resetDeterministicUiState()
 
-    @Test fun drawerRequiresExplicitOpenAndUsesTwoThirdsWidth() {
+    @Test fun drawerRequiresExplicitOpenAndUsesBoundedReadableWidth() {
         compose.onNodeWithTag("chat-composer").performTouchInput { swipeRight() }
         compose.onNodeWithTag("drawer-new-conversation").assertIsNotDisplayed()
         compose.onNodeWithTag("open-navigation").performClick()
@@ -39,7 +39,7 @@ class HierarchicalNavigationDeviceTest {
                 .onRoot()
                 .getUnclippedBoundsInRoot()
                 .let { (it.right - it.left).value }
-        org.junit.Assert.assertEquals(screen * 2f / 3f, width, 1f)
+        org.junit.Assert.assertEquals((screen * 0.88f).coerceAtMost(360f), width, 1f)
         compose.onNodeWithTag("drawer-search-conversations").assertDoesNotExist()
     }
 

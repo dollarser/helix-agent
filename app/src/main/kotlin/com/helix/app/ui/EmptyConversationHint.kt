@@ -1,12 +1,17 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -15,7 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
@@ -42,14 +49,21 @@ internal fun EmptyConversationHint(
         }
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.chat_task_welcome), style = MaterialTheme.typography.headlineSmall)
+        HelixBrandMark()
+        Text(
+            stringResource(R.string.chat_task_welcome),
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+        )
         Text(
             stringResource(label),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("chat-empty-hint"),
+            textAlign = TextAlign.Center,
         )
         if (!hasProvider) {
             TextButton(onChooseModel, modifier = Modifier.testTag("starter-choose-model")) {
@@ -86,13 +100,14 @@ private fun EmptyConversationPromptList(
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().testTag("chat-starter-prompts"),
+        modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().testTag("chat-starter-prompts"),
     ) {
-        suggestions.forEach { promptRes ->
+        suggestions.forEachIndexed { index, promptRes ->
             val promptText = stringResource(promptRes)
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                color = MaterialTheme.colorScheme.surface,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -100,12 +115,28 @@ private fun EmptyConversationPromptList(
                         .testTag("starter-prompt-$promptRes"),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = Modifier.heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        painterResource(
+                            listOf(
+                                R.drawable.ic_drawer_browser,
+                                R.drawable.ic_files_document,
+                                R.drawable.ic_drawer_tasks,
+                            )[
+                                index %
+                                    3,
+                            ],
+                        ),
+                        null,
+                        Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                     Text(
                         text = promptText,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }

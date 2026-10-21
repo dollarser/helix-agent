@@ -29,19 +29,21 @@ internal fun CompactPageHeader(
         Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("shell-top-bar"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
-            onNavigation,
-            modifier = Modifier.size(48.dp).testTag(if (back) "navigate-back" else "open-navigation"),
-        ) {
-            if (back) {
-                val label = stringResource(R.string.common_back)
-                Text(
-                    "‹",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.clearAndSetSemantics { contentDescription = label },
-                )
-            } else {
-                NavigationMenuIcon()
+        if (back || !LocalNavigationIsPermanent.current) {
+            IconButton(
+                onNavigation,
+                modifier = Modifier.size(48.dp).testTag(if (back) "navigate-back" else "open-navigation"),
+            ) {
+                if (back) {
+                    val label = stringResource(R.string.common_back)
+                    Text(
+                        "‹",
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = label },
+                    )
+                } else {
+                    NavigationMenuIcon()
+                }
             }
         }
         Text(

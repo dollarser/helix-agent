@@ -21,7 +21,7 @@ import com.helix.app.voice.VoiceInputMapper
 @Suppress("FunctionName")
 internal fun SystemVoiceSettingsEntry() {
     var open by remember { mutableStateOf(false) }
-    TextButton({ open = true }) { Text(stringResource(R.string.system_voice_title)) }
+    SettingsEntryRow(stringResource(R.string.system_voice_title), R.drawable.ic_composer_voice, { open = true })
     if (open) SystemVoiceDialog(onDismiss = { open = false })
 }
 

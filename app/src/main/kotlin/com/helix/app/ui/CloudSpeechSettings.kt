@@ -20,7 +20,7 @@ import com.helix.app.R
 internal fun CloudSpeechSettingsEntry() {
     val application = LocalContext.current.applicationContext as HelixApplication
     var open by remember { mutableStateOf(false) }
-    TextButton({ open = true }) { Text(stringResource(R.string.speech_services_title)) }
+    SettingsEntryRow(stringResource(R.string.speech_services_title), R.drawable.ic_composer_voice, { open = true })
     if (open) {
         var draft by remember { mutableStateOf(application.speechSettings.read()) }
         var error by remember { mutableStateOf(false) }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +23,7 @@ import com.helix.app.R
 import com.helix.app.projects.ProjectService
 import com.helix.app.projects.ProjectSessionRow
 import com.helix.app.projects.ProjectSessionState
+import com.helix.app.ui.HelixCard
 import com.helix.app.ui.IndicatedLazyColumn
 import com.helix.app.ui.SettingsActions
 
@@ -99,7 +99,7 @@ private fun ProjectSessionCard(
     onJoin: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
-    Card(Modifier.fillMaxWidth()) {
+    HelixCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text(row.title.ifBlank { stringResource(R.string.chat_new_session) })
             if (row.archived) Text(stringResource(R.string.project_archived))

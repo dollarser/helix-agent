@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
@@ -26,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.HelixCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -84,7 +84,7 @@ internal fun PluginManagementCard(
         nativeDescription =
             record.native?.let { withContext(Dispatchers.IO) { service.bundledDescription(it.pluginId) } }.orEmpty()
     }
-    Card(Modifier.fillMaxWidth().testTag("plugin-card-${record.id}")) {
+    HelixCard(Modifier.fillMaxWidth().testTag("plugin-card-${record.id}")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PluginManagementHeader(record, nativeDescription, expanded) { expanded = !expanded }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

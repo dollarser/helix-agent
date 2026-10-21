@@ -64,6 +64,47 @@ class MessageRepository(
             entity
         }
 
+    /** A trusted manual edit retains the prior body and atomically replaces its search projection. */
+    fun editUserText(
+        sessionId: String,
+        messageId: String,
+        expectedContent: String?,
+        content: String,
+        evidenceId: String,
+    ): MessageEntity =
+        contentStore.withPublication {
+            val original = resolve(messageId)
+            require(original.sessionId == sessionId && original.role == "USER" && original.kind == "TEXT")
+            require(original.supersededBy == null && original.contentRef == expectedContent) { "MESSAGE_EDIT_CHANGED" }
+            require(content.isNotBlank())
+            val replacement = contentStore.write(content).toStorageString()
+            transaction {
+                check(dao.replaceUserContent(messageId, sessionId, expectedContent, replacement) == 1)
+                dao.insert(
+                    original.copy(
+                        id = evidenceId,
+                        role = "SYSTEM",
+                        kind = "MESSAGE_EDIT_EVIDENCE",
+                        sequence = dao.maxSequence(sessionId) + 1,
+                    ),
+                )
+                search.replace(
+                    MessageSearchEntity(messageId, sessionId, replacement, content, SearchText.fold(content)),
+                )
+                search.touch(sessionId, clock())
+            }
+            original.copy(contentRef = replacement)
+        }
+
+    /** Invalidates derived metadata only; callers use the fixed summary kind, never history/effects. */
+    fun invalidateDerivedKind(
+        sessionId: String,
+        kind: String,
+        editId: String,
+    ) {
+        dao.invalidateDerivedKind(sessionId, kind, editId)
+    }
+
     fun retainedByKindAfter(
         kind: String,
         afterId: String?,

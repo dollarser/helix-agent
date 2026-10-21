@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.ui.HelixCard
 import com.helix.core.storage.knowledge.CollectedSource
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -110,7 +111,9 @@ fun KnowledgeScreen(
     val note = notes.firstOrNull { it.id == selectedNote }
     BackHandler(item != null && note == null) { selected = null }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.knowledge_privacy))
+        if (note != null || showQuestions || item != null) {
+            Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
+        }
         if (deletionError) Text(stringResource(R.string.knowledge_management_failed))
         if (error) Text(stringResource(R.string.knowledge_capture_failed))
         if (failed) Text(stringResource(R.string.knowledge_capture_failed))
@@ -126,51 +129,86 @@ fun KnowledgeScreen(
                 showNotes = true
             }
         } else if (item == null) {
-            KnowledgeImportAction(service)
-            KnowledgeDeleteSources(service, all.filter { it.id in selectedSources })
-            androidx.compose.foundation.layout.Row {
-                TextButton(onClick = { showNotes = false }, modifier = Modifier.testTag("knowledge-tab-sources")) {
-                    Text(stringResource(R.string.knowledge_sources_tab))
+            LazyColumn(
+                Modifier.weight(1f).testTag(if (showNotes) "knowledge-notes-list" else "knowledge-list"),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item(key = "privacy") {
+                    Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
                 }
-                TextButton(onClick = { showNotes = true }, modifier = Modifier.testTag("knowledge-tab-notes")) {
-                    Text(stringResource(R.string.knowledge_notes_tab))
+                item(key = "import") { KnowledgeImportAction(service) }
+                if (selectedSources.isNotEmpty()) {
+                    item(key = "delete") { KnowledgeDeleteSources(service, all.filter { it.id in selectedSources }) }
                 }
-                TextButton(onClick = { showQuestions = true }, modifier = Modifier.testTag("knowledge-tab-questions")) {
-                    Text(stringResource(R.string.knowledge_qa_tab))
-                }
-            }
-            if (showNotes) {
-                TextButton(onClick = { createNote(emptyList()) }, modifier = Modifier.testTag("knowledge-new-note")) {
-                    Text(stringResource(R.string.knowledge_note_new))
-                }
-            } else if (selectedSources.isNotEmpty()) {
-                TextButton(
-                    onClick = { createNote(selectedSources.toList()) },
-                    modifier = Modifier.testTag("knowledge-synthesize"),
-                ) {
-                    Text(stringResource(R.string.knowledge_synthesize, selectedSources.size))
-                }
-                TextButton(onClick = {
-                    scope.launch {
-                        val chosen = all.filter { it.id in selectedSources }
-                        val references = chosen.map { service.citation(it, minOf(20_000, 24_000 / chosen.size)) }
-                        onReference(references.joinToString("\n\n"))
+                item(key = "tabs") {
+                    androidx.compose.foundation.layout.Row {
+                        TextButton(
+                            onClick = { showNotes = false },
+                            modifier = Modifier.testTag("knowledge-tab-sources"),
+                        ) {
+                            Text(stringResource(R.string.knowledge_sources_tab))
+                        }
+                        TextButton(onClick = { showNotes = true }, modifier = Modifier.testTag("knowledge-tab-notes")) {
+                            Text(stringResource(R.string.knowledge_notes_tab))
+                        }
+                        TextButton(
+                            onClick = { showQuestions = true },
+                            modifier = Modifier.testTag("knowledge-tab-questions"),
+                        ) {
+                            Text(stringResource(R.string.knowledge_qa_tab))
+                        }
                     }
-                }, modifier = Modifier.testTag("knowledge-selected-question")) {
-                    Text(stringResource(R.string.knowledge_selected_question))
                 }
-            }
-            if (!showNotes) Text(stringResource(R.string.knowledge_sources))
-            OutlinedTextField(
-                query,
-                { query = it.take(200) },
-                label = { Text(stringResource(R.string.knowledge_search)) },
-                modifier = Modifier.fillMaxWidth().testTag("knowledge-search"),
-            )
-            if (showNotes) {
-                LazyColumn(Modifier.testTag("knowledge-notes-list")) {
+                if (showNotes) {
+                    item(key = "new-note") {
+                        TextButton(
+                            onClick = { createNote(emptyList()) },
+                            modifier = Modifier.testTag("knowledge-new-note"),
+                        ) {
+                            Text(stringResource(R.string.knowledge_note_new))
+                        }
+                    }
+                } else if (selectedSources.isNotEmpty()) {
+                    item(key = "selected-actions") {
+                        TextButton(
+                            onClick = { createNote(selectedSources.toList()) },
+                            modifier = Modifier.testTag("knowledge-synthesize"),
+                        ) {
+                            Text(stringResource(R.string.knowledge_synthesize, selectedSources.size))
+                        }
+                        TextButton(onClick = {
+                            scope.launch {
+                                val chosen = all.filter { it.id in selectedSources }
+                                val references =
+                                    chosen.map {
+                                        service.citation(
+                                            it,
+                                            minOf(20_000, 24_000 / chosen.size),
+                                        )
+                                    }
+                                onReference(references.joinToString("\n\n"))
+                            }
+                        }, modifier = Modifier.testTag("knowledge-selected-question")) {
+                            Text(stringResource(R.string.knowledge_selected_question))
+                        }
+                    }
+                }
+                if (!showNotes) {
+                    item(key = "source-heading") {
+                        Text(stringResource(R.string.knowledge_sources), style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+                item(key = "search") {
+                    OutlinedTextField(
+                        query,
+                        { query = it.take(200) },
+                        label = { Text(stringResource(R.string.knowledge_search)) },
+                        modifier = Modifier.fillMaxWidth().testTag("knowledge-search"),
+                    )
+                }
+                if (showNotes) {
                     items(noteHits, key = { it.id }) { row ->
-                        Card(
+                        HelixCard(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { selectedNote = row.id }
@@ -190,13 +228,15 @@ fun KnowledgeScreen(
                             }
                         }
                     }
-                }
-            } else {
-                if (hits.isEmpty()) Text(stringResource(R.string.knowledge_empty))
-                LazyColumn(Modifier.testTag("knowledge-list"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                } else {
+                    if (hits.isEmpty()) {
+                        item(key = "empty") {
+                            Text(stringResource(R.string.knowledge_empty), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                     items(hits, key = { it.id }) { row ->
                         val rowTag = "knowledge-item-${row.id}"
-                        Card(Modifier.fillMaxWidth().clickable { selected = row.id }.testTag(rowTag)) {
+                        HelixCard(Modifier.fillMaxWidth().clickable { selected = row.id }.testTag(rowTag)) {
                             Column(Modifier.padding(12.dp)) {
                                 androidx.compose.material3.Checkbox(
                                     checked = row.id in selectedSources,

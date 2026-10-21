@@ -23,13 +23,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
@@ -337,52 +336,47 @@ internal fun HelixApp(container: AppContainer) {
     HelixTheme {
         com.helix.app.ui
             .UserQuestionDialog(container)
-        val windowWidth = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width
-        val drawerWidth = with(androidx.compose.ui.platform.LocalDensity.current) { (windowWidth * 2f / 3f).toDp() }
-        ModalNavigationDrawer(
+        com.helix.app.ui.AdaptiveHelixNavigation(
             drawerState = drawerState,
-            gesturesEnabled = drawerState.isOpen,
             drawerContent = {
-                ModalDrawerSheet(
-                    modifier =
-                        Modifier
-                            .width(drawerWidth)
-                            .testTag("drawer-panel"),
-                ) {
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    GroupedNavigation(
-                        destinations = repository.destinations,
-                        footer = {
-                            com.helix.app.ui
-                                .DrawerProfileSwitch(container.profileStore)
-                        },
-                        currentRoute = currentRoute,
-                        conversation = conversationDrawerState,
-                        onCurrentConversation = {
-                            navigateToConversationRoot()
-                            scope.launch { drawerState.close() }
-                        },
-                        onNewConversation = {
-                            container.chatService.newSessionDraft()
-                            navigateToConversationRoot()
-                            scope.launch { drawerState.close() }
-                        },
-                        onAllConversations = {
-                            container.chatService.clearSessionSearch()
-                            navController.navigate(CONVERSATION_HISTORY_ROUTE) { launchSingleTop = true }
-                            scope.launch { drawerState.close() }
-                        },
-                    ) { route ->
-                        if (route == ShellDestination.Terminal.route) {
-                            com.helix.app.terminal.ManualTerminalModule
-                                .open(context, ".")
-                            scope.launch { drawerState.close() }
-                        } else {
-                            navController.navigate(route) {
-                                launchSingleTop = true
-                            }
-                            scope.launch { drawerState.close() }
+                val context = androidx.compose.ui.platform.LocalContext.current
+                GroupedNavigation(
+                    destinations = repository.destinations,
+                    header = {
+                        com.helix.app.ui.AccountSettingsEntry(
+                            com.helix.app.ui.AccountEntryPresentation.DRAWER,
+                        )
+                    },
+                    footer = {
+                        com.helix.app.ui
+                            .DrawerProfileSwitch(container.profileStore)
+                    },
+                    currentRoute = currentRoute,
+                    conversation = conversationDrawerState,
+                    onCurrentConversation = {
+                        navigateToConversationRoot()
+                        scope.launch { drawerState.close() }
+                    },
+                    onNewConversation = {
+                        container.chatService.newSessionDraft()
+                        navigateToConversationRoot()
+                        scope.launch { drawerState.close() }
+                    },
+                    onAllConversations = {
+                        container.chatService.clearSessionSearch()
+                        navController.navigate(CONVERSATION_HISTORY_ROUTE) { launchSingleTop = true }
+                        scope.launch { drawerState.close() }
+                    },
+                ) { route ->
+                    if (route == ShellDestination.Terminal.route) {
+                        com.helix.app.terminal.ManualTerminalModule
+                            .open(context, ".")
+                        scope.launch { drawerState.close() }
+                    } else {
+                        navController.navigate(route) {
+                            launchSingleTop = true
                         }
+                        scope.launch { drawerState.close() }
                     }
                 }
             },
@@ -408,7 +402,12 @@ internal fun HelixApp(container: AppContainer) {
                     NavHost(
                         navController = navController,
                         startDestination = repository.initialDestination.route,
-                        modifier = Modifier.padding(padding),
+                        modifier =
+                            Modifier
+                                .padding(padding)
+                                .fillMaxSize()
+                                .wrapContentWidth(androidx.compose.ui.Alignment.CenterHorizontally)
+                                .widthIn(max = HelixUiDesign.contentWidth),
                         enterTransition = {
                             fadeIn(tween(180)) + slideInHorizontally(tween(180)) { direction * it / 12 }
                         },

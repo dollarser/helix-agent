@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,7 +59,7 @@ internal fun FilesHome(
         ).chunked(2).forEach { folders ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 folders.forEach { (path, label) ->
-                    Card(
+                    HelixCard(
                         onClick = { onPermissions(path) },
                         modifier = Modifier.weight(1f).testTag("files-quick-$path"),
                     ) {
@@ -103,7 +102,7 @@ internal fun FilesHome(
             "files-workspaces-open",
         ) { state.openWorkspaces() }
         state.status?.let { Text(it, modifier = Modifier.testTag("files-status")) }
-        Card(Modifier.fillMaxWidth()) {
+        HelixCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(stringResource(R.string.files_access), style = MaterialTheme.typography.titleMedium)
                 TextButton({
@@ -132,7 +131,7 @@ internal fun FileLocationCard(
     tag: String,
     onClick: () -> Unit,
 ) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag)) {
+    HelixCard(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag)) {
         Row(
             Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,

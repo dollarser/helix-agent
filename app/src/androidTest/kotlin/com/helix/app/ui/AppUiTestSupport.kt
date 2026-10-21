@@ -106,7 +106,7 @@ fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
     }
     if (route == CONVERSATION_HISTORY_ROUTE || route == CONVERSATION_SEARCH_ROUTE) {
         navigatePrimary("sessions")
-        onNodeWithTag("open-navigation").performClick()
+        openTestNavigation()
         waitForIdle()
         onNodeWithTag("drawer-all-conversations").performScrollTo().performClick()
         waitForIdle()
@@ -146,13 +146,14 @@ fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
 
 private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
     repeat(4) {
+        if (permanentTestNavigation()) return@repeat
         if (onAllNodesWithTag("open-navigation").fetchSemanticsNodes().isNotEmpty()) return@repeat
         if (onAllNodesWithTag("navigate-back").fetchSemanticsNodes().isNotEmpty()) {
             onNodeWithTag("navigate-back").performClick()
             waitForIdle()
         }
     }
-    onNodeWithTag("open-navigation").performClick()
+    openTestNavigation()
     waitForIdle()
     if (route == "sessions") {
         val currentTag = "drawer-current-conversation"
@@ -167,19 +168,34 @@ private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
     val destinationTag = "navigation-$route"
     val groupTag = drawerGroupForRoute(route)
     if (groupTag != null && onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty()) {
-        onNodeWithTag(groupTag).performScrollTo().performClick()
+        if (groupTag == "navigation-group-settings") {
+            onNodeWithTag(groupTag).performClick()
+        } else {
+            onNodeWithTag(groupTag).performScrollTo().performClick()
+        }
         waitForIdle()
     }
     onNodeWithTag(destinationTag).performScrollTo().performClick()
+    if (permanentTestNavigation()) {
+        waitForIdle()
+        return
+    }
     waitUntil(10_000) {
         onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty() ||
             !onNodeWithTag(destinationTag).isDisplayed()
     }
 }
 
+private fun AndroidComposeTestRule<*, *>.permanentTestNavigation(): Boolean =
+    activity.resources.configuration.let { permanentNavigation(it.screenWidthDp, it.screenHeightDp, it.fontScale) }
+
+private fun AndroidComposeTestRule<*, *>.openTestNavigation() {
+    if (!permanentTestNavigation()) onNodeWithTag("open-navigation").performClick()
+}
+
 private fun drawerGroupForRoute(route: String): String? =
     when (route) {
-        "tasks", "artifacts", "git" -> "navigation-group-work"
+        "tasks", "artifacts", "git", "knowledge", "reminders" -> "navigation-group-work"
         SETTINGS_STORAGE_ROUTE, SETTINGS_AUDIT_ROUTE, SETUP_RUNTIME_ROUTE -> "navigation-group-settings"
         "files", "browser", "terminal" -> "navigation-group-tools"
         else -> if (route == "settings" || route.startsWith("settings/")) "navigation-group-settings" else null

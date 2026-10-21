@@ -75,7 +75,8 @@ fun AuditScreen(
             Modifier
                 .fillMaxSize()
                 .indicatedVerticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(16.dp)
+                .testTag("screen-audit"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TroubleshootingSection(diagnostics, onReadiness, onCapabilities)
@@ -113,11 +114,15 @@ fun AuditScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        Column(modifier = Modifier.testTag("audit-list"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            records.forEach { record ->
-                AuditRow(record)
-            }
-        }
+        AuditRecords(records)
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun AuditRecords(records: List<com.helix.app.approval.DispatchAuditRecord>) {
+    Column(modifier = Modifier.testTag("audit-list"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        records.forEach { record -> AuditRow(record) }
     }
 }
 

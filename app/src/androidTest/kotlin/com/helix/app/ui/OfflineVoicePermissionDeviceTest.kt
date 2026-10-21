@@ -7,7 +7,6 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -59,7 +58,7 @@ class OfflineVoicePermissionDeviceTest {
         compose.setContent {
             MaterialTheme {
                 if (visible.value) {
-                    OfflineVoiceDialog(
+                    InlineVoiceInput(
                         { visible.value = false },
                         { draft = it },
                         { context, scope ->
@@ -78,8 +77,7 @@ class OfflineVoicePermissionDeviceTest {
         }
         compose.onNodeWithTag("voice-grant").performClick()
         clickSystemPermissionButton("permission_deny_button")
-        compose.waitForIdle()
-        compose.onNodeWithTag("voice-cancel").performClick()
+        compose.waitUntil(5000) { !visible.value }
         assertEquals("原有草稿", draft)
         assertTrue(!opened.get())
     }
@@ -93,7 +91,7 @@ class OfflineVoicePermissionDeviceTest {
         compose.setContent {
             MaterialTheme {
                 if (visible.value) {
-                    OfflineVoiceDialog(
+                    InlineVoiceInput(
                         { visible.value = false },
                         { draft = it },
                         { context, scope ->
@@ -121,10 +119,9 @@ class OfflineVoicePermissionDeviceTest {
         clickSystemPermissionButton("permission_allow_foreground_only_button")
         compose.waitUntil(10000) { compose.onAllNodes(hasTestTag("voice-finish")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("voice-finish").performClick()
-        compose.waitUntil(10000) { compose.onAllNodes(hasTestTag("voice-review")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("voice-accept").assertIsNotEnabled()
-        compose.waitUntil(5000) { closed.get() }
-        compose.onNodeWithTag("voice-cancel").performClick()
+        compose.waitUntil(10000) { closed.get() && !visible.value }
+        compose.onNodeWithTag("voice-review").assertDoesNotExist()
+        compose.onNodeWithTag("voice-accept").assertDoesNotExist()
         assertEquals("保留草稿", draft)
     }
 
@@ -140,7 +137,7 @@ class OfflineVoicePermissionDeviceTest {
         var capture: VoiceCapture? = null
         compose.setContent {
             MaterialTheme {
-                OfflineVoiceDialog({}, { draft = it }, { context, scope ->
+                InlineVoiceInput({}, { draft = it }, { context, scope ->
                     VoiceCapture(context, scope, OfflineAsrFactory(context.assets)) { interrupted ->
                         val microphone =
                             com.helix.app.voice

@@ -197,7 +197,9 @@ Goal 可以跨多个 Turn/Run 持久存在，但 crash/review 后不恢复 same 
 Queue、Goal continuation、revise、regenerate、Share/Voice 等 successor 最终都必须重新经过 TurnEngine admission，不能只看 process-local Job map。
 ### 9. REVISE 与 REGENERATE
 
-最新用户消息可以在原会话修订重发；更早历史编辑应从修改位置 fork，而不是重写历史。
+当前用户消息的“编辑”是独立可信手动命令：只更新所选 USER/TEXT 的当前正文引用和搜索投影，同一事务保留旧正文证据、失效旧摘要，并记录受影响历史回复范围。保留原消息/Turn/工具身份、后续回复、附件与原请求快照；不创建分支、不自动发送、不重新执行。按原内容引用 CAS，活动任务、待发送输入或未决提交期间拒绝保存；普通 composer 草稿独立。模型回复仍可显式创建分支，分支重映射历史编辑标记。未知/损坏标记不伪装“当前回复”。
+
+此前 REVISE 的显式任务准入与持久请求结算保持原有所有权；它不再是用户消息“编辑”按钮的交互。
 
 REGENERATE 必须显式携带 session、target assistant identity/version 与 clientRequestId。在同一 Room transaction 内：
 
@@ -436,3 +438,5 @@ HXA-306 修复草稿缓存提前持久化占位标题造成的命名缺口。采
 - 2026-10-21：Owner 明确浅业务编排与必要服务保障并重，采用上述单次业务执行、适配层有界技术恢复和准确交付事实；[本轮主机验收](../../development/technical-recovery-closeout.md)不替代设备或真实服务验收。
 
 - 2026-10-21：Owner 授权结果/日志收尾。失败诊断复用 `tool_results` 与 ContentStore，保留未验证成功的区别；同会话受控补读不重执行。长输出投影与实际模型历史都保留原调用身份、副作用不确定性、关键失败和日志引用，日志视为不可信数据。实现与验收边界见[结果日志收尾](../../development/result-log-closeout.md)。
+
+- **2026-10-22**：Owner 要求用户消息仅编辑/复制，编辑不建分支、不自动重发。采用独立手动编辑命令与保留式正文证据，旧回复标记与派生摘要失效不改变原执行事实；UI/功能分层沿用现有应用服务，不新增引擎或存储框架。

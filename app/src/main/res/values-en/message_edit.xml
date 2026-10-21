@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="message_edit_action">Edit</string>
+    <string name="message_edit_title">Edit message</string>
+    <string name="message_edit_note">Only this message changes. Later replies and executed actions remain; no branch, send or regeneration is started.</string>
+    <string name="message_edit_stale_reply">This reply was generated before the message was edited. It has not been regenerated.</string>
+    <string name="message_edit_history_unavailable">History edit markers are unavailable. Check which message this reply used.</string>
+    <string name="message_edit_unavailable">Could not save the edit. Your text is retained. Check the message and task state, then retry.</string>
+    <string name="message_edit_busy">Wait for current work and pending inputs to finish before saving history edits.</string>
+    <string name="message_edit_conflict">The original message changed. Other edits were not overwritten. Cancel and reopen to review.</string>
+</resources>

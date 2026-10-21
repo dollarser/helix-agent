@@ -742,7 +742,21 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         ChatSubmission(SESSION_ID, ComposerEditClock.next(0), "empty-composer", ""),
                     ),
                 )
-                val draft = fixture.service.prepareLatestRevision(SESSION_ID, target).await()!!
+                val attachmentIds =
+                    fixture.storage.messageAttachments
+                        .listByMessage(target)
+                        .map { it.artifactId }
+                assertTrue(fixture.service.restoreDraftAttachments(SESSION_ID, attachmentIds).isEmpty())
+                val draft =
+                    ChatSubmission(
+                        SESSION_ID,
+                        ComposerEditClock.next(0),
+                        "explicit-revision-request",
+                        "帮我总结这个附件",
+                        attachmentIds,
+                        target,
+                    )
+                assertTrue(fixture.service.saveComposerDraft(draft))
                 assertEquals("帮我总结这个附件", draft.text)
                 val replacementInput =
                     draft.copy(
@@ -752,7 +766,13 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                     )
                 assertTrue(fixture.service.saveComposerDraftAsync(replacementInput).await())
                 assertEquals(replacementInput, fixture.service.loadComposerDraft(SESSION_ID))
-                val changed = fixture.service.saveRevisionText(draft, "corrected request").await()!!
+                val changed =
+                    draft.copy(
+                        text = "corrected request",
+                        revision = ComposerEditClock.next(replacementInput.revision),
+                        clientRequestId = "explicit-revision-changed",
+                    )
+                assertTrue(fixture.service.saveComposerDraft(changed))
                 assertEquals(
                     ChatSubmissionOutcome.PendingConfirmation,
                     fixture.service
@@ -800,6 +820,49 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 assertTrue(fixture.service.acknowledgeSubmission(receipt))
                 assertNull(fixture.service.loadComposerDraft(SESSION_ID))
                 assertEquals(receipt, fixture.service.confirmSubmission(changed).await())
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
+    @Test
+    fun obsoleteUnsentRevisionRestoresAsDraftWithoutExecutingOrLosingAttachments() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                openSessionWithStagedAttachment(fixture, "preserved attachment")
+                val original =
+                    ChatSubmission(
+                        SESSION_ID,
+                        ComposerEditClock.next(0),
+                        "obsolete-unsent-revision",
+                        "preserved unsent text",
+                        fixture.service.currentStagedAttachmentIds(SESSION_ID),
+                        revisedMessageId = "old-message-identity",
+                    )
+                assertTrue(fixture.service.saveComposerDraft(original))
+                val restored = requireNotNull(fixture.service.loadComposerInput(SESSION_ID))
+                assertNull(restored.revisedMessageId)
+                assertEquals(original.text, restored.text)
+                assertEquals(original.attachmentIds, restored.attachmentIds)
+                assertTrue(restored.revision > original.revision)
+                assertTrue(restored.clientRequestId != original.clientRequestId)
+                assertEquals(restored, fixture.service.loadComposerInput(SESSION_ID))
+                assertTrue(
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .isEmpty(),
+                )
+                assertTrue(
+                    fixture.storage.messages
+                        .listBySession(SESSION_ID)
+                        .isEmpty(),
+                )
+                assertTrue(
+                    fixture.storage.sessionInputs
+                        .listPending(SESSION_ID)
+                        .isEmpty(),
+                )
             } finally {
                 settleAndClose(fixture)
             }

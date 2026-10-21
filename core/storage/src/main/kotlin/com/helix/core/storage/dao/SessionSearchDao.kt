@@ -41,6 +41,9 @@ interface SessionSearchDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(row: MessageSearchEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replace(row: MessageSearchEntity)
+
     @Query(
         "INSERT INTO message_search (messageId, sessionId, contentRef, body, folded) " +
             "SELECT :targetId, :sessionId, contentRef, body, folded FROM message_search WHERE messageId = :sourceId",

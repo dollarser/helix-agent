@@ -28,7 +28,7 @@ internal fun AppStartupScreen(
     onConfirmReset: (com.helix.core.storage.PreviewDatabaseResetRequired) -> Unit,
     onExit: () -> Unit,
 ) {
-    MaterialTheme {
+    HelixTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(
                 Modifier

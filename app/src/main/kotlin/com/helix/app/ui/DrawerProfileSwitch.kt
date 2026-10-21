@@ -1,7 +1,10 @@
 package com.helix.app.ui
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -9,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -24,18 +28,17 @@ import com.helix.core.model.SafetyProfile
 internal fun DrawerProfileSwitch(store: SafetyProfileStore) {
     val profile by store.flow.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf(false) }
-    Column(Modifier.padding(12.dp).testTag("drawer-profile")) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp).testTag("drawer-profile"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
         Text(
-            stringResource(
-                if (profile ==
-                    SafetyProfile.ADVANCED
-                ) {
-                    R.string.settings_current_advanced
-                } else {
-                    R.string.settings_current_standard
-                },
-            ),
+            stringResource(R.string.drawer_permission_mode),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        val label = if (profile == SafetyProfile.ADVANCED) "Advanced" else "Standard"
         if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
             TextButton(
                 onClick = {
@@ -43,18 +46,11 @@ internal fun DrawerProfileSwitch(store: SafetyProfileStore) {
                 },
                 modifier = Modifier.testTag("drawer-profile-switch"),
             ) {
-                Text(
-                    stringResource(
-                        if (profile ==
-                            SafetyProfile.STANDARD
-                        ) {
-                            R.string.settings_switch_to_advanced
-                        } else {
-                            R.string.settings_switch_back_standard
-                        },
-                    ),
-                )
+                Text(label, style = MaterialTheme.typography.bodySmall)
+                DrawerChevron()
             }
+        } else {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     AdvancedRiskDialog(confirm, {

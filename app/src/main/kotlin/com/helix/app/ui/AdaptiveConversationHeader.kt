@@ -46,7 +46,7 @@ internal fun AdaptiveConversationHeader(
         Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("chat-header"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        onNavigation?.let { navigate ->
+        onNavigation?.takeUnless { LocalNavigationIsPermanent.current }?.let { navigate ->
             IconButton(navigate, modifier = Modifier.size(48.dp).testTag("open-navigation")) {
                 NavigationMenuIcon()
             }

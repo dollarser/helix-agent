@@ -88,7 +88,8 @@ class SessionDraftDeviceTest {
                     assertEquals(first.await().outcome, duplicate.await().outcome)
                     compose.waitUntil(20_000) { storage.sessions.list().any { it.id == id } }
                     assertEquals(before + 1, storage.sessions.list().size)
-                    assertEquals("First question about", storage.sessions.resolve(id).title)
+                    // This input fits the existing 48-code-point title contract.
+                    assertEquals("First question about a project", storage.sessions.resolve(id).title)
                     compose.waitUntil(20_000) {
                         chat.screen.value.activeTurn
                             ?.state

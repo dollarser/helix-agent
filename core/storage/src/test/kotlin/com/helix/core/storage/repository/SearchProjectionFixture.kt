@@ -23,6 +23,10 @@ internal class SearchProjectionFixture : SessionSearchDao {
         bodies[row.messageId] = row
     }
 
+    override fun replace(row: MessageSearchEntity) {
+        bodies[row.messageId] = row
+    }
+
     override fun copy(
         sourceId: String,
         targetId: String,

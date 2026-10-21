@@ -47,7 +47,7 @@ class GroupedNavigationDeviceTest {
     }
 
     @Test
-    fun settingsHeaderOnlyExpandsAndNestedPageSelectsOneChild() {
+    fun fixedSettingsOpensAllCategoriesAndReturnsAfterSelection() {
         val route = mutableStateOf("sessions")
         val visited = mutableListOf<String>()
         compose.setContent {
@@ -75,9 +75,11 @@ class GroupedNavigationDeviceTest {
             .onNodeWithTag("navigation-settings/permissions")
             .performScrollTo()
             .performClick()
-            .assertIsSelected()
+        compose.onNodeWithTag("drawer-settings-sheet").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-group-settings").assertIsSelected().performClick()
+        compose.onNodeWithTag("navigation-settings/permissions").performScrollTo().assertIsSelected()
         compose.onNodeWithTag("navigation-settings").assertIsNotSelected()
-        compose.onNodeWithTag("navigation-group-settings").performScrollTo().performClick()
+        compose.onNodeWithTag("drawer-settings-close").performClick()
         compose.onNodeWithTag("navigation-settings/permissions").assertDoesNotExist()
         compose.runOnIdle { assertEquals(listOf(SETTINGS_PERMISSIONS_ROUTE), visited) }
     }
@@ -202,7 +204,11 @@ class GroupedNavigationDeviceTest {
             if (groupTag != null &&
                 compose.onAllNodesWithTag("navigation-${destination.route}").fetchSemanticsNodes().isEmpty()
             ) {
-                compose.onNodeWithTag(groupTag).performScrollTo().performClick()
+                if (groupTag == "navigation-group-settings") {
+                    compose.onNodeWithTag(groupTag).performClick()
+                } else {
+                    compose.onNodeWithTag(groupTag).performScrollTo().performClick()
+                }
             }
             compose
                 .onNodeWithTag(
@@ -210,7 +216,12 @@ class GroupedNavigationDeviceTest {
                 ).performScrollTo()
                 .assertIsDisplayed()
                 .performClick()
-            compose.onNodeWithTag("navigation-${destination.route}").assertIsSelected()
+            if (destination == ShellDestination.Settings) {
+                compose.onNodeWithTag("drawer-settings-sheet").assertDoesNotExist()
+                compose.onNodeWithTag("navigation-group-settings").assertIsSelected()
+            } else {
+                compose.onNodeWithTag("navigation-${destination.route}").assertIsSelected()
+            }
         }
         compose.runOnIdle {
             assertEquals(drawerDestinations.map { it.route }, visited)

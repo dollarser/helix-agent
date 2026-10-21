@@ -183,8 +183,6 @@ fun ChatScreen(
         )
     }
     var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
-    var dismissedRevisionId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
-    var editorEpoch by remember(sessionId) { mutableStateOf(0) }
     var inputQueueEpoch by remember(sessionId) { mutableStateOf(0) }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
@@ -242,51 +240,38 @@ fun ChatScreen(
     DisposableEffect(buffer) { onDispose { flushBuffer() } }
     val acceptOrdinaryReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
         if (receipt.submission.revisedMessageId == null) {
-            buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+            buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerInput)
             inputQueueEpoch += 1
         }
     }
 
-    LaunchedEffect(buffer, editorEpoch) {
+    LaunchedEffect(buffer) {
         if (sessionId == null) return@LaunchedEffect
-        if (!buffer.initialize(chatService::loadComposerDraft)) return@LaunchedEffect
+        if (!buffer.initialize(chatService::loadComposerInput)) return@LaunchedEffect
         val restored =
             buffer.restore {
-                val revision = buffer.revisionMessageId
-                if (revision != null) {
-                    val draft = chatService.loadComposerDraft(sessionId)
-                    if (draft != null && !chatService.acceptedRevision(draft)) {
-                        if (dismissedRevisionId != revision) editMessageId = revision
-                    } else {
-                        buffer.initialize(chatService::loadComposerDraft)
-                        dismissedRevisionId = null
-                    }
+                val receipt = buffer.acceptedReceiptCandidate?.let { chatService.acceptedComposerReceipt(it) }
+                if (receipt != null) {
+                    acceptOrdinaryReceipt(receipt)
                 }
-                if (buffer.revisionMessageId == null) {
-                    dismissedRevisionId = null
-                    val receipt = buffer.acceptedReceiptCandidate?.let { chatService.acceptedComposerReceipt(it) }
-                    if (receipt != null) {
-                        acceptOrdinaryReceipt(receipt)
+                if (buffer.saved != null || buffer.value.attachmentIds.isNotEmpty()) {
+                    val missing = chatService.restoreDraftAttachments(sessionId, buffer.value.attachmentIds)
+                    buffer.restoredAttachments(missing)
+                } else {
+                    val live = chatService.screen.value
+                    if (live.openSessionId == sessionId && live.isDraft && live.pendingAttachments.isNotEmpty()) {
+                        chatService.materializeDraftSession(sessionId)
                     }
-                    if (buffer.saved != null || buffer.value.attachmentIds.isNotEmpty()) {
-                        val missing = chatService.restoreDraftAttachments(sessionId, buffer.value.attachmentIds)
-                        buffer.restoredAttachments(missing)
-                    } else {
-                        val live = chatService.screen.value
-                        if (live.openSessionId == sessionId && live.isDraft && live.pendingAttachments.isNotEmpty()) {
-                            chatService.materializeDraftSession(sessionId)
-                        }
-                        buffer.restoredAttachments(emptyList())
-                        buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
-                    }
-                    val shared =
-                        chatService.screen.value
-                            .takeIf { it.openSessionId == sessionId }
-                            ?.shareDraftText
-                    if (shared != null) {
-                        buffer.edit(shared)
-                        chatService.consumeShareDraftText()
-                    }
+                    buffer.restoredAttachments(emptyList())
+                    buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+                }
+                val shared =
+                    chatService.screen.value
+                        .takeIf { it.openSessionId == sessionId }
+                        ?.shareDraftText
+                if (shared != null) {
+                    buffer.edit(shared)
+                    chatService.consumeShareDraftText()
                 }
             }
         if (!restored) buffer.attachmentRestoreFailed()
@@ -304,13 +289,11 @@ fun ChatScreen(
         editMessageId,
     ) {
         if (sessionId == null || !buffer.ready || !buffer.attachmentsReady) return@LaunchedEffect
-        if (buffer.revisionMessageId == null) {
-            val request = buffer.acceptedReceiptCandidate
-            val receipt = request?.let { chatService.acceptedComposerReceipt(it) }
-            if (receipt != null) {
-                acceptOrdinaryReceipt(receipt)
-                return@LaunchedEffect
-            }
+        val request = buffer.acceptedReceiptCandidate
+        val receipt = request?.let { chatService.acceptedComposerReceipt(it) }
+        if (receipt != null) {
+            acceptOrdinaryReceipt(receipt)
+            return@LaunchedEffect
         }
         if (buffer.attachmentsReady && editMessageId == null) {
             buffer.synchronizeAttachments { chatService.currentStagedAttachmentIds(sessionId) }
@@ -323,7 +306,7 @@ fun ChatScreen(
         withContext(NonCancellable) { saveBuffer() }
     }
     LaunchedEffect(sessionId, screen.shareDraftText, buffer.ready) {
-        if (buffer.ready && buffer.revisionMessageId == null) {
+        if (buffer.ready) {
             screen.shareDraftText?.let {
                 buffer.edit(it)
                 chatService.consumeShareDraftText()
@@ -332,10 +315,8 @@ fun ChatScreen(
     }
     editMessageId?.let { messageId ->
         sessionId?.let { id ->
-            MessageRevisionDialog(chatService, id, messageId, screen) {
-                dismissedRevisionId = messageId
+            MessageEditDialog(chatService, id, messageId, screen) {
                 editMessageId = null
-                editorEpoch += 1
             }
         }
     }
@@ -397,7 +378,7 @@ fun ChatScreen(
         }
     val navigateAfterSave: (() -> Unit) -> Unit = { navigate ->
         scope.launch {
-            if (buffer.revisionMessageId == null) saveBuffer()
+            saveBuffer()
             if (chatService.screen.value.openSessionId == sessionId) navigate()
         }
     }
@@ -442,7 +423,7 @@ fun ChatScreen(
                                     R.string.chat_draft_attachment_missing
                                 }
 
-                                buffer.revisionMessageId != null || editMessageId != null -> {
+                                editMessageId != null -> {
                                     R.string.composer_editing_message
                                 }
 
@@ -616,16 +597,10 @@ fun ChatScreen(
                         onCompact = chatService::compactContext,
                         onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
                         onRegenerateLatest = { messageId -> chatService.regenerateLatestTurn(messageId) },
-                        onEditLatest = { messageId ->
-                            if (buffer.revisionMessageId == messageId) {
-                                dismissedRevisionId = null
+                        onEditMessage = { messageId ->
+                            scope.launch {
+                                saveBuffer()
                                 editMessageId = messageId
-                            } else {
-                                scope.launch {
-                                    saveBuffer()
-                                    dismissedRevisionId = null
-                                    editMessageId = messageId
-                                }
                             }
                         },
                         onDismissBlocked = { chatService.dismissBlocked() },

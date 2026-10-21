@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="voice_inline_note">Recognized text appears here. Finish to edit, then send explicitly; cancel keeps your original draft.</string>
+    <string name="voice_inline_ready">Ready to edit in the composer</string>
+    <string name="voice_inline_draft_changed">The draft changed. Recording stopped to preserve the newer text.</string>
+</resources>

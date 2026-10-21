@@ -209,7 +209,7 @@ private fun MobileUseLeaveDialog(
                     enabled = !state.busy,
                     modifier = Modifier.testTag("mobile-use-discard"),
                 ) {
-                    Text(stringResource(R.string.message_revision_discard))
+                    Text(stringResource(R.string.common_discard_edit))
                 }
                 androidx.compose.material3.TextButton(onContinue, enabled = !state.busy) {
                     Text(stringResource(R.string.common_cancel))

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="message_edit_action">编辑</string>
+    <string name="message_edit_title">编辑消息</string>
+    <string name="message_edit_note">仅修改这条消息。后续回复和已执行操作保留，不创建分支，不自动发送或重新生成。</string>
+    <string name="message_edit_stale_reply">此回复基于编辑前的消息生成，未重新生成。</string>
+    <string name="message_edit_history_unavailable">历史编辑标记暂不可用，请核对回复所依据的消息。</string>
+    <string name="message_edit_unavailable">暂时无法保存修改，编辑内容仍保留。请检查消息与任务状态后重试。</string>
+    <string name="message_edit_busy">请先等待当前任务和待发送输入结束，再保存历史消息修改。</string>
+    <string name="message_edit_conflict">原消息已发生变化，未覆盖其他修改。请取消后重新打开核对。</string>
+</resources>

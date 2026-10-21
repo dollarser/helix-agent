@@ -2025,6 +2025,37 @@ class ChatService(
             }
         }
 
+    /** Retains an obsolete unsent revision as ordinary input; never resumes or sends its old action. */
+    internal suspend fun loadComposerInput(sessionId: String): ChatSubmission? =
+        withContext(Dispatchers.IO) {
+            submissionGate.withLock {
+                synchronized(storage.composerDrafts) {
+                    val cached = loadCachedComposerInput(sessionId) ?: return@synchronized null
+                    if (cached.revisedMessageId == null) return@synchronized cached
+                    val completed = completedSubmission(cached)
+                    if (completed is ChatSubmissionOutcome.Accepted || completed is ChatSubmissionOutcome.Enqueued) {
+                        storage.composerDrafts.clear(sessionId, cached.revision, cached.clientRequestId)
+                        return@synchronized null
+                    }
+                    if (pendingSubmission == cached) cancelPendingSend()
+                    cached
+                        .copy(
+                            revisedMessageId = null,
+                            clientRequestId = idGenerator(),
+                            revision = ComposerEditClock.next(cached.revision),
+                        ).also { storage.composerDrafts.save(it.toInputSnapshot()) }
+                }
+            }
+        }
+
+    @Suppress("SwallowedException") // Optional malformed cache is not an input prerequisite.
+    private fun loadCachedComposerInput(sessionId: String): ChatSubmission? =
+        try {
+            storage.composerDrafts.get(sessionId)?.toSubmission()
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+
     /** Recovers a durable receipt without admitting or replaying any model/tool work. */
     suspend fun acceptedComposerReceipt(request: ChatSubmission): ChatSubmissionReceipt? =
         withContext(Dispatchers.IO) {
@@ -2118,103 +2149,56 @@ class ChatService(
             storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
         }
 
-    /** Opens or restores the latest-user edit draft without changing history or stopping work. */
-    fun prepareLatestRevision(
+    /** Independent history editor, serialized with input admission but never submitted as a Turn. */
+    internal fun prepareMessageEdit(
         sessionId: String,
         messageId: String,
-    ): kotlinx.coroutines.Deferred<ChatSubmission?> =
+    ): kotlinx.coroutines.Deferred<MessageEditSnapshot?> =
         workScope.async {
             submissionGate.withLock {
+                if (openSessionId != sessionId) return@withLock null
                 try {
-                    require(openSessionId == sessionId && pendingSubmission == null && pendingInputResume == null)
-                    require(storage.messages.latestUser(sessionId)?.id == messageId)
-                    var saved = loadComposerDraft(sessionId)
-                    if (saved?.revisedMessageId == null && saved?.text?.isEmpty() == true &&
-                        saved.attachmentIds.isEmpty()
-                    ) {
-                        storage.composerDrafts.clear(sessionId, saved.revision, saved.clientRequestId)
-                        saved = loadComposerDraft(sessionId)
-                    }
-                    require(saved == null || saved.revisedMessageId == messageId)
-                    val source = MessageRevisionSource(storage, attachmentStaging)
-                    val restored = source.attachments(sessionId, messageId)
-                    require(
-                        stagedAttachments.isEmpty() ||
-                            stagedAttachments.map { it.artifactId } == restored.map { it.artifactId },
-                    )
-                    val draft =
-                        saved ?: ChatSubmission(
-                            sessionId,
-                            ComposerEditClock.next(0),
-                            idGenerator(),
-                            source.text(messageId, restored.size),
-                            restored.map { it.artifactId },
-                            messageId,
-                        )
-                    if (saved == null) saveComposerDraft(draft)
-                    require(openSessionId == sessionId)
-                    require(inputState.replaceStaged(restored, sessionId) { openSessionId })
-                    refreshScreen()
-                    draft
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    setBlocked(str(R.string.message_revision_unavailable))
+                    UserMessageEditor(storage).load(sessionId, messageId)
+                } catch (_: android.database.sqlite.SQLiteException) {
+                    null
+                } catch (
+                    _: java.io.IOException,
+                ) {
+                    null
+                } catch (_: IllegalArgumentException) {
                     null
                 }
             }
         }
 
-    /** Captures a user's revision without touching disk or changing historical messages. */
-    fun revisionSubmission(
-        request: ChatSubmission,
+    internal fun saveMessageEdit(
+        snapshot: MessageEditSnapshot,
         text: String,
-    ): ChatSubmission =
-        if (request.text == text) {
-            request
-        } else {
-            request.copy(
-                revision = ComposerEditClock.next(request.revision),
-                clientRequestId = idGenerator(),
-                text = text,
-            )
-        }
-
-    fun saveRevisionText(
-        request: ChatSubmission,
-        text: String,
-    ): kotlinx.coroutines.Deferred<ChatSubmission?> {
-        val snapshot = revisionSubmission(request, text)
-        return workScope.async {
-            if (snapshot.revisedMessageId == null) return@async null
-            saveComposerDraft(snapshot)
-            snapshot
-        }
-    }
-
-    /** Read-only receipt recovery after a disclosure or recreation; never sends another request. */
-    suspend fun acceptedRevision(request: ChatSubmission): Boolean =
-        withContext(Dispatchers.IO) {
-            submissionGate.withLock {
-                val outcome = completedSubmission(request) ?: return@withLock false
-                if (outcome !is ChatSubmissionOutcome.Accepted) return@withLock false
-                acknowledgeSubmission(ChatSubmissionReceipt(request, outcome))
-                true
-            }
-        }
-
-    /** Discards only this edit snapshot, leaving all historical messages and newer drafts intact. */
-    fun discardRevision(request: ChatSubmission): kotlinx.coroutines.Deferred<Boolean> =
+    ): kotlinx.coroutines.Deferred<MessageEditResult> =
         workScope.async {
             submissionGate.withLock {
-                if (request.revisedMessageId == null) return@withLock false
-                val cleared = storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
-                if (cleared && openSessionId == request.sessionId) {
-                    if (pendingSubmission == request) cancelPendingSend()
-                    inputState.removeStaged(request.attachmentIds)
-                    refreshScreen()
+                if (openSessionId != snapshot.sessionId) return@withLock MessageEditResult.UNAVAILABLE
+                if (pendingSubmission != null || pendingInputResume != null ||
+                    preparingDraft
+                ) {
+                    return@withLock MessageEditResult.BUSY
                 }
-                cleared
+                val result =
+                    try {
+                        UserMessageEditor(storage).save(snapshot, text)
+                    } catch (
+                        _: java.io.IOException,
+                    ) {
+                        MessageEditResult.FAILED
+                    } catch (
+                        _: android.database.sqlite.SQLiteException,
+                    ) {
+                        MessageEditResult.FAILED
+                    } catch (_: IllegalArgumentException) {
+                        MessageEditResult.UNAVAILABLE
+                    }
+                if (result == MessageEditResult.SAVED) refreshScreen()
+                result
             }
         }
 

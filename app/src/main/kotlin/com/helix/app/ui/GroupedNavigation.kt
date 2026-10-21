@@ -1,12 +1,21 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,8 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -30,12 +41,12 @@ private val drawerGroupOrder =
         R.string.nav_projects,
         R.string.nav_models,
         R.string.nav_extensions,
-        R.string.nav_group_tools,
         R.string.nav_group_work,
+        R.string.nav_group_tools,
         R.string.nav_group_settings,
     )
 
-/** Conversation-first drawer with direct resource entries and expandable Work/Settings groups. */
+/** Conversation-first drawer with a fixed account header and fixed settings/profile footer. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun GroupedNavigation(
@@ -45,6 +56,7 @@ internal fun GroupedNavigation(
     onCurrentConversation: () -> Unit,
     onNewConversation: () -> Unit,
     onAllConversations: () -> Unit,
+    header: @Composable () -> Unit = {},
     footer: @Composable () -> Unit = {},
     onNavigate: (String) -> Unit,
 ) {
@@ -79,16 +91,43 @@ internal fun GroupedNavigation(
     LaunchedEffect(currentRoute) { expandedGroups = (expandedGroups + initialExpanded).distinct() }
 
     Column(Modifier.fillMaxHeight()) {
+        header()
         Column(Modifier.weight(1f).indicatedVerticalScroll(rememberScrollState()).testTag("navigation-groups")) {
-            Text("Helix", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(24.dp))
-            NavigationDrawerItem(
-                label = { Text(stringResource(R.string.drawer_new_conversation)) },
-                selected = false,
+            OutlinedButton(
                 onClick = onNewConversation,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-new-conversation"),
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                    ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 12.dp,
+                            vertical = 4.dp,
+                        ).testTag("drawer-new-conversation"),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(painterResource(R.drawable.ic_drawer_new), null, Modifier.size(20.dp))
+                    Text(stringResource(R.string.drawer_new_conversation))
+                }
+            }
+            Text(
+                stringResource(R.string.nav_group_conversations),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 28.dp, top = 12.dp, bottom = 8.dp),
             )
             conversation.currentSessionId?.let {
-                NavigationDrawerItem(
+                DrawerRow(
                     label = {
                         Column {
                             Text(stringResource(R.string.drawer_current_conversation))
@@ -100,6 +139,7 @@ internal fun GroupedNavigation(
                             )
                         }
                     },
+                    iconRes = R.drawable.ic_drawer_message,
                     selected = currentRoute == ShellDestination.Sessions.route,
                     onClick = onCurrentConversation,
                     modifier =
@@ -108,20 +148,24 @@ internal fun GroupedNavigation(
                             .testTag("drawer-current-conversation"),
                 )
             }
-            NavigationDrawerItem(
+            DrawerRow(
                 label = { Text(stringResource(R.string.drawer_all_conversations)) },
+                iconRes = R.drawable.ic_drawer_history,
+                badge = { DrawerChevron() },
                 selected = currentRoute == CONVERSATION_HISTORY_ROUTE,
                 onClick = onAllConversations,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-all-conversations"),
             )
-            HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            groups.forEach { (group, entries) ->
+            HorizontalDivider(Modifier.padding(horizontal = 22.dp, vertical = 14.dp))
+            groups.filterKeys { it != R.string.nav_group_settings }.forEach { (group, entries) ->
                 if (group in
                     setOf(R.string.nav_projects, R.string.nav_models, R.string.nav_extensions)
                 ) {
                     val destination = entries.first()
-                    NavigationDrawerItem(
+                    DrawerRow(
                         label = { Text(stringResource(destination.titleRes)) },
+                        iconRes = drawerIcon(destination.route),
+                        badge = { DrawerDestinationChevron(destination.route) },
                         selected = destination.matches(currentRoute),
                         onClick = { onNavigate(destination.route) },
                         modifier =
@@ -134,10 +178,18 @@ internal fun GroupedNavigation(
                     val hasSelectedChild = entries.any { it.matches(currentRoute) }
                     val expandedLabel =
                         stringResource(if (isExpanded) R.string.nav_expanded else R.string.nav_collapsed)
-                    NavigationDrawerItem(
+                    DrawerRow(
                         label = { Text(stringResource(group)) },
+                        iconRes =
+                            if (group ==
+                                R.string.nav_group_work
+                            ) {
+                                R.drawable.ic_drawer_work
+                            } else {
+                                R.drawable.ic_drawer_tools
+                            },
                         selected = !isExpanded && hasSelectedChild,
-                        badge = { Text(if (isExpanded) "▴" else "▾") },
+                        badge = { DrawerChevron(expanded = isExpanded) },
                         onClick = {
                             expandedGroups =
                                 if (isExpanded) {
@@ -154,13 +206,14 @@ internal fun GroupedNavigation(
                     )
                     if (isExpanded) {
                         entries.forEach { destination ->
-                            NavigationDrawerItem(
+                            DrawerRow(
                                 label = { DrawerEntryLabel(destination) },
+                                iconRes = drawerIcon(destination.route),
                                 selected = destination.matches(currentRoute),
                                 onClick = { onNavigate(destination.route) },
                                 modifier =
                                     Modifier
-                                        .padding(start = 28.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
+                                        .padding(start = 46.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
                                         .testTag("navigation-${destination.route}"),
                             )
                         }
@@ -169,6 +222,7 @@ internal fun GroupedNavigation(
             }
         }
         HorizontalDivider()
+        DrawerSettingsNavigation(currentRoute, R.string.nav_group_settings in groups, onNavigate)
         footer()
     }
 }
@@ -187,7 +241,7 @@ private fun ShellDestination.workDrawerEntry() =
 
 @Composable
 @Suppress("FunctionName")
-private fun DrawerEntryLabel(entry: DrawerEntry) {
+internal fun DrawerEntryLabel(entry: DrawerEntry) {
     Column {
         Text(stringResource(entry.titleRes))
         entry.descriptionRes?.let {
@@ -230,3 +284,9 @@ private fun ShellDestination.navigationGroup(): Int =
 
         ShellDestination.Settings -> R.string.nav_group_settings
     }
+
+@Composable
+@Suppress("FunctionName")
+private fun DrawerDestinationChevron(route: String) {
+    if (route == "models") DrawerChevron()
+}

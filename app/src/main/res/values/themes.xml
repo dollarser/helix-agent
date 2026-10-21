@@ -2,8 +2,11 @@
 <resources>
     <style name="Theme.Helix" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:navigationBarColor">#FFF9F9</item>
-        <item name="android:statusBarColor">#FFF9F9</item>
+        <item name="android:colorAccent">#285E3B</item>
+        <item name="android:windowBackground">#FFFEF9</item>
+        <item name="android:navigationBarColor">#FFFEF9</item>
+        <item name="android:statusBarColor">#FFFEF9</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

@@ -13,7 +13,7 @@ data class ConversationIntents(
     val onLoadOlderMessages: () -> Unit = {},
     val onShowLatestMessages: () -> Unit = {},
     val onFindHistoryMessage: (String, Long?, Long?) -> Unit = { _, _, _ -> },
-    val onEditLatest: ((String) -> Unit)? = null,
+    val onEditMessage: ((String) -> Unit)? = null,
     val onRegenerateLatest: ((String) -> Unit)? = null,
     val onFork: ((String) -> Unit)? = null,
     val onDismissBlocked: () -> Unit,

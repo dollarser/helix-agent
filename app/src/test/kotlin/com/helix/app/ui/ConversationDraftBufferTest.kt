@@ -488,16 +488,19 @@ class ConversationDraftBufferTest {
             assertTrue(buffer.value.attachmentIds.isEmpty())
         }
 
-    @Test fun revisionDraftCannotBecomeOrdinaryComposerInputOrBeOverwritten() =
+    @Test fun unnormalizedRevisionCannotSilentlyBecomeAnOrdinarySubmission() =
         runBlocking {
             val fixture = Fixture()
             fixture.disk = ChatSubmission("session", 0, "edit", "revision", revisedMessageId = "message")
             val buffer = fixture.open()
-            assertEquals("message", buffer.revisionMessageId)
             assertEquals("", buffer.value.text)
-            buffer.edit("ordinary")
-            assertFalse(fixture.save(buffer))
+            assertTrue(buffer.failed)
+            assertTrue(buffer.editable)
             assertEquals("revision", fixture.disk?.text)
+            buffer.edit("ordinary")
+            assertTrue(fixture.save(buffer))
+            assertEquals("ordinary", fixture.disk?.text)
+            assertNull(fixture.disk?.revisedMessageId)
         }
 
     @Test fun anotherSessionReceiptCannotClearThisEditor() =

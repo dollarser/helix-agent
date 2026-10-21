@@ -29,8 +29,6 @@ internal class ConversationDraftBuffer(
         private set
     var ready by mutableStateOf(false)
         private set
-    var revisionMessageId by mutableStateOf<String?>(null)
-        private set
     var failed by mutableStateOf(false)
         private set
     var missingAttachments by mutableStateOf<List<String>>(emptyList())
@@ -48,7 +46,7 @@ internal class ConversationDraftBuffer(
                     saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty() ||
                         value.referenceSourceSessionId != null || value.skillActivations.isNotEmpty()
                 )
-    val editable: Boolean get() = ready && revisionMessageId == null
+    val editable: Boolean get() = ready
     val canSubmit: Boolean get() = !sending && attachmentsReady && missingAttachments.isEmpty()
     val acceptedReceiptCandidate: ChatSubmission?
         get() = (submitted ?: saved)?.takeIf { it.revisedMessageId == null }
@@ -81,7 +79,7 @@ internal class ConversationDraftBuffer(
             }
 
     fun skills(items: List<com.helix.core.storage.repository.InputSkillActivation>) {
-        if (sending || revisionMessageId != null || value.skillActivations == items) return
+        if (sending || value.skillActivations == items) return
         com.helix.core.storage.repository.InputSkillActivations
             .encode(items)
         edited = true
@@ -94,7 +92,7 @@ internal class ConversationDraftBuffer(
     }
 
     fun edit(text: String) {
-        if (value.text == text || revisionMessageId != null) return
+        if (value.text == text) return
         edited = true
         value = value.copy(text = text, clientRequestId = newId(), revision = ComposerEditClock.next(value.revision))
     }
@@ -103,7 +101,7 @@ internal class ConversationDraftBuffer(
         delivery: com.helix.core.storage.repository.SessionInputDelivery,
         expectedTurnId: String?,
     ) {
-        if (sending || revisionMessageId != null) return
+        if (sending) return
         require((delivery == com.helix.core.storage.repository.SessionInputDelivery.STEER) == (expectedTurnId != null))
         if (value.delivery == delivery && value.expectedTurnId == expectedTurnId) return
         edited = true
@@ -117,7 +115,7 @@ internal class ConversationDraftBuffer(
     }
 
     fun attachments(ids: List<String>) {
-        if (!attachmentsReady || sending || revisionMessageId != null) return
+        if (!attachmentsReady || sending) return
         val retained =
             value.attachmentIds.filter { it in ids || it in missingAttachments } +
                 ids.filter { it !in value.attachmentIds }
@@ -135,7 +133,7 @@ internal class ConversationDraftBuffer(
         sourceSessionId: String?,
         kind: com.helix.core.storage.repository.ConversationReferenceKind?,
     ) {
-        if (sending || revisionMessageId != null) return
+        if (sending) return
         require((sourceSessionId == null) == (kind == null))
         if (value.referenceSourceSessionId == sourceSessionId && value.referenceKind == kind) return
         edited = true
@@ -175,10 +173,10 @@ internal class ConversationDraftBuffer(
         guarded(Unit) {
             gate.withLock {
                 val disk = load(sessionId)
+                require(disk?.revisedMessageId == null)
                 saved = disk
                 // Never replace what the user has typed with a restored older snapshot.
-                revisionMessageId = if (!edited) disk?.revisedMessageId else value.revisedMessageId
-                if (!edited && disk != null && revisionMessageId == null) value = disk
+                if (!edited && disk != null) value = disk
                 if (edited && disk != null && value.revision < disk.revision) {
                     value = value.copy(revision = ComposerEditClock.next(disk.revision))
                 }
@@ -194,7 +192,7 @@ internal class ConversationDraftBuffer(
     suspend fun persist(save: suspend (ChatSubmission) -> Boolean): Boolean =
         guarded(false) {
             gate.withLock {
-                if (!ready || revisionMessageId != null) return@withLock false
+                if (!ready) return@withLock false
                 if (!dirty) return@withLock true
                 val snapshot = value
                 if (!save(snapshot)) {

@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +73,8 @@ internal fun ConversationComposer(
     headerStatus: @Composable () -> Unit = {},
     optionsContent: @Composable () -> Unit = {},
     attachmentsContent: @Composable () -> Unit = {},
+    voiceActive: Boolean = false,
+    voiceContent: @Composable () -> Unit = {},
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
@@ -99,7 +102,7 @@ internal fun ConversationComposer(
     val canDeliver = availability.canDeliver(localOnly)
     val commandColor = MaterialTheme.colorScheme.primary
     val commandBackground = MaterialTheme.colorScheme.primaryContainer
-    Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("chat-composer")) {
         val activeQuery =
             remember(fieldValue.text, fieldValue.selection) {
                 if (fieldValue.selection.collapsed) {
@@ -109,7 +112,7 @@ internal fun ConversationComposer(
                     null
                 }
             }
-        if (activeQuery != null) {
+        if (activeQuery != null && !voiceActive) {
             val suggestions =
                 androidx.compose.runtime.remember(activeQuery) {
                     com.helix.app.ui.composer.ComposerCommandParser
@@ -133,78 +136,83 @@ internal fun ConversationComposer(
         Column(
             Modifier
                 .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
+                .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(24.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)),
         ) {
+            voiceContent()
             attachmentsContent()
+            BasicTextField(
+                value = fieldValue,
+                onValueChange = { value ->
+                    editorValue = value
+                    if (value.text != input) onInput(value.text)
+                },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .heightIn(min = if (compactInput) 40.dp else 64.dp)
+                        .focusRequester(inputFocus)
+                        .testTag("chat-input"),
+                enabled = availability.input && !commandPending && !voiceActive,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (fieldValue.text.isEmpty()) {
+                            Text(
+                                stringResource(R.string.chat_input_placeholder),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                visualTransformation = { text ->
+                    val styled =
+                        androidx.compose.ui.text.AnnotatedString
+                            .Builder(text)
+                    if (command != null) {
+                        styled.addStyle(
+                            androidx.compose.ui.text.SpanStyle(
+                                color = commandColor,
+                                background = commandBackground,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            ),
+                            0,
+                            command.command.length + 1,
+                        )
+                    }
+                    androidx.compose.ui.text.input.TransformedText(
+                        styled.toAnnotatedString(),
+                        androidx.compose.ui.text.input.OffsetMapping.Identity,
+                    )
+                },
+                maxLines = if (compactInput) 3 else 5,
+            )
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(
-                    actions.onVoice,
-                    enabled = availability.input && !commandPending,
-                    modifier = Modifier.testTag("chat-voice"),
-                ) {
-                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
-                }
-                BasicTextField(
-                    value = fieldValue,
-                    onValueChange = { value ->
-                        editorValue = value
-                        if (value.text != input) onInput(value.text)
-                    },
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp, vertical = 8.dp)
-                            .heightIn(min = 32.dp)
-                            .focusRequester(inputFocus)
-                            .testTag("chat-input"),
-                    enabled = availability.input && !commandPending,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    decorationBox = { innerTextField ->
-                        Box {
-                            if (fieldValue.text.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.chat_input_placeholder),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                            }
-                            innerTextField()
-                        }
-                    },
-                    visualTransformation = { text ->
-                        val styled =
-                            androidx.compose.ui.text.AnnotatedString
-                                .Builder(text)
-                        if (command != null) {
-                            styled.addStyle(
-                                androidx.compose.ui.text.SpanStyle(
-                                    color = commandColor,
-                                    background = commandBackground,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                ),
-                                0,
-                                command.command.length + 1,
-                            )
-                        }
-                        androidx.compose.ui.text.input.TransformedText(
-                            styled.toAnnotatedString(),
-                            androidx.compose.ui.text.input.OffsetMapping.Identity,
-                        )
-                    },
-                    maxLines = if (compactInput) 3 else 5,
-                )
-
-                IconButton(
                     { addOpen = true },
-                    enabled = availability.canAttach() || availability.input,
+                    enabled = !voiceActive && (availability.canAttach() || availability.input),
                     modifier = Modifier.testTag("chat-add"),
                 ) {
                     Icon(painterResource(R.drawable.ic_composer_add), stringResource(R.string.composer_add_title))
                 }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    modelSelector?.invoke()
+                }
+                IconButton(
+                    actions.onVoice,
+                    enabled = availability.input && !commandPending && !voiceActive,
+                    modifier = Modifier.testTag("chat-voice"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
+                }
+
                 if (isSending) {
                     IconButton(
                         onClick = actions.onStop,
@@ -288,7 +296,7 @@ internal fun ConversationComposer(
                             }
                         }
                     },
-                    enabled = sendEnabled && canDeliver && !commandPending && !permissionPending,
+                    enabled = sendEnabled && canDeliver && !commandPending && !permissionPending && !voiceActive,
                     modifier = Modifier.testTag("chat-send"),
                 ) {
                     Icon(
@@ -368,9 +376,6 @@ internal fun ConversationComposer(
                             }
                         }
                     }, onSettings = onPermission)
-                }
-                androidx.compose.foundation.layout.Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    modelSelector?.invoke()
                 }
             }
         }

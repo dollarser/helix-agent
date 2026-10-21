@@ -97,7 +97,7 @@ HTTP 与 WS 的地址、双头认证、ready、PCM、end、final/done、错误�
 | `app/src/main/kotlin/com/helix/app/voice/SpeechWav.kt` | 有界 PCM16 RIFF/WAVE 编解码 |
 | `app/src/main/kotlin/com/helix/app/voice/SpeechSettingsStore.kt` | 独立显式服务设置，不存凭据 |
 | `app/src/main/kotlin/com/helix/app/HelixApplication.kt` | 服务构建、配置更新、共享播放容量 |
-| `app/src/main/kotlin/com/helix/app/ui/OfflineVoiceDialog.kt` | 上传确认、目标、HTTP 无 partial 提示 |
+| `app/src/main/kotlin/com/helix/app/ui/InlineVoiceInput.kt` | 上传确认、目标、HTTP 无 partial 提示；转写在 composer 预览，完成后原处编辑，取消恢复旧稿，不自动发送 |
 | `app/src/main/kotlin/com/helix/app/ui/ReadAloudAction.kt` | 完整/增量朗读的用户入口与上传确认 |
 | `app/src/main/kotlin/com/helix/app/ui/LiveReplyReadAloud.kt` | 严格可见输出投影及最终消息等待 |
 | `app/src/main/kotlin/com/helix/app/ui/ConversationSection.kt` | 活动回答增量观察与显式朗读入口 |
@@ -121,7 +121,7 @@ Owner 明确请求模拟器测试。使用现有 API36 ARM64 AVD 的独立 `-rea
 
 Standard 随后真实 profile 运行 14 项，13 通过、实际 TTS 请求因 `SPEECH_HTTP_401` 失败，没有进入 ASR 上传，不能声称完成 Android 云端往返。主机同路径无鉴权合成请求也返回 `401 Unauthorized` / `WWW-Authenticate: ClientID`，证据 `build/speech-emulator-host-tts-headers.txt`；服务契约已与最初“无鉴权”描述不同。已向 Owner 请求现行鉴权头与测试 ClientID 或恢复无鉴权。未猜测凭据、绕过拒绝或修改防火墙。未提供真实 profile 的通用设备套件会明确 skip 该项；提供 profile 后的 401 始终失败，原失败结果不被离线 skip 覆盖。
 
-复现模拟器命令（先设置本机 `ANDROID_HOME`，两渠道分别使用对应 APK 和 runner；每次 output 必须新建）：
+以下为当时的模拟器复现命令（先设置本机 `ANDROID_HOME`，两渠道分别使用对应 APK 和 runner；每次 output 必须新建）。2026-10-22 UI 改版后旧 `OfflineVoiceDialogDeviceTest` 已由 `InlineVoiceInputDeviceTest` 替代；运行当前代码应替换该测试类。旧结果仅证明当时构建，不是当前 UI 验收：
 
 ```sh
 python3 scripts/run-owned-emulator.py \

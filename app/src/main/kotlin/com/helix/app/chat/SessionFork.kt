@@ -55,6 +55,7 @@ internal class SessionFork(
                     },
                 )
             }
+            MessageEditHistory.copyToBranch(storage, sourceSessionId, newSessionId, sequences)
             storage.messages.append(
                 UUID.randomUUID().toString(),
                 newSessionId,

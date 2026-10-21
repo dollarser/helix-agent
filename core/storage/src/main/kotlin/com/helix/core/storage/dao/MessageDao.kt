@@ -23,6 +23,27 @@ interface MessageDao {
         limit: Int,
     ): List<MessageEntity>
 
+    @Query(
+        "UPDATE messages SET contentRef = :replacement WHERE id = :id AND sessionId = :sessionId " +
+            "AND role = 'USER' AND kind = 'TEXT' AND supersededBy IS NULL AND contentRef IS :expected",
+    )
+    fun replaceUserContent(
+        id: String,
+        sessionId: String,
+        expected: String?,
+        replacement: String,
+    ): Int
+
+    @Query(
+        "UPDATE messages SET supersededBy = :editId WHERE sessionId = :sessionId AND kind = :kind " +
+            "AND supersededBy IS NULL",
+    )
+    fun invalidateDerivedKind(
+        sessionId: String,
+        kind: String,
+        editId: String,
+    )
+
     @Query("SELECT * FROM messages WHERE id = :id")
     fun byId(id: String): MessageEntity?
 

@@ -39,6 +39,8 @@ class AccountSession(
     @Volatile private var blocked = false
     private val mutableState = MutableStateFlow(false)
     val signedIn = mutableState.asStateFlow()
+    private val mutableStatus = MutableStateFlow(AccountStatus.SIGNED_OUT)
+    val status = mutableStatus.asStateFlow()
     private val mutableIdentity = MutableStateFlow("signed-out")
     internal val identityState = mutableIdentity.asStateFlow()
     val identity: String get() = tokens?.identity ?: "signed-out"
@@ -115,7 +117,7 @@ class AccountSession(
                 if (blocked) throw IOException("Account storage unavailable")
                 var current = tokens ?: return@withLock null
                 if (current.refreshExpires <= now()) {
-                    clear()
+                    clear(AccountStatus.REAUTH_REQUIRED)
                     return@withLock null
                 }
                 if (current.expires <= now() + 30000 || failed == current.access) {
@@ -129,14 +131,14 @@ class AccountSession(
                         storage.save(current)
                         tokens = current
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                        clear()
+                        clear(AccountStatus.REAUTH_REQUIRED)
                         throw cancelled
                     } catch (rejected: AccountRequestFailure) {
-                        clear()
+                        clear(AccountStatus.REAUTH_REQUIRED)
                         if (rejected.status == 401) return@withLock null
                         throw IOException("Account refresh rejected")
                     } catch (_: Exception) {
-                        clear()
+                        clear(AccountStatus.REAUTH_REQUIRED)
                         throw IOException("Account refresh failed; sign in again")
                     }
                 }
@@ -149,23 +151,30 @@ class AccountSession(
         loaded = true
         try {
             tokens = storage.load()
-            publishIdentity()
+            if (tokens?.refreshExpires?.let { it <= now() } == true) {
+                clear(AccountStatus.REAUTH_REQUIRED)
+            } else {
+                publishIdentity()
+            }
         } catch (error: Exception) {
             blocked = true
+            mutableStatus.value = AccountStatus.UNAVAILABLE
             throw IOException("Account storage unavailable")
         }
     }
 
     private fun publishIdentity() {
         mutableState.value = tokens != null
+        mutableStatus.value = if (tokens != null) AccountStatus.SIGNED_IN else AccountStatus.SIGNED_OUT
         mutableIdentity.value = identity
     }
 
-    private fun clear() {
+    private fun clear(status: AccountStatus = AccountStatus.SIGNED_OUT) {
         sessionRevision.incrementAndGet()
         tokens = null
         loaded = true
         publishIdentity()
+        mutableStatus.value = status
         blocked = true
         storage.clear()
         blocked = false

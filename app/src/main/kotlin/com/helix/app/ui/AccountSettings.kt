@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -20,7 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,11 +28,30 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
-internal fun AccountSettingsEntry(onChanged: () -> Unit = {}) {
+@Suppress("FunctionName")
+internal fun AccountSettingsEntry(
+    presentation: AccountEntryPresentation = AccountEntryPresentation.SETTINGS,
+    onChanged: () -> Unit = {},
+) {
     val application = LocalContext.current.applicationContext as HelixApplication
-    val account = application.account
+    AccountAccessEntry(
+        presentation,
+        application.account,
+        onRefreshProviders = { application.readyAppContainerOrNull()?.providerService?.refresh() },
+        onChanged = onChanged,
+    )
+}
+
+@Composable
+@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
+internal fun AccountAccessEntry(
+    presentation: AccountEntryPresentation,
+    account: com.helix.app.account.AccountSession,
+    onRefreshProviders: () -> Unit,
+    onChanged: () -> Unit,
+) {
     val signedIn by account.signedIn.collectAsStateWithLifecycle()
+    val status by account.status.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
@@ -63,25 +80,18 @@ internal fun AccountSettingsEntry(onChanged: () -> Unit = {}) {
             } catch (_: Exception) {
                 failure = true
             } finally {
-                application.readyAppContainerOrNull()?.providerService?.refresh()
+                onRefreshProviders()
                 onChanged()
                 loading = false
             }
         }
     }
-    TextButton({
-        open = true
-    }) { Text(stringResource(if (signedIn) R.string.account_signed_in else R.string.account_title)) }
+    AccountEntryButton(status, presentation) { open = true }
     if (open) {
         ConversationSheet(stringResource(R.string.account_title), "account", { if (!loading) open = false }) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(
-                        painterResource(R.drawable.ic_helix),
-                        null,
-                        Modifier.size(36.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+                    HelixBrandMark(36.dp)
                     Text("Helix", style = MaterialTheme.typography.headlineMedium)
                 }
                 if (signedIn) {
@@ -97,6 +107,7 @@ internal fun AccountSettingsEntry(onChanged: () -> Unit = {}) {
                                 registered = true
                             } else {
                                 account.login(email, password)
+                                open = false
                             }
                         }
                     }
@@ -107,7 +118,13 @@ internal fun AccountSettingsEntry(onChanged: () -> Unit = {}) {
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                if (failure) Text(stringResource(R.string.account_failure), color = MaterialTheme.colorScheme.error)
+                if (failure) {
+                    Text(
+                        stringResource(R.string.account_failure),
+                        Modifier.testTag("account-failure"),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 Text(
                     stringResource(R.string.account_description),
                     style = MaterialTheme.typography.bodySmall,

@@ -121,6 +121,8 @@ internal fun ConversationSection(
         }
 
     var voiceOpen by remember(screen.openSessionId) { mutableStateOf(false) }
+    var voiceBase by remember(screen.openSessionId) { mutableStateOf("") }
+    var voicePreview by remember(screen.openSessionId) { mutableStateOf<String?>(null) }
     var pendingFork by remember(screen.openSessionId) { mutableStateOf<MessageUi?>(null) }
     pendingFork?.let { message ->
         SessionForkConfirmation(
@@ -138,14 +140,6 @@ internal fun ConversationSection(
     var inputNotice by remember { mutableStateOf<String?>(null) }
     val captureUnavailable = stringResource(R.string.chat_capture_unavailable)
     val pickerUnavailable = stringResource(R.string.chat_picker_unavailable)
-    androidx.compose.runtime.key(screen.openSessionId) {
-        if (voiceOpen) {
-            OfflineVoiceDialog(
-                onDismiss = { voiceOpen = false },
-                onAccept = { text -> onInput(VoiceInputMapper.appendDraft(input, text)) },
-            )
-        }
-    }
 
     val timelineListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -166,6 +160,14 @@ internal fun ConversationSection(
         }
     }
     var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
+    val voiceDraftChangedNotice = stringResource(R.string.voice_inline_draft_changed)
+    LaunchedEffect(input, voiceOpen) {
+        if (voiceOpen && input != voiceBase) {
+            voicePreview = null
+            voiceOpen = false
+            inputNotice = voiceDraftChangedNotice
+        }
+    }
 
     LaunchedEffect(screen, searchActive) {
         if (searchActive) {
@@ -355,9 +357,8 @@ internal fun ConversationSection(
                                         { _: String -> pendingFork = message }
                                     },
                                 onEdit =
-                                    intents.onEditLatest?.takeIf {
-                                        message.role == "user" &&
-                                            message.id == screen.messages.lastOrNull { it.role == "user" }?.id
+                                    intents.onEditMessage?.takeIf {
+                                        message.role == "user" && !screen.isSending && screen.pendingDisclosure == null
                                     },
                                 onRegenerate =
                                     intents.onRegenerateLatest?.takeIf {
@@ -486,6 +487,22 @@ internal fun ConversationSection(
         composerFeedback()
         composerStatus()
         ConversationComposer(
+            voiceActive = voiceOpen,
+            voiceContent = {
+                androidx.compose.runtime.key(screen.openSessionId) {
+                    if (voiceOpen) {
+                        InlineVoiceInput(
+                            onDismiss = {
+                                voicePreview = null
+                                voiceOpen = false
+                            },
+                            onAccept = { text -> onInput(VoiceInputMapper.appendDraft(voiceBase, text)) },
+                            onPreview = { text -> voicePreview = VoiceInputMapper.appendDraft(voiceBase, text) },
+                            onError = { inputNotice = it },
+                        )
+                    }
+                }
+            },
             attachmentsContent = {
                 PendingAttachmentStrip(
                     screen.pendingAttachments,
@@ -513,7 +530,7 @@ internal fun ConversationSection(
                 }
                 composerOptions()
             },
-            input = input,
+            input = voicePreview ?: input,
             onInput = onInput,
             isSending = screen.isSending,
             hasAttachments = screen.pendingAttachments.isNotEmpty(),
@@ -605,6 +622,9 @@ internal fun ConversationSection(
                     onSessionSettings = intents.onSettings,
                     onVoice = {
                         reader?.leave()
+                        inputNotice = null
+                        voiceBase = input
+                        voicePreview = input
                         voiceOpen = true
                     },
                     onSend = intents.onSend,

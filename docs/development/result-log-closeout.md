@@ -44,7 +44,7 @@ Owner 最后限定为模拟器与真实模型，不做真机。使用唯一连�
 
 以上是组合工作区的验证，包含保留的其他 UI 改动；分组提交构成依赖序列，不宣称每个中间提交都单独完成设备验收。未提交的视觉/原型工作不在本轮提交范围。未推送。
 
-设备使用 `adb -s emulator-5554 shell am instrument -w -r -e class <本轮测试类列表> com.helix.agent.developer.asrvalidation.test/androidx.test.runner.AndroidJUnitRunner`，每轮原始输出再由 `python3 scripts/instrumentation_junit.py <报告路径>` 验证。真实模型轮额外显式传入 `-e helix.logLiveModel true -e helix.knowledgeLiveModel true`，类为 `com.helix.app.proot.ResultLogLiveModelDeviceTest,com.helix.app.knowledge.KnowledgeLiveModelDeviceTest`。构建采用 `-Phelix.asrValidation=true :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest`，并与实际安装候选核对。进程重建用例只对这一临时包执行 `am force-stop`，随后运行独立读取阶段，不重新执行原 Job。
+设备使用 `adb -s emulator-5554 shell am instrument -w -r -e class <本轮测试类列表> com.helix.agent.developer.asrvalidation.test/com.helix.app.HelixAndroidJUnitRunner`，每轮原始输出再由 `python3 scripts/instrumentation_junit.py <报告路径>` 验证。真实模型轮额外显式传入 `-e helix.logLiveModel true -e helix.knowledgeLiveModel true`，类为 `com.helix.app.proot.ResultLogLiveModelDeviceTest,com.helix.app.knowledge.KnowledgeLiveModelDeviceTest`。构建采用 `-Phelix.asrValidation=true :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest`，并与实际安装候选核对。进程重建用例只对这一临时包执行 `am force-stop`，随后运行独立读取阶段，不重新执行原 Job。
 
 末轮双渠道 app Debug 单元测试报告分别为 Consumer 1458 项、Developer 1616 项，均为 failures=0/errors=0，各有 5 项既有 skipped；这些是渠道执行次数，不是去重测试数。新增退出码投影回归在两渠道各 21 项投影测试中通过。首次补充检查保留了旧摘要/正文冲突的失败证据，随后只收窄实现并保留原断言，未删除或跳过该测试。
 

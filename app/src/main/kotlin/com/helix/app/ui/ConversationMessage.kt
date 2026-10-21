@@ -105,11 +105,11 @@ internal fun MessageRow(
                 shape = RoundedCornerShape(20.dp),
                 color =
                     if (isUser) {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
+                        MaterialTheme.colorScheme.surfaceContainerLow
                     } else if (message.presentation != MessagePresentation.NORMAL) {
                         Color.Transparent
                     } else {
-                        MaterialTheme.colorScheme.surfaceContainerLow
+                        Color.Transparent
                     },
                 border =
                     if (isCurrentMatch) {
@@ -124,6 +124,7 @@ internal fun MessageRow(
             ) {
                 Column {
                     imageContent()
+                    MessageHistoryNotice(message)
                     val bodyModifier =
                         Modifier
                             .testTag("chat-message-body-${message.id}")
@@ -196,7 +197,7 @@ private fun MessageActionRow(
             ) {
                 Icon(
                     painterResource(R.drawable.ic_chat_edit),
-                    stringResource(R.string.message_revision_action),
+                    stringResource(R.string.message_edit_action),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -248,4 +249,24 @@ internal fun TurnOperations(
             }
         }
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun MessageHistoryNotice(message: MessageUi) {
+    if (message.role != "assistant") return
+    val text =
+        when (message.historyContext) {
+            com.helix.app.chat.MessageHistoryContext.CURRENT -> return
+            com.helix.app.chat.MessageHistoryContext.BEFORE_EDIT -> R.string.message_edit_stale_reply
+            com.helix.app.chat.MessageHistoryContext.UNAVAILABLE -> R.string.message_edit_history_unavailable
+        }
+    Text(
+        stringResource(text),
+        Modifier
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .testTag("message-history-context-${message.id}"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

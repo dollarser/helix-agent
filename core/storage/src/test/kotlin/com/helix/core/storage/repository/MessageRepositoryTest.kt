@@ -28,6 +28,22 @@ class MessageRepositoryTest {
         repository = MessageRepository(dao, contentStore, search, { it() }, { 42L })
     }
 
+    @Test fun manualEditRetainsOldContentAndUpdatesOnlyItsSearchProjection() {
+        val original = repository.append("user", "s", null, "USER", "TEXT", "before")
+        repository.append("answer", "s", null, "ASSISTANT", "TEXT", "unchanged answer")
+        val edited = repository.editUserText("s", "user", original.contentRef, "after", "evidence")
+        assertEquals("after", repository.readContent(edited))
+        assertEquals("before", repository.readContent(repository.resolve("evidence")))
+        assertEquals("SYSTEM", repository.resolve("evidence").role)
+        assertEquals("after", search.bodies.getValue("user").body)
+        assertEquals(setOf("user", "answer"), search.bodies.keys)
+        assertEquals(original.sequence, edited.sequence)
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.editUserText("s", "user", original.contentRef, "stale", "stale-evidence")
+        }
+        assertEquals("after", repository.readContent(repository.resolve("user")))
+    }
+
     @Test fun visibleTextPublishesSearchAndActivityButProtocolDoesNot() {
         val message = repository.append("visible", "s", "t", "USER", "TEXT", "中文 Needle")
         repository.append("protocol", "s", "t", "ASSISTANT", "TOOL_CALLS", "private protocol")
@@ -129,6 +145,40 @@ class MessageRepositoryTest {
 
         override fun insert(message: MessageEntity) {
             rows += message
+        }
+
+        override fun replaceUserContent(
+            id: String,
+            sessionId: String,
+            expected: String?,
+            replacement: String,
+        ): Int {
+            val index =
+                rows.indexOfFirst {
+                    it.id == id && it.sessionId == sessionId && it.role == "USER" &&
+                        it.kind == "TEXT" &&
+                        it.supersededBy == null &&
+                        it.contentRef == expected
+                }
+            if (index < 0) return 0
+            rows[index] = rows[index].copy(contentRef = replacement)
+            return 1
+        }
+
+        override fun invalidateDerivedKind(
+            sessionId: String,
+            kind: String,
+            editId: String,
+        ) {
+            rows.replaceAll {
+                if (it.sessionId == sessionId && it.kind == kind &&
+                    it.supersededBy == null
+                ) {
+                    it.copy(supersededBy = editId)
+                } else {
+                    it
+                }
+            }
         }
 
         override fun retainedByKindAfter(

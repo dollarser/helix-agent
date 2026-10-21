@@ -1,0 +1,136 @@
+<div id="helix-drawer-study">
+  <div class="viz-controls">
+    <label class="form-label">预览账号状态
+      <select class="form-select" id="helix-demo-state">
+        <option value="guest">未登录</option><option value="member">已登录</option><option value="expired">需要重新登录</option>
+      </select>
+    </label>
+  </div>
+  <div class="viz-carousel viz-dotted-background" aria-label="Helix 抽屉布局方案" data-previous-label="上一方案" data-next-label="下一方案">
+    <section data-variant="顶部账号 · 实施方案" aria-label="顶部账号方案">
+      <div class="hx-stage"><div class="hx-phone" data-layout="top">
+        <div class="hx-status"><span>9:41</span><span>▰ 92%</span></div>
+        <div class="hx-backdrop"><div>Helix <span>模型 ▾</span></div><p>从一个想法开始</p></div>
+        <aside class="hx-drawer" aria-label="Helix 导航">
+          <button class="hx-account cursor-interaction" data-action="account"><span class="hx-avatar"><i data-lucide="user-round" aria-hidden="true"></i></span><span><strong data-account-title>登录 Helix</strong><small data-account-sub>登录后使用内置模型</small></span><span class="hx-chevron">›</span></button>
+          <div class="hx-content">
+            <button class="hx-new cursor-interaction" data-action="new"><i data-lucide="square-pen" aria-hidden="true"></i>新会话</button>
+            <div class="hx-caption">会话</div>
+            <button class="hx-row hx-current cursor-interaction" data-action="current"><i data-lucide="message-circle" aria-hidden="true"></i><span>当前会话<small>云端语音接入方案</small></span></button>
+            <button class="hx-row cursor-interaction" data-action="history"><i data-lucide="history" aria-hidden="true"></i>全部会话<span class="hx-chevron">›</span></button>
+            <div class="hx-line"></div>
+            <button class="hx-row cursor-interaction" data-action="projects"><i data-lucide="folder" aria-hidden="true"></i>项目</button>
+            <button class="hx-row cursor-interaction" data-action="models"><i data-lucide="layers" aria-hidden="true"></i>模型<span class="hx-chevron">›</span></button>
+            <button class="hx-row cursor-interaction" data-action="plugins"><i data-lucide="puzzle" aria-hidden="true"></i>插件</button>
+            <details><summary class="cursor-interaction"><i data-lucide="briefcase-business" aria-hidden="true"></i>工作<span class="hx-chevron">⌄</span></summary><div class="hx-children">知识库 · 提醒<br>全部任务 · 全部成果</div></details>
+            <details><summary class="cursor-interaction"><i data-lucide="wrench" aria-hidden="true"></i>工具<span class="hx-chevron">⌄</span></summary><div class="hx-children">文件管理器 · 浏览器<br>终端（支持时）</div></details>
+          </div>
+          <footer><button class="hx-row cursor-interaction" data-action="settings"><i data-lucide="settings" aria-hidden="true"></i>设置<span class="hx-chevron">›</span></button><div class="hx-mode">权限模式 <span>Standard</span></div></footer>
+        </aside>
+        <div class="hx-overlay" hidden><section class="hx-sheet" aria-live="polite"><button class="hx-close cursor-interaction" data-action="close" aria-label="关闭">×</button><div class="hx-sheet-content"></div></section></div>
+      </div></div>
+    </section>
+
+  </div>
+</div>
+<style>
+#helix-drawer-study { color-scheme:light dark; }
+#helix-drawer-study .hx-stage { padding:24px 12px; min-height:800px; display:flex; justify-content:center; align-items:flex-start; }
+#helix-drawer-study .hx-phone { --hx-bg:light-dark(#fffef9,#161c19); --hx-surface:light-dark(#f5f7f0,#202823); --hx-text:light-dark(#202a24,#e2eae2); --hx-muted:light-dark(#58665b,#a9b8ad); --hx-line:light-dark(#dce3d8,#3e4b41); --hx-active:light-dark(#dcebdd,#324b39); --hx-on:light-dark(#173d24,#d3f0da); --hx-button:light-dark(#285e3b,#aed9b7); --hx-button-text:light-dark(#ffffff,#12341e); width:376px; max-width:100%; height:752px; position:relative; overflow:hidden; border:1px solid var(--hx-line); border-radius:28px; background:var(--hx-bg); color:var(--hx-text); font-family:system-ui,-apple-system,"Noto Sans SC",sans-serif; font-size:14px; line-height:1.5; box-shadow:0 12px 36px light-dark(#202a2415,#00000030); }
+#helix-drawer-study .hx-phone * { box-sizing:border-box; }
+#helix-drawer-study .hx-phone button { font:inherit; color:inherit; border:0; background:none; text-align:left; }
+#helix-drawer-study .hx-phone small { display:block; font-size:12px; color:var(--hx-muted); font-weight:400; }
+#helix-drawer-study .hx-phone strong { font-weight:500; }
+#helix-drawer-study .hx-status { height:32px; display:flex; justify-content:space-between; padding:9px 22px 0; font-size:11px; position:relative; z-index:3; background:var(--hx-surface); }
+#helix-drawer-study .hx-backdrop { position:absolute; inset:32px 0 0; padding:20px; background:var(--hx-bg); opacity:.45; }
+#helix-drawer-study .hx-backdrop div { display:flex; justify-content:space-between; }
+#helix-drawer-study .hx-backdrop p { margin-top:230px; text-align:center; }
+#helix-drawer-study .hx-drawer { position:absolute; inset:32px auto 0 0; width:87%; background:var(--hx-surface); display:flex; flex-direction:column; border-radius:0 22px 0 0; box-shadow:10px 0 24px light-dark(#202a2414,#00000028); }
+#helix-drawer-study .hx-account { display:flex; align-items:center; gap:12px; padding:20px 18px; width:100%; flex-shrink:0; }
+#helix-drawer-study .hx-avatar { width:40px; height:40px; border-radius:50%; background:var(--hx-active); color:var(--hx-on); display:grid; place-items:center; flex-shrink:0; }
+#helix-drawer-study .hx-avatar svg { width:21px; height:21px; }
+#helix-drawer-study .hx-chevron { margin-left:auto; color:var(--hx-muted); }
+#helix-drawer-study .hx-content { padding:0 12px 12px; flex:1; min-height:0; overflow:auto; }
+#helix-drawer-study .hx-new { min-height:48px; width:100%; display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid var(--hx-line)!important; border-radius:16px; margin:4px 0 20px; background:var(--hx-bg)!important; }
+#helix-drawer-study .hx-row, #helix-drawer-study summary { min-height:46px; padding:11px 16px; display:flex; align-items:center; gap:14px; width:100%; border-radius:24px; }
+#helix-drawer-study .hx-row svg, #helix-drawer-study summary svg, #helix-drawer-study .hx-new svg { width:19px; height:19px; flex-shrink:0; }
+#helix-drawer-study .hx-current { background:var(--hx-active)!important; color:var(--hx-on)!important; }
+#helix-drawer-study .hx-caption { color:var(--hx-muted); font-size:12px; padding:0 16px 8px; }
+#helix-drawer-study .hx-line { height:1px; background:var(--hx-line); margin:14px 10px; }
+#helix-drawer-study summary { list-style:none; }
+#helix-drawer-study summary::-webkit-details-marker { display:none; }
+#helix-drawer-study .hx-children { padding:4px 16px 10px 49px; color:var(--hx-muted); line-height:2; font-size:12px; }
+#helix-drawer-study footer { border-top:1px solid var(--hx-line); padding:8px 12px 18px; background:var(--hx-surface); }
+#helix-drawer-study .hx-mode { display:flex; justify-content:space-between; font-size:11px; color:var(--hx-muted); padding:8px 16px 0; }
+#helix-drawer-study .hx-brand { padding:18px 26px; font-size:22px; font-weight:500; }
+#helix-drawer-study [data-layout=bottom] footer .hx-account { padding:12px 4px; }
+#helix-drawer-study .hx-overlay { position:absolute; inset:32px 0 0; background:light-dark(#14211955,#00000088); z-index:5; display:flex; align-items:flex-end; }
+#helix-drawer-study .hx-overlay[hidden] { display:none; }
+#helix-drawer-study .hx-sheet { position:relative; width:100%; border-radius:24px 24px 0 0; background:var(--hx-bg); padding:26px 22px 30px; }
+#helix-drawer-study .hx-close { position:absolute; right:10px; top:8px; width:44px; height:44px; text-align:center!important; font-size:22px!important; }
+#helix-drawer-study .hx-sheet h3 { margin:0 36px 8px 0; font:500 20px/1.5 system-ui,sans-serif; }
+#helix-drawer-study .hx-sheet p { color:var(--hx-muted); margin:8px 0 20px; }
+#helix-drawer-study .hx-sheet .hx-primary { display:block; text-align:center; width:100%; min-height:48px; border-radius:16px; background:var(--hx-button); color:var(--hx-button-text); padding:12px; margin:12px 0; }
+#helix-drawer-study .hx-sheet .hx-choice { display:block; width:100%; padding:14px 4px; border-bottom:1px solid var(--hx-line); min-height:48px; }
+#helix-drawer-study .hx-search { display:block; width:100%; padding:12px; margin:8px 0; border:1px solid var(--hx-line); border-radius:12px; background:var(--hx-bg); color:var(--hx-text); font:inherit; }
+#helix-drawer-study .hx-sheet .hx-note { font-size:11px; }
+</style>
+<script>
+(() => {
+  const root=document.getElementById('helix-drawer-study');
+  const select=root.querySelector('#helix-demo-state');
+  let state='guest';
+  let pendingModel=false;
+  let query='';
+  let loginTimer=null;
+  function render(){
+    root.querySelectorAll('[data-account-title]').forEach(n=>n.textContent=state==='guest'?'登录 Helix':state==='expired'?'需要重新登录':'Helix 账号 · 已登录');
+    root.querySelectorAll('[data-account-sub]').forEach(n=>n.textContent=state==='guest'?'登录后使用内置模型':state==='expired'?'点此恢复内置模型访问':'已登录 · 账号与服务');
+    select.value=state;
+  }
+  function persist(){
+    if(window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{accountPreview:state},privateContent:null}).catch(()=>{});
+  }
+  function open(phone,type){
+    const content=phone.querySelector('.hx-sheet-content');
+    const overlay=phone.querySelector('.hx-overlay');
+    if(type==='models'){
+      content.innerHTML='<h3>选择模型</h3><p>切换模型，保留当前会话与草稿</p><label>搜索模型<input class="hx-search" data-query aria-label="搜索模型" placeholder="名称或模型 ID"></label>'+(state==='member'?'<button class="hx-choice cursor-interaction" data-action="select-model">内置云端模型　✓ 可使用</button>':'<button class="hx-primary cursor-interaction" data-action="model-login">登录后使用内置模型</button>')+'<button class="hx-choice cursor-interaction" data-action="select-model">自配 API</button><button class="hx-choice cursor-interaction" data-action="select-model">订阅服务</button><button class="hx-choice cursor-interaction" data-action="select-model">已下载的本地模型</button><p class="hx-note">未登录也可使用自己的模型来源</p>';
+    } else if(type==='account'){
+      if(state==='member') content.innerHTML='<h3>Helix 账号 · 已登录</h3><p>已登录 Helix</p><button class="hx-choice cursor-interaction" data-action="logout">退出登录（模拟）</button>';
+      else content.innerHTML='<h3>'+(state==='expired'?'重新登录 Helix':'登录 Helix')+'</h3><p>登录后使用内置模型。'+(pendingModel?'登录后返回模型选择，草稿保留。':'也可以继续使用自己的模型。')+'</p><button class="hx-primary cursor-interaction" data-action="login">模拟登录'+(pendingModel?'并返回模型选择':'')+'</button><button class="hx-choice cursor-interaction" data-action="fail-login">模拟连接失败</button><button class="hx-choice cursor-interaction" data-action="close">暂不登录</button><p class="hx-note">交互草图，不收集账号、不发送网络请求</p>';
+    } else if(type==='settings'){
+      content.innerHTML='<h3>设置</h3><button class="hx-choice cursor-interaction" data-action="close">通用 · 语言与语音</button><button class="hx-choice cursor-interaction" data-action="close">Agent 默认值</button><button class="hx-choice cursor-interaction" data-action="close">权限与安全</button><button class="hx-choice cursor-interaction" data-action="close">运行环境</button><button class="hx-choice cursor-interaction" data-action="close">应用存储</button><button class="hx-choice cursor-interaction" data-action="close">诊断与审计</button><p class="hx-note">权限模式：Standard　›</p>';
+    } else {
+      const names={new:'新会话',current:'当前会话',history:'全部会话',projects:'项目',plugins:'插件'};
+      content.innerHTML='<h3>'+names[type]+'</h3><p>'+(type==='history'?'在独立页面查找、搜索和管理历史会话。':'保留现有页面和导航职责。')+'</p><button class="hx-primary cursor-interaction" data-action="close">返回抽屉</button>';
+    }
+    const search=content.querySelector('[data-query]');if(search)search.value=query;
+    overlay.hidden=false;
+  }
+  select.addEventListener('change',()=>{state=select.value;render();persist();});
+  root.addEventListener('input',e=>{if(e.target.matches('[data-query]'))query=e.target.value;});
+  root.addEventListener('click',event=>{
+    const button=event.target.closest('[data-action]'); if(!button)return;
+    const phone=button.closest('.hx-phone');const action=button.dataset.action;
+    if(action==='close'){if(loginTimer)return;if(pendingModel){pendingModel=false;open(phone,'models');}else phone.querySelector('.hx-overlay').hidden=true;}
+    else if(action==='model-login'){pendingModel=true;open(phone,'account');}
+    else if(action==='login'){if(loginTimer)return;button.textContent='登录中…';button.disabled=true;loginTimer=setTimeout(()=>{loginTimer=null;state='member';render();persist();if(pendingModel){pendingModel=false;open(phone,'models');}else phone.querySelector('.hx-overlay').hidden=true;},650);}
+    else if(action==='fail-login'){if(loginTimer)return;const content=phone.querySelector('.hx-sheet-content');if(!content.querySelector('[role=alert]'))content.insertAdjacentHTML('beforeend','<p role="alert">连接失败，请重试。模型选择和草稿保留。</p>');}
+    else if(action==='logout'){state='guest';render();persist();phone.querySelector('.hx-overlay').hidden=true;}
+    else if(action==='select-model'){phone.querySelector('.hx-overlay').hidden=true;}
+    else {if(action==='account')pendingModel=false;open(phone,action);}
+  });
+  const saved=window.openai?.widgetState?.modelContent?.accountPreview;
+  if(['guest','member','expired'].includes(saved))state=saved;
+  window.addEventListener('openai:set_globals',e=>{const next=e.detail?.globals?.widgetState?.modelContent?.accountPreview;if(['guest','member','expired'].includes(next)){state=next;render();}});
+  render();
+  if(globalThis.Tweak){
+    root.querySelectorAll('.hx-phone').forEach(phone=>{
+      const design={expanded:false};
+      const tweak=new Tweak({container:phone,onChange:()=>phone.querySelectorAll('details').forEach(d=>d.open=design.expanded)});
+      tweak.addToggle(design,'expanded',{label:'展开工作与工具'});
+    });
+  }
+})();
+</script>

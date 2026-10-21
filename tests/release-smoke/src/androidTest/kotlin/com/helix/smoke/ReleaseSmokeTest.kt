@@ -31,12 +31,16 @@ class ReleaseSmokeTest {
         ui.click("应用导航", "App navigation")
         ui.click("设置", "Settings")
         ui.click("通用", "General")
+        ui.scrollTo("关于 Helix", "About Helix")
         ui.await("关于 Helix", "About Helix")
         val info = ui.context.packageManager.getPackageInfo(ui.context.packageName, 0)
-        ui.await(
-            "版本：${info.versionName} (${info.longVersionCode})",
-            "Version: ${info.versionName} (${info.longVersionCode})",
-        )
+        val versionLabels =
+            arrayOf(
+                "版本：${info.versionName} (${info.longVersionCode})",
+                "Version: ${info.versionName} (${info.longVersionCode})",
+            )
+        ui.scrollTo(*versionLabels)
+        ui.await(*versionLabels)
         assertFalse(info.versionName.isNullOrBlank())
     }
 }

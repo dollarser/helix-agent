@@ -10,6 +10,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -46,7 +47,21 @@ internal object SubscriptionScreen {
         shell.addView(
             ScrollView(activity).apply {
                 isFillViewport = true
-                addView(content)
+                addView(
+                    FrameLayout(activity).apply {
+                        addView(
+                            content,
+                            FrameLayout.LayoutParams(
+                                dp(
+                                    activity.resources.configuration.screenWidthDp
+                                        .coerceAtMost(660),
+                                ),
+                                FrameLayout.LayoutParams.WRAP_CONTENT,
+                                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                            ),
+                        )
+                    },
+                )
             },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
         )
@@ -95,7 +110,7 @@ internal object SubscriptionScreen {
         header.addView(
             TextView(activity).apply {
                 text = activity.title
-                textSize = 20f
+                textSize = 18f
                 setTextColor(context.getColor(R.color.subscription_text))
                 setTypeface(typeface, Typeface.BOLD)
                 maxLines = 1
@@ -115,7 +130,7 @@ internal object SubscriptionScreen {
         for (index in 0 until content.childCount) {
             val view = content.getChildAt(index)
             if (view is TextView) {
-                view.textSize = 16f
+                view.textSize = 15f
                 view.setTextColor(view.context.getColor(R.color.subscription_text))
                 view.setPadding(dp(16), dp(12), dp(16), dp(12))
                 view.background = shape(view.context.getColor(R.color.subscription_surface), dp(16))

@@ -67,7 +67,10 @@ data class MessageUi(
     val sequence: Long? = null,
     val presentation: MessagePresentation = MessagePresentation.NORMAL,
     val images: List<ChatImageUi> = emptyList(),
+    val historyContext: MessageHistoryContext = MessageHistoryContext.CURRENT,
 )
+
+enum class MessageHistoryContext { CURRENT, BEFORE_EDIT, UNAVAILABLE }
 
 enum class MessagePresentation { NORMAL, PROGRESS, COMPLETED_PROGRESS }
 
