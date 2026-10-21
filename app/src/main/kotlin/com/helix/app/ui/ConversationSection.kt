@@ -251,6 +251,19 @@ internal fun ConversationSection(
                 },
             )
         }
+        screen.modelBindingIssue?.let { issue ->
+            Column(Modifier.fillMaxWidth().padding(8.dp).testTag("model-binding-issue")) {
+                Text(stringResource(issue.messageResource), color = MaterialTheme.colorScheme.error)
+                Row {
+                    TextButton(onClick = { modelPickerRequest++ }) {
+                        Text(stringResource(R.string.chat_model_reselect))
+                    }
+                    TextButton(onClick = intents.onManageModels) {
+                        Text(stringResource(R.string.chat_model_manage_source))
+                    }
+                }
+            }
+        }
         screen.blockedReason?.let { reason ->
             Row(
                 modifier =

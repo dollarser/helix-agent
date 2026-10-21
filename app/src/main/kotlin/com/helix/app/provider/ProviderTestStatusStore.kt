@@ -40,6 +40,8 @@ class ProviderTestStatusStore(
         return parse(fields, fallback = ConnectionTestStatus.Untested)
     }
 
+    val changedConfigurations: Set<String> get() = backing.lines(CHANGED_KEY).toSet()
+
     /**
      * Parses one canonical stored line. Core-field corruption degrades to the conservative
      * fallback, so corrupt data is never read as passed. Model-list corruption drops only the
@@ -153,11 +155,16 @@ class ProviderTestStatusStore(
         replace(providerId, "$providerId|FAILED|$atMillis|$phase|${code.name}|$retryable|-|$NO_MODEL_LIST")
     }
 
-    /** Drops the recorded status (provider deleted). */
-    fun clear(providerId: String) {
+    /** Invalidate evidence after deletion or a connection edit; only edits retain a changed-configuration marker. */
+    fun clear(
+        providerId: String,
+        configurationChanged: Boolean = false,
+    ) {
         modelEvidence.clear(providerId)
         synchronized(WRITE_LOCK) {
             backing.setLines(KEY, backing.lines(KEY).filterNot { it.startsWith("$providerId|") })
+            val changed = backing.lines(CHANGED_KEY).filterNot { it == providerId }
+            backing.setLines(CHANGED_KEY, if (configurationChanged) changed + providerId else changed)
         }
     }
 
@@ -168,12 +175,14 @@ class ProviderTestStatusStore(
         synchronized(WRITE_LOCK) {
             val current = backing.lines(KEY).filterNot { it.startsWith("$providerId|") }
             backing.setLines(KEY, current + line)
+            backing.setLines(CHANGED_KEY, backing.lines(CHANGED_KEY).filterNot { it == providerId })
         }
     }
 
     private companion object {
         val WRITE_LOCK = Any()
         const val KEY = "provider_test_status"
+        const val CHANGED_KEY = "provider_configuration_changed"
         const val FIELD_COUNT = 8
         const val NO_MODEL_LIST = "null"
     }

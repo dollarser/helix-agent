@@ -1,12 +1,15 @@
 package com.helix.app.terminal
 
 import android.content.Context
+import android.provider.Settings
+import com.helix.app.internal.PrefsLineStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ExecutionOwnershipStore
 import com.helix.core.model.SafetyProfile
 import com.helix.runtime.proot.client.PtySessionClient
 import com.helix.runtime.proot.core.RuntimeExecutionCapacity
 import com.helix.runtime.proot.ipc.PtySessionKey
+import com.helix.runtime.proot.ipc.PtySessionReply
 import com.helix.tools.framework.ExecutionOwnership
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -38,6 +41,8 @@ internal class DeveloperManualTerminal(
             },
         )
     private val mutex = Mutex()
+    private val bootRecovery =
+        TerminalBootRecovery(PrefsLineStore(context, "terminal-boot-recovery", synchronous = true))
 
     override suspend fun hasSession(): Boolean =
         withContext(Dispatchers.IO) {
@@ -55,7 +60,7 @@ internal class DeveloperManualTerminal(
                     client.connect()
                     owners.map { owner ->
                         val reply = client.request(ptyKey(owner), Wire.QUERY)
-                        terminalState(reply, owner)
+                        recoverState(reply, owner)
                     }
                 }
             }
@@ -171,7 +176,7 @@ internal class DeveloperManualTerminal(
                 val (_, owner) = bindings.find(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    terminalState(client.request(ptyKey(owner), code), owner.takeIf { code == Wire.QUERY })
+                    recoverState(client.request(ptyKey(owner), code), owner)
                 }
             }
         }
@@ -183,10 +188,27 @@ internal class DeveloperManualTerminal(
         PtySessionClient(context).use { client ->
             client.connect()
             owners.forEach { (binding, owner) ->
-                if (client.request(ptyKey(owner), Wire.QUERY).record?.stopProof != null) {
+                if (recoverState(client.request(ptyKey(owner), Wire.QUERY), owner).canSettle) {
                     settleBinding(client, binding, owner)
                 }
             }
+        }
+    }
+
+    private fun currentBoot(): Int? =
+        runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }
+            .getOrNull()
+            ?.takeIf { it >= 0 }
+
+    private fun recoverState(
+        reply: PtySessionReply,
+        owner: ExecutionOwnership.Owner,
+    ): ManualTerminal.State {
+        val state = terminalState(reply, owner)
+        return if (reply.record == null && bootRecovery.observe(owner, currentBoot())) {
+            state.copy(stopReason = "DEVICE_REBOOT_JOURNAL_MISSING", canSettle = true)
+        } else {
+            state
         }
     }
 
@@ -195,6 +217,12 @@ internal class DeveloperManualTerminal(
         binding: ExecutionOwnership.Store,
         owner: ExecutionOwnership.Owner,
     ) {
+        val reply = client.request(ptyKey(owner), Wire.QUERY)
+        if (reply.record == null) {
+            check(reply.outcome == "NOT_FOUND") { "Original terminal query failed" }
+            bootRecovery.settle(owner, currentBoot(), ownership, binding)
+            return
+        }
         settleTerminalBinding(
             ownership,
             binding,

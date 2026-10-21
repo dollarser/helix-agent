@@ -25,12 +25,14 @@ internal data class TerminalPageState(
     val failed: Boolean = false,
     val errorMessage: String? = null,
     val maxSessions: Int = 2,
+    val displayRevision: Int = 0,
 )
 
 /** Owns the connection across rotation; finishing the page never stops the shell. */
 @Suppress("TooManyFunctions") // One owner serializes page entry, explicit controls and lifecycle cleanup.
 internal class ManualTerminalViewModel(
     private val terminal: ManualTerminal,
+    private val actionScope: CoroutineScope? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(TerminalPageState(maxSessions = terminal.maxSessions))
     val state = mutable.asStateFlow()
@@ -68,7 +70,12 @@ internal class ManualTerminalViewModel(
                     session = active,
                 )
             if (active != null) {
-                if (active.phase != "UNKNOWN" && !active.canSettle) connect(active.sessionId)
+                if (active.canConnect) {
+                    connect(active.sessionId)
+                } else if (mayStart && all.count { !it.canSettle } < terminal.maxSessions) {
+                    // Enter a fresh shell, never reinterpret or replay the unknown old execution.
+                    connect(startSession(terminal, mutable, directory))
+                }
             } else if (mayStart) {
                 connect(startSession(terminal, mutable, directory))
             }
@@ -178,6 +185,28 @@ internal class ManualTerminalViewModel(
             }
         }
 
+    /** Local presentation only: no shell input, ownership release, or audit/history mutation. */
+    fun clearDisplay() {
+        mutable.value = mutable.value.copy(displayRevision = mutable.value.displayRevision + 1)
+    }
+
+    fun resetTerminals(directory: String) =
+        action {
+            detachConnection(mutable)
+            val remaining = resetTerminalSessions(terminal)
+            val active = remaining.firstOrNull()
+            mutable.value =
+                mutable.value.copy(
+                    sessions = remaining,
+                    hasSession = remaining.isNotEmpty(),
+                    activeSessionId = active?.sessionId,
+                    session = active,
+                    displayRevision = mutable.value.displayRevision + 1,
+                    errorMessage = if (remaining.isNotEmpty()) "RESET_INCOMPLETE" else null,
+                )
+            if (remaining.isEmpty()) connect(startSession(terminal, mutable, directory))
+        }
+
     fun disconnect() = action { detachConnection(mutable) }
 
     @Suppress("TooGenericExceptionCaught") // Only reads; one outstanding query, no input/start replay.
@@ -232,7 +261,7 @@ internal class ManualTerminalViewModel(
 
     @Suppress("TooGenericExceptionCaught") // Surface failure; never retry ambiguous input or start.
     private fun action(block: suspend () -> Unit) {
-        viewModelScope.launch {
+        (actionScope ?: viewModelScope).launch {
             mutex.withLock {
                 mutable.value = mutable.value.copy(busy = true, failed = false)
                 try {

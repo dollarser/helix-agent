@@ -47,16 +47,9 @@ internal fun ManualTerminalScreen(
     var licenses by remember { mutableStateOf(false) }
     var help by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf(false) }
+    val recovery = remember { TerminalRecoveryUi() }
     val imeVisible = WindowInsets.isImeVisible
-    var imeWasVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(imeVisible) {
-        if (imeVisible) {
-            imeWasVisible = true
-        } else if (imeWasVisible) {
-            keyboard = false
-            imeWasVisible = false
-        }
-    }
+    ObserveTerminalIme(imeVisible) { keyboard = false }
     Surface {
         Column(
             Modifier
@@ -81,10 +74,13 @@ internal fun ManualTerminalScreen(
                 keyboardVisible = imeVisible || keyboard,
                 onToggleKeyboard = { keyboard = !(imeVisible || keyboard) },
                 onRuntimeSettings = onRuntimeSettings,
+                onClose = { recovery.closingId = state.activeSessionId },
+                onReset = { recovery.reset = true },
             )
-            TerminalBody(state, directory, model, keyboard) { keyboard = true }
+            TerminalBody(state, directory, model, keyboard, onReset = { recovery.reset = true }) { keyboard = true }
         }
     }
+    recovery.Dialogs(model, directory)
     if (info) TerminalInfo(state.session, directory) { info = false }
     if (help) {
         TerminalHelp(
@@ -105,6 +101,7 @@ private fun ColumnScope.TerminalBody(
     directory: String,
     model: ManualTerminalViewModel,
     keyboard: Boolean,
+    onReset: () -> Unit,
     onTerminalTap: () -> Unit,
 ) {
     TerminalStatusBanners(state.errorMessage, !state.isWriter && state.connection != null)
@@ -116,10 +113,11 @@ private fun ColumnScope.TerminalBody(
             keyboard && state.isWriter,
             Modifier.weight(1f),
             onEnded = { model.refresh() },
+            displayRevision = state.displayRevision,
             onTerminalTap = onTerminalTap,
         )
     } else {
-        TerminalEmptyState(state, directory, model)
+        TerminalEmptyState(state, directory, model, onReset)
     }
 }
 
@@ -129,6 +127,7 @@ private fun ColumnScope.TerminalEmptyState(
     state: TerminalPageState,
     directory: String,
     model: ManualTerminalViewModel,
+    onReset: () -> Unit,
 ) {
     val message =
         when {
@@ -144,6 +143,16 @@ private fun ColumnScope.TerminalEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(stringResource(message))
+        if (state.hasSession && state.sessions.count { !it.canSettle } < state.maxSessions) {
+            TextButton(onClick = { model.open(directory) }, enabled = !state.busy) {
+                Text(stringResource(R.string.terminal_new_tab))
+            }
+        }
+        if (state.session?.phase == "UNKNOWN") {
+            TextButton(onClick = onReset, enabled = !state.busy, modifier = Modifier.testTag("terminal-recovery")) {
+                Text(stringResource(R.string.terminal_reset_sessions))
+            }
+        }
         if (!state.hasSession) {
             TextButton(
                 onClick = { model.open(directoryToStart = directory) },
@@ -173,6 +182,7 @@ private fun TerminalStatusBanners(
             when (errorMessage) {
                 "CAPACITY_FULL" -> stringResource(R.string.terminal_capacity_full)
                 "CLOSE_UNCONFIRMED" -> stringResource(R.string.terminal_close_unconfirmed)
+                "RESET_INCOMPLETE" -> stringResource(R.string.terminal_reset_incomplete)
                 else -> errorMessage
             }
         Text(
@@ -220,4 +230,73 @@ private fun TerminalLicenses(onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.files_close)) } },
     )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun TerminalRecoveryConfirmation(
+    title: Int,
+    body: Int,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(title)) },
+        text = { Text(stringResource(body)) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(title)) } },
+    )
+}
+
+private class TerminalRecoveryUi {
+    var reset by mutableStateOf(false)
+    var closingId by mutableStateOf<String?>(null)
+
+    @Composable
+    @Suppress("FunctionName")
+    fun Dialogs(
+        model: ManualTerminalViewModel,
+        directory: String,
+    ) {
+        closingId?.let { sessionId ->
+            TerminalRecoveryConfirmation(
+                R.string.terminal_stop_close,
+                R.string.terminal_stop_close_body,
+                onDismiss = { closingId = null },
+                onConfirm = {
+                    closingId = null
+                    model.settle(sessionId)
+                },
+            )
+        }
+        if (reset) {
+            TerminalRecoveryConfirmation(
+                R.string.terminal_reset_sessions,
+                R.string.terminal_reset_sessions_body,
+                onDismiss = { reset = false },
+                onConfirm = {
+                    reset = false
+                    model.resetTerminals(directory)
+                },
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ObserveTerminalIme(
+    imeVisible: Boolean,
+    onHidden: () -> Unit,
+) {
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeVisible) {
+            imeWasVisible = true
+        } else if (imeWasVisible) {
+            onHidden()
+            imeWasVisible = false
+        }
+    }
 }

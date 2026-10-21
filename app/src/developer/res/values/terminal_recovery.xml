@@ -1,0 +1,8 @@
+<resources>
+    <string name="terminal_clear_display">清空当前显示</string>
+    <string name="terminal_stop_close">停止并关闭终端</string>
+    <string name="terminal_stop_close_body">将停止这个终端中的命令；确认进程结束后移除会话入口。不会重发命令或删除工作区文件。原执行记录不会改写为成功；无法确认停止时保留原身份。</string>
+    <string name="terminal_reset_sessions">停止并重置所有终端</string>
+    <string name="terminal_reset_sessions_body">停止所有旧终端，清理连接、显示和已结束的会话入口，然后开启一个全新的空白终端。聊天、账号、Provider、模型和工作区文件保留，不重发旧命令，必要执行凭据保留。若旧进程无法确认退出，会提示先重启设备再重新打开终端；不会仅删除记录就声称重置成功。Linux 环境损坏时可到运行环境维护页单独重建。</string>
+    <string name="terminal_reset_incomplete">部分旧终端尚未确认停止，未完成重置。请刷新；若仍为未知状态，请重启设备再打开终端，届时根据启动证明回收旧身份。聊天、账号和工作区文件不会清除。</string>
+</resources>

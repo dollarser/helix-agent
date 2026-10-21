@@ -73,16 +73,17 @@ class TerminalEntryDeviceTest {
             model.disconnect()
         }
 
-    @Test fun unknownAndSettledSessionsRequireExplicitHandling() =
+    @Test fun unknownAndSettledHistoryAllowsIndependentFreshShellWithCapacity() =
         onMain {
             for (retained in listOf(state("old", "UNKNOWN"), state("old", "STOPPED", true))) {
                 val terminal = FakeTerminal(retained)
                 val model = ManualTerminalViewModel(terminal)
                 model.enter(".")
-                assertEquals(retained, model.state.value.session)
-                assertEquals(0, terminal.starts)
-                assertTrue(terminal.attached.isEmpty())
-                assertNull(model.state.value.connection)
+                assertEquals(retained, terminal.retained.first { it.sessionId == "old" })
+                assertEquals(1, terminal.starts)
+                assertEquals("s1", model.state.value.activeSessionId)
+                assertEquals(listOf("s1"), terminal.attached)
+                model.disconnect()
             }
         }
 
@@ -114,9 +115,12 @@ class TerminalEntryDeviceTest {
                 model.enter(".")
                 model.open(null)
                 model.switchSession("old")
-                assertTrue(terminal.attached.isEmpty())
+                assertTrue(terminal.attached.isNotEmpty())
+                assertTrue(terminal.attached.none { it == "old" })
+                assertEquals(1, terminal.starts)
                 assertFalse(model.state.value.failed)
                 assertNull(model.state.value.connection)
+                model.disconnect()
             }
         }
 
@@ -126,13 +130,16 @@ class TerminalEntryDeviceTest {
             terminal.retained.add(state("old2", "UNKNOWN", true))
             val model = ManualTerminalViewModel(terminal)
             model.enter(".")
+            assertEquals("s1", model.state.value.activeSessionId)
+            model.switchSession("old1")
             model.settle()
             assertEquals("old2", model.state.value.activeSessionId)
             assertFalse(model.state.value.failed)
-            assertTrue(terminal.attached.isEmpty())
-            model.open(".")
-            assertEquals(1, terminal.starts)
             assertEquals(listOf("s1"), terminal.attached)
+            model.open(".")
+            assertEquals(2, terminal.starts)
+            assertEquals(listOf("s1", "s2"), terminal.attached)
+            assertTrue(terminal.retained.none { it.sessionId == "old1" })
             model.disconnect()
         }
 

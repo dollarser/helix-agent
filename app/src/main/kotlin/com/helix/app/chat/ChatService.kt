@@ -1602,7 +1602,7 @@ class ChatService(
             openSessionId == sessionId && active == null && !turnGateHolds(sessionId)
         } else {
             val turnId = call.turnId
-            call.toolName == "helix.settings.apply" && turnId != null && active?.turnId == turnId &&
+            call.toolName == "settings.apply" && turnId != null && active?.turnId == turnId &&
                 storage.sessionInputs.listPending(sessionId).isEmpty() && !call.cancel.isCancelled() &&
                 clock.now().isBefore(call.deadline) && storage.turns.resolve(turnId).state != TurnState.CANCELLING.name
         }
@@ -1905,7 +1905,14 @@ class ChatService(
         binding: PlanExecutionBinding,
         budgets: com.helix.core.model.GoalBudgets,
     ): String? {
-        val providerId = currentSession()?.providerId
+        val boundSession = currentSession()
+        boundSession?.let { session ->
+            modelBindingProblem(session)?.let {
+                setBlocked(it)
+                return null
+            }
+        }
+        val providerId = boundSession?.providerId
         if (providerId == null) {
             setBlocked(str(R.string.chat_blocked_no_provider_bound))
             return null
@@ -2450,6 +2457,7 @@ class ChatService(
                     return submissionBlocked(str(R.string.chat_blocked_reference_unavailable))
                 }
             }
+        modelBindingProblem(session)?.let { return submissionBlocked(it) }
         val providerId =
             session.providerId ?: run {
                 return submissionBlocked(str(R.string.chat_blocked_no_provider_bound))
@@ -2621,6 +2629,7 @@ class ChatService(
         val approvedAttachmentIds = pendingAttachmentIds
         val approvedReference = pendingReference
         val session = currentSession() ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        modelBindingProblem(session)?.let { return submissionBlocked(it) }
         val providerId = session.providerId ?: return ChatSubmissionOutcome.Rejected("NO_PROVIDER")
         pendingSubmission = null
         pendingGoalId = null
@@ -3189,6 +3198,10 @@ class ChatService(
                         .mapNotNull { it.turnId }
                         .toSet(),
                 ) ?: return@launch
+            modelBindingProblem(session)?.let {
+                setBlocked(it)
+                return@launch
+            }
             val providerId = session.providerId ?: return@launch
             if (!providerService.chatSelectable(providerId)) {
                 setBlocked(str(R.string.chat_blocked_provider_untested))
@@ -3277,6 +3290,10 @@ class ChatService(
                         .toSet(),
                 ) ?: return@launch
 
+            modelBindingProblem(session)?.let {
+                setBlocked(it)
+                return@launch
+            }
             val providerId = session.providerId ?: return@launch
             if (!providerService.chatSelectable(providerId)) {
                 setBlocked(str(R.string.chat_blocked_provider_untested))
@@ -4490,6 +4507,11 @@ class ChatService(
                     openSessionId = draft.session.id,
                     sessionTitle = draft.session.title,
                     badge = projection.badgeForProvider(draft.session.providerId, draft.session.modelId),
+                    modelBindingIssue =
+                        providerService.bindings.project(
+                            draft.session.providerId,
+                            draft.session.modelId,
+                        ),
                     isDraft = true,
                     preparingDraft = preparingDraft,
                     directoryRef = draft.session.directoryRef,
@@ -4578,6 +4600,7 @@ class ChatService(
                         storage.turns.listBySession(id).filterNot { it.id in superseded }
                     }.orEmpty()
             val lastTurn = turns.lastOrNull()
+            val bindingIssue = bindingIssueFor(sessionId)
             // Refreshes race with targeted UI publications (for example an attachment refusal).
             // Build from the value observed by StateFlow's atomic update so a refresh can never
             // restore an older blocked/disclosure/streaming snapshot over a newer publication.
@@ -4593,6 +4616,7 @@ class ChatService(
                         workspaceRecovered = sessionId?.let(workspaceRecovery::hasNotice) == true,
                         // A null badge is authoritative for an unbound session, not a missing refresh.
                         badge = sessionId?.let { projection.badgeFor(it) },
+                        modelBindingIssue = bindingIssue,
                         contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
                         subscriptionRecoveries =
                             subscriptionRecoveriesFor(
@@ -4603,7 +4627,7 @@ class ChatService(
                         activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
                         turns = turns.map { projection.turnUiFor(it, null) },
                         pendingDisclosure = current.pendingDisclosure,
-                        blockedReason = current.blockedReason,
+                        blockedReason = bindingBlockedReason(current, bindingIssue),
                         retryTargetTurnId = retryTarget,
                         recoveryPanels =
                             sessionId
@@ -4666,6 +4690,25 @@ class ChatService(
         val session = storage.turns.resolve(turn.id).sessionId
         _screen.update { if (it.openSessionId == session) it.copy(activeTurn = turn) else it }
     }
+
+    private fun bindingBlockedReason(
+        current: ChatScreenState,
+        issue: com.helix.app.provider.ProviderBindingIssue?,
+    ): String? =
+        if (issue == null && current.modelBindingIssue?.let { str(it.messageResource) } == current.blockedReason) {
+            null
+        } else {
+            current.blockedReason
+        }
+
+    private fun bindingIssueFor(sessionId: String?): com.helix.app.provider.ProviderBindingIssue? =
+        sessionId?.let { id ->
+            val bound = storage.sessions.resolve(id)
+            providerService.bindings.project(bound.providerId, bound.modelId)
+        }
+
+    private suspend fun modelBindingProblem(session: SessionEntity): String? =
+        providerService.bindings.validate(session.providerId, session.modelId)?.let { str(it.messageResource) }
 
     private fun setBlocked(reason: String) {
         _screen.update { it.copy(blockedReason = reason) }

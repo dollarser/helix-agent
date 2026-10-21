@@ -69,7 +69,7 @@ interface SessionDao {
             "AND EXISTS (SELECT 1 FROM turns t JOIN turn_runtime_records r ON r.turnId = t.id " +
             "JOIN tool_calls c ON c.turnId = t.id WHERE t.id = :turnId AND t.sessionId = :id " +
             "AND t.state = 'RUNNING_TOOL' AND c.id = :toolCallId AND c.state = 'RUNNING' " +
-            "AND c.name = 'helix.settings.apply') " +
+            "AND c.name = 'settings.apply') " +
             "AND NOT EXISTS (SELECT 1 FROM session_inputs WHERE sessionId = :id " +
             "AND state IN ('PENDING','NEEDS_ATTENTION'))",
     )

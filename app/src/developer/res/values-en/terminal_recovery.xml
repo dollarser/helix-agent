@@ -1,0 +1,8 @@
+<resources>
+    <string name="terminal_clear_display">Clear current display</string>
+    <string name="terminal_stop_close">Stop and close terminal</string>
+    <string name="terminal_stop_close_body">Stop commands in this terminal and remove its entry only after process exit is confirmed. Workspace files are retained. Commands are never replayed and execution records are not rewritten as successful. Unconfirmed identities remain retained.</string>
+    <string name="terminal_reset_sessions">Stop and reset all terminals</string>
+    <string name="terminal_reset_sessions_body">Stop old terminals, clear their connections, display and proven-ended session entries, then open a new blank shell. Conversations, accounts, providers, models and workspace files are kept. Old commands never replay; necessary execution evidence is retained. If exit cannot be confirmed, reboot the device and reopen the terminal. Deleting records alone is never reported as a successful reset. A damaged Linux environment can be rebuilt separately in runtime maintenance.</string>
+    <string name="terminal_reset_incomplete">Some old terminals have not been proven stopped; reset is incomplete. Refresh, or reboot the device and reopen the terminal to recover using boot evidence. Conversations, accounts and workspace files are retained.</string>
+</resources>

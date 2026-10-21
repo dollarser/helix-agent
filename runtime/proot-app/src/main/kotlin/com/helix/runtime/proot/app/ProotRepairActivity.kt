@@ -80,6 +80,9 @@ class ProotRepairActivity : Activity() {
         }
         root.addView(maintenance)
         reinstallButton = button(maintenance, R.string.proot_environment_reinstall) { confirmInstall() }
+        button(maintenance, R.string.proot_environment_reset) {
+            confirm(R.string.proot_environment_reset, R.string.proot_remove_confirm_body) { runReset() }
+        }
         rollbackButton =
             button(maintenance, R.string.proot_repair_rollback) {
                 confirm(R.string.proot_repair_rollback, R.string.proot_rollback_confirm_body) { runRollback() }

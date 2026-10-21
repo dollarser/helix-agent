@@ -40,6 +40,8 @@ internal fun TerminalTopBar(
     keyboardVisible: Boolean,
     onToggleKeyboard: () -> Unit,
     onRuntimeSettings: () -> Unit,
+    onClose: () -> Unit,
+    onReset: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("terminal-toolbar"),
@@ -58,13 +60,13 @@ internal fun TerminalTopBar(
             Icon(painterResource(R.drawable.ic_terminal_keyboard), stringResource(label))
         }
         IconButton(
-            onClick = { state.activeSessionId?.let { model.settle(it) } },
+            onClick = onClose,
             enabled = state.activeSessionId != null && !state.busy,
             modifier = Modifier.testTag("terminal-settle"),
         ) {
-            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.terminal_settle))
+            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.terminal_stop_close))
         }
-        TerminalOptions(state.busy, model, onInfo, onRuntimeSettings, onHelp)
+        TerminalOptions(state.busy, model, onInfo, onRuntimeSettings, onHelp, onReset)
     }
 }
 
@@ -76,6 +78,7 @@ private fun TerminalOptions(
     onInfo: () -> Unit,
     onRuntimeSettings: () -> Unit,
     onHelp: () -> Unit,
+    onReset: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -87,6 +90,8 @@ private fun TerminalOptions(
                 listOf(
                     Triple(R.string.terminal_info, "terminal-info", onInfo),
                     Triple(R.string.terminal_refresh, "terminal-refresh") { model.refresh() },
+                    Triple(R.string.terminal_clear_display, "terminal-clear-display") { model.clearDisplay() },
+                    Triple(R.string.terminal_reset_sessions, "terminal-reset-sessions", onReset),
                     Triple(R.string.setup_runtime_title, "terminal-runtime-settings", onRuntimeSettings),
                     Triple(R.string.terminal_help, "terminal-help", onHelp),
                 )

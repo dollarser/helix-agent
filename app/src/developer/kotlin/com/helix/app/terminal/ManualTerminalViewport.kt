@@ -53,11 +53,15 @@ internal fun ManualTerminalViewport(
     keyboard: Boolean,
     modifier: Modifier,
     onEnded: () -> Unit,
+    displayRevision: Int = 0,
     onTerminalTap: () -> Unit = {},
 ) {
     val input = remember(connection) { TerminalInput() }
     val inputFailed by input.failed.collectAsState()
     val feed = remember(connection) { TerminalFeed() }
+    LaunchedEffect(connection, displayRevision) {
+        if (displayRevision > 0) feed.clearDisplay()
+    }
     val resources = LocalResources.current
     val terminalTypeface = remember(resources) { resources.getFont(R.font.inconsolata_regular) }
     LaunchedEffect(connection) {
@@ -153,6 +157,13 @@ private class TerminalFeed {
     var epoch by mutableIntStateOf(0)
     private var cursor: String? = null
     private var pending: ManualTerminal.Output? = null
+
+    fun clearDisplay() {
+        // Keep the cursor: clearing the parser must not fetch old output again or send `clear`.
+        pending = null
+        gap = false
+        epoch++
+    }
 
     suspend fun read(
         connection: ManualTerminal.Connection,

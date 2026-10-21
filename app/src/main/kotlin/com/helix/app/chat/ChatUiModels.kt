@@ -125,6 +125,7 @@ data class ChatScreenState(
      * admission.
      */
     val recoveryPanels: Map<String, TurnRecoveryPanelUi> = emptyMap(),
+    val modelBindingIssue: com.helix.app.provider.ProviderBindingIssue? = null,
     /** In-flight explicit recovery operations, keyed "turnId:OPERATION" (HXA-204 slice 2). */
     val recoveryBusy: Set<String> = emptySet(),
     /** The open session's staged attachments (in-memory, local until an explicit send — ADR-0014 §5). */

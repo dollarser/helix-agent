@@ -14,7 +14,7 @@
     <string name="terminal_runtime_ended">应用更新或设备重启已结束旧终端，原命令结果未知。请关闭旧终端以释放名额，再新建终端；不会重发原命令，工作区文件保留。</string>
     <string name="terminal_state_ended">旧终端已结束 · 原命令结果未知</string>
     <string name="terminal_state_unknown">终端运行时失联 · 结果未知</string>
-    <string name="terminal_runtime_unknown">旧终端运行状态无法确认，不能重新连接或重发命令。请刷新状态；若仍无法确认，重启设备后可关闭旧终端并新建，工作区文件保留。</string>
+    <string name="terminal_runtime_unknown">旧终端的进程状态未知，不能接管或重发命令。可以刷新，或在仍有容量时新建独立终端；占满名额时可先重启设备，再关闭旧终端以保留应用数据。清空显示不代表停止进程。</string>
     <string name="terminal_close_unconfirmed">未能确认该终端的进程已全部结束，关闭未完成。可刷新后重试；运行时已失联且仍无法确认时，请重启设备。不会重发命令或删除工作区文件。</string>
     <string name="terminal_input_rejected">部分输入未接收或结果未知，未自动重发。请核对终端内容后再输入。</string>
     <string name="terminal_output_failed">输出连接中断。请离开页面后重新连接原终端。</string>

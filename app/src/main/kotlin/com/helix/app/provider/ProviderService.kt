@@ -123,7 +123,7 @@ class ProviderService(
                 model = source.model,
                 headersJson = source.headersJson,
                 secretAlias = source.secretAlias,
-                capabilitySnapshot = UNTESTED_SNAPSHOT,
+                capabilitySnapshot = UNTESTED_PROVIDER_SNAPSHOT,
                 provisioningKind = source.provisioningKind,
                 transportKind = source.transportKind,
                 authKind = source.authKind,
@@ -420,7 +420,7 @@ class ProviderService(
                     headersJson = draft.headersJson,
                     secretAlias = alias,
                     authKind = if (alias == null) "NONE" else "SECRET",
-                    capabilitySnapshot = UNTESTED_SNAPSHOT,
+                    capabilitySnapshot = UNTESTED_PROVIDER_SNAPSHOT,
                 ),
             )
 
@@ -470,12 +470,13 @@ class ProviderService(
                         headersJson = draft.headersJson,
                         secretAlias = alias,
                         authKind = if (alias == null) "NONE" else "SECRET",
-                        capabilitySnapshot = if (requiresRetest) UNTESTED_SNAPSHOT else existing.capabilitySnapshot,
+                        capabilitySnapshot =
+                            if (requiresRetest) UNTESTED_PROVIDER_SNAPSHOT else existing.capabilitySnapshot,
                     ),
                 )
                 debugCustomApis.record(providerId, draft)
                 if (requiresRetest) {
-                    testStatus.clear(providerId)
+                    testStatus.clear(providerId, configurationChanged = true)
                     testStatus.modelMetadata.write(providerId, existing.transportIdentity, emptyMap())
                 }
 
@@ -628,6 +629,15 @@ class ProviderService(
     /** The test status of one provider (UI rows are rebuilt from this). */
     fun statusFor(providerId: String): ConnectionTestStatus = testStatus.statusFor(providerId)
 
+    internal val bindings by lazy {
+        ProviderBindingValidation(
+            storage,
+            testStatus,
+            { rows.value },
+            managed.isManaged,
+        ) { clock.now().toEpochMilli() }
+    }
+
     /** Bundled contract permits attempting a request; it is not a successful connection test. */
     fun chatSelectable(providerId: String): Boolean =
         (BuiltInModel.owns(providerId) && testStatus.builtInCatalog.accountAvailable()) ||
@@ -717,55 +727,8 @@ class ProviderService(
             require(!managed.isManaged(providerId)) { "managed provider capabilities cannot be overridden" }
             require(!BuiltInModel.owns(providerId)) { "Bundled service capabilities are project-declared" }
             val row = storage.providerConfigs.resolve(providerId)
-            val current =
-                runCatching { ProviderCapabilities.parse(row.capabilitySnapshot) }.getOrNull()
-                    ?: ProviderCapabilities.parse(UNTESTED_SNAPSHOT)
-            val declared = current.copy(vision = enabled).withManualSource()
-            storage.providerConfigs.overwrite(
-                ProviderConfigSpec(
-                    id = row.id,
-                    displayName = row.displayName,
-                    protocol = row.protocol?.let(ProviderProtocol::parse),
-                    endpoint = row.endpoint,
-                    model = row.model,
-                    headersJson = row.headersJson,
-                    secretAlias = row.secretAlias,
-                    provisioningKind = row.provisioningKind,
-                    transportKind = row.transportKind,
-                    authKind = row.authKind,
-                    capabilitySnapshot = ProviderCapabilities.toJsonString(declared),
-                ),
-            )
-            testStatus.modelEvidence.verify(
-                row.id,
-                row.transportIdentity,
-                row.model,
-                ProviderModelVerification(clock.now().toEpochMilli(), declared),
-            )
+            storeVisionDeclaration(storage, row, enabled, testStatus, clock.now().toEpochMilli())
             refresh()
         }
-    }
-
-    private companion object {
-        /**
-         * The conservative all-false MANUAL snapshot stored for a provider that
-         * has not completed a connection test: nothing is claimed (doc 10
-         * section 2.4: rely on capability tests, never on product names), and
-         * the UI derives its "未测试" state from [ProviderTestStatusStore], not
-         * from this snapshot.
-         */
-        val UNTESTED_SNAPSHOT: String =
-            ProviderCapabilities.toJsonString(
-                ProviderCapabilities(
-                    streaming = false,
-                    toolCalls = false,
-                    parallelToolCalls = false,
-                    vision = false,
-                    reasoning = false,
-                    jsonSchemaOutput = false,
-                    maxContextTokens = null,
-                    source = CapabilitySource.MANUAL,
-                ),
-            )
     }
 }

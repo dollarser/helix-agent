@@ -14,7 +14,7 @@
     <string name="terminal_runtime_ended">An app update or device restart ended the old terminal. Its command outcome is unknown. Close it to free a slot, then start a new terminal. Commands will not be replayed; workspace files are retained.</string>
     <string name="terminal_state_ended">Old terminal ended · Command outcome unknown</string>
     <string name="terminal_state_unknown">Terminal runtime disconnected · Outcome unknown</string>
-    <string name="terminal_runtime_unknown">The old terminal state cannot be confirmed. Reconnection and command replay are unavailable. Refresh its status; if it remains unknown, restart the device to close the old terminal and start a new one. Workspace files are retained.</string>
+    <string name="terminal_runtime_unknown">The old process state is unknown. It cannot be attached or replayed. Refresh, start an independent terminal when capacity remains, if all slots are occupied, reboot the device then close old terminals while retaining app data. Clearing the display does not stop processes.</string>
     <string name="terminal_close_unconfirmed">Could not confirm that all processes in this terminal have ended. Closing did not complete. Refresh and retry; if the runtime was lost and remains unknown, restart the device. Commands will not be replayed and workspace files will not be deleted.</string>
     <string name="terminal_input_rejected">Some input was rejected or its outcome is unknown. It was not resent. Check the terminal before entering more.</string>
     <string name="terminal_output_failed">Output connection failed. Leave the page and reconnect to the original terminal.</string>
