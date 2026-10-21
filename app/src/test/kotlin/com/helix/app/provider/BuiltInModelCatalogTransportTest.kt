@@ -21,7 +21,7 @@ class BuiltInModelCatalogTransportTest {
         runBlocking {
             MockWebServer().use { server ->
                 server.start()
-                val http = OkHttpWireClient(followRedirects = false, retryConnections = false)
+                val http = OkHttpWireClient(followRedirects = false)
                 val loopback =
                     object : WireClient {
                         override suspend fun open(request: WireRequest): WireResponse {

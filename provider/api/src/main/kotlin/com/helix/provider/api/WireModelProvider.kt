@@ -47,6 +47,8 @@ public abstract class WireModelProvider(
     protected val secretAlias: SecretAlias?,
     protected val extraHeaders: Map<String, String>,
 ) : ModelProvider {
+    override val allowsEmptyInferenceRetry: Boolean get() = true
+
     /**
      * The streaming resource path (e.g. `/chat/completions`), appended to the
      * endpoint's path. The endpoint path is the API root (e.g. `/v1`); the

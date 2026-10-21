@@ -23,7 +23,7 @@ import java.net.URI
 class AccountSession(
     private val storage: AccountTokenStorage,
     private val auth: WireClient =
-        OkHttpWireClient(followRedirects = false, retryConnections = false, maxBodyBytes = 65536),
+        OkHttpWireClient(followRedirects = false, maxBodyBytes = 65536),
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val gate = Mutex()
@@ -95,7 +95,7 @@ class AccountSession(
 
     fun wire(
         endpoint: String,
-        delegate: WireClient = OkHttpWireClient(followRedirects = false, retryConnections = false),
+        delegate: WireClient = OkHttpWireClient(followRedirects = false),
     ): WireClient {
         validateTarget(endpoint)
         return AccountServiceWire(this, endpoint, delegate)

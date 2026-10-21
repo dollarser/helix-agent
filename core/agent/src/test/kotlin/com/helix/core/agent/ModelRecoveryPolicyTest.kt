@@ -9,6 +9,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ModelRecoveryPolicyTest {
+    @Test fun reasoningAlreadyDeliveredPreventsReplay() {
+        val stream = ModelStreamState()
+        stream.apply(ModelEvent.ReasoningDelta("partial reasoning"))
+        stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
+    }
+
+    @Test fun expiredRecoveryWindowDoesNotAdmitAnotherRequest() {
+        val stream = ModelStreamState()
+        stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, elapsedMillis = 10_000))
+    }
+
     @Test fun evenAnEmptyToolStartPreventsReplay() {
         val stream = ModelStreamState()
         stream.apply(
@@ -20,21 +33,21 @@ class ModelRecoveryPolicyTest {
             ),
         )
         stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
-        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
     }
 
     @Test fun partialTextIsNotSilentlyReplayed() {
         val stream = ModelStreamState()
         stream.apply(ModelEvent.TextDelta("partial"))
         stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
-        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
     }
 
     @Test fun transientEmptyInferenceHasBoundedBackoff() {
         val stream = ModelStreamState()
         stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
-        assertEquals(1_000L, ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
-        assertEquals(2_000L, ModelRecoveryPolicy.retryDelayMillis(true, 1, stream))
+        assertEquals(1_000L, ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
+        assertEquals(2_000L, ModelRecoveryPolicy.retryDelayMillis(true, 1, stream, jitter = 0.5))
         assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 2, stream))
         assertNull(ModelRecoveryPolicy.retryDelayMillis(false, 0, stream))
     }
@@ -42,6 +55,6 @@ class ModelRecoveryPolicyTest {
     @Test fun permanentFailureDoesNotRetry() {
         val stream = ModelStreamState()
         stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = false))
-        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
     }
 }

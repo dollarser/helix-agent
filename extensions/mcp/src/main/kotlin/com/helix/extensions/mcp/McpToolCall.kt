@@ -22,6 +22,8 @@ data class McpToolResult(
     val isError: Boolean,
     val blocks: List<McpResultBlock>,
     val structuredContent: JsonObject?,
+    val connectionAttempts: Int = 1,
+    val connectionClosed: Boolean = true,
 )
 
 sealed interface McpResultBlock {

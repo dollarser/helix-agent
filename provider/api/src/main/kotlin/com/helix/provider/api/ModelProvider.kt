@@ -86,6 +86,9 @@ public data class ProviderDescriptor(
 public interface ModelProvider {
     public val descriptor: ProviderDescriptor
 
+    /** Compiled inference-only adapter contract, not a server-provided permission or tool replay policy. */
+    public val allowsEmptyInferenceRetry: Boolean get() = false
+
     /**
      * Phase 2 of the connection test (provider doc section 2.4): the model list when the
      * service exposes one; [ModelCatalogResult.Unsupported] otherwise (a service without

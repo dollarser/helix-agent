@@ -83,20 +83,23 @@ class McpCredentialCompatibilityTest {
                         ).copy(enabled = true),
                     onSend = { sent = true },
                 )
-            assertThrows(McpCredentialFormatException::class.java) {
-                caller.call(
-                    ExecutableToolCall(
-                        toolCallId = "invalid-credential-call",
-                        toolName = "echo",
-                        toolVersion = "1",
-                        args = buildJsonObject {},
-                        executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-                        deadline = Instant.now().plusSeconds(10),
-                        cancel = NoCancellation,
-                    ),
-                    "echo",
-                )
-            }
+            val failure =
+                assertThrows(McpCallException::class.java) {
+                    caller.call(
+                        ExecutableToolCall(
+                            toolCallId = "invalid-credential-call",
+                            toolName = "echo",
+                            toolVersion = "1",
+                            args = buildJsonObject {},
+                            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+                            deadline = Instant.now().plusSeconds(10),
+                            cancel = NoCancellation,
+                        ),
+                        "echo",
+                    )
+                }
+            assertTrue(failure.cause is McpCredentialFormatException)
+            assertFalse(failure.requestSent)
             assertTrue(fixture.methods.isEmpty())
             assertFalse(sent)
         }

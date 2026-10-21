@@ -26,7 +26,7 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | Workflow pipeline/parallel/phase | **只采纳声明式子集** | 若 Spike 成立，使用有版本 JSON DAG；节点仍经过 Dispatcher，不执行用户/模型提供的编排脚本 | HXA-105 / ADR-AGENT-004 |
 | 可执行 JS/Starlark Policy/Workflow DSL | **不采纳** | Policy 使用封闭类型和代码审查过的规则；Skill/模型不能安装策略代码 | — |
 | self-modification/Agent 自挂插件 | **不采纳** | 扩展只能由用户导入并验证的 MCP/A2A/Skill 提供，不能修改安全内核或 Tool Registry 所有权 | — |
-| sandbox escalation retry | **不照搬** | 不因失败扩大 Android 权限、scope、网络或切换到低隔离 target；target/参数变化生成新审批。只允许零副作用、同 envelope、同/更强隔离的有界技术重试 | HXA-035/037 |
+| sandbox escalation retry | **不照搬** | 不因失败扩大 Android 权限、scope、网络或切换到低隔离 target；target/参数变化生成新审批。业务工具单次执行；暂时连接故障在掌握发送边界的适配器内有界恢复 | HXA-035/037 |
 | deferred network approval（先连接/发送后补批） | **禁止** | DNS/连接/发送前完成 origin、数据类别、scope 和审批；网络失败不能变成授权 | HXA-033/035/066 |
 | 本地创建云端任务、轮询并 apply diff | **当前不采纳** | 属于 Remote Worker/云端执行与数据出境，需未来新执行目标、威胁模型和 ADR | — |
 | A2A 外部 Agent Client | **Client-only 已交付** | 用户配置 endpoint；Agent Card/Skill 固定快照；远端 Task 作为 NETWORK ToolCall，不继承本机批准/能力；Server/webhook/远端直接 ToolCall 与递归 peer 编排仍不在当前范围 | HXA-077～079 / ADR-A2A-001 |
@@ -66,9 +66,13 @@ HXA-238 按所有者裁决取消读写类别、同用户路径和同网络 origi
 
 ### 3.3 Attempt 与重试
 
-一个 ToolCall 可有多个 `attemptId`，但重试必须有稳定理由和硬上限。以下任一变化都必须创建新 ToolCall/approval，不能复用旧批准：参数、scope、origin、数据类别、代码/命令、execution target、页面/UI token、Android 权限需求或副作用类别。
+一个业务 ToolCall 只调用一次 executor，审批证明消费一次，不再退款后重执行。失败、参数问题和已回传错误交给模型决定新的动作；新动作仍经过当前授权和权限管线，不意味着每次必弹卡。历史审计 attemptId 保留，不删除历史结果。
 
-只允许在确认前一 attempt 没有发生副作用时，对相同 envelope 做有限技术重试，例如 Binder 在接受 Job 前死亡、连接尚未发送请求、或换用同 target 内更严格的资源限制。不得从 QuickJS/PRoot 失败回退到主 App shell，不得因 sandbox/权限拒绝自动请求 Root、All-files、Accessibility、LAN 或更宽目录。
+运行保障放在能说明请求边界的适配器：直接推理的空响应、业务提交前的 MCP bootstrap、协议允许的只读结果重连。自有技术退避共用两次额外尝试、指数退避与 ±20% 抖动、十秒新重试准入窗口；MCP 继续受原调用截止时间约束，取消中断等待，清理另有一秒保留预算。十秒窗口不是普通模型生成的总时长限制；模型开始交付任何文本/推理/工具片段后不重新生成，不重复派发旧工具。底层业务 POST 禁隐式连接/503 follow-up 重放和默认重定向，不在多个层次嵌套重试业务动作。
+
+MCP bootstrap 重连并不证明远端初始化资源、凭据刷新等完全无副作用；只能确认尚未提交 tools/call。已提交且无回包的业务动作记录 UNKNOWN/需核查，尽可能查询原操作，服务没有查询契约时明确无法核实，不创建新远端操作冒充恢复。等待、attach、已保存结果补取仍使用原身份。
+
+任何参数、scope、origin、数据类别、代码/命令、execution target、页面/UI token、Android 权限或副作用类别变化均重新走正常调用授权。不从 QuickJS/PRoot 失败回退到主 App shell，不因 sandbox/权限拒绝自动请求 Root、All-files、Accessibility、LAN 或更宽目录。实现与验收见[技术恢复收尾](../development/technical-recovery-closeout.md)。
 
 ## 4. 持久事件与用户交互
 

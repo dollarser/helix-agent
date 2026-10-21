@@ -142,7 +142,6 @@ internal object WebSocketSpeechDeviceCheck {
             private val delegate =
                 com.helix.provider.api.wire.OkHttpWireClient(
                     followRedirects = false,
-                    retryConnections = false,
                 )
 
             override suspend fun open(

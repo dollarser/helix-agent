@@ -11,7 +11,6 @@ class BuiltInAccountWire(
     private val delegate: WireClient =
         com.helix.provider.api.wire.OkHttpWireClient(
             followRedirects = false,
-            retryConnections = false,
         ),
 ) : WireClient {
     private val generation = account?.wire(BuiltInModel.GENERATION_URL, delegate)

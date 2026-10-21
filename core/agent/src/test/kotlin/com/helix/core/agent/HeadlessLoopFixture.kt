@@ -34,6 +34,7 @@ internal class HeadlessLoopFixture(
     val dispatched = mutableListOf<ToolBatchRequest>()
     val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
     var cancelled = false
+    var inferenceRecovery = false
     var cancelAfterEvent: Int? = null
     var unknown = false
     var reverseResults = false
@@ -53,6 +54,7 @@ internal class HeadlessLoopFixture(
 
     private val provider =
         object : ModelProvider {
+            override val allowsEmptyInferenceRetry get() = inferenceRecovery
             override val descriptor: ProviderDescriptor
                 get() =
                     ProviderDescriptor(

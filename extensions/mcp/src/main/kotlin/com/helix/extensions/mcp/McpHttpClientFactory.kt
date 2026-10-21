@@ -27,6 +27,8 @@ internal fun newOkHttpClient(
                 // Application interceptors see OkHttp's decoded response. Network interceptors see gzip bytes.
                 addInterceptor(McpInitializeResponseGuard)
                 addInterceptor(McpOkHttpResponseLimit)
+                retryOnConnectionFailure(false)
+                addInterceptor(McpSingleUseRequests)
                 followRedirects(false)
                 followSslRedirects(false)
                 if (networkPermit != null) {
@@ -65,3 +67,35 @@ internal fun newOkHttpClient(
             }
         }
     }
+
+/** An accepted tool POST must not be followed by an implicit 503/redirect or connection replay. */
+private class McpSingleUseBody(
+    private val delegate: okhttp3.RequestBody,
+) : okhttp3.RequestBody() {
+    override fun contentType() = delegate.contentType()
+
+    override fun contentLength() = delegate.contentLength()
+
+    override fun isOneShot() = true
+
+    override fun isDuplex() = delegate.isDuplex()
+
+    override fun writeTo(sink: okio.BufferedSink) = delegate.writeTo(sink)
+}
+
+private object McpSingleUseRequests : okhttp3.Interceptor {
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        val request = chain.request()
+        val body = request.body
+        val singleUse =
+            if (body == null) {
+                request
+            } else {
+                request
+                    .newBuilder()
+                    .method(request.method, McpSingleUseBody(body))
+                    .build()
+            }
+        return chain.proceed(singleUse)
+    }
+}

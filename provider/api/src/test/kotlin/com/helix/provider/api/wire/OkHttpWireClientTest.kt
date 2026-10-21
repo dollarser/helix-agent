@@ -50,10 +50,89 @@ class OkHttpWireClientTest {
         server.stop(0)
     }
 
+    @Test fun serverDirectedReadRecoveryDoesNotResubmitAnActionBody() =
+        runBlocking {
+            val reads =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            server.createContext("/read-retry") { exchange ->
+                assertEquals("GET", exchange.requestMethod)
+                val first = reads.incrementAndGet() == 1
+                if (first) exchange.responseHeaders.add("Retry-After", "0")
+                exchange.sendResponseHeaders(if (first) 503 else 200, -1)
+                exchange.close()
+            }
+            val response = OkHttpWireClient().open(WireRequest("GET", "$base/read-retry", emptyMap(), null))
+            response.body.close()
+            assertEquals(200, response.status)
+            assertEquals(2, reads.get())
+        }
+
+    @Test fun lostPostResponseIsNotReplayed() =
+        runBlocking {
+            val accepted =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            server.createContext("/lost") { exchange ->
+                exchange.requestBody.readBytes()
+                accepted.incrementAndGet()
+                exchange.close()
+            }
+            assertThrows(IOException::class.java) {
+                runBlocking {
+                    OkHttpWireClient().open(
+                        WireRequest("POST", "$base/lost", emptyMap(), "action".toByteArray()),
+                    )
+                }
+            }
+            assertEquals(1, accepted.get())
+        }
+
+    @Test fun post503RetryAfterZeroIsReturnedWithoutImplicitFollowup() =
+        runBlocking {
+            val accepted =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            server.createContext("/busy") { exchange ->
+                exchange.requestBody.readBytes()
+                accepted.incrementAndGet()
+                exchange.responseHeaders.add("Retry-After", "0")
+                exchange.sendResponseHeaders(503, -1)
+                exchange.close()
+            }
+            val request = WireRequest("POST", "$base/busy", emptyMap(), "action".toByteArray())
+            val response = OkHttpWireClient().open(request)
+            response.body.close()
+            assertEquals(503, response.status)
+            assertEquals(1, accepted.get())
+        }
+
+    @Test fun postRedirectDoesNotResendOrChangeTheRequestMethod() =
+        runBlocking {
+            val reached =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            server.createContext("/redirect") { exchange ->
+                exchange.requestBody.readBytes()
+                exchange.responseHeaders.add("Location", "$base/target")
+                exchange.sendResponseHeaders(307, -1)
+                exchange.close()
+            }
+            server.createContext("/target") { exchange ->
+                reached.incrementAndGet()
+                exchange.close()
+            }
+            val request = WireRequest("POST", "$base/redirect", emptyMap(), "action".toByteArray())
+            val response = OkHttpWireClient().open(request)
+            response.body.close()
+            assertEquals(307, response.status)
+            assertEquals(0, reached.get())
+        }
+
     @Test fun explicitMultipartContentTypeIsPreservedOnTheWire() =
         runBlocking {
             val response =
-                OkHttpWireClient(retryConnections = false).open(
+                OkHttpWireClient().open(
                     WireRequest(
                         "POST",
                         "$base/upload",

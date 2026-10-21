@@ -61,7 +61,7 @@ class AccountServiceDeviceTest {
         val bridge = requireNotNull(args.getString("accountCredentialBridge"))
         require(bridge == "http://127.0.0.1:19091/one-shot-credentials")
         val response =
-            OkHttpWireClient(followRedirects = false, retryConnections = false, maxBodyBytes = 4096)
+            OkHttpWireClient(followRedirects = false, maxBodyBytes = 4096)
                 .open(WireRequest("GET", bridge, emptyMap(), null))
         val credentials =
             try {
@@ -157,7 +157,7 @@ class AccountServiceDeviceTest {
 
     private suspend fun verifyRevoked(refresh: String) {
         val response =
-            OkHttpWireClient(followRedirects = false, retryConnections = false).open(
+            OkHttpWireClient(followRedirects = false).open(
                 WireRequest(
                     "POST",
                     "${AccountSession.AUTH}/auth/refresh",

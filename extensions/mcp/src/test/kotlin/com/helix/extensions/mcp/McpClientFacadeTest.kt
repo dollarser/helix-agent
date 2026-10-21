@@ -411,6 +411,9 @@ internal class McpFixture(
     private val omitInitializeProtocolVersion: Boolean = false,
     private val initializePrefixPaddingBytes: Int = 0,
     private val compressed: Boolean = false,
+    private val dropInitializeResponses: Int = 0,
+    private val dropToolResponse: Boolean = false,
+    private val toolStatus: Int? = null,
 ) : AutoCloseable {
     private val executor = Executors.newCachedThreadPool()
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -452,29 +455,7 @@ internal class McpFixture(
 
             when (method) {
                 "initialize" -> {
-                    initializeBodies += requestBody
-                    initializeCount.incrementAndGet()
-                    if (initializeDelayMillis > 0) Thread.sleep(initializeDelayMillis)
-                    val padding = "x".repeat(extraInitializeFieldBytes)
-                    exchange.responseHeaders.add("mcp-session-id", "fixture-session")
-                    respondJson(
-                        exchange,
-                        200,
-                        buildString {
-                            append("""{"jsonrpc":"2.0","id":$id,"result":{""")
-                            if (initializePrefixPaddingBytes > 0) {
-                                append(""""_leading":"${"x".repeat(initializePrefixPaddingBytes)}",""")
-                            }
-                            if (!omitInitializeProtocolVersion) {
-                                append(""""protocolVersion":"2025-03-26",""")
-                            } else {
-                                append(""""_decoy":{"protocolVersion":"fake"},""")
-                            }
-                            append(""""capabilities":{"tools":{}},"serverInfo":{"name":"fixture","version":"1.0"},""")
-                            append(""""_padding":"$padding"}}""")
-                        },
-                        chunked = chunkedInitializeResponse,
-                    )
+                    handleInitialize(exchange, requestBody, id)
                 }
 
                 "notifications/initialized" -> {
@@ -499,23 +480,63 @@ internal class McpFixture(
         }
     }
 
+    private fun handleInitialize(
+        exchange: HttpExchange,
+        requestBody: String,
+        id: String?,
+    ) {
+        initializeBodies += requestBody
+        if (initializeCount.incrementAndGet() <= dropInitializeResponses) return
+        if (initializeDelayMillis > 0) Thread.sleep(initializeDelayMillis)
+        val padding = "x".repeat(extraInitializeFieldBytes)
+        exchange.responseHeaders.add("mcp-session-id", "fixture-session")
+        respondJson(
+            exchange,
+            200,
+            buildString {
+                append("""{"jsonrpc":"2.0","id":$id,"result":{""")
+                if (initializePrefixPaddingBytes > 0) {
+                    append(""""_leading":"${"x".repeat(initializePrefixPaddingBytes)}",""")
+                }
+                if (!omitInitializeProtocolVersion) {
+                    append(""""protocolVersion":"2025-03-26",""")
+                } else {
+                    append(""""_decoy":{"protocolVersion":"fake"},""")
+                }
+                append(""""capabilities":{"tools":{}},"serverInfo":{"name":"fixture","version":"1.0"},""")
+                append(""""_padding":"$padding"}}""")
+            },
+            chunked = chunkedInitializeResponse,
+        )
+    }
+
     private fun handleToolCall(
         exchange: HttpExchange,
         requestBody: String,
         id: String?,
     ) {
         toolRequestBodies += requestBody
-        if (holdToolStream) {
-            holdToolResponse(exchange)
-            return
+        if (dropToolResponse) return
+        when {
+            toolStatus != null -> {
+                exchange.responseHeaders.add("Retry-After", "0")
+                exchange.sendResponseHeaders(toolStatus, -1)
+            }
+
+            holdToolStream -> {
+                holdToolResponse(exchange)
+            }
+
+            else -> {
+                respondJson(
+                    exchange,
+                    200,
+                    """{"jsonrpc":"2.0","id":$id,"result":{"content":[""" +
+                        """{"type":"text","text":"$toolResultText"}],""" +
+                        """"structuredContent":{"count":1},"isError":false}}""",
+                )
+            }
         }
-        respondJson(
-            exchange,
-            200,
-            """{"jsonrpc":"2.0","id":$id,"result":{"content":[""" +
-                """{"type":"text","text":"$toolResultText"}],""" +
-                """"structuredContent":{"count":1},"isError":false}}""",
-        )
     }
 
     private fun holdToolResponse(exchange: HttpExchange) {

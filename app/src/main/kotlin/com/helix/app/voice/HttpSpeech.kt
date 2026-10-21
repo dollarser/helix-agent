@@ -28,7 +28,6 @@ class HttpSpeechSession(
             readTimeoutMillis = config.timeoutMillis.toLong(),
             maxBodyBytes = 12_000_000,
             followRedirects = false,
-            retryConnections = false,
         ),
 ) : AutoCloseable {
     private val closed = AtomicBoolean()

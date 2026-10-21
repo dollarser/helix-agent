@@ -30,8 +30,6 @@ internal class JobObservationDispatchFixture : AutoCloseable {
             override fun acquire(request: ApprovalRequest): ApprovalAcquisition = error("Unexpected approval request")
 
             override fun consume(proof: ApprovalProof) = error("Unexpected approval consumption")
-
-            override fun reMint(proof: ApprovalProof): ApprovalProof? = error("Unexpected retry approval")
         }
     private val resolver =
         object : CapabilityResolver {

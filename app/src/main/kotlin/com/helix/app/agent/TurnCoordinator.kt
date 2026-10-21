@@ -84,10 +84,8 @@ internal class TurnCoordinator private constructor(
         val current = runtime.snapshot()
         val stream = runtime.currentStream()
         require(current.phase == TurnState.RECEIVING_MODEL && current.batchCalls.isEmpty())
-        require(
-            !current.modelCallClosed && stream.retryableError && stream.outputSizeBytes == 0L &&
-                !stream.hasToolCallFragments,
-        )
+        val untouched = !stream.receiving && !stream.hasToolCallFragments
+        require(!current.modelCallClosed && stream.retryableError && untouched)
         storage.withTransaction {
             val turn = requireNotCancelling()
             storage.modelCalls.update(storage.modelCalls.resolve(current.modelCallId), "FAILED", stream.usageJson, null)
@@ -145,7 +143,16 @@ internal class TurnCoordinator private constructor(
                 },
             )
         } else {
-            require(type in setOf("budget.request", "budget.admitted", "budget.result", "context.compaction"))
+            require(
+                type in
+                    setOf(
+                        "budget.request",
+                        "budget.admitted",
+                        "budget.result",
+                        "context.compaction",
+                        com.helix.core.agent.ModelRecoveryPolicy.DIAGNOSTIC_TYPE,
+                    ),
+            )
             require(payload.length <= 512)
         }
         storage.auditEvents.append(

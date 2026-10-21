@@ -21,6 +21,44 @@ import org.junit.Test
 import java.time.Instant
 
 class McpDynamicToolBridgeTest {
+    @Test fun deliveryFactsReachTheExecutorWithoutClaimingUnknownEffectsAreAbsent() {
+        listOf(false, true).forEach { sent ->
+            val failure = McpCallException(sent, 2, java.io.IOException("private server detail"))
+            val result = executeFailure(failure) as ToolExecutorResult.Failed
+            assertFalse(result.sideEffectFree)
+            assertEquals(sent, result.requiresReview)
+            assertTrue(result.detail.contains("originalCallId=local-call"))
+            assertTrue(result.detail.contains("connectionAttempts=2"))
+            assertFalse(result.detail.contains("private server detail"))
+        }
+    }
+
+    @Test fun deadlineBeforeBusinessSubmissionDoesNotClaimAllBootstrapEffectsAreAbsent() {
+        listOf(false, true).forEach { sent ->
+            val failure = McpCallCancellation(sent, 1, true, kotlinx.coroutines.CancellationException())
+            val result = executeFailure(failure) as ToolExecutorResult.TimedOutWithEffectTruth
+            assertFalse(result.sideEffectFree)
+            assertEquals(sent, result.requiresReview)
+        }
+    }
+
+    private fun executeFailure(failure: Throwable): ToolExecutorResult {
+        val registry = ToolRegistry()
+        bridge(metadata()) { throw failure }.register(registry)
+        val descriptor = registry.all().single()
+        return registry.executor(descriptor.name, descriptor.version).execute(
+            ExecutableToolCall(
+                "local-call",
+                descriptor.name.value,
+                "1",
+                buildJsonObject { put("query", "fixture") },
+                ExecutionTargetType.LOCAL_ANDROID,
+                Instant.now().plusSeconds(5),
+                NoCancellation,
+            ),
+        )
+    }
+
     @Test fun loadedConfigurationIsBoundToExactEndpointAndAccountReference() {
         val bridge = bridge(metadata())
         val config =

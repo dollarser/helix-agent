@@ -4,7 +4,11 @@ import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.TurnState
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -12,6 +16,65 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentLoopHeadlessTest {
+    @Test fun cancellationDuringBackoffDoesNotStartAnotherModelRequest() =
+        runBlocking {
+            val fixture =
+                HeadlessLoopFixture {
+                    listOf(ModelEvent.Error(com.helix.core.model.ModelErrorCode.TRANSPORT, true))
+                }.also { it.inferenceRecovery = true }
+            val job = async { fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control) }
+            withTimeout(2000) {
+                while (fixture.journal.log.none { it.startsWith("retry:") }) yield()
+            }
+            job.cancelAndJoin()
+            assertEquals(1, fixture.requests.size)
+            assertTrue(fixture.dispatched.isEmpty())
+        }
+
+    @Test fun repeatedEmptyFailuresStopAtTheSharedHardRetryCap() =
+        runBlocking {
+            val fixture =
+                HeadlessLoopFixture {
+                    listOf(ModelEvent.Error(com.helix.core.model.ModelErrorCode.TRANSPORT, true))
+                }.also { it.inferenceRecovery = true }
+            val result = fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
+            assertEquals(TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "TRANSPORT")), result)
+            assertEquals(3, fixture.requests.size)
+            assertEquals(2, fixture.journal.log.count { it == "diagnostic:model.automatic_retry" })
+            assertTrue(fixture.dispatched.isEmpty())
+        }
+
+    @Test fun transientEmptyInferenceRecoversWithoutExecutingAnyTool() =
+        runBlocking {
+            val fixture =
+                HeadlessLoopFixture { index ->
+                    if (index == 0) {
+                        listOf(ModelEvent.Error(com.helix.core.model.ModelErrorCode.TRANSPORT, true))
+                    } else {
+                        listOf(ModelEvent.TextDelta("recovered"), ModelEvent.Completed("stop"))
+                    }
+                }.also { it.inferenceRecovery = true }
+            val result = fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
+            assertEquals(TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.COMPLETED, null)), result)
+            assertEquals(2, fixture.requests.size)
+            assertTrue(fixture.dispatched.isEmpty())
+            assertEquals(1, fixture.journal.log.count { it == "diagnostic:model.automatic_retry" })
+        }
+
+    @Test fun aPartialToolCallIsNotReplayedAfterTransportFailure() =
+        runBlocking {
+            val fixture =
+                HeadlessLoopFixture {
+                    listOf(
+                        ModelEvent.ToolCallStarted(0, ToolCallId("partial"), "read"),
+                        ModelEvent.Error(com.helix.core.model.ModelErrorCode.TRANSPORT, true),
+                    )
+                }.also { it.inferenceRecovery = true }
+            fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
+            assertEquals(1, fixture.requests.size)
+            assertTrue(fixture.dispatched.isEmpty())
+        }
+
     @Test fun confirmedRequestIsPublishedBeforeToolsExecute() =
         runBlocking {
             val fixture =

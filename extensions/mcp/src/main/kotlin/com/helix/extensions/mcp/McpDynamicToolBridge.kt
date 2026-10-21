@@ -210,26 +210,13 @@ private class McpToolExecutor(
                                 put("mcpServerResultError", result.isError)
                                 put("mcpResultBlocks", result.blocks.size)
                                 put("mcpStructuredResult", result.structuredContent != null)
+                                put("mcpConnectionAttempts", result.connectionAttempts)
+                                put("mcpConnectionClosed", result.connectionClosed)
                             },
                     )
                 },
                 onFailure = { failure ->
-                    when (failure) {
-                        is TimeoutCancellationException -> {
-                            ToolExecutorResult.TimedOut
-                        }
-
-                        is CancellationException -> {
-                            ToolExecutorResult.Cancelled
-                        }
-
-                        else -> {
-                            ToolExecutorResult.Failed(
-                                detail = "MCP tool failed: ${failure::class.simpleName}",
-                                sideEffectFree = false,
-                            )
-                        }
-                    }
+                    mcpFailure(call, failure)
                 },
             )
     }
@@ -238,6 +225,8 @@ private class McpToolExecutor(
 private fun McpToolResult.toJson(): JsonObject =
     buildJsonObject {
         put("isError", isError)
+        put("connectionAttempts", connectionAttempts)
+        put("connectionClosed", connectionClosed)
         put("blocks", buildJsonArray { blocks.forEach { add(it.toJson()) } })
         structuredContent?.let { put("structuredContent", it) }
     }
@@ -301,6 +290,15 @@ private val MCP_RESULT_SCHEMA =
             "properties",
             buildJsonObject {
                 put("isError", buildJsonObject { put("type", "boolean") })
+                put("connectionClosed", buildJsonObject { put("type", "boolean") })
+                put(
+                    "connectionAttempts",
+                    buildJsonObject {
+                        put("type", "integer")
+                        put("minimum", 1)
+                        put("maximum", 3)
+                    },
+                )
                 put(
                     "blocks",
                     buildJsonObject {
@@ -332,3 +330,39 @@ private val MCP_RESULT_SCHEMA =
         )
         put("additionalProperties", false)
     }
+
+private fun mcpFailure(
+    call: ExecutableToolCall,
+    failure: Throwable,
+): ToolExecutorResult {
+    val facts = failure as? McpCallProgress
+    val sent = facts?.requestSent ?: true
+    // NOT_SENT describes tools/call only: credential refresh or bootstrap may already have effects.
+    val state = if (sent) "UNKNOWN" else "NOT_SENT"
+    val guidance = if (sent) "Inspect remote effects; cancellation is not rollback" else "No tool request submitted"
+    val cause = failure.cause ?: failure
+    val detail =
+        "MCP request=$state; originalCallId=${call.toolCallId}; " +
+            "connectionAttempts=${facts?.connectionAttempts ?: 1}; cause=${cause::class.simpleName}; $guidance"
+    val audit =
+        buildJsonObject {
+            put("requestSent", sent)
+            put("connectionAttempts", facts?.connectionAttempts ?: 1)
+        }
+    val timedOut =
+        failure is TimeoutCancellationException ||
+            (failure is McpCallCancellation && failure.deadlineExceeded)
+    return when {
+        timedOut -> {
+            ToolExecutorResult.TimedOutWithEffectTruth(detail, false, sent, audit)
+        }
+
+        failure is CancellationException || failure is InterruptedException -> {
+            ToolExecutorResult.CancelledWithEffectTruth(detail, false, sent, audit)
+        }
+
+        else -> {
+            ToolExecutorResult.Failed(detail, sideEffectFree = false, requiresReview = sent, auditDetail = audit)
+        }
+    }
+}

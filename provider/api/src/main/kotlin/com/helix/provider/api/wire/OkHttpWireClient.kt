@@ -38,8 +38,7 @@ public class OkHttpWireClient(
     connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
     readTimeoutMillis: Long = DEFAULT_READ_TIMEOUT_MS,
     private val maxBodyBytes: Long = DEFAULT_MAX_BODY_BYTES,
-    followRedirects: Boolean = true,
-    private val retryConnections: Boolean = true,
+    followRedirects: Boolean = false,
     private val client: OkHttpClient =
         OkHttpClient
             .Builder()
@@ -49,14 +48,14 @@ public class OkHttpWireClient(
             }.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
             .followRedirects(followRedirects)
-            .retryOnConnectionFailure(retryConnections)
+            .retryOnConnectionFailure(false)
             // HTTP is an explicit endpoint choice, never an automatic HTTPS downgrade.
             .followSslRedirects(false)
             .build(),
 ) : WireClient {
     override suspend fun open(request: WireRequest): WireResponse =
         suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(Request0Builder.build(request, JSON_MEDIA_TYPE, singleUse = !retryConnections))
+            val call = client.newCall(Request0Builder.build(request, JSON_MEDIA_TYPE, singleUse = true))
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(
                 object : okhttp3.Callback {

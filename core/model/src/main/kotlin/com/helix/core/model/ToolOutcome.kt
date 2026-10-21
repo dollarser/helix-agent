@@ -76,8 +76,8 @@ sealed interface ToolDispatchOutcome {
     /**
      * Execution started and ended non-successfully with a stable error code.
      * [sideEffectFree] is the executor's CONFIRMED report that this attempt produced no
-     * side effect (doc 11 section 3.3) — the only case a bounded technical retry is
-     * allowed. The framework trusts this flag only because it is set by the platform
+     * side effect. This is effect truth, not an automatic action replay switch.
+     * The framework trusts this flag only because it is set by the platform
      * executor (never by the model or MCP); when in doubt it must stay false.
      */
     data class ExecutionFailed(

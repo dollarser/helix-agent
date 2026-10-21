@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.map
 internal class BuiltInModelProvider(
     private val delegate: ModelProvider,
 ) : ModelProvider by delegate {
+    override val allowsEmptyInferenceRetry: Boolean get() = false
+
     override suspend fun listModels(): ModelCatalogResult = delegate.listModels()
 
     override suspend fun contextWindow(model: String): Long? = null

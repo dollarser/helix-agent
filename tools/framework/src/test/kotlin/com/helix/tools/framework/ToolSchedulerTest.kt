@@ -286,58 +286,30 @@ class ToolSchedulerTest {
                 .toSet()
                 .size,
         )
-        assertTrue(broker.reMintCalls.isEmpty())
     }
 
     @Test
-    fun aBoundedRetryInABatchReusesTheProofWithoutReasking() {
-        // HXA-200 Gap 4 (exact per-call proof reuse, no re-ask): the HXA-037 bounded
-        // technical retry rides a REFUND, not a new question — inside a batch, a confirmed
-        // zero-side-effect failure of an approved call re-mints from the SAME record, so
-        // the confirmation surface is presented exactly once.
-        val inFlight = AtomicInteger()
-        val maxSeen = AtomicInteger()
+    fun failedBatchActionSpendsOneProofAndSettlesWithoutReplay() {
         val attempts = AtomicInteger()
         register(
-            "b.r2",
+            "b.once",
             ToolOperationClass.LOCAL_MUTATION,
             object : ToolExecutor {
-                override fun execute(c: ExecutableToolCall): ToolExecutorResult =
-                    if (attempts.incrementAndGet() == 1) {
-                        ToolExecutorResult.Failed("transient failure", sideEffectFree = true)
-                    } else {
-                        ToolExecutorResult.Completed(json("{}"))
-                    }
+                override fun execute(c: ExecutableToolCall): ToolExecutorResult {
+                    attempts.incrementAndGet()
+                    return ToolExecutorResult.Failed("temporary failure", sideEffectFree = true)
+                }
             },
         )
-        broker.script(ApprovalAcquisition.Approved(ApprovalProof("call-r2", "3".repeat(64))))
+        broker.script(ApprovalAcquisition.Approved(ApprovalProof("call-once", "3".repeat(64))))
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
-        val batch = scheduler.scheduleBatch(listOf(call("call-r2", "b.r2").copy(maxAttempts = 2)))
-        val settlement = batch.settlements.single()
-        assertTrue(
-            settlement is ToolScheduler.BatchSettlement.Outcome &&
-                settlement.outcome is ToolDispatchOutcome.Succeeded,
-        )
-        // No re-ask: exactly ONE card for both attempts; the retry rode the refund path.
+        val batch = scheduler.scheduleBatch(listOf(call("call-once", "b.once")))
+        val settled = batch.settlements.single() as ToolScheduler.BatchSettlement.Outcome
+        assertTrue(settled.outcome is ToolDispatchOutcome.ExecutionFailed)
+        assertEquals(1, attempts.get())
         assertEquals(1, broker.acquireCalls.size)
-        assertEquals(1, broker.reMintCalls.size)
-        // The proof is spent at each attempt's start: the first spend was refunded by the
-        // re-mint, the second spend is final.
-        assertEquals(2, broker.consumeCalls.size)
-        // One audit row per attempt (attemptId 1 and 2), and the retry's row carries the
-        // SAME binding hash as the attempt that minted the proof.
-        val events = sink.events.filter { it.correlationId == "call-r2" }
-        assertEquals(2, events.size)
-        assertEquals(listOf(1, 2), events.map { it.attemptId })
-        assertEquals(1, events.map { it.bindingHash }.toSet().size)
-        assertTrue(
-            events.all {
-                it.bindingHash ==
-                    broker.acquireCalls
-                        .single()
-                        .binding.hash
-            },
-        )
+        assertEquals(1, broker.consumeCalls.size)
+        assertEquals(1, sink.events.size)
     }
 
     @Test
@@ -630,8 +602,6 @@ class ToolSchedulerTest {
             override fun consume(proof: ApprovalProof) {
                 Unit
             }
-
-            override fun reMint(proof: ApprovalProof): ApprovalProof? = null
         }
         val throwingDispatcher =
             ToolDispatcher(
@@ -673,8 +643,6 @@ class ToolSchedulerTest {
             }
 
             override fun consume(proof: ApprovalProof) = Unit
-
-            override fun reMint(proof: ApprovalProof): ApprovalProof? = null
         }
         val throwingDispatcher =
             ToolDispatcher(
@@ -1010,7 +978,6 @@ class ToolSchedulerTest {
         val scripted = ArrayDeque<ApprovalAcquisition>()
         val acquireCalls = CopyOnWriteArrayList<ApprovalRequest>()
         val consumeCalls = CopyOnWriteArrayList<ApprovalProof>()
-        val reMintCalls = CopyOnWriteArrayList<ApprovalProof>()
 
         fun script(vararg acquisitions: ApprovalAcquisition) {
             scripted.addAll(acquisitions)
@@ -1025,11 +992,6 @@ class ToolSchedulerTest {
 
         override fun consume(proof: ApprovalProof) {
             consumeCalls += proof
-        }
-
-        override fun reMint(proof: ApprovalProof): ApprovalProof? {
-            reMintCalls += proof
-            return proof
         }
     }
 

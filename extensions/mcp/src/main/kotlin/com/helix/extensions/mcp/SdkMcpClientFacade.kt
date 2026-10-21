@@ -19,6 +19,7 @@ internal class SdkMcpClientFacade(
     private val networkPermit: McpNetworkPermit? = null,
     private val httpClientFactory: (NormalizedEndpoint?, String?, McpNetworkPermit?) -> HttpClient = ::newOkHttpClient,
 ) : McpClientFacade {
+    @Suppress("TooGenericExceptionCaught") // Preserve the original failure while always closing the HTTP engine.
     override suspend fun connect(endpointUrl: String): McpClientSession {
         require(endpointUrl.isNotBlank()) { "endpointUrl must not be blank" }
 
@@ -34,7 +35,6 @@ internal class SdkMcpClientFacade(
         val sdkTransport = StreamableHttpClientTransport(client = httpClient, url = endpointUrl)
         val transport = NegotiatedProtocolTransport(sdkTransport)
 
-        var sessionCreated = false
         try {
             sdkClient.connect(transport)
             val serverVersion = checkNotNull(sdkClient.serverVersion) { "MCP server identity missing after initialize" }
@@ -52,15 +52,22 @@ internal class SdkMcpClientFacade(
                             negotiatedProtocolVersion = protocolVersion,
                         ),
                 )
-            sessionCreated = true
             return session
-        } finally {
-            if (!sessionCreated) {
-                withContext(NonCancellable) {
-                    sdkClient.close()
-                    httpClient.close()
-                }
-            }
+        } catch (failure: Throwable) {
+            closeFailedConnection(sdkClient, httpClient, failure)
+            throw failure
         }
     }
+
+    @Suppress("TooGenericExceptionCaught") // Cleanup must preserve the original connection failure.
+    private suspend fun closeFailedConnection(sdk: Client, http: HttpClient, failure: Throwable) =
+        withContext(NonCancellable) {
+            try {
+                kotlinx.coroutines.withTimeout(1_000) { sdk.close() }
+            } catch (cleanup: Exception) {
+                failure.addSuppressed(cleanup)
+            } finally {
+                http.close()
+            }
+        }
 }

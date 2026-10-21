@@ -78,6 +78,7 @@ class AgentLoop(
         var toolRounds = runtimeRecord?.admittedToolRounds ?: 0
         var finalResponsePending = false
         var modelRetries = 0
+        var recoveryStartedNanos: Long? = null
         val budgetTracker =
             runtimeRecord?.let {
                 TurnBudgetTracker.restore(
@@ -186,14 +187,21 @@ class AgentLoop(
                 RequestBudgetDiagnostics.result(accountingFailure?.errorCode ?: decision.errorCode, acc, budgetTracker),
             )
             accountingFailure?.let { return TurnLoopResult.Terminal(it) }
+            val recoveryElapsed =
+                recoveryStartedNanos?.let { (System.nanoTime() - it).coerceAtLeast(0) / 1_000_000 } ?: 0
             val retryDelay =
                 ModelRecoveryPolicy.retryDelayMillis(
-                    provider is com.helix.provider.api.WireModelProvider,
+                    provider.allowsEmptyInferenceRetry,
                     modelRetries,
                     acc,
+                    recoveryElapsed,
                 )
             if (retryDelay != null && decision.state == TurnState.FAILED) {
-                coordinator.recordDiagnostic("model.automatic_retry", "{\"attempt\":${modelRetries + 1}}")
+                if (recoveryStartedNanos == null) recoveryStartedNanos = System.nanoTime()
+                coordinator.recordDiagnostic(
+                    ModelRecoveryPolicy.DIAGNOSTIC_TYPE,
+                    "{\"attempt\":${modelRetries + 1},\"delayMillis\":$retryDelay,\"elapsedMillis\":$recoveryElapsed}",
+                )
                 coordinator.retryEmptyModelStream(idGenerator())
                 modelRetries += 1
                 kotlinx.coroutines.delay(retryDelay)

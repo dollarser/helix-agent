@@ -76,37 +76,15 @@ data class ToolDispatchRequest(
     val codeOrCommandChanged: Boolean = false,
     val sourceBindingChanged: Boolean = false,
     val cancel: CancelSignal = NoCancellation,
-    /**
-     * SCHEDULER metadata (roadmap HXA-037; doc 11 section 3.2): the moment the
-     * ToolScheduler enqueued this call, epoch millis. Trusted platform facts — the model
-     * cannot influence them (they arrive only via the app's scheduler). Null for a direct
-     * (non-scheduled) dispatch. Audit-only: never part of the binding hash.
-     */
+    /** Trusted scheduler timestamp, audit-only; never part of the approval binding. */
     val queuedAt: Long? = null,
     val bindingRef: com.helix.core.model.ToolBindingRef? = null,
     val bindingPinned: Boolean = false,
-    /**
-     * SCHEDULER metadata (roadmap HXA-037; doc 11 section 3.3): the hard attempt cap for
-     * this call. 1 (default) = exactly one attempt (HXA-035 behavior). 2 = one bounded
-     * technical retry, allowed ONLY after a confirmed zero-side-effect execution failure
-     * and only for the identical envelope — any material change means a NEW ToolCall with
-     * a new approval, never a retry.
-     */
-    val maxAttempts: Int = 1,
     /** Trusted caller persistence hook, after approval consumption and before each executor attempt. */
     val onExecutionStarting: () -> Unit = {},
     /** Trusted runtime budget, sampled after approval and persistence; never supplied by tool arguments. */
     val remainingExecutionMillis: () -> Long = { Long.MAX_VALUE },
-) {
-    init {
-        require(maxAttempts in 1..MAX_ATTEMPTS_HARD_CAP) {
-            "maxAttempts must be in 1..$MAX_ATTEMPTS_HARD_CAP: $maxAttempts"
-        }
-    }
-}
-
-/** Hard attempt cap for one ToolCall (doc 11 section 3.3: 重试必须有稳定理由和硬上限). */
-const val MAX_ATTEMPTS_HARD_CAP = 2
+)
 
 /**
  * The tool dispatcher (roadmap HXA-035; architecture doc section 5.3/7.1): the SINGLE
@@ -139,8 +117,7 @@ const val MAX_ATTEMPTS_HARD_CAP = 2
  *    schema (a tool violating its own contract is a stable error; its output never reaches
  *    the model), then canonicalized, hashed and truncated to the byte cap;
  * 8. **audit** — exactly one [DispatchAuditEvent] per ATTEMPT (no bodies, only hashes,
- *    stage timestamps, the decision source and the attemptId; a retried call therefore
- *    has one row per attempt, doc 11 section 3.3).
+ *    stage timestamps, the decision source and its execution identity).
  *
  * Same-turn denial invariant (roadmap HXA-035 / security doc section 7.3): when the user
  * DENIES an approval, the dispatcher records the ACTION FINGERPRINT (the binding hash with
@@ -210,14 +187,9 @@ class ToolDispatcher(
     /**
      * The single entry point; see the class KDoc for the pipeline.
      *
-     * Bounded technical retry (roadmap HXA-037; doc 11 section 3.3): when an attempt
-     * fails with a CONFIRMED zero-side-effect [ToolDispatchOutcome.ExecutionFailed] and
-     * [ToolDispatchRequest.maxAttempts] allows it, the dispatcher re-runs the FULL
-     * pre-approval pipeline (validate → capability → policy are re-checked live — a
-     * revoked capability or a policy change stops the retry) and, if the approval is still
-     * required, re-mints the proof from the SAME typed APPROVED record (no new card, no
-     * new question to the user). Any other failure is terminal. Every attempt emits its
-     * own audit event with its [DispatchAuditEvent.attemptId].
+     * A business tool is executed once. Transient connection recovery belongs to an adapter
+     * that can establish its request boundary; a failed action is returned to the model.
+     * The original proof is consumed once and is never refunded for automatic action replay.
      *
      * Both catches below are deliberately broad: the dispatcher's contract is that ANY
      * unexpected stage/dependency throw (not just one declared type) still settles the
@@ -228,61 +200,18 @@ class ToolDispatcher(
     @Suppress("TooGenericExceptionCaught") // Every started attempt must settle audit before rethrowing.
     fun dispatch(unboundRequest: ToolDispatchRequest): ToolDispatchOutcome {
         val request = pinBinding(unboundRequest)
-        var attempt = 0
-        var carriedProof: ApprovalProof? = null
-        // The re-minted retry reuses the SAME binding (same record): its audit rows must
-        // carry the same binding hash and action fingerprint as the attempt that minted
-        // them, even though the retry never presents the card again.
-        var carriedBindingHash: String? = null
-        var carriedActionFingerprint: String? = null
-        while (true) {
-            attempt += 1
-            val startedAt = clock.now()
-            val ctx = DispatchContext()
-            ctx.attemptId = attempt
-            if (carriedProof != null) {
-                ctx.bindingHash = carriedBindingHash
-                ctx.actionFingerprint = carriedActionFingerprint
-            }
-            // Contract: EXACTLY ONE audit event per attempt (HXA-035 stage 8). An unexpected
-            // throw from a stage or dependency (executor NPE, broker/center ISE) must still
-            // settle that attempt durably before propagating — a dispatch that cannot be
-            // audited is not a silent success, and the caller (scheduler batch) settles the
-            // slot from the thrown error. No retry: an unexpected throw means the side-effect
-            // state is UNKNOWN, which is the one case a technical retry is forbidden.
-            val outcome =
-                try {
-                    runAttempt(request, startedAt, ctx, carriedProof)
-                } catch (t: Throwable) {
-                    ctx.stopped =
-                        DispatchContext.StopResult(
-                            thrownDispatchOutcome(request.cancel, ctx.executionStartedAt, t),
-                            DecisionSource.FRAMEWORK,
-                        )
-                    auditFailurePreservingCause(t) { finishStop(request, startedAt, ctx) }
-                    throw t
-                }
-            // The proof THIS attempt acquired (set by the approval stage, which runs
-            // INSIDE the attempt): the retry refunds exactly the proof the attempt spent.
-            val spent = ctx.attemptProof
-            if (
-                outcome is ToolDispatchOutcome.ExecutionFailed &&
-                outcome.sideEffectFree &&
-                attempt < request.maxAttempts
-            ) {
-                // Re-mint from the same APPROVED record when the attempt spent a proof;
-                // approval-free calls simply re-run. A record that can no longer mint
-                // (window elapsed) ends the retry with the original failure.
-                val reminted = spent?.let { approvals.reMint(it) }
-                if (spent != null && reminted == null) {
-                    return outcome
-                }
-                reminted?.let { carriedProof = it }
-                carriedBindingHash = ctx.bindingHash
-                carriedActionFingerprint = ctx.actionFingerprint
-            } else {
-                return outcome
-            }
+        val startedAt = clock.now()
+        val ctx = DispatchContext()
+        return try {
+            runAttempt(request, startedAt, ctx)
+        } catch (failure: Throwable) {
+            ctx.stopped =
+                DispatchContext.StopResult(
+                    thrownDispatchOutcome(request.cancel, ctx.executionStartedAt, failure),
+                    DecisionSource.FRAMEWORK,
+                )
+            auditFailurePreservingCause(failure) { finishStop(request, startedAt, ctx) }
+            throw failure
         }
     }
 
@@ -306,7 +235,7 @@ class ToolDispatcher(
         val startedAt = clock.now()
         val ctx = DispatchContext()
         return try {
-            val proof = prepareAttempt(request, ctx, null)
+            val proof = prepareAttempt(request, ctx)
             if (ctx.stopped != null) {
                 CompletableFuture.completedFuture(finishStop(request, startedAt, ctx))
             } else {
@@ -419,9 +348,8 @@ class ToolDispatcher(
         request: ToolDispatchRequest,
         startedAt: Instant,
         ctx: DispatchContext,
-        carriedProof: ApprovalProof?,
     ): ToolDispatchOutcome {
-        val proof = prepareAttempt(request, ctx, carriedProof)
+        val proof = prepareAttempt(request, ctx)
         return if (ctx.stopped != null) {
             finishStop(request, startedAt, ctx)
         } else {
@@ -433,14 +361,13 @@ class ToolDispatcher(
     private fun prepareAttempt(
         request: ToolDispatchRequest,
         ctx: DispatchContext,
-        carriedProof: ApprovalProof?,
     ): ApprovalProof? {
         val descriptor = validateStage(request, ctx)
         if (descriptor != null && request.cancel.isCancelled()) {
             stopped<Unit>(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
             return null
         }
-        return if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
+        return if (descriptor != null) policyStage(request, descriptor, ctx) else null
     }
 
     /**
@@ -449,12 +376,6 @@ class ToolDispatcher(
      * [ctx] and null is returned as well; [dispatch] distinguishes the two via
      * [DispatchContext.stopped].
      *
-     * [carriedProof] (bounded technical retry, doc 11 section 3.3): when a previous attempt
-     * of the SAME call was refunded and re-minted, the re-minted proof is reused here —
-     * the confirmation surface is NOT presented again and no new record is created. The
-     * live capability/policy checks still run: a revoked capability or a policy change
-     * stops the retry. If the policy no longer requires approval the carried proof goes
-     * unspent (it expires with its record; it is never consumed).
      */
     @Suppress("ReturnCount") // one fail-closed early return per stop; the composed-card,
     // legacy-card and card-free outcomes are distinct and each must stay legible
@@ -462,7 +383,7 @@ class ToolDispatcher(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
         ctx: DispatchContext,
-        carriedProof: ApprovalProof?,
+        admissionProof: ApprovalProof? = null,
     ): ApprovalProof? {
         val evaluation = capabilityCenter.evaluate(descriptor.requiredCapabilities)
         val policy =
@@ -499,7 +420,7 @@ class ToolDispatcher(
                 (policy.decision as? PolicyDecision.RequiresApproval)?.let { egress ->
                     "${egress.detail}; ${composedPermissionDetail(permission, policy)}"
                 } ?: composedPermissionDetail(permission, policy)
-            return acquireOrCarry(request, descriptor, detail, ctx, carriedProof, policy.matchedEgressRule)
+            return acquireAtAdmission(request, descriptor, detail, ctx, admissionProof, policy.matchedEgressRule)
         }
         // Unwired (non-session context): the historical decision maps 1:1 — a risk/egress
         // approval still cards. When wired, a null permission is the session AutoProceed:
@@ -507,38 +428,34 @@ class ToolDispatcher(
         if (permission == null) {
             val legacy = policy.decision as? PolicyDecision.RequiresApproval
             if (legacy != null) {
-                return acquireOrCarry(request, descriptor, legacy.detail, ctx, carriedProof, policy.matchedEgressRule)
+                return acquireAtAdmission(
+                    request,
+                    descriptor,
+                    legacy.detail,
+                    ctx,
+                    admissionProof,
+                    policy.matchedEgressRule,
+                )
             }
         }
         return null
     }
 
-    /**
-     * Presents the per-call card for [detail] — or, for a bounded technical retry, spends the
-     * carried re-minted proof WITHOUT re-presenting (doc 11 section 3.3). Shared by the
-     * policy/preference card path and the HXA-209 session-permission card path: ONE surface,
-     * ONE record, one action fingerprint.
-     */
-    private fun acquireOrCarry(
+    /** Reuse only an unconsumed admission proof during live rechecks, never refund an executed call. */
+    private fun acquireAtAdmission(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
         detail: String,
         ctx: DispatchContext,
-        carriedProof: ApprovalProof?,
-        matchedEgressRule: HighSensitivityRule?,
+        existing: ApprovalProof?,
+        rule: HighSensitivityRule?,
     ): ApprovalProof? {
-        if (carriedProof != null) {
+        if (existing != null) {
             ctx.approvalAcquiredAt = clock.now().toEpochMilli()
-            ctx.attemptProof = carriedProof
-            return carriedProof
+            ctx.attemptProof = existing
+            return existing
         }
-        return acquireApproval(
-            request,
-            descriptor,
-            PolicyDecision.RequiresApproval(detail),
-            ctx,
-            matchedEgressRule,
-        )
+        return acquireApproval(request, descriptor, PolicyDecision.RequiresApproval(detail), ctx, rule)
     }
 
     /**
@@ -760,10 +677,6 @@ class ToolDispatcher(
                 // object). The other codes are per-RECORD storage states (consumed,
                 // not-found, pending, expired window) and say nothing about the action:
                 // a materially changed action (new fingerprint) must still be approvable.
-                // The bounded technical retry (doc 11 section 3.3) rides a REFUND, not a
-                // re-mint: the spent proof is refunded and re-minted from the same record
-                // without presenting the card again, so a retried attempt must never be
-                // treated as a user denial here.
                 if (acquisition.code == MintRejectionCode.DENIED) {
                     markDenied(request.turnId, fingerprint)
                 }
@@ -1286,7 +1199,7 @@ class ToolDispatcher(
         var sessionPermissionAtStart: SessionPermissionDecisionAudit? = null
 
         /** 1-based attempt number within this dispatch (doc 11 section 3.3 attemptId). */
-        var attemptId: Int = 1
+        val attemptId: Int = 1
         var policyDecidedAt: Long? = null
         var operationClass: ToolOperationClass? = null
         var approvalAcquiredAt: Long? = null

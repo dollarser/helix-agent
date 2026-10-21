@@ -84,8 +84,8 @@ sealed interface ToolExecutorResult {
      * A terminal tool failure with a stable, model-visible message.
      *
      * [sideEffectFree] is the platform executor's CONFIRMED report that this attempt
-     * produced no side effect (doc 11 section 3.3: 只允许确认零副作用、相同 envelope、
-     * 同/更强隔离的有界技术重试). Examples of true positives: the companion Runtime's
+     * produced no side effect. It reports execution truth to the model/recovery path;
+     * Dispatcher never uses the flag to replay the business action. Examples: the companion Runtime's
      * Binder died before the Job was accepted, a connection failed before the request was
      * sent. When in doubt this MUST stay false — an unconfirmed failure is terminal and
      * the next run of the same action is a NEW ToolCall with a new approval.

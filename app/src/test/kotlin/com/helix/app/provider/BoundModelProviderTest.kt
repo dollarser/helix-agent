@@ -23,6 +23,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BoundModelProviderTest {
+    @Test fun boundApplicationProviderPreservesInferenceRecoveryCapabilityWithoutEnablingManagedAdapters() {
+        val bound = BoundModelProvider(Fixture(recovery = true), "b") { true }
+        assertTrue(bound.allowsEmptyInferenceRetry)
+        val failed =
+            com.helix.core.agent.ModelStreamState().apply {
+                apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, true))
+            }
+        assertEquals(
+            1000L,
+            com.helix.core.agent.ModelRecoveryPolicy.retryDelayMillis(
+                bound.allowsEmptyInferenceRetry,
+                0,
+                failed,
+                jitter = 0.5,
+            ),
+        )
+        assertTrue(!BoundModelProvider(Fixture(), "b") { true }.allowsEmptyInferenceRetry)
+        assertTrue(!BuiltInModelProvider(bound).allowsEmptyInferenceRetry)
+    }
+
     @Test fun ordinaryBackfillCompactionAndContinuationKeepTheExactTarget() =
         runBlocking {
             val delegate = Fixture()
@@ -88,7 +108,10 @@ class BoundModelProviderTest {
             assertTrue(delegate.requests.isEmpty())
         }
 
-    private class Fixture : ModelProvider {
+    private class Fixture(
+        private val recovery: Boolean = false,
+    ) : ModelProvider {
+        override val allowsEmptyInferenceRetry get() = recovery
         val requests = mutableListOf<ModelRequest>()
         override val descriptor =
             ProviderDescriptor(

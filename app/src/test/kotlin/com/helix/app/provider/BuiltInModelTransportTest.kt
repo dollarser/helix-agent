@@ -43,7 +43,7 @@ class BuiltInModelTransportTest {
     private val requests = CopyOnWriteArrayList<Pair<Map<String, List<String>>, String>>()
     private val release = CountDownLatch(1)
     private var reply: (HttpExchange) -> Unit = { respond(it, 200, TEXT_STREAM) }
-    private val http = OkHttpWireClient(followRedirects = false, retryConnections = false, readTimeoutMillis = 2_000)
+    private val http = OkHttpWireClient(followRedirects = false, readTimeoutMillis = 2_000)
     private val local =
         object : WireClient {
             override suspend fun open(request: WireRequest): WireResponse {

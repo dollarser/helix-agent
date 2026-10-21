@@ -989,44 +989,46 @@ class ToolDispatcherTest {
         assertEquals(0, broker.acquireCalls.size)
     }
 
-    // ------------------------------------------------- HXA-037 bounded technical retry
+    // ------------------------------------------------- Single business execution and truthful failures
 
     @Test
-    fun sideEffectFreeFailureIsRetriedOnceWithAttemptMetadata() {
+    fun confirmedNoEffectFailureIsReturnedWithoutRepeatingTheAction() {
         var attempts = 0
-        val executor =
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY),
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     attempts++
-                    return if (attempts == 1) {
-                        ToolExecutorResult.Failed("companion binder dropped", sideEffectFree = true)
-                    } else {
-                        ToolExecutorResult.Completed(emptyObject())
-                    }
+                    return ToolExecutorResult.Failed("temporary connection failure", sideEffectFree = true)
                 }
-            }
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY),
-            executor,
+            },
         )
-        val outcome =
-            dispatcher.dispatch(
-                request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2),
-            )
-        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
-        assertEquals("the retry is bounded to one extra attempt", 2, attempts)
-        // Two durable audit rows: one per attempt, same correlation, attemptId 1 then 2.
-        assertEquals(2, sink.events.size)
-        assertEquals("call-1", sink.events[0].correlationId)
-        assertEquals("call-1", sink.events[1].correlationId)
-        assertEquals(1, sink.events[0].attemptId)
-        assertEquals(2, sink.events[1].attemptId)
-        assertEquals(DispatchOutcomeCode.TOOL_FAILED, sink.events[0].code)
-        assertEquals(DispatchOutcomeCode.SUCCESS, sink.events[1].code)
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        assertTrue(outcome is ToolDispatchOutcome.ExecutionFailed)
+        assertEquals(1, attempts)
+        assertEquals(1, sink.events.size)
     }
 
     @Test
-    fun anUnconfirmedFailureIsTerminalEvenWithRetryBudget() {
+    fun nonIdempotentToolIsNotRetriedEvenWhenFailureReportsNoEffects() {
+        var attempts = 0
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY).copy(idempotency = Idempotency.NON_IDEMPOTENT),
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    attempts++
+                    return ToolExecutorResult.Failed("not started", sideEffectFree = true)
+                }
+            },
+        )
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        assertTrue(outcome is ToolDispatchOutcome.ExecutionFailed)
+        assertEquals(1, attempts)
+        assertEquals(1, sink.events.size)
+    }
+
+    @Test
+    fun anUnconfirmedFailureIsTerminal() {
         var attempts = 0
         registerTool(
             descriptor(operationClass = ToolOperationClass.READ_ONLY),
@@ -1039,128 +1041,13 @@ class ToolDispatcherTest {
         )
         val outcome =
             dispatcher.dispatch(
-                request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2),
+                request(tool("fake"), version(1), emptyArgs()),
             )
         val failed = outcome as ToolDispatchOutcome.ExecutionFailed
         assertEquals(DispatchOutcomeCode.TOOL_FAILED, failed.code)
         assertEquals("no side-effect confirmation, no retry", 1, attempts)
         assertEquals(1, sink.events.size)
         assertEquals(1, sink.events.single().attemptId)
-    }
-
-    @Test
-    fun theRetryReusesTheReMintedProofWithoutRePresentingTheCard() {
-        val proof = proofFor("call-1")
-        val reminted = ApprovalProof("call-1", "f".repeat(64))
-        // Two approvals scripted: the card is presented once, and a SECOND presentation
-        // would pop this Approved — the "exactly one card" assertion would then be lying.
-        broker.script(ApprovalAcquisition.Approved(proof), ApprovalAcquisition.Approved(proof))
-        broker.reMintResult = reminted
-        var attempts = 0
-        registerTool(
-            descriptor(),
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    attempts++
-                    return if (attempts == 1) {
-                        ToolExecutorResult.Failed("lane dropped", sideEffectFree = true)
-                    } else {
-                        ToolExecutorResult.Completed(emptyObject())
-                    }
-                }
-            },
-        )
-        val outcome =
-            dispatcher.dispatch(
-                request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2),
-            )
-        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
-        assertEquals(2, attempts)
-        // The card was presented EXACTLY ONCE; the retry rode the re-minted proof of the
-        // SAME typed APPROVED record.
-        assertEquals(1, broker.acquireCalls.size)
-        assertEquals(listOf(proof, reminted), broker.consumeCalls)
-        assertEquals(listOf(proof), broker.reMintCalls)
-        assertEquals(2, sink.events.size)
-        // Both attempts audited under the SAME presented binding (the re-mint rides the
-        // same record — its proof hash is the record's binding hash, not a new binding).
-        val binding =
-            broker.acquireCalls
-                .single()
-                .binding.hash
-        assertEquals(binding, sink.events[0].bindingHash)
-        assertEquals(binding, sink.events[1].bindingHash)
-    }
-
-    @Test
-    fun anUnMintableReMintEndsTheRetryWithTheOriginalFailure() {
-        val proof = proofFor("call-1")
-        // Two approvals scripted: the card is presented once (the retry must ride the
-        // re-mint path, never a second card — a second presentation would pop this one).
-        broker.script(ApprovalAcquisition.Approved(proof), ApprovalAcquisition.Approved(proof))
-        broker.reMintReturnsNull = true
-        var attempts = 0
-        registerTool(
-            descriptor(),
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    attempts++
-                    return ToolExecutorResult.Failed("dropped", sideEffectFree = true)
-                }
-            },
-        )
-        val outcome =
-            dispatcher.dispatch(
-                request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2),
-            )
-        val failed = outcome as ToolDispatchOutcome.ExecutionFailed
-        assertEquals(DispatchOutcomeCode.TOOL_FAILED, failed.code)
-        // reMint returned null (the record can no longer mint): NO second attempt ran.
-        assertEquals(1, attempts)
-        assertEquals(listOf(proof), broker.reMintCalls)
-        assertEquals(1, sink.events.size)
-        assertEquals(1, sink.events.single().attemptId)
-    }
-
-    @Test
-    fun theReMintGuardIsOneTimePerBinding() {
-        // First dispatch spends the fake's one-time reMint for this binding (it fails at
-        // attempt 2's budget edge: attempt 1 re-mints, attempt 2 fails terminally).
-        val proof = proofFor("call-1")
-        // Two approvals scripted: exactly one card per dispatch.
-        broker.script(ApprovalAcquisition.Approved(proof), ApprovalAcquisition.Approved(proof))
-        broker.reMintResult = ApprovalProof("call-1", "f".repeat(64))
-        var attempts = 0
-        registerTool(
-            descriptor(),
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    attempts++
-                    return ToolExecutorResult.Failed("dropped", sideEffectFree = true)
-                }
-            },
-        )
-        dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2))
-        assertEquals("attempt 1 + its single retry", 2, attempts)
-        assertEquals(1, broker.reMintCalls.size)
-        // Second dispatch, same binding: the reMint guard is already spent → the retry
-        // stops with the original attempt-1 failure (a double refund is impossible).
-        // Two approvals scripted: exactly one card per dispatch (a second presentation
-        // would pop the spare and mask a re-presentation bug).
-        broker.script(
-            ApprovalAcquisition.Approved(proofFor("call-2")),
-            ApprovalAcquisition.Approved(proofFor("call-2")),
-        )
-        val outcome2 =
-            dispatcher.dispatch(
-                request(tool("fake"), version(1), emptyArgs(), toolCallId = "call-2").copy(maxAttempts = 2),
-            )
-        val failed2 = outcome2 as ToolDispatchOutcome.ExecutionFailed
-        assertEquals(DispatchOutcomeCode.TOOL_FAILED, failed2.code)
-        assertEquals("the spent guard must stop the retry before attempt 2", 3, attempts)
-        assertEquals(2, broker.reMintCalls.size)
-        assertEquals("call-2", sink.events.last().correlationId)
-        assertEquals(1, sink.events.last().attemptId)
     }
 
     @Test
@@ -1175,7 +1062,7 @@ class ToolDispatcherTest {
         // slot), BUT the attempt still gets its exactly-one audit row first.
         val thrown =
             assertThrows(IllegalStateException::class.java) {
-                dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2))
+                dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
             }
         assertTrue(thrown.message?.contains("companion binder crashed") == true)
         val event = sink.events.single()
@@ -1271,65 +1158,6 @@ class ToolDispatcherTest {
             ) is ToolDispatchOutcome.Succeeded,
         )
         assertEquals(3, broker.acquireCalls.size)
-    }
-
-    @Test
-    fun aRevokedCapabilityStopsTheLiveRetry() {
-        usableCaps += Capability.NOTIFICATION_READ
-        var attempts = 0
-        registerTool(
-            descriptor(
-                operationClass = ToolOperationClass.READ_ONLY,
-                requiredCapabilities = setOf(Capability.NOTIFICATION_READ),
-            ),
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    attempts++
-                    usableCaps.clear()
-                    return ToolExecutorResult.Failed("flaky", sideEffectFree = true)
-                }
-            },
-        )
-        val outcome =
-            dispatcher.dispatch(
-                request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2),
-            )
-        // The retry re-runs the LIVE capability check: the grant was revoked during the
-        // first attempt, so attempt 2 is a policy denial, not an execution.
-        val denied = outcome as ToolDispatchOutcome.Denied
-        assertEquals(DispatchOutcomeCode.POLICY_DENIED, denied.code)
-        assertEquals(1, attempts)
-        assertEquals(2, sink.events.size)
-        assertEquals(DispatchOutcomeCode.TOOL_FAILED, sink.events[0].code)
-        assertEquals(DispatchOutcomeCode.POLICY_DENIED, sink.events[1].code)
-        assertEquals(2, sink.events[1].attemptId)
-    }
-
-    @Test
-    fun maxAttemptsAboveTheHardCapIsRejected() {
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY),
-            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
-        )
-        assertThrows(IllegalArgumentException::class.java) {
-            ToolDispatchRequest(
-                toolCallId = "call-1",
-                turnId = "turn-1",
-                sessionId = "session-1",
-                toolName = tool("fake"),
-                toolVersion = version(1),
-                args = emptyArgs(),
-                mode = AgentMode.ACT,
-                profile = SafetyProfile.STANDARD,
-                executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-                dataOrigin = DataOrigin.WORKSPACE,
-                scope = null,
-                uiToken = "ui:t",
-                maxAttempts = 3,
-            )
-        }
-        request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2)
-        request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 1)
     }
 
     @Test
@@ -1515,8 +1343,6 @@ class ToolDispatcherTest {
         val scripted = ArrayDeque<ApprovalAcquisition>()
         val acquireCalls = mutableListOf<ApprovalRequest>()
         val consumeCalls = mutableListOf<ApprovalProof>()
-        val reMintCalls = mutableListOf<ApprovalProof>()
-        var reMintResult: ApprovalProof? = null
 
         /** When it returns non-null, acquire throws that (the broker's cancel exception). */
         var acquireThrows: (ApprovalRequest) -> Throwable? = { null }
@@ -1524,10 +1350,6 @@ class ToolDispatcherTest {
         /** Runs right before a scripted acquisition is returned — a deterministic race seam. */
         var acquireHook: (ApprovalRequest) -> Unit = {}
         var consumeHook: () -> Unit = {}
-
-        /** Forces the un-mintable path (the record's window elapsed in the meantime). */
-        var reMintReturnsNull = false
-        private val reminted = mutableSetOf<String>()
 
         fun script(vararg acquisitions: ApprovalAcquisition) {
             scripted.addAll(acquisitions)
@@ -1544,15 +1366,6 @@ class ToolDispatcherTest {
         override fun consume(proof: ApprovalProof) {
             consumeHook()
             consumeCalls += proof
-        }
-
-        /** One-time per binding: a second re-mint of the same binding fails (the storage guard's twin). */
-        @Suppress("ReturnCount") // each guard is a distinct terminal path of the fake's contract
-        override fun reMint(proof: ApprovalProof): ApprovalProof? {
-            reMintCalls += proof
-            if (reMintReturnsNull) return null
-            if (!reminted.add(proof.bindingHash)) return null
-            return reMintResult ?: proof
         }
     }
 
