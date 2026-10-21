@@ -138,7 +138,7 @@ class MobileUsePlugin(
             "ui.device",
             "ui.screenshot",
             "ui.gesture",
-            "android.open_uri",
+            "device.open_url",
         )
 
     override fun configurationError(): String? =

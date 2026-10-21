@@ -28,7 +28,7 @@ class ModelToolExposureOrderTest {
             "ui.device",
             "ui.screenshot",
             "ui.gesture",
-            "android.open_uri",
+            "device.open_url",
         )
 
     @Test fun essentialBuiltInsSurviveTheModelToolLimit() {
@@ -74,7 +74,7 @@ class ModelToolExposureOrderTest {
                 "ui.device",
                 "ui.screenshot",
                 "ui.gesture",
-                "android.open_uri",
+                "device.open_url",
                 "http.fetch",
             ).map(::descriptor)
         val crowded = (0 until 80).map { descriptor("optional.$it") } + ui + descriptor("write")
@@ -125,7 +125,7 @@ class ModelToolExposureOrderTest {
                     "ui.device",
                     "ui.screenshot",
                     "ui.gesture",
-                    "android.open_uri",
+                    "device.open_url",
                     "skills.read",
                     "skills.read_resource",
                     "skills.enable",
@@ -137,7 +137,7 @@ class ModelToolExposureOrderTest {
         assertTrue("code.javascript.run" !in names)
         val nonUi = ModelToolExposureOrder.defaultNames(emptySet())
         assertTrue("ui.snapshot" !in nonUi)
-        assertTrue("android.open_uri" !in nonUi)
+        assertTrue("device.open_url" !in nonUi)
         assertTrue("code.javascript.run" in nonUi)
         assertTrue("http.fetch" !in nonUi)
         assertTrue("skills.list" !in names)

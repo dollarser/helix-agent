@@ -149,7 +149,7 @@ class GoalRealModelUiDeviceTest {
         status: String,
         marker: String,
     ): String =
-        "Read get_goal and call update_goal with its id and expected_revision, status=$status and summary=$marker. " +
+        "Read goal.get and call goal.update with its id and expected_revision, status=$status and summary=$marker. " +
             "Then reply only $marker. Do not use any other tools. " +
             if (status == "blocked") "The next step requires new input from the user; do not report completion." else ""
 
@@ -199,8 +199,8 @@ class GoalRealModelUiDeviceTest {
         val turn = storage.turns.listBySession(requireNotNull(sessionId)).last()
         assertEquals(turn.errorCode, "COMPLETED", turn.state)
         val calls = storage.toolCalls.listByTurn(turn.id)
-        assertTrue(calls.any { it.name in setOf("update_goal", "goal.report") && it.state == "COMPLETED" })
-        assertTrue(calls.all { it.name in setOf("get_goal", "update_goal", "goal.report") })
+        assertTrue(calls.any { it.name in setOf("goal.update", "goal.report") && it.state == "COMPLETED" })
+        assertTrue(calls.all { it.name in setOf("goal.get", "goal.update", "goal.report") })
         val binding = requireNotNull(storage.goalTurnBindings.byTurn(turn.id))
         val run = storage.goalRuns.resolve(binding.runId)
         assertEquals(goalId, run.goalId)

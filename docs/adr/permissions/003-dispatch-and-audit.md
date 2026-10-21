@@ -22,7 +22,14 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 进程死亡恢复历史、审计与实际结果。已失去 live wait 的卡不伪装成可继续执行；用户恢复必须经当前准入，不自动重放未知副作用。审批记录、执行 audit 与用户可见恢复摘要需可关联。
 - UI 经应用服务读写设置，Room 写入在合适 dispatcher 串行执行；全局/Workspace/会话来源清楚显示。工具只有 ENABLED/DISABLED，ASK 只属于操作规则，不建立第二套有效偏好来源。
 
+### 本机工具目录迁移
+
+本机系统工具统一为 `device.*`，旧 `android.*`、`clipboard.*`、`notifications.query`、`calendar.*` 的对应注册入口直接移除，不保留别名、调用转发或旧历史调用重写。设备工具的 schema、Capability、当前用户规则、执行绑定和审计仍走原链路。一次性迁移同源工具的 ENABLED/DISABLED 用户选择，拆分时禁用意图覆盖对应入口，冲突时 DISABLED 优先；这不是旧协议兼容，不迁移单次批准或改写调用身份。MCP/插件的同名条目不受影响。
+
+系统分享和外部备忘录保存只能报告 chooser-opened，不能报告已发送、已落库。文件分享/打开同时保留逐文件作用域读取分类和设备外部动作授权，受控快照经临时只读内容 URI 交付；打开本应用页面只请求导航，不授予登录或设置变更权限。云端连接器直接保存仍使用其独立受治理工具，未接入不能冒充支持或退化成分享。详细目录见 [设备工具接入说明](../../development/device-tools-integration.md)。
+
 ## Alternatives considered
+
 
 仅隐藏 schema 不足以阻止历史调用；点击即消费 proof 无法处理停止竞态；给自动放行伪造 APPROVED 会破坏审计。均不采用。
 
@@ -71,3 +78,12 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 Owner 明确普通工具版本变化不应导致同一权限重新批准。持久授权按稳定来源/工具、权限和目标范围解释；原生可用性来源移除包版本，已有明确禁用以一次性事务规范化保留。Mobile Use 的配置/选择授权身份不读取包版本或安装 revision。`ApprovalBinding` 的精确合同与原执行 ref 继续服务于本次调用，替换后不得执行，不能借本次批准扩大到下一次。Dispatcher 回归覆盖 ALLOW 下更新不弹新卡、旧 ref 不可执行；ASK/消耗/撤权与范围变化回归沿既有 suite 保留。
 
 参考 [OpenCode 权限规则](https://docs.opencode.ai/docs/permissions/)按工具输入配置 allow/ask/deny，[Chrome 权限更新](https://developer.chrome.com/docs/extensions/develop/concepts/permission-warnings#update_permissions)按新增警告权限重新确认；采用的是以实际权限变化为界的取舍，不宣称竞品使用相同的内部 revision/fingerprint。实现和验收由 HXA-307 承接。
+
+## Decision history — 2026-10-21：本机工具统一命名
+
+Owner 授权参考 WorkBuddy 迁移且删除旧工具入口。采用 `device.*`、一次性保留用户禁用选择而不转授调用批准、系统面板交接与实际保存分开，以及文件读取/外发效果共同治理；第三方直存不以分享代替。详见本文本机工具目录迁移与接入说明。
+
+
+## Decision history — 2026-10-21：成组工具与独立短名
+
+Owner 进一步授权整理其他工具，并明确离散工具可无命名空间。Goal 使用 `goal.*`，设置使用 `settings.inspect/apply`，结果读取使用 `tools.read_result`；`ask_user/read/write/edit/bash/view_image` 保留短名。旧设置提案/页面弹窗移除，`settings.inspect` 为只读，实际配置修改保持原 DEVICE_SYSTEM_MUTATION 分类、当前 live 调用/Turn 校验与未来输入生效边界。一次性迁移用户可用性选择，不转授单次批准或重写审计。见 [工具契约整理](../../development/tool-contracts.md)。

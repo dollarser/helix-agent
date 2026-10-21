@@ -43,6 +43,21 @@ class ReminderService(
 
     suspend fun get(id: String) = withContext(Dispatchers.IO) { store.dao.get(id) }
 
+    suspend fun list() = withContext(Dispatchers.IO) { store.dao.all() }
+
+    suspend fun cancelRevision(
+        id: String,
+        revision: Long,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            mutation.withLock {
+                val item = store.dao.get(id)
+                if (item == null || item.state != "ACTIVE" || item.revision != revision) return@withLock false
+                finishLocked(item, cancelled = true)
+                true
+            }
+        }
+
     suspend fun events(id: String) = withContext(Dispatchers.IO) { store.dao.events(id) }
 
     suspend fun save(draft: LocalReminder): String =
@@ -94,18 +109,26 @@ class ReminderService(
     ) = withContext(Dispatchers.IO) {
         mutation.withLock {
             val item = requireNotNull(store.dao.get(id))
-            store.dao.save(
-                item.copy(
-                    state = if (cancelled) "CANCELLED" else "COMPLETED",
-                    revision = item.revision + 1,
-                    nextAt = null,
-                    scheduling = "NONE",
-                    updatedAt = clock(),
-                ),
-            )
-            delivery.cancel(item)
-            delivery.dismiss(id)
+            finishLocked(item, cancelled)
         }
+    }
+
+    /** Caller holds mutation: durable transition always precedes revoking wake projections. */
+    private suspend fun finishLocked(
+        item: LocalReminder,
+        cancelled: Boolean,
+    ) {
+        store.dao.save(
+            item.copy(
+                state = if (cancelled) "CANCELLED" else "COMPLETED",
+                revision = item.revision + 1,
+                nextAt = null,
+                scheduling = "NONE",
+                updatedAt = clock(),
+            ),
+        )
+        delivery.cancel(item)
+        delivery.dismiss(item.id)
     }
 
     @Suppress("ComplexCondition") // All four durable identity/state facts must match a callback.

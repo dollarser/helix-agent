@@ -121,10 +121,6 @@ internal class DefaultAppContainer(
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
     private val mobileUseLines = PrefsLineStore(context, "helix-mobile-use", synchronous = true)
 
-    override val settingsRequests =
-        com.helix.app.settings
-            .HelixSettingsRequests()
-
     override val profileStore: SafetyProfileStore =
         PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
 
@@ -673,15 +669,23 @@ internal class DefaultAppContainer(
             executionOwnership,
             { chatService },
             scope = appScope,
+            resolveWorkspacePath = { path -> resolveFileScopePath(path, scopeRoots).toFile() },
         )
         com.helix.app.settings.HelixSettingsTool
             .register(toolRegistry) { this }
+        com.helix.app.tool
+            .migrateBuiltInToolAvailability(storage)
         AppAndroidTools.register(
             context,
             toolRegistry,
             object : EgressPolicyProvider {
                 override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, lanScopeStore.current())
             },
+        )
+        com.helix.app.tool.DeviceFileTools.register(
+            toolRegistry,
+            com.helix.app.tool
+                .DeviceFileHandoff(context, workspaceStore),
         )
     }
 

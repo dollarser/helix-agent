@@ -1,7 +1,7 @@
 package com.helix.tools.android
 
 /**
- * The synchronous port the `calendar.prepare_event` / `calendar.commit_event` tools (HXA-065)
+ * The synchronous port the `device.prepare_calendar_event` / `device.create_calendar_event` tools (HXA-065)
  * execute against.
  *
  * Production is [CalendarBridgeImpl] (Context-backed, in this module); unit tests inject a fake. The

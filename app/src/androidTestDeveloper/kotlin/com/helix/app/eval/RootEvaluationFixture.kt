@@ -94,8 +94,6 @@ internal class RootEvaluationFixture(
                 override fun acquire(request: ApprovalRequest) = ApprovalAcquisition.Denied
 
                 override fun consume(proof: ApprovalProof) = error("negative fixture cannot consume approval")
-
-                override fun reMint(proof: ApprovalProof): ApprovalProof? = null
             }
         val sink =
             object : AuditSink {

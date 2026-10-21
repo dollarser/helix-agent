@@ -120,7 +120,7 @@ class DouyinJourneyModelDeviceTest {
                                 "所有下载、安装、观看和卸载必须由你实际调用工具完成，最后说明观察到的结果。" +
                                 if (requestedBackend == "shizuku") {
                                     "本实例的Shizuku已启动并授权，无需打开其管理App。" +
-                                        "官方下载页在Chrome已验证可交互；本次优先通过android.open_uri和手机界面操作，" +
+                                        "官方下载页在Chrome已验证可交互；本次优先通过device.open_url和手机界面操作，" +
                                         "不必逆向或反复读取网页JavaScript。实际操作仍由你自主选择工具并完成。"
                                 } else {
                                     ""

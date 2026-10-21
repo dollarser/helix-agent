@@ -20,6 +20,35 @@ import org.junit.Test
 import java.time.Instant
 
 class McpToolDiscoveryTest {
+    @Test fun groupedSettingsAndDeviceToolsRemainDiscoverableInChinese() {
+        registerFixture(
+            com.helix.app.settings.HelixSettingsTool
+                .descriptor(),
+        )
+        registerFixture(
+            com.helix.tools.android.ClipboardReadTool
+                .descriptor(),
+        )
+        assertTrue(discovery.search("s", "设置 配置", 8).any { it.name.value == "settings.inspect" })
+        assertTrue(discovery.search("s", "剪贴板", 8).any { it.name.value == "device.clipboard_read" })
+    }
+
+    @Test fun standaloneQuestionToolKeepsItsShortNameAndDiscoveryCategory() {
+        registerFixture(
+            com.helix.app.chat.UserQuestionTool
+                .descriptor(),
+        )
+        assertTrue(discovery.search("s", "询问 用户", 8).any { it.name.value == "ask_user" })
+        assertEquals(
+            "user",
+            ToolDiscoveryMetadata
+                .of(
+                    com.helix.app.chat.UserQuestionTool
+                        .descriptor(),
+                ).category,
+        )
+    }
+
     @Test fun sessionHistoryCanBeDiscoveredInChineseWithoutDefaultOrCrossSessionExposure() {
         com.helix.app.chat.SessionToolDescriptors.names.forEach {
             registerFixture(

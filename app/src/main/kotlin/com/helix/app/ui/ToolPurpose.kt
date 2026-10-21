@@ -54,7 +54,21 @@ internal object ToolPurpose {
             "ui.wait" to R.string.tool_purpose_wait,
             "ui.device" to R.string.tool_purpose_device,
             "ui.gesture" to R.string.tool_purpose_gesture,
-            "android.open_uri" to R.string.tool_purpose_open_link,
+            "device.open_url" to R.string.tool_purpose_open_link,
+            "device.clipboard_read" to R.string.tool_purpose_clipboard_read,
+            "device.clipboard_write" to R.string.tool_purpose_clipboard_write,
+            "device.share_text" to R.string.tool_purpose_share_text,
+            "device.share_files" to R.string.tool_purpose_share_files,
+            "device.create_note" to R.string.tool_purpose_create_note,
+            "device.open_file" to R.string.tool_purpose_open_file,
+            "device.open_page" to R.string.tool_purpose_open_page,
+            "device.open_settings" to R.string.tool_purpose_open_settings,
+            "device.prepare_calendar_event" to R.string.tool_purpose_prepare_calendar_event,
+            "device.create_calendar_event" to R.string.tool_purpose_create_calendar_event,
+            "device.create_reminder" to R.string.tool_purpose_create_reminder,
+            "device.cancel_reminder" to R.string.tool_purpose_cancel_reminder,
+            "device.notifications_query" to R.string.tool_purpose_inspect,
+            "device.list_reminders" to R.string.tool_purpose_inspect,
         )
 
     private fun isRead(name: String): Boolean =

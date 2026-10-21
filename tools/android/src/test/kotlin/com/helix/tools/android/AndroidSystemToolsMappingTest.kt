@@ -83,7 +83,7 @@ class AndroidSystemToolsMappingTest {
         walk(c.output)
     }
 
-    // ── android.open_uri ──────────────────────────────────────────────────────────────────
+    // ── device.open_url ──────────────────────────────────────────────────────────────────
 
     @Test
     fun openUriOpenedEmitsOpenedWithEmptyReason() {
@@ -153,7 +153,7 @@ class AndroidSystemToolsMappingTest {
         assertTrue(f.detail.contains("url"))
     }
 
-    // ── android.open_settings ───────────────────────────────────────────────────────────────
+    // ── device.open_settings ───────────────────────────────────────────────────────────────
 
     @Test
     fun openSettingsOpenedEchoesTargetAndPackage() {
@@ -225,7 +225,7 @@ class AndroidSystemToolsMappingTest {
         assertEquals("settings page unavailable", out.getValue("reason").jsonPrimitive.content)
     }
 
-    // ── clipboard.read ─────────────────────────────────────────────────────────────────────
+    // ── device.clipboard_read ─────────────────────────────────────────────────────────────────────
 
     @Test
     fun clipboardReadEmitsTheBoundedText() {
@@ -268,7 +268,7 @@ class AndroidSystemToolsMappingTest {
         assertEquals("clipboard read failed", f.detail)
     }
 
-    // ── clipboard.write ────────────────────────────────────────────────────────────────────
+    // ── device.clipboard_write ────────────────────────────────────────────────────────────────────
 
     @Test
     fun clipboardWriteEmitsWrittenWithLength() {
@@ -337,11 +337,11 @@ class AndroidSystemToolsMappingTest {
         assertTrue(f.detail.contains("text"))
     }
 
-    // ── android.share ──────────────────────────────────────────────────────────────────────
+    // ── device.share_text ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun shareSharedEmitsSharedWithEmptyReason() {
-        bridge.shareResult = ShareOutcome(ShareStatus.SHARED, "")
+        bridge.shareResult = ShareOutcome(ShareStatus.CHOOSER_OPENED, "")
         val out =
             json(
                 run(
@@ -349,11 +349,11 @@ class AndroidSystemToolsMappingTest {
                     AndroidShareTool.executor(bridge),
                     buildJsonObject {
                         put("text", JsonPrimitive("hello"))
-                        put("subject", JsonPrimitive("greeting"))
+                        put("title", JsonPrimitive("greeting"))
                     },
                 ),
             )
-        assertEquals("shared", out.getValue("status").jsonPrimitive.content)
+        assertEquals("chooser-opened", out.getValue("status").jsonPrimitive.content)
         assertEquals("", out.getValue("reason").jsonPrimitive.content)
     }
 
@@ -404,7 +404,7 @@ class AndroidSystemToolsMappingTest {
             OpenSettingsOutcome(OpenSettingsStatus.OPENED, AndroidSettingsTarget.APP_DETAILS, "com.example.app", "")
         bridge.clipReadResult = ClipboardReadOutcome(ClipboardReadStatus.READ, "abc", 3, false, "")
         bridge.clipWriteResult = ClipboardWriteOutcome(ClipboardWriteStatus.WRITTEN, 3, "")
-        bridge.shareResult = ShareOutcome(ShareStatus.SHARED, "")
+        bridge.shareResult = ShareOutcome(ShareStatus.CHOOSER_OPENED, "")
 
         assertNoNulls(
             run(
@@ -535,11 +535,11 @@ class AndroidSystemToolsMappingTest {
 
     @Test
     fun descriptorsCarryTheExpectedContract() {
-        checkDescriptor(AndroidOpenUriTool.descriptor(), "android.open_uri")
-        checkDescriptor(AndroidOpenSettingsTool.descriptor(), "android.open_settings")
-        checkDescriptor(ClipboardReadTool.descriptor(), "clipboard.read")
-        checkDescriptor(ClipboardWriteTool.descriptor(), "clipboard.write")
-        checkDescriptor(AndroidShareTool.descriptor(), "android.share")
+        checkDescriptor(AndroidOpenUriTool.descriptor(), "device.open_url")
+        checkDescriptor(AndroidOpenSettingsTool.descriptor(), "device.open_settings")
+        checkDescriptor(ClipboardReadTool.descriptor(), "device.clipboard_read")
+        checkDescriptor(ClipboardWriteTool.descriptor(), "device.clipboard_write")
+        checkDescriptor(AndroidShareTool.descriptor(), "device.share_text")
     }
 
     @Test

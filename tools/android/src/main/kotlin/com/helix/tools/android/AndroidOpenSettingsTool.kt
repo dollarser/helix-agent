@@ -16,7 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object AndroidOpenSettingsTool {
-    const val NAME: String = "android.open_settings"
+    const val NAME: String = "device.open_settings"
     const val VERSION: Int = 1
 
     private val targets = AndroidSettingsTarget.entries.map { it.wire }
@@ -113,7 +113,7 @@ object AndroidOpenSettingsTool {
         val request =
             parseRequest(call.args)
                 ?: return ToolExecutorResult.Failed(
-                    "invalid 'android.open_settings' arguments: expected a supported action and valid packageName",
+                    "invalid 'device.open_settings' arguments: expected a supported action and valid packageName",
                 )
         return mapOutcome(bridge.openSettings(request.action, request.packageName))
     }

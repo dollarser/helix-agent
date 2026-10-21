@@ -169,7 +169,7 @@ object BuiltInSkills {
                     # Notification digest
 
                     1. Require the user to select applications and a concrete time window.
-                    2. Call `notifications.query` with those exact bounds; notification access is
+                    2. Call `device.notifications_query` with those exact bounds; notification access is
                        only a Capability gate and does not grant other effects.
                     3. Group by application and topic, preserve sender and time only when needed,
                        and flag uncertain duplicates.

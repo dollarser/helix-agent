@@ -1532,12 +1532,6 @@
     <string name="provider_discovery_failed">无法获取模型列表，请检查地址和凭据，或手输模型 ID。</string>
     <string name="provider_context_load_failed">无法检测上下文窗口。已读取的设置仍可编辑，或重试检测。</string>
     <string name="provider_form_protocol">接口协议：%1$s</string>
-    <string name="helix_settings_proposal_title">设置建议</string>
-    <string name="helix_settings_proposal_body">模型建议调整当前会话设置。确认后用于后续请求，不会授予权限或自动开启高级模式。</string>
-    <string name="helix_settings_proposal_failed">设置未更改。会话忙碌、模型不可用或选项已变化，请检查后重试。</string>
-    <string name="helix_settings_open">打开设置</string>
-    <string name="helix_settings_apply">确认修改</string>
-    <string name="helix_settings_reasoning">思考强度</string>
     <string name="chat_command_standalone">请单独发送命令；任务内容请在切换模式后发送。</string>
     <string name="chat_command_wait">当前任务结束后再发送此命令。</string>
     <string name="chat_command_compact_unavailable">当前无法压缩：请先完成发送或处理附件。</string>
@@ -2084,4 +2078,16 @@
     <string name="speech_ws_enable">持续流式语音（WebSocket）</string>
     <string name="speech_ws_description">登录后连接云端服务，上传 PCM 音频并增量显示识别结果；同一回答持续传入文字并边收边播。取消关闭连接，不取消 Agent。</string>
     <string name="speech_model_busy">语音模型繁忙，请稍后手动重试。取消后的推理可能仍在收尾。</string>
+    <string name="tool_purpose_clipboard_read">读取剪贴板</string>
+    <string name="tool_purpose_clipboard_write">写入剪贴板</string>
+    <string name="tool_purpose_share_text">分享文本</string>
+    <string name="tool_purpose_share_files">分享文件</string>
+    <string name="tool_purpose_create_note">交给备忘录应用保存</string>
+    <string name="tool_purpose_open_file">选择应用打开文件</string>
+    <string name="tool_purpose_open_page">打开 Helix 页面</string>
+    <string name="tool_purpose_open_settings">打开系统设置</string>
+    <string name="tool_purpose_prepare_calendar_event">准备日历草稿</string>
+    <string name="tool_purpose_create_calendar_event">创建日历事件</string>
+    <string name="tool_purpose_create_reminder">创建通知提醒</string>
+    <string name="tool_purpose_cancel_reminder">取消通知提醒</string>
 </resources>

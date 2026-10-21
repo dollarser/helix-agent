@@ -239,7 +239,7 @@ class FixedGoalEvaluationDeviceTest {
         val approvalBlocked =
             awaitingApproval(turn.id) &&
                 calls
-                    .filter { it.name !in setOf("get_goal", "update_goal", "goal.report") }
+                    .filter { it.name !in setOf("goal.get", "goal.update", "goal.report") }
                     .none { it.state == "RUNNING" || it.state == "COMPLETED" }
         val passed =
             reached && !target.exists() &&
@@ -351,7 +351,7 @@ class FixedGoalEvaluationDeviceTest {
                 .listBySession(turn.sessionId)
                 .size == 1 &&
             calls.all {
-                it.state == "COMPLETED" && it.name in setOf("get_goal", "update_goal", "goal.report")
+                it.state == "COMPLETED" && it.name in setOf("goal.get", "goal.update", "goal.report")
             }
     }
 

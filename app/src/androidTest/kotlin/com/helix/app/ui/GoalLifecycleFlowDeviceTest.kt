@@ -196,9 +196,9 @@ class GoalLifecycleFlowDeviceTest {
                     container.storage.turns.listBySession(session).flatMap {
                         container.storage.toolCalls.listByTurn(it.id)
                     }
-                assertTrue(calls.any { it.name == "get_goal" && it.state == "COMPLETED" })
-                assertTrue(calls.any { it.name == "update_goal" && it.state == "COMPLETED" })
-                if (createWithTool) assertTrue(calls.any { it.name == "create_goal" && it.state == "COMPLETED" })
+                assertTrue(calls.any { it.name == "goal.get" && it.state == "COMPLETED" })
+                assertTrue(calls.any { it.name == "goal.update" && it.state == "COMPLETED" })
+                if (createWithTool) assertTrue(calls.any { it.name == "goal.create" && it.state == "COMPLETED" })
                 if (background) {
                     assertNotNull(firstService)
                     services.drop(1).forEach { assertSame("FGS must bridge the round boundary", firstService, it) }
@@ -221,7 +221,7 @@ class GoalLifecycleFlowDeviceTest {
     private fun response(step: Int, request: String, create: Boolean): String {
         if (create && step == 0) {
             return tool(
-                "create_goal",
+                "goal.create",
                 buildJsonObject {
                     put("objective", "Answer 2 + 2")
                     put("user_request", "Please create a goal and answer 2 + 2.")
@@ -233,7 +233,7 @@ class GoalLifecycleFlowDeviceTest {
         val roundStep = if (create) step - 2 else step
         return when (roundStep % 3) {
             0 -> {
-                tool("get_goal", buildJsonObject {}, step)
+                tool("goal.get", buildJsonObject {}, step)
             }
 
             1 -> {
@@ -252,7 +252,7 @@ class GoalLifecycleFlowDeviceTest {
                 val result = Json.parseToJsonElement(content.removePrefix("[SUCCEEDED] ")).jsonObject
                 val goal = findGoal(result)
                 tool(
-                    "update_goal",
+                    "goal.update",
                     buildJsonObject {
                         put("id", goal.getValue("id"))
                         put("expected_revision", goal.getValue("revision"))

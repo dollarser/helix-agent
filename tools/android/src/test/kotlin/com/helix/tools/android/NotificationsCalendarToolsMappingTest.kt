@@ -87,7 +87,7 @@ class NotificationsCalendarToolsMappingTest {
         walk(c.output)
     }
 
-    // ── notifications.query ───────────────────────────────────────────────────────────────
+    // ── device.notifications_query ───────────────────────────────────────────────────────────────
 
     @Test
     fun queryEmitsQueriedWithBoundedEntries() {
@@ -263,7 +263,7 @@ class NotificationsCalendarToolsMappingTest {
         assertTrue(tooWide is ToolExecutorResult.Failed)
     }
 
-    // ── calendar.prepare_event ────────────────────────────────────────────────────────────
+    // ── device.prepare_calendar_event ────────────────────────────────────────────────────────────
 
     @Test
     fun preparePreparedEmitsTheDraft() {
@@ -388,7 +388,7 @@ class NotificationsCalendarToolsMappingTest {
         assertTrue(noStart is ToolExecutorResult.Failed)
     }
 
-    // ── calendar.commit_event ─────────────────────────────────────────────────────────────
+    // ── device.create_calendar_event ─────────────────────────────────────────────────────────────
 
     @Test
     fun commitCommittedEmitsTheEventId() {
@@ -541,15 +541,15 @@ class NotificationsCalendarToolsMappingTest {
     @Test
     fun descriptorsCarryTheExpectedContract() {
         val q = NotificationsQueryTool.descriptor()
-        checkBase(q, "notifications.query")
+        checkBase(q, "device.notifications_query")
         assertEquals(ToolOperationClass.READ_ONLY, q.operationClass)
 
         val p = CalendarPrepareEventTool.descriptor()
-        checkBase(p, "calendar.prepare_event")
+        checkBase(p, "device.prepare_calendar_event")
         assertEquals(ToolOperationClass.READ_ONLY, p.operationClass)
 
         val c = CalendarCommitEventTool.descriptor()
-        checkBase(c, "calendar.commit_event")
+        checkBase(c, "device.create_calendar_event")
         assertEquals(ToolOperationClass.EXTERNAL_ACTION, c.operationClass)
     }
 

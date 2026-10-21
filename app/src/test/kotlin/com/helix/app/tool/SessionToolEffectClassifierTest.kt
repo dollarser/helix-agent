@@ -28,6 +28,18 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun deviceFileHandoffRetainsBothScopedReadsAndDeviceAuthorization() {
+        val effects =
+            SessionToolEffectClassifier { "scope:ws:project" }
+                .classify(
+                    request("""{"paths":["scope:ws:project/image.png","scope:other:report.pdf"]}"""),
+                    DeviceFileTools.descriptor(false),
+                ).footprint
+        assertEquals(setOf(OperationEffect.FILE_READ_WORKSPACE, OperationEffect.FILE_READ_EXTERNAL), effects.effects)
+        assertEquals(setOf(OperationEffect.DEVICE_SYSTEM_MUTATION), effects.undeterminedEffects)
+        assertFalse(DeviceFileTools.descriptor(false).operationClass.isReviewModeAdmitted)
+    }
+
     @Test fun sessionRenameIsARealMutationWhileHistoryRemainsReadOnly() {
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
         val rename =

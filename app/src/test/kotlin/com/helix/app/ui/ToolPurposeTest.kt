@@ -12,7 +12,7 @@ class ToolPurposeTest {
         assertEquals(R.string.tool_purpose_click, ToolPurpose.actionRes("ui.click_match"))
         assertEquals(R.string.tool_purpose_input, ToolPurpose.actionRes("ui.set_text"))
         assertEquals(R.string.tool_purpose_back, ToolPurpose.actionRes("ui.back"))
-        assertEquals(R.string.tool_purpose_open_link, ToolPurpose.actionRes("android.open_uri"))
+        assertEquals(R.string.tool_purpose_open_link, ToolPurpose.actionRes("device.open_url"))
         assertEquals(R.string.tool_purpose_interact, ToolPurpose.actionRes("ui.future_action"))
         assertEquals(R.string.tool_purpose_execute, ToolPurpose.actionRes("custom.operation"))
         assertNull(ToolPurpose.target("""{"text":"private input","targetToken":"opaque-node-id"}"""))

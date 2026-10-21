@@ -118,7 +118,7 @@ class MobileUseWechatPilotDeviceTest {
                 awaitMobileUseProjection(session)
 
                 exposed = exposedEvaluationTools(container, AgentMode.ACT)
-                check("android.open_uri" in exposed) { "android.open_uri missing from active Mobile Use surface" }
+                check("device.open_url" in exposed) { "device.open_url missing from active Mobile Use surface" }
                 check("ui.snapshot" in exposed && "tools.search" in exposed) { "Mobile Use discovery is unavailable" }
                 check(
                     container.toolPipeline.registry
@@ -191,8 +191,8 @@ class MobileUseWechatPilotDeviceTest {
                                 },
                             ),
                         )
-                        put("usedOpenUri", calls.any { it.name == "android.open_uri" })
-                        put("usedOpenSettings", calls.any { it.name == "android.open_settings" })
+                        put("usedOpenUri", calls.any { it.name == "device.open_url" })
+                        put("usedOpenSettings", calls.any { it.name == "device.open_settings" })
                         put("usedImeEnter", calls.any { it.name == "ui.ime_enter" })
                         put(
                             "usedSetTextSubmit",

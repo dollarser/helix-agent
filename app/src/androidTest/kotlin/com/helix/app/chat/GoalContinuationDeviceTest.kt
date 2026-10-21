@@ -177,7 +177,7 @@ class GoalContinuationDeviceTest {
             val result =
                 service.execute(
                     call(
-                        "create_goal",
+                        "goal.create",
                         "create",
                         """{"objective":"Finish work","user_request":"please"}""",
                     ),
@@ -204,13 +204,13 @@ class GoalContinuationDeviceTest {
             turn(storage, "edit")
             val args = """{"id":"$goal","expected_revision":0,"objective":"Changed","user_request":"please"}"""
             val automatic = service(storage, human = false)
-            assertTrue(automatic.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Failed)
+            assertTrue(automatic.execute(call("goal.update", "edit", args)) is ToolExecutorResult.Failed)
             assertTrue(
-                service.execute(call("update_goal", "edit", args).copy(sessionId = "foreign"))
+                service.execute(call("goal.update", "edit", args).copy(sessionId = "foreign"))
                     is ToolExecutorResult.Failed,
             )
-            assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Completed)
-            assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Failed)
+            assertTrue(service.execute(call("goal.update", "edit", args)) is ToolExecutorResult.Completed)
+            assertTrue(service.execute(call("goal.update", "edit", args)) is ToolExecutorResult.Failed)
             assertEquals("Original", storage.goals.resolve(goal).objective)
             TurnRecovery(storage, clock).recover()
             assertNull(storage.goalControls.find(goal)?.pendingJson)
@@ -225,7 +225,7 @@ class GoalContinuationDeviceTest {
             val edit = turn(storage, "edit")
             val args = """{"id":"$goal","expected_revision":0,"objective":"Changed",
             "budgets":{"max_goal_rounds":20},"user_request":"please"}"""
-            assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Completed)
+            assertTrue(service.execute(call("goal.update", "edit", args)) is ToolExecutorResult.Completed)
             edit.beginModelStream()
             edit.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             service.settle("edit")
@@ -240,7 +240,7 @@ class GoalContinuationDeviceTest {
             assertTrue(
                 service.execute(
                     call(
-                        "update_goal",
+                        "goal.update",
                         "cancel",
                         """{"id":"$goal","expected_revision":2,"objective":"Lost","user_request":"please"}""",
                     ),
@@ -307,7 +307,7 @@ class GoalContinuationDeviceTest {
             val result =
                 service(storage).execute(
                     call(
-                        "update_goal",
+                        "goal.update",
                         "edit",
                         """{"id":"$goal","expected_revision":1,"objective":"Changed","user_request":"please"}""",
                     ),

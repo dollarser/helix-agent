@@ -102,6 +102,27 @@ class SessionToolEffectClassifier(
     ): CallEffectClassification {
         val name = descriptor.name.value
         return when {
+            descriptor.isDeviceFileHandoff() -> {
+                val references = (request.args["paths"] as? JsonArray).orEmpty()
+                val reads =
+                    references.map { reference ->
+                        fileFootprint(
+                            name,
+                            JsonObject(mapOf("path" to reference)),
+                            request.sessionId,
+                            readTool = true,
+                        ).footprint
+                    }
+                CallEffectClassification(
+                    OperationFootprint(
+                        effects = reads.flatMap { it.effects }.toSet(),
+                        undeterminedEffects =
+                            reads.flatMap { it.undeterminedEffects }.toSet() +
+                                OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    ),
+                )
+            }
+
             descriptor.origin is ToolOrigin.McpOrigin || descriptor.origin is ToolOrigin.A2aOrigin -> {
                 undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
             }
@@ -308,8 +329,8 @@ class SessionToolEffectClassifier(
                     .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL } +
                 mapOf(
                     "session.rename" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "helix.settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "android.open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "device.open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                 )
 
         const val LINUX_RUN: String = "code.linux.run"
@@ -347,3 +368,6 @@ class SessionToolEffectClassifier(
         private val TARGET_KEYS: Set<String> = setOf("path", "destination")
     }
 }
+
+private fun ToolDescriptor.isDeviceFileHandoff(): Boolean =
+    origin == ToolOrigin.BuiltInOrigin && name.value in setOf(DeviceFileTools.SHARE, DeviceFileTools.OPEN)

@@ -18,7 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object CalendarCommitEventTool {
-    const val NAME: String = "calendar.commit_event"
+    const val NAME: String = "device.create_calendar_event"
 
     const val VERSION: Int = 1
 
@@ -27,7 +27,7 @@ object CalendarCommitEventTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Commit a previously prepared calendar-event draft (calendar.prepare_event) to the " +
+                "Commit a previously prepared calendar-event draft (device.prepare_calendar_event) to the " +
                     "system Calendar Provider. This is the write step: it needs the WRITE_CALENDAR " +
                     "permission and authorization under the current session rules. Refused with status " +
                     "'permission-missing' when the permission is not granted, 'draft-not-found' when the " +
@@ -38,7 +38,7 @@ object CalendarCommitEventTool {
                         buildJsonObject {
                             put(
                                 "draftId",
-                                stringSchema(MAX_DRAFT_ID, "The draftId returned by calendar.prepare_event."),
+                                stringSchema(MAX_DRAFT_ID, "The draftId returned by device.prepare_calendar_event."),
                             )
                         },
                     required = listOf("draftId"),
@@ -86,7 +86,7 @@ object CalendarCommitEventTool {
                 val draftId =
                     strArg(call.args, "draftId", MAX_DRAFT_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'calendar.commit_event' arguments: 'draftId' must be a non-empty string",
+                            "invalid 'device.create_calendar_event' arguments: 'draftId' must be a non-empty string",
                         )
                 val out = bridge.commitEvent(draftId)
                 val status =

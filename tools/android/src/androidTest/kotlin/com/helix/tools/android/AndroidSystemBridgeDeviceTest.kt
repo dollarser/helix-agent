@@ -22,9 +22,9 @@ import org.junit.runner.RunWith
  *   bound are unit-tested on the JVM — a library's instrumented test runs in a background test app
  *   with no visible Activity, and API 29+ redacts `getPrimaryClip` for a non-foreground app, so an
  *   on-device read-back would be flaky by construction.)
- * - `android.open_uri` builds the REAL `ACTION_VIEW` intent (correct data + `CATEGORY_BROWSABLE`)
+ * - `device.open_url` builds the REAL `ACTION_VIEW` intent (correct data + `CATEGORY_BROWSABLE`)
  *   and launches it, but REFUSES every non-http(s) scheme WITHOUT building/launching any intent;
- * - `android.share` builds the REAL `ACTION_CHOOSER` wrapping an `ACTION_SEND` carrying the share
+ * - `device.share_text` builds the REAL `ACTION_CHOOSER` wrapping an `ACTION_SEND` carrying the share
  *   text (and subject), never picking a target app.
  *
  * The [ForegroundProbe] and [IntentLauncher] are injected so the test asserts the real intent
@@ -83,7 +83,7 @@ class AndroidSystemBridgeDeviceTest {
         assertEquals(0, written.length)
     }
 
-    // ── android.open_uri: real ACTION_VIEW, http/https only ───────────────────────────────
+    // ── device.open_url: real ACTION_VIEW, http/https only ───────────────────────────────
 
     @Test
     fun openUriLaunchesAnActionViewIntentWithTheHttpUrl() {
@@ -111,7 +111,7 @@ class AndroidSystemBridgeDeviceTest {
         }
     }
 
-    // ── android.open_settings: package-specific system Settings ───────────────────────────
+    // ── device.open_settings: package-specific system Settings ───────────────────────────
 
     @Test
     fun openUnknownAppSourcesBuildsThePackageSpecificSettingsIntent() {
@@ -133,12 +133,12 @@ class AndroidSystemBridgeDeviceTest {
         assertEquals("package:com.example.app", intent.dataString)
     }
 
-    // ── android.share: real ACTION_CHOOSER wrapping ACTION_SEND ────────────────────────────
+    // ── device.share_text: real ACTION_CHOOSER wrapping ACTION_SEND ────────────────────────────
 
     @Test
     fun shareBuildsAChooserWrappingActionSendWithTheTextAndSubject() {
         val out = bridge.share("hello world", "greeting")
-        assertEquals(ShareStatus.SHARED, out.status)
+        assertEquals(ShareStatus.CHOOSER_OPENED, out.status)
         val chooser = launcher.lastIntent
         assertTrue("the launcher must be invoked for a share", chooser != null)
         assertEquals(Intent.ACTION_CHOOSER, chooser!!.action)

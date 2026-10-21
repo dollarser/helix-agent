@@ -130,7 +130,7 @@ internal object HelixNotificationStore {
 }
 
 /**
- * The system [NotificationListenerService] that makes `notifications.query` actually able to read
+ * The system [NotificationListenerService] that makes `device.notifications_query` actually able to read
  * other apps' active notifications. It only runs once the user enables "Notification access" for Helix
  * in system settings (doc 09 §11); until then it is never bound and [RealNotificationPermissionProbe]
  * reports not-enabled, so the query returns PERMISSION_MISSING. It maintains [HelixNotificationStore]

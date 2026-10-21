@@ -14,6 +14,21 @@ class ToolAvailabilityRepositoryTest {
     private val dao = FakeToolAvailabilityDao()
     private val repository = ToolAvailabilityRepository(dao)
 
+    @Test fun toolReplacementMovesDisabledChoicesWithoutAliasesAndIsIdempotent() {
+        repository.set("built-in", "old", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 10)
+        repository.set("built-in", "new", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.ENABLED, 20)
+        repository.set("mcp:other", "old", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.ENABLED, 30)
+        val replacements = mapOf("old" to setOf("new", "split"))
+        repository.moveToolStates("built-in", replacements)
+        assertEquals(emptyList<ToolAvailabilityEntity>(), repository.byTool("built-in", "old"))
+        assertEquals("DISABLED", repository.byTool("built-in", "new").single().state)
+        assertEquals("DISABLED", repository.byTool("built-in", "split").single().state)
+        assertEquals("ENABLED", repository.byTool("mcp:other", "old").single().state)
+        val first = repository.byTool("built-in", "new")
+        repository.moveToolStates("built-in", replacements)
+        assertEquals(first, repository.byTool("built-in", "new"))
+    }
+
     @Test fun sourceNormalizationPreservesDisabledScopesAndDoesNotResetRevisions() {
         val old = "plugin:mobile-use:0.2.0:mobile-use"
         val stable = "plugin:mobile-use:mobile-use"

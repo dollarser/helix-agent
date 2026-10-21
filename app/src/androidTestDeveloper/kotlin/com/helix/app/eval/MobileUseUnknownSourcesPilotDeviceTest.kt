@@ -143,11 +143,11 @@ class MobileUseUnknownSourcesPilotDeviceTest {
                         put("chromeInstallAppOp", appOp)
                         put("permissionAllowed", allowed)
                         put("assistantText", assistantText)
-                        put("usedOpenSettings", calls.any { it.name == "android.open_settings" })
+                        put("usedOpenSettings", calls.any { it.name == "device.open_settings" })
                         put(
                             "openedGooglePlay",
                             calls.any {
-                                it.name == "android.open_uri" && it.argsJson.contains("play.google.com")
+                                it.name == "device.open_url" && it.argsJson.contains("play.google.com")
                             },
                         )
                         put(
@@ -185,12 +185,12 @@ class MobileUseUnknownSourcesPilotDeviceTest {
                 check(failure == null) { requireNotNull(failure) }
                 assertTrue("Chrome unknown-app-source permission was not enabled; evidence=$evidenceFile", allowed)
                 assertTrue(
-                    "Model never used android.open_settings; evidence=$evidenceFile",
-                    calls.any { it.name == "android.open_settings" },
+                    "Model never used device.open_settings; evidence=$evidenceFile",
+                    calls.any { it.name == "device.open_settings" },
                 )
                 assertFalse(
                     "Model incorrectly fell back to Google Play; evidence=$evidenceFile",
-                    calls.any { it.name == "android.open_uri" && it.argsJson.contains("play.google.com") },
+                    calls.any { it.name == "device.open_url" && it.argsJson.contains("play.google.com") },
                 )
             }
         }

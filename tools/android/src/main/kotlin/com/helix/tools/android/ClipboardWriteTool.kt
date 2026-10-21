@@ -18,7 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object ClipboardWriteTool {
-    const val NAME: String = "clipboard.write"
+    const val NAME: String = "device.clipboard_write"
 
     const val VERSION: Int = 1
 
@@ -73,7 +73,7 @@ object ClipboardWriteTool {
                 val text =
                     strArg(call.args, "text", MAX_CLIPBOARD_WRITE)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'clipboard.write' arguments: 'text' must be a non-empty string",
+                            "invalid 'device.clipboard_write' arguments: 'text' must be a non-empty string",
                         )
                 val out = bridge.clipboardWrite(text)
                 val status =

@@ -62,7 +62,7 @@ class FutureSessionDefaultsDeviceTest {
             db.sessionDao().insert(SessionEntity("s", "Fixture", "p", "model-a", 1, null))
             db.turnDao().insert(TurnEntity("t", "s", "RUNNING_TOOL", 0, 1, null, null))
             db.toolCallDao().insert(
-                ToolCallEntity("c", "t", "c", "helix.settings.apply", "1", "{}", "a".repeat(64), "RUNNING"),
+                ToolCallEntity("c", "t", "c", "settings.apply", "1", "{}", "a".repeat(64), "RUNNING"),
             )
             db.turnRuntimeRecordDao().insert(
                 TurnRuntimeRecordEntity(

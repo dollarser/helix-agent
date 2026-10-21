@@ -20,7 +20,7 @@ import kotlin.time.Duration.Companion.seconds
 /** Model-owned semantic report. The host validates ownership, never certifies its truth. */
 internal object GoalReportTool {
     const val NAME = "goal.report"
-    const val UPDATE_NAME = "update_goal"
+    const val UPDATE_NAME = "goal.update"
     private val schema =
         Json
             .parseToJsonElement(

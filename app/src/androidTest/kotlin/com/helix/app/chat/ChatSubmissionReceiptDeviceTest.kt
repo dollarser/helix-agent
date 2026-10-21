@@ -440,7 +440,7 @@ class ChatSubmissionReceiptDeviceTest {
 
     @Test
     @Suppress("LongMethod") // Executor proposal, session boundary, visible confirmation and atomic rejection.
-    fun settingsMutationRequiresAuthorizedApplyInsteadOfLegacyProposal() =
+    fun settingsInspectionCannotMutateAndApplyRejectsStaleExecution() =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -455,17 +455,13 @@ class ChatSubmissionReceiptDeviceTest {
                         10_000,
                     ) { chat.screen.value.openSessionId == session && !chat.screen.value.isDraft }
                     val before = chat.runControl.value.mode
-                    val proposal =
-                        com.helix.app.settings.HelixSettingsRequests.Proposal(
-                            "settings-test",
-                            session,
-                            buildJsonObject {
-                                put("action", "propose")
-                                put("mode", "PLAN")
-                                put("reasoning", "OFF")
-                                put("providerId", provider)
-                            },
-                        )
+                    val invalidInspection =
+                        buildJsonObject {
+                            put("action", "propose")
+                            put("mode", "PLAN")
+                            put("reasoning", "OFF")
+                            put("providerId", provider)
+                        }
                     val registry =
                         com.helix.tools.framework
                             .ToolRegistry()
@@ -474,16 +470,16 @@ class ChatSubmissionReceiptDeviceTest {
                     val executor =
                         registry.executor(
                             com.helix.core.model
-                                .ToolName("helix.settings"),
+                                .ToolName("settings.inspect"),
                             com.helix.core.model
                                 .ToolVersion(1),
                         )
                     val call =
                         com.helix.tools.framework.ExecutableToolCall(
-                            proposal.id,
-                            "helix.settings",
+                            "settings-test",
+                            "settings.inspect",
                             "1",
-                            proposal.values,
+                            invalidInspection,
                             com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
                             java.time.Instant
                                 .now()
@@ -497,20 +493,18 @@ class ChatSubmissionReceiptDeviceTest {
                         com.helix.tools.framework.ToolExecutorResult.TimedOut,
                         executor.execute(call.copy(deadline = java.time.Instant.EPOCH)),
                     )
-                    assertTrue(requireNotNull(container.settingsRequests).pending.value.isEmpty())
                     assertTrue(executor.execute(call) is com.helix.tools.framework.ToolExecutorResult.Failed)
-                    assertTrue(requireNotNull(container.settingsRequests).pending.value.isEmpty())
                     assertEquals(before, chat.runControl.value.mode)
                     val applyExecutor =
                         registry.executor(
                             com.helix.core.model
-                                .ToolName("helix.settings.apply"),
+                                .ToolName("settings.apply"),
                             com.helix.core.model
                                 .ToolVersion(1),
                         )
                     val applyCall =
                         call.copy(
-                            toolName = "helix.settings.apply",
+                            toolName = "settings.apply",
                             args = buildJsonObject { put("mode", "PLAN") },
                             turnId = "stale-turn",
                         )
@@ -531,9 +525,6 @@ class ChatSubmissionReceiptDeviceTest {
                     assertEquals(com.helix.core.model.AgentMode.PLAN, chat.runControl.value.mode)
                     assertEquals(com.helix.core.model.SafetyProfile.STANDARD, container.profileStore.profile)
                 } finally {
-                    container.settingsRequests?.pending?.value?.filter { it.sessionId == session }?.forEach {
-                        container.settingsRequests?.remove(it.id)
-                    }
                     chat.closeSession()
                     container.providerService.delete(provider)
                 }

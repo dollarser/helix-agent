@@ -24,7 +24,7 @@ internal const val ANDROID_SYSTEM_REFUSED: String = "refused"
 internal const val ST_NO_HANDLER: String = "no-handler"
 internal const val ST_READ: String = "read"
 internal const val ST_WRITTEN: String = "written"
-internal const val ST_SHARED: String = "shared"
+internal const val ST_CHOOSER_OPENED: String = "chooser-opened"
 
 // ---------------------------------------------------------------------------
 // Small schema + argument helpers (internal, shared with the notifications/calendar tools),
@@ -95,19 +95,19 @@ internal fun bounded(detail: String): String {
 }
 
 // ===========================================================================
-// android.open_uri — open an http/https URL in the system handler (只打开)
+// device.open_url — open an http/https URL in the system handler (只打开)
 // ===========================================================================
 
 // ===========================================================================
-// clipboard.read — read the system clipboard (gated by visible-foreground)
+// device.clipboard_read — read the system clipboard (gated by visible-foreground)
 // ===========================================================================
 
 // ===========================================================================
-// clipboard.write — write text to the system clipboard (gated by visible-foreground)
+// device.clipboard_write — write text to the system clipboard (gated by visible-foreground)
 // ===========================================================================
 
 // ===========================================================================
-// android.share — share text via the system chooser (分享输入先预览)
+// device.share_text — share text via the system chooser (分享输入先预览)
 // ===========================================================================
 
 // ===========================================================================
@@ -129,5 +129,6 @@ object AndroidSystemTools {
         ClipboardReadTool.register(registry, bridge)
         ClipboardWriteTool.register(registry, bridge)
         AndroidShareTool.register(registry, bridge)
+        DeviceCreateNoteTool.register(registry, bridge)
     }
 }

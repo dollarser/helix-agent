@@ -1534,12 +1534,6 @@
     <string name="provider_discovery_failed">Could not fetch models. Check the endpoint and credentials, or enter a model ID.</string>
     <string name="provider_context_load_failed">Could not load context settings or detect the window. Retry, or edit settings that loaded successfully.</string>
     <string name="provider_form_protocol">Protocol: %1$s</string>
-    <string name="helix_settings_proposal_title">Suggested settings</string>
-    <string name="helix_settings_proposal_body">Apply these settings to future requests in this conversation? Permissions and Advanced mode will not change.</string>
-    <string name="helix_settings_proposal_failed">Settings were not changed. The conversation is busy or a model or option is unavailable.</string>
-    <string name="helix_settings_open">Open settings</string>
-    <string name="helix_settings_apply">Apply settings</string>
-    <string name="helix_settings_reasoning">Reasoning effort</string>
     <string name="chat_command_standalone">Send the command on its own, then send your task after switching modes.</string>
     <string name="chat_command_wait">Send this command after the current task finishes.</string>
     <string name="chat_command_compact_unavailable">Compaction is unavailable. Finish the current request or handle attachments first.</string>
@@ -2087,4 +2081,16 @@
     <string name="speech_ws_enable">Continuous speech (WebSocket)</string>
     <string name="speech_ws_description">Sign in to stream PCM audio and receive partial transcripts. One connection receives visible answer text while playing incoming audio. Stopping speech closes the connection without cancelling the Agent.</string>
     <string name="speech_model_busy">Speech model is busy. Wait briefly before retrying; cancelled inference may still be finishing.</string>
+    <string name="tool_purpose_clipboard_read">Read clipboard</string>
+    <string name="tool_purpose_clipboard_write">Write clipboard</string>
+    <string name="tool_purpose_share_text">Share text</string>
+    <string name="tool_purpose_share_files">Share files</string>
+    <string name="tool_purpose_create_note">Save through a notes app</string>
+    <string name="tool_purpose_open_file">Open file with an app</string>
+    <string name="tool_purpose_open_page">Open Helix page</string>
+    <string name="tool_purpose_open_settings">Open system settings</string>
+    <string name="tool_purpose_prepare_calendar_event">Prepare calendar draft</string>
+    <string name="tool_purpose_create_calendar_event">Create calendar event</string>
+    <string name="tool_purpose_create_reminder">Create notification reminder</string>
+    <string name="tool_purpose_cancel_reminder">Cancel notification reminder</string>
 </resources>

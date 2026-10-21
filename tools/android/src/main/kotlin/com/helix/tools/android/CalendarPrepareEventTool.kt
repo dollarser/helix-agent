@@ -18,7 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object CalendarPrepareEventTool {
-    const val NAME: String = "calendar.prepare_event"
+    const val NAME: String = "device.prepare_calendar_event"
 
     const val VERSION: Int = 1
 
@@ -31,7 +31,7 @@ object CalendarPrepareEventTool {
                 "Prepare (draft) a calendar event from structured fields. Draft-first: this only builds " +
                     "and holds a structured draft for the user to review (title/time/timezone/location/" +
                     "notes); it never writes to the calendar and needs no permission. Returns a draftId " +
-                    "to pass to calendar.commit_event.",
+                    "to pass to device.create_calendar_event.",
             inputSchema =
                 objectSchema(
                     properties =
@@ -101,17 +101,17 @@ object CalendarPrepareEventTool {
                 val title =
                     strArg(call.args, "title", MAX_EVENT_TITLE)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'calendar.prepare_event' arguments: 'title' must be a non-empty string",
+                            "invalid 'device.prepare_calendar_event' arguments: 'title' must be a non-empty string",
                         )
                 val start =
                     notificationsCalendarToolsIntArg(call.args, "startEpochMillis")
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'calendar.prepare_event' arguments: 'startEpochMillis' must be an integer",
+                            "invalid 'device.prepare_calendar_event' arguments: 'startEpochMillis' must be an integer",
                         )
                 val end =
                     notificationsCalendarToolsIntArg(call.args, "endEpochMillis")
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'calendar.prepare_event' arguments: 'endEpochMillis' must be an integer",
+                            "invalid 'device.prepare_calendar_event' arguments: 'endEpochMillis' must be an integer",
                         )
                 val location = (call.args["location"] as? JsonPrimitive)?.content.orEmpty()
                 val notes = (call.args["notes"] as? JsonPrimitive)?.content.orEmpty()

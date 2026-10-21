@@ -320,9 +320,9 @@ class GoalModelReportDeviceTest {
 
             val registry = ToolRegistry()
             GoalLifecycleTools.register(registry, owner::metadataExecutor, service::execute)
-            val read = owner.guard(registry.executor(ToolName("get_goal"), ToolVersion(1)))
+            val read = owner.guard(registry.executor(ToolName("goal.get"), ToolVersion(1)))
             assertTrue(
-                read.execute(executableReport().copy(toolName = "get_goal", args = buildJsonObject {}))
+                read.execute(executableReport().copy(toolName = "goal.get", args = buildJsonObject {}))
                     is ToolExecutorResult.Completed,
             )
             assertTrue(
@@ -335,10 +335,10 @@ class GoalModelReportDeviceTest {
                     ),
                 ),
             )
-            val update = owner.guard(registry.executor(ToolName("update_goal"), ToolVersion(1)))
+            val update = owner.guard(registry.executor(ToolName("goal.update"), ToolVersion(1)))
             val call =
                 executableReport().copy(
-                    toolName = "update_goal",
+                    toolName = "goal.update",
                     args =
                         buildJsonObject {
                             put("id", goal)

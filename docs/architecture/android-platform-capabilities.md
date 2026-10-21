@@ -316,8 +316,10 @@ P1 文件：files.copy/move/delete/archive/extract
 P1 浏览器：browser.open/navigate/back/forward/reload/snapshot/find,
            browser.click/type/scroll/screenshot/download
 
-P1 系统：android.open_uri, clipboard.read/write, notifications.query,
-         calendar.prepare_event/commit_event, android.share, android.app_info
+P1 系统：device.open_url/open_settings, device.clipboard_read/clipboard_write,
+         device.notifications_query, device.prepare_calendar_event/create_calendar_event,
+         device.share_text/share_files/open_file/create_note/open_page,
+         device.create_reminder/list_reminders/cancel_reminder
 
 P1 网络：http.fetch
 

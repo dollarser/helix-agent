@@ -63,3 +63,8 @@ Global 可独立使用；Project 依赖显式登记与会话关联，入口同�
 - 2026-10-04：所有者授权项目功能；启用显式 Project resolver、项目管理入口和独立自动维护开关，通过成员变更约束及原始活动调用核验保持在途项目身份。
 
 - 2026-09-27：所有者切换到 Memory 主线；确定 Global 首版、Project fail-closed seam 与用户控制的 Markdown 持久化，不启动本地模型。
+
+
+## Decision history — 2026-10-21：逐操作参数与结果契约
+
+Owner 授权优化工具描述和参数。`memory.*` 分别描述查询、读取、创建/替换、唯一文字编辑和删除；path 为逻辑记忆路径，hash/expectedHash 为内容 SHA-256。创建 sentinel `new` 仅允许 memory.write，编辑/删除必须为真实当前版本。输入字段补充说明，输出按操作严格声明，不改变 Markdown 存储、Global/Project 边界、权限分类或冲突处理。独立工具不强制增加命名空间。

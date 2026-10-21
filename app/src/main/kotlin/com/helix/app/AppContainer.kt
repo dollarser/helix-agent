@@ -41,7 +41,6 @@ internal const val APP_SCOPE_ID = "app"
 interface AppContainer {
     val scheduledAgents: com.helix.app.scheduled.ScheduledAgentService? get() = null
     val userQuestions: com.helix.app.chat.UserQuestionService? get() = null
-    val settingsRequests: com.helix.app.settings.HelixSettingsRequests? get() = null
     val storageUsage: com.helix.app.storage.StorageUsageService? get() = null
     val diagnosticReport: com.helix.app.diagnostics.DiagnosticReportService? get() = null
 

@@ -401,8 +401,6 @@ class ApprovalFlowTest {
         override fun consume(proof: ApprovalProof) {
             consumeCalls += proof
         }
-
-        override fun reMint(proof: ApprovalProof): ApprovalProof? = proof
     }
 
     private class RecordingSink : AuditSink {

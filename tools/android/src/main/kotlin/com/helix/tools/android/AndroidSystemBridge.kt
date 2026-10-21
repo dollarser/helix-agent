@@ -8,16 +8,16 @@ package com.helix.tools.android
  * small, bounded, no-null view objects; each tool maps one outcome to a Completed / Failed
  * ToolExecutorResult fail-closed — a policy refusal is a stable status, never a fake success.
  *
- * The security controls live in the impl, not the port (roadmap HXA-064, doc 09): `android.open_uri`
+ * The security controls live in the impl, not the port (roadmap HXA-064, doc 09): `device.open_url`
  * only opens (http/https → the OS picks the handler, never an auto-follow into a new app — §5.3);
- * `clipboard.read` / `clipboard.write` are refused unless the app is visible-foreground; and
- * `android.share` only builds + launches the ACTION_SEND chooser — the "preview first" of the share
+ * `device.clipboard_read` / `device.clipboard_write` are refused unless the app is visible-foreground; and
+ * `device.share_text` only builds + launches the ACTION_SEND chooser — the "preview first" of the share
  * input is the L2 approval card, which renders the full canonical arguments (the share text) before
  * the user approves (doc 02 §5.4). The port never throws for a page or system condition (only for a
  * genuine programming error).
  */
 interface AndroidSystemBridge {
-    /** Opens [url] in the device's system handler (doc 09: `android.open_uri` 只打开; http/https only). */
+    /** Opens [url] in the device's system handler (doc 09: `device.open_url` 只打开; http/https only). */
     fun openUri(url: String): OpenUriOutcome
 
     /** Opens a package-specific Android Settings page; it never changes the setting itself. */
@@ -33,7 +33,7 @@ interface AndroidSystemBridge {
     fun clipboardWrite(text: String): ClipboardWriteOutcome
 
     /**
-     * Shares [text] (optional [subject]) through the system chooser (doc 09: `android.share`). The
+     * Shares [text] (optional [subject]) through the system chooser (doc 09: `device.share_text`). The
      * share input is previewed by the L2 approval card before the user approves.
      */
     fun share(
@@ -43,7 +43,7 @@ interface AndroidSystemBridge {
 }
 
 /**
- * The clipboard read bound (chars), shared by the `clipboard.read` output schema (tools) and the
+ * The clipboard read bound (chars), shared by the `device.clipboard_read` output schema (tools) and the
  * impl's `take(...)` so the emitted text is always schema-valid.
  */
 internal const val MAX_CLIPBOARD_READ: Int = 4_000
@@ -98,7 +98,7 @@ data class ClipboardWriteOutcome(
     val reason: String,
 )
 
-enum class ShareStatus { SHARED, NO_HANDLER, ERROR }
+enum class ShareStatus { CHOOSER_OPENED, NO_HANDLER, ERROR }
 
 /**
  * Outcome of [AndroidSystemBridge.share]. [reason] is a stable note (`no app to share to`) or an

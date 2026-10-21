@@ -45,7 +45,7 @@ internal fun notificationsCalendarToolsIntArg(
     key: String,
 ): Long? = (args[key] as? JsonPrimitive)?.content?.toLongOrNull()
 
-// The notifications.query entries-array item schema (a bounded package/title/text + post time).
+// The device.notifications_query entries-array item schema (a bounded package/title/text + post time).
 internal fun notificationsCalendarToolsNotificationEntrySchema(): JsonObject =
     objectSchema(
         properties =
@@ -59,15 +59,15 @@ internal fun notificationsCalendarToolsNotificationEntrySchema(): JsonObject =
     )
 
 // ===========================================================================
-// notifications.query — read an allowlist- and window-bounded notification snapshot
+// device.notifications_query — read an allowlist- and window-bounded notification snapshot
 // ===========================================================================
 
 // ===========================================================================
-// calendar.prepare_event — build + hold a structured draft (no write, no permission)
+// device.prepare_calendar_event — build + hold a structured draft (no write, no permission)
 // ===========================================================================
 
 // ===========================================================================
-// calendar.commit_event — the single write step (WRITE_CALENDAR-gated, L2, every call approved)
+// device.create_calendar_event — the single write step (WRITE_CALENDAR-gated, L2, every call approved)
 // ===========================================================================
 
 // ===========================================================================

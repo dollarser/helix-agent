@@ -294,6 +294,8 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    com.helix.app.ui
+        .DevicePageNavigation(navController)
     com.helix.app.reminder.ReminderNavigation(
         (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).reminders,
         navController,
@@ -335,16 +337,6 @@ internal fun HelixApp(container: AppContainer) {
     HelixTheme {
         com.helix.app.ui
             .UserQuestionDialog(container)
-        com.helix.app.ui.HelixSettingsProposalDialog(container) { page ->
-            navController.navigate(
-                when (page) {
-                    "models" -> ShellDestination.Models.route
-                    "permissions" -> SETTINGS_PERMISSIONS_ROUTE
-                    "session" -> CONVERSATION_SETTINGS_ROUTE
-                    else -> ShellDestination.Settings.route
-                },
-            ) { launchSingleTop = true }
-        }
         val windowWidth = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.width
         val drawerWidth = with(androidx.compose.ui.platform.LocalDensity.current) { (windowWidth * 2f / 3f).toDp() }
         ModalNavigationDrawer(

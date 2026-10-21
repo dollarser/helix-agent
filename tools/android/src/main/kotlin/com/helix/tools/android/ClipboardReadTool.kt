@@ -18,7 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object ClipboardReadTool {
-    const val NAME: String = "clipboard.read"
+    const val NAME: String = "device.clipboard_read"
 
     const val VERSION: Int = 1
 

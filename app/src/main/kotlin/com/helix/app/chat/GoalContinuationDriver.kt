@@ -160,8 +160,8 @@ internal class GoalContinuationDriver(
                 "[Goal continuation ${GoalRoundAllowance(storage).used(activation.goalId) + 1}/" +
                     "${storage.goals.resolve(activation.goalId).budgets.maxGoalRounds}] " +
                     "Continue the existing objective using current history and results. " +
-                    "Do not repeat settled actions. Read get_goal, then report complete, in_progress or blocked " +
-                    "with update_goal.",
+                    "Do not repeat settled actions. Read goal.get, then report complete, in_progress or blocked " +
+                    "with goal.update.",
             budgets = activation.control.budgets,
             reasoning = activation.control.reasoning,
             goalId = GoalId(activation.goalId),

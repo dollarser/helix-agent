@@ -21,6 +21,38 @@ import com.helix.core.storage.entity.ToolAvailabilityEntity
 class ToolAvailabilityRepository(
     private val dao: ToolAvailabilityDao,
 ) {
+    /** One-time catalog migration, inside the host storage transaction; never resolves old calls. */
+    fun moveToolStates(
+        sourceRef: String,
+        replacements: Map<String, Set<String>>,
+    ) {
+        replacements.forEach { (old, names) ->
+            require(old !in names && names.none { it in replacements }) { "Tool migration must be terminal" }
+            dao.byTool(sourceRef, old).forEach { row ->
+                names.forEach { name ->
+                    val existing = dao.byKey(sourceRef, name, row.scopeKind, row.scopeRef)
+                    val revision = maxOf(row.revision, existing?.revision ?: 0)
+                    check(revision < Long.MAX_VALUE) { "tool availability revision exhausted" }
+                    dao.insert(
+                        row.copy(
+                            toolName = name,
+                            state =
+                                if (stateOf(row) == ToolAvailabilityState.DISABLED ||
+                                    existing?.let(::stateOf) == ToolAvailabilityState.DISABLED
+                                ) {
+                                    ToolAvailabilityState.DISABLED.name
+                                } else {
+                                    ToolAvailabilityState.ENABLED.name
+                                },
+                            revision = revision + 1,
+                        ),
+                    )
+                }
+                check(dao.deleteByKey(sourceRef, old, row.scopeKind, row.scopeRef) == 1)
+            }
+        }
+    }
+
     /** One-time key normalization, called inside the host's storage transaction before exposure. */
     fun normalizeSourceRefs(normalize: (String) -> String): Int {
         val rows = dao.all()

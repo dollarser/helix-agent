@@ -40,7 +40,8 @@ internal data class ToolDiscoveryMetadata(
             val category =
                 when {
                     name in setOf("read", "write", "edit", "view_image") || name.startsWith("files.") -> "files"
-                    name in setOf("create_goal", "get_goal", "update_goal") || name.startsWith("goal.") -> "goals"
+                    name.startsWith("goal.") -> "goals"
+                    name == "ask_user" -> "user"
                     else -> name.substringBefore('.')
                 }
             val aliases = categoryAliases[category].orEmpty()

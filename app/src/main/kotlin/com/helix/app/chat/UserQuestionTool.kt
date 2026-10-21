@@ -38,7 +38,20 @@ internal object UserQuestionTool {
                 "items":{"type":"string","minLength":1,"maxLength":200}},
                 "multiple":{"type":"boolean"}},"required":["question"],"additionalProperties":false}""",
                     ).jsonObject,
-            outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
+            outputSchema =
+                Json
+                    .parseToJsonElement(
+                        """{
+                "type":"object",
+                "properties":{
+                    "questionId":{"type":"string"},
+                    "status":{"type":"string","enum":["AWAITING_ANSWER"]},
+                    "note":{"type":"string"}
+                },
+                "required":["questionId","status","note"],
+                "additionalProperties":false
+                }""",
+                    ).jsonObject,
             operationClass = ToolOperationClass.METADATA,
             timeout = 5.seconds,
             maxOutputBytes = 1024,

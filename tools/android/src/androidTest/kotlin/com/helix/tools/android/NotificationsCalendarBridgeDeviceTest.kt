@@ -16,14 +16,14 @@ import org.junit.runner.RunWith
  *
  * What the device proves here, against the PRODUCTION [NotificationsBridgeImpl] /
  * [CalendarBridgeImpl]:
- * - the permission gate runs FIRST: with the listener/permission probe OFF, `notifications.query`
+ * - the permission gate runs FIRST: with the listener/permission probe OFF, `device.notifications_query`
  *   returns [NotificationQueryStatus.PERMISSION_MISSING] (never a fake empty success) and
- *   `calendar.commit_event` returns [CalendarCommitStatus.PERMISSION_MISSING] (never reaching the
+ *   `device.create_calendar_event` returns [CalendarCommitStatus.PERMISSION_MISSING] (never reaching the
  *   writer) — doc 09 §11 / overview.md §11;
  * - with the probe ON, [NotificationsBridgeImpl.query] runs the REAL production filter
  *   (allowlist + time-window + newest-first + bounding) over the injected snapshot;
- * - `calendar.prepare_event` builds + holds a structured draft WITHOUT touching the calendar or
- *   needing any permission; `calendar.commit_event` is the only write path and CONSUMES its draft
+ * - `device.prepare_calendar_event` builds + holds a structured draft WITHOUT touching the calendar or
+ *   needing any permission; `device.create_calendar_event` is the only write path and CONSUMES its draft
  *   (a second commit of the same id is DRAFT_NOT_FOUND);
  * - the manifest-declared [HelixNotificationListenerService] is present in the merged manifest (the
  *   "Notification access" toggle the user enables).
@@ -59,7 +59,7 @@ class NotificationsCalendarBridgeDeviceTest {
         cal = CalendarBridgeImpl(context, calProbe, writer)
     }
 
-    // ── notifications.query: gate first, then the real production filter ──────────────────
+    // ── device.notifications_query: gate first, then the real production filter ──────────────────
 
     @Test
     fun queryIsPermissionMissingWhenTheListenerIsNotEnabled() {
@@ -103,7 +103,7 @@ class NotificationsCalendarBridgeDeviceTest {
         assertTrue("the NotificationListenerService must be declared in the merged manifest", found)
     }
 
-    // ── calendar.prepare_event: draft only, no write, no permission ───────────────────────
+    // ── device.prepare_calendar_event: draft only, no write, no permission ───────────────────────
 
     @Test
     fun prepareBuildsAHeldDraftWithoutTouchingTheCalendar() {
@@ -133,7 +133,7 @@ class NotificationsCalendarBridgeDeviceTest {
         assertNull(writer.last)
     }
 
-    // ── calendar.commit_event: the write path, gated + consumes its draft ──────────────────
+    // ── device.create_calendar_event: the write path, gated + consumes its draft ──────────────────
 
     @Test
     fun commitIsPermissionMissingWhenWriteCalendarIsNotGranted() {

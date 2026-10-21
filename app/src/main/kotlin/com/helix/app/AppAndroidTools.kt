@@ -17,6 +17,8 @@ internal object AppAndroidTools {
         toolRegistry: ToolRegistry,
         egressPolicy: EgressPolicyProvider,
     ) {
+        com.helix.app.tool.DevicePageTool
+            .register(toolRegistry)
         // HXA-064+: Android URI/settings + clipboard/share tools.
         // The production port (AndroidSystemBridgeImpl) is Context-backed: it builds the real
         // Intent / ClipboardManager calls and gates clipboard read/write on visible-foreground.
@@ -25,7 +27,7 @@ internal object AppAndroidTools {
             toolRegistry,
             AndroidSystemBridgeImpl(context),
         )
-        // HXA-065: the notifications.query / calendar.prepare_event / calendar.commit_event tools.
+        // HXA-065: the device.notifications_query / device.prepare_calendar_event / device.create_calendar_event tools.
         // The production ports are Context-backed: NotificationsBridgeImpl reads the live snapshot
         // held by the (manifest-declared) NotificationListenerService and gates the whole query on the
         // user enabling "Notification access"; CalendarBridgeImpl holds in-memory drafts (prepare
@@ -36,6 +38,25 @@ internal object AppAndroidTools {
             toolRegistry,
             NotificationsBridgeImpl(context),
             CalendarBridgeImpl(context),
+        )
+        com.helix.app.knowledge.KnowledgeReadTools.register(
+            toolRegistry,
+            (context.applicationContext as HelixApplication).knowledge.agentAccess,
+        )
+        val reminders = (context.applicationContext as HelixApplication).reminders
+        com.helix.app.reminder.DeviceReminderTools.register(
+            toolRegistry,
+            object : com.helix.app.reminder.DeviceReminderTools.Backend {
+                override suspend fun list() = reminders.list()
+
+                override suspend fun save(reminder: com.helix.core.storage.reminder.LocalReminder) =
+                    requireNotNull(reminders.get(reminders.save(reminder)))
+
+                override suspend fun cancel(
+                    id: String,
+                    revision: Long,
+                ) = reminders.cancelRevision(id, revision)
+            },
         )
         // HXA-066: the http.fetch tool — a bounded GET/HEAD over the raw-socket transport
         // (HttpFetchBridgeImpl) that enforces the connection-time SSRF / URL-Policy: it resolves

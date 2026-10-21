@@ -40,7 +40,7 @@ internal class GoalLifecycleService(
                 require(turn.sessionId == call.sessionId && turn.endedAt == null) { "No owned live turn" }
                 output =
                     when (call.toolName) {
-                        "get_goal" -> {
+                        "goal.get" -> {
                             (
                                 storage.goalTurnBindings.byTurn(turn.id)?.let { binding ->
                                     storage.goals.resolve(storage.goalRuns.resolve(binding.runId).goalId)
@@ -49,11 +49,11 @@ internal class GoalLifecycleService(
                                 ?: buildJsonObject { put("goal", JsonNull) }
                         }
 
-                        "create_goal" -> {
+                        "goal.create" -> {
                             create(call)
                         }
 
-                        "update_goal" -> {
+                        "goal.update" -> {
                             update(call)
                         }
 
@@ -162,7 +162,7 @@ internal class GoalLifecycleService(
                     .getValue("expected_revision")
                     .jsonPrimitive.long,
         ) {
-            "Goal changed; read get_goal again"
+            "Goal changed; read goal.get again"
         }
         require(control.pendingJson == null) { "A change is already pending settlement" }
         val goal = storage.goals.resolve(id)

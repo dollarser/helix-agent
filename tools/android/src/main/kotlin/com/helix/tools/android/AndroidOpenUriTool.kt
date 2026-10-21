@@ -18,7 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object AndroidOpenUriTool {
-    const val NAME: String = "android.open_uri"
+    const val NAME: String = "device.open_url"
 
     const val VERSION: Int = 1
 
@@ -34,7 +34,7 @@ object AndroidOpenUriTool {
                     "ui.apps then ui.launch. Only opens the link; no navigation or follow-on app control. " +
                     "Prefer known links over browser typing. Never invent download URLs; prefer an installed app " +
                     "store, otherwise verify the official download URL with fetch/browser first. If unknown-source " +
-                    "permission blocks installation, retain the verified APK and use android.open_settings for the " +
+                    "permission blocks installation, retain the verified APK and use device.open_settings for the " +
                     "source package rather than switching stores. Non-http(s) URLs refused.",
             inputSchema =
                 objectSchema(
@@ -77,7 +77,7 @@ object AndroidOpenUriTool {
                 val url =
                     strArg(call.args, "url", MAX_URL)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'android.open_uri' arguments: 'url' must be a non-empty string",
+                            "invalid 'device.open_url' arguments: 'url' must be a non-empty string",
                         )
                 val out = bridge.openUri(url)
                 val status =

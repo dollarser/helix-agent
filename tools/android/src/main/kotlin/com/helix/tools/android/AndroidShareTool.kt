@@ -18,7 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object AndroidShareTool {
-    const val NAME: String = "android.share"
+    const val NAME: String = "device.share_text"
 
     const val VERSION: Int = 1
 
@@ -27,15 +27,16 @@ object AndroidShareTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Share [text] (optional [subject]) through the device's system share chooser. The text " +
+                "Share [text] (optional [title]) through the device's system share chooser. The text " +
                     "is previewed in the approval card before the user approves. Helix never picks a " +
-                    "target app itself — the user always chooses.",
+                    "target app itself — the user always chooses. A launched chooser is not proof of delivery " +
+                    "or saving. To save directly to a connected cloud service, use that connector’s save tool.",
             inputSchema =
                 objectSchema(
                     properties =
                         buildJsonObject {
                             put("text", stringSchema(MAX_SHARE_TEXT, "The text to share."))
-                            put("subject", stringSchema(MAX_SHARE_SUBJECT, "Optional share subject."))
+                            put("title", stringSchema(MAX_SHARE_SUBJECT, "Optional share subject."))
                         },
                     required = listOf("text"),
                 ),
@@ -46,8 +47,8 @@ object AndroidShareTool {
                             put(
                                 "status",
                                 enumSchema(
-                                    listOf(ST_SHARED, ST_NO_HANDLER),
-                                    "shared, or no-handler (no app to share to).",
+                                    listOf(ST_CHOOSER_OPENED, ST_NO_HANDLER),
+                                    "chooser-opened, or no-handler (no app to share to).",
                                 ),
                             )
                             put("reason", stringSchema(128, "Stable note or error; empty on a launched share."))
@@ -71,13 +72,13 @@ object AndroidShareTool {
                 val text =
                     strArg(call.args, "text", MAX_SHARE_TEXT)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'android.share' arguments: 'text' must be a non-empty string",
+                            "invalid 'device.share_text' arguments: 'text' must be a non-empty string",
                         )
-                val subject = (call.args["subject"] as? JsonPrimitive)?.content.orEmpty()
+                val subject = (call.args["title"] as? JsonPrimitive)?.content.orEmpty()
                 val out = bridge.share(text, subject)
                 val status =
                     when (out.status) {
-                        ShareStatus.SHARED -> ST_SHARED
+                        ShareStatus.CHOOSER_OPENED -> ST_CHOOSER_OPENED
                         ShareStatus.NO_HANDLER -> ST_NO_HANDLER
                         ShareStatus.ERROR -> return ToolExecutorResult.Failed(bounded(out.reason))
                     }

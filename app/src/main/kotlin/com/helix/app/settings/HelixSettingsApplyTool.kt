@@ -23,13 +23,13 @@ import kotlin.time.Duration.Companion.seconds
 internal object HelixSettingsApplyTool {
     fun descriptor() =
         ToolDescriptor(
-            name = ToolName("helix.settings.apply"),
+            name = ToolName("settings.apply"),
             version = ToolVersion(1),
             description =
                 "Change THIS session's mode/model/reasoning defaults for future inputs through normal tool " +
                     "authorization. The running turn retains its original configuration. " +
                     "Pending inputs must drain first. " +
-                    "Use helix.settings inspect to find configured models. Cannot grant permissions, enable native " +
+                    "Use settings.inspect to find configured models. Cannot grant permissions, enable native " +
                     "QuickJS, change profile, or create credentials. No separate settings confirmation is needed.",
             inputSchema =
                 Json
@@ -41,7 +41,7 @@ internal object HelixSettingsApplyTool {
             "reasoning":{"type":"string","maxLength":32,"pattern":"^[A-Za-z][A-Za-z0-9_-]{0,31}$"}
             },"additionalProperties":false}""",
                     ).jsonObject,
-            outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
+            outputSchema = SettingsToolSchemas.applyOutput,
             operationClass = ToolOperationClass.LOCAL_MUTATION,
             timeout = 5.seconds,
             maxOutputBytes = 4096,

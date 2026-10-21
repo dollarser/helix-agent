@@ -19,7 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object NotificationsQueryTool {
-    const val NAME: String = "notifications.query"
+    const val NAME: String = "device.notifications_query"
 
     const val VERSION: Int = 1
 
@@ -100,46 +100,46 @@ object NotificationsQueryTool {
                 val arr =
                     call.args["allowedPackages"] as? JsonArray
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'notifications.query' arguments: 'allowedPackages' must be an array",
+                            "invalid 'device.notifications_query' arguments: 'allowedPackages' must be an array",
                         )
                 val packages = mutableListOf<String>()
                 for (el in arr) {
                     val s =
                         (el as? JsonPrimitive)?.takeIf { it.isString }?.content
                             ?: return ToolExecutorResult.Failed(
-                                "invalid 'notifications.query' arguments: 'allowedPackages' entries must be strings",
+                                "device.notifications_query: allowedPackages entries must be strings",
                             )
                     if (s.isBlank() || s.length > MAX_PACKAGE_LEN) {
                         return ToolExecutorResult.Failed(
-                            "invalid 'notifications.query' arguments: each package must be 1..$MAX_PACKAGE_LEN",
+                            "invalid 'device.notifications_query' arguments: each package must be 1..$MAX_PACKAGE_LEN",
                         )
                     }
                     packages.add(s)
                 }
                 if (packages.isEmpty() || packages.size > MAX_ALLOWED_PACKAGES) {
                     return ToolExecutorResult.Failed(
-                        "invalid 'notifications.query' arguments: 'allowedPackages' must have " +
+                        "invalid 'device.notifications_query' arguments: 'allowedPackages' must have " +
                             "1..$MAX_ALLOWED_PACKAGES entries",
                     )
                 }
                 val since =
                     notificationsCalendarToolsIntArg(call.args, "sinceEpochMillis")
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'notifications.query' arguments: 'sinceEpochMillis' must be an integer",
+                            "invalid 'device.notifications_query' arguments: 'sinceEpochMillis' must be an integer",
                         )
                 val until =
                     notificationsCalendarToolsIntArg(call.args, "untilEpochMillis")
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'notifications.query' arguments: 'untilEpochMillis' must be an integer",
+                            "invalid 'device.notifications_query' arguments: 'untilEpochMillis' must be an integer",
                         )
                 if (until <= since) {
                     return ToolExecutorResult.Failed(
-                        "invalid 'notifications.query' arguments: 'untilEpochMillis' must be after 'sinceEpochMillis'",
+                        "device.notifications_query: untilEpochMillis must be after sinceEpochMillis",
                     )
                 }
                 if (until - since > MAX_NOTIFICATION_WINDOW_MS) {
                     return ToolExecutorResult.Failed(
-                        "invalid 'notifications.query' arguments: the time window may be at most 24h",
+                        "invalid 'device.notifications_query' arguments: the time window may be at most 24h",
                     )
                 }
                 val out = bridge.query(NotificationQueryRequest(packages, since, until))

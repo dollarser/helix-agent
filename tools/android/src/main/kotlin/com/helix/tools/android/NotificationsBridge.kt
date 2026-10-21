@@ -1,7 +1,7 @@
 package com.helix.tools.android
 
 /**
- * The synchronous port the `notifications.query` tool (HXA-065) executes against.
+ * The synchronous port the `device.notifications_query` tool (HXA-065) executes against.
  *
  * Production is [NotificationsBridgeImpl] (Context-backed, in this module); unit tests inject a fake.
  * The port is PURE JVM (no Android types in the interface or the outcomes) and returns small, bounded,
@@ -74,7 +74,7 @@ data class NotificationQueryOutcome(
     val reason: String,
 )
 
-// Pure-JVM output bounds, shared by the `notifications.query` output schema (tools) and the filter
+// Pure-JVM output bounds, shared by the `device.notifications_query` output schema (tools) and the filter
 // below so the emitted entries are always schema-valid.
 internal const val MAX_NOTIFICATION_ENTRIES: Int = 20
 internal const val MAX_NOTIFICATION_TITLE: Int = 200

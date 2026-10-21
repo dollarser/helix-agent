@@ -24,6 +24,56 @@ import org.junit.rules.TemporaryFolder
 import java.time.Instant
 
 class MemoryToolsTest {
+    @Test fun creationSentinelIsRejectedForEditingAndDeletion() {
+        service()
+        for (name in listOf("memory.edit", "memory.delete")) {
+            val args =
+                if (name == "memory.edit") {
+                    """{"scope":"global","path":"user.md","expectedHash":"new","old":"a","replacement":"b"}"""
+                } else {
+                    """{"scope":"global","path":"user.md","expectedHash":"new"}"""
+                }
+            assertTrue(
+                com.helix.tools.framework.ToolSchemaValidator.validate(
+                    registry.resolve(ToolName(name), ToolVersion(1)).inputSchema,
+                    Json.parseToJsonElement(args),
+                ) is com.helix.tools.framework.ToolSchemaValidation.Invalid,
+            )
+        }
+    }
+
+    @Test fun realMemoryResultsSatisfyOperationSpecificSchemas() {
+        service()
+        val write =
+            execute(
+                "memory.write",
+                """{"scope":"global","path":"user.md",
+            "type":"user","source":"Synthetic test","body":"Synthetic preference","expectedHash":"new"}""",
+            )
+                as ToolExecutorResult.Completed
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator.validate(
+                MemoryToolSchemas.output("memory.write"),
+                write.output,
+            ),
+        )
+        val read =
+            execute("memory.read", """{"scope":"global","path":"user.md"}""")
+                as ToolExecutorResult.Completed
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(MemoryToolSchemas.output("memory.read"), read.output),
+        )
+        val list = execute("memory.list", """{"scope":"global"}""") as ToolExecutorResult.Completed
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(MemoryToolSchemas.output("memory.list"), list.output),
+        )
+    }
+
     @get:Rule val temporary = TemporaryFolder()
     private val registry = ToolRegistry()
 
