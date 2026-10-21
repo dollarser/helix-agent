@@ -195,6 +195,43 @@ class ProotJobRunnerDeviceTest {
     // ------------------------------------------------------------------ tests
 
     @Test
+    fun inPlaceWritesRemainInTheOriginalWorkspaceAndOnlyMetadataIsReturned() {
+        val root = File(context.filesDir, "workspaces/app/jobtest-${nextJobId()}").apply { mkdirs() }.canonicalFile
+        val (archive, inputSha) = buildInputArchive(emptyMap())
+        val jobId = nextJobId()
+        jobIds += jobId
+        val spec =
+            specFor(
+                jobId,
+                "exec-jobtest-$jobId",
+                ProotJobCommand.Script("mkdir -p src; echo original > src/main.txt; echo DIRECT_OUTPUT"),
+                inputSha,
+            ).copy(
+                workspacePath = root.path,
+                workspaceWitness =
+                    com.helix.runtime.proot.core.LiveJobWorkspace
+                        .witness(root),
+                artifactPaths = listOf("src/main.txt", "missing.txt"),
+            )
+        try {
+            assertTrue(submit(spec, archive) is ProotJobSubmitResult.Accepted)
+            assertEquals(ProotJobState.SUCCEEDED, waitForTerminal(jobId).state)
+            assertEquals("original\n", File(root, "src/main.txt").readText())
+            val extracted = File(context.cacheDir, "$jobId-live-extracted")
+            val result = ZipJobExtractor.extract(outputFileFor(jobId), extracted)
+            assertTrue(result.manifest.entries.none { it.path == "src/main.txt" || it.path.startsWith("output/") })
+            val metadata = File(extracted, com.helix.runtime.proot.core.LiveJobWorkspace.OUTPUT_MANIFEST)
+            val entries = JobManifestCodec.parse(metadata.readText(), Long.MAX_VALUE).entries
+            assertEquals(listOf("src/main.txt"), entries.map { it.path })
+            assertTrue(File(extracted, "stdout.txt").readText().contains("DIRECT_OUTPUT"))
+        } finally {
+            runner.cancel(jobId)
+            waitForTerminal(jobId)
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun aJobRunsUnderProotAndDeliversVerifiedOutput() {
         val (archive, inputSha) = buildInputArchive(mapOf("in.txt" to "IN-CONTENT"))
         val jobId = nextJobId()
@@ -207,7 +244,7 @@ class ProotJobRunnerDeviceTest {
                     listOf(
                         "/bin/sh",
                         "-c",
-                        "cat /workspace/in.txt > in.txt && echo artifact > out.txt && " +
+                        "cat /workspace/in.txt > in.txt && mkdir -p output && echo artifact > output/out.txt && " +
                             "echo STDOUT_LINE && echo STDERR_LINE >&2",
                     ),
                 ),
@@ -232,11 +269,12 @@ class ProotJobRunnerDeviceTest {
             extraction.manifest.entries
                 .map { it.path }
                 .toSet()
-        assertTrue("out.txt missing from the output", "out.txt" in paths)
+        assertTrue("out.txt missing from the output", "output/out.txt" in paths)
+        assertTrue("Input must not be copied back", "in.txt" !in paths)
         assertTrue("stdout.txt missing from the output", "stdout.txt" in paths)
         val stdout = File(context.cacheDir, "$jobId-extracted/stdout.txt").readText()
         assertTrue(stdout.contains("STDOUT_LINE"))
-        val artifact = File(context.cacheDir, "$jobId-extracted/out.txt").readText()
+        val artifact = File(context.cacheDir, "$jobId-extracted/output/out.txt").readText()
         assertEquals("artifact\n", artifact)
     }
 
@@ -573,7 +611,7 @@ class ProotJobRunnerDeviceTest {
             specFor(
                 jobId,
                 "exec-script-$jobId",
-                ProotJobCommand.Script("echo scripted > out.txt; echo SCRIPT_STDOUT"),
+                ProotJobCommand.Script("mkdir -p output; echo scripted > output/out.txt; echo SCRIPT_STDOUT"),
                 inputSha,
             )
         submit(spec, archive)
@@ -581,7 +619,7 @@ class ProotJobRunnerDeviceTest {
         assertEquals(ProotJobState.SUCCEEDED, record.state)
         val extraction = ZipJobExtractor.extract(outputFileFor(jobId), File(context.cacheDir, "$jobId-extracted"))
         assertEquals(record.outputManifestSha256, extraction.manifestSha256)
-        assertEquals("scripted\n", File(context.cacheDir, "$jobId-extracted/out.txt").readText())
+        assertEquals("scripted\n", File(context.cacheDir, "$jobId-extracted/output/out.txt").readText())
     }
 
     @Test

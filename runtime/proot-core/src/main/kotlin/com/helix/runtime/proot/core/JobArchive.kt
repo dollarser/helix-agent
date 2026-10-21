@@ -4,7 +4,10 @@ package com.helix.runtime.proot.core
  * HXA-084 bounded job transfer: the main app copies job inputs into a ZIP with a
  * fixed first manifest entry; the Runtime extracts into its private
  * `jobs/<jobId>/workspace` and, after execution, writes an output ZIP of the same
- * shape (manifest first). Both archives are bounded and path-checked on BOTH ends;
+ * shape (manifest first). Snapshot outputs contain explicit output/ deliverables,
+ * result.txt when present, and captured stdout/stderr. In-place outputs contain
+ * only captured streams and a reference manifest, never workspace file content.
+ * Both archives are bounded and path-checked on BOTH ends;
  * a violation is a protocol failure, never a partial archive.
  *
  * The same [JobManifestEntry] type describes both sides, so the input manifest

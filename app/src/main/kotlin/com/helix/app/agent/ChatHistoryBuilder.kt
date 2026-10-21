@@ -267,7 +267,8 @@ private fun parseToolResult(
         val summary =
             if (status == "SUCCEEDED") FileHistoryPaths.project(tool, original, directory, result = true) else original
         // The persisted envelope carries the settled outcome and the Dispatcher-bounded summary.
-        val text = "[$status] $summary".trim()
+        val delivery = JsonObject(obj.filterKeys { it in TOOL_DELIVERY_FIELDS })
+        val text = ("[$status] $summary" + if (delivery.isEmpty()) "" else "\nDelivery facts: $delivery").trim()
         require(text.isNotBlank()) { "a tool result row needs a status or summary" }
         ModelMessage(
             role = ModelRole.TOOL,
@@ -283,3 +284,15 @@ private fun parseToolResult(
         if (strict) failStrict("malformed tool-result row", e)
         null
     }
+
+// Keep platform delivery facts in the actual model message, not just the persisted UI envelope.
+private val TOOL_DELIVERY_FIELDS =
+    setOf(
+        "callRef",
+        "logRef",
+        "logReadTool",
+        "sideEffectFree",
+        "requiresReview",
+        "executorPayloadTruncated",
+        "executorOutputHash",
+    )

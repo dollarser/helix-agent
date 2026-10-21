@@ -77,9 +77,9 @@ object LinuxRunTool {
 
     /**
      * The registered contract. Input: EXACTLY ONE of `argv` / `script`, optional
-     * `cwd` (a single directory name inside the job workspace), optional `environment`
-     * (screened), `files` (workspace references copied in as the input snapshot),
-     * optional `output` (a workspace reference the verified `result.txt` lands in),
+     * `workspace` (frozen resource reference), nested `cwd`, optional screened environment,
+     * `files` (in-place references or explicit snapshot inputs), and `artifacts` (in-place files).
+     * Explicit snapshot mode also supports `output` for verified `result.txt` import,
      * optional `timeoutSeconds` (≤ [DEFAULT_DEADLINE_SECONDS]).
      */
     fun descriptor(): ToolDescriptor =
@@ -87,19 +87,14 @@ object LinuxRunTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Run ONE trusted Linux command in a private developer process sharing Helix app permissions. " +
-                    "It can access the network and app-private data; PRoot is not a security sandbox. " +
-                    "It is not an Android ADB/root shell; paths follow runtime mounts. " +
-                    "Use Mobile Use for Android app and storage UI. " +
-                    "Inputs are copied to a separate Job workspace; outputs do not automatically update sources. " +
-                    "`files` controls snapshot import, not OS access. `argv` runs a program; `script` runs an " +
-                    "explicit shell script in /bin/sh (shell syntax only when genuinely " +
-                    "needed). Output: verified stdout/stderr, the exit code, and the " +
-                    "imported result file when `output` is set. Requires the ADVANCED " +
-                    "profile and a previously verified PRoot Runtime; authorization follows " +
-                    "the current session's rules. FFmpeg/FFprobe exposes packaged codecs/filters; " +
-                    "read /opt/helix-media/bin/README.md for usage. Write deliverables under /workspace/output/: " +
-                    "successful jobs return verified session artifacts. Longer tasks use code.linux.job.start.",
+                "Run one trusted Linux command in a private developer process sharing Helix UID and network. " +
+                    "PRoot is not a security sandbox or Android ADB/root shell; use Mobile Use for Android UI. " +
+                    "Default in_place edits the approved real workspace; cancellation does not undo writes. " +
+                    "Explicit snapshot copies inputs without source writeback. files never limits OS access. " +
+                    "Use argv for a program or script for /bin/sh syntax. Returns stdout/stderr and exit code. " +
+                    "In-place files stay at their paths; list artifacts for verified references. " +
+                    "Snapshot deliverables use output/. Requires ADVANCED and current session authorization. " +
+                    "For FFmpeg read /opt/helix-media/bin/README.md. Longer tasks use code.linux.job.start.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
@@ -118,6 +113,34 @@ object LinuxRunTool {
             put(
                 "properties",
                 buildJsonObject {
+                    put(
+                        "workspace",
+                        buildJsonObject {
+                            put("type", "string")
+                            put("description", "Approval-bound workspace; defaults to the current session directory.")
+                        },
+                    )
+                    put(
+                        "workspaceMode",
+                        buildJsonObject {
+                            put("type", "string")
+                            put("enum", JsonArray(listOf(JsonPrimitive("in_place"), JsonPrimitive("snapshot"))))
+                            put("description", "Default in_place edits real files; snapshot copies listed inputs.")
+                        },
+                    )
+                    put(
+                        "artifacts",
+                        buildJsonObject {
+                            put("type", "array")
+                            put("maxItems", 64)
+                            put("items", buildJsonObject { put("type", "string") })
+                            put(
+                                "description",
+                                "Optional deliverable paths relative to workspace, not cwd. " +
+                                    "In-place files stay there; no output/ convention or copy is required.",
+                            )
+                        },
+                    )
                     put(
                         "argv",
                         buildJsonObject {
@@ -157,8 +180,8 @@ object LinuxRunTool {
                             put(
                                 "description",
                                 JsonPrimitive(
-                                    "Optional working directory inside the job workspace " +
-                                        "(a single directory name, e.g. \"src\").",
+                                    "Optional existing workspace-relative directory, e.g. src/main. " +
+                                        "No absolute paths or ../ escapes.",
                                 ),
                             )
                         },
@@ -189,10 +212,9 @@ object LinuxRunTool {
                             put(
                                 "description",
                                 JsonPrimitive(
-                                    "Workspace references (scope:<scopeId>:<path>) copied " +
-                                        "into the job as a bounded input snapshot; the " +
-                                        "real Workspace is never mounted. Transfer: 64 MiB/file, 128 MiB total. " +
-                                        "First input retains its basename; later inputs append -2, -3, etc.",
+                                    "In-place: references must belong to the mounted workspace; no copying. " +
+                                        "Snapshot copies inputs, bounded to 64 MiB/file and 128 MiB total. " +
+                                        "First snapshot input retains its basename; later inputs append -2, -3, etc.",
                                 ),
                             )
                         },
@@ -204,7 +226,7 @@ object LinuxRunTool {
                             put(
                                 "description",
                                 JsonPrimitive(
-                                    "Optional workspace reference (output/ region) where " +
+                                    "Snapshot-only workspace reference (output/ region) where " +
                                         "the verified result file `result.txt` is " +
                                         "imported after the job succeeds.",
                                 ),
@@ -269,6 +291,13 @@ object LinuxRunTool {
                     )
                     put("artifactDirectory", buildJsonObject { put("type", "string") })
                     put("artifactCount", buildJsonObject { put("type", "integer") })
+                    put(
+                        "unavailableArtifacts",
+                        buildJsonObject {
+                            put("type", "array")
+                            put("items", buildJsonObject { put("type", "object") })
+                        },
+                    )
                     put("artifactsTruncated", buildJsonObject { put("type", "boolean") })
                     put("execution", buildJsonObject { put("type", "object") })
                     put(
@@ -330,6 +359,11 @@ object LinuxRunTool {
         val outputReference: String?,
         /** The APPROVAL-BOUND absolute deadline (epoch ms) — the job's kill deadline. */
         val deadlineEpochMs: Long,
+        val workspaceReference: String? = null,
+        val snapshot: Boolean = false,
+        val artifactPaths: List<String> = emptyList(),
+        val resolvedWorkspacePath: String? = null,
+        val workspaceWitness: String? = null,
     )
 
     /**
@@ -411,10 +445,11 @@ object LinuxRunTool {
             }
         val cwd = (args["cwd"] as? JsonPrimitive)?.content.orEmpty()
         if (cwd.isNotEmpty()) {
-            if (cwd.length > 128 || cwd.any { it == '/' || it == '\\' } || cwd in setOf(".", "..") ||
-                !cwd.all { it.isLetterOrDigit() || it == '_' || it == '-' }
-            ) {
-                return ParsedResult.ParseFailure("invalid `cwd`: a single directory name is allowed")
+            try {
+                com.helix.runtime.proot.core.JobPath
+                    .validate(cwd)
+            } catch (_: com.helix.runtime.proot.core.JobArchiveException) {
+                return ParsedResult.ParseFailure("invalid `cwd`: a strict workspace-relative directory is required")
             }
         }
         val environment =
@@ -462,6 +497,9 @@ object LinuxRunTool {
                 inputReferences = inputReferences,
                 outputReference = (args["output"] as? JsonPrimitive)?.content,
                 deadlineEpochMs = deadlineEpochMs,
+                workspaceReference = (args["workspace"] as? JsonPrimitive)?.content,
+                snapshot = (args["workspaceMode"] as? JsonPrimitive)?.content == "snapshot",
+                artifactPaths = (args["artifacts"] as? JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(),
             ),
         )
     }
@@ -511,6 +549,7 @@ object LinuxRunTool {
         beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
         persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
         ownership: com.helix.tools.framework.ExecutionOwnership? = null,
+        registeredArtifacts: ((ParsedLinuxCall) -> JsonObject)? = null,
     ) : LinuxExecutor by LinuxJobExecution(
             client,
             gate,
@@ -522,6 +561,7 @@ object LinuxRunTool {
             beforeSubmit,
             persistVerifiedResult,
             ownership,
+            registeredArtifacts,
         )
 
     @Suppress("SwallowedException", "TooGenericExceptionCaught")

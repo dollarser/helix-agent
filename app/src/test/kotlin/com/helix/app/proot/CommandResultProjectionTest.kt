@@ -42,6 +42,18 @@ class CommandResultProjectionTest {
     )
 
     @Test
+    fun failedCallUsesPersistedExitCodeWhenSummaryHasNoCode() {
+        val v =
+            view(
+                callState = "FAILED",
+                resultSummary = "execution failed",
+                resultContent = """{"state":"FAILED","exitCode":7,"stderr":"synthetic failure"}""",
+            )
+        assertEquals(CommandDetailState.FAILED, v.state)
+        assertEquals(7, v.exitCode)
+    }
+
+    @Test
     fun runningCallInLiveTurnProjectsToRunningWithStatusOnly() {
         val v = view(callState = "RUNNING", turnState = "RUNNING_TOOL", resultStatus = null)
         assertEquals(CommandDetailState.RUNNING, v.state)

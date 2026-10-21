@@ -71,7 +71,7 @@ internal class ChatToolMessageEncoder(
 
             is ToolDispatchOutcome.ExecutionFailed -> {
                 status = o.code.name
-                summary = o.detail
+                summary = failureSummary(settled, o, readerEnabled)
             }
 
             ToolDispatchOutcome.Cancelled -> {
@@ -86,6 +86,7 @@ internal class ChatToolMessageEncoder(
                 put("tool", settled.toolName)
                 put("status", status)
                 put("summary", summary)
+                deliveryFacts(this, settled)
                 visual?.let { image ->
                     put(
                         "visualArtifact",
@@ -106,6 +107,44 @@ internal class ChatToolMessageEncoder(
             content = body.toString(),
             visualArtifact = visual,
         )
+    }
+
+    private fun failureSummary(
+        settled: SettledCall,
+        failure: ToolDispatchOutcome.ExecutionFailed,
+        readerEnabled: Boolean,
+    ) = ToolModelResult.project(
+        settled.toolName,
+        ToolFailureContent.encode(failure),
+        settled.resultReference.takeIf { readerEnabled },
+    )
+
+    private fun deliveryFacts(
+        builder: kotlinx.serialization.json.JsonObjectBuilder,
+        settled: SettledCall,
+    ) = with(builder) {
+        settled.resultReference?.let {
+            put("callRef", it)
+            if (settled.toolName in setOf("bash", "code.linux.run", "code.linux.job.start")) {
+                put("logRef", it)
+                put("logReadTool", "code.linux.job.read_log")
+            }
+        }
+        when (val outcome = settled.outcome) {
+            is ToolDispatchOutcome.ExecutionFailed -> {
+                put("sideEffectFree", outcome.sideEffectFree)
+                put("requiresReview", outcome.requiresReview)
+            }
+
+            is ToolDispatchOutcome.Succeeded -> {
+                put("executorPayloadTruncated", outcome.result.truncated)
+                put("executorOutputHash", outcome.result.outputHash.hex)
+            }
+
+            else -> {
+                Unit
+            }
+        }
     }
 
     /**

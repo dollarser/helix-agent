@@ -29,6 +29,21 @@ import org.junit.Test
  * device-verified (E2E) because it crosses the APK boundary.
  */
 class LinuxRunToolTest {
+    @Test fun approvalShowsTheBoundInPlaceWorkspaceAndCwd() {
+        val ui =
+            com.helix.app.approval.ApprovalUiMapper.codeExecutionUi(
+                LinuxRunTool.descriptor(),
+                args {
+                    put("script", "echo modified > report.txt")
+                    put("workspace", "scope:ws:project")
+                    put("cwd", "src")
+                },
+            )!!
+        assertEquals(com.helix.app.R.string.approval_input_proot_inplace, ui.inputSourceRes)
+        assertEquals(listOf("scope:ws:project", "src"), ui.inputSourceArgs)
+        assertEquals("echo modified > report.txt", ui.code)
+    }
+
     @Test
     fun modelExposurePreservesLinuxContractAndOnlyAnnotatesHostPaths() {
         val descriptor = LinuxRunTool.descriptor()
@@ -138,26 +153,28 @@ class LinuxRunToolTest {
 
     @Test
     fun cwdEnvironmentAndFilesCapsAreEnforced() {
-        assertParseFailure(
-            args {
-                put("argv", jsonArrayOf("echo", "x"))
-                put("cwd", "a/b")
-            },
-            "single directory name",
+        assertEquals(
+            "a/b",
+            parsedOk(
+                args {
+                    put("argv", jsonArrayOf("echo", "x"))
+                    put("cwd", "a/b")
+                },
+            ).cwd,
         )
         assertParseFailure(
             args {
                 put("argv", jsonArrayOf("echo", "x"))
                 put("cwd", "..")
             },
-            "single directory name",
+            "workspace-relative",
         )
         assertParseFailure(
             args {
                 put("argv", jsonArrayOf("echo", "x"))
                 put("cwd", "../x")
             },
-            "single directory name",
+            "workspace-relative",
         )
 
         val tooManyEnv =

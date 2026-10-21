@@ -42,6 +42,11 @@ data class ProotJobSpec(
     val stdinRelativePath: String? = null,
     /** Per-stream stderr cap; the combined [maxOutputBytes] cap still applies. */
     val maxStderrBytes: Long = maxOutputBytes,
+    /** Trusted host-resolved real directory; null explicitly selects the snapshot backend. */
+    val workspacePath: String? = null,
+    val workspaceWitness: String? = null,
+    /** Explicit output files relative to the mounted workspace, never destinations to copy into. */
+    val artifactPaths: List<String> = emptyList(),
 ) {
     companion object {
         const val MAX_OUTPUT_BYTES = 64L * 1024L * 1024L
@@ -50,22 +55,16 @@ data class ProotJobSpec(
     init {
         ProotJobRecordCodec.checkExecutionId(executionId)
         ProotJobRecordCodec.checkJobId(jobId)
+        require((workspacePath == null) == (workspaceWitness == null)) { "workspace identity incomplete" }
+        workspacePath?.let { path ->
+            require(path.startsWith('/') && path.length <= 4096 && ':' !in path && path.none(Char::isISOControl))
+            require(!workspaceWitness.isNullOrBlank() && workspaceWitness.length <= 1024)
+        }
+        require(artifactPaths.size <= 64 && artifactPaths.distinct().size == artifactPaths.size)
+        artifactPaths.forEach { validateRelativePath(it) }
         require(relativeWorkingDirectory.length in 0..256) { "relativeWorkingDirectory too long" }
         if (relativeWorkingDirectory.isNotEmpty()) {
-            require(relativeWorkingDirectory.none { it == '/' || it == '\\' }) {
-                "relativeWorkingDirectory must be a single safe segment"
-            }
-            require(relativeWorkingDirectory != "." && relativeWorkingDirectory != "..") {
-                "relativeWorkingDirectory must be a plain name"
-            }
-            require(
-                relativeWorkingDirectory.all {
-                    it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' ||
-                        it == '-'
-                },
-            ) {
-                "relativeWorkingDirectory has invalid characters"
-            }
+            validateRelativePath(relativeWorkingDirectory)
         }
         require(environment.size <= 64) { "environment exceeds the entry cap" }
         require(environment.entries.all { (k, v) -> k.length in 1..128 && v.length in 0..8192 }) {
@@ -105,6 +104,16 @@ data class ProotJobSpec(
                 }
             },
         ) { "argv entry out of bounds" }
+    }
+
+    private fun validateRelativePath(path: String) {
+        try {
+            com.helix.runtime.proot.core.JobPath
+                .validate(path)
+        } catch (invalid: com.helix.runtime.proot.core.JobArchiveException) {
+            throw IllegalArgumentException("Invalid workspace-relative path", invalid)
+        }
+        require(path.none(Char::isISOControl)) { "Control characters in workspace path" }
     }
 }
 
@@ -150,6 +159,9 @@ object ProotJobWire {
         parcel.writeLong(spec.maxStderrBytes)
         parcel.writeString(spec.relativeWorkingDirectory)
         parcel.writeString(spec.stdinRelativePath)
+        parcel.writeString(spec.workspacePath)
+        parcel.writeString(spec.workspaceWitness)
+        parcel.writeStringList(spec.artifactPaths)
         parcel.writeInt(spec.environment.size)
         spec.environment.toSortedMap().forEach { (name, value) ->
             parcel.writeString(name)
@@ -194,6 +206,9 @@ object ProotJobWire {
         val maxStderrBytes = parcel.readLong()
         val relativeWorkingDirectory = string()
         val stdinRelativePath = parcel.readString()
+        val workspacePath = parcel.readString()
+        val workspaceWitness = parcel.readString()
+        val artifactPaths = parcel.createStringArrayList() ?: throw ProotIpcException("artifact paths missing")
         val envCount = parcel.readInt()
         if (envCount !in 0..64) throw ProotIpcException("job spec env count out of bounds")
         val environment = LinkedHashMap<String, String>()
@@ -233,6 +248,9 @@ object ProotJobWire {
                 inputManifestSha256,
                 stdinRelativePath,
                 maxStderrBytes,
+                workspacePath,
+                workspaceWitness,
+                artifactPaths,
             )
         // The constructor re-validates every bound; a violation is INVALID_SPEC.
         return spec

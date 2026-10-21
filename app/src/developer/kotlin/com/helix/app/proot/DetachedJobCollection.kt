@@ -73,7 +73,12 @@ internal class DetachedJobCollection(
             return failure("JOB_NOT_SETTLEABLE: the original execution is running.")
         }
         if (!hasReceipt(binding, record)) {
-            val archive = if (record.state == ProotJobState.SUCCEEDED) archive(binding, record) else null
+            val archive =
+                if (hasCapturedArchive(record)) {
+                    archive(binding, record)
+                } else {
+                    null
+                }
             if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
             // The host resolves the original output target and current authorization; no caller-selected replacement.
             applyOutput(binding, record, archive)
@@ -195,7 +200,7 @@ private fun streamSummary(
     previewDirectory: File,
 ) = buildJsonObject {
     val preview =
-        if (record.state == ProotJobState.SUCCEEDED) {
+        if (record.outputManifestSha256 != null) {
             store.readLocal(binding.turnId, binding.toolCallId)?.let {
                 ProotResultPreview.read(it, previewDirectory, DetachedJobTools.MAX_STREAM_CHARACTERS)
             }
@@ -203,9 +208,12 @@ private fun streamSummary(
             null
         }
     put("streamsAvailable", preview != null)
+    put("logTruncated", record.truncated)
     preview?.let {
         put("stdout", it.stdout)
         put("stderr", it.stderr)
         put("streamsTruncated", it.truncated)
     }
 }
+
+private fun hasCapturedArchive(record: ProotJobRecord) = record.outputManifestSha256 != null && !record.evidenceExpired

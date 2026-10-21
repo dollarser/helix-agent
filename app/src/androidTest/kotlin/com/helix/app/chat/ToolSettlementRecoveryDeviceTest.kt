@@ -10,6 +10,8 @@ import com.helix.app.engine.TurnRecovery
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
+import com.helix.core.model.DispatchOutcomeCode
+import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolCallState
@@ -17,11 +19,17 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.NoCancellation
+import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -30,6 +38,55 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ToolSettlementRecoveryDeviceTest {
+    @Test fun failedDiagnosticsSurviveProjectionFailureAndRoomReopenWithoutReplay() =
+        Fixture().use { f ->
+            val call = f.call("failed-diagnostics")
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            val strings: (Int, Array<out Any>) -> String = { _, _ -> error("projection unavailable") }
+            val settlement =
+                ChatToolSettlement(
+                    f.storage,
+                    app.toolPipeline,
+                    f.clock,
+                    { UUID.randomUUID().toString() },
+                    strings,
+                    ChatToolTimeline(MutableStateFlow(app.chatService.screen.value), strings),
+                    { null },
+                )
+            val outcome =
+                ToolDispatchOutcome.ExecutionFailed(
+                    DispatchOutcomeCode.TOOL_FAILED,
+                    "failure-prefix " + "诊断😀".repeat(5000),
+                    requiresReview = true,
+                )
+            settlement.settleToolCall(call, call.callId, call.name, outcome, sideEffectUnknown = true)
+            f.reopen()
+            val result = f.storage.toolResults.byToolCall(call.id)!!
+            assertEquals(false, result.verified)
+            assertEquals("NEEDS_REVIEW", result.status)
+            assertEquals(
+                "NEEDS_REVIEW",
+                f.storage.toolCalls
+                    .resolve(call.id)
+                    .state,
+            )
+            val request = failedReadRequest()
+            val page = ToolResultReadTool.read(f.storage, request) as ToolExecutorResult.Completed
+            assertTrue(page.output.toString().contains("failure-prefix"))
+            assertEquals(
+                1,
+                f.storage.toolCalls
+                    .listByTurn("turn")
+                    .size,
+            )
+            assertEquals(
+                1,
+                f.storage.goals
+                    .resolve(f.goalId)
+                    .toolCalls,
+            )
+        }
+
     @Test
     fun failedCommitStillPropagatesBeforeAnyProjection() =
         Fixture().use { f ->
@@ -321,6 +378,22 @@ class ToolSettlementRecoveryDeviceTest {
                     .toolCalls,
             )
         }
+
+    private fun failedReadRequest() =
+        ExecutableToolCall(
+            "reader",
+            ToolResultReadTool.NAME,
+            "1",
+            buildJsonObject {
+                put("resultRef", JsonPrimitive("turn/failed-diagnostics"))
+                put("offset", JsonPrimitive(0))
+            },
+            ExecutionTargetType.LOCAL_ANDROID,
+            Instant.now().plusSeconds(5),
+            NoCancellation,
+            "session",
+            "turn",
+        )
 
     private class Fixture : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()

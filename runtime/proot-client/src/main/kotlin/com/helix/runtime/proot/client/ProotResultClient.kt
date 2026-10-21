@@ -6,7 +6,6 @@ import android.os.ParcelFileDescriptor
 import com.helix.runtime.proot.ipc.ProotJobArchive
 import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotJobRecordCodec
-import com.helix.runtime.proot.ipc.ProotJobState
 import com.helix.runtime.proot.ipc.ProotJobWire
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 
@@ -15,7 +14,7 @@ class ProotResultClient(
     private val supervisor: ProotRuntimeSupervisor,
 ) {
     fun fetch(expected: ProotJobRecord): ProotJobArchive? {
-        require(expected.state == ProotJobState.SUCCEEDED && !expected.evidenceExpired)
+        require(expected.state.isTerminal && expected.outputManifestSha256 != null && !expected.evidenceExpired)
         val connection = supervisor.openConnection()
         if (connection !is ProotConnection.Opened) return null
         return try {

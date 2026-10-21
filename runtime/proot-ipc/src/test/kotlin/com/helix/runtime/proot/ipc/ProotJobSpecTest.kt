@@ -68,11 +68,9 @@ class ProotJobSpecTest {
     fun theWorkingDirectoryIsStrictlySafe() {
         for (bad in listOf(
             "../etc",
-            "a/b",
             "a\\b",
             ".",
             "..",
-            "a b",
             "a/b/",
             "x".repeat(257),
         )) {
@@ -83,6 +81,8 @@ class ProotJobSpecTest {
             }
         }
         base.copy(relativeWorkingDirectory = "sub-dir_1") // legal
+        base.copy(relativeWorkingDirectory = "src/main")
+        base.copy(relativeWorkingDirectory = "space dir")
     }
 
     @Test

@@ -45,7 +45,7 @@ HXA-286 定义、288 实现的公共接缝分别表达 turnId/toolCallId、jobId
 
 ### 目录与环境适配（2026-10-17 目标契约）
 
-Runtime 环境、RootFS、Workspace 工作副本和产物分别归属；适配报告实际 environment/generation、cwd、live/snapshot 模式及输入映射。PRoot 快照是文件准备方式，不提供额外 UID/凭据隔离，不能称为恶意代码沙箱。当前 Job 快照不在本次文档工作改为原位写入；同绑定跨工具使用同一副本、显式快照例外和 SAF 物化由 286/288 接线验收。
+Runtime 环境、RootFS、Workspace 工作副本和产物分别归属；适配报告实际 environment/generation、cwd、live/snapshot 模式及输入映射。PRoot 快照是文件准备方式，不提供额外 UID/凭据隔离，不能称为恶意代码沙箱。2026-10-21 Owner 授权的 Job 原位切片按 [终端与 Job 决策](002-terminal-and-jobs.md) 接线：支持的真实目录默认原位，显式快照与 SAF 边界保留；不把本轮主机结果外推为 286/288 全部资源及设备验收通过。
 
 未来新增远端后端须先有具体执行旅程，再验证 endpoint 认证、环境身份核验、传输授权、租期、去重回执和原实例对账；断连不证明未执行，不自动换实例重跑。保持一个 Turn 持久 owner，不预建远程服务/节点注册平台。共享契约见 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)，不能用远程产品 VM 恢复能力推断本机 shell 内存可恢复。
 
@@ -82,6 +82,8 @@ Runtime 环境、RootFS、Workspace 工作副本和产物分别归属；适配�
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-21：同步 Owner 明确授权的 PRoot 原位执行切片及主机/设备验收边界；默认真实目录与显式快照的具体契约继续集中在 RUNTIME-002，不扩展到 SAF POSIX 仿真或其他执行域。
 
 - 2026-10-17，HXA-305：Owner 要求优化内置 PRoot 配置并默认可用。采用首次获准使用时准备、实际安装事实驱动及按需维护；移除旧手动验证和跨 APK 删除确认。维护/清理不得沿符号链接删除工作区内容。主机、设备与真实任务验收按任务分别记录。
 

@@ -15,7 +15,7 @@ class PreviewLinuxToolVersionsTest {
                 DetachedJobTools.await(),
             ).associate { it.name.value to it.version.value }
         assertEquals(versions.mapValues { 1 }, versions)
-        assertEquals(3, com.helix.runtime.proot.ipc.ProotRuntimeProtocol.PROTOCOL_VERSION)
+        assertEquals(4, com.helix.runtime.proot.ipc.ProotRuntimeProtocol.PROTOCOL_VERSION)
         assertEquals(2, ProotJobBindingStore.PAYLOAD_VERSION)
     }
 }

@@ -24,6 +24,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -148,6 +149,7 @@ class LinuxRunToolE2eDeviceTest {
             // 2) The EXACT arguments the approval would bind.
             val args =
                 buildJsonObject {
+                    put("workspaceMode", "snapshot")
                     put(
                         "argv",
                         buildJsonArray {
@@ -225,6 +227,7 @@ class LinuxRunToolE2eDeviceTest {
             // A value the SecretStore knows: the screen refuses it even under a harmless name.
             val args =
                 buildJsonObject {
+                    put("workspaceMode", "snapshot")
                     put("argv", buildJsonArray { add(JsonPrimitive("true")) })
                     put(
                         "environment",
@@ -263,6 +266,7 @@ class LinuxRunToolE2eDeviceTest {
             val store = e2eWorkspaceStore()
             val args =
                 buildJsonObject {
+                    put("workspaceMode", "snapshot")
                     put(
                         "argv",
                         buildJsonArray {
@@ -304,6 +308,7 @@ class LinuxRunToolE2eDeviceTest {
             val store = e2eWorkspaceStore()
             val args =
                 buildJsonObject {
+                    put("workspaceMode", "snapshot")
                     put(
                         "argv",
                         buildJsonArray {
@@ -370,6 +375,7 @@ class LinuxRunToolE2eDeviceTest {
                             toolVersion = "1",
                             args =
                                 buildJsonObject {
+                                    put("workspaceMode", "snapshot")
                                     put(
                                         "argv",
                                         buildJsonArray {
@@ -430,31 +436,34 @@ class LinuxRunToolE2eDeviceTest {
     ): LinuxRunTool.LinuxExecutor {
         val scratchRoot = File(context.filesDir, "proot-jobs-e2e-" + nextId())
         scratch += scratchRoot
-        return LinuxRunTool.ProductionLinuxExecutor(
-            client = jobClient,
-            gate = { supervisorGate() },
-            store = store,
-            scratchRoot = scratchRoot,
-            jobIdProvider = {
-                "job_" +
-                    System
-                        .nanoTime()
-                        .toUInt()
-                        .toString(16)
-                        .padStart(6, '0')
-                        .takeLast(6) +
-                    java.util.UUID
-                        .randomUUID()
-                        .toString()
-                        .replace("-", "")
-                        .take(6)
-                        .lowercase()
-            },
-            knownSecretValues = { knownSecretValues },
-            recheckBeforeSubmit = { null },
-            persistVerifiedResult = persistVerifiedResult,
-            beforeSubmit = beforeSubmit,
-        )
+        val executor =
+            LinuxRunTool.ProductionLinuxExecutor(
+                client = jobClient,
+                gate = { supervisorGate() },
+                store = store,
+                scratchRoot = scratchRoot,
+                jobIdProvider = {
+                    "job_" +
+                        System
+                            .nanoTime()
+                            .toUInt()
+                            .toString(16)
+                            .padStart(6, '0')
+                            .takeLast(6) +
+                        java.util.UUID
+                            .randomUUID()
+                            .toString()
+                            .replace("-", "")
+                            .take(6)
+                            .lowercase()
+                },
+                knownSecretValues = { knownSecretValues },
+                recheckBeforeSubmit = { null },
+                persistVerifiedResult = persistVerifiedResult,
+                beforeSubmit = beforeSubmit,
+            )
+        // This suite exercises explicit snapshot import, not the default in-place backend.
+        return executor
     }
 
     /** The gate the module uses: local state + the persisted anchor (no bind). */

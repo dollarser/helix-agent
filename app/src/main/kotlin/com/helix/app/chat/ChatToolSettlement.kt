@@ -202,7 +202,13 @@ internal class ChatToolSettlement(
         durationMs: Long? = null,
     ) {
         val state = if (sideEffectUnknown) ToolCallState.NEEDS_REVIEW else ToolCallState.FAILED
-        ToolSettlementWriter(storage, clock, idGenerator).persist(row, state, state.name, outcome.detail)
+        ToolSettlementWriter(storage, clock, idGenerator).persist(
+            row,
+            state,
+            state.name,
+            boundedSummary(outcome.detail),
+            ToolFailureContent.encode(outcome),
+        )
         publishToolProjection(toolCallId) {
             val userDetail =
                 str(

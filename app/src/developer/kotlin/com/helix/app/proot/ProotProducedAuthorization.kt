@@ -24,24 +24,25 @@ internal class ProotProducedAuthorization(
     fun checkBeforePublish(
         turnId: String,
         callId: String,
+        path: FileScopePath = FileScopePath(APP_SCOPE_ID, "output/jobs"),
+        readOnly: Boolean = false,
     ) {
         val session = storage.turns.resolve(turnId).sessionId
         val call = requireNotNull(storage.toolCalls.byTurnAndCallId(turnId, callId))
         check(call.name in setOf("bash", LinuxRunTool.NAME, DetachedJobTools.START)) { "Not an original Linux Job" }
         val canonical = if (call.name == "bash") LinuxRunTool.NAME else call.name
         for (name in setOf(call.name, canonical)) {
-            val states = permissions.statesFor(ToolOrigin.BuiltInOrigin.canonicalOf(), name, session, APP_SCOPE_ID)
+            val states = permissions.statesFor(ToolOrigin.BuiltInOrigin.canonicalOf(), name, session, path.scopeId)
             val available = effectiveAvailability(states.global, states.workspace, states.session)
             check(available != ToolAvailabilityState.DISABLED) {
                 "Original Job tool is disabled; produced files were not published"
             }
         }
-        val path = FileScopePath(APP_SCOPE_ID, "output/jobs")
         val effect =
             if (SessionToolEffectClassifier(workspaceFor).isWorkspacePath(path, session)) {
-                OperationEffect.FILE_MUTATION_WORKSPACE
+                if (readOnly) OperationEffect.FILE_READ_WORKSPACE else OperationEffect.FILE_MUTATION_WORKSPACE
             } else {
-                OperationEffect.FILE_MUTATION_EXTERNAL
+                if (readOnly) OperationEffect.FILE_READ_EXTERNAL else OperationEffect.FILE_MUTATION_EXTERNAL
             }
         // Original execution admitted deferred output. A later DENY invalidates that authority;
         // an ASK does not mint a new grant or require replay of the original command.

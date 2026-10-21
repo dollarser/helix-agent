@@ -12,7 +12,7 @@ internal fun snapshotInputName(
     index: Int,
 ): String = FileScopePath.fromModelReference(reference).name + if (index == 0) "" else "-${index + 1}"
 
-/** Reports the current snapshot contract; no new backend, materialization or source writeback. */
+/** Reports the actual approval-bound mount and input mapping; never a source-writeback claim. */
 internal fun linuxExecutionInfo(
     call: LinuxRunTool.ParsedLinuxCall,
     jobId: String,
@@ -23,14 +23,27 @@ internal fun linuxExecutionInfo(
             val entry =
                 buildJsonObject {
                     put("source", reference)
-                    put("guestPath", "/workspace/${snapshotInputName(reference, index)}")
+                    val relative =
+                        if (call.snapshot) {
+                            snapshotInputName(reference, index)
+                        } else {
+                            val root = FileScopePath.fromModelReference(requireNotNull(call.workspaceReference))
+                            FileScopePath
+                                .fromModelReference(reference)
+                                .relativePath
+                                .removePrefix(root.relativePath)
+                                .trimStart('/')
+                        }
+                    put("guestPath", "/workspace/$relative")
                 }
             bytes += entry.toString().toByteArray(Charsets.UTF_8).size
             entry.takeIf { bytes <= 1536 }
         }
     return buildJsonObject {
         put("environment", "local-proot")
-        put("mode", "snapshot")
+        put("mode", if (call.snapshot) "snapshot" else "in_place")
+        call.workspaceReference?.let { put("workspace", it) }
+        put("writesAffectOriginalFiles", !call.snapshot)
         put("jobId", jobId)
         put(
             "cwd",
@@ -46,6 +59,6 @@ internal fun linuxExecutionInfo(
         put("inputMappingTruncated", mappings.size < call.inputReferences.size)
         // This is the approved import destination, not proof the import has succeeded.
         call.outputReference?.let { put("outputImportTarget", it) }
-        put("outputArtifacts", "/workspace/output/")
+        if (call.snapshot) put("outputArtifacts", "/workspace/output/")
     }
 }

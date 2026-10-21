@@ -263,13 +263,14 @@ object ApprovalUiMapper {
         // tool schema versions do not determine the execution domain network boundary.
         val script = stringArg(arguments, "script")?.takeIf { it.isNotBlank() }
         val argv = (arguments["argv"] as? JsonArray)?.map { (it as JsonPrimitive).content }
+        val inputs = prootInputs(descriptor, arguments)
         return when {
             script != null -> {
                 CodeExecutionUi(
                     code = script,
                     codeSha256Short = sha256Short(script),
-                    inputSourceRes = filesSource(arguments["files"]).res,
-                    inputSourceArgs = filesSource(arguments["files"]).args,
+                    inputSourceRes = inputs.res,
+                    inputSourceArgs = inputs.args,
                     limitsRes = prootLimitsLabel(arguments).res,
                     limitsArgs = prootLimitsLabel(arguments).args,
                     online = descriptor.executionTarget == ExecutionTargetType.LOCAL_PROOT,
@@ -280,8 +281,8 @@ object ApprovalUiMapper {
                 CodeExecutionUi(
                     code = argv.joinToString(" "),
                     codeSha256Short = sha256Short(argv.joinToString(" ")),
-                    inputSourceRes = filesSource(arguments["files"]).res,
-                    inputSourceArgs = filesSource(arguments["files"]).args,
+                    inputSourceRes = inputs.res,
+                    inputSourceArgs = inputs.args,
                     limitsRes = prootLimitsLabel(arguments).res,
                     limitsArgs = prootLimitsLabel(arguments).args,
                     online = descriptor.executionTarget == ExecutionTargetType.LOCAL_PROOT,
@@ -291,6 +292,23 @@ object ApprovalUiMapper {
             else -> {
                 null
             }
+        }
+    }
+
+    private fun prootInputs(
+        descriptor: ToolDescriptor,
+        arguments: JsonObject,
+    ): ApprovalLabel {
+        val workspace = stringArg(arguments, "workspace")
+        return if (descriptor.executionTarget == ExecutionTargetType.LOCAL_PROOT &&
+            stringArg(arguments, "workspaceMode") != "snapshot" && workspace != null
+        ) {
+            ApprovalLabel(
+                R.string.approval_input_proot_inplace,
+                listOf(workspace, stringArg(arguments, "cwd").orEmpty().ifEmpty { "." }),
+            )
+        } else {
+            filesSource(arguments["files"])
         }
     }
 

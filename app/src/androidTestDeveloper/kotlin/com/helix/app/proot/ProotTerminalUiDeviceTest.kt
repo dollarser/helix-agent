@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -122,6 +123,11 @@ class ProotTerminalUiDeviceTest {
                 awaitFile(workspace, "rotated.txt", "preserved")
                 visibleGlyphs("terminal-rotated.png")
                 compose.onNodeWithTag("terminal-settle").performClick()
+                assertTrue(runBlocking { terminal.hasSession() })
+                compose
+                    .onNode(
+                        hasText(context.getString(R.string.terminal_stop_close)) and hasClickAction(),
+                    ).performClick()
                 compose.waitUntil(10_000) { runBlocking { !terminal.hasSession() } }
             }
         } finally {
@@ -191,6 +197,11 @@ class ProotTerminalUiDeviceTest {
                 awaitFile(workspace, "interrupted.txt", "130")
                 compose.waitUntil(5000) { !File("/proc/$pid").exists() }
                 compose.onNodeWithTag("terminal-settle").performClick()
+                assertTrue(runBlocking { terminal.hasSession() })
+                compose
+                    .onNode(
+                        hasText(context.getString(R.string.terminal_stop_close)) and hasClickAction(),
+                    ).performClick()
                 compose.waitUntil(10_000) { runBlocking { !terminal.hasSession() } }
             }
         } finally {

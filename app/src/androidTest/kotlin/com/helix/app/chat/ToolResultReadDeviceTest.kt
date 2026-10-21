@@ -67,6 +67,29 @@ class ToolResultReadDeviceTest {
             }
         }
 
+    @Test fun failedDiagnosticsAreReadableWithoutBecomingVerifiedSuccess() =
+        withStorage { storage ->
+            storage.toolCalls.append("failed-row", "source", "failure", "bash", "1", "{}", "FAILED")
+            storage.toolResults.append("failed-result", "failed-row", "FAILED", "failed", "failure body")
+            val output =
+                ToolResultReadTool.read(
+                    storage,
+                    request().copy(args = args("source/failure")),
+                ) as ToolExecutorResult.Completed
+            assertEquals(
+                "failure body",
+                output.output.jsonObject
+                    .getValue("content")
+                    .jsonPrimitive.content,
+            )
+            assertFalse(storage.toolResults.byToolCall("failed-row")!!.verified)
+            assertEquals("FAILED", storage.toolCalls.resolve("failed-row").state)
+            assertFailed(
+                storage,
+                request().copy(args = args("source/failure"), sessionId = "other", turnId = "foreign"),
+            )
+        }
+
     @Test fun cancellationDeadlineAndInvalidOffsetsHaveNoEffects() =
         withStorage { storage ->
             val call = request()

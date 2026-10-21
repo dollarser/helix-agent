@@ -1,0 +1,3 @@
+<resources>
+    <string name="approval_input_proot_inplace">原位工作区：%1$s；目录：%2$s。直接修改原文件，取消不会撤销修改。</string>
+</resources>

@@ -10,6 +10,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LinuxExecutionInfoTest {
+    @Test fun inPlaceReportsOriginalReferencesWithoutSnapshotNamesOrOutputConvention() {
+        val info =
+            linuxExecutionInfo(
+                call(listOf("scope:ws:project/src/main.kt")).copy(
+                    snapshot = false,
+                    workspaceReference = "scope:ws:project",
+                ),
+                "job",
+            )
+        assertEquals("in_place", info.getValue("mode").jsonPrimitive.content)
+        assertEquals("true", info.getValue("writesAffectOriginalFiles").jsonPrimitive.content)
+        assertEquals(
+            "/workspace/src/main.kt",
+            info
+                .getValue("inputMapping")
+                .jsonArray
+                .single()
+                .jsonObject
+                .getValue("guestPath")
+                .jsonPrimitive.content,
+        )
+        assertFalse(info.containsKey("outputArtifacts"))
+    }
+
     private fun call(
         files: List<String>,
         cwd: String = "",
@@ -24,6 +48,7 @@ class LinuxExecutionInfoTest {
         files,
         output,
         1000,
+        snapshot = true,
     )
 
     @Test fun reportsActualSnapshotNamesCwdAndExplicitImportWithoutChangingSources() {

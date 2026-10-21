@@ -32,11 +32,13 @@ internal class DetachedJobLaunch(
 ) : LinuxRunTool.LinuxExecutor {
     private val snapshots = LinuxInputSnapshot(store)
 
+    @Suppress("ReturnCount") // Cancelled and unresolved workspaces are rejected before creating submission state.
     override fun execute(
         call: LinuxRunTool.ParsedLinuxCall,
         isCancelled: () -> Boolean,
     ): ToolExecutorResult {
         if (isCancelled()) return ToolExecutorResult.Cancelled
+        if (!call.snapshot && call.resolvedWorkspacePath == null) return failure("WORKSPACE_UNAVAILABLE")
         val budget =
             RuntimeSubmissionBudget(call.deadlineEpochMs, System.currentTimeMillis(), SystemClock.elapsedRealtime())
         val identity = UUID.randomUUID().toString().replace("-", "")
@@ -61,7 +63,8 @@ internal class DetachedJobLaunch(
         val input = File(scratch, "input.zip")
         val hash =
             try {
-                snapshots.build(call.inputReferences, input, isCancelled) ?: return failure("INPUT_BUILD_FAILED")
+                snapshots.build(if (call.snapshot) call.inputReferences else emptyList(), input, isCancelled)
+                    ?: return failure("INPUT_BUILD_FAILED")
             } catch (_: java.io.InterruptedIOException) {
                 return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
             } catch (_: Exception) {
@@ -127,6 +130,9 @@ internal class DetachedJobLaunch(
         deadlineMs = remaining,
         maxOutputBytes = 8L * 1024 * 1024,
         inputManifestSha256 = hash,
+        workspacePath = call.resolvedWorkspacePath,
+        workspaceWitness = call.workspaceWitness,
+        artifactPaths = call.artifactPaths,
     )
 
     private fun finish(

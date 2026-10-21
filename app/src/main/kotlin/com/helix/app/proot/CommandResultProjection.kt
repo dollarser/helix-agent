@@ -174,7 +174,7 @@ object CommandResultProjection {
                     .find(summary.orEmpty())
                     ?.groupValues
                     ?.get(1)
-                    ?.toIntOrNull()
+                    ?.toIntOrNull() ?: content?.exitCode
             }
 
             else -> {

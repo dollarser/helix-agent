@@ -28,7 +28,7 @@ internal object FileToolArguments {
             "code.linux.run",
             "code.linux.job.start",
         )
-    private val pathKeys = setOf("path", "source", "destination", "output")
+    private val pathKeys = setOf("path", "source", "destination", "output", "workspace")
     private const val PATH_HELP =
         "Relative to the current session working directory (e.g. notes.txt, src/main.kt, or .). " +
             "Explicit scope:<id>:<relativePath> is also accepted. Never use Android absolute paths or ../ escapes."
@@ -52,6 +52,7 @@ internal object FileToolArguments {
     fun bindRequest(
         arguments: String,
         directory: FileScopePath,
+        toolName: String? = null,
     ): String {
         val parsed =
             runCatching {
@@ -59,7 +60,15 @@ internal object FileToolArguments {
                     .parseToJsonElement(arguments.ifBlank { "{}" })
             }.getOrNull() as? JsonObject ?: return arguments
         // Invalid paths stay invalid and are rejected by the ordinary dispatch validation path.
-        return runCatching { normalize(parsed, directory).toString() }.getOrDefault(arguments)
+        return runCatching {
+            val bound =
+                if (toolName in setOf("code.linux.run", "code.linux.job.start")) {
+                    JsonObject(mapOf("workspace" to JsonPrimitive(directory.toModelReference())) + parsed)
+                } else {
+                    parsed
+                }
+            normalize(bound, directory).toString()
+        }.getOrDefault(arguments)
     }
 
     fun normalize(

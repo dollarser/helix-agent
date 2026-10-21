@@ -9,6 +9,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatHistoryBuilderTest {
+    @Test fun originalOperationAndUncertaintyReachTheModelNotJustTheUiEnvelope() {
+        val row =
+            ChatHistoryBuilder.PersistedRow(
+                "t",
+                "TOOL",
+                ChatHistoryBuilder.KIND_TOOL_RESULT,
+                """{"id":"c","tool":"bash","status":"FAILED","summary":"failed",
+                "callRef":"t/c","logRef":"t/c","logReadTool":"code.linux.job.read_log",
+                "sideEffectFree":false,"requiresReview":true}""",
+            )
+        val text = ChatHistoryBuilder.toModelMessagesStrict(listOf(row)).single().text
+        assertTrue(text.contains("code.linux.job.read_log"))
+        assertTrue(text.contains("t/c"))
+        assertTrue(text.contains("\"requiresReview\":true"))
+        assertTrue(text.contains("\"sideEffectFree\":false"))
+    }
+
     @Test fun oneResponseKeepsItsTextAndOrderedCallsTogether() {
         val text = "观察完成。\n填入\"你好\"。"
         val calls =

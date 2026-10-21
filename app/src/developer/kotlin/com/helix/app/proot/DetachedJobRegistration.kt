@@ -27,6 +27,7 @@ internal object DetachedJobRegistration {
         chat: () -> ChatService,
         gate: () -> LinuxRuntimeGate,
         secrets: () -> Set<String>,
+        prepareWorkspace: (LinuxRunTool.ParsedLinuxCall) -> LinuxRunTool.ParsedResult,
     ): DetachedJobUserActions {
         val workspaceFor: (String) -> String? = { session ->
             storage.sessions
@@ -66,7 +67,8 @@ internal object DetachedJobRegistration {
             )
         val executors =
             listOf(
-                DetachedJobTools.start() to startWithWait(observations, launcher, collection, ownership),
+                DetachedJobTools.start() to
+                    startWithWait(observations, launcher, collection, ownership, prepareWorkspace),
                 DetachedJobTools.control(false) to observations.statusExecutor(),
                 DetachedJobTools.await() to observations.awaitExecutor(),
                 DetachedJobTools.control(true) to control.executor(),
@@ -91,6 +93,7 @@ internal object DetachedJobRegistration {
         launcher: DetachedJobLaunch,
         collection: DetachedJobCollection,
         ownership: ExecutionOwnership,
+        prepareWorkspace: (LinuxRunTool.ParsedLinuxCall) -> LinuxRunTool.ParsedResult,
     ): ToolExecutor {
         val clock =
             object : com.helix.core.model.Clock {
@@ -102,7 +105,7 @@ internal object DetachedJobRegistration {
                     ownership.executeControlWithinDeadline(collection.executor(), call, clock)
             }
         return observations.launchWaitExecutor(
-            start(launcher),
+            start(launcher, prepareWorkspace),
             DetachedJobWait::millis,
             { call, launched, observed -> DetachedJobWait.finish(controlled, call, launched, observed) },
         )
@@ -145,12 +148,28 @@ internal object DetachedJobRegistration {
             },
         )
 
-    private fun start(launcher: DetachedJobLaunch): ToolExecutor =
+    private fun start(
+        launcher: DetachedJobLaunch,
+        prepareWorkspace: (LinuxRunTool.ParsedLinuxCall) -> LinuxRunTool.ParsedResult,
+    ): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult =
                 when (val parsed = DetachedJobTools.parsed(call)) {
-                    is LinuxRunTool.ParsedResult.ParseFailure -> LinuxRunTool.failed(parsed.detail)
-                    is LinuxRunTool.ParsedResult.Ok -> launcher.execute(parsed.call) { call.cancel.isCancelled() }
+                    is LinuxRunTool.ParsedResult.ParseFailure -> {
+                        LinuxRunTool.failed(parsed.detail)
+                    }
+
+                    is LinuxRunTool.ParsedResult.Ok -> {
+                        when (val prepared = prepareWorkspace(parsed.call)) {
+                            is LinuxRunTool.ParsedResult.ParseFailure -> {
+                                LinuxRunTool.failed(prepared.detail, "WORKSPACE_UNAVAILABLE")
+                            }
+
+                            is LinuxRunTool.ParsedResult.Ok -> {
+                                launcher.execute(prepared.call) { call.cancel.isCancelled() }
+                            }
+                        }
+                    }
                 }
         }
 }

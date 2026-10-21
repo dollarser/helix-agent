@@ -51,7 +51,23 @@ internal class ProotJobBindingStore(
         check(stored.state == "RUNNING")
         val payload =
             jobPreparedPayload(stored.callId, turn.id, turn.sessionId, spec, configFor(turn.sessionId), detached)
-                .let { prepared -> JsonObject(prepared + buildJsonObject { put("bootCount", bootCount()) }) }
+                .let { prepared ->
+                    JsonObject(
+                        prepared +
+                            buildJsonObject {
+                                put("bootCount", bootCount())
+                                put("workspaceReference", call.workspaceReference)
+                                put("workspacePath", spec.workspacePath)
+                                put("workspaceWitness", spec.workspaceWitness)
+                                put(
+                                    "artifactPaths",
+                                    kotlinx.serialization.json.JsonArray(
+                                        call.artifactPaths.map { kotlinx.serialization.json.JsonPrimitive(it) },
+                                    ),
+                                )
+                            },
+                    )
+                }
         storage.auditEvents.append(
             id = eventId(call.toolCallId),
             correlationId = turn.sessionId,

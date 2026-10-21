@@ -11,6 +11,7 @@ import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotJobRecordCodec
 import com.helix.runtime.proot.ipc.ProotJobState
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.io.InputStream
@@ -32,7 +33,7 @@ internal class ProotResultStore(
         check(binding.getValue("jobId").jsonPrimitive.content == record.jobId)
         check(binding.getValue("executionId").jsonPrimitive.content == record.executionId)
         check(binding.getValue("inputManifestSha256").jsonPrimitive.content == record.inputManifestSha256)
-        check(record.state == ProotJobState.SUCCEEDED && !record.evidenceExpired)
+        check(record.state.isTerminal && record.outputManifestSha256 != null && !record.evidenceExpired)
         check(scratch.mkdirs() || scratch.isDirectory)
         val staging = Files.createTempDirectory(scratch.toPath(), "proot-result-").toFile()
         try {
@@ -41,6 +42,13 @@ internal class ProotResultStore(
             val extracted = ZipJobExtractor.extract(candidate, File(staging, "verified"))
             check(extracted.manifestSha256 == record.outputManifestSha256)
             publish(turnId, callId, record.jobId, candidate)
+            saveRecord(turnId, callId, record)
+            if (record.state != ProotJobState.SUCCEEDED) return requireNotNull(readLocal(turnId, callId))
+            if (binding["workspacePath"]?.jsonPrimitive?.content != null &&
+                binding["workspacePath"]?.jsonPrimitive?.content != "null"
+            ) {
+                ProotLiveArtifacts.register(storage, binding, turnId, callId, File(staging, "verified"))
+            }
             val session = storage.turns.resolve(turnId).sessionId
             ProotProducedFiles.publish(
                 workspace,
@@ -67,6 +75,49 @@ internal class ProotResultStore(
         } finally {
             staging.deleteRecursively()
         }
+    }
+
+    private fun saveRecord(
+        turnId: String,
+        callId: String,
+        record: ProotJobRecord,
+    ) {
+        val id = "proot-result-record-$callId"
+        storage.withTransaction {
+            val existing = savedRecord(turnId, callId)
+            if (existing == null) {
+                storage.auditEvents.append(
+                    id,
+                    storage.turns.resolve(turnId).sessionId,
+                    "proot.result_saved",
+                    "platform",
+                    ProotJobRecordCodec.encode(record),
+                    System.currentTimeMillis(),
+                )
+            } else {
+                check(existing.terminalCommit == record.terminalCommit)
+            }
+        }
+    }
+
+    fun savedRecord(
+        turnId: String,
+        callId: String,
+    ): ProotJobRecord? {
+        val original = binding(turnId, callId)
+        val event =
+            try {
+                storage.auditEvents.resolve("proot-result-record-$callId")
+            } catch (
+                _: IllegalArgumentException,
+            ) {
+                return null
+            }
+        val record = ProotJobRecordCodec.parse(event.redactedPayload)
+        check(record.jobId == original.getValue("jobId").jsonPrimitive.content)
+        check(record.executionId == original.getValue("executionId").jsonPrimitive.content)
+        check(record.inputManifestSha256 == original.getValue("inputManifestSha256").jsonPrimitive.content)
+        return record
     }
 
     fun readLocal(
@@ -103,14 +154,16 @@ internal class ProotResultStore(
                 AtomicFileWriter.writeAtomicStream(target.toPath()) { output ->
                     candidate.inputStream().use { it.copyTo(output) }
                 }
-                storage.artifacts.register(
+                storage.artifacts.registerOrRefresh(
                     "proot-result-$callId",
                     session,
                     modelRef(relative),
                     "application/zip",
                     candidate.length(),
                     hash,
+                    turnId,
                     target,
+                    purpose = "RUNTIME_EVIDENCE",
                 )
             } else {
                 check(existing.id == "proot-result-$callId")
@@ -119,11 +172,32 @@ internal class ProotResultStore(
         }
     }
 
+    @Suppress("ReturnCount") // Missing local evidence and live/snapshot results have distinct truthful outcomes.
     fun produced(
         turnId: String,
         callId: String,
     ): JsonObject {
-        val job = binding(turnId, callId).getValue("jobId").jsonPrimitive.content
+        val original = binding(turnId, callId)
+        val live = original["workspacePath"]?.jsonPrimitive?.contentOrNull != null
+        if (live) {
+            val archive =
+                readLocal(turnId, callId)
+                    ?: return ProotLiveArtifacts.registeredSummary(storage, original, turnId, emptyList())
+            check(scratch.mkdirs() || scratch.isDirectory)
+            val temporary = Files.createTempDirectory(scratch.toPath(), "live-result-").toFile()
+            try {
+                ZipJobExtractor.extract(archive, temporary)
+                return ProotLiveArtifacts.registeredSummary(
+                    storage,
+                    original,
+                    turnId,
+                    ProotLiveArtifacts.entries(temporary),
+                )
+            } finally {
+                temporary.deleteRecursively()
+            }
+        }
+        val job = original.getValue("jobId").jsonPrimitive.content
         val session = storage.turns.resolve(turnId).sessionId
         val prefix = modelRef(ProotProducedFiles.relativeDirectory(job)) + "/"
         val entries =

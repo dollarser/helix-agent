@@ -365,7 +365,8 @@ class ProotJobRunner private constructor(
             // 1) Extract + re-verify the input archive (untrusted bytes: central
             //    directory scan, path validation, per-entry manifest re-hash).
             val jobDir = store.jobDir(spec.jobId)
-            val workspace = File(jobDir, "workspace")
+            val snapshot = File(jobDir, "workspace")
+            val workspace = ProotLiveWorkspace.resolve(context, spec) ?: snapshot
             val inputArchive = File(jobDir, "input.zip")
             ParcelFileDescriptor.AutoCloseInputStream(inputPfd).use { input ->
                 FileOutputStream(inputArchive).use { out ->
@@ -377,12 +378,16 @@ class ProotJobRunner private constructor(
             }
             val extraction =
                 try {
-                    ZipJobExtractor.extract(inputArchive, workspace)
+                    ZipJobExtractor.extract(inputArchive, snapshot)
                 } catch (e: JobArchiveException) {
                     terminalInputInvalid(pending, outputPfd)
                     return
                 }
             if (extraction.manifestSha256 != spec.inputManifestSha256) {
+                terminalInputInvalid(pending, outputPfd)
+                return
+            }
+            if (spec.workspacePath != null && extraction.manifest.entries.isNotEmpty()) {
                 terminalInputInvalid(pending, outputPfd)
                 return
             }
@@ -405,6 +410,7 @@ class ProotJobRunner private constructor(
             val installDir = File(ProotRuntimeInstaller.runtimeRoot(context), installId)
             val jobTmp = File(jobDir, "tmp").apply { mkdirs() }
             val media = ProotGuestMedia.prepare(context, jobTmp)
+            ProotLiveWorkspace.resolve(context, spec) // Recheck the original directory after environment preparation.
             val commandArgs =
                 when (val command = spec.command) {
                     is ProotJobCommand.Argv -> command.arguments
@@ -574,7 +580,13 @@ class ProotJobRunner private constructor(
                 stdout.finish()
                 stderr.finish()
                 log?.finish(true)
-                terminal(pending, outputPfd, ProotJobState.TIMED_OUT, null, stdout, stderr)
+                terminal(
+                    pending,
+                    outputPfd,
+                    ProotJobState.TIMED_OUT,
+                    null,
+                    JobOutput(spec, stdout, stderr, cancelRequested),
+                )
                 return
             }
             stdoutReader.join(5_000L)
@@ -596,7 +608,7 @@ class ProotJobRunner private constructor(
                     process.exitValue() == 0 -> ProotJobState.SUCCEEDED
                     else -> ProotJobState.FAILED
                 }
-            terminal(pending, outputPfd, state, process.exitValue(), stdout, stderr)
+            terminal(pending, outputPfd, state, process.exitValue(), JobOutput(spec, stdout, stderr, cancelRequested))
         } catch (e: JobInputStoppedException) {
             check(stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow))
         } catch (e: Exception) {
@@ -690,23 +702,53 @@ class ProotJobRunner private constructor(
     }
 
     /**
-     * The terminal path WITH the output archive: workspace artifacts + capped
+     * The terminal path WITH the output archive: explicit deliverables + capped
      * streams are written (manifest first) into the client's output PFD. A
      * SUCCEEDED whose artifact could not be delivered is demoted to FAILED — the
      * record simply has no outputManifestSha256 to reconcile against.
      */
-    @Suppress("SwallowedException") // the PFD must close in EVERY outcome
+    private data class JobOutput(
+        val spec: ProotJobSpec,
+        val stdout: BoundedCapture,
+        val stderr: BoundedCapture,
+        val cancelled: AtomicBoolean,
+    )
 
+    private fun persistOutput(
+        jobId: String,
+        outputPfd: ParcelFileDescriptor,
+        output: JobOutput,
+    ): String {
+        val jobDir = store.jobDir(jobId)
+        val stdout = "stdout.txt" to File(jobDir, "_stdout.txt").apply { writeBytes(output.stdout.bytes) }
+        val stderr = "stderr.txt" to File(jobDir, "_stderr.txt").apply { writeBytes(output.stderr.bytes) }
+        return ProotOutputDelivery
+            .persistAndDeliver(store.outputFile(jobId), outputPfd) { archive ->
+                if (output.spec.workspacePath == null) {
+                    buildOutputArchive(archive, File(jobDir, "workspace"), stdout, stderr)
+                } else {
+                    val metadata =
+                        com.helix.runtime.proot.core.LiveJobWorkspace.OUTPUT_MANIFEST to
+                            ProotLiveWorkspace.manifest(context, output.spec, File(jobDir, "live-outputs.json")) {
+                                output.cancelled.get() || Thread.currentThread().isInterrupted
+                            }
+                    buildOutputArchive(archive, File(jobDir, "stream-only"), stdout, stderr, metadata)
+                }
+            }.manifestDocument
+    }
+
+    @Suppress("SwallowedException") // the PFD must close in EVERY outcome
     private fun terminal(
         pending: ProotJobRecord,
         outputPfd: ParcelFileDescriptor,
         state: ProotJobState,
         exitCode: Int?,
-        stdout: BoundedCapture,
-        stderr: BoundedCapture,
+        output: JobOutput,
     ) {
         val now = System.currentTimeMillis()
         val jobDir = store.jobDir(pending.jobId)
+        val stdout = output.stdout
+        val stderr = output.stderr
         var outputManifest: String? = null
         var finalState = state
 
@@ -715,17 +757,7 @@ class ProotJobRunner private constructor(
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         val manifestDocument =
             try {
-                val stdoutFile = File(jobDir, "_stdout.txt").apply { writeBytes(stdout.bytes) }
-                val stderrFile = File(jobDir, "_stderr.txt").apply { writeBytes(stderr.bytes) }
-                ProotOutputDelivery
-                    .persistAndDeliver(store.outputFile(pending.jobId), outputPfd) { archive ->
-                        buildOutputArchive(
-                            archive,
-                            File(jobDir, "workspace"),
-                            "stdout.txt" to stdoutFile,
-                            "stderr.txt" to stderrFile,
-                        )
-                    }.manifestDocument
+                persistOutput(pending.jobId, outputPfd, output)
                 // No durable archive: the failure note records missing output evidence.
             } catch (e: Exception) {
                 null

@@ -2,7 +2,6 @@ package com.helix.runtime.proot.app
 
 import android.os.ParcelFileDescriptor
 import com.helix.runtime.proot.ipc.ProotJobArchive
-import com.helix.runtime.proot.ipc.ProotJobState
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 
 internal class ProotResultArchiveStore(
@@ -14,7 +13,7 @@ internal class ProotResultArchiveStore(
         val record = store.load(jobId) ?: return null
         val file = store.outputFile(jobId)
         val readable =
-            record.state == ProotJobState.SUCCEEDED && !record.evidenceExpired &&
+            record.state.isTerminal && !record.evidenceExpired &&
                 record.reconciledAtEpochMs == null && record.outputManifestSha256 != null
         val recent =
             (record.terminalAtEpochMs ?: 0L) >

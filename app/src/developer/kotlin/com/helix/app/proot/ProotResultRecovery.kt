@@ -8,7 +8,6 @@ import com.helix.runtime.proot.client.ProotResultClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.ipc.ProotJobArchive
 import com.helix.runtime.proot.ipc.ProotJobRecord
-import com.helix.runtime.proot.ipc.ProotJobState
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
@@ -35,7 +34,7 @@ internal class ProotResultRecovery(
                 .getValue("jobId")
                 .jsonPrimitive.content
         val record = requireNotNull(query(job)) { "Runtime unavailable" }
-        check(record.state == ProotJobState.SUCCEEDED && !record.evidenceExpired)
+        check(record.state.isTerminal && record.outputManifestSha256 != null && !record.evidenceExpired)
         val file =
             if (local != null) {
                 local.inputStream().use { store.persist(turnId, callId, record, it) }

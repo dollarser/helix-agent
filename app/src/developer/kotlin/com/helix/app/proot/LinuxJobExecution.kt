@@ -19,7 +19,7 @@ import java.io.File
 import java.nio.file.Files
 
 /**
- * The production [LinuxExecutor]: availability gate → input snapshot (files → zip →
+ * The production [LinuxExecutor]: availability gate → explicit snapshot or pinned real directory →
  * PFD) → environment screening (main process) → submit (fresh cold bind, re-handshaked)
  * → bounded wait (journal query ONLY after any loss — never a replay) → hash-verified
  * output import into the Workspace `output/` region. Runs on the dispatcher's executor
@@ -37,6 +37,7 @@ internal class LinuxJobExecution(
     private val beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
     private val persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
     ownership: com.helix.tools.framework.ExecutionOwnership? = null,
+    private val registeredArtifacts: ((ParsedLinuxCall) -> kotlinx.serialization.json.JsonObject)? = null,
 ) : LinuxExecutor {
     private val inputSnapshot = LinuxInputSnapshot(store)
     private val executionOwner = ownership?.let(::ForegroundProotOwnership)
@@ -47,6 +48,9 @@ internal class LinuxJobExecution(
         isCancelled: () -> Boolean,
     ): ToolExecutorResult {
         if (isCancelled()) return ToolExecutorResult.Cancelled
+        if (!call.snapshot && (call.resolvedWorkspacePath == null || registeredArtifacts == null)) {
+            return failed("In-place workspace was not resolved; nothing was submitted", "WORKSPACE_UNAVAILABLE")
+        }
         val budget =
             RuntimeSubmissionBudget(
                 call.deadlineEpochMs,
@@ -133,13 +137,13 @@ internal class LinuxJobExecution(
         budget: RuntimeSubmissionBudget,
     ): ToolExecutorResult {
         if (isCancelled()) return ToolExecutorResult.Cancelled
-        // 1) Input snapshot: every listed file, read THROUGH THE STORE (containment-
-        //    enforced), into one bounded zip. The real Workspace is never mounted.
+        // 1) Snapshot mode transfers approved inputs through the contained store.
+        // In-place mode sends an empty input manifest; the Runtime mounts the pinned real directory.
         val inputZip = File(scratch, "input.zip")
         var inputSha: String?
         try {
             inputSha =
-                inputSnapshot.build(call.inputReferences, inputZip, isCancelled)
+                inputSnapshot.build(if (call.snapshot) call.inputReferences else emptyList(), inputZip, isCancelled)
         } catch (_: java.io.InterruptedIOException) {
             return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
         } catch (_: Exception) {
@@ -195,6 +199,9 @@ internal class LinuxJobExecution(
                 deadlineMs = remainingMs,
                 maxOutputBytes = 8L * 1024L * 1024L,
                 inputManifestSha256 = inputSha,
+                workspacePath = call.resolvedWorkspacePath,
+                workspaceWitness = call.workspaceWitness,
+                artifactPaths = call.artifactPaths,
             )
         // HXA-209 C5 (ADR section 4): the not-yet-launched recheck — the session
         // authorization may have tightened since this call was approved. Only a disable
@@ -323,16 +330,9 @@ internal class LinuxJobExecution(
         val record = outcome.record
         require(record.executionId == spec.executionId && record.inputManifestSha256 == spec.inputManifestSha256)
         executionOwner?.stopped(call.toolCallId, spec, record)
-        if (record.state != com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED) {
-            return failed(
-                "the job ended " + record.state.wire + (record.exitCode?.let { " (exit code $it)" }.orEmpty()),
-                "JOB_" + record.state.wire,
-                sideEffectFree = false,
-                requiresReview = record.state == com.helix.runtime.proot.ipc.ProotJobState.ORPHANED,
-            )
-        }
         if (!outputZip.isFile || outputZip.length() == 0L) {
-            return failed(
+            return terminalFailure(
+                record,
                 "the output archive was not delivered (empty output PFD).",
                 "OUTPUT_MISSING",
                 sideEffectFree = false,
@@ -341,7 +341,8 @@ internal class LinuxJobExecution(
         }
         val expectedManifestSha =
             record.outputManifestSha256
-                ?: return failed(
+                ?: return terminalFailure(
+                    record,
                     "the terminal record carries no output manifest hash.",
                     "OUTPUT_MANIFEST_MISSING",
                     sideEffectFree = false,
@@ -351,7 +352,8 @@ internal class LinuxJobExecution(
             try {
                 ZipJobExtractor.extract(outputZip, File(scratch, "extracted"))
             } catch (e: JobArchiveException) {
-                return failed(
+                return terminalFailure(
+                    record,
                     "the output archive failed verification: ${e.message?.take(120)}",
                     "OUTPUT_VERIFY_FAILED",
                     sideEffectFree = false,
@@ -362,7 +364,8 @@ internal class LinuxJobExecution(
         // the SAME value the companion's terminal record carries (outputManifestSha256):
         // any tampering between the verified commit and the archive delivery breaks it.
         if (extraction.manifestSha256 != expectedManifestSha) {
-            return failed(
+            return terminalFailure(
+                record,
                 "the output archive hash does not match the verified terminal record.",
                 "OUTPUT_HASH_MISMATCH",
                 sideEffectFree = false,
@@ -372,11 +375,30 @@ internal class LinuxJobExecution(
         try {
             persistVerifiedResult(call, record, outputZip)
         } catch (e: Exception) {
-            return failed(
+            return terminalFailure(
+                record,
                 "the verified result could not be saved; recover the original job.",
                 "OUTPUT_PERSIST_FAILED",
                 sideEffectFree = false,
                 requiresReview = true,
+            )
+        }
+        if (record.state != com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED) {
+            return terminalFailure(
+                record,
+                buildJsonObject {
+                    put("error", "the job ended " + record.state.wire)
+                    put("state", record.state.wire)
+                    put("exitCode", record.exitCode)
+                    put("jobId", record.jobId)
+                    put("executionId", record.executionId)
+                    put("logTruncated", record.truncated)
+                    put("stdout", readBounded(File(File(scratch, "extracted"), "stdout.txt")))
+                    put("stderr", readBounded(File(File(scratch, "extracted"), "stderr.txt")))
+                }.toString(),
+                "JOB_" + record.state.wire,
+                sideEffectFree = false,
+                requiresReview = record.state == com.helix.runtime.proot.ipc.ProotJobState.ORPHANED,
             )
         }
         var outputImported = false
@@ -391,7 +413,8 @@ internal class LinuxJobExecution(
                 try {
                     LinuxOutputImport.write(store, reference, imported)
                 } catch (e: IllegalArgumentException) {
-                    return failed(
+                    return terminalFailure(
+                        record,
                         "the result could not be imported into the Workspace: ${e.message?.take(120)}",
                         "OUTPUT_IMPORT_FAILED",
                         sideEffectFree = false,
@@ -405,13 +428,20 @@ internal class LinuxJobExecution(
             output =
                 buildJsonObject {
                     put("state", JsonPrimitive("SUCCEEDED"))
+                    put("logTruncated", record.truncated)
                     put("exitCode", JsonPrimitive(record.exitCode ?: 0))
                     put("stdout", JsonPrimitive(readBounded(File(File(scratch, "extracted"), "stdout.txt"))))
                     put("stderr", JsonPrimitive(readBounded(File(File(scratch, "extracted"), "stderr.txt"))))
                     put("outputImported", JsonPrimitive(outputImported))
                     put("outputSha256", JsonPrimitive(outputSha))
                     put("execution", linuxExecutionInfo(call, spec.jobId))
-                    ProotArtifactReferences.summary(record.jobId, extraction.manifest.entries).forEach { (key, value) ->
+                    val artifacts =
+                        if (call.snapshot) {
+                            ProotArtifactReferences.summary(record.jobId, extraction.manifest.entries)
+                        } else {
+                            requireNotNull(registeredArtifacts) { "In-place artifact registration is not wired" }(call)
+                        }
+                    artifacts.forEach { (key, value) ->
                         put(key, value)
                     }
                 },
@@ -441,7 +471,8 @@ internal class LinuxJobExecution(
             } else {
                 bytes
             }
-        return String(slice, Charsets.UTF_8)
+        return com.helix.app.chat.DiagnosticRedaction
+            .redact(String(slice, Charsets.UTF_8), knownSecretValues())
     }
 
     private val LinuxRuntimeGate.label: String

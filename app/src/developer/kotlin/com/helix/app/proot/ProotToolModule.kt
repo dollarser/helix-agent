@@ -78,6 +78,9 @@ internal object ProotToolModule {
         ownership: com.helix.tools.framework.ExecutionOwnership,
         chat: () -> com.helix.app.chat.ChatService,
         scope: kotlinx.coroutines.CoroutineScope? = null,
+        resolveWorkspacePath: (
+            com.helix.core.workspace.FileScopePath,
+        ) -> File = { error("Workspace resolver unavailable") },
     ) {
         wireForTest(context)
         idGenerator = RandomIdGenerator()
@@ -88,6 +91,11 @@ internal object ProotToolModule {
         // screened by equality at submit time). This screen is not UID isolation;
         // it runs in the main process before the wire.
         secretValues = { currentSecretValues(storage) }
+        val liveWorkspace =
+            LinuxLiveWorkspace(
+                resolveWorkspacePath,
+                listOf("app", "managed").map { File(context.filesDir.canonicalFile, "workspaces/$it") },
+            )
         // HXA-209 C5: the session authorization for background jobs — the SAME service,
         // classifier and resolver as the dispatcher's start gate. A new prohibition
         // (a disable, or a rule now DENYing the operation) refuses the launch BEFORE
@@ -118,17 +126,13 @@ internal object ProotToolModule {
                 recheckBeforeSubmit = recheck::check,
                 beforeSubmit = bindingStore::record,
                 ownership = ownership,
+                registeredArtifacts = { call -> foregroundArtifacts(storage, call) },
                 persistVerifiedResult = { call, record, archive ->
                     persistForegroundResult(storage, call, record, archive)
                 },
             )
-        LinuxRunTool.register(registry) { call, cancel ->
-            try {
-                executor.execute(call, cancel)
-            } finally {
-                observeForegroundExecution(storage)
-            }
-        }
+        registerForeground(registry, executor, liveWorkspace, storage)
+        ProotLogTool.register(context, storage, registry, secretValues)
         userJobActions =
             DetachedJobRegistration.register(
                 context,
@@ -139,7 +143,40 @@ internal object ProotToolModule {
                 chat,
                 { availabilityGate() },
                 secretValues,
+                liveWorkspace::prepareResult,
             )
+    }
+
+    private fun foregroundArtifacts(
+        storage: HelixStorage,
+        call: LinuxRunTool.ParsedLinuxCall,
+    ) = ProotResultStore(
+        storage,
+        File(appContext.filesDir, "workspaces/app"),
+        File(appContext.cacheDir, "proot-results"),
+    ).produced(requireNotNull(call.turnId), call.toolCallId)
+
+    private fun registerForeground(
+        registry: ToolRegistry,
+        executor: LinuxRunTool.LinuxExecutor,
+        workspace: LinuxLiveWorkspace,
+        storage: HelixStorage,
+    ) {
+        LinuxRunTool.register(registry) { call, cancel ->
+            when (val prepared = workspace.prepareResult(call)) {
+                is LinuxRunTool.ParsedResult.ParseFailure -> {
+                    LinuxRunTool.failed(prepared.detail, "WORKSPACE_UNAVAILABLE")
+                }
+
+                is LinuxRunTool.ParsedResult.Ok -> {
+                    try {
+                        executor.execute(prepared.call, cancel)
+                    } finally {
+                        observeForegroundExecution(storage)
+                    }
+                }
+            }
+        }
     }
 
     private fun prepareForegroundRecovery(

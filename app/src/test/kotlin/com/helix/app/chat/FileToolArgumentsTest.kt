@@ -9,6 +9,15 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun linuxWorkspaceIsBoundBeforeApprovalAndDoesNotFollowLaterDirectorySelection() {
+        val original = FileScopePath("first", "project")
+        val bound = FileToolArguments.bindRequest("""{"script":"pwd"}""", original, "code.linux.run")
+        val parsed = Json.parseToJsonElement(bound).jsonObject
+        assertEquals("scope:first:project", parsed.getValue("workspace").jsonPrimitive.content)
+        val rebound = FileToolArguments.bindRequest(bound, FileScopePath("second", "elsewhere"), "code.linux.run")
+        assertEquals(parsed, Json.parseToJsonElement(rebound).jsonObject)
+    }
+
     @Test fun modelFacingReadAndWriteRetainExecutionPreconditions() {
         for (descriptor in listOf(
             com.helix.tools.files.WriteTool

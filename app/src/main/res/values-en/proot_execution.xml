@@ -1,0 +1,3 @@
+<resources>
+    <string name="approval_input_proot_inplace">In-place workspace: %1$s; directory: %2$s. Edits affect original files and are not undone by cancellation.</string>
+</resources>

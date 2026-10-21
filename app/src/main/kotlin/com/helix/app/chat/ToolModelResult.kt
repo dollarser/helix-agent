@@ -25,14 +25,7 @@ internal object ToolModelResult {
         reference: String? = null,
     ): String {
         if (reference != null && name != ToolResultReadTool.NAME && payload.toByteArray().size > MAX_INLINE_BYTES) {
-            return buildJsonObject {
-                put("truncated", true)
-                put("resultRef", reference)
-                put("readTool", ToolResultReadTool.NAME)
-                put("totalCharacters", payload.codePointCount(0, payload.length))
-                put("preview", payload.substring(0, payload.offsetByCodePoints(0, PREVIEW_CHARACTERS)))
-                put("nextOffset", PREVIEW_CHARACTERS)
-            }.toString()
+            return largePayload(payload, reference)
         }
         val excluded = omitted[name].orEmpty()
         if (excluded.isEmpty() && name != "code.javascript.run") return payload
@@ -60,6 +53,53 @@ internal object ToolModelResult {
             ?: payload
     }
 
+    private fun largePayload(
+        payload: String,
+        reference: String,
+    ): String {
+        val document = runCatching { Json.parseToJsonElement(payload) as? JsonObject }.getOrNull()
+        return buildJsonObject {
+            var remaining = 4096
+            IMPORTANT_FIELDS.forEach { key ->
+                val value = document?.get(key)
+                val bounded =
+                    if (value is JsonPrimitive && value.isString && value.content.length > 512) {
+                        JsonPrimitive(value.content.take(512) + "…")
+                    } else {
+                        value
+                    }
+                val bytes = bounded?.toString()?.toByteArray()?.size ?: 0
+                if (bounded != null && bytes <= remaining) {
+                    put(key, bounded)
+                    remaining -= bytes
+                }
+            }
+            put("truncated", true)
+            put("resultRef", reference)
+            put("readTool", ToolResultReadTool.NAME)
+            put("totalCharacters", payload.codePointCount(0, payload.length))
+            put("preview", payload.substring(0, payload.offsetByCodePoints(0, PREVIEW_CHARACTERS)))
+            put("nextOffset", PREVIEW_CHARACTERS)
+        }.toString()
+    }
+
     private const val MAX_INLINE_BYTES = 16_384
     private const val PREVIEW_CHARACTERS = 2048
+    private val IMPORTANT_FIELDS =
+        setOf(
+            "state",
+            "exitCode",
+            "failureCode",
+            "deliveryErrorCode",
+            "sideEffectFree",
+            "requiresReview",
+            "jobId",
+            "executionId",
+            "logRef",
+            "logReadTool",
+            "logTruncated",
+            "logUnavailable",
+            "error",
+            "execution",
+        )
 }

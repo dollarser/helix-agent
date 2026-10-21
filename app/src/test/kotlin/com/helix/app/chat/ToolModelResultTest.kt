@@ -19,10 +19,16 @@ class ToolModelResultTest {
                     ToolModelResult.project("mcp.search", payload, reference),
                 ).jsonObject
         assertTrue(projected.getValue("truncated").jsonPrimitive.boolean)
+        assertEquals("tools.read_result", projected.getValue("readTool").jsonPrimitive.content)
         var offset = 0
         val restored = StringBuilder()
         do {
             val page = ToolResultReadTool.page(reference, payload, offset)
+            assertEquals(
+                com.helix.tools.framework.ToolSchemaValidation.Valid,
+                com.helix.tools.framework.ToolSchemaValidator
+                    .validate(ToolResultReadTool.outputSchema, page),
+            )
             assertTrue(page.toString().toByteArray().size < 16_384)
             restored.append(page.getValue("content").jsonPrimitive.content)
             offset = page["nextOffset"]?.jsonPrimitive?.int ?: -1

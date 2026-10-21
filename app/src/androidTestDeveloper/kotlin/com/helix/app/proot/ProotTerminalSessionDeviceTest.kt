@@ -22,13 +22,27 @@ import java.util.UUID
 
 /** Product facade -> private foreground service -> actual PRoot. Renderer acceptance remains separate. */
 class ProotTerminalSessionDeviceTest {
+    @org.junit.Before fun settleOnlyOwnedTemporaryPackageSessions() =
+        runBlocking {
+            check(
+                context.packageName.endsWith(".asrvalidation"),
+            ) { "This lifecycle fixture requires the owned temporary package" }
+            ensureInstalledRuntime(context)
+            val terminal = checkNotNull(container.manualTerminal)
+            assertTrue(
+                com.helix.app.terminal
+                    .resetTerminalSessions(terminal)
+                    .isEmpty(),
+            )
+        }
+
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val container get() = (context.applicationContext as HelixApplication).appContainer
 
     @Test
     fun manualSessionMapsRealWorkspaceReconnectsAndSettlesOriginalOwner() {
         ensureInstalledRuntime(context)
-        ActivityScenario.launch(com.helix.app.terminal.ManualTerminalActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
                 container.chatService.closeSession()
                 withTimeout(5_000) {
@@ -46,13 +60,15 @@ class ProotTerminalSessionDeviceTest {
                     terminal.start(relative, 30_000)
                     assertTrue(terminal.hasSession())
                     verifyRetainedAdmission()
-                    val second = terminal.start(relative, 30_000)
+                    val extras = (1 until terminal.maxSessions).map { terminal.start(relative, 30_000) }
                     assertTrue(runCatching { terminal.start(relative) }.isFailure)
-                    terminal.stop(second.sessionId)
-                    withTimeout(10_000) {
-                        while (!terminal.query(second.sessionId).canSettle) delay(25)
+                    extras.forEach { extra ->
+                        terminal.stop(extra.sessionId)
+                        withTimeout(10_000) {
+                            while (!terminal.query(extra.sessionId).canSettle) delay(25)
+                        }
+                        terminal.settle(extra.sessionId)
                     }
-                    terminal.settle(second.sessionId)
                     assertTrue(runCatching { terminal.settle() }.isFailure)
                     exerciseConnections(terminal, directory)
                     terminal.stop()
@@ -62,11 +78,11 @@ class ProotTerminalSessionDeviceTest {
                     terminal.settle()
                     assertFalse(terminal.hasSession())
                 } finally {
-                    if (terminal.hasSession()) {
-                        terminal.stop()
-                        awaitStopped(terminal)
-                        terminal.settle()
-                    }
+                    assertTrue(
+                        com.helix.app.terminal
+                            .resetTerminalSessions(terminal)
+                            .isEmpty(),
+                    )
                     container.profileStore.switchTo(previous)
                     directory.deleteRecursively()
                 }
@@ -90,11 +106,11 @@ class ProotTerminalSessionDeviceTest {
                     terminal.settle()
                     assertFalse(terminal.hasSession())
                 } finally {
-                    if (terminal.hasSession()) {
-                        terminal.stop()
-                        awaitStopped(terminal)
-                        terminal.settle()
-                    }
+                    assertTrue(
+                        com.helix.app.terminal
+                            .resetTerminalSessions(terminal)
+                            .isEmpty(),
+                    )
                     container.profileStore.switchTo(previous)
                 }
             }
@@ -144,11 +160,11 @@ class ProotTerminalSessionDeviceTest {
                     terminal.settle()
                     assertFalse(terminal.hasSession())
                 } finally {
-                    if (terminal.hasSession()) {
-                        terminal.stop()
-                        awaitStopped(terminal)
-                        terminal.settle()
-                    }
+                    assertTrue(
+                        com.helix.app.terminal
+                            .resetTerminalSessions(terminal)
+                            .isEmpty(),
+                    )
                     container.profileStore.switchTo(previous)
                     directory.deleteRecursively()
                 }

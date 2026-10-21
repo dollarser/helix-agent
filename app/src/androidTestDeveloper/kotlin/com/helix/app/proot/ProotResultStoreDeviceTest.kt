@@ -21,12 +21,56 @@ import java.util.UUID
 
 @Suppress("TooManyFunctions") // The original-result and produced-file scenarios share one real Room/Job fixture.
 class ProotResultStoreDeviceTest {
+    @Test fun failedArchiveIsDurableEvidenceAndNeverPublishesSuccessfulFiles() {
+        withStore(produced = true) { storage, _, store, archive, record ->
+            val failed = record.copy(state = ProotJobState.FAILED, exitCode = 7, truncated = true)
+            archive.inputStream().use { store.persist("turn", "call", failed, it) }
+            assertEquals(failed.terminalCommit, store.savedRecord("turn", "call")!!.terminalCommit)
+            assertEquals(
+                "RUNTIME_EVIDENCE",
+                storage.artifacts
+                    .listBySession("session")
+                    .single()
+                    .purpose,
+            )
+            assertTrue(store.readLocal("turn", "call")!!.isFile)
+        }
+    }
+
+    @Test fun explicitRecoveryOfFailedOriginalSavesLogsWithoutChangingItsOutcome() {
+        withStore { storage, _, store, archive, record ->
+            interrupt(storage)
+            val failed = record.copy(state = ProotJobState.FAILED, exitCode = 7)
+            val recovery =
+                ProotResultRecovery(
+                    storage,
+                    store,
+                    { failed },
+                    {
+                        val descriptor = ParcelFileDescriptor.open(archive, ParcelFileDescriptor.MODE_READ_ONLY)
+                        ProotJobArchive(failed, descriptor)
+                    },
+                    { it.copy(reconciledAtEpochMs = 4) },
+                )
+            assertTrue(requireNotNull(recovery.recover("turn", "call", false)).acknowledged)
+            assertEquals(ProotJobState.FAILED, store.savedRecord("turn", "call")!!.state)
+            assertEquals("INTERRUPTED", storage.toolCalls.resolve("stored-call").state)
+        }
+    }
+
     @Test
     fun persistsOnceRejectsCorruptionAndRegistersPrivacyCleanup() {
         withStore { storage, root, store, archive, record ->
             val file = archive.inputStream().use { store.persist("turn", "call", record, it) }
             archive.inputStream().use { store.persist("turn", "call", record, it) }
             assertEquals(1, storage.artifacts.listBySession("session").size)
+            assertEquals(
+                "RUNTIME_EVIDENCE",
+                storage.artifacts
+                    .listBySession("session")
+                    .single()
+                    .purpose,
+            )
             assertEquals(FileContentStore.sha256Hex(archive), FileContentStore.sha256Hex(file))
             val original = file.readBytes()
             file.writeBytes(original.copyOf().also { it[0] = (it[0].toInt() xor 1).toByte() })
@@ -58,6 +102,13 @@ class ProotResultStoreDeviceTest {
             }
             assertEquals(hash, FileContentStore.sha256Hex(file))
             assertEquals(1, storage.artifacts.listBySession("session").size)
+            assertEquals(
+                "RUNTIME_EVIDENCE",
+                storage.artifacts
+                    .listBySession("session")
+                    .single()
+                    .purpose,
+            )
             assertTrue(File(root, "scratch").listFiles().orEmpty().isEmpty())
         }
     }
@@ -140,6 +191,13 @@ class ProotResultStoreDeviceTest {
             assertEquals(1, fetches)
             assertEquals(2, acknowledgements)
             assertEquals(1, storage.artifacts.listBySession("session").size)
+            assertEquals(
+                "RUNTIME_EVIDENCE",
+                storage.artifacts
+                    .listBySession("session")
+                    .single()
+                    .purpose,
+            )
             assertEquals("INTERRUPTED", storage.turns.resolve("turn").state)
         }
     }
@@ -204,7 +262,7 @@ class ProotResultStoreDeviceTest {
     fun producedFilesRemainBoundToOriginalTurnAndRetryIsIdempotent() {
         withStore(produced = true) { storage, root, store, archive, record ->
             repeat(2) { archive.inputStream().use { store.persist("turn", "call", record, it) } }
-            val outputs = storage.artifacts.listByTurn("turn")
+            val outputs = storage.artifacts.listByTurn("turn").filter { it.purpose == "OUTPUT" }
             assertEquals(1, outputs.size)
             assertEquals("session", outputs.single().sessionId)
             assertEquals("scope:app:output/jobs/${record.jobId}/clip.mp4", outputs.single().relativePath)
@@ -250,7 +308,7 @@ class ProotResultStoreDeviceTest {
                 )
             storage.sessionPermissionConfigs.setForSession("session", allowed, 5)
             archive.inputStream().use { store.persist("turn", "call", record, it) }
-            assertEquals(1, storage.artifacts.listByTurn("turn").size)
+            assertEquals(1, storage.artifacts.listByTurn("turn").count { it.purpose == "OUTPUT" })
         }
     }
 
@@ -282,7 +340,7 @@ class ProotResultStoreDeviceTest {
                 "proot.job_prepared",
                 "platform",
                 """{"version":1,"toolCallId":"call","turnId":"turn","jobId":"job_0123456789ab",
-                "executionId":"execution","inputManifestSha256":"${"a".repeat(64)}"}""",
+                "sessionId":"session","executionId":"execution","inputManifestSha256":"${"a".repeat(64)}"}""",
                 3,
             )
             val (archive, manifestHash) = archive(root, produced)

@@ -55,7 +55,10 @@ object JobManifestCodec {
      * of a bounded document (long by necessity, not to be fragmented).
      */
     @Suppress("ThrowsCount", "LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught", "SwallowedException")
-    fun parse(text: String): JobManifest {
+    fun parse(
+        text: String,
+        maxFileBytes: Long = JobArchiveLimits.MAX_SINGLE_FILE_BYTES,
+    ): JobManifest {
         if (text.length > JobArchiveLimits.MAX_MANIFEST_BYTES) {
             throw JobArchiveException("manifest exceeds the size cap")
         }
@@ -104,7 +107,7 @@ object JobManifestCodec {
                 if (!JsonSchemaSupport.SHA256_PATTERN.matches(sha256)) {
                     throw JobArchiveException("manifest entry $index has a malformed sha256")
                 }
-                if (size < 0 || size > JobArchiveLimits.MAX_SINGLE_FILE_BYTES) {
+                if (size < 0 || size > maxFileBytes) {
                     throw JobArchiveException("manifest entry $index has an out-of-bounds size")
                 }
                 JobManifestEntry(path, sha256, size)

@@ -54,7 +54,9 @@ class DetachedJobRegistrationDeviceTest {
             DetachedJobRegistration.register(context, storage, workspace, registry, owner, {
                 budgetAccesses++
                 context.appContainer.chatService
-            }, { LinuxRuntimeGate.READY }, { emptySet() })
+            }, { LinuxRuntimeGate.READY }, { emptySet() }, {
+                LinuxRunTool.ParsedResult.Ok(it)
+            })
         assertEquals(0, budgetAccesses)
         storage.sessions.create(id, "Registered detached job", null, null, 1)
         storage.sessionPermissionConfigs.setForSession(
@@ -97,6 +99,7 @@ class DetachedJobRegistrationDeviceTest {
 
     private fun originalArguments() =
         buildJsonObject {
+            put("workspaceMode", "snapshot")
             put("script", "printf registered-result > result.txt")
             put("output", "scope:app:output/result.txt")
             put("leaseSeconds", 10)

@@ -241,7 +241,7 @@ internal class ChatToolCalls(
             val extracted = ToolPresentationMetadata.extract(call.arguments)
             val arguments =
                 if (directory != null && FileToolArguments.handles(descriptor)) {
-                    FileToolArguments.bindRequest(extracted.businessArgumentsJson, directory)
+                    FileToolArguments.bindRequest(extracted.businessArgumentsJson, directory, descriptor?.name?.value)
                 } else {
                     extracted.businessArgumentsJson
                 }
