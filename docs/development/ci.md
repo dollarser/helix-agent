@@ -61,7 +61,7 @@ source 在 Linux、资产在 arm64 Linux、Android 两至三分片在 macOS runn
 
 手动完整验证：`gh workflow run ci.yml --ref main -f scope=full`；手动 Debug：`gh workflow run ci.yml --ref main -f scope=debug`。同一 ref 的新运行会取消旧运行，应等待前一轮完成再触发。
 
-本地新增命令：`./scripts/check-all.sh --debug-analysis`、`./scripts/check-all.sh --debug-tests-build`；`--all` 保持完整语义。CI 策略单测覆盖取消后文档推送、来源/基线筛选、失败和跳过聚合、缓存损坏与网络失败。修改 CI 本身自动走 full。
+本地无参数 `./scripts/check-all.sh` 或显式 `--debug` 默认执行完整 Debug 主机门禁，不运行 Release/R8；也可单独使用 `--debug-analysis`、`--debug-tests-build`。`--all` 保持完整发布前门禁语义，CI 继续显式选择对应范围。CI 策略单测覆盖取消后文档推送、来源/基线筛选、失败和跳过聚合、缓存损坏与网络失败；入口测试覆盖默认 Debug 不调度 Release、失败传播和显式 full 保留。修改 CI 本身自动走 full。
 
 不要把命令列表简单称作“8 种 Lint 变体”：当前 full 分析入口为 2 个聚合 lint 任务和 4 个 flavor/build-type 任务，Gradle 按依赖图去重；实际工作量取决于模块和缓存。历史远端约 16 分钟不等于每次本地都需 10～20 分钟。上一轮暖缓存本地两段 Gradle 分别为 40 秒与 1 秒，另有 source/制品扫描开销；比较优化前后必须注明机器、缓存、范围与端到端时间。
 

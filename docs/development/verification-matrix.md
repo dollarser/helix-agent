@@ -89,7 +89,7 @@ python3 scripts/run-owned-emulator.py --help
 ./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease
 ./scripts/check-all.sh --artifacts
 python3 scripts/verify-integrated-runtime-apks.py --build-type release
-./scripts/check-all.sh
+./scripts/check-all.sh --all
 ```
 
 正式 consumer 边界需扩展最终 APK/dex/native 检查到新增终端组件；不能只隐藏按钮。不得仅为门禁变绿删除测试或放宽 detekt/lint；已接受的新契约可以替换旧实现专属断言，同时保留有效能力及权限、取消、恢复等正确性覆盖。兼容性升级可以更新资产 lock，但必须重新核验来源、哈希、许可证和设备兼容性。RootFS 资产来源遵循 [HXA-193 记录](../evidence/development/integrated-developer-runtimes.md)。

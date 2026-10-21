@@ -20,14 +20,58 @@ class CiGatesTest(unittest.TestCase):
         gradle = self.root / 'gradlew'
         gradle.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@" > gradle-args.txt\nexit "${FAKE_EXIT:-0}"\n')
         gradle.chmod(0o755)
+        (self.root / 'scripts' / 'run-host-tests.py').write_text(
+            'from pathlib import Path\nPath("source-check-ran").touch()\n')
+        for name in ('check-docs.sh', 'verify-adr.sh', 'check-i18n.sh', 'check-secrets.sh',
+                     'check-lockfiles.sh', 'verify-variant-boundaries.sh', 'check-cli-runtime-boundary.sh'):
+            checker = self.root / 'scripts' / name
+            checker.write_text(f'#!/usr/bin/env bash\nprintf "%s\\n" "{name}" >> gate-steps.txt\n')
+            checker.chmod(0o755)
+        (self.root / 'scripts' / 'verify-integrated-runtime-apks.py').write_text(
+            'from pathlib import Path\nPath("release-artifacts-ran").touch()\n')
 
     def run_gate(self, gate, wrapper=False, exit_code=0):
         script = 'ci-run-gate.sh' if wrapper else 'check-all.sh'
         env = dict(os.environ, FAKE_EXIT=str(exit_code), HELIX_GRADLE_PROFILE='0')
-        result = subprocess.run(['bash', str(self.root / 'scripts' / script), gate],
+        command = ['bash', str(self.root / 'scripts' / script)] + ([] if gate is None else [gate])
+        result = subprocess.run(command,
                                 cwd=self.root, env=env, capture_output=True, text=True)
         args = (self.root / 'gradle-args.txt').read_text().splitlines()
         return result, args
+
+    def append_gradle_args(self):
+        (self.root / 'gradlew').write_text(
+            '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> gradle-args.txt\nexit "${FAKE_EXIT:-0}"\n')
+
+    def test_default_and_explicit_debug_preserve_checks_without_release_tasks(self):
+        self.append_gradle_args()
+        for gate in (None, '--debug'):
+            with self.subTest(gate=gate):
+                (self.root / 'gradle-args.txt').unlink(missing_ok=True)
+                result, args = self.run_gate(gate)
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertTrue((self.root / 'source-check-ran').exists())
+                self.assertIn('test', args)
+                self.assertIn('detekt', args)
+                self.assertIn('lintDeveloperDebug', args)
+                self.assertIn(':app:assembleDeveloperDebug', args)
+                self.assertFalse(any('Release' in arg or 'R8' in arg for arg in args))
+                self.assertIn('verify-variant-boundaries.sh', (self.root / 'gate-steps.txt').read_text())
+                self.assertFalse((self.root / 'release-artifacts-ran').exists())
+
+    def test_default_failure_propagates_without_running_later_builds(self):
+        result, args = self.run_gate(None, exit_code=7)
+        self.assertEqual(7, result.returncode)
+        self.assertNotIn(':app:assembleDeveloperDebug', args)
+        self.assertNotIn('verify-variant-boundaries.sh', (self.root / 'gate-steps.txt').read_text())
+
+    def test_explicit_all_still_builds_and_checks_release(self):
+        self.append_gradle_args()
+        result, args = self.run_gate('--all')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn(':app:assembleConsumerRelease', args)
+        self.assertIn(':app:assembleDeveloperRelease', args)
+        self.assertTrue((self.root / 'release-artifacts-ran').exists())
 
     def test_split_preserves_every_full_analysis_task(self):
         full, full_args = self.run_gate('--analysis')

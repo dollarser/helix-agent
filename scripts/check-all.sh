@@ -60,7 +60,8 @@ release_artifact_checks() {
     python3 scripts/verify-integrated-runtime-apks.py --build-type release
 }
 
-case "${1:---all}" in
+case "${1:---debug}" in
+    --debug) source_checks; debug_analysis_checks; debug_test_build_checks; artifact_checks ;;
     --source) source_checks ;;
     --analysis) analysis_checks ;;
     --release-analysis) release_analysis_checks ;;
@@ -71,5 +72,5 @@ case "${1:---all}" in
     --artifacts) artifact_checks ;;
     --release-artifacts) release_artifact_checks ;;
     --all) source_checks; build_checks; artifact_checks; release_artifact_checks ;;
-    *) printf 'Usage: %s [--source|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--debug (default)|--source|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac

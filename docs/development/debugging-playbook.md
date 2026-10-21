@@ -12,7 +12,10 @@ Android 原始状态使用已有 `instrumentation_junit.py`：校验每个方法
 
 按当前变更选用，任务明确要求的门禁优先；不把示例变成每次执行的完整流程。
 
+Owner 本地迭代偏好：日常调试使用 Debug，不每轮运行 Release/R8。应用当前仅 Release 开启优化；无参数 `scripts/check-all.sh` 与 `--debug` 执行 source、Debug 静态检查、JVM 测试、两渠道 Debug 打包和 Debug 制品边界，不包含 Release/R8。正式发布前或明确需要优化/keep-rule/JNI/反射回归时显式使用 `--all`；CI 的显式完整门禁不变。两类验证结果分别记录，Debug 通过不冒充 Release 通过。
+
 ```sh
+scripts/check-all.sh # 默认 Debug 主机门禁
 scripts/check-all.sh --source
 # AndroidTest或构建入口改变时，包含可选实验模块的完整Debug验证：
 ORG_GRADLE_PROJECT_includeSpikes=true python3 scripts/with-host-slot.py -- \
@@ -20,6 +23,8 @@ ORG_GRADLE_PROJECT_includeSpikes=true python3 scripts/with-host-slot.py -- \
   :app:assembleConsumerDebug :app:assembleDeveloperDebug \
   :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest
 ```
+
+完整发布前主机门禁为 `scripts/check-all.sh --all`，包含 Release/R8；仍不能替代获得授权后对实际发布候选的设备验收。
 
 主机Mock、语法检查和APK编译不证明真机、模拟器或模型任务成功。注入的失败日志属于回归输入，需和实际设备失败分开报告。
 
