@@ -128,6 +128,12 @@ class AccountServiceDeviceTest {
             if (args.getString("accountSpeechAcceptance") == "true") {
                 CloudSpeechDeviceTest().explicitHttpProfileSynthesizesAndUploadsGeneratedAudio()
             }
+            if (args.getString("accountWsAcceptance") == "true") {
+                com.helix.app.voice.WebSocketSpeechDeviceCheck.run(
+                    InstrumentationRegistry.getInstrumentation().targetContext,
+                    account,
+                )
+            }
         } finally {
             account.logout()
         }

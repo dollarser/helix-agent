@@ -21,7 +21,7 @@ class VoiceCapture(
 ) {
     enum class Phase { IDLE, LOADING, LISTENING, FINISHING, REVIEW, CANCELLED, FAILED }
 
-    enum class Failure { MODEL, AUDIO, FOCUS, INTERRUPTED, CONNECTION }
+    enum class Failure { MODEL, AUDIO, FOCUS, INTERRUPTED, CONNECTION, BUSY }
 
     val uploadsAudio get() = factory.uploadsAudio
     val destination get() = factory.destination
@@ -61,7 +61,7 @@ class VoiceCapture(
                 var recorder: PcmCapture? = null
                 var failure = if (uploadsAudio) Failure.CONNECTION else Failure.MODEL
                 try {
-                    asr = factory.open()
+                    asr = kotlinx.coroutines.runInterruptible { factory.open() }
                     activeAsr.set(asr)
                     if (cancelled.get() || !currentCoroutineContext().isActive) return@launch
                     failure = Failure.AUDIO
@@ -93,6 +93,20 @@ class VoiceCapture(
                     throw interrupted
                 } catch (_: AudioFocusUnavailableException) {
                     publish(State(Phase.FAILED, failure = Failure.FOCUS))
+                } catch (rejected: SpeechSocketFailure) {
+                    publish(
+                        mutableState.value.copy(
+                            phase = Phase.FAILED,
+                            failure =
+                                if (rejected.closeCode ==
+                                    1013
+                                ) {
+                                    Failure.BUSY
+                                } else {
+                                    Failure.CONNECTION
+                                },
+                        ),
+                    )
                 } catch (_: Exception) {
                     publish(mutableState.value.copy(phase = Phase.FAILED, failure = failure))
                 } catch (_: LinkageError) {

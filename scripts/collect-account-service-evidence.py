@@ -40,6 +40,16 @@ for name in ('cloud-speech-device-result.txt', 'account-login-form.png'):
         (root / name).write_bytes(data)
     else:
         raise RuntimeError('Invalid synthetic evidence payload')
+# WS artifacts contain only generated audio/text, never credentials or authorization headers.
+probe = subprocess.check_output([adb, '-s', serial, 'exec-out', 'run-as', package,
+                                'sh', '-c', 'test -d cache/ws-speech && echo present || echo absent'])
+if probe.strip() == b'present':
+    target = root / 'ws-speech'
+    target.mkdir()
+    for name in ('result.txt', 'events.jsonl', 'frames.txt', 'tts.wav', 'asr-input.pcm', 'asr-input.wav', 'http-response.json'):
+        data = subprocess.check_output([adb, '-s', serial, 'exec-out', 'run-as', package,
+                                       'cat', 'cache/ws-speech/' + name])
+        (target / name).write_bytes(data)
 setting = subprocess.check_output([adb, '-s', serial, 'shell', 'settings', 'get', 'secure',
                                    'show_ime_with_hard_keyboard'], text=True).strip()
 (root / 'keyboard-setting.json').write_text(json.dumps({'showImeWithHardKeyboard': setting}))

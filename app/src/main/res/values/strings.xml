@@ -2049,18 +2049,18 @@
     <string name="cloud_tts_upload">The visible reply text will be sent to your configured speech service for playback. Stopping playback does not cancel the Agent task.</string>
     <string name="cloud_voice_connection_error">Speech connection failed or timed out. Check the service configuration and try again. No automatic retry.</string>
     <string name="speech_services_title">Speech services</string>
-    <string name="speech_http_input_title">HTTP speech input</string>
+    <string name="speech_http_input_title">Cloud speech input</string>
     <string name="speech_http_description">HTTP file mode: ASR uploads the complete recording after you finish. TTS synthesizes each submitted text piece, then plays the returned WAV. This is not continuous WebSocket speech. HTTP sends content without encryption.</string>
     <string name="speech_http_loopback">Enter addresses reachable from this Android device. 127.0.0.1 means the device itself, not your Mac. A Mac-only port mapping is not automatically reachable from a phone.</string>
-    <string name="speech_http_enable">Use configured HTTP speech services (off uses existing offline speech)</string>
+    <string name="speech_http_enable">Use configured cloud speech services (off uses existing offline speech)</string>
     <string name="speech_asr_endpoint">Full ASR transcription URL</string>
     <string name="speech_tts_endpoint">Full TTS speech URL</string>
-    <string name="speech_settings_invalid">Could not save. When enabled, enter valid HTTP/HTTPS URLs without credentials, query parameters or fragments.</string>
+    <string name="speech_settings_invalid">Could not save. HTTP requires valid HTTP/HTTPS URLs; WebSocket requires official WSS endpoints and account login. URLs must have no credentials, query parameters or fragments.</string>
     <string name="speech_settings_save">Save speech settings</string>
     <string name="speech_http_asr_mode">HTTP mode: finish recording to upload the entire audio. No live partial transcript is available.</string>
     <string name="speech_http_tts_mode">HTTP mode: new visible reply text is submitted in pieces, and each returned WAV is played in order. This is not model-internal dual streaming.</string>
     <string name="speech_service_preparing">Preparing speech service…</string>
-    <string name="speech_use_account_login">Use Helix account login (official HTTPS speech endpoints only)</string>
+    <string name="speech_use_account_login">Use Helix account login (official HTTPS/WSS speech endpoints only)</string>
     <string name="account_title">Helix account</string>
     <string name="account_signed_in">Helix account · signed in</string>
     <string name="account_description">Sign in to access built-in models. Your password is not saved. Tokens are encrypted on this device. Signing out removes local access even if server revocation fails.</string>
@@ -2084,4 +2084,7 @@
     <string name="account_hide_password">Hide</string>
     <string name="account_logout_confirm">Sign out of this account?</string>
     <string name="account_cancel">Cancel</string>
+    <string name="speech_ws_enable">Continuous speech (WebSocket)</string>
+    <string name="speech_ws_description">Sign in to stream PCM audio and receive partial transcripts. One connection receives visible answer text while playing incoming audio. Stopping speech closes the connection without cancelling the Agent.</string>
+    <string name="speech_model_busy">Speech model is busy. Wait briefly before retrying; cancelled inference may still be finishing.</string>
 </resources>

@@ -209,6 +209,7 @@ internal fun voiceStatusText(
                 when (state.failure) {
                     VoiceCapture.Failure.MODEL -> R.string.offline_voice_model_error
                     VoiceCapture.Failure.FOCUS -> R.string.offline_voice_focus_error
+                    VoiceCapture.Failure.BUSY -> R.string.speech_model_busy
                     VoiceCapture.Failure.CONNECTION -> R.string.cloud_voice_connection_error
                     else -> R.string.offline_voice_audio_error
                 }

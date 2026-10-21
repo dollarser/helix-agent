@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--with-speech', action='store_true')
+    parser.add_argument('--with-ws', action='store_true')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     if args.profile.is_symlink():
@@ -78,6 +79,8 @@ def main():
                     '--instrument-arg', 'speechUseAccountLogin=true',
                     '--instrument-arg', 'speechTtsUrl=https://tts.sunlingzhang.com/v1/audio/speech',
                     '--instrument-arg', 'speechAsrUrl=https://asr.sunlingzhang.com/v1/audio/transcriptions']
+    if args.with_ws:
+        command += ['--instrument-arg', 'accountWsAcceptance=true']
     try:
         result = subprocess.run(command, cwd=root)
         if not served.is_set():

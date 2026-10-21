@@ -129,7 +129,13 @@ internal fun ReadAloudAction(
                 Text(stringResource(R.string.read_aloud_lifecycle))
                 if (state.phase == ReadAloudPhase.FAILED) {
                     val error =
-                        if (service.uploadsText) R.string.cloud_voice_connection_error else R.string.read_aloud_failed
+                        if (state.busy) {
+                            R.string.speech_model_busy
+                        } else if (service.uploadsText) {
+                            R.string.cloud_voice_connection_error
+                        } else {
+                            R.string.read_aloud_failed
+                        }
                     Text(stringResource(error))
                 }
                 if (state.phase == ReadAloudPhase.UNAVAILABLE) Text(stringResource(R.string.read_aloud_unavailable))

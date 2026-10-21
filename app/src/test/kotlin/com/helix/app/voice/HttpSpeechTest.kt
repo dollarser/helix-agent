@@ -16,6 +16,19 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class HttpSpeechTest {
+    @Test fun serviceDeadlineIsAnIoFailureRatherThanAUserCancellation() {
+        val config = CloudSpeechConfig(java.net.URI("https://example.test/speech"), HttpSpeechSession.PROTOCOL, 1000)
+        val wire =
+            object : WireClient {
+                override suspend fun open(request: WireRequest): WireResponse = awaitCancellation()
+            }
+        HttpSpeechSession(config, wire).use { session ->
+            assertThrows(
+                java.net.SocketTimeoutException::class.java,
+            ) { session.post("application/json", byteArrayOf()) }
+        }
+    }
+
     @Test fun settingsRoundTripAndCorruptionNeverAuthorizeAnInferredService() {
         val lines =
             com.helix.app.internal

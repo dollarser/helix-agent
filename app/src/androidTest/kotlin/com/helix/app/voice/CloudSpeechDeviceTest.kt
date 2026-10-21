@@ -36,7 +36,7 @@ class CloudSpeechDeviceTest {
         assertTrue(audio.isNotEmpty())
         assertTrue(audio.any { kotlin.math.abs(it) > 0.001f })
         val samples =
-            FloatArray(audio.size * 16000 / rate) { index ->
+            FloatArray((audio.size.toLong() * 16000 / rate).toInt()) { index ->
                 val position = index.toDouble() * rate / 16000
                 val first = position.toInt().coerceAtMost(audio.lastIndex)
                 val second = minOf(first + 1, audio.lastIndex)

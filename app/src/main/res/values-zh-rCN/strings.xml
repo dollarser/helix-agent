@@ -2046,18 +2046,18 @@
     <string name="cloud_tts_upload">将把当前可见回答文字发送到你配置的语音服务进行朗读。停止朗读不会取消 Agent 任务。</string>
     <string name="cloud_voice_connection_error">语音连接失败或超时。请检查服务配置后重试，不会自动重传。</string>
     <string name="speech_services_title">语音服务</string>
-    <string name="speech_http_input_title">HTTP 语音输入</string>
+    <string name="speech_http_input_title">云端语音输入</string>
     <string name="speech_http_description">HTTP 文件模式：ASR 在结束录音后整段上传；TTS 按提交的文本段合成，再播放返回的 WAV。这不是持续 WebSocket 语音。HTTP 明文传输内容。</string>
     <string name="speech_http_loopback">请填写 Android 设备实际可访问的地址。127.0.0.1 指设备自身，不是 Mac；仅映射到 Mac 本机的端口不会自动对手机可用。</string>
-    <string name="speech_http_enable">使用配置的 HTTP 语音服务（关闭时使用现有离线语音）</string>
+    <string name="speech_http_enable">使用配置的云端语音服务（关闭时使用现有离线语音）</string>
     <string name="speech_asr_endpoint">ASR 转写完整地址</string>
     <string name="speech_tts_endpoint">TTS 合成完整地址</string>
-    <string name="speech_settings_invalid">保存失败。启用时请填写有效 HTTP/HTTPS 地址，不含凭据、查询参数或片段。</string>
+    <string name="speech_settings_invalid">保存失败。HTTP 模式需有效 HTTP/HTTPS 地址；WebSocket 模式需官方 WSS 地址与账号登录。地址不能含凭据、查询参数或片段。</string>
     <string name="speech_settings_save">保存语音设置</string>
     <string name="speech_http_asr_mode">HTTP 模式：结束录音后整段上传，不提供实时部分转写。</string>
     <string name="speech_http_tts_mode">HTTP 模式：新增可见回答按段提交，各段返回的 WAV 依次播放；这不是模型内部双流。</string>
     <string name="speech_service_preparing">正在准备语音服务…</string>
-    <string name="speech_use_account_login">使用 Helix 账号登录（仅支持官方 HTTPS 语音地址）</string>
+    <string name="speech_use_account_login">使用 Helix 账号登录（仅支持官方 HTTPS/WSS 语音地址）</string>
     <string name="account_title">Helix 账号</string>
     <string name="account_signed_in">Helix 账号 · 已登录</string>
     <string name="account_description">登录后访问内置模型。不保存密码，令牌在设备上加密保存。退出时即使服务端撤销失败，也会清除本机访问权限。</string>
@@ -2081,4 +2081,7 @@
     <string name="account_hide_password">隐藏</string>
     <string name="account_logout_confirm">确认退出当前账号？</string>
     <string name="account_cancel">取消</string>
+    <string name="speech_ws_enable">持续流式语音（WebSocket）</string>
+    <string name="speech_ws_description">登录后连接云端服务，上传 PCM 音频并增量显示识别结果；同一回答持续传入文字并边收边播。取消关闭连接，不取消 Agent。</string>
+    <string name="speech_model_busy">语音模型繁忙，请稍后手动重试。取消后的推理可能仍在收尾。</string>
 </resources>

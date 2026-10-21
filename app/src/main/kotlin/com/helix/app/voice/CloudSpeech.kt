@@ -15,7 +15,7 @@ data class CloudSpeechConfig(
         require(endpoint.scheme in schemes && !endpoint.host.isNullOrBlank())
         require(endpoint.userInfo == null && endpoint.fragment == null && endpoint.query == null)
         require(protocol.isNotBlank() && protocol.length <= 80)
-        require(timeoutMillis in 1_000..60_000)
+        require(timeoutMillis in 1_000..180_000)
     }
 }
 

@@ -1,18 +1,18 @@
 # 云端语音接入与增量回答朗读
 
-本轮保留现有 Agent/LLM、工具权限、离线语音及用户模型文件，增加显式 HTTP 语音服务配置、实际文件/WAV 适配和用户主动开启的增量可见回答朗读。当前协议不提供实时 ASR partial，也不代表模型内部双流；WebSocket 端口保留可替换接口，尚未冒充已对齐。
+保留现有 Agent/LLM、工具权限、离线语音及用户模型文件。HTTP 文件/WAV 模式与账号认证已交付；Owner 随后提供持续 WebSocket 契约，本轮增加显式 WS 模式和一个回答一个连接的持续文本输入。本文较早日期的 HTTP/缺失 WS 记录保留其历史阶段，最新 WS 验证范围见末节。持续语音不等于原生语音大模型或自动全双工轮次。
 
 ## 当前可操作入口
 
-- 设置→语音服务：默认关闭 HTTP，保留现有离线模式。用户填写 ASR/TTS 完整 HTTP/HTTPS 地址并显式保存后生效；不推断聊天 provider 的地址或 Key，不内置服务地址或凭据。设置明确显示 HTTP 明文、分段能力及可选使用 Helix 账号登录（仅官方 HTTPS 目标）。
+- 设置→语音服务：默认关闭云端语音，保留现有离线模式。用户填写 ASR/TTS 完整 HTTP/HTTPS 地址并显式保存后生效；不推断聊天 provider 的地址或 Key，HTTP 可自配地址；WS 选择器固定官方地址并强制账号认证，不内置凭据。设置明确显示 HTTP 明文、分段能力及可选使用 Helix 账号登录（仅官方 HTTPS 目标）。
 - 麦克风入口：离线模式保持原行为；HTTP 模式先确认目标与上传范围，录音结束后仅上传该次完整 WAV，最终文字预览后由用户加入草稿。没有用假 partial 冒充流式转写。
 - 正在生成的普通可见回答：用户点击朗读后接收该回答后续文本增量；停止仅停止声音，不取消 Agent。普通完整回答仍可点击朗读/停止。
-- HTTP TTS 按提交的文本段请求合成，每段完整 WAV 返回后分块播放。当前实现没有连续 WebSocket 选项，也没有声称短句串接就是模型内部双流。
+- HTTP TTS 按提交的文本段请求合成，每段完整 WAV 返回后分块播放。WS 模式在同一个连接内持续追加可见文本，并行接收和播放 PCM；HTTP 分句不是持续 WS。
 - `127.0.0.1` 在 Android 上指设备自身。Owner 的 Mac loopback 映射仅用于本轮主机联调，不会自动让手机可访问；客户端不创建 ADB 转发、防火墙规则或持久端口开放。
 
 ## 已核实的服务契约
 
-Owner 提供并映射到本机的两个服务，OpenAPI 与 `/docs` 已读取。文档入口仅链接 Swagger/OpenAPI，没有 WebSocket 路径、事件示例或另行协议链接；这不证明服务不存在 WebSocket，只表示客户端尚无可采用的 WS 契约。
+HTTP 阶段已读取 OpenAPI 与 `/docs`；后来 Owner 提供统一客户端接入文档，明确 WS 契约，客户端按下文接入。
 
 - `POST /v1/audio/transcriptions`：multipart 字段 `file`，WAV/FLAC/OGG，最多 20 MiB/120 秒。合成静音探测返回 JSON `text` 字符串及 `language`、`sample_rate`、`audio_seconds`。客户端只取有界 `text`，缺失或类型错误必须失败。
 - `POST /v1/audio/speech`：JSON `{"input":"文本"}`，文档限定 1–2000 字符，返回单声道 PCM16 WAV；实际固定中文测试句返回 24 kHz WAV。客户端支持 8–48 kHz 的单声道 PCM16 RIFF/WAVE，校验格式、大小、采样率、时长及数据块，不支持的音频必须报错。
@@ -79,12 +79,7 @@ HELIX_SPEECH_HOST_TTS_URL=http://127.0.0.1:18768/v1/audio/speech \
 
 ## 仍需的最小联调信息
 
-HTTP 请求/响应结构已有实际证据，不再以完全缺少契约作为阻塞。剩余需要：
-
-1. 模拟器已使用 10.0.2.2 宿主桥验证；未来真机仍需其实际可达地址或 Owner 明确安排的映射，Mac loopback 不能直接替代。
-2. WebSocket 完整路径、连接启动/音频帧编码与采样率、partial/final/error/结束事件、转写快照或增量语义、超时/限流规则。
-3. TTS WebSocket 输入追加、flush/结束标记、PCM/容器格式、请求 ID、取消 ACK、迟到分片归属、并发/连接复用规则。
-4. 固定合成→识别多字/重复字的服务端排查结果；HTTP现已按Owner新要求改为账号Bearer（历史公开ID证据保留），若WS鉴权不同需另行说明，不把真实 Key 写进仓库。
+HTTP 与 WS 的地址、双头认证、ready、PCM、end、final/done、错误和取消均已有 Owner 提供的协议，不再索取这些已知信息。仍需服务端配合确认同样本识别差异、实际繁忙关闭码与排队配置。取消契约仅为关闭连接，不存在服务端推理已停止的 ACK；不能据此立即释放原生执行位。真机声学验收仍未授权。
 
 ## 本轮文件与关键类型
 
@@ -189,3 +184,49 @@ Owner授权当前测试账号与一次性模拟器联调（不含真机）。官
 账号版最终模拟器：Standard `build/account-live-consumer-20261021-r3/`、Advanced `build/account-live-developer-20261021-r3/` 均为API36 ARM64，账号主链路6项+语音/UI补充12项通过。真实账号TTS24kHz、77760/85440帧，ASR均“你好这是模拟器语音接入测试”；仅作传输结果，固定主机对照仍多“哦”，未关闭质量问题。模拟器使用注入/合成数据，未开麦克风、未操作真机。首次账号语音发现规范化默认443与账号绑定原地址不一致，发送前拒绝；已统一为规范化端点并补无端口/显式443/ASR双头回归。原失败和收集夹具修复见[账号接入记录](account-login-integration.md)。
 
 最终列表通知修正后，两渠道最新证据分别在 `build/account-rows-consumer-20261021/` / `build/account-rows-developer-20261021/`，每渠道18方法通过且安装哈希匹配冻结候选；真实TTS均84480帧/24kHz、ASR均为同一合成测试句。此前r3目录保留其原阶段范围。所有自建实例已关闭，无真机操作；账号退出后客户端UI行和旧绑定均阻断，另一次主机对照确认旧access/refresh均401。HTTP取消只确认本地连接与播放停止，不确认远端物理任务回滚或释放，409仍按服务端容量边界处理。
+
+## WebSocket 持续语音接入（2026-10-21）
+
+采用 Owner 提供的《统一 AI 服务客户端接入文档》§8。ASR 固定 `wss://asr.sunlingzhang.com/ws/asr`，TTS 固定 `wss://tts.sunlingzhang.com/ws/tts`，两者由同一 AccountSession 自动添加 Bearer 与固定 ClientID。建连前检查令牌到期，只有握手 401 最多刷新重连一次；403 不循环刷新。已打开会话、音频帧和文字片段不自动重放。身份与 revision 绑定每次收发，退出或换账号丢弃迟到结果。
+
+收到并校验 `ready` 后才发送：ASR 为 16 kHz、TTS 为 24 kHz，均 mono/s16le。ASR 每个约 100 ms PCM 帧发送一次，最后只发一次 `{"type":"end"}`，必须收到 final；text 整体覆盖，缺少 text 时才追加 delta，不删重复汉字。TTS 每个回答建立一个连接，逐次发送 `{"type":"text","text":"新增片段"}`，输入结束发送 end，同时接收二进制 PCM，必须收到 done。跨消息的奇数字节保留到下一片，终态仍有半个样本则失败。1000 关闭不能替代终态；1013 单独报告繁忙，1011 是服务异常，未知关闭均失败。error 内容不直接展示，避免泄露远端日志。
+
+SocketWire 复用既有 OkHttp 依赖，有界入站队列与出站积压检查；收发及增量文字等待均可中断。ReadAloudService 继续共享物理合成 Mutex，取消旧任务退出前不开始新生产者。客户端不自动忙碌重试，界面提示稍后手动重试，避免取消后原生推理仍占位时形成重连风暴。服务端文档说明 HTTP FIFO 等待队列上限 8、45 秒，队满/超时 503 + Retry-After:2；WS 不排队、忙关闭 1013。仓库没有相应服务端源码，本轮不修改远端队列或网关；文档声称透传关闭码仍须实际对照，不以文档代替实测。
+
+设置沿用现有语音服务面板：默认离线；启用云端后可明确选择 HTTP 或 WS。WS 强制账号登录及官方地址，HTTP 自配无鉴权地址保持独立。新 account-v2 格式记录模式，当前 account-v1 HTTP 配置可读取；退休的单独 ClientID/内置 Key 格式不恢复。不下载或删除用户本地模型。
+
+真实双头握手、ready、持续ASR/TTS及主机/模拟器结果见下节。未声明真实麦克风、外放听感或真机通过。
+
+### WS 最终验证结果
+
+最终源码的 `GRADLE_OPTS='-Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false' scripts/check-all.sh --all` 退出0，日志 `build/ws-accepted-host.log`：283主机脚本、文档/ADR/国际化/秘密扫描、格式/detekt、Debug/Release lint、全仓JVM测试、两渠道Debug/Release/R8、release-smoke测试APK编译、42依赖锁和制品/Runtime边界通过。两渠道应用JVM1392/1527项零失败、零错误，各5既有skip；provider API117项通过。单独构建两渠道应用/AndroidTest APK及相关测试、格式/detekt的成功日志为 `build/ws-corrected-candidate.log`。最终文档修改后另跑source门禁，不把历史失败记录作通过。
+
+当前API36 ARM64 Debug两渠道各18个实际方法，共36项通过，无skip：真实账号登录/目录/短模型回复/进程重启恢复/刷新/退出失效，加4项登录UI、增量朗读及12项取消/录音/界面边界。账号测试调用生产AccountSession，表单交互使用fake，未在截图/日志输入真实凭据。冻结与实际安装APK哈希独立一致，两实例closed均退出0，硬键盘及IME设置符合owner偏好；既有模拟器和真机未操作。最终证据分别为 `build/ws-accepted-consumer-20261021/`、`build/ws-accepted-developer-20261021/`，方法核对为对应 `build/ws-accepted-*-methods.json`；不同flavor不能合并作同一APK身份。
+
+每渠道 `ws-speech/` 保存合成TTS WAV、Android实际发送的16kHz PCM及WAV、逐帧序号/长度/散列、整样本SHA256、WS原始事件/partial显示、HTTP原始JSON及结果。直接截取HTTP multipart真实WAV音频段与WS发送字节逐字节相等。两渠道两协议最终均为“你好这是模拟器语音接入测试”；end只发一次，结束刷新后收到final，重连使用新连接且不重放旧帧。TTS同一连接接受两个增量text并返回PCM和done，AudioTrack无声输出实际运行；真实首音频可能晚于end，不宣传固定首包延迟。fake用例额外证明输入未结束即可接收音频，不能称为原生语音大模型或自动全双工。
+
+有限双TTS连接探测两渠道均实际返回1013，网关本次保留繁忙码；客户端停止发送/播放并关闭连接，不自动重试。未制造远端1011故障，1011区别处理由本地socket/fake覆盖。HTTP FIFO队列上限8/45秒来自服务文档，未做队深压力验收或修改服务端；取消不表示原生推理已经停止，不存在取消ACK。新样本正常不关闭旧固定样本开头多字/重复字问题，原WAV/JSON与16kHz有限对照继续保留，须服务端同样本排查。无删字或放宽严格质量断言，本轮真实服务断言为传输正确性，quality明确为not-asserted。
+
+新增19项主机用例（均无skip）：
+
+| 测试 | 数量 | 覆盖 |
+| --- | --- | --- |
+| WebSocketSpeechTest | 10 | 累计快照覆盖、delta保留真实重复、final一次刷新/缺失终态失败、ready格式与先后顺序、取消/新会话隔离、同连接并行收发、接收失败解除输入等待、奇数PCM截断/缺done、设置与账号目标、取消后迟到音频 |
+| AccountSpeechSocketTest | 5 | 双头与固定目标/未登录拒绝、仅握手401刷新一次/403不重试、退出中迟到结果、切账号使已开与未开调用失效、鉴权deadline分类 |
+| SocketWireTest | 3 | 实际本地socket的1013/1011、超大首消息安全关闭、握手失败类型与静默读取消 |
+| HttpSpeechTest新增 | 1 | 服务deadline成为IO失败而不是用户取消；既有主动取消测试继续通过 |
+
+复核修正：Advanced首次在既有HTTP夹具 `audio.size * 16000` Int溢出，尚未执行WS，失败保留于 `build/ws-final-developer-20261021/`；HTTP与WS测试重采样均改Long运算，随后最终两渠道18项重新通过。首轮Standard通过记录及较早候选仍是历史证据。新增socket测试首次漏启动MockWebServer，正确启动后通过；取消测试接受明确的关闭IO异常或取消异常，仍断言及时退出、零迟到音频。另修HTTP请求与WS鉴权内部deadline到SocketTimeoutException的边界，防止界面停在等待；用户主动取消不转换。所有失败/修正均未通过删除测试或降低质量标准掩盖。
+
+核心文件：provider API `wire/SocketWire.kt` 定义有界duplex传输；app `account/AccountSpeechSocket.kt` 绑定身份与双头；`voice/WebSocketSpeech.kt` 实现PCM、ASR及ContinuousTextSpeechEngine；`SpeechSettingsStore`选择明确HTTP/WS模式，`HelixApplication`接入朗读，`SpeechTextStream`/`VoiceCapture`负责可中断等待，现有设置/朗读/录音弹窗提示模式及繁忙。`WebSocketSpeechDeviceCheck`只用合成数据，现有账号runner通过 `--with-ws` 显式启用，不新增设备框架。
+
+复验入口：
+
+```sh
+python3 scripts/run-account-service-emulator.py \
+  --profile scripts/local/profiles/account-test.json --channel consumer \
+  --avd Helix_Validation_API36_20261012 --port 5576 \
+  --output build/ws-consumer-recheck --with-speech --with-ws
+```
+
+Advanced对应developer/5574，串行执行。profile必须由owner提供、Git忽略且0600，不含于源码、测试夹具、日志或提交；应用只保存加密令牌。复跑需当前owner设备/账号授权，命令示例本身不提供授权。当前用户入口为先登录→设置语音服务→选择持续WebSocket并启用云端→保存；录音仍先确认上传范围，final预览后才进草稿；朗读需主动开启，停止不取消Agent。同一回答停止后后续token不重启。

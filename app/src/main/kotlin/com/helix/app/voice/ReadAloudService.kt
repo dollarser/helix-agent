@@ -29,6 +29,7 @@ enum class ReadAloudPhase { IDLE, PREPARING, SPEAKING, STOPPING, MISSING, FAILED
 data class ReadAloudState(
     val messageId: String? = null,
     val phase: ReadAloudPhase = ReadAloudPhase.IDLE,
+    val busy: Boolean = false,
 )
 
 /** One physical synthesis/output owner. Cancel signals do not release capacity before native exit. */
@@ -130,8 +131,17 @@ class ReadAloudService(
                         throw cancel
                     } catch (_: LinkageError) {
                         if (epoch.get() == ticket) state.value = ReadAloudState(id, ReadAloudPhase.UNAVAILABLE)
-                    } catch (_: Exception) {
-                        if (epoch.get() == ticket) state.value = ReadAloudState(id, ReadAloudPhase.FAILED)
+                    } catch (failure: Exception) {
+                        if (epoch.get() ==
+                            ticket
+                        ) {
+                            state.value =
+                                ReadAloudState(
+                                    id,
+                                    ReadAloudPhase.FAILED,
+                                    (failure as? SpeechSocketFailure)?.closeCode == 1013,
+                                )
+                        }
                     } finally {
                         chunks?.cancel()
                         if (epoch.get() == ticket) liveReply.detach(id)

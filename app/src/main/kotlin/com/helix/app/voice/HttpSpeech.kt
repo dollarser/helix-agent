@@ -44,30 +44,34 @@ class HttpSpeechSession(
         body: ByteArray,
     ): ByteArray =
         runBlocking {
-            withTimeout(config.timeoutMillis.toLong()) {
-                check(!closed.get())
-                val job = currentCoroutineContext().job
-                check(active.compareAndSet(null, job))
-                try {
+            try {
+                withTimeout(config.timeoutMillis.toLong()) {
                     check(!closed.get())
-                    val response =
-                        wire.open(
-                            WireRequest(
-                                "POST",
-                                config.endpoint.toString(),
-                                mapOf("Content-Type" to contentType),
-                                body,
-                            ),
-                        )
+                    val job = currentCoroutineContext().job
+                    check(active.compareAndSet(null, job))
                     try {
-                        check(response.status == 200) { "SPEECH_HTTP_${response.status}" }
-                        response.body.bytes().also { check(!closed.get()) }
+                        check(!closed.get())
+                        val response =
+                            wire.open(
+                                WireRequest(
+                                    "POST",
+                                    config.endpoint.toString(),
+                                    mapOf("Content-Type" to contentType),
+                                    body,
+                                ),
+                            )
+                        try {
+                            check(response.status == 200) { "SPEECH_HTTP_${response.status}" }
+                            response.body.bytes().also { check(!closed.get()) }
+                        } finally {
+                            response.body.close()
+                        }
                     } finally {
-                        response.body.close()
+                        active.compareAndSet(job, null)
                     }
-                } finally {
-                    active.compareAndSet(job, null)
                 }
+            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                throw java.net.SocketTimeoutException("Speech request timeout")
             }
         }
 
@@ -83,7 +87,7 @@ class HttpSpeechSession(
             CloudSpeechConfig(
                 URI(NormalizedEndpoint.parse(endpoint).full),
                 PROTOCOL,
-                60_000,
+                180_000,
                 allowCleartext = true,
             )
     }
@@ -99,11 +103,7 @@ class HttpFileAsr(
     override fun send(samples: FloatArray): String {
         check(!closed.get())
         check(pcm.size() + samples.size * 2 <= 16000 * 120 * 2) { "ASR_DURATION_LIMIT" }
-        samples.forEach { sample ->
-            val value = (sample.coerceIn(-1f, 1f) * 32767).toInt()
-            pcm.write(value and 255)
-            pcm.write((value shr 8) and 255)
-        }
+        pcm.write(encodeSpeechPcm(samples))
         return ""
     }
 

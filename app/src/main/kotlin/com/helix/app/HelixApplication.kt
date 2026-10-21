@@ -56,17 +56,14 @@ class HelixApplication : Application() {
             cloudEngine =
                 if (settings.httpEnabled) {
                     {
-                        com.helix.app.voice.CloudSpeechEngine(
-                            com.helix.app.voice.HttpWavTts(
-                                settings.session(settings.ttsEndpoint, account),
-                            ),
-                        )
+                        settings.validate()
+                        settings.tts(account)
                     }
                 } else {
                     null
                 },
             uploadDestination = settings.ttsEndpoint.takeIf { settings.httpEnabled },
-            segmentedHttp = settings.httpEnabled,
+            segmentedHttp = settings.httpEnabled && !settings.webSocket,
             synthesis = speechSynthesis,
         )
     }
