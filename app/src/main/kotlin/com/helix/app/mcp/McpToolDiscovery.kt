@@ -320,7 +320,7 @@ internal class McpToolDiscovery(
         private const val CATALOG_BYTES = 4096
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
-        private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16},"source":{"type":"string","minLength":1,"maxLength":200},"category":{"type":"string","minLength":1,"maxLength":200}},"required":["query"],"additionalProperties":false}"""
+        private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16},"source":{"type":"string","minLength":1,"maxLength":200,"description":"Optional tool catalog owner filter: helix, plugin:<id>, mcp:<id> or a2a:<id>. Omit to search all owners. This is NOT execution-log storage: saved/live belong to read_log, not tools.search."},"category":{"type":"string","minLength":1,"maxLength":200,"description":"Optional tool category from discovery metadata, e.g. code or files; not a log stream."}},"required":["query"],"additionalProperties":false}"""
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
         private const val OUTPUT = """{"type":"object","properties":{"schemaAvailability":{"type":"string","enum":["next_request"]},"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"},"source":{"type":"string"},"category":{"type":"string"}},"required":["name","description","version","source","category"],"additionalProperties":false}}},"required":["schemaAvailability","tools"],"additionalProperties":false}"""

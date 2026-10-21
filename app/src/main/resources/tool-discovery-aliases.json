@@ -76,6 +76,7 @@
     "cancel_reminder": "取消 通知 提醒",
     "notifications_query": "通知 查询",
     "prepare_calendar_event": "准备 日历 日程 草稿",
-    "create_calendar_event": "创建 日历 日程"
+    "create_calendar_event": "创建 日历 日程",
+    "read_log": "读取 日志 标准输出 标准错误"
   }
 }

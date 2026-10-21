@@ -24,11 +24,14 @@ import com.helix.runtime.proot.ipc.ProotJobState
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.File
 
 /** Real model discovers and reads synthetic failure evidence through the normal Dispatcher. */
 class ResultLogLiveModelDeviceTest {
@@ -38,8 +41,14 @@ class ResultLogLiveModelDeviceTest {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val container = app.awaitAppContainer()
             assertTrue("Supplied test account must be signed in", app.account.signedIn.value)
+            File(app.cacheDir, "live-log-model-steps.jsonl").writeText("")
             val fixture = InPlaceLogCloseoutDeviceTest.Fixture(container.storage)
             try {
+                val reader = requireNotNull(container.toolPipeline.registry.resolveLatest(ToolName(ProotLogTool.NAME)))
+                assertTrue(
+                    "Synthetic session must admit the existing read-only reader",
+                    container.toolPipeline.disabledToolFilter?.invoke("session", reader) != false,
+                )
                 val record = fixture.run("echo SYNTH_RUNTIME_FAULT_731 >&2; exit 7")
                 assertEquals(ProotJobState.FAILED, record.state)
                 fixture.persist(record)
@@ -51,7 +60,7 @@ class ResultLogLiveModelDeviceTest {
                     "Original failed",
                     ToolFailureContent.encode(failed),
                 )
-                val messages = originalMessages(failed)
+                val messages = admittedMessages(container, failed)
                 val discovered = step(container, messages, "tools.search")
                 assertTrue("Discovery must return the real log reader", discovered.contains(ProotLogTool.NAME))
                 val read = step(container, messages, ProotLogTool.NAME)
@@ -85,6 +94,28 @@ class ResultLogLiveModelDeviceTest {
                 fixture.close()
             }
         }
+
+    private fun admittedMessages(
+        container: AppContainer,
+        failed: ToolDispatchOutcome.ExecutionFailed,
+    ): MutableList<ModelMessage> {
+        // Match ChatRequestAssembler.pluginInstructions: schemas and source metadata share admission.
+        container.toolPipeline.mcpDiscovery.visible(
+            "session",
+            container.toolPipeline.registry.all(),
+            com.helix.app.chat.ModelToolExposureOrder
+                .defaultNames(emptySet()),
+        )
+        val messages = originalMessages(failed)
+        messages.add(
+            1,
+            ModelMessage(
+                ModelRole.SYSTEM,
+                requireNotNull(container.toolPipeline.mcpDiscovery.catalog("session")),
+            ),
+        )
+        return messages
+    }
 
     private fun originalFailure(record: com.helix.runtime.proot.ipc.ProotJobRecord) =
         ToolDispatchOutcome.ExecutionFailed(
@@ -172,6 +203,7 @@ class ResultLogLiveModelDeviceTest {
         val outcome = container.chatService.dispatchToolCall(id, "turn", name, arguments)
         assertTrue("Read must traverse normal Dispatcher", outcome is ToolDispatchOutcome.Succeeded)
         val payload = (outcome as ToolDispatchOutcome.Succeeded).result.payload
+        recordStep(name, arguments, payload)
         assertTrue(container.storage.toolResults.byToolCall(id) != null)
         messages +=
             ModelMessage(
@@ -182,5 +214,21 @@ class ResultLogLiveModelDeviceTest {
             )
         messages += ModelMessage(ModelRole.TOOL, payload, toolCallId = chosen.id, toolName = ToolName(name))
         return payload
+    }
+
+    private fun recordStep(
+        name: String,
+        arguments: String,
+        payload: String,
+    ) {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        // Only this synthetic prompt, model-generated query and already projected tool output.
+        File(app.cacheDir, "live-log-model-steps.jsonl").appendText(
+            buildJsonObject {
+                put("tool", name)
+                put("arguments", arguments)
+                put("payload", payload)
+            }.toString() + "\n",
+        )
     }
 }
