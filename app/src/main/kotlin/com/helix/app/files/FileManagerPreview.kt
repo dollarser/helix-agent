@@ -19,6 +19,7 @@ internal class FileManagerPreview(
     private val store: WorkspaceArtifactStore,
     private val roots: ScopeRootResolver,
     private val saf: SafTreeScopeAccess?,
+    private val shareCacheRoot: File? = null,
 ) {
     /** True when [scopeId] names a SAF tree scope (`saf-<12hex>`; the only model-safe form, doc 10). */
     private fun isSaf(scopeId: String): Boolean = scopeId.startsWith(SafGrantStore.SCOPE_ID_PREFIX)
@@ -245,7 +246,17 @@ internal class FileManagerPreview(
         ) {
             throw FileNotFoundException("not a regular file: ${fsp.toModelReference()}")
         }
-        return real.toFile()
+        return ShareSnapshotCache(shareCacheRoot ?: roots.resolveRoot("app").resolve("cache/share").toFile())
+            .stage(
+                listOf(
+                    ShareSnapshotCache.Source(real.fileName.toString()) {
+                        java.nio.file.Files
+                            .newInputStream(real)
+                    },
+                ),
+                SAF_SHARE_CAP,
+            ).files
+            .single()
     }
 
     /**
@@ -278,19 +289,13 @@ internal class FileManagerPreview(
         require(info.isRegularFile && info.sizeBytes in 0..32L * 1024 * 1024) {
             "Workspace sharing supports files up to 32 MiB"
         }
-        val bytes = store.readAll(path)
-        val directory = roots.resolveRoot("app").resolve("cache/share")
-        java.nio.file.Files
-            .createDirectories(directory)
-        com.helix.core.workspace.WorkspaceQuota.ensureRoom(
-            directory,
-            bytes.size.toLong(),
-            512L * 1024 * 1024,
-        )
-        val target = directory.resolve("workspace-${java.util.UUID.randomUUID()}.${shareExtension(relativePath)}")
-        com.helix.core.workspace.AtomicFileWriter
-            .writeAtomic(target, bytes)
-        return target.toFile()
+        val cache = shareCacheRoot ?: roots.resolveRoot("app").resolve("cache/share").toFile()
+        return ShareSnapshotCache(cache)
+            .stage(
+                listOf(ShareSnapshotCache.Source(path.name) { store.openRead(path) }),
+                32L * 1024 * 1024,
+            ).files
+            .single()
     }
 
     /** Sharing labels positively detected text without changing the tool probe's conservative MIME. */

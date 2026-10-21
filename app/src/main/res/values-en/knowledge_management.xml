@@ -1,0 +1,15 @@
+<resources>
+    <string name="knowledge_import_files">Import files</string>
+    <string name="knowledge_delete_sources">Delete selected sources</string>
+    <string name="knowledge_delete_sources_warning">Delete collected originals, extracted text and index. Frozen references in existing notes and answers remain. This cannot be undone. Batch deletion runs individually; reload after a partial failure.</string>
+    <string name="knowledge_delete_note">Delete note</string>
+    <string name="knowledge_delete_note_warning">Delete this note, its index and reference links. Source originals and question history remain. This cannot be undone.</string>
+    <string name="knowledge_export_note">Export Markdown with frozen references</string>
+    <string name="knowledge_save_before_manage">Save changes before exporting or deleting.</string>
+    <string name="knowledge_management_failed">Operation incomplete; some data may have changed. Reload and check the result.</string>
+    <string name="knowledge_deleting">Deleting; cleanup resumes after interruption</string>
+    <string name="knowledge_agent_access">Allow Agent library search (off by default). Returned snippets are sent to the current conversation model; each tool request returns bounded excerpts without automatic whole-library prompt injection.</string>
+    <string name="knowledge_references_changed">A reference source changed or was removed. This note retains its frozen evidence.</string>
+    <string name="knowledge_refresh_references">Refresh references</string>
+    <string name="knowledge_refresh_references_warning">Replace frozen references with current sources. Keep the body, mark it draft and discard generated suggestions. Missing or processing sources block this action.</string>
+</resources>

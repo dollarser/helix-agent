@@ -22,6 +22,87 @@ import java.util.UUID
 
 class KnowledgeNotesDeviceTest {
     @Test
+    fun deletingSavedAnswerNoteDetachesMarkerAndAllowsExplicitSaveAgain() =
+        fixture { library, store ->
+            val answer =
+                com.helix.core.storage.knowledge.KnowledgeAnswer(
+                    "deletion-answer",
+                    "Question",
+                    0,
+                    "READY",
+                    "[]",
+                    "{}",
+                    "Answer body",
+                )
+            store.saveAnswer(answer)
+            val first = store.saveAnswerAsNote(answer.id, emptyList())
+            assertEquals(first, store.saveAnswerAsNote(answer.id, emptyList()))
+            library.noteService.management.remove(requireNotNull(store.note(first)))
+            assertEquals("", store.answer(answer.id)?.savedNoteId)
+            val second = store.saveAnswerAsNote(answer.id, emptyList())
+            assertTrue(first != second)
+            assertEquals("Answer body", store.note(second)?.body)
+        }
+
+    @Test
+    fun deleteNoteRemovesIndexAndLinksButPreservesSources() =
+        fixture { library, store ->
+            val ids = collectSources(library)
+            val id = library.noteService.create(ids, "UniqueDeletionFixture")
+            val note = requireNotNull(store.note(id))
+            library.noteService.management.remove(note)
+            assertEquals(null, store.note(id))
+            assertTrue(store.noteSources(id).isEmpty())
+            assertTrue(store.searchNotes("UniqueDeletionFixture").isEmpty())
+            assertTrue(ids.all { store.get(it) != null })
+        }
+
+    @Test
+    fun staleDeleteDoesNotDiscardNewEdits() =
+        fixture { library, store ->
+            val id = library.noteService.create(collectSources(library), "Before")
+            val old = requireNotNull(store.note(id))
+            library.noteService.save(id, "After", "Keep edits", false)
+            var refused = false
+            try {
+                library.noteService.management.remove(old)
+            } catch (_: IllegalStateException) {
+                refused = true
+            }
+            assertTrue(refused)
+            assertEquals("Keep edits", store.note(id)?.body)
+        }
+
+    @Test
+    fun explicitReferenceRefreshKeepsBodyAndMissingSourceLeavesEverythingUntouched() =
+        fixture { library, store ->
+            val ids = collectSources(library)
+            val id = library.noteService.create(ids, "References")
+            library.noteService.save(id, "References", "User body", true)
+            val frozen = store.noteSources(id)
+            val source = requireNotNull(store.get(ids.first()))
+            store.save(source.copy(extracted = "Updated evidence"))
+            assertTrue(library.noteService.management.changed(frozen))
+            library.noteService.management.refresh(requireNotNull(store.note(id)), frozen)
+            val refreshed = requireNotNull(store.note(id))
+            assertTrue(refreshed.updatedAt > 0)
+            assertEquals("User body", refreshed.body)
+            assertEquals("DRAFT", refreshed.state)
+            assertTrue(store.noteSources(id).any { it.excerpt.contains("Updated evidence") })
+            library.remove(ids.first())
+            val before = store.noteSources(id)
+            var refused = false
+            try {
+                library.noteService.management.refresh(refreshed, before)
+            } catch (_: IllegalArgumentException) {
+                refused = true
+            }
+            assertTrue(refused)
+            assertEquals(before, store.noteSources(id))
+            assertEquals(refreshed, store.note(id))
+        }
+
+    @Test
     fun manualAndManyToManyNotesKeepSourcesIndependent() =
         fixture { library, store ->
             val ids = collectSources(library)

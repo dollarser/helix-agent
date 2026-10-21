@@ -168,6 +168,7 @@ internal class AppFileServices(
             // HXA-069: the facade's user-visible status/detail texts are stable string-resource
             // ids, localized against the CHOSEN app language at emit time (via the injected locale resolver).
             strings = { id, args -> strings(id, args) },
+            shareCacheRoot = java.io.File(context.cacheDir, "device-share"),
             sharedStorageGranted = sharedStorage::isGranted,
             library =
                 com.helix.app.files.FileLibrary(

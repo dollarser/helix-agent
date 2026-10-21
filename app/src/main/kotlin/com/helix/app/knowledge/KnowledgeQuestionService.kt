@@ -37,7 +37,17 @@ class KnowledgeQuestionService(
     suspend fun search(question: String): List<CollectedSource> =
         withContext(Dispatchers.IO) {
             val terms = KnowledgeRetrieval.terms(question)
-            if (terms.isEmpty()) emptyList() else KnowledgeRetrieval.rank(store.retrievalCandidates(terms), terms)
+            if (terms.isEmpty()) {
+                emptyList()
+            } else {
+                KnowledgeRetrieval.rank(
+                    store.retrievalCandidates(terms).filter {
+                        it.state !=
+                            "DELETING"
+                    },
+                    terms,
+                )
+            }
         }
 
     suspend fun evidence(

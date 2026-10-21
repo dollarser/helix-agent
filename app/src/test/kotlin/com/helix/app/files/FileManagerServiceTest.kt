@@ -571,12 +571,15 @@ class FileManagerServiceTest {
     // ── Share handoff (real file for the FileProvider URI) ────────────────────────────
 
     @Test
-    fun realFileForReturnsTheUnderlyingRegularFile() {
+    fun realFileForReturnsAnIndependentTransportSnapshot() {
         seedText("work/share.txt", "share me")
 
         val file = service.realFileFor(scopeId, "work/share.txt")
         assertTrue(file.exists())
         assertEquals("share me", file.readText())
+        seedText("work/share.txt", "new source")
+        assertEquals("share me", file.readText())
+        assertFalse(file.toPath() == real("work/share.txt"))
     }
 
     @Test

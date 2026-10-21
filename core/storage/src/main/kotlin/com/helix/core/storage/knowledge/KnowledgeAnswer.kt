@@ -23,6 +23,9 @@ data class KnowledgeAnswer(
 
 @Dao
 interface KnowledgeAnswerDao {
+    @Query("UPDATE knowledge_answers SET savedNoteId = '' WHERE savedNoteId = :noteId")
+    suspend fun detachNote(noteId: String)
+
     @Query("SELECT * FROM knowledge_answers ORDER BY createdAt DESC")
     fun observe(): Flow<List<KnowledgeAnswer>>
 

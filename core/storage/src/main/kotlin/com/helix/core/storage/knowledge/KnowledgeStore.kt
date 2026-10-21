@@ -51,7 +51,7 @@ interface KnowledgeDao {
     @Query("SELECT * FROM knowledge WHERE fingerprint = :fingerprint AND fingerprint != '' LIMIT 1")
     suspend fun duplicate(fingerprint: String): CollectedSource?
 
-    @Query("SELECT * FROM knowledge WHERE state IN ('IMPORTING', 'EXTRACTING', 'QUEUED')")
+    @Query("SELECT * FROM knowledge WHERE state IN ('IMPORTING', 'EXTRACTING', 'QUEUED', 'DELETING')")
     suspend fun unfinished(): List<CollectedSource>
 
     @Insert
@@ -204,6 +204,37 @@ class KnowledgeStore(
             noteDao.clearIndex(note.id)
             noteDao.index(KnowledgeNoteSearch(note.id, note.title + "\n" + note.body))
         }
+    }
+
+    suspend fun refreshNote(
+        expected: KnowledgeNote,
+        frozen: List<KnowledgeNoteSource>,
+        currentSources: List<CollectedSource>,
+        updated: KnowledgeNote,
+        replacements: List<KnowledgeNoteSource>,
+    ) = database.withTransaction {
+        check(noteDao.get(expected.id) == expected && noteDao.sources(expected.id) == frozen)
+        check(currentSources.all { dao.get(it.id) == it }) { "Source changed during reference refresh" }
+        saveNote(updated, replacements)
+    }
+
+    suspend fun removeNote(expected: KnowledgeNote) =
+        database.withTransaction {
+            check(
+                noteDao.get(expected.id) == expected && expected.generationState != "RUNNING",
+            ) { "Note changed or generating" }
+            noteDao.clearIndex(expected.id)
+            noteDao.unlink(expected.id)
+            answerDao.detachNote(expected.id)
+            noteDao.delete(expected.id)
+        }
+
+    suspend fun boundedNoteSearch(
+        query: String,
+        limit: Int = 16,
+    ): List<KnowledgeNote> {
+        require(query.isNotBlank() && query.length <= 200 && limit in 1..16)
+        return noteDao.boundedSearch(query, limit)
     }
 
     suspend fun searchNotes(query: String): List<KnowledgeNote> {

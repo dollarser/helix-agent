@@ -42,12 +42,15 @@ internal fun FileShareAction(
             try {
                 val (uri, mime) =
                     withContext(Dispatchers.IO) {
+                        val snapshot = files.realFileFor(path.scopeId, path.relativePath)
                         FileProvider.getUriForFile(
                             context,
                             "${context.packageName}.fileprovider",
-                            files.realFileFor(path.scopeId, path.relativePath),
+                            snapshot,
                             path.name,
-                        ) to files.mimeTypeFor(path.scopeId, path.relativePath)
+                        ) to
+                            com.helix.app.files.ShareSnapshotCache
+                                .mime(snapshot)
                     }
                 context.startActivity(
                     Intent.createChooser(

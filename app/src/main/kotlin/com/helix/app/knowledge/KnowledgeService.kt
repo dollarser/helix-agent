@@ -41,6 +41,9 @@ class KnowledgeService(
     val items = store.items
     val openRequests = MutableStateFlow<String?>(null)
     val captureError = MutableStateFlow(false)
+    val deletionError = MutableStateFlow(false)
+    internal val agentAccess =
+        KnowledgeAgentAccess(context.getSharedPreferences("knowledge-access", Context.MODE_PRIVATE), store)
     val noteService = KnowledgeNoteService(store)
     val questionService = KnowledgeQuestionService(store)
 
@@ -51,20 +54,49 @@ class KnowledgeService(
         store.close()
     }
 
-    suspend fun remove(id: String) =
-        withContext(Dispatchers.IO) {
-            mutation.withLock {
-                store.remove(id)
-                File(root, id).deleteRecursively()
+    suspend fun remove(
+        id: String,
+        expected: CollectedSource? = null,
+    ) = withContext(Dispatchers.IO) {
+        mutation.withLock {
+            val current = requireNotNull(store.get(id))
+            check(expected == null || current == expected) { "Source changed; reload before deletion" }
+            store.save(current.copy(state = "DELETING", detail = "delete-pending"))
+            deleteSource(id)
+            deletionError.value = store.unfinished().any { it.state == "DELETING" }
+        }
+    }
+
+    private suspend fun deleteSource(id: String) {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        val directory = File(root, id).toPath()
+        if (java.nio.file.Files
+                .exists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+        ) {
+            java.nio.file.Files.walk(directory).use { paths ->
+                paths.sorted(Comparator.reverseOrder()).forEach {
+                    java.nio.file.Files
+                        .delete(it)
+                }
             }
         }
+        store.remove(id)
+    }
 
     val recovery =
         scope.launch {
             noteService.recovery.join()
             mutation.withLock {
                 store.unfinished().forEach { item ->
-                    if (item.state == "IMPORTING") {
+                    if (item.state == "DELETING") {
+                        try {
+                            deleteSource(item.id)
+                        } catch (_: java.io.IOException) {
+                            deletionError.value = true
+                        } catch (_: android.database.sqlite.SQLiteException) {
+                            deletionError.value = true
+                        }
+                    } else if (item.state == "IMPORTING") {
                         store.save(item.copy(state = "INCOMPLETE", detail = "import-interrupted"))
                     } else {
                         extractor.extract(item)
@@ -105,7 +137,11 @@ class KnowledgeService(
             recovery.join()
             mutation.withLock {
                 val current = store.get(item.id) ?: return@withLock
-                if (current.state != "IMPORTING" && current.detail != "import-interrupted") extractor.extract(current)
+                if (current.state !in setOf("IMPORTING", "DELETING") &&
+                    current.detail != "import-interrupted"
+                ) {
+                    extractor.extract(current)
+                }
             }
         }
 
@@ -127,6 +163,7 @@ class KnowledgeService(
         withContext(Dispatchers.IO) {
             require(maxChars in 1..20_000)
             val current = requireNotNull(store.get(item.id))
+            require(current.state != "DELETING")
             val content = current.extracted.ifBlank { current.rawText }
             listOf(
                 "[Helix source:${current.id}] ${current.title}",

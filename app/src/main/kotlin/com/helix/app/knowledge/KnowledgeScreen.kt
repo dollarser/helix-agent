@@ -62,6 +62,7 @@ fun KnowledgeScreen(
     val notes by service.noteService.notes.collectAsStateWithLifecycle(emptyList())
     val request by service.openRequests.collectAsStateWithLifecycle()
     val error by service.captureError.collectAsStateWithLifecycle()
+    val deletionError by service.deletionError.collectAsStateWithLifecycle()
     var selected by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<CollectedSource>>(emptyList()) }
@@ -99,6 +100,10 @@ fun KnowledgeScreen(
             service.openRequests.value = null
         }
     }
+    LaunchedEffect(all) {
+        selectedSources =
+            selectedSources.intersect(all.filter { it.state != "DELETING" }.map { it.id }.toSet())
+    }
     LaunchedEffect(query, all) { hits = if (query.isBlank()) all else service.search(query) }
     LaunchedEffect(query, notes) { noteHits = if (query.isBlank()) notes else service.noteService.search(query) }
     val item = all.firstOrNull { it.id == selected }
@@ -106,6 +111,7 @@ fun KnowledgeScreen(
     BackHandler(item != null && note == null) { selected = null }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.knowledge_privacy))
+        if (deletionError) Text(stringResource(R.string.knowledge_management_failed))
         if (error) Text(stringResource(R.string.knowledge_capture_failed))
         if (failed) Text(stringResource(R.string.knowledge_capture_failed))
         if (note != null) {
@@ -120,6 +126,8 @@ fun KnowledgeScreen(
                 showNotes = true
             }
         } else if (item == null) {
+            KnowledgeImportAction(service)
+            KnowledgeDeleteSources(service, all.filter { it.id in selectedSources })
             androidx.compose.foundation.layout.Row {
                 TextButton(onClick = { showNotes = false }, modifier = Modifier.testTag("knowledge-tab-sources")) {
                     Text(stringResource(R.string.knowledge_sources_tab))
@@ -213,6 +221,7 @@ fun KnowledgeScreen(
             TextButton(onClick = { selected = null }, modifier = Modifier.testTag("knowledge-back")) {
                 Text(stringResource(R.string.knowledge_back))
             }
+            KnowledgeDeleteSources(service, listOf(item))
             KnowledgeDetail(item, service, onReference) { createNote(listOf(item.id)) }
         }
     }
@@ -223,6 +232,7 @@ private fun knowledgeStatus(item: CollectedSource): String =
     stringResource(
         when (item.state) {
             "READY" -> R.string.knowledge_ready
+            "DELETING" -> R.string.knowledge_deleting
             "IMPORTING", "QUEUED", "EXTRACTING" -> R.string.knowledge_processing
             "FAILED" -> R.string.knowledge_failed
             else -> R.string.knowledge_incomplete
@@ -237,6 +247,10 @@ private fun KnowledgeDetail(
     onReference: (String) -> Unit,
     onDistill: () -> Unit,
 ) {
+    if (item.state == "DELETING") {
+        Text(stringResource(R.string.knowledge_deleting))
+        return
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var openFailed by remember { mutableStateOf(false) }
@@ -295,7 +309,9 @@ private fun KnowledgeDetail(
         if (openFailed) item { Text(stringResource(R.string.knowledge_no_viewer)) }
         item { Text(stringResource(R.string.knowledge_extracted)) }
         item { SelectionContainer { Text(item.extracted, Modifier.testTag("knowledge-extracted")) } }
-        if (item.state !in setOf("IMPORTING", "QUEUED", "EXTRACTING") && item.detail != "import-interrupted") {
+        if (item.state !in setOf("DELETING", "IMPORTING", "QUEUED", "EXTRACTING") &&
+            item.detail != "import-interrupted"
+        ) {
             item {
                 TextButton(onClick = { service.retry(item) }, modifier = Modifier.testTag("knowledge-retry")) {
                     Text(stringResource(R.string.knowledge_retry))

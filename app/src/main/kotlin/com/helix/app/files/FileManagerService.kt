@@ -49,6 +49,7 @@ class FileManagerService internal constructor(
     private val workspaceSources: () -> List<FileSource> = { emptyList() },
     private val workspaceCleanup: ((String) -> Unit)? = null,
     val library: FileLibrary = FileLibrary(),
+    shareCacheRoot: File? = null,
 ) {
     /** Explicit cleanup shares this monitor with every manual file operation, including transfers. */
     @Synchronized
@@ -348,7 +349,7 @@ class FileManagerService internal constructor(
     @Synchronized
     fun recoverTransfer(id: String): Boolean = requireNotNull(manual).recoverTransfer(id)
 
-    private val preview = FileManagerPreview(store, roots, saf)
+    private val preview = FileManagerPreview(store, roots, saf, shareCacheRoot)
 
     @Synchronized
     fun previewText(

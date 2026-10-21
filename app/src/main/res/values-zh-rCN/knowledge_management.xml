@@ -1,0 +1,15 @@
+<resources>
+    <string name="knowledge_import_files">导入文件</string>
+    <string name="knowledge_delete_sources">删除所选来源</string>
+    <string name="knowledge_delete_sources_warning">删除已收集原件、提取文字和索引。已有笔记及问答中的固定引用保留。此操作不可撤销。批量删除逐项执行；部分失败时请刷新列表后重试。</string>
+    <string name="knowledge_delete_note">删除笔记</string>
+    <string name="knowledge_delete_note_warning">删除该笔记、索引和引用关联；来源原件及问答记录保留。此操作不可撤销。</string>
+    <string name="knowledge_export_note">导出 Markdown（含固定引用）</string>
+    <string name="knowledge_save_before_manage">请先保存修改，再导出或删除。</string>
+    <string name="knowledge_management_failed">操作未完成；可能有数据已变更。请刷新后检查，勿假定全部成功。</string>
+    <string name="knowledge_deleting">正在删除；中断后继续清理</string>
+    <string name="knowledge_agent_access">允许 Agent 检索知识库（默认关闭）。返回的片段会发送给当前会话模型；按工具请求返回有界片段，不自动将全库注入提示词。</string>
+    <string name="knowledge_references_changed">引用来源已更新或删除。当前笔记仍保留旧引用快照，不会自动改写。</string>
+    <string name="knowledge_refresh_references">更新引用快照</string>
+    <string name="knowledge_refresh_references_warning">使用当前来源替换固定引用；正文保留，笔记改为待审阅，未审阅的生成建议清除。缺失或正在处理的来源会阻止更新。</string>
+</resources>

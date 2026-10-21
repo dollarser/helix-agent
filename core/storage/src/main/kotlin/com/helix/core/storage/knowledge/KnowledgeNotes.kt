@@ -64,6 +64,18 @@ interface KnowledgeNoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun link(sources: List<KnowledgeNoteSource>)
 
+    @Query("DELETE FROM knowledge_notes WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query(
+        "SELECT * FROM knowledge_notes WHERE instr(lower(title || body), lower(:query)) > 0 " +
+            "ORDER BY updatedAt DESC LIMIT :limit",
+    )
+    suspend fun boundedSearch(
+        query: String,
+        limit: Int,
+    ): List<KnowledgeNote>
+
     @Query("DELETE FROM knowledge_note_sources WHERE noteId = :id")
     suspend fun unlink(id: String)
 

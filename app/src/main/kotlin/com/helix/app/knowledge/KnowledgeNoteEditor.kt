@@ -62,7 +62,7 @@ internal fun KnowledgeNoteEditor(
             .orEmpty()
     val generationFailure by service.failure.collectAsStateWithLifecycle()
     val analysis = remember(providers) { providers?.let(::KnowledgeAnalysis) }
-    LaunchedEffect(note.id) { sources = service.sources(note.id) }
+    LaunchedEffect(note.id, note.updatedAt) { sources = service.sources(note.id) }
     val dirty = title != note.title || body != note.body
 
     fun goBack() {
@@ -188,6 +188,8 @@ internal fun KnowledgeNoteEditor(
         )
     }
     LazyColumn(modifier.testTag("knowledge-note-editor"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { KnowledgeNoteManagement(note, service, dirty) }
+        item { KnowledgeReferenceManagement(note, service, sources, dirty) }
         item {
             TextButton(onClick = { goBack() }, modifier = Modifier.testTag("knowledge-note-back")) {
                 Text(stringResource(R.string.knowledge_back))

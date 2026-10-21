@@ -39,6 +39,8 @@ class KnowledgeNoteService(
 
     suspend fun search(query: String) = withContext(Dispatchers.IO) { store.searchNotes(query) }
 
+    val management = KnowledgeNoteMaintenance(store, mutation, recovery)
+
     suspend fun create(
         sourceIds: List<String>,
         title: String,
@@ -51,6 +53,7 @@ class KnowledgeNoteService(
             val sources =
                 sourceIds.map { sourceId ->
                     val source = requireNotNull(store.get(sourceId))
+                    require(source.state != "DELETING")
                     val text = source.extracted.ifBlank { source.rawText }
                     val truncation = if (text.length > budget) "\n[Excerpt truncated to $budget characters]" else ""
                     val excerpt = text.take(budget) + truncation
