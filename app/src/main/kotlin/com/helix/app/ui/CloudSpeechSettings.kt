@@ -1,6 +1,10 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -10,8 +14,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import com.helix.app.HelixApplication
 import com.helix.app.R
 
@@ -26,8 +34,7 @@ internal fun CloudSpeechSettingsEntry() {
         var error by remember { mutableStateOf(false) }
         ConversationSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {
-                Text(stringResource(R.string.speech_ws_enable))
-                Switch(draft.webSocket, { enabled ->
+                SpeechSettingToggle(stringResource(R.string.speech_ws_enable), draft.webSocket, { enabled ->
                     draft =
                         draft.copy(
                             webSocket = enabled,
@@ -52,8 +59,10 @@ internal fun CloudSpeechSettingsEntry() {
                     ),
                 )
                 Text(stringResource(R.string.speech_http_loopback))
-                Text(stringResource(R.string.speech_http_enable))
-                Switch(draft.httpEnabled, { draft = draft.copy(httpEnabled = it) })
+                SpeechSettingToggle(stringResource(R.string.speech_http_enable), draft.httpEnabled, {
+                    draft =
+                        draft.copy(httpEnabled = it)
+                })
                 OutlinedTextField(
                     draft.asrEndpoint,
                     { draft = draft.copy(asrEndpoint = it) },
@@ -66,8 +75,13 @@ internal fun CloudSpeechSettingsEntry() {
                     label = { Text(stringResource(R.string.speech_tts_endpoint)) },
                     singleLine = true,
                 )
-                Text(stringResource(R.string.speech_use_account_login))
-                Switch(draft.useAccountLogin, { draft = draft.copy(useAccountLogin = it) }, enabled = !draft.webSocket)
+                SpeechSettingToggle(
+                    stringResource(R.string.speech_use_account_login),
+                    draft.useAccountLogin,
+                    { draft = draft.copy(useAccountLogin = it) },
+                    enabled = !draft.webSocket,
+                )
+                if (draft.useAccountLogin) Text(stringResource(R.string.speech_account_setup_hint))
                 if (error) Text(stringResource(R.string.speech_settings_invalid))
                 TextButton({
                     try {
@@ -82,5 +96,28 @@ internal fun CloudSpeechSettingsEntry() {
                 }) { Text(stringResource(R.string.speech_settings_save)) }
             }
         }
+    }
+}
+
+/** One labelled 48dp switch target; changing it only updates this sheet's unsaved draft. */
+@Composable
+@Suppress("FunctionName")
+internal fun SpeechSettingToggle(
+    label: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+            value = checked,
+            enabled = enabled,
+            role = Role.Switch,
+            onValueChange = onChecked,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f))
+        Switch(checked, onCheckedChange = null, enabled = enabled)
     }
 }

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_account_setup_hint">使用官方云端语音前，请先从抽屉顶部登录账号。登录不会开启音频上传，每次录音仍需确认；停止朗读不会取消 Agent 任务。</string>
+</resources>

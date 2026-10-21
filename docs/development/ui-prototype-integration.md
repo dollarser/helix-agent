@@ -1,6 +1,6 @@
 # UI 原型接入与功能分层
 
-范围：以当前真实能力为准，将原型作为视觉和任务组织参考，不以像素一致率为验收。保留现有 UI/账号在途修改和所有用户数据；本轮不提交、不推送。基线为 `168cdbe5`，局部原始 diff 与源码库存保存在 ignored `build/ui-integration/`。
+范围：以当前真实能力为准，将原型作为视觉和任务组织参考，不以像素一致率为验收。保留现有 UI/账号在途修改和所有用户数据；首轮交付时未提交；后续复核获准本地提交，见[发现与语音复核](tool-discovery-followup.md)。基线为 `168cdbe5`，局部原始 diff 与源码库存保存在 ignored `build/ui-integration/`。
 
 ## 覆盖映射
 
@@ -146,10 +146,10 @@
 
 UI/state：主题、导航布局、共享卡片/入口、composer、原处语音、消息编辑器和旧回复标记。接口：独立手动消息编辑应用接口及页面状态投影。数据库命令：版本条件更新正文/搜索，保留原文证据，只失效派生摘要；无表结构或迁移变更。核心引擎、Dispatcher、Provider 协议、知识库索引、PRoot 执行与技术恢复未重构。CLI 子模块仅原生订阅 UI 与主题资源变化。
 
-本轮所有修改保持工作区待审查，未提交、未推送；既有账号/抽屉/原型及无关文档改动保留。最终审批重建与清理结果补记于下。
+首轮交付时修改保留在工作区待审查；后续获准本地提交，见[复核记录](tool-discovery-followup.md)。既有账号/抽屉/原型与无关文档改动保留。最终审批重建与清理结果补记于下。
 
 ### 最终补验
 
 - `ApprovalFlowDeviceTest#profileSwitchDoesNotChangePendingDecisionOnDevice` 在实际 Activity 重建后通过可见界面点击拒绝，核对原 approval binding hash、Dispatcher 拒绝结果和持久化 DENIED，1 项通过。初次失败保留：实际无障碍树已显示按钮，平台按文字查询未返回 Compose 虚拟节点；测试改为遍历同一应用可见节点后通过，没有改生产审批流程、直接调用拒绝替代 UI 或放宽持久化断言。测试 fixture 明确完成引导前置条件。
 - 最后 test-only 改动后 `:app:assembleDeveloperDebugAndroidTest spotlessCheck detekt` 成功；`scripts/check-all.sh --source` 退出 0（286 项脚本测试、文档/ADR、国际化、秘密扫描）。新增测试没有要求再次运行生产 Release/R8。
-- 所有临时验收包均已卸载；保留现有模拟器与日常包。反向端口映射已移除，显示与输入配置保持原状。没有提交或推送。
+- 所有临时验收包均已卸载；保留现有模拟器与日常包。反向端口映射已移除，显示与输入配置保持原状。首轮交付时未提交；后续提交与验证见复核记录，始终未推送。
