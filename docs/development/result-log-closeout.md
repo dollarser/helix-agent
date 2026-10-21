@@ -40,10 +40,23 @@ Owner 最后限定为模拟器与真实模型，不做真机。使用唯一连�
 
 完整门禁原始日志：ignored `build/log-closeout/final-release-host-verified.log`。核心与补充设备报告分别为 `device-core-final.log`、`device-sharing-terminal-final.log`，进程重建为 `device-restart-prepare.log` / `device-restart-read.log`，真实模型为 `live-models.log`，账号生命周期为 `live-account-verify.log`。均位于同一 ignored 证据目录。账号 setup 的预期进程退出单独保留，不冒充测试通过。
 
-失败详情投影新增 JVM 回归，验证旧摘要未携带退出码时从结构化正文读取 exitCode；保留旧摘要明确退出码的既有优先级。最终补充命令包含 `spotlessCheck detekt`、双渠道 Debug 单元测试、双渠道 Debug/Release lint 和 APK 构建，其结果待命令结束补记。
+失败详情投影新增 JVM 回归，验证旧摘要未携带退出码时从结构化正文读取 exitCode；保留旧摘要明确退出码的既有优先级。最终补充命令包含 `spotlessCheck detekt`、双渠道 Debug 单元测试、双渠道 Debug/Release lint 和 APK 构建，已退出 0，原始日志为 ignored `build/log-closeout/final-exitcode-regression-verified.log`。
 
 以上是组合工作区的验证，包含保留的其他 UI 改动；分组提交构成依赖序列，不宣称每个中间提交都单独完成设备验收。未提交的视觉/原型工作不在本轮提交范围。未推送。
 
 设备使用 `adb -s emulator-5554 shell am instrument -w -r -e class <本轮测试类列表> com.helix.agent.developer.asrvalidation.test/androidx.test.runner.AndroidJUnitRunner`，每轮原始输出再由 `python3 scripts/instrumentation_junit.py <报告路径>` 验证。真实模型轮额外显式传入 `-e helix.logLiveModel true -e helix.knowledgeLiveModel true`，类为 `com.helix.app.proot.ResultLogLiveModelDeviceTest,com.helix.app.knowledge.KnowledgeLiveModelDeviceTest`。构建采用 `-Phelix.asrValidation=true :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest`，并与实际安装候选核对。进程重建用例只对这一临时包执行 `am force-stop`，随后运行独立读取阶段，不重新执行原 Job。
 
 末轮双渠道 app Debug 单元测试报告分别为 Consumer 1458 项、Developer 1616 项，均为 failures=0/errors=0，各有 5 项既有 skipped；这些是渠道执行次数，不是去重测试数。新增退出码投影回归在两渠道各 21 项投影测试中通过。首次补充检查保留了旧摘要/正文冲突的失败证据，随后只收窄实现并保留原断言，未删除或跳过该测试。
+
+## 本地提交
+
+- `73118079`：设备与成组工具契约。
+- `8cbfd1d6`：知识库与保留式分享。
+- `d64af01c`：终端恢复、历史模型来源校验。
+- `e71eaf59`：有界技术恢复与未知动作不重放。
+- `cb9ba3a7`：原位执行、失败诊断持久化与日志补读。
+- `4cad0f5e`：日常 Debug / 显式完整 Release 门禁。
+
+保留工作区中的账号/抽屉视觉与 HTML 原型等其他任务修改；没有提交测试凭据、生成证据、运行时文件或用户数据。此列表记录功能提交，后续仅更新验证记录的提交可通过本文 Git history 追溯。
+
+最终源码冻结后再次运行同一显式完整命令 `scripts/check-all.sh --all`（上述单次 daemon / 单 worker 配置），退出 0；日志为 ignored `build/log-closeout/final-stable-host-all.log`。复用末轮已成功构建的双渠道 Debug/Release/R8 缓存，重新完成全局主机门禁、release-smoke 编译检查、锁文件及 Debug/Release APK 组件/进程/UID/载荷/网络配置边界。最终主机 APK 与源码清单保存在 `final-host-candidate.json`；它不宣称安装或设备验证，模拟器实际候选仍单独保存在 `candidate/`。正式 Release 只做主机验收，未将其冒充 Release 设备验收。
