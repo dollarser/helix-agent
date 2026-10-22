@@ -37,6 +37,7 @@ internal object ToolResultReadTool {
                 """{
         "type":"object",
         "properties":{
+            "contentKind":{"type":"string","enum":["tool_result"]},
             "resultRef":{"type":"string"},
             "offset":{"type":"integer","minimum":0},
             "totalCharacters":{"type":"integer","minimum":0},
@@ -47,7 +48,7 @@ internal object ToolResultReadTool {
             "logRef":{"type":"string"},"logReadTool":{"type":"string"},
             "exitCode":{"type":"integer"},"logTruncated":{"type":"boolean"}
         },
-        "required":["resultRef","offset","totalCharacters","content","truncated"],
+        "required":["contentKind","resultRef","offset","totalCharacters","content","truncated"],
         "additionalProperties":false
         }""",
             ).jsonObject
@@ -60,7 +61,10 @@ internal object ToolResultReadTool {
             ToolDescriptor(
                 ToolName(NAME),
                 ToolVersion(1),
-                "Read saved success or failure diagnostics from this session without re-executing it. " +
+                "Read the original saved tool result body from this session without re-executing it. " +
+                    "This is not a separate captured stdout/stderr stream. " +
+                    "Returned logRef/logReadTool identify separately captured execution logs; " +
+                    "missing stderr in this body does not mean those logs were not saved. " +
                     "Failure diagnostics are not verified successful effects. " +
                     "Use resultRef and nextOffset from a truncated result. " +
                     "Offsets count Unicode code points, not UTF-16 units or bytes. " +
@@ -167,6 +171,7 @@ internal object ToolResultReadTool {
         require(offset in 0..count)
         val end = minOf(count.toLong(), offset.toLong() + PAGE_CHARACTERS).toInt()
         return buildJsonObject {
+            put("contentKind", "tool_result")
             put("resultRef", reference)
             if (toolName in setOf("bash", "code.linux.run", "code.linux.job.start")) {
                 put("logRef", reference)

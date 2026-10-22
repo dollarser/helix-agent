@@ -13,8 +13,8 @@ Deciders: Project owner（授权在独立 worktree 优化工具回显、模型�
 
 - 聊天气泡只投影用户与助手正文。工具调用、结果、压缩 checkpoint 保留持久记录和协议配对，工具过程从现有可展开工具时间线查看；不按内容是否像 JSON 删除真实用户/助手正文。
 - 模型仍收到 TOOL 结果。已知 QuickJS 包装中的 JSON 字符串可解码一层，保留业务字段；未知格式原样保留，不递归删用户字段。
-- 大于 16 KiB 的成功结果，在 `tools.read_result` 已注册且该会话启用时，模型投影为明确标注截断的 JSON，含 `resultRef`、前 2048 个 Unicode code point、`nextOffset` 和总字符数。完整已验证输出仍在 `tool_results`/内容存储。读取工具被禁用时不生成无法读取的新投影。
-- `tools.read_result` 是本地只读工具，走既有 schema、授权、执行限制和审计管线。引用包含本地 Turn/ToolCall ID；执行器以 Dispatcher 注入的会话与 Turn 验证归属，仅返回同一会话已完成且验证通过的成功结果。每页最多 2048 个 code point，输出最多 16 KiB，期限 5 秒；取消、过期、缺失、未结算或校验失败返回相应结果，不执行原工具、不读取任意路径、不扩大授权。原工具输出受框架 8 MiB 硬上限约束；此实现按页输出但每次读取会校验完整原内容，不承诺文件流式随机访问。
+- 大于 16 KiB 的已结算成功结果或失败诊断，在 `tools.read_result` 已注册且该会话启用时，模型投影为明确标注截断的 JSON，含 `resultRef`、前 2048 个 Unicode code point、`nextOffset` 和总字符数。完整正文仍在 `tool_results`/内容存储；失败诊断不冒充验证成功。读取工具被禁用时不生成无法读取的新投影。
+- `tools.read_result` 是本地只读工具，走既有 schema、授权、执行限制和审计管线。引用包含本地 Turn/ToolCall ID；执行器以 Dispatcher 注入的会话与 Turn 验证归属，返回同会话已验证的成功正文，或已保存的 FAILED/NEEDS_REVIEW/INTERRUPTED 诊断。`sourceStatus` 和 `sourceVerified` 保留原动作事实，读取成功不表示原动作成功。`contentKind=tool_result` 区别结果正文与另行捕获的 stdout/stderr；受管执行附原 `logRef`/`logReadTool`、已知退出码和日志截断事实，正文没有 stderr 不证明日志未保存。每页最多 2048 个 code point，输出最多 16 KiB，期限 5 秒；取消、过期、缺失、未结算或校验失败返回相应结果，不执行原工具、不读取任意路径、不扩大授权。原工具输出受框架 8 MiB 硬上限约束；此实现按页输出但每次读取会校验完整原内容，不承诺文件流式随机访问。
 - 上下文预检、Turn 准入和 Goal 预留共用输入估算，包括指令、历史/工具参数、工具 schema、消息协议开销和图片余量。Provider 报告用量优先；缺失时保守估算，部分输出工具参数也计费。估算不是模型 tokenizer 的精确计数；已有实际输入校准仍保留。
 - 单次输出、消息数量、Provider 窗口和压缩失败分别诊断。累计资源上限字段诊断为 null，旧错误码只作历史记录解释。每次调用通过 `budget.request` 保存压缩前上下文与预算快照，`budget.admitted` 保存实际获准任务/摘要请求的估算与输出上限，`budget.result` 保存结算与用量来源，`context.compaction` 保存摘要结果。元数据带格式版本，单条不超过 512 字符，不含正文、凭据或外部地址。
 - 普通 Turn 不内置累计 token、模型调用数、工具轮数或独立输入额度。设置仅提供单次输出上限；上下文容量/压缩由 Provider 模型设置管理。保留已用 tokens/调用/轮数统计，旧存储额度字段可读但不再执行或显示为有效上限。
@@ -48,6 +48,8 @@ Deciders: Project owner（授权在独立 worktree 优化工具回显、模型�
 - [实施状态](../../development/status.md)
 
 ## Decision history
+
+- 2026-10-22：将已接受的失败诊断补读语义合回现行正文，区分结果正文与独立执行日志，保留原调用身份和权威退出码；不新增自动诊断或重执行流程。
 
 - 2026-10-07：所有者明确要求预算部分完全参考 DSH。以官方 `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720` 的 agent-loop、goal、goal-round-driver 为行为证据：普通 Turn 不内置累计资源预算，Goal 仅限制自动续跑轮数，默认 256；撤销下面历史数值的运行约束。保留本机权限、工具超时、取消、未知副作用及持久化事实，不复制参考源码。压缩不以累计任务预算触发。本条是授权契约，验证范围另记。
 

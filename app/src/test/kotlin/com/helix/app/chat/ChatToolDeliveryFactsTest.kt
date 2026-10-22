@@ -10,10 +10,34 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatToolDeliveryFactsTest {
     private val encoder = ChatToolMessageEncoder { _, _ -> "cancelled" }
+
+    @Test fun savedResultAndSeparateLogIdentitySurviveTheModelHistoryPath() {
+        val page = ToolResultReadTool.page("original/call", "{\"exitCode\":7}", 0, "bash")
+        val result = BoundToolResult(page.toString(), Sha256("b".repeat(64)), false, 1)
+        val draft =
+            encoder.toolResultDraft(
+                SettledCall("reader", ToolResultReadTool.NAME, ToolDispatchOutcome.Succeeded(result), "current/reader"),
+                readerEnabled = true,
+            )
+        val history =
+            com.helix.app.agent.ChatHistoryBuilder
+                .toModelMessagesStrict(
+                    listOf(
+                        com.helix.app.agent.ChatHistoryBuilder
+                            .PersistedRow("current", "TOOL", draft.kind, draft.content),
+                    ),
+                ).single()
+                .text
+        assertTrue(history.contains("\"contentKind\":\"tool_result\""))
+        assertTrue(history.contains("\"logRef\":\"original/call\""))
+        assertTrue(history.contains("\"logReadTool\":\"code.linux.job.read_log\""))
+        assertTrue(history.contains("\"exitCode\":7"))
+    }
 
     @Test fun failedActionDeliversEffectTruthAndLocalIdentityWithoutAFalseResultReaderHandle() {
         val failure =

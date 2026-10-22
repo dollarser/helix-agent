@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -162,6 +163,27 @@ class NaturalFailureLogTaskDeviceTest {
                                 .size,
                         )
                         put("catalog", c.toolPipeline.mcpDiscovery.catalog("session"))
+                        put(
+                            "modelToolHistory",
+                            JsonArray(
+                                com.helix.app.agent.ChatHistoryBuilder
+                                    .toModelMessagesStrict(
+                                        c.storage.messages.listBySession("session").filter { it.turnId == id }.map {
+                                            com.helix.app.agent.ChatHistoryBuilder.PersistedRow(
+                                                it.turnId,
+                                                it.role,
+                                                it.kind,
+                                                c.storage.messages.readContent(it),
+                                            )
+                                        },
+                                    ).filter { it.role == com.helix.core.model.ModelRole.TOOL }
+                                    .map {
+                                        JsonPrimitive(
+                                            it.text,
+                                        )
+                                    },
+                            ),
+                        )
                         put(
                             "calls",
                             JsonArray(
