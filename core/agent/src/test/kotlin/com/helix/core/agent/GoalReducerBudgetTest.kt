@@ -61,8 +61,7 @@ class GoalReducerBudgetTest {
             assertEquals(GoalState.FAILED, failed.state.state)
             assertEquals(error, failed.state.error)
             assertEquals(0, failed.state.retries)
-            assertTrue(failed.effects.none { it is GoalEffect.RetryWake })
-            assertTrue(failed.effects.any { it is GoalEffect.GoalFailed })
+            assertEquals(listOf(GoalEffect.GoalFailed(error), GoalEffect.ReminderCancelled), failed.effects)
         }
     }
 

@@ -140,26 +140,17 @@ internal class LinuxJobExecution(
         // 1) Snapshot mode transfers approved inputs through the contained store.
         // In-place mode sends an empty input manifest; the Runtime mounts the pinned real directory.
         val inputZip = File(scratch, "input.zip")
-        var inputSha: String?
-        try {
-            inputSha =
+        val inputSha =
+            try {
                 inputSnapshot.build(if (call.snapshot) call.inputReferences else emptyList(), inputZip, isCancelled)
-        } catch (_: java.io.InterruptedIOException) {
-            return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
-        } catch (_: Exception) {
-            return failed(
-                "The input snapshot could not be built; check access and transfer limits",
-                "INPUT_BUILD_FAILED",
-            )
-        }
-        if (inputSha ==
-            null
-        ) {
-            return failed(
-                "the input snapshot could not be built (size cap or missing file).",
-                "INPUT_BUILD_FAILED",
-            )
-        }
+            } catch (_: java.io.InterruptedIOException) {
+                return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
+            } catch (_: Exception) {
+                return failed(
+                    "The input snapshot could not be built; check access and transfer limits",
+                    "INPUT_BUILD_FAILED",
+                )
+            }
         // 2) Environment screening (MAIN process; the Runtime never sees secrets).
         //    The model-proposed variables are screened BEFORE the wire with the
         //    CURRENT SecretStore values + the name/shape denylists. The allowlist

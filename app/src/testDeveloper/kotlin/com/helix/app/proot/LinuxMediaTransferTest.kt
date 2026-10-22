@@ -16,6 +16,17 @@ import java.io.RandomAccessFile
 import java.nio.file.Files
 
 class LinuxMediaTransferTest {
+    @Test fun inPlaceModeBuildsAValidEmptyManifestWithoutCopyingTheWorkspace() =
+        fixture { root, store ->
+            File(root, "original.txt").writeText("stay in place")
+            val archive = File(root, "scratch/input.zip")
+            val hash = LinuxInputSnapshot(store).build(emptyList(), archive)
+            val extraction = ZipJobExtractor.extract(archive, File(root, "extracted"))
+            assertEquals(hash, extraction.manifestSha256)
+            assertTrue(extraction.manifest.entries.isEmpty())
+            assertEquals("stay in place", File(root, "original.txt").readText())
+        }
+
     @Test
     fun streamedMediaBeyondPreviewCapRoundtrips() =
         fixture { root, store ->

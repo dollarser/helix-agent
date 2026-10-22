@@ -215,7 +215,7 @@ class ToolDispatcher(
         }
     }
 
-    /** Ordinary executors keep their existing retry/deadline path; trusted observers release their worker. */
+    /** Ordinary executors use single execution with a deadline; trusted observers release their worker. */
     fun dispatchCompletion(unboundRequest: ToolDispatchRequest): CompletableFuture<ToolDispatchOutcome> {
         val request = pinBinding(unboundRequest)
         if (!isCompletion(request)) return CompletableFuture.completedFuture(dispatch(request))

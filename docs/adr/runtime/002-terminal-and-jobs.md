@@ -40,7 +40,7 @@ Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务�
 
 所有者选择复用既有执行通道，而非独立 `runtime/media` 或五种固定操作。固定 Ready-AV1 仅随 developer 的 PRoot 模块打包；guest `ffmpeg` / `ffprobe` 用原样 argv 调用 APK 内 Android/Bionic CLI。公开 Android 系统路径与 APK 原生目录的显式 PRoot 映射是 ABI 桥接，不把 Bionic 程序当成 Alpine/musl 包；不新增 Service、JNI 执行器、后台任务引擎或全局锁。
 
-PRoot 已有共享 UID、原 Job 进程组/取消/预算/日志/恢复语义保持。多输入和滤镜/字幕/编码策略交给模型与 FFmpeg；额外资源仍受原执行权限。输入快照流式使用 Job 64 MiB/128 MiB 传输上限，stdout 和旧 result.txt 预览限额不因此扩大。成功原归档的 `output/` 文件按原 session/turn 幂等登记为产物；不覆盖被用户改动的已发布文件，不重跑命令补收取。
+PRoot 已有共享 UID、原 Job 进程组/取消/预算/日志/恢复语义保持。多输入和滤镜/字幕/编码策略交给模型与 FFmpeg；额外资源仍受原执行权限。显式 snapshot 的输入快照使用 Job 64 MiB/128 MiB 传输上限，stdout 和旧 result.txt 预览限额不因此扩大。仅 snapshot 沿 `output/` 文件导入发布约定；默认原位模式登记原文件引用，不复制文件正文。两路均按原 session/turn 幂等结算，不覆盖被用户改动的文件，不重跑命令补收取。
 
 Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变。编译组件、设备能力、输出文件完整性和媒体任务正确性分别反馈；未经过当前设备验证的 MediaCodec/Bionic-in-PRoot 路径不写成已验收。正式制品继续核对全部依赖、来源许可和 25 MB 增量门槛。
 
@@ -62,7 +62,7 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 
 ### 工作目录、输入与产物（2026-10-17 目标契约）
 
-手动 PTY 挂载 App/managed 中的实际目录，抽屉默认目录独立于聊天。2026-10-21 Owner 明确要求 Job 默认在已授权的真实工作区执行：`code.linux.run`/`code.linux.job.start` 默认 `in_place`，在支持的 App/managed POSIX 目录挂载原目录；`snapshot` 为显式选择，不静默回退。调用前冻结 Workspace 引用，Runtime 复核目录身份；单次命令的嵌套 cwd 不修改会话目录。恢复原活实例、创建新实例和重发命令分别表达，进程死亡不保留 shell 内存。本轮设备验证未请求，默认路径的实际设备验收仍待执行。
+手动 PTY 挂载 App/managed 中的实际目录，抽屉默认目录独立于聊天。2026-10-21 Owner 明确要求 Job 默认在已授权的真实工作区执行：`code.linux.run`/`code.linux.job.start` 默认 `in_place`，在支持的 App/managed POSIX 目录挂载原目录；`snapshot` 为显式选择，不静默回退。调用前冻结 Workspace 引用，Runtime 复核目录身份；单次命令的嵌套 cwd 不修改会话目录。恢复原活实例、创建新实例和重发命令分别表达，进程死亡不保留 shell 内存。原位/Binder/Room 与日志恢复的后续有界验收见[结果日志收尾](../../development/result-log-closeout.md)，不外推完整迁移矩阵或其他 OEM。
 
 真实工作区支持时与原生文件/exec/终端共享资源。URI-native 消费者直接使用 Provider；只有不支持 URI、确需 POSIX 桥接的消费者才物化。worktree/snapshot 是明确模式，远程本身不要求复制；并发不增加全局文件/结果锁，不向任意 Shell 承诺原子 CAS。原位模式不收取文件内容，仅传日志和显式 `artifacts` 清单，核对原版本后登记原路径；无需 `output/` 约定。取消不回滚真实文件修改，结果恢复不重跑命令。287/288 的完整联合矩阵和类型化资源迁移仍独立验收。
 
@@ -99,6 +99,8 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 - [主题入口](README.md)
 
 ## Decision history
+
+- 2026-10-22：将产物发布说明明确限定到显式 snapshot，原位模式仍只登记原文件引用；移除正文中过时的“设备验收仍待”状态，以当前有界证据表达范围，不改变执行和授权契约。
 
 - 2026-10-21：Owner 进一步明确默认真实工作区原位执行，取消 Job 默认工作副本与文件回传。按现有私有 PRoot 进程、目录解析和身份验证接线，保留显式快照；新增原路径产物登记及日志/元数据传输。协议版本随两端同步升级，不以主机编译冒充设备验收，不新增 SAF POSIX 仿真或自动写回。
 

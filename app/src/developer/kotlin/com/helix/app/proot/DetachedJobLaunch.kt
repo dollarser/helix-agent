@@ -64,7 +64,6 @@ internal class DetachedJobLaunch(
         val hash =
             try {
                 snapshots.build(if (call.snapshot) call.inputReferences else emptyList(), input, isCancelled)
-                    ?: return failure("INPUT_BUILD_FAILED")
             } catch (_: java.io.InterruptedIOException) {
                 return ToolExecutorResult.CancelledWithEffectTruth("Cancelled before Job submission", true, false)
             } catch (_: Exception) {

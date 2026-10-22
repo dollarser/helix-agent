@@ -78,8 +78,6 @@ sealed interface GoalEvent {
      * The wake's Turn ended normally without completing the goal or exhausting a budget.
      * The goal parks in PAUSED when budget remains; exhausted budget yields BLOCKED. An
      * explicit user continue (USER_OPEN or the checkpoint notification) starts the next wake.
-     * A retry (retryable WakeFailed within budget) does not park: it is a new wake of the
-     * same run.
      */
     data object RunFinished : GoalEvent
 

@@ -38,7 +38,7 @@ internal class LinuxInputSnapshot(
         references: List<String>,
         target: File,
         cancelled: () -> Boolean = { false },
-    ): String? {
+    ): String {
         require(references.size <= 64) { "Too many input references" }
         val parent = requireNotNull(target.absoluteFile.parentFile)
         check(parent.mkdirs() || parent.isDirectory)

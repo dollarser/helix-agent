@@ -23,17 +23,12 @@ sealed interface GoalEffect {
     /** Cancel any pending reminder for this goal. */
     data object ReminderCancelled : GoalEffect
 
-    /** The wake failed retryably and a retry within budget is requested. */
-    data class RetryWake(
-        val attempt: Int,
-    ) : GoalEffect
-
     /** Show the input-required state (permission revoked, target package changed, unclear side effects). */
     data class ShowInputRequired(
         val reason: String,
     ) : GoalEffect
 
-    /** A budget was exhausted; the goal is parked in PAUSED until the user extends or cancels. */
+    /** A budget was exhausted; the goal is BLOCKED until the user extends or cancels. */
     data class BudgetExhausted(
         val limit: String,
     ) : GoalEffect
