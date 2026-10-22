@@ -176,6 +176,31 @@ class InlineVoiceInputDeviceTest {
     }
 
     @Test
+    fun returningToForegroundNeedsExplicitNewCaptureAndPreservesDraft() {
+        val owner =
+            object : androidx.lifecycle.LifecycleOwner {
+                override val lifecycle = androidx.lifecycle.LifecycleRegistry(this)
+            }
+        compose.runOnUiThread { owner.lifecycle.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.setContent { Fixture(lifecycle = owner) }
+        compose.waitUntil(5000) { preview != null }
+        compose.runOnUiThread { owner.lifecycle.currentState = androidx.lifecycle.Lifecycle.State.CREATED }
+        compose.waitUntil(5000) { !open && closed.get() }
+        compose.runOnUiThread { owner.lifecycle.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.onNodeWithTag("voice-inline").assertDoesNotExist()
+        compose.onNodeWithTag("chat-input").assertTextEquals("原草稿")
+        compose.runOnIdle {
+            closed.set(false)
+            open = true
+        }
+        compose.waitUntil(5000) { preview != null }
+        compose.onNodeWithTag("voice-cancel").performClick()
+        compose.waitUntil(5000) { closed.get() }
+        compose.onNodeWithTag("chat-input").assertTextEquals("原草稿")
+        assertEquals(0, sent)
+    }
+
+    @Test
     fun missingPermissionLeavesEngineUnopenedAndCancelKeepsDraft() {
         compose.setContent { Fixture(permission = false) }
         compose.onNodeWithTag("voice-grant").assertExists()

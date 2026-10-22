@@ -112,6 +112,62 @@ class WebSocketSpeechTest {
         restarted.close()
     }
 
+    @Test fun finalTimeoutSendsEndOnceAndExplicitNewSessionDoesNotReplayAudio() {
+        val clock =
+            java.util.concurrent.atomic
+                .AtomicLong()
+        val first = Fake(16000)
+        val asr = WebSocketAsr("test", first.connector()) { clock.getAndAdd(180_000_000_001L) }
+        asr.send(floatArrayOf(0f))
+        assertThrows(java.io.IOException::class.java) { asr.finish() }
+        assertThrows(IllegalStateException::class.java) { asr.finish() }
+        asr.close()
+        assertTrue(first.closed)
+        assertEquals(1, first.binary.size)
+        assertEquals(listOf("{\"type\":\"end\"}"), first.texts)
+        val next = Fake(16000)
+        val fresh = WebSocketAsr("test", next.connector())
+        assertEquals("", fresh.send(floatArrayOf(0f)))
+        fresh.close()
+        assertEquals(1, next.binary.size)
+    }
+
+    @Test fun busyAndDisconnectNeverReconnectImplicitly() {
+        for (code in listOf(1013, 1006, 1011)) {
+            val first = Fake(16000)
+            var connections = 0
+            val connector =
+                SocketConnector { _, _ ->
+                    connections++
+                    first
+                }
+            val asr = WebSocketAsr("test", connector)
+            first.incoming.add(SocketMessage.Closed(code))
+            assertEquals(code, assertThrows(SpeechSocketFailure::class.java) { asr.finish() }.closeCode)
+            asr.close()
+            assertTrue(first.closed)
+            assertEquals(1, connections)
+            assertEquals(0, first.binary.size)
+        }
+    }
+
+    @Test fun ttsTimeoutClosesTheConnection() {
+        val clock =
+            java.util.concurrent.atomic
+                .AtomicLong()
+        val wire = Fake(24000)
+        val engine = WebSocketTts("test", wire.connector()) { clock.getAndAdd(900_000_000_001L) }
+        assertThrows(java.io.IOException::class.java) {
+            engine.generateStream({
+                CountDownLatch(1).await()
+                null
+            }, { true }) { _, _ -> fail("No audio expected") }
+        }
+        assertTrue(wire.closed)
+        assertTrue(wire.binary.isEmpty())
+        engine.close()
+    }
+
     @Test fun ttsReceivesAudioWhileInputRemainsOpenOnOneConnection() {
         val wire = Fake(24000)
         val audio = CountDownLatch(1)

@@ -72,12 +72,37 @@ class RetainedSharingDeviceTest {
             assertEquals("content", uri.scheme)
             assertEquals(uri, send.clipData?.getItemAt(0)?.uri)
             assertTrue(wrapper.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
+            File(root, "work/report.txt").writeText("changed after snapshot")
             val receipt = receive(send)
             assertEquals("synthetic file body", receipt.getStringExtra("body"))
             assertEquals("text/plain", receipt.getStringExtra("mime"))
             assertEquals("text/plain", receipt.getStringExtra("resolverMime"))
             assertEquals(PackageManager.PERMISSION_GRANTED, receipt.getIntExtra("readPermission", -2))
             assertEquals(PackageManager.PERMISSION_DENIED, receipt.getIntExtra("writePermission", -2))
+            assertEquals(0, send.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            val receiverUid = receipt.getIntExtra("receiverUid", -1)
+            val deadline = android.os.SystemClock.elapsedRealtime() + 5000
+            while (context.checkUriPermission(uri, -1, receiverUid, Intent.FLAG_GRANT_READ_URI_PERMISSION) ==
+                PackageManager.PERMISSION_GRANTED && android.os.SystemClock.elapsedRealtime() < deadline
+            ) {
+                android.os.SystemClock.sleep(25)
+            }
+            assertEquals(
+                PackageManager.PERMISSION_DENIED,
+                context.checkUriPermission(uri, -1, receiverUid, Intent.FLAG_GRANT_READ_URI_PERMISSION),
+            )
+            val denied =
+                receive(
+                    Intent(send).apply {
+                        // A new ACTION_SEND may migrate EXTRA_STREAM and issue a fresh grant.
+                        action = Intent.ACTION_VIEW
+                        flags = 0
+                        clipData = null
+                    },
+                    "SecurityException",
+                )
+            assertEquals(PackageManager.PERMISSION_DENIED, denied.getIntExtra("readPermission", -2))
+            assertEquals(null, denied.getStringExtra("body"))
         } finally {
             root.deleteRecursively()
         }
@@ -133,7 +158,10 @@ class RetainedSharingDeviceTest {
         instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
     }
 
-    private fun receive(send: Intent): Intent {
+    private fun receive(
+        send: Intent,
+        expectedFailure: String? = null,
+    ): Intent {
         val action = context.packageName + ".share-receipt." + UUID.randomUUID()
         val result = AtomicReference<Intent?>()
         val latch = CountDownLatch(1)
@@ -161,7 +189,7 @@ class RetainedSharingDeviceTest {
             assertTrue("Fixture did not receive the payload", latch.await(5000, TimeUnit.MILLISECONDS))
             return requireNotNull(result.get()).also {
                 assertNotEquals(android.os.Process.myUid(), it.getIntExtra("receiverUid", -1))
-                assertEquals(null, it.getStringExtra("failure"))
+                assertEquals(expectedFailure, it.getStringExtra("failure"))
             }
         } finally {
             context.unregisterReceiver(receiver)

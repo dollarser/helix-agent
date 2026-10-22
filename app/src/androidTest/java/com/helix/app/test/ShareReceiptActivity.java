@@ -20,10 +20,10 @@ public final class ShareReceiptActivity extends Activity {
         receipt.putExtra("mime", request.getType());
         receipt.putExtra("flags", request.getFlags());
         if (uri != null) {
-            receipt.putExtra("resolverMime", getContentResolver().getType(uri));
             receipt.putExtra("readPermission", checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION));
             receipt.putExtra("writePermission", checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
             try (InputStream stream = getContentResolver().openInputStream(uri)) {
+                receipt.putExtra("resolverMime", getContentResolver().getType(uri));
                 java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
                 byte[] buffer = new byte[1024];
                 int count;

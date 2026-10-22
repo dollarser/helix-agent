@@ -64,6 +64,7 @@ private fun SocketConnection.end() = sendText("{\"type\":\"end\"}")
 internal class WebSocketAsr(
     endpoint: String,
     connector: SocketConnector,
+    private val nanoTime: () -> Long = System::nanoTime,
 ) : CloudAsrConnection {
     private val socket = connector.connect(endpoint, emptyMap())
     private val closed = AtomicBoolean()
@@ -117,10 +118,10 @@ internal class WebSocketAsr(
         check(!closed.get() && !ended)
         ended = true
         socket.end()
-        val deadline = System.nanoTime() + 180_000_000_000L
+        val deadline = nanoTime() + 180_000_000_000L
         while (!final) {
             check(!closed.get())
-            if (System.nanoTime() >= deadline) throw IOException("ASR final timeout")
+            if (nanoTime() >= deadline) throw IOException("ASR final timeout")
             socket.receive(1000)?.let { accept(it) }
         }
         check(!closed.get())
@@ -136,6 +137,7 @@ internal class WebSocketAsr(
 internal class WebSocketTts(
     private val endpoint: String,
     private val connector: SocketConnector,
+    private val nanoTime: () -> Long = System::nanoTime,
 ) : ContinuousTextSpeechEngine {
     private val closed = AtomicBoolean()
 
@@ -195,11 +197,11 @@ internal class WebSocketTts(
         consume: (FloatArray, Int) -> Unit,
     ) {
         val decoder = SpeechPcmDecoder()
-        val deadline = System.nanoTime() + 900_000_000_000L
+        val deadline = nanoTime() + 900_000_000_000L
         var complete = false
         while (!complete) {
             check(!closed.get() && keepGoing())
-            if (System.nanoTime() >= deadline) throw IOException("TTS session timeout")
+            if (nanoTime() >= deadline) throw IOException("TTS session timeout")
             val message = runInterruptible(Dispatchers.IO) { stream.receive(1000) } ?: continue
             if (message is SocketMessage.Binary) {
                 decoder.accept(message.value) { pcm ->
