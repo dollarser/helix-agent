@@ -14,8 +14,11 @@ import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -40,7 +43,9 @@ internal object ToolResultReadTool {
             "content":{"type":"string","maxLength":4096},
             "truncated":{"type":"boolean"},
             "nextOffset":{"type":"integer","minimum":0},
-            "sourceStatus":{"type":"string"},"sourceVerified":{"type":"boolean"}
+            "sourceStatus":{"type":"string"},"sourceVerified":{"type":"boolean"},
+            "logRef":{"type":"string"},"logReadTool":{"type":"string"},
+            "exitCode":{"type":"integer"},"logTruncated":{"type":"boolean"}
         },
         "required":["resultRef","offset","totalCharacters","content","truncated"],
         "additionalProperties":false
@@ -123,6 +128,7 @@ internal object ToolResultReadTool {
                             call.args
                                 .getValue("offset")
                                 .jsonPrimitive.int,
+                            source.name,
                         ).let { page ->
                             buildJsonObject {
                                 page.forEach { (key, value) -> put(key, value) }
@@ -155,12 +161,20 @@ internal object ToolResultReadTool {
         reference: String,
         content: String,
         offset: Int,
+        toolName: String? = null,
     ): JsonObject {
         val count = content.codePointCount(0, content.length)
         require(offset in 0..count)
         val end = minOf(count.toLong(), offset.toLong() + PAGE_CHARACTERS).toInt()
         return buildJsonObject {
             put("resultRef", reference)
+            if (toolName in setOf("bash", "code.linux.run", "code.linux.job.start")) {
+                put("logRef", reference)
+                put("logReadTool", "code.linux.job.read_log")
+                val execution = runCatching { Json.parseToJsonElement(content) as? JsonObject }.getOrNull()
+                (execution?.get("exitCode") as? JsonPrimitive)?.intOrNull?.let { put("exitCode", it) }
+                (execution?.get("logTruncated") as? JsonPrimitive)?.booleanOrNull?.let { put("logTruncated", it) }
+            }
             put("offset", offset)
             put("totalCharacters", count)
             put("content", content.substring(content.offsetByCodePoints(0, offset), content.offsetByCodePoints(0, end)))

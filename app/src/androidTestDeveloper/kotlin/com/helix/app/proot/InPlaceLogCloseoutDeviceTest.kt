@@ -60,6 +60,8 @@ class InPlaceLogCloseoutDeviceTest {
             assertEquals(ProotJobState.FAILED, record.state)
             assertEquals(7, record.exitCode)
             f.persist(record)
+            val saved = (f.read(f.request("saved")) as ToolExecutorResult.Completed).output.jsonObject
+            assertEquals("7", saved.getValue("exitCode").toString())
             assertTrue(f.log("saved", "stderr").contains("failed-error"))
             assertTrue(f.log("saved").contains("failed-output"))
             assertTrue(
@@ -86,6 +88,8 @@ class InPlaceLogCloseoutDeviceTest {
                 if (!visible) Thread.sleep(50)
             }
             assertTrue("Expected live stdout before exit", visible)
+            val preview = (f.read(f.request("live")) as ToolExecutorResult.Completed).output.jsonObject
+            assertFalse(preview.containsKey("exitCode"))
             f.client.cancel(f.spec.jobId)
             val record = f.terminal()
             assertEquals(ProotJobState.CANCELLED, record.state)

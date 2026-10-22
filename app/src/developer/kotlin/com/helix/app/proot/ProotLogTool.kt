@@ -198,6 +198,7 @@ internal object ProotLogTool {
                 put("logUnavailable", capture.unavailable)
                 put("logTruncated", capture.truncated)
                 put("eof", capture.eof)
+                capture.exitCode?.let { put("exitCode", it) }
             },
         )
     }
@@ -221,6 +222,7 @@ internal object ProotLogTool {
             if (stream == "stderr") text else "",
             truncated = record?.truncated ?: true,
             eof = true,
+            exitCode = record?.exitCode,
         )
     }
 
@@ -283,6 +285,7 @@ internal object ProotLogTool {
         val truncated: Boolean = false,
         val eof: Boolean = false,
         val unavailable: Boolean = false,
+        val exitCode: Int? = null,
     )
 }
 

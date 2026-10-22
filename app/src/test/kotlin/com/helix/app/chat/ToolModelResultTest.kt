@@ -10,6 +10,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolModelResultTest {
+    @Test fun savedExecutionPagesKeepOriginalLogHandleWithoutRepeatingTheAction() {
+        for (name in listOf("bash", "code.linux.run", "code.linux.job.start")) {
+            val content = "{\"error\":\"${"x".repeat(3000)}\",\"exitCode\":7,\"logTruncated\":true}"
+            val page = ToolResultReadTool.page("original/call", content, 0, name)
+            assertEquals("original/call", page.getValue("logRef").jsonPrimitive.content)
+            assertEquals("code.linux.job.read_log", page.getValue("logReadTool").jsonPrimitive.content)
+            assertEquals(7, page.getValue("exitCode").jsonPrimitive.int)
+            assertTrue(page.getValue("logTruncated").jsonPrimitive.boolean)
+            assertTrue(page.getValue("truncated").jsonPrimitive.boolean)
+            assertFalse(
+                page
+                    .getValue("content")
+                    .jsonPrimitive.content
+                    .contains("exitCode"),
+            )
+            assertEquals(
+                com.helix.tools.framework.ToolSchemaValidation.Valid,
+                com.helix.tools.framework.ToolSchemaValidator
+                    .validate(ToolResultReadTool.outputSchema, page),
+            )
+        }
+        assertFalse(ToolResultReadTool.page("t/c", "failure", 0, "files.archive").containsKey("logRef"))
+    }
+
     @Test fun largeResultCanBeReadLosslesslyWithoutRepeatingTheOriginalTool() {
         val payload = "{\"userContent\":\"" + "😀\\\"data".repeat(5000) + "\"}"
         val reference = "turn/call"
