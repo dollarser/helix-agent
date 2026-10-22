@@ -83,8 +83,8 @@ internal fun SessionSettingsScreen(
             Text(stringResource(R.string.session_settings_model))
             ComposerModelMenu(
                 providers = providers,
-                providerId = screen.badge?.providerId,
-                model = screen.badge?.model,
+                providerId = screen.selectedModel?.providerId,
+                model = screen.selectedModel?.model,
                 enabled = !screen.isSending && screen.pendingDisclosure == null,
                 onSave = { provider, model, reasoning ->
                     chatService
@@ -94,8 +94,8 @@ internal fun SessionSettingsScreen(
                             model,
                             reasoning,
                             com.helix.app.chat.SessionModelSelectionSnapshot(
-                                screen.badge?.providerId,
-                                screen.badge?.model,
+                                screen.selectedModel?.providerId,
+                                screen.selectedModel?.model,
                                 runControl.reasoning,
                             ),
                         ).await()

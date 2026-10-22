@@ -28,7 +28,6 @@ class ProviderSetupStepTest {
             status = ConnectionTestStatus.Untested,
             capabilities = null,
             backendModels = null,
-            templateNotes = emptyList(),
             provisioning = ProviderProvisioningKind.MANAGED_ACCOUNT,
             accountState =
                 ManagedAccountSnapshot(
@@ -60,7 +59,7 @@ class ProviderSetupStepTest {
     @Test fun successfulConnectionWithNoSelectionShowsTheModelStep() {
         val value = row().copy(status = ConnectionTestStatus.Passed(1, capabilities))
         assertEquals(ProviderSetupStep.MODELS, ProviderSetupStep.forRow(value))
-        assertFalse(value.offersConversationModels)
+        assertFalse(value.chatSelectable && value.conversationModels.isNotEmpty())
     }
 
     @Test fun successfulTestAndExplicitSelectionAreReadyWithoutChangingCapabilities() {

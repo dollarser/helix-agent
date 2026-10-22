@@ -6,7 +6,6 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.ProviderTransport
-import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.repository.ProviderConfigRepository
 import com.helix.provider.api.CapabilitySource
@@ -40,7 +39,6 @@ data class ProviderRowUi(
      * [model] stays the persisted (user-chosen) model.
      */
     val backendModels: List<String>?,
-    val templateNotes: List<String>,
     val provisioning: ProviderProvisioningKind = ProviderProvisioningKind.USER_CONFIGURED,
     val modelMetadata: Map<String, ModelMetadata> = emptyMap(),
     val assetSizeBytes: Long? = null,
@@ -62,10 +60,8 @@ data class ProviderRowUi(
     /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
     val conversationModels: List<String>
         get() = if (bundled) builtInCatalog?.models.orEmpty() else modelSelection.models
-    val selectedModels: List<String> get() = modelSelection.models
     val knownModels: List<String> get() =
         (backendModels.orEmpty() + modelSelection.customModels + modelSelection.models + model).distinct()
-    val offersConversationModels: Boolean get() = chatSelectable && conversationModels.isNotEmpty()
 
     fun modelLabel(modelId: String): String =
         modelSelection.displayNames[modelId]
@@ -209,16 +205,10 @@ data class CapabilityChip(
     val args: List<String> = emptyList(),
 )
 
-/** A capability chip set for the chat header (from the session's provider). */
-data class ProviderBadgeUi(
-    val displayName: String,
+/** Exact selected identity; presentation and capabilities come from current provider rows. */
+data class SelectedModelUi(
+    val providerId: String,
     val model: String,
-    val origin: String,
-    val residence: ProviderResidence,
-    val chips: List<CapabilityChip>,
-    val reasoningSupported: Boolean = false,
-    val providerId: String? = null,
-    val reasoningEfforts: List<ReasoningEffort> = emptyList(),
 )
 
 /**
@@ -266,6 +256,5 @@ internal fun providerRowUi(
                 (status as? ConnectionTestStatus.Passed)?.capabilities
             },
         backendModels = (status as? ConnectionTestStatus.Passed)?.modelIds,
-        templateNotes = emptyList(),
     )
 }

@@ -19,7 +19,7 @@ class ChatTimelineOrderDeviceTest {
                     openSessionId = "timeline",
                     messages = emptyList(),
                     toolTimeline = emptyList(),
-                    badge = null,
+                    selectedModel = null,
                     activeTurn = null,
                     pendingDisclosure = null,
                     blockedReason = null,

@@ -542,8 +542,8 @@ internal fun ConversationSection(
             modelSelector = {
                 ComposerModelMenu(
                     bindableProviders,
-                    screen.badge?.providerId,
-                    screen.badge?.model,
+                    screen.selectedModel?.providerId,
+                    screen.selectedModel?.model,
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSaveModel,
                     onManageModels = intents.onManageModels,

@@ -1191,7 +1191,7 @@ class ChatService(
         }
     }
 
-    /** Opens a session: loads its persisted messages and the provider badge. */
+    /** Opens a session: loads its persisted messages and selected model identity. */
     fun openSession(id: String) {
         val openingSearchQuery =
             sessionSearch.value
@@ -4490,7 +4490,11 @@ class ChatService(
                     sessions = sessions.value,
                     openSessionId = draft.session.id,
                     sessionTitle = draft.session.title,
-                    badge = projection.badgeForProvider(draft.session.providerId, draft.session.modelId),
+                    selectedModel =
+                        projection.selectedModelForProvider(
+                            draft.session.providerId,
+                            draft.session.modelId,
+                        ),
                     modelBindingIssue =
                         providerService.bindings.project(
                             draft.session.providerId,
@@ -4598,8 +4602,8 @@ class ChatService(
                         sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
                         directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
                         workspaceRecovered = sessionId?.let(workspaceRecovery::hasNotice) == true,
-                        // A null badge is authoritative for an unbound session, not a missing refresh.
-                        badge = sessionId?.let { projection.badgeFor(it) },
+                        // A null selection is authoritative for an unbound session, not a missing refresh.
+                        selectedModel = sessionId?.let { projection.selectedModelFor(it) },
                         modelBindingIssue = bindingIssue,
                         contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
                         subscriptionRecoveries =
@@ -4716,7 +4720,7 @@ class ChatService(
             ChatScreenState(
                 sessions = emptyList(),
                 openSessionId = null,
-                badge = null,
+                selectedModel = null,
                 messages = emptyList(),
                 toolTimeline = emptyList(),
                 activeTurn = null,

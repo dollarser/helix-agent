@@ -15,7 +15,6 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.InputSkillActivation
 import com.helix.extensions.plugin.PluginPackageReader
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -47,8 +46,6 @@ class SkillUserInvocationModelDeviceTest {
                         model,
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
                     ),
                     null,
                 )

@@ -24,7 +24,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -117,8 +116,6 @@ class GoalRealModelUiDeviceTest {
                 model,
                 "{}",
                 false,
-                CleartextWarning("10.0.2.2", port),
-                emptyList(),
             )
         providerId = container.providerService.create(draft, null)
         check(container.providerService.runConnectionTest(requireNotNull(providerId)) is ProbeOutcome.Ok) {

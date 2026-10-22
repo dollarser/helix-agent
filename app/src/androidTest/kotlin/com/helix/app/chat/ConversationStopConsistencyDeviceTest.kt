@@ -16,7 +16,6 @@ import com.helix.core.agent.CancelResult
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -155,8 +154,6 @@ class ConversationStopConsistencyDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("127.0.0.1", port),
-                    emptyList(),
                 ),
                 null,
             )

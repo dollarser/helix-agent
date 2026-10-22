@@ -21,7 +21,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
@@ -79,8 +78,6 @@ class ChatCompactionFlowDeviceTest {
                         "fixture-model-a",
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", server.port),
-                        emptyList(),
                     ),
                     null,
                 )

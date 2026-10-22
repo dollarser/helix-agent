@@ -123,8 +123,8 @@ class ChatSessionLifecycleDeviceTest {
     }
 
     @Test
-    fun providerFreeSessionAndShareDraftNeverRetainThePreviousProviderBadge() {
-        val providerId = createBadgeProvider()
+    fun providerFreeSessionAndShareDraftNeverRetainThePreviousSelectedModel() {
+        val providerId = createModelProvider()
         val bound = "lifecycle-bound-$run"
         val unbound = "lifecycle-unbound-$run"
         try {
@@ -133,13 +133,16 @@ class ChatSessionLifecycleDeviceTest {
             container.chatService.openSession(bound)
             awaitOpenSession(bound)
             assertEquals(
-                "badge-$run",
-                container.chatService.screen.value.badge
-                    ?.displayName,
+                providerId,
+                container.chatService.screen.value.selectedModel
+                    ?.providerId,
             )
             container.chatService.openSession(unbound)
             awaitOpenSession(unbound)
-            assertNull("unbound session must not inherit a previous badge", container.chatService.screen.value.badge)
+            assertNull(
+                "unbound session must not inherit a previous model",
+                container.chatService.screen.value.selectedModel,
+            )
             container.chatService.openSession(bound)
             awaitOpenSession(bound)
             container.chatService.acceptShareDraft("share-$run", emptyList(), emptyList())
@@ -151,7 +154,7 @@ class ChatSessionLifecycleDeviceTest {
             }
             val draft = container.chatService.screen.value
             assertEquals("share-$run", draft.shareDraftText)
-            assertNull("share draft must offer explicit provider binding", draft.badge)
+            assertNull("share draft must offer explicit provider binding", draft.selectedModel)
             assertNull(
                 container.storage.sessions
                     .resolve(requireNotNull(draft.openSessionId))
@@ -164,8 +167,8 @@ class ChatSessionLifecycleDeviceTest {
     }
 
     @Test
-    fun providerRefreshUpdatesOpenConversationWithoutReopeningSession() {
-        val providerId = createBadgeProvider()
+    fun providerRenameUpdatesRowsWithoutChangingOpenSelection() {
+        val providerId = createModelProvider()
         val sessionId = "lifecycle-provider-refresh-$run"
         try {
             container.storage.sessions.create(sessionId, "refresh", providerId, "fixture", System.currentTimeMillis())
@@ -174,12 +177,13 @@ class ChatSessionLifecycleDeviceTest {
             runBlocking {
                 container.providerService.update(
                     providerId,
-                    badgeDraft().copy(displayName = "renamed-$run"),
+                    modelProviderDraft().copy(displayName = "renamed-$run"),
                     null,
                 )
             }
             val deadline = System.currentTimeMillis() + 10_000
-            while (container.chatService.screen.value.badge
+            while (container.providerService.rows.value
+                    .firstOrNull { it.id == providerId }
                     ?.displayName != "renamed-$run" &&
                 System.currentTimeMillis() < deadline
             ) {
@@ -187,12 +191,19 @@ class ChatSessionLifecycleDeviceTest {
             }
             assertEquals(
                 "renamed-$run",
-                container.chatService.screen.value.badge
+                container.providerService.rows.value
+                    .firstOrNull { it.id == providerId }
                     ?.displayName,
             )
             assertEquals(
+                providerId,
+                container.chatService.screen.value.selectedModel
+                    ?.providerId,
+            )
+            assertEquals(sessionId, container.chatService.screen.value.openSessionId)
+            assertEquals(
                 "fixture",
-                container.chatService.screen.value.badge
+                container.chatService.screen.value.selectedModel
                     ?.model,
             )
         } finally {
@@ -203,7 +214,7 @@ class ChatSessionLifecycleDeviceTest {
 
     @Test
     fun newConversationInheritsExactCurrentModelAndUnboundStaysEmpty() {
-        val providerId = createBadgeProvider()
+        val providerId = createModelProvider()
         val sessionId = "lifecycle-inherit-$run"
         try {
             container.storage.sessions.create(
@@ -246,15 +257,15 @@ class ChatSessionLifecycleDeviceTest {
         }
     }
 
-    private fun createBadgeProvider(): String =
+    private fun createModelProvider(): String =
         runBlocking {
             container.providerService.create(
-                badgeDraft(),
+                modelProviderDraft(),
                 apiKey = null,
             )
         }
 
-    private fun badgeDraft() =
+    private fun modelProviderDraft() =
         ProviderDraft(
             templateId = null,
             displayName = "badge-$run",
@@ -263,8 +274,6 @@ class ChatSessionLifecycleDeviceTest {
             model = "fixture",
             headersJson = "{}",
             credentialRequired = false,
-            cleartext = null,
-            templateNotes = emptyList(),
         )
 
     /** Bounded poll until [expected] is the open session (the refresh is asynchronous). */

@@ -86,8 +86,14 @@ class SubscriptionChatBoundaryDeviceTest {
             assertPlatform(first, provider)
             assertPlatform(second, nextProvider)
             assertEquals(
+                provider,
+                chat.screen.value.selectedModel
+                    ?.providerId,
+            )
+            assertEquals(
                 storage.providerConfigs.resolve(provider).displayName,
-                chat.screen.value.badge
+                fixture.providers.rows.value
+                    .firstOrNull { it.id == provider }
                     ?.displayName,
             )
             assertEquals(

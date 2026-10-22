@@ -46,8 +46,6 @@ class HistoricalProviderBindingDeviceTest {
                         model = config.model,
                         headersJson = "{}",
                         credentialRequired = false,
-                        cleartext = null,
-                        templateNotes = emptyList(),
                     ),
                     null,
                 )

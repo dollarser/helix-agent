@@ -18,7 +18,6 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.TurnBudgets
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolBinding
@@ -63,8 +62,6 @@ class LiveToolExposureDeviceTest {
                         model,
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
                     ),
                     null,
                 )

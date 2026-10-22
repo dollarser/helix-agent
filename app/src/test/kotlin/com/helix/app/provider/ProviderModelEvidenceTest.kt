@@ -127,7 +127,7 @@ class ProviderModelEvidenceTest {
                 authKind = "NONE",
             )
         val draft =
-            ProviderDraft(null, "Renamed", config.protocol, config.endpoint, "a", "{}", false, null, emptyList())
+            ProviderDraft(null, "Renamed", config.protocol, config.endpoint, "a", "{}", false)
         assertFalse(providerConnectionChanged(config, draft, null))
         assertTrue(providerConnectionChanged(config, draft, "synthetic-key"))
         assertTrue(providerConnectionChanged(config, draft.copy(model = "b"), null))
@@ -154,6 +154,5 @@ class ProviderModelEvidenceTest {
             ConnectionTestStatus.Passed(1, caps, listOf("a", "b")),
             caps,
             listOf("a", "b"),
-            emptyList(),
         )
 }

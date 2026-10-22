@@ -40,7 +40,6 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.criteria.StoredCriterion
 import com.helix.core.storage.entity.GoalControlEntity
 import com.helix.core.storage.mapping.StoredGoal
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -740,8 +739,6 @@ class TaskJourneyDeviceTest {
                     MODEL,
                     "{}",
                     false,
-                    CleartextWarning("127.0.0.1", port),
-                    emptyList(),
                 ),
                 null,
             )

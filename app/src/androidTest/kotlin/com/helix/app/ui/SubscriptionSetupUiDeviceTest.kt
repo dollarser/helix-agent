@@ -35,7 +35,6 @@ class SubscriptionSetupUiDeviceTest {
             ConnectionTestStatus.Untested,
             null,
             null,
-            emptyList(),
             provisioning = ProviderProvisioningKind.MANAGED_ACCOUNT,
             accountState =
                 ManagedAccountSnapshot(

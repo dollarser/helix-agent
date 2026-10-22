@@ -342,7 +342,7 @@ fun ChatScreen(
         val live = chatService.screen.value
         val selected =
             com.helix.app.chat
-                .hasSelectedConversationModel(live.badge?.providerId, live.badge?.model)
+                .hasSelectedConversationModel(live.selectedModel?.providerId, live.selectedModel?.model)
         val available = buffer.editable && buffer.canSubmit && live.pendingDisclosure == null
         val currentSession = sessionId?.takeIf { it == live.openSessionId }
         if (currentSession != null && available && !selected) {
@@ -441,8 +441,8 @@ fun ChatScreen(
                             },
                         modelSelected =
                             com.helix.app.chat.hasSelectedConversationModel(
-                                screen.badge?.providerId,
-                                screen.badge?.model,
+                                screen.selectedModel?.providerId,
+                                screen.selectedModel?.model,
                             ),
                         localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                     ),
@@ -658,8 +658,8 @@ fun ChatScreen(
                                     model,
                                     reasoning,
                                     com.helix.app.chat.SessionModelSelectionSnapshot(
-                                        screen.badge?.providerId,
-                                        screen.badge?.model,
+                                        screen.selectedModel?.providerId,
+                                        screen.selectedModel?.model,
                                         runControl.reasoning,
                                     ),
                                 ).await()

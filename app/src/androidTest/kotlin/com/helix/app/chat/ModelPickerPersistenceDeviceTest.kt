@@ -243,8 +243,8 @@ class ModelPickerPersistenceDeviceTest {
                 val id = requireNotNull(draft.openSessionId)
                 val snapshot =
                     SessionModelSelectionSnapshot(
-                        draft.badge?.providerId,
-                        draft.badge?.model,
+                        draft.selectedModel?.providerId,
+                        draft.selectedModel?.model,
                         f.chat.runControl.value.reasoning,
                     )
                 val result =
@@ -291,8 +291,8 @@ class ModelPickerPersistenceDeviceTest {
             MaterialTheme {
                 ComposerModelMenu(
                     rows,
-                    screen.badge?.providerId,
-                    screen.badge?.model,
+                    screen.selectedModel?.providerId,
+                    screen.selectedModel?.model,
                     true,
                     { provider, model, reasoning ->
                         f.chat
@@ -302,8 +302,8 @@ class ModelPickerPersistenceDeviceTest {
                                 model,
                                 reasoning,
                                 SessionModelSelectionSnapshot(
-                                    screen.badge?.providerId,
-                                    screen.badge?.model,
+                                    screen.selectedModel?.providerId,
+                                    screen.selectedModel?.model,
                                     control.reasoning,
                                 ),
                             ).await()
@@ -408,8 +408,8 @@ class ModelPickerPersistenceDeviceTest {
             chat.openSession("saved")
             withTimeout(10_000) {
                 combine(chat.screen, chat.runControl) { screen, control ->
-                    screen.openSessionId == "saved" && screen.badge?.providerId == session.providerId &&
-                        screen.badge?.model == session.modelId && (persisted == null || control == persisted)
+                    screen.openSessionId == "saved" && screen.selectedModel?.providerId == session.providerId &&
+                        screen.selectedModel?.model == session.modelId && (persisted == null || control == persisted)
                 }.first { it }
             }
         }

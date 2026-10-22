@@ -74,8 +74,6 @@ class DebugModelCorrelationTest {
                 "fixture",
                 "{}",
                 false,
-                null,
-                emptyList(),
             )
         assertFalse(store.enabled(config))
         store.record(config.id, draft)

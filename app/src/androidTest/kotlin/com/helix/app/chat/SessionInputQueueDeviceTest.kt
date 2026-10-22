@@ -14,7 +14,6 @@ import com.helix.core.storage.repository.ConversationReferenceKind
 import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -328,8 +327,6 @@ class SessionInputQueueDeviceTest {
                         previous.model,
                         "{}",
                         false,
-                        CleartextWarning(previous.endpoint.host, previous.endpoint.port),
-                        emptyList(),
                     ),
                     null,
                 )
@@ -462,8 +459,6 @@ class SessionInputQueueDeviceTest {
                         "fixture-model-a",
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", server.port),
-                        emptyList(),
                     ),
                     null,
                 )

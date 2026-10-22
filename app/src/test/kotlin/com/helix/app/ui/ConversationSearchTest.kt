@@ -73,7 +73,7 @@ class ConversationSearchTest {
     ) = ChatScreenState(
         sessions = emptyList(),
         openSessionId = "session-1",
-        badge = null,
+        selectedModel = null,
         messages = messages,
         toolTimeline = tools,
         activeTurn = null,

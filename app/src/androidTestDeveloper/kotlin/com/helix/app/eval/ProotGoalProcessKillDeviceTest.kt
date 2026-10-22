@@ -20,7 +20,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
@@ -167,8 +166,6 @@ class ProotGoalProcessKillDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("10.0.2.2", port),
-                    emptyList(),
                 ),
                 null,
             )

@@ -12,7 +12,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -131,8 +130,6 @@ class BrowserGoalProcessKillDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("10.0.2.2", port),
-                    emptyList(),
                 ),
                 null,
             )

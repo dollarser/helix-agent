@@ -25,7 +25,7 @@ class SubscriptionAckCollectionTest {
                 ChatScreenState(
                     sessions = emptyList(),
                     openSessionId = "session",
-                    badge = null,
+                    selectedModel = null,
                     messages = emptyList(),
                     toolTimeline = emptyList(),
                     activeTurn = null,

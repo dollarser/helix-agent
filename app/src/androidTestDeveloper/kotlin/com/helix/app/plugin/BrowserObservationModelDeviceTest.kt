@@ -23,7 +23,6 @@ import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.feature.browser.BrowserOpenResult
 import com.helix.feature.browser.BrowserToolBridgeImpl
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,8 +62,6 @@ class BrowserObservationModelDeviceTest {
                         model,
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
                     ),
                     null,
                 )

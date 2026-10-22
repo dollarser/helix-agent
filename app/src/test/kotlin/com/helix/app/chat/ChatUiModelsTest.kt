@@ -25,7 +25,7 @@ class ChatUiModelsTest {
         ChatScreenState(
             sessions = emptyList(),
             openSessionId = "session",
-            badge = null,
+            selectedModel = null,
             messages = emptyList(),
             toolTimeline = emptyList(),
             activeTurn = TurnUi("turn", state, null, null, false),

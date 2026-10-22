@@ -17,7 +17,6 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -54,8 +53,6 @@ class LiveConversationPresentationDeviceTest {
                         model,
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
                     ),
                     null,
                 )

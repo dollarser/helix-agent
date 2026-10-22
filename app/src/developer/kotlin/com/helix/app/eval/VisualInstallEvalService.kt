@@ -17,7 +17,6 @@ import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
@@ -107,8 +106,6 @@ class VisualInstallEvalService : Service() {
             MODEL,
             "{}",
             false,
-            CleartextWarning("10.0.2.2", 30008),
-            emptyList(),
         )
 
     private suspend fun submitAndAwait(

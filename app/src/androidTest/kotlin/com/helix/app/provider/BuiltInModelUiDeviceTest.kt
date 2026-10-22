@@ -30,7 +30,6 @@ class BuiltInModelUiDeviceTest {
             ConnectionTestStatus.Untested,
             BuiltInModel.capabilities,
             null,
-            emptyList(),
             provisioning = ProviderProvisioningKind.BUNDLED_SERVICE,
         )
 

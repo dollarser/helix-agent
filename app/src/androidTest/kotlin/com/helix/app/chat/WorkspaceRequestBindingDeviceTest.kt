@@ -13,7 +13,6 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolCallState
 import com.helix.core.policy.SessionPermissionConfig
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -60,8 +59,6 @@ class WorkspaceRequestBindingDeviceTest {
                             MODEL,
                             "{}",
                             false,
-                            CleartextWarning("127.0.0.1", server.port),
-                            emptyList(),
                         ),
                         null,
                     )

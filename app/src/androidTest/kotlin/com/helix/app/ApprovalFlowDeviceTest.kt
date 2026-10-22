@@ -23,7 +23,6 @@ import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -673,8 +672,6 @@ class ApprovalFlowDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("127.0.0.1", port),
-                    emptyList(),
                 ),
                 null,
             )

@@ -25,7 +25,6 @@ import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.extensions.mobileuse.automation.AutomationServiceState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.deviceaccess.DeviceAccess
 import kotlinx.coroutines.delay
@@ -125,8 +124,6 @@ class ProgressiveSkillModelDeviceTest {
                             model,
                             "{}",
                             false,
-                            CleartextWarning("127.0.0.1", requireNotNull(port)),
-                            emptyList(),
                         ),
                         null,
                     )

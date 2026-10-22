@@ -248,7 +248,6 @@ class ConversationComposerDeviceTest {
             ConnectionTestStatus.Passed(1, caps, listOf("selected-model")),
             caps,
             listOf("selected-model"),
-            emptyList(),
             modelSelection = ProviderModelSelection(models = listOf("selected-model"), configured = true),
         )
     }

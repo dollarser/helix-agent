@@ -4,8 +4,8 @@ import com.helix.app.R
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.proot.ProotToolModule
-import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.provider.SelectedModelUi
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
@@ -36,7 +36,7 @@ internal class ChatScreenProjection(
         return ChatScreenState(
             sessions = current.sessions,
             openSessionId = sessionId,
-            badge = null,
+            selectedModel = null,
             activeTurn = null,
             pendingDisclosure = current.pendingDisclosure,
             blockedReason = current.blockedReason,
@@ -279,32 +279,19 @@ internal class ChatScreenProjection(
                     }?.id
             }
 
-    fun badgeFor(sessionId: String): ProviderBadgeUi? {
+    fun selectedModelFor(sessionId: String): SelectedModelUi? {
         val session = storage.sessions.resolve(sessionId)
-        return badgeForProvider(session.providerId, session.modelId)
+        return selectedModelForProvider(session.providerId, session.modelId)
     }
 
-    fun badgeForProvider(
+    fun selectedModelForProvider(
         providerId: String?,
         modelId: String? = null,
-    ): ProviderBadgeUi? {
+    ): SelectedModelUi? {
         if (!hasSelectedConversationModel(providerId, modelId)) return null
         val row = providerId?.let { pid -> providerService.rows.value.firstOrNull { it.id == pid } }
         return row?.let {
-            ProviderBadgeUi(
-                it.displayName,
-                modelId ?: it.model,
-                it.origin,
-                it.residence,
-                it
-                    .copy(
-                        model = modelId ?: it.model,
-                        capabilities = it.capabilitiesForModel(modelId ?: it.model),
-                    ).capabilityChips,
-                providerService.reasoningOptions(it.id, modelId ?: it.model).isNotEmpty(),
-                it.id,
-                providerService.reasoningOptions(it.id, modelId ?: it.model),
-            )
+            SelectedModelUi(it.id, modelId ?: it.model)
         }
     }
 

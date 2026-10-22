@@ -38,7 +38,6 @@ class ProviderContextRecoveryDeviceTest {
             ConnectionTestStatus.Untested,
             null,
             listOf("model-b"),
-            emptyList(),
         )
 
     @Test fun loadFailureDisablesSaveAndRetryRecoversWithoutLeakingException() {

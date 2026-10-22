@@ -12,7 +12,6 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -44,8 +43,6 @@ class SessionModelDeviceTest {
                             "fixture-model-a",
                             "{}",
                             false,
-                            CleartextWarning("127.0.0.1", server.port),
-                            emptyList(),
                         ),
                         null,
                     )
@@ -59,8 +56,6 @@ class SessionModelDeviceTest {
                             "fixture-model-a",
                             "{}",
                             false,
-                            CleartextWarning("127.0.0.1", server.port),
-                            emptyList(),
                         ),
                         null,
                     )
@@ -76,7 +71,7 @@ class SessionModelDeviceTest {
                         chat.requestSessionModelSelection(chat.screen.value.openSessionId, provider, "fixture-model-b")
                     assertEquals(com.helix.app.chat.SessionModelSelectionResult.APPLIED, selected.await())
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-                        chat.screen.value.badge
+                        chat.screen.value.selectedModel
                             ?.model == "fixture-model-b"
                     }
                     assertTrue(storage.sessions.list().none { it.id == chat.screen.value.openSessionId })
@@ -101,13 +96,13 @@ class SessionModelDeviceTest {
                     compose.runOnIdle {
                         assertEquals(
                             "fixture-model-b",
-                            chat.screen.value.badge
+                            chat.screen.value.selectedModel
                                 ?.model,
                         )
                     }
                     compose.onNodeWithTag("chat-model-picker-save").performClick()
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-                        chat.screen.value.badge
+                        chat.screen.value.selectedModel
                             ?.model == "fixture-model-c"
                     }
                     compose.onNodeWithTag("chat-model-picker-save").assertDoesNotExist()
@@ -117,7 +112,7 @@ class SessionModelDeviceTest {
                     chat.closeSession()
                     chat.openSession(id)
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-                        chat.screen.value.badge
+                        chat.screen.value.selectedModel
                             ?.model == "fixture-model-c"
                     }
                     compose.onNodeWithTag("chat-model-menu").assertIsDisplayed()

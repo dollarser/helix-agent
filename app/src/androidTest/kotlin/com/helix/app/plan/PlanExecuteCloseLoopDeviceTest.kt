@@ -19,7 +19,6 @@ import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -182,8 +181,6 @@ class PlanExecuteCloseLoopDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("127.0.0.1", server.port),
-                    emptyList(),
                 ),
                 null,
             )

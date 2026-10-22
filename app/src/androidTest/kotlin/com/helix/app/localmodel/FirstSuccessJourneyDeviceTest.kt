@@ -84,7 +84,7 @@ class FirstSuccessJourneyDeviceTest {
         withTimeout(10_000) {
             while (
                 chat.screen.value.openSessionId != sessionId ||
-                chat.screen.value.badge
+                chat.screen.value.selectedModel
                     ?.model != installed.modelId
             ) {
                 delay(20)
@@ -281,7 +281,7 @@ class FirstSuccessJourneyDeviceTest {
         withTimeout(10_000) {
             while (
                 chat.screen.value.openSessionId != sessionId ||
-                chat.screen.value.badge
+                chat.screen.value.selectedModel
                     ?.model != modelId ||
                 chat.screen.value.messages.size < 2
             ) {

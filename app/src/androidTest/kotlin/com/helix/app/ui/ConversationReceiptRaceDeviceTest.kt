@@ -34,7 +34,6 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.MessageAttachmentRepository
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -501,8 +500,6 @@ class ConversationReceiptRaceDeviceTest {
                     "fixture-model-a",
                     "{}",
                     false,
-                    CleartextWarning("127.0.0.1", port),
-                    emptyList(),
                 ),
                 null,
             )

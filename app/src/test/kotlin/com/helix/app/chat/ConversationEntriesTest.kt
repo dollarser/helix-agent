@@ -62,7 +62,7 @@ class ConversationEntriesTest {
             ChatScreenState(
                 sessions = emptyList(),
                 openSessionId = "s",
-                badge = null,
+                selectedModel = null,
                 activeTurn = null,
                 pendingDisclosure = null,
                 blockedReason = null,

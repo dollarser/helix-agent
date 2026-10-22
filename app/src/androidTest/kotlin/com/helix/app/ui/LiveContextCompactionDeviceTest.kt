@@ -19,7 +19,6 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
@@ -62,8 +61,6 @@ class LiveContextCompactionDeviceTest {
                         model,
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
                     ),
                     null,
                 )

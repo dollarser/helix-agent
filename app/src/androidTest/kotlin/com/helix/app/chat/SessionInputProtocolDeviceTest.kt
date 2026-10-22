@@ -10,7 +10,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.SessionInputDelivery
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -174,8 +173,6 @@ class SessionInputProtocolDeviceTest {
                         "fixture-model-a",
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", wire.port),
-                        emptyList(),
                     ),
                     null,
                 )

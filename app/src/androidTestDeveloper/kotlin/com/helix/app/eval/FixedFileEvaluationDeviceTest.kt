@@ -14,7 +14,6 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.workspace.FileScopePath
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -90,8 +89,6 @@ class FixedFileEvaluationDeviceTest {
                 model,
                 "{}",
                 false,
-                CleartextWarning("10.0.2.2", evaluationProviderPort()),
-                emptyList(),
             )
         val id = container.providerService.create(draft, null)
         val probe = container.providerService.runConnectionTest(id)

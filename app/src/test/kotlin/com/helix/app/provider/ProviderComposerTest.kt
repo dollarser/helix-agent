@@ -29,10 +29,10 @@ class ProviderComposerTest {
         val draft = (outcome as ComposeOutcome.Ok).draft
         assertEquals("openai", draft.templateId)
         assertEquals(NormalizedEndpoint.parse("https://api.openai.com/v1"), draft.endpoint)
-        assertEquals(ProviderResidence.PUBLIC_CLOUD, draft.residence)
-        assertEquals("https://api.openai.com:443", draft.origin) // canonical origin always carries the port
-        assertNull(draft.cleartext)
-        assertFalse(draft.isCleartext)
+        assertEquals(ProviderResidence.PUBLIC_CLOUD, draft.endpoint.residence())
+        assertEquals("https://api.openai.com:443", draft.endpoint.origin) // canonical origin always carries the port
+        assertNull(CleartextWarning.forEndpoint(draft.endpoint))
+        assertEquals("https", draft.endpoint.scheme)
         assertTrue(draft.credentialRequired)
     }
 
@@ -46,21 +46,21 @@ class ProviderComposerTest {
             (
                 ProviderComposer.compose(ollama, "本地", "http://127.0.0.1:11434/v1", "qwen2.5", emptyMap())
                     as ComposeOutcome.Ok
-            ).draft.residence,
+            ).draft.endpoint.residence(),
         )
         assertEquals(
             ProviderResidence.USER_AUTHORIZED_LAN,
             (
                 ProviderComposer.compose(ollama, "本地", "http://192.168.1.20:11434/v1", "qwen2.5", emptyMap())
                     as ComposeOutcome.Ok
-            ).draft.residence,
+            ).draft.endpoint.residence(),
         )
         assertEquals(
             ProviderResidence.USER_AUTHORIZED_LAN,
             (
                 ProviderComposer.compose(ollama, "模拟器", "http://10.0.2.2:11434/v1", "qwen2.5", emptyMap())
                     as ComposeOutcome.Ok
-            ).draft.residence,
+            ).draft.endpoint.residence(),
         )
         assertEquals(
             ProviderResidence.PUBLIC_CLOUD,
@@ -72,7 +72,7 @@ class ProviderComposerTest {
                     "m",
                     emptyMap(),
                 ) as ComposeOutcome.Ok
-            ).draft.residence,
+            ).draft.endpoint.residence(),
         )
     }
 
@@ -83,8 +83,8 @@ class ProviderComposerTest {
                 ProviderComposer.compose(ollama, "本地", "http://192.168.1.20:11434/v1", "qwen2.5", emptyMap())
                     as ComposeOutcome.Ok
             ).draft
-        assertEquals(CleartextWarning("192.168.1.20", 11434), draft.cleartext)
-        assertTrue(draft.isCleartext)
+        assertEquals(CleartextWarning("192.168.1.20", 11434), CleartextWarning.forEndpoint(draft.endpoint))
+        assertEquals("http", draft.endpoint.scheme)
     }
 
     @Test

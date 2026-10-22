@@ -284,7 +284,6 @@ class ProviderModelPickerDeviceTest {
         ConnectionTestStatus.Passed(1, caps, listOf(model, "b")),
         caps,
         listOf(model, "b"),
-        emptyList(),
         provisioning = kind,
     )
 }

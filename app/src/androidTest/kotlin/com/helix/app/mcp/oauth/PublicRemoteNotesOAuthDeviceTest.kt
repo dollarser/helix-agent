@@ -128,9 +128,6 @@ class PublicRemoteNotesOAuthDeviceTest {
                     model,
                     "{}",
                     false,
-                    com.helix.provider.api
-                        .CleartextWarning("127.0.0.1", port),
-                    emptyList(),
                 ),
                 null,
             )

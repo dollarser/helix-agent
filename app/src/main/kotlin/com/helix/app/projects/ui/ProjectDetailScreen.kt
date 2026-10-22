@@ -102,7 +102,7 @@ internal fun ProjectDetailScreen(
             0 -> {
                 ProjectSessions(service, id, members, project.archivedAt != null, onNew = {
                     actions.run {
-                        val session = service.newSession(id, chat.badge?.providerId, chat.badge?.model)
+                        val session = service.newSession(id, chat.selectedModel?.providerId, chat.selectedModel?.model)
                         container.chatService.refreshSessions()
                         onOpenSession(session)
                     }

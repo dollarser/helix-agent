@@ -19,7 +19,6 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.workspace.FileScopePath
 import com.helix.extensions.plugin.PluginPackageReader
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -59,8 +58,6 @@ class PluginFileWorkflowModelDeviceTest {
                         model,
                         "{}",
                         false,
-                        CleartextWarning("127.0.0.1", port),
-                        emptyList(),
                     ),
                     null,
                 )

@@ -19,7 +19,6 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.extensions.mobileuse.automation.AutomationServiceState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -79,8 +78,6 @@ class CurrentInstallVisualGestureDeviceTest {
                             MODEL,
                             "{}",
                             false,
-                            CleartextWarning("10.0.2.2", 30008),
-                            emptyList(),
                         ),
                         null,
                     )

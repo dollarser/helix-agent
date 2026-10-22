@@ -137,8 +137,6 @@ class ProviderModelsIntegrationDeviceTest {
                         model = config.model,
                         headersJson = "{}",
                         credentialRequired = false,
-                        cleartext = null,
-                        templateNotes = emptyList(),
                     )
                 f.service.update("p", draft, null)
                 release.complete(Unit)

@@ -13,7 +13,6 @@ import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -67,8 +66,6 @@ class SessionInputProcessRecoveryDeviceTest {
                         model = MODEL,
                         headersJson = "{}",
                         credentialRequired = false,
-                        cleartext = CleartextWarning("127.0.0.1", port),
-                        templateNotes = emptyList(),
                     ),
                     apiKey = null,
                 )

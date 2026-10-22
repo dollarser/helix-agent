@@ -14,7 +14,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnState
 import com.helix.core.workspace.FileScopePath
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -60,8 +59,6 @@ class RealToolVisionDeviceTest {
                         "Qwen3.8-27B",
                         "{}",
                         false,
-                        CleartextWarning("10.0.2.2", port),
-                        emptyList(),
                     ),
                     null,
                 )

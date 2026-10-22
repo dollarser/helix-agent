@@ -21,7 +21,6 @@ import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.extensions.mobileuse.automation.AutomationServiceState
-import com.helix.provider.api.CleartextWarning
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -91,8 +90,6 @@ class MobileUseWechatPilotDeviceTest {
                             MODEL,
                             "{}",
                             false,
-                            CleartextWarning("10.0.2.2", providerPort),
-                            emptyList(),
                         ),
                         null,
                     )

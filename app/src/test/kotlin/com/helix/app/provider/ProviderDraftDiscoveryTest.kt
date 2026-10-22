@@ -75,7 +75,7 @@ class ProviderDraftDiscoveryTest {
             assertEquals("http://127.0.0.1:30000/v1/models", wire.request?.url)
             assertEquals("GET", wire.request?.method)
             assertTrue(wire.closed)
-            assertTrue(draft.isCleartext)
+            assertEquals("http", draft.endpoint.scheme)
         }
 
     @Test fun choicesSurviveReopenAndStaySeparateFromTestResults() {

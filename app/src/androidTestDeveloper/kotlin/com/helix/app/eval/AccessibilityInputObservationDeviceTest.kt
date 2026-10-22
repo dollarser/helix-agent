@@ -31,7 +31,6 @@ import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.extensions.mobileuse.automation.AutomationServiceState
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.PermissionCenterAutomationToolPort
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
@@ -111,8 +110,6 @@ class AccessibilityInputObservationDeviceTest {
                                 "fixture-model-a",
                                 "{}",
                                 false,
-                                CleartextWarning("127.0.0.1", server.port),
-                                emptyList(),
                             ),
                             null,
                         )

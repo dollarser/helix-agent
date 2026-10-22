@@ -4,7 +4,6 @@ import com.helix.app.R
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderHeaders
 import com.helix.core.model.ProviderProtocol
-import com.helix.provider.api.CleartextWarning
 import com.helix.provider.catalog.ProviderTemplate
 import com.helix.provider.catalog.ProviderTemplateCatalog
 
@@ -14,13 +13,14 @@ import com.helix.provider.catalog.ProviderTemplateCatalog
  * its normative form:
  *
  * - [endpoint] is a [NormalizedEndpoint] (parsed fail-closed: only http/https,
- *   no userinfo/query/fragment/IDN) — [residence] and [origin] are DERIVED from
- *   it, never from the template name or a manual label (doc 10 section 2.5,
+ *   no userinfo/query/fragment/IDN) — network classification and origin are derived
+ *   from it, never from the template name or a manual label (doc 10 section 2.5,
  *   FR-LLM-009);
  * - [headersJson] already passed the [ProviderHeaders] allowlist (<=16 headers,
- *   credential-looking and transport-reserved names rejected);
- * - [cleartext] describes an HTTP endpoint for a non-blocking UI warning;
- *   there is no separate HTTP consent state or transport-based save gate.
+ *   credential-looking and transport-reserved names rejected).
+ *
+ * The form derives its HTTP transport warning from the current endpoint;
+ * there is no separate HTTP consent state or transport-based save gate.
  *
  * No secret material lives here: the API key stays in the Android Keystore
  * under an alias (NFR-007); [credentialRequired] tells the UI whether a key
@@ -34,21 +34,7 @@ data class ProviderDraft(
     val model: String,
     val headersJson: String,
     val credentialRequired: Boolean,
-    val cleartext: CleartextWarning?,
-    val templateNotes: List<String>,
-) {
-    /** Data-residence class of the endpoint (doc 02 section 9.1 / ADR-0005). */
-    val residence: com.helix.core.model.ProviderResidence
-        get() = endpoint.residence()
-
-    /** Canonical origin (scheme://host[:port], no path) for EgressSummary display. */
-    val origin: String
-        get() = endpoint.origin
-
-    /** True when this provider talks cleartext http — the UI risk display applies. */
-    val isCleartext: Boolean
-        get() = endpoint.scheme == "http"
-}
+)
 
 /**
  * Compose outcome. [Rejected.reasonRes] is a STABLE string-resource id + args — never locale
@@ -105,8 +91,6 @@ object ProviderComposer {
                 model = model,
                 headersJson = headersJson!!,
                 credentialRequired = template.credentialRequired,
-                cleartext = CleartextWarning.forEndpoint(endpoint),
-                templateNotes = template.notes,
             ),
         )
     }

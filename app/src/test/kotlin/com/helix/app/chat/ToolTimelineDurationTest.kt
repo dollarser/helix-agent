@@ -12,7 +12,7 @@ class ToolTimelineDurationTest {
                 ChatScreenState(
                     sessions = emptyList(),
                     openSessionId = "session-1",
-                    badge = null,
+                    selectedModel = null,
                     messages = emptyList(),
                     toolTimeline = emptyList(),
                     activeTurn = null,

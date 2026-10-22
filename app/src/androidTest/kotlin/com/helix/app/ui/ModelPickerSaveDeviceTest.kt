@@ -75,7 +75,6 @@ class ModelPickerSaveDeviceTest {
             ConnectionTestStatus.Untested,
             BuiltInModel.capabilities,
             null,
-            emptyList(),
             provisioning = ProviderProvisioningKind.BUNDLED_SERVICE,
             builtInCatalog = BuiltInModelCatalog(1, listOf(model, "future")),
         )

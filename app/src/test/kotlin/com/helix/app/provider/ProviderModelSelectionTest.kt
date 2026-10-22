@@ -75,19 +75,19 @@ class ProviderModelSelectionTest {
             val selected = source.copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true))
             if (type == ProviderProvisioningKind.BUNDLED_SERVICE) {
                 assertEquals(listOf("a", "new"), source.conversationModels)
-                assertTrue(source.offersConversationModels)
+                assertTrue(source.chatSelectable && source.conversationModels.isNotEmpty())
                 assertEquals(listOf("a", "new"), selected.conversationModels)
                 assertFalse(selected.modelSelectable("b"))
                 assertTrue(selected.modelSelectable("new"))
                 assertTrue(selected.copy(builtInCatalog = null).conversationModels.isEmpty())
             } else {
                 assertTrue(source.conversationModels.isEmpty())
-                assertFalse(source.offersConversationModels)
+                assertFalse(source.chatSelectable && source.conversationModels.isNotEmpty())
                 assertEquals(listOf("b"), selected.conversationModels)
             }
             assertEquals(listOf("a", "b", "new"), selected.backendModels)
             assertEquals("a", selected.model)
-            assertTrue(selected.offersConversationModels)
+            assertTrue(selected.chatSelectable && selected.conversationModels.isNotEmpty())
         }
     }
 
@@ -194,7 +194,6 @@ class ProviderModelSelectionTest {
             ConnectionTestStatus.Passed(1, caps, listOf("a", "b", "new")),
             caps,
             listOf("a", "b", "new"),
-            emptyList(),
             provisioning = type,
         )
 

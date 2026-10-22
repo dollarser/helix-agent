@@ -1,7 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.app.agent.ChatContextUsage
-import com.helix.app.provider.ProviderBadgeUi
+import com.helix.app.provider.SelectedModelUi
 import com.helix.app.todo.LedgerItemUi
 import com.helix.core.model.TurnState
 import com.helix.core.storage.entity.SessionEntity
@@ -113,7 +113,7 @@ data class PendingAttachmentUi(
 data class ChatScreenState(
     val sessions: List<SessionRowUi>,
     val openSessionId: String?,
-    val badge: ProviderBadgeUi?,
+    val selectedModel: SelectedModelUi?,
     val messages: List<MessageUi>,
     /** The open session's tool timeline rows (requests + results + live approval cards). */
     val toolTimeline: List<ToolTimelineRow>,

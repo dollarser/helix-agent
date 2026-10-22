@@ -91,7 +91,6 @@ class ProviderChainStateTest {
             ConnectionTestStatus.Passed(1, caps, listOf("a", "b")),
             caps,
             listOf("a", "b"),
-            emptyList(),
         )
 
     private companion object {
