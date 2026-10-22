@@ -33,7 +33,7 @@ enum class GoalWakeReason {
  * Reducer state of a persistent Goal (modes doc section 6.1/6.2). Mirrors the documented
  * `Goal` value (id/objective/acceptanceCriteria/state/planId/budgets/nextCheckpoint) and adds
  * the lifetime accounting the reducer needs: runs, model/tool calls, tokens, durations,
- * retries. Consumed usage accumulates across wakes independently of request output limits.
+ * usage. Consumed usage accumulates across wakes independently of request output limits.
  *
  * Process death parks a RUNNING goal in [GoalState.PAUSED]; continuing requires fresh admission.
  * The model reports semantic completion and the host checks execution state. The host's durable
@@ -55,7 +55,6 @@ data class Goal(
     val totalTokens: Long = 0,
     val runTimeMillis: Long = 0,
     val currentWakeMillis: Long = 0,
-    val retries: Int = 0,
     val lastWakeReason: GoalWakeReason? = null,
     val error: HelixError? = null,
     val finishReason: String? = null,
@@ -75,7 +74,7 @@ data class Goal(
         require(totalTokens >= 0 && runTimeMillis >= 0 && currentWakeMillis >= 0) {
             "usage accounting must be >= 0"
         }
-        require(runCount >= 0 && retries >= 0) { "run/retry counters must be >= 0" }
+        require(runCount >= 0) { "run count must be >= 0" }
     }
 
     val isTerminal: Boolean

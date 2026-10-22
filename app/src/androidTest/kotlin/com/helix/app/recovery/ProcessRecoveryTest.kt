@@ -532,7 +532,6 @@ class ProcessRecoveryTest {
         totalTokens = 0L,
         runTimeMillis = 0L,
         currentWakeMillis = currentWakeMillis,
-        retries = 0,
         lastWakeReason = GoalWakeReason.USER_OPEN.name,
         error = null,
         finishReason = null,

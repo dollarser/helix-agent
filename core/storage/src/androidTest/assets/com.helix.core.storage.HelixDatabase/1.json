@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ab454c6b1c05bbf6e563968860be52aa",
+    "identityHash": "58499747982b0e6511c9257bb913e4f4",
     "entities": [
       {
         "tableName": "projects",
@@ -2213,7 +2213,7 @@
       },
       {
         "tableName": "goals",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `objective` TEXT NOT NULL, `criteria` TEXT NOT NULL, `budgets` TEXT NOT NULL, `state` TEXT NOT NULL, `planId` TEXT, `planHash` TEXT, `nextCheckpoint` INTEGER, `correlationId` TEXT NOT NULL, `runCount` INTEGER NOT NULL, `modelCalls` INTEGER NOT NULL, `toolCalls` INTEGER NOT NULL, `totalTokens` INTEGER NOT NULL, `runTimeMillis` INTEGER NOT NULL, `currentWakeMillis` INTEGER NOT NULL, `retries` INTEGER NOT NULL, `lastWakeReason` TEXT, `error` TEXT, `finishReason` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `plans`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `objective` TEXT NOT NULL, `criteria` TEXT NOT NULL, `budgets` TEXT NOT NULL, `state` TEXT NOT NULL, `planId` TEXT, `planHash` TEXT, `nextCheckpoint` INTEGER, `correlationId` TEXT NOT NULL, `runCount` INTEGER NOT NULL, `modelCalls` INTEGER NOT NULL, `toolCalls` INTEGER NOT NULL, `totalTokens` INTEGER NOT NULL, `runTimeMillis` INTEGER NOT NULL, `currentWakeMillis` INTEGER NOT NULL, `lastWakeReason` TEXT, `error` TEXT, `finishReason` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `plans`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
         "fields": [
           {
             "fieldPath": "id",
@@ -2299,12 +2299,6 @@
           {
             "fieldPath": "currentWakeMillis",
             "columnName": "currentWakeMillis",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "retries",
-            "columnName": "retries",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -4356,7 +4350,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ab454c6b1c05bbf6e563968860be52aa')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '58499747982b0e6511c9257bb913e4f4')"
     ]
   }
 }

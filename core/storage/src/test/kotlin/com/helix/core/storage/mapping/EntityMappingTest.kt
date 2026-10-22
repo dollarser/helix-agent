@@ -102,7 +102,6 @@ class EntityMappingTest {
             totalTokens = 12_345L,
             runTimeMillis = 43_210L,
             currentWakeMillis = 0L,
-            retries = 1,
             lastWakeReason = "USER_OPEN",
             error = null,
             finishReason = null,

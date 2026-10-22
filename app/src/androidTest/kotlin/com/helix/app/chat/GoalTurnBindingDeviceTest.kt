@@ -111,7 +111,6 @@ class GoalTurnBindingDeviceTest {
                 totalTokens = 0,
                 runTimeMillis = 0,
                 currentWakeMillis = 0,
-                retries = 0,
                 lastWakeReason = "USER_OPEN",
                 error = null,
                 finishReason = null,

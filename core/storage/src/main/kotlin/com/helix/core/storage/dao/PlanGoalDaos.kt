@@ -95,7 +95,7 @@ interface GoalDao {
             "planId = :planId, planHash = :planHash, nextCheckpoint = :nextCheckpoint, runCount = :runCount, " +
             "modelCalls = :modelCalls, toolCalls = :toolCalls, totalTokens = :totalTokens, " +
             "runTimeMillis = :runTimeMillis, currentWakeMillis = :currentWakeMillis, " +
-            "retries = :retries, lastWakeReason = :lastWakeReason, error = :error, " +
+            "lastWakeReason = :lastWakeReason, error = :error, " +
             "finishReason = :finishReason WHERE id = :id",
     )
     fun updateGoal(
@@ -112,7 +112,6 @@ interface GoalDao {
         totalTokens: Long,
         runTimeMillis: Long,
         currentWakeMillis: Long,
-        retries: Int,
         lastWakeReason: String?,
         error: String?,
         finishReason: String?,

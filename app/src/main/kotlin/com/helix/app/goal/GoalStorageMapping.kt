@@ -29,7 +29,6 @@ internal fun StoredGoal.toRuntimeGoal(): Goal =
         totalTokens = totalTokens,
         runTimeMillis = runTimeMillis,
         currentWakeMillis = currentWakeMillis,
-        retries = retries,
         lastWakeReason = lastWakeReason?.let(GoalWakeReason::valueOf),
         error = error,
         // Stored Goal rows may carry a non-terminal blocker/pause label for UI/audit. The runtime
@@ -54,7 +53,6 @@ internal fun Goal.toStoredGoal(): StoredGoal =
         totalTokens = totalTokens,
         runTimeMillis = runTimeMillis,
         currentWakeMillis = currentWakeMillis,
-        retries = retries,
         lastWakeReason = lastWakeReason?.name,
         error = error,
         finishReason = finishReason,

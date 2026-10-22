@@ -392,7 +392,6 @@ class TaskJourneyDeviceTest {
                         totalTokens = 0,
                         runTimeMillis = 0,
                         currentWakeMillis = 0,
-                        retries = 0,
                         lastWakeReason = null,
                         error = null,
                         finishReason = null,

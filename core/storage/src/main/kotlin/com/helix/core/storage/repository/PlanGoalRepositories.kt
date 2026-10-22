@@ -160,7 +160,6 @@ class GoalRepository(
             totalTokens = goal.totalTokens,
             runTimeMillis = goal.runTimeMillis,
             currentWakeMillis = goal.currentWakeMillis,
-            retries = goal.retries,
             lastWakeReason = goal.lastWakeReason,
             error = goal.error?.toStorageString(),
             finishReason = goal.finishReason,

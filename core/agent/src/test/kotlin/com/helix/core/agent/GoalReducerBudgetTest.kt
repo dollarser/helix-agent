@@ -60,7 +60,6 @@ class GoalReducerBudgetTest {
             val failed = reduceGoal(runningGoal(), GoalEvent.WakeFailed(error))
             assertEquals(GoalState.FAILED, failed.state.state)
             assertEquals(error, failed.state.error)
-            assertEquals(0, failed.state.retries)
             assertEquals(listOf(GoalEffect.GoalFailed(error), GoalEffect.ReminderCancelled), failed.effects)
         }
     }

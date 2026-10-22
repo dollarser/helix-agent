@@ -46,7 +46,6 @@ data class GoalEntity(
     val totalTokens: Long,
     val runTimeMillis: Long,
     val currentWakeMillis: Long,
-    val retries: Int,
     val lastWakeReason: String?,
     val error: String?,
     val finishReason: String?,
