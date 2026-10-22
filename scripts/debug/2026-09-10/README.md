@@ -53,7 +53,7 @@ HXA-182 跨日继续。所有权约束和制品冻结复用前一日的 `run-own
 - `prepare-hxa185.py`、`patch-hxa185-autofill.py`、`refine-hxa185-goal.py`、`finalize-hxa185-source.py`：本轮一次性源码编辑记录，不是可重跑修复器。
 - WebView纯解析已迁入 `scripts/soak_evidence.py`，回归在 `scripts/tests/test_soak_evidence.py` 自动发现；本段其他日期记载仅作历史来源。
 - `analyze-fd-phases.py`：离线阶段统计，拒绝混合进程/轮次；输出不判定泄漏归属、不改变资源门限。
-- 所有编译、测试与模拟器操作交给 Claude；详见仓库 `docs/development/hxa185-claude-test-handoff.md`。
+- 该阶段的执行分工仅为历史记录；当前编译、测试与设备操作依当前任务授权及 AGENTS.md，不从旧交接继承权限。
 
 
 ## HXA-188 真机浏览器、后台/锁屏与 Root
@@ -61,7 +61,7 @@ HXA-182 跨日继续。所有权约束和制品冻结复用前一日的 `run-own
 - `isolated-browser-build.gradle`：`./gradlew -I scripts/debug/2026-09-10/isolated-browser-build.gradle :feature:browser:assembleDebugAndroidTest` 将 browser 输出隔离到忽略目录，不替换正在长稳的冻结 APK。
 - `run-physical-library-regression.py` 新增 `--apk-metadata` + `--apk-sha256` 明确选择隔离制品；Root 使用 `--modules tools/root --instrument-arg hxa094ExpectedRoot granted --instrument-arg hxa095ExpectedRoot granted`，仅安装自己的临时测试包。Root 管理器按该测试 UID 授权，不更改全局自动响应或其他应用授权。
 - `run-physical-recovery.py`：必须明确 serial/output，只使用全新 consumer 沙箱，冻结当前双 APK。`PhysicalBackgroundRecoveryDeviceTest` 使用真实 HOME/熄屏，短窗口验证 FGS、后台完成、无重复请求与显式 Goal 继续；安全锁屏需所有者正常解锁，不自动关闭密码或电池策略。不是 Doze/长稳验收。
-- `prepare-physical-browser-host.py`、`prepare-physical-root-host.py`、`prepare-physical-recovery-runner.py` 是本轮一次性编辑来源，禁止在最终源码重放。资源宿主仅用于短回归，原显式长稳/control 生命周期保持不变。
+- 一次性宿主源码改写器已移除；编辑来源可从 Git 历史追溯，不是当前运行入口。保留的 `run-physical-*` 仅用于明确授权的有界设备验收，不能自行重放历史授权。
 - `inspect-disposable-recovery-db.py` 是失败的诊断尝试：仅针对新建 consumer 沙箱；SQLCipher 数据库不能用 sqlite3 直读，不读取或导出密钥，不用于验收。
 
 - `fix-root-callback-reentrancy.py`、`close-physical-browser-root.py`：一次性修复/证据校验归档来源，不重放。

@@ -32,7 +32,7 @@ Subscriptions 极小测试失败只显示 `job-failed / HTTP none`，无法区�
 
 ## Regression verification
 
-- `test-subscription-error-recovery.py` 执行 scoped Spotless、`:runtime:cli-app:testDebugUnitTest --tests '*CodexSmoke*' --tests '*CodexModelJobTest'`、两包构建及 app 测试 APK 构建：通过。32 用例，0 失败、0 跳过。
+- 当时的一次性源码改写器执行 scoped Spotless、`:runtime:cli-app:testDebugUnitTest --tests '*CodexSmoke*' --tests '*CodexModelJobTest'`、两包构建及 app 测试 APK 构建：通过。32 用例，0 失败、0 跳过。改写器已退出版本管理，历史可从 Git 追溯；当前回归直接运行上述测试类，不重放旧补丁。
 - 新增完成后连接异常不影响成功、网络失败传递且不持久化异常正文的回归；既有取消、刷新、失效凭据处理、协议和上限测试继续通过。
 - `bash scripts/check-i18n.sh` 通过；`git diff --check` 通过。
 - 独占 PLC110 真机：初始极小测试失败，恢复异常传递后确认 IOException；后续同一登录与 DNS 配置下极小测试两次成功，其中一次使用最终流读取修复。

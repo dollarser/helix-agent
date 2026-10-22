@@ -108,13 +108,10 @@ for task_path in task_dir.glob("HXA-*.md"):
         fail(task_path, "task title does not match filename")
 
 required_status_sections = (
-    "当前实施",
-    "当前结论",
-    "已交付与历史证据",
-    "后续架构队列（未启动）",
-    "开放条件与限制",
-    "Current interfaces",
-    "Known limitations",
+    "当前能力与唯一说明入口",
+    "最新验收及未通过项",
+    "仍开放与未启动",
+    "查阅方式",
 )
 status_path = root / "docs" / "development" / "status.md"
 status = status_path.read_text(encoding="utf-8")
