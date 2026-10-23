@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run the isolated, test-signed R8 UI suite on one explicitly authorized device.
 
-Never starts a device, updates an existing installation, calls an external model, or clears data.
+Never starts a device, updates an owner installation, calls an external model, or clears data.
+Optional reinstall checks only the fresh isolated package installed by this invocation.
 The package is removed on exit; original raw results and APK identities are retained.
 """
 import argparse
@@ -56,12 +57,15 @@ def main():
     parser.add_argument("--test-apk", required=True, type=Path)
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--suite", choices=("basic", "mobile-use", "mobile-use-execution"), default="basic")
+    parser.add_argument("--verify-reinstall", action="store_true")
     parser.add_argument("--boundary", choices=("cancel", "unknown", "stale"))
     parser.add_argument("--adb", default=shutil.which("adb"))
     parser.add_argument("--apkanalyzer", default=shutil.which("apkanalyzer"))
     args = parser.parse_args()
     if not args.adb or not args.apkanalyzer:
         parser.error("Put Android SDK adb and apkanalyzer on PATH or pass their paths")
+    if args.verify_reinstall and (args.suite != "basic" or not re.fullmatch(r"emulator-\d+", args.serial)):
+        parser.error("Owned reinstall requires the basic suite and an explicitly authorized emulator")
     args.out_dir.mkdir(parents=True, exist_ok=False)
     adb = [args.adb, "-s", args.serial]
     app = args.application_id
@@ -124,6 +128,21 @@ def main():
         result.check_returncode()
         records = require_passed(raw)
         (args.out_dir / "junit.xml").write_text(to_xml(records))
+        if args.verify_reinstall:
+            for phase in ("setup", "verify"):
+                if phase == "verify":
+                    command(adb + ["shell", "am", "force-stop", app])
+                    command(adb + ["install", "-t", "-r", str(args.apk)])
+                check = subprocess.run(
+                    adb + ["shell", "am", "instrument", "-w", "-r", "-e", "targetPackage", app,
+                           "-e", "class", "com.helix.smoke.ReleaseReinstallTest", "-e", "reinstallPhase", phase,
+                           test_package + "/androidx.test.runner.AndroidJUnitRunner"],
+                    check=True, capture_output=True, text=True, timeout=180,
+                )
+                text = check.stdout + check.stderr
+                (args.out_dir / ("reinstall-" + phase + ".log")).write_text(text)
+                require_passed(text)
+            metadata["sameCandidateReinstallConfigurationPassed"] = True
         metadata.update(status="passed", tests=len(records))
     except (OSError, ValueError, subprocess.SubprocessError) as failure:
         metadata.update(status="failed", failure=type(failure).__name__)

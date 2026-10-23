@@ -27,6 +27,25 @@ class ReleaseSmokeTest {
         ui.await("应用导航", "App navigation")
     }
 
+    @Test fun offlineResourcesAreVisibleBeforeCloudConfiguration() {
+        ui.click("应用导航", "App navigation")
+        ui.click("设置", "Settings")
+        ui.click("通用", "General")
+        ui.scrollTo("语音服务", "Speech services")
+        ui.click("语音服务", "Speech services")
+        ui.await("离线语音识别", "Offline speech recognition")
+        ui.scrollTo("离线回复朗读", "Offline speech playback")
+        ui.await("离线回复朗读", "Offline speech playback")
+        ui.scrollTo("云端语音 · 主动启用", "Cloud voice · explicitly enabled")
+        assertFalse("Cloud endpoint fields must stay hidden until enabled", ui.nodes().any { it.isEditable })
+        ui.click(
+            "使用配置的云端语音服务（关闭时使用现有离线语音）",
+            "Use configured cloud speech services (off uses existing offline speech)",
+        )
+        ui.scrollTo("ASR 转写完整地址", "Full ASR transcription URL")
+        ui.await("ASR 转写完整地址", "Full ASR transcription URL")
+    }
+
     @Test fun settingsAndAboutShowInstalledVersion() {
         ui.click("应用导航", "App navigation")
         ui.click("设置", "Settings")

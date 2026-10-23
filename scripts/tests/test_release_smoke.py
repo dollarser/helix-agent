@@ -33,6 +33,17 @@ class ReleaseSmokeBoundaryTest(unittest.TestCase):
                     runner.main()
                 command.assert_not_called()
 
+    def test_owned_reinstall_rejects_physical_targets_before_device_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            arguments = ["run-release-smoke.py", "--serial", "physical-fixture", "--verify-reinstall",
+                         "--application-id", "com.helix.validation.smoke", "--apk", "unused.apk",
+                         "--test-apk", "unused-test.apk", "--out-dir", str(Path(directory) / "out"),
+                         "--adb", "fixture-adb", "--apkanalyzer", "fixture-analyzer"]
+            with patch("sys.argv", arguments), patch.object(runner, "command") as command, \
+                    contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                runner.main()
+            command.assert_not_called()
+
     def test_daily_packages_and_shell_fragments_are_rejected(self):
         for value in ("com.helix.agent", "com.helix.agent.developer", "com.helix.validation", "com.helix.validation.x;id"):
             with self.subTest(value=value), self.assertRaises(ValueError):
