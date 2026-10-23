@@ -73,6 +73,8 @@ internal fun OfflineAsrModelPanel(
 ) {
     val phase by model.phase.collectAsState()
     val bytes by model.downloadedBytes.collectAsState()
+    val installed by model.installedBytes.collectAsState()
+    val recoveries by model.files.recoveryAttempts.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     DisposableEffect(model) { onDispose { model.cancel() } }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { model.cancel() }
@@ -87,6 +89,7 @@ internal fun OfflineAsrModelPanel(
             LinearProgressIndicator(progress = { ((bytes ?: 0).toFloat() / model.totalBytes).coerceIn(0f, 1f) })
             Text(stringResource(R.string.read_aloud_downloading, bytes ?: 0, model.totalBytes))
         }
+        SpeechDownloadRecovery(recoveries)
         Row {
             if (phase == OfflineAsrModel.Phase.MISSING || phase == OfflineAsrModel.Phase.FAILED) {
                 TextButton(model::download, Modifier.testTag("offline-asr-download")) {
@@ -95,7 +98,7 @@ internal fun OfflineAsrModelPanel(
             }
             if (phase == OfflineAsrModel.Phase.DOWNLOADING) {
                 TextButton(model::cancel, Modifier.testTag("offline-asr-download-cancel")) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(R.string.read_aloud_cancel_download))
                 }
             }
             if (phase == OfflineAsrModel.Phase.READY && onContinue != null) {
@@ -109,6 +112,13 @@ internal fun OfflineAsrModelPanel(
                 }
             }
         }
+        SpeechResourceActions(
+            installed,
+            phase == OfflineAsrModel.Phase.CHECKING || phase == OfflineAsrModel.Phase.DOWNLOADING,
+            "offline-asr",
+            model::download,
+            model::remove,
+        )
     }
 }
 

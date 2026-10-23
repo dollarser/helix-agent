@@ -8,4 +8,16 @@
     <string name="asr_model_failed">Download or verification failed. An incomplete model is not usable. Check your connection and retry.</string>
     <string name="asr_model_download">Download offline model</string>
     <string name="asr_model_start">Start voice input</string>
+    <string name="speech_resource_storage">Downloaded model files: %1$.1f MiB</string>
+    <string name="speech_resource_redownload">Download again</string>
+    <string name="speech_resource_remove">Delete downloaded model</string>
+    <string name="speech_resource_remove_warning">Only this downloaded speech model will be deleted. Chats, accounts, settings and the other speech model are kept. Download again before the next offline use.</string>
+    <string name="speech_resource_ready">Model installed; available offline.</string>
+    <string name="speech_resource_missing">Model not installed. Download explicitly to use it offline.</string>
+    <string name="speech_resource_failed">Model operation failed. Check network and available storage, then retry.</string>
+    <string name="speech_tts_resource_title">Offline speech playback</string>
+    <string name="speech_tts_resource_description">Explicitly download approximately %1$d MiB from Hugging Face / csukuangfj. After installation, synthesize speech locally without sending text to a cloud voice service.</string>
+    <string name="speech_local_section">Offline voice · no account required</string>
+    <string name="speech_cloud_section">Cloud voice · explicitly enabled</string>
+    <string name="speech_resource_recovery">Network recoveries: %1$d (at most one retry per file)</string>
 </resources>

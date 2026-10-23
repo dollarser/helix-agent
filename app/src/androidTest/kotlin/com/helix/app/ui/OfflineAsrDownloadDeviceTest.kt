@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixTheme
@@ -175,6 +176,49 @@ class OfflineAsrDownloadDeviceTest {
             assertNull(runBlocking { model.files.ready() })
             assertNull(model.downloadedBytes.value)
             assertTrue(root.list().orEmpty().isEmpty())
+        }
+
+    @Test fun resourceRemovalRequiresConfirmationAndPreservesOtherSpeechModels() =
+        fixture { root ->
+            val model = OfflineAsrModel(files(root) { ByteArrayInputStream(data) })
+            runBlocking { model.files.download() }
+            val keep =
+                File(root, "melo-int8/keep.txt").apply {
+                    parentFile!!.mkdirs()
+                    writeText("keep")
+                }
+            compose.setContent { HelixTheme { OfflineAsrModelPanel(model) } }
+            compose.waitUntil(5000) { model.phase.value == OfflineAsrModel.Phase.READY }
+            compose.onNodeWithTag("offline-asr-remove").performClick()
+            assertNotNull(runBlocking { model.files.ready() })
+            compose.onNodeWithText(context.getString(com.helix.app.R.string.common_cancel)).performClick()
+            assertNotNull(runBlocking { model.files.ready() })
+            compose.onNodeWithTag("offline-asr-remove").performClick()
+            compose.onNodeWithTag("offline-asr-remove-confirm").performClick()
+            compose.waitUntil(5000) { model.phase.value == OfflineAsrModel.Phase.MISSING }
+            assertNull(runBlocking { model.files.ready() })
+            assertEquals(0L, model.installedBytes.value)
+            assertEquals("keep", keep.readText())
+        }
+
+    @Test fun closingWhileRemovalWaitsPreservesModelAndDoesNotReportFailure() =
+        fixture { root ->
+            val model = OfflineAsrModel(files(root) { ByteArrayInputStream(data) })
+            runBlocking { model.files.download() }
+            val lease = runBlocking { model.files.acquireAsrUse() }
+            try {
+                compose.setContent { HelixTheme { OfflineAsrModelPanel(model) } }
+                compose.waitUntil(5000) { model.phase.value == OfflineAsrModel.Phase.READY }
+                compose.onNodeWithTag("offline-asr-remove").performClick()
+                compose.onNodeWithTag("offline-asr-remove-confirm").performClick()
+                compose.waitUntil(5000) { model.phase.value == OfflineAsrModel.Phase.CHECKING }
+                compose.runOnIdle { model.cancel() }
+                compose.waitUntil(5000) { model.phase.value == OfflineAsrModel.Phase.READY }
+                assertNotNull(runBlocking { model.files.ready() })
+                assertEquals(data.size.toLong(), model.installedBytes.value)
+            } finally {
+                lease.close()
+            }
         }
 
     @Test fun connectionFailureIsVisibleAndDoesNotRetryItself() =

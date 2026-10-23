@@ -66,6 +66,7 @@ class OfflineAsrDeviceTest {
             assertTrue(partials > 1)
         } finally {
             asr.close()
+            asr.close() // Native release and its use lease are idempotent.
         }
     }
 

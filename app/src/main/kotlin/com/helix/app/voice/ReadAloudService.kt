@@ -33,6 +33,7 @@ data class ReadAloudState(
 )
 
 /** One physical synthesis/output owner. Cancel signals do not release capacity before native exit. */
+@Suppress("TooManyFunctions") // One physical owner for playback, download and confirmed resource removal.
 class ReadAloudService(
     val model: LocalSpeechModel,
     private val engine: (File) -> SpeechEngine,
@@ -255,7 +256,11 @@ class ReadAloudService(
                     } catch (cancel: CancellationException) {
                         state.value = ReadAloudState()
                         throw cancel
-                    } catch (_: Exception) {
+                    } catch (failure: Exception) {
+                        if (!currentCoroutineContext().isActive) {
+                            state.value = ReadAloudState()
+                            throw CancellationException("Speech model download cancelled", failure)
+                        }
                         state.value = ReadAloudState(phase = ReadAloudPhase.FAILED)
                     }
                 }
@@ -264,8 +269,18 @@ class ReadAloudService(
 
     fun leave() {
         stop()
-        model.cancelDownload()
         downloadJob?.cancel()
+        model.cancelDownload()
+    }
+
+    /** Stop/await the existing physical owner before removing only its downloaded model parts. */
+    suspend fun removeDownloadedModel() {
+        leave()
+        downloadJob?.join()
+        synthesis.withLock {
+            model.removeInstalled()
+            state.value = ReadAloudState()
+        }
     }
 
     fun close() {

@@ -26,18 +26,29 @@ class OfflineAsrModel(
     val downloadedBytes get() = files.downloadedBytes
     val totalBytes get() = files.totalBytes
 
-    fun refresh() = update(false)
+    private enum class Action { CHECK, DOWNLOAD, REMOVE }
 
-    fun download() = update(true)
+    private val mutableInstalledBytes = MutableStateFlow(0L)
+    val installedBytes = mutableInstalledBytes.asStateFlow()
+
+    fun refresh() = update(Action.CHECK)
+
+    fun download() = update(Action.DOWNLOAD)
+
+    fun remove() = update(Action.REMOVE)
 
     @Suppress("TooGenericExceptionCaught") // Every I/O or verification failure is visible, never a successful install.
-    private fun update(transfer: Boolean) {
+    private fun update(action: Action) {
         if (job?.isCompleted == false) return
-        mutablePhase.value = if (transfer) Phase.DOWNLOADING else Phase.CHECKING
+        mutablePhase.value = if (action == Action.DOWNLOAD) Phase.DOWNLOADING else Phase.CHECKING
         job =
             scope.launch {
                 try {
-                    if (transfer) files.download()
+                    when (action) {
+                        Action.DOWNLOAD -> files.download()
+                        Action.REMOVE -> files.removeInstalled()
+                        Action.CHECK -> Unit
+                    }
                     checkInstalled()
                 } catch (cancelled: CancellationException) {
                     try {
@@ -58,13 +69,15 @@ class OfflineAsrModel(
     }
 
     fun cancel() {
-        if (mutablePhase.value != Phase.DOWNLOADING) return
+        if (mutablePhase.value !in setOf(Phase.DOWNLOADING, Phase.CHECKING)) return
         job?.cancel()
         files.cancelDownload()
         // Retain the Job until cleanup finishes; another click cannot start overlapping downloads.
     }
 
     private suspend fun checkInstalled() {
-        mutablePhase.value = if (files.ready() == null) Phase.MISSING else Phase.READY
+        val ready = files.ready() != null
+        mutableInstalledBytes.value = files.installedBytes()
+        mutablePhase.value = if (ready) Phase.READY else Phase.MISSING
     }
 }

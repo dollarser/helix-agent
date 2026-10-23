@@ -15,7 +15,7 @@ Standard 和 Advanced 均提供完整离线语音输入，不依赖 OEM/Google �
 
 实时转写直接在当前输入框预览，结束后留在同一输入框编辑，用户仍需主动发送，不另弹确认编辑窗口。失败、取消、丢失前台或迟到推理结果恢复录音前草稿；没有后台常驻监听、自动发送或自动全双工轮次。进程重建不恢复录音，已接受草稿沿用现有持久化机制。
 
-ASR 继续采用 sherpa-onnx 1.13.8 + CPU 双线程、小型中英双语流式 Zipformer（2023-02-16，INT8 encoder/joiner、FP32 decoder），约 58 MiB 模型由用户主动按需下载，两渠道均保留离线推理引擎，不预装权重。首次使用先显示来源、体积与下载操作，下载完成后需主动开始输入才申请麦克风；下载本身不录音。固定来源、版本及逐文件大小/SHA-256 见 `config/asr/model.lock.json`，复用 Melo 的 `LocalSpeechModel` 下载、暂存、校验及安装机制；取消、退后台或失败不发布半成品，不自动重试或切换云端。重新加载前校验安装文件，下载不需要登录账号。两个 supported ABI（arm64-v8a、x86_64）从固定上游源码构建；原 ASR-only 构建仍由 `scripts/build-asr-assets.py` / `:app:verifyAsrAssets` 校验。当前 APK 链接下述 ASR+Melo 专用 JNI，保持相同上游 Kotlin API/ORT 与 ASR 路径，不直接打包含默认 TTS 依赖的官方 AAR。版本保持 0.0.6 / code 1。
+ASR 继续采用 sherpa-onnx 1.13.8 + CPU 双线程、小型中英双语流式 Zipformer（2023-02-16，INT8 encoder/joiner、FP32 decoder），约 58 MiB 模型由用户主动按需下载，两渠道均保留离线推理引擎，不预装权重。首次使用先显示来源、体积与下载操作，下载完成后需主动开始输入才申请麦克风；下载本身不录音。固定来源、版本及逐文件大小/SHA-256 见 `config/asr/model.lock.json`，复用 Melo 的 `LocalSpeechModel` 下载、暂存、校验及安装机制；取消、退后台或失败不发布半成品，不切换云端。显式下载内固定文件 GET 的瞬态网络故障每文件最多恢复一次；取消、完整性/限额错误和本地文件错误不重试，不跨进程自动下载。重新加载前校验安装文件，下载不需要登录账号。两个 supported ABI（arm64-v8a、x86_64）从固定上游源码构建；原 ASR-only 构建仍由 `scripts/build-asr-assets.py` / `:app:verifyAsrAssets` 校验。当前 APK 链接下述 ASR+Melo 专用 JNI，保持相同上游 Kotlin API/ORT 与 ASR 路径，不直接打包含默认 TTS 依赖的官方 AAR。版本保持 0.0.6 / code 1。
 
 sherpa-ncnn 和 sherpa-onnx 均有官方 Android CPU/真流式路径。ncnn 的依赖较少；onnx 提供更广的 ASR 模型及后续 TTS 候选，并有同一套受控 Kotlin/JNI 接口。为后续模型比较选 onnx，代价是较大的通用推理库。没有复制 Operit 代码。采用的 sherpa/模型 Apache-2.0、ORT MIT、KissFFT BSD、未修改 Eigen MPL-2.0 等归属、许可与固定源代码入口随 APK 放入 `asr-licenses/`；Eigen 启用 `EIGEN_MPL2_ONLY`。不把框架许可推导为所有模型均可商用。
 
@@ -133,3 +133,5 @@ Owner授权测试账号在一次性模拟器及官方语音服务验证。已认
 Owner提供统一客户端WS契约并授权非真机收尾。沿用既有可见回答持续文本端口，ASR单次听写一个连接、TTS同一回答一个收发并行连接；双头账号鉴权、ready校验、原始PCM、end与final/done强终态、关闭即本地取消。WS模式仅官方WSS账号目标，HTTP保留独立模式；不增加语音大模型、自动全双工轮次或工具权限。全局单模型执行位与服务端队列由服务端负责，客户端有界串行且不自动重放；1013与1011分别处理。验收见同一云端接入说明，不以契约采用代表已验证实现。
 
 - 2026-10-23：Owner 确认保留无需云服务的离线 ASR，将默认双语模型改为显式按需下载。两个渠道只打包引擎、锁元数据及归属；公开测试权重仅进入 AndroidTest。沿用 TTS 下载实现，取消/失败不安装，成功不自动录音，不删除用户已有资源。
+
+- 2026-10-23：Owner 授权日常体验收尾，ASR/TTS 资源状态、占用及确认删除统一呈现；删除限定锁内文件，ASR 从加载到关闭持有资源使用身份，安装和删除等待其释放；TTS 等待既有物理所有者退出。关闭页面可取消尚未执行的等待，不把取消当失败或承诺已完成删除回滚。公开固定文件下载仅保留可观察、有界且可取消的技术恢复，不自动重放语音请求或 Agent 动作。

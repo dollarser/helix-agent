@@ -34,55 +34,59 @@ internal fun CloudSpeechSettingsEntry() {
         var error by remember { mutableStateOf(false) }
         ConversationSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {
+                Text(stringResource(R.string.speech_local_section))
                 OfflineAsrModelPanel(application.offlineAsr)
-                SpeechSettingToggle(stringResource(R.string.speech_ws_enable), draft.webSocket, { enabled ->
-                    draft =
-                        draft.copy(
-                            webSocket = enabled,
-                            useAccountLogin = if (enabled) true else draft.useAccountLogin,
-                            asrEndpoint =
-                                if (enabled) {
-                                    "wss://asr.sunlingzhang.com/ws/asr"
-                                } else {
-                                    "https://asr.sunlingzhang.com/v1/audio/transcriptions"
-                                },
-                            ttsEndpoint =
-                                if (enabled) {
-                                    "wss://tts.sunlingzhang.com/ws/tts"
-                                } else {
-                                    "https://tts.sunlingzhang.com/v1/audio/speech"
-                                },
-                        )
-                })
-                Text(
-                    stringResource(
-                        if (draft.webSocket) R.string.speech_ws_description else R.string.speech_http_description,
-                    ),
-                )
-                Text(stringResource(R.string.speech_http_loopback))
+                OfflineTtsModelPanel(application.readAloud)
+                Text(stringResource(R.string.speech_cloud_section))
                 SpeechSettingToggle(stringResource(R.string.speech_http_enable), draft.httpEnabled, {
-                    draft =
-                        draft.copy(httpEnabled = it)
+                    draft = draft.copy(httpEnabled = it)
                 })
-                OutlinedTextField(
-                    draft.asrEndpoint,
-                    { draft = draft.copy(asrEndpoint = it) },
-                    label = { Text(stringResource(R.string.speech_asr_endpoint)) },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    draft.ttsEndpoint,
-                    { draft = draft.copy(ttsEndpoint = it) },
-                    label = { Text(stringResource(R.string.speech_tts_endpoint)) },
-                    singleLine = true,
-                )
-                SpeechSettingToggle(
-                    stringResource(R.string.speech_use_account_login),
-                    draft.useAccountLogin,
-                    { draft = draft.copy(useAccountLogin = it) },
-                    enabled = !draft.webSocket,
-                )
-                if (draft.useAccountLogin) Text(stringResource(R.string.speech_account_setup_hint))
+                if (draft.httpEnabled) {
+                    SpeechSettingToggle(stringResource(R.string.speech_ws_enable), draft.webSocket, { enabled ->
+                        draft =
+                            draft.copy(
+                                webSocket = enabled,
+                                useAccountLogin = if (enabled) true else draft.useAccountLogin,
+                                asrEndpoint =
+                                    if (enabled) {
+                                        "wss://asr.sunlingzhang.com/ws/asr"
+                                    } else {
+                                        "https://asr.sunlingzhang.com/v1/audio/transcriptions"
+                                    },
+                                ttsEndpoint =
+                                    if (enabled) {
+                                        "wss://tts.sunlingzhang.com/ws/tts"
+                                    } else {
+                                        "https://tts.sunlingzhang.com/v1/audio/speech"
+                                    },
+                            )
+                    })
+                    Text(
+                        stringResource(
+                            if (draft.webSocket) R.string.speech_ws_description else R.string.speech_http_description,
+                        ),
+                    )
+                    if (!draft.webSocket) Text(stringResource(R.string.speech_http_loopback))
+                    OutlinedTextField(
+                        draft.asrEndpoint,
+                        { draft = draft.copy(asrEndpoint = it) },
+                        label = { Text(stringResource(R.string.speech_asr_endpoint)) },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        draft.ttsEndpoint,
+                        { draft = draft.copy(ttsEndpoint = it) },
+                        label = { Text(stringResource(R.string.speech_tts_endpoint)) },
+                        singleLine = true,
+                    )
+                    SpeechSettingToggle(
+                        stringResource(R.string.speech_use_account_login),
+                        draft.useAccountLogin,
+                        { draft = draft.copy(useAccountLogin = it) },
+                        enabled = !draft.webSocket,
+                    )
+                    if (draft.useAccountLogin) Text(stringResource(R.string.speech_account_setup_hint))
+                }
                 if (error) Text(stringResource(R.string.speech_settings_invalid))
                 TextButton({
                     try {

@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.LocaleList
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -81,7 +82,7 @@ class AppLanguageDeviceTest {
         composeRule.waitForIdle()
         composeRule.dismissFirstLaunchIfNeeded()
         composeRule.navigateTo("settings")
-        composeRule.onNodeWithTag("settings-language-EN").performClick()
+        composeRule.onNodeWithText("English").performClick()
         // The picker persists EN and calls activity.recreate(); the recreated activity's context
         // is re-wrapped in English by attachBaseContext, so its lookups resolve English regardless
         // of the screen it lands on after the back-stack reset.

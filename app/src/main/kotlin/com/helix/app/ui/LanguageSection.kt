@@ -6,6 +6,10 @@ import android.content.ContextWrapper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -19,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.language.AppLanguage
@@ -49,19 +54,25 @@ internal fun LanguageSection() {
             style = MaterialTheme.typography.titleMedium,
         )
         options.forEach { (choice, label) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(
-                    selected = choice == current,
-                    onClick = {
-                        if (choice != current) {
-                            current = choice
-                            AppLanguageStore.applyChoice(context, choice)
-                            activity?.recreate()
-                        }
-                    },
-                    modifier = Modifier.testTag("settings-language-${choice.name}"),
-                )
-                Text(label, style = MaterialTheme.typography.bodyLarge)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .selectable(
+                        selected = choice == current,
+                        role = Role.RadioButton,
+                        onClick = {
+                            if (choice != current) {
+                                current = choice
+                                AppLanguageStore.applyChoice(context, choice)
+                                activity?.recreate()
+                            }
+                        },
+                    ).testTag("settings-language-${choice.name}"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = choice == current, onClick = null)
+                Text(label, Modifier.padding(start = 16.dp), style = MaterialTheme.typography.bodyLarge)
             }
         }
     }

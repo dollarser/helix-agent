@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
@@ -95,6 +96,24 @@ class ReadAloudUiDeviceTest {
             root.deleteRecursively()
         }
     }
+
+    @Test fun resourcePanelRemovesOnlyAfterConfirmationWithoutStartingSpeech() =
+        fixture { service, closed ->
+            compose.setContent { MaterialTheme { OfflineTtsModelPanel(service) } }
+            compose.waitUntil(5000) {
+                compose.onAllNodesWithTag("offline-tts-remove").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("offline-tts-remove").performClick()
+            assertTrue(kotlinx.coroutines.runBlocking { service.model.ready() != null })
+            compose.onNodeWithTag("offline-tts-remove-confirm").performClick()
+            compose.waitUntil(5000) {
+                compose.onAllNodesWithTag("offline-tts-download").fetchSemanticsNodes().isNotEmpty()
+            }
+            assertNull(kotlinx.coroutines.runBlocking { service.model.ready() })
+            assertEquals(0L, kotlinx.coroutines.runBlocking { service.model.installedBytes() })
+            assertEquals(0, closed.get())
+            assertNull(service.model.downloadedBytes.value)
+        }
 
     @Test
     fun missingVoiceExplainsExplicitDownloadWithoutAutomaticSpeech() =
