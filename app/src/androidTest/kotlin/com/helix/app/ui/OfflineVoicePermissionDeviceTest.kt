@@ -84,6 +84,8 @@ class OfflineVoicePermissionDeviceTest {
 
     @Test
     fun allowedEmulatorMicrophoneFinishesSilenceAndReleasesRecording() {
+        com.helix.app.voice
+            .installOfflineAsrFixture(instrumentation.targetContext)
         requireDenied()
         val closed = AtomicBoolean(false)
         var draft = "保留草稿"
@@ -95,7 +97,7 @@ class OfflineVoicePermissionDeviceTest {
                         { visible.value = false },
                         { draft = it },
                         { context, scope ->
-                            VoiceCapture(context, scope, OfflineAsrFactory(context.assets)) { interrupted ->
+                            VoiceCapture(context, scope, OfflineAsrFactory(context)) { interrupted ->
                                 val microphone =
                                     com.helix.app.voice
                                         .MicrophoneCapture(context, interrupted)
@@ -127,6 +129,8 @@ class OfflineVoicePermissionDeviceTest {
 
     @Test
     fun audioFocusLossStopsRecorderWithoutAddingDraft() {
+        com.helix.app.voice
+            .installOfflineAsrFixture(instrumentation.targetContext)
         check(Build.FINGERPRINT.contains("generic") || Build.MODEL.contains("sdk_gphone"))
         assertEquals(
             PackageManager.PERMISSION_GRANTED,
@@ -138,7 +142,7 @@ class OfflineVoicePermissionDeviceTest {
         compose.setContent {
             MaterialTheme {
                 InlineVoiceInput({}, { draft = it }, { context, scope ->
-                    VoiceCapture(context, scope, OfflineAsrFactory(context.assets)) { interrupted ->
+                    VoiceCapture(context, scope, OfflineAsrFactory(context)) { interrupted ->
                         val microphone =
                             com.helix.app.voice
                                 .MicrophoneCapture(context, interrupted)

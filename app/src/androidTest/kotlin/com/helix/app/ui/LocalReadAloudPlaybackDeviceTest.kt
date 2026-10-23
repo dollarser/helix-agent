@@ -6,7 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.voice.LocalVoiceModel
+import com.helix.app.voice.LocalSpeechModel
 import com.helix.app.voice.MeloSpeechEngine
 import com.helix.app.voice.ReadAloudPhase
 import com.helix.app.voice.ReadAloudService
@@ -69,7 +69,7 @@ class LocalReadAloudPlaybackDeviceTest {
         val root = File(context.cacheDir, "tts-playback-${UUID.randomUUID()}")
         val directory = File(root, "melo-int8")
         check(directory.mkdirs())
-        val model = LocalVoiceModel(context, root)
+        val model = LocalSpeechModel(context, root)
         model.parts.forEach { part ->
             instrumentation.context.assets.open("tts-test/${part.name}").use { input ->
                 File(directory, part.name).outputStream().use(input::copyTo)

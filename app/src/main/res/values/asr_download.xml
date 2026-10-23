@@ -1,0 +1,11 @@
+<resources>
+    <string name="asr_model_title">Offline speech recognition</string>
+    <string name="asr_model_description">Download about %1$d MiB from Hugging Face / csukuangfj. After installation, Chinese and English recognition works without cloud services. Audio stays on this device.</string>
+    <string name="asr_model_checking">Checking installed model…</string>
+    <string name="asr_model_missing">Model not installed. Download before using offline voice input.</string>
+    <string name="asr_model_downloading">Downloading and verifying model…</string>
+    <string name="asr_model_ready">Installed. Offline voice input is available.</string>
+    <string name="asr_model_failed">Download or verification failed. An incomplete model is not usable. Check your connection and retry.</string>
+    <string name="asr_model_download">Download offline model</string>
+    <string name="asr_model_start">Start voice input</string>
+</resources>

@@ -20,6 +20,7 @@ class AsrModelComparisonDeviceTest {
     fun compareChineseCtcAndBilingualCpu() {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
         val app = ApplicationProvider.getApplicationContext<android.content.Context>()
+        installOfflineAsrFixture(app)
         for (model in listOf("bilingual", "ctc")) {
             val loadStart = System.nanoTime()
             val recognizer =
@@ -39,7 +40,7 @@ class AsrModelComparisonDeviceTest {
                 } else {
                     null
                 }
-            val baseline = if (model == "bilingual") OfflineAsrFactory(app.assets).open() else null
+            val baseline = if (model == "bilingual") OfflineAsrFactory(app).open() else null
             val loadMs = (System.nanoTime() - loadStart) / 1000000
             baseline?.close()
             try {
@@ -55,7 +56,7 @@ class AsrModelComparisonDeviceTest {
                     val count = data.getInt(offset + 4) / 2
                     val stream = recognizer?.createStream()
                     // A fresh baseline stream for each audio, with cold load measured separately above.
-                    val asr = if (recognizer == null) OfflineAsrFactory(app.assets).open() else null
+                    val asr = if (recognizer == null) OfflineAsrFactory(app).open() else null
                     val started = System.nanoTime()
                     var text = ""
                     var firstAudioMs = 0

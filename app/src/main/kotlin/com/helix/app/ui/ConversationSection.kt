@@ -491,15 +491,20 @@ internal fun ConversationSection(
             voiceContent = {
                 androidx.compose.runtime.key(screen.openSessionId) {
                     if (voiceOpen) {
-                        InlineVoiceInput(
-                            onDismiss = {
-                                voicePreview = null
-                                voiceOpen = false
-                            },
-                            onAccept = { text -> onInput(VoiceInputMapper.appendDraft(voiceBase, text)) },
-                            onPreview = { text -> voicePreview = VoiceInputMapper.appendDraft(voiceBase, text) },
-                            onError = { inputNotice = it },
-                        )
+                        OfflineAsrGate(onDismiss = {
+                            voicePreview = null
+                            voiceOpen = false
+                        }) {
+                            InlineVoiceInput(
+                                onDismiss = {
+                                    voicePreview = null
+                                    voiceOpen = false
+                                },
+                                onAccept = { text -> onInput(VoiceInputMapper.appendDraft(voiceBase, text)) },
+                                onPreview = { text -> voicePreview = VoiceInputMapper.appendDraft(voiceBase, text) },
+                                onError = { inputNotice = it },
+                            )
+                        }
                     }
                 }
             },

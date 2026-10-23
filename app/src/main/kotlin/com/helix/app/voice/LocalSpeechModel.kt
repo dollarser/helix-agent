@@ -15,12 +15,25 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 /** Fixed public model bytes only. No speech text, credentials, user URLs, archive paths or cloud synthesis. */
-class LocalVoiceModel(
+class LocalSpeechModel(
     private val context: Context,
     private val root: File = File(context.filesDir, "tts"),
     private val connectionFactory: (URI) -> HttpURLConnection = { it.toURL().openConnection() as HttpURLConnection },
     partSource: List<Part>? = null,
+    private val kind: Kind = Kind.TTS,
 ) {
+    enum class Kind(
+        val lockAsset: String,
+        val installation: String,
+    ) {
+        TTS("tts-model-lock.json", "melo-int8"),
+        ASR("asr-model-lock.json", "zipformer-int8"),
+    }
+
+    companion object {
+        fun asr(context: Context) = LocalSpeechModel(context, File(context.filesDir, "asr"), kind = Kind.ASR)
+    }
+
     data class Part(
         val name: String,
         val url: String,
@@ -29,7 +42,7 @@ class LocalVoiceModel(
     )
 
     val parts: List<Part> =
-        partSource ?: context.assets.open("tts-model-lock.json").bufferedReader().use {
+        partSource ?: context.assets.open(kind.lockAsset).bufferedReader().use {
             val files = JSONObject(it.readText()).getJSONObject("files")
             files
                 .keys()
@@ -61,7 +74,7 @@ class LocalVoiceModel(
 
     suspend fun ready(): File? =
         withContext(Dispatchers.IO) {
-            val directory = File(root, "melo-int8")
+            val directory = File(root, kind.installation)
             directory.takeIf { parts.all { matches(File(directory, it.name), it) } }
         }
 
@@ -118,7 +131,7 @@ class LocalVoiceModel(
                     complete += part.size
                 }
                 currentCoroutineContext().ensureActive()
-                val destination = File(root, "melo-int8")
+                val destination = File(root, kind.installation)
                 check(!destination.exists() || destination.deleteRecursively())
                 check(stage.renameTo(destination))
             } finally {
@@ -128,12 +141,13 @@ class LocalVoiceModel(
             }
         }
 
-    private fun open(source: URI): HttpURLConnection {
+    private suspend fun open(source: URI): HttpURLConnection {
         policy.validateRedirect(source)
         var current = source
         repeat(6) {
             val connection = connectionFactory(current)
             activeCall.set(connection)
+            currentCoroutineContext().ensureActive()
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 20_000
             connection.readTimeout = 20_000

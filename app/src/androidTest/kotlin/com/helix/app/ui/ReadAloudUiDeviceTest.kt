@@ -15,7 +15,7 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.chat.MessageUi
-import com.helix.app.voice.LocalVoiceModel
+import com.helix.app.voice.LocalSpeechModel
 import com.helix.app.voice.ReadAloudPhase
 import com.helix.app.voice.ReadAloudService
 import com.helix.app.voice.SpeechAudio
@@ -44,7 +44,7 @@ class ReadAloudUiDeviceTest {
         val data = "synthetic".toByteArray()
         val hash = MessageDigest.getInstance("SHA-256").digest(data).joinToString("") { "%02x".format(it) }
         val part =
-            LocalVoiceModel.Part(
+            LocalSpeechModel.Part(
                 "model.bin",
                 "https://huggingface.co/synthetic",
                 data.size.toLong(),
@@ -54,7 +54,7 @@ class ReadAloudUiDeviceTest {
             File(root, "melo-int8").mkdirs()
             File(root, "melo-int8/model.bin").writeBytes(data)
         }
-        val model = LocalVoiceModel(context, root, { error("No automatic network request") }, listOf(part))
+        val model = LocalSpeechModel(context, root, { error("No automatic network request") }, listOf(part))
         val closed = AtomicInteger()
         val focus: (() -> Unit) -> AutoCloseable? =
             if (realFocus) SpeechAudio(context)::focus else { _ -> AutoCloseable {} }

@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicReference
 class VoiceCapture(
     context: Context,
     private val scope: CoroutineScope,
-    private val factory: StreamingAsrFactory = OfflineAsrFactory(context.assets),
+    private val factory: StreamingAsrFactory = OfflineAsrFactory(context),
     private val source: (() -> Unit) -> PcmCapture = { interrupted -> MicrophoneCapture(context, interrupted) },
 ) {
     enum class Phase { IDLE, LOADING, LISTENING, FINISHING, REVIEW, CANCELLED, FAILED }

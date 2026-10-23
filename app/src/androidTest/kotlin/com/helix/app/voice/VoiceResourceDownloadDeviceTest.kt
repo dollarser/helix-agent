@@ -18,7 +18,7 @@ class VoiceResourceDownloadDeviceTest {
             assumeTrue(flag == "true")
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val root = File(context.cacheDir, "tts-public-${UUID.randomUUID()}")
-            val model = LocalVoiceModel(context, root)
+            val model = LocalSpeechModel(context, root)
             try {
                 assertNull(model.ready())
                 model.download()

@@ -19,7 +19,7 @@ class ReadAloudLatencyDeviceTest {
             val context = instrumentation.targetContext
             val root = File(context.cacheDir, "tts-latency-${UUID.randomUUID()}")
             val directory = File(root, "melo-int8")
-            val model = LocalVoiceModel(context, root)
+            val model = LocalSpeechModel(context, root)
             try {
                 check(directory.mkdirs())
                 model.parts.forEach { part ->

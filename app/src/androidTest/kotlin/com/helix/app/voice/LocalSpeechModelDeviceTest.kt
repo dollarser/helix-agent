@@ -21,12 +21,12 @@ import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class LocalVoiceModelDeviceTest {
+class LocalSpeechModelDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val bytes = "synthetic-model".toByteArray()
 
     private fun part(name: String = "model.bin") =
-        LocalVoiceModel.Part(
+        LocalSpeechModel.Part(
             name,
             "https://huggingface.co/synthetic/model",
             bytes.size.toLong(),
@@ -71,7 +71,7 @@ class LocalVoiceModelDeviceTest {
         fixture { root ->
             var calls = 0
             val model =
-                LocalVoiceModel(context, root, { uri ->
+                LocalSpeechModel(context, root, { uri ->
                     calls++
                     Connection(uri, ByteArrayInputStream(bytes))
                 }, listOf(part()))
@@ -91,7 +91,7 @@ class LocalVoiceModelDeviceTest {
         fixture { root ->
             var content = bytes + byteArrayOf(1)
             val model =
-                LocalVoiceModel(
+                LocalSpeechModel(
                     context,
                     root,
                     { uri -> Connection(uri, ByteArrayInputStream(content)) },
@@ -112,7 +112,7 @@ class LocalVoiceModelDeviceTest {
         fixture { root ->
             var calls = 0
             val model =
-                LocalVoiceModel(context, root, { uri ->
+                LocalSpeechModel(context, root, { uri ->
                     calls++
                     Connection(uri, ByteArrayInputStream(byteArrayOf()), 302, "https://example.com/model")
                 }, listOf(part()))
@@ -137,7 +137,7 @@ class LocalVoiceModelDeviceTest {
                         release.countDown()
                     }
                 }
-            val model = LocalVoiceModel(context, root, { uri -> Connection(uri, input) }, listOf(part()))
+            val model = LocalSpeechModel(context, root, { uri -> Connection(uri, input) }, listOf(part()))
             val job =
                 kotlinx.coroutines.CoroutineScope(kotlin.coroutines.coroutineContext).launch(Dispatchers.IO) {
                     runCatching { model.download() }
@@ -152,8 +152,10 @@ class LocalVoiceModelDeviceTest {
 
     @Test fun unsafeMetadataNeverCreatesAFile() =
         fixture { root ->
-            assertTrue(runCatching { LocalVoiceModel(context, root, partSource = listOf(part("../escape"))) }.isFailure)
-            assertTrue(runCatching { LocalVoiceModel(context, root, partSource = listOf(part(), part())) }.isFailure)
+            assertTrue(
+                runCatching { LocalSpeechModel(context, root, partSource = listOf(part("../escape"))) }.isFailure,
+            )
+            assertTrue(runCatching { LocalSpeechModel(context, root, partSource = listOf(part(), part())) }.isFailure)
             assertFalse(root.exists())
         }
 }

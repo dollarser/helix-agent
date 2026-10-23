@@ -34,6 +34,7 @@ internal fun CloudSpeechSettingsEntry() {
         var error by remember { mutableStateOf(false) }
         ConversationSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {
+                OfflineAsrModelPanel(application.offlineAsr)
                 SpeechSettingToggle(stringResource(R.string.speech_ws_enable), draft.webSocket, { enabled ->
                     draft =
                         draft.copy(

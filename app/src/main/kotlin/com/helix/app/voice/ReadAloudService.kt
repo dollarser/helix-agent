@@ -34,7 +34,7 @@ data class ReadAloudState(
 
 /** One physical synthesis/output owner. Cancel signals do not release capacity before native exit. */
 class ReadAloudService(
-    val model: LocalVoiceModel,
+    val model: LocalSpeechModel,
     private val engine: (File) -> SpeechEngine,
     private val focus: (() -> Unit) -> AutoCloseable?,
     private val sink: (Int) -> SpeechSink,

@@ -40,13 +40,21 @@ class HelixApplication : Application() {
             return requireNotNull(readAloudService)
         }
 
+    val offlineAsr by lazy {
+        com.helix.app.voice
+            .OfflineAsrModel(
+                com.helix.app.voice.LocalSpeechModel
+                    .asr(this),
+            )
+    }
+
     private fun createReadAloud(settings: SpeechServiceSettings): ReadAloudService {
         val audio =
             com.helix.app.voice
                 .SpeechAudio(this)
         return com.helix.app.voice.ReadAloudService(
             com.helix.app.voice
-                .LocalVoiceModel(this),
+                .LocalSpeechModel(this),
             { directory ->
                 com.helix.app.voice
                     .MeloSpeechEngine(directory)

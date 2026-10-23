@@ -25,6 +25,7 @@ class OfflineAsrDeviceTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
     @Test fun publicBilingualFixtureStreamsAndFinalizesOffline() {
+        installOfflineAsrFixture(context)
         val bytes =
             androidx.test.platform.app.InstrumentationRegistry
                 .getInstrumentation()
@@ -41,7 +42,7 @@ class OfflineAsrDeviceTest {
         val count = data.getInt(offset + 4) / 2
         val samples = FloatArray(count) { data.getShort(offset + 8 + it * 2) / 32768f }
         val start = System.nanoTime()
-        val asr = OfflineAsrFactory(context.assets).open()
+        val asr = OfflineAsrFactory(context).open()
         val loaded = System.nanoTime()
         var first = 0L
         var partials = 0

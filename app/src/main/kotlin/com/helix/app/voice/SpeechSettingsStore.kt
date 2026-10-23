@@ -134,7 +134,7 @@ class SpeechSettingsStore(
                 )
             }
         } else {
-            OfflineAsrFactory(context.assets)
+            OfflineAsrFactory(context)
         }
     }
 }

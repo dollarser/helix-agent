@@ -1,40 +1,40 @@
 package com.helix.app.voice
 
-import android.content.res.AssetManager
+import android.content.Context
 import com.k2fsa.sherpa.onnx.OnlineModelConfig
 import com.k2fsa.sherpa.onnx.OnlineRecognizer
 import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 
-/** Fixed bundled CPU model; no system speech service, network, audio file or generated code. */
+/** Installed, verified CPU model; opening never downloads or uses a system speech service. */
 class OfflineAsrFactory(
-    private val assets: AssetManager,
+    private val model: LocalSpeechModel,
 ) : StreamingAsrFactory {
+    constructor(context: Context) : this(LocalSpeechModel.asr(context))
+
     @Suppress("TooGenericExceptionCaught") // Resource cleanup; the original failure is rethrown.
     override fun open(): StreamingAsr {
-        // Check assets before JNI: unavailable models produce a recoverable UI error.
-        val root = "asr/"
-        listOf("encoder.int8.onnx", "decoder.onnx", "joiner.int8.onnx", "tokens.txt").forEach {
-            assets.open(root + it).use { stream -> check(stream.read() >= 0) }
-        }
+        val directory = kotlinx.coroutines.runBlocking { model.ready() }
+        checkNotNull(directory) { "ASR_MODEL_NOT_INSTALLED" }
+        val root = directory.path + "/"
         val recognizer =
             OnlineRecognizer(
-                assets,
-                OnlineRecognizerConfig(
-                    modelConfig =
-                        OnlineModelConfig(
-                            transducer =
-                                OnlineTransducerModelConfig(
-                                    encoder = root + "encoder.int8.onnx",
-                                    decoder = root + "decoder.onnx",
-                                    joiner = root + "joiner.int8.onnx",
-                                ),
-                            tokens = root + "tokens.txt",
-                            numThreads = 2,
-                            modelType = "zipformer",
-                        ),
-                    enableEndpoint = false,
-                ),
+                config =
+                    OnlineRecognizerConfig(
+                        modelConfig =
+                            OnlineModelConfig(
+                                transducer =
+                                    OnlineTransducerModelConfig(
+                                        encoder = root + "encoder.int8.onnx",
+                                        decoder = root + "decoder.onnx",
+                                        joiner = root + "joiner.int8.onnx",
+                                    ),
+                                tokens = root + "tokens.txt",
+                                numThreads = 2,
+                                modelType = "zipformer",
+                            ),
+                        enableEndpoint = false,
+                    ),
             )
         val stream =
             try {

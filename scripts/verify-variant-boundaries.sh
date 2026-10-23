@@ -35,6 +35,7 @@ assert_application_id() {
 
 assert_application_id "$consumer_apk" "com.helix.agent"
 assert_application_id "$developer_apk" "com.helix.agent.developer"
+python3 "$project_root/scripts/prepare-asr-download-assets.py" --apk "$consumer_apk" --apk "$developer_apk"
 
 readonly developer_markers=(
     HELIX_DEVELOPER_ONLY_APP

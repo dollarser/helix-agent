@@ -40,7 +40,7 @@ class ReadAloudDeviceTest {
         val outputClosed = AtomicBoolean()
         val written = java.util.concurrent.CopyOnWriteArrayList<Float>()
         val service =
-            ReadAloudService(LocalVoiceModel(context, root), {
+            ReadAloudService(LocalSpeechModel(context, root), {
                 object : SpeechEngine {
                     override fun generate(
                         text: String,
@@ -93,7 +93,7 @@ class ReadAloudDeviceTest {
         val closed = AtomicInteger()
         val release = CountDownLatch(1)
         val service =
-            ReadAloudService(LocalVoiceModel(context, root), {
+            ReadAloudService(LocalSpeechModel(context, root), {
                 object : SpeechEngine {
                     override fun generate(
                         text: String,
@@ -147,7 +147,7 @@ class ReadAloudDeviceTest {
         val closed = AtomicInteger()
         val leases = AtomicInteger()
         val service =
-            ReadAloudService(LocalVoiceModel(context, root), {
+            ReadAloudService(LocalSpeechModel(context, root), {
                 object : SpeechEngine {
                     override fun generate(
                         text: String,
@@ -258,7 +258,7 @@ class ReadAloudDeviceTest {
 
     @Test fun missingModelNeverSynthesizesOrDownloadsAutomatically() {
         val root = File(context.cacheDir, "tts-missing-${UUID.randomUUID()}")
-        val model = LocalVoiceModel(context, root)
+        val model = LocalSpeechModel(context, root)
         val service =
             ReadAloudService(
                 model,
@@ -286,7 +286,7 @@ class ReadAloudDeviceTest {
         val closed = AtomicInteger()
         val interrupted = AtomicInteger()
         val service =
-            ReadAloudService(LocalVoiceModel(context, root), {
+            ReadAloudService(LocalSpeechModel(context, root), {
                 val number = created.incrementAndGet()
                 maximum.updateAndGet { maxOf(it, alive.incrementAndGet()) }
                 object : SpeechEngine {
@@ -349,7 +349,7 @@ class ReadAloudDeviceTest {
     @Test fun deniedAudioFocusDoesNotOpenEngine() {
         val service =
             ReadAloudService(
-                LocalVoiceModel(context, root),
+                LocalSpeechModel(context, root),
                 { error("Focus denied") },
                 { null },
                 { error("No sink") },
@@ -365,7 +365,7 @@ class ReadAloudDeviceTest {
     @Test fun unavailableNativeEngineIsExplicitWithoutCloudFallback() {
         val service =
             ReadAloudService(
-                LocalVoiceModel(context, root),
+                LocalSpeechModel(context, root),
                 { throw UnsatisfiedLinkError("Injected native linkage failure") },
                 { AutoCloseable {} },
                 { error("No sink") },
@@ -395,7 +395,7 @@ class ReadAloudDeviceTest {
         val closed = AtomicInteger()
         val leases = AtomicInteger()
         val service =
-            ReadAloudService(LocalVoiceModel(context, root), {
+            ReadAloudService(LocalSpeechModel(context, root), {
                 object : SpeechEngine {
                     override fun generate(
                         text: String,
@@ -429,12 +429,12 @@ class ReadAloudDeviceTest {
                 val instrumentation = InstrumentationRegistry.getInstrumentation()
                 root = File(instrumentation.targetContext.cacheDir, "tts-test-${UUID.randomUUID()}")
                 check(directory.mkdirs())
-                LocalVoiceModel(instrumentation.targetContext, root).parts.forEach { part ->
+                LocalSpeechModel(instrumentation.targetContext, root).parts.forEach { part ->
                     instrumentation.context.assets.open("tts-test/${part.name}").use { input ->
                         File(directory, part.name).outputStream().use(input::copyTo)
                     }
                 }
-                assertNotNull(LocalVoiceModel(instrumentation.targetContext, root).ready())
+                assertNotNull(LocalSpeechModel(instrumentation.targetContext, root).ready())
             }
 
         @JvmStatic @AfterClass

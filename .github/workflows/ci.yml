@@ -181,6 +181,8 @@ jobs:
 
       - name: Prepare locked offline ASR inputs (host only)
         run: python3 scripts/build-asr-assets.py
+      - name: Prepare on-demand ASR descriptor and test fixtures
+        run: python3 scripts/prepare-asr-download-assets.py
 
       - name: Prepare locked local read-aloud inputs (host only)
         run: python3 scripts/build-tts-assets.py

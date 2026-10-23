@@ -1792,7 +1792,7 @@
     <string name="system_voice_service_only">检测到识别服务，但没有可供 Helix 打开的语音输入界面。可使用键盘麦克风，或在系统设置中启用兼容的语音输入应用。</string>
     <string name="system_voice_tts_count">已检测到 %1$d 个系统朗读引擎。回复朗读使用独立的本机 Melo 音色，不依赖这些系统服务。</string>
     <string name="system_voice_language_hint">Helix offline input supports Chinese and English. Other system voice apps manage their own language settings.</string>
-    <string name="system_voice_privacy">Helix voice input uses its bundled offline model on this device. The system services inspected here are separate apps and may use their own online services.</string>
+    <string name="system_voice_privacy">Helix offline voice input uses an explicitly downloaded model on this device. The system services inspected here are separate apps and may use their own online services.</string>
     <string name="system_voice_input_settings">语音输入设置</string>
     <string name="system_voice_tts_settings">系统朗读设置</string>
     <string name="system_voice_settings_failed">无法读取语音状态或打开设置，请从手机系统设置检查语音服务。</string>
@@ -2006,7 +2006,7 @@
     <string name="offline_voice_finishing">Finishing recognition…</string>
     <string name="offline_voice_review">Review the text, then add it to your draft. Sending is a separate action.</string>
     <string name="offline_voice_empty">No speech recognized. You can type here or retry.</string>
-    <string name="offline_voice_model_error">Offline model unavailable. No audio was uploaded. Close and reopen, or reinstall the complete app.</string>
+    <string name="offline_voice_model_error">Offline model unavailable. No audio was uploaded. Check or download the model in speech settings.</string>
     <string name="offline_voice_focus_error">Audio is in use. Close and retry when it is available.</string>
     <string name="offline_voice_audio_error">Recording interrupted or unavailable. Your original draft is unchanged.</string>
     <string name="offline_voice_stopped">Recording stopped. Your original draft is unchanged.</string>
