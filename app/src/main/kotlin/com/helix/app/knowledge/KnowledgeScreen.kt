@@ -323,6 +323,9 @@ private fun KnowledgeDetail(
         if (item.state == "INCOMPLETE" || item.state == "FAILED") {
             item { Text(stringResource(R.string.knowledge_limits)) }
         }
+        if (item.detail.split(',').any { it in setOf("original-only", "no-readable-text") }) {
+            item { Text(stringResource(R.string.knowledge_visual_reading_hint)) }
+        }
         if (item.detail == "import-interrupted") item { Text(stringResource(R.string.knowledge_reshare)) }
         item { Text(stringResource(R.string.knowledge_original)) }
         item { SelectionContainer { Text(item.rawText, Modifier.testTag("knowledge-raw")) } }
