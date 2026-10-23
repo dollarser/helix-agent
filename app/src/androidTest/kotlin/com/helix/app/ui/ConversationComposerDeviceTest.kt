@@ -2,9 +2,12 @@ package com.helix.app.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -23,6 +26,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
@@ -39,6 +43,35 @@ import java.util.Locale
 
 class ConversationComposerDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun singleLineStaysCompactAndMultilineGrowsWithContent() {
+        val draft = mutableStateOf("")
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.width(320.dp)) {
+                    ConversationComposer(
+                        draft.value,
+                        { draft.value = it },
+                        false,
+                        false,
+                        ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
+                    )
+                }
+            }
+        }
+        val empty = inputHeight()
+        compose.runOnIdle { draft.value = "Single line" }
+        val single = inputHeight()
+        assertEquals(empty, single)
+        assertTrue("A single line must not reserve three lines", single <= 48.dp)
+        compose.runOnIdle { draft.value = "First line\nSecond line\nThird line" }
+        val multiline = inputHeight()
+        assertTrue("Additional lines must grow the editor", multiline >= single + 24.dp)
+        assertFits("chat-input", "chat-add", "chat-send", "chat-permission-menu")
+    }
+
+    private fun inputHeight() =
+        compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot().let { it.bottom - it.top }
 
     @Suppress("LongMethod") // One end-to-end layout/state contract for narrow large-font composer.
     @Test
@@ -73,12 +106,12 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
         val options = compose.onNodeWithTag("chat-composer-options").getUnclippedBoundsInRoot()
         listOf(attach, voice, send).forEach { bounds ->
-            assertTrue("Actions share the editing row", bounds.top < field.bottom && bounds.bottom > field.top)
+            assertTrue("Actions stay below editing", bounds.top >= field.bottom)
         }
         listOf(options).forEach { bounds ->
             assertTrue("Options stay above editing", bounds.bottom <= field.top)
         }
-        assertTrue(voice.right <= attach.left && attach.right <= send.left)
+        assertTrue(attach.right <= voice.left && voice.right <= send.left)
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-send").assertIsNotEnabled()
         compose.runOnIdle { attachments.value = true }
@@ -288,8 +321,8 @@ class ConversationComposerDeviceTest {
         val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
         compose.onNodeWithTag("chat-mode-menu").assertDoesNotExist()
         val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
-        assertTrue(voice.left < add.left && add.left < send.left)
-        assertTrue(voice.top < input.bottom && voice.bottom > input.top)
+        assertTrue(add.right <= model.left && model.right <= voice.left && voice.right <= send.left)
+        assertTrue(voice.top >= input.bottom)
         assertTrue(model.top >= input.bottom)
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-context-window").assertIsDisplayed()
@@ -318,17 +351,21 @@ class ConversationComposerDeviceTest {
 
     @Test fun commonPhoneWidthsKeepHeaderAndEditingOnTheirOwnRows() {
         val width = mutableStateOf(320)
+        var imeBottom = 0
         compose.setContent {
             val density = LocalDensity.current
+            val keyboard = WindowInsets.ime.getBottom(density)
+            SideEffect { imeBottom = keyboard }
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
                 MaterialTheme {
                     Column(Modifier.width(width.value.dp)) {
                         ConversationComposer(
-                            "message",
+                            "第一行\n第二行\n第三行\n第四行",
                             {},
                             false,
                             false,
                             ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
+                            permissionMode = com.helix.core.model.SessionPermissionMode.FULL_ACCESS,
                             headerStatus = { androidx.compose.material3.Text("Queued message") },
                             contextUsage =
                                 com.helix.app.agent
@@ -347,14 +384,44 @@ class ConversationComposerDeviceTest {
                 "chat-send",
                 "chat-context-window",
                 "chat-composer-options",
+                "chat-permission-menu",
             )
             val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
             val voice = compose.onNodeWithTag("chat-voice").getUnclippedBoundsInRoot()
             val add = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
             val header = compose.onNodeWithTag("chat-composer-header").getUnclippedBoundsInRoot()
-            assertTrue(voice.right <= input.left && input.right <= add.left)
+            assertTrue(add.right <= voice.left && voice.top >= input.bottom)
             assertTrue(header.bottom <= input.top)
+            val permission = compose.onNodeWithTag("chat-permission-menu").getUnclippedBoundsInRoot()
+            assertTrue(permission.top >= header.top && permission.bottom <= header.bottom)
+            assertTrue(permission.bottom - permission.top >= 48.dp)
+            compose.onNodeWithTag("chat-composer-footer").assertDoesNotExist()
             compose.onNodeWithTag("chat-current-mode").assertIsDisplayed()
+            captureComposer("width-$size")
+        }
+        compose.runOnIdle { width.value = 320 }
+        compose.onNodeWithTag("chat-input").performClick()
+        compose.waitUntil(10_000) { imeBottom > 0 }
+        assertFits("chat-input", "chat-permission-menu", "chat-send", "chat-composer-options")
+        captureComposer("keyboard-multiline")
+    }
+
+    private fun captureComposer(stage: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        if (InstrumentationRegistry.getArguments().getString("composerCapture") != "true") return
+        compose.waitForIdle()
+        // This is visual evidence, not a pixel-equality test: the focused caret and IME may animate.
+        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        try {
+            val directory =
+                instrumentation.targetContext.cacheDir
+                    .resolve("composer-layout")
+                    .apply { mkdirs() }
+            directory.resolve("$stage.png").outputStream().use {
+                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally {
+            bitmap.recycle()
         }
     }
 

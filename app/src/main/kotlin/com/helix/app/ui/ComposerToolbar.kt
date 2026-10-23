@@ -45,6 +45,7 @@ internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
 @Suppress("FunctionName", "LongParameterList")
 internal fun ComposerToolbar(
     mode: com.helix.core.model.AgentMode,
+    permissionContent: @Composable () -> Unit,
     headerStatus: @Composable () -> Unit,
     optionsContent: @Composable () -> Unit,
     contextIndicator: @Composable () -> Unit,
@@ -57,6 +58,7 @@ internal fun ComposerToolbar(
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
         )
+        permissionContent()
         Row(
             Modifier.weight(1f).indicatedHorizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.End,

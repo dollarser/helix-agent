@@ -45,7 +45,11 @@ internal fun ComposerPermissionMenu(
         TextButton(
             onClick = { expanded = true },
             enabled = mode != null && !pending,
-            modifier = Modifier.defaultMinSize(minWidth = 1.dp).testTag("chat-permission-menu"),
+            modifier =
+                Modifier
+                    .widthIn(max = 140.dp)
+                    .defaultMinSize(minWidth = 1.dp, minHeight = 48.dp)
+                    .testTag("chat-permission-menu"),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
             colors =
                 if (fullAccess) {

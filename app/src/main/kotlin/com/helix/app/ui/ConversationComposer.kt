@@ -127,12 +127,38 @@ internal fun ConversationComposer(
                 },
             )
         }
-        ComposerToolbar(mode, headerStatus, {
-            optionsContent()
-            if (contextUsage.usedTokens == null) ContextWindowIndicator(contextUsage, expandedLabel = true)
-        }) {
-            if (contextUsage.usedTokens != null) ContextWindowIndicator(contextUsage)
-        }
+        ComposerToolbar(
+            mode = mode,
+            permissionContent = {
+                ComposerPermissionMenu(permissionMode, permissionPending, onSelect = { selected ->
+                    if (!permissionPending) {
+                        permissionPending = true
+                        permissionNotice = null
+                        commandScope.launch {
+                            try {
+                                if (!onPermissionMode(selected)) {
+                                    permissionNotice = R.string.composer_permission_failed
+                                }
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                permissionNotice = R.string.composer_permission_failed
+                            } finally {
+                                permissionPending = false
+                            }
+                        }
+                    }
+                }, onSettings = onPermission)
+            },
+            headerStatus = headerStatus,
+            optionsContent = {
+                optionsContent()
+                if (contextUsage.usedTokens == null) ContextWindowIndicator(contextUsage, expandedLabel = true)
+            },
+            contextIndicator = {
+                if (contextUsage.usedTokens != null) ContextWindowIndicator(contextUsage)
+            },
+        )
         Column(
             Modifier
                 .fillMaxWidth()
@@ -151,7 +177,7 @@ internal fun ConversationComposer(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .heightIn(min = if (compactInput) 40.dp else 64.dp)
+                        .heightIn(min = 24.dp)
                         .focusRequester(inputFocus)
                         .testTag("chat-input"),
                 enabled = availability.input && !commandPending && !voiceActive,
@@ -349,33 +375,6 @@ internal fun ConversationComposer(
                     ) {
                         Text(stringResource(R.string.common_remove))
                     }
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("chat-composer-footer"),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                androidx.compose.foundation.layout.Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    ComposerPermissionMenu(permissionMode, permissionPending, onSelect = { selected ->
-                        if (!permissionPending) {
-                            permissionPending = true
-                            permissionNotice = null
-                            commandScope.launch {
-                                try {
-                                    if (!onPermissionMode(selected)) {
-                                        permissionNotice =
-                                            R.string.composer_permission_failed
-                                    }
-                                } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                                    throw cancelled
-                                } catch (_: Exception) {
-                                    permissionNotice = R.string.composer_permission_failed
-                                } finally {
-                                    permissionPending = false
-                                }
-                            }
-                        }
-                    }, onSettings = onPermission)
                 }
             }
         }

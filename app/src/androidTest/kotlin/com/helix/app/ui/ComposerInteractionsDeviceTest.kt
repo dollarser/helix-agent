@@ -145,7 +145,7 @@ class ComposerInteractionsDeviceTest {
         assertEquals(0, changes)
     }
 
-    @Test fun permissionLivesBottomLeftAndFailedSaveNeverShowsTheRequestedMode() {
+    @Test fun permissionSharesHeaderAndFailedSaveNeverShowsTheRequestedMode() {
         val mode = mutableStateOf(SessionPermissionMode.APPROVAL_REQUIRED)
         var saveSucceeds = false
         var changes = 0
@@ -179,8 +179,9 @@ class ComposerInteractionsDeviceTest {
         }
         val input = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
         val permission = compose.onNodeWithTag("chat-permission-menu").getUnclippedBoundsInRoot()
-        val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
-        assertTrue(permission.top >= input.bottom && permission.right <= model.left)
+        val header = compose.onNodeWithTag("chat-composer-header").getUnclippedBoundsInRoot()
+        assertTrue(permission.top >= header.top && permission.bottom <= header.bottom)
+        assertTrue(permission.bottom <= input.top)
         compose
             .onNodeWithTag("chat-permission-menu")
             .assertIsDisplayed()
