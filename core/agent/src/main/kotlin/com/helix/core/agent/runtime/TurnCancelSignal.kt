@@ -1,0 +1,17 @@
+package com.helix.core.agent.runtime
+
+import com.helix.core.model.CancelSignal
+
+/** The turn's [CancelSignal]: the stop button flips it; the dispatcher checks it at its stage checks. */
+class TurnCancelSignal(
+    private val deadlineExpired: () -> Boolean = { false },
+) : CancelSignal {
+    @Volatile
+    private var cancelled = false
+
+    fun cancel() {
+        cancelled = true
+    }
+
+    override fun isCancelled(): Boolean = cancelled || deadlineExpired()
+}

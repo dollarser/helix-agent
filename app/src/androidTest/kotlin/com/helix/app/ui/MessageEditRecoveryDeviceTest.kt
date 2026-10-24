@@ -6,13 +6,15 @@ import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.toInputSnapshot
-import com.helix.app.engine.TurnAdmissionResult
-import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.fixtureAdmissionCommand
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.turn.TurnAdmissionResult
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnBudgets
@@ -50,7 +52,9 @@ class MessageEditRecoveryDeviceTest {
 
     private fun seedAcceptedRevision() {
         val storage = compose.container().storage
-        storage.sessions.create("revision-accepted", "REVISION-ACCEPTED", null, null, 2)
+        com.helix.app.test
+            .seedFixtureProvider(storage, "fixture-provider", "fixture-model")
+        storage.sessions.create("revision-accepted", "REVISION-ACCEPTED", "fixture-provider", "fixture-model", 2)
         storage.messages.append("accepted-target", "revision-accepted", null, "USER", "TEXT", "OLD-ACCEPTED")
         val accepted =
             ChatSubmission(
@@ -65,29 +69,34 @@ class MessageEditRecoveryDeviceTest {
             object : Clock {
                 override fun now(): Instant = Instant.ofEpochMilli(10)
             }
-        val engine = TurnEngine(storage, clock) { UUID.randomUUID().toString() }
+        val engine =
+            createRoomTurnEngine(storage, clock, idGenerator = {
+                UUID.randomUUID().toString()
+            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
         val admitted =
             engine
                 .admit(
-                    TurnStartSpec(
-                        "revision-accepted",
-                        "revision-turn",
-                        "revision-model",
-                        "fixture",
-                        accepted.text,
-                        clientRequestId = accepted.clientRequestId,
-                        inputFingerprint =
-                            TurnInputFingerprint.of(
-                                accepted.text,
-                                emptyList(),
-                                revisedMessageId = "accepted-target",
-                            ),
-                        revisedMessageId = "accepted-target",
+                    fixtureAdmissionCommand(
+                        TurnStartSpec(
+                            "revision-accepted",
+                            "revision-turn",
+                            "revision-model",
+                            "fixture",
+                            accepted.text,
+                            clientRequestId = accepted.clientRequestId,
+                            inputFingerprint =
+                                TurnInputFingerprint.of(
+                                    accepted.text,
+                                    emptyList(),
+                                    revisedMessageId = "accepted-target",
+                                ),
+                            revisedMessageId = "accepted-target",
+                        ),
+                        RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 2_000)),
+                        GoalWakeReason.USER_OPEN,
+                        providerId = "fixture-provider",
+                        modelId = "fixture-model",
                     ),
-                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 2_000)),
-                    GoalWakeReason.USER_OPEN,
-                    providerId = "fixture-provider",
-                    modelId = "fixture-model",
                 ).bindFixtureLifecycle(engine)
         val coordinator = (admitted as TurnAdmissionResult.Started).turn.coordinator
         assertEquals(accepted.clientRequestId, storage.messages.resolve("accepted-target").supersededBy)

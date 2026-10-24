@@ -2,12 +2,12 @@ package com.helix.app.scheduled
 
 import com.helix.app.APP_SCOPE_ID
 import com.helix.app.chat.ChatService
-import com.helix.app.engine.TurnEngine
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTurnSnapshot
 import com.helix.app.provider.analysisHash
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.SubmitTurnCommand
+import com.helix.core.agent.runtime.TurnEngine
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderId
 import com.helix.core.model.ProviderProvisioningKind

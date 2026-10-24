@@ -85,7 +85,7 @@ interface AppContainer {
     val agentRuntime: AgentRuntime
 
     /** Wave-1 durable lifecycle owner. UI still reaches turns through AgentRuntime/services. */
-    val turnEngine: com.helix.app.engine.TurnEngine?
+    val turnEngine: com.helix.core.agent.runtime.TurnEngine?
         get() = null
 
     val capabilityCenter: CapabilityCenter

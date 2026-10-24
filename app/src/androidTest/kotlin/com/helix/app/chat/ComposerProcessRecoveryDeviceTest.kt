@@ -4,7 +4,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.container

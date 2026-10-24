@@ -3,14 +3,16 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.engine.TurnAdmission
-import com.helix.app.engine.TurnAdmissionResult
-import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.TurnAdmission
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.fixtureAdmissionCommand
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.turn.TurnAdmissionResult
 import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
@@ -68,20 +70,22 @@ class MessageRegenerateDeviceTest {
             val refused =
                 TurnAdmission(storage, testClock) { UUID.randomUUID().toString() }
                     .start(
-                        TurnStartSpec(
-                            sessionId = "s",
-                            turnId = "t-fail",
-                            firstModelCallId = "m-fail",
-                            providerSnapshot = "snapshot",
-                            userText = null,
-                            clientRequestId = "req-fail",
-                            inputFingerprint = "fp-fail",
-                            regenerateMessageId = asst1.id,
+                        fixtureAdmissionCommand(
+                            TurnStartSpec(
+                                sessionId = "s",
+                                turnId = "t-fail",
+                                firstModelCallId = "m-fail",
+                                providerSnapshot = "snapshot",
+                                userText = null,
+                                clientRequestId = "req-fail",
+                                inputFingerprint = "fp-fail",
+                                regenerateMessageId = asst1.id,
+                            ),
+                            control = control,
+                            wakeReason = GoalWakeReason.USER_OPEN,
+                            providerId = "provider",
+                            modelId = "model",
                         ),
-                        control = control,
-                        wakeReason = GoalWakeReason.USER_OPEN,
-                        providerId = "provider",
-                        modelId = "model",
                     )
             assertTrue(refused is TurnAdmissionResult.Blocked)
 
@@ -121,7 +125,13 @@ class MessageRegenerateDeviceTest {
             val answerId = completedOriginalAnswer(storage)
             val ids = { UUID.randomUUID().toString() }
             val admission = TurnAdmission(storage, testClock, ids)
-            val engine = TurnEngine(storage, testClock, ids)
+            val engine =
+                createRoomTurnEngine(
+                    storage,
+                    testClock,
+                    ids,
+                    recoveryFailureNotice = { "Synthetic recovery unavailable" },
+                )
             val first =
                 admitRegenerate(admission, "t2", "regen-request", "regen-fingerprint", answerId)
                     .bindFixtureLifecycle(engine)
@@ -129,19 +139,33 @@ class MessageRegenerateDeviceTest {
             kotlinx.coroutines.runBlocking { first.turn.coordinator.beginModelStream() }
             first.turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
-            val probe = AdmissionProbe()
+            val goalsBeforeReplay = storage.goals.list()
             val duplicate =
-                admitRegenerate(admission, "t3", "regen-request", "regen-fingerprint", answerId, probe)
+                admitRegenerate(
+                    admission,
+                    "t3",
+                    "regen-request",
+                    "regen-fingerprint",
+                    answerId,
+                    poisonFreshExpectations = true,
+                )
 
             assertEquals(TurnAdmissionResult.Deduplicated("t2"), duplicate)
-            assertProbeUntouched(probe)
+            assertEquals(goalsBeforeReplay, storage.goals.list())
             assertNoProposedTurn(storage, "t3")
             assertEquals("regen-request", storage.messages.resolve(answerId).supersededBy)
 
             val conflict =
-                admitRegenerate(admission, "t4", "regen-request", "different-fingerprint", answerId, probe)
+                admitRegenerate(
+                    admission,
+                    "t4",
+                    "regen-request",
+                    "different-fingerprint",
+                    answerId,
+                    poisonFreshExpectations = true,
+                )
             assertEquals(TurnAdmissionResult.Conflict, conflict)
-            assertProbeUntouched(probe)
+            assertEquals(goalsBeforeReplay, storage.goals.list())
             assertNoProposedTurn(storage, "t4")
         }
 
@@ -159,40 +183,34 @@ class MessageRegenerateDeviceTest {
         requestId: String,
         fingerprint: String,
         answerId: String,
-        probe: AdmissionProbe? = null,
+        poisonFreshExpectations: Boolean = false,
     ): TurnAdmissionResult =
         admission.start(
-            TurnStartSpec(
-                sessionId = "s",
-                turnId = turnId,
-                firstModelCallId = "model-$turnId",
-                providerSnapshot = "snapshot",
-                userText = null,
-                clientRequestId = requestId,
-                inputFingerprint = fingerprint,
-                regenerateMessageId = answerId,
+            fixtureAdmissionCommand(
+                TurnStartSpec(
+                    sessionId = "s",
+                    turnId = turnId,
+                    firstModelCallId = "model-$turnId",
+                    providerSnapshot = "snapshot",
+                    userText = null,
+                    clientRequestId = requestId,
+                    inputFingerprint = fingerprint,
+                    regenerateMessageId = answerId,
+                ),
+                control = control,
+                wakeReason = GoalWakeReason.USER_OPEN,
+                providerId = "provider",
+                modelId = "model",
+                expectedSessionModelId = if (poisonFreshExpectations) "changed-model" else "model",
+                goal =
+                    if (poisonFreshExpectations) {
+                        com.helix.core.agent.turn.TurnGoalIntent
+                            .Explicit("missing-goal")
+                    } else {
+                        com.helix.core.agent.turn.TurnGoalIntent.None
+                    },
             ),
-            control = control,
-            wakeReason = GoalWakeReason.USER_OPEN,
-            providerId = "provider",
-            modelId = "model",
-            freshGuard = {
-                probe?.let { it.freshGuardCalls += 1 }
-                true
-            },
-            resolveGoal = {
-                probe?.let {
-                    it.goalResolverCalls += 1
-                    error("receipt must return before Goal resolution")
-                }
-                null
-            },
         )
-
-    private fun assertProbeUntouched(probe: AdmissionProbe) {
-        assertEquals(0, probe.freshGuardCalls)
-        assertEquals(0, probe.goalResolverCalls)
-    }
 
     private fun assertNoProposedTurn(
         storage: HelixStorage,
@@ -203,35 +221,35 @@ class MessageRegenerateDeviceTest {
         assertTrue(storage.modelCalls.listByTurn(turnId).isEmpty())
     }
 
-    private data class AdmissionProbe(
-        var freshGuardCalls: Int = 0,
-        var goalResolverCalls: Int = 0,
-    )
-
     private fun start(
         storage: HelixStorage,
         id: String,
         text: String?,
         regenerateTarget: String? = null,
     ): TurnRoundCoordinator {
-        val engine = TurnEngine(storage, testClock) { UUID.randomUUID().toString() }
+        val engine =
+            createRoomTurnEngine(storage, testClock, idGenerator = {
+                UUID.randomUUID().toString()
+            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
         return (
             engine
                 .admit(
-                    TurnStartSpec(
-                        sessionId = "s",
-                        turnId = id,
-                        firstModelCallId = "model-$id",
-                        providerSnapshot = "snapshot",
-                        userText = text,
-                        clientRequestId = "req-$id",
-                        inputFingerprint = "fp-$id",
-                        regenerateMessageId = regenerateTarget,
+                    fixtureAdmissionCommand(
+                        TurnStartSpec(
+                            sessionId = "s",
+                            turnId = id,
+                            firstModelCallId = "model-$id",
+                            providerSnapshot = "snapshot",
+                            userText = text,
+                            clientRequestId = "req-$id",
+                            inputFingerprint = "fp-$id",
+                            regenerateMessageId = regenerateTarget,
+                        ),
+                        control = control,
+                        wakeReason = GoalWakeReason.USER_OPEN,
+                        providerId = "provider",
+                        modelId = "model",
                     ),
-                    control = control,
-                    wakeReason = GoalWakeReason.USER_OPEN,
-                    providerId = "provider",
-                    modelId = "model",
                 ).bindFixtureLifecycle(engine) as TurnAdmissionResult.Started
         ).turn.coordinator.also { kotlinx.coroutines.runBlocking { it.beginModelStream() } }
     }

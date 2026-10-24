@@ -66,7 +66,7 @@ class ProotGoalProcessKillDeviceTest {
                         com.helix.core.storage.HelixStorage
                             .create(app)
                     try {
-                        com.helix.app.engine
+                        com.helix.app.infrastructure.agent
                             .TurnRecovery(
                                 storage,
                                 com.helix.core.model

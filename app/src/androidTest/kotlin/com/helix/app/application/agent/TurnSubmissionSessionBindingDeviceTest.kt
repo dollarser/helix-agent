@@ -3,10 +3,12 @@ package com.helix.app.application.agent
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.engine.TurnAdmissionResult
-import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
+import com.helix.app.test.fixtureAdmissionCommand
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.turn.TurnAdmissionResult
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ProviderProtocol
@@ -24,7 +26,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** The actual application predicate runs inside the real Engine/Room admission transaction. */
+/** Closed admission rechecks prepared identity inside the real Room transaction. */
 class TurnSubmissionSessionBindingDeviceTest {
     @Test
     fun archiveAfterPreparationRefusesAtomicAdmissionWithoutWritingTurnOrHistory() {
@@ -41,6 +43,13 @@ class TurnSubmissionSessionBindingDeviceTest {
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(2000L)
                 }
+            val engine =
+                createRoomTurnEngine(
+                    storage,
+                    clock,
+                    { UUID.randomUUID().toString() },
+                    { "Synthetic recovery unavailable" },
+                )
             val result =
                 worker.submit<TurnAdmissionResult> {
                     val original = storage.sessions.resolve("session")
@@ -48,25 +57,7 @@ class TurnSubmissionSessionBindingDeviceTest {
                     assertTrue(binding.matches(original))
                     prepared.countDown()
                     check(release.await(5, TimeUnit.SECONDS))
-                    TurnEngine(storage, clock) { UUID.randomUUID().toString() }.admit(
-                        spec =
-                            TurnStartSpec(
-                                "session",
-                                "turn",
-                                "model-call",
-                                "snapshot",
-                                "synthetic input",
-                                clientRequestId = "original-request",
-                                inputFingerprint = "original-fingerprint",
-                            ),
-                        control = RunControlConfig(AgentMode.CHAT, false, TurnBudgets(maxOutputTokens = 1024)),
-                        wakeReason = GoalWakeReason.USER_OPEN,
-                        providerId = "provider",
-                        modelId = "model",
-                        // Same predicate as TurnSubmissionCommandHandler's transactional freshGuard.
-                        freshGuard = { binding.matches(storage.sessions.resolve("session")) },
-                        resolveGoal = { error("Rejected fresh admission cannot mutate Goal state") },
-                    )
+                    engine.admit(preparedCommand(original.modelId))
                 }
             assertTrue(prepared.await(5, TimeUnit.SECONDS))
             storage.sessions.archive("session", 1500L)
@@ -84,6 +75,28 @@ class TurnSubmissionSessionBindingDeviceTest {
             files.deleteRecursively()
         }
     }
+
+    private fun preparedCommand(modelId: String?) =
+        fixtureAdmissionCommand(
+            spec =
+                TurnStartSpec(
+                    "session",
+                    "turn",
+                    "model-call",
+                    "snapshot",
+                    "synthetic input",
+                    clientRequestId = "original-request",
+                    inputFingerprint = "original-fingerprint",
+                ),
+            control = RunControlConfig(AgentMode.CHAT, false, TurnBudgets(maxOutputTokens = 1024)),
+            wakeReason = GoalWakeReason.USER_OPEN,
+            providerId = "provider",
+            modelId = "model",
+            expectedSessionModelId = modelId,
+            goal =
+                com.helix.core.agent.turn.TurnGoalIntent
+                    .Explicit("must-not-be-resolved"),
+        )
 
     private fun seedSession(storage: HelixStorage) {
         storage.providerConfigs.save(

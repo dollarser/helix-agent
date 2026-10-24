@@ -3,7 +3,7 @@ package com.helix.app.chat
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
@@ -255,7 +255,7 @@ class SessionInputProcessRecoveryDeviceTest {
         assertEquals(parent, inspection.recoveryFromTurnId)
         assertEquals(TurnState.COMPLETED.name, inspection.state)
         val snapshot =
-            com.helix.app.engine.TurnRuntimeRecordCodec.decode(
+            com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec.decode(
                 storage.turnRuntimeRecords.resolve(inspection.id),
             )
         assertEquals(com.helix.core.model.AgentMode.PLAN, snapshot.control.mode)

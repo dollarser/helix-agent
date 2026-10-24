@@ -1,9 +1,10 @@
 package com.helix.app.agent
 
-import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.recovery.GoalDurableUsageLedger
 import com.helix.app.recovery.GoalLeaseClock
 import com.helix.app.recovery.GoalUsageReservations
+import com.helix.core.agent.runtime.GoalTimeLimitException
+import com.helix.core.model.ApprovalWaitCancelledException
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.CancellationException
@@ -17,10 +18,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
-
-internal class GoalTimeLimitException(
-    val code: String,
-) : RuntimeException(code)
 
 internal data class GoalLeaseAllocation(
     val id: String,
@@ -36,7 +33,7 @@ internal class GoalTimeBudget(
     private val clock: Clock,
     private val runId: String,
     private val monotonicMillis: () -> Long = android.os.SystemClock::elapsedRealtime,
-) {
+) : GoalLeaseControl {
     private data class Window(
         val id: String,
         val started: Long,
@@ -54,7 +51,7 @@ internal class GoalTimeBudget(
     fun start(): Boolean = renew()
 
     @Synchronized
-    fun expiredCode(): String? {
+    override fun expiredCode(): String? {
         val current = window
         return stopCode ?: if (current != null && monotonicMillis() - current.started >= current.duration) {
             if (monotonicMillis() >= totalDeadline) "GOAL_BUDGET_LIMIT" else "GOAL_TIME_WINDOW_EXPIRED"
@@ -63,12 +60,12 @@ internal class GoalTimeBudget(
         }
     }
 
-    fun checkActive() {
+    override fun checkActive() {
         expiredCode()?.let { throw GoalTimeLimitException(it) }
     }
 
     @Synchronized
-    fun remainingExecutionMillis(): Long =
+    override fun remainingExecutionMillis(): Long =
         if (expiredCode() != null || window == null) 0 else (totalDeadline - monotonicMillis()).coerceAtLeast(0)
 
     @Synchronized
@@ -109,10 +106,10 @@ internal class GoalTimeBudget(
     /** Atomic handoff. Failure leaves the original TIME reservation and live window intact. */
     @Synchronized
     @Suppress("ReturnCount") // Distinct admission gates leave the original clock unchanged.
-    fun transferToLease(
+    override fun transferToLease(
         id: String,
         requestedMillis: Long,
-        persist: (GoalLeaseAllocation) -> Unit = {},
+        persist: (GoalLeaseAllocation) -> Unit,
     ): GoalLeaseAllocation? {
         require(id.isNotBlank() && requestedMillis in 1_000..GoalUsageReservations.MAX_LEASE_MILLIS)
         val current = window ?: return null
@@ -147,7 +144,7 @@ internal class GoalTimeBudget(
 
     /** The original Job is proven stopped; an active Turn continues on ordinary heartbeat windows. */
     @Synchronized
-    fun completeLease(allocation: GoalLeaseAllocation): Boolean {
+    override fun completeLease(allocation: GoalLeaseAllocation): Boolean {
         val current = window
         if (current == null || current.allocation != allocation || expiredCode() != null) return false
         val now = monotonicMillis()
@@ -210,7 +207,7 @@ internal class GoalTimeBudget(
                 // concurrent Goal deadline race; UNKNOWN must park rather than become retryable.
                 if (!completionWins(result)) checkActive()
                 result
-            } catch (e: ApprovalCancelledException) {
+            } catch (e: ApprovalWaitCancelledException) {
                 val code = expiredCode()
                 if (code != null) throw GoalTimeLimitException(code)
                 throw e

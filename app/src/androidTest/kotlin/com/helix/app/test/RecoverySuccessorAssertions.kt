@@ -1,6 +1,6 @@
 package com.helix.app.test
 
-import com.helix.app.engine.TurnRuntimeRecordCodec
+import com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec
 import com.helix.core.model.AgentMode
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity

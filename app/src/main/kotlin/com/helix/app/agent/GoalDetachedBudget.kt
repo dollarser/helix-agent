@@ -15,7 +15,7 @@ import kotlinx.serialization.json.put
 internal class GoalDetachedBudget(
     private val storage: HelixStorage,
     private val clock: Clock,
-    private val timerFor: (String) -> GoalTimeBudget?,
+    private val timerFor: (String) -> GoalLeaseControl?,
     private val idGenerator: () -> String,
     private val monotonicMillis: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) {

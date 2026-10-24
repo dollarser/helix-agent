@@ -54,7 +54,7 @@ internal class GoalRunSettlement(
                 null
             }
         val (event, outcome) =
-            if (com.helix.app.engine.AutomaticRecoveryPolicy
+            if (com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                     .isInspection(turn)
             ) {
                 inspectionFinished(goal.correlationId)

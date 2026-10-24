@@ -15,7 +15,7 @@ import com.helix.app.application.tools.ToolPresentationSink
 import com.helix.app.application.tools.ToolSettlement
 import com.helix.app.application.tools.ToolSettlementWriter
 import com.helix.app.approval.StorageAuditSink
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock

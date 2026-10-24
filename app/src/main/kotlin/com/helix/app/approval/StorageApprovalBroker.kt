@@ -1,6 +1,7 @@
 package com.helix.app.approval
 
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.ApprovalWaitCancelledException
 import com.helix.core.model.CancelSignal
 import com.helix.core.model.Clock
 import com.helix.core.policy.ApprovalMintOutcome
@@ -10,17 +11,6 @@ import com.helix.core.storage.repository.ApprovalRepository
 import com.helix.tools.framework.ApprovalAcquisition
 import com.helix.tools.framework.ApprovalBroker
 import com.helix.tools.framework.ApprovalRequest
-
-/**
- * Thrown by [StorageApprovalBroker.acquire] when the wait for the user's decision is
- * cancelled (the turn was stopped while the card was pending). It propagates OUT of
- * `ToolDispatcher.dispatch` (fail closed — AGENTS: no catch-all success); the chat service
- * turns it into the turn's stable CANCELLED terminal. The approval record stays PENDING in
- * storage (the user never decided; it expires with its 24h window) and can never mint.
- */
-class ApprovalCancelledException(
-    approvalId: String,
-) : com.helix.tools.framework.ApprovalWaitCancelledException("approval wait cancelled: $approvalId")
 
 /** The three ways the blocking wait for a user decision can end. */
 private sealed interface WaitOutcome {
@@ -122,7 +112,7 @@ private class DecisionWaiter {
  *    `DENIED` -> [ApprovalAcquisition.Denied] (audit-only, never a credential);
  *    expiry -> [ApprovalAcquisition.Rejected] with [MintRejectionCode.EXPIRED] (NOT a user
  *    denial — the dispatcher's stable APPROVAL_EXPIRED code, no same-turn denial entry);
- *    cancellation -> [ApprovalCancelledException].
+ *    cancellation -> [ApprovalWaitCancelledException].
  *
  * The user action ([decide]) writes the decision IMMEDIATELY — the decision is an audited
  * fact the moment the user taps, independent of the dispatcher thread's lifecycle (if the
@@ -204,7 +194,7 @@ class StorageApprovalBroker(
             }
 
             WaitOutcome.Cancelled -> {
-                throw ApprovalCancelledException(approvalId)
+                throw ApprovalWaitCancelledException("approval wait cancelled: $approvalId")
             }
         }
 
@@ -245,7 +235,7 @@ class StorageApprovalBroker(
 
     /**
      * Cancels the pending wait for [approvalId] (turn stop). The waiting [acquire] throws
-     * [ApprovalCancelledException] immediately (the cancel wakes its waiter); the record
+     * [ApprovalWaitCancelledException] immediately (the cancel wakes its waiter); the record
      * stays PENDING (the user never decided) and expires with its window.
      *
      * A cancel for an id with NO live wait slot is a NO-OP (and records nothing): the

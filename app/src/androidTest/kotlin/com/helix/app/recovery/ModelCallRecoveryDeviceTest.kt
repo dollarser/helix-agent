@@ -3,7 +3,7 @@ package com.helix.app.recovery
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage

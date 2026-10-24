@@ -288,7 +288,7 @@ class ContextCompactionDeviceTest {
             kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, "pending-after-summary") }
             val checkpoint = ContextCompaction.checkpoint(storage, storage.messages.listBySession("s"))
             val recovery =
-                com.helix.app.engine
+                com.helix.app.infrastructure.agent
                     .TurnRecovery(storage, clock)
             recovery.recover()
             assertEquals("INTERRUPTED", storage.turns.resolve(coordinator.id).state)

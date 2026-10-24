@@ -5,14 +5,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.engine.TurnAdmissionResult
-import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.bindFixtureLifecycle
+import com.helix.app.test.fixtureAdmissionCommand
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.turn.TurnAdmissionResult
 import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
@@ -133,22 +135,27 @@ class MessageRevisionDeviceTest {
         text: String,
         target: String? = null,
     ): TurnAdmissionResult {
-        val engine = TurnEngine(storage, testClock) { UUID.randomUUID().toString() }
+        val engine =
+            createRoomTurnEngine(storage, testClock, idGenerator = {
+                UUID.randomUUID().toString()
+            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
         return engine
             .admit(
-                TurnStartSpec(
-                    sessionId = "s",
-                    turnId = id,
-                    firstModelCallId = "model-$id",
-                    providerSnapshot = "snapshot",
-                    userText = text,
-                    clientRequestId = id,
-                    revisedMessageId = target,
+                fixtureAdmissionCommand(
+                    TurnStartSpec(
+                        sessionId = "s",
+                        turnId = id,
+                        firstModelCallId = "model-$id",
+                        providerSnapshot = "snapshot",
+                        userText = text,
+                        clientRequestId = id,
+                        revisedMessageId = target,
+                    ),
+                    control = control,
+                    wakeReason = GoalWakeReason.USER_OPEN,
+                    providerId = "provider",
+                    modelId = "model",
                 ),
-                control = control,
-                wakeReason = GoalWakeReason.USER_OPEN,
-                providerId = "provider",
-                modelId = "model",
             ).bindFixtureLifecycle(engine)
     }
 
@@ -172,7 +179,9 @@ class MessageRevisionDeviceTest {
         val root = File(context.filesDir, name)
         val storage = HelixStorage.open(context, name, root)
         try {
-            storage.sessions.create("s", "Revision", null, null, 1)
+            com.helix.app.test
+                .seedFixtureProvider(storage, "provider", "model")
+            storage.sessions.create("s", "Revision", "provider", "model", 1)
             block(storage)
         } finally {
             storage.close()

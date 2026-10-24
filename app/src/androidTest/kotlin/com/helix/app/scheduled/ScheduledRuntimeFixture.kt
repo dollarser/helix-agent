@@ -8,7 +8,7 @@ import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
-import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.provider.BuiltInModel
@@ -18,6 +18,7 @@ import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.runtime.TurnEngine
 import com.helix.core.model.SystemClock
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.scheduled.ScheduledAgentRule
@@ -57,7 +58,8 @@ internal class ScheduledRuntimeFixture(
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + Dispatchers.IO)
     private val clock = SystemClock()
-    val engine = TurnEngine(storage, clock, ::newId)
+    val engine =
+        createRoomTurnEngine(storage, clock, ::newId, recoveryFailureNotice = { "Synthetic recovery unavailable" })
     var afterTool: () -> Unit = {}
     val pipeline = pipeline()
     val providers: ProviderService

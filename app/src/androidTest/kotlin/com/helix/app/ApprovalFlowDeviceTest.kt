@@ -6,7 +6,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ToolTimelineRow
 import com.helix.app.profile.AdvancedProfileAvailability
@@ -14,6 +13,7 @@ import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.ApprovalWaitCancelledException
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
@@ -64,7 +64,7 @@ import kotlin.time.Duration.Companion.seconds
  *   turn is rejected SAME_TURN_DENIED with NO second approval record (no second card);
  *   the audit rows for both dispatches are redacted (no argument body).
  * - B3 停止不改变待审批记录: a turn stop while the card is pending CANCELS the blocked
- *   dispatch (ApprovalCancelledException), leaves the record PENDING (no decision was
+ *   dispatch (ApprovalWaitCancelledException), leaves the record PENDING (no decision was
  *   made — it expires with its window and can never mint) and settles the call row with
  *   its durable CANCELLED outcome (doc 11: every queued call gets one).
  */

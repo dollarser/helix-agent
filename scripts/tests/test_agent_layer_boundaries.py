@@ -69,3 +69,14 @@ class AgentLayerBoundariesTest(unittest.TestCase):
         self.assertNotIn('interface CancelSignal', execution)
         self.assertNotIn('object NoCancellation', execution)
         self.assertTrue((ROOT / 'core/model/src/main/kotlin/com/helix/core/model/CancelSignal.kt').is_file())
+
+    def test_lifecycle_and_stop_are_not_host_facades(self):
+        for name in ('TurnEngine', 'TurnExecutionDriver', 'TurnLiveRegistry', 'TurnLaunchGate', 'TurnObservationHub'):
+            self.assertFalse((ROOT / f'app/src/main/kotlin/com/helix/app/engine/{name}.kt').exists())
+            self.assertTrue((ROOT / f'core/agent/src/main/kotlin/com/helix/core/agent/runtime/{name}.kt').exists())
+        self.assertFalse((ROOT / 'app/src/main/kotlin/com/helix/app/application/agent/StopTurnCommandHandler.kt').exists())
+        self.assertTrue((ROOT / 'core/agent/src/main/kotlin/com/helix/core/agent/runtime/StopTurnCommandHandler.kt').exists())
+        admission = (ROOT / 'app/src/main/kotlin/com/helix/app/infrastructure/agent/TurnAdmission.kt').read_text()
+        self.assertNotIn('freshGuard:', admission)
+        self.assertNotIn('resolveGoal:', admission)
+        self.assertNotIn('typealias', admission)

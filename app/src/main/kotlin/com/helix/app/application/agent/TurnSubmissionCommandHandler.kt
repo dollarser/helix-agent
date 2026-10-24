@@ -1,20 +1,29 @@
 package com.helix.app.application.agent
 
-import com.helix.app.agent.AgentLoopHost
-import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.context.PromptTemplateSource
-import com.helix.app.engine.TurnEngine
-import com.helix.app.engine.TurnExecutionHooks
-import com.helix.app.engine.TurnExecutionRequest
-import com.helix.app.engine.TurnRuntimeSnapshot
-import com.helix.app.goal.GoalLifecycleService
+import com.helix.app.infrastructure.agent.TurnRuntimeSnapshot
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTurnSnapshot
 import com.helix.app.runcontrol.SessionRunControlStore
 import com.helix.core.agent.AgentLoop
+import com.helix.core.agent.ConversationReferenceIntent
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.runtime.TurnExecutionHooks
+import com.helix.core.agent.runtime.TurnExecutionRequest
+import com.helix.core.agent.runtime.TurnLoopRunner
+import com.helix.core.agent.turn.QueuedAdmissionExpectation
+import com.helix.core.agent.turn.TurnAdmissionCommand
+import com.helix.core.agent.turn.TurnAdmissionIdentity
+import com.helix.core.agent.turn.TurnAdmissionInput
+import com.helix.core.agent.turn.TurnGoalIntent
+import com.helix.core.agent.turn.TurnHistoryMutation
+import com.helix.core.agent.turn.TurnInputAttachment
+import com.helix.core.agent.turn.TurnModelBinding
+import com.helix.core.agent.turn.TurnRecoveryAdmission
 import com.helix.core.agent.turn.TurnRoundCoordinator
+import com.helix.core.agent.turn.TurnSteeringConfiguration
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
@@ -40,16 +49,16 @@ internal class TurnSubmissionCommandHandler(
     private val providerService: ProviderService,
     private val sessionRunControls: SessionRunControlStore,
     private val turnEngine: TurnEngine,
-    private val turnGate: Any,
     private val goalContinuation: GoalContinuationDriver,
-    private val goalLifecycle: GoalLifecycleService,
     private val goalUserRequests: MutableMap<String, List<GoalUserRequest>>,
     private val workScope: CoroutineScope,
-    private val agentLoop: AgentLoopHost,
+    private val agentLoop: TurnLoopRunner,
     private val executionHooks: (String) -> TurnExecutionHooks,
     private val inspectOriginal: suspend (String) -> String,
     private val promptTemplates: PromptTemplateSource,
 ) : TurnSubmissionCommands {
+    private val turnGate = turnEngine.executionGate
+
     override suspend fun submit(command: SubmitTurnCommand): TurnSubmissionResult =
         launchTurn(
             text = command.text,
@@ -113,9 +122,12 @@ internal class TurnSubmissionCommandHandler(
             } catch (_: Exception) {
                 "Original executor reconciliation unavailable; effects remain unknown."
             }
-        val goalId = storage.goalTurnBindings.byTurn(parentId)?.let { storage.goalRuns.resolve(it.runId).goalId }
+        val goalId =
+            storage.goalTurnBindings.byTurn(parentId)?.let {
+                storage.goalRuns.resolve(it.runId).goalId
+            }
         val limits =
-            com.helix.app.engine.AutomaticRecoveryPolicy
+            com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                 .limits(snapshot) ?: return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         return launchTurn(
             text = promptTemplates.text("automatic-recovery").trim() + "\n\n" + executorObservation,
@@ -124,7 +136,7 @@ internal class TurnSubmissionCommandHandler(
             requestedSessionId = parent.sessionId,
             controlOverride = snapshot.control.copy(mode = AgentMode.PLAN, budgets = limits),
             clientRequestId =
-                com.helix.app.engine.AutomaticRecoveryPolicy
+                com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                     .requestId(parentId),
             recoveryParent = parentId,
         )
@@ -178,24 +190,6 @@ internal class TurnSubmissionCommandHandler(
             }
         val sameRevision = current.revision == input.revision
         return current.state == SessionInputState.PENDING && sameRevision && headMatches && !unsettled
-    }
-
-    private fun existingGoalForSession(sessionId: String): String? {
-        val runIds =
-            storage.turns
-                .listBySession(sessionId)
-                .mapNotNull { storage.goalTurnBindings.byTurn(it.id)?.runId }
-                .toSet()
-        return storage.goals
-            .list()
-            .firstOrNull { entity ->
-                val owner = storage.goalControls.find(entity.id)?.sessionId
-                val runs = storage.goalRuns.listByGoal(entity.id)
-                (owner == null || owner == sessionId) &&
-                    (runs.isEmpty() || runs.any { it.id in runIds }) &&
-                    storage.goals.resolve(entity.id).state !in setOf("COMPLETED", "FAILED", "CANCELLED") &&
-                    storage.goalTurnBindings.sessionForGoal(entity.id) == sessionId
-            }?.id
     }
 
     private suspend fun providerSnapshot(
@@ -313,15 +307,15 @@ internal class TurnSubmissionCommandHandler(
             // Persistent submit-dedup (research doc section 34): a re-drive with the same session +
             // input returns the started turn; a diverged session or input is a conflict (refused).
             when (val receipt = turnEngine.submissionReceipt(clientRequestId, sessionId, inputFingerprint)) {
-                is com.helix.app.engine.SubmitReceiptDecision.Deduplicated -> {
+                is com.helix.core.agent.turn.SubmitReceiptDecision.Deduplicated -> {
                     return TurnSubmissionResult.Started(receipt.turnId, deduplicated = true)
                 }
 
-                com.helix.app.engine.SubmitReceiptDecision.Conflict -> {
+                com.helix.core.agent.turn.SubmitReceiptDecision.Conflict -> {
                     return blocked(TurnSubmissionBlock.RECEIPT_CONFLICT)
                 }
 
-                com.helix.app.engine.SubmitReceiptDecision.Fresh -> {
+                com.helix.core.agent.turn.SubmitReceiptDecision.Fresh -> {
                     Unit
                 }
             }
@@ -352,99 +346,116 @@ internal class TurnSubmissionCommandHandler(
             }
             val turnId = idGenerator()
             val callId = idGenerator()
-            val spec =
-                turnStartSpec(
-                    sessionId = sessionId,
-                    turnId = turnId,
-                    callId = callId,
-                    snapshot = snapshot,
-                    text = text,
-                    attachmentBindings = attachmentBindings,
-                    referenceSnapshots = referenceSnapshots,
-                    clientRequestId = clientRequestId,
-                    inputFingerprint = inputFingerprint,
-                    revisedMessageId = revisedMessageId,
-                    regenerateMessageId = regenerateMessageId,
-                    recoveryFromTurnId = recoveryFromTurnId,
-                ).copy(inputRevision = queuedInput?.revision)
-            val wakeReason =
-                if (continuation == null) {
-                    com.helix.core.agent.GoalWakeReason.USER_OPEN
-                } else {
-                    com.helix.core.agent.GoalWakeReason.FOREGROUND_CONTINUATION
-                }
-            val admission =
-                turnEngine.admit(
-                    spec = spec,
-                    // Maintenance consumes a model call, but never Goal authority or activation.
+            val admissionCommand =
+                TurnAdmissionCommand(
+                    identity =
+                        TurnAdmissionIdentity(
+                            sessionId,
+                            turnId,
+                            callId,
+                            clientRequestId,
+                            inputFingerprint,
+                        ),
+                    provider = TurnModelBinding(providerId, admittedModelId, snapshot),
+                    input =
+                        TurnAdmissionInput(
+                            text,
+                            attachmentBindings.map {
+                                TurnInputAttachment(it.artifactId, it.purpose, it.boundSha256)
+                            },
+                            referenceSnapshots.map { reference ->
+                                ConversationReferenceIntent(
+                                    reference.sourceSessionId,
+                                    reference.sourceSessionTitle,
+                                    reference.selectionKind.name,
+                                    reference.sourceMessageIds,
+                                    reference.content,
+                                    reference.contentSha256,
+                                )
+                            },
+                        ),
                     control =
                         if (manualCompaction) {
-                            control.copy(
-                                mode = AgentMode.CHAT,
-                                chatToolsEnabled = false,
-                            )
+                            control.copy(mode = AgentMode.CHAT, chatToolsEnabled = false)
                         } else {
                             control
                         },
-                    wakeReason = wakeReason,
-                    providerId = providerId,
-                    modelId = admittedModelId,
-                    recoveryInspection = recoveryParent != null,
-                    freshGuard = {
-                        val queuedStillValid =
-                            queuedInput == null || queueStillConsumable(queuedInput, requireQueueHead)
-                        val live = storage.sessions.resolve(sessionId)
-                        val recoveryStillValid =
-                            recoveryParent == null ||
-                                com.helix.app.engine.AutomaticRecoveryPolicy
-                                    .eligible(storage.turns.resolve(recoveryParent))
-                        queuedStillValid && recoveryStillValid && expectedBinding.matches(live)
-                    },
-                    resolveGoal = {
-                        val effectiveGoalId =
-                            if (manualCompaction) {
-                                null
-                            } else {
-                                goalId
-                                    ?: if (control.mode == AgentMode.GOAL && !text.isNullOrBlank()) {
-                                        goalLifecycle
-                                            .current(sessionId)
-                                            ?.takeIf {
-                                                it.state !in setOf("COMPLETED", "FAILED", "CANCELLED")
-                                            }?.id ?: existingGoalForSession(sessionId)
-                                            ?: GoalRunCoordinator(storage, clock, idGenerator)
-                                                .create(text, emptyList(), control.goalBudgets)
-                                    } else {
-                                        null
-                                    }
+                    wakeReason =
+                        if (continuation == null) {
+                            com.helix.core.agent.GoalWakeReason.USER_OPEN
+                        } else {
+                            com.helix.core.agent.GoalWakeReason.FOREGROUND_CONTINUATION
+                        },
+                    expectedSessionModelId = session.modelId,
+                    queuedInput =
+                        queuedInput?.let { accepted ->
+                            QueuedAdmissionExpectation(
+                                accepted.inputId,
+                                accepted.revision,
+                                requireQueueHead,
+                                accepted.configuration.let {
+                                    TurnSteeringConfiguration(
+                                        it.providerId,
+                                        it.modelId,
+                                        it.mode,
+                                        it.fingerprint,
+                                    )
+                                },
+                            )
+                        },
+                    history =
+                        when {
+                            revisedMessageId != null -> TurnHistoryMutation.Revise(revisedMessageId)
+                            regenerateMessageId != null -> TurnHistoryMutation.Regenerate(regenerateMessageId)
+                            else -> TurnHistoryMutation.None
+                        },
+                    recovery =
+                        recoveryFromTurnId?.let {
+                            TurnRecoveryAdmission(it, inspection = recoveryParent != null)
+                        },
+                    goal =
+                        when {
+                            manualCompaction -> {
+                                TurnGoalIntent.None
                             }
-                        if (effectiveGoalId != null) goalLifecycle.bind(effectiveGoalId, sessionId)
-                        effectiveGoalId
-                    },
+
+                            goalId != null -> {
+                                TurnGoalIntent.Explicit(goalId)
+                            }
+
+                            control.mode == AgentMode.GOAL && !text.isNullOrBlank() -> {
+                                TurnGoalIntent.ReuseOrCreate(text, emptyList(), control.goalBudgets)
+                            }
+
+                            else -> {
+                                TurnGoalIntent.None
+                            }
+                        },
                 )
+            val admission = turnEngine.admit(admissionCommand)
             val started =
                 when (admission) {
-                    is com.helix.app.engine.TurnAdmissionResult.Started -> {
+                    is com.helix.core.agent.turn.TurnAdmissionResult.Started -> {
                         admission.turn
                     }
 
-                    is com.helix.app.engine.TurnAdmissionResult.Deduplicated -> {
+                    is com.helix.core.agent.turn.TurnAdmissionResult.Deduplicated -> {
                         return TurnSubmissionResult.Started(admission.turnId, deduplicated = true)
                     }
 
-                    is com.helix.app.engine.TurnAdmissionResult.Blocked -> {
+                    is com.helix.core.agent.turn.TurnAdmissionResult.Blocked -> {
                         return blocked(TurnSubmissionBlock.SESSION_BUSY)
                     }
 
-                    com.helix.app.engine.TurnAdmissionResult.Conflict -> {
+                    com.helix.core.agent.turn.TurnAdmissionResult.Conflict -> {
                         return blocked(TurnSubmissionBlock.RECEIPT_CONFLICT)
                     }
 
-                    com.helix.app.engine.TurnAdmissionResult.FreshRejected -> {
+                    com.helix.core.agent.turn.TurnAdmissionResult.FreshRejected -> {
                         return blocked(TurnSubmissionBlock.FRESH_GUARD_REJECTED)
                     }
 
-                    com.helix.app.engine.TurnAdmissionResult.GoalRefused -> {
+                    com.helix.core.agent.turn.TurnAdmissionResult.GoalRefused -> {
                         return blocked(TurnSubmissionBlock.GOAL_REFUSED)
                     }
                 }
@@ -495,36 +506,6 @@ internal class TurnSubmissionCommandHandler(
                     entry = entry,
                 ),
             hooks = executionHooks(sessionId),
-        )
-
-    /** Builds the [TurnStartSpec] for a turn start, carrying the persistent submit-dedup receipt (section 34). */
-    private fun turnStartSpec(
-        sessionId: String,
-        turnId: String,
-        callId: String,
-        snapshot: String,
-        text: String?,
-        attachmentBindings: List<MessageAttachmentRepository.Binding>,
-        referenceSnapshots: List<ConversationReferenceSnapshotInput>,
-        clientRequestId: String,
-        inputFingerprint: String,
-        revisedMessageId: String?,
-        regenerateMessageId: String? = null,
-        recoveryFromTurnId: String? = null,
-    ): TurnStartSpec =
-        TurnStartSpec(
-            sessionId = sessionId,
-            turnId = turnId,
-            firstModelCallId = callId,
-            providerSnapshot = snapshot,
-            userText = text,
-            attachments = attachmentBindings,
-            references = referenceSnapshots,
-            clientRequestId = clientRequestId,
-            inputFingerprint = inputFingerprint,
-            revisedMessageId = revisedMessageId,
-            regenerateMessageId = regenerateMessageId,
-            recoveryFromTurnId = recoveryFromTurnId,
         )
 }
 

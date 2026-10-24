@@ -1,7 +1,9 @@
 package com.helix.app.review
 
-import com.helix.app.engine.ReviewResolutionCommand
-import com.helix.app.engine.TurnEngine
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.turn.ReviewResolutionCommand
+import com.helix.core.agent.turn.ToolReviewSubmission
+import com.helix.core.agent.turn.TurnReviewResolutionResult
 import com.helix.core.model.Clock
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolCallState

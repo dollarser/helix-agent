@@ -45,21 +45,3 @@ data class TurnReviewStatus(
     val pendingReviewCount: Int
         get() = items.count { it.existingDecision == null }
 }
-
-/**
- * Submission payload for a tool effect review decision.
- */
-data class ToolReviewSubmission(
-    val toolCallId: String,
-    val decision: ToolEffectReviewDecision,
-    val reviewedAt: Long? = null,
-)
-
-/**
- * Outcome of resolving human review for an old execution attempt. Review never resumes that Turn.
- */
-sealed interface TurnReviewResolutionResult {
-    data class Resolved(
-        val turnId: String,
-    ) : TurnReviewResolutionResult
-}

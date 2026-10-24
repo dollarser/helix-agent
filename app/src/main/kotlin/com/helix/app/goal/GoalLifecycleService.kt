@@ -2,6 +2,8 @@ package com.helix.app.goal
 
 import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.infrastructure.agent.RoomGoalEditSettlement
+import com.helix.app.infrastructure.agent.RoomGoalOwnership
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
 import com.helix.core.model.Clock
@@ -72,34 +74,9 @@ internal class GoalLifecycleService(
     fun bind(
         goalId: String,
         sessionId: String,
-    ) {
-        // Reject a stale/deleted Goal through the caller's normal domain-error path,
-        // before a control-row insert can fail with an uncaught Room foreign-key error.
-        storage.goals.resolve(goalId)
-        val existing = storage.goalControls.find(goalId)
-        if (existing == null) {
-            require(storage.goalTurnBindings.sessionForGoal(goalId).let { it == null || it == sessionId })
-            storage.goalControls.insert(GoalControlEntity(goalId, sessionId, 0, null, null))
-        } else {
-            require(existing.sessionId == sessionId) { "Goal belongs to another session" }
-        }
-    }
+    ) = RoomGoalOwnership(storage).bind(goalId, sessionId)
 
-    fun current(sessionId: String): StoredGoal? {
-        val owned = storage.goalControls.bySession(sessionId).map { storage.goals.resolve(it.goalId) }
-        val unfinished = owned.filter { it.state !in TERMINAL }
-        val ids = unfinished.map { it.id }.toSet()
-        val latest =
-            storage.turns.listBySession(sessionId).asReversed().firstNotNullOfOrNull { turn ->
-                storage.goalTurnBindings.byTurn(turn.id)?.let { binding ->
-                    storage.goalRuns
-                        .resolve(binding.runId)
-                        .goalId
-                        .takeIf { it in ids }
-                }
-            }
-        return unfinished.firstOrNull { it.id == latest } ?: unfinished.firstOrNull() ?: owned.firstOrNull()
-    }
+    fun current(sessionId: String): StoredGoal? = RoomGoalOwnership(storage).current(sessionId)
 
     private fun create(call: ExecutableToolCall): JsonObject {
         val defaults = requireUser(call)
@@ -194,42 +171,9 @@ internal class GoalLifecycleService(
 
     /** Called after durable turn settlement, under the host's admission gate. */
     fun settle(turnId: String) {
-        storage.withTransaction {
-            val turn = storage.turns.resolve(turnId)
-            storage.goalControls.pendingForTurn(turnId).forEach { control ->
-                val goal = storage.goals.resolve(control.goalId)
-                val eligible =
-                    turn.state == "COMPLETED" && turn.pauseRequestedAt == null &&
-                        goal.state !in TERMINAL && !storage.goalTurnBindings.hasUnsettledCalls(goal.id)
-                val applied = eligible && applyEdit(goal, control)
-                check(storage.goalControls.settle(control.goalId, control.revision) == 1)
-                audit(goal.id, if (applied) "goal.edit_applied" else "goal.edit_discarded")
-                if (!applied) staged(control.sessionId, turnId, goal.id, false)
-            }
+        RoomGoalEditSettlement(storage, clock, ids).settle(turnId).forEach {
+            staged(it.sessionId, turnId, it.goalId, false)
         }
-    }
-
-    private fun applyEdit(
-        goal: StoredGoal,
-        control: GoalControlEntity,
-    ): Boolean {
-        val pending = Json.parseToJsonElement(requireNotNull(control.pendingJson)).jsonObject
-        if ("budgets" in pending) {
-            val next =
-                GoalReducer.reduce(
-                    goal.toRuntimeGoal(),
-                    GoalEvent.BudgetsUpdated(budgets(pending["budgets"]?.jsonObject, goal.budgets)),
-                )
-            if (next.ignored) return false
-            storage.goals.updateGoal(next.state.toStoredGoal())
-        }
-        pending["objective"]?.jsonPrimitive?.content?.let { storage.goals.updateObjective(goal.id, it) }
-        if (pending["status"]?.jsonPrimitive?.content == "active" && goal.state == "BLOCKED") {
-            com.helix.app.chat
-                .GoalBlockerResolution(storage, clock, ids)
-                .resolve(goal.id, control.sessionId, contextFits = false)
-        }
-        return true
     }
 
     private fun requireUser(call: ExecutableToolCall): GoalBudgets {

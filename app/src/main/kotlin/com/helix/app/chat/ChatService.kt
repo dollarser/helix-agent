@@ -8,7 +8,6 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.GoalTimeBudget
-import com.helix.app.agent.TurnCancelSignal
 import com.helix.app.agent.TurnInputDelivery
 import com.helix.app.agent.TurnSteeringDraft
 import com.helix.app.agent.UnresolvedEffectPolicy
@@ -26,10 +25,6 @@ import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.app.application.tools.ApplicationToolGateway
 import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
-import com.helix.app.engine.TurnEngine
-import com.helix.app.engine.TurnExecutionHooks
-import com.helix.app.engine.TurnObservation
-import com.helix.app.engine.TurnTerminalProjection
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.plan.PlanReview
@@ -61,6 +56,11 @@ import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.agent.TurnContextAssembler
 import com.helix.core.agent.TurnContextRequest
 import com.helix.core.agent.TurnMessageDraft
+import com.helix.core.agent.runtime.TurnCancelSignal
+import com.helix.core.agent.runtime.TurnEngine
+import com.helix.core.agent.runtime.TurnExecutionHooks
+import com.helix.core.agent.runtime.TurnObservation
+import com.helix.core.agent.runtime.TurnTerminalProjection
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
@@ -145,7 +145,6 @@ class ChatService(
     private val toolPipeline: ToolPipeline,
     private val clock: Clock = SystemClock(),
     private val idGenerator: () -> String,
-    private val turnEngine: TurnEngine = TurnEngine(storage, clock, idGenerator),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     private val attachmentStaging: AttachmentStagingSupport,
     /**
@@ -164,6 +163,13 @@ class ChatService(
      * still compiles.
      */
     private val strings: (Int, Array<out Any>) -> String = { resId, _ -> "§$resId" },
+    private val turnEngine: TurnEngine =
+        com.helix.app.infrastructure.agent.createRoomTurnEngine(
+            storage,
+            clock,
+            idGenerator,
+            { strings(R.string.automatic_recovery_unavailable, emptyArray()) },
+        ),
     private val lanScopes: () -> Set<NetworkOriginScope> = { emptySet() },
     private val subscriptionResultRecovery: (
         String,
@@ -609,7 +615,7 @@ class ChatService(
     }
 
     /** Serializes per-session turn admission (one active turn per session). */
-    private val turnGate = Any()
+    private val turnGate = turnEngine.executionGate
     private val goalContinuation: GoalContinuationDriver = GoalContinuationDriver(storage)
     private val automaticTurnRecovery by lazy {
         AutomaticTurnRecovery(
@@ -851,16 +857,24 @@ class ChatService(
         millis: Long,
     ): Long =
         com.helix.app.agent
-            .GoalDetachedBudget(storage, clock, turnEngine.liveHandles::goalTime, idGenerator)
-            .prepare(sessionId, turnId, executionId, millis)
+            .GoalDetachedBudget(
+                storage,
+                clock,
+                { id -> turnEngine.liveHandles.goalTime(id) as? com.helix.app.agent.GoalLeaseControl },
+                idGenerator,
+            ).prepare(sessionId, turnId, executionId, millis)
 
     internal fun rejectDetachedJobBudget(
         sessionId: String,
         turnId: String,
         executionId: String,
     ) = com.helix.app.agent
-        .GoalDetachedBudget(storage, clock, turnEngine.liveHandles::goalTime, idGenerator)
-        .reject(sessionId, turnId, executionId)
+        .GoalDetachedBudget(
+            storage,
+            clock,
+            { id -> turnEngine.liveHandles.goalTime(id) as? com.helix.app.agent.GoalLeaseControl },
+            idGenerator,
+        ).reject(sessionId, turnId, executionId)
 
     internal fun settleDetachedJobBudget(
         sessionId: String,
@@ -868,8 +882,12 @@ class ChatService(
         executionId: String,
         terminalElapsedMs: Long?,
     ) = com.helix.app.agent
-        .GoalDetachedBudget(storage, clock, turnEngine.liveHandles::goalTime, idGenerator)
-        .settle(sessionId, turnId, executionId, terminalElapsedMs)
+        .GoalDetachedBudget(
+            storage,
+            clock,
+            { id -> turnEngine.liveHandles.goalTime(id) as? com.helix.app.agent.GoalLeaseControl },
+            idGenerator,
+        ).settle(sessionId, turnId, executionId, terminalElapsedMs)
 
     init {
         refreshSessions()
@@ -3288,9 +3306,7 @@ class ChatService(
             providerService = providerService,
             sessionRunControls = sessionRunControls,
             turnEngine = turnEngine,
-            turnGate = turnGate,
             goalContinuation = goalContinuation,
-            goalLifecycle = goalLifecycle,
             goalUserRequests = goalUserRequests,
             workScope = workScope,
             agentLoop = agentLoop,
@@ -3341,13 +3357,23 @@ class ChatService(
     }
 
     private val stopCommands by lazy {
-        com.helix.app.application.agent.StopTurnCommandHandler(
-            storage = storage,
-            clock = clock,
+        com.helix.core.agent.runtime.StopTurnCommandHandler(
             turnEngine = turnEngine,
-            turnGate = turnGate,
-            goalContinuation = goalContinuation,
-            goalUserRequests = goalUserRequests,
+            delivery =
+                object : com.helix.core.agent.runtime.TurnDeliveryControl {
+                    override fun handoffOwner(sessionId: String) = goalContinuation.handoffOwner(sessionId)
+
+                    override fun disarmTurn(
+                        sessionId: String,
+                        turnId: String,
+                    ) = goalContinuation.disarmTurn(sessionId, turnId)
+
+                    override fun disarm(sessionId: String) = goalContinuation.disarm(sessionId)
+
+                    override fun forgetUserRequests(turnId: String) {
+                        goalUserRequests.remove(turnId)
+                    }
+                },
             pendingApprovals = { turnId -> toolCalls.cancelPendingApproval(turnId) },
         )
     }
@@ -3802,7 +3828,7 @@ class ChatService(
 
     private fun inputControlForAcceptance(
         request: ChatSubmission,
-        active: com.helix.app.engine.LiveTurnHandle?,
+        active: com.helix.core.agent.runtime.LiveTurnHandle?,
         selected: RunControlConfig,
     ): RunControlConfig? =
         when {
@@ -3956,12 +3982,13 @@ class ChatService(
             override fun beforeTerminalRelease(
                 turnId: String,
                 outcome: ModelStreamTerminal,
+                release: com.helix.core.agent.turn.TurnTerminalReleaseReceipt,
             ): TurnTerminalProjection =
                 synchronized(turnGate) {
                     var completed = false
                     try {
                         endTurnSettlement(turnId)
-                        goalLifecycle.settle(turnId)
+                        release.discardedGoals.forEach { goalContinuation.disarmGoal(it.sessionId, it.goalId) }
                         goalUserRequests.remove(turnId)
                         val continueDelivery =
                             sessionWorkScheduler.prepareAfterTerminal(
@@ -3987,22 +4014,6 @@ class ChatService(
                 outcome: ModelStreamTerminal,
                 continueDelivery: Boolean,
             ) {
-                val settled = storage.turns.resolve(turnId)
-                if (com.helix.app.engine.AutomaticRecoveryPolicy
-                        .isInspection(settled)
-                ) {
-                    turnEngine.finishAutomaticRecovery(
-                        requireNotNull(settled.recoveryFromTurnId),
-                        "RECOVERY_INSPECTION_FINISHED",
-                        if (outcome.state ==
-                            TurnState.COMPLETED
-                        ) {
-                            null
-                        } else {
-                            str(R.string.automatic_recovery_unavailable)
-                        },
-                    )
-                }
                 publishTurn(
                     TurnUi(
                         turnId,

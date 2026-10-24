@@ -1,8 +1,8 @@
 package com.helix.app.chat
 
-import com.helix.app.engine.AutomaticRecoveryPolicy
-import com.helix.app.engine.TurnRuntimeRecordCodec
-import com.helix.app.engine.TurnRuntimeSnapshot
+import com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
+import com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec
+import com.helix.app.infrastructure.agent.TurnRuntimeSnapshot
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.CancellationException

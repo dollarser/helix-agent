@@ -4,10 +4,14 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalContinuationDriver
-import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.CancelResult
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.runtime.LiveTurnHandle
+import com.helix.core.agent.runtime.PendingTurnApprovalCancellation
+import com.helix.core.agent.runtime.StopTurnCommandHandler
+import com.helix.core.agent.runtime.TurnDeliveryControl
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnBudgets
@@ -234,28 +238,42 @@ class StopTurnCommandHandlerDeviceTest {
             object : Clock {
                 override fun now(): Instant = Instant.ofEpochMilli(2000L)
             }
-        val engine = TurnEngine(storage, clock) { UUID.randomUUID().toString() }
+        val engine =
+            createRoomTurnEngine(storage, clock, idGenerator = {
+                UUID.randomUUID().toString()
+            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
         val control = RunControlConfig(AgentMode.CHAT, false, TurnBudgets(maxOutputTokens = 1024))
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val release = CompletableDeferred<Unit>()
         var executor: Job? = null
         var onApprovalCancel: () -> Unit = {}
         var approvalCancellations = 0
+        private val continuation = GoalContinuationDriver(storage)
+        private val userRequests = mutableMapOf<String, Unit>()
         val handler =
             StopTurnCommandHandler(
-                storage,
-                clock,
                 engine,
-                Any(),
-                GoalContinuationDriver(storage),
-                mutableMapOf<String, Unit>(),
+                object : TurnDeliveryControl {
+                    override fun handoffOwner(sessionId: String): String? = continuation.handoffOwner(sessionId)
+
+                    override fun disarmTurn(
+                        sessionId: String,
+                        turnId: String,
+                    ) = continuation.disarmTurn(sessionId, turnId)
+
+                    override fun disarm(sessionId: String) = continuation.disarm(sessionId)
+
+                    override fun forgetUserRequests(turnId: String) {
+                        userRequests.remove(turnId)
+                    }
+                },
                 PendingTurnApprovalCancellation {
                     approvalCancellations++
                     onApprovalCancel()
                 },
             )
 
-        suspend fun claimLive(): com.helix.app.engine.LiveTurnHandle {
+        suspend fun claimLive(): com.helix.core.agent.runtime.LiveTurnHandle {
             val entered = CompletableDeferred<Unit>()
             val job =
                 scope.launch {

@@ -184,13 +184,13 @@ internal class ChatRequestAssembler(
             modelTools(
                 sessionId,
                 control,
-                com.helix.app.engine.AutomaticRecoveryPolicy
+                com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                     .isInspection(storage.turns.resolve(turnId)),
             )
         val expert =
             storage.turnRuntimeRecords
                 .find(turnId)
-                ?.let(com.helix.app.engine.TurnRuntimeRecordCodec::decode)
+                ?.let(com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec::decode)
                 ?.expert
         val system =
             systemPrompt.build(
@@ -251,13 +251,13 @@ internal class ChatRequestAssembler(
             modelTools(
                 sessionId,
                 control,
-                com.helix.app.engine.AutomaticRecoveryPolicy
+                com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                     .isInspection(storage.turns.resolve(turnId)),
             )
         val expert =
             storage.turnRuntimeRecords
                 .find(turnId)
-                ?.let(com.helix.app.engine.TurnRuntimeRecordCodec::decode)
+                ?.let(com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec::decode)
                 ?.expert
         val system =
             systemPrompt.build(

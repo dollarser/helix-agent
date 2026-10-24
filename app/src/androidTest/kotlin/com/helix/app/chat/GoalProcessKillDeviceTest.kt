@@ -11,7 +11,7 @@ import com.helix.app.application.agent.GoalContinuationDriver
 import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.application.agent.GoalTurnStart
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock

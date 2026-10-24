@@ -2,7 +2,8 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.engine.AutomaticRecoverySettlement
+import com.helix.app.infrastructure.agent.AutomaticRecoverySettlement
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -97,14 +98,15 @@ class AutomaticRecoveryPersistenceDeviceTest {
                     turn = storage.turns.updateState(turn, it, 0, null, null)
                 }
                 val engine =
-                    com.helix.app.engine
-                        .TurnEngine(storage, clock) { UUID.randomUUID().toString() }
+                    createRoomTurnEngine(storage, clock, idGenerator = {
+                        UUID.randomUUID().toString()
+                    }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
                 engine.requestCancel(turn.id, "session", false, false, "USER_STOP")
                 val stopped = storage.turns.resolve(turn.id)
                 assertEquals("NEEDS_REVIEW", stopped.state)
                 assertEquals("USER_STOP", stopped.errorCode)
                 assertTrue(
-                    !com.helix.app.engine.AutomaticRecoveryPolicy
+                    !com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                         .eligible(stopped),
                 )
             }

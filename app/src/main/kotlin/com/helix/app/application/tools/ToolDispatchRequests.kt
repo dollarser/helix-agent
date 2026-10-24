@@ -1,9 +1,9 @@
 package com.helix.app.application.tools
 
-import com.helix.app.agent.TurnCancelSignal
-import com.helix.app.agent.TurnExecutionHandles
 import com.helix.app.root.RootModule
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.runtime.TurnCancelSignal
+import com.helix.core.agent.runtime.TurnExecutionHandles
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SafetyProfile

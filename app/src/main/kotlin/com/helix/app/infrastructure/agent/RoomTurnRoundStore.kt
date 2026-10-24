@@ -5,7 +5,7 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.promptSnapshotRecord
-import com.helix.app.engine.TurnSettlement
+import com.helix.app.infrastructure.agent.TurnSettlement
 import com.helix.core.agent.ContextCompactionPlan
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.PromptSnapshot

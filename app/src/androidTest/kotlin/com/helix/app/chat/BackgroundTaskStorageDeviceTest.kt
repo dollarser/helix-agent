@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalTurnStart
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.app.test.settleFixtureTerminal

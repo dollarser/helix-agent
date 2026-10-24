@@ -1,11 +1,9 @@
 package com.helix.app.application.tools
 
 import android.util.Log
-import com.helix.app.agent.TurnExecutionHandles
 import com.helix.app.agent.UnresolvedEffectPolicy
 import com.helix.app.application.tools.GoalToolCallBudget
 import com.helix.app.application.tools.PendingTurnApprovals
-import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.AgentToolGateway
 import com.helix.core.agent.BufferedModelToolCall
@@ -14,8 +12,10 @@ import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SettledBatch
 import com.helix.core.agent.SettledCall
 import com.helix.core.agent.TurnMessageDraft
+import com.helix.core.agent.runtime.TurnExecutionHandles
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.ApprovalWaitCancelledException
 import com.helix.core.model.Clock
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SafetyProfile
@@ -238,7 +238,7 @@ internal class ApplicationToolGateway(
      *
      * Every call gets a DURABLE outcome (doc 11 section 7): a dispatcher abort (turn
      * stop during an approval wait) settles the affected call CANCELLED and rethrows
-     * [ApprovalCancelledException] AFTER all settled calls are persisted.
+     * [ApprovalWaitCancelledException] AFTER all settled calls are persisted.
      *
      * This runs on the work scope's IO thread — the scheduler and the broker's blocking
      * user-decision wait never touch the main thread.
@@ -337,7 +337,7 @@ internal class ApplicationToolGateway(
         reviewCallIds: List<String>,
     ) {
         error?.let {
-            if (it is ApprovalCancelledException) {
+            if (it is ApprovalWaitCancelledException) {
                 // The turn is over (doc 11: cancel leaves a durable outcome for every
                 // queued call — all slots above are settled). However an UNKNOWN sibling
                 // wins this race: uncertain external state must be reviewed and cannot be
@@ -353,7 +353,7 @@ internal class ApplicationToolGateway(
 
     private fun requiresSettlementReview(settlement: ToolScheduler.BatchSettlement?): Boolean {
         val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
-        return (thrown != null && thrown !is ApprovalCancelledException) ||
+        return (thrown != null && thrown !is ApprovalWaitCancelledException) ||
             (
                 (settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
                     as? ToolDispatchOutcome.ExecutionFailed
@@ -586,7 +586,7 @@ internal class ApplicationToolGateway(
         origin: ToolCallOrigin?,
     ): PreparedToolCall? {
         val inspection =
-            com.helix.app.engine.AutomaticRecoveryPolicy
+            com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                 .isInspection(turn)
         if (descriptor == null ||
             UnresolvedEffectPolicy.permitsInspection(inspection, descriptor.operationClass)
@@ -713,7 +713,7 @@ internal class ApplicationToolGateway(
      * Policy Engine's Plan gate (READ_ONLY + L1 ceiling) applies from that request on.
      *
      * A turn stop during the approval wait settles the call as CANCELLED (doc 11: every
-     * queued call gets a durable outcome) and rethrows [ApprovalCancelledException] for
+     * queued call gets a durable outcome) and rethrows [ApprovalWaitCancelledException] for
      * the turn-level handler.
      */
     fun dispatchToolCall(
@@ -780,7 +780,7 @@ internal class ApplicationToolGateway(
      * settlement/audit disagreement the audit page exists to prevent.
      */
     private fun unsettledSlotSettlement(error: Throwable?): ToolDispatchOutcome =
-        if (error is ApprovalCancelledException) {
+        if (error is ApprovalWaitCancelledException) {
             ToolDispatchOutcome.Cancelled
         } else {
             ToolDispatchOutcome.ExecutionFailed(

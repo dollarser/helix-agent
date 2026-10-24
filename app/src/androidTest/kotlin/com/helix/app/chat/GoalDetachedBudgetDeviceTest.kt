@@ -3,11 +3,13 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.GoalDetachedBudget
+import com.helix.app.agent.GoalLeaseControl
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.application.agent.GoalTurnStart
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.runtime.GoalDeadlineControl
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.TurnBudgets
@@ -86,6 +88,16 @@ class GoalDetachedBudgetDeviceTest {
                     .pendingForRun(f.runId)
                     .isEmpty(),
             )
+        }
+
+    @Test fun deadlineWithoutLeaseCapabilityCannotStartUnbudgetedDetachedWork() =
+        Fixture().use { f ->
+            assertTrue(f.timer.start())
+            val held = f.storage.goalUsageReservations.pendingForRun(f.runId)
+            f.deadlineOnly = true
+            assertEquals(0L, f.bridge.prepare("session", "turn", "execution", 8000L))
+            assertEquals(held, f.storage.goalUsageReservations.pendingForRun(f.runId))
+            assertEquals(0L, f.used())
         }
 
     @Test fun foreignSessionCannotAllocateOrReleaseTheOriginalGoalLease() =
@@ -255,6 +267,15 @@ class GoalDetachedBudgetDeviceTest {
         val storage = HelixStorage.open(context, name, content)
         var now = 100L
         var live = true
+        var deadlineOnly = false
+        private val deadline: GoalDeadlineControl =
+            object : GoalDeadlineControl {
+                override fun expiredCode(): String? = null
+
+                override fun checkActive() = Unit
+
+                override fun remainingExecutionMillis(): Long = Long.MAX_VALUE
+            }
         private val clock =
             object : Clock {
                 override fun now(): Instant = Instant.ofEpochMilli(2_000)
@@ -284,7 +305,7 @@ class GoalDetachedBudgetDeviceTest {
                 GoalDetachedBudget(
                     storage,
                     clock,
-                    { if (live) timer else null },
+                    { if (!live) null else (if (deadlineOnly) deadline else timer) as? GoalLeaseControl },
                     { UUID.randomUUID().toString() },
                     { now },
                 )

@@ -826,11 +826,17 @@ internal class DefaultAppContainer(
             },
         )
 
-    override val turnEngine: com.helix.app.engine.TurnEngine by lazy {
-        com.helix.app.engine.TurnEngine(
+    override val turnEngine: com.helix.core.agent.runtime.TurnEngine by lazy {
+        com.helix.app.infrastructure.agent.createRoomTurnEngine(
             storage = storage,
             clock = appClock,
             idGenerator = { idGenerator.next() },
+            recoveryFailureNotice = {
+                appContext.resolveLocalized(
+                    R.string.automatic_recovery_unavailable,
+                    emptyArray(),
+                )
+            },
         )
     }
 

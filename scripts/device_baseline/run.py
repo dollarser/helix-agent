@@ -31,7 +31,7 @@ from device_baseline.summary import (
 )
 from instrumentation_junit import parse as parse_status_records
 
-HEALTH_PROBE_CLASS = "com.helix.app.engine.TurnReviewResolutionDeviceTest#deterministicReviewClosesOldTurnAndGoalRunWithoutOpeningAnotherModelCall"
+HEALTH_PROBE_CLASS = "com.helix.app.infrastructure.agent.TurnReviewResolutionDeviceTest#deterministicReviewClosesOldTurnAndGoalRunWithoutOpeningAnotherModelCall"
 
 
 def get_git_commit() -> str:

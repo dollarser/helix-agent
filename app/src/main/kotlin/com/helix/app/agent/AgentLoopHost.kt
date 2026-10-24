@@ -1,7 +1,7 @@
 package com.helix.app.agent
 
 import com.helix.app.R
-import com.helix.app.engine.TurnRuntimeAccounting
+import com.helix.app.infrastructure.agent.TurnRuntimeAccounting
 import com.helix.app.provider.ProviderService
 import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.AgentLoopEvent
@@ -17,6 +17,9 @@ import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.ToolMessageMaterializer
 import com.helix.core.agent.TurnContextAssembler
 import com.helix.core.agent.TurnLoopResult
+import com.helix.core.agent.runtime.TurnExecutionHandles
+import com.helix.core.agent.runtime.TurnExecutionRequest
+import com.helix.core.agent.runtime.TurnLoopRunner
 import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelRequest
@@ -40,7 +43,19 @@ internal class AgentLoopHost(
     onTextChanged: (String, String) -> Unit,
     private val inputDelivery: TurnInputDelivery? = null,
     private val beforeModelStream: (suspend (String, String, ProviderDescriptor, ModelRequest) -> Unit)? = null,
-) {
+) : TurnLoopRunner {
+    override suspend fun run(request: TurnExecutionRequest): TurnLoopResult =
+        runWithGoalTime(request.coordinator.id) {
+            runToolLoop(
+                request.sessionId,
+                request.coordinator,
+                request.providerId,
+                request.retryTurnId,
+                request.control,
+                request.entry,
+            )
+        }
+
     private val core =
         AgentLoop(
             runtimeAccounting = TurnRuntimeAccounting(storage),

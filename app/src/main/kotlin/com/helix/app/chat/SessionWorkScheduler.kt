@@ -50,20 +50,6 @@ internal class SessionWorkScheduler(
     ): Boolean =
         synchronized(turnGate) {
             val turn = storage.turns.resolve(turnId)
-            storage.sessionInputs
-                .listPending(sessionId)
-                .filter {
-                    it.delivery == SessionInputDelivery.STEER &&
-                        it.expectedTurnId == turnId &&
-                        it.state == SessionInputState.PENDING
-                }.forEach {
-                    storage.sessionInputs.markNeedsAttention(
-                        it.inputId,
-                        it.revision,
-                        "STEER_TARGET_FINISHED",
-                        clock.now().toEpochMilli(),
-                    )
-                }
 
             val boundGoal = storage.goalTurnBindings.byTurn(turnId) != null
             if ((!boundGoal && state != TurnState.COMPLETED) ||

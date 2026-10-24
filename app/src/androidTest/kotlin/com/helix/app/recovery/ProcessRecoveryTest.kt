@@ -3,7 +3,7 @@ package com.helix.app.recovery
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RecoveryCoordinator
 import com.helix.core.model.Clock
@@ -70,7 +70,7 @@ class ProcessRecoveryTest {
 
         // A fresh process opens the same file and recovers.
         val storage = isolatedStorage(context, "death-1")
-        val report = TurnRecovery(storage, FixedClock(2_000L)).recover()
+        val report = engine(storage, FixedClock(2_000L)).recoverOnStartup()
 
         // --- the report: exactly the leftover work, nothing else
         assertEquals(mapOf("turn-1" to listOf("call-1"), "turn-2" to emptyList()), report.interruptedTurns)
@@ -89,7 +89,7 @@ class ProcessRecoveryTest {
 
         // --- idempotent: the next start finds nothing left to recover and writes nothing.
         val auditBefore = storage.auditEvents.recent(1000)
-        val again = TurnRecovery(storage, FixedClock(2_000L)).recover()
+        val again = engine(storage, FixedClock(2_000L)).recoverOnStartup()
         assertTrue(again.interruptedTurns.isEmpty())
         assertTrue(again.cancelledToolCalls.isEmpty())
         assertTrue(again.parkedToolCalls.isEmpty())
@@ -117,7 +117,7 @@ class ProcessRecoveryTest {
         // While the goal is still RUNNING, a wake (e.g. a queued notification) is dropped.
         assertFalse(RecoveryCoordinator.wakeAllowed(GoalState.RUNNING))
 
-        val report = TurnRecovery(storage, FixedClock(2_000L)).recover()
+        val report = engine(storage, FixedClock(2_000L)).recoverOnStartup()
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
 
@@ -156,7 +156,7 @@ class ProcessRecoveryTest {
         }
 
         val storage = isolatedStorage(context, "rewind-1")
-        val report = TurnRecovery(storage, FixedClock(500L)).recover()
+        val report = engine(storage, FixedClock(500L)).recoverOnStartup()
         assertEquals(mapOf("turn-1" to listOf("call-1")), report.interruptedTurns)
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
@@ -193,7 +193,7 @@ class ProcessRecoveryTest {
         }
 
         val storage = isolatedStorage(context, "death-3")
-        val report = TurnRecovery(storage, FixedClock(2_000L)).recover()
+        val report = engine(storage, FixedClock(2_000L)).recoverOnStartup()
         assertEquals(mapOf("turn-1" to emptyList<String>()), report.interruptedTurns)
         assertTrue(report.parkedToolCalls.isEmpty())
         // Approval was never granted/executed, so recovery deterministically cancels it before execution.
@@ -343,7 +343,7 @@ class ProcessRecoveryTest {
         dying.close()
 
         val recovered = isolatedStorage(context, "usage-checkpoint")
-        TurnRecovery(recovered, FixedClock(7_000L)).recover()
+        engine(recovered, FixedClock(7_000L)).recoverOnStartup()
         val goal = recovered.goals.resolve("goal-usage")
         assertEquals(1, goal.modelCalls)
         assertEquals(1, goal.toolCalls)
@@ -409,12 +409,12 @@ class ProcessRecoveryTest {
         val reopened = isolatedStorage(context, "exhausted-reopen")
         val before = reopened.goalRuns.resolve("exhausted-run")
         assertNull(before.outcome)
-        val first = TurnRecovery(reopened, FixedClock(999_999L)).recover()
+        val first = engine(reopened, FixedClock(999_999L)).recoverOnStartup()
         assertEquals(listOf("exhausted-run"), first.closedRuns)
         val recovered = reopened.goalRuns.resolve("exhausted-run")
         val auditCount = reopened.auditEvents.listByCorrelation(seeded.correlationId).size
         repeat(2) {
-            val report = TurnRecovery(reopened, FixedClock(999_999L)).recover()
+            val report = engine(reopened, FixedClock(999_999L)).recoverOnStartup()
             assertTrue(report.closedRuns.isEmpty())
             assertTrue(report.parkedGoals.isEmpty())
         }
@@ -547,6 +547,16 @@ class ProcessRecoveryTest {
     ) {
         toolCalls.append(id, turnId, callId, name, "1", argsJson, state.name)
     }
+
+    private fun engine(
+        storage: HelixStorage,
+        clock: Clock,
+    ) = createRoomTurnEngine(
+        storage,
+        clock,
+        { UUID.randomUUID().toString() },
+        { "Synthetic recovery unavailable" },
+    )
 
     private fun isolatedStorage(
         context: Context,
